@@ -4,6 +4,7 @@ rule
 
 target: type_METHOD method_type { result = val[1] }
       | type_INTERFACES interfaces { result = val[1] }
+      | type_ANNOTATION annotation { result = val[1] }
 
 method_type: params block_opt ARROW type {
   result = Types::Interface::Method.new(params: val[0], block: val[1], return_type: val[3])
@@ -11,6 +12,7 @@ method_type: params block_opt ARROW type {
 
 params: { result = Types::Interface::Params.empty }
       | LPAREN params0 RPAREN { result = val[1] }
+      | type { result = Types::Interface::Params.empty.with(required: [val[0]]) }
 
 params0: required_param { result = Types::Interface::Params.empty.with(required: [val[0]]) }
        | required_param COMMA params0 { result = val[2].with(required: [val[0]] + val[2].required) }
@@ -79,6 +81,13 @@ method_name: IDENT { result = val[0] }
            | INTERFACE { result = :interface }
            | END { result = :end }
            | PLUS { result = :+ }
+
+annotation: AT_TYPE subject COLON type { result = Annotation::VarType.new(var: val[1], type: val[3]) }
+          | AT_TYPE subject COLON method_type { result = Annotation::MethodType.new(method: val[1], type: val[3]) }
+          | AT_TYPE { raise "Invalid type annotation" }
+
+subject: IDENT { result = val[0] }
+
 end
 
 ---- inner
@@ -99,6 +108,12 @@ end
 
 def self.parse_interfaces(input)
   new(:INTERFACES, input).do_parse
+end
+
+def self.parse_annotation_opt(input)
+  new(:ANNOTATION, input).do_parse
+rescue
+  nil
 end
 
 def next_token
@@ -145,6 +160,8 @@ def next_token
     [:END, nil]
   when input.scan(/def/)
     [:DEF, nil]
+  when input.scan(/@type/)
+    [:AT_TYPE, nil]
   when input.scan(/\w+/)
     [:IDENT, input.matched.to_sym]
   end
