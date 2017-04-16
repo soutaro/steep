@@ -6,9 +6,10 @@ target: type_METHOD method_type { result = val[1] }
       | type_INTERFACES interfaces { result = val[1] }
       | type_ANNOTATION annotation { result = val[1] }
 
-method_type: params block_opt ARROW type {
-  result = Types::Interface::Method.new(params: val[0], block: val[1], return_type: val[3])
-}
+method_type: params block_opt ARROW type
+               { result = Types::Interface::Method.new(type_params: [], params: val[0], block: val[1], return_type: val[3]) }
+           | LT type_param_seq GT params block_opt ARROW type
+               { result = Types::Interface::Method.new(type_params: val[1], params: val[3], block: val[4], return_type: val[6]) }
 
 params: { result = Types::Interface::Params.empty }
       | LPAREN params0 RPAREN { result = val[1] }
@@ -60,17 +61,28 @@ block_params1: optional_param { result = Types::Interface::Params.empty.with(opt
 block_params2: { result = Types::Interface::Params.empty }
              | rest_param { result = Types::Interface::Params.empty.with(rest: val[0]) }
 
-type: IDENT { result = Types::Name.new(name: val[0]) }
+type: IDENT { result = Types::Name.new(name: val[0], params: []) }
+    | IDENT LT type_seq GT { result = Types::Name.new(name: val[0], params: val[2]) }
     | ANY { result = Types::Any.new }
+    | TVAR { result = Types::Var.new(name: val[0]) }
+
+type_seq: type { result = [val[0]] }
+        | type COMMA type_seq { result = [val[0]] + val[2] }
 
 keyword: IDENT { result = val[0] }
 
 interfaces: { result = [] }
           | interface interfaces { result = [val[0]] + val[1] }
 
-interface: INTERFACE interface_name method_decls END { result = Types::Interface.new(name: val[1], methods: val[2]) }
+interface: INTERFACE interface_name type_params method_decls END { result = Types::Interface.new(name: val[1], params: val[2], methods: val[3]) }
 
 interface_name: IDENT { result = val[0] }
+
+type_params: { result = [] }
+          | LT type_param_seq GT { result = val[1] }
+
+type_param_seq: TVAR { result = [val[0]] }
+           | TVAR COMMA type_param_seq { result = [val[0]] + val[2] }
 
 method_decls: { result = {} }
             | method_decl method_decls { result = val[1].merge(val[0]) }
@@ -152,6 +164,10 @@ def next_token
     [:STAR, nil]
   when input.scan(/\+/)
     [:PLUS, nil]
+  when input.scan(/</)
+    [:LT, nil]
+  when input.scan(/>/)
+    [:GT, nil]
   when input.scan(/any/)
     [:ANY, nil]
   when input.scan(/interface/)
@@ -162,6 +178,8 @@ def next_token
     [:DEF, nil]
   when input.scan(/@type/)
     [:AT_TYPE, nil]
+  when input.scan(/'\w+/)
+    [:TVAR, input.matched.gsub(/\A'/, '').to_sym]
   when input.scan(/\w+/)
     [:IDENT, input.matched.to_sym]
   end

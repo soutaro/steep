@@ -113,7 +113,7 @@ end
       a.add_interface interface
     end
 
-    assert a.test(src: T::Name.new(name: :T), dest: T::Name.new(name: :S))
+    assert a.test(src: T::Name.new(name: :T, params: []), dest: T::Name.new(name: :S, params: []))
 
     assert a.test_method(parse_method("() -> T"), parse_method("() -> S"), [])
     refute a.test_method(parse_method("() -> S"), parse_method("() -> T"), [])
@@ -138,7 +138,7 @@ end
       a.add_interface interface
     end
 
-    assert a.test(src: T::Name.new(name: :T), dest: T::Name.new(name: :S))
-    refute a.test(src: T::Name.new(name: :S), dest: T::Name.new(name: :T))
+    assert a.test(src: T::Name.new(name: :T, params: []), dest: T::Name.new(name: :S, params: []))
+    refute a.test(src: T::Name.new(name: :S, params: []), dest: T::Name.new(name: :T, params: []))
   end
 end

@@ -126,11 +126,13 @@ module Steep
       end
 
       class Method
+        attr_reader :type_params
         attr_reader :params
         attr_reader :block
         attr_reader :return_type
 
-        def initialize(params:, block:, return_type:)
+        def initialize(type_params:, params:, block:, return_type:)
+          @type_params = type_params
           @params = params
           @block = block
           @return_type = return_type
@@ -159,15 +161,17 @@ module Steep
       end
 
       attr_reader :name
+      attr_reader :params
       attr_reader :methods
 
-      def initialize(name:, methods:)
+      def initialize(name:, params:, methods:)
         @name = name
+        @params = params
         @methods = methods
       end
 
       def ==(other)
-        other.is_a?(self.class) && other.name == name && other.methods == methods
+        other.is_a?(self.class) && other.name == name && other.params == params && other.methods == methods
       end
     end
   end
