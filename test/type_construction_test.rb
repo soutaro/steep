@@ -166,8 +166,8 @@ x.g(y)
 
     assert_equal 1, typing.errors.size
     assert_invalid_argument_error typing.errors[0],
-                                  expected_error: Types::Name.new(name: :A),
-                                  actual_error: Types::Name.new(name: :B)
+                                  expected_type: Types::Name.new(name: :A),
+                                  actual_type: Types::Name.new(name: :B)
   end
 
   def test_method_call_no_error_if_any
@@ -268,11 +268,89 @@ x.h(a: a, b: b)
     assert_empty typing.errors
   end
 
+  def test_keyword_missing
+    source = ruby(<<-EOF)
+# @type x: C
+x = nil
+x.h()
+    EOF
+
+    typing = Typing.new
+    env = TypeEnv.from_annotations(source.annotations(block: source.node) || [], env: {})
+
+    construction = TypeConstruction.new(assignability: assignability, source: source, env: env, typing: typing)
+    construction.run(source.node)
+
+    assert_equal Types::Name.new(name: :C), typing.type_of(node: source.node)
+
+    assert_equal 1, typing.errors.size
+    assert_expected_keyword_missing typing.errors[0], keyword: :a
+  end
+
+  def test_extra_keyword_given
+    source = ruby(<<-EOF)
+# @type x: C
+x = nil
+x.h(a: nil, b: nil, c: nil)
+    EOF
+
+    typing = Typing.new
+    env = TypeEnv.from_annotations(source.annotations(block: source.node) || [], env: {})
+
+    construction = TypeConstruction.new(assignability: assignability, source: source, env: env, typing: typing)
+    construction.run(source.node)
+
+    assert_equal Types::Name.new(name: :C), typing.type_of(node: source.node)
+
+    assert_equal 1, typing.errors.size
+    assert_extra_keyword_given typing.errors[0], keyword: :c
+  end
+
+  def test_keyword_typecheck
+    source = ruby(<<-EOF)
+# @type x: C
+# @type y: B
+x = nil
+y = nil
+x.h(a: y)
+    EOF
+
+    typing = Typing.new
+    env = TypeEnv.from_annotations(source.annotations(block: source.node) || [], env: {})
+
+    construction = TypeConstruction.new(assignability: assignability, source: source, env: env, typing: typing)
+    construction.run(source.node)
+
+    assert_equal Types::Name.new(name: :C), typing.type_of(node: source.node)
+
+    assert_equal 1, typing.errors.size
+    assert_invalid_argument_error typing.errors[0], expected_type: Types::Name.new(name: :A), actual_type: Types::Name.new(name: :B)
+  end
+
   def arguments(ruby)
     ::Parser::CurrentRuby.parse(ruby).children.drop(2)
   end
 
   def test_argument_pairs
+    params = Types::Interface::Params.empty.with(required: [Types::Name.new(name: :A)],
+                                                 optional: [Types::Name.new(name: :B)],
+                                                 rest: Types::Name.new(name: :C),
+                                                 required_keywords: { d: Types::Name.new(name: :D) },
+                                                 optional_keywords: { e: Types::Name.new(name: :E) },
+                                                 rest_keywords: Types::Name.new(name: :F))
+    arguments = arguments("f(a, b, c, d: d, e: e, f: f)")
+
+    assert_equal [
+                   [Types::Name.new(name: :A), arguments[0]],
+                   [Types::Name.new(name: :B), arguments[1]],
+                   [Types::Name.new(name: :C), arguments[2]],
+                   [Types::Name.new(name: :D), arguments[3].children[0].children[1]],
+                   [Types::Name.new(name: :E), arguments[3].children[1].children[1]],
+                   [Types::Name.new(name: :F), arguments[3].children[2].children[1]]
+                 ], TypeConstruction.argument_typing_pairs(params: params, arguments: arguments)
+  end
+
+  def test_argument_pairs_rest_keywords
     params = Types::Interface::Params.empty.with(required: [Types::Name.new(name: :A)],
                                                  optional: [Types::Name.new(name: :B)],
                                                  rest: Types::Name.new(name: :C),
@@ -301,6 +379,44 @@ x.h(a: a, b: b)
                    [Types::Name.new(name: :A), arguments[0]],
                    [Types::Name.new(name: :B), arguments[1]],
                    [Types::Name.new(name: :C), arguments[2]],
+                 ], TypeConstruction.argument_typing_pairs(params: params, arguments: arguments)
+  end
+
+  def test_argument_pairs_hash
+    params = Types::Interface::Params.empty.with(required: [Types::Name.new(name: :A)],
+                                                 optional: [Types::Name.new(name: :B)],
+                                                 rest: Types::Name.new(name: :C))
+    arguments = arguments("f(a, b, c, d: d)")
+
+    assert_equal [
+                   [Types::Name.new(name: :A), arguments[0]],
+                   [Types::Name.new(name: :B), arguments[1]],
+                   [Types::Name.new(name: :C), arguments[2]],
+                   [Types::Name.new(name: :C), arguments[3]]
+                 ], TypeConstruction.argument_typing_pairs(params: params, arguments: arguments)
+  end
+
+  def test_argument_keywords
+    params = Types::Interface::Params.empty.with(required_keywords: { d: Types::Name.new(name: :D) },
+                                                 optional_keywords: { e: Types::Name.new(name: :E) },
+                                                 rest_keywords: Types::Name.new(name: :F))
+
+    arguments = arguments("f(d: d, e: e, f: f)")
+
+    assert_equal [
+                   [Types::Name.new(name: :D), arguments[0].children[0].children[1]],
+                   [Types::Name.new(name: :E), arguments[0].children[1].children[1]],
+                   [Types::Name.new(name: :F), arguments[0].children[2].children[1]],
+                 ], TypeConstruction.argument_typing_pairs(params: params, arguments: arguments)
+  end
+
+  def test_argument_hash_not_keywords
+    params = Types::Interface::Params.empty.with(required: [Types::Name.new(name: :A)])
+
+    arguments = arguments("f(d: d, e: e, f: f)")
+
+    assert_equal [
+                   [Types::Name.new(name: :A), arguments[0]]
                  ], TypeConstruction.argument_typing_pairs(params: params, arguments: arguments)
   end
 end

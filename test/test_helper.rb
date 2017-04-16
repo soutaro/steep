@@ -4,11 +4,11 @@ require 'steep'
 require 'minitest/autorun'
 
 module TypeErrorAssertions
-  def assert_invalid_argument_error(error, expected_error: nil, actual_error: nil)
+  def assert_invalid_argument_error(error, expected_type: nil, actual_type: nil)
     assert_instance_of Steep::Errors::InvalidArgument, error
 
-    assert_equal expected_error, error.expected if expected_error
-    assert_equal actual_error, error.actual if actual_error
+    assert_equal expected_type, error.expected if expected_type
+    assert_equal actual_type, error.actual if actual_type
 
     yield error if block_given?
   end
