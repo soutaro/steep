@@ -18,6 +18,15 @@ module Steep
       end
     end
 
+    def test_application(params:, argument:, index:)
+      param_type = params.flat_unnamed_params[index]&.last
+      if param_type
+        unless test(src: argument, dest: param_type)
+          yield param_type
+        end
+      end
+    end
+
     def test_interface(src, dest, known_pairs)
       if src.name == dest.name
         return true
@@ -138,6 +147,20 @@ module Steep
 
     def to_interface(name)
       interfaces[name]
+    end
+
+    def method_type(type, name)
+      return type if type.is_a?(Types::Any)
+
+      interface = type.is_a?(Types::Interface) ? type : to_interface(type.name)
+      method = interface.methods[name]
+
+      if method
+        yield method
+      else
+        yield nil
+        Types::Any.new
+      end
     end
   end
 end

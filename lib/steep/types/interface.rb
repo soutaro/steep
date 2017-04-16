@@ -48,6 +48,24 @@ module Steep
         def flat_keywords
           required_keywords.merge optional_keywords
         end
+
+        def each_missing_argument(args)
+          required.size.times do |index|
+            if index >= args.size
+              yield index
+            end
+          end
+        end
+
+        def each_extra_argument(args)
+          return if rest
+
+          args.size.times do |index|
+            if index >= required.count + optional.count
+              yield index
+            end
+          end
+        end
       end
 
       class Method
