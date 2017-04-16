@@ -1,6 +1,9 @@
 require "test_helper"
 
 class SourceTest < Minitest::Test
+  A = Steep::Annotation
+  T = Steep::Types
+
   def test_foo
     source = <<-EOF
 # @type x1: any
@@ -10,6 +13,7 @@ module Foo
 
   class Bar
     # @type x3: any
+    # @type foo: -> any
     def foo
       # @type x4: any
       self.tap do
@@ -25,14 +29,17 @@ Foo::Bar.new
     s = Steep::Source.parse(source, path: Pathname("foo.rb"))
 
     # toplevel
-    assert_equal [:x1], s.annotations(block: s.node).map(&:var)
+    assert_equal [A::VarType.new(var: :x1, type: T::Any.new)], s.annotations(block: s.node)
     # module
-    assert_equal [:x2], s.annotations(block: s.node.children[0]).map(&:var)
+    assert_equal [A::VarType.new(var: :x2, type: T::Any.new)], s.annotations(block: s.node.children[0])
     # class
-    assert_equal [:x3], s.annotations(block: s.node.children[0].children[1]).map(&:var)
+    assert_equal [
+                   A::VarType.new(var: :x3, type: T::Any.new),
+                   A::MethodType.new(method: :foo, type: Steep::Parser.parse_method("-> any"))
+                 ], s.annotations(block: s.node.children[0].children[1])
     # def
-    assert_equal [:x4], s.annotations(block: s.node.children[0].children[1].children[2]).map(&:var)
+    assert_equal [A::VarType.new(var: :x4, type: T::Any.new)], s.annotations(block: s.node.children[0].children[1].children[2])
     # block
-    assert_equal [:x5], s.annotations(block: s.node.children[0].children[1].children[2].children[2]).map(&:var)
+    assert_equal [A::VarType.new(var: :x5, type: T::Any.new)], s.annotations(block: s.node.children[0].children[1].children[2].children[2])
   end
 end
