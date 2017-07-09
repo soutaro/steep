@@ -1,8 +1,4 @@
-# Steep
-
-Welcome to your new gem! In this directory, you'll find the files you need to be able to package up your Ruby library into a gem. Put your Ruby code in the file `lib/steep`. To experiment with that code, run `bin/console` for an interactive prompt.
-
-TODO: Delete this and the text above, and describe your gem
+# Steep - Gradual Typing for Ruby
 
 ## Installation
 
@@ -22,7 +18,70 @@ Or install it yourself as:
 
 ## Usage
 
-TODO: Write usage instructions here
+Run `steep check` command in project dir.
+
+```
+$ steep check
+$ steep check lib
+```
+
+It loads signatures from the global registry and `sig` dir in current dir.
+If you want to load signuatres from dir different from `sig`, pass `-I` parameter.
+
+```
+$ steep check -I signauture -I sig .
+```
+
+Note that when `-I` option is given, `steep` does not load signatures from `sig` dir.
+
+## Type Annotations
+
+You have to write type annotations in your Ruby program.
+
+```rb
+# @import ActiveRecord.Try
+
+class Foo
+  # @class Foo<A> extends Object
+  
+  # @attribute results: (readonly) Array<A>
+  attr_reader :results
+  
+  # @type initialize: () -> _
+  def initialize()
+    @results = []
+  end
+  
+  # @type plus: (Addable<X, A>, X) -> A
+  def plus(x, y)
+    (x + y).try do |a|
+      results << a
+      a
+    end
+  end
+end
+```
+
+## Signature
+
+Steep does not allow types to be constructed from Ruby programs.
+You have to write down signatures by yourself.
+
+### Signature Scaffolding
+
+Steep allows generate a *scaffold* from Ruby programs.
+
+```
+$ steep scaffold lib/**/*.rb
+```
+
+The generated scaffold includes:
+
+* Signature definition for each class/module defined in the given program
+* Method definition stub for each method
+
+The scaffold may be a good starting point for writing signatures.
+
 
 ## Development
 
