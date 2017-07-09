@@ -17,6 +17,8 @@ require "steep/errors"
 require "steep/type_construction"
 require "steep/type_env"
 
+require "steep/drivers/check"
+
 module Steep
   # Your code goes here...
 end

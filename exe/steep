@@ -1,0 +1,18 @@
+#!/usr/bin/env ruby
+
+require 'pathname'
+
+$LOAD_PATH << Pathname(__dir__) + "../lib"
+
+require 'steep'
+require 'steep/cli'
+
+begin
+  Steep::CLI.new(argv: ARGV.dup, stdout: STDOUT, stderr: STDERR, stdin: STDIN).run
+rescue => exn
+  STDERR.puts exn.inspect
+  exn.backtrace.each do |t|
+    STDERR.puts "  #{t}"
+  end
+  exit 2
+end
