@@ -12,6 +12,12 @@ module Steep
       @typing = typing
     end
 
+    def for_new_method(node)
+      annots = source.annotations(block: node)
+      env = TypeEnv.from_annotations(annots, env: {})
+      self.class.new(assignability: assignability, source: source, env: env, typing: typing)
+    end
+
     def run(node)
       case node.type
       when :begin
@@ -21,24 +27,12 @@ module Steep
 
         typing.add_typing(node, type)
       when :lvasgn
-        name = node.children[0].name
-        lhs_type = env.lookup(name)
-        rhs_type = run(node.children[1])
-
-        if lhs_type
-          unless assignability.test(src: rhs_type, dest: lhs_type)
-            typing.add_error(Errors::IncompatibleAssignment.new(node: node, lhs_type: lhs_type, rhs_type: rhs_type))
-          end
-          typing.add_typing(node, lhs_type)
-          env.add(name, lhs_type)
-        else
-          typing.add_typing(node, rhs_type)
-          env.add(name, rhs_type)
-        end
+        type_assignment(node.children[0], node.children[1], node)
 
       when :lvar
         type = env.lookup(node.children[0].name) || Types::Any.new
         typing.add_typing(node, type)
+        typing.add_var_type(node.children[0], type)
 
       when :str
         typing.add_typing(node, Types::Any.new)
@@ -77,10 +71,54 @@ module Steep
 
         typing.add_typing(node, Types::Any.new)
 
+      when :def
+        new = for_new_method(node)
+
+        each_child_node(node.children[1]) do |arg|
+          new.run(arg)
+        end
+
+        new.run(node.children[2]) if node.children[2]
+
+        typing.add_typing(node, Types::Any.new)
+
+      when :optarg
+        var = node.children[0]
+        rhs = node.children[1]
+        type_assignment(var, rhs, node)
+
+      when :kwoptarg
+        var = node.children[0]
+        rhs = node.children[1]
+        type_assignment(var, rhs, node)
+
+      when :arg, :kwarg
+        # noop
+
       else
         p node
 
         typing.add_typing(node, Types::Any.new)
+      end
+    end
+
+    def type_assignment(var, rhs, node)
+      lhs_type = env.lookup(var.name)
+      rhs_type = run(rhs)
+
+      if lhs_type
+        unless assignability.test(src: rhs_type, dest: lhs_type)
+          typing.add_error(Errors::IncompatibleAssignment.new(node: node, lhs_type: lhs_type, rhs_type: rhs_type))
+        end
+        typing.add_var_type(var, lhs_type)
+        typing.add_typing(node, lhs_type)
+        env.add(var.name, lhs_type)
+        lhs_type
+      else
+        typing.add_var_type(var, rhs_type)
+        typing.add_typing(node, rhs_type)
+        env.add(var.name, rhs_type)
+        rhs_type
       end
     end
 

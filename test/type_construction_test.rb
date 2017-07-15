@@ -327,6 +327,96 @@ x.h(a: y)
     assert_invalid_argument_error typing.errors[0], expected_type: Types::Name.new(name: :A, params: []), actual_type: Types::Name.new(name: :B, params: [])
   end
 
+  def test_def_no_params
+    source = ruby(<<-EOF)
+def foo
+  # @type x: A
+  x = nil
+end
+    EOF
+
+    typing = Typing.new
+    env = TypeEnv.from_annotations(source.annotations(block: source.node) || [], env: {})
+
+    construction = TypeConstruction.new(assignability: assignability, source: source, env: env, typing: typing)
+    construction.run(source.node)
+
+    def_body = source.node.children[2]
+    assert_equal Types::Name.new(name: :A, params: []), typing.type_of(node: def_body)
+  end
+
+  def test_def_param
+    source = ruby(<<-EOF)
+def foo(x)
+  # @type x: A
+  y = x
+end
+    EOF
+
+    typing = Typing.new
+    env = TypeEnv.from_annotations(source.annotations(block: source.node) || [], env: {})
+
+    construction = TypeConstruction.new(assignability: assignability, source: source, env: env, typing: typing)
+    construction.run(source.node)
+
+    def_body = source.node.children[2]
+    assert_equal Types::Name.new(name: :A, params: []), typing.type_of(node: def_body)
+    assert_equal Types::Name.new(name: :A, params: []), typing.type_of_variable(name: :x)
+    assert_equal Types::Name.new(name: :A, params: []), typing.type_of_variable(name: :y)
+  end
+
+  def test_def_param_error
+    source = ruby(<<-EOF)
+def foo(x, y = x)
+  # @type x: A
+  # @type y: C
+end
+    EOF
+
+    typing = Typing.new
+    env = TypeEnv.from_annotations(source.annotations(block: source.node) || [], env: {})
+
+    construction = TypeConstruction.new(assignability: assignability, source: source, env: env, typing: typing)
+    construction.run(source.node)
+
+    refute_empty typing.errors
+    assert_incompatible_assignment typing.errors[0],
+                                   lhs_type: Types::Name.new(name: :C, params: []),
+                                   rhs_type: Types::Name.new(name: :A, params: []) do |error|
+      assert_equal :optarg, error.node.type
+      assert_equal :y, error.node.children[0].name
+    end
+
+    assert_equal Types::Name.new(name: :A, params: []), typing.type_of_variable(name: :x)
+    assert_equal Types::Name.new(name: :C, params: []), typing.type_of_variable(name: :y)
+  end
+
+  def test_def_kw_param_error
+    source = ruby(<<-EOF)
+def foo(x:, y: x)
+  # @type x: A
+  # @type y: C
+end
+    EOF
+
+    typing = Typing.new
+    env = TypeEnv.from_annotations(source.annotations(block: source.node) || [], env: {})
+
+    construction = TypeConstruction.new(assignability: assignability, source: source, env: env, typing: typing)
+    construction.run(source.node)
+
+    refute_empty typing.errors
+    assert_incompatible_assignment typing.errors[0],
+                                   lhs_type: Types::Name.new(name: :C, params: []),
+                                   rhs_type: Types::Name.new(name: :A, params: []) do |error|
+      assert_equal :kwoptarg, error.node.type
+      assert_equal :y, error.node.children[0].name
+    end
+
+    assert_equal Types::Name.new(name: :A, params: []), typing.type_of_variable(name: :x)
+    assert_equal Types::Name.new(name: :C, params: []), typing.type_of_variable(name: :y)
+  end
+
   def arguments(ruby)
     ::Parser::CurrentRuby.parse(ruby).children.drop(2)
   end
