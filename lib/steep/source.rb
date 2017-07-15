@@ -33,13 +33,16 @@ module Steep
 
       annotations = []
 
-      source_code.each_line.with_index(1) do |line, index|
-        if line =~ /#(.+)/
-          source = $1
-          annotation = Steep::Parser.parse_annotation_opt(source)
-          if annotation
-            annotations << LocatedAnnotation.new(line: index, source: source, annotation: annotation)
-          end
+      buffer = ::Parser::Source::Buffer.new(path.to_s)
+      buffer.source = source_code
+      parser = ::Parser::CurrentRuby.new
+
+      _, comments, _ = parser.tokenize(buffer)
+      comments.each do |comment|
+        src = comment.text.gsub(/\A#\s*/, '')
+        annotation = Steep::Parser.parse_annotation_opt(src)
+        if annotation
+          annotations << LocatedAnnotation.new(line: comment.location.line, source: src, annotation: annotation)
         end
       end
 
