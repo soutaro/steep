@@ -28,8 +28,8 @@ module Steep
       @mapping = mapping
     end
 
-    def self.parse(source_code, path:)
-      node = ::Parser::CurrentRuby.parse(source_code, path.to_s)
+    def self.parse(source_code, path:, labeling: ASTUtils::Labeling.new)
+      node = labeling.translate(::Parser::CurrentRuby.parse(source_code, path.to_s), {})
 
       annotations = []
 

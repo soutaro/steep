@@ -9,6 +9,8 @@ module Steep
       attr_accessor :verbose
       attr_accessor :accept_implicit_any
 
+      attr_reader :labeling
+
       def initialize(source_paths:, signature_dirs:, stdout:, stderr:)
         @source_paths = source_paths
         @signature_dirs = signature_dirs
@@ -17,6 +19,8 @@ module Steep
 
         self.verbose = false
         self.accept_implicit_any = false
+
+        @labeling = ASTUtils::Labeling.new
       end
 
       def run
@@ -71,13 +75,13 @@ module Steep
         source_paths.each do |path|
           if path.file?
             stdout.puts "Loading Ruby program #{path}..." if verbose
-            yield Source.parse(path.read, path: path.to_s)
+            yield Source.parse(path.read, path: path.to_s, labeling: labeling)
           end
 
           if path.directory?
             each_file_in_dir(".rb", path) do |file|
               stdout.puts "Loading Ruby program #{file}..." if verbose
-              yield Source.parse(file.read, path: file.to_s)
+              yield Source.parse(file.read, path: file.to_s, labeling: labeling)
             end
           end
         end

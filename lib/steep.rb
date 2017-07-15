@@ -2,6 +2,7 @@ require "steep/version"
 
 require "pathname"
 require "parser/current"
+require "ast_utils"
 
 require "steep/types"
 require "steep/types/any"

@@ -74,7 +74,7 @@ z = x
                                    lhs_type: Types::Name.new(name: :A, params: []),
                                    rhs_type: Types::Name.new(name: :B, params: []) do |error|
       assert_equal :lvasgn, error.node.type
-      assert_equal :z, error.node.children[0]
+      assert_equal :z, error.node.children[0].name
     end
   end
 

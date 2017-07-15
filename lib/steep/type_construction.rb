@@ -21,7 +21,7 @@ module Steep
 
         typing.add_typing(node, type)
       when :lvasgn
-        name = node.children[0]
+        name = node.children[0].name
         lhs_type = env.lookup(name)
         rhs_type = run(node.children[1])
 
@@ -37,7 +37,7 @@ module Steep
         end
 
       when :lvar
-        type = env.lookup(node.children[0]) || Types::Any.new
+        type = env.lookup(node.children[0].name) || Types::Any.new
         typing.add_typing(node, type)
 
       when :str
