@@ -92,7 +92,7 @@ module Steep
     end
 
     def annotations(block:)
-      mapping[block.__id__]
+      Annotation::Collection.new(annotations: mapping[block.__id__] || [])
     end
   end
 end

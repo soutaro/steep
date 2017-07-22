@@ -6,7 +6,7 @@ class TypeConstructionTest < Minitest::Test
   Typing = Steep::Typing
   TypeConstruction = Steep::TypeConstruction
   Parser = Steep::Parser
-  TypeEnv = Steep::TypeEnv
+  Annotation = Steep::Annotation
   Types = Steep::Types
 
   include TestHelper
@@ -49,9 +49,9 @@ x = nil
     EOF
 
     typing = Typing.new
-    env = TypeEnv.from_annotations(source.annotations(block: source.node), env: {})
+    annotations = source.annotations(block: source.node)
 
-    construction = TypeConstruction.new(assignability: assignability, source: source, env: env, typing: typing)
+    construction = TypeConstruction.new(assignability: assignability, source: source, annotations: annotations, var_types: {}, typing: typing)
     construction.run(source.node)
 
     assert_equal Types::Name.new(name: :A, params: []), typing.type_of(node: source.node)
@@ -67,9 +67,9 @@ z = x
     EOF
 
     typing = Typing.new
-    env = TypeEnv.from_annotations(source.annotations(block: source.node) || [], env: {})
+    annotations = source.annotations(block: source.node)
 
-    construction = TypeConstruction.new(assignability: assignability, source: source, env: env, typing: typing)
+    construction = TypeConstruction.new(assignability: assignability, source: source, annotations: annotations, var_types: {}, typing: typing)
     construction.run(source.node)
 
     assert_equal Types::Name.new(name: :A, params: []), typing.type_of(node: source.node)
@@ -90,9 +90,9 @@ z = x
     EOF
 
     typing = Typing.new
-    env = TypeEnv.from_annotations(source.annotations(block: source.node) || [], env: {})
+    annotations = source.annotations(block: source.node)
 
-    construction = TypeConstruction.new(assignability: assignability, source: source, env: env, typing: typing)
+    construction = TypeConstruction.new(assignability: assignability, source: source, annotations: annotations, var_types: {}, typing: typing)
     construction.run(source.node)
 
     assert_equal Types::Any.new, typing.type_of(node: source.node)
@@ -107,9 +107,9 @@ z = x
     EOF
 
     typing = Typing.new
-    env = TypeEnv.from_annotations(source.annotations(block: source.node) || [], env: {})
+    annotations = source.annotations(block: source.node)
 
-    construction = TypeConstruction.new(assignability: assignability, source: source, env: env, typing: typing)
+    construction = TypeConstruction.new(assignability: assignability, source: source, annotations: annotations, var_types: {}, typing: typing)
     construction.run(source.node)
 
     assert_equal Types::Name.new(name: :A, params: []), typing.type_of(node: source.node)
@@ -124,9 +124,9 @@ x.f
     EOF
 
     typing = Typing.new
-    env = TypeEnv.from_annotations(source.annotations(block: source.node), env: {})
+    annotations = source.annotations(block: source.node)
 
-    construction = TypeConstruction.new(assignability: assignability, source: source, env: env, typing: typing)
+    construction = TypeConstruction.new(assignability: assignability, source: source, annotations: annotations, var_types: {}, typing: typing)
     construction.run(source.node)
 
     assert_equal Types::Name.new(name: :A, params: []), typing.type_of(node: source.node)
@@ -143,9 +143,9 @@ x.g(y)
     EOF
 
     typing = Typing.new
-    env = TypeEnv.from_annotations(source.annotations(block: source.node), env: {})
+    annotations = source.annotations(block: source.node)
 
-    construction = TypeConstruction.new(assignability: assignability, source: source, env: env, typing: typing)
+    construction = TypeConstruction.new(assignability: assignability, source: source, annotations: annotations, var_types: {}, typing: typing)
     construction.run(source.node)
 
     assert_equal Types::Name.new(name: :B, params: []), typing.type_of(node: source.node)
@@ -162,9 +162,9 @@ x.g(y)
     EOF
 
     typing = Typing.new
-    env = TypeEnv.from_annotations(source.annotations(block: source.node) || nil, env: {})
+    annotations = source.annotations(block: source.node)
 
-    construction = TypeConstruction.new(assignability: assignability, source: source, env: env, typing: typing)
+    construction = TypeConstruction.new(assignability: assignability, source: source, annotations: annotations, var_types: {}, typing: typing)
     construction.run(source.node)
 
     assert_equal Types::Name.new(name: :B, params: []), typing.type_of(node: source.node)
@@ -182,9 +182,9 @@ x.no_such_method
     EOF
 
     typing = Typing.new
-    env = TypeEnv.from_annotations(source.annotations(block: source.node) || [], env: {})
+    annotations = source.annotations(block: source.node)
 
-    construction = TypeConstruction.new(assignability: assignability, source: source, env: env, typing: typing)
+    construction = TypeConstruction.new(assignability: assignability, source: source, annotations: annotations, var_types: {}, typing: typing)
     construction.run(source.node)
 
     assert_equal Types::Any.new, typing.type_of(node: source.node)
@@ -199,9 +199,9 @@ x.no_such_method
     EOF
 
     typing = Typing.new
-    env = TypeEnv.from_annotations(source.annotations(block: source.node) || [], env: {})
+    annotations = source.annotations(block: source.node)
 
-    construction = TypeConstruction.new(assignability: assignability, source: source, env: env, typing: typing)
+    construction = TypeConstruction.new(assignability: assignability, source: source, annotations: annotations, var_types: {}, typing: typing)
     construction.run(source.node)
 
     assert_equal Types::Any.new, typing.type_of(node: source.node)
@@ -220,9 +220,9 @@ a.g()
     EOF
 
     typing = Typing.new
-    env = TypeEnv.from_annotations(source.annotations(block: source.node) || [], env: {})
+    annotations = source.annotations(block: source.node)
 
-    construction = TypeConstruction.new(assignability: assignability, source: source, env: env, typing: typing)
+    construction = TypeConstruction.new(assignability: assignability, source: source, annotations: annotations, var_types: {}, typing: typing)
     construction.run(source.node)
 
     assert_equal Types::Name.new(name: :B, params: []), typing.type_of(node: source.node)
@@ -241,9 +241,9 @@ a.g(nil, nil, nil)
     EOF
 
     typing = Typing.new
-    env = TypeEnv.from_annotations(source.annotations(block: source.node) || [], env: {})
+    annotations = source.annotations(block: source.node)
 
-    construction = TypeConstruction.new(assignability: assignability, source: source, env: env, typing: typing)
+    construction = TypeConstruction.new(assignability: assignability, source: source, annotations: annotations, var_types: {}, typing: typing)
     construction.run(source.node)
 
     assert_equal Types::Name.new(name: :B, params: []), typing.type_of(node: source.node)
@@ -264,9 +264,9 @@ x.h(a: a, b: b)
     EOF
 
     typing = Typing.new
-    env = TypeEnv.from_annotations(source.annotations(block: source.node) || [], env: {})
+    annotations = source.annotations(block: source.node)
 
-    construction = TypeConstruction.new(assignability: assignability, source: source, env: env, typing: typing)
+    construction = TypeConstruction.new(assignability: assignability, source: source, annotations: annotations, var_types: {}, typing: typing)
     construction.run(source.node)
 
     assert_equal Types::Name.new(name: :C, params: []), typing.type_of(node: source.node)
@@ -281,9 +281,9 @@ x.h()
     EOF
 
     typing = Typing.new
-    env = TypeEnv.from_annotations(source.annotations(block: source.node) || [], env: {})
+    annotations = source.annotations(block: source.node)
 
-    construction = TypeConstruction.new(assignability: assignability, source: source, env: env, typing: typing)
+    construction = TypeConstruction.new(assignability: assignability, source: source, annotations: annotations, var_types: {}, typing: typing)
     construction.run(source.node)
 
     assert_equal Types::Name.new(name: :C, params: []), typing.type_of(node: source.node)
@@ -300,9 +300,9 @@ x.h(a: nil, b: nil, c: nil)
     EOF
 
     typing = Typing.new
-    env = TypeEnv.from_annotations(source.annotations(block: source.node) || [], env: {})
+    annotations = source.annotations(block: source.node)
 
-    construction = TypeConstruction.new(assignability: assignability, source: source, env: env, typing: typing)
+    construction = TypeConstruction.new(assignability: assignability, source: source, annotations: annotations, var_types: {}, typing: typing)
     construction.run(source.node)
 
     assert_equal Types::Name.new(name: :C, params: []), typing.type_of(node: source.node)
@@ -321,9 +321,9 @@ x.h(a: y)
     EOF
 
     typing = Typing.new
-    env = TypeEnv.from_annotations(source.annotations(block: source.node) || [], env: {})
+    annotations = source.annotations(block: source.node)
 
-    construction = TypeConstruction.new(assignability: assignability, source: source, env: env, typing: typing)
+    construction = TypeConstruction.new(assignability: assignability, source: source, annotations: annotations, var_types: {}, typing: typing)
     construction.run(source.node)
 
     assert_equal Types::Name.new(name: :C, params: []), typing.type_of(node: source.node)
@@ -341,9 +341,9 @@ end
     EOF
 
     typing = Typing.new
-    env = TypeEnv.from_annotations(source.annotations(block: source.node) || [], env: {})
+    annotations = source.annotations(block: source.node)
 
-    construction = TypeConstruction.new(assignability: assignability, source: source, env: env, typing: typing)
+    construction = TypeConstruction.new(assignability: assignability, source: source, annotations: annotations, var_types: {}, typing: typing)
     construction.run(source.node)
 
     def_body = source.node.children[2]
@@ -359,9 +359,9 @@ end
     EOF
 
     typing = Typing.new
-    env = TypeEnv.from_annotations(source.annotations(block: source.node) || [], env: {})
+    annotations = source.annotations(block: source.node)
 
-    construction = TypeConstruction.new(assignability: assignability, source: source, env: env, typing: typing)
+    construction = TypeConstruction.new(assignability: assignability, source: source, annotations: annotations, var_types: {}, typing: typing)
     construction.run(source.node)
 
     def_body = source.node.children[2]
@@ -379,9 +379,9 @@ end
     EOF
 
     typing = Typing.new
-    env = TypeEnv.from_annotations(source.annotations(block: source.node) || [], env: {})
+    annotations = source.annotations(block: source.node)
 
-    construction = TypeConstruction.new(assignability: assignability, source: source, env: env, typing: typing)
+    construction = TypeConstruction.new(assignability: assignability, source: source, annotations: annotations, var_types: {}, typing: typing)
     construction.run(source.node)
 
     refute_empty typing.errors
@@ -405,9 +405,9 @@ end
     EOF
 
     typing = Typing.new
-    env = TypeEnv.from_annotations(source.annotations(block: source.node) || [], env: {})
+    annotations = source.annotations(block: source.node)
 
-    construction = TypeConstruction.new(assignability: assignability, source: source, env: env, typing: typing)
+    construction = TypeConstruction.new(assignability: assignability, source: source, annotations: annotations, var_types: {}, typing: typing)
     construction.run(source.node)
 
     refute_empty typing.errors
@@ -435,9 +435,9 @@ end
     EOF
 
     typing = Typing.new
-    env = TypeEnv.from_annotations(source.annotations(block: source.node) || [], env: {})
+    annotations = source.annotations(block: source.node)
 
-    construction = TypeConstruction.new(assignability: assignability, source: source, env: env, typing: typing)
+    construction = TypeConstruction.new(assignability: assignability, source: source, annotations: annotations, var_types: {}, typing: typing)
     construction.run(source.node)
 
     assert_equal Types::Name.new(name: :X, params: []), typing.type_of_variable(name: :a)
@@ -458,9 +458,9 @@ end
     EOF
 
     typing = Typing.new
-    env = TypeEnv.from_annotations(source.annotations(block: source.node) || [], env: {})
+    annotations = source.annotations(block: source.node)
 
-    construction = TypeConstruction.new(assignability: assignability, source: source, env: env, typing: typing)
+    construction = TypeConstruction.new(assignability: assignability, source: source, annotations: annotations, var_types: {}, typing: typing)
     construction.run(source.node)
 
     assert_any typing.var_typing do |var, type| var.name == :a && type.is_a?(Types::Name) && type.name == :A end

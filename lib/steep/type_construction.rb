@@ -2,26 +2,26 @@ module Steep
   class TypeConstruction
     attr_reader :assignability
     attr_reader :source
-    attr_reader :env
+    attr_reader :annotations
+    attr_reader :var_types
     attr_reader :typing
 
-    def initialize(assignability:, source:, env:, typing:)
+    def initialize(assignability:, source:, annotations:, var_types:, typing:)
       @assignability = assignability
       @source = source
-      @env = env
+      @annotations = annotations
+      @var_types = var_types
       @typing = typing
     end
 
     def for_new_method(node)
       annots = source.annotations(block: node)
-      env = TypeEnv.from_annotations(annots, env: {})
-      self.class.new(assignability: assignability, source: source, env: env, typing: typing)
+      self.class.new(assignability: assignability, source: source, annotations: annots, var_types: {}, typing: typing)
     end
 
     def for_block(block)
       annots = source.annotations(block: block)
-      env = TypeEnv.from_annotations(annots, env: self.env.env)
-      self.class.new(assignability: assignability, source: source, env: env, typing: typing)
+      self.class.new(assignability: assignability, source: source, annotations: annotations + annots, var_types: var_types.dup, typing: typing)
     end
 
     def run(node)
@@ -36,7 +36,7 @@ module Steep
         type_assignment(node.children[0], node.children[1], node)
 
       when :lvar
-        type = env.lookup(node.children[0].name) || Types::Any.new
+        type = variable_type(node.children[0]) || Types::Any.new
         typing.add_typing(node, type)
         typing.add_var_type(node.children[0], type)
 
@@ -116,7 +116,7 @@ module Steep
         # noop
 
         var = node.children[0]
-        type = env.lookup(var.name) || Types::Any.new
+        type = variable_type(var) || Types::Any.new
 
         typing.add_var_type(var, type)
 
@@ -128,7 +128,7 @@ module Steep
     end
 
     def type_assignment(var, rhs, node)
-      lhs_type = env.lookup(var.name)
+      lhs_type = variable_type(var)
       rhs_type = run(rhs)
 
       if lhs_type
@@ -137,14 +137,18 @@ module Steep
         end
         typing.add_var_type(var, lhs_type)
         typing.add_typing(node, lhs_type)
-        env.add(var.name, lhs_type)
+        var_types[var] = lhs_type
         lhs_type
       else
         typing.add_var_type(var, rhs_type)
         typing.add_typing(node, rhs_type)
-        env.add(var.name, rhs_type)
+        var_types[var] = rhs_type
         rhs_type
       end
+    end
+
+    def variable_type(var)
+      var_types[var] || annotations.lookup_var_type(var.name)
     end
 
     def each_child_node(node)
