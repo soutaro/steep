@@ -44,7 +44,7 @@ end
 
   def test_lvar_with_annotation
     source = ruby(<<-EOF)
-# @type x: A
+# @type var x: A
 x = nil
     EOF
 
@@ -60,8 +60,8 @@ x = nil
 
   def test_lvar_with_annotation_type_check
     source = ruby(<<-EOF)
-# @type x: B
-# @type z: A
+# @type var x: B
+# @type var z: A
 x = nil
 z = x
     EOF
@@ -101,7 +101,7 @@ z = x
 
   def test_lvar_without_annotation_inference
     source = ruby(<<-EOF)
-# @type x: A
+# @type var x: A
 x = nil
 z = x
     EOF
@@ -118,7 +118,7 @@ z = x
 
   def test_method_call
     source = ruby(<<-EOF)
-# @type x: C
+# @type var x: C
 x = nil
 x.f
     EOF
@@ -135,8 +135,8 @@ x.f
 
   def test_method_call_with_argument
     source = ruby(<<-EOF)
-# @type x: C
-# @type y: A
+# @type var x: C
+# @type var y: A
 x = nil
 y = nil
 x.g(y)
@@ -154,8 +154,8 @@ x.g(y)
 
   def test_method_call_incompatible_argument_type
     source = ruby(<<-EOF)
-# @type x: C
-# @type y: B
+# @type var x: C
+# @type var y: B
 x = nil
 y = nil
 x.g(y)
@@ -193,7 +193,7 @@ x.no_such_method
 
   def test_method_call_no_method_error
     source = ruby(<<-EOF)
-# @type x: C
+# @type var x: C
 x = nil
 x.no_such_method
     EOF
@@ -212,8 +212,8 @@ x.no_such_method
 
   def test_method_call_missing_argument
     source = ruby(<<-EOF)
-# @type x: A
-# @type a: C
+# @type var x: A
+# @type var a: C
 a = nil
 x = nil
 a.g()
@@ -233,8 +233,8 @@ a.g()
 
   def test_method_call_extra_args
     source = ruby(<<-EOF)
-# @type x: A
-# @type a: C
+# @type var x: A
+# @type var a: C
 a = nil
 x = nil
 a.g(nil, nil, nil)
@@ -254,9 +254,9 @@ a.g(nil, nil, nil)
 
   def test_keyword_call
     source = ruby(<<-EOF)
-# @type x: C
-# @type a: A
-# @type b: B
+# @type var x: C
+# @type var a: A
+# @type var b: B
 x = nil
 a = nil
 b = nil
@@ -275,7 +275,7 @@ x.h(a: a, b: b)
 
   def test_keyword_missing
     source = ruby(<<-EOF)
-# @type x: C
+# @type var x: C
 x = nil
 x.h()
     EOF
@@ -294,7 +294,7 @@ x.h()
 
   def test_extra_keyword_given
     source = ruby(<<-EOF)
-# @type x: C
+# @type var x: C
 x = nil
 x.h(a: nil, b: nil, c: nil)
     EOF
@@ -313,8 +313,8 @@ x.h(a: nil, b: nil, c: nil)
 
   def test_keyword_typecheck
     source = ruby(<<-EOF)
-# @type x: C
-# @type y: B
+# @type var x: C
+# @type var y: B
 x = nil
 y = nil
 x.h(a: y)
@@ -335,7 +335,7 @@ x.h(a: y)
   def test_def_no_params
     source = ruby(<<-EOF)
 def foo
-  # @type x: A
+  # @type var x: A
   x = nil
 end
     EOF
@@ -353,7 +353,7 @@ end
   def test_def_param
     source = ruby(<<-EOF)
 def foo(x)
-  # @type x: A
+  # @type var x: A
   y = x
 end
     EOF
@@ -373,8 +373,8 @@ end
   def test_def_param_error
     source = ruby(<<-EOF)
 def foo(x, y = x)
-  # @type x: A
-  # @type y: C
+  # @type var x: A
+  # @type var y: C
 end
     EOF
 
@@ -399,8 +399,8 @@ end
   def test_def_kw_param_error
     source = ruby(<<-EOF)
 def foo(x:, y: x)
-  # @type x: A
-  # @type y: C
+  # @type var x: A
+  # @type var y: C
 end
     EOF
 
@@ -424,12 +424,12 @@ end
 
   def test_block
     source = ruby(<<-EOF)
-# @type a: X
+# @type var a: X
 a = nil
 
 b = a.f do |x|
-  # @type x: A
-  # @type y: B
+  # @type var x: A
+  # @type var y: B
   y = nil
 end
     EOF
@@ -448,11 +448,11 @@ end
 
   def test_block_shadow
     source = ruby(<<-EOF)
-# @type a: X
+# @type var a: X
 a = nil
 
 a.f do |a|
-  # @type a: A
+  # @type var a: A
   b = a
 end
     EOF

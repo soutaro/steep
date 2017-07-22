@@ -94,8 +94,8 @@ method_name: IDENT { result = val[0] }
            | END { result = :end }
            | PLUS { result = :+ }
 
-annotation: AT_TYPE subject COLON type { result = Annotation::VarType.new(var: val[1], type: val[3]) }
-          | AT_TYPE subject COLON method_type { result = Annotation::MethodType.new(method: val[1], type: val[3]) }
+annotation: AT_TYPE VAR subject COLON type { result = Annotation::VarType.new(var: val[2], type: val[4]) }
+          | AT_TYPE METHOD subject COLON method_type { result = Annotation::MethodType.new(method: val[2], type: val[4]) }
           | AT_TYPE { raise "Invalid type annotation" }
 
 subject: IDENT { result = val[0] }
@@ -178,6 +178,10 @@ def next_token
     [:DEF, nil]
   when input.scan(/@type/)
     [:AT_TYPE, nil]
+  when input.scan(/var/)
+    [:VAR, nil]
+  when input.scan(/method/)
+    [:METHOD, nil]
   when input.scan(/'\w+/)
     [:TVAR, input.matched.gsub(/\A'/, '').to_sym]
   when input.scan(/\w+/)

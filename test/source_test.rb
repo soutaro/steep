@@ -6,18 +6,18 @@ class SourceTest < Minitest::Test
 
   def test_foo
     source = <<-EOF
-# @type x1: any
+# @type var x1: any
 
 module Foo
-  # @type x2: any
+  # @type var x2: any
 
   class Bar
-    # @type x3: any
-    # @type foo: -> any
+    # @type var x3: any
+    # @type method foo: -> any
     def foo
-      # @type x4: any
+      # @type var x4: any
       self.tap do
-        # @type x5: any
+        # @type var x5: any
       end
     end
   end
