@@ -25,4 +25,14 @@ class AnnotationParsingTest < Minitest::Test
     assert_equal :foo, annot.method
     assert_equal Parser.parse_method("<'a> Bar -> Baz"), annot.type
   end
+
+  def test_return_type_annotation
+    annot = Parser.parse_annotation_opt("@type return: Integer")
+    assert_equal Steep::Types::Name.new(name: :Integer, params: []), annot.type
+  end
+
+  def test_block_type_annotation
+    annot = Parser.parse_annotation_opt("@type block: String")
+    assert_equal Steep::Types::Name.new(name: :String, params: []), annot.type
+  end
 end

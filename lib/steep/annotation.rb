@@ -34,10 +34,36 @@ module Steep
       end
     end
 
+    class ReturnType < Base
+      attr_reader :type
+
+      def initialize(type:)
+        @type = type
+      end
+
+      def ==(other)
+        other.is_a?(ReturnType) && other.type == type
+      end
+    end
+
+    class BlockType < Base
+      attr_reader :type
+
+      def initialize(type:)
+        @type = type
+      end
+
+      def ==(other)
+        other.is_a?(BlockType) && other.type == type
+      end
+    end
+
     class Collection
       attr_reader :var_types
       attr_reader :method_types
       attr_reader :annotations
+      attr_reader :block_type
+      attr_reader :return_type
 
       def initialize(annotations:)
         @var_types = {}
@@ -49,6 +75,10 @@ module Steep
             var_types[annotation.var] = annotation
           when MethodType
             method_types[annotation.method] = annotation
+          when BlockType
+            @block_type = annotation.type
+          when ReturnType
+            @return_type = annotation.type
           else
             raise "Unexpected annotation: #{annotation.inspect}"
           end
@@ -66,7 +96,19 @@ module Steep
       end
 
       def +(other)
-        self.class.new(annotations: annotations + other.annotations)
+        self.class.new(annotations: annotations.reject {|a| a.is_a?(BlockType) } + other.annotations)
+      end
+
+      def any?(&block)
+        annotations.any?(&block)
+      end
+
+      def size
+        annotations.size
+      end
+
+      def include?(obj)
+        annotations.include?(obj)
       end
     end
   end

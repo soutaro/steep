@@ -96,6 +96,8 @@ method_name: IDENT { result = val[0] }
 
 annotation: AT_TYPE VAR subject COLON type { result = Annotation::VarType.new(var: val[2], type: val[4]) }
           | AT_TYPE METHOD subject COLON method_type { result = Annotation::MethodType.new(method: val[2], type: val[4]) }
+          | AT_TYPE RETURN COLON type { result = Annotation::ReturnType.new(type: val[3]) }
+          | AT_TYPE BLOCK COLON type { result = Annotation::BlockType.new(type: val[3]) }
           | AT_TYPE { raise "Invalid type annotation" }
 
 subject: IDENT { result = val[0] }
@@ -180,6 +182,10 @@ def next_token
     [:AT_TYPE, nil]
   when input.scan(/var/)
     [:VAR, nil]
+  when input.scan(/return/)
+    [:RETURN, nil]
+  when input.scan(/block/)
+    [:BLOCK, nil]
   when input.scan(/method/)
     [:METHOD, nil]
   when input.scan(/'\w+/)
