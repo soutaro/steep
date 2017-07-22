@@ -76,5 +76,16 @@ module Steep
         @keyword = keyword
       end
     end
+
+    class ReturnTypeMismatch < Base
+      attr_reader :expected
+      attr_reader :actual
+
+      def initialize(node:, expected:, actual:)
+        super(node: node)
+        @expected = expected
+        @actual = actual
+      end
+    end
   end
 end

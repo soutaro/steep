@@ -5,23 +5,39 @@ module Steep
     attr_reader :annotations
     attr_reader :var_types
     attr_reader :typing
+    attr_reader :return_type
+    attr_reader :block_type
 
-    def initialize(assignability:, source:, annotations:, var_types:, typing:)
+    def initialize(assignability:, source:, annotations:, var_types:, return_type:, block_type:, typing:)
       @assignability = assignability
       @source = source
       @annotations = annotations
       @var_types = var_types
       @typing = typing
+      @return_type = return_type
+      @block_type = block_type
     end
 
     def for_new_method(node)
       annots = source.annotations(block: node)
-      self.class.new(assignability: assignability, source: source, annotations: annots, var_types: {}, typing: typing)
+      self.class.new(assignability: assignability,
+                     source: source,
+                     annotations: annots,
+                     var_types: {},
+                     return_type: annots.return_type,
+                     block_type: nil,
+                     typing: typing)
     end
 
     def for_block(block)
       annots = source.annotations(block: block)
-      self.class.new(assignability: assignability, source: source, annotations: annotations + annots, var_types: var_types.dup, typing: typing)
+      self.class.new(assignability: assignability,
+                     source: source,
+                     annotations: annotations + annots,
+                     var_types: var_types.dup,
+                     return_type: return_type,
+                     block_type: annots.block_type,
+                     typing: typing)
     end
 
     def run(node)
@@ -120,6 +136,18 @@ module Steep
 
         typing.add_var_type(var, type)
 
+      when :return
+        value = node.children[0]
+        rhs_type = value && run(value)
+
+        case
+        when rhs_type && return_type
+          unless assignability.test(src: rhs_type, dest: return_type)
+            typing.add_error(Errors::ReturnTypeMismatch.new(node: node, expected: return_type, actual: rhs_type))
+          end
+        end
+
+        Types::Any.new
       else
         p node
 
