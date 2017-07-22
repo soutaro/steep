@@ -3,6 +3,12 @@ require 'steep'
 
 require 'minitest/autorun'
 
+module TestHelper
+  def assert_any(collection, &block)
+    assert collection.any?(&block)
+  end
+end
+
 module TypeErrorAssertions
   def assert_invalid_argument_error(error, expected_type: nil, actual_type: nil)
     assert_instance_of Steep::Errors::InvalidArgument, error

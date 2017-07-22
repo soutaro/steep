@@ -9,6 +9,7 @@ class TypeConstructionTest < Minitest::Test
   TypeEnv = Steep::TypeEnv
   Types = Steep::Types
 
+  include TestHelper
   include TypeErrorAssertions
 
   def ruby(string)
@@ -29,6 +30,10 @@ interface C
   def f: () -> A
   def g: (A, ?B) -> B
   def h: (a: A, ?b: B) -> C
+end
+
+interface X
+  def f: () { (A) -> B } -> C 
 end
       EOS
       interfaces.each do |interface|
@@ -415,6 +420,52 @@ end
 
     assert_equal Types::Name.new(name: :A, params: []), typing.type_of_variable(name: :x)
     assert_equal Types::Name.new(name: :C, params: []), typing.type_of_variable(name: :y)
+  end
+
+  def test_block
+    source = ruby(<<-EOF)
+# @type a: X
+a = nil
+
+b = a.f do |x|
+  # @type x: A
+  # @type y: B
+  y = nil
+end
+    EOF
+
+    typing = Typing.new
+    env = TypeEnv.from_annotations(source.annotations(block: source.node) || [], env: {})
+
+    construction = TypeConstruction.new(assignability: assignability, source: source, env: env, typing: typing)
+    construction.run(source.node)
+
+    assert_equal Types::Name.new(name: :X, params: []), typing.type_of_variable(name: :a)
+    assert_equal Types::Name.new(name: :C, params: []), typing.type_of_variable(name: :b)
+    assert_equal Types::Name.new(name: :A, params: []), typing.type_of_variable(name: :x)
+    assert_equal Types::Name.new(name: :B, params: []), typing.type_of_variable(name: :y)
+  end
+
+  def test_block_shadow
+    source = ruby(<<-EOF)
+# @type a: X
+a = nil
+
+a.f do |a|
+  # @type a: A
+  b = a
+end
+    EOF
+
+    typing = Typing.new
+    env = TypeEnv.from_annotations(source.annotations(block: source.node) || [], env: {})
+
+    construction = TypeConstruction.new(assignability: assignability, source: source, env: env, typing: typing)
+    construction.run(source.node)
+
+    assert_any typing.var_typing do |var, type| var.name == :a && type.is_a?(Types::Name) && type.name == :A end
+    assert_any typing.var_typing do |var, type| var.name == :a && type.is_a?(Types::Name) && type.name == :X end
+    assert_equal Types::Name.new(name: :A, params: []), typing.type_of_variable(name: :b)
   end
 
   def arguments(ruby)

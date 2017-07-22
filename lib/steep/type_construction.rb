@@ -18,6 +18,12 @@ module Steep
       self.class.new(assignability: assignability, source: source, env: env, typing: typing)
     end
 
+    def for_block(block)
+      annots = source.annotations(block: block)
+      env = TypeEnv.from_annotations(annots, env: self.env.env)
+      self.class.new(assignability: assignability, source: source, env: env, typing: typing)
+    end
+
     def run(node)
       case node.type
       when :begin
@@ -52,6 +58,20 @@ module Steep
         end
 
         typing.add_typing(node, ret_type)
+
+      when :block
+        send_node, params, block = node.children
+
+        ret_type = run(send_node)
+        typing.add_typing(node, ret_type)
+
+        for_block = for_block(node)
+        each_child_node(params) do |param|
+          for_block.run(param)
+        end
+        for_block.run(block) if block
+
+        ret_type
 
       when :int
         typing.add_typing(node, Types::Any.new)
@@ -92,8 +112,13 @@ module Steep
         rhs = node.children[1]
         type_assignment(var, rhs, node)
 
-      when :arg, :kwarg
+      when :arg, :kwarg, :procarg0
         # noop
+
+        var = node.children[0]
+        type = env.lookup(var.name) || Types::Any.new
+
+        typing.add_var_type(var, type)
 
       else
         p node
