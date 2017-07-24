@@ -40,27 +40,31 @@ module Steep
                      typing: typing)
     end
 
-    def run(node)
+    def synthesize(node)
       case node.type
       when :begin
         type = each_child_node(node).map do |child|
-          run(child)
+          synthesize(child)
         end.last
 
         typing.add_typing(node, type)
+
       when :lvasgn
-        type_assignment(node.children[0], node.children[1], node)
+        var = node.children[0]
+        rhs = node.children[1]
+
+        type_assignment(var, rhs, node)
 
       when :lvar
-        type = variable_type(node.children[0]) || Types::Any.new
-        typing.add_typing(node, type)
-        typing.add_var_type(node.children[0], type)
+        var = node.children[0]
 
-      when :str
-        typing.add_typing(node, Types::Any.new)
+        (variable_type(var) || Types::Any.new).tap do |type|
+          typing.add_typing(node, type)
+          typing.add_var_type(var, type)
+        end
 
       when :send
-        recv_type = run(node.children[0])
+        recv_type = synthesize(node.children[0])
         method_name = node.children[1]
 
         ret_type = assignability.method_type recv_type, method_name do |method_type|
@@ -75,19 +79,62 @@ module Steep
 
         typing.add_typing(node, ret_type)
 
+      when :def
+        new = for_new_method(node)
+
+        each_child_node(node.children[1]) do |arg|
+          new.synthesize(arg)
+        end
+
+        if node.children[2]
+          if new.return_type
+            new.check(node.children[2], new.return_type)
+          else
+            new.synthesize(node.children[2])
+          end
+        end
+
+        typing.add_typing(node, Types::Any.new)
+
       when :block
         send_node, params, block = node.children
 
-        ret_type = run(send_node)
+        ret_type = synthesize(send_node)
         typing.add_typing(node, ret_type)
 
         for_block = for_block(node)
         each_child_node(params) do |param|
-          for_block.run(param)
+          for_block.synthesize(param)
         end
-        for_block.run(block) if block
+        for_block.synthesize(block) if block
 
         ret_type
+
+      when :return
+        value = node.children[0]
+
+        if value
+          if return_type
+            check(value, return_type) do |_, actual_type|
+              typing.add_error(Errors::ReturnTypeMismatch.new(node: node, expected: return_type, actual: actual_type))
+            end
+          else
+            synthesize(value)
+          end
+        end
+
+        typing.add_typing(node, Types::Any.new)
+
+      when :arg, :kwarg, :procarg0
+        var = node.children[0]
+        type = variable_type(var) || Types::Any.new
+
+        typing.add_var_type(var, type)
+
+      when :optarg, :kwoptarg
+        var = node.children[0]
+        rhs = node.children[1]
+        type_assignment(var, rhs, node)
 
       when :int
         typing.add_typing(node, Types::Any.new)
@@ -95,83 +142,67 @@ module Steep
       when :nil
         typing.add_typing(node, Types::Any.new)
 
+      when :sym
+        typing.add_typing(node, Types::Any.new)
+
       when :hash
-        each_child_node(node) do |child|
-          run child
-        end
-
-        typing.add_typing(node, Types::Any.new)
-
-      when :pair
-        run node.children[1]
-
-        typing.add_typing(node, Types::Any.new)
-
-      when :def
-        new = for_new_method(node)
-
-        each_child_node(node.children[1]) do |arg|
-          new.run(arg)
-        end
-
-        new.run(node.children[2]) if node.children[2]
-
-        typing.add_typing(node, Types::Any.new)
-
-      when :optarg
-        var = node.children[0]
-        rhs = node.children[1]
-        type_assignment(var, rhs, node)
-
-      when :kwoptarg
-        var = node.children[0]
-        rhs = node.children[1]
-        type_assignment(var, rhs, node)
-
-      when :arg, :kwarg, :procarg0
-        # noop
-
-        var = node.children[0]
-        type = variable_type(var) || Types::Any.new
-
-        typing.add_var_type(var, type)
-
-      when :return
-        value = node.children[0]
-        rhs_type = value && run(value)
-
-        case
-        when rhs_type && return_type
-          unless assignability.test(src: rhs_type, dest: return_type)
-            typing.add_error(Errors::ReturnTypeMismatch.new(node: node, expected: return_type, actual: rhs_type))
+        each_child_node(node) do |pair|
+          raise "Unexpected non pair: #{pair.inspect}" unless pair.type == :pair
+          each_child_node(pair) do |e|
+            synthesize(e)
           end
         end
 
-        Types::Any.new
-      else
-        p node
-
         typing.add_typing(node, Types::Any.new)
+
+      else
+        raise "Unexpected node: #{node.inspect}"
+      end
+    end
+
+    def check(node, type)
+      case node.type
+      when :lvar
+        type_ = variable_type(node.children[0]) || Types::Any.new
+
+        unless assignability.test(src: type_, dest: type)
+          yield(type, type_)
+        end
+
+      else
+        type_ = synthesize(node)
+
+        unless assignability.test(src: type_, dest: type)
+          yield(type, type_)
+        end
       end
     end
 
     def type_assignment(var, rhs, node)
       lhs_type = variable_type(var)
-      rhs_type = run(rhs)
 
-      if lhs_type
-        unless assignability.test(src: rhs_type, dest: lhs_type)
-          typing.add_error(Errors::IncompatibleAssignment.new(node: node, lhs_type: lhs_type, rhs_type: rhs_type))
+      if rhs
+        if lhs_type
+          check(rhs, lhs_type) do |_, rhs_type|
+            typing.add_error(Errors::IncompatibleAssignment.new(node: node, lhs_type: lhs_type, rhs_type: rhs_type))
+          end
+          typing.add_var_type(var, lhs_type)
+          typing.add_typing(node, lhs_type)
+          var_types[var] = lhs_type
+          lhs_type
+        else
+          rhs_type = synthesize(rhs)
+          typing.add_var_type(var, rhs_type)
+          typing.add_typing(node, rhs_type)
+          var_types[var] = rhs_type
+          rhs_type
         end
-        typing.add_var_type(var, lhs_type)
-        typing.add_typing(node, lhs_type)
-        var_types[var] = lhs_type
-        lhs_type
       else
-        typing.add_var_type(var, rhs_type)
-        typing.add_typing(node, rhs_type)
-        var_types[var] = rhs_type
-        rhs_type
+        type = lhs_type || Types::Any.new
+        typing.add_var_type(var, type)
+        typing.add_typing(node, type)
+        var_types[var] = type
+        type
       end
     end
 
@@ -192,6 +223,8 @@ module Steep
     end
 
     def check_argument_types(node, params:, arguments:)
+      arguments = arguments.dup
+
       params.each_missing_argument arguments do |index|
         typing.add_error Errors::ExpectedArgumentMissing.new(node: node, index: index)
       end
@@ -208,16 +241,19 @@ module Steep
         typing.add_error Errors::ExtraKeywordGiven.new(node: node, keyword: keyword)
       end
 
-      arguments.each do |arg|
-        run(arg)
-      end
+      all_args = arguments.dup
 
       self.class.argument_typing_pairs(params: params, arguments: arguments).each do |(param_type, argument)|
-        arg_type = typing.type_of(node: argument)
-        unless assignability.test(src: arg_type, dest: param_type)
-          error = Errors::InvalidArgument.new(node: argument, expected: param_type, actual: arg_type)
+        all_args.delete_if {|a| a.equal?(argument) }
+
+        check(argument, param_type) do |_, actual_type|
+          error = Errors::InvalidArgument.new(node: argument, expected: param_type, actual: actual_type)
           typing.add_error(error)
         end
+      end
+
+      all_args.each do |arg|
+        synthesize(arg)
       end
     end
 
