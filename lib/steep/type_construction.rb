@@ -7,8 +7,9 @@ module Steep
     attr_reader :typing
     attr_reader :return_type
     attr_reader :block_type
+    attr_reader :break_type
 
-    def initialize(assignability:, source:, annotations:, var_types:, return_type:, block_type:, typing:)
+    def initialize(assignability:, source:, annotations:, var_types:, return_type:, block_type:, typing:, break_type: nil)
       @assignability = assignability
       @source = source
       @annotations = annotations
@@ -16,6 +17,7 @@ module Steep
       @typing = typing
       @return_type = return_type
       @block_type = block_type
+      @break_type = break_type
     end
 
     def for_new_method(node)
@@ -26,7 +28,8 @@ module Steep
                      var_types: {},
                      return_type: annots.return_type,
                      block_type: nil,
-                     typing: typing)
+                     typing: typing,
+                     break_type: nil)
     end
 
     def for_block(block)
@@ -64,16 +67,42 @@ module Steep
         end
 
       when :send
-        recv_type = synthesize(node.children[0])
-        method_name = node.children[1]
+        type_send(node)
 
-        ret_type = assignability.method_type recv_type, method_name do |method_type|
-          if method_type
-            check_argument_types node, params: method_type.params, arguments: node.children.drop(2)
-            method_type.return_type
+      when :block
+        send_node, params, block = node.children
+
+        ret_type = type_send(send_node) do |recv_type, method_name, method_type|
+          if method_type.block
+            var_types_ = var_types.dup
+            self.class.block_param_typing_pairs(param_types: method_type.block.params, param_nodes: params.children).each do |param_node, type|
+              var = param_node.children[0]
+              var_types_[var] = type
+              typing.add_var_type(var, type)
+            end
+
+            annots = source.annotations(block: node)
+            for_block = self.class.new(assignability: assignability,
+                                       source: source,
+                                       annotations: annotations + annots,
+                                       var_types: var_types_,
+                                       return_type: return_type,
+                                       block_type: annots.block_type,
+                                       break_type: method_type.return_type,
+                                       typing: typing)
+
+            each_child_node(params) do |param|
+              for_block.synthesize(param)
+            end
+
+            if block
+              for_block.check(block, method_type.block.return_type) do |expected, actual|
+                typing.add_error Errors::BlockTypeMismatch.new(node: node, expected: expected, actual: actual)
+              end
+            end
+
           else
-            # no method error
-            typing.add_error Errors::NoMethod.new(node: node, method: method_name, type: recv_type)
+            typing.add_error Errors::UnexpectedBlockGiven.new(node: node, type: recv_type, method: method_name)
           end
         end
 
@@ -96,20 +125,6 @@ module Steep
 
         typing.add_typing(node, Types::Any.new)
 
-      when :block
-        send_node, params, block = node.children
-
-        ret_type = synthesize(send_node)
-        typing.add_typing(node, ret_type)
-
-        for_block = for_block(node)
-        each_child_node(params) do |param|
-          for_block.synthesize(param)
-        end
-        for_block.synthesize(block) if block
-
-        ret_type
-
       when :return
         value = node.children[0]
 
@@ -117,6 +132,21 @@ module Steep
           if return_type
             check(value, return_type) do |_, actual_type|
               typing.add_error(Errors::ReturnTypeMismatch.new(node: node, expected: return_type, actual: actual_type))
+            end
+          else
+            synthesize(value)
+          end
+        end
+
+        typing.add_typing(node, Types::Any.new)
+
+      when :break
+        value = node.children[0]
+
+        if value
+          if break_type
+            check(value, break_type) do |_, actual_type|
+              typing.add_error Errors::BreakTypeMismatch.new(node: node, expected: break_type, actual: actual_type)
             end
           else
             synthesize(value)
@@ -161,20 +191,10 @@ module Steep
     end
 
     def check(node, type)
-      case node.type
-      when :lvar
-        type_ = variable_type(node.children[0]) || Types::Any.new
+      type_ = synthesize(node)
 
-        unless assignability.test(src: type_, dest: type)
-          yield(type, type_)
-        end
-
-      else
-        type_ = synthesize(node)
-
-        unless assignability.test(src: type_, dest: type)
-          yield(type, type_)
-        end
+      unless assignability.test(src: type_, dest: type)
+        yield(type, type_)
       end
     end
 
@@ -204,6 +224,24 @@ module Steep
         var_types[var] = type
         type
       end
+    end
+
+    def type_send(node)
+      receiver, method_name, *args = node.children
+      recv_type = synthesize(receiver)
+
+      ret_type = assignability.method_type recv_type, method_name do |method_type|
+        if method_type
+          check_argument_types node, params: method_type.params, arguments: args
+          yield recv_type, method_name, method_type if block_given?
+          method_type.return_type
+        else
+          # no method error
+          typing.add_error Errors::NoMethod.new(node: node, method: method_name, type: recv_type)
+        end
+      end
+
+      typing.add_typing node, ret_type
     end
 
     def variable_type(var)
@@ -255,6 +293,18 @@ module Steep
       all_args.each do |arg|
         synthesize(arg)
       end
+    end
+
+    def self.block_param_typing_pairs(param_types: , param_nodes:)
+      pairs = []
+
+      param_types.required.each.with_index do |type, index|
+        if (param = param_nodes[index])
+          pairs << [param, type]
+        end
+      end
+
+      pairs
     end
 
     def self.argument_typing_pairs(params:, arguments:)

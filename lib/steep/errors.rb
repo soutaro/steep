@@ -87,5 +87,38 @@ module Steep
         @actual = actual
       end
     end
+
+    class UnexpectedBlockGiven < Base
+      attr_reader :method
+      attr_reader :type
+
+      def initialize(node:, type:, method:)
+        super(node: node)
+        @type = type
+        @method = method
+      end
+    end
+
+    class BlockTypeMismatch < Base
+      attr_reader :expected
+      attr_reader :actual
+
+      def initialize(node:, expected:, actual:)
+        super(node: node)
+        @expected = expected
+        @actual = actual
+      end
+    end
+
+    class BreakTypeMismatch < Base
+      attr_reader :expected
+      attr_reader :actual
+
+      def initialize(node:, expected:, actual:)
+        super(node: node)
+        @expected = expected
+        @actual = actual
+      end
+    end
   end
 end

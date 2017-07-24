@@ -32,8 +32,12 @@ interface C
   def h: (a: A, ?b: B) -> C
 end
 
+interface D
+  def foo: () -> any
+end
+
 interface X
-  def f: () { (A) -> B } -> C 
+  def f: () { (A) -> D } -> C 
 end
       EOS
       interfaces.each do |interface|
@@ -466,6 +470,77 @@ end
     assert_any typing.var_typing do |var, type| var.name == :a && type.is_a?(Types::Name) && type.name == :A end
     assert_any typing.var_typing do |var, type| var.name == :a && type.is_a?(Types::Name) && type.name == :X end
     assert_equal Types::Name.new(name: :A, params: []), typing.type_of_variable(name: :b)
+  end
+
+  def test_block_param_type
+    source = ruby(<<-EOF)
+# @type var x: X
+x = nil
+
+x.f do |a|
+  # @type var d: D
+  d = nil
+end
+    EOF
+
+    typing = Typing.new
+    annotations = source.annotations(block: source.node)
+
+    construction = TypeConstruction.new(assignability: assignability, source: source, annotations: annotations, var_types: {}, return_type: nil, block_type: nil, typing: typing)
+    construction.synthesize(source.node)
+
+    assert_equal Types::Name.new(name: :X, params: []), typing.type_of_variable(name: :x)
+    assert_equal Types::Name.new(name: :A, params: []), typing.type_of_variable(name: :a)
+    assert_equal Types::Name.new(name: :D, params: []), typing.type_of_variable(name: :d)
+    assert_empty typing.errors
+  end
+
+  def test_block_value_type
+    source = ruby(<<-EOF)
+# @type var x: X
+x = nil
+
+x.f do |a|
+  a
+end
+    EOF
+
+    typing = Typing.new
+    annotations = source.annotations(block: source.node)
+
+    construction = TypeConstruction.new(assignability: assignability, source: source, annotations: annotations, var_types: {}, return_type: nil, block_type: nil, typing: typing)
+    construction.synthesize(source.node)
+
+    assert_equal Types::Name.new(name: :X, params: []), typing.type_of_variable(name: :x)
+    assert_equal Types::Name.new(name: :A, params: []), typing.type_of_variable(name: :a)
+
+    assert_equal 1, typing.errors.size
+    assert_block_type_mismatch typing.errors[0], expected: Types::Name.new(name: :D, params: []), actual: Types::Name.new(name: :A, params: [])
+  end
+
+  def test_block_break_type
+    source = ruby(<<-EOF)
+# @type var x: X
+x = nil
+
+x.f do |a|
+  break a
+  # @type var d: D
+  d = nil
+end
+    EOF
+
+    typing = Typing.new
+    annotations = source.annotations(block: source.node)
+
+    construction = TypeConstruction.new(assignability: assignability, source: source, annotations: annotations, var_types: {}, return_type: nil, block_type: nil, typing: typing)
+    construction.synthesize(source.node)
+
+    assert_equal Types::Name.new(name: :X, params: []), typing.type_of_variable(name: :x)
+    assert_equal Types::Name.new(name: :A, params: []), typing.type_of_variable(name: :a)
+
+    assert_equal 1, typing.errors.size
+    assert_break_type_mismatch typing.errors[0], expected: Types::Name.new(name: :C, params: []), actual: Types::Name.new(name: :A, params: [])
   end
 
   def test_return_type
