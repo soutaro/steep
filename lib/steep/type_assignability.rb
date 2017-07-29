@@ -11,10 +11,23 @@ module Steep
     end
 
     def test(src:, dest:, known_pairs: [])
-      if src.is_a?(Types::Any) || dest.is_a?(Types::Any)
+      case
+      when src.is_a?(Types::Any) || dest.is_a?(Types::Any)
         true
-      else
+      when src == dest
+        true
+      when src.is_a?(Types::Union)
+        src.types.all? do |type|
+          test(src: type, dest: dest, known_pairs: known_pairs)
+        end
+      when dest.is_a?(Types::Union)
+        dest.types.any? do |type|
+          test(src: src, dest: type, known_pairs: known_pairs)
+        end
+      when (src.is_a?(Types::Name) || src.is_a?(Types::Interface)) && (dest.is_a?(Types::Name) || dest.is_a?(Types::Interface))
         test_interface(to_interface(src.name), to_interface(dest.name), known_pairs)
+      else
+        raise "Unexpected type: src=#{src.inspect}, dest=#{dest.inspect}, known_pairs=#{known_pairs.inspect}"
       end
     end
 

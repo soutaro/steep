@@ -141,4 +141,68 @@ end
     assert a.test(src: T::Name.new(name: :T, params: []), dest: T::Name.new(name: :S, params: []))
     refute a.test(src: T::Name.new(name: :S, params: []), dest: T::Name.new(name: :T, params: []))
   end
+
+  def test_union_intro
+    a = Steep::TypeAssignability.new
+
+    parse_interface(<<-EOS).each do |interface|
+interface X
+  def x: () -> any
+end
+
+interface Y
+  def y: () -> any
+end
+
+interface Z
+  def z: () -> any
+end
+    EOS
+      a.add_interface interface
+    end
+
+    assert a.test(dest: T::Union.new(types: [T::Name.new(name: :X, params: []),
+                                             T::Name.new(name: :Y, params: [])]),
+                  src: T::Name.new(name: :X, params: []))
+
+    assert a.test(dest: T::Union.new(types: [T::Name.new(name: :X, params: []),
+                                             T::Name.new(name: :Y, params: []),
+                                             T::Name.new(name: :Z, params: [])]),
+                  src: T::Union.new(types: [T::Name.new(name: :X, params: []),
+                                            T::Name.new(name: :Y, params: [])]))
+
+    refute a.test(dest: T::Union.new(types: [T::Name.new(name: :X, params: []),
+                                             T::Name.new(name: :Y, params: [])]),
+                  src: T::Name.new(name: :Z, params: []))
+  end
+
+  def test_union_elim
+    a = Steep::TypeAssignability.new
+
+    parse_interface(<<-EOS).each do |interface|
+interface X
+  def x: () -> any
+  def z: () -> any
+end
+
+interface Y
+  def y: () -> any
+  def z: () -> any
+end
+
+interface Z
+  def z: () -> any
+end
+    EOS
+      a.add_interface interface
+    end
+
+    assert a.test(dest: T::Name.new(name: :Z, params: []),
+                  src: T::Union.new(types: [T::Name.new(name: :X, params: []),
+                                            T::Name.new(name: :Y, params: [])]))
+
+    refute a.test(dest: T::Name.new(name: :X, params: []),
+                  src: T::Union.new(types: [T::Name.new(name: :Z, params: []),
+                                            T::Name.new(name: :Y, params: [])]))
+  end
 end
