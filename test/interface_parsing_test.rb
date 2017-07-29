@@ -49,4 +49,22 @@ end
     assert_equal [], interface.params
     assert_equal Steep::Parser.parse_method("<'a> () -> 'a"), interface.methods[:foo]
   end
+
+  def test_union
+    interfaces = Steep::Parser.parse_interfaces(<<-EOF)
+interface Foo
+  def bar: () -> Int | String
+end
+    EOF
+
+    assert_equal 1, interfaces.size
+
+    interface = interfaces[0]
+    assert_equal :Foo, interface.name
+    assert_equal [], interface.params
+
+    return_type = interface.methods[:bar].return_type
+    assert_instance_of Steep::Types::Union, return_type
+    assert_equal [Steep::Types::Name.new(name: :Int, params: []), Steep::Types::Name.new(name: :String, params: [])], return_type.types
+  end
 end

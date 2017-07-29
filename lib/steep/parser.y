@@ -65,9 +65,13 @@ type: IDENT { result = Types::Name.new(name: val[0], params: []) }
     | IDENT LT type_seq GT { result = Types::Name.new(name: val[0], params: val[2]) }
     | ANY { result = Types::Any.new }
     | TVAR { result = Types::Var.new(name: val[0]) }
+    | union_seq { result = Types::Union.new(types: val[0]) }
 
 type_seq: type { result = [val[0]] }
         | type COMMA type_seq { result = [val[0]] + val[2] }
+
+union_seq: type BAR type { result = [val[0], val[2]] }
+         | type BAR union_seq { result = [val[0]] + val[2] }
 
 keyword: IDENT { result = val[0] }
 
@@ -176,6 +180,8 @@ def next_token
     [:INTERFACE, nil]
   when input.scan(/end/)
     [:END, nil]
+  when input.scan(/\|/)
+    [:BAR, nil]
   when input.scan(/def/)
     [:DEF, nil]
   when input.scan(/@type/)
