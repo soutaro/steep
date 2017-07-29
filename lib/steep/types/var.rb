@@ -10,6 +10,10 @@ module Steep
       def ==(other)
         other.is_a?(Var) && other.name == name
       end
+
+      def hash
+        name.hash
+      end
     end
   end
 end
