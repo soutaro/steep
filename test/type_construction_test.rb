@@ -39,6 +39,11 @@ end
 interface X
   def f: () { (A) -> D } -> C 
 end
+
+interface Kernel
+  def foo: (A) -> B
+         : (C) -> D
+end
       EOS
       interfaces.each do |interface|
         assignability.add_interface interface
@@ -171,12 +176,10 @@ x.g(y)
     construction = TypeConstruction.new(assignability: assignability, source: source, annotations: annotations, var_types: {}, return_type: nil, block_type: nil, typing: typing)
     construction.synthesize(source.node)
 
-    assert_equal Types::Name.new(name: :B, params: []), typing.type_of(node: source.node)
+    assert_equal Types::Any.new, typing.type_of(node: source.node)
 
     assert_equal 1, typing.errors.size
-    assert_invalid_argument_error typing.errors[0],
-                                  expected_type: Types::Name.new(name: :A, params: []),
-                                  actual_type: Types::Name.new(name: :B, params: [])
+    assert_argument_type_mismatch typing.errors[0], type: Types::Name.new(name: :C, params: []), method: :g
   end
 
   def test_method_call_no_error_if_any
@@ -229,10 +232,10 @@ a.g()
     construction = TypeConstruction.new(assignability: assignability, source: source, annotations: annotations, var_types: {}, return_type: nil, block_type: nil, typing: typing)
     construction.synthesize(source.node)
 
-    assert_equal Types::Name.new(name: :B, params: []), typing.type_of(node: source.node)
+    assert_equal Types::Any.new, typing.type_of(node: source.node)
 
     assert_equal 1, typing.errors.size
-    assert_expected_argument_missing typing.errors.first, index: 0
+    assert_argument_type_mismatch typing.errors[0], type: Types::Name.new(name: :C, params: []), method: :g
   end
 
   def test_method_call_extra_args
@@ -250,10 +253,10 @@ a.g(nil, nil, nil)
     construction = TypeConstruction.new(assignability: assignability, source: source, annotations: annotations, var_types: {}, return_type: nil, block_type: nil, typing: typing)
     construction.synthesize(source.node)
 
-    assert_equal Types::Name.new(name: :B, params: []), typing.type_of(node: source.node)
+    assert_equal Types::Any.new, typing.type_of(node: source.node)
 
     assert_equal 1, typing.errors.size
-    assert_extra_argument_given typing.errors.first, index: 2
+    assert_argument_type_mismatch typing.errors.first, type: Types::Name.new(name: :C, params: []), method: :g
   end
 
   def test_keyword_call
@@ -290,10 +293,10 @@ x.h()
     construction = TypeConstruction.new(assignability: assignability, source: source, annotations: annotations, var_types: {}, return_type: nil, block_type: nil, typing: typing)
     construction.synthesize(source.node)
 
-    assert_equal Types::Name.new(name: :C, params: []), typing.type_of(node: source.node)
+    assert_equal Types::Any.new, typing.type_of(node: source.node)
 
     assert_equal 1, typing.errors.size
-    assert_expected_keyword_missing typing.errors[0], keyword: :a
+    assert_argument_type_mismatch typing.errors[0], type: Types::Name.new(name: :C, params: []), method: :h
   end
 
   def test_extra_keyword_given
@@ -309,10 +312,10 @@ x.h(a: nil, b: nil, c: nil)
     construction = TypeConstruction.new(assignability: assignability, source: source, annotations: annotations, var_types: {}, return_type: nil, block_type: nil, typing: typing)
     construction.synthesize(source.node)
 
-    assert_equal Types::Name.new(name: :C, params: []), typing.type_of(node: source.node)
+    assert_equal Types::Any.new, typing.type_of(node: source.node)
 
     assert_equal 1, typing.errors.size
-    assert_extra_keyword_given typing.errors[0], keyword: :c
+    assert_argument_type_mismatch typing.errors[0], type: Types::Name.new(name: :C, params: []), method: :h
   end
 
   def test_keyword_typecheck
@@ -330,10 +333,10 @@ x.h(a: y)
     construction = TypeConstruction.new(assignability: assignability, source: source, annotations: annotations, var_types: {}, return_type: nil, block_type: nil, typing: typing)
     construction.synthesize(source.node)
 
-    assert_equal Types::Name.new(name: :C, params: []), typing.type_of(node: source.node)
+    assert_equal Types::Any.new, typing.type_of(node: source.node)
 
     assert_equal 1, typing.errors.size
-    assert_invalid_argument_error typing.errors[0], expected_type: Types::Name.new(name: :A, params: []), actual_type: Types::Name.new(name: :B, params: [])
+    assert_argument_type_mismatch typing.errors[0], type: Types::Name.new(name: :C, params: []), method: :h
   end
 
   def test_def_no_params
@@ -581,6 +584,31 @@ end
     assert_any typing.errors do |error|
       error.is_a?(Steep::Errors::ReturnTypeMismatch) && error.expected == Types::Name.new(name: :X, params: []) && error.actual == Types::Name.new(name: :A, params: [])
     end
+  end
+
+  def test_union_method
+    source = ruby(<<-EOF)
+# @type var k: Kernel
+# @type var a: A
+# @type var c: C
+k = nil
+a = nil
+c = nil
+
+# @type var b: B
+# b = k.foo(a)
+
+# @type var d: D
+d = k.foo(c)
+    EOF
+
+    typing = Typing.new
+    annotations = source.annotations(block: source.node)
+
+    construction = TypeConstruction.new(assignability: assignability, source: source, annotations: annotations, var_types: {}, return_type: nil, block_type: nil, typing: typing)
+    construction.synthesize(source.node)
+
+    assert_empty typing.errors
   end
 
   def arguments(ruby)

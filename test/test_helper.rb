@@ -10,15 +10,6 @@ module TestHelper
 end
 
 module TypeErrorAssertions
-  def assert_invalid_argument_error(error, expected_type: nil, actual_type: nil)
-    assert_instance_of Steep::Errors::InvalidArgument, error
-
-    assert_equal expected_type, error.expected if expected_type
-    assert_equal actual_type, error.actual if actual_type
-
-    yield error if block_given?
-  end
-
   def assert_incompatible_assignment(error, node: nil, lhs_type: nil, rhs_type:)
     assert_instance_of Steep::Errors::IncompatibleAssignment, error
 
@@ -39,36 +30,13 @@ module TypeErrorAssertions
     block_given? and yield error
   end
 
-  def assert_expected_argument_missing(error, index: nil)
-    assert_instance_of Steep::Errors::ExpectedArgumentMissing, error
+  def assert_argument_type_mismatch(error, type: nil, method: nil)
+    assert_instance_of Steep::Errors::ArgumentTypeMismatch, error
 
-    index and assert_equal index, error.index
+    assert_equal type, error.type if type
+    assert_equal method, error.method if method
 
-    block_given? and yield error
-  end
-
-  def assert_extra_argument_given(error, index: nil)
-    assert_instance_of Steep::Errors::ExtraArgumentGiven, error
-
-    assert_equal index, error.index if index
-
-    yield error if block_given?
-  end
-
-  def assert_expected_keyword_missing(error, keyword: nil)
-    assert_instance_of Steep::Errors::ExpectedKeywordMissing, error
-
-    assert_equal keyword, error.keyword if keyword
-
-    yield error if block_given?
-  end
-
-  def assert_extra_keyword_given(error, keyword: nil)
-    assert_instance_of Steep::Errors::ExtraKeywordGiven, error
-
-    assert_equal keyword, error.keyword if keyword
-
-    yield keyword if block_given?
+    yield type, method if block_given?
   end
 
   def assert_block_type_mismatch(error, expected: nil, actual: nil)

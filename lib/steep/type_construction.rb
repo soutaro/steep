@@ -230,14 +230,21 @@ module Steep
       receiver, method_name, *args = node.children
       recv_type = synthesize(receiver)
 
-      ret_type = assignability.method_type recv_type, method_name do |method_type|
-        if method_type
-          check_argument_types node, params: method_type.params, arguments: args
-          yield recv_type, method_name, method_type if block_given?
-          method_type.return_type
+      ret_type = assignability.method_type recv_type, method_name do |method_types|
+        if method_types
+          method_type = method_types.find {|method_type_| applicable_args?(params: method_type_.params, arguments: args) }
+
+          if method_type
+            yield recv_type, method_name, method_type if block_given?
+            method_type.return_type
+          else
+            typing.add_error Errors::ArgumentTypeMismatch.new(node: node, type: recv_type, method: method_name)
+            nil
+          end
         else
           # no method error
           typing.add_error Errors::NoMethod.new(node: node, method: method_name, type: recv_type)
+          nil
         end
       end
 
@@ -260,39 +267,38 @@ module Steep
       end
     end
 
-    def check_argument_types(node, params:, arguments:)
-      arguments = arguments.dup
-
-      params.each_missing_argument arguments do |index|
-        typing.add_error Errors::ExpectedArgumentMissing.new(node: node, index: index)
+    def applicable_args?(params:, arguments:)
+      params.each_missing_argument arguments do |_|
+        return false
       end
 
-      params.each_extra_argument arguments do |index|
-        typing.add_error Errors::ExtraArgumentGiven.new(node: node, index: index)
+      params.each_extra_argument arguments do |_|
+        return false
       end
 
-      params.each_missing_keyword arguments do |keyword|
-        typing.add_error Errors::ExpectedKeywordMissing.new(node: node, keyword: keyword)
+      params.each_missing_keyword arguments do |_|
+        return false
       end
 
-      params.each_extra_keyword arguments do |keyword|
-        typing.add_error Errors::ExtraKeywordGiven.new(node: node, keyword: keyword)
+      params.each_extra_keyword arguments do |_|
+        return false
       end
 
       all_args = arguments.dup
 
-      self.class.argument_typing_pairs(params: params, arguments: arguments).each do |(param_type, argument)|
+      self.class.argument_typing_pairs(params: params, arguments: arguments.dup).each do |(param_type, argument)|
         all_args.delete_if {|a| a.equal?(argument) }
 
-        check(argument, param_type) do |_, actual_type|
-          error = Errors::InvalidArgument.new(node: argument, expected: param_type, actual: actual_type)
-          typing.add_error(error)
+        check(argument, param_type) do |_, _|
+          return false
         end
       end
 
       all_args.each do |arg|
         synthesize(arg)
       end
+
+      true
     end
 
     def self.block_param_typing_pairs(param_types: , param_nodes:)

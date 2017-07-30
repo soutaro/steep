@@ -205,4 +205,29 @@ end
                   src: T::Union.new(types: [T::Name.new(name: :Z, params: []),
                                             T::Name.new(name: :Y, params: [])]))
   end
+
+  def test_union_method
+    a = Steep::TypeAssignability.new
+
+    parse_interface(<<-EOS).each do |interface|
+interface X
+  def f: () -> any
+       : (any) -> any
+       : (any, any) -> any
+end
+
+interface Y
+  def f: () -> any
+       : (X) -> X
+end
+    EOS
+      a.add_interface interface
+    end
+
+    assert a.test(src: T::Name.new(name: :X, params: []),
+                  dest: T::Name.new(name: :Y, params: []))
+
+    refute a.test(src: T::Name.new(name: :Y, params: []),
+                  dest: T::Name.new(name: :X, params: []))
+  end
 end

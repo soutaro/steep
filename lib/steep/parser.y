@@ -91,7 +91,10 @@ type_param_seq: TVAR { result = [val[0]] }
 method_decls: { result = {} }
             | method_decl method_decls { result = val[1].merge(val[0]) }
 
-method_decl: DEF method_name COLON method_type { result = { val[1] => val[3] } }
+method_decl: DEF method_name COLON method_type_union { result = { val[1] => val[3] }}
+
+method_type_union: method_type { result = [val[0]] }
+                 | method_type COLON method_type_union { result = [val[0]] + val[2] }
 
 method_name: IDENT { result = val[0] }
            | INTERFACE { result = :interface }

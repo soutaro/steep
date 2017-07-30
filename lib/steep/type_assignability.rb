@@ -51,10 +51,15 @@ module Steep
 
       pairs = known_pairs + [[src, dest]]
 
-      dest.methods.all? do |name, dest_method|
+      dest.methods.all? do |name, dest_methods|
         if src.methods.key?(name)
-          src_method = src.methods[name]
-          test_method(src_method, dest_method, pairs)
+          src_methods = src.methods[name]
+
+          dest_methods.all? do |dest_method|
+            src_methods.any? do |src_method|
+              test_method(src_method, dest_method, pairs)
+            end
+          end
         end
       end
     end
@@ -169,10 +174,9 @@ module Steep
       method = interface.methods[name]
 
       if method
-        yield method
+        yield(method) || Types::Any.new
       else
-        yield nil
-        Types::Any.new
+        yield(nil) || Types::Any.new
       end
     end
   end

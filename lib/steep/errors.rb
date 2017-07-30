@@ -19,14 +19,14 @@ module Steep
       end
     end
 
-    class InvalidArgument < Base
-      attr_reader :expected
-      attr_reader :actual
+    class ArgumentTypeMismatch < Base
+      attr_reader :type
+      attr_reader :method
 
-      def initialize(node:, expected:, actual:)
+      def initialize(node:, type:, method:)
         super(node: node)
-        @expected = expected
-        @actual = actual
+        @type = type
+        @method = method
       end
     end
 
@@ -38,42 +38,6 @@ module Steep
         super(node: node)
         @type = type
         @method = method
-      end
-    end
-
-    class ExpectedArgumentMissing < Base
-      attr_reader :index
-
-      def initialize(node:, index:)
-        super(node: node)
-        @index = index
-      end
-    end
-
-    class ExtraArgumentGiven < Base
-      attr_reader :index
-
-      def initialize(node:, index:)
-        super(node: node)
-        @index = index
-      end
-    end
-
-    class ExpectedKeywordMissing < Base
-      attr_reader :keyword
-
-      def initialize(node:, keyword:)
-        super(node: node)
-        @keyword = keyword
-      end
-    end
-
-    class ExtraKeywordGiven < Base
-      attr_reader :keyword
-
-      def initialize(node:, keyword:)
-        super(node: node)
-        @keyword = keyword
       end
     end
 
