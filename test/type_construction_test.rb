@@ -8,6 +8,7 @@ class TypeConstructionTest < Minitest::Test
   Parser = Steep::Parser
   Annotation = Steep::Annotation
   Types = Steep::Types
+  Interface = Steep::Interface
 
   include TestHelper
   include TypeErrorAssertions
@@ -616,12 +617,12 @@ d = k.foo(c)
   end
 
   def test_argument_pairs
-    params = Types::Interface::Params.empty.with(required: [Types::Name.new(name: :A, params: [])],
-                                                 optional: [Types::Name.new(name: :B, params: [])],
-                                                 rest: Types::Name.new(name: :C, params: []),
-                                                 required_keywords: { d: Types::Name.new(name: :D, params: []) },
-                                                 optional_keywords: { e: Types::Name.new(name: :E, params: []) },
-                                                 rest_keywords: Types::Name.new(name: :F, params: []))
+    params = Interface::Params.empty.with(required: [Types::Name.new(name: :A, params: [])],
+                                          optional: [Types::Name.new(name: :B, params: [])],
+                                          rest: Types::Name.new(name: :C, params: []),
+                                          required_keywords: { d: Types::Name.new(name: :D, params: []) },
+                                          optional_keywords: { e: Types::Name.new(name: :E, params: []) },
+                                          rest_keywords: Types::Name.new(name: :F, params: []))
     arguments = arguments("f(a, b, c, d: d, e: e, f: f)")
 
     assert_equal [
@@ -635,12 +636,12 @@ d = k.foo(c)
   end
 
   def test_argument_pairs_rest_keywords
-    params = Types::Interface::Params.empty.with(required: [Types::Name.new(name: :A, params: [])],
-                                                 optional: [Types::Name.new(name: :B, params: [])],
-                                                 rest: Types::Name.new(name: :C, params: []),
-                                                 required_keywords: { d: Types::Name.new(name: :D, params: []) },
-                                                 optional_keywords: { e: Types::Name.new(name: :E, params: []) },
-                                                 rest_keywords: Types::Name.new(name: :F, params: []))
+    params = Interface::Params.empty.with(required: [Types::Name.new(name: :A, params: [])],
+                                          optional: [Types::Name.new(name: :B, params: [])],
+                                          rest: Types::Name.new(name: :C, params: []),
+                                          required_keywords: { d: Types::Name.new(name: :D, params: []) },
+                                          optional_keywords: { e: Types::Name.new(name: :E, params: []) },
+                                          rest_keywords: Types::Name.new(name: :F, params: []))
     arguments = arguments("f(a, b, c, d: d, e: e, f: f)")
 
     assert_equal [
@@ -654,9 +655,9 @@ d = k.foo(c)
   end
 
   def test_argument_pairs_required
-    params = Types::Interface::Params.empty.with(required: [Types::Name.new(name: :A, params: [])],
-                                                 optional: [Types::Name.new(name: :B, params: [])],
-                                                 rest: Types::Name.new(name: :C, params: []))
+    params = Interface::Params.empty.with(required: [Types::Name.new(name: :A, params: [])],
+                                          optional: [Types::Name.new(name: :B, params: [])],
+                                          rest: Types::Name.new(name: :C, params: []))
     arguments = arguments("f(a, b, c)")
 
     assert_equal [
@@ -667,9 +668,9 @@ d = k.foo(c)
   end
 
   def test_argument_pairs_hash
-    params = Types::Interface::Params.empty.with(required: [Types::Name.new(name: :A, params: [])],
-                                                 optional: [Types::Name.new(name: :B, params: [])],
-                                                 rest: Types::Name.new(name: :C, params: []))
+    params = Interface::Params.empty.with(required: [Types::Name.new(name: :A, params: [])],
+                                          optional: [Types::Name.new(name: :B, params: [])],
+                                          rest: Types::Name.new(name: :C, params: []))
     arguments = arguments("f(a, b, c, d: d)")
 
     assert_equal [
@@ -681,9 +682,9 @@ d = k.foo(c)
   end
 
   def test_argument_keywords
-    params = Types::Interface::Params.empty.with(required_keywords: { d: Types::Name.new(name: :D, params: []) },
-                                                 optional_keywords: { e: Types::Name.new(name: :E, params: []) },
-                                                 rest_keywords: Types::Name.new(name: :F, params: []))
+    params = Interface::Params.empty.with(required_keywords: { d: Types::Name.new(name: :D, params: []) },
+                                          optional_keywords: { e: Types::Name.new(name: :E, params: []) },
+                                          rest_keywords: Types::Name.new(name: :F, params: []))
 
     arguments = arguments("f(d: d, e: e, f: f)")
 
@@ -695,7 +696,7 @@ d = k.foo(c)
   end
 
   def test_argument_hash_not_keywords
-    params = Types::Interface::Params.empty.with(required: [Types::Name.new(name: :A, params: [])])
+    params = Interface::Params.empty.with(required: [Types::Name.new(name: :A, params: [])])
 
     arguments = arguments("f(d: d, e: e, f: f)")
 

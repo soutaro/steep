@@ -2,6 +2,7 @@ require "test_helper"
 
 class MethodParsingTest < Minitest::Test
   T = Steep::Types
+  Interface = Steep::Interface
 
   def test_no_params1
     method = Steep::Parser.parse_method("() -> any")
@@ -119,7 +120,7 @@ class MethodParsingTest < Minitest::Test
     assert_equal({ name: T::Name.new(name: :String, params: []) }, method.params.required_keywords)
     assert_equal({ email: T::Name.new(name: :Symbol, params: [])}, method.params.optional_keywords)
     assert_equal T::Name.new(name: :Integer, params: []), method.params.rest_keywords
-    assert_instance_of T::Interface::Block, method.block
+    assert_instance_of Interface::Block, method.block
     assert_equal [], method.block.params.required
     assert_equal [], method.block.params.optional
     assert_equal T::Any.new, method.block.params.rest
@@ -138,7 +139,7 @@ class MethodParsingTest < Minitest::Test
     assert_equal({ name: T::Name.new(name: :String, params: []) }, method.params.required_keywords)
     assert_equal({ email: T::Name.new(name: :Symbol, params: []) }, method.params.optional_keywords)
     assert_equal T::Name.new(name: :Integer, params: []), method.params.rest_keywords
-    assert_instance_of T::Interface::Block, method.block
+    assert_instance_of Interface::Block, method.block
     assert_equal [], method.block.params.required
     assert_equal [], method.block.params.optional
     assert_equal T::Any.new, method.block.params.rest
@@ -157,7 +158,7 @@ class MethodParsingTest < Minitest::Test
     assert_equal({ name: T::Name.new(name: :String, params: []) }, method.params.required_keywords)
     assert_equal({ email: T::Name.new(name: :Symbol, params: []) }, method.params.optional_keywords)
     assert_equal T::Name.new(name: :Integer, params: []), method.params.rest_keywords
-    assert_instance_of T::Interface::Block, method.block
+    assert_instance_of Interface::Block, method.block
     assert_equal [T::Name.new(name: :String, params: [])], method.block.params.required
     assert_equal [T::Name.new(name: :Integer, params: [])], method.block.params.optional
     assert_equal T::Name.new(name: :Symbol, params: []), method.block.params.rest

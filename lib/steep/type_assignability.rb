@@ -24,7 +24,7 @@ module Steep
         dest.types.any? do |type|
           test(src: src, dest: type, known_pairs: known_pairs)
         end
-      when (src.is_a?(Types::Name) || src.is_a?(Types::Interface)) && (dest.is_a?(Types::Name) || dest.is_a?(Types::Interface))
+      when (src.is_a?(Types::Name) || src.is_a?(Interface)) && (dest.is_a?(Types::Name) || dest.is_a?(Interface))
         test_interface(to_interface(src.name), to_interface(dest.name), known_pairs)
       else
         raise "Unexpected type: src=#{src.inspect}, dest=#{dest.inspect}, known_pairs=#{known_pairs.inspect}"
@@ -170,7 +170,7 @@ module Steep
     def method_type(type, name)
       return type if type.is_a?(Types::Any)
 
-      interface = type.is_a?(Types::Interface) ? type : to_interface(type.name)
+      interface = type.is_a?(Interface) ? type : to_interface(type.name)
       method = interface.methods[name]
 
       if method
