@@ -30,7 +30,7 @@ end
     assignability.add_interface if1
     assignability.add_interface if2
 
-    assert assignability.test(src: if1, dest: if2)
+    assert assignability.test(src: T::Name.new(name: :Foo, params: []), dest: T::Name.new(name: :Bar, params: []))
   end
 
   def test_if2
@@ -48,7 +48,7 @@ end
     assignability.add_interface if1
     assignability.add_interface if2
 
-    assert assignability.test(src: if1, dest: if2)
+    assert assignability.test(src: T::Name.new(name: :Foo, params: []), dest: T::Name.new(name: :Bar, params: []))
   end
 
   def test_method1
