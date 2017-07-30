@@ -5,6 +5,7 @@ require "parser/current"
 require "ast_utils"
 
 require "steep/types"
+require "steep/type_name"
 require "steep/interface"
 require "steep/types/any"
 require "steep/types/name"

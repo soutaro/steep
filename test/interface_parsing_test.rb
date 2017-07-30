@@ -65,7 +65,7 @@ end
 
     return_type = interface.methods[:bar].first.return_type
     assert_instance_of Steep::Types::Union, return_type
-    assert_equal [Steep::Types::Name.new(name: :Int, params: []), Steep::Types::Name.new(name: :String, params: [])], return_type.types
+    assert_equal [Steep::Types::Name.interface(name: :Int), Steep::Types::Name.interface(name: :String)], return_type.types
   end
 
   def test_union_method_type

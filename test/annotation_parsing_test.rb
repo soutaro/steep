@@ -11,7 +11,7 @@ class AnnotationParsingTest < Minitest::Test
   def test_var_type_annotation
     annot = Parser.parse_annotation_opt("@type var foo: Bar")
     assert_equal :foo, annot.var
-    assert_equal Steep::Types::Name.new(name: :Bar, params: []), annot.type
+    assert_equal Steep::Types::Name.interface(name: :Bar), annot.type
   end
 
   def test_method_annotation
@@ -28,11 +28,11 @@ class AnnotationParsingTest < Minitest::Test
 
   def test_return_type_annotation
     annot = Parser.parse_annotation_opt("@type return: Integer")
-    assert_equal Steep::Types::Name.new(name: :Integer, params: []), annot.type
+    assert_equal Steep::Types::Name.interface(name: :Integer), annot.type
   end
 
   def test_block_type_annotation
     annot = Parser.parse_annotation_opt("@type block: String")
-    assert_equal Steep::Types::Name.new(name: :String, params: []), annot.type
+    assert_equal Steep::Types::Name.interface(name: :String), annot.type
   end
 end

@@ -7,7 +7,7 @@ module Steep
     end
 
     def add_interface(interface)
-      interfaces[interface.name] = interface
+      interfaces[TypeName::Interface.new(name: interface.name)] = interface
     end
 
     def test(src:, dest:, known_pairs: [])

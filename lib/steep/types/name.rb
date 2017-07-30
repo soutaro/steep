@@ -9,6 +9,10 @@ module Steep
         @params = params
       end
 
+      def self.interface(name:, params: [])
+        self.new(name: TypeName::Interface.new(name: name), params: params)
+      end
+
       def ==(other)
         other.is_a?(Name) && name == other.name && other.params == params
       end

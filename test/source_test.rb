@@ -52,6 +52,6 @@ Foo::Bar.new
     block_annotations = s.annotations(block: s.node.children[0].children[1].children[2].children[2])
     assert_equal 2, block_annotations.size
     assert_includes block_annotations, A::VarType.new(var: :x5, type: T::Any.new)
-    assert_includes block_annotations, A::BlockType.new(type: T::Name.new(name: :Integer, params: []))
+    assert_includes block_annotations, A::BlockType.new(type: T::Name.interface(name: :Integer))
   end
 end

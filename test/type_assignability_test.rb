@@ -30,7 +30,7 @@ end
     assignability.add_interface if1
     assignability.add_interface if2
 
-    assert assignability.test(src: T::Name.new(name: :Foo, params: []), dest: T::Name.new(name: :Bar, params: []))
+    assert assignability.test(src: T::Name.interface(name: :Foo), dest: T::Name.interface(name: :Bar))
   end
 
   def test_if2
@@ -48,7 +48,7 @@ end
     assignability.add_interface if1
     assignability.add_interface if2
 
-    assert assignability.test(src: T::Name.new(name: :Foo, params: []), dest: T::Name.new(name: :Bar, params: []))
+    assert assignability.test(src: T::Name.interface(name: :Foo), dest: T::Name.interface(name: :Bar))
   end
 
   def test_method1
@@ -113,7 +113,7 @@ end
       a.add_interface interface
     end
 
-    assert a.test(src: T::Name.new(name: :T, params: []), dest: T::Name.new(name: :S, params: []))
+    assert a.test(src: T::Name.interface(name: :T), dest: T::Name.interface(name: :S))
 
     assert a.test_method(parse_method("() -> T"), parse_method("() -> S"), [])
     refute a.test_method(parse_method("() -> S"), parse_method("() -> T"), [])
@@ -138,8 +138,8 @@ end
       a.add_interface interface
     end
 
-    assert a.test(src: T::Name.new(name: :T, params: []), dest: T::Name.new(name: :S, params: []))
-    refute a.test(src: T::Name.new(name: :S, params: []), dest: T::Name.new(name: :T, params: []))
+    assert a.test(src: T::Name.interface(name: :T), dest: T::Name.interface(name: :S))
+    refute a.test(src: T::Name.interface(name: :S), dest: T::Name.interface(name: :T))
   end
 
   def test_union_intro
@@ -161,19 +161,19 @@ end
       a.add_interface interface
     end
 
-    assert a.test(dest: T::Union.new(types: [T::Name.new(name: :X, params: []),
-                                             T::Name.new(name: :Y, params: [])]),
-                  src: T::Name.new(name: :X, params: []))
+    assert a.test(dest: T::Union.new(types: [T::Name.interface(name: :X),
+                                             T::Name.interface(name: :Y)]),
+                  src: T::Name.interface(name: :X))
 
-    assert a.test(dest: T::Union.new(types: [T::Name.new(name: :X, params: []),
-                                             T::Name.new(name: :Y, params: []),
-                                             T::Name.new(name: :Z, params: [])]),
-                  src: T::Union.new(types: [T::Name.new(name: :X, params: []),
-                                            T::Name.new(name: :Y, params: [])]))
+    assert a.test(dest: T::Union.new(types: [T::Name.interface(name: :X),
+                                             T::Name.interface(name: :Y),
+                                             T::Name.interface(name: :Z)]),
+                  src: T::Union.new(types: [T::Name.interface(name: :X),
+                                            T::Name.interface(name: :Y)]))
 
-    refute a.test(dest: T::Union.new(types: [T::Name.new(name: :X, params: []),
-                                             T::Name.new(name: :Y, params: [])]),
-                  src: T::Name.new(name: :Z, params: []))
+    refute a.test(dest: T::Union.new(types: [T::Name.interface(name: :X),
+                                             T::Name.interface(name: :Y)]),
+                  src: T::Name.interface(name: :Z))
   end
 
   def test_union_elim
@@ -197,13 +197,13 @@ end
       a.add_interface interface
     end
 
-    assert a.test(dest: T::Name.new(name: :Z, params: []),
-                  src: T::Union.new(types: [T::Name.new(name: :X, params: []),
-                                            T::Name.new(name: :Y, params: [])]))
+    assert a.test(dest: T::Name.interface(name: :Z),
+                  src: T::Union.new(types: [T::Name.interface(name: :X),
+                                            T::Name.interface(name: :Y)]))
 
-    refute a.test(dest: T::Name.new(name: :X, params: []),
-                  src: T::Union.new(types: [T::Name.new(name: :Z, params: []),
-                                            T::Name.new(name: :Y, params: [])]))
+    refute a.test(dest: T::Name.interface(name: :X),
+                  src: T::Union.new(types: [T::Name.interface(name: :Z),
+                                            T::Name.interface(name: :Y)]))
   end
 
   def test_union_method
@@ -224,10 +224,10 @@ end
       a.add_interface interface
     end
 
-    assert a.test(src: T::Name.new(name: :X, params: []),
-                  dest: T::Name.new(name: :Y, params: []))
+    assert a.test(src: T::Name.interface(name: :X),
+                  dest: T::Name.interface(name: :Y))
 
-    refute a.test(src: T::Name.new(name: :Y, params: []),
-                  dest: T::Name.new(name: :X, params: []))
+    refute a.test(src: T::Name.interface(name: :Y),
+                  dest: T::Name.interface(name: :X))
   end
 end

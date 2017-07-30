@@ -61,8 +61,8 @@ block_params1: optional_param { result = Interface::Params.empty.with(optional: 
 block_params2: { result = Interface::Params.empty }
              | rest_param { result = Interface::Params.empty.with(rest: val[0]) }
 
-type: IDENT { result = Types::Name.new(name: val[0], params: []) }
-    | IDENT LT type_seq GT { result = Types::Name.new(name: val[0], params: val[2]) }
+type: IDENT { result = Types::Name.interface(name: val[0], params: []) }
+    | IDENT LT type_seq GT { result = Types::Name.interface(name: val[0], params: val[2]) }
     | ANY { result = Types::Any.new }
     | TVAR { result = Types::Var.new(name: val[0]) }
     | union_seq { result = Types::Union.new(types: val[0]) }
