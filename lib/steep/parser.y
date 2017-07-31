@@ -65,6 +65,9 @@ type: IDENT { result = Types::Name.interface(name: val[0], params: []) }
     | IDENT LT type_seq GT { result = Types::Name.interface(name: val[0], params: val[2]) }
     | ANY { result = Types::Any.new }
     | TVAR { result = Types::Var.new(name: val[0]) }
+    | CLASS { result = Types::Class.new }
+    | MODULE { result = Types::Class.new }
+    | INSTANCE { result = Types::Instance.new }
     | union_seq { result = Types::Union.new(types: val[0]) }
 
 type_seq: type { result = [val[0]] }
@@ -137,6 +140,10 @@ rescue
   nil
 end
 
+def self.parse_signature(input)
+  new(:SIGNATURE, input).do_parse
+end
+
 def next_token
   if @type
     type = @type
@@ -199,6 +206,12 @@ def next_token
     [:METHOD, nil]
   when input.scan(/'\w+/)
     [:TVAR, input.matched.gsub(/\A'/, '').to_sym]
+  when input.scan(/instance/)
+    [:INSTANCE, nil]
+  when input.scan(/class/)
+    [:CLASS, nil]
+  when input.scan(/module/)
+    [:MODULE, nil]
   when input.scan(/\w+/)
     [:IDENT, input.matched.to_sym]
   end

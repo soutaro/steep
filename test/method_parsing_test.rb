@@ -186,4 +186,11 @@ class MethodParsingTest < Minitest::Test
 
     assert_equal T::Name.interface(name: :Array, params: [T::Var.new(name: :a)]), method.return_type
   end
+
+  def test_self_and_class_and_module
+    method = Steep::Parser.parse_method("(class, module) -> instance")
+
+    assert_equal [T::Class.new, T::Class.new], method.params.required
+    assert_equal T::Instance.new, method.return_type
+  end
 end
