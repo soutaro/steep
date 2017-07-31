@@ -3,7 +3,7 @@ class Steep::Parser
 rule
 
 target: type_METHOD method_type { result = val[1] }
-      | type_INTERFACES interfaces { result = val[1] }
+      | type_SIGNATURE interfaces { result = val[1] }
       | type_ANNOTATION annotation { result = val[1] }
 
 method_type: params block_opt ARROW type
@@ -130,18 +130,14 @@ def self.parse_method(input)
   new(:METHOD, input).do_parse
 end
 
-def self.parse_interfaces(input)
-  new(:INTERFACES, input).do_parse
+def self.parse_signature(input)
+  new(:SIGNATURE, input).do_parse
 end
 
 def self.parse_annotation_opt(input)
   new(:ANNOTATION, input).do_parse
 rescue
   nil
-end
-
-def self.parse_signature(input)
-  new(:SIGNATURE, input).do_parse
 end
 
 def next_token

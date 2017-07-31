@@ -4,7 +4,7 @@ class InterfaceParsingTest < Minitest::Test
   T = Steep::Types
 
   def test_1
-    interfaces = Steep::Parser.parse_interfaces(<<-EOF)
+    interfaces = Steep::Parser.parse_signature(<<-EOF)
 interface Foo
   def hello: -> any
   def +: (String) -> Bar
@@ -23,7 +23,7 @@ end
   end
 
   def test_interface_param
-    interfaces = Steep::Parser.parse_interfaces(<<-EOF)
+    interfaces = Steep::Parser.parse_signature(<<-EOF)
 interface Foo<'a, 'b>
 end
     EOF
@@ -36,7 +36,7 @@ end
   end
 
   def test_method_param
-    interfaces = Steep::Parser.parse_interfaces(<<-EOF)
+    interfaces = Steep::Parser.parse_signature(<<-EOF)
 interface Foo
   def foo: <'a> () -> 'a
 end
@@ -51,7 +51,7 @@ end
   end
 
   def test_union
-    interfaces = Steep::Parser.parse_interfaces(<<-EOF)
+    interfaces = Steep::Parser.parse_signature(<<-EOF)
 interface Foo
   def bar: () -> Int | String
 end
@@ -69,7 +69,7 @@ end
   end
 
   def test_union_method_type
-    interfaces = Steep::Parser.parse_interfaces(<<-EOF)
+    interfaces = Steep::Parser.parse_signature(<<-EOF)
 interface Kernel
   def gets: () -> String
           : () -> nil

@@ -8,8 +8,8 @@ class TypeAssignabilityTest < Minitest::Test
     Parser.parse_method(src)
   end
 
-  def parse_interface(src, &block)
-    Parser.parse_interfaces(src).each(&block)
+  def parse_signature(src, &block)
+    Parser.parse_signature(src).each(&block)
   end
 
   def test_any_any
@@ -18,7 +18,7 @@ class TypeAssignabilityTest < Minitest::Test
   end
 
   def test_if1
-    if1, if2 = Parser.parse_interfaces(<<-EOS)
+    if1, if2 = Parser.parse_signature(<<-EOS)
 interface Foo
 end
 
@@ -34,7 +34,7 @@ end
   end
 
   def test_if2
-    if1, if2 = Parser.parse_interfaces(<<-EOS)
+    if1, if2 = Parser.parse_signature(<<-EOS)
 interface Foo
   def foo: -> any
 end
@@ -54,7 +54,7 @@ end
   def test_method1
     a = Steep::TypeAssignability.new
 
-    parse_interface(<<-EOS).each do |interface|
+    parse_signature(<<-EOS).each do |interface|
 interface A
   def foo: -> any
 end
@@ -102,7 +102,7 @@ end
   def test_method2
     a = Steep::TypeAssignability.new
 
-    parse_interface(<<-EOS).each do |interface|
+    parse_signature(<<-EOS).each do |interface|
 interface S
 end
 
@@ -125,7 +125,7 @@ end
   def test_recursively
     a = Steep::TypeAssignability.new
 
-    parse_interface(<<-EOS).each do |interface|
+    parse_signature(<<-EOS).each do |interface|
 interface S
   def this: -> S
 end
@@ -145,7 +145,7 @@ end
   def test_union_intro
     a = Steep::TypeAssignability.new
 
-    parse_interface(<<-EOS).each do |interface|
+    parse_signature(<<-EOS).each do |interface|
 interface X
   def x: () -> any
 end
@@ -179,7 +179,7 @@ end
   def test_union_elim
     a = Steep::TypeAssignability.new
 
-    parse_interface(<<-EOS).each do |interface|
+    parse_signature(<<-EOS).each do |interface|
 interface X
   def x: () -> any
   def z: () -> any
@@ -209,7 +209,7 @@ end
   def test_union_method
     a = Steep::TypeAssignability.new
 
-    parse_interface(<<-EOS).each do |interface|
+    parse_signature(<<-EOS).each do |interface|
 interface X
   def f: () -> any
        : (any) -> any
