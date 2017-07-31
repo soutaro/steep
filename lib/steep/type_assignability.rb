@@ -4,6 +4,25 @@ module Steep
 
     def initialize()
       @interfaces = {}
+      @klasses = []
+      @instances = []
+    end
+
+    def with(klass: nil, instance: nil, &block)
+      @klasses.push(klass) if klass
+      @instances.push(instance) if instance
+      yield
+    ensure
+      @klasses.pop if klass
+      @instances.pop if instance
+    end
+
+    def klass
+      @klasses.last
+    end
+
+    def instance
+      @instances.last
     end
 
     def add_interface(interface)
@@ -25,7 +44,7 @@ module Steep
           test(src: src, dest: type, known_pairs: known_pairs)
         end
       when src.is_a?(Types::Name) && dest.is_a?(Types::Name)
-        test_interface(resolve_interface(src.name), resolve_interface(dest.name), known_pairs)
+        test_interface(resolve_interface(src.name, src.params), resolve_interface(dest.name, dest.params), known_pairs)
       else
         raise "Unexpected type: src=#{src.inspect}, dest=#{dest.inspect}, known_pairs=#{known_pairs.inspect}"
       end
@@ -163,14 +182,14 @@ module Steep
       true
     end
 
-    def resolve_interface(name)
-      interfaces[name]
+    def resolve_interface(name, params)
+      interfaces[name].to_interface(klass: klass, instance: instance, params: params)
     end
 
     def method_type(type, name)
       return type if type.is_a?(Types::Any)
 
-      interface = resolve_interface(type.name)
+      interface = resolve_interface(type.name, type.params)
       method = interface.methods[name]
 
       if method

@@ -7,6 +7,14 @@ module TestHelper
   def assert_any(collection, &block)
     assert collection.any?(&block)
   end
+
+  def parse_signature(signature)
+    Steep::Parser.parse_signature(signature)
+  end
+
+  def parse_method(string)
+    Steep::Parser.parse_method(string)
+  end
 end
 
 module TypeErrorAssertions

@@ -81,7 +81,7 @@ keyword: IDENT { result = val[0] }
 interfaces: { result = [] }
           | interface interfaces { result = [val[0]] + val[1] }
 
-interface: INTERFACE interface_name type_params method_decls END { result = Interface.new(name: val[1], params: val[2], methods: val[3]) }
+interface: INTERFACE interface_name type_params method_decls END { result = Signature::Interface.new(name: val[1], params: val[2], methods: val[3]) }
 
 interface_name: IDENT { result = val[0] }
 

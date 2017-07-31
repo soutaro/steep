@@ -122,6 +122,19 @@ module Steep
 
         [keywords, rest]
       end
+
+      def closed?
+        required.all?(&:closed?) && optional.all?(&:closed?) && (!rest || rest.closed?) && required_keywords.values.all?(&:closed?) && optional_keywords.values.all?(&:closed?) && (!rest_keywords || rest_keywords.closed?)
+      end
+
+      def substitute(klass:, instance:, params:)
+        self.class.new(required: required.map {|t| t.substitute(klass: klass, instance: instance, params: params) },
+                       optional: optional.map {|t| t.substitute(klass: klass, instance: instance, params: params) },
+                       rest: rest&.substitute(klass: klass, instance: instance, params: params),
+                       required_keywords: required_keywords.transform_values {|t| t.substitute(klass: klass, instance: instance, params: params) },
+                       optional_keywords: optional_keywords.transform_values {|t| t.substitute(klass: klass, instance: instance, params: params) },
+                       rest_keywords: rest_keywords&.substitute(klass: klass, instance: instance, params: params) )
+      end
     end
 
     class Method
@@ -143,6 +156,17 @@ module Steep
           other.block == block &&
           other.return_type == return_type
       end
+
+      def closed?
+        params.closed? && (!block || block.closed?) && return_type.closed?
+      end
+
+      def substitute(klass:, instance:, params:)
+        self.class.new(type_params: type_params,
+                       params: self.params.substitute(klass: klass, instance: instance, params: params),
+                       block: block&.substitute(klass: klass, instance: instance, params: params),
+                       return_type: return_type.substitute(klass: klass, instance: instance, params: params))
+      end
     end
 
     class Block
@@ -157,20 +181,33 @@ module Steep
       def ==(other)
         other.is_a?(self.class) && other.params == params && other.return_type == return_type
       end
+
+      def closed?
+        params.closed? && return_type.closed?
+      end
+
+      def substitute(klass:, instance:, params:)
+        self.class.new(params: self.params.substitute(klass: klass, instance: instance, params: params),
+                       return_type: return_type.substitute(klass: klass, instance: instance, params: params))
+      end
     end
 
     attr_reader :name
-    attr_reader :params
     attr_reader :methods
 
-    def initialize(name:, params:, methods:)
+    def initialize(name:, methods:)
       @name = name
-      @params = params
       @methods = methods
     end
 
+    def closed?
+      methods.values.all? do |methods|
+        methods.all?(&:closed?)
+      end
+    end
+
     def ==(other)
-      other.is_a?(self.class) && other.name == name && other.params == params && other.methods == methods
+      other.is_a?(self.class) && other.name == name && other.methods == methods
     end
   end
 end

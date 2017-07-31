@@ -12,6 +12,14 @@ module Steep
       def hash
         self.class.hash
       end
+
+      def closed?
+        false
+      end
+
+      def substitute(klass:, instance:, params:)
+        instance
+      end
     end
   end
 end

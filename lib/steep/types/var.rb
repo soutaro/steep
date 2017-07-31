@@ -14,6 +14,18 @@ module Steep
       def hash
         name.hash
       end
+
+      def eql?(other)
+        self == other
+      end
+
+      def closed?
+        true
+      end
+
+      def substitute(klass:, instance:, params:)
+        params[name] || self
+      end
     end
   end
 end

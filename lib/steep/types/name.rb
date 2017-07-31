@@ -20,6 +20,14 @@ module Steep
       def hash
         name.hash ^ params.hash
       end
+
+      def closed?
+        true
+      end
+
+      def substitute(klass:, instance:, params:)
+        self.class.new(name: name, params: self.params.map {|t| t.substitute(klass: klass, instance: instance, params: params) })
+      end
     end
   end
 end
