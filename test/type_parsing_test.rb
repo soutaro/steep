@@ -33,8 +33,10 @@ class TypeParsingTest < Minitest::Test
   end
 
   def test_union
-    type = parse_method("() -> ('a | 'b)").return_type
-    assert_equal Steep::Types::Union.new(types: [Steep::Types::Var.new(name: :a), Steep::Types::Var.new(name: :b)]), type
+    type = parse_method("() -> ('a | 'b | 'c)").return_type
+    assert_equal Steep::Types::Union.new(types: [Steep::Types::Var.new(name: :a),
+                                                 Steep::Types::Var.new(name: :b),
+                                                 Steep::Types::Var.new(name: :c)]), type
   end
 
   def test_application
