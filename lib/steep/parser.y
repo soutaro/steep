@@ -3,7 +3,7 @@ class Steep::Parser
 rule
 
 target: type_METHOD method_type { result = val[1] }
-      | type_SIGNATURE interfaces { result = val[1] }
+      | type_SIGNATURE signatures { result = val[1] }
       | type_ANNOTATION annotation { result = val[1] }
 
 method_type: params block_opt ARROW type
@@ -61,8 +61,11 @@ block_params1: optional_param { result = Interface::Params.empty.with(optional: 
 block_params2: { result = Interface::Params.empty }
              | rest_param { result = Interface::Params.empty.with(rest: val[0]) }
 
-type: IDENT { result = Types::Name.interface(name: val[0], params: []) }
-    | IDENT LT type_seq GT { result = Types::Name.interface(name: val[0], params: val[2]) }
+type: INTERFACE_NAME { result = Types::Name.interface(name: val[0]) }
+    | INTERFACE_NAME LT type_seq GT { result = Types::Name.interface(name: val[0], params: val[2]) }
+    | MODULE_NAME { result = Types::Name.instance(name: val[0])}
+    | MODULE_NAME LT type_seq GT { result = Types::Name.instance(name: val[0], params: val[2]) }
+    | CLASS_IDENT { result = Types::Name.module(name: val[0]) }
     | ANY { result = Types::Any.new }
     | TVAR { result = Types::Var.new(name: val[0]) }
     | CLASS { result = Types::Class.new }
@@ -76,14 +79,44 @@ type_seq: type { result = [val[0]] }
 union_seq: type BAR type { result = [val[0], val[2]] }
          | type BAR union_seq { result = [val[0]] + val[2] }
 
-keyword: IDENT { result = val[0] }
+keyword: IDENT
+       | MODULE_NAME
+       | INTERFACE_NAME
+       | ANY { result = :any }
+       | CLASS { result = :class }
+       | MODULE { result = :module }
+       | INSTANCE { result = :instance }
 
-interfaces: { result = [] }
-          | interface interfaces { result = [val[0]] + val[1] }
+signatures: { result = [] }
+          | interface signatures { result = [val[0]] + val[1] }
+          | class_decl signatures { result = [val[0]] + val[1] }
+          | module_decl signatures { result = [val[0]] + val[1] }
 
 interface: INTERFACE interface_name type_params method_decls END { result = Signature::Interface.new(name: val[1], params: val[2], methods: val[3]) }
+class_decl: CLASS class_name type_params super_opt class_members END { result = Signature::Class.new(name: val[1], params: val[2], super_class: val[3], members: val[4] )}
+module_decl: MODULE class_name type_params class_members END { result = Signature::Module.new(name: val[1], params: val[2], members: val[3]) }
 
-interface_name: IDENT { result = val[0] }
+interface_name: INTERFACE_NAME { result = val[0] }
+
+class_name: MODULE_NAME { result = val[0] }
+
+class_members: { result = [] }
+             | class_member class_members { result = [val[0]] + val[1] }
+
+class_member: instance_method_member { result = val[0] }
+            | class_method_member { result = val[0] }
+            | class_instance_method_member { result = val[0] }
+            | include_member { result = val[0] }
+            | extend_member { result = val[0] }
+
+instance_method_member: DEF method_name COLON method_type_union { result = Signature::Members::InstanceMethod.new(name: val[1], types: val[3]) }
+class_method_member: DEF SELF DOT method_name COLON method_type_union { result = Signature::Members::ModuleMethod.new(name: val[3], types: val[5]) }
+class_instance_method_member: DEF SELFQ DOT method_name COLON method_type_union { result = Signature::Members::ModuleInstanceMethod.new(name: val[3], types: val[5]) }
+include_member: INCLUDE type { result = Signature::Members::Include.new(name: val[1]) }
+extend_member: EXTEND type { result = Signature::Members::Extend.new(name: val[1]) }
+
+super_opt: { result = nil }
+         | LTCOLON type { result = val[1] }
 
 type_params: { result = [] }
           | LT type_param_seq GT { result = val[1] }
@@ -99,10 +132,16 @@ method_decl: DEF method_name COLON method_type_union { result = { val[1] => val[
 method_type_union: method_type { result = [val[0]] }
                  | method_type COLON method_type_union { result = [val[0]] + val[2] }
 
-method_name: IDENT { result = val[0] }
+method_name: IDENT
+           | MODULE_NAME
+           | INTERFACE_NAME
+           | ANY { result = :any }
            | INTERFACE { result = :interface }
            | END { result = :end }
            | PLUS { result = :+ }
+           | CLASS { result = :class }
+           | MODULE { result = :module }
+           | INSTANCE { result = :instance }
 
 annotation: AT_TYPE VAR subject COLON type { result = Annotation::VarType.new(var: val[2], type: val[4]) }
           | AT_TYPE METHOD subject COLON method_type { result = Annotation::MethodType.new(method: val[2], type: val[4]) }
@@ -176,10 +215,14 @@ def next_token
     [:STAR, nil]
   when input.scan(/\+/)
     [:PLUS, nil]
+  when input.scan(/<:/)
+    [:LTCOLON, nil]
   when input.scan(/</)
     [:LT, nil]
   when input.scan(/>/)
     [:GT, nil]
+  when input.scan(/\./)
+    [:DOT, nil]
   when input.scan(/any/)
     [:ANY, nil]
   when input.scan(/interface/)
@@ -200,6 +243,10 @@ def next_token
     [:BLOCK, nil]
   when input.scan(/method/)
     [:METHOD, nil]
+  when input.scan(/self\?/)
+    [:SELFQ, nil]
+  when input.scan(/self/)
+    [:SELF, nil]
   when input.scan(/'\w+/)
     [:TVAR, input.matched.gsub(/\A'/, '').to_sym]
   when input.scan(/instance/)
@@ -208,6 +255,16 @@ def next_token
     [:CLASS, nil]
   when input.scan(/module/)
     [:MODULE, nil]
+  when input.scan(/include/)
+    [:INCLUDE, nil]
+  when input.scan(/extend/)
+    [:EXTEND, nil]
+  when input.scan(/[A-Z]\w*\.(class|module)\b/)
+    [:CLASS_IDENT, input.matched.gsub(/\.(class|module)$/, '').to_sym]
+  when input.scan(/[A-Z]\w*/)
+    [:MODULE_NAME, input.matched.to_sym]
+  when input.scan(/_\w+/)
+    [:INTERFACE_NAME, input.matched.to_sym]
   when input.scan(/\w+/)
     [:IDENT, input.matched.to_sym]
   end

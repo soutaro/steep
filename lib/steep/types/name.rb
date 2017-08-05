@@ -13,6 +13,14 @@ module Steep
         self.new(name: TypeName::Interface.new(name: name), params: params)
       end
 
+      def self.module(name:, params: [])
+        self.new(name: TypeName::Module.new(name: name), params: params)
+      end
+
+      def self.instance(name:, params: [])
+        self.new(name: TypeName::Instance.new(name: name), params: params)
+      end
+
       def ==(other)
         other.is_a?(Name) && name == other.name && other.params == params
       end

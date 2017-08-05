@@ -1,6 +1,6 @@
 module Steep
   module TypeName
-    class Interface
+    class Base
       attr_reader :name
 
       def initialize(name:)
@@ -19,5 +19,9 @@ module Steep
         self == other
       end
     end
+
+    class Interface < Base; end
+    class Module < Base; end
+    class Instance < Base; end
   end
 end
