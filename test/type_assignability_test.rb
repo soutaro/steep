@@ -27,8 +27,8 @@ end
     EOS
 
     assignability = Steep::TypeAssignability.new
-    assignability.add_interface if1
-    assignability.add_interface if2
+    assignability.add_signature if1
+    assignability.add_signature if2
 
     assert assignability.test(src: T::Name.interface(name: :_Foo), dest: T::Name.interface(name: :_Bar))
   end
@@ -45,8 +45,8 @@ end
     EOS
 
     assignability = Steep::TypeAssignability.new
-    assignability.add_interface if1
-    assignability.add_interface if2
+    assignability.add_signature if1
+    assignability.add_signature if2
 
     assert assignability.test(src: T::Name.interface(name: :_Foo), dest: T::Name.interface(name: :_Bar))
   end
@@ -63,7 +63,7 @@ interface _B
   def bar: -> any
 end
     EOS
-      a.add_interface interface
+      a.add_signature interface
     end
 
     assert a.test_method(parse_method("(_A) -> any"), parse_method("(_A) -> any"), [])
@@ -110,7 +110,7 @@ interface _T
   def foo: -> any
 end
     EOS
-      a.add_interface interface
+      a.add_signature interface
     end
 
     assert a.test(src: T::Name.interface(name: :_T), dest: T::Name.interface(name: :_S))
@@ -135,7 +135,7 @@ interface _T
   def foo: -> any
 end
     EOS
-      a.add_interface interface
+      a.add_signature interface
     end
 
     assert a.test(src: T::Name.interface(name: :_T), dest: T::Name.interface(name: :_S))
@@ -158,7 +158,7 @@ interface _Z
   def z: () -> any
 end
     EOS
-      a.add_interface interface
+      a.add_signature interface
     end
 
     assert a.test(dest: T::Union.new(types: [T::Name.interface(name: :_X),
@@ -194,7 +194,7 @@ interface _Z
   def z: () -> any
 end
     EOS
-      a.add_interface interface
+      a.add_signature interface
     end
 
     assert a.test(dest: T::Name.interface(name: :_Z),
@@ -221,7 +221,7 @@ interface _Y
        | (_X) -> _X
 end
     EOS
-      a.add_interface interface
+      a.add_signature interface
     end
 
     assert a.test(src: T::Name.interface(name: :_X),
@@ -229,5 +229,46 @@ end
 
     refute a.test(src: T::Name.interface(name: :_Y),
                   dest: T::Name.interface(name: :_X))
+  end
+
+  def test_add_signature
+    klass, mod, interface, _ = parse_signature(<<-SRC).to_a
+class A
+end
+
+module B
+end
+
+interface _C
+end
+    SRC
+
+    assignability = Steep::TypeAssignability.new
+
+    assignability.add_signature(klass)
+    assignability.add_signature(mod)
+    assignability.add_signature(interface)
+
+    assert_equal klass, assignability.signatures[:A]
+    assert_equal mod, assignability.signatures[:B]
+    assert_equal interface, assignability.signatures[:_C]
+  end
+
+  def test_add_signature_duplicated
+    klass, mod, _ = parse_signature(<<-SRC).to_a
+class A
+end
+
+module A
+end
+    SRC
+
+    assignability = Steep::TypeAssignability.new
+
+    assignability.add_signature(klass)
+
+    assert_raises RuntimeError do
+      assignability.add_signature(mod)
+    end
   end
 end

@@ -48,7 +48,7 @@ interface _Kernel
 end
       EOS
       interfaces.each do |interface|
-        assignability.add_interface interface
+        assignability.add_signature interface
       end
     end
   end

@@ -1,9 +1,9 @@
 module Steep
   class TypeAssignability
-    attr_reader :interfaces
+    attr_reader :signatures
 
     def initialize()
-      @interfaces = {}
+      @signatures = {}
       @klasses = []
       @instances = []
     end
@@ -25,8 +25,9 @@ module Steep
       @instances.last
     end
 
-    def add_interface(interface)
-      interfaces[TypeName::Interface.new(name: interface.name)] = interface
+    def add_signature(signature)
+      raise "Signature Duplicated: #{signature.name}" if signatures.key?(signature.name)
+      signatures[signature.name] = signature
     end
 
     def test(src:, dest:, known_pairs: [])
@@ -183,7 +184,7 @@ module Steep
     end
 
     def resolve_interface(name, params)
-      interfaces[name].to_interface(klass: klass, instance: instance, params: params)
+      signatures[name.name].to_interface(klass: klass, instance: instance, params: params)
     end
 
     def method_type(type, name)
