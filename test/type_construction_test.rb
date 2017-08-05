@@ -44,7 +44,7 @@ end
 
 interface _Kernel
   def foo: (_A) -> _B
-         : (_C) -> _D
+         | (_C) -> _D
 end
       EOS
       interfaces.each do |interface|

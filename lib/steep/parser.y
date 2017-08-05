@@ -6,10 +6,11 @@ target: type_METHOD method_type { result = val[1] }
       | type_SIGNATURE signatures { result = val[1] }
       | type_ANNOTATION annotation { result = val[1] }
 
-method_type: params block_opt ARROW type
-               { result = Interface::Method.new(type_params: [], params: val[0], block: val[1], return_type: val[3]) }
-           | LT type_param_seq GT params block_opt ARROW type
-               { result = Interface::Method.new(type_params: val[1], params: val[3], block: val[4], return_type: val[6]) }
+method_type: type_params params block_opt ARROW return_type
+               { result = Interface::Method.new(type_params: val[0], params: val[1], block: val[2], return_type: val[4]) }
+
+return_type: simple_type
+           | LPAREN union_seq RPAREN { result = Types::Union.new(types: val[1]) }
 
 params: { result = Interface::Params.empty }
       | LPAREN params0 RPAREN { result = val[1] }
@@ -61,7 +62,7 @@ block_params1: optional_param { result = Interface::Params.empty.with(optional: 
 block_params2: { result = Interface::Params.empty }
              | rest_param { result = Interface::Params.empty.with(rest: val[0]) }
 
-type: INTERFACE_NAME { result = Types::Name.interface(name: val[0]) }
+simple_type: INTERFACE_NAME { result = Types::Name.interface(name: val[0]) }
     | INTERFACE_NAME LT type_seq GT { result = Types::Name.interface(name: val[0], params: val[2]) }
     | MODULE_NAME { result = Types::Name.instance(name: val[0])}
     | MODULE_NAME LT type_seq GT { result = Types::Name.instance(name: val[0], params: val[2]) }
@@ -71,6 +72,8 @@ type: INTERFACE_NAME { result = Types::Name.interface(name: val[0]) }
     | CLASS { result = Types::Class.new }
     | MODULE { result = Types::Class.new }
     | INSTANCE { result = Types::Instance.new }
+
+type: simple_type
     | union_seq { result = Types::Union.new(types: val[0]) }
 
 type_seq: type { result = [val[0]] }
@@ -130,7 +133,7 @@ method_decls: { result = {} }
 method_decl: DEF method_name COLON method_type_union { result = { val[1] => val[3] }}
 
 method_type_union: method_type { result = [val[0]] }
-                 | method_type COLON method_type_union { result = [val[0]] + val[2] }
+                 | method_type BAR method_type_union { result = [val[0]] + val[2] }
 
 method_name: IDENT
            | MODULE_NAME

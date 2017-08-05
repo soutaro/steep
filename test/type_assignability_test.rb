@@ -212,13 +212,13 @@ end
     parse_signature(<<-EOS).each do |interface|
 interface _X
   def f: () -> any
-       : (any) -> any
-       : (any, any) -> any
+       | (any) -> any
+       | (any, any) -> any
 end
 
 interface _Y
   def f: () -> any
-       : (_X) -> _X
+       | (_X) -> _X
 end
     EOS
       a.add_interface interface

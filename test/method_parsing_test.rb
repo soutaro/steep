@@ -201,4 +201,24 @@ class MethodParsingTest < Minitest::Test
     assert_equal [:a], method.type_params
     assert_equal T::Var.new(name: :a), method.return_type
   end
+
+  def test_union
+    method = Steep::Parser.parse_method("('a | 'b, 'c)-> Array<'a | 'b>")
+
+    assert_equal [T::Union.new(types:
+                                 [
+                                   T::Var.new(name: :a),
+                                   T::Var.new(name: :b),
+                                 ]),
+                  T::Var.new(name: :c)],
+                 method.params.required
+
+    assert_equal T::Name.instance(name: :Array,
+                                  params: [
+                                    T::Union.new(types: [
+                                      T::Var.new(name: :a),
+                                      T::Var.new(name: :b)
+                                    ])
+                                  ]), method.return_type
+  end
 end

@@ -85,7 +85,7 @@ end
     interfaces = parse(<<-EOF)
 interface _Kernel
   def gets: () -> String
-          : () -> NilClass
+          | () -> NilClass
 end
     EOF
 
