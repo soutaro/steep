@@ -16,7 +16,7 @@ module Steep
       end
 
       def to_interface(klass:, instance:, params:)
-        raise TypeApplicationError if params.size != self.params.size
+        raise TypeApplicationError, "expected: #{self.params.size}, actual: #{params.size}" if params.size != self.params.size
 
         map = Hash[self.params.zip(params)]
         Steep::Interface.new(name: name,

@@ -187,6 +187,35 @@ module Steep
       signatures[name.name].to_interface(klass: klass, instance: instance, params: params)
     end
 
+    def lookup_included_signature(type)
+      raise "#{self.class}#lookup_included_signature expects type name: #{type.inspect}" unless type.is_a?(Types::Name)
+      raise "#{self.class}#lookup_included_signature expects module instance name: #{type.name.inspect}" unless type.name.is_a?(TypeName::Instance)
+
+      signatures[type.name.name]
+    end
+
+    def lookup_super_class_signature(type)
+      raise "#{self.class}#lookup_super_class_signature expects type name: #{type.inspect}" unless type.is_a?(Types::Name)
+      raise "#{self.class}#lookup_super_class_signature expects module instance name: #{type.name.inspect}" unless type.name.is_a?(TypeName::Instance)
+
+      signature = signatures[type.name.name]
+
+      raise "#{self.class}#lookup_super_class_signature expects class: #{type.name.inspect}" unless signature.is_a?(Signature::Class)
+
+      signature
+    end
+
+    def lookup_class_signature(type)
+      raise "#{self.class}#lookup_class_signature expects type name: #{type.inspect}" unless type.is_a?(Types::Name)
+      raise "#{self.class}#lookup_class_signature expects instance name: #{type.name.inspect}" unless type.name.is_a?(TypeName::Instance)
+
+      signature = signatures[type.name.name]
+
+      raise "#{self.class}#lookup_super_class_signature expects class: #{signature.inspect}" unless signature.is_a?(Signature::Class)
+
+      signature
+    end
+
     def method_type(type, name)
       return type if type.is_a?(Types::Any)
 

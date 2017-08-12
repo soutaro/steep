@@ -143,11 +143,20 @@ module Steep
       attr_reader :block
       attr_reader :return_type
 
+      NONE = Object.new
+
       def initialize(type_params:, params:, block:, return_type:)
         @type_params = type_params
         @params = params
         @block = block
         @return_type = return_type
+      end
+
+      def updated(type_params: NONE, params: NONE, block: NONE, return_type: NONE)
+        self.class.new(type_params: type_params.equal?(NONE) ? self.type_params : type_params,
+                       params: params.equal?(NONE) ? self.params : params,
+                       block: block.equal?(NONE) ? self.block : block,
+                       return_type: return_type.equal?(NONE) ? self.return_type : return_type)
       end
 
       def ==(other)
