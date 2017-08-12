@@ -58,6 +58,32 @@ module Steep
       end
     end
 
+    class ConstType < Base
+      attr_reader :name
+      attr_reader :type
+
+      def initialize(name:, type:)
+        @name = name
+        @type = type
+      end
+
+      def ==(other)
+        other.is_a?(ConstType) && other.name == name && other.type == type
+      end
+    end
+
+    class SelfType < Base
+      attr_reader :type
+
+      def initialize(type:)
+        @type = type
+      end
+
+      def ==(other)
+        other.is_a?(SelfType) && other.type == type
+      end
+    end
+
     class Collection
       attr_reader :var_types
       attr_reader :method_types

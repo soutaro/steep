@@ -35,4 +35,27 @@ class AnnotationParsingTest < Minitest::Test
     annot = Parser.parse_annotation_opt("@type block: String")
     assert_equal Steep::Types::Name.instance(name: :String), annot.type
   end
+
+  def test_self_type
+    annot = Parser.parse_annotation_opt("@type self: String")
+    assert_equal Steep::Types::Name.instance(name: :String), annot.type
+  end
+
+  def test_const_type
+    annot = Parser.parse_annotation_opt("@type const Foo::Bar::Baz: String")
+    assert_equal :"Foo::Bar::Baz", annot.name
+    assert_equal Steep::Types::Name.instance(name: :String), annot.type
+  end
+
+  def test_const_type2
+    annot = Parser.parse_annotation_opt("@type const Foo: String")
+    assert_equal :"Foo", annot.name
+    assert_equal Steep::Types::Name.instance(name: :String), annot.type
+  end
+
+  def test_const_type3
+    annot = Parser.parse_annotation_opt("@type const ::Foo: String")
+    assert_equal :"::Foo", annot.name
+    assert_equal Steep::Types::Name.instance(name: :String), annot.type
+  end
 end
