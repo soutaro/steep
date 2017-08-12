@@ -26,8 +26,8 @@ module Steep
       def run
         assignability = TypeAssignability.new
 
-        each_interface do |interface|
-          assignability.add_interface(interface)
+        each_interface do |signature|
+          assignability.add_signature(signature)
         end
 
         sources = []
@@ -39,15 +39,18 @@ module Steep
 
         sources.each do |source|
           stdout.puts "Typechecking #{source.path}..." if verbose
-          env = TypeEnv.from_annotations(source.annotations(block: source.node) || [], env: {})
-          construction = TypeConstruction.new(assignability: assignability, env: env, source: source, typing: typing)
-          construction.run(source.node)
+          annotations = source.annotations(block: source.node) || []
+
+          p annotations if verbose
+
+          construction = TypeConstruction.new(assignability: assignability, annotations: annotations, source: source, typing: typing, return_type: nil, var_types: {}, block_type: nil)
+          construction.synthesize(source.node)
         end
 
         p typing if verbose
 
         typing.errors.each do |error|
-          stdout.puts error.inspect
+          stdout.puts error.to_s
         end
       end
 
@@ -55,7 +58,7 @@ module Steep
         signature_dirs.each do |path|
           if path.file?
             stdout.puts "Loading signature #{path}..." if verbose
-            Parser.parse_interfaces(path.read).each do |interface|
+            Parser.parse_signature(path.read).each do |interface|
               yield interface
             end
           end
@@ -63,7 +66,7 @@ module Steep
           if path.directory?
             each_file_in_dir(".rbi", path) do |file|
               stdout.puts "Loading signature #{file}..." if verbose
-              Parser.parse_interfaces(file.read).each do |interface|
+              Parser.parse_signature(file.read).each do |interface|
                 yield interface
               end
             end

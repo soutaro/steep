@@ -18,10 +18,20 @@ module Steep
       def eql?(other)
         self == other
       end
+
+      def to_s
+        name.to_s
+      end
     end
 
     class Interface < Base; end
-    class Module < Base; end
+
+    class Module < Base
+      def to_s
+        "#{name}.module"
+      end
+    end
+
     class Instance < Base; end
   end
 end

@@ -1,7 +1,7 @@
-interface Foo
+interface _Foo
   def foo: -> any
 end
 
-interface Bar
+interface _Bar
   def bar: -> any
 end

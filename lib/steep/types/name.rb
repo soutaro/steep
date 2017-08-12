@@ -36,6 +36,10 @@ module Steep
       def substitute(klass:, instance:, params:)
         self.class.new(name: name, params: self.params.map {|t| t.substitute(klass: klass, instance: instance, params: params) })
       end
+
+      def to_s
+        "#{name}" + (params.empty? ? "" : "<#{params.map(&:to_s).join(", ")}>")
+      end
     end
   end
 end

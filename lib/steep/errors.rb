@@ -6,6 +6,10 @@ module Steep
       def initialize(node:)
         @node = node
       end
+
+      def location_to_str
+        "#{node.loc.expression.source_buffer.name}:#{node.loc.first_line}:#{node.loc.column}"
+      end
     end
 
     class IncompatibleAssignment < Base
@@ -16,6 +20,10 @@ module Steep
         super(node: node)
         @lhs_type = lhs_type
         @rhs_type = rhs_type
+      end
+
+      def to_s
+        "#{location_to_str}: IncompatibleAssignment: lhs_type=#{lhs_type}, rhs_type=#{rhs_type}"
       end
     end
 
@@ -38,6 +46,10 @@ module Steep
         super(node: node)
         @type = type
         @method = method
+      end
+
+      def to_s
+        "#{location_to_str}: NoMethodError: type=#{type}, method=#{method}"
       end
     end
 

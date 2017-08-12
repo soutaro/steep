@@ -44,13 +44,17 @@ module Steep
     def process_check
       signature_dirs = []
       verbose = false
-      accept_implicit_any = false
+      no_builtin = false
 
       OptionParser.new do |opts|
-        opts.on("-I [PATH]") do |path| signature_dirs << Pathname(path) end
-        opts.on("--verbose") do verbose = true end
-        opts.on("--accept-implicit-any") do accept_implicit_any = true end
+        opts.on("-I [PATH]") {|path| signature_dirs << Pathname(path) }
+        opts.on("--no-builtin") { no_builtin = true }
+        opts.on("--verbose") { verbose = true }
       end.parse!(argv)
+
+      unless no_builtin
+        signature_dirs.unshift Pathname(__dir__).join("../../sig").realpath
+      end
 
       if signature_dirs.empty?
         signature_dirs << Pathname("sig")
@@ -63,7 +67,6 @@ module Steep
 
       Drivers::Check.new(source_paths: source_paths, signature_dirs: signature_dirs, stdout: stdout, stderr: stderr).tap do |check|
         check.verbose = verbose
-        check.accept_implicit_any = accept_implicit_any
       end.run
     end
   end
