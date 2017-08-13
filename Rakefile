@@ -16,3 +16,7 @@ rule /\.rb/ => ".y" do |t|
 end
 
 task :racc => "lib/steep/parser.rb"
+
+task :smoke do
+  sh "bundle", "exec", "bin/smoke_runner.rb", *Dir.glob("smoke/*")
+end
