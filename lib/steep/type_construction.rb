@@ -43,6 +43,10 @@ module Steep
                      typing: typing)
     end
 
+    def for_class(node)
+      self
+    end
+
     def synthesize(node)
       case node.type
       when :begin
@@ -82,6 +86,7 @@ module Steep
             end
 
             annots = source.annotations(block: node)
+
             for_block = self.class.new(assignability: assignability,
                                        source: source,
                                        annotations: annotations + annots,
@@ -185,8 +190,20 @@ module Steep
 
         typing.add_typing(node, Types::Any.new)
 
+      when :class
+        for_class(node).tap do |constructor|
+          constructor.synthesize(node.children[2])
+        end
+
+        typing.add_typing(node, Types::Name.instance(name: :NilClass))
+
       when :self
         type = annotations.self_type || Types::Any.new
+
+        typing.add_typing(node, type)
+
+      when :const
+        type = annotations.lookup_const_type(node.children[1]) || Types::Any.new
 
         typing.add_typing(node, type)
 

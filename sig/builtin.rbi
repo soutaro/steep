@@ -43,3 +43,7 @@ end
 
 class Range<'a>
 end
+
+class String
+  def to_str: -> String
+end

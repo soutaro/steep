@@ -91,10 +91,12 @@ module Steep
       attr_reader :block_type
       attr_reader :return_type
       attr_reader :self_type
+      attr_reader :const_types
 
       def initialize(annotations:)
         @var_types = {}
         @method_types = {}
+        @const_types = {}
 
         annotations.each do |annotation|
           case annotation
@@ -108,6 +110,8 @@ module Steep
             @return_type = annotation.type
           when SelfType
             @self_type = annotation.type
+          when ConstType
+            @const_types[annotation.name] = annotation.type
           else
             raise "Unexpected annotation: #{annotation.inspect}"
           end
@@ -122,6 +126,10 @@ module Steep
 
       def lookup_method_type(name)
         method_types[name]
+      end
+
+      def lookup_const_type(node)
+        const_types[node]
       end
 
       def +(other)
