@@ -9,6 +9,10 @@ module TestHelper
     assert collection.any?(&block)
   end
 
+  def refute_any(collection, &block)
+    refute collection.any?(&block)
+  end
+
   def parse_signature(signature)
     Steep::Parser.parse_signature(signature)
   end

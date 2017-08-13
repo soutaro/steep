@@ -22,11 +22,27 @@ module Steep
 
     def for_new_method(node)
       annots = source.annotations(block: node)
+      method_name = node.children[0]
+
+      method_annotation = annotations.lookup_method_type(method_name)
+      if method_annotation
+        var_types = TypeConstruction.parameter_types(node.children[1].children,
+                                                     method_annotation.type)
+        unless TypeConstruction.valid_parameter_env?(var_types, node.children[1].children, method_annotation.type.params)
+          typing.add_error Errors::MethodParameterTypeMismatch.new(node: node)
+        end
+
+        return_type = method_annotation.type.return_type
+      else
+        var_types = {}
+        return_type = annots.return_type || Types::Any.new
+      end
+
       self.class.new(assignability: assignability,
                      source: source,
                      annotations: annots,
-                     var_types: {},
-                     return_type: annots.return_type,
+                     var_types: var_types,
+                     return_type: return_type,
                      block_type: nil,
                      typing: typing,
                      break_type: nil)
@@ -122,7 +138,11 @@ module Steep
 
         if node.children[2]
           if new.return_type
-            new.check(node.children[2], new.return_type)
+            new.check(node.children[2], new.return_type) do |_, actual_type|
+              typing.add_error(Errors::MethodBodyTypeMismatch.new(node: node,
+                                                                  expected: new.return_type,
+                                                                  actual: actual_type))
+            end
           else
             new.synthesize(node.children[2])
           end
@@ -387,6 +407,69 @@ module Steep
       end
 
       pairs
+    end
+
+    def self.parameter_types(nodes, type)
+      nodes = nodes.dup
+
+      env = {}
+
+      type.params.required.each do |type|
+        a = nodes.first
+        if a&.type == :arg
+          env[a.children.first] = type
+          nodes.shift
+        else
+          break
+        end
+      end
+
+      type.params.optional.each do |type|
+        a = nodes.first
+
+        if a&.type == :optarg
+          env[a.children.first] = type
+          nodes.shift
+        else
+          break
+        end
+      end
+
+      if type.params.rest
+        a = nodes.first
+        if a&.type == :restarg
+          env[a.children.first] = Types::Name.instance(name: :Array, params: [type.params.rest])
+          nodes.shift
+        end
+      end
+
+      nodes.each do |node|
+        if node.type == :kwarg
+          name = node.children[0]
+          ty = type.params.required_keywords[name.name]
+          env[name] = ty if ty
+        end
+
+        if node.type == :kwoptarg
+          name = node.children[0]
+          ty = type.params.optional_keywords[name.name]
+          env[name] = ty if ty
+        end
+
+        if node.type == :kwrestarg
+          ty = type.params.rest_keywords
+          if ty
+            env[node.children[0]] = Types::Name.instance(name: :Hash,
+                                                         params: [Types::Name.instance(name: :Symbol), ty])
+          end
+        end
+      end
+
+      env
+    end
+
+    def self.valid_parameter_env?(env, nodes, params)
+      env.size == nodes.size && env.size == params.size
     end
   end
 end

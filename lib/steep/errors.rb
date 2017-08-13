@@ -62,6 +62,10 @@ module Steep
         @expected = expected
         @actual = actual
       end
+
+      def to_s
+        "#{location_to_str}: ReturnTypeMismatch: expected=#{expected}, actual=#{actual}"
+      end
     end
 
     class UnexpectedBlockGiven < Base
@@ -94,6 +98,27 @@ module Steep
         super(node: node)
         @expected = expected
         @actual = actual
+      end
+    end
+
+    class MethodParameterTypeMismatch < Base
+      def to_s
+        "#{location_to_str}: MethodParameterTypeMismatch: method=#{node.children[0]}"
+      end
+    end
+
+    class MethodBodyTypeMismatch < Base
+      attr_reader :expected
+      attr_reader :actual
+
+      def initialize(node:, expected:, actual:)
+        super(node: node)
+        @expected = expected
+        @actual = actual
+      end
+
+      def to_s
+        "#{location_to_str}: MethodBodyTypeMismatch: method=#{node.children[0]}, expected=#{expected}, actual=#{actual}"
       end
     end
   end

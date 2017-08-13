@@ -617,6 +617,10 @@ d = k.foo(c)
     ::Parser::CurrentRuby.parse(ruby).children.drop(2)
   end
 
+  def parameters(ruby)
+    ASTUtils::Labeling.translate(node: ::Parser::CurrentRuby.parse(ruby)).children[1].children
+  end
+
   def test_argument_pairs
     params = Interface::Params.empty.with(required: [Types::Name.interface(name: :_A)],
                                           optional: [Types::Name.interface(name: :_B)],
@@ -704,5 +708,63 @@ d = k.foo(c)
     assert_equal [
                    [Types::Name.interface(name: :_A), arguments[0]]
                  ], TypeConstruction.argument_typing_pairs(params: params, arguments: arguments)
+  end
+
+  def test_parameter_types
+    type = parse_method("(Integer, ?String, *Object, d: String, ?e: Symbol, **Float) -> any")
+    args = parameters("def f(a, b=1, *c, d:, e: 2, **f); end")
+
+    env = TypeConstruction.parameter_types(args, type)
+
+    assert_any env do |key, value|
+      key.name == :a && value == Types::Name.instance(name: :Integer)
+    end
+    assert_any env do |key, value|
+      key.name == :b && value == Types::Name.instance(name: :String)
+    end
+    assert_any env do |key, value|
+      key.name == :c && value == Types::Name.instance(name: :Array, params: [Types::Name.instance(name: :Object)])
+    end
+    assert_any env do |key, value|
+      key.name == :d && value == Types::Name.instance(name: :String)
+    end
+    assert_any env do |key, value|
+      key.name == :e && value == Types::Name.instance(name: :Symbol)
+    end
+    assert_any env do |key, value|
+      key.name == :f && value == Types::Name.instance(name: :Hash,
+                                                      params: [Types::Name.instance(name: :Symbol),
+                                                               Types::Name.instance(name: :Float)])
+    end
+  end
+
+  def test_parameter_types_error
+    type = parse_method("(Integer, ?String, *Object, d: String, ?e: Symbol, **Float) -> any")
+    args = parameters("def f(a, *c, d:, **f); end")
+
+    env = TypeConstruction.parameter_types(args, type)
+
+    refute TypeConstruction.valid_parameter_env?(env, args, type.params)
+
+    assert_any env do |key, value|
+      key.name == :a && value == Types::Name.instance(name: :Integer)
+    end
+    refute_any env do |key, _|
+      key.name == :b
+    end
+    assert_any env do |key, value|
+      key.name == :c && value == Types::Name.instance(name: :Array, params: [Types::Name.instance(name: :Object)])
+    end
+    assert_any env do |key, value|
+      key.name == :d && value == Types::Name.instance(name: :String)
+    end
+    refute_any env do |key, _|
+      key.name == :e
+    end
+    assert_any env do |key, value|
+      key.name == :f && value == Types::Name.instance(name: :Hash,
+                                                      params: [Types::Name.instance(name: :Symbol),
+                                                               Types::Name.instance(name: :Float)])
+    end
   end
 end

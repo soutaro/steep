@@ -135,6 +135,10 @@ module Steep
                        optional_keywords: optional_keywords.transform_values {|t| t.substitute(klass: klass, instance: instance, params: params) },
                        rest_keywords: rest_keywords&.substitute(klass: klass, instance: instance, params: params) )
       end
+
+      def size
+        required.size + optional.size + (rest ? 1 : 0) + required_keywords.size + optional_keywords.size + (rest_keywords ? 1 : 0)
+      end
     end
 
     class Method

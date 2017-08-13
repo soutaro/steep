@@ -6,6 +6,13 @@ $LOAD_PATH << Pathname(__dir__) + "../lib"
 
 require "steep"
 require "rainbow"
+require "optparse"
+
+verbose = false
+
+OptionParser.new do |opts|
+  opts.on("-v", "--verbose") do verbose = true end
+end.parse!(ARGV)
 
 Expectation = Struct.new(:line, :message)
 
@@ -13,7 +20,7 @@ failed = false
 
 ARGV.each do |arg|
   dir = Pathname(arg)
-  puts "Running smoke test in #{dir}..."
+  puts "🏇 Running smoke test in #{dir}..."
 
   rb_files = []
   expectations = []
@@ -50,6 +57,16 @@ ARGV.each do |arg|
                                      stderr: stderr)
 
   driver.run
+
+  if verbose
+    stdout.string.each_line do |line|
+      puts "stdout> #{line.chomp}"
+    end
+
+    stderr.string.each_line do |line|
+      puts "stderr> #{line.chomp}"
+    end
+  end
 
   lines = stdout.string.each_line.to_a.map(&:chomp)
 
