@@ -106,7 +106,7 @@ z = x
     construction = TypeConstruction.new(assignability: assignability, source: source, annotations: annotations, var_types: {}, return_type: nil, block_type: nil, typing: typing)
     construction.synthesize(source.node)
 
-    assert_equal Types::Any.new, typing.type_of(node: source.node)
+    assert_equal Types::Name.instance(name: :Integer), typing.type_of(node: source.node)
     assert_empty typing.errors
   end
 

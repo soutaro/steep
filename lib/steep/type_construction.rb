@@ -172,13 +172,16 @@ module Steep
         type_assignment(var, rhs, node)
 
       when :int
-        typing.add_typing(node, Types::Any.new)
+        typing.add_typing(node, Types::Name.instance(name: :Integer))
 
       when :nil
         typing.add_typing(node, Types::Any.new)
 
       when :sym
-        typing.add_typing(node, Types::Any.new)
+        typing.add_typing(node, Types::Name.instance(name: :Symbol))
+
+      when :str
+        typing.add_typing(node, Types::Name.instance(name: :String))
 
       when :hash
         each_child_node(node) do |pair|

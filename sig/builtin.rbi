@@ -36,6 +36,7 @@ class Numeric
 end
 
 class Integer <: Numeric
+  def to_int: -> Integer
 end
 
 class Float <: Numeric
