@@ -90,6 +90,7 @@ module Steep
       attr_reader :annotations
       attr_reader :block_type
       attr_reader :return_type
+      attr_reader :self_type
 
       def initialize(annotations:)
         @var_types = {}
@@ -105,6 +106,8 @@ module Steep
             @block_type = annotation.type
           when ReturnType
             @return_type = annotation.type
+          when SelfType
+            @self_type = annotation.type
           else
             raise "Unexpected annotation: #{annotation.inspect}"
           end

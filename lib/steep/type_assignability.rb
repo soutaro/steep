@@ -184,7 +184,15 @@ module Steep
     end
 
     def resolve_interface(name, params)
-      signatures[name.name].to_interface(klass: klass, instance: instance, params: params)
+      case name
+      when TypeName::Interface
+        signatures[name.name].to_interface(klass: klass, instance: instance, params: params)
+      when TypeName::Instance
+        methods = signatures[name.name].instance_methods(assignability: self, klass: klass, instance: instance, params: params)
+        Interface.new(name: name, methods: methods)
+      else
+        raise "Unexpected type name: #{name.inspect}"
+      end
     end
 
     def lookup_included_signature(type)

@@ -185,6 +185,11 @@ module Steep
 
         typing.add_typing(node, Types::Any.new)
 
+      when :self
+        type = annotations.self_type || Types::Any.new
+
+        typing.add_typing(node, type)
+
       else
         raise "Unexpected node: #{node.inspect}"
       end
@@ -228,7 +233,7 @@ module Steep
 
     def type_send(node)
       receiver, method_name, *args = node.children
-      recv_type = synthesize(receiver)
+      recv_type = receiver ? synthesize(receiver) : annotations.self_type
 
       ret_type = assignability.method_type recv_type, method_name do |method_types|
         if method_types
