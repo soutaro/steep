@@ -153,6 +153,8 @@ annotation: AT_TYPE VAR subject COLON type { result = Annotation::VarType.new(va
           | AT_TYPE SELF COLON type { result = Annotation::SelfType.new(type: val[3]) }
           | AT_TYPE CONST CONST_PATH COLON type { result = Annotation::ConstType.new(name: val[2], type: val[4]) }
           | AT_TYPE CONST MODULE_NAME COLON type { result = Annotation::ConstType.new(name: val[2], type: val[4]) }
+          | AT_TYPE INSTANCE COLON type { result = Annotation::InstanceType.new(type: val[3]) }
+          | AT_TYPE MODULE COLON type { result = Annotation::ModuleType.new(type: val[3]) }
           | AT_TYPE { raise "Invalid type annotation" }
 
 subject: IDENT { result = val[0] }

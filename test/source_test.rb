@@ -14,6 +14,9 @@ module Foo
   # @type var x2: any
 
   class Bar
+    # @type instance: String
+    # @type module: String.class
+
     # @type var x3: any
     # @type method foo: -> any
     def foo
@@ -36,9 +39,14 @@ Foo::Bar.new
     assert_any s.annotations(block: s.node) do |a| a.is_a?(A::VarType) && a.var == :x1 && a.type == T::Any.new end
     # module
     assert_any s.annotations(block: s.node.children[0]) do |a| a == A::VarType.new(var: :x2, type: T::Any.new) end
+    assert_nil s.annotations(block: s.node.children[0]).instance_type
+    assert_nil s.annotations(block: s.node.children[0]).module_type
+
     # class
     class_annotations = s.annotations(block: s.node.children[0].children[1])
-    assert_equal 2, class_annotations.size
+    assert_equal 4, class_annotations.size
+    assert_equal Steep::Types::Name.instance(name: :String), class_annotations.instance_type
+    assert_equal Steep::Types::Name.module(name: :String), class_annotations.module_type
     assert_includes class_annotations, A::VarType.new(var: :x3, type: T::Any.new)
     assert_includes class_annotations, A::MethodType.new(method: :foo, type: Steep::Parser.parse_method("-> any"))
 

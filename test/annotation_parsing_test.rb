@@ -58,4 +58,16 @@ class AnnotationParsingTest < Minitest::Test
     assert_equal :"::Foo", annot.name
     assert_equal Steep::Types::Name.instance(name: :String), annot.type
   end
+
+  def test_instance_type
+    annot = Parser.parse_annotation_opt("@type instance: String")
+    assert_instance_of Steep::Annotation::InstanceType, annot
+    assert_equal Steep::Types::Name.instance(name: :String), annot.type
+  end
+
+  def test_module_type
+    annot = Parser.parse_annotation_opt("@type module: String.class")
+    assert_instance_of Steep::Annotation::ModuleType, annot
+    assert_equal Steep::Types::Name.module(name: :String), annot.type
+  end
 end

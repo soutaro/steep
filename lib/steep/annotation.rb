@@ -84,6 +84,30 @@ module Steep
       end
     end
 
+    class InstanceType < Base
+      attr_reader :type
+
+      def initialize(type:)
+        @type = type
+      end
+
+      def ==(other)
+        other.is_a?(InstanceType) && other.type == type
+      end
+    end
+
+    class ModuleType < Base
+      attr_reader :type
+
+      def initialize(type:)
+        @type = type
+      end
+
+      def ==(other)
+        other.is_a?(ModuleType) && other.type == type
+      end
+    end
+
     class Collection
       attr_reader :var_types
       attr_reader :method_types
@@ -92,6 +116,8 @@ module Steep
       attr_reader :return_type
       attr_reader :self_type
       attr_reader :const_types
+      attr_reader :instance_type
+      attr_reader :module_type
 
       def initialize(annotations:)
         @var_types = {}
@@ -112,6 +138,10 @@ module Steep
             @self_type = annotation.type
           when ConstType
             @const_types[annotation.name] = annotation.type
+          when InstanceType
+            @instance_type = annotation.type
+          when ModuleType
+            @module_type = annotation.type
           else
             raise "Unexpected annotation: #{annotation.inspect}"
           end
