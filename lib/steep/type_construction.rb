@@ -24,15 +24,15 @@ module Steep
       annots = source.annotations(block: node)
       method_name = node.children[0]
 
-      method_annotation = annotations.lookup_method_type(method_name)
-      if method_annotation
+      method_type = annotations.lookup_method_type(method_name)
+      if method_type
         var_types = TypeConstruction.parameter_types(node.children[1].children,
-                                                     method_annotation.type)
-        unless TypeConstruction.valid_parameter_env?(var_types, node.children[1].children, method_annotation.type.params)
+                                                     method_type)
+        unless TypeConstruction.valid_parameter_env?(var_types, node.children[1].children, method_type.params)
           typing.add_error Errors::MethodParameterTypeMismatch.new(node: node)
         end
 
-        return_type = method_annotation.type.return_type
+        return_type = method_type.return_type
       else
         var_types = {}
         return_type = annots.return_type || Types::Any.new

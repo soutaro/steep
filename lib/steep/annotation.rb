@@ -155,7 +155,7 @@ module Steep
       end
 
       def lookup_method_type(name)
-        method_types[name]
+        method_types[name]&.type
       end
 
       def lookup_const_type(node)
