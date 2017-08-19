@@ -190,6 +190,9 @@ module Steep
       when TypeName::Instance
         methods = signatures[name.name].instance_methods(assignability: self, klass: klass, instance: instance, params: params)
         Interface.new(name: name, methods: methods)
+      when TypeName::Module
+        methods = signatures[name.name].module_methods(assignability: self, klass: klass, instance: instance, params: params)
+        Interface.new(name: name, methods: methods)
       else
         raise "Unexpected type name: #{name.inspect}"
       end

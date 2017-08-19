@@ -118,7 +118,14 @@ module Steep
       end
 
       def to_s
-        "#{location_to_str}: MethodBodyTypeMismatch: method=#{node.children[0]}, expected=#{expected}, actual=#{actual}"
+        method = case node.type
+                 when :def
+                   node.children[0]
+                 when :defs
+                   prefix = node.children[0].type == :self ? "self" : "*"
+                   "#{prefix}.#{node.children[1]}"
+                 end
+        "#{location_to_str}: MethodBodyTypeMismatch: method=#{method}, expected=#{expected}, actual=#{actual}"
       end
     end
   end

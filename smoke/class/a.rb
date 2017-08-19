@@ -1,5 +1,6 @@
 class A
   # @type instance: A
+  # @type module: A.class
 
   # A#foo is defined and the implementation is compatible.
   def foo(x)
@@ -21,5 +22,10 @@ class A
   # No method definition given via signature, there is no type error.
   def to_str
     5
+  end
+
+  # !expects MethodBodyTypeMismatch: method=self.baz, expected=Integer, actual=String
+  def self.baz
+    "baz"
   end
 end

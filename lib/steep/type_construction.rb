@@ -9,7 +9,7 @@ module Steep
     attr_reader :block_type
     attr_reader :break_type
 
-    def initialize(assignability:, source:, annotations:, var_types:, return_type:, block_type:, typing:, break_type: nil)
+    def initialize(assignability:, source:, annotations:, var_types:, return_type:, block_type:, typing:, break_type: nil, self_type:)
       @assignability = assignability
       @source = source
       @annotations = annotations
@@ -18,17 +18,22 @@ module Steep
       @return_type = return_type
       @block_type = block_type
       @break_type = break_type
+      @self_type = self_type
     end
 
-    def method_type(method_name)
+    def self_type
+      annotations.self_type || @self_type
+    end
+
+    def method_type(method_name, self_type:)
       if (type = annotations.lookup_method_type(method_name))
         return type
       end
 
-      instance_type = annotations.instance_type
-      return nil unless instance_type
+      return nil unless self_type
+      return nil unless self_type.is_a?(Types::Name)
 
-      interface = assignability.resolve_interface(instance_type.name, instance_type.params)
+      interface = assignability.resolve_interface(self_type.name, self_type.params)
 
       method_types = interface.methods[method_name]
       return nil unless method_types
@@ -37,15 +42,14 @@ module Steep
       method_types.first
     end
 
-    def for_new_method(node)
+    def for_new_method(method_name, node, args:, self_type:)
       annots = source.annotations(block: node)
-      method_name = node.children[0]
 
-      method_type = method_type(method_name)
+      method_type = method_type(method_name, self_type: self_type)
       if method_type
-        var_types = TypeConstruction.parameter_types(node.children[1].children,
+        var_types = TypeConstruction.parameter_types(args,
                                                      method_type)
-        unless TypeConstruction.valid_parameter_env?(var_types, node.children[1].children, method_type.params)
+        unless TypeConstruction.valid_parameter_env?(var_types, args, method_type.params)
           typing.add_error Errors::MethodParameterTypeMismatch.new(node: node)
         end
 
@@ -62,7 +66,8 @@ module Steep
                      return_type: return_type,
                      block_type: nil,
                      typing: typing,
-                     break_type: nil)
+                     break_type: nil,
+                     self_type: annotations.instance_type)
     end
 
     def for_block(block)
@@ -73,11 +78,21 @@ module Steep
                      var_types: var_types.dup,
                      return_type: return_type,
                      block_type: annots.block_type,
-                     typing: typing)
+                     typing: typing,
+                     self_type: self_type)
     end
 
     def for_class(node)
-      self
+      annots = source.annotations(block: node)
+
+      self.class.new(assignability: assignability,
+                     source: source,
+                     annotations: annots,
+                     var_types: {},
+                     return_type: nil,
+                     block_type: nil,
+                     typing: typing,
+                     self_type: annots.module_type)
     end
 
     def synthesize(node)
@@ -127,7 +142,8 @@ module Steep
                                        return_type: return_type,
                                        block_type: annots.block_type,
                                        break_type: method_type.return_type,
-                                       typing: typing)
+                                       typing: typing,
+                                       self_type: self_type)
 
             each_child_node(params) do |param|
               for_block.synthesize(param)
@@ -147,7 +163,7 @@ module Steep
         typing.add_typing(node, ret_type)
 
       when :def
-        new = for_new_method(node)
+        new = for_new_method(node.children[0], node, args: node.children[1].children, self_type: annotations.instance_type)
 
         each_child_node(node.children[1]) do |arg|
           new.synthesize(arg)
@@ -166,6 +182,29 @@ module Steep
         end
 
         typing.add_typing(node, Types::Any.new)
+
+      when :defs
+        synthesize(node.children[0]).tap do |self_type|
+          new = for_new_method(node.children[1], node, args: node.children[2].children, self_type: self_type)
+
+          each_child_node(node.children[2]) do |arg|
+            new.synthesize(arg)
+          end
+
+          if node.children[3]
+            if new.return_type
+              new.check(node.children[3], new.return_type) do |_, actual_type|
+                typing.add_error(Errors::MethodBodyTypeMismatch.new(node: node,
+                                                                    expected: new.return_type,
+                                                                    actual: actual_type))
+              end
+            else
+              new.synthesize(node.children[3], Types::Any.new)
+            end
+          end
+        end
+
+        typing.add_typing(node, Types::Name.instance(name: :Symbol))
 
       when :return
         value = node.children[0]
@@ -238,9 +277,7 @@ module Steep
         typing.add_typing(node, Types::Name.instance(name: :NilClass))
 
       when :self
-        type = annotations.self_type || Types::Any.new
-
-        typing.add_typing(node, type)
+        typing.add_typing(node, self_type || Types::Any.new)
 
       when :const
         type = annotations.lookup_const_type(node.children[1]) || Types::Any.new
