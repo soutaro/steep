@@ -3,6 +3,7 @@ end
 
 class Object <: BasicObject
   def tap: { (instance) -> any } -> instance
+  def to_s: -> String
 end
 
 class Module

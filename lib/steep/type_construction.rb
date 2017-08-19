@@ -20,11 +20,28 @@ module Steep
       @break_type = break_type
     end
 
+    def method_type(method_name)
+      if (type = annotations.lookup_method_type(method_name))
+        return type
+      end
+
+      instance_type = annotations.instance_type
+      return nil unless instance_type
+
+      interface = assignability.resolve_interface(instance_type.name, instance_type.params)
+
+      method_types = interface.methods[method_name]
+      return nil unless method_types
+      return nil unless method_types.size == 1
+
+      method_types.first
+    end
+
     def for_new_method(node)
       annots = source.annotations(block: node)
       method_name = node.children[0]
 
-      method_type = annotations.lookup_method_type(method_name)
+      method_type = method_type(method_name)
       if method_type
         var_types = TypeConstruction.parameter_types(node.children[1].children,
                                                      method_type)
