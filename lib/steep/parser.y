@@ -97,7 +97,10 @@ signatures: { result = [] }
 
 interface: INTERFACE interface_name type_params method_decls END { result = Signature::Interface.new(name: val[1], params: val[2], methods: val[3]) }
 class_decl: CLASS class_name type_params super_opt class_members END { result = Signature::Class.new(name: val[1], params: val[2], super_class: val[3], members: val[4] )}
-module_decl: MODULE class_name type_params class_members END { result = Signature::Module.new(name: val[1], params: val[2], members: val[3]) }
+module_decl: MODULE class_name type_params self_type_opt class_members END { result = Signature::Module.new(name: val[1], params: val[2], self_type: val[3], members: val[4]) }
+
+self_type_opt: { result = nil }
+             | COLON type { result = val[1] }
 
 interface_name: INTERFACE_NAME { result = val[0] }
 

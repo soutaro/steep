@@ -138,17 +138,19 @@ module Steep
       attr_reader :name
       attr_reader :params
       attr_reader :members
+      attr_reader :self_type
 
       prepend WithMethods
 
-      def initialize(name:, params:, members:)
+      def initialize(name:, params:, members:, self_type:)
         @name = name
         @members = members
         @params = params
+        @self_type = self_type
       end
 
       def ==(other)
-        other.is_a?(Module) && other.name == name && other.params == params && other.members == members
+        other.is_a?(Module) && other.name == name && other.params == params && other.members == members && other.self_type == self_type
       end
 
       def instance_methods(assignability:, klass:, instance:, params:)

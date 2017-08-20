@@ -55,6 +55,7 @@ end
     assert_equal :Kernel, mod.name
     assert_equal 6, mod.members.size
     assert_equal [:a], mod.params
+    assert_nil mod.self_type
 
     assert_equal Steep::Signature::Members::Include.new(name: Steep::Types::Name.instance(name: :M1)), mod.members[0]
     assert_equal Steep::Signature::Members::Extend.new(name: Steep::Types::Name.instance(name: :M2)), mod.members[1]
@@ -62,6 +63,20 @@ end
     assert_equal Steep::Signature::Members::InstanceMethod.new(name: :class, types: [method_type("() -> class")]), mod.members[3]
     assert_equal Steep::Signature::Members::ModuleMethod.new(name: :g, types: [method_type("() -> C")]), mod.members[4]
     assert_equal Steep::Signature::Members::ModuleInstanceMethod.new(name: :h, types: [method_type("() -> C.class")]), mod.members[5]
+  end
+
+  def test_parsing_module2
+    mod, _ = parse(<<-EOS)
+module Enumerable<'a> : _Enumerable<'a>
+end
+    EOS
+
+    assert_instance_of Steep::Signature::Module, mod
+    assert_equal :Enumerable, mod.name
+    assert_empty mod.members
+    assert_equal [:a], mod.params
+    assert_equal Steep::Types::Name.interface(name: :_Enumerable,
+                                              params: [Steep::Types::Var.new(name: :a)]), mod.self_type
   end
 
   def test_parsing_interface
