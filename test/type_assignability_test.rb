@@ -271,4 +271,47 @@ end
       assignability.add_signature(mod)
     end
   end
+
+  def test_block_args
+    sigs = parse_signature(<<-SRC).to_a
+interface _Object
+  def to_s: -> any
+end
+
+interface _String
+  def to_s: -> any
+  def +: (_String) -> _String
+end
+    SRC
+
+    assignability = Steep::TypeAssignability.new
+
+    sigs.each do |sig|
+      assignability.add_signature sig
+    end
+
+    assert assignability.test_method(parse_method("{ (_Object) -> any } -> any"),
+                                     parse_method("{ (_String) -> any } -> any"),
+                                     [])
+
+    refute assignability.test_method(parse_method("{ (_String) -> any } -> any"),
+                                     parse_method("{ (_Object) -> any } -> any"),
+                                     [])
+
+    assert assignability.test_method(parse_method("{ (_Object, _String) -> any } -> any"),
+                                     parse_method("{ (_Object) -> any } -> any"),
+                                     [])
+
+    assert assignability.test_method(parse_method("{ (_Object) -> any } -> any"),
+                                     parse_method("{ (_Object, _String) -> any } -> any"),
+                                     [])
+
+    assert assignability.test_method(parse_method("{ (_Object, *_Object) -> any } -> any"),
+                                     parse_method("{ (_Object, _String) -> any } -> any"),
+                                     [])
+
+    refute assignability.test_method(parse_method("{ (_Object, *_String) -> any } -> any"),
+                                     parse_method("{ (_Object, _Object) -> any } -> any"),
+                                     [])
+  end
 end

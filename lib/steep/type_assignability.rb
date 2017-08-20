@@ -180,7 +180,31 @@ module Steep
     end
 
     def test_block(src, dest, known_pairs)
-      true
+      return true if !src && !dest
+      return false if !src || !dest
+
+      raise "Keyword args for block is not yet supported" unless src.params&.flat_keywords&.empty?
+      raise "Keyword args for block is not yet supported" unless dest.params&.flat_keywords&.empty?
+
+      ss = src.params.flat_unnamed_params
+      ds = dest.params.flat_unnamed_params
+
+      max = ss.size > ds.size ? ss.size : ds.size
+
+      for i in 0...max
+        s = ss[i]&.last || src.params.rest
+        d = ds[i]&.last || dest.params.rest
+
+        if s && d
+          test(src: d, dest: s, known_pairs: known_pairs) or return false
+        end
+      end
+
+      if src.params.rest && dest.params.rest
+        test(src: dest.params.rest, dest: src.params.rest, known_pairs: known_pairs) or return false
+      end
+
+      test(src: src.return_type, dest: dest.return_type, known_pairs: known_pairs)
     end
 
     def resolve_interface(name, params)
