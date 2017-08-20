@@ -128,5 +128,11 @@ module Steep
         "#{location_to_str}: MethodBodyTypeMismatch: method=#{method}, expected=#{expected}, actual=#{actual}"
       end
     end
+
+    class UnexpectedYield < Base
+      def to_s
+        "#{location_to_str}: UnexpectedYield"
+      end
+    end
   end
 end

@@ -8,8 +8,9 @@ module Steep
     attr_reader :return_type
     attr_reader :block_type
     attr_reader :break_type
+    attr_reader :yielding_type
 
-    def initialize(assignability:, source:, annotations:, var_types:, return_type:, block_type:, typing:, break_type: nil, self_type:)
+    def initialize(assignability:, source:, annotations:, var_types:, return_type:, block_type:, typing:, break_type: nil, self_type:, yielding_type: nil)
       @assignability = assignability
       @source = source
       @annotations = annotations
@@ -19,6 +20,7 @@ module Steep
       @block_type = block_type
       @break_type = break_type
       @self_type = self_type
+      @yielding_type = yielding_type
     end
 
     def self_type
@@ -65,6 +67,7 @@ module Steep
                      var_types: var_types,
                      return_type: return_type,
                      block_type: nil,
+                     yielding_type: method_type&.block,
                      typing: typing,
                      break_type: nil,
                      self_type: annotations.instance_type)
@@ -143,7 +146,8 @@ module Steep
                                        block_type: annots.block_type,
                                        break_type: method_type.return_type,
                                        typing: typing,
-                                       self_type: self_type)
+                                       self_type: self_type,
+                                       yielding_type: yielding_type)
 
             each_child_node(params) do |param|
               for_block.synthesize(param)
@@ -283,6 +287,22 @@ module Steep
         type = annotations.lookup_const_type(node.children[1]) || Types::Any.new
 
         typing.add_typing(node, type)
+
+      when :yield
+        if yielding_type
+          yielding_type.params.flat_unnamed_params.map(&:last).zip(node.children).each do |(type, node)|
+            if node && type
+              check(node, type) do |_, rhs_type|
+                typing.add_error(Errors::IncompatibleAssignment.new(node: node, lhs_type: type, rhs_type: rhs_type))
+              end
+            end
+          end
+
+          typing.add_typing(node, yielding_type.return_type)
+        else
+          typing.add_error(Errors::UnexpectedYield.new(node: node))
+          typing.add_typing(node, Types::Any.new)
+        end
 
       else
         raise "Unexpected node: #{node.inspect}"
