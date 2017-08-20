@@ -124,7 +124,7 @@ module Steep
       when :block
         send_node, params, block = node.children
 
-        ret_type = type_send(send_node) do |recv_type, method_name, method_type|
+        ret_type = type_send(send_node, with_block: true) do |recv_type, method_name, method_type|
           if method_type.block
             var_types_ = var_types.dup
             self.class.block_param_typing_pairs(param_types: method_type.block.params, param_nodes: params.children).each do |param_node, type|
@@ -325,13 +325,16 @@ module Steep
       end
     end
 
-    def type_send(node)
+    def type_send(node, with_block: false)
       receiver, method_name, *args = node.children
       recv_type = receiver ? synthesize(receiver) : annotations.self_type
 
       ret_type = assignability.method_type recv_type, method_name do |method_types|
         if method_types
-          method_type = method_types.find {|method_type_| applicable_args?(params: method_type_.params, arguments: args) }
+          method_type = method_types.find {|method_type_|
+            applicable_args?(params: method_type_.params, arguments: args) &&
+              with_block == !!method_type_.block
+          }
 
           if method_type
             yield recv_type, method_name, method_type if block_given?
