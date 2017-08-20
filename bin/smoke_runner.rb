@@ -51,12 +51,21 @@ ARGV.each do |arg|
   stdout = StringIO.new
 
   builtin = Pathname(__dir__) + "../sig"
-  driver = Steep::Drivers::Check.new(source_paths: rb_files,
-                                     signature_dirs: [builtin, dir],
-                                     stdout: stdout,
-                                     stderr: stderr)
+  begin
+    driver = Steep::Drivers::Check.new(source_paths: rb_files,
+                                       signature_dirs: [builtin, dir],
+                                       stdout: stdout,
+                                       stderr: stderr)
 
-  driver.run
+    driver.run
+  rescue => exn
+    puts "ERROR: #{exn.inspect}"
+    exn.backtrace.each do |loc|
+      puts "  #{loc}"
+    end
+
+    failed = true
+  end
 
   if verbose
     stdout.string.each_line do |line|
