@@ -24,10 +24,10 @@ module Steep
       end
 
       def run
-        assignability = TypeAssignability.new
-
-        each_interface do |signature|
-          assignability.add_signature(signature)
+        assignability = TypeAssignability.new do |a|
+          each_interface do |signature|
+            a.add_signature(signature)
+          end
         end
 
         sources = []

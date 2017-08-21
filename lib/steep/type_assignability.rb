@@ -6,6 +6,10 @@ module Steep
       @signatures = {}
       @klasses = []
       @instances = []
+
+      if block_given?
+        yield self
+      end
     end
 
     def with(klass: nil, instance: nil, &block)

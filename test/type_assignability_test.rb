@@ -26,9 +26,10 @@ interface _Bar
 end
     EOS
 
-    assignability = Steep::TypeAssignability.new
-    assignability.add_signature if1
-    assignability.add_signature if2
+    assignability = Steep::TypeAssignability.new do |a|
+      a.add_signature if1
+      a.add_signature if2
+    end
 
     assert assignability.test(src: T::Name.interface(name: :_Foo), dest: T::Name.interface(name: :_Bar))
   end
@@ -44,17 +45,17 @@ interface _Bar
 end
     EOS
 
-    assignability = Steep::TypeAssignability.new
-    assignability.add_signature if1
-    assignability.add_signature if2
+    assignability = Steep::TypeAssignability.new do |a|
+      a.add_signature if1
+      a.add_signature if2
+    end
 
     assert assignability.test(src: T::Name.interface(name: :_Foo), dest: T::Name.interface(name: :_Bar))
   end
 
   def test_method1
-    a = Steep::TypeAssignability.new
-
-    parse_signature(<<-EOS).each do |interface|
+    assignability = Steep::TypeAssignability.new do |a|
+      parse_signature(<<-EOS).each do |interface|
 interface _A
   def foo: -> any
 end
@@ -62,70 +63,70 @@ end
 interface _B
   def bar: -> any
 end
-    EOS
-      a.add_signature interface
+      EOS
+        a.add_signature interface
+      end
     end
 
-    assert a.test_method(parse_method("(_A) -> any"), parse_method("(_A) -> any"), [])
-    assert a.test_method(parse_method("(_A) -> any"), parse_method("(any) -> any"), [])
-    assert a.test_method(parse_method("(any) -> any"), parse_method("(_A) -> any"), [])
-    refute a.test_method(parse_method("() -> any"), parse_method("(_A) -> any"), [])
-    refute a.test_method(parse_method("(_A) -> any"), parse_method("(_B) -> any"), [])
+    assert assignability.test_method(parse_method("(_A) -> any"), parse_method("(_A) -> any"), [])
+    assert assignability.test_method(parse_method("(_A) -> any"), parse_method("(any) -> any"), [])
+    assert assignability.test_method(parse_method("(any) -> any"), parse_method("(_A) -> any"), [])
+    refute assignability.test_method(parse_method("() -> any"), parse_method("(_A) -> any"), [])
+    refute assignability.test_method(parse_method("(_A) -> any"), parse_method("(_B) -> any"), [])
 
-    assert a.test_method(parse_method("(_A, ?_B) -> any"), parse_method("(_A) -> any"), [])
-    refute a.test_method(parse_method("(_A) -> any"), parse_method("(_A, ?_B) -> any"), [])
+    assert assignability.test_method(parse_method("(_A, ?_B) -> any"), parse_method("(_A) -> any"), [])
+    refute assignability.test_method(parse_method("(_A) -> any"), parse_method("(_A, ?_B) -> any"), [])
 
-    refute a.test_method(parse_method("(_A, ?_A) -> any"), parse_method("(*_A) -> any"), [])
-    refute a.test_method(parse_method("(_A, ?_A) -> any"), parse_method("(*_B) -> any"), [])
+    refute assignability.test_method(parse_method("(_A, ?_A) -> any"), parse_method("(*_A) -> any"), [])
+    refute assignability.test_method(parse_method("(_A, ?_A) -> any"), parse_method("(*_B) -> any"), [])
 
-    assert a.test_method(parse_method("(*_A) -> any"), parse_method("(_A) -> any"), [])
-    refute a.test_method(parse_method("(*_A) -> any"), parse_method("(_B) -> any"), [])
+    assert assignability.test_method(parse_method("(*_A) -> any"), parse_method("(_A) -> any"), [])
+    refute assignability.test_method(parse_method("(*_A) -> any"), parse_method("(_B) -> any"), [])
 
-    assert a.test_method(parse_method("(name: _A) -> any"), parse_method("(name: _A) -> any"), [])
-    refute a.test_method(parse_method("(name: _A, email: _B) -> any"), parse_method("(name: _A) -> any"), [])
+    assert assignability.test_method(parse_method("(name: _A) -> any"), parse_method("(name: _A) -> any"), [])
+    refute assignability.test_method(parse_method("(name: _A, email: _B) -> any"), parse_method("(name: _A) -> any"), [])
 
-    assert a.test_method(parse_method("(name: _A, ?email: _B) -> any"), parse_method("(name: _A) -> any"), [])
-    refute a.test_method(parse_method("(name: _A) -> any"), parse_method("(name: _A, ?email: _B) -> any"), [])
+    assert assignability.test_method(parse_method("(name: _A, ?email: _B) -> any"), parse_method("(name: _A) -> any"), [])
+    refute assignability.test_method(parse_method("(name: _A) -> any"), parse_method("(name: _A, ?email: _B) -> any"), [])
 
-    refute a.test_method(parse_method("(name: _A) -> any"), parse_method("(name: _B) -> any"), [])
+    refute assignability.test_method(parse_method("(name: _A) -> any"), parse_method("(name: _B) -> any"), [])
 
-    assert a.test_method(parse_method("(**_A) -> any"), parse_method("(name: _A) -> any"), [])
-    assert a.test_method(parse_method("(**_A) -> any"), parse_method("(name: _A, **_A) -> any"), [])
-    assert a.test_method(parse_method("(name: _B, **_A) -> any"), parse_method("(name: _B, **_A) -> any"), [])
+    assert assignability.test_method(parse_method("(**_A) -> any"), parse_method("(name: _A) -> any"), [])
+    assert assignability.test_method(parse_method("(**_A) -> any"), parse_method("(name: _A, **_A) -> any"), [])
+    assert assignability.test_method(parse_method("(name: _B, **_A) -> any"), parse_method("(name: _B, **_A) -> any"), [])
 
-    refute a.test_method(parse_method("(name: _A) -> any"), parse_method("(**_A) -> any"), [])
-    refute a.test_method(parse_method("(email: _B, **B) -> any"), parse_method("(**_B) -> any"), [])
-    refute a.test_method(parse_method("(**_B) -> any"), parse_method("(**_A) -> any"), [])
-    refute a.test_method(parse_method("(name: _B, **_A) -> any"), parse_method("(name: _A, **_A) -> any"), [])
+    refute assignability.test_method(parse_method("(name: _A) -> any"), parse_method("(**_A) -> any"), [])
+    refute assignability.test_method(parse_method("(email: _B, **B) -> any"), parse_method("(**_B) -> any"), [])
+    refute assignability.test_method(parse_method("(**_B) -> any"), parse_method("(**_A) -> any"), [])
+    refute assignability.test_method(parse_method("(name: _B, **_A) -> any"), parse_method("(name: _A, **_A) -> any"), [])
   end
 
   def test_method2
-    a = Steep::TypeAssignability.new
-
-    parse_signature(<<-EOS).each do |interface|
+    assignability = Steep::TypeAssignability.new do |a|
+      parse_signature(<<-EOS).each do |interface|
 interface _S
 end
 
 interface _T
   def foo: -> any
 end
-    EOS
-      a.add_signature interface
+      EOS
+        a.add_signature interface
+      end
     end
 
-    assert a.test(src: T::Name.interface(name: :_T), dest: T::Name.interface(name: :_S))
+    assert assignability.test(src: T::Name.interface(name: :_T), dest: T::Name.interface(name: :_S))
 
-    assert a.test_method(parse_method("() -> _T"), parse_method("() -> _S"), [])
-    refute a.test_method(parse_method("() -> _S"), parse_method("() -> _T"), [])
+    assert assignability.test_method(parse_method("() -> _T"), parse_method("() -> _S"), [])
+    refute assignability.test_method(parse_method("() -> _S"), parse_method("() -> _T"), [])
 
-    assert a.test_method(parse_method("(_S) -> any"), parse_method("(_T) -> any"), [])
-    refute a.test_method(parse_method("(_T) -> any"), parse_method("(_S) -> any"), [])
+    assert assignability.test_method(parse_method("(_S) -> any"), parse_method("(_T) -> any"), [])
+    refute assignability.test_method(parse_method("(_T) -> any"), parse_method("(_S) -> any"), [])
   end
 
   def test_recursively
-    a = Steep::TypeAssignability.new
-
-    parse_signature(<<-EOS).each do |interface|
+    assignability = Steep::TypeAssignability.new do |a|
+      parse_signature(<<-EOS).each do |interface|
 interface _S
   def this: -> _S
 end
@@ -134,18 +135,18 @@ interface _T
   def this: -> _T
   def foo: -> any
 end
-    EOS
-      a.add_signature interface
+      EOS
+        a.add_signature interface
+      end
     end
 
-    assert a.test(src: T::Name.interface(name: :_T), dest: T::Name.interface(name: :_S))
-    refute a.test(src: T::Name.interface(name: :_S), dest: T::Name.interface(name: :_T))
+    assert assignability.test(src: T::Name.interface(name: :_T), dest: T::Name.interface(name: :_S))
+    refute assignability.test(src: T::Name.interface(name: :_S), dest: T::Name.interface(name: :_T))
   end
 
   def test_union_intro
-    a = Steep::TypeAssignability.new
-
-    parse_signature(<<-EOS).each do |interface|
+    assignability = Steep::TypeAssignability.new do |a|
+      parse_signature(<<-EOS).each do |interface|
 interface _X
   def x: () -> any
 end
@@ -157,29 +158,29 @@ end
 interface _Z
   def z: () -> any
 end
-    EOS
-      a.add_signature interface
+      EOS
+        a.add_signature interface
+      end
     end
 
-    assert a.test(dest: T::Union.new(types: [T::Name.interface(name: :_X),
-                                             T::Name.interface(name: :_Y)]),
-                  src: T::Name.interface(name: :_X))
+    assert assignability.test(dest: T::Union.new(types: [T::Name.interface(name: :_X),
+                                                         T::Name.interface(name: :_Y)]),
+                              src: T::Name.interface(name: :_X))
 
-    assert a.test(dest: T::Union.new(types: [T::Name.interface(name: :_X),
-                                             T::Name.interface(name: :_Y),
-                                             T::Name.interface(name: :_Z)]),
-                  src: T::Union.new(types: [T::Name.interface(name: :_X),
-                                            T::Name.interface(name: :_Y)]))
+    assert assignability.test(dest: T::Union.new(types: [T::Name.interface(name: :_X),
+                                                         T::Name.interface(name: :_Y),
+                                                         T::Name.interface(name: :_Z)]),
+                              src: T::Union.new(types: [T::Name.interface(name: :_X),
+                                                        T::Name.interface(name: :_Y)]))
 
-    refute a.test(dest: T::Union.new(types: [T::Name.interface(name: :_X),
-                                             T::Name.interface(name: :_Y)]),
-                  src: T::Name.interface(name: :_Z))
+    refute assignability.test(dest: T::Union.new(types: [T::Name.interface(name: :_X),
+                                                         T::Name.interface(name: :_Y)]),
+                              src: T::Name.interface(name: :_Z))
   end
 
   def test_union_elim
-    a = Steep::TypeAssignability.new
-
-    parse_signature(<<-EOS).each do |interface|
+    assignability = Steep::TypeAssignability.new do |a|
+      parse_signature(<<-EOS).each do |interface|
 interface _X
   def x: () -> any
   def z: () -> any
@@ -193,23 +194,23 @@ end
 interface _Z
   def z: () -> any
 end
-    EOS
-      a.add_signature interface
+      EOS
+        a.add_signature interface
+      end
     end
 
-    assert a.test(dest: T::Name.interface(name: :_Z),
-                  src: T::Union.new(types: [T::Name.interface(name: :_X),
-                                            T::Name.interface(name: :_Y)]))
+    assert assignability.test(dest: T::Name.interface(name: :_Z),
+                              src: T::Union.new(types: [T::Name.interface(name: :_X),
+                                                        T::Name.interface(name: :_Y)]))
 
-    refute a.test(dest: T::Name.interface(name: :_X),
-                  src: T::Union.new(types: [T::Name.interface(name: :_Z),
-                                            T::Name.interface(name: :_Y)]))
+    refute assignability.test(dest: T::Name.interface(name: :_X),
+                              src: T::Union.new(types: [T::Name.interface(name: :_Z),
+                                                        T::Name.interface(name: :_Y)]))
   end
 
   def test_union_method
-    a = Steep::TypeAssignability.new
-
-    parse_signature(<<-EOS).each do |interface|
+    assignability = Steep::TypeAssignability.new do |a|
+      parse_signature(<<-EOS).each do |interface|
 interface _X
   def f: () -> any
        | (any) -> any
@@ -220,15 +221,16 @@ interface _Y
   def f: () -> any
        | (_X) -> _X
 end
-    EOS
-      a.add_signature interface
+      EOS
+        a.add_signature interface
+      end
     end
 
-    assert a.test(src: T::Name.interface(name: :_X),
-                  dest: T::Name.interface(name: :_Y))
+    assert assignability.test(src: T::Name.interface(name: :_X),
+                              dest: T::Name.interface(name: :_Y))
 
-    refute a.test(src: T::Name.interface(name: :_Y),
-                  dest: T::Name.interface(name: :_X))
+    refute assignability.test(src: T::Name.interface(name: :_Y),
+                              dest: T::Name.interface(name: :_X))
   end
 
   def test_add_signature
@@ -243,11 +245,11 @@ interface _C
 end
     SRC
 
-    assignability = Steep::TypeAssignability.new
-
-    assignability.add_signature(klass)
-    assignability.add_signature(mod)
-    assignability.add_signature(interface)
+    assignability = Steep::TypeAssignability.new do |a|
+      a.add_signature(klass)
+      a.add_signature(mod)
+      a.add_signature(interface)
+    end
 
     assert_equal klass, assignability.signatures[:A]
     assert_equal mod, assignability.signatures[:B]
@@ -263,9 +265,9 @@ module A
 end
     SRC
 
-    assignability = Steep::TypeAssignability.new
-
-    assignability.add_signature(klass)
+    assignability = Steep::TypeAssignability.new do |a|
+      a.add_signature(klass)
+    end
 
     assert_raises RuntimeError do
       assignability.add_signature(mod)
@@ -284,10 +286,10 @@ interface _String
 end
     SRC
 
-    assignability = Steep::TypeAssignability.new
-
-    sigs.each do |sig|
-      assignability.add_signature sig
+    assignability = Steep::TypeAssignability.new do |a|
+      sigs.each do |sig|
+        a.add_signature sig
+      end
     end
 
     assert assignability.test_method(parse_method("{ (_Object) -> any } -> any"),

@@ -19,7 +19,7 @@ class TypeConstructionTest < Minitest::Test
   end
 
   def assignability
-    TypeAssignability.new.tap do |assignability|
+    TypeAssignability.new do |assignability|
       interfaces = Parser.parse_signature(<<-EOS)
 interface _A
   def +: (_A) -> _A

@@ -5,7 +5,7 @@ class SignatureClassTest < Minitest::Test
   include Steep
 
   def new_assignability(src)
-    TypeAssignability.new.tap do |assignability|
+    TypeAssignability.new do |assignability|
       parse_signature(src).each do |signature|
         assignability.add_signature(signature)
       end
