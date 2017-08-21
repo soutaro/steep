@@ -16,7 +16,7 @@ module Steep
       end
 
       def to_interface(klass:, instance:, params:)
-        raise TypeApplicationError, "expected: #{self.params.size}, actual: #{params.size}" if params.size != self.params.size
+        raise "Invalid type application: expected: #{self.params.size}, actual: #{params.size}" if params.size != self.params.size
 
         map = Hash[self.params.zip(params)]
         Steep::Interface.new(name: name,
@@ -27,6 +27,10 @@ module Steep
                                Steep::Interface::Method.new(types: types, super_method: nil)
                              }).tap do |interface|
         end
+      end
+
+      def validate(assignability)
+
       end
     end
   end

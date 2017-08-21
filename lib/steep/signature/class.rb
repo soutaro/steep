@@ -158,6 +158,36 @@ module Steep
       end
     end
 
+    module WithMembers
+      def each_type
+        if block_given?
+          members.each do |member|
+            case member
+            when Members::InstanceMethod, Members::ModuleMethod, Members::ModuleInstanceMethod
+              member.types.each do |method_type|
+                method_type.params.each_type do |type|
+                  yield type
+                end
+                yield method_type.return_type
+                if method_type.block
+                  method_type.block.params.each_type do |type|
+                    yield type
+                  end
+                  yield method_type.block.return_type
+                end
+              end
+            when Members::Include, Members::Extend
+              yield member.name
+            else
+              raise "Unknown member: #{member.class.inspect}"
+            end
+          end
+        else
+          enum_for :each_type
+        end
+      end
+    end
+
     class Module
       attr_reader :name
       attr_reader :params
@@ -165,6 +195,7 @@ module Steep
       attr_reader :self_type
 
       prepend WithMethods
+      include WithMembers
 
       def initialize(name:, params:, members:, self_type:)
         @name = name
@@ -184,6 +215,21 @@ module Steep
       def module_methods(assignability:, klass:, instance:, params:)
         {}
       end
+
+      def each_type
+        if block_given?
+          yield super_class if super_class
+          super do |type|
+            yield type
+          end
+        else
+          enum_for :each_type
+        end
+      end
+
+      def validate(assignability)
+
+      end
     end
 
     class Class
@@ -193,6 +239,7 @@ module Steep
       attr_reader :super_class
 
       prepend WithMethods
+      include WithMembers
 
       def initialize(name:, params:, members:, super_class:)
         @name = name
@@ -238,6 +285,23 @@ module Steep
           end
 
           class_methods.merge!(signature.module_methods(assignability: assignability, klass: klass, instance: instance, params: super_class_params))
+        end
+      end
+
+      def each_type
+        if block_given?
+          yield super_class if super_class
+          super do |type|
+            yield type
+          end
+        else
+          enum_for :each_type
+        end
+      end
+
+      def validate(assignability)
+        each_type do |type|
+          assignability.validate_type_presence self, type
         end
       end
     end

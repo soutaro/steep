@@ -31,7 +31,7 @@ interface _foo<'a>
 end
     EOF
 
-    assert_raises Steep::Signature::TypeApplicationError do
+    assert_raises RuntimeError do
       interface.to_interface(klass: Types::Name.interface(name: :_class),
                              instance: Types::Name.interface(name: :_instance),
                              params: [])

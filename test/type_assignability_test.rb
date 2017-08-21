@@ -314,4 +314,32 @@ end
                                      parse_method_type("{ (_Object, _Object) -> any } -> any"),
                                      [])
   end
+
+  def test_validate_unknown_type_name
+    assignability = Steep::TypeAssignability.new do |a|
+      parse_signature(<<-SRC) do |sig|
+class BasicObject
+end
+
+class Symbol
+end
+
+class SomeClass <: BasicObject
+  def foo: (T1, ?T2, *T3, a: T4, ?b: T5, **T6) { (T7, ?T8, *T9) -> T10 } -> T11
+end
+      SRC
+        a.add_signature sig
+      end
+    end
+
+    assert_equal 11, assignability.errors.size
+
+    %i(T1 T2 T3 T4 T5 T6 T7 T8 T9 T10 T11).each do |name|
+      assert_any assignability.errors do |error|
+        error.is_a?(Steep::Signature::Errors::UnknownTypeName) &&
+          error.type == Steep::Types::Name.instance(name: name) &&
+          error.signature.name == :SomeClass
+      end
+    end
+  end
 end

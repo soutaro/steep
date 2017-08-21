@@ -1,14 +1,17 @@
 module Steep
   class TypeAssignability
     attr_reader :signatures
+    attr_reader :errors
 
     def initialize()
       @signatures = {}
       @klasses = []
       @instances = []
+      @errors = []
 
       if block_given?
         yield self
+        validate
       end
     end
 
@@ -265,6 +268,20 @@ module Steep
         yield(method) || Types::Any.new
       else
         yield(nil) || Types::Any.new
+      end
+    end
+
+    def validate
+      signatures.each do |name, signature|
+        signature.validate(self)
+      end
+    end
+
+    def validate_type_presence(signature, type)
+      if type.is_a?(Types::Name)
+        unless signatures[type.name.name]
+          errors << Signature::Errors::UnknownTypeName.new(signature: signature, type: type)
+        end
       end
     end
   end

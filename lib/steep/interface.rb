@@ -123,6 +123,21 @@ module Steep
         [keywords, rest]
       end
 
+      def each_type()
+        if block_given?
+          flat_unnamed_params.each do |(_, type)|
+            yield type
+          end
+          flat_keywords.each do |_, type|
+            yield type
+          end
+          rest and yield rest
+          rest_keywords and yield rest_keywords
+        else
+          enum_for :each_type
+        end
+      end
+
       def closed?
         required.all?(&:closed?) && optional.all?(&:closed?) && (!rest || rest.closed?) && required_keywords.values.all?(&:closed?) && optional_keywords.values.all?(&:closed?) && (!rest_keywords || rest_keywords.closed?)
       end
