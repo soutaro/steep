@@ -39,9 +39,9 @@ module Steep
 
       method_types = interface.methods[method_name]
       return nil unless method_types
-      return nil unless method_types.size == 1
+      return nil unless method_types.types.size == 1
 
-      method_types.first
+      method_types.types.first
     end
 
     def for_new_method(method_name, node, args:, self_type:)
@@ -349,9 +349,9 @@ module Steep
       receiver, method_name, *args = node.children
       recv_type = receiver ? synthesize(receiver) : annotations.self_type
 
-      ret_type = assignability.method_type recv_type, method_name do |method_types|
-        if method_types
-          method_type = method_types.find {|method_type_|
+      ret_type = assignability.method_type recv_type, method_name do |method|
+        if method
+          method_type = method.types.find {|method_type_|
             applicable_args?(params: method_type_.params, arguments: args) &&
               with_block == !!method_type_.block
           }

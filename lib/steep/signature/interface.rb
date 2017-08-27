@@ -21,9 +21,10 @@ module Steep
         map = Hash[self.params.zip(params)]
         Steep::Interface.new(name: name,
                              methods: methods.transform_values {|method|
-                               method.map {|method_type|
+                               types = method.map {|method_type|
                                  method_type.substitute(klass: klass, instance: instance, params: map)
                                }
+                               Steep::Interface::Method.new(types: types, super_method: nil)
                              }).tap do |interface|
         end
       end

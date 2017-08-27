@@ -79,8 +79,8 @@ module Steep
         if src.methods.key?(name)
           src_methods = src.methods[name]
 
-          dest_methods.all? do |dest_method|
-            src_methods.any? do |src_method|
+          dest_methods.types.all? do |dest_method|
+            src_methods.types.any? do |src_method|
               test_method(src_method, dest_method, pairs)
             end
           end

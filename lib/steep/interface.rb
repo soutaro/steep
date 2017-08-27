@@ -205,6 +205,38 @@ module Steep
       end
     end
 
+    class Method
+      attr_reader :super_method
+      attr_reader :types
+
+      def initialize(types:, super_method:)
+        @types = types
+        @super_method = super_method
+      end
+
+      def ==(other)
+        other.is_a?(Method) && other.types == types && other.super_method == other.super_method
+      end
+
+      def closed?
+        types.all?(&:closed?)
+      end
+
+      def substitute(klass:, instance:, params:)
+        self.class.new(
+          types: types.map {|type| type.substitute(klass: klass, instance: instance, params: params) },
+          super_method: super_method&.substitute(klass: klass, instance: instance, params: params)
+        )
+      end
+
+      def map_types()
+        self.class.new(
+          types: types.map {|type| yield(type) },
+          super_method: super_method
+        )
+      end
+    end
+
     attr_reader :name
     attr_reader :methods
 
@@ -214,9 +246,7 @@ module Steep
     end
 
     def closed?
-      methods.values.all? do |methods|
-        methods.all?(&:closed?)
-      end
+      methods.values.all?(&:closed?)
     end
 
     def ==(other)

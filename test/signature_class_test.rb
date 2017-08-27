@@ -50,12 +50,12 @@ end
     assert_equal [:itself, :to_s, :foo, :baz, :gets, :eval, :get].sort,
                  methods.keys.sort
 
-    assert_equal [parse_method_type("-> String")], methods[:to_s]
-    assert_equal [parse_method_type("-> any")], methods[:foo]
-    assert_equal [parse_method_type("-> any")], methods[:baz]
-    assert_equal [parse_method_type("-> A")], methods[:itself]
-    assert_equal [parse_method_type("(String) -> any")], methods[:eval]
-    assert_equal [parse_method_type("() -> String")], methods[:get]
+    assert_equal parse_single_method("-> String"), methods[:to_s]
+    assert_equal parse_single_method("-> any"), methods[:foo]
+    assert_equal parse_single_method("-> any"), methods[:baz]
+    assert_equal parse_single_method("-> A"), methods[:itself]
+    assert_equal parse_single_method("(String) -> any"), methods[:eval]
+    assert_equal parse_single_method("() -> String"), methods[:get]
   end
 
   def test_module
@@ -101,12 +101,12 @@ end
     assert_equal [:foo, :bar, :new, :abs, :fizz, :hoge, :itself, :huga].sort,
                  methods.keys.sort
 
-    assert_equal [parse_method_type("-> A")], methods[:foo]
-    assert_equal [parse_method_type("-> A.class")], methods[:bar]
-    assert_equal [parse_method_type("(String) -> A")], methods[:new]
-    assert_equal [parse_method_type("(Number) -> Number")], methods[:abs]
-    assert_equal [parse_method_type("-> String")], methods[:fizz]
-    assert_equal [parse_method_type("-> any")], methods[:hoge]
-    assert_equal [parse_method_type("-> String")], methods[:huga]
+    assert_equal parse_single_method("-> A"), methods[:foo]
+    assert_equal parse_single_method("-> A.class"), methods[:bar]
+    assert_equal parse_single_method("(String) -> A"), methods[:new]
+    assert_equal parse_single_method("(Number) -> Number"), methods[:abs]
+    assert_equal parse_single_method("-> String"), methods[:fizz]
+    assert_equal parse_single_method("-> any"), methods[:hoge]
+    assert_equal parse_single_method("-> String"), methods[:huga]
   end
 end

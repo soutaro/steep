@@ -76,10 +76,9 @@ module Steep
 
         members.each do |member|
           case member
-          when Members::InstanceMethod
-            methods[member.name] = member.types.map {|type| type.substitute(klass: klass, instance: instance, params: hash) }
-          when Members::ModuleInstanceMethod
-            methods[member.name] = member.types.map {|type| type.substitute(klass: klass, instance: instance, params: hash) }
+          when Members::InstanceMethod, Members::ModuleInstanceMethod
+            method_types = member.types.map {|type| type.substitute(klass: klass, instance: instance, params: hash) }
+            methods[member.name] = Steep::Interface::Method.new(types: method_types, super_method: nil)
           when Members::Include
             module_signature = assignability.lookup_included_signature(member.name)
             methods.merge!(module_signature.instance_methods(assignability: assignability,
@@ -98,7 +97,8 @@ module Steep
         members.each do |member|
           case member
           when Members::ModuleInstanceMethod, Members::ModuleMethod
-            methods[member.name] = member.types.map {|type| type.substitute(klass: klass, instance: instance, params: {}) }
+            method_types = member.types.map {|type| type.substitute(klass: klass, instance: instance, params: {}) }
+            methods[member.name] = Steep::Interface::Method.new(types: method_types, super_method: nil)
           when Members::Include
             module_signature = assignability.lookup_included_signature(member.name)
             methods.merge!(module_signature.module_methods(assignability: assignability,
@@ -117,12 +117,15 @@ module Steep
         if self.is_a?(Class)
           instance_methods = instance_methods(assignability: assignability, klass: klass, instance: instance, params: params)
           methods[:new] = if instance_methods[:initialize]
-                            instance_methods[:initialize].map {|type| type.updated(return_type: instance) }
+                            instance_methods[:initialize].map_types do |method_type|
+                              method_type.updated(return_type: instance)
+                            end
                           else
-                            [Steep::Interface::MethodType.new(type_params: [],
-                                                              params: Steep::Interface::Params.empty,
-                                                              block: nil,
-                                                              return_type: instance)]
+                            Steep::Interface::Method.new(types: [Steep::Interface::MethodType.new(type_params: [],
+                                                                                                  params: Steep::Interface::Params.empty,
+                                                                                                  block: nil,
+                                                                                                  return_type: instance)],
+                                                         super_method: nil)
                           end
         end
 

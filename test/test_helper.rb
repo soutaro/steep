@@ -20,6 +20,11 @@ module TestHelper
   def parse_method_type(string)
     Steep::Parser.parse_method(string)
   end
+
+  def parse_single_method(string, super_method: nil)
+    type = Steep::Parser.parse_method(string)
+    Steep::Interface::Method.new(types: [type], super_method: super_method)
+  end
 end
 
 module TypeErrorAssertions
