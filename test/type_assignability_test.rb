@@ -232,7 +232,7 @@ end
   end
 
   def test_add_signature
-    klass, mod, interface, _ = parse_signature(<<-SRC).to_a
+    klass, mod, interface, basic_object, object = parse_signature(<<-SRC).to_a
 class A
 end
 
@@ -241,12 +241,20 @@ end
 
 interface _C
 end
+
+class BasicObject
+end
+
+class Object <: BasicObject
+end
     SRC
 
     assignability = Steep::TypeAssignability.new do |a|
       a.add_signature(klass)
       a.add_signature(mod)
       a.add_signature(interface)
+      a.add_signature(object)
+      a.add_signature(basic_object)
     end
 
     assert_equal klass, assignability.signatures[:A]
@@ -255,20 +263,25 @@ end
   end
 
   def test_add_signature_duplicated
-    klass, mod, _ = parse_signature(<<-SRC).to_a
+    assert_raises RuntimeError do
+      Steep::TypeAssignability.new do |a|
+        parse_signature(<<-SRC) do |signature|
 class A
 end
 
 module A
 end
+
+class BasicObject
+end
+
+class Object <: BasicObject
+end
     SRC
 
-    assignability = Steep::TypeAssignability.new do |a|
-      a.add_signature(klass)
-    end
-
-    assert_raises RuntimeError do
-      assignability.add_signature(mod)
+          a.add_signature(signature)
+        end
+      end
     end
   end
 
@@ -322,6 +335,9 @@ class BasicObject
 end
 
 class Symbol
+end
+
+class Object <: BasicObject
 end
 
 class SomeClass <: BasicObject

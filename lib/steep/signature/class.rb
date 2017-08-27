@@ -218,7 +218,7 @@ module Steep
 
       def each_type
         if block_given?
-          yield super_class if super_class
+          yield self_type if self_type
           super do |type|
             yield type
           end
@@ -228,7 +228,9 @@ module Steep
       end
 
       def validate(assignability)
-
+        each_type do |type|
+          assignability.validate_type_presence self, type
+        end
       end
     end
 
