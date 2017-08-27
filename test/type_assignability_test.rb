@@ -408,4 +408,43 @@ end
         error.method_name == :bar
     end
   end
+
+  def test_self_type_validation
+    assignability = Steep::TypeAssignability.new do |a|
+      parse_signature(<<-SRC) do |sig|
+class BasicObject
+end
+
+interface _Each<'a>
+  def each: { ('a) -> any } -> instance
+end
+
+class Object <: BasicObject
+end
+
+class Integer
+end
+
+module Enumerable<'a> : _Each<'a>
+  def size: -> Integer
+  def first: -> 'a
+end
+
+class A
+  include Enumerable<Integer>
+end
+      SRC
+        a.add_signature sig
+      end
+    end
+
+    assert_equal 1, assignability.errors.size
+
+    assert_any assignability.errors do |error|
+      error.is_a?(Steep::Signature::Errors::InvalidSelfType) &&
+        error.member.is_a?(Steep::Signature::Members::Include) &&
+        error.member.name == Steep::Types::Name.instance(name: :Enumerable,
+                                                         params: [Steep::Types::Name.instance(name: :Integer)])
+    end
+  end
 end

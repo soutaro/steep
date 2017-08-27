@@ -186,6 +186,25 @@ module Steep
           enum_for :each_type
         end
       end
+
+      def validate_mixins(assignability, interface)
+        members.each do |member|
+          if member.is_a?(Members::Include)
+            module_signature = assignability.lookup_included_signature(member.name)
+
+            if module_signature.self_type
+              self_type = module_signature.self_type.substitute(klass: Types::Name.module(name: name),
+                                                                instance: Types::Name.instance(name: name),
+                                                                params: {})
+              self_interface = assignability.resolve_interface(self_type.name, member.name.params)
+
+              unless assignability.test_interface(interface, self_interface, [])
+                assignability.errors << Errors::InvalidSelfType.new(signature: self, member: member)
+              end
+            end
+          end
+        end
+      end
     end
 
     class Module
@@ -231,6 +250,11 @@ module Steep
         each_type do |type|
           assignability.validate_type_presence self, type
         end
+
+        interface = assignability.resolve_interface(TypeName::Instance.new(name: name),
+                                                    params.map {|x| Types::Var.new(name: x) })
+
+        validate_mixins(assignability, interface)
       end
     end
 
@@ -315,6 +339,8 @@ module Steep
             assignability.validate_method_compatibility(self, method_name, method)
           end
         end
+
+        validate_mixins(assignability, interface)
       end
     end
   end

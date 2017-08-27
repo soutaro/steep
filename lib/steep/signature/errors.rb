@@ -43,11 +43,11 @@ module Steep
       end
 
       class InvalidSelfType < Base
-        attr_reader :type
+        attr_reader :member
 
-        def initialize(signature:, type:)
+        def initialize(signature:, member:)
           super(signature: signature)
-          @type = type
+          @member = member
         end
       end
 
