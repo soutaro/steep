@@ -9,8 +9,9 @@ module Steep
     attr_reader :block_type
     attr_reader :break_type
     attr_reader :yielding_type
+    attr_reader :method_name
 
-    def initialize(assignability:, source:, annotations:, var_types:, return_type:, block_type:, typing:, break_type: nil, self_type:, yielding_type: nil)
+    def initialize(assignability:, source:, annotations:, var_types:, return_type:, block_type:, typing:, break_type: nil, self_type:, yielding_type: nil, method_name: nil)
       @assignability = assignability
       @source = source
       @annotations = annotations
@@ -21,27 +22,42 @@ module Steep
       @break_type = break_type
       @self_type = self_type
       @yielding_type = yielding_type
+      @method_name = method_name
     end
 
     def self_type
       annotations.self_type || @self_type
     end
 
-    def method_type(method_name, self_type:)
-      if (type = annotations.lookup_method_type(method_name))
-        return type
+    def method_entry(method_name, receiver_type:)
+      type = annotations.lookup_method_type(method_name)
+
+      if receiver_type
+        interface = assignability.resolve_interface(receiver_type.name, receiver_type.params)
+        entry = interface.methods[method_name]
+
+        if (type = annotations.lookup_method_type(method_name))
+          Interface::Method.new(types: [type], super_method: entry.super_method)
+        else
+          entry
+        end
+      else
+        Interface::Method.new(types: [type], super_method: nil)
       end
+    end
 
-      return nil unless self_type
-      return nil unless self_type.is_a?(Types::Name)
+    def method_type(method_name, self_type:)
+      entry = method_entry(method_name, receiver_type: self_type)
+      if entry && entry.types.size == 1
+        entry.types.first
+      end
+    end
 
-      interface = assignability.resolve_interface(self_type.name, self_type.params)
-
-      method_types = interface.methods[method_name]
-      return nil unless method_types
-      return nil unless method_types.types.size == 1
-
-      method_types.types.first
+    def super_type(self_type:)
+      entry = method_entry(method_name, receiver_type: self_type)
+      if entry&.super_method && entry.super_method.types.size == 1
+        entry.super_method.types.first
+      end
     end
 
     def for_new_method(method_name, node, args:, self_type:)
@@ -70,7 +86,8 @@ module Steep
                      yielding_type: method_type&.block,
                      typing: typing,
                      break_type: nil,
-                     self_type: annotations.instance_type)
+                     self_type: annotations.instance_type,
+                     method_name: method_name)
     end
 
     def for_block(block)
