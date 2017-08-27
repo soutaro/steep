@@ -303,6 +303,16 @@ module Steep
         each_type do |type|
           assignability.validate_type_presence self, type
         end
+
+        interface = assignability.resolve_interface(TypeName::Instance.new(name: name),
+                                                    params.map {|x| Types::Var.new(name: x) })
+
+        interface.methods.each_key do |method_name|
+          method = interface.methods[method_name]
+          if method.super_method
+            assignability.validate_method_compatibility(self, method_name, method)
+          end
+        end
       end
     end
   end

@@ -51,6 +51,8 @@ module Steep
         dest.types.any? do |type|
           test(src: src, dest: type, known_pairs: known_pairs)
         end
+      when src.is_a?(Types::Var) || dest.is_a?(Types::Var)
+        known_pairs.include?([src, dest])
       when src.is_a?(Types::Name) && dest.is_a?(Types::Name)
         test_interface(resolve_interface(src.name, src.params), resolve_interface(dest.name, dest.params), known_pairs)
       else
@@ -281,6 +283,23 @@ module Steep
       if type.is_a?(Types::Name)
         unless signatures[type.name.name]
           errors << Signature::Errors::UnknownTypeName.new(signature: signature, type: type)
+        end
+      end
+    end
+
+    def validate_method_compatibility(signature, method_name, method)
+      if method.super_method
+        test = method.types.all? {|method_type|
+          method.super_method.types.any? {|super_type|
+            test_method(method_type, super_type, [])
+          }
+        }
+
+        unless test
+          errors << Signature::Errors::IncompatibleOverride.new(signature: signature,
+                                                                method_name: method_name,
+                                                                this_method: method.types,
+                                                                super_method: method.super_method.types)
         end
       end
     end

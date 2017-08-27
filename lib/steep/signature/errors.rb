@@ -19,11 +19,13 @@ module Steep
       end
 
       class IncompatibleOverride < Base
+        attr_reader :method_name
         attr_reader :this_method
         attr_reader :super_method
 
-        def initialize(signature:, this_method:, super_method:)
+        def initialize(signature:, method_name:, this_method:, super_method:)
           super(signature: signature)
+          @method_name = method_name
           @this_method = this_method
           @super_method = super_method
         end
