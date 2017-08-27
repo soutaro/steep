@@ -134,5 +134,18 @@ module Steep
         "#{location_to_str}: UnexpectedYield"
       end
     end
+
+    class UnexpectedSuper < Base
+      attr_reader :method
+
+      def initialize(node:, method:)
+        super(node: node)
+        @method = method
+      end
+
+      def to_s
+        "#{location_to_str}: UnexpectedSuper: method=#{method}"
+      end
+    end
   end
 end

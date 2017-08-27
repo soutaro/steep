@@ -53,11 +53,9 @@ module Steep
       end
     end
 
-    def super_type(self_type:)
+    def super_method(self_type:)
       entry = method_entry(method_name, receiver_type: self_type)
-      if entry&.super_method && entry.super_method.types.size == 1
-        entry.super_method.types.first
-      end
+      entry&.super_method
     end
 
     def for_new_method(method_name, node, args:, self_type:)
@@ -321,6 +319,17 @@ module Steep
           typing.add_typing(node, Types::Any.new)
         end
 
+      when :super
+        type_send(node)
+
+      when :zsuper
+        if self_type
+          super_method = super_method(self_type: self_type)
+          typing.add_typing(node, super_method.types.first.return_type)
+        else
+          typing.add_typing(node, Types::Any.new)
+        end
+
       else
         raise "Unexpected node: #{node.inspect}"
       end
@@ -363,10 +372,23 @@ module Steep
     end
 
     def type_send(node, with_block: false)
-      receiver, method_name, *args = node.children
-      recv_type = receiver ? synthesize(receiver) : annotations.self_type
+      case node.type
+      when :super
+        recv_type = self_type
+        method_name = self.method_name
+        args = node.children
+      else
+        receiver, method_name, *args = node.children
+        recv_type = receiver ? synthesize(receiver) : annotations.self_type
+      end
+
+      unless recv_type
+        return typing.add_typing node, Types::Any.new
+      end
 
       ret_type = assignability.method_type recv_type, method_name do |method|
+        method = method&.super_method if node.type == :super
+
         if method
           method_type = method.types.find {|method_type_|
             applicable_args?(params: method_type_.params, arguments: args) &&
@@ -381,8 +403,12 @@ module Steep
             nil
           end
         else
-          # no method error
-          typing.add_error Errors::NoMethod.new(node: node, method: method_name, type: recv_type)
+          if node.type == :super
+            typing.add_error Errors::UnexpectedSuper.new(node: node, method: method_name)
+          else
+            # no method error
+            typing.add_error Errors::NoMethod.new(node: node, method: method_name, type: recv_type)
+          end
           nil
         end
       end
