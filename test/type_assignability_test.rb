@@ -4,9 +4,7 @@ class TypeAssignabilityTest < Minitest::Test
   T = Steep::Types
   Parser = Steep::Parser
 
-  def parse_method(src)
-    Parser.parse_method(src)
-  end
+  include TestHelper
 
   def parse_signature(src, &block)
     Parser.parse_signature(src).each(&block)
@@ -68,37 +66,37 @@ end
       end
     end
 
-    assert assignability.test_method(parse_method("(_A) -> any"), parse_method("(_A) -> any"), [])
-    assert assignability.test_method(parse_method("(_A) -> any"), parse_method("(any) -> any"), [])
-    assert assignability.test_method(parse_method("(any) -> any"), parse_method("(_A) -> any"), [])
-    refute assignability.test_method(parse_method("() -> any"), parse_method("(_A) -> any"), [])
-    refute assignability.test_method(parse_method("(_A) -> any"), parse_method("(_B) -> any"), [])
+    assert assignability.test_method(parse_method_type("(_A) -> any"), parse_method_type("(_A) -> any"), [])
+    assert assignability.test_method(parse_method_type("(_A) -> any"), parse_method_type("(any) -> any"), [])
+    assert assignability.test_method(parse_method_type("(any) -> any"), parse_method_type("(_A) -> any"), [])
+    refute assignability.test_method(parse_method_type("() -> any"), parse_method_type("(_A) -> any"), [])
+    refute assignability.test_method(parse_method_type("(_A) -> any"), parse_method_type("(_B) -> any"), [])
 
-    assert assignability.test_method(parse_method("(_A, ?_B) -> any"), parse_method("(_A) -> any"), [])
-    refute assignability.test_method(parse_method("(_A) -> any"), parse_method("(_A, ?_B) -> any"), [])
+    assert assignability.test_method(parse_method_type("(_A, ?_B) -> any"), parse_method_type("(_A) -> any"), [])
+    refute assignability.test_method(parse_method_type("(_A) -> any"), parse_method_type("(_A, ?_B) -> any"), [])
 
-    refute assignability.test_method(parse_method("(_A, ?_A) -> any"), parse_method("(*_A) -> any"), [])
-    refute assignability.test_method(parse_method("(_A, ?_A) -> any"), parse_method("(*_B) -> any"), [])
+    refute assignability.test_method(parse_method_type("(_A, ?_A) -> any"), parse_method_type("(*_A) -> any"), [])
+    refute assignability.test_method(parse_method_type("(_A, ?_A) -> any"), parse_method_type("(*_B) -> any"), [])
 
-    assert assignability.test_method(parse_method("(*_A) -> any"), parse_method("(_A) -> any"), [])
-    refute assignability.test_method(parse_method("(*_A) -> any"), parse_method("(_B) -> any"), [])
+    assert assignability.test_method(parse_method_type("(*_A) -> any"), parse_method_type("(_A) -> any"), [])
+    refute assignability.test_method(parse_method_type("(*_A) -> any"), parse_method_type("(_B) -> any"), [])
 
-    assert assignability.test_method(parse_method("(name: _A) -> any"), parse_method("(name: _A) -> any"), [])
-    refute assignability.test_method(parse_method("(name: _A, email: _B) -> any"), parse_method("(name: _A) -> any"), [])
+    assert assignability.test_method(parse_method_type("(name: _A) -> any"), parse_method_type("(name: _A) -> any"), [])
+    refute assignability.test_method(parse_method_type("(name: _A, email: _B) -> any"), parse_method_type("(name: _A) -> any"), [])
 
-    assert assignability.test_method(parse_method("(name: _A, ?email: _B) -> any"), parse_method("(name: _A) -> any"), [])
-    refute assignability.test_method(parse_method("(name: _A) -> any"), parse_method("(name: _A, ?email: _B) -> any"), [])
+    assert assignability.test_method(parse_method_type("(name: _A, ?email: _B) -> any"), parse_method_type("(name: _A) -> any"), [])
+    refute assignability.test_method(parse_method_type("(name: _A) -> any"), parse_method_type("(name: _A, ?email: _B) -> any"), [])
 
-    refute assignability.test_method(parse_method("(name: _A) -> any"), parse_method("(name: _B) -> any"), [])
+    refute assignability.test_method(parse_method_type("(name: _A) -> any"), parse_method_type("(name: _B) -> any"), [])
 
-    assert assignability.test_method(parse_method("(**_A) -> any"), parse_method("(name: _A) -> any"), [])
-    assert assignability.test_method(parse_method("(**_A) -> any"), parse_method("(name: _A, **_A) -> any"), [])
-    assert assignability.test_method(parse_method("(name: _B, **_A) -> any"), parse_method("(name: _B, **_A) -> any"), [])
+    assert assignability.test_method(parse_method_type("(**_A) -> any"), parse_method_type("(name: _A) -> any"), [])
+    assert assignability.test_method(parse_method_type("(**_A) -> any"), parse_method_type("(name: _A, **_A) -> any"), [])
+    assert assignability.test_method(parse_method_type("(name: _B, **_A) -> any"), parse_method_type("(name: _B, **_A) -> any"), [])
 
-    refute assignability.test_method(parse_method("(name: _A) -> any"), parse_method("(**_A) -> any"), [])
-    refute assignability.test_method(parse_method("(email: _B, **B) -> any"), parse_method("(**_B) -> any"), [])
-    refute assignability.test_method(parse_method("(**_B) -> any"), parse_method("(**_A) -> any"), [])
-    refute assignability.test_method(parse_method("(name: _B, **_A) -> any"), parse_method("(name: _A, **_A) -> any"), [])
+    refute assignability.test_method(parse_method_type("(name: _A) -> any"), parse_method_type("(**_A) -> any"), [])
+    refute assignability.test_method(parse_method_type("(email: _B, **B) -> any"), parse_method_type("(**_B) -> any"), [])
+    refute assignability.test_method(parse_method_type("(**_B) -> any"), parse_method_type("(**_A) -> any"), [])
+    refute assignability.test_method(parse_method_type("(name: _B, **_A) -> any"), parse_method_type("(name: _A, **_A) -> any"), [])
   end
 
   def test_method2
@@ -117,11 +115,11 @@ end
 
     assert assignability.test(src: T::Name.interface(name: :_T), dest: T::Name.interface(name: :_S))
 
-    assert assignability.test_method(parse_method("() -> _T"), parse_method("() -> _S"), [])
-    refute assignability.test_method(parse_method("() -> _S"), parse_method("() -> _T"), [])
+    assert assignability.test_method(parse_method_type("() -> _T"), parse_method_type("() -> _S"), [])
+    refute assignability.test_method(parse_method_type("() -> _S"), parse_method_type("() -> _T"), [])
 
-    assert assignability.test_method(parse_method("(_S) -> any"), parse_method("(_T) -> any"), [])
-    refute assignability.test_method(parse_method("(_T) -> any"), parse_method("(_S) -> any"), [])
+    assert assignability.test_method(parse_method_type("(_S) -> any"), parse_method_type("(_T) -> any"), [])
+    refute assignability.test_method(parse_method_type("(_T) -> any"), parse_method_type("(_S) -> any"), [])
   end
 
   def test_recursively
@@ -292,28 +290,28 @@ end
       end
     end
 
-    assert assignability.test_method(parse_method("{ (_Object) -> any } -> any"),
-                                     parse_method("{ (_String) -> any } -> any"),
+    assert assignability.test_method(parse_method_type("{ (_Object) -> any } -> any"),
+                                     parse_method_type("{ (_String) -> any } -> any"),
                                      [])
 
-    refute assignability.test_method(parse_method("{ (_String) -> any } -> any"),
-                                     parse_method("{ (_Object) -> any } -> any"),
+    refute assignability.test_method(parse_method_type("{ (_String) -> any } -> any"),
+                                     parse_method_type("{ (_Object) -> any } -> any"),
                                      [])
 
-    assert assignability.test_method(parse_method("{ (_Object, _String) -> any } -> any"),
-                                     parse_method("{ (_Object) -> any } -> any"),
+    assert assignability.test_method(parse_method_type("{ (_Object, _String) -> any } -> any"),
+                                     parse_method_type("{ (_Object) -> any } -> any"),
                                      [])
 
-    assert assignability.test_method(parse_method("{ (_Object) -> any } -> any"),
-                                     parse_method("{ (_Object, _String) -> any } -> any"),
+    assert assignability.test_method(parse_method_type("{ (_Object) -> any } -> any"),
+                                     parse_method_type("{ (_Object, _String) -> any } -> any"),
                                      [])
 
-    assert assignability.test_method(parse_method("{ (_Object, *_Object) -> any } -> any"),
-                                     parse_method("{ (_Object, _String) -> any } -> any"),
+    assert assignability.test_method(parse_method_type("{ (_Object, *_Object) -> any } -> any"),
+                                     parse_method_type("{ (_Object, _String) -> any } -> any"),
                                      [])
 
-    refute assignability.test_method(parse_method("{ (_Object, *_String) -> any } -> any"),
-                                     parse_method("{ (_Object, _Object) -> any } -> any"),
+    refute assignability.test_method(parse_method_type("{ (_Object, *_String) -> any } -> any"),
+                                     parse_method_type("{ (_Object, _Object) -> any } -> any"),
                                      [])
   end
 end

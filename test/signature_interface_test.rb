@@ -20,9 +20,9 @@ end
 
     assert_instance_of Steep::Interface, interface_
 
-    assert_equal [parse_method("(_Numeric) -> _instance")], interface_.methods[:set]
-    assert_equal [parse_method("() -> _Numeric")], interface_.methods[:get]
-    assert_equal [parse_method("<'b> () { (_Numeric) -> 'b } -> _foo<'b>")], interface_.methods[:map]
+    assert_equal [parse_method_type("(_Numeric) -> _instance")], interface_.methods[:set]
+    assert_equal [parse_method_type("() -> _Numeric")], interface_.methods[:get]
+    assert_equal [parse_method_type("<'b> () { (_Numeric) -> 'b } -> _foo<'b>")], interface_.methods[:map]
   end
 
   def test_to_interface_failure

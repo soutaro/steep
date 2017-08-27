@@ -17,7 +17,7 @@ module TestHelper
     Steep::Parser.parse_signature(signature)
   end
 
-  def parse_method(string)
+  def parse_method_type(string)
     Steep::Parser.parse_method(string)
   end
 end

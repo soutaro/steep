@@ -7,10 +7,6 @@ class SignatureParsingTest < Minitest::Test
     Steep::Parser.parse_signature(src)
   end
 
-  def method_type(src)
-    Steep::Parser.parse_method(src)
-  end
-
   def test_parsing_class
     klass, _ = parse(<<-EOS)
 class C<'a> <: Object
@@ -32,10 +28,10 @@ end
 
     assert_equal Steep::Signature::Members::Include.new(name: Steep::Types::Name.instance(name: :M1)), klass.members[0]
     assert_equal Steep::Signature::Members::Extend.new(name: Steep::Types::Name.instance(name: :M2)), klass.members[1]
-    assert_equal Steep::Signature::Members::InstanceMethod.new(name: :itself, types: [method_type("() -> instance")]), klass.members[2]
-    assert_equal Steep::Signature::Members::InstanceMethod.new(name: :class, types: [method_type("() -> class")]), klass.members[3]
-    assert_equal Steep::Signature::Members::ModuleMethod.new(name: :g, types: [method_type("() -> C")]), klass.members[4]
-    assert_equal Steep::Signature::Members::ModuleInstanceMethod.new(name: :h, types: [method_type("() -> C.class")]), klass.members[5]
+    assert_equal Steep::Signature::Members::InstanceMethod.new(name: :itself, types: [parse_method_type("() -> instance")]), klass.members[2]
+    assert_equal Steep::Signature::Members::InstanceMethod.new(name: :class, types: [parse_method_type("() -> class")]), klass.members[3]
+    assert_equal Steep::Signature::Members::ModuleMethod.new(name: :g, types: [parse_method_type("() -> C")]), klass.members[4]
+    assert_equal Steep::Signature::Members::ModuleInstanceMethod.new(name: :h, types: [parse_method_type("() -> C.class")]), klass.members[5]
   end
 
   def test_parsing_module
@@ -59,10 +55,10 @@ end
 
     assert_equal Steep::Signature::Members::Include.new(name: Steep::Types::Name.instance(name: :M1)), mod.members[0]
     assert_equal Steep::Signature::Members::Extend.new(name: Steep::Types::Name.instance(name: :M2)), mod.members[1]
-    assert_equal Steep::Signature::Members::InstanceMethod.new(name: :itself, types: [method_type("() -> instance")]), mod.members[2]
-    assert_equal Steep::Signature::Members::InstanceMethod.new(name: :class, types: [method_type("() -> class")]), mod.members[3]
-    assert_equal Steep::Signature::Members::ModuleMethod.new(name: :g, types: [method_type("() -> C")]), mod.members[4]
-    assert_equal Steep::Signature::Members::ModuleInstanceMethod.new(name: :h, types: [method_type("() -> C.class")]), mod.members[5]
+    assert_equal Steep::Signature::Members::InstanceMethod.new(name: :itself, types: [parse_method_type("() -> instance")]), mod.members[2]
+    assert_equal Steep::Signature::Members::InstanceMethod.new(name: :class, types: [parse_method_type("() -> class")]), mod.members[3]
+    assert_equal Steep::Signature::Members::ModuleMethod.new(name: :g, types: [parse_method_type("() -> C")]), mod.members[4]
+    assert_equal Steep::Signature::Members::ModuleInstanceMethod.new(name: :h, types: [parse_method_type("() -> C.class")]), mod.members[5]
   end
 
   def test_parsing_module2
@@ -91,9 +87,9 @@ end
     assert_instance_of Steep::Signature::Interface, interface
     assert_equal :_Foo, interface.name
     assert_equal [:a], interface.params
-    assert_equal [parse_method("-> any")], interface.methods[:hello]
-    assert_equal [parse_method("(String) -> Bar")], interface.methods[:+]
-    assert_equal [parse_method("-> Symbol")], interface.methods[:interface]
+    assert_equal [parse_method_type("-> any")], interface.methods[:hello]
+    assert_equal [parse_method_type("(String) -> Bar")], interface.methods[:+]
+    assert_equal [parse_method_type("-> Symbol")], interface.methods[:interface]
   end
 
   def test_union_method_type
@@ -110,8 +106,8 @@ end
     assert_instance_of Steep::Signature::Interface, interface
     assert_equal :_Kernel, interface.name
     assert_equal [], interface.params
-    assert_equal [parse_method("() -> String"),
-                  parse_method("() -> NilClass")], interface.methods[:gets]
+    assert_equal [parse_method_type("() -> String"),
+                  parse_method_type("() -> NilClass")], interface.methods[:gets]
 
   end
 end

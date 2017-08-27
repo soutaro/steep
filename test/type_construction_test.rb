@@ -711,7 +711,7 @@ d = k.foo(c)
   end
 
   def test_parameter_types
-    type = parse_method("(Integer, ?String, *Object, d: String, ?e: Symbol, **Float) -> any")
+    type = parse_method_type("(Integer, ?String, *Object, d: String, ?e: Symbol, **Float) -> any")
     args = parameters("def f(a, b=1, *c, d:, e: 2, **f); end")
 
     env = TypeConstruction.parameter_types(args, type)
@@ -739,7 +739,7 @@ d = k.foo(c)
   end
 
   def test_parameter_types_error
-    type = parse_method("(Integer, ?String, *Object, d: String, ?e: Symbol, **Float) -> any")
+    type = parse_method_type("(Integer, ?String, *Object, d: String, ?e: Symbol, **Float) -> any")
     args = parameters("def f(a, *c, d:, **f); end")
 
     env = TypeConstruction.parameter_types(args, type)
