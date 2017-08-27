@@ -141,7 +141,7 @@ module Steep
       end
     end
 
-    class Method
+    class MethodType
       attr_reader :type_params
       attr_reader :params
       attr_reader :block

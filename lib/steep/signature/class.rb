@@ -119,10 +119,10 @@ module Steep
           methods[:new] = if instance_methods[:initialize]
                             instance_methods[:initialize].map {|type| type.updated(return_type: instance) }
                           else
-                            [Steep::Interface::Method.new(type_params: [],
-                                                          params: Steep::Interface::Params.empty,
-                                                          block: nil,
-                                                          return_type: instance)]
+                            [Steep::Interface::MethodType.new(type_params: [],
+                                                              params: Steep::Interface::Params.empty,
+                                                              block: nil,
+                                                              return_type: instance)]
                           end
         end
 

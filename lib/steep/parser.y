@@ -7,7 +7,7 @@ target: type_METHOD method_type { result = val[1] }
       | type_ANNOTATION annotation { result = val[1] }
 
 method_type: type_params params block_opt ARROW return_type
-               { result = Interface::Method.new(type_params: val[0], params: val[1], block: val[2], return_type: val[4]) }
+               { result = Interface::MethodType.new(type_params: val[0], params: val[1], block: val[2], return_type: val[4]) }
 
 return_type: simple_type
            | LPAREN union_seq RPAREN { result = Types::Union.new(types: val[1]) }
