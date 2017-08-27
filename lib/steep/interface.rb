@@ -215,7 +215,7 @@ module Steep
       end
 
       def ==(other)
-        other.is_a?(Method) && other.types == types && other.super_method == other.super_method
+        other.is_a?(Method) && other.types == types && other.super_method == super_method
       end
 
       def closed?

@@ -31,12 +31,14 @@ end
 
 class B<'a>
   def get: -> 'a
+  def hoge: any -> any
 end
 
 class A<'x> <: B<'x>
   def foo: -> any
   def self.bar: -> any
   def self?.baz: -> any
+  def hoge: (Integer) -> any
 end
     SRC
 
@@ -47,7 +49,7 @@ end
                                      instance: Types::Name.instance(name: :A),
                                      params: [Types::Name.instance(name: :String)])
 
-    assert_equal [:itself, :to_s, :foo, :baz, :gets, :eval, :get].sort,
+    assert_equal [:itself, :to_s, :foo, :baz, :gets, :eval, :get, :hoge].sort,
                  methods.keys.sort
 
     assert_equal parse_single_method("-> String"), methods[:to_s]
@@ -56,6 +58,9 @@ end
     assert_equal parse_single_method("-> A"), methods[:itself]
     assert_equal parse_single_method("(String) -> any"), methods[:eval]
     assert_equal parse_single_method("() -> String"), methods[:get]
+    assert_equal parse_single_method("(Integer) -> any",
+                                     super_method: parse_single_method("(any) -> any")),
+                 methods[:hoge]
   end
 
   def test_module
@@ -108,5 +113,38 @@ end
     assert_equal parse_single_method("-> String"), methods[:fizz]
     assert_equal parse_single_method("-> any"), methods[:hoge]
     assert_equal parse_single_method("-> String"), methods[:huga]
+  end
+
+  def test_super
+    assignability = new_assignability(<<-SRC)
+class BasicObject
+  def foo: (any) -> any
+end
+
+class Object <: BasicObject
+end
+
+class A
+  def foo: (BasicObject) -> any
+  include X
+end
+
+module X
+  def foo: (Object) -> any
+end
+    SRC
+
+    klass = assignability.signatures[:A]
+
+    methods = klass.instance_methods(assignability: assignability,
+                                     klass: Types::Name.module(name: :A),
+                                     instance: Types::Name.instance(name: :A),
+                                     params: [])
+
+    assert_equal [:foo], methods.keys
+
+    basic_object_foo = parse_single_method("(any) -> any")
+    x_foo = parse_single_method("(Object) -> any", super_method: basic_object_foo)
+    assert_equal parse_single_method("(BasicObject) -> any", super_method: x_foo), methods[:foo]
   end
 end
