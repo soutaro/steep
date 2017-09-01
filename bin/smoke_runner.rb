@@ -85,7 +85,7 @@ ARGV.each do |arg|
     end
 
     unless deleted
-      puts Rainbow("  💀 Expected error not found: #{expectation.line-1}:#{expectation.message}").red
+      puts Rainbow("  💀 Expected error not found: #{expectation.line}:#{expectation.message}").red
       failed = true
     end
   end
