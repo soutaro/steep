@@ -63,7 +63,7 @@ module Steep
       end
 
       case node.type
-      when :def, :block, :module, :class, :begin
+      when :def, :block, :module, :class
         start_line = node.loc.line
         end_line = node.loc.last_line
 

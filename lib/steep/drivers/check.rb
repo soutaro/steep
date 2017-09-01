@@ -43,7 +43,16 @@ module Steep
 
           p annotations if verbose
 
-          construction = TypeConstruction.new(assignability: assignability, annotations: annotations, source: source, typing: typing, return_type: nil, var_types: {}, block_type: nil, self_type: nil)
+          construction = TypeConstruction.new(
+            assignability: assignability,
+            annotations: annotations,
+            source: source,
+            typing: typing,
+            var_types: {},
+            block_type: nil,
+            self_type: nil,
+            method_context: nil
+          )
           construction.synthesize(source.node)
         end
 

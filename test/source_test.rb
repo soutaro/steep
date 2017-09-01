@@ -27,6 +27,10 @@ module Foo
         # @type block: Integer
       end
     end
+
+    # @type method bar: () -> any
+    def bar
+    end
   end
 end
 
@@ -44,20 +48,21 @@ Foo::Bar.new
 
     # class
     class_annotations = s.annotations(block: s.node.children[0].children[1])
-    assert_equal 4, class_annotations.size
+    assert_equal 5, class_annotations.size
     assert_equal Steep::Types::Name.instance(name: :String), class_annotations.instance_type
     assert_equal Steep::Types::Name.module(name: :String), class_annotations.module_type
     assert_includes class_annotations, A::VarType.new(var: :x3, type: T::Any.new)
     assert_includes class_annotations, A::MethodType.new(method: :foo, type: Steep::Parser.parse_method("-> any"))
+    assert_includes class_annotations, A::MethodType.new(method: :bar, type: parse_method_type("() -> any"))
 
     # def
-    def_annotations = s.annotations(block: s.node.children[0].children[1].children[2])
-    assert_equal 2, def_annotations.size
-    assert_includes def_annotations, A::VarType.new(var: :x4, type: T::Any.new)
-    assert_includes def_annotations, A::ReturnType.new(type: T::Any.new)
+    foo_annotations = s.annotations(block: s.node.children[0].children[1].children[2].children[0])
+    assert_equal 2, foo_annotations.size
+    assert_includes foo_annotations, A::VarType.new(var: :x4, type: T::Any.new)
+    assert_includes foo_annotations, A::ReturnType.new(type: T::Any.new)
 
     # block
-    block_annotations = s.annotations(block: s.node.children[0].children[1].children[2].children[2])
+    block_annotations = s.annotations(block: s.node.children[0].children[1].children[2].children[0].children[2])
     assert_equal 2, block_annotations.size
     assert_includes block_annotations, A::VarType.new(var: :x5, type: T::Any.new)
     assert_includes block_annotations, A::BlockType.new(type: T::Name.instance(name: :Integer))
