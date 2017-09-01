@@ -151,7 +151,23 @@ module Steep
         end
 
       when :send
-        type_send(node)
+        type_send(node, with_block: false)
+
+      when :super
+        if self_type && method_context&.method
+          if method_context.super_type
+            ret_type = type_method_call(node: node,
+                                        receiver_type: self_type,
+                                        method_name: method_context.name,
+                                        arguments: node.children,
+                                        method_types: [method_context.super_type],
+                                        with_block: false)
+          else
+            typing.add_error(Errors::UnexpectedSuper.new(node: node, method: method_context.name))
+          end
+        end
+
+        typing.add_typing node, ret_type || Types::Any.new
 
       when :block
         send_node, params, block = node.children
@@ -346,15 +362,12 @@ module Steep
           typing.add_typing(node, Types::Any.new)
         end
 
-      when :super
-        type_send(node)
-
       when :zsuper
         if method_context&.method
           if method_context.super_type
             typing.add_typing(node, method_context.super_type.return_type)
           else
-            p "Unexpected super"
+            typing.add_error(Errors::UnexpectedSuper.new(node: node, method: method_context.name))
           end
         else
           typing.add_typing(node, Types::Any.new)
@@ -401,49 +414,44 @@ module Steep
       end
     end
 
-    def type_send(node, with_block: false)
-      case node.type
-      when :super
-        recv_type = self_type
-        method_name = self.method_context.name
-        args = node.children
+    def type_method_call(node:, receiver_type:, method_name:, method_types:, arguments:, with_block: false)
+      method_type = method_types.find do |type|
+        applicable_args?(params: type.params, arguments: arguments) && with_block == !!type.block
+      end
+
+      if method_type
+        yield receiver_type, method_name, method_type if block_given?
+        method_type.return_type
       else
-        receiver, method_name, *args = node.children
-        recv_type = receiver ? synthesize(receiver) : annotations.self_type
+        typing.add_error Errors::ArgumentTypeMismatch.new(node: node, type: receiver_type, method: method_name)
+        nil
       end
+    end
 
-      unless recv_type
-        return typing.add_typing node, Types::Any.new
-      end
+    def type_send(node, with_block:, &block)
+      receiver, method_name, *args = node.children
+      receiver_type = receiver ? synthesize(receiver) : self_type
 
-      ret_type = assignability.method_type recv_type, method_name do |method|
-        method = method&.super_method if node.type == :super
-
-        if method
-          method_type = method.types.find {|method_type_|
-            applicable_args?(params: method_type_.params, arguments: args) &&
-              with_block == !!method_type_.block
-          }
-
-          if method_type
-            yield recv_type, method_name, method_type if block_given?
-            method_type.return_type
+      if receiver_type
+        ret_type = assignability.method_type receiver_type, method_name do |method|
+          if method
+            type_method_call(node: node,
+                             receiver_type: receiver_type,
+                             method_name: method_name,
+                             arguments: args,
+                             method_types: method.types,
+                             with_block: with_block,
+                             &block)
           else
-            typing.add_error Errors::ArgumentTypeMismatch.new(node: node, type: recv_type, method: method_name)
+            typing.add_error Errors::NoMethod.new(node: node, method: method_name, type: receiver_type)
             nil
           end
-        else
-          if node.type == :super
-            typing.add_error Errors::UnexpectedSuper.new(node: node, method: method_name)
-          else
-            # no method error
-            typing.add_error Errors::NoMethod.new(node: node, method: method_name, type: recv_type)
-          end
-          nil
         end
-      end
 
-      typing.add_typing node, ret_type
+        typing.add_typing node, ret_type
+      else
+        typing.add_typing node, Types::Any.new
+      end
     end
 
     def variable_type(var)

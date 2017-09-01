@@ -18,7 +18,17 @@ class A
   def bar()
     # @type self: A
 
-    # !expects UnexpectedSuper: method=bar
     super()
+    super
+  end
+
+  def baz
+    # @type self: A
+
+    # !expects UnexpectedSuper: method=baz
+    super()
+
+    # !expects UnexpectedSuper: method=baz
+    super
   end
 end
