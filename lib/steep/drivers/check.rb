@@ -47,11 +47,12 @@ module Steep
             assignability: assignability,
             annotations: annotations,
             source: source,
-            typing: typing,
             var_types: {},
-            block_context: nil,
             self_type: nil,
-            method_context: nil
+            block_context: nil,
+            module_context: nil,
+            method_context: nil,
+            typing: typing,
           )
           construction.synthesize(source.node)
         end

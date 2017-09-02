@@ -38,6 +38,16 @@ module Steep
       end
     end
 
+    class ModuleContext
+      attr_reader :instance_type
+      attr_reader :module_type
+
+      def initialize(instance_type:, module_type:)
+        @instance_type = instance_type
+        @module_type = module_type
+      end
+    end
+
     attr_reader :assignability
     attr_reader :source
     attr_reader :annotations
@@ -45,8 +55,10 @@ module Steep
     attr_reader :typing
     attr_reader :method_context
     attr_reader :block_context
+    attr_reader :module_context
+    attr_reader :self_type
 
-    def initialize(assignability:, source:, annotations:, var_types:, typing:, self_type:, method_context:, block_context:)
+    def initialize(assignability:, source:, annotations:, var_types:, typing:, self_type:, method_context:, block_context:, module_context:)
       @assignability = assignability
       @source = source
       @annotations = annotations
@@ -55,10 +67,7 @@ module Steep
       @self_type = self_type
       @block_context = block_context
       @method_context = method_context
-    end
-
-    def self_type
-      annotations.self_type || @self_type
+      @module_context = module_context
     end
 
     def method_entry(method_name, receiver_type:)
@@ -98,15 +107,17 @@ module Steep
         return_type: annots.return_type,
       )
 
-      self.class.new(assignability: assignability,
-                     source: source,
-                     annotations: annots,
-                     var_types: var_types,
-                     block_context: nil,
-                     self_type: annotations.instance_type,
-                     method_context: method_context,
-                     typing: typing)
-
+      self.class.new(
+        assignability: assignability,
+        source: source,
+        annotations: annots,
+        var_types: var_types,
+        block_context: nil,
+        self_type: module_context&.instance_type || annots.self_type,
+        method_context: method_context,
+        typing: typing,
+        module_context: module_context
+      )
     end
 
     def for_block(block)
@@ -118,20 +129,29 @@ module Steep
                      return_type: return_type,
                      block_type: annots.block_type,
                      typing: typing,
-                     self_type: self_type)
+                     self_type: self_type,
+                     module_context: module_context)
     end
 
     def for_class(node)
       annots = source.annotations(block: node)
 
-      self.class.new(assignability: assignability,
-                     source: source,
-                     annotations: annots,
-                     var_types: {},
-                     typing: typing,
-                     method_context: nil,
-                     block_context: nil,
-                     self_type: annots.module_type)
+      module_context = ModuleContext.new(
+        instance_type: annots.instance_type,
+        module_type: annots.module_type
+      )
+
+      self.class.new(
+        assignability: assignability,
+        source: source,
+        annotations: annots,
+        var_types: {},
+        typing: typing,
+        method_context: nil,
+        block_context: nil,
+        module_context: module_context,
+        self_type: module_context.module_type
+      )
     end
 
     def synthesize(node)
@@ -193,14 +213,17 @@ module Steep
             block_context = BlockContext.new(body_type: annots.block_type,
                                              break_type: method_type.return_type)
 
-            for_block = self.class.new(assignability: assignability,
-                                       source: source,
-                                       annotations: annotations + annots,
-                                       var_types: var_types_,
-                                       block_context: block_context,
-                                       typing: typing,
-                                       method_context: method_context,
-                                       self_type: self_type)
+            for_block = self.class.new(
+              assignability: assignability,
+              source: source,
+              annotations: annotations + annots,
+              var_types: var_types_,
+              block_context: block_context,
+              typing: typing,
+              method_context: method_context,
+              module_context: module_context,
+              self_type: annots.self_type || self_type
+            )
 
             each_child_node(params) do |param|
               for_block.synthesize(param)

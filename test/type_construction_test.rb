@@ -69,7 +69,8 @@ x = nil
                                         self_type: nil,
                                         block_context: nil,
                                         typing: typing,
-                                        method_context: nil)
+                                        method_context: nil,
+                                        module_context: nil)
     construction.synthesize(source.node)
 
     assert_equal Types::Name.interface(name: :_A), typing.type_of(node: source.node)
@@ -94,7 +95,8 @@ z = x
                                         self_type: nil,
                                         typing: typing,
                                         block_context: nil,
-                                        method_context: nil)
+                                        method_context: nil,
+                                        module_context: nil)
     construction.synthesize(source.node)
 
     assert_equal Types::Name.interface(name: :_A), typing.type_of(node: source.node)
@@ -124,7 +126,8 @@ z = x
                                         block_context: nil,
                                         self_type: nil,
                                         typing: typing,
-                                        method_context: nil)
+                                        method_context: nil,
+                                        module_context: nil)
     construction.synthesize(source.node)
 
     assert_equal Types::Name.instance(name: :Integer), typing.type_of(node: source.node)
@@ -148,7 +151,8 @@ z = x
                                         block_context: nil,
                                         self_type: nil,
                                         typing: typing,
-                                        method_context: nil)
+                                        method_context: nil,
+                                        module_context: nil)
     construction.synthesize(source.node)
 
     assert_equal Types::Name.interface(name: :_A), typing.type_of(node: source.node)
@@ -165,7 +169,15 @@ x.f
     typing = Typing.new
     annotations = source.annotations(block: source.node)
 
-    construction = TypeConstruction.new(assignability: assignability, source: source, annotations: annotations, var_types: {}, block_context: nil, self_type: nil, typing: typing, method_context: nil)
+    construction = TypeConstruction.new(assignability: assignability,
+                                        source: source,
+                                        annotations: annotations,
+                                        var_types: {},
+                                        block_context: nil,
+                                        self_type: nil,
+                                        typing: typing,
+                                        method_context: nil,
+                                        module_context: nil)
     construction.synthesize(source.node)
 
     assert_equal Types::Name.interface(name: :_A), typing.type_of(node: source.node)
@@ -184,7 +196,15 @@ x.g(y)
     typing = Typing.new
     annotations = source.annotations(block: source.node)
 
-    construction = TypeConstruction.new(assignability: assignability, source: source, annotations: annotations, var_types: {}, block_context: nil, self_type: nil, typing: typing, method_context: nil)
+    construction = TypeConstruction.new(assignability: assignability,
+                                        source: source,
+                                        annotations: annotations,
+                                        var_types: {},
+                                        block_context: nil,
+                                        self_type: nil,
+                                        typing: typing,
+                                        method_context: nil,
+                                        module_context: nil)
     construction.synthesize(source.node)
 
     assert_equal Types::Name.interface(name: :_B), typing.type_of(node: source.node)
@@ -210,7 +230,8 @@ x.g(y)
                                         block_context: nil,
                                         self_type: nil,
                                         typing: typing,
-                                        method_context: nil)
+                                        method_context: nil,
+                                        module_context: nil)
     construction.synthesize(source.node)
 
     assert_equal Types::Any.new, typing.type_of(node: source.node)
@@ -235,7 +256,8 @@ x.no_such_method
                                         block_context: nil,
                                         self_type: nil,
                                         typing: typing,
-                                        method_context: nil)
+                                        method_context: nil,
+                                        module_context: nil)
     construction.synthesize(source.node)
 
     assert_equal Types::Any.new, typing.type_of(node: source.node)
@@ -259,7 +281,8 @@ x.no_such_method
                                         block_context: nil,
                                         self_type: nil,
                                         typing: typing,
-                                        method_context: nil)
+                                        method_context: nil,
+                                        module_context: nil)
     construction.synthesize(source.node)
 
     assert_equal Types::Any.new, typing.type_of(node: source.node)
@@ -287,7 +310,8 @@ a.g()
                                         block_context: nil,
                                         self_type: nil,
                                         method_context: nil,
-                                        typing: typing)
+                                        typing: typing,
+                                        module_context: nil)
     construction.synthesize(source.node)
 
     assert_equal Types::Any.new, typing.type_of(node: source.node)
@@ -315,7 +339,8 @@ a.g(nil, nil, nil)
                                         block_context: nil,
                                         self_type: nil,
                                         method_context: nil,
-                                        typing: typing)
+                                        typing: typing,
+                                        module_context: nil)
     construction.synthesize(source.node)
 
     assert_equal Types::Any.new, typing.type_of(node: source.node)
@@ -345,7 +370,8 @@ x.h(a: a, b: b)
                                         block_context: nil,
                                         self_type: nil,
                                         method_context: nil,
-                                        typing: typing)
+                                        typing: typing,
+                                        module_context: nil)
     construction.synthesize(source.node)
 
     assert_equal Types::Name.interface(name: :_C), typing.type_of(node: source.node)
@@ -369,7 +395,8 @@ x.h()
                                         block_context: nil,
                                         self_type: nil,
                                         method_context: nil,
-                                        typing: typing)
+                                        typing: typing,
+                                        module_context: nil)
     construction.synthesize(source.node)
 
     assert_equal Types::Any.new, typing.type_of(node: source.node)
@@ -395,7 +422,8 @@ x.h(a: nil, b: nil, c: nil)
                                         block_context: nil,
                                         self_type: nil,
                                         method_context: nil,
-                                        typing: typing)
+                                        typing: typing,
+                                        module_context: nil)
     construction.synthesize(source.node)
 
     assert_equal Types::Any.new, typing.type_of(node: source.node)
@@ -423,7 +451,8 @@ x.h(a: y)
                                         block_context: nil,
                                         self_type: nil,
                                         method_context: nil,
-                                        typing: typing)
+                                        typing: typing,
+                                        module_context: nil)
     construction.synthesize(source.node)
 
     assert_equal Types::Any.new, typing.type_of(node: source.node)
@@ -450,7 +479,8 @@ end
                                         block_context: nil,
                                         self_type: nil,
                                         method_context: nil,
-                                        typing: typing)
+                                        typing: typing,
+                                        module_context: nil)
     construction.synthesize(source.node)
 
     def_body = source.node.children[2]
@@ -475,7 +505,8 @@ end
                                         block_context: nil,
                                         self_type: nil,
                                         method_context: nil,
-                                        typing: typing)
+                                        typing: typing,
+                                        module_context: nil)
     construction.synthesize(source.node)
 
     def_body = source.node.children[2]
@@ -502,7 +533,8 @@ end
                                         block_context: nil,
                                         self_type: nil,
                                         method_context: nil,
-                                        typing: typing)
+                                        typing: typing,
+                                        module_context: nil)
     construction.synthesize(source.node)
 
     refute_empty typing.errors
@@ -535,7 +567,8 @@ end
                                         block_context: nil,
                                         self_type: nil,
                                         method_context: nil,
-                                        typing: typing)
+                                        typing: typing,
+                                        module_context: nil)
     construction.synthesize(source.node)
 
     refute_empty typing.errors
@@ -572,7 +605,8 @@ end
                                         block_context: nil,
                                         self_type: nil,
                                         method_context: nil,
-                                        typing: typing)
+                                        typing: typing,
+                                        module_context: nil)
     construction.synthesize(source.node)
 
     assert_equal Types::Name.interface(name: :_X), typing.type_of_variable(name: :a)
@@ -602,7 +636,8 @@ end
                                         block_context: nil,
                                         self_type: nil,
                                         method_context: nil,
-                                        typing: typing)
+                                        typing: typing,
+                                        module_context: nil)
     construction.synthesize(source.node)
 
     assert_any typing.var_typing do |var, type| var.name == :a && type.is_a?(Types::Name) && type.name == TypeName::Interface.new(name: :_A) end
@@ -631,7 +666,8 @@ end
                                         block_context: nil,
                                         self_type: nil,
                                         method_context: nil,
-                                        typing: typing)
+                                        typing: typing,
+                                        module_context: nil)
     construction.synthesize(source.node)
 
     assert_equal Types::Name.interface(name: :_X), typing.type_of_variable(name: :x)
@@ -660,7 +696,8 @@ end
                                         block_context: nil,
                                         self_type: nil,
                                         method_context: nil,
-                                        typing: typing)
+                                        typing: typing,
+                                        module_context: nil)
     construction.synthesize(source.node)
 
     assert_equal Types::Name.interface(name: :_X), typing.type_of_variable(name: :x)
@@ -692,7 +729,8 @@ end
                                         block_context: nil,
                                         self_type: nil,
                                         method_context: nil,
-                                        typing: typing)
+                                        typing: typing,
+                                        module_context: nil)
     construction.synthesize(source.node)
 
     assert_equal Types::Name.interface(name: :_X), typing.type_of_variable(name: :x)
@@ -722,7 +760,8 @@ end
                                         block_context: nil,
                                         self_type: nil,
                                         method_context: nil,
-                                        typing: typing)
+                                        typing: typing,
+                                        module_context: nil)
     construction.synthesize(source.node)
 
     assert_empty typing.errors
@@ -748,7 +787,8 @@ end
                                         block_context: nil,
                                         self_type: nil,
                                         method_context: nil,
-                                        typing: typing)
+                                        typing: typing,
+                                        module_context: nil)
     construction.synthesize(source.node)
 
     assert_any typing.errors do |error|
@@ -782,7 +822,8 @@ d = k.foo(c)
                                         block_context: nil,
                                         self_type: nil,
                                         method_context: nil,
-                                        typing: typing)
+                                        typing: typing,
+                                        module_context: nil)
     construction.synthesize(source.node)
 
     assert_empty typing.errors
