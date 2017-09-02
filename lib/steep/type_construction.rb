@@ -120,19 +120,6 @@ module Steep
       )
     end
 
-    def for_block(block)
-      annots = source.annotations(block: block)
-      self.class.new(assignability: assignability,
-                     source: source,
-                     annotations: annotations + annots,
-                     var_types: var_types.dup,
-                     return_type: return_type,
-                     block_type: annots.block_type,
-                     typing: typing,
-                     self_type: self_type,
-                     module_context: module_context)
-    end
-
     def for_class(node)
       annots = source.annotations(block: node)
 
