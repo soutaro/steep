@@ -405,7 +405,7 @@ module Steep
           self_type: module_context.module_type
         )
 
-        for_class.synthesize(node.children[1])
+        for_class.synthesize(node.children[1]) if node.children[1]
         for_class.validate_method_definitions(node)
 
         typing.add_typing(node, Types::Name.instance(name: :NilClass))
