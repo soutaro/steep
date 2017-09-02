@@ -12,7 +12,7 @@ module Steep
       end
 
       def to_s
-        typesjoin(" + ")
+        types.join(" + ")
       end
     end
   end

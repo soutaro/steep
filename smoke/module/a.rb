@@ -14,6 +14,9 @@ module A
     # !expects IncompatibleAssignment: lhs_type=String, rhs_type=Integer
     s = n
 
+    # !expects NoMethodError: type=_Each<Integer> + A, method=foo
+    foo()
+
     n
   end
 end

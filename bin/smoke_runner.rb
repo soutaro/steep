@@ -81,7 +81,7 @@ ARGV.each do |arg|
 
   expectations.each do |expectation|
     deleted = lines.reject! do |string|
-      string =~ /:#{expectation.line}:\d+: #{expectation.message}\Z/
+      string =~ /:#{expectation.line}:\d+: #{Regexp.quote expectation.message}\Z/
     end
 
     unless deleted
