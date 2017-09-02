@@ -354,6 +354,43 @@ module Steep
 
         typing.add_typing(node, Types::Name.instance(name: :NilClass))
 
+      when :module
+        annots = source.annotations(block: node)
+
+        if annots.instance_type
+          signature = assignability.signatures[annots.instance_type.name.name]
+          raise "Module instance should be an module: #{annots.instance_type}" unless signature.is_a?(Signature::Module)
+
+          if signature.self_type
+            instance_type = Types::Merge.new(types: [signature.self_type, annots.instance_type])
+          else
+            instance_type = annots.instance_type
+          end
+        end
+
+        module_context = ModuleContext.new(
+          instance_type: instance_type,
+          module_type: annots.module_type
+        )
+
+        for_class = self.class.new(
+          assignability: assignability,
+          source: source,
+          annotations: annots,
+          var_types: {},
+          typing: typing,
+          method_context: nil,
+          block_context: nil,
+          module_context: module_context,
+          self_type: module_context.module_type
+        )
+
+        for_class.tap do |constructor|
+          constructor.synthesize(node.children[1])
+        end
+
+        typing.add_typing(node, Types::Name.instance(name: :NilClass))
+
       when :self
         typing.add_typing(node, self_type || Types::Any.new)
 

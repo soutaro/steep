@@ -261,10 +261,22 @@ module Steep
     end
 
     def method_type(type, name)
-      return type if type.is_a?(Types::Any)
-
-      interface = resolve_interface(type.name, type.params)
-      method = interface.methods[name]
+      case type
+      when Types::Any
+        return type
+      when Types::Merge
+        methods = type.types.map {|t|
+          resolve_interface(t.name, t.params)
+        }.each.with_object({}) {|interface, methods|
+          methods.merge! interface.methods
+        }
+        method = methods[name]
+      when Types::Name
+        interface = resolve_interface(type.name, type.params)
+        method = interface.methods[name]
+      else
+        raise "Unexpected type: #{type}"
+      end
 
       if method
         yield(method) || Types::Any.new
