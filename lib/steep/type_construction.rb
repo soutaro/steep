@@ -41,10 +41,14 @@ module Steep
     class ModuleContext
       attr_reader :instance_type
       attr_reader :module_type
+      attr_reader :defined_instance_methods
+      attr_reader :defined_module_methods
 
       def initialize(instance_type:, module_type:)
         @instance_type = instance_type
         @module_type = module_type
+        @defined_instance_methods = Set.new
+        @defined_module_methods = Set.new
       end
     end
 
@@ -252,6 +256,10 @@ module Steep
           end
         end
 
+        if module_context
+          module_context.defined_instance_methods << node.children[0]
+        end
+
         typing.add_typing(node, Types::Any.new)
 
       when :defs
@@ -275,6 +283,12 @@ module Steep
             else
               new.synthesize(node.children[3])
             end
+          end
+        end
+
+        if module_context
+          if node.children[0].type == :self
+            module_context.defined_module_methods << node.children[1]
           end
         end
 
@@ -350,6 +364,7 @@ module Steep
       when :class
         for_class(node).tap do |constructor|
           constructor.synthesize(node.children[2])
+          constructor.validate_method_definitions(node)
         end
 
         typing.add_typing(node, Types::Name.instance(name: :NilClass))
@@ -357,15 +372,20 @@ module Steep
       when :module
         annots = source.annotations(block: node)
 
-        if annots.instance_type
-          signature = assignability.signatures[annots.instance_type.name.name]
+        if annots.implement_module
+          signature = assignability.signatures[annots.implement_module]
           raise "Module instance should be an module: #{annots.instance_type}" unless signature.is_a?(Signature::Module)
 
+          ty = Types::Name.instance(name: annots.implement_module)
           if signature.self_type
-            instance_type = Types::Merge.new(types: [signature.self_type, annots.instance_type])
+            instance_type = Types::Merge.new(types: [signature.self_type, ty])
           else
-            instance_type = annots.instance_type
+            instance_type = ty
           end
+        end
+
+        if annots.instance_type
+          instance_type = annots.instance_type
         end
 
         module_context = ModuleContext.new(
@@ -385,9 +405,8 @@ module Steep
           self_type: module_context.module_type
         )
 
-        for_class.tap do |constructor|
-          constructor.synthesize(node.children[1])
-        end
+        for_class.synthesize(node.children[1])
+        for_class.validate_method_definitions(node)
 
         typing.add_typing(node, Types::Name.instance(name: :NilClass))
 
@@ -686,6 +705,32 @@ module Steep
 
     def self.valid_parameter_env?(env, nodes, params)
       env.size == nodes.size && env.size == params.size
+    end
+
+    def validate_method_definitions(node)
+      implements = annotations.implement_module
+      if implements
+        signature = assignability.signatures[implements]
+        signature.members.each do |member|
+          if member.is_a?(Signature::Members::InstanceMethod) || member.is_a?(Signature::Members::ModuleInstanceMethod)
+            unless module_context.defined_instance_methods.include?(member.name)
+              typing.add_error Errors::MethodDefinitionMissing.new(node: node,
+                                                                   module_name: implements,
+                                                                   kind: :instance,
+                                                                   missing_method: member.name)
+            end
+
+          end
+          if member.is_a?(Signature::Members::ModuleMethod) || member.is_a?(Signature::Members::ModuleInstanceMethod)
+            unless module_context.defined_module_methods.include?(member.name)
+              typing.add_error Errors::MethodDefinitionMissing.new(node: node,
+                                                                   module_name: implements,
+                                                                   kind: :module,
+                                                                   missing_method: member.name)
+            end
+          end
+        end
+      end
     end
   end
 end

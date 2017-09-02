@@ -1,6 +1,5 @@
 module A
-  # @type instance: A
-  # @type module: A.module
+  # @implements A
 
   def count
     # @type var n: Integer

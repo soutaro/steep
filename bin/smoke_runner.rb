@@ -35,11 +35,12 @@ ARGV.each do |arg|
       comments.each do |comment|
         src = comment.text.gsub(/\A#\s*/, '')
 
-        if src =~ /!expects/
-          message = src.gsub!(/\A!expects +/, '')
+        if src =~ /!expects(@(\+\d+))?/
+          offset = $2&.to_i || 1
+          message = src.gsub!(/\A!expects(@\+\d+)? +/, '')
           line = comment.location.line
 
-          expectations << Expectation.new(line+1, message)
+          expectations << Expectation.new(line+offset, message)
         end
       end
 
