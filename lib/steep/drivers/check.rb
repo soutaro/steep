@@ -49,7 +49,7 @@ module Steep
             source: source,
             typing: typing,
             var_types: {},
-            block_type: nil,
+            block_context: nil,
             self_type: nil,
             method_context: nil
           )

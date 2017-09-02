@@ -28,24 +28,32 @@ module Steep
       end
     end
 
+    class BlockContext
+      attr_reader :break_type
+      attr_reader :body_type
+
+      def initialize(break_type:, body_type:)
+        @break_type = break_type
+        @body_type = body_type
+      end
+    end
+
     attr_reader :assignability
     attr_reader :source
     attr_reader :annotations
     attr_reader :var_types
     attr_reader :typing
-    attr_reader :block_type
-    attr_reader :break_type
     attr_reader :method_context
+    attr_reader :block_context
 
-    def initialize(assignability:, source:, annotations:, var_types:, block_type:, typing:, break_type: nil, self_type:, method_context:)
+    def initialize(assignability:, source:, annotations:, var_types:, typing:, self_type:, method_context:, block_context:)
       @assignability = assignability
       @source = source
       @annotations = annotations
       @var_types = var_types
       @typing = typing
-      @block_type = block_type
-      @break_type = break_type
       @self_type = self_type
+      @block_context = block_context
       @method_context = method_context
     end
 
@@ -94,8 +102,7 @@ module Steep
                      source: source,
                      annotations: annots,
                      var_types: var_types,
-                     block_type: nil,
-                     break_type: nil,
+                     block_context: nil,
                      self_type: annotations.instance_type,
                      method_context: method_context,
                      typing: typing)
@@ -121,9 +128,9 @@ module Steep
                      source: source,
                      annotations: annots,
                      var_types: {},
-                     block_type: nil,
                      typing: typing,
                      method_context: nil,
+                     block_context: nil,
                      self_type: annots.module_type)
     end
 
@@ -183,12 +190,14 @@ module Steep
 
             annots = source.annotations(block: node)
 
+            block_context = BlockContext.new(body_type: annots.block_type,
+                                             break_type: method_type.return_type)
+
             for_block = self.class.new(assignability: assignability,
                                        source: source,
                                        annotations: annotations + annots,
                                        var_types: var_types_,
-                                       block_type: annots.block_type,
-                                       break_type: method_type.return_type,
+                                       block_context: block_context,
                                        typing: typing,
                                        method_context: method_context,
                                        self_type: self_type)
@@ -282,9 +291,11 @@ module Steep
         value = node.children[0]
 
         if value
-          if break_type
-            check(value, break_type) do |_, actual_type|
-              typing.add_error Errors::BreakTypeMismatch.new(node: node, expected: break_type, actual: actual_type)
+          if block_context&.break_type
+            check(value, block_context.break_type) do |break_type, actual_type|
+              typing.add_error Errors::BreakTypeMismatch.new(node: node,
+                                                             expected: break_type,
+                                                             actual: actual_type)
             end
           else
             synthesize(value)

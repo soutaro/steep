@@ -62,7 +62,14 @@ x = nil
     typing = Typing.new
     annotations = source.annotations(block: source.node)
 
-    construction = TypeConstruction.new(assignability: assignability, source: source, annotations: annotations, var_types: {}, block_type: nil, self_type: nil, typing: typing, method_context: nil)
+    construction = TypeConstruction.new(assignability: assignability,
+                                        source: source,
+                                        annotations: annotations,
+                                        var_types: {},
+                                        self_type: nil,
+                                        block_context: nil,
+                                        typing: typing,
+                                        method_context: nil)
     construction.synthesize(source.node)
 
     assert_equal Types::Name.interface(name: :_A), typing.type_of(node: source.node)
@@ -80,7 +87,14 @@ z = x
     typing = Typing.new
     annotations = source.annotations(block: source.node)
 
-    construction = TypeConstruction.new(assignability: assignability, source: source, annotations: annotations, var_types: {}, block_type: nil, self_type: nil, typing: typing, method_context: nil)
+    construction = TypeConstruction.new(assignability: assignability,
+                                        source: source,
+                                        annotations: annotations,
+                                        var_types: {},
+                                        self_type: nil,
+                                        typing: typing,
+                                        block_context: nil,
+                                        method_context: nil)
     construction.synthesize(source.node)
 
     assert_equal Types::Name.interface(name: :_A), typing.type_of(node: source.node)
@@ -103,7 +117,14 @@ z = x
     typing = Typing.new
     annotations = source.annotations(block: source.node)
 
-    construction = TypeConstruction.new(assignability: assignability, source: source, annotations: annotations, var_types: {}, block_type: nil, self_type: nil, typing: typing, method_context: nil)
+    construction = TypeConstruction.new(assignability: assignability,
+                                        source: source,
+                                        annotations: annotations,
+                                        var_types: {},
+                                        block_context: nil,
+                                        self_type: nil,
+                                        typing: typing,
+                                        method_context: nil)
     construction.synthesize(source.node)
 
     assert_equal Types::Name.instance(name: :Integer), typing.type_of(node: source.node)
@@ -120,7 +141,14 @@ z = x
     typing = Typing.new
     annotations = source.annotations(block: source.node)
 
-    construction = TypeConstruction.new(assignability: assignability, source: source, annotations: annotations, var_types: {}, block_type: nil, self_type: nil, typing: typing, method_context: nil)
+    construction = TypeConstruction.new(assignability: assignability,
+                                        source: source,
+                                        annotations: annotations,
+                                        var_types: {},
+                                        block_context: nil,
+                                        self_type: nil,
+                                        typing: typing,
+                                        method_context: nil)
     construction.synthesize(source.node)
 
     assert_equal Types::Name.interface(name: :_A), typing.type_of(node: source.node)
@@ -137,7 +165,7 @@ x.f
     typing = Typing.new
     annotations = source.annotations(block: source.node)
 
-    construction = TypeConstruction.new(assignability: assignability, source: source, annotations: annotations, var_types: {}, block_type: nil, self_type: nil, typing: typing, method_context: nil)
+    construction = TypeConstruction.new(assignability: assignability, source: source, annotations: annotations, var_types: {}, block_context: nil, self_type: nil, typing: typing, method_context: nil)
     construction.synthesize(source.node)
 
     assert_equal Types::Name.interface(name: :_A), typing.type_of(node: source.node)
@@ -156,7 +184,7 @@ x.g(y)
     typing = Typing.new
     annotations = source.annotations(block: source.node)
 
-    construction = TypeConstruction.new(assignability: assignability, source: source, annotations: annotations, var_types: {}, block_type: nil, self_type: nil, typing: typing, method_context: nil)
+    construction = TypeConstruction.new(assignability: assignability, source: source, annotations: annotations, var_types: {}, block_context: nil, self_type: nil, typing: typing, method_context: nil)
     construction.synthesize(source.node)
 
     assert_equal Types::Name.interface(name: :_B), typing.type_of(node: source.node)
@@ -179,7 +207,7 @@ x.g(y)
                                         source: source,
                                         annotations: annotations,
                                         var_types: {},
-                                        block_type: nil,
+                                        block_context: nil,
                                         self_type: nil,
                                         typing: typing,
                                         method_context: nil)
@@ -204,7 +232,7 @@ x.no_such_method
                                         source: source,
                                         annotations: annotations,
                                         var_types: {},
-                                        block_type: nil,
+                                        block_context: nil,
                                         self_type: nil,
                                         typing: typing,
                                         method_context: nil)
@@ -228,7 +256,7 @@ x.no_such_method
                                         source: source,
                                         annotations: annotations,
                                         var_types: {},
-                                        block_type: nil,
+                                        block_context: nil,
                                         self_type: nil,
                                         typing: typing,
                                         method_context: nil)
@@ -256,7 +284,7 @@ a.g()
                                         source: source,
                                         annotations: annotations,
                                         var_types: {},
-                                        block_type: nil,
+                                        block_context: nil,
                                         self_type: nil,
                                         method_context: nil,
                                         typing: typing)
@@ -284,7 +312,7 @@ a.g(nil, nil, nil)
                                         source: source,
                                         annotations: annotations,
                                         var_types: {},
-                                        block_type: nil,
+                                        block_context: nil,
                                         self_type: nil,
                                         method_context: nil,
                                         typing: typing)
@@ -314,7 +342,7 @@ x.h(a: a, b: b)
                                         source: source,
                                         annotations: annotations,
                                         var_types: {},
-                                        block_type: nil,
+                                        block_context: nil,
                                         self_type: nil,
                                         method_context: nil,
                                         typing: typing)
@@ -338,7 +366,7 @@ x.h()
                                         source: source,
                                         annotations: annotations,
                                         var_types: {},
-                                        block_type: nil,
+                                        block_context: nil,
                                         self_type: nil,
                                         method_context: nil,
                                         typing: typing)
@@ -364,7 +392,7 @@ x.h(a: nil, b: nil, c: nil)
                                         source: source,
                                         annotations: annotations,
                                         var_types: {},
-                                        block_type: nil,
+                                        block_context: nil,
                                         self_type: nil,
                                         method_context: nil,
                                         typing: typing)
@@ -392,7 +420,7 @@ x.h(a: y)
                                         source: source,
                                         annotations: annotations,
                                         var_types: {},
-                                        block_type: nil,
+                                        block_context: nil,
                                         self_type: nil,
                                         method_context: nil,
                                         typing: typing)
@@ -419,7 +447,7 @@ end
                                         source: source,
                                         annotations: annotations,
                                         var_types: {},
-                                        block_type: nil,
+                                        block_context: nil,
                                         self_type: nil,
                                         method_context: nil,
                                         typing: typing)
@@ -444,7 +472,7 @@ end
                                         source: source,
                                         annotations: annotations,
                                         var_types: {},
-                                        block_type: nil,
+                                        block_context: nil,
                                         self_type: nil,
                                         method_context: nil,
                                         typing: typing)
@@ -471,7 +499,7 @@ end
                                         source: source,
                                         annotations: annotations,
                                         var_types: {},
-                                        block_type: nil,
+                                        block_context: nil,
                                         self_type: nil,
                                         method_context: nil,
                                         typing: typing)
@@ -504,7 +532,7 @@ end
                                         source: source,
                                         annotations: annotations,
                                         var_types: {},
-                                        block_type: nil,
+                                        block_context: nil,
                                         self_type: nil,
                                         method_context: nil,
                                         typing: typing)
@@ -541,7 +569,7 @@ end
                                         source: source,
                                         annotations: annotations,
                                         var_types: {},
-                                        block_type: nil,
+                                        block_context: nil,
                                         self_type: nil,
                                         method_context: nil,
                                         typing: typing)
@@ -571,7 +599,7 @@ end
                                         source: source,
                                         annotations: annotations,
                                         var_types: {},
-                                        block_type: nil,
+                                        block_context: nil,
                                         self_type: nil,
                                         method_context: nil,
                                         typing: typing)
@@ -600,7 +628,7 @@ end
                                         source: source,
                                         annotations: annotations,
                                         var_types: {},
-                                        block_type: nil,
+                                        block_context: nil,
                                         self_type: nil,
                                         method_context: nil,
                                         typing: typing)
@@ -629,7 +657,7 @@ end
                                         source: source,
                                         annotations: annotations,
                                         var_types: {},
-                                        block_type: nil,
+                                        block_context: nil,
                                         self_type: nil,
                                         method_context: nil,
                                         typing: typing)
@@ -661,7 +689,7 @@ end
                                         source: source,
                                         annotations: annotations,
                                         var_types: {},
-                                        block_type: nil,
+                                        block_context: nil,
                                         self_type: nil,
                                         method_context: nil,
                                         typing: typing)
@@ -691,7 +719,7 @@ end
                                         source: source,
                                         annotations: annotations,
                                         var_types: {},
-                                        block_type: nil,
+                                        block_context: nil,
                                         self_type: nil,
                                         method_context: nil,
                                         typing: typing)
@@ -717,7 +745,7 @@ end
                                         source: source,
                                         annotations: annotations,
                                         var_types: {},
-                                        block_type: nil,
+                                        block_context: nil,
                                         self_type: nil,
                                         method_context: nil,
                                         typing: typing)
@@ -751,7 +779,7 @@ d = k.foo(c)
                                         source: source,
                                         annotations: annotations,
                                         var_types: {},
-                                        block_type: nil,
+                                        block_context: nil,
                                         self_type: nil,
                                         method_context: nil,
                                         typing: typing)
