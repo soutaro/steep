@@ -70,4 +70,10 @@ class AnnotationParsingTest < Minitest::Test
     assert_instance_of Steep::Annotation::ModuleType, annot
     assert_equal Steep::Types::Name.module(name: :String), annot.type
   end
+
+  def test_implements
+    annot = Parser.parse_annotation_opt("@implements String")
+    assert_instance_of Steep::Annotation::Implements, annot
+    assert_equal :String, annot.module_name
+  end
 end

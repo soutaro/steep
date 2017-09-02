@@ -108,6 +108,18 @@ module Steep
       end
     end
 
+    class Implements < Base
+      attr_reader :module_name
+
+      def initialize(module_name:)
+        @module_name = module_name
+      end
+
+      def ==(other)
+        other.is_a?(Implements) && other.module_name == module_name
+      end
+    end
+
     class Collection
       attr_reader :var_types
       attr_reader :method_types
@@ -118,6 +130,7 @@ module Steep
       attr_reader :const_types
       attr_reader :instance_type
       attr_reader :module_type
+      attr_reader :implement_module
 
       def initialize(annotations:)
         @var_types = {}
@@ -142,6 +155,8 @@ module Steep
             @instance_type = annotation.type
           when ModuleType
             @module_type = annotation.type
+          when Implements
+            @implement_module = annotation.module_name
           else
             raise "Unexpected annotation: #{annotation.inspect}"
           end

@@ -159,6 +159,7 @@ annotation: AT_TYPE VAR subject COLON type { result = Annotation::VarType.new(va
           | AT_TYPE INSTANCE COLON type { result = Annotation::InstanceType.new(type: val[3]) }
           | AT_TYPE MODULE COLON type { result = Annotation::ModuleType.new(type: val[3]) }
           | AT_TYPE { raise "Invalid type annotation" }
+          | AT_IMPLEMENTS MODULE_NAME { result = Annotation::Implements.new(module_name: val[1]) }
 
 subject: IDENT { result = val[0] }
 
@@ -250,6 +251,8 @@ def next_token
     [:DEF, nil]
   when input.scan(/@type/)
     [:AT_TYPE, nil]
+  when input.scan(/@implements/)
+    [:AT_IMPLEMENTS, nil]
   when input.scan(/const/)
     [:CONST, nil]
   when input.scan(/var/)
