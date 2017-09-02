@@ -51,7 +51,7 @@ ARGV.each do |arg|
   stderr = StringIO.new
   stdout = StringIO.new
 
-  builtin = Pathname(__dir__) + "../sig"
+  builtin = Pathname(__dir__) + "../stdlib"
   begin
     driver = Steep::Drivers::Check.new(source_paths: rb_files,
                                        signature_dirs: [builtin, dir],

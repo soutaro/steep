@@ -53,7 +53,7 @@ module Steep
       end.parse!(argv)
 
       unless no_builtin
-        signature_dirs.unshift Pathname(__dir__).join("../../sig").realpath
+        signature_dirs.unshift Pathname(__dir__).join("../../stdlib").realpath
       end
 
       if signature_dirs.empty?
