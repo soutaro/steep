@@ -36,6 +36,10 @@ module Steep
         @type = type
         @method = method
       end
+
+      def to_s
+        "#{location_to_str}: ArgumentTypeMismatch: type=#{type}, method=#{method}"
+      end
     end
 
     class NoMethod < Base
