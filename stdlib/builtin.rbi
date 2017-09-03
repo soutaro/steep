@@ -4,12 +4,19 @@ end
 class Object <: BasicObject
   def tap: { (instance) -> any } -> instance
   def to_s: -> String
+  def hash: -> Integer
+  def eql?: (any) -> _Boolean
+  def ==: (any) -> _Boolean
+  def ===: (any) -> _Boolean
+  def class: -> class
 end
 
 class Module
+  def attr_reader: (*any) -> any
 end
 
-class Class <: Module
+class Class<'instance> <: Module
+  def new: -> 'instance
 end
 
 module Kernel
@@ -18,6 +25,9 @@ end
 class Array<'a>
   def []: (Integer) -> 'a
   def []=: (Integer, 'a) -> 'a
+  def empty?: -> _Boolean
+  def size: -> Integer
+  def map: <'b> { ('a) -> 'b } -> Array<'b>
 end
 
 class Hash<'key, 'value>
@@ -38,6 +48,7 @@ end
 class Integer <: Numeric
   def to_int: -> Integer
   def +: (Numeric) -> Integer
+  def ^: (Numeric) -> Integer
 end
 
 class Float <: Numeric
@@ -47,5 +58,6 @@ class Range<'a>
 end
 
 class String
+  def +: (String) -> String
   def to_str: -> String
 end
