@@ -134,9 +134,17 @@ module Steep
     def for_class(node)
       annots = source.annotations(block: node)
 
+      if annots.implement_module
+        signature = assignability.signatures[annots.implement_module]
+        raise "Class implements should be an class: #{annots.instance_type}" unless signature.is_a?(Signature::Class)
+
+        instance_type = Types::Name.instance(name: annots.implement_module)
+        module_type = Types::Name.module(name: annots.implement_module)
+      end
+
       module_context = ModuleContext.new(
-        instance_type: annots.instance_type,
-        module_type: annots.module_type
+        instance_type: annots.instance_type || instance_type,
+        module_type: annots.module_type || module_type
       )
 
       self.class.new(
