@@ -149,6 +149,7 @@ method_name: IDENT
            | MODULE { result = :module }
            | INSTANCE { result = :instance }
            | OPERATOR
+           | METHOD_NAME
 
 annotation: AT_TYPE VAR subject COLON type { result = Annotation::VarType.new(var: val[2], type: val[4]) }
           | AT_TYPE METHOD subject COLON method_type { result = Annotation::MethodType.new(method: val[2], type: val[4]) }
@@ -289,6 +290,8 @@ def next_token
     [:IVAR, nil]
   when input.scan(/[A-Z]\w*\.(class|module)\b/)
     [:CLASS_IDENT, input.matched.gsub(/\.(class|module)$/, '').to_sym]
+  when input.scan(/\w+(\!|\?)/)
+    [:METHOD_NAME, input.matched.to_sym]
   when input.scan(/[A-Z]\w*/)
     [:MODULE_NAME, input.matched.to_sym]
   when input.scan(/_\w+/)
