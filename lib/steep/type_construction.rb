@@ -78,8 +78,10 @@ module Steep
 
     def method_entry(method_name, receiver_type:)
       if receiver_type
-        interface = assignability.resolve_interface(receiver_type.name, receiver_type.params)
-        entry = interface.methods[method_name]
+        entry = nil
+        assignability.method_type receiver_type, method_name do |method|
+          entry = method
+        end
       end
 
       if (type = annotations.lookup_method_type(method_name))
@@ -123,7 +125,7 @@ module Steep
         annotations: annots,
         var_types: var_types,
         block_context: nil,
-        self_type: module_context&.instance_type || annots.self_type,
+        self_type: self_type,
         method_context: method_context,
         typing: typing,
         module_context: module_context,
@@ -270,7 +272,7 @@ module Steep
         new = for_new_method(node.children[0],
                              node,
                              args: node.children[1].children,
-                             self_type: annotations.instance_type)
+                             self_type: module_context&.instance_type)
 
         each_child_node(node.children[1]) do |arg|
           new.synthesize(arg)
@@ -300,7 +302,7 @@ module Steep
           new = for_new_method(node.children[1],
                                node,
                                args: node.children[2].children,
-                               self_type: annotations.module_type)
+                               self_type: self_type)
 
           each_child_node(node.children[2]) do |arg|
             new.synthesize(arg)
