@@ -552,6 +552,10 @@ module Steep
         yield receiver_type, method_name, method_type if block_given?
         method_type.return_type
       else
+        arguments.each do |arg|
+          synthesize(arg)
+        end
+
         typing.add_error Errors::ArgumentTypeMismatch.new(node: node, type: receiver_type, method: method_name)
         nil
       end
@@ -572,6 +576,7 @@ module Steep
                              with_block: with_block,
                              &block)
           else
+            args.each {|arg| synthesize(arg) }
             typing.add_error Errors::NoMethod.new(node: node, method: method_name, type: receiver_type)
             nil
           end
