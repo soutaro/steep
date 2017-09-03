@@ -16,6 +16,8 @@ module Kernel
 end
 
 class Array<'a>
+  def []: (Integer) -> 'a
+  def []=: (Integer, 'a) -> 'a
 end
 
 class Hash<'key, 'value>

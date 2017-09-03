@@ -475,8 +475,21 @@ module Steep
           typing.add_typing(node, Types::Any.new)
         end
 
+      when :array
+        if node.children.empty?
+          typing.add_typing(node, Types::Name.instance(name: :Array, params: [Types::Any.new]))
+        else
+          types = node.children.map {|e| synthesize(e) }
+
+          if types.uniq.size == 1
+            typing.add_typing(node, Types::Name.instance(name: :Array, params: [types.first]))
+          else
+            typing.add_typing(node, Types::Name.instance(name: :Array, params: [Types::Any.new]))
+          end
+        end
+
       else
-        raise "Unexpected node: #{node.inspect}"
+        raise "Unexpected node: #{node.inspect}, #{node.location.line}"
       end
     end
 
