@@ -488,6 +488,10 @@ module Steep
           end
         end
 
+      when :and
+        types = each_child_node(node).map {|child| synthesize(child) }
+        typing.add_typing(node, types.last)
+
       else
         raise "Unexpected node: #{node.inspect}, #{node.location.line}"
       end
