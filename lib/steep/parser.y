@@ -158,6 +158,7 @@ annotation: AT_TYPE VAR subject COLON type { result = Annotation::VarType.new(va
           | AT_TYPE CONST MODULE_NAME COLON type { result = Annotation::ConstType.new(name: val[2], type: val[4]) }
           | AT_TYPE INSTANCE COLON type { result = Annotation::InstanceType.new(type: val[3]) }
           | AT_TYPE MODULE COLON type { result = Annotation::ModuleType.new(type: val[3]) }
+          | AT_TYPE IVAR IVAR_NAME COLON type { result = Annotation::IvarType.new(name: val[2], type: val[4]) }
           | AT_TYPE { raise "Invalid type annotation" }
           | AT_IMPLEMENTS MODULE_NAME { result = Annotation::Implements.new(module_name: val[1]) }
 
@@ -279,12 +280,18 @@ def next_token
     [:INCLUDE, nil]
   when input.scan(/extend/)
     [:EXTEND, nil]
+  when input.scan(/instance/)
+    [:INSTANCE, nil]
+  when input.scan(/ivar/)
+    [:IVAR, nil]
   when input.scan(/[A-Z]\w*\.(class|module)\b/)
     [:CLASS_IDENT, input.matched.gsub(/\.(class|module)$/, '').to_sym]
   when input.scan(/[A-Z]\w*/)
     [:MODULE_NAME, input.matched.to_sym]
   when input.scan(/_\w+/)
     [:INTERFACE_NAME, input.matched.to_sym]
+  when input.scan(/@[\w_]+/)
+    [:IVAR_NAME, input.matched.to_sym]
   when input.scan(/\w+/)
     [:IDENT, input.matched.to_sym]
   end

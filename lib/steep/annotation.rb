@@ -58,20 +58,6 @@ module Steep
       end
     end
 
-    class ConstType < Base
-      attr_reader :name
-      attr_reader :type
-
-      def initialize(name:, type:)
-        @name = name
-        @type = type
-      end
-
-      def ==(other)
-        other.is_a?(ConstType) && other.name == name && other.type == type
-      end
-    end
-
     class SelfType < Base
       attr_reader :type
 
@@ -120,6 +106,26 @@ module Steep
       end
     end
 
+    class NameType < Base
+      attr_reader :name
+      attr_reader :type
+
+      def initialize(name:, type:)
+        @name = name
+        @type = type
+      end
+
+      def ==(other)
+        other.is_a?(self.class) && other.name == name && other.type == type
+      end
+    end
+
+    class ConstType < NameType
+    end
+
+    class IvarType < NameType
+    end
+
     class Collection
       attr_reader :var_types
       attr_reader :method_types
@@ -131,11 +137,13 @@ module Steep
       attr_reader :instance_type
       attr_reader :module_type
       attr_reader :implement_module
+      attr_reader :ivar_types
 
       def initialize(annotations:)
         @var_types = {}
         @method_types = {}
         @const_types = {}
+        @ivar_types = {}
 
         annotations.each do |annotation|
           case annotation
@@ -157,6 +165,8 @@ module Steep
             @module_type = annotation.type
           when Implements
             @implement_module = annotation.module_name
+          when IvarType
+            ivar_types[annotation.name] = annotation.type
           else
             raise "Unexpected annotation: #{annotation.inspect}"
           end

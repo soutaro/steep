@@ -2,6 +2,7 @@ require "test_helper"
 
 class AnnotationParsingTest < Minitest::Test
   Parser = Steep::Parser
+  include TestHelper
 
   def test_skip_annotation
     annot = Parser.parse_annotation_opt("This is not annotation")
@@ -75,5 +76,12 @@ class AnnotationParsingTest < Minitest::Test
     annot = Parser.parse_annotation_opt("@implements String")
     assert_instance_of Steep::Annotation::Implements, annot
     assert_equal :String, annot.module_name
+  end
+
+  def test_ivar_type
+    annot = Parser.parse_annotation_opt("@type ivar @x: Integer")
+    assert_equal Steep::Annotation::IvarType.new(name: :"@x",
+                                                 type: Steep::Types::Name.instance(name: :Integer)),
+                 annot
   end
 end
