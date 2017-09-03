@@ -502,6 +502,18 @@ module Steep
         types = each_child_node(node).map {|child| synthesize(child) }
         typing.add_typing(node, types.last)
 
+      when :if
+        cond, true_clause, false_clause = node.children
+        synthesize cond
+        true_type = synthesize(true_clause) if true_clause
+        false_type = synthesize(false_clause) if false_clause
+
+        if true_type == false_type
+          typing.add_typing(node, true_type)
+        else
+          typing.add_typing(node, Types::Union.new(types: [true_type, false_type]))
+        end
+
       else
         raise "Unexpected node: #{node.inspect}, #{node.location.line}"
       end
