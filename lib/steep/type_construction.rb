@@ -56,17 +56,19 @@ module Steep
     attr_reader :source
     attr_reader :annotations
     attr_reader :var_types
+    attr_reader :ivar_types
     attr_reader :typing
     attr_reader :method_context
     attr_reader :block_context
     attr_reader :module_context
     attr_reader :self_type
 
-    def initialize(assignability:, source:, annotations:, var_types:, typing:, self_type:, method_context:, block_context:, module_context:)
+    def initialize(assignability:, source:, annotations:, var_types:, ivar_types: {}, typing:, self_type:, method_context:, block_context:, module_context:)
       @assignability = assignability
       @source = source
       @annotations = annotations
       @var_types = var_types
+      @ivar_types = ivar_types
       @typing = typing
       @self_type = self_type
       @block_context = block_context
@@ -111,6 +113,10 @@ module Steep
         return_type: annots.return_type,
       )
 
+      ivar_types = annots.ivar_types.keys.each.with_object({}) do |var, env|
+        env[var] = annots.ivar_types[var]
+      end
+
       self.class.new(
         assignability: assignability,
         source: source,
@@ -120,7 +126,8 @@ module Steep
         self_type: module_context&.instance_type || annots.self_type,
         method_context: method_context,
         typing: typing,
-        module_context: module_context
+        module_context: module_context,
+        ivar_types: ivar_types
       )
     end
 
@@ -167,6 +174,24 @@ module Steep
           typing.add_typing(node, type)
           typing.add_var_type(var, type)
         end
+
+      when :ivasgn
+        name = node.children[0]
+        value = node.children[1]
+
+        if (type = ivar_types[name])
+          check(value, type) do |_, value_type|
+            typing.add_error(Errors::IncompatibleAssignment.new(node: node, lhs_type: type, rhs_type: value_type))
+          end
+          typing.add_typing(node, type)
+        else
+          value_type = synthesize(value)
+          typing.add_typing(node, value_type)
+        end
+
+      when :ivar
+        type = ivar_types[node.children[0]] || Types::Any.new
+        typing.add_typing(node, type)
 
       when :send
         type_send(node, with_block: false)

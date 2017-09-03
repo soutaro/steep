@@ -829,6 +829,47 @@ d = k.foo(c)
     assert_empty typing.errors
   end
 
+  def test_ivar_types
+    source = ruby(<<-EOF)
+def foo
+  # @type ivar @x: _A
+  # @type var y: _D
+  
+  y = nil
+  
+  @x = y
+  y = @x
+end
+    EOF
+
+    typing = Typing.new
+    annotations = source.annotations(block: source.node)
+
+    construction = TypeConstruction.new(assignability: assignability,
+                                        source: source,
+                                        annotations: annotations,
+                                        var_types: {},
+                                        block_context: nil,
+                                        self_type: nil,
+                                        method_context: nil,
+                                        typing: typing,
+                                        module_context: nil)
+    construction.synthesize(source.node)
+
+    assert_equal 2, typing.errors.size
+    assert_any typing.errors do |error|
+      error.is_a?(Steep::Errors::IncompatibleAssignment) &&
+        error.node.type == :ivasgn &&
+        error.node.children[0] == :"@x"
+    end
+    assert_any typing.errors do |error|
+      error.is_a?(Steep::Errors::IncompatibleAssignment) &&
+        error.node.type == :lvasgn &&
+        error.node.children[1].type == :ivar &&
+        error.node.children[1].children[0] == :"@x"
+    end
+  end
+
   def arguments(ruby)
     ::Parser::CurrentRuby.parse(ruby).children.drop(2)
   end
