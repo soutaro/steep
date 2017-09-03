@@ -11,6 +11,14 @@ module Steep
         other.is_a?(Merge) && other.types == types
       end
 
+      def hash
+        self.class.hash ^ types.hash
+      end
+
+      def eql?(other)
+        other == self
+      end
+
       def to_s
         types.join(" + ")
       end

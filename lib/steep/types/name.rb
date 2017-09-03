@@ -29,6 +29,10 @@ module Steep
         name.hash ^ params.hash
       end
 
+      def eql?(other)
+        other == self
+      end
+
       def closed?
         true
       end

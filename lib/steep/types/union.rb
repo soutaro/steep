@@ -15,6 +15,10 @@ module Steep
         types.hash
       end
 
+      def eql?(other)
+        self == other
+      end
+
       def closed?
         types.all?(&:closed?)
       end
