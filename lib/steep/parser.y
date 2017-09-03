@@ -148,6 +148,7 @@ method_name: IDENT
            | CLASS { result = :class }
            | MODULE { result = :module }
            | INSTANCE { result = :instance }
+           | OPERATOR
 
 annotation: AT_TYPE VAR subject COLON type { result = Annotation::VarType.new(var: val[2], type: val[4]) }
           | AT_TYPE METHOD subject COLON method_type { result = Annotation::MethodType.new(method: val[2], type: val[4]) }
@@ -240,6 +241,8 @@ def next_token
     [:GT, nil]
   when input.scan(/\./)
     [:DOT, nil]
+  when input.scan(/(\[\]=)|(\[\])/)
+    [:OPERATOR, input.matched.to_sym]
   when input.scan(/any/)
     [:ANY, nil]
   when input.scan(/interface/)
