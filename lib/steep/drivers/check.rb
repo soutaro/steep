@@ -8,6 +8,7 @@ module Steep
 
       attr_accessor :verbose
       attr_accessor :accept_implicit_any
+      attr_accessor :dump_all_types
 
       attr_reader :labeling
 
@@ -19,6 +20,7 @@ module Steep
 
         self.verbose = false
         self.accept_implicit_any = false
+        self.dump_all_types = false
 
         @labeling = ASTUtils::Labeling.new
       end
@@ -57,7 +59,23 @@ module Steep
           construction.synthesize(source.node)
         end
 
-        p typing if verbose
+        if dump_all_types
+          lines = []
+
+          typing.nodes.each_value do |node|
+            begin
+              type = typing.type_of(node: node)
+              lines << [node.loc.expression.source_buffer.name, [node.loc.last_line,node.loc.last_column], [node.loc.first_line, node.loc.column], node, type]
+            rescue
+              lines << [node.loc.expression.source_buffer.name, [node.loc.last_line,node.loc.last_column], [node.loc.first_line, node.loc.column], node, nil]
+            end
+          end
+
+          lines.sort {|x,y| y <=> x }.reverse_each do |line|
+            source = line[3].loc.expression.source
+            stdout.puts "#{line[0]}:(#{line[2].join(",")}):(#{line[1].join(",")}):\t#{line[3].type}:\t#{line[4]}\t(#{source.split(/\n/).first})"
+          end
+        end
 
         typing.errors.each do |error|
           stdout.puts error.to_s
