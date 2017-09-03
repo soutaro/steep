@@ -26,10 +26,7 @@ end
 class Symbol
 end
 
-class TrueClass
-end
-
-class FalseClass
+interface _Boolean
 end
 
 class NilClass

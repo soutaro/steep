@@ -9,3 +9,8 @@ x = :foo
 
 # !expects IncompatibleAssignment: lhs_type=Integer, rhs_type=String
 y = "foo"
+
+# !expects IncompatibleAssignment: lhs_type=String, rhs_type=_Boolean
+x = true
+# !expects IncompatibleAssignment: lhs_type=Integer, rhs_type=_Boolean
+y = false

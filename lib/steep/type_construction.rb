@@ -376,6 +376,9 @@ module Steep
       when :str
         typing.add_typing(node, Types::Name.instance(name: :String))
 
+      when :true, :false
+        typing.add_typing(node, Types::Name.interface(name: :_Boolean))
+
       when :hash
         each_child_node(node) do |pair|
           raise "Unexpected non pair: #{pair.inspect}" unless pair.type == :pair
