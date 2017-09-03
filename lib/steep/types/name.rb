@@ -42,7 +42,7 @@ module Steep
       end
 
       def to_s
-        "#{name}" + (params.empty? ? "" : "<#{params.map(&:to_s).join(", ")}>")
+        "#{name}" + (params.empty? ? "" : "<#{params.map {|x| x.to_s }.join(", ")}>")
       end
     end
   end
