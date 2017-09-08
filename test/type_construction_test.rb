@@ -1024,4 +1024,27 @@ end
                                                                Types::Name.instance(name: :Float)])
     end
   end
+
+  def test_union_type
+    source = ruby("1")
+
+    typing = Typing.new
+    annotations = source.annotations(block: source.node)
+
+    construction = TypeConstruction.new(assignability: assignability,
+                                        source: source,
+                                        annotations: annotations,
+                                        var_types: {},
+                                        block_context: nil,
+                                        self_type: nil,
+                                        method_context: nil,
+                                        typing: typing,
+                                        module_context: nil)
+
+    assert_equal Types::Union.new(types: [Types::Name.interface(name: :_A), Types::Name.interface(name: :_C)]),
+                 construction.union_type(Types::Name.interface(name: :_A), Types::Name.interface(name: :_C))
+
+    assert_equal Types::Name.interface(name: :_A),
+                 construction.union_type(Types::Name.interface(name: :_A), Types::Name.interface(name: :_A))
+  end
 end

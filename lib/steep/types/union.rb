@@ -8,7 +8,7 @@ module Steep
       end
 
       def ==(other)
-        other.is_a?(Union) && other.types == types
+        other.is_a?(Union) && other.types.sort_by(&:__id__) == types.sort_by(&:__id__)
       end
 
       def hash
@@ -25,6 +25,10 @@ module Steep
 
       def substitute(klass:, instance:, params:)
         self.class.new(types: types.map {|t| t.substitute(klass: klass, instance: instance, params: params) })
+      end
+
+      def to_s
+        types.join(" | ")
       end
     end
   end

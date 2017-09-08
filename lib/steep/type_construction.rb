@@ -518,11 +518,7 @@ module Steep
         true_type = synthesize(true_clause) if true_clause
         false_type = synthesize(false_clause) if false_clause
 
-        if true_type == false_type
-          typing.add_typing(node, true_type)
-        else
-          typing.add_typing(node, Types::Union.new(types: [true_type, false_type]))
-        end
+        typing.add_typing(node, union_type(true_type, false_type))
 
       else
         raise "Unexpected node: #{node.inspect}, #{node.location.line}"
@@ -784,6 +780,16 @@ module Steep
 
     def self.valid_parameter_env?(env, nodes, params)
       env.size == nodes.size && env.size == params.size
+    end
+
+    def union_type(*types)
+      types = types.compact.uniq
+
+      if types.size == 1
+        types.first
+      else
+        Types::Union.new(types: types)
+      end
     end
 
     def validate_method_definitions(node)
