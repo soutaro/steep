@@ -28,6 +28,7 @@ class Array<'a>
   def empty?: -> _Boolean
   def size: -> Integer
   def map: <'b> { ('a) -> 'b } -> Array<'b>
+  def join: (any) -> String
 end
 
 class Hash<'key, 'value>

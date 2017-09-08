@@ -92,6 +92,10 @@ module Steep
         @expected = expected
         @actual = actual
       end
+
+      def to_s
+        "#{location_to_str}: BlockTypeMismatch: expected=#{expected}, actual=#{actual}"
+      end
     end
 
     class BreakTypeMismatch < Base

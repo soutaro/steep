@@ -26,6 +26,10 @@ module Steep
       def substitute(klass:, instance:, params:)
         params[name] || self
       end
+
+      def to_s
+        "'#{name}"
+      end
     end
   end
 end
