@@ -315,5 +315,26 @@ module Steep
         end
       end
     end
+
+    def compact(types)
+      if types.size == 1
+        types
+      else
+        type, *types_ = types
+        compacted = compact(types_)
+        compacted.flat_map do |type_|
+          case
+          when type == type_
+            [type]
+          when test(src: type_, dest: type)
+            [type]
+          when test(src: type, dest: type_)
+            [type_]
+          else
+            [type, type_]
+          end
+        end.uniq
+      end
+    end
   end
 end

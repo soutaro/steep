@@ -447,4 +447,42 @@ end
                                                          params: [Steep::Types::Name.instance(name: :Integer)])
     end
   end
+
+  def test_compact
+    assignability = Steep::TypeAssignability.new do |a|
+      parse_signature(<<-SRC) do |sig|
+interface _A
+end
+
+interface _B
+end
+
+interface _C
+  def foo: -> _A
+end
+
+interface _D
+  def foo: -> _A
+  def bar: -> _B
+end
+
+interface _E
+  def baz: -> _A
+end
+    SRC
+        a.add_signature sig
+      end
+    end
+
+    a = Steep::Types::Name.interface(name: :_A)
+    b = Steep::Types::Name.interface(name: :_B)
+    c = Steep::Types::Name.interface(name: :_C)
+    d = Steep::Types::Name.interface(name: :_D)
+    e = Steep::Types::Name.interface(name: :_E)
+
+    assert_equal [a], assignability.compact([a, b])
+    assert_equal [a], assignability.compact([a, b, c, d, e])
+    assert_equal [c], assignability.compact([c, d])
+    assert_equal [c, e], assignability.compact([c, d, e])
+  end
 end
