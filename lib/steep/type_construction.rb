@@ -43,12 +43,14 @@ module Steep
       attr_reader :module_type
       attr_reader :defined_instance_methods
       attr_reader :defined_module_methods
+      attr_reader :const_types
 
-      def initialize(instance_type:, module_type:)
+      def initialize(instance_type:, module_type:, const_types:)
         @instance_type = instance_type
         @module_type = module_type
         @defined_instance_methods = Set.new
         @defined_module_methods = Set.new
+        @const_types = const_types
       end
     end
 
@@ -146,7 +148,8 @@ module Steep
 
       module_context = ModuleContext.new(
         instance_type: annots.instance_type || instance_type,
-        module_type: annots.module_type || module_type
+        module_type: annots.module_type || module_type,
+        const_types: annots.const_types
       )
 
       self.class.new(
@@ -247,7 +250,7 @@ module Steep
               block_context: block_context,
               typing: typing,
               method_context: method_context,
-              module_context: module_context,
+              module_context: self.module_context,
               self_type: annots.self_type || self_type
             )
 
@@ -440,9 +443,10 @@ module Steep
           instance_type = annots.instance_type
         end
 
-        module_context = ModuleContext.new(
+        module_context_ = ModuleContext.new(
           instance_type: instance_type,
-          module_type: annots.module_type
+          module_type: annots.module_type,
+          const_types: annots.const_types
         )
 
         for_class = self.class.new(
@@ -453,8 +457,8 @@ module Steep
           typing: typing,
           method_context: nil,
           block_context: nil,
-          module_context: module_context,
-          self_type: module_context.module_type
+          module_context: module_context_,
+          self_type: module_context_.module_type
         )
 
         for_class.synthesize(node.children[1]) if node.children[1]
@@ -466,8 +470,7 @@ module Steep
         typing.add_typing(node, self_type || Types::Any.new)
 
       when :const
-        type = annotations.lookup_const_type(node.children[1]) || Types::Any.new
-
+        type = (module_context&.const_types || {})[node.children[1]] || Types::Any.new
         typing.add_typing(node, type)
 
       when :yield

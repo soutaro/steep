@@ -52,7 +52,11 @@ module Steep
             var_types: {},
             self_type: nil,
             block_context: nil,
-            module_context: nil,
+            module_context: TypeConstruction::ModuleContext.new(
+                                                             instance_type: nil,
+                                                             module_type: nil,
+                                                             const_types: annotations.const_types
+            ),
             method_context: nil,
             typing: typing,
           )
