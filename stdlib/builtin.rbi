@@ -29,6 +29,7 @@ class Array<'a>
   def size: -> Integer
   def map: <'b> { ('a) -> 'b } -> Array<'b>
   def join: (any) -> String
+  def all?: { (any) -> any } -> _Boolean
 end
 
 class Hash<'key, 'value>
@@ -61,4 +62,5 @@ end
 class String
   def +: (String) -> String
   def to_str: -> String
+  def size: -> Integer
 end

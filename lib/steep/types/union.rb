@@ -8,7 +8,7 @@ module Steep
       end
 
       def ==(other)
-        other.is_a?(Union) && other.types.sort_by(&:__id__) == types.sort_by(&:__id__)
+        other.is_a?(Union) && other.types.sort_by {|x| x.__id__ } == types.sort_by {|x| x.__id__ }
       end
 
       def hash
@@ -20,7 +20,7 @@ module Steep
       end
 
       def closed?
-        types.all?(&:closed?)
+        types.all? {|x| x.closed? }
       end
 
       def substitute(klass:, instance:, params:)
