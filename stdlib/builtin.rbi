@@ -18,6 +18,7 @@ end
 
 class Class<'instance> <: Module
   def new: -> 'instance
+  def allocate: -> 'instance
 end
 
 module Kernel

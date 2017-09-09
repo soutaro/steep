@@ -295,10 +295,11 @@ module Steep
       end
 
       def module_methods(assignability:, klass:, instance:, params:)
-        class_methods = assignability.lookup_class_signature(Types::Name.instance(name: :Class)).instance_methods(assignability: assignability,
-                                                                                                                  klass: klass,
-                                                                                                                  instance: instance,
-                                                                                                                  params: [])
+        signature = assignability.lookup_class_signature(Types::Name.instance(name: :Class))
+        class_methods = signature.instance_methods(assignability: assignability,
+                                                   klass: klass,
+                                                   instance: instance,
+                                                   params: [instance])
         if self.name == :BasicObject
           class_methods
         else
