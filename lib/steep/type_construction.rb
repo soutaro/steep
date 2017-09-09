@@ -255,14 +255,21 @@ module Steep
               for_block.synthesize(param)
             end
 
-            if block
+            case method_type.block.return_type
+            when Types::Var
+              block_type = for_block.synthesize(block)
+              method_type_ = method_type.instantiate(subst: { method_type.block.return_type.name => block_type })
+              method_type_.return_type
+            else
               for_block.check(block, method_type.block.return_type) do |expected, actual|
                 typing.add_error Errors::BlockTypeMismatch.new(node: node, expected: expected, actual: actual)
               end
+              method_type.return_type
             end
 
           else
             typing.add_error Errors::UnexpectedBlockGiven.new(node: node, type: recv_type, method: method_name)
+            nil
           end
         end
 
@@ -562,13 +569,55 @@ module Steep
     end
 
     def type_method_call(node:, receiver_type:, method_name:, method_types:, arguments:, with_block: false)
-      method_type = method_types.find do |type|
-        applicable_args?(params: type.params, arguments: arguments) && with_block == !!type.block
-      end
+      method_type = method_types.flat_map do |type|
+        next unless with_block == !!type.block
+
+        var_types_mapping = {}
+
+        type.type_params.each do |param|
+          var_types_mapping[param] = []
+        end
+
+        catch :abort do
+          pairs = test_args(params: type.params, arguments: arguments)
+          if pairs
+            arg_types = pairs.map {|(_, arg_node)| synthesize(arg_node) }
+
+            pairs.each.with_index do |(param_type, _), index|
+              arg_type = arg_types[index]
+
+              case param_type
+              when Types::Var
+                var_types_mapping[param_type.name] << arg_type
+              else
+                unless assignability.test(src: arg_type, dest: param_type)
+                  throw :abort
+                end
+              end
+            end
+
+            subst = var_types_mapping.each.with_object({}) do |(name, types), subst|
+              unless types.empty?
+                compacted_types = assignability.compact(types)
+
+                if compacted_types.size > 1
+                  subst[name] = Types::Union.new(types: compacted_types)
+                else
+                  subst[name] = compacted_types.first
+                end
+              end
+            end
+
+            type.instantiate(subst: subst)
+          end
+        end
+      end.compact.first
 
       if method_type
-        yield receiver_type, method_name, method_type if block_given?
-        method_type.return_type
+        if block_given?
+          return_type = yield(receiver_type, method_name, method_type)
+        end
+        return_type || method_type.return_type
       else
         arguments.each do |arg|
           synthesize(arg)
@@ -620,6 +669,26 @@ module Steep
       else
         enum_for :each_child_node, node
       end
+    end
+
+    def test_args(params:, arguments:)
+      params.each_missing_argument arguments do |_|
+        return nil
+      end
+
+      params.each_extra_argument arguments do |_|
+        return nil
+      end
+
+      params.each_missing_keyword arguments do |_|
+        return nil
+      end
+
+      params.each_extra_keyword arguments do |_|
+        return nil
+      end
+
+      self.class.argument_typing_pairs(params: params, arguments: arguments.dup)
     end
 
     def applicable_args?(params:, arguments:)

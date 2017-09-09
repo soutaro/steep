@@ -20,6 +20,10 @@ module Steep
       def substitute(klass:, instance:, params:)
         self
       end
+
+      def to_s
+        "any"
+      end
     end
   end
 end

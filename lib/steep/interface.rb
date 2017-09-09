@@ -195,6 +195,15 @@ module Steep
                        block: block&.substitute(klass: klass, instance: instance, params: params),
                        return_type: return_type.substitute(klass: klass, instance: instance, params: params))
       end
+
+      def instantiate(subst:)
+        raise "Open method type cannot be instantiated" unless closed?
+
+        self.class.new(type_params: type_params.reject {|param| subst.key?(param) },
+                       params: self.params.substitute(klass: nil, instance: nil, params: subst),
+                       block: block&.substitute(klass: nil, instance: nil, params: subst),
+                       return_type: return_type.substitute(klass: nil, instance: nil, params: subst))
+      end
     end
 
     class Block

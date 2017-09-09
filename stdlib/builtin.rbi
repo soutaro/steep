@@ -9,6 +9,7 @@ class Object <: BasicObject
   def ==: (any) -> _Boolean
   def ===: (any) -> _Boolean
   def class: -> class
+  def to_i: -> Integer
 end
 
 class Module
@@ -45,11 +46,13 @@ class NilClass
 end
 
 class Numeric
+  def +: (Numeric) -> Numeric
 end
 
 class Integer <: Numeric
   def to_int: -> Integer
-  def +: (Numeric) -> Integer
+  def +: (Integer) -> Integer
+       | (Numeric) -> Numeric
   def ^: (Numeric) -> Integer
 end
 

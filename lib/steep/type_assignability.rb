@@ -216,7 +216,10 @@ module Steep
       test(src: src.return_type, dest: dest.return_type, known_pairs: known_pairs)
     end
 
-    def resolve_interface(name, params)
+    def resolve_interface(name, params, klass: nil, instance: nil)
+      klass ||= Types::Name.module(name: name.name, params: params)
+      instance ||= Types::Name.instance(name: name.name, params: params)
+
       case name
       when TypeName::Interface
         signatures[name.name].to_interface(klass: klass, instance: instance, params: params)
@@ -266,7 +269,7 @@ module Steep
         return type
       when Types::Merge
         methods = type.types.map {|t|
-          resolve_interface(t.name, t.params)
+          resolve_interface(t.name, t.params, klass: Types::Var.new(name: :some_klass), instance: Types::Var.new(name: :some_instance))
         }.each.with_object({}) {|interface, methods|
           methods.merge! interface.methods
         }

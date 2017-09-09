@@ -46,6 +46,11 @@ interface _Kernel
   def foo: (_A) -> _B
          | (_C) -> _D
 end
+
+interface _PolyMethod
+  def snd: <'a>(any, 'a) -> 'a
+  def try: <'a> { (any) -> 'a } -> 'a
+end
       EOS
       interfaces.each do |interface|
         assignability.add_signature interface
@@ -868,6 +873,58 @@ end
         error.node.children[1].type == :ivar &&
         error.node.children[1].children[0] == :"@x"
     end
+  end
+
+  def test_poly_method_arg
+    source = ruby(<<-EOF)
+# @type var poly: _PolyMethod
+poly = nil
+
+# @type var string: String
+string = poly.snd(1, "a")
+    EOF
+
+    typing = Typing.new
+    annotations = source.annotations(block: source.node)
+
+    construction = TypeConstruction.new(assignability: assignability,
+                                        source: source,
+                                        annotations: annotations,
+                                        var_types: {},
+                                        block_context: nil,
+                                        self_type: nil,
+                                        method_context: nil,
+                                        typing: typing,
+                                        module_context: nil)
+    construction.synthesize(source.node)
+
+    assert_empty typing.errors
+  end
+
+  def test_poly_method_block
+    source = ruby(<<-EOF)
+# @type var poly: _PolyMethod
+poly = nil
+
+# @type var string: String
+string = poly.try { "string" }
+    EOF
+
+    typing = Typing.new
+    annotations = source.annotations(block: source.node)
+
+    construction = TypeConstruction.new(assignability: assignability,
+                                        source: source,
+                                        annotations: annotations,
+                                        var_types: {},
+                                        block_context: nil,
+                                        self_type: nil,
+                                        method_context: nil,
+                                        typing: typing,
+                                        module_context: nil)
+    construction.synthesize(source.node)
+
+    assert_empty typing.errors
   end
 
   def arguments(ruby)
