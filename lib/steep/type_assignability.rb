@@ -205,15 +205,15 @@ module Steep
         d = ds[i]&.last || dest.params.rest
 
         if s && d
-          test(src: d, dest: s, known_pairs: known_pairs) or return false
+          test(src: s, dest: d, known_pairs: known_pairs) or return false
         end
       end
 
       if src.params.rest && dest.params.rest
-        test(src: dest.params.rest, dest: src.params.rest, known_pairs: known_pairs) or return false
+        test(src: src.params.rest, dest: dest.params.rest, known_pairs: known_pairs) or return false
       end
 
-      test(src: src.return_type, dest: dest.return_type, known_pairs: known_pairs)
+      test(src: dest.return_type, dest: src.return_type, known_pairs: known_pairs)
     end
 
     def resolve_interface(name, params, klass: nil, instance: nil)

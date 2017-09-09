@@ -303,28 +303,28 @@ end
       end
     end
 
-    assert assignability.test_method(parse_method_type("{ (_Object) -> any } -> any"),
+    assert assignability.test_method(parse_method_type("{ (_String) -> any } -> any"),
+                                     parse_method_type("{ (_Object) -> any } -> any"),
+                                     [])
+
+    refute assignability.test_method(parse_method_type("{ (_Object) -> any } -> any"),
                                      parse_method_type("{ (_String) -> any } -> any"),
                                      [])
 
-    refute assignability.test_method(parse_method_type("{ (_String) -> any } -> any"),
-                                     parse_method_type("{ (_Object) -> any } -> any"),
+    assert assignability.test_method(parse_method_type("{ (_Object) -> any } -> any"),
+                                     parse_method_type("{ (_Object, _String) -> any } -> any"),
                                      [])
 
     assert assignability.test_method(parse_method_type("{ (_Object, _String) -> any } -> any"),
                                      parse_method_type("{ (_Object) -> any } -> any"),
                                      [])
 
-    assert assignability.test_method(parse_method_type("{ (_Object) -> any } -> any"),
-                                     parse_method_type("{ (_Object, _String) -> any } -> any"),
+    assert assignability.test_method(parse_method_type("{ (_Object, _String) -> any } -> any"),
+                                     parse_method_type("{ (_Object, *_Object) -> any } -> any"),
                                      [])
 
-    assert assignability.test_method(parse_method_type("{ (_Object, *_Object) -> any } -> any"),
-                                     parse_method_type("{ (_Object, _String) -> any } -> any"),
-                                     [])
-
-    refute assignability.test_method(parse_method_type("{ (_Object, *_String) -> any } -> any"),
-                                     parse_method_type("{ (_Object, _Object) -> any } -> any"),
+    refute assignability.test_method(parse_method_type("{ (_Object, _Object) -> any } -> any"),
+                                     parse_method_type("{ (_Object, *_String) -> any } -> any"),
                                      [])
   end
 
