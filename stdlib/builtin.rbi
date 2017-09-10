@@ -1,4 +1,5 @@
 class BasicObject
+  def __id__: -> Integer
 end
 
 class Object <: BasicObject
@@ -10,10 +11,13 @@ class Object <: BasicObject
   def ===: (any) -> _Boolean
   def class: -> class
   def to_i: -> Integer
+  def is_a?: (Module) -> _Boolean
 end
 
 class Module
   def attr_reader: (*any) -> any
+  def class: -> Class<Module>
+  def tap: { (Module) -> any } -> Module
 end
 
 class Class<'instance> <: Module
@@ -32,6 +36,7 @@ class Array<'a>
   def map: <'b> { ('a) -> 'b } -> Array<'b>
   def join: (any) -> String
   def all?: { (any) -> any } -> _Boolean
+  def sort_by: { ('a) -> any } -> Array<'a>
 end
 
 class Hash<'key, 'value>
