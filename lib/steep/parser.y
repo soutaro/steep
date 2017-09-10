@@ -244,49 +244,49 @@ def next_token
     [:DOT, nil]
   when input.scan(/(\[\]=)|(\[\])|===|==|\^/)
     [:OPERATOR, input.matched.to_sym]
-  when input.scan(/any/)
+  when input.scan(/any\b/)
     [:ANY, nil]
-  when input.scan(/interface/)
+  when input.scan(/interface\b/)
     [:INTERFACE, nil]
-  when input.scan(/end/)
+  when input.scan(/end\b/)
     [:END, nil]
   when input.scan(/\|/)
     [:BAR, nil]
-  when input.scan(/def/)
+  when input.scan(/def\b/)
     [:DEF, nil]
-  when input.scan(/@type/)
+  when input.scan(/@type\b/)
     [:AT_TYPE, nil]
-  when input.scan(/@implements/)
+  when input.scan(/@implements\b/)
     [:AT_IMPLEMENTS, nil]
-  when input.scan(/const/)
+  when input.scan(/const\b/)
     [:CONST, nil]
-  when input.scan(/var/)
+  when input.scan(/var\b/)
     [:VAR, nil]
-  when input.scan(/return/)
+  when input.scan(/return\b/)
     [:RETURN, nil]
-  when input.scan(/block/)
+  when input.scan(/block\b/)
     [:BLOCK, nil]
-  when input.scan(/method/)
+  when input.scan(/method\b/)
     [:METHOD, nil]
   when input.scan(/self\?/)
     [:SELFQ, nil]
-  when input.scan(/self/)
+  when input.scan(/self\b/)
     [:SELF, nil]
   when input.scan(/'\w+/)
     [:TVAR, input.matched.gsub(/\A'/, '').to_sym]
-  when input.scan(/instance/)
+  when input.scan(/instance\b/)
     [:INSTANCE, nil]
-  when input.scan(/class/)
+  when input.scan(/class\b/)
     [:CLASS, nil]
-  when input.scan(/module/)
+  when input.scan(/module\b/)
     [:MODULE, nil]
-  when input.scan(/include/)
+  when input.scan(/include\b/)
     [:INCLUDE, nil]
-  when input.scan(/extend/)
+  when input.scan(/extend\b/)
     [:EXTEND, nil]
-  when input.scan(/instance/)
+  when input.scan(/instance\b/)
     [:INSTANCE, nil]
-  when input.scan(/ivar/)
+  when input.scan(/ivar\b/)
     [:IVAR, nil]
   when input.scan(/[A-Z]\w*\.(class|module)\b/)
     [:CLASS_IDENT, input.matched.gsub(/\.(class|module)$/, '').to_sym]
