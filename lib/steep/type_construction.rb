@@ -260,13 +260,16 @@ module Steep
 
             case method_type.block.return_type
             when Types::Var
-              block_type = for_block.synthesize(block)
+              block_type = block ? for_block.synthesize(block) : Types::Any.new
               method_type_ = method_type.instantiate(subst: { method_type.block.return_type.name => block_type })
               method_type_.return_type
             else
-              for_block.check(block, method_type.block.return_type) do |expected, actual|
-                typing.add_error Errors::BlockTypeMismatch.new(node: node, expected: expected, actual: actual)
+              if block
+                for_block.check(block, method_type.block.return_type) do |expected, actual|
+                  typing.add_error Errors::BlockTypeMismatch.new(node: node, expected: expected, actual: actual)
+                end
               end
+
               method_type.return_type
             end
 
