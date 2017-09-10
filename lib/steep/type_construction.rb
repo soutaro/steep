@@ -525,6 +525,11 @@ module Steep
         types = each_child_node(node).map {|child| synthesize(child) }
         typing.add_typing(node, types.last)
 
+      when :or
+        types = each_child_node(node).map {|child| synthesize(child) }
+        type = union_type(*types)
+        typing.add_typing(node, type)
+
       when :if
         cond, true_clause, false_clause = node.children
         synthesize cond
@@ -858,12 +863,12 @@ module Steep
     end
 
     def union_type(*types)
-      types = types.compact.uniq
+      types_ = assignability.compact(types.compact)
 
-      if types.size == 1
-        types.first
+      if types_.size == 1
+        types_.first
       else
-        Types::Union.new(types: types)
+        Types::Union.new(types: types_)
       end
     end
 
