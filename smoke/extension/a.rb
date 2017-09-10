@@ -8,3 +8,4 @@ foo.try do |x|
   # !expects IncompatibleAssignment: lhs_type=String, rhs_type=Foo
   string = x
 end
+
