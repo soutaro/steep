@@ -1,6 +1,8 @@
 module Steep
   module Types
     class Instance
+      # @implements Steep__Types__Instance
+
       def ==(other)
         other.is_a?(Instance)
       end

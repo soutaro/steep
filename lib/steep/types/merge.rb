@@ -1,6 +1,8 @@
 module Steep
   module Types
     class Merge
+      # @implements Steep__Types__Merge
+
       attr_reader :types
 
       def initialize(types:)
@@ -8,7 +10,9 @@ module Steep
       end
 
       def ==(other)
-        other.is_a?(Merge) && other.types == types
+        # @type var other_: Steep__Types__Merge
+        other_ = other
+        other_.is_a?(Merge) && other_.types == types
       end
 
       def hash

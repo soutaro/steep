@@ -1,6 +1,8 @@
 module Steep
   module Types
     class Var
+      # @implements Steep__Types__Var
+
       attr_reader :name
 
       def initialize(name:)

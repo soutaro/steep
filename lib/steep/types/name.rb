@@ -1,6 +1,8 @@
 module Steep
   module Types
     class Name
+      # @implements Steep__Types__Name
+
       attr_reader :name
       attr_reader :params
 
