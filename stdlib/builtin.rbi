@@ -40,6 +40,7 @@ class Array<'a>
 end
 
 class Hash<'key, 'value>
+  def []: ('key) -> 'value
 end
 
 class Symbol
