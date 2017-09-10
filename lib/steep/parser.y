@@ -94,10 +94,12 @@ signatures: { result = [] }
           | interface signatures { result = [val[0]] + val[1] }
           | class_decl signatures { result = [val[0]] + val[1] }
           | module_decl signatures { result = [val[0]] + val[1] }
+          | extension_decl signatures { result = [val[0]] + val[1] }
 
 interface: INTERFACE interface_name type_params method_decls END { result = Signature::Interface.new(name: val[1], params: val[2], methods: val[3]) }
 class_decl: CLASS class_name type_params super_opt class_members END { result = Signature::Class.new(name: val[1], params: val[2], super_class: val[3], members: val[4] )}
 module_decl: MODULE class_name type_params self_type_opt class_members END { result = Signature::Module.new(name: val[1], params: val[2], self_type: val[3], members: val[4]) }
+extension_decl: EXTENSION class_name LPAREN class_name RPAREN class_members END { result = Signature::Extension.new(module_name: val[1], extension_name: val[3], members: val[5]) }
 
 self_type_opt: { result = nil }
              | COLON type { result = val[1] }
@@ -288,6 +290,8 @@ def next_token
     [:INSTANCE, nil]
   when input.scan(/ivar\b/)
     [:IVAR, nil]
+  when input.scan(/extension\b/)
+    [:EXTENSION, nil]
   when input.scan(/[A-Z]\w*\.(class|module)\b/)
     [:CLASS_IDENT, input.matched.gsub(/\.(class|module)$/, '').to_sym]
   when input.scan(/\w+(\!|\?)/)

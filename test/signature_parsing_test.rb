@@ -110,4 +110,25 @@ end
                   parse_method_type("() -> NilClass")], interface.methods[:gets]
 
   end
+
+  def test_extension
+    signatures = parse(<<-EOF)
+extension Object (Pathname)
+  def Pathname: (String) -> Pathname
+end
+    EOF
+
+    assert_equal 1, signatures.size
+
+    signature = signatures[0]
+    assert_equal Steep::Signature::Extension.new(
+      module_name: :Object,
+      extension_name: :Pathname,
+      members: [
+        Steep::Signature::Members::InstanceMethod.new(
+          name: :Pathname,
+          types: [parse_method_type("(String) -> Pathname")]
+        )
+      ]), signature
+  end
 end
