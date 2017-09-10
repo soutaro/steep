@@ -93,6 +93,12 @@ module Steep
           end
         end
 
+        extensions = assignability.lookup_extensions(name)
+        extensions.each do |extension|
+          extension_methods = extension.instance_methods(assignability: assignability, klass: klass, instance: instance, params: [])
+          merge_methods(methods, extension_methods)
+        end
+
         methods
       end
 
@@ -142,10 +148,6 @@ module Steep
         end
 
         methods
-      end
-
-      def type_application_hash(args)
-        Hash[params.zip(args)]
       end
 
       def merge_methods(methods, hash)
@@ -207,6 +209,12 @@ module Steep
       end
     end
 
+    module WithParams
+      def type_application_hash(args)
+        Hash[params.zip(args)]
+      end
+    end
+
     class Module
       attr_reader :name
       attr_reader :params
@@ -215,6 +223,7 @@ module Steep
 
       prepend WithMethods
       include WithMembers
+      include WithParams
 
       def initialize(name:, params:, members:, self_type:)
         @name = name
@@ -266,6 +275,7 @@ module Steep
 
       prepend WithMethods
       include WithMembers
+      include WithParams
 
       def initialize(name:, params:, members:, super_class:)
         @name = name

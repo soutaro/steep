@@ -21,6 +21,31 @@ module Steep
           other_.extension_name == extension_name &&
           other_.members == members
       end
+
+      def name
+        :"#{module_name} (#{extension_name})"
+      end
+
+      include WithMembers
+      prepend WithMethods
+
+      def validate(assignability)
+        each_type do |type|
+          assignability.validate_type_presence self, type
+        end
+      end
+
+      def instance_methods(assignability:, klass:, instance:, params:)
+        {}
+      end
+
+      def module_methods(assignability:, klass:, instance:, params:)
+        {}
+      end
+
+      def type_application_hash(args)
+        {}
+      end
     end
   end
 end

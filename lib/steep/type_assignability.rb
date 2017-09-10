@@ -263,6 +263,15 @@ module Steep
       signature
     end
 
+    def lookup_extensions(module_name)
+      signatures.values.select do |signature|
+        case signature
+        when Signature::Extension
+          signature.module_name == module_name
+        end
+      end
+    end
+
     def method_type(type, name)
       case type
       when Types::Any

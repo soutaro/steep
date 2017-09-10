@@ -147,4 +147,29 @@ end
     x_foo = parse_single_method("(Object) -> any", super_method: basic_object_foo)
     assert_equal parse_single_method("(BasicObject) -> any", super_method: x_foo), methods[:foo]
   end
+
+  def test_extension
+    assignability = new_assignability(<<-SRC)
+class BasicObject
+end
+
+class Object <: BasicObject
+end
+
+class Pathname
+end
+
+extension Object (Pathname)
+  def Pathname: (String) -> Pathname
+end
+    SRC
+
+    klass = assignability.signatures[:Object]
+    methods = klass.instance_methods(assignability: assignability,
+                                     klass: Types::Name.module(name: :Object),
+                                     instance: Types::Name.instance(name: :Object),
+                                     params: [])
+
+    assert_equal [:Pathname], methods.keys
+  end
 end
