@@ -419,6 +419,13 @@ module Steep
 
         typing.add_typing(node, Types::Name.instance(name: :String))
 
+      when :dsym
+        each_child_node(node) do |child|
+          synthesize(child)
+        end
+
+        typing.add_typing(node, Types::Name.instance(name: :Symbol))
+
       when :class
         for_class(node).tap do |constructor|
           constructor.synthesize(node.children[2])
