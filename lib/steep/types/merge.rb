@@ -3,6 +3,7 @@ module Steep
     class Merge
       # @implements Steep__Types__Merge
 
+      # @dynamic types
       attr_reader :types
 
       def initialize(types:)

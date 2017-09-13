@@ -4,6 +4,7 @@ module Steep
       # @implements Steep__Types__Union
       # @type const Union: Steep__Types__Union.module
 
+      # @dynamic types
       attr_reader :types
 
       def initialize(types:)

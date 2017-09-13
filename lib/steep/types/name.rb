@@ -3,7 +3,10 @@ module Steep
     class Name
       # @implements Steep__Types__Name
 
+      # @dynamic name
       attr_reader :name
+
+      # @dynamic params
       attr_reader :params
 
       def initialize(name:, params:)

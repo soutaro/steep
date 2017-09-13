@@ -4,6 +4,7 @@ module Steep
       class Base
         # @implements Steep__Signature__Error
 
+        # @dynamic signature
         attr_reader :signature
 
         def initialize(signature:)
@@ -14,6 +15,7 @@ module Steep
       class UnknownTypeName < Base
         # @implements Steep__Signature__Errors__UnknownTypeName
 
+        # @dynamic type
         attr_reader :type
 
         def initialize(signature:, type:)
@@ -25,8 +27,11 @@ module Steep
       class IncompatibleOverride < Base
         # @implements Steep__Signature__Errors__IncompatibleOverride
 
+        # @dynamic method_name
         attr_reader :method_name
+        # @dynamic this_method
         attr_reader :this_method
+        # @dynamic super_method
         attr_reader :super_method
 
         def initialize(signature:, method_name:, this_method:, super_method:)
