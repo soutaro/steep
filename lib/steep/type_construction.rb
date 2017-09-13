@@ -885,7 +885,7 @@ module Steep
         signature = assignability.signatures[implements]
         signature.members.each do |member|
           if member.is_a?(Signature::Members::InstanceMethod) || member.is_a?(Signature::Members::ModuleInstanceMethod)
-            unless module_context.defined_instance_methods.include?(member.name)
+            unless module_context.defined_instance_methods.include?(member.name) || annotations.dynamics.member?(member.name)
               typing.add_error Errors::MethodDefinitionMissing.new(node: node,
                                                                    module_name: implements,
                                                                    kind: :instance,
@@ -900,6 +900,14 @@ module Steep
                                                                    kind: :module,
                                                                    missing_method: member.name)
             end
+          end
+        end
+
+        annotations.dynamics.each do |method_name|
+          unless signature.members.any? {|sig| sig.is_a?(Signature::Members::InstanceMethod) && sig.name == method_name }
+            typing.add_error Errors::UnexpectedDynamicMethod.new(node: node,
+                                                                 module_name: implements,
+                                                                 method_name: method_name)
           end
         end
       end

@@ -3,3 +3,7 @@ class A
   def bar: () -> String
   def self.baz: -> Integer
 end
+
+class B
+  def name: -> String
+end
