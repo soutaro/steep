@@ -9,6 +9,7 @@ module Steep
       attr_accessor :verbose
       attr_accessor :accept_implicit_any
       attr_accessor :dump_all_types
+      attr_accessor :fallback_any_is_error
 
       attr_reader :labeling
 
@@ -21,6 +22,7 @@ module Steep
         self.verbose = false
         self.accept_implicit_any = false
         self.dump_all_types = false
+        self.fallback_any_is_error = false
 
         @labeling = ASTUtils::Labeling.new
       end
@@ -82,6 +84,7 @@ module Steep
         end
 
         typing.errors.each do |error|
+          next if error.is_a?(Errors::FallbackAny) && !fallback_any_is_error
           stdout.puts error.to_s
         end
       end

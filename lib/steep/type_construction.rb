@@ -183,9 +183,11 @@ module Steep
       when :lvar
         var = node.children[0]
 
-        (variable_type(var) || Types::Any.new).tap do |type|
+        if (type = variable_type(var))
           typing.add_typing(node, type)
-          typing.add_var_type(var, type)
+        else
+          fallback_to_any node
+          typing.add_var_type var, Types::Any.new
         end
 
       when :ivasgn
@@ -203,8 +205,12 @@ module Steep
         end
 
       when :ivar
-        type = ivar_types[node.children[0]] || Types::Any.new
-        typing.add_typing(node, type)
+        type = ivar_types[node.children[0]]
+        if type
+          typing.add_typing(node, type)
+        else
+          fallback_to_any node
+        end
 
       when :send
         type_send(node, with_block: false)
@@ -223,7 +229,11 @@ module Steep
           end
         end
 
-        typing.add_typing node, ret_type || Types::Any.new
+        if ret_type
+          typing.add_typing node, ret_type
+        else
+          fallback_to_any node
+        end
 
       when :block
         send_node, params, block = node.children
@@ -378,9 +388,11 @@ module Steep
 
       when :arg, :kwarg, :procarg0
         var = node.children[0]
-        type = variable_type(var) || Types::Any.new
-
-        typing.add_var_type(var, type)
+        if (type = variable_type(var))
+          typing.add_var_type(var, type)
+        else
+          fallback_to_any node
+        end
 
       when :optarg, :kwoptarg
         var = node.children[0]
@@ -477,7 +489,11 @@ module Steep
         typing.add_typing(node, Types::Name.instance(name: :NilClass))
 
       when :self
-        typing.add_typing(node, self_type || Types::Any.new)
+        if self_type
+          typing.add_typing(node, self_type)
+        else
+          fallback_to_any node
+        end
 
       when :const
         const_name = flatten_const_name(node)
@@ -485,7 +501,11 @@ module Steep
           type = (module_context&.const_types || {})[const_name]
         end
 
-        typing.add_typing(node, type || Types::Any.new)
+        if type
+          typing.add_typing(node, type)
+        else
+          fallback_to_any node
+        end
 
       when :yield
         if method_context&.method_type
@@ -502,10 +522,10 @@ module Steep
             typing.add_typing(node, block_type.return_type)
           else
             typing.add_error(Errors::UnexpectedYield.new(node: node))
-            typing.add_typing(node, Types::Any.new)
+            fallback_to_any node
           end
         else
-          typing.add_typing(node, Types::Any.new)
+          fallback_to_any node
         end
 
       when :zsuper
@@ -516,7 +536,7 @@ module Steep
             typing.add_error(Errors::UnexpectedSuper.new(node: node, method: method_context.name))
           end
         else
-          typing.add_typing(node, Types::Any.new)
+          fallback_to_any node
         end
 
       when :array
@@ -582,11 +602,15 @@ module Steep
           rhs_type
         end
       else
-        type = lhs_type || Types::Any.new
-        typing.add_var_type(var, type)
-        typing.add_typing(node, type)
-        var_types[var] = type
-        type
+        if lhs_type
+          typing.add_var_type(var, lhs_type)
+          typing.add_typing(node, lhs_type)
+          var_types[var] = lhs_type
+        else
+          typing.add_var_type(var, Types::Any.new)
+          fallback_to_any node
+          var_types[var] = Types::Any.new
+        end
       end
     end
 
@@ -673,7 +697,7 @@ module Steep
 
         typing.add_typing node, ret_type
       else
-        typing.add_typing node, Types::Any.new
+        fallback_to_any node
       end
     end
 
@@ -934,6 +958,11 @@ module Steep
       end
 
       path.join("::").to_sym
+    end
+
+    def fallback_to_any(node)
+      typing.add_error Errors::FallbackAny.new(node: node)
+      typing.add_typing node, Types::Any.new
     end
   end
 end

@@ -193,5 +193,15 @@ module Steep
         "#{location_to_str}: UnexpectedDynamicMethod: module=#{module_name}, method=#{method_name}"
       end
     end
+
+    class FallbackAny < Base
+      def initialize(node:)
+        @node = node
+      end
+
+      def to_s
+        "#{location_to_str}: FallbackAny"
+      end
+    end
   end
 end

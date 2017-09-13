@@ -46,12 +46,14 @@ module Steep
       verbose = false
       no_builtin = false
       dump_all_types = false
+      fallback_any_is_error = false
 
       OptionParser.new do |opts|
         opts.on("-I [PATH]") {|path| signature_dirs << Pathname(path) }
         opts.on("--no-builtin") { no_builtin = true }
         opts.on("--verbose") { verbose = true }
         opts.on("--dump-all-types") { dump_all_types = true }
+        opts.on("--fallback-any-is-error") { fallback_any_is_error = true }
       end.parse!(argv)
 
       unless no_builtin
@@ -70,6 +72,7 @@ module Steep
       Drivers::Check.new(source_paths: source_paths, signature_dirs: signature_dirs, stdout: stdout, stderr: stderr).tap do |check|
         check.verbose = verbose
         check.dump_all_types = dump_all_types
+        check.fallback_any_is_error = fallback_any_is_error
       end.run
     end
   end
