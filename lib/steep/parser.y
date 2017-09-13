@@ -165,6 +165,7 @@ annotation: AT_TYPE VAR subject COLON type { result = Annotation::VarType.new(va
           | AT_TYPE IVAR IVAR_NAME COLON type { result = Annotation::IvarType.new(name: val[2], type: val[4]) }
           | AT_TYPE { raise "Invalid type annotation" }
           | AT_IMPLEMENTS MODULE_NAME { result = Annotation::Implements.new(module_name: val[1]) }
+          | AT_DYNAMIC method_name { result = Annotation::Dynamic.new(name: val[1]) }
 
 subject: IDENT { result = val[0] }
 
@@ -260,6 +261,8 @@ def next_token
     [:AT_TYPE, nil]
   when input.scan(/@implements\b/)
     [:AT_IMPLEMENTS, nil]
+  when input.scan(/@dynamic\b/)
+    [:AT_DYNAMIC, nil]
   when input.scan(/const\b/)
     [:CONST, nil]
   when input.scan(/var\b/)

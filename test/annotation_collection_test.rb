@@ -11,7 +11,8 @@ class AnnotationCollectionTest < Minitest::Test
       Annotation::VarType.new(var: :x, type: Types::Name.new(name: :X, params: [])),
       Annotation::VarType.new(var: :y, type: Types::Name.new(name: :Y, params: [])),
       Annotation::ReturnType.new(type: Types::Name.new(name: :Z, params: [])),
-      Annotation::BlockType.new(type: Types::Name.new(name: :A, params: []))
+      Annotation::BlockType.new(type: Types::Name.new(name: :A, params: [])),
+      Annotation::Dynamic.new(name: :path)
     ])
   end
 
@@ -44,5 +45,9 @@ class AnnotationCollectionTest < Minitest::Test
 
     assert_equal Types::Name.new(name: :Z, params: []), as.return_type
     assert_nil as.block_type
+  end
+
+  def test_dynamics
+    assert_equal Set.new([:path]), annotations.dynamics
   end
 end

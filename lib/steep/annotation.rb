@@ -126,6 +126,18 @@ module Steep
     class IvarType < NameType
     end
 
+    class Dynamic < Base
+      attr_reader :name
+
+      def initialize(name:)
+        @name = name
+      end
+
+      def ==(other)
+        other.is_a?(Dynamic) && other.name == name
+      end
+    end
+
     class Collection
       attr_reader :var_types
       attr_reader :method_types
@@ -138,12 +150,14 @@ module Steep
       attr_reader :module_type
       attr_reader :implement_module
       attr_reader :ivar_types
+      attr_reader :dynamics
 
       def initialize(annotations:)
         @var_types = {}
         @method_types = {}
         @const_types = {}
         @ivar_types = {}
+        @dynamics = Set.new
 
         annotations.each do |annotation|
           case annotation
@@ -167,6 +181,8 @@ module Steep
             @implement_module = annotation.module_name
           when IvarType
             ivar_types[annotation.name] = annotation.type
+          when Dynamic
+            dynamics << annotation.name
           else
             raise "Unexpected annotation: #{annotation.inspect}"
           end

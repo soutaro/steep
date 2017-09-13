@@ -84,4 +84,9 @@ class AnnotationParsingTest < Minitest::Test
                                                  type: Steep::Types::Name.instance(name: :Integer)),
                  annot
   end
+
+  def test_dynamic
+    annot = Parser.parse_annotation_opt("@dynamic foo")
+    assert_equal Steep::Annotation::Dynamic.new(name: :foo), annot
+  end
 end
