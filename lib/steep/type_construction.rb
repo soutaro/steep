@@ -480,8 +480,12 @@ module Steep
         typing.add_typing(node, self_type || Types::Any.new)
 
       when :const
-        type = (module_context&.const_types || {})[node.children[1]] || Types::Any.new
-        typing.add_typing(node, type)
+        const_name = flatten_const_name(node)
+        if const_name
+          type = (module_context&.const_types || {})[const_name]
+        end
+
+        typing.add_typing(node, type || Types::Any.new)
 
       when :yield
         if method_context&.method_type
@@ -911,6 +915,25 @@ module Steep
           end
         end
       end
+    end
+
+    def flatten_const_name(node)
+      path = []
+
+      while node
+        case node.type
+        when :const
+          path.unshift(node.children[1])
+          node = node.children[0]
+        when :cbase
+          path.unshift("")
+          break
+        else
+          return nil
+        end
+      end
+
+      path.join("::").to_sym
     end
   end
 end
