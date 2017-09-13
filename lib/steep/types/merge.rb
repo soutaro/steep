@@ -13,7 +13,7 @@ module Steep
       def ==(other)
         # @type var other_: Steep__Types__Merge
         other_ = other
-        other_.is_a?(Merge) && other_.types == types
+        other_.is_a?(self.class) && other_.types == types
       end
 
       def hash

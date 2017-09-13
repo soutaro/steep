@@ -3,12 +3,14 @@ class BasicObject
 end
 
 class Object <: BasicObject
+  include Kernel
   def tap: { (instance) -> any } -> instance
   def to_s: -> String
   def hash: -> Integer
   def eql?: (any) -> _Boolean
   def ==: (any) -> _Boolean
   def ===: (any) -> _Boolean
+  def !=: (any) -> _Boolean
   def class: -> class
   def to_i: -> Integer
   def is_a?: (Module) -> _Boolean
@@ -26,6 +28,8 @@ class Class<'instance> <: Module
 end
 
 module Kernel
+  def raise: () -> any
+           | (String) -> any
 end
 
 class Array<'a>
@@ -37,10 +41,15 @@ class Array<'a>
   def join: (any) -> String
   def all?: { (any) -> any } -> _Boolean
   def sort_by: { ('a) -> any } -> Array<'a>
+  def zip: <'b> (Array<'b>) -> Array<Array<'a, 'b>>
 end
 
 class Hash<'key, 'value>
   def []: ('key) -> 'value
+  def size: -> Integer
+  def transform_values: <'a> { ('value) -> 'a } -> Hash<'key, 'a>
+
+  def self.[]: (Array<any>) -> Hash<'key, 'value>
 end
 
 class Symbol

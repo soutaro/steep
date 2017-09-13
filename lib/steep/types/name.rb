@@ -2,6 +2,9 @@ module Steep
   module Types
     class Name
       # @implements Steep__Types__Name
+      # @type const TypeName::Interface: Steep__TypeName.class
+      # @type const TypeName::Module: Steep__TypeName.class
+      # @type const TypeName::Instance: Steep__TypeName.class
 
       # @dynamic name
       attr_reader :name
