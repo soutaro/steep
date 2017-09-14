@@ -451,9 +451,10 @@ module Steep
 
         if annots.implement_module
           signature = assignability.signatures[annots.implement_module]
-          raise "Module instance should be an module: #{annots.instance_type}" unless signature.is_a?(Signature::Module)
+          raise "Module instance should be an module: #{annots.instance_type || annots.implment_module}" unless signature.is_a?(Signature::Module)
 
           ty = Types::Name.instance(name: annots.implement_module)
+
           if signature.self_type
             instance_type = Types::Merge.new(types: [signature.self_type, ty])
           else
