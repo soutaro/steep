@@ -4,6 +4,8 @@
 a = case 1
     when 2
       1
+    when 3
+      nil
     else
       "string"
     end

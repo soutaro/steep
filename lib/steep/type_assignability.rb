@@ -329,11 +329,21 @@ module Steep
     end
 
     def compact(types)
+      types = types.reject {|type| type.is_a?(Types::Any) }
+      
+      if types.empty?
+        [Types::Any.new]
+      else
+        compact0(types)
+      end
+    end
+
+    def compact0(types)
       if types.size == 1
         types
       else
         type, *types_ = types
-        compacted = compact(types_)
+        compacted = compact0(types_)
         compacted.flat_map do |type_|
           case
           when type == type_
