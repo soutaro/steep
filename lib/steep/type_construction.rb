@@ -577,15 +577,18 @@ module Steep
         synthesize cond if cond
 
         types = whens.map do |clause|
-          if clause.type == :when
-            synthesize clause.children[0]
-            if (body = clause.children[1])
+          if clause&.type == :when
+            clause.children.take(clause.children.size - 1).map do |child|
+              synthesize(child)
+            end
+
+            if (body = clause.children.last)
               synthesize body
             else
               fallback_to_any body
             end
           else
-            synthesize clause
+            synthesize clause if clause
           end
         end
 
