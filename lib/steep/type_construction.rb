@@ -534,6 +534,7 @@ module Steep
             typing.add_typing(node, method_context.super_type.return_type)
           else
             typing.add_error(Errors::UnexpectedSuper.new(node: node, method: method_context.name))
+            fallback_to_any node
           end
         else
           fallback_to_any node
