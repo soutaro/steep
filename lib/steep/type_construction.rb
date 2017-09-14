@@ -570,6 +570,26 @@ module Steep
 
         typing.add_typing(node, union_type(true_type, false_type))
 
+      when :case
+        cond, *whens = node.children
+
+        synthesize cond if cond
+
+        types = whens.map do |clause|
+          if clause.type == :when
+            synthesize clause.children[0]
+            if (body = clause.children[1])
+              synthesize body
+            else
+              fallback_to_any body
+            end
+          else
+            synthesize clause
+          end
+        end
+
+        typing.add_typing(node, union_type(*types))
+
       else
         raise "Unexpected node: #{node.inspect}, #{node.location.line}"
       end
