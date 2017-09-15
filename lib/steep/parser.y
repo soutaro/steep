@@ -241,12 +241,12 @@ def next_token
     [:DOT, nil]
   when input.scan(/<:/)
     [:LTCOLON, nil]
+  when input.scan(/(\[\]=)|(\[\])|===|==|\^|!=|<<|>>/)
+    [:OPERATOR, input.matched.to_sym]
   when input.scan(/</)
     [:LT, nil]
   when input.scan(/>/)
     [:GT, nil]
-  when input.scan(/(\[\]=)|(\[\])|===|==|\^|!=|<<|>>/)
-    [:OPERATOR, input.matched.to_sym]
   when input.scan(/any\b/)
     [:ANY, nil]
   when input.scan(/interface\b/)
