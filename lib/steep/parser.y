@@ -237,15 +237,15 @@ def next_token
     [:STAR, nil]
   when input.scan(/\+/)
     [:PLUS, nil]
+  when input.scan(/\./)
+    [:DOT, nil]
   when input.scan(/<:/)
     [:LTCOLON, nil]
   when input.scan(/</)
     [:LT, nil]
   when input.scan(/>/)
     [:GT, nil]
-  when input.scan(/\./)
-    [:DOT, nil]
-  when input.scan(/(\[\]=)|(\[\])|===|==|\^|!=/)
+  when input.scan(/(\[\]=)|(\[\])|===|==|\^|!=|<<|>>/)
     [:OPERATOR, input.matched.to_sym]
   when input.scan(/any\b/)
     [:ANY, nil]

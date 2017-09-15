@@ -41,7 +41,11 @@ class Array<'a>
   def join: (any) -> String
   def all?: { (any) -> any } -> _Boolean
   def sort_by: { ('a) -> any } -> Array<'a>
-  def zip: <'b> (Array<'b>) -> Array<Array<'a, 'b>>
+  def zip: <'b> (Array<'b>) -> Array<Array<'a, 'b> >
+  def each: { ('a) -> any } -> instance
+  def select: { ('a) -> any } -> Array<'a>
+  def <<: ('a) -> instance
+  def filter: { ('a) -> any } -> Array<'a>
 end
 
 class Hash<'key, 'value>
