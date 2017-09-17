@@ -14,6 +14,7 @@ class Object <: BasicObject
   def class: -> class
   def to_i: -> Integer
   def is_a?: (Module) -> _Boolean
+  def inspect: -> String
 end
 
 class Module
@@ -30,6 +31,11 @@ end
 module Kernel
   def raise: () -> any
            | (String) -> any
+
+  def block_given?: -> _Boolean
+  def include: (Module) -> _Boolean
+  def prepend: (Module) -> _Boolean
+  def enum_for: (Symbol, *any) -> any
 end
 
 class Array<'a>
@@ -50,8 +56,10 @@ end
 
 class Hash<'key, 'value>
   def []: ('key) -> 'value
+  def []=: ('key, 'value) -> 'value
   def size: -> Integer
   def transform_values: <'a> { ('value) -> 'a } -> Hash<'key, 'a>
+  def each_key: { ('key) -> any } -> instance
 
   def self.[]: (Array<any>) -> Hash<'key, 'value>
 end
