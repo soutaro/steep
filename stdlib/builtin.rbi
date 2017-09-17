@@ -49,6 +49,7 @@ class Array<'a>
   def sort_by: { ('a) -> any } -> Array<'a>
   def zip: <'b> (Array<'b>) -> Array<Array<'a, 'b> >
   def each: { ('a) -> any } -> instance
+          | -> Enumerator<'a, instance>
   def select: { ('a) -> any } -> Array<'a>
   def <<: ('a) -> instance
   def filter: { ('a) -> any } -> Array<'a>
@@ -60,7 +61,7 @@ class Hash<'key, 'value>
   def size: -> Integer
   def transform_values: <'a> { ('value) -> 'a } -> Hash<'key, 'a>
   def each_key: { ('key) -> any } -> instance
-
+              | -> Enumerator<'a, instance>
   def self.[]: (Array<any>) -> Hash<'key, 'value>
 end
 
@@ -94,4 +95,9 @@ class String
   def +: (String) -> String
   def to_str: -> String
   def size: -> Integer
+end
+
+class Enumerator<'a, 'this>
+  def with_object: <'b> ('b) { ('a, 'b) -> any } -> 'b
+  def with_index: { ('a, Integer) -> any } -> 'this
 end
