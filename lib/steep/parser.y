@@ -89,6 +89,8 @@ keyword: IDENT
        | CLASS { result = :class }
        | MODULE { result = :module }
        | INSTANCE { result = :instance }
+       | BLOCK { result = :block }
+       | INCLUDE { result = :include }
 
 signatures: { result = [] }
           | interface signatures { result = [val[0]] + val[1] }
@@ -152,6 +154,8 @@ method_name: IDENT
            | INSTANCE { result = :instance }
            | OPERATOR
            | METHOD_NAME
+           | BLOCK { result = :block }
+           | INCLUDE { result = :include }
 
 annotation: AT_TYPE VAR subject COLON type { result = Annotation::VarType.new(var: val[2], type: val[4]) }
           | AT_TYPE METHOD subject COLON method_type { result = Annotation::MethodType.new(method: val[2], type: val[4]) }
