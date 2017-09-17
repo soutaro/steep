@@ -2,7 +2,11 @@ module Steep
   module Signature
     module Members
       class InstanceMethod
+        # @implements Steep__SignatureMember__Method
+
+        # @dynamic name
         attr_reader :name
+        # @dynamic types
         attr_reader :types
 
         def initialize(name:, types:)
@@ -11,12 +15,16 @@ module Steep
         end
 
         def ==(other)
-          other.is_a?(InstanceMethod) && other.name == name && other.types == types
+          other.is_a?(self.class) && other.name == name && other.types == types
         end
       end
 
       class ModuleMethod
+        # @implements Steep__SignatureMember__Method
+
+        # @dynamic name
         attr_reader :name
+        # @dynamic types
         attr_reader :types
 
         def initialize(name:, types:)
@@ -25,12 +33,16 @@ module Steep
         end
 
         def ==(other)
-          other.is_a?(ModuleMethod) && other.name == name && other.types == types
+          other.is_a?(self.class) && other.name == name && other.types == types
         end
       end
 
       class ModuleInstanceMethod
+        # @implements Steep__SignatureMember__Method
+
+        # @dynamic name
         attr_reader :name
+        # @dynamic types
         attr_reader :types
 
         def initialize(name:, types:)
@@ -39,11 +51,14 @@ module Steep
         end
 
         def ==(other)
-          other.is_a?(ModuleInstanceMethod) && other.name == name && other.types == types
+          other.is_a?(self.class) && other.name == name && other.types == types
         end
       end
 
       class Include
+        # @implements Steep__SignatureMember__Include
+
+        # @dynamic name
         attr_reader :name
 
         def initialize(name:)
@@ -56,6 +71,9 @@ module Steep
       end
 
       class Extend
+        # @implements Steep__SignatureMember__Extend
+
+        # @dynamic name
         attr_reader :name
 
         def initialize(name:)
@@ -69,6 +87,8 @@ module Steep
     end
 
     module WithMethods
+      # @implements Steep__Signature__WithMethods
+
       def instance_methods(assignability:, klass:, instance:, params:)
         methods = super
 
@@ -77,19 +97,24 @@ module Steep
         members.each do |member|
           case member
           when Members::Include
-            module_signature = assignability.lookup_included_signature(member.name)
+            # @type var include_member: Steep__SignatureMember__Include
+            include_member = member
+            module_signature = assignability.lookup_included_signature(include_member.name)
             merge_methods(methods, module_signature.instance_methods(assignability: assignability,
                                                                      klass: klass,
                                                                      instance: instance,
-                                                                     params: module_signature.type_application_hash(member.name.params)))
+                                                                     params: module_signature.type_application_hash(include_member.name.params)))
+
           end
         end
 
         members.each do |member|
           case member
           when Members::InstanceMethod, Members::ModuleInstanceMethod
-            method_types = member.types.map {|type| type.substitute(klass: klass, instance: instance, params: hash) }
-            merge_methods(methods, member.name => Steep::Interface::Method.new(types: method_types, super_method: nil))
+            # @type var method_member: Steep__SignatureMember__Method
+            method_member = member
+            method_types = method_member.types.map {|type| type.substitute(klass: klass, instance: instance, params: hash) }
+            merge_methods(methods, method_member.name => Steep::Interface::Method.new(types: method_types, super_method: nil))
           end
         end
 
@@ -125,12 +150,14 @@ module Steep
         members.each do |member|
           case member
           when Members::ModuleInstanceMethod, Members::ModuleMethod
-            method_types = member.types.map {|type| type.substitute(klass: klass, instance: instance, params: {}) }
-            merge_methods(methods, member.name => Steep::Interface::Method.new(types: method_types, super_method: nil))
+            # @type var method_member: Steep__SignatureMember__Method
+            method_member = member
+            method_types = method_member.types.map {|type| type.substitute(klass: klass, instance: instance, params: {}) }
+            merge_methods(methods, method_member.name => Steep::Interface::Method.new(types: method_types, super_method: nil))
           end
         end
 
-        if self.is_a?(Class)
+        if is_class?
           instance_methods = instance_methods(assignability: assignability, klass: klass, instance: instance, params: params)
           new_method = if instance_methods[:initialize]
                          types = instance_methods[:initialize].types.map do |method_type|
@@ -161,12 +188,15 @@ module Steep
     end
 
     module WithMembers
+      # @implements Steep__Signature__WithMembers
       def each_type
         if block_given?
           members.each do |member|
             case member
             when Members::InstanceMethod, Members::ModuleMethod, Members::ModuleInstanceMethod
-              member.types.each do |method_type|
+              # @type var method_member: Steep__SignatureMember__Method
+              method_member = member
+              method_member.types.each do |method_type|
                 method_type.params.each_type do |type|
                   yield type
                 end
@@ -179,7 +209,9 @@ module Steep
                 end
               end
             when Members::Include, Members::Extend
-              yield member.name
+              # @type var mixin_member: _Steep__SignatureMember__Mixin
+              mixin_member = member
+              yield mixin_member.name
             else
               raise "Unknown member: #{member.class.inspect}"
             end
@@ -210,15 +242,23 @@ module Steep
     end
 
     module WithParams
+      # @implements Steep__Signature__WithParams
+
       def type_application_hash(args)
         Hash[params.zip(args)]
       end
     end
 
     class Module
+      # @implements Steep__Signature__Module
+
+      # @dynamic name
       attr_reader :name
+      # @dynamic params
       attr_reader :params
+      # @dynamic members
       attr_reader :members
+      # @dynamic self_type
       attr_reader :self_type
 
       prepend WithMethods
@@ -265,12 +305,22 @@ module Steep
 
         validate_mixins(assignability, interface)
       end
+
+      def is_class?
+        false
+      end
     end
 
     class Class
+      # @implements Steep__Signature__Class
+
+      # @dynamic name
       attr_reader :name
+      # @dynamic params
       attr_reader :params
+      # @dynamic members
       attr_reader :members
+      # @dynamic super_class
       attr_reader :super_class
 
       prepend WithMethods
@@ -352,6 +402,10 @@ module Steep
         end
 
         validate_mixins(assignability, interface)
+      end
+
+      def is_class?
+        true
       end
     end
   end
