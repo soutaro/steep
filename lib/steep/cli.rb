@@ -56,12 +56,12 @@ module Steep
         opts.on("--fallback-any-is-error") { fallback_any_is_error = true }
       end.parse!(argv)
 
-      unless no_builtin
-        signature_dirs.unshift Pathname(__dir__).join("../../stdlib").realpath
-      end
-
       if signature_dirs.empty?
         signature_dirs << Pathname("sig")
+      end
+
+      unless no_builtin
+        signature_dirs.unshift Pathname(__dir__).join("../../stdlib").realpath
       end
 
       source_paths = argv.map {|path| Pathname(path) }
