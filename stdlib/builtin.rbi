@@ -82,7 +82,7 @@ end
 
 class Integer <: Numeric
   def to_int: -> Integer
-  def +: (Integer) -> Integer
+  def +: (Numeric) -> Integer
        | (Numeric) -> Numeric
   def ^: (Numeric) -> Integer
 end
