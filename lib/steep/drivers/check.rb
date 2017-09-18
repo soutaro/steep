@@ -34,6 +34,10 @@ module Steep
           end
         end
 
+        assignability.errors.each do |error|
+          error.puts(stdout)
+        end
+
         sources = []
         each_ruby_source do |source|
           sources << source

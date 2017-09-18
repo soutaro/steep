@@ -1,6 +1,7 @@
 class Steep__Signature__Error
   def initialize: (signature: Steep__Signature) -> any
   def signature: -> Steep__Signature
+  def puts: (any) -> any
 end
 
 class Steep__Signature__Errors__UnknownTypeName <: Steep__Signature__Error
@@ -109,6 +110,7 @@ class Steep__Signature__Module
   def params: -> Array<Symbol>
   def members: -> Array<Steep__Signature__Member>
   def self_type: -> Steep__Type
+  def is_class?: -> _Boolean
 end
 
 class Steep__Signature__Class
@@ -121,6 +123,7 @@ class Steep__Signature__Class
   def params: -> Array<Symbol>
   def members: -> Array<Steep__Signature__Member>
   def super_class: -> Steep__Types__Name
+  def is_class?: -> _Boolean
 end
 
 class Steep__Signature__Extension

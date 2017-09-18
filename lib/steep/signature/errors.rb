@@ -22,6 +22,10 @@ module Steep
           super(signature: signature)
           @type = type
         end
+
+        def puts(io)
+          io.puts "UnknownTypeName: signature=#{signature.name}, type=#{type}"
+        end
       end
 
       class IncompatibleOverride < Base
@@ -40,6 +44,10 @@ module Steep
           @this_method = this_method
           @super_method = super_method
         end
+
+        def puts(io)
+          io.puts "IncompatibleOverride: signature=#{signature.name}, method=#{method_name}"
+        end
       end
 
       class InvalidTypeApplication < Base
@@ -51,6 +59,10 @@ module Steep
           @type_name = type_name
           @type_args = type_args
         end
+
+        def puts(io)
+          io.puts "InvalidTypeApplication: signature=#{signature.name}, type_name=#{type_name}, type_args=#{type_args}"
+        end
       end
 
       class InvalidSelfType < Base
@@ -59,6 +71,11 @@ module Steep
         def initialize(signature:, member:)
           super(signature: signature)
           @member = member
+        end
+
+
+        def puts(io)
+          io.puts "InvalidSelfType: signature=#{signature.name}, module=#{member.name}"
         end
       end
 
@@ -70,6 +87,11 @@ module Steep
           super(signature: signature)
           @type = type
           @expected_kind = expected_kind
+        end
+
+
+        def puts(io)
+          io.puts "UnexpectedTypeNameKind: signature=#{signature.name}, type=#{type}, kind=#{expected_kind}"
         end
       end
     end
