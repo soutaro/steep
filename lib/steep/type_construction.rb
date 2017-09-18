@@ -449,6 +449,8 @@ module Steep
       when :module
         annots = source.annotations(block: node)
 
+        module_type = Types::Name.instance(name: :Module)
+
         if annots.implement_module
           signature = assignability.signatures[annots.implement_module]
           raise "Module instance should be an module: #{annots.instance_type || annots.implment_module}" unless signature.is_a?(Signature::Module)
@@ -460,17 +462,27 @@ module Steep
                                                      signature.self_type,
                                                      ty])
           else
-            instance_type = ty
+            instance_type = Types::Merge.new(types: [Types::Name.instance(name: :Object),
+                                                     ty])
           end
+
+          module_type = Types::Merge.new(types: [
+            Types::Name.instance(name: :Module),
+            Types::Name.module(name: annots.implement_module)
+          ])
         end
 
         if annots.instance_type
           instance_type = annots.instance_type
         end
 
+        if annots.module_type
+          module_type = annots.module_type
+        end
+
         module_context_ = ModuleContext.new(
           instance_type: instance_type,
-          module_type: annots.module_type,
+          module_type: module_type,
           const_types: annots.const_types
         )
 

@@ -21,6 +21,19 @@ class TypeConstructionTest < Minitest::Test
   def assignability
     TypeAssignability.new do |assignability|
       interfaces = Parser.parse_signature(<<-EOS)
+class BasicObject
+end
+
+class Object <: BasicObject
+  def block_given?: -> any
+end
+
+class Class
+end
+
+class Module
+end
+
 interface _A
   def +: (_A) -> _A
 end
@@ -50,6 +63,9 @@ end
 interface _PolyMethod
   def snd: <'a>(any, 'a) -> 'a
   def try: <'a> { (any) -> 'a } -> 'a
+end
+
+module Foo
 end
       EOS
       interfaces.each do |interface|
@@ -1103,5 +1119,32 @@ string = poly.try { "string" }
 
     assert_equal Types::Name.interface(name: :_A),
                  construction.union_type(Types::Name.interface(name: :_A), Types::Name.interface(name: :_A))
+  end
+
+  def test_module_self
+    source = ruby(<<-EOF)
+module Foo
+  # @implements Foo
+  
+  block_given?
+end
+    EOF
+
+    typing = Typing.new
+    annotations = source.annotations(block: source.node)
+
+    construction = TypeConstruction.new(assignability: assignability,
+                                        source: source,
+                                        annotations: annotations,
+                                        var_types: {},
+                                        self_type: nil,
+                                        block_context: nil,
+                                        method_context: nil,
+                                        typing: typing,
+                                        module_context: nil)
+
+    construction.synthesize(source.node)
+
+    assert_empty typing.errors
   end
 end

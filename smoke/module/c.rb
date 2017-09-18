@@ -14,4 +14,10 @@ module A
       0
     end
   end
+
+  # ok
+  block_given?
+
+  # !expects NoMethodError: type=Module + A.module, method=no_such_method_in_module
+  no_such_method_in_module
 end
