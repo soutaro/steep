@@ -456,7 +456,9 @@ module Steep
           ty = Types::Name.instance(name: annots.implement_module)
 
           if signature.self_type
-            instance_type = Types::Merge.new(types: [signature.self_type, ty])
+            instance_type = Types::Merge.new(types: [Types::Name.instance(name: :Object),
+                                                     signature.self_type,
+                                                     ty])
           else
             instance_type = ty
           end
