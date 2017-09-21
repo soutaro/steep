@@ -65,4 +65,10 @@ class TypeParsingTest < Minitest::Test
   def test_application2
     refute_nil parse_method_type("() -> Array<Array<Integer>>")
   end
+
+  def test_tuple
+    type = parse_method_type("() -> ['a, 'b]").return_type
+    assert_equal Steep::Types::Tuple.new(types: [Steep::Types::Var.new(name: :a),
+                                                 Steep::Types::Var.new(name: :b)]), type
+  end
 end

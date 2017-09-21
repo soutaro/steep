@@ -1,6 +1,6 @@
 # @type var a: Integer
 
-# !expects IncompatibleAssignment: lhs_type=Integer, rhs_type=Integer | Array<String> | String
+# !expects IncompatibleAssignment: lhs_type=Integer, rhs_type=Integer | [String] | String
 a = case 1
     when 2
       1

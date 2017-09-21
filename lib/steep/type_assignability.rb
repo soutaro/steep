@@ -55,6 +55,16 @@ module Steep
         known_pairs.include?([src, dest])
       when src.is_a?(Types::Name) && dest.is_a?(Types::Name)
         test_interface(resolve_interface(src.name, src.params), resolve_interface(dest.name, dest.params), known_pairs)
+      when src.is_a?(Types::Tuple) && dest.is_a?(Types::Tuple)
+        src.types.zip(dest.types) do |type1, type2|
+          test(src: type1, dest: type2, known_pairs: known_pairs)
+        end
+      when src.is_a?(Types::Name) && dest.is_a?(Types::Tuple)
+        params = [dest.types.uniq.size == 1 ? dest.types.first : Types::Any.new]
+        test_interface(resolve_interface(src.name, src.params), resolve_interface(TypeName::Instance.new(name: :Array), params), known_pairs)
+      when src.is_a?(Types::Tuple) && dest.is_a?(Types::Name)
+        params = [src.types.uniq.size == 1 ? src.types.first : Types::Any.new]
+        test_interface(resolve_interface(TypeName::Instance.new(name: :Array), params), resolve_interface(dest.name, dest.params), known_pairs)
       else
         raise "Unexpected type: src=#{src.inspect}, dest=#{dest.inspect}, known_pairs=#{known_pairs.inspect}"
       end
@@ -276,7 +286,7 @@ module Steep
       end
     end
 
-    def method_type(type, name)
+    def method_type(type, name, args: nil)
       case type
       when Types::Any
         return type
@@ -291,6 +301,13 @@ module Steep
         constructor = type.name.is_a?(TypeName::Module) && type.name.constructor
         interface = resolve_interface(type.name, type.params, constructor: constructor)
         method = interface.methods[name]
+      when Types::Tuple
+        method = resolve_tuple_method(name, type.types, args)
+        unless method
+          types = type.types.uniq
+          interface = resolve_interface(TypeName::Instance.new(name: :Array), types.size == 1 ? types : [Types::Any.new])
+          method = interface.methods[name]
+        end
       else
         raise "Unexpected type: #{type}"
       end
@@ -300,6 +317,23 @@ module Steep
       else
         yield(nil) || Types::Any.new
       end
+    end
+
+    def resolve_tuple_method(name, types, args)
+      return unless args
+      return unless (name == :[] && args.size == 1) || (name == :[]= && args.size == 2)
+      return unless args.first.type == :int
+      idx = args.first.children[0]
+      return unless 0 <= idx && idx < types.size
+      idx_type = types[idx]
+      required = [Types::Name.instance(name: :Integer)]
+      required << idx_type if name == :[]=
+      Interface::Method.new(types: [Interface::MethodType.new(type_params: [],
+                                                              params: Steep::Interface::Params.empty.with(required: required),
+                                                              block: nil,
+                                                              return_type: idx_type)],
+                            super_method: nil,
+                            attributes: [])
     end
 
     def validate
