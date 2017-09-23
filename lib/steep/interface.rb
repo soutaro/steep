@@ -262,10 +262,12 @@ module Steep
     end
 
     attr_reader :name
+    attr_reader :params
     attr_reader :methods
 
-    def initialize(name:, methods:)
+    def initialize(name:, params:, methods:)
       @name = name
+      @params = params
       @methods = methods
     end
 
@@ -274,7 +276,7 @@ module Steep
     end
 
     def ==(other)
-      other.is_a?(self.class) && other.name == name && other.methods == methods
+      other.is_a?(self.class) && other.name == name && other.params == params && other.methods == methods
     end
   end
 end
