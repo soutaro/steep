@@ -2,86 +2,107 @@
 
 ## Installation
 
-Add this line to your application's Gemfile:
+Install via RubyGems.
 
-```ruby
-gem 'steep'
-```
+    $ gem install steep --pre
 
-And then execute:
+Note that Steep is not released yet (pre-released). Add `--pre` for `gem install`.
 
-    $ bundle
+### Requirements
 
-Or install it yourself as:
-
-    $ gem install steep
+Steep requires Ruby 2.4.
 
 ## Usage
 
-Run `steep check` command in project dir.
+Steep does not infer types from Ruby programs, but requires declaring types and writing annotations.
+You have to go on the following three steps.
+
+### 1. Declare Signatures
+
+Declare signatures in `.rbi` files.
 
 ```
-$ steep check
-$ steep check lib
+interface _Foo {
+  def do_something: (String) -> any
+}
+
+module Fooable : _Foo {
+  def foo: (Array<String>) { (String) -> String } -> any
+}
+
+class SuperFoo {
+  include Fooable
+
+  def name: -> String
+  def do_something: (String) -> any
+  def bar: (?Symbol, size: Integer) -> Symbol
+}
 ```
 
-It loads signatures from the global registry and `sig` dir in current dir.
-If you want to load signuatres from dir different from `sig`, pass `-I` parameter.
+### 2. Annotate Ruby Code
 
-```
-$ steep check -I signauture -I sig .
-```
-
-Note that when `-I` option is given, `steep` does not load signatures from `sig` dir.
-
-## Type Annotations
-
-You have to write type annotations in your Ruby program.
+Write annotations to your Ruby code.
 
 ```rb
-# @import ActiveRecord.Try
-
 class Foo
-  # @class Foo<A> extends Object
-  
-  # @attribute results: (readonly) Array<A>
-  attr_reader :results
-  
-  # @type initialize: () -> _
-  def initialize()
-    @results = []
+  # @implements SuperFoo
+  # @type const Helper: FooHelper
+
+  # @dynamic name
+  attr_reader :name
+
+  def do_something(string)
+    # ...
   end
-  
-  # @type plus: (Addable<X, A>, X) -> A
-  def plus(x, y)
-    (x + y).try do |a|
-      results << a
-      a
-    end
+
+  def bar(symbol = :default, size:)
+    Helper.run_bar(symbol, size: size)
   end
 end
 ```
 
-## Signature
+### 3. Type Check
 
-Steep does not allow types to be constructed from Ruby programs.
-You have to write down signatures by yourself.
-
-### Signature Scaffolding
-
-Steep allows generate a *scaffold* from Ruby programs.
+Run `steep check` command to type check.
 
 ```
-$ steep scaffold lib/**/*.rb
+$ steep check lib/foo.rb
+foo.rb:41:18: NoMethodError: type=FooHelper, method=run_bar
+foo.rb:42:24: NoMethodError: type=String, method==~
 ```
 
-The generated scaffold includes:
+## Commandline
 
-* Signature definition for each class/module defined in the given program
-* Method definition stub for each method
+`steep check` is the command to run type checking.
 
-The scaffold may be a good starting point for writing signatures.
+### Signature Directory
 
+Use `-I` option to specify signature file or signature directory.
+
+    $ steep check -I my-types.rbi test.rb
+
+If you don't specify `-I` option, it assumes `sig` directory.
+
+### Detecting Fallback
+
+When Steep finds a node which cannot be typed, it assumes the type of the node is *any*.
+*any* type does not raise any type error so that fallback to *any* may hide some type errors.
+
+Using `--fallback-any-is-error` option prints the fallbacks.
+
+    $ steep check --fallback-any-is-error test.rb
+
+### Dump All Types
+
+When you are debugging, printing all types of all node in the source code may help.
+
+Use `--dump-all-types` for that.
+
+    $ steep check --dump-all-types test.rb
+
+## Examples
+
+You can find examples in `smoke` directory.
 
 ## Development
 
