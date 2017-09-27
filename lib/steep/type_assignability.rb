@@ -70,7 +70,7 @@ module Steep
     end
 
     def test_interface(src, dest, known_pairs)
-      if src.name == dest.name
+      if src == dest
         return true
       end
 
@@ -225,10 +225,10 @@ module Steep
         signatures[name.name].to_interface(klass: klass, instance: instance, params: params)
       when TypeName::Instance
         methods = signatures[name.name].instance_methods(assignability: self, klass: klass, instance: instance, params: params)
-        Interface.new(name: name, methods: methods)
+        Interface.new(name: name, params: params, methods: methods)
       when TypeName::Module
         methods = signatures[name.name].module_methods(assignability: self, klass: klass, instance: instance, params: params)
-        Interface.new(name: name, methods: methods)
+        Interface.new(name: name, params: params, methods: methods)
       else
         raise "Unexpected type name: #{name.inspect}"
       end

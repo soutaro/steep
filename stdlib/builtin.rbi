@@ -49,7 +49,7 @@ class Array<'a>
   def join: (any) -> String
   def all?: { (any) -> any } -> _Boolean
   def sort_by: { ('a) -> any } -> Array<'a>
-  def zip: <'b> (Array<'b>) -> Array<Array<'a, 'b> >
+  def zip: <'b> (Array<'b>) -> Array<any>
   def each: { ('a) -> any } -> instance
           | -> Enumerator<'a, instance>
   def select: { ('a) -> any } -> Array<'a>

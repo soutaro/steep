@@ -485,4 +485,60 @@ end
     assert_equal [c], assignability.compact([c, d])
     assert_equal [c, e], assignability.compact([c, d, e])
   end
+
+  def test_parameter_assignability
+    assignability = Steep::TypeAssignability.new do |a|
+      parse_signature(<<-SRC) do |sig|
+class BasicObject
+end
+
+class Object <: BasicObject
+end
+
+class Integer
+  def to_int: -> Integer
+end
+
+class String
+  def to_str: -> String
+end
+
+class A<'a>
+  def value: -> 'a
+end
+
+class B<'a>
+  def value: ('a) -> any
+end
+      SRC
+        a.add_signature sig
+      end
+    end
+
+    assert_empty assignability.errors
+
+    refute assignability.test(
+      src: T::Name.instance(name: :A, params: [T::Name.instance(name: :String)]),
+      dest: T::Name.instance(name: :A, params: [T::Name.instance(name: :Integer)])
+    )
+    refute assignability.test(
+      src: T::Name.instance(name: :A, params: [T::Name.instance(name: :Integer)]),
+      dest: T::Name.instance(name: :A, params: [T::Name.instance(name: :String)])
+    )
+
+    assert assignability.test(
+      src: T::Name.instance(name: :A, params: [T::Name.instance(name: :String)]),
+      dest: T::Name.instance(name: :A, params: [T::Name.instance(name: :Object)])
+    )
+
+    refute assignability.test(
+      src: T::Name.instance(name: :B, params: [T::Name.instance(name: :String)]),
+      dest: T::Name.instance(name: :B, params: [T::Name.instance(name: :Object)])
+    )
+
+    assert assignability.test(
+      src: T::Name.instance(name: :B, params: [T::Name.instance(name: :Object)]),
+      dest: T::Name.instance(name: :B, params: [T::Name.instance(name: :String)])
+    )
+  end
 end
