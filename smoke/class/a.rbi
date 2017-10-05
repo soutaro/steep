@@ -7,3 +7,8 @@ end
 class B
   def name: -> String
 end
+
+class C
+  def (constructor) foo: -> instance
+  def bar: -> instance
+end

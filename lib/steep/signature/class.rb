@@ -9,13 +9,16 @@ module Steep
         # @dynamic types
         attr_reader :types
 
-        def initialize(name:, types:)
+        attr_reader :constructor
+
+        def initialize(name:, types:, constructor:)
           @name = name
           @types = types
+          @constructor = constructor
         end
 
         def ==(other)
-          other.is_a?(self.class) && other.name == name && other.types == types
+          other.is_a?(self.class) && other.name == name && other.types == types && other.constructor == constructor
         end
       end
 
@@ -26,14 +29,16 @@ module Steep
         attr_reader :name
         # @dynamic types
         attr_reader :types
+        attr_reader :constructor
 
-        def initialize(name:, types:)
+        def initialize(name:, types:, constructor:)
           @name = name
           @types = types
+          @constructor = constructor
         end
 
         def ==(other)
-          other.is_a?(self.class) && other.name == name && other.types == types
+          other.is_a?(self.class) && other.name == name && other.types == types && other.constructor == constructor
         end
       end
 
@@ -44,14 +49,16 @@ module Steep
         attr_reader :name
         # @dynamic types
         attr_reader :types
+        attr_reader :constructor
 
-        def initialize(name:, types:)
+        def initialize(name:, types:, constructor:)
           @name = name
           @types = types
+          @constructor = constructor
         end
 
         def ==(other)
-          other.is_a?(self.class) && other.name == name && other.types == types
+          other.is_a?(self.class) && other.name == name && other.types == types && other.constructor == constructor
         end
       end
 

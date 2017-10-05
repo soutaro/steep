@@ -123,11 +123,14 @@ class_member: instance_method_member { result = val[0] }
             | include_member { result = val[0] }
             | extend_member { result = val[0] }
 
-instance_method_member: DEF method_name COLON method_type_union { result = Signature::Members::InstanceMethod.new(name: val[1], types: val[3]) }
-class_method_member: DEF SELF DOT method_name COLON method_type_union { result = Signature::Members::ModuleMethod.new(name: val[3], types: val[5]) }
-class_instance_method_member: DEF SELFQ DOT method_name COLON method_type_union { result = Signature::Members::ModuleInstanceMethod.new(name: val[3], types: val[5]) }
+instance_method_member: DEF constructor_method method_name COLON method_type_union { result = Signature::Members::InstanceMethod.new(name: val[2], types: val[4], constructor: val[1]) }
+class_method_member: DEF constructor_method SELF DOT method_name COLON method_type_union { result = Signature::Members::ModuleMethod.new(name: val[4], types: val[6], constructor: val[1]) }
+class_instance_method_member: DEF constructor_method SELFQ DOT method_name COLON method_type_union { result = Signature::Members::ModuleInstanceMethod.new(name: val[4], types: val[6], constructor: val[1]) }
 include_member: INCLUDE type { result = Signature::Members::Include.new(name: val[1]) }
 extend_member: EXTEND type { result = Signature::Members::Extend.new(name: val[1]) }
+
+constructor_method: { result = false }
+                  | LPAREN CONSTRUCTOR RPAREN { result = true }
 
 super_opt: { result = nil }
          | LTCOLON type { result = val[1] }

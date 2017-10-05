@@ -3,12 +3,14 @@ module Steep
     class MethodContext
       attr_reader :name
       attr_reader :method
+      attr_reader :constructor
 
-      def initialize(name:, method:, method_type:, return_type:)
+      def initialize(name:, method:, method_type:, return_type:, constructor:)
         @name = name
         @method = method
         @return_type = return_type
         @method_type = method_type
+        @constructor = constructor
       end
 
       def return_type
@@ -110,11 +112,22 @@ module Steep
         var_types = {}
       end
 
+      # FIXME: reading signature directory does not look good...
+      constructor_method = if annotations.implement_module
+                             signature = assignability.signatures[annotations.implement_module]
+                             signature&.members&.find do |member|
+                               if member.is_a?(Signature::Members::InstanceMethod) || member.is_a?(Signature::Members::ModuleMethod) || member.is_a?(Signature::Members::ModuleInstanceMethod)
+                                 member.name == method_name
+                               end
+                             end&.constructor
+                           end
+
       method_context = MethodContext.new(
         name: method_name,
         method: entry,
         method_type: annotations.lookup_method_type(method_name),
         return_type: annots.return_type,
+        constructor: constructor_method
       )
 
       ivar_types = annots.ivar_types.keys.each.with_object({}) do |var, env|
@@ -213,7 +226,18 @@ module Steep
         end
 
       when :send
-        type_send(node, with_block: false)
+        if self_class?(node)
+          module_type = module_context.module_type
+          type = if module_type.is_a?(Types::Name)
+                   Types::Name.new(name: module_type.name.updated(constructor: method_context.constructor),
+                                   params: module_type.params)
+                 else
+                   module_type
+                 end
+          typing.add_typing(node, type)
+        else
+          type_send(node, with_block: false)
+        end
 
       when :super
         if self_type && method_context&.method
@@ -1002,6 +1026,10 @@ module Steep
     def fallback_to_any(node)
       typing.add_error Errors::FallbackAny.new(node: node)
       typing.add_typing node, Types::Any.new
+    end
+
+    def self_class?(node)
+      node.type == :send && node.children[0]&.type == :self && node.children[1] == :class
     end
   end
 end

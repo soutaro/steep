@@ -17,21 +17,43 @@ class C<'a> <: Object
   def class: () -> class
   def self.g: () -> C
   def self?.h: () -> C.class
+  def (constructor) foobar: -> any
+  def constructor: -> any
 end
     EOS
 
     assert_instance_of Steep::Signature::Class, klass
     assert_equal :C, klass.name
-    assert_equal 6, klass.members.size
+    assert_equal 8, klass.members.size
     assert_equal Steep::Types::Name.instance(name: :Object), klass.super_class
     assert_equal [:a], klass.params
 
     assert_equal Steep::Signature::Members::Include.new(name: Steep::Types::Name.instance(name: :M1)), klass.members[0]
     assert_equal Steep::Signature::Members::Extend.new(name: Steep::Types::Name.instance(name: :M2)), klass.members[1]
-    assert_equal Steep::Signature::Members::InstanceMethod.new(name: :itself, types: [parse_method_type("() -> instance")]), klass.members[2]
-    assert_equal Steep::Signature::Members::InstanceMethod.new(name: :class, types: [parse_method_type("() -> class")]), klass.members[3]
-    assert_equal Steep::Signature::Members::ModuleMethod.new(name: :g, types: [parse_method_type("() -> C")]), klass.members[4]
-    assert_equal Steep::Signature::Members::ModuleInstanceMethod.new(name: :h, types: [parse_method_type("() -> C.class")]), klass.members[5]
+    assert_equal Steep::Signature::Members::InstanceMethod.new(name: :itself,
+                                                               types: [parse_method_type("() -> instance")],
+                                                               constructor: false),
+                 klass.members[2]
+    assert_equal Steep::Signature::Members::InstanceMethod.new(name: :class,
+                                                               types: [parse_method_type("() -> class")],
+                                                               constructor: false),
+                 klass.members[3]
+    assert_equal Steep::Signature::Members::ModuleMethod.new(name: :g,
+                                                             types: [parse_method_type("() -> C")],
+                                                             constructor: false),
+                 klass.members[4]
+    assert_equal Steep::Signature::Members::ModuleInstanceMethod.new(name: :h,
+                                                                     types: [parse_method_type("() -> C.class")],
+                                                                     constructor: false),
+                 klass.members[5]
+    assert_equal Steep::Signature::Members::InstanceMethod.new(name: :foobar,
+                                                               types: [parse_method_type("() -> any")],
+                                                               constructor: true),
+                 klass.members[6]
+    assert_equal Steep::Signature::Members::InstanceMethod.new(name: :constructor,
+                                                               types: [parse_method_type("() -> any")],
+                                                               constructor: false),
+                 klass.members[7]
   end
 
   def test_parsing_module
@@ -55,10 +77,14 @@ end
 
     assert_equal Steep::Signature::Members::Include.new(name: Steep::Types::Name.instance(name: :M1)), mod.members[0]
     assert_equal Steep::Signature::Members::Extend.new(name: Steep::Types::Name.instance(name: :M2)), mod.members[1]
-    assert_equal Steep::Signature::Members::InstanceMethod.new(name: :itself, types: [parse_method_type("() -> instance")]), mod.members[2]
-    assert_equal Steep::Signature::Members::InstanceMethod.new(name: :class, types: [parse_method_type("() -> class")]), mod.members[3]
-    assert_equal Steep::Signature::Members::ModuleMethod.new(name: :g, types: [parse_method_type("() -> C")]), mod.members[4]
-    assert_equal Steep::Signature::Members::ModuleInstanceMethod.new(name: :h, types: [parse_method_type("() -> C.class")]), mod.members[5]
+    assert_equal Steep::Signature::Members::InstanceMethod.new(name: :itself, types: [parse_method_type("() -> instance")], constructor: false),
+                 mod.members[2]
+    assert_equal Steep::Signature::Members::InstanceMethod.new(name: :class, types: [parse_method_type("() -> class")], constructor: false),
+                 mod.members[3]
+    assert_equal Steep::Signature::Members::ModuleMethod.new(name: :g, types: [parse_method_type("() -> C")], constructor: false),
+                 mod.members[4]
+    assert_equal Steep::Signature::Members::ModuleInstanceMethod.new(name: :h, types: [parse_method_type("() -> C.class")], constructor: false),
+                 mod.members[5]
   end
 
   def test_parsing_module2
@@ -127,7 +153,8 @@ end
       members: [
         Steep::Signature::Members::InstanceMethod.new(
           name: :Pathname,
-          types: [parse_method_type("(String) -> Pathname")]
+          types: [parse_method_type("(String) -> Pathname")],
+          constructor: false
         )
       ]), signature
   end
