@@ -21,8 +21,8 @@ module Steep
         self.new(name: TypeName::Interface.new(name: name), params: params)
       end
 
-      def self.module(name:, params: [])
-        self.new(name: TypeName::Module.new(name: name), params: params)
+      def self.module(name:, params: [], constructor: nil)
+        self.new(name: TypeName::Module.new(name: name, constructor: constructor), params: params)
       end
 
       def self.instance(name:, params: [])
