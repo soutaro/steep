@@ -101,7 +101,8 @@ end
     methods = klass.module_methods(assignability: assignability,
                                    klass: Types::Name.module(name: :A),
                                    instance: Types::Name.instance(name: :A),
-                                   params: [])
+                                   params: [],
+                                   constructor: true)
 
     assert_equal [:foo, :bar, :new, :abs, :fizz, :hoge, :itself, :huga].sort,
                  methods.keys.sort
@@ -109,6 +110,57 @@ end
     assert_equal parse_single_method("-> A"), methods[:foo]
     assert_equal parse_single_method("-> A.class"), methods[:bar]
     assert_equal parse_single_method("(String) -> A"), methods[:new]
+    assert_equal parse_single_method("(Number) -> Number"), methods[:abs]
+    assert_equal parse_single_method("-> String"), methods[:fizz]
+    assert_equal parse_single_method("-> any"), methods[:hoge]
+    assert_equal parse_single_method("-> String"), methods[:huga]
+  end
+
+  def test_module_constructor
+    assignability = new_assignability(<<-SRC)
+class BasicObject
+  def itself: -> instance
+end
+
+class Object <: BasicObject
+  def self.hoge: -> any
+end
+
+class Class<'a>
+  def huga: -> String
+end
+
+class A
+  include Math
+  extend Bar
+
+  def initialize: (String) -> any 
+  def self.foo: -> instance
+  def self?.bar: -> class
+end
+
+module Math
+  def self?.abs: (Number) -> Number
+end
+
+module Bar
+  def fizz: -> String
+end
+    SRC
+
+    klass = assignability.signatures[:A]
+
+    methods = klass.module_methods(assignability: assignability,
+                                   klass: Types::Name.module(name: :A),
+                                   instance: Types::Name.instance(name: :A),
+                                   params: [],
+                                   constructor: false)
+
+    assert_equal [:foo, :bar, :abs, :fizz, :hoge, :itself, :huga].sort,
+                 methods.keys.sort
+
+    assert_equal parse_single_method("-> A"), methods[:foo]
+    assert_equal parse_single_method("-> A.class"), methods[:bar]
     assert_equal parse_single_method("(Number) -> Number"), methods[:abs]
     assert_equal parse_single_method("-> String"), methods[:fizz]
     assert_equal parse_single_method("-> any"), methods[:hoge]

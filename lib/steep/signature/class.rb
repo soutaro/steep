@@ -127,7 +127,7 @@ module Steep
         methods
       end
 
-      def module_methods(assignability:, klass:, instance:, params:)
+      def module_methods(assignability:, klass:, instance:, params:, constructor:)
         methods = super
 
         members.each do |member|
@@ -137,7 +137,8 @@ module Steep
             merge_methods(methods, module_signature.module_methods(assignability: assignability,
                                                                    klass: klass,
                                                                    instance: instance,
-                                                                   params: module_signature.type_application_hash(member.name.params)))
+                                                                   params: module_signature.type_application_hash(member.name.params),
+                                                                   constructor: constructor))
           when Members::Extend
             module_signature = assignability.lookup_included_signature(member.name)
             merge_methods(methods, module_signature.instance_methods(assignability: assignability,
@@ -157,7 +158,7 @@ module Steep
           end
         end
 
-        if is_class?
+        if is_class? && constructor
           instance_methods = instance_methods(assignability: assignability, klass: klass, instance: instance, params: params)
           new_method = if instance_methods[:initialize]
                          types = instance_methods[:initialize].types.map do |method_type|
@@ -280,7 +281,7 @@ module Steep
         {}
       end
 
-      def module_methods(assignability:, klass:, instance:, params:)
+      def module_methods(assignability:, klass:, instance:, params:, constructor:)
         {}
       end
 
@@ -354,7 +355,7 @@ module Steep
         end
       end
 
-      def module_methods(assignability:, klass:, instance:, params:)
+      def module_methods(assignability:, klass:, instance:, params:, constructor:)
         signature = assignability.lookup_class_signature(Types::Name.instance(name: :Class))
         class_methods = signature.instance_methods(assignability: assignability,
                                                    klass: klass,
@@ -371,7 +372,11 @@ module Steep
             type.substitute(klass: klass, instance: instance, params: hash)
           end
 
-          class_methods.merge!(signature.module_methods(assignability: assignability, klass: klass, instance: instance, params: super_class_params))
+          class_methods.merge!(signature.module_methods(assignability: assignability,
+                                                        klass: klass,
+                                                        instance: instance,
+                                                        params: super_class_params,
+                                                        constructor: constructor))
         end
       end
 
