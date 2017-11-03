@@ -229,7 +229,7 @@ module Steep
         signatures[name.name].to_interface(klass: klass, instance: instance, params: params)
       when TypeName::Instance
         methods = signatures[name.name].instance_methods(assignability: self, klass: klass, instance: instance, params: params)
-        Interface.new(name: name, params: params, methods: methods)
+        Interface.new(name: name, params: params, methods: methods.reject {|key, _| key == :initialize })
       when TypeName::Module
         methods = signatures[name.name].module_methods(assignability: self, klass: klass, instance: instance, params: params, constructor: constructor)
         Interface.new(name: name, params: params, methods: methods)
