@@ -140,7 +140,7 @@ module Steep
             assigning_pairs << [src.rest, dest_type.last]
           end
         end
-      when src.required.size + src.optional.size >= dest.required.size + dest.optional.size && !src.rest
+      when src.required.size + src.optional.size >= dest.required.size + dest.optional.size
         while src_flat.size > 0
           src_type = src_flat.shift
           dest_type = dest_flat.shift
@@ -148,7 +148,11 @@ module Steep
           if dest_type
             assigning_pairs << [src_type.last, dest_type.last]
           else
-            break
+            if src_type.first == :required
+              return false
+            else
+              break
+            end
           end
         end
       else

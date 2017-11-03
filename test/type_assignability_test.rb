@@ -409,6 +409,43 @@ end
     end
   end
 
+  def test_validate_incompatible_override_any
+    assignability = Steep::TypeAssignability.new do |a|
+      parse_signature(<<-SRC) do |sig|
+class BasicObject
+end
+
+class Object <: BasicObject
+  def foo: () -> any
+  def bar: (any) -> any
+end
+
+class A
+  def foo: (any) -> any
+  def bar: () -> any
+end
+      SRC
+        a.add_signature sig
+      end
+    end
+
+    refute_empty assignability.errors
+
+    assert_any assignability.errors do |error|
+      error.is_a?(Steep::Signature::Errors::IncompatibleOverride) &&
+        error.method_name == :foo &&
+        error.this_method == [parse_method_type("(any) -> any")] &&
+        error.super_method == [parse_method_type("() -> any")]
+    end
+
+    assert_any assignability.errors do |error|
+      error.is_a?(Steep::Signature::Errors::IncompatibleOverride) &&
+        error.method_name == :bar &&
+        error.this_method == [parse_method_type("() -> any")] &&
+        error.super_method == [parse_method_type("(any) -> any")]
+    end
+  end
+
   def test_self_type_validation
     assignability = Steep::TypeAssignability.new do |a|
       parse_signature(<<-SRC) do |sig|
