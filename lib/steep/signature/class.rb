@@ -121,7 +121,15 @@ module Steep
             # @type var method_member: Steep__SignatureMember__Method
             method_member = member
             method_types = method_member.types.map {|type| type.substitute(klass: klass, instance: instance, params: hash) }
-            merge_methods(methods, method_member.name => Steep::Interface::Method.new(types: method_types, super_method: nil))
+
+            attributes = [].tap do |attrs|
+              attrs.push(:constructor) if method_member.constructor
+            end
+
+            merge_methods(methods,
+                          method_member.name => Steep::Interface::Method.new(types: method_types,
+                                                                             super_method: nil,
+                                                                             attributes: attributes))
           end
         end
 
@@ -161,7 +169,10 @@ module Steep
             # @type var method_member: Steep__SignatureMember__Method
             method_member = member
             method_types = method_member.types.map {|type| type.substitute(klass: klass, instance: instance, params: {}) }
-            merge_methods(methods, method_member.name => Steep::Interface::Method.new(types: method_types, super_method: nil))
+            merge_methods(methods,
+                          method_member.name => Steep::Interface::Method.new(types: method_types,
+                                                                             super_method: nil,
+                                                                             attributes: []))
           end
         end
 
@@ -171,13 +182,14 @@ module Steep
                          types = instance_methods[:initialize].types.map do |method_type|
                            method_type.updated(return_type: instance)
                          end
-                         Steep::Interface::Method.new(types: types, super_method: nil)
+                         Steep::Interface::Method.new(types: types, super_method: nil, attributes: [])
                        else
                          Steep::Interface::Method.new(types: [Steep::Interface::MethodType.new(type_params: [],
                                                                                                params: Steep::Interface::Params.empty,
                                                                                                block: nil,
                                                                                                return_type: instance)],
-                                                      super_method: nil)
+                                                      super_method: nil,
+                                                      attributes: [])
                        end
           methods[:new] = new_method
         end
@@ -187,10 +199,13 @@ module Steep
 
       def merge_methods(methods, hash)
         hash.each_key do |name|
-          method = hash[name]
+          new_method = hash[name]
+          old_method = methods[name]
+          attributes = (new_method.attributes + (old_method&.attributes || [])).sort.uniq
 
-          methods[name] = Steep::Interface::Method.new(types: method.types,
-                                                       super_method: methods[name])
+          methods[name] = Steep::Interface::Method.new(types: new_method.types,
+                                                       super_method: old_method,
+                                                       attributes: attributes)
         end
       end
     end

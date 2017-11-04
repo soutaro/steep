@@ -232,14 +232,19 @@ module Steep
     class Method
       attr_reader :super_method
       attr_reader :types
+      attr_reader :attributes
 
-      def initialize(types:, super_method:)
+      def initialize(types:, super_method:, attributes:)
         @types = types
         @super_method = super_method
+        @attributes = attributes
       end
 
       def ==(other)
-        other.is_a?(Method) && other.types == types && other.super_method == super_method
+        other.is_a?(Method) &&
+          other.types == types &&
+          other.super_method == super_method &&
+          other.attributes == attributes
       end
 
       def closed?

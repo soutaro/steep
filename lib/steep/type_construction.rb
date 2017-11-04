@@ -89,7 +89,7 @@ module Steep
       end
 
       if (type = annotations.lookup_method_type(method_name))
-        Interface::Method.new(types: [type], super_method: entry&.super_method)
+        Interface::Method.new(types: [type], super_method: entry&.super_method, attributes: [])
       else
         entry
       end
@@ -113,14 +113,7 @@ module Steep
       end
 
       # FIXME: reading signature directory does not look good...
-      constructor_method = if annotations.implement_module
-                             signature = assignability.signatures[annotations.implement_module]
-                             signature&.members&.find do |member|
-                               if member.is_a?(Signature::Members::InstanceMethod) || member.is_a?(Signature::Members::ModuleMethod) || member.is_a?(Signature::Members::ModuleInstanceMethod)
-                                 member.name == method_name
-                               end
-                             end&.constructor
-                           end
+      constructor_method = entry&.attributes&.include?(:constructor)
 
       method_context = MethodContext.new(
         name: method_name,

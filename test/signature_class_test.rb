@@ -224,4 +224,39 @@ end
 
     assert_equal [:Pathname], methods.keys
   end
+
+  def test_interface_with_constructor
+    assignability = new_assignability(<<-SRC)
+class BasicObject
+end
+
+class Object <: BasicObject
+end
+
+class A
+  def (constructor) foo: (BasicObject) -> any
+end
+
+class B <: A
+  def foo: (any) -> any
+end
+    SRC
+
+    a_methods = assignability.signatures[:A].instance_methods(assignability: assignability,
+                                                            klass: Types::Name.module(name: :A),
+                                                            instance: Types::Name.instance(name: :A),
+                                                            params: [])
+
+    assert_equal [:foo], a_methods.keys
+    assert_equal [:constructor], a_methods[:foo].attributes
+
+
+    b_methods = assignability.signatures[:B].instance_methods(assignability: assignability,
+                                                              klass: Types::Name.module(name: :B),
+                                                              instance: Types::Name.instance(name: :B),
+                                                              params: [])
+
+    assert_equal [:foo], b_methods.keys
+    assert_equal [:constructor], b_methods[:foo].attributes
+  end
 end
