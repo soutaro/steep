@@ -12,3 +12,13 @@ class C
   def (constructor) foo: -> instance
   def bar: -> instance
 end
+
+class D
+  def initialize: (String) -> any
+  def foo: -> any
+end
+
+class E
+  def initialize: () -> any
+  def foo: -> any
+end
