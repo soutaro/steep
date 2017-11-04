@@ -94,6 +94,12 @@ module Steep
           io.puts "UnexpectedTypeNameKind: signature=#{signature.name}, type=#{type}, kind=#{expected_kind}"
         end
       end
+
+      class ConstructorNoCheck < Base
+        def puts(io)
+          io.puts "ConstructorNoCheck: signature=#{signature.name}"
+        end
+      end
     end
   end
 end

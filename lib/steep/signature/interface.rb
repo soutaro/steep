@@ -37,7 +37,7 @@ module Steep
                                types = method.map {|method_type|
                                  method_type.substitute(klass: klass, instance: instance, params: map)
                                }
-                               Steep::Interface::Method.new(types: types, super_method: nil)
+                               Steep::Interface::Method.new(types: types, super_method: nil, attributes: [])
                              })
       end
 

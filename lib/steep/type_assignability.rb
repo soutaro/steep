@@ -140,7 +140,7 @@ module Steep
             assigning_pairs << [src.rest, dest_type.last]
           end
         end
-      when src.required.size + src.optional.size >= dest.required.size + dest.optional.size && !src.rest
+      when src.required.size + src.optional.size >= dest.required.size + dest.optional.size
         while src_flat.size > 0
           src_type = src_flat.shift
           dest_type = dest_flat.shift
@@ -148,7 +148,11 @@ module Steep
           if dest_type
             assigning_pairs << [src_type.last, dest_type.last]
           else
-            break
+            if src_type.first == :required
+              return false
+            else
+              break
+            end
           end
         end
       else
@@ -216,7 +220,7 @@ module Steep
       test(src: dest.return_type, dest: src.return_type, known_pairs: known_pairs)
     end
 
-    def resolve_interface(name, params, klass: nil, instance: nil)
+    def resolve_interface(name, params, klass: nil, instance: nil, constructor: nil)
       klass ||= Types::Name.module(name: name.name, params: params)
       instance ||= Types::Name.instance(name: name.name, params: params)
 
@@ -225,9 +229,9 @@ module Steep
         signatures[name.name].to_interface(klass: klass, instance: instance, params: params)
       when TypeName::Instance
         methods = signatures[name.name].instance_methods(assignability: self, klass: klass, instance: instance, params: params)
-        Interface.new(name: name, params: params, methods: methods)
+        Interface.new(name: name, params: params, methods: methods.reject {|key, _| key == :initialize })
       when TypeName::Module
-        methods = signatures[name.name].module_methods(assignability: self, klass: klass, instance: instance, params: params)
+        methods = signatures[name.name].module_methods(assignability: self, klass: klass, instance: instance, params: params, constructor: constructor)
         Interface.new(name: name, params: params, methods: methods)
       else
         raise "Unexpected type name: #{name.inspect}"
@@ -284,7 +288,8 @@ module Steep
         }
         method = methods[name]
       when Types::Name
-        interface = resolve_interface(type.name, type.params)
+        constructor = type.name.is_a?(TypeName::Module) && type.name.constructor
+        interface = resolve_interface(type.name, type.params, constructor: constructor)
         method = interface.methods[name]
       else
         raise "Unexpected type: #{type}"

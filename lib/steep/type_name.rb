@@ -27,8 +27,38 @@ module Steep
     class Interface < Base; end
 
     class Module < Base
+      attr_reader :constructor
+
       def to_s
-        "#{name}.module"
+        k = case constructor
+            when nil
+              ""
+            when true
+              " constructor"
+            when false
+              " noconstructor"
+            end
+
+        "#{name}.module#{k}"
+      end
+
+      def initialize(name:, constructor:)
+        super(name: name)
+        @constructor = constructor
+      end
+
+      def ==(other)
+        other.is_a?(self.class) && other.name == name && other.constructor == constructor
+      end
+
+      NOTHING = Object.new
+
+      def updated(constructor: NOTHING)
+        if NOTHING == constructor
+          constructor = self.constructor
+        end
+
+        self.class.new(name: name, constructor: constructor)
       end
     end
 

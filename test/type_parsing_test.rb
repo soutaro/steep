@@ -15,12 +15,30 @@ class TypeParsingTest < Minitest::Test
 
   def test_class
     type = parse_method_type("() -> Foo.class").return_type
-    assert_equal Steep::Types::Name.new(name: Steep::TypeName::Module.new(name: :Foo), params: []), type
+    assert_equal Steep::Types::Name.new(name: Steep::TypeName::Module.new(name: :Foo, constructor: nil),
+                                        params: []),
+                 type
   end
 
   def test_module
     type = parse_method_type("() -> Foo.module").return_type
-    assert_equal Steep::Types::Name.new(name: Steep::TypeName::Module.new(name: :Foo), params: []), type
+    assert_equal Steep::Types::Name.new(name: Steep::TypeName::Module.new(name: :Foo, constructor: nil),
+                                        params: []),
+                 type
+  end
+
+  def test_module_constructor
+    type = parse_method_type("() -> Foo.module constructor").return_type
+    assert_equal Steep::Types::Name.new(name: Steep::TypeName::Module.new(name: :Foo, constructor: true),
+                                        params: []),
+                 type
+  end
+
+  def test_module_noconstructor
+    type = parse_method_type("() -> Foo.module constructor").return_type
+    assert_equal Steep::Types::Name.new(name: Steep::TypeName::Module.new(name: :Foo, constructor: true),
+                                        params: []),
+                 type
   end
 
   def test_type_var

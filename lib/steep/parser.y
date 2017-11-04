@@ -66,12 +66,16 @@ simple_type: INTERFACE_NAME { result = Types::Name.interface(name: val[0]) }
     | INTERFACE_NAME LT type_seq GT { result = Types::Name.interface(name: val[0], params: val[2]) }
     | MODULE_NAME { result = Types::Name.instance(name: val[0])}
     | MODULE_NAME LT type_seq GT { result = Types::Name.instance(name: val[0], params: val[2]) }
-    | CLASS_IDENT { result = Types::Name.module(name: val[0]) }
+    | CLASS_IDENT constructor { result = Types::Name.module(name: val[0], constructor: val[1]) }
     | ANY { result = Types::Any.new }
     | TVAR { result = Types::Var.new(name: val[0]) }
     | CLASS { result = Types::Class.new }
     | MODULE { result = Types::Class.new }
     | INSTANCE { result = Types::Instance.new }
+
+constructor: { result = nil }
+           | CONSTRUCTOR
+           | NOCONSTRUCTOR
 
 type: simple_type
     | union_seq { result = Types::Union.new(types: val[0]) }
@@ -119,11 +123,14 @@ class_member: instance_method_member { result = val[0] }
             | include_member { result = val[0] }
             | extend_member { result = val[0] }
 
-instance_method_member: DEF method_name COLON method_type_union { result = Signature::Members::InstanceMethod.new(name: val[1], types: val[3]) }
-class_method_member: DEF SELF DOT method_name COLON method_type_union { result = Signature::Members::ModuleMethod.new(name: val[3], types: val[5]) }
-class_instance_method_member: DEF SELFQ DOT method_name COLON method_type_union { result = Signature::Members::ModuleInstanceMethod.new(name: val[3], types: val[5]) }
+instance_method_member: DEF constructor_method method_name COLON method_type_union { result = Signature::Members::InstanceMethod.new(name: val[2], types: val[4], constructor: val[1]) }
+class_method_member: DEF constructor_method SELF DOT method_name COLON method_type_union { result = Signature::Members::ModuleMethod.new(name: val[4], types: val[6], constructor: val[1]) }
+class_instance_method_member: DEF constructor_method SELFQ DOT method_name COLON method_type_union { result = Signature::Members::ModuleInstanceMethod.new(name: val[4], types: val[6], constructor: val[1]) }
 include_member: INCLUDE type { result = Signature::Members::Include.new(name: val[1]) }
 extend_member: EXTEND type { result = Signature::Members::Extend.new(name: val[1]) }
+
+constructor_method: { result = false }
+                  | LPAREN CONSTRUCTOR RPAREN { result = true }
 
 super_opt: { result = nil }
          | LTCOLON type { result = val[1] }
@@ -156,6 +163,8 @@ method_name: IDENT
            | METHOD_NAME
            | BLOCK { result = :block }
            | INCLUDE { result = :include }
+           | CONSTRUCTOR { result = :constructor }
+           | NOCONSTRUCTOR { result = :noconstructor }
 
 annotation: AT_TYPE VAR subject COLON type { result = Annotation::VarType.new(var: val[2], type: val[4]) }
           | AT_TYPE METHOD subject COLON method_type { result = Annotation::MethodType.new(method: val[2], type: val[4]) }
@@ -299,6 +308,10 @@ def next_token
     [:IVAR, nil]
   when input.scan(/extension\b/)
     [:EXTENSION, nil]
+  when input.scan(/constructor\b/)
+    [:CONSTRUCTOR, true]
+  when input.scan(/noconstructor\b/)
+    [:NOCONSTRUCTOR, false]
   when input.scan(/[A-Z]\w*\.(class|module)\b/)
     [:CLASS_IDENT, input.matched.gsub(/\.(class|module)$/, '').to_sym]
   when input.scan(/\w+(\!|\?)/)

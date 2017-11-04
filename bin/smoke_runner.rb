@@ -93,9 +93,13 @@ ARGV.each do |arg|
 
   unless lines.empty?
     lines.each do |line|
-      puts Rainbow("  🤦‍♀️ Unexpected error found: #{line}").red
+      if line =~ /:\d+:\d+:/
+        puts Rainbow("  🤦‍♀️ Unexpected error found: #{line}").red
+        failed = true
+      else
+        puts Rainbow("  🤦 Unexpected error found, but ignored: #{line}").yellow
+      end
     end
-    failed = true
   end
 end
 

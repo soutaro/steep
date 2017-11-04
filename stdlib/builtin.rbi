@@ -24,7 +24,6 @@ class Module
 end
 
 class Class<'instance> <: Module
-  def new: -> 'instance
   def allocate: -> 'instance
   def tap: { (any) -> any } -> any
   def class: -> any

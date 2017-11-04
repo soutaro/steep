@@ -9,13 +9,16 @@ module Steep
         # @dynamic types
         attr_reader :types
 
-        def initialize(name:, types:)
+        attr_reader :constructor
+
+        def initialize(name:, types:, constructor:)
           @name = name
           @types = types
+          @constructor = constructor
         end
 
         def ==(other)
-          other.is_a?(self.class) && other.name == name && other.types == types
+          other.is_a?(self.class) && other.name == name && other.types == types && other.constructor == constructor
         end
       end
 
@@ -26,14 +29,16 @@ module Steep
         attr_reader :name
         # @dynamic types
         attr_reader :types
+        attr_reader :constructor
 
-        def initialize(name:, types:)
+        def initialize(name:, types:, constructor:)
           @name = name
           @types = types
+          @constructor = constructor
         end
 
         def ==(other)
-          other.is_a?(self.class) && other.name == name && other.types == types
+          other.is_a?(self.class) && other.name == name && other.types == types && other.constructor == constructor
         end
       end
 
@@ -44,14 +49,16 @@ module Steep
         attr_reader :name
         # @dynamic types
         attr_reader :types
+        attr_reader :constructor
 
-        def initialize(name:, types:)
+        def initialize(name:, types:, constructor:)
           @name = name
           @types = types
+          @constructor = constructor
         end
 
         def ==(other)
-          other.is_a?(self.class) && other.name == name && other.types == types
+          other.is_a?(self.class) && other.name == name && other.types == types && other.constructor == constructor
         end
       end
 
@@ -114,7 +121,15 @@ module Steep
             # @type var method_member: Steep__SignatureMember__Method
             method_member = member
             method_types = method_member.types.map {|type| type.substitute(klass: klass, instance: instance, params: hash) }
-            merge_methods(methods, method_member.name => Steep::Interface::Method.new(types: method_types, super_method: nil))
+
+            attributes = [].tap do |attrs|
+              attrs.push(:constructor) if method_member.constructor
+            end
+
+            merge_methods(methods,
+                          method_member.name => Steep::Interface::Method.new(types: method_types,
+                                                                             super_method: nil,
+                                                                             attributes: attributes))
           end
         end
 
@@ -127,7 +142,7 @@ module Steep
         methods
       end
 
-      def module_methods(assignability:, klass:, instance:, params:)
+      def module_methods(assignability:, klass:, instance:, params:, constructor:)
         methods = super
 
         members.each do |member|
@@ -137,7 +152,8 @@ module Steep
             merge_methods(methods, module_signature.module_methods(assignability: assignability,
                                                                    klass: klass,
                                                                    instance: instance,
-                                                                   params: module_signature.type_application_hash(member.name.params)))
+                                                                   params: module_signature.type_application_hash(member.name.params),
+                                                                   constructor: constructor))
           when Members::Extend
             module_signature = assignability.lookup_included_signature(member.name)
             merge_methods(methods, module_signature.instance_methods(assignability: assignability,
@@ -153,23 +169,27 @@ module Steep
             # @type var method_member: Steep__SignatureMember__Method
             method_member = member
             method_types = method_member.types.map {|type| type.substitute(klass: klass, instance: instance, params: {}) }
-            merge_methods(methods, method_member.name => Steep::Interface::Method.new(types: method_types, super_method: nil))
+            merge_methods(methods,
+                          method_member.name => Steep::Interface::Method.new(types: method_types,
+                                                                             super_method: nil,
+                                                                             attributes: []))
           end
         end
 
-        if is_class?
+        if is_class? && constructor
           instance_methods = instance_methods(assignability: assignability, klass: klass, instance: instance, params: params)
           new_method = if instance_methods[:initialize]
                          types = instance_methods[:initialize].types.map do |method_type|
                            method_type.updated(return_type: instance)
                          end
-                         Steep::Interface::Method.new(types: types, super_method: nil)
+                         Steep::Interface::Method.new(types: types, super_method: nil, attributes: [])
                        else
                          Steep::Interface::Method.new(types: [Steep::Interface::MethodType.new(type_params: [],
                                                                                                params: Steep::Interface::Params.empty,
                                                                                                block: nil,
                                                                                                return_type: instance)],
-                                                      super_method: nil)
+                                                      super_method: nil,
+                                                      attributes: [])
                        end
           methods[:new] = new_method
         end
@@ -179,10 +199,13 @@ module Steep
 
       def merge_methods(methods, hash)
         hash.each_key do |name|
-          method = hash[name]
+          new_method = hash[name]
+          old_method = methods[name]
+          attributes = (new_method.attributes + (old_method&.attributes || [])).sort.uniq
 
-          methods[name] = Steep::Interface::Method.new(types: method.types,
-                                                       super_method: methods[name])
+          methods[name] = Steep::Interface::Method.new(types: new_method.types,
+                                                       super_method: old_method,
+                                                       attributes: attributes)
         end
       end
     end
@@ -280,7 +303,7 @@ module Steep
         {}
       end
 
-      def module_methods(assignability:, klass:, instance:, params:)
+      def module_methods(assignability:, klass:, instance:, params:, constructor:)
         {}
       end
 
@@ -304,6 +327,11 @@ module Steep
                                                     params.map {|x| Types::Var.new(name: x) })
 
         validate_mixins(assignability, interface)
+
+        # FIXME: There is no check for initializer compatibility
+        if interface.methods.values.any? {|method| method.attributes.include?(:constructor) }
+          assignability.errors << Signature::Errors::ConstructorNoCheck.new(signature: self)
+        end
       end
 
       def is_class?
@@ -354,7 +382,7 @@ module Steep
         end
       end
 
-      def module_methods(assignability:, klass:, instance:, params:)
+      def module_methods(assignability:, klass:, instance:, params:, constructor:)
         signature = assignability.lookup_class_signature(Types::Name.instance(name: :Class))
         class_methods = signature.instance_methods(assignability: assignability,
                                                    klass: klass,
@@ -371,7 +399,11 @@ module Steep
             type.substitute(klass: klass, instance: instance, params: hash)
           end
 
-          class_methods.merge!(signature.module_methods(assignability: assignability, klass: klass, instance: instance, params: super_class_params))
+          class_methods.merge!(signature.module_methods(assignability: assignability,
+                                                        klass: klass,
+                                                        instance: instance,
+                                                        params: super_class_params,
+                                                        constructor: constructor))
         end
       end
 
@@ -392,7 +424,8 @@ module Steep
         end
 
         interface = assignability.resolve_interface(TypeName::Instance.new(name: name),
-                                                    params.map {|x| Types::Var.new(name: x) })
+                                                    params.map {|x| Types::Var.new(name: x) },
+                                                    constructor: true)
 
         interface.methods.each_key do |method_name|
           method = interface.methods[method_name]
@@ -402,6 +435,11 @@ module Steep
         end
 
         validate_mixins(assignability, interface)
+
+        # FIXME: There is no check for initializer compatibility
+        if interface.methods.values.any? {|method| method.attributes.include?(:constructor) }
+          assignability.errors << Signature::Errors::ConstructorNoCheck.new(signature: self)
+        end
       end
 
       def is_class?
