@@ -327,6 +327,11 @@ module Steep
                                                     params.map {|x| Types::Var.new(name: x) })
 
         validate_mixins(assignability, interface)
+
+        # FIXME: There is no check for initializer compatibility
+        if interface.methods.values.any? {|method| method.attributes.include?(:constructor) }
+          assignability.errors << Signature::Errors::ConstructorNoCheck.new(signature: self)
+        end
       end
 
       def is_class?
@@ -419,7 +424,8 @@ module Steep
         end
 
         interface = assignability.resolve_interface(TypeName::Instance.new(name: name),
-                                                    params.map {|x| Types::Var.new(name: x) })
+                                                    params.map {|x| Types::Var.new(name: x) },
+                                                    constructor: true)
 
         interface.methods.each_key do |method_name|
           method = interface.methods[method_name]
@@ -429,6 +435,11 @@ module Steep
         end
 
         validate_mixins(assignability, interface)
+
+        # FIXME: There is no check for initializer compatibility
+        if interface.methods.values.any? {|method| method.attributes.include?(:constructor) }
+          assignability.errors << Signature::Errors::ConstructorNoCheck.new(signature: self)
+        end
       end
 
       def is_class?

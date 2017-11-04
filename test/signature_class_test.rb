@@ -259,4 +259,45 @@ end
     assert_equal [:foo], b_methods.keys
     assert_equal [:constructor], b_methods[:foo].attributes
   end
+
+  def test_instance_new_override_without_constructor
+    assignability = new_assignability(<<-SRC)
+class BasicObject
+end
+
+class Object <: BasicObject
+end
+
+class A
+  def initialize: () -> any
+end
+
+class B <: A
+  def initialize: (any) -> any
+end
+    SRC
+
+    assert_empty assignability.errors
+  end
+
+  def test_instance_new_override_with_constructor
+    assignability = new_assignability(<<-SRC)
+class BasicObject
+end
+
+class Object <: BasicObject
+end
+
+class A
+  def initialize: () -> any
+  def (constructor) makeCopy: () -> instance
+end
+
+class B <: A
+  def initialize: (any) -> any
+end
+    SRC
+
+    refute_empty assignability.errors
+  end
 end
