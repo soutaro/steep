@@ -135,11 +135,11 @@ class Steep__Signature__Extension
 end
 
 class Steep__Signature__Interface
-  def initialize: (name: Symbol, params: Array<Symbol>, methods: Hash<Symbol, Array<Steep__MethodType> >) -> any
+  def initialize: (name: Symbol, params: Array<Symbol>, methods: Hash<Symbol, Array<Steep__MethodType>>) -> any
 
   def name: -> Symbol
   def params: -> Array<Symbol>
-  def methods: -> Hash<Symbol, Array<Steep__MethodType> >
+  def methods: -> Hash<Symbol, Array<Steep__MethodType>>
 
   def to_interface: (klass: Steep__Type, instance: Steep__Type, params: Array<Steep__Type>) -> any
   def validate: (any) -> any

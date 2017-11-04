@@ -165,6 +165,7 @@ method_name: IDENT
            | INCLUDE { result = :include }
            | CONSTRUCTOR { result = :constructor }
            | NOCONSTRUCTOR { result = :noconstructor }
+           | GT GT { result = :>> }
 
 annotation: AT_TYPE VAR subject COLON type { result = Annotation::VarType.new(var: val[2], type: val[4]) }
           | AT_TYPE METHOD subject COLON method_type { result = Annotation::MethodType.new(method: val[2], type: val[4]) }
@@ -254,7 +255,7 @@ def next_token
     [:DOT, nil]
   when input.scan(/<:/)
     [:LTCOLON, nil]
-  when input.scan(/(\[\]=)|(\[\])|===|==|\^|!=|<<|>>/)
+  when input.scan(/(\[\]=)|(\[\])|===|==|\^|!=|<</)
     [:OPERATOR, input.matched.to_sym]
   when input.scan(/</)
     [:LT, nil]

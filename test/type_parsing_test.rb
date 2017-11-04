@@ -61,4 +61,8 @@ class TypeParsingTest < Minitest::Test
                                           Steep::Types::Var.new(name: :a)
                                         ]), type
   end
+
+  def test_application2
+    refute_nil parse_method_type("() -> Array<Array<Integer>>")
+  end
 end

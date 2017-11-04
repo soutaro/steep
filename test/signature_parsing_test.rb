@@ -158,4 +158,12 @@ end
         )
       ]), signature
   end
+
+  def test_shift
+    parse(<<-EOF)
+class A
+  def >>: (any) -> any
+end
+    EOF
+  end
 end
