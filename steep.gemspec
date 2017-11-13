@@ -31,4 +31,5 @@ Gem::Specification.new do |spec|
 
   spec.add_runtime_dependency "parser", "~> 2.4"
   spec.add_runtime_dependency "ast_utils", "~> 0.1.0"
+  spec.add_runtime_dependency "activesupport", "~> 5.1.0"
 end

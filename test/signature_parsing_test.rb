@@ -2,168 +2,330 @@ require "test_helper"
 
 class SignatureParsingTest < Minitest::Test
   include TestHelper
+  include ASTAssertion
+  TypeName = Steep::TypeName
 
   def parse(src)
     Steep::Parser.parse_signature(src)
   end
 
-  def test_parsing_class
+  def test_parsing_class0
     klass, _ = parse(<<-EOS)
-class C<'a> <: Object
-  include M1
-  extend M2
-
-  def itself: () -> instance
-  def class: () -> class
-  def self.g: () -> C
-  def self?.h: () -> C.class
-  def (constructor) foobar: -> any
-  def constructor: -> any
+class A
 end
     EOS
 
-    assert_instance_of Steep::Signature::Class, klass
-    assert_equal :C, klass.name
-    assert_equal 8, klass.members.size
-    assert_equal Steep::Types::Name.instance(name: :Object), klass.super_class
-    assert_equal [:a], klass.params
-
-    assert_equal Steep::Signature::Members::Include.new(name: Steep::Types::Name.instance(name: :M1)), klass.members[0]
-    assert_equal Steep::Signature::Members::Extend.new(name: Steep::Types::Name.instance(name: :M2)), klass.members[1]
-    assert_equal Steep::Signature::Members::InstanceMethod.new(name: :itself,
-                                                               types: [parse_method_type("() -> instance")],
-                                                               constructor: false),
-                 klass.members[2]
-    assert_equal Steep::Signature::Members::InstanceMethod.new(name: :class,
-                                                               types: [parse_method_type("() -> class")],
-                                                               constructor: false),
-                 klass.members[3]
-    assert_equal Steep::Signature::Members::ModuleMethod.new(name: :g,
-                                                             types: [parse_method_type("() -> C")],
-                                                             constructor: false),
-                 klass.members[4]
-    assert_equal Steep::Signature::Members::ModuleInstanceMethod.new(name: :h,
-                                                                     types: [parse_method_type("() -> C.class")],
-                                                                     constructor: false),
-                 klass.members[5]
-    assert_equal Steep::Signature::Members::InstanceMethod.new(name: :foobar,
-                                                               types: [parse_method_type("() -> any")],
-                                                               constructor: true),
-                 klass.members[6]
-    assert_equal Steep::Signature::Members::InstanceMethod.new(name: :constructor,
-                                                               types: [parse_method_type("() -> any")],
-                                                               constructor: false),
-                 klass.members[7]
+    assert_class_signature klass, name: :A
+    assert_location klass, start_line: 1, start_column: 0, end_line: 2, end_column: 3
+    assert_nil klass.super_class
   end
 
-  def test_parsing_module
-    mod, _ = parse(<<-EOS)
-module Kernel<'a>
-  include M1
-  extend M2
-
-  def itself: () -> instance
-  def class: () -> class
-  def self.g: () -> C
-  def self?.h: () -> C.class
+  def test_parsing_class1
+    klass, _ = parse(<<-EOS)
+class A<'a, 'b>
 end
     EOS
 
-    assert_instance_of Steep::Signature::Module, mod
-    assert_equal :Kernel, mod.name
-    assert_equal 6, mod.members.size
-    assert_equal [:a], mod.params
-    assert_nil mod.self_type
+    assert_class_signature klass, name: :A, params: [:a, :b]
+    assert_location klass, start_line: 1, start_column: 0, end_line: 2, end_column: 3
+    assert_location klass.params, start_line: 1, start_column: 7, end_line: 1, end_column: 15
 
-    assert_equal Steep::Signature::Members::Include.new(name: Steep::Types::Name.instance(name: :M1)), mod.members[0]
-    assert_equal Steep::Signature::Members::Extend.new(name: Steep::Types::Name.instance(name: :M2)), mod.members[1]
-    assert_equal Steep::Signature::Members::InstanceMethod.new(name: :itself, types: [parse_method_type("() -> instance")], constructor: false),
-                 mod.members[2]
-    assert_equal Steep::Signature::Members::InstanceMethod.new(name: :class, types: [parse_method_type("() -> class")], constructor: false),
-                 mod.members[3]
-    assert_equal Steep::Signature::Members::ModuleMethod.new(name: :g, types: [parse_method_type("() -> C")], constructor: false),
-                 mod.members[4]
-    assert_equal Steep::Signature::Members::ModuleInstanceMethod.new(name: :h, types: [parse_method_type("() -> C.class")], constructor: false),
-                 mod.members[5]
+    assert_nil klass.super_class
+  end
+
+  def test_parsing_class2
+    klass, _ = parse(<<-EOS)
+class A <: Object
+end
+    EOS
+
+    assert_class_signature klass, name: :A
+    assert_location klass, start_line: 1, start_column: 0, end_line: 2, end_column: 3
+
+    assert_super_class klass.super_class, name: :Object
+    assert_location klass.super_class, start_line: 1, start_column: 11, end_line: 1, end_column: 17
+  end
+
+  def test_parsing_class3
+    klass, _ = parse(<<-EOS)
+class A <: Array<Integer>
+end
+    EOS
+
+    assert_class_signature klass, name: :A
+    assert_location klass, start_line: 1, start_column: 0, end_line: 2, end_column: 3
+
+    assert_super_class klass.super_class, name: :Array do |args|
+      assert_equal 1, args.size
+      assert_named_type args[0], name: :Integer, kind: :instance
+    end
+    assert_location klass.super_class, start_line: 1, start_column: 11, end_line: 1, end_column: 25
+  end
+
+  def test_parsing_module0
+    mod, _ = parse(<<-EOS)
+module M
+end
+    EOS
+
+    assert_module_signature mod, name: :M do |m|
+      assert_nil m.self_type
+    end
+    assert_location mod, start_line: 1, start_column: 0, end_line: 2, end_column: 3
+  end
+
+  def test_parsing_module1
+    mod, _ = parse(<<-EOS)
+module M<'a, 'b>
+end
+    EOS
+
+    assert_module_signature mod, name: :M, params: [:a, :b] do |m|
+      assert_nil m.self_type
+    end
+    assert_location mod, start_line: 1, start_column: 0, end_line: 2, end_column: 3
   end
 
   def test_parsing_module2
     mod, _ = parse(<<-EOS)
-module Enumerable<'a> : _Enumerable<'a>
+module M: X
 end
     EOS
 
-    assert_instance_of Steep::Signature::Module, mod
-    assert_equal :Enumerable, mod.name
-    assert_empty mod.members
-    assert_equal [:a], mod.params
-    assert_equal Steep::Types::Name.interface(name: :_Enumerable,
-                                              params: [Steep::Types::Var.new(name: :a)]), mod.self_type
+    assert_module_signature mod, name: :M do |m|
+      assert_named_type m.self_type, name: :X, kind: :instance
+    end
+    assert_location mod, start_line: 1, start_column: 0, end_line: 2, end_column: 3
   end
 
-  def test_parsing_interface
-    interface, _ = parse(<<-EOF)
-interface _Foo<'a>
-  def hello: -> any
-  def +: (String) -> Bar
-  def interface: -> Symbol   # Some comment
+  def test_parsing_include
+    klass, _ = parse(<<-EOS)
+class X
+  include M1
+  include M1<Integer>
 end
-    EOF
+    EOS
 
-    assert_instance_of Steep::Signature::Interface, interface
-    assert_equal :_Foo, interface.name
-    assert_equal [:a], interface.params
-    assert_equal [parse_method_type("-> any")], interface.methods[:hello]
-    assert_equal [parse_method_type("(String) -> Bar")], interface.methods[:+]
-    assert_equal [parse_method_type("-> Symbol")], interface.methods[:interface]
+    assert_class_signature klass, name: :X
+
+    assert_equal 2, klass.members.size
+
+    assert_include_member klass.members[0], name: :M1, args: []
+    assert_location klass.members[0], start_line: 2, start_column: 2, end_line: 2, end_column: 12
+
+    assert_include_member klass.members[1],
+                          name: :M1,
+                          args: [Steep::AST::Types::Name.new_instance(name: :Integer)]
+    assert_location klass.members[1], start_line: 3, start_column: 2, end_line: 3, end_column: 21
   end
 
-  def test_union_method_type
-    interfaces = parse(<<-EOF)
-interface _Kernel
-  def gets: () -> String
-          | () -> NilClass
+  def test_parsing_extend
+    klass, _ = parse(<<-EOS)
+class X
+  extend M1
+  extend M1<Integer>
 end
-    EOF
+    EOS
 
-    assert_equal 1, interfaces.size
+    assert_class_signature klass, name: :X
 
-    interface = interfaces[0]
-    assert_instance_of Steep::Signature::Interface, interface
-    assert_equal :_Kernel, interface.name
-    assert_equal [], interface.params
-    assert_equal [parse_method_type("() -> String"),
-                  parse_method_type("() -> NilClass")], interface.methods[:gets]
+    assert_equal 2, klass.members.size
 
+    assert_extend_member klass.members[0], name: :M1, args: []
+    assert_location klass.members[0], start_line: 2, start_column: 2, end_line: 2, end_column: 11
+
+    assert_extend_member klass.members[1],
+                         name: :M1,
+                         args: [Steep::AST::Types::Name.new_instance(name: :Integer)]
+    assert_location klass.members[1], start_line: 3, start_column: 2, end_line: 3, end_column: 20
+  end
+
+  def test_parsing_instance_method
+    mod, _ = parse(<<-EOS)
+module A
+  def itself: () -> instance
+            | (any) -> any
+end
+    EOS
+
+    assert_module_signature mod, name: :A
+
+    assert_equal 1, mod.members.size
+
+    assert_method_member mod.members[0], name: :itself, kind: :instance, attributes: [] do |types:, **|
+      assert_equal 2, types.size
+
+      assert_nil types[0].params
+      assert_instance_type types[0].return_type
+      assert_location types[0], start_line: 2, start_column: 14, end_line: 2, end_column: 28
+
+      assert_params_length types[1].params, 1
+      assert_any_type types[1].return_type
+      assert_location types[1], start_line: 3, start_column: 14, end_line: 3, end_column: 26
+    end
+    assert_location mod.members[0], start_line: 2, start_column: 2, end_line: 3, end_column: 26
+  end
+
+  def test_parsing_constructor_method
+    mod, _ = parse(<<-EOS)
+module A
+  def (constructor) foo: () -> instance
+  def (constructor) self.bar: () -> instance
+  def (constructor) self?.baz: () -> instance 
+end
+    EOS
+
+    assert_module_signature mod, name: :A
+    assert_equal 3, mod.members.size
+    mod.members.each do |member|
+      assert_method_member member
+      assert_operator member, :constructor?
+    end
+  end
+
+  def test_parsing_module_method
+    mod, _ = parse(<<-EOS)
+module A
+  def self.foo: () -> instance
+              | (any) -> any
+end
+    EOS
+
+    assert_module_signature mod, name: :A
+
+    assert_equal 1, mod.members.size
+
+    assert_method_member mod.members[0], name: :foo, kind: :module, attributes: [] do |types:, **|
+      assert_equal 2, types.size
+
+      assert_nil types[0].params
+      assert_instance_type types[0].return_type
+      assert_location types[0], start_line: 2, start_column: 16, end_line: 2, end_column: 30
+
+      assert_params_length types[1].params, 1
+      assert_any_type types[1].return_type
+      assert_location types[1], start_line: 3, start_column: 16, end_line: 3, end_column: 28
+    end
+    assert_location mod.members[0], start_line: 2, start_column: 2, end_line: 3, end_column: 28
+  end
+
+  def test_parsing_module_instance_method
+    mod, _ = parse(<<-EOS)
+module A
+  def self?.foo: () -> instance
+               | (any) -> any
+end
+    EOS
+
+    assert_module_signature mod, name: :A
+
+    assert_equal 1, mod.members.size
+
+    assert_method_member mod.members[0], name: :foo, kind: :module_instance, attributes: [] do |types:, **|
+      assert_equal 2, types.size
+
+      assert_nil types[0].params
+      assert_instance_type types[0].return_type
+      assert_location types[0], start_line: 2, start_column: 17, end_line: 2, end_column: 31
+
+      assert_params_length types[1].params, 1
+      assert_any_type types[1].return_type
+      assert_location types[1], start_line: 3, start_column: 17, end_line: 3, end_column: 29
+    end
+    assert_location mod.members[0], start_line: 2, start_column: 2, end_line: 3, end_column: 29
   end
 
   def test_extension
-    signatures = parse(<<-EOF)
+    ext, _ = parse(<<-EOF)
 extension Object (Pathname)
-  def Pathname: (String) -> Pathname
 end
     EOF
 
-    assert_equal 1, signatures.size
+    assert_extension_signature ext, module_name: :Object, name: :Pathname do |params:, **|
+      assert_nil params
+    end
+    assert_location ext, start_line: 1, start_column: 0, end_line: 2, end_column: 3
+  end
 
-    signature = signatures[0]
-    assert_equal Steep::Signature::Extension.new(
-      module_name: :Object,
-      extension_name: :Pathname,
-      members: [
-        Steep::Signature::Members::InstanceMethod.new(
-          name: :Pathname,
-          types: [parse_method_type("(String) -> Pathname")],
-          constructor: false
-        )
-      ]), signature
+  def test_extension1
+    ext, _ = parse(<<-EOF)
+extension Array<'a> (FOO)
+end
+    EOF
+
+    assert_extension_signature ext, module_name: :Array, name: :FOO do |params:, **|
+      assert_equal params.variables, [:a]
+      assert_location params, start_line: 1, start_column: 15, end_line: 1, end_column: 19
+    end
+    assert_location ext, start_line: 1, start_column: 0, end_line: 2, end_column: 3
   end
 
   def test_shift
-    parse(<<-EOF)
+    klass, _ = parse(<<-EOF)
 class A
   def >>: (any) -> any
 end
     EOF
+
+    assert_class_signature klass, name: :A do |members:, **|
+      assert_equal 1, members.size
+      assert_method_member members[0], name: :>>
+    end
+  end
+
+  def test_shift_failure
+    assert_raises Racc::ParseError do
+      parse(<<-EOF)
+class A
+  def > >: (any) -> any
+end
+      EOF
+    end
+  end
+
+  def test_interface
+    interface, _ = parse(<<-EOF)
+interface _Enumerable
+end
+    EOF
+
+    assert_interface_signature interface, name: :_Enumerable do |params:, **|
+      assert_nil params
+    end
+    assert_location interface, start_line: 1, start_column: 0, end_line: 2, end_column: 3
+  end
+
+  def test_interface1
+    interface, _ = parse(<<-EOF)
+interface _Enumerable<'a>
+end
+    EOF
+
+    assert_interface_signature interface, name: :_Enumerable, params: [:a]
+    assert_location interface, start_line: 1, start_column: 0, end_line: 2, end_column: 3
+  end
+
+  def test_interface2
+    interface, _ = parse(<<-EOF)
+interface _Array<'a>
+  def []: (Integer) -> 'a
+end
+    EOF
+
+    assert_interface_signature interface, name: :_Array, params: [:a]
+    assert_location interface, start_line: 1, start_column: 0, end_line: 3, end_column: 3
+
+    method = interface.methods[0]
+    assert_interface_method method, name: :[] do |method_type|
+      assert_params_length method_type.params, 1
+      assert_required_param method_type.params, index: 0 do |type, params|
+        assert_named_type type, name: :Integer
+        assert_location params, start_line: 2, start_column: 11, end_line: 2, end_column: 18
+      end
+
+      assert_type_var method_type.return_type, name: :a
+      assert_location method_type.return_type, start_line: 2, start_column: 23, end_line: 2, end_column: 25
+    end
+    assert_location method, start_line: 2, start_column: 2, end_line: 2, end_column: 25
   end
 end

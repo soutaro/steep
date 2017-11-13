@@ -12,12 +12,10 @@ module Steep
       end
 
       def hash
-        name.hash
+        self.class.hash ^ name.hash
       end
 
-      def eql?(other)
-        self == other
-      end
+      alias eql? ==
 
       def to_s
         name.to_s
@@ -26,7 +24,7 @@ module Steep
 
     class Interface < Base; end
 
-    class Module < Base
+    class Class < Base
       attr_reader :constructor
 
       def to_s
@@ -51,6 +49,10 @@ module Steep
         other.is_a?(self.class) && other.name == name && other.constructor == constructor
       end
 
+      def hash
+        self.class.hash ^ name.hash ^ constructor.hash
+      end
+
       NOTHING = Object.new
 
       def updated(constructor: NOTHING)
@@ -62,6 +64,7 @@ module Steep
       end
     end
 
+    class Module < Base; end
     class Instance < Base; end
   end
 end

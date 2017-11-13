@@ -9,8 +9,16 @@ module TestHelper
     assert collection.any?(&block)
   end
 
+  def assert_all(collection, &block)
+    assert collection.all?(&block)
+  end
+
   def refute_any(collection, &block)
     refute collection.any?(&block)
+  end
+
+  def assert_size(size, collection)
+    assert_equal size, collection.size
   end
 
   def parse_signature(signature)
@@ -73,5 +81,188 @@ module TypeErrorAssertions
     assert_equal actual, error.actual if actual
 
     yield expected, actual if block_given?
+  end
+end
+
+module ASTAssertion
+  def assert_type_var(type, name: nil)
+    assert_instance_of Steep::AST::Types::Var, type
+    assert_equal name, type.name if name
+  end
+
+  def assert_any_type(type)
+    assert_instance_of Steep::AST::Types::Any, type
+  end
+
+  def assert_location(located, name: nil, start_line: nil, start_column: nil, end_line: nil, end_column: nil)
+    loc = located.location
+    assert_equal name, loc.name if name
+    assert_equal start_line, loc.start_line if start_line
+    assert_equal start_column, loc.start_column if start_column
+    assert_equal end_line, loc.end_line if end_line
+    assert_equal end_column, loc.end_column if end_column
+  end
+
+  def assert_required_param(params, index:, &block)
+    if index == 0
+      assert_instance_of Steep::AST::MethodType::Params::Required, params
+      yield params.type, params if block_given?
+    else
+      assert_required_param params.next_params, index: index - 1, &block
+    end
+  end
+
+  def assert_optional_param(params, index:, &block)
+    if index == 0
+      assert_instance_of Steep::AST::MethodType::Params::Optional, params
+      yield params.type, params if block_given?
+    else
+      assert_optional_param params.next_params, index: index - 1, &block
+    end
+  end
+
+  def assert_rest_param(params, index:, &block)
+    if index == 0
+      assert_instance_of Steep::AST::MethodType::Params::Rest, params
+      yield params.type, params if block_given?
+    else
+      assert_rest_param params.next_params, index: index - 1, &block
+    end
+  end
+
+  def assert_required_keyword(params, index:, name: nil, &block)
+    if index == 0
+      assert_instance_of Steep::AST::MethodType::Params::RequiredKeyword, params
+      assert_equal name, params.name if name
+      yield params.type, params if block_given?
+    else
+      assert_required_keyword params.next_params, index: index - 1, name: name, &block
+    end
+  end
+
+  def assert_optional_keyword(params, index:, name: nil, &block)
+    if index == 0
+      assert_instance_of Steep::AST::MethodType::Params::OptionalKeyword, params
+      assert_equal name, params.name if name
+      yield params.type, params if block_given?
+    else
+      assert_optional_keyword params.next_params, index: index - 1, name: name, &block
+    end
+  end
+
+  def assert_rest_keyword(params, index:, &block)
+    if index == 0
+      assert_instance_of Steep::AST::MethodType::Params::RestKeyword, params
+      yield params.type, params if block_given?
+    else
+      assert_rest_keyword params.next_params, index: index - 1, &block
+    end
+  end
+
+  def assert_params_length(params, size, acc: 0)
+    case params
+    when Steep::AST::MethodType::Params::RestKeyword
+      assert_equal size, acc+1
+    when nil
+      assert_equal size, acc
+    else
+      assert_params_length params.next_params, size, acc: acc+1
+    end
+  end
+
+  def assert_type_params(params, variables: nil)
+    assert_instance_of Steep::AST::TypeParams, params
+    assert_equal variables, params.variables if variables
+  end
+
+  def assert_named_type(type, name: nil, kind: nil)
+    assert_instance_of Steep::AST::Types::Name, type
+    assert_equal name, type.name.name if name
+    case kind
+    when :interface
+      assert_instance_of Steep::TypeName::Interface, type.name
+    when :class
+      assert_instance_of Steep::TypeName::Class, type.name
+    when :module
+      assert_instance_of Steep::TypeName::Module, type.name
+    when :instance
+      assert_instance_of Steep::TypeName::Instance, type.name
+    end
+    yield type.args if block_given?
+  end
+
+  def assert_union_type(type)
+    assert_instance_of Steep::AST::Types::Union, type
+    yield type.types if block_given?
+  end
+
+  def assert_instance_type(type)
+    assert_instance_of Steep::AST::Types::Instance, type
+  end
+
+  def assert_class_signature(sig, name: nil, params: nil)
+    assert_instance_of Steep::AST::Signature::Class, sig
+    assert_equal name, sig.name if name
+    assert_equal params, sig.params.variables if params
+    yield members: sig.members if block_given?
+  end
+
+  def assert_super_class(super_class, name: nil)
+    assert_instance_of Steep::AST::Signature::SuperClass, super_class
+    assert_equal name, super_class.name if name
+    yield super_class.args, super_class if block_given?
+  end
+
+  def assert_module_signature(sig, name: nil, params: nil)
+    assert_instance_of Steep::AST::Signature::Module, sig
+    assert_equal name, sig.name if name
+    assert_equal params, sig.params.variables if params
+    yield sig if block_given?
+  end
+
+  def assert_interface_signature(sig, name: nil, params: nil)
+    assert_instance_of Steep::AST::Signature::Interface, sig
+    assert_equal name, sig.name if name
+    assert_equal params, sig.params&.variables if params
+    yield name: sig.name, params: sig.params, methods: sig.methods if block_given?
+  end
+
+  def assert_interface_method(method, name: nil)
+    assert_instance_of Steep::AST::Signature::Interface::Method, method
+    assert_equal name, method.name if name
+    yield *method.types if block_given?
+  end
+
+  def assert_include_member(member, name: nil, args: nil)
+    assert_instance_of Steep::AST::Signature::Members::Include, member
+    assert_equal name, member.name if name
+    assert_equal args, member.args if args
+  end
+
+  def assert_extend_member(member, name: nil, args: nil)
+    assert_instance_of Steep::AST::Signature::Members::Extend, member
+    assert_equal name, member.name if name
+    assert_equal args, member.args if args
+  end
+
+  def assert_method_member(member, name: nil, kind: nil, attributes: nil)
+    assert_instance_of Steep::AST::Signature::Members::Method, member
+    assert_equal name, member.name if name
+    assert_equal kind, member.kind if kind
+    assert_equal attributes, member.attributes if attributes
+    yield name: member.name, kind: member.kind, types: member.types, attributes: attributes if block_given?
+  end
+
+  def assert_extension_signature(sig, module_name: nil, name: nil)
+    assert_instance_of Steep::AST::Signature::Extension, sig
+    assert_equal module_name, sig.module_name if module_name
+    assert_equal name, sig.name if name
+    yield module_name: sig.module_name, name: sig.name, params: sig.params if block_given?
+  end
+
+  def assert_method_type_annotation(annot, name: nil)
+    assert_instance_of Steep::AST::Annotation::MethodType, annot
+    assert_equal name, annot.name if name
+    yield name: annot.name, type: annot.type if block_given?
   end
 end
