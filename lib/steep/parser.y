@@ -72,6 +72,7 @@ simple_type: INTERFACE_NAME { result = Types::Name.interface(name: val[0]) }
     | CLASS { result = Types::Class.new }
     | MODULE { result = Types::Class.new }
     | INSTANCE { result = Types::Instance.new }
+    | LBRACKET type_seq RBRACKET { result = Types::Tuple.instance(types: val[1]) }
 
 constructor: { result = nil }
            | CONSTRUCTOR
@@ -325,5 +326,9 @@ def next_token
     [:IVAR_NAME, input.matched.to_sym]
   when input.scan(/\w+/)
     [:IDENT, input.matched.to_sym]
+  when input.scan(/\[/)
+    [:LBRACKET, nil]
+  when input.scan(/\]/)
+    [:RBRACKET, nil]
   end
 end

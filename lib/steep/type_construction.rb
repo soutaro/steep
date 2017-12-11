@@ -578,11 +578,8 @@ module Steep
         else
           types = node.children.map {|e| synthesize(e) }
 
-          if types.uniq.size == 1
-            typing.add_typing(node, Types::Name.instance(name: :Array, params: [types.first]))
-          else
-            typing.add_typing(node, Types::Name.instance(name: :Array, params: [Types::Any.new]))
-          end
+          # XXX: Need more heuristic default, maybe.  Should we give it a Tuple type even if its length is > 100?
+          typing.add_typing(node, Types::Tuple.instance(types: types))
         end
 
       when :and
@@ -735,7 +732,7 @@ module Steep
       receiver_type = receiver ? synthesize(receiver) : self_type
 
       if receiver_type
-        ret_type = assignability.method_type receiver_type, method_name do |method|
+        ret_type = assignability.method_type receiver_type, method_name, args: args do |method|
           if method
             type_method_call(node: node,
                              receiver_type: receiver_type,

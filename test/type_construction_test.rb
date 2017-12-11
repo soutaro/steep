@@ -1147,4 +1147,28 @@ end
 
     assert_empty typing.errors
   end
+
+  def test_tuple
+    source = ruby(<<-EOF)
+[1, "foo"]
+    EOF
+
+    typing = Typing.new
+    annotations = source.annotations(block: source.node)
+
+    construction = TypeConstruction.new(assignability: assignability,
+                                        source: source,
+                                        annotations: annotations,
+                                        var_types: {},
+                                        self_type: nil,
+                                        block_context: nil,
+                                        method_context: nil,
+                                        typing: typing,
+                                        module_context: nil)
+
+    construction.synthesize(source.node)
+
+    assert_equal Types::Tuple.interface(types: [Types::Name.instance(name: :Integer), Types::Name.instance(name: :String)]), typing.type_of(node: source.node)
+    assert_empty typing.errors
+  end
 end
