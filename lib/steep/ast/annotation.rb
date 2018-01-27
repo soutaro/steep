@@ -6,17 +6,17 @@ module Steep
         attr_reader :type
         attr_reader :location
 
-        def initialize(location:, name:, type:)
-          @location = location
+        def initialize(name:, type:, location: nil)
           @name = name
           @type = type
+          @location = location
         end
 
         def ==(other)
           other.is_a?(self.class) &&
             other.name == name &&
             other.type == type &&
-            other.location == location
+            (!other.location || !location || other.location == location)
         end
       end
 
@@ -24,7 +24,7 @@ module Steep
         attr_reader :type
         attr_reader :annotation
 
-        def initialize(type:, location:)
+        def initialize(type:, location: nil)
           @type = type
           @location = location
         end
@@ -32,7 +32,7 @@ module Steep
         def ==(other)
           other.is_a?(self.class) &&
             other.type == type &&
-            other.location == location
+            (!other.location || !location || other.location == location)
         end
       end
 

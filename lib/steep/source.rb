@@ -33,14 +33,21 @@ module Steep
 
       annotations = []
 
-      buffer = ::Parser::Source::Buffer.new(path.to_s)
-      buffer.source = source_code
-      parser = ::Parser::CurrentRuby.new
+      _, comments, _ = yield_self do
+        buffer = ::Parser::Source::Buffer.new(path.to_s)
+        buffer.source = source_code
+        parser = ::Parser::CurrentRuby.new
 
-      _, comments, _ = parser.tokenize(buffer)
+        parser.tokenize(buffer)
+      end
+
+      buffer = AST::Buffer.new(name: path, content: source_code)
+
       comments.each do |comment|
-        src = comment.text.gsub(/\A#\s*/, '')
-        annotation = Steep::Parser.parse_annotation_opt(src)
+        src = comment.text.gsub(/\A#/, '')
+        annotation = Steep::Parser.parse_annotation_opt(src,
+                                                        buffer: buffer,
+                                                        offset: comment.location.expression.begin_pos+1)
         if annotation
           annotations << LocatedAnnotation.new(line: comment.location.line, source: src, annotation: annotation)
         end
@@ -85,14 +92,14 @@ module Steep
 
     def self.each_child_node(node)
       node.children.each do |child|
-        if child.is_a?(AST::Node)
+        if child.is_a?(::AST::Node)
           yield child
         end
       end
     end
 
     def annotations(block:)
-      Annotation::Collection.new(annotations: mapping[block.__id__] || [])
+      AST::Annotation::Collection.new(annotations: mapping[block.__id__] || [])
     end
   end
 end
