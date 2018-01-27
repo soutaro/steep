@@ -16,7 +16,7 @@ module Steep
     end
 
     def self.available_commands
-      [:check]
+      [:check, :validate]
     end
 
     def setup_global_options
@@ -73,6 +73,23 @@ module Steep
         check.verbose = verbose
         check.dump_all_types = dump_all_types
         check.fallback_any_is_error = fallback_any_is_error
+      end.run
+    end
+
+    def process_validate
+      verbose = false
+
+      OptionParser.new do |opts|
+        opts.on("--verbose") { verbose = true }
+      end.parse!(argv)
+
+      signature_dirs = argv.map {|path| Pathname(path) }
+      if signature_dirs.empty?
+        signature_dirs << Pathname(".")
+      end
+
+      Drivers::Validate.new(signature_dirs: signature_dirs, stdout: stdout, stderr: stderr).tap do |validate|
+        validate.verbose = verbose
       end.run
     end
   end

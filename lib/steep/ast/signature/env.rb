@@ -54,12 +54,22 @@ module Steep
           interfaces[name] or raise "Unknown interface: #{name}"
         end
 
-        def module?(name)
-          modules.key?(name)
+        def module?(type_name)
+          modules.key?(type_name.name)
         end
 
-        def class?(name)
-          classes.key?(name)
+        def class?(type_name)
+          classes.key?(type_name.name)
+        end
+
+        def each(&block)
+          if block_given?
+            classes.each_value(&block)
+            modules.each_value(&block)
+            interfaces.each_value(&block)
+          else
+            enum_for :each
+          end
         end
       end
     end

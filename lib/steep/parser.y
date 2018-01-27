@@ -341,19 +341,19 @@ method_type_union: method_type { result = [val[0]] }
 method_name: IDENT
            | MODULE_NAME
            | INTERFACE_NAME
-           | ANY { result = :any }
-           | INTERFACE { result = :interface }
-           | END { result = :end }
-           | PLUS { result = :+ }
-           | CLASS { result = :class }
-           | MODULE { result = :module }
-           | INSTANCE { result = :instance }
+           | ANY
+           | INTERFACE
+           | END
+           | PLUS
+           | CLASS
+           | MODULE
+           | INSTANCE
            | OPERATOR
            | METHOD_NAME
-           | BLOCK { result = :block }
-           | INCLUDE { result = :include }
-           | CONSTRUCTOR { result = :constructor }
-           | NOCONSTRUCTOR { result = :noconstructor }
+           | BLOCK
+           | INCLUDE
+           | CONSTRUCTOR { result = LocatedValue.new(location: val[0].location, value: :constructor) }
+           | NOCONSTRUCTOR { result = LocatedValue.new(location: val[0].location, value: :noconstructor) }
            | GT GT {
                raise ParseError, "\nunexpected method name > >" unless val[0].location.pred?(val[1].location)
                result = LocatedValue.new(location: val[0].location + val[1].location, value: :>>)
@@ -499,11 +499,11 @@ def next_token
   when input.scan(/:/)
     new_token(:COLON)
   when input.scan(/\*\*/)
-    new_token(:STAR2)
+    new_token(:STAR2, :**)
   when input.scan(/\*/)
-    new_token(:STAR)
+    new_token(:STAR, :*)
   when input.scan(/\+/)
-    new_token(:PLUS)
+    new_token(:PLUS, :+)
   when input.scan(/\./)
     new_token(:DOT)
   when input.scan(/<:/)
@@ -515,13 +515,13 @@ def next_token
   when input.scan(/>/)
     new_token(:GT)
   when input.scan(/any\b/)
-    new_token(:ANY)
+    new_token(:ANY, :any)
   when input.scan(/interface\b/)
-    new_token(:INTERFACE)
+    new_token(:INTERFACE, :interface)
   when input.scan(/end\b/)
-    new_token(:END)
+    new_token(:END, :end)
   when input.scan(/\|/)
-    new_token(:BAR)
+    new_token(:BAR, :bar)
   when input.scan(/def\b/)
     new_token(:DEF)
   when input.scan(/@type\b/)
@@ -531,37 +531,37 @@ def next_token
   when input.scan(/@dynamic\b/)
     new_token(:AT_DYNAMIC)
   when input.scan(/const\b/)
-    new_token(:CONST)
+    new_token(:CONST, :const)
   when input.scan(/var\b/)
-    new_token(:VAR)
+    new_token(:VAR, :var)
   when input.scan(/return\b/)
     new_token(:RETURN)
   when input.scan(/block\b/)
-    new_token(:BLOCK)
+    new_token(:BLOCK, :block)
   when input.scan(/method\b/)
-    new_token(:METHOD)
+    new_token(:METHOD, :method)
   when input.scan(/self\?/)
     new_token(:SELFQ)
   when input.scan(/self\b/)
-    new_token(:SELF)
+    new_token(:SELF, :self)
   when input.scan(/'\w+/)
     new_token(:TVAR, input.matched.gsub(/\A'/, '').to_sym)
   when input.scan(/instance\b/)
-    new_token(:INSTANCE)
+    new_token(:INSTANCE, :instance)
   when input.scan(/class\b/)
-    new_token(:CLASS)
+    new_token(:CLASS, :class)
   when input.scan(/module\b/)
-    new_token(:MODULE)
+    new_token(:MODULE, :module)
   when input.scan(/include\b/)
-    new_token(:INCLUDE)
+    new_token(:INCLUDE, :include)
   when input.scan(/extend\b/)
-    new_token(:EXTEND)
+    new_token(:EXTEND, :extend)
   when input.scan(/instance\b/)
-    new_token(:INSTANCE)
+    new_token(:INSTANCE, :instance)
   when input.scan(/ivar\b/)
-    new_token(:IVAR)
+    new_token(:IVAR, :ivar)
   when input.scan(/extension\b/)
-    new_token(:EXTENSION)
+    new_token(:EXTENSION, :extension)
   when input.scan(/constructor\b/)
     new_token(:CONSTRUCTOR, true)
   when input.scan(/noconstructor\b/)

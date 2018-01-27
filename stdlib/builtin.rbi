@@ -19,14 +19,10 @@ end
 
 class Module
   def attr_reader: (*any) -> any
-  def class: -> Class<Module>
-  def tap: { (Module) -> any } -> Module
 end
 
 class Class<'instance> <: Module
   def allocate: -> 'instance
-  def tap: { (any) -> any } -> any
-  def class: -> any
 end
 
 module Kernel

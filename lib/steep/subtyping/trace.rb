@@ -33,6 +33,12 @@ module Steep
       def initialize_copy(source)
         @array = source.array.dup
       end
+
+      def each
+        array.each do |pair|
+          yield *pair
+        end
+      end
     end
   end
 end

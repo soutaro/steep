@@ -47,6 +47,7 @@ require "steep/errors"
 require "steep/type_construction"
 
 require "steep/drivers/check"
+require "steep/drivers/validate"
 
 module Steep
   # Your code goes here...

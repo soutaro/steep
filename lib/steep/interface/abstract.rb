@@ -16,7 +16,7 @@ module Steep
 
       def ==(other)
         other.is_a?(self.class) &&
-          other.type == type &&
+          other.name == name &&
           other.params == params &&
           other.methods == methods &&
           other.constraints == constraints

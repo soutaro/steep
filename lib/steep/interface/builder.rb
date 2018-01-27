@@ -38,9 +38,9 @@ module Steep
                         when TypeName::Class
                           class_to_interface(signatures.find_class_or_module(type_name.name),
                                               constructor: type_name.constructor)
-                        when TypeName::Instance
+                        when TypeName::Interface
                           interface_to_interface(type_name.name,
-                                                 env.find_interface(type_name.name))
+                                                 signatures.find_interface(type_name.name))
                         end
 
             cache[type_name] = interface

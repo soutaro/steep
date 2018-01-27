@@ -24,8 +24,10 @@ module Steep
           else
             trace.add(constraint.sub_type, constraint.super_type) do
               assumption = assumption + Set.new([constraint])
-              cache[constraint] = check0(constraint, assumption: assumption, trace: trace).else do |result|
-                result.drop(prefix)
+              check0(constraint, assumption: assumption, trace: trace).tap do |result|
+                cache[constraint] = result.else do |failure|
+                  failure.drop(prefix)
+                end
               end
             end
           end
@@ -303,9 +305,9 @@ module Steep
       def module_type(type)
         case
         when builder.signatures.class?(type.name)
-          type.module_type
-        when builder.signatures.module?(type.name)
           type.class_type(constructor: nil)
+        when builder.signatures.module?(type.name)
+          type.module_type
         end
       end
     end

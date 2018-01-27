@@ -36,6 +36,10 @@ module Steep
           def initialize(name:)
             @name = name
           end
+
+          def message
+            "Method #{name} is missing"
+          end
         end
 
         class BlockMismatchError
@@ -43,6 +47,10 @@ module Steep
 
           def initialize(name:)
             @name = name
+          end
+
+          def message
+            "Method #{name} is incompatible for block"
           end
         end
 
@@ -52,13 +60,9 @@ module Steep
           def initialize(name:)
             @name = name
           end
-        end
 
-        class PolyMethodError
-          attr_reader :name
-
-          def initialize(name:)
-            @name = name
+          def message
+            "Method #{name} or its block has incompatible parameters"
           end
         end
 
@@ -67,6 +71,10 @@ module Steep
 
           def initialize(constraint:)
             @constraint = constraint
+          end
+
+          def message
+            "#{constraint} does not hold"
           end
         end
 

@@ -78,14 +78,14 @@ module Steep
 
         def class_type(constructor:)
           case name
-          when TypeName::Interface,
+          when TypeName::Instance
             self.class.new_class(location: location,
                                  name: name.name,
                                  constructor: constructor,
                                  args: args)
           when TypeName::Class
             self
-          when TypeName::Module, TypeName::Instance
+          when TypeName::Module, TypeName::Interface
             raise "Cannot make class type: #{inspect}"
           else
             raise "Unknown name: #{name.inspect}"
@@ -94,13 +94,13 @@ module Steep
 
         def module_type
           case name
-          when TypeName::Interface,
+          when TypeName::Instance,
             self.class.new_module(location: location,
                                   name: name.name,
                                   args: args)
           when TypeName::Module
             self
-          when TypeName::Class, TypeName::Instance
+          when TypeName::Class, TypeName::Interface
             raise "Cannot make module type: #{inspect}"
           else
             raise "Unknown name: #{name.inspect}"
