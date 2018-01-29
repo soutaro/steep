@@ -70,7 +70,7 @@ module Steep
         attr_reader :location
         attr_reader :name
 
-        def initialize(name:, location:)
+        def initialize(name:, location: nil)
           @location = location
           @name = name
         end
@@ -78,7 +78,7 @@ module Steep
         def ==(other)
           other.is_a?(Dynamic) &&
             other.name == name &&
-            other.location == location
+            (!other.location || location || other.location == location)
         end
       end
     end
