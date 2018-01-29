@@ -22,6 +22,7 @@ class Module
 end
 
 class Class<'instance> <: Module
+  def new: (*any, **any) -> 'instance
   def allocate: -> 'instance
 end
 
@@ -77,7 +78,7 @@ end
 
 class Integer <: Numeric
   def to_int: -> Integer
-  def +: (Numeric) -> Integer
+  def +: (Integer) -> Integer
        | (Numeric) -> Numeric
   def ^: (Numeric) -> Integer
 end

@@ -37,10 +37,12 @@ module Steep
                           module_to_interface(signatures.find_module(type_name.name))
                         when TypeName::Class
                           class_to_interface(signatures.find_class_or_module(type_name.name),
-                                              constructor: type_name.constructor)
+                                             constructor: type_name.constructor)
                         when TypeName::Interface
                           interface_to_interface(type_name.name,
                                                  signatures.find_interface(type_name.name))
+                        else
+                          raise "Unexpected type_name: #{type_name.inspect}"
                         end
 
             cache[type_name] = interface
@@ -156,6 +158,10 @@ module Steep
           end
         end
 
+        unless constructor
+          methods.delete(:new)
+        end
+
         Abstract.new(
           name: type_name,
           params: params,
@@ -168,7 +174,7 @@ module Steep
         type_name = TypeName::Module.new(name: sig.name)
 
         params = sig.params&.variables || []
-        supers = []
+        supers = [sig.self_type]
         methods = {}
 
         module_instance = build(TypeName::Instance.new(name: :Module))
@@ -256,7 +262,9 @@ module Steep
           case member
           when AST::Signature::Members::Method
             if member.instance_method?
-              add_method(type_name, member, methods: methods)
+              unless member.name == :initialize
+                add_method(type_name, member, methods: methods)
+              end
             end
           end
         end

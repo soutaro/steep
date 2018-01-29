@@ -4,5 +4,3 @@
 3.is_a?(3.class)
 klass = 3.class
 mod = "".class
-
-

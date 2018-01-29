@@ -37,7 +37,7 @@ module Steep
               " noconstructor"
             end
 
-        "#{name}.module#{k}"
+        "#{name}.class#{k}"
       end
 
       def initialize(name:, constructor:)
@@ -64,7 +64,12 @@ module Steep
       end
     end
 
-    class Module < Base; end
+    class Module < Base
+      def to_s
+        "#{name}.module"
+      end
+    end
+
     class Instance < Base; end
   end
 end

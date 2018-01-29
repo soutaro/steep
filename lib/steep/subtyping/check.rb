@@ -44,7 +44,7 @@ module Steep
 
       def check0(constraint, assumption:, trace:)
         case
-        when constraint.sub_type == constraint.super_type
+        when same_type?(constraint, assumption: assumption)
           success
 
         when constraint.sub_type.is_a?(AST::Types::Any) || constraint.super_type.is_a?(AST::Types::Any)
@@ -65,6 +65,22 @@ module Steep
             failure(error: Result::Failure::UnknownPairError.new(constraint: constraint),
                     trace: trace)
           end
+        end
+      end
+
+      def same_type?(constraint, assumption:)
+        case
+        when constraint.sub_type == constraint.super_type
+          true
+        when constraint.sub_type.is_a?(AST::Types::Name) && constraint.super_type.is_a?(AST::Types::Name)
+          return false unless constraint.sub_type.name == constraint.super_type.name
+          return false unless constraint.sub_type.args.size == constraint.super_type.args.size
+          constraint.sub_type.args.zip(constraint.super_type.args).all? do |(s, t)|
+            assumption.include?(Constraint.new(sub_type: s, super_type: t)) &&
+              assumption.include?(Constraint.new(sub_type: t, super_type: s))
+          end
+        else
+          false
         end
       end
 

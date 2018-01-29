@@ -31,7 +31,7 @@ module Steep
           if args.empty?
             "#{name}"
           else
-            "#{name}<#{args.join(",")}>"
+            "#{name}<#{args.join(", ")}>"
           end
         end
 

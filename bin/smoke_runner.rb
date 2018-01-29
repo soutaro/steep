@@ -14,7 +14,7 @@ OptionParser.new do |opts|
   opts.on("-v", "--verbose") do verbose = true end
 end.parse!(ARGV)
 
-Expectation = Struct.new(:line, :message)
+Expectation = Struct.new(:line, :message, :path)
 
 failed = false
 
@@ -40,7 +40,7 @@ ARGV.each do |arg|
           message = src.gsub!(/\A!expects(@\+\d+)? +/, '')
           line = comment.location.line
 
-          expectations << Expectation.new(line+offset, message)
+          expectations << Expectation.new(line+offset, message, file)
         end
       end
 
@@ -86,7 +86,7 @@ ARGV.each do |arg|
     end
 
     unless deleted
-      puts Rainbow("  💀 Expected error not found: #{expectation.line}:#{expectation.message}").red
+      puts Rainbow("  💀 Expected error not found: #{expectation.path}:#{expectation.line}:#{expectation.message}").red
       failed = true
     end
   end
