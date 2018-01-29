@@ -13,6 +13,8 @@ module Steep
 
       attr_reader :labeling
 
+      include Utils::EachSignature
+
       def initialize(source_paths:, signature_dirs:, stdout:, stderr:)
         @source_paths = source_paths
         @signature_dirs = signature_dirs
@@ -28,18 +30,27 @@ module Steep
       end
 
       def run
-        assignability = TypeAssignability.new do |a|
-          each_interface do |signature|
-            a.add_signature(signature)
-          end
+        env = AST::Signature::Env.new
+
+        each_signature(signature_dirs, verbose) do |signature|
+          env.add signature
         end
 
-        assignability.errors.each do |error|
-          error.puts(stdout)
+        builder = Interface::Builder.new(signatures: env)
+        check = Subtyping::Check.new(builder: builder)
+
+        validator = Utils::Validator.new(stdout: stdout, stderr: stderr)
+
+        validated = validator.run(env: env, builder: builder, check: check) do |sig|
+          stderr.puts "Validating #{sig.name} (#{sig.location.name}:#{sig.location.start_line})..." if verbose
+        end
+
+        unless validated
+          return 1
         end
 
         sources = []
-        each_ruby_source do |source|
+        each_ruby_source(source_paths, verbose) do |source|
           sources << source
         end
 
@@ -52,7 +63,7 @@ module Steep
           pp annotations if verbose
 
           construction = TypeConstruction.new(
-            assignability: assignability,
+            checker: check,
             annotations: annotations,
             source: source,
             var_types: {},
@@ -90,54 +101,6 @@ module Steep
         typing.errors.each do |error|
           next if error.is_a?(Errors::FallbackAny) && !fallback_any_is_error
           stdout.puts error.to_s
-        end
-      end
-
-      def each_interface
-        signature_dirs.each do |path|
-          if path.file?
-            stdout.puts "Loading signature #{path}..." if verbose
-            Parser.parse_signature(path.read).each do |interface|
-              yield interface
-            end
-          end
-
-          if path.directory?
-            each_file_in_dir(".rbi", path) do |file|
-              stdout.puts "Loading signature #{file}..." if verbose
-              Parser.parse_signature(file.read).each do |interface|
-                yield interface
-              end
-            end
-          end
-        end
-      end
-
-      def each_ruby_source
-        source_paths.each do |path|
-          if path.file?
-            stdout.puts "Loading Ruby program #{path}..." if verbose
-            yield Source.parse(path.read, path: path.to_s, labeling: labeling)
-          end
-
-          if path.directory?
-            each_file_in_dir(".rb", path) do |file|
-              stdout.puts "Loading Ruby program #{file}..." if verbose
-              yield Source.parse(file.read, path: file.to_s, labeling: labeling)
-            end
-          end
-        end
-      end
-
-      def each_file_in_dir(suffix, path, &block)
-        path.children.each do |child|
-          if child.directory?
-            each_file_in_dir(suffix, child, &block)
-          end
-
-          if child.file? && suffix == child.extname
-            yield child
-          end
         end
       end
     end
