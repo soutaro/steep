@@ -49,7 +49,7 @@ module Steep
           stdout.puts "Typechecking #{source.path}..." if verbose
           annotations = source.annotations(block: source.node) || []
 
-          p annotations if verbose
+          pp annotations if verbose
 
           construction = TypeConstruction.new(
             assignability: assignability,

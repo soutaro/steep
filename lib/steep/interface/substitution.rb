@@ -23,7 +23,9 @@ module Steep
         dictionary.key?(var)
       end
 
-      def self.build(vars, types, instance_type: nil, module_type: nil)
+      def self.build(vars, types = nil, instance_type: nil, module_type: nil)
+        types ||= vars.map {|var| AST::Types::Var.fresh(var) }
+
         raise "Invalid substitution: vars.size=#{vars.size}, types.size=#{types.size}" unless vars.size == types.size
 
         dic = vars.zip(types).each.with_object({}) do |(var, type), d|

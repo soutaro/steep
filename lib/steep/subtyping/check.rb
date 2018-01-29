@@ -310,6 +310,37 @@ module Steep
           type.module_type
         end
       end
+
+      def compact(types)
+        types = types.reject {|type| type.is_a?(AST::Types::Any) }
+
+        if types.empty?
+          [AST::Types::Any.new]
+        else
+          compact0(types)
+        end
+      end
+
+      def compact0(types)
+        if types.size == 1
+          types
+        else
+          type, *types_ = types
+          compacted = compact0(types_)
+          compacted.flat_map do |type_|
+            case
+            when type == type_
+              [type]
+            when check(Constraint.new(sub_type: type_, super_type: type)).success?
+              [type]
+            when check(Constraint.new(sub_type: type, super_type: type_)).success?
+              [type_]
+            else
+              [type, type_]
+            end
+          end.uniq
+        end
+      end
     end
   end
 end

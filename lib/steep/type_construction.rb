@@ -56,7 +56,7 @@ module Steep
       end
     end
 
-    attr_reader :assignability
+    attr_reader :checker
     attr_reader :source
     attr_reader :annotations
     attr_reader :var_types
@@ -67,8 +67,8 @@ module Steep
     attr_reader :module_context
     attr_reader :self_type
 
-    def initialize(assignability:, source:, annotations:, var_types:, ivar_types: {}, typing:, self_type:, method_context:, block_context:, module_context:)
-      @assignability = assignability
+    def initialize(checker:, source:, annotations:, var_types:, ivar_types: {}, typing:, self_type:, method_context:, block_context:, module_context:)
+      @checker = checker
       @source = source
       @annotations = annotations
       @var_types = var_types
@@ -128,7 +128,7 @@ module Steep
       end
 
       self.class.new(
-        assignability: assignability,
+        checker: checker,
         source: source,
         annotations: annots,
         var_types: var_types,
@@ -174,26 +174,32 @@ module Steep
     def synthesize(node)
       case node.type
       when :begin
-        type = each_child_node(node).map do |child|
-          synthesize(child)
-        end.last
+        yield_self do
+          type = each_child_node(node).map do |child|
+            synthesize(child)
+          end.last
 
-        typing.add_typing(node, type)
+          typing.add_typing(node, type)
+        end
 
       when :lvasgn
-        var = node.children[0]
-        rhs = node.children[1]
+        yield_self do
+          var = node.children[0]
+          rhs = node.children[1]
 
-        type_assignment(var, rhs, node)
+          type_assignment(var, rhs, node)
+        end
 
       when :lvar
-        var = node.children[0]
+        yield_self do
+          var = node.children[0]
 
-        if (type = variable_type(var))
-          typing.add_typing(node, type)
-        else
-          fallback_to_any node
-          typing.add_var_type var, Types::Any.new
+          if (type = variable_type(var))
+            typing.add_typing(node, type)
+          else
+            fallback_to_any node
+            typing.add_var_type var, AST::Types::Any.new
+          end
         end
 
       when :ivasgn
@@ -219,17 +225,19 @@ module Steep
         end
 
       when :send
-        if self_class?(node)
-          module_type = module_context.module_type
-          type = if module_type.is_a?(Types::Name)
-                   Types::Name.new(name: module_type.name.updated(constructor: method_context.constructor),
-                                   params: module_type.params)
-                 else
-                   module_type
-                 end
-          typing.add_typing(node, type)
-        else
-          type_send(node, with_block: false)
+        yield_self do
+          if self_class?(node)
+            module_type = module_context.module_type
+            type = if module_type.is_a?(Types::Name)
+                     Types::Name.new(name: module_type.name.updated(constructor: method_context.constructor),
+                                     params: module_type.params)
+                   else
+                     module_type
+                   end
+            typing.add_typing(node, type)
+          else
+            type_send(node, send_node: node, block_params: nil, block_body: nil)
+          end
         end
 
       when :super
@@ -253,60 +261,63 @@ module Steep
         end
 
       when :block
-        send_node, params, block = node.children
+        yield_self do
+          send_node, params, body = node.children
+          type_send(node, send_node: send_node, block_params: params, block_body: body)
 
-        ret_type = type_send(send_node, with_block: true) do |recv_type, method_name, method_type|
-          if method_type.block
-            var_types_ = var_types.dup
-            self.class.block_param_typing_pairs(param_types: method_type.block.params, param_nodes: params.children).each do |param_node, type|
-              var = param_node.children[0]
-              var_types_[var] = type
-              typing.add_var_type(var, type)
-            end
-
-            annots = source.annotations(block: node)
-
-            block_context = BlockContext.new(body_type: annots.block_type,
-                                             break_type: method_type.return_type)
-
-            for_block = self.class.new(
-              assignability: assignability,
-              source: source,
-              annotations: annotations + annots,
-              var_types: var_types_,
-              block_context: block_context,
-              typing: typing,
-              method_context: method_context,
-              module_context: self.module_context,
-              self_type: annots.self_type || self_type
-            )
-
-            each_child_node(params) do |param|
-              for_block.synthesize(param)
-            end
-
-            case method_type.block.return_type
-            when Types::Var
-              block_type = block ? for_block.synthesize(block) : Types::Any.new
-              method_type_ = method_type.instantiate(subst: { method_type.block.return_type.name => block_type })
-              method_type_.return_type
-            else
-              if block
-                for_block.check(block, method_type.block.return_type) do |expected, actual|
-                  typing.add_error Errors::BlockTypeMismatch.new(node: node, expected: expected, actual: actual)
-                end
-              end
-
-              method_type.return_type
-            end
-
-          else
-            typing.add_error Errors::UnexpectedBlockGiven.new(node: node, type: recv_type, method: method_name)
-            nil
-          end
+          # ret_type = type_send(node: node, send_node, block_params: params, block_body: block) do |recv_type, method_name, method_type|
+          #   if method_type.block
+          #     var_types_ = var_types.dup
+          #     self.class.block_param_typing_pairs(param_types: method_type.block.params, param_nodes: params.children).each do |param_node, type|
+          #       var = param_node.children[0]
+          #       var_types_[var] = type
+          #       typing.add_var_type(var, type)
+          #     end
+          #
+          #     annots = source.annotations(block: node)
+          #
+          #     block_context = BlockContext.new(body_type: annots.block_type,
+          #                                      break_type: method_type.return_type)
+          #
+          #     for_block = self.class.new(
+          #       checker: checker,
+          #       source: source,
+          #       annotations: annotations + annots,
+          #       var_types: var_types_,
+          #       block_context: block_context,
+          #       typing: typing,
+          #       method_context: method_context,
+          #       module_context: self.module_context,
+          #       self_type: annots.self_type || self_type
+          #     )
+          #
+          #     each_child_node(params) do |param|
+          #       for_block.synthesize(param)
+          #     end
+          #
+          #     case method_type.block.return_type
+          #     when Types::Var
+          #       block_type = block ? for_block.synthesize(block) : Types::Any.new
+          #       method_type_ = method_type.instantiate(subst: { method_type.block.return_type.name => block_type })
+          #       method_type_.return_type
+          #     else
+          #       if block
+          #         for_block.check(block, method_type.block.return_type) do |expected, actual|
+          #           typing.add_error Errors::BlockTypeMismatch.new(node: node, expected: expected, actual: actual)
+          #         end
+          #       end
+          #
+          #       method_type.return_type
+          #     end
+          #
+          #   else
+          #     typing.add_error Errors::UnexpectedBlockGiven.new(node: node, type: recv_type, method: method_name)
+          #     nil
+          #   end
+          # end
+          #
+          # typing.add_typing(node, ret_type)
         end
-
-        typing.add_typing(node, ret_type)
 
       when :def
         new = for_new_method(node.children[0],
@@ -335,7 +346,7 @@ module Steep
           module_context.defined_instance_methods << node.children[0]
         end
 
-        typing.add_typing(node, Types::Any.new)
+        typing.add_typing(node, AST::Types::Any.new)
 
       when :defs
         synthesize(node.children[0]).tap do |self_type|
@@ -384,7 +395,7 @@ module Steep
           end
         end
 
-        typing.add_typing(node, Types::Any.new)
+        typing.add_typing(node, AST::Types::Any.new)
 
       when :break
         value = node.children[0]
@@ -401,7 +412,7 @@ module Steep
           end
         end
 
-        typing.add_typing(node, Types::Any.new)
+        typing.add_typing(node, AST::Types::Any.new)
 
       when :arg, :kwarg, :procarg0
         var = node.children[0]
@@ -417,19 +428,19 @@ module Steep
         type_assignment(var, rhs, node)
 
       when :int
-        typing.add_typing(node, Types::Name.instance(name: :Integer))
+        typing.add_typing(node, AST::Types::Name.new_instance(name: :Integer))
 
       when :nil
-        typing.add_typing(node, Types::Any.new)
+        typing.add_typing(node, AST::Types::Any.new)
 
       when :sym
-        typing.add_typing(node, Types::Name.instance(name: :Symbol))
+        typing.add_typing(node, AST::Types::Name.new_instance(name: :Symbol))
 
       when :str
-        typing.add_typing(node, Types::Name.instance(name: :String))
+        typing.add_typing(node, AST::Types::Name.new_instance(name: :String))
 
       when :true, :false
-        typing.add_typing(node, Types::Name.interface(name: :_Boolean))
+        typing.add_typing(node, AST::Types::Name.new_interface(name: :_Boolean))
 
       when :hash
         each_child_node(node) do |pair|
@@ -453,7 +464,7 @@ module Steep
           synthesize(child)
         end
 
-        typing.add_typing(node, Types::Name.instance(name: :Symbol))
+        typing.add_typing(node, ASt::Types::Name.new_instance(name: :Symbol))
 
       when :class
         for_class(node).tap do |constructor|
@@ -461,12 +472,12 @@ module Steep
           constructor.validate_method_definitions(node)
         end
 
-        typing.add_typing(node, Types::Name.instance(name: :NilClass))
+        typing.add_typing(node, AST::Types::Name.new_instance(name: :NilClass))
 
       when :module
         annots = source.annotations(block: node)
 
-        module_type = Types::Name.instance(name: :Module)
+        module_type = AST::Types::Name.new_instance(name: :Module)
 
         if annots.implement_module
           signature = assignability.signatures[annots.implement_module]
@@ -633,7 +644,7 @@ module Steep
     def check(node, type)
       type_ = synthesize(node)
 
-      unless assignability.test(src: type_, dest: type)
+      unless checker.check(Subtyping::Constraint.new(sub_type: type_, super_type: type)).success?
         yield(type, type_)
       end
     end
@@ -730,30 +741,127 @@ module Steep
       end
     end
 
-    def type_send(node, with_block:, &block)
-      receiver, method_name, *args = node.children
+    def type_send(node, send_node:, block_params:, block_body:)
+      receiver, method_name, *arguments = send_node.children
       receiver_type = receiver ? synthesize(receiver) : self_type
 
       if receiver_type
-        ret_type = assignability.method_type receiver_type, method_name do |method|
-          if method
-            type_method_call(node: node,
-                             receiver_type: receiver_type,
-                             method_name: method_name,
-                             arguments: args,
-                             method_types: method.types,
-                             with_block: with_block,
-                             &block)
+        methods = find_methods(receiver_type, method_name)
+        if methods
+          args = TypeInference::SendArgs.from_nodes(arguments)
+          params = block_params && TypeInference::BlockParams.from_node(block_params)
+
+          ret_types = methods.map do |method|
+            method.types.map do |method_type|
+              subst = Interface::Substitution.build(method_type.type_params)
+              method_type = method_type.instantiate(subst)
+
+              pairs = args.zip(method_type.params)
+              if pairs
+                type_method_call(node,
+                                 arg_pairs: pairs,
+                                 method_type: method_type,
+                                 block_params: params,
+                                 block_body: block_body)
+              end
+            end.compact.first
+          end
+
+          if ret_types.any?(&:nil?)
+            fallback_to_any node do
+              Errors::ArgumentTypeMismatch.new(node: node, method: method_name, type: receiver_type)
+            end
           else
-            args.each {|arg| synthesize(arg) }
-            typing.add_error Errors::NoMethod.new(node: node, method: method_name, type: receiver_type)
-            nil
+            typing.add_typing node, union_type(*ret_types)
+          end
+        else
+          arguments.each {|arg| synthesize(arg) }
+          if receiver_type.is_a?(AST::Types::Any)
+            typing.add_typing node, AST::Types::Any.new
+          else
+            fallback_to_any node do
+              Errors::NoMethod.new(node: node, method: method_name, type: receiver_type)
+            end
           end
         end
-
-        typing.add_typing node, ret_type
       else
         fallback_to_any node
+      end
+    end
+
+    def type_method_call(node, arg_pairs:, method_type:, block_params:, block_body:)
+      arg_constraints = arg_pairs.map do |(arg_node, param_type)|
+        Subtyping::Constraint.new(
+          sub_type: synthesize(arg_node),
+          super_type: param_type
+        )
+      end
+
+      unless arg_constraints.all? {|constraint| checker.check(constraint).success? }
+        return
+      end
+
+      return_type = method_type.return_type
+
+      if method_type.block
+        if block_params && block_body
+          var_types_ = var_types.dup
+
+          block_params.zip(method_type.block.params).each do |(var, value, type)|
+            var_types_[var] = type
+            typing.add_var_type(var, type)
+
+            for_block.synthesize(value) if value
+          end
+
+          annots = source.annotations(block: node)
+
+          block_context = BlockContext.new(body_type: annots.block_type,
+                                           break_type: method_type.return_type)
+
+          for_block = self.class.new(
+            checker: checker,
+            source: source,
+            annotations: annotations + annots,
+            var_types: var_types_,
+            block_context: block_context,
+            typing: typing,
+            method_context: method_context,
+            module_context: self.module_context,
+            self_type: annots.self_type || self_type
+          )
+
+          if method_type.return_type.is_a?(AST::Types::Var) && method_type.block.return_type == method_type.return_type
+            block_type = for_block.synthesize(block_body)
+            return_type = block_type
+          else
+            for_block.check(block_body, method_type.block.return_type) do |expected, actual|
+              typing.add_error Errors::BlockTypeMismatch.new(node: node, expected: expected, actual: actual)
+            end
+          end
+        end
+      end
+
+      return_type
+    end
+
+    def find_methods(type, method_name)
+      case type
+      when AST::Types::Name
+        abstract_interface = checker.builder.build(type.name)
+        interface = abstract_interface.instantiate(
+          type: type,
+          args: type.args,
+          instance_type: type,
+          module_type: checker.module_type(type)
+        )
+        method = interface.methods[method_name]
+        if method
+          [method]
+        end
+      when AST::Types::Union
+      else
+        nil
       end
     end
 
@@ -764,7 +872,7 @@ module Steep
     def each_child_node(node)
       if block_given?
         node.children.each do |child|
-          if child.is_a?(AST::Node)
+          if child.is_a?(::AST::Node)
             yield child
           end
         end
@@ -954,12 +1062,12 @@ module Steep
     end
 
     def union_type(*types)
-      types_ = assignability.compact(types.compact)
+      types_ = checker.compact(types.compact)
 
       if types_.size == 1
         types_.first
       else
-        Types::Union.new(types: types_)
+        AST::Types::Union.new(types: types_)
       end
     end
 
@@ -1017,8 +1125,13 @@ module Steep
     end
 
     def fallback_to_any(node)
-      typing.add_error Errors::FallbackAny.new(node: node)
-      typing.add_typing node, Types::Any.new
+      if block_given?
+        typing.add_error yield
+      else
+        typing.add_error Errors::FallbackAny.new(node: node)
+      end
+
+      typing.add_typing node, AST::Types::Any.new
     end
 
     def self_class?(node)

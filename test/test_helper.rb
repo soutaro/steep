@@ -33,6 +33,10 @@ module TestHelper
     type = Steep::Parser.parse_method(string)
     Steep::Interface::Method.new(types: [type], super_method: super_method, attributes: attributes)
   end
+
+  def parse_ruby(string)
+    Steep::Source.parse(string, path: Pathname("test.rb"))
+  end
 end
 
 module TypeErrorAssertions
