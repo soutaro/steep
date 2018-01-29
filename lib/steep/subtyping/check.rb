@@ -50,49 +50,21 @@ module Steep
         when constraint.sub_type.is_a?(AST::Types::Any) || constraint.super_type.is_a?(AST::Types::Any)
           success
 
-        when constraint.sub_type.is_a?(AST::Types::Name) && constraint.super_type.is_a?(AST::Types::Name)
-          sub = constraint.sub_type
-          sub_type = builder.build(sub.name).instantiate(type: sub,
-                                                         args: sub.args,
-                                                         instance_type: sub.instance_type,
-                                                         module_type: module_type(sub))
-
-          sup = constraint.super_type
-          super_type = builder.build(sup.name).instantiate(type: sup,
-                                                           args: sup.args,
-                                                           instance_type: sup.instance_type,
-                                                           module_type: module_type(sup))
-
-          check_interface(sub_type, super_type, assumption: assumption, trace: trace)
-
         when !constraint.sub_type.is_a?(AST::Types::Var) && constraint.super_type.is_a?(AST::Types::Var)
           success
 
-        when constraint.sub_type.is_a?(AST::Types::Union)
-          results = constraint.sub_type.types.map do |sub_type|
-            check(Constraint.new(sub_type: sub_type, super_type: constraint.super_type), assumption: assumption, trace: trace)
-          end
-
-          if results.all?(&:failure?)
-            results.find(&:failure?)
-          else
-            success
-          end
-
-        when constraint.super_type.is_a?(AST::Types::Union)
-          results = constraint.super_type.types.map do |super_type|
-            check(Constraint.new(sub_type: constraint.sub_type, super_type: super_type), assumption: assumption, trace: trace)
-          end
-
-          if results.all?(&:success?)
-            success
-          else
-            results.find(&:failure?)
-          end
-
         else
-          failure(error: Result::Failure::UnknownPairError.new(constraint: constraint),
-                  trace: trace)
+          begin
+            sub_interface = resolve(constraint.sub_type)
+            super_interface = resolve(constraint.super_type)
+
+            check_interface(sub_interface, super_interface, assumption: assumption, trace: trace)
+
+          rescue => exn
+            STDERR.puts exn.inspect
+            failure(error: Result::Failure::UnknownPairError.new(constraint: constraint),
+                    trace: trace)
+          end
         end
       end
 
@@ -339,6 +311,86 @@ module Steep
               [type, type_]
             end
           end.uniq
+        end
+      end
+
+      def resolve(type)
+        case type
+        when AST::Types::Any, AST::Types::Var, AST::Types::Class, AST::Types::Instance
+          raise "Cannot resolve type to interface: #{type}"
+        when AST::Types::Name
+          builder.build(type.name).instantiate(
+            type: type,
+            args: type.args,
+            instance_type: type.instance_type,
+            module_type: module_type(type)
+          )
+        when AST::Types::Union
+          interfaces = type.types.map do |type| resolve(type) end
+
+          methods = interfaces.inject(nil) do |methods, i|
+            if methods
+              intersection = {}
+              i.methods.each do |name, method|
+                if methods.key?(name)
+                  case
+                  when method == methods[name]
+                  when check_method(name, method, methods[name], assumption: Set.new, trace: Trace.new).success?
+                    intersection[name] = methods[name]
+                  when check_method(name, methods[name], method, assumption: Set.new, trace: Trace.new).success?
+                    intersection[name] = method
+                  else
+                    intersection[name] = Interface::Method.new(
+                      type_name: nil,
+                      name: name,
+                      types: methods[name].types + method.types,
+                      super_method: nil,
+                      attributes: []
+                    )
+                  end
+                end
+              end
+              intersection
+            else
+              i.methods
+            end
+          end
+
+          Interface::Instantiated.new(type: type, methods: methods)
+
+        when AST::Types::Intersection
+          interfaces = type.types.map do |type| resolve(type) end
+
+          methods = interfaces.inject(nil) do |methods, i|
+            if methods
+              i.methods.each do |name, method|
+                if methods.key?(name)
+                  case
+                  when method == methods[name]
+                  when check_method(name, method, methods[name], assumption: Set.new, trace: Trace.new).success?
+                    methods[name] = method
+                  when check_method(name, methods[name], method, assumption: Set.new, trace: Trace.new).success?
+                    methods[name] = methods[name]
+                  else
+                    methods[name] = Interface::Method.new(
+                      type_name: nil,
+                      name: name,
+                      types: [],
+                      super_method: nil,
+                      attributes: []
+                    )
+                  end
+                else
+                  methods[name] = i.methods[name]
+                end
+              end
+              methods
+            else
+              i.methods
+            end
+          end
+
+          Interface::Instantiated.new(type: type, methods: methods)
         end
       end
     end

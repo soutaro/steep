@@ -105,7 +105,7 @@ end
 
     assert_instance_of Interface::Abstract, interface
     assert_equal TypeName::Instance.new(name: :A), interface.name
-    assert_empty interface.constraints
+    assert_empty interface.supers
 
     interface.methods[:foo].tap do |method|
       assert_instance_of Interface::Method, method
@@ -152,7 +152,7 @@ end
 
     assert_instance_of Interface::Abstract, interface
     assert_equal TypeName::Instance.new(name: :B), interface.name
-    assert_empty interface.constraints
+    assert_empty interface.supers
 
     interface.methods[:foo].tap do |method|
       assert_instance_of Interface::Method, method
@@ -193,7 +193,7 @@ end
 
     assert_instance_of Interface::Abstract, interface
     assert_equal TypeName::Instance.new(name: :A), interface.name
-    assert_empty interface.constraints
+    assert_empty interface.supers
 
     interface.methods[:foo].tap do |method|
       assert_instance_of Interface::Method, method
@@ -241,7 +241,7 @@ end
 
     assert_instance_of Interface::Abstract, interface
     assert_equal TypeName::Instance.new(name: :B), interface.name
-    assert_empty interface.constraints
+    assert_empty interface.supers
 
     interface.methods[:foo].tap do |method|
       assert_instance_of Interface::Method, method
@@ -286,7 +286,7 @@ end
 
     assert_instance_of Interface::Abstract, interface
     assert_equal TypeName::Instance.new(name: :C), interface.name
-    assert_empty interface.constraints
+    assert_empty interface.supers
 
     interface.methods[:foo].tap do |method|
       assert_instance_of Interface::Method, method
@@ -343,7 +343,7 @@ end
 
     assert_instance_of Interface::Abstract, interface
     assert_equal TypeName::Module.new(name: :A), interface.name
-    assert_empty interface.constraints
+    assert_empty interface.supers
 
     assert_nil interface.methods[:foo]
 
@@ -405,7 +405,7 @@ end
 
     assert_instance_of Interface::Abstract, interface
     assert_equal TypeName::Class.new(name: :A, constructor: nil), interface.name
-    assert_empty interface.constraints
+    assert_empty interface.supers
 
     interface.methods[:foo].tap do |method|
       assert_instance_of Interface::Method, method
@@ -455,7 +455,7 @@ end
 
     assert_instance_of Interface::Abstract, interface
     assert_equal TypeName::Class.new(name: :A, constructor: true), interface.name
-    assert_empty interface.constraints
+    assert_empty interface.supers
 
     interface.methods[:new].tap do |method|
       assert_instance_of Interface::Method, method

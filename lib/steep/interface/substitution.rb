@@ -12,7 +12,7 @@ module Steep
       end
 
       def self.empty
-        new(dictionary: {}, instance_type: nil, module_type: nil)
+        new(dictionary: {}, instance_type: AST::Types::Instance.new, module_type: AST::Types::Class.new)
       end
 
       def [](key)
@@ -23,7 +23,7 @@ module Steep
         dictionary.key?(var)
       end
 
-      def self.build(vars, types = nil, instance_type: nil, module_type: nil)
+      def self.build(vars, types = nil, instance_type: AST::Types::Instance.new, module_type: AST::Types::Class.new)
         types ||= vars.map {|var| AST::Types::Var.fresh(var) }
 
         raise "Invalid substitution: vars.size=#{vars.size}, types.size=#{types.size}" unless vars.size == types.size

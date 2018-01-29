@@ -9,6 +9,7 @@ class BasicObject
 end
 
 class Object <: BasicObject
+  def class: () -> class
 end
 
 class Class<'instance>
@@ -24,6 +25,11 @@ end
 
 class Integer
   def to_int: -> Integer
+end
+
+class Array<'a>
+  def []: (Integer) -> 'a
+  def []=: (Integer, 'a) -> 'a
 end
   EOB
 
@@ -287,11 +293,12 @@ end
 
     result = checker.check(
       Subtyping::Constraint.new(
-        sub_type: AST::Types::Union.new(types: [AST::Types::Name.new_instance(name: :Object),
+        sub_type: AST::Types::Name.new_instance(name: :String),
+        super_type: AST::Types::Union.new(types: [AST::Types::Name.new_instance(name: :Object),
                                                 AST::Types::Name.new_instance(name: :String)]),
-        super_type: AST::Types::Name.new_instance(name: :String)
       )
     )
+
     assert_instance_of Subtyping::Result::Success, result
 
     result = checker.check(
@@ -302,7 +309,7 @@ end
       )
     )
     assert_instance_of Subtyping::Result::Failure, result
-    assert_equal 2, result.trace.size
+    assert_equal 7, result.trace.size
 
     result = checker.check(
       Subtyping::Constraint.new(
@@ -320,6 +327,72 @@ end
                                                   AST::Types::Name.new_instance(name: :String)]),
         )
     )
+    assert_instance_of Subtyping::Result::Success, result
+  end
+
+  def test_intersection
+    checker = new_checker(<<-EOS)
+    EOS
+
+    result = checker.check(
+      Subtyping::Constraint.new(
+        sub_type: AST::Types::Name.new_instance(name: :String),
+        super_type: AST::Types::Intersection.new(types: [
+          AST::Types::Name.new_instance(name: :Object),
+          AST::Types::Name.new_instance(name: :String)]),
+        )
+    )
+
+    assert_instance_of Subtyping::Result::Success, result
+
+    result = checker.check(
+      Subtyping::Constraint.new(
+        sub_type: AST::Types::Intersection.new(types: [
+          AST::Types::Name.new_instance(name: :Object),
+          AST::Types::Name.new_instance(name: :Integer)
+        ]),
+        super_type: AST::Types::Name.new_instance(name: :String)
+      )
+    )
     assert_instance_of Subtyping::Result::Failure, result
+    assert_equal 7, result.trace.size
+
+    result = checker.check(
+      Subtyping::Constraint.new(
+        sub_type: AST::Types::Name.new_instance(name: :Object),
+        super_type: AST::Types::Intersection.new(types: [
+          AST::Types::Name.new_instance(name: :Integer),
+          AST::Types::Name.new_instance(name: :String)]),
+        )
+    )
+    assert_instance_of Subtyping::Result::Failure, result
+  end
+
+  def test_resolve1
+    checker = new_checker("")
+
+    interface = checker.resolve(AST::Types::Union.new(types: [
+      AST::Types::Name.new_instance(name: :String),
+      AST::Types::Name.new_instance(name: :Integer)
+    ]))
+
+    assert_equal [:class], interface.methods.keys
+    assert_equal [AST::Types::Name.new_class(name: :String, constructor: nil),
+                  AST::Types::Name.new_class(name: :Integer, constructor: nil)],
+                 interface.methods[:class].types.map(&:return_type)
+  end
+
+  def test_resolve2
+    checker = new_checker("")
+
+    interface = checker.resolve(AST::Types::Intersection.new(types: [
+      AST::Types::Name.new_instance(name: :String),
+      AST::Types::Name.new_instance(name: :Integer)
+    ]))
+
+    assert_equal [:class, :to_str, :to_int], interface.methods.keys
+    assert_equal [], interface.methods[:class].types
+    assert_equal [AST::Types::Name.new_instance(name: :String)], interface.methods[:to_str].types.map(&:return_type)
+    assert_equal [AST::Types::Name.new_instance(name: :Integer)], interface.methods[:to_int].types.map(&:return_type)
   end
 end

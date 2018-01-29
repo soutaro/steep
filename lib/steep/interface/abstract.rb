@@ -5,13 +5,13 @@ module Steep
       attr_reader :kind
       attr_reader :params
       attr_reader :methods
-      attr_reader :constraints
+      attr_reader :supers
 
-      def initialize(name:, params:, methods:, constraints:)
+      def initialize(name:, params:, methods:, supers:)
         @name = name
         @params = params
         @methods = methods
-        @constraints = constraints
+        @supers = supers
       end
 
       def ==(other)
@@ -19,7 +19,7 @@ module Steep
           other.name == name &&
           other.params == params &&
           other.methods == methods &&
-          other.constraints == constraints
+          other.supers == supers
       end
 
       def instantiate(type:, args:, instance_type:, module_type:)

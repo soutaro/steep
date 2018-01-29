@@ -41,7 +41,7 @@ module Steep
             when ModuleType
               @module_type = annotation.type
             when Implements
-              @implement_module = annotation.module_name
+              @implement_module = annotation
             when IvarType
               ivar_types[annotation.name] = annotation.type
             when Dynamic

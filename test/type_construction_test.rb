@@ -28,6 +28,7 @@ class Class<'a>
 end
 
 class Module
+  def block_given?: -> any
 end
   EOS
 
@@ -63,7 +64,7 @@ interface _PolyMethod
   def try: <'a> { (any) -> 'a } -> 'a
 end
 
-module Foo
+module Foo<'a>
 end
   EOS
 
@@ -1009,7 +1010,7 @@ string = poly.try { "string" }
   def test_module_self
     source = parse_ruby(<<-EOF)
 module Foo
-  # @implements Foo
+  # @implements Foo<String>
   
   block_given?
 end

@@ -55,10 +55,10 @@ module Steep
         end
       end
 
-      def merge_mixin(type_name, args, methods:, constraints:)
+      def merge_mixin(type_name, args, methods:, supers:)
         mixed = build(type_name)
 
-        constraints.push(*mixed.constraints)
+        supers.push(*mixed.supers)
         instantiated = mixed.instantiate(
           type: nil,
           args: args,
@@ -98,7 +98,7 @@ module Steep
         type_name = TypeName::Class.new(name: sig.name, constructor: constructor)
 
         params = sig.params&.variables || []
-        constraints = []
+        supers = []
         methods = {}
 
         klass = build(TypeName::Instance.new(name: :Class))
@@ -115,7 +115,7 @@ module Steep
           merge_mixin(TypeName::Class.new(name: super_class_name, constructor: constructor),
                       [],
                       methods: methods,
-                      constraints: constraints)
+                      supers: supers)
         end
 
         sig.members.each do |member|
@@ -124,12 +124,12 @@ module Steep
             merge_mixin(TypeName::Module.new(name: member.name),
                         member.args,
                         methods: methods,
-                        constraints: constraints)
+                        supers: supers)
           when AST::Signature::Members::Extend
             merge_mixin(TypeName::Instance.new(name: member.name),
                         member.args,
                         methods: methods,
-                        constraints: constraints)
+                        supers: supers)
           end
         end
 
@@ -160,7 +160,7 @@ module Steep
           name: type_name,
           params: params,
           methods: methods,
-          constraints: constraints
+          supers: supers
         )
       end
 
@@ -168,7 +168,7 @@ module Steep
         type_name = TypeName::Module.new(name: sig.name)
 
         params = sig.params&.variables || []
-        constraints = []
+        supers = []
         methods = {}
 
         module_instance = build(TypeName::Instance.new(name: :Module))
@@ -186,12 +186,12 @@ module Steep
             merge_mixin(TypeName::Module.new(name: member.name),
                         member.args,
                         methods: methods,
-                        constraints: constraints)
+                        supers: supers)
           when AST::Signature::Members::Extend
             merge_mixin(TypeName::Instance.new(name: member.name),
                         member.args,
                         methods: methods,
-                        constraints: constraints)
+                        supers: supers)
           end
         end
 
@@ -208,7 +208,7 @@ module Steep
           name: type_name,
           params: params,
           methods: methods,
-          constraints: constraints
+          supers: supers
         )
       end
 
@@ -216,7 +216,7 @@ module Steep
         type_name = TypeName::Instance.new(name: sig.name)
 
         params = sig.params&.variables || []
-        constraints = []
+        supers = []
         methods = {}
 
         if sig.is_a?(AST::Signature::Class)
@@ -224,7 +224,7 @@ module Steep
             super_class_name = sig.super_class&.name || :Object
             super_class_interface = build(TypeName::Instance.new(name: super_class_name))
 
-            constraints.push(*super_class_interface.constraints)
+            supers.push(*super_class_interface.supers)
             instantiated = super_class_interface.instantiate(
               type: nil,
               args: sig.super_class&.args || [],
@@ -238,7 +238,7 @@ module Steep
 
         if sig.is_a?(AST::Signature::Module)
           if sig.self_type
-            constraints << Constraint.new(subtype: Types::Instance.new, super_type: sig.self_type)
+            supers << sig.self_type
           end
         end
 
@@ -248,7 +248,7 @@ module Steep
             merge_mixin(TypeName::Instance.new(name: member.name),
                         member.args,
                         methods: methods,
-                        constraints: constraints)
+                        supers: supers)
           end
         end
 
@@ -265,7 +265,7 @@ module Steep
           name: type_name,
           params: params,
           methods: methods,
-          constraints: constraints
+          supers: supers
         )
       end
 
@@ -289,7 +289,7 @@ module Steep
           name: type_name,
           params: variables,
           methods: methods,
-          constraints: []
+          supers: []
         )
       end
 

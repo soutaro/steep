@@ -50,15 +50,18 @@ module Steep
       class Implements
         attr_reader :location
         attr_reader :module_name
+        attr_reader :module_args
 
-        def initialize(module_name:, location:)
+        def initialize(module_name:, module_args:, location:)
           @location = location
           @module_name = module_name
+          @module_args = module_args
         end
 
         def ==(other)
           other.is_a?(Implements) &&
             other.module_name == module_name &&
+            other.module_args == module_args &&
             other.location == location
         end
       end
