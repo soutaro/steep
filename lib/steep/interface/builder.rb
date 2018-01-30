@@ -174,7 +174,7 @@ module Steep
         type_name = TypeName::Module.new(name: sig.name)
 
         params = sig.params&.variables || []
-        supers = [sig.self_type]
+        supers = [sig.self_type].compact
         methods = {}
 
         module_instance = build(TypeName::Instance.new(name: :Module))

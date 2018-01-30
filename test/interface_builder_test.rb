@@ -419,12 +419,7 @@ end
       assert_nil method.super_method
     end
 
-    interface.methods[:new].tap do |method|
-      assert_instance_of Interface::Method, method
-      assert_equal "(*any, **any) -> 'a", method.types[0].location.source
-      assert_equal Types::Instance.new, method.types[0].return_type
-      assert_nil method.super_method
-    end
+    assert_nil interface.methods[:new]
   end
 
   def test_class_to_interface_constructor

@@ -21,10 +21,12 @@ end
 
 class String
   def to_str: -> String
+  def self.try_convert: (any) -> String
 end
 
 class Integer
   def to_int: -> Integer
+  def self.sqrt: (Integer) -> Integer
 end
 
 class Array<'a>
@@ -309,7 +311,7 @@ end
       )
     )
     assert_instance_of Subtyping::Result::Failure, result
-    assert_equal 7, result.trace.size
+    assert_equal 1, result.trace.size
 
     result = checker.check(
       Subtyping::Constraint.new(
@@ -355,7 +357,7 @@ end
       )
     )
     assert_instance_of Subtyping::Result::Failure, result
-    assert_equal 7, result.trace.size
+    assert_equal 1, result.trace.size
 
     result = checker.check(
       Subtyping::Constraint.new(
