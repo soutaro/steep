@@ -26,9 +26,11 @@ module Steep
             raise "Duplicated interface: #{sig.name}" if interfaces.key?(sig.name)
             interfaces[sig.name] = sig
           when Signature::Extension
-            key = [sig.module_name, sig.name]
-            raise "Duplicated extension: #{sig.module_name} (#{sig.name})" if extensions.key?(key)
-            extensions[key] = sig
+            extensions[sig.module_name] ||= []
+            if extensions[sig.module_name].any? {|ext| ext.name == sig.name }
+              raise "Duplicated extension: #{sig.module_name} (#{sig.name})"
+            end
+            extensions[sig.module_name] << sig
           else
             raise "Unknown signature:: #{sig}"
           end
@@ -46,8 +48,8 @@ module Steep
           modules[name] || classes[name] or raise "Unknown class/module: #{name}"
         end
 
-        def find_extension(name, extension)
-          extensions[[name, extension]] or raise "Unknown extension: #{name} (#{extension})"
+        def find_extensions(name)
+          (extensions[name] || [])
         end
 
         def find_interface(name)

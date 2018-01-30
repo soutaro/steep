@@ -58,7 +58,7 @@ module Steep
       end
 
       def merge_mixin(type_name, args, methods:, supers:)
-        mixed = build(type_name)
+        mixed = block_given? ? yield : build(type_name)
 
         supers.push(*mixed.supers)
         instantiated = mixed.instantiate(
@@ -263,6 +263,17 @@ module Steep
           when AST::Signature::Members::Method
             if member.instance_method?
               unless member.name == :initialize
+                add_method(type_name, member, methods: methods)
+              end
+            end
+          end
+        end
+
+        signatures.find_extensions(sig.name).each do |ext|
+          ext.members.each do |member|
+            case member
+            when AST::Signature::Members::Method
+              if member.instance_method?
                 add_method(type_name, member, methods: methods)
               end
             end

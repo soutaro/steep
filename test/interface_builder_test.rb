@@ -483,4 +483,36 @@ end
       builder.build(TypeName::Instance.new(name: :A))
     end
   end
+
+  def test_instance_with_extension
+    sigs = parse_signature(<<-EOF)
+class BasicObject
+end
+
+class Object <: BasicObject
+end
+
+extension Object (Pathname)
+  def pathname: (any) -> any
+end
+    EOF
+
+    env = Signature::Env.new
+    sigs.each do |sig|
+      env.add sig
+    end
+
+    builder = Builder.new(signatures: env)
+
+    sig = env.find_class(:Object)
+    interface = builder.instance_to_interface(sig)
+
+    assert_instance_of Interface::Abstract, interface
+
+    interface.methods[:pathname].tap do |method|
+      assert_instance_of Interface::Method, method
+      assert_equal "(any) -> any", method.types[0].location.source
+      assert_nil method.super_method
+    end
+  end
 end

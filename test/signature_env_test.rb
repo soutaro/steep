@@ -80,6 +80,6 @@ end
 
     env.add(extension)
 
-    assert_equal extension, env.find_extension(:Object, :Foo)
+    assert_equal [extension], env.find_extensions(:Object)
   end
 end
