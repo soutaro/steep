@@ -4,6 +4,7 @@ class AnnotationParsingTest < Minitest::Test
   Parser = Steep::Parser
   include TestHelper
   include ASTAssertion
+  ModuleName = Steep::ModuleName
   
   def parse_annotation(source)
     Parser.parse_annotation_opt(source, buffer: Steep::AST::Buffer.new(name: nil, content: source))
@@ -92,14 +93,14 @@ class AnnotationParsingTest < Minitest::Test
   def test_implements
     annot = parse_annotation("@implements String")
     assert_instance_of Steep::AST::Annotation::Implements, annot
-    assert_equal :String, annot.module_name
+    assert_equal ModuleName.parse(:String), annot.module_name
     assert_empty annot.module_args
   end
 
   def test_implement2
     annot = parse_annotation("@implements Array<String>")
     assert_instance_of Steep::AST::Annotation::Implements, annot
-    assert_equal :Array, annot.module_name
+    assert_equal ModuleName.parse(:Array), annot.module_name
     assert_equal [Steep::AST::Types::Name.new_instance(name: :String)], annot.module_args
   end
 

@@ -36,18 +36,21 @@ module Steep
         end
 
         def self.new_module(location: nil, name:, args: [])
+          name = ModuleName.parse(name) unless name.is_a?(ModuleName)
           new(location: location,
               name: TypeName::Module.new(name: name),
               args: args)
         end
 
         def self.new_class(location: nil, name:, constructor:, args: [])
+          name = ModuleName.parse(name) unless name.is_a?(ModuleName)
           new(location: location,
               name: TypeName::Class.new(name: name, constructor: constructor),
               args: args)
         end
 
         def self.new_instance(location: nil, name:, args: [])
+          name = ModuleName.parse(name) unless name.is_a?(ModuleName)
           new(location: location,
               name: TypeName::Instance.new(name: name),
               args: args)

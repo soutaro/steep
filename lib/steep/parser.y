@@ -135,41 +135,39 @@ block_params2: { result = nil }
                  result = AST::MethodType::Params::Rest.new(location: val[0].first, type: val[0].last)
                }
 
-simple_type: INTERFACE_NAME {
-        result = AST::Types::Name.new_interface(location: val[0].location, name: val[0].value)
+simple_type: type_name {
+        result = AST::Types::Name.new(name: val[0].value, location: val[0].location, args: [])
       }
-    | INTERFACE_NAME LT type_seq GT {
-        loc = val[0].location + val [3].location
-        name = val[0].value
-        args = val[2]
-        result = AST::Types::Name.new_interface(location: loc, name: name, args: args)
-      }
-    | MODULE_NAME {
-        result = AST::Types::Name.new_instance(location: val[0].location, name: val[0].value)
-      }
-    | MODULE_NAME LT type_seq GT {
+    | type_name LT type_seq GT {
         loc = val[0].location + val[3].location
         name = val[0].value
-        result = AST::Types::Name.new_instance(location: loc, name: name, args: val[2])
-      }
-    | CLASS_IDENT constructor {
-        loc = if val[1]
-                val[0].location + val[1].location
-              else
-                val[0].location
-              end
-        name = val[0].value
-
-        result = AST::Types::Name.new_class(location: loc, name: name, constructor: val[1]&.value)
-      }
-    | MODULE_IDENT {
-        result = AST::Types::Name.new_module(location: val[0].location, name: val[0].value)
+        args = val[2]
+        result = AST::Types::Name.new(location: loc, name: name, args: args)
       }
     | ANY { result = AST::Types::Any.new(location: val[0].location) }
     | TVAR { result = AST::Types::Var.new(location: val[0].location, name: val[0].value) }
     | CLASS { result = AST::Types::Class.new(location: val[0].location) }
     | MODULE { result = AST::Types::Class.new(location: val[0].location) }
     | INSTANCE { result = AST::Types::Instance.new(location: val[0].location) }
+
+type_name: module_name {
+             result = LocatedValue.new(value: TypeName::Instance.new(name: val[0].value),
+                                       location: val[0].location)
+           }
+         | module_name DOT CLASS constructor {
+             loc = val[0].location + (val[3] || val[2]).location
+             result = LocatedValue.new(value: TypeName::Class.new(name: val[0].value, constructor: val[3]&.value),
+                                       location: loc)
+           }
+         | module_name DOT MODULE {
+             loc = val[0].location + val.last.location
+             result = LocatedValue.new(value: TypeName::Module.new(name: val[0].value),
+                                       location: loc)
+           }
+         | INTERFACE_NAME {
+             result = LocatedValue.new(value: TypeName::Interface.new(name: val[0].value),
+                                       location: val[0].location)
+           }
 
 constructor: { result = nil }
            | CONSTRUCTOR
@@ -212,7 +210,7 @@ interface: INTERFACE interface_name type_params interface_members END {
                methods: val[3]
              )
            }
-class_decl: CLASS class_name type_params super_opt class_members END {
+class_decl: CLASS module_name type_params super_opt class_members END {
               loc = val.first.location + val.last.location
               result = AST::Signature::Class.new(name: val[1].value,
                                                  params: val[2],
@@ -220,7 +218,7 @@ class_decl: CLASS class_name type_params super_opt class_members END {
                                                  members: val[4],
                                                  location: loc)
             }
-module_decl: MODULE class_name type_params self_type_opt class_members END {
+module_decl: MODULE module_name type_params self_type_opt class_members END {
                loc = val.first.location + val.last.location
                result = AST::Signature::Module.new(name: val[1].value,
                                                    location: loc,
@@ -228,7 +226,7 @@ module_decl: MODULE class_name type_params self_type_opt class_members END {
                                                    self_type: val[3],
                                                    members: val[4])
              }
-extension_decl: EXTENSION class_name type_params LPAREN MODULE_NAME RPAREN class_members END {
+extension_decl: EXTENSION module_name type_params LPAREN UIDENT RPAREN class_members END {
                   loc = val.first.location + val.last.location
                   result = AST::Signature::Extension.new(module_name: val[1].value,
                                                          name: val[4].value,
@@ -241,7 +239,21 @@ self_type_opt: { result = nil }
              | COLON type { result = val[1] }
 
 interface_name: INTERFACE_NAME
-class_name: MODULE_NAME
+
+module_name: module_name0
+           | COLON2 module_name0 {
+               loc = val.first.location + val.last.location
+               result = LocatedValue.new(location: loc, value: val[1].value.absolute!)
+             }
+
+module_name0: UIDENT {
+                result = LocatedValue.new(location: val[0].location, value: ModuleName.parse(val[0].value))
+              }
+           | UIDENT COLON2 module_name {
+               location = val[0].location + val.last.location
+               name = ModuleName.parse(val[0].value) + val.last.value
+               result = LocatedValue.new(location: location, value: name)
+             }
 
 class_members: { result = [] }
              | class_member class_members { result = [val[0]] + val[1] }
@@ -282,22 +294,22 @@ module_instance_method_member: DEF constructor_method SELFQ DOT method_name COLO
                                    attributes: [val[1] ? :constructor : nil].compact
                                  )
                                }
-include_member: INCLUDE MODULE_NAME {
+include_member: INCLUDE module_name {
                   loc = val.first.location + val.last.location
                   name = val[1].value
                   result = AST::Signature::Members::Include.new(name: name, location: loc, args: [])
                 }
-              | INCLUDE MODULE_NAME LT type_seq GT {
+              | INCLUDE module_name LT type_seq GT {
                   loc = val.first.location + val.last.location
                   name = val[1].value
                   result = AST::Signature::Members::Include.new(name: name, location: loc, args: val[3])
                 }
-extend_member: EXTEND MODULE_NAME {
+extend_member: EXTEND module_name {
                  loc = val.first.location + val.last.location
                  name = val[1].value
                  result = AST::Signature::Members::Extend.new(name: name, location: loc, args: [])
                }
-             | EXTEND MODULE_NAME LT type_seq GT {
+             | EXTEND module_name LT type_seq GT {
                  loc = val.first.location + val.last.location
                  name = val[1].value
                  result = AST::Signature::Members::Extend.new(name: name, location: loc, args: val[3])
@@ -309,10 +321,10 @@ constructor_method: { result = false }
 super_opt: { result = nil }
          | LTCOLON super_class { result = val[1] }
 
-super_class: MODULE_NAME {
+super_class: module_name {
                result = AST::Signature::SuperClass.new(location: val[0].location, name: val[0].value, args: [])
              }
-           | MODULE_NAME LT type_seq GT {
+           | module_name LT type_seq GT {
                loc = val[0].location + val[3].location
                name = val[0].value
                result = AST::Signature::SuperClass.new(location: loc, name: name, args: val[2])
@@ -352,6 +364,7 @@ method_name: IDENT
            | METHOD_NAME
            | BLOCK
            | INCLUDE
+           | UIDENT
            | CONSTRUCTOR { result = LocatedValue.new(location: val[0].location, value: :constructor) }
            | NOCONSTRUCTOR { result = LocatedValue.new(location: val[0].location, value: :noconstructor) }
            | GT GT {
@@ -383,9 +396,11 @@ annotation: AT_TYPE VAR subject COLON type {
               loc = val.first.location + val.last.location
               result = AST::Annotation::SelfType.new(type: val[3], location: loc)
             }
-          | AT_TYPE CONST const_name COLON type {
+          | AT_TYPE CONST module_name COLON type {
               loc = val.first.location + val.last.location
-              result = AST::Annotation::ConstType.new(name: val[2].value, type: val[4], location: loc)
+              result = AST::Annotation::ConstType.new(name: val[2].value.to_s.to_sym,
+                                                      type: val[4],
+                                                      location: loc)
             }
           | AT_TYPE INSTANCE COLON type {
               loc = val.first.location + val.last.location
@@ -399,11 +414,11 @@ annotation: AT_TYPE VAR subject COLON type {
               loc = val.first.location + val.last.location
               result = AST::Annotation::IvarType.new(name: val[2].value, type: val[4], location: loc)
             }
-          | AT_IMPLEMENTS MODULE_NAME {
+          | AT_IMPLEMENTS module_name {
               loc = val.first.location + val.last.location
               result = AST::Annotation::Implements.new(module_name: val[1].value, location: loc, module_args: [])
             }
-          | AT_IMPLEMENTS MODULE_NAME LT type_seq GT {
+          | AT_IMPLEMENTS module_name LT type_seq GT {
               loc = val.first.location + val.last.location
               result = AST::Annotation::Implements.new(module_name: val[1].value, location: loc, module_args: val[3])
             }
@@ -412,7 +427,6 @@ annotation: AT_TYPE VAR subject COLON type {
               result = AST::Annotation::Dynamic.new(name: val[1].value, location: loc)
             }
 
-const_name: CONST_PATH | MODULE_NAME
 subject: IDENT { result = val[0] }
 
 end
@@ -496,10 +510,8 @@ def next_token
     new_token(:RBRACE, nil)
   when input.scan(/,/)
     new_token(:COMMA, nil)
-  when input.scan(/[A-Z]\w*(::[A-Z]\w*)+/)
-    new_token(:CONST_PATH, input.matched.to_sym)
-  when input.scan(/::[A-Z]\w*(::[A-Z]\w*)*/)
-    new_token(:CONST_PATH, input.matched.to_sym)
+  when input.scan(/::/)
+    new_token(:COLON2)
   when input.scan(/:/)
     new_token(:COLON)
   when input.scan(/\*\*/)
@@ -570,14 +582,10 @@ def next_token
     new_token(:CONSTRUCTOR, true)
   when input.scan(/noconstructor\b/)
     new_token(:NOCONSTRUCTOR, false)
-  when input.scan(/[A-Z]\w*\.class\b/)
-    new_token(:CLASS_IDENT, input.matched.gsub(/\.class$/, '').to_sym)
-  when input.scan(/[A-Z]\w*\.module\b/)
-    new_token(:MODULE_IDENT, input.matched.gsub(/\.module$/, '').to_sym)
   when input.scan(/\w+(\!|\?)/)
     new_token(:METHOD_NAME, input.matched.to_sym)
   when input.scan(/[A-Z]\w*/)
-    new_token(:MODULE_NAME, input.matched.to_sym)
+    new_token(:UIDENT, input.matched.to_sym)
   when input.scan(/_\w+/)
     new_token(:INTERFACE_NAME, input.matched.to_sym)
   when input.scan(/@[\w_]+/)

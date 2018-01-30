@@ -6,6 +6,7 @@ class TypeParsingTest < Minitest::Test
 
   AST = Steep::AST
   TypeName = Steep::TypeName
+  ModuleName = Steep::ModuleName
 
   def test_interface
     type = parse_method_type("() -> _Foo").return_type
@@ -19,7 +20,7 @@ class TypeParsingTest < Minitest::Test
     type = parse_method_type("() -> Foo").return_type
     assert_instance_of AST::Types::Name, type
     assert_location type, start_line: 1, start_column: 6, end_line: 1, end_column: 9
-    assert_equal TypeName::Instance.new(name: :Foo), type.name
+    assert_equal TypeName::Instance.new(name: ModuleName.parse(:Foo)), type.name
     assert_equal [], type.args
   end
 
@@ -28,7 +29,7 @@ class TypeParsingTest < Minitest::Test
 
     assert_instance_of AST::Types::Name, type
     assert_location type, start_line: 1, start_column: 6, end_line: 1, end_column: 15
-    assert_equal TypeName::Class.new(name: :Foo, constructor: nil), type.name
+    assert_equal TypeName::Class.new(name: ModuleName.parse(:Foo), constructor: nil), type.name
     assert_equal [], type.args
   end
 
@@ -37,7 +38,7 @@ class TypeParsingTest < Minitest::Test
 
     assert_instance_of AST::Types::Name, type
     assert_location type, start_line: 1, start_column: 6, end_line: 1, end_column: 16
-    assert_equal TypeName::Module.new(name: :Foo), type.name
+    assert_equal TypeName::Module.new(name: ModuleName.parse(:Foo)), type.name
     assert_equal [], type.args
   end
 
@@ -46,7 +47,7 @@ class TypeParsingTest < Minitest::Test
 
     assert_instance_of AST::Types::Name, type
     assert_location type, start_line: 1, start_column: 6, end_line: 1, end_column: 27
-    assert_equal TypeName::Class.new(name: :Foo, constructor: true), type.name
+    assert_equal TypeName::Class.new(name: ModuleName.parse(:Foo), constructor: true), type.name
     assert_equal [], type.args
   end
 
@@ -55,7 +56,7 @@ class TypeParsingTest < Minitest::Test
 
     assert_instance_of AST::Types::Name, type
     assert_location type, start_line: 1, start_column: 6, end_line: 1, end_column: 29
-    assert_equal TypeName::Class.new(name: :Foo, constructor: false), type.name
+    assert_equal TypeName::Class.new(name: ModuleName.parse(:Foo), constructor: false), type.name
     assert_equal [], type.args
   end
 
@@ -90,7 +91,7 @@ class TypeParsingTest < Minitest::Test
 
     assert_instance_of AST::Types::Name, type
     assert_location type, start_line: 1, start_column: 6, end_line: 1, end_column: 19
-    assert_equal TypeName::Instance.new(name: :Array), type.name
+    assert_equal TypeName::Instance.new(name: ModuleName.parse(:Array)), type.name
 
     assert_size 2, type.args
 

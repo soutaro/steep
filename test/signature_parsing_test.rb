@@ -4,6 +4,7 @@ class SignatureParsingTest < Minitest::Test
   include TestHelper
   include ASTAssertion
   TypeName = Steep::TypeName
+  ModuleName = Steep::ModuleName
 
   def parse(src)
     Steep::Parser.parse_signature(src)
@@ -15,7 +16,7 @@ class A
 end
     EOS
 
-    assert_class_signature klass, name: :A
+    assert_class_signature klass, name: ModuleName.parse("A")
     assert_location klass, start_line: 1, start_column: 0, end_line: 2, end_column: 3
     assert_nil klass.super_class
   end
@@ -26,7 +27,7 @@ class A<'a, 'b>
 end
     EOS
 
-    assert_class_signature klass, name: :A, params: [:a, :b]
+    assert_class_signature klass, name: ModuleName.parse(:A), params: [:a, :b]
     assert_location klass, start_line: 1, start_column: 0, end_line: 2, end_column: 3
     assert_location klass.params, start_line: 1, start_column: 7, end_line: 1, end_column: 15
 
@@ -39,10 +40,10 @@ class A <: Object
 end
     EOS
 
-    assert_class_signature klass, name: :A
+    assert_class_signature klass, name: ModuleName.parse(:A)
     assert_location klass, start_line: 1, start_column: 0, end_line: 2, end_column: 3
 
-    assert_super_class klass.super_class, name: :Object
+    assert_super_class klass.super_class, name: ModuleName.parse(:Object)
     assert_location klass.super_class, start_line: 1, start_column: 11, end_line: 1, end_column: 17
   end
 
@@ -52,12 +53,12 @@ class A <: Array<Integer>
 end
     EOS
 
-    assert_class_signature klass, name: :A
+    assert_class_signature klass, name: ModuleName.parse(:A)
     assert_location klass, start_line: 1, start_column: 0, end_line: 2, end_column: 3
 
-    assert_super_class klass.super_class, name: :Array do |args|
+    assert_super_class klass.super_class, name: ModuleName.parse(:Array) do |args|
       assert_equal 1, args.size
-      assert_named_type args[0], name: :Integer, kind: :instance
+      assert_named_type args[0], name: ModuleName.parse(:Integer), kind: :instance
     end
     assert_location klass.super_class, start_line: 1, start_column: 11, end_line: 1, end_column: 25
   end
@@ -68,7 +69,7 @@ module M
 end
     EOS
 
-    assert_module_signature mod, name: :M do |m|
+    assert_module_signature mod, name: ModuleName.parse(:M) do |m|
       assert_nil m.self_type
     end
     assert_location mod, start_line: 1, start_column: 0, end_line: 2, end_column: 3
@@ -80,7 +81,7 @@ module M<'a, 'b>
 end
     EOS
 
-    assert_module_signature mod, name: :M, params: [:a, :b] do |m|
+    assert_module_signature mod, name: ModuleName.parse(:M), params: [:a, :b] do |m|
       assert_nil m.self_type
     end
     assert_location mod, start_line: 1, start_column: 0, end_line: 2, end_column: 3
@@ -92,8 +93,8 @@ module M: X
 end
     EOS
 
-    assert_module_signature mod, name: :M do |m|
-      assert_named_type m.self_type, name: :X, kind: :instance
+    assert_module_signature mod, name: ModuleName.parse(:M) do |m|
+      assert_named_type m.self_type, name: ModuleName.parse(:X), kind: :instance
     end
     assert_location mod, start_line: 1, start_column: 0, end_line: 2, end_column: 3
   end
@@ -106,16 +107,16 @@ class X
 end
     EOS
 
-    assert_class_signature klass, name: :X
+    assert_class_signature klass, name: ModuleName.parse(:X)
 
     assert_equal 2, klass.members.size
 
-    assert_include_member klass.members[0], name: :M1, args: []
+    assert_include_member klass.members[0], name: ModuleName.parse(:M1), args: []
     assert_location klass.members[0], start_line: 2, start_column: 2, end_line: 2, end_column: 12
 
     assert_include_member klass.members[1],
-                          name: :M1,
-                          args: [Steep::AST::Types::Name.new_instance(name: :Integer)]
+                          name: ModuleName.parse(:M1),
+                          args: [Steep::AST::Types::Name.new_instance(name: ModuleName.parse(:Integer))]
     assert_location klass.members[1], start_line: 3, start_column: 2, end_line: 3, end_column: 21
   end
 
@@ -127,15 +128,15 @@ class X
 end
     EOS
 
-    assert_class_signature klass, name: :X
+    assert_class_signature klass, name: ModuleName.parse(:X)
 
     assert_equal 2, klass.members.size
 
-    assert_extend_member klass.members[0], name: :M1, args: []
+    assert_extend_member klass.members[0], name: ModuleName.parse(:M1), args: []
     assert_location klass.members[0], start_line: 2, start_column: 2, end_line: 2, end_column: 11
 
     assert_extend_member klass.members[1],
-                         name: :M1,
+                         name: ModuleName.parse(:M1),
                          args: [Steep::AST::Types::Name.new_instance(name: :Integer)]
     assert_location klass.members[1], start_line: 3, start_column: 2, end_line: 3, end_column: 20
   end
@@ -148,7 +149,7 @@ module A
 end
     EOS
 
-    assert_module_signature mod, name: :A
+    assert_module_signature mod, name: ModuleName.parse(:A)
 
     assert_equal 1, mod.members.size
 
@@ -175,7 +176,7 @@ module A
 end
     EOS
 
-    assert_module_signature mod, name: :A
+    assert_module_signature mod, name: ModuleName.parse(:A)
     assert_equal 3, mod.members.size
     mod.members.each do |member|
       assert_method_member member
@@ -191,7 +192,7 @@ module A
 end
     EOS
 
-    assert_module_signature mod, name: :A
+    assert_module_signature mod, name: ModuleName.parse(:A)
 
     assert_equal 1, mod.members.size
 
@@ -217,7 +218,7 @@ module A
 end
     EOS
 
-    assert_module_signature mod, name: :A
+    assert_module_signature mod, name: ModuleName.parse(:A)
 
     assert_equal 1, mod.members.size
 
@@ -241,7 +242,7 @@ extension Object (Pathname)
 end
     EOF
 
-    assert_extension_signature ext, module_name: :Object, name: :Pathname do |params:, **|
+    assert_extension_signature ext, module_name: ModuleName.parse(:Object), name: :Pathname do |params:, **|
       assert_nil params
     end
     assert_location ext, start_line: 1, start_column: 0, end_line: 2, end_column: 3
@@ -253,7 +254,7 @@ extension Array<'a> (FOO)
 end
     EOF
 
-    assert_extension_signature ext, module_name: :Array, name: :FOO do |params:, **|
+    assert_extension_signature ext, module_name: ModuleName.parse(:Array), name: :FOO do |params:, **|
       assert_equal params.variables, [:a]
       assert_location params, start_line: 1, start_column: 15, end_line: 1, end_column: 19
     end
@@ -267,7 +268,7 @@ class A
 end
     EOF
 
-    assert_class_signature klass, name: :A do |members:, **|
+    assert_class_signature klass, name: ModuleName.parse(:A) do |members:, **|
       assert_equal 1, members.size
       assert_method_member members[0], name: :>>
     end
@@ -319,7 +320,7 @@ end
     assert_interface_method method, name: :[] do |method_type|
       assert_params_length method_type.params, 1
       assert_required_param method_type.params, index: 0 do |type, params|
-        assert_named_type type, name: :Integer
+        assert_named_type type, name: ModuleName.parse(:Integer)
         assert_location params, start_line: 2, start_column: 11, end_line: 2, end_column: 18
       end
 

@@ -5,6 +5,7 @@ require "parser/current"
 require "ast_utils"
 require "active_support/core_ext/object/try"
 
+require "steep/module_name"
 require "steep/ast/location"
 require "steep/ast/types/any"
 require "steep/ast/types/instance"

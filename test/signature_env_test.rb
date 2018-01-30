@@ -1,6 +1,8 @@
 require_relative "test_helper"
 
 class SignatureEnvTest < Minitest::Test
+  ModuleName = Steep::ModuleName
+
   def parse(src)
     Steep::Parser.parse_signature(src)
   end
@@ -17,7 +19,7 @@ end
 
     env.add(klass)
 
-    assert_equal klass, env.find_class(:A)
+    assert_equal klass, env.find_class(ModuleName.parse(:A))
   end
 
   def test_module
@@ -28,7 +30,7 @@ end
 
     env.add(mod)
 
-    assert_equal mod, env.find_module(:A)
+    assert_equal mod, env.find_module(ModuleName.parse(:A))
   end
 
   def test_class_module_conflict
@@ -80,6 +82,6 @@ end
 
     env.add(extension)
 
-    assert_equal [extension], env.find_extensions(:Object)
+    assert_equal [extension], env.find_extensions(ModuleName.parse(:Object))
   end
 end

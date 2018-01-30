@@ -8,6 +8,7 @@ class InterfaceBuilderTest < Minitest::Test
   Builder = Steep::Interface::Builder
   Types = Steep::AST::Types
   TypeName = Steep::TypeName
+  ModuleName = Steep::ModuleName
   Signature = Steep::AST::Signature
 
   def test_method_type_to_method_type
@@ -100,11 +101,11 @@ end
     end
 
     builder = Builder.new(signatures: env)
-    mod = env.find_module(:A)
+    mod = env.find_module(ModuleName.parse(:A))
     interface = builder.instance_to_interface(mod)
 
     assert_instance_of Interface::Abstract, interface
-    assert_equal TypeName::Instance.new(name: :A), interface.name
+    assert_equal TypeName::Instance.new(name: ModuleName.parse(:A)), interface.name
     assert_empty interface.supers
 
     interface.methods[:foo].tap do |method|
@@ -147,11 +148,11 @@ end
     end
 
     builder = Builder.new(signatures: env)
-    mod = env.find_module(:B)
+    mod = env.find_module(ModuleName.parse(:B))
     interface = builder.instance_to_interface(mod)
 
     assert_instance_of Interface::Abstract, interface
-    assert_equal TypeName::Instance.new(name: :B), interface.name
+    assert_equal TypeName::Instance.new(name: ModuleName.parse(:B)), interface.name
     assert_empty interface.supers
 
     interface.methods[:foo].tap do |method|
@@ -188,11 +189,11 @@ end
     end
 
     builder = Builder.new(signatures: env)
-    klass = env.find_class(:A)
+    klass = env.find_class(ModuleName.parse(:A))
     interface = builder.instance_to_interface(klass)
 
     assert_instance_of Interface::Abstract, interface
-    assert_equal TypeName::Instance.new(name: :A), interface.name
+    assert_equal TypeName::Instance.new(name: ModuleName.parse(:A)), interface.name
     assert_empty interface.supers
 
     interface.methods[:foo].tap do |method|
@@ -236,11 +237,11 @@ end
     end
 
     builder = Builder.new(signatures: env)
-    klass = env.find_class(:B)
+    klass = env.find_class(ModuleName.parse(:B))
     interface = builder.instance_to_interface(klass)
 
     assert_instance_of Interface::Abstract, interface
-    assert_equal TypeName::Instance.new(name: :B), interface.name
+    assert_equal TypeName::Instance.new(name: ModuleName.parse(:B)), interface.name
     assert_empty interface.supers
 
     interface.methods[:foo].tap do |method|
@@ -281,11 +282,11 @@ end
     end
 
     builder = Builder.new(signatures: env)
-    klass = env.find_class(:C)
+    klass = env.find_class(ModuleName.parse(:C))
     interface = builder.instance_to_interface(klass)
 
     assert_instance_of Interface::Abstract, interface
-    assert_equal TypeName::Instance.new(name: :C), interface.name
+    assert_equal TypeName::Instance.new(name: ModuleName.parse(:C)), interface.name
     assert_empty interface.supers
 
     interface.methods[:foo].tap do |method|
@@ -338,11 +339,11 @@ end
     end
 
     builder = Builder.new(signatures: env)
-    mod = env.find_module(:A)
+    mod = env.find_module(ModuleName.parse(:A))
     interface = builder.module_to_interface(mod)
 
     assert_instance_of Interface::Abstract, interface
-    assert_equal TypeName::Module.new(name: :A), interface.name
+    assert_equal TypeName::Module.new(name: ModuleName.parse(:A)), interface.name
     assert_empty interface.supers
 
     assert_nil interface.methods[:foo]
@@ -400,11 +401,11 @@ end
     end
 
     builder = Builder.new(signatures: env)
-    klass = env.find_class(:A)
+    klass = env.find_class(ModuleName.parse(:A))
     interface = builder.class_to_interface(klass, constructor: nil)
 
     assert_instance_of Interface::Abstract, interface
-    assert_equal TypeName::Class.new(name: :A, constructor: nil), interface.name
+    assert_equal TypeName::Class.new(name: ModuleName.parse(:A), constructor: nil), interface.name
     assert_empty interface.supers
 
     interface.methods[:foo].tap do |method|
@@ -445,16 +446,16 @@ end
     end
 
     builder = Builder.new(signatures: env)
-    klass = env.find_class(:A)
+    klass = env.find_class(ModuleName.parse(:A))
     interface = builder.class_to_interface(klass, constructor: true)
 
     assert_instance_of Interface::Abstract, interface
-    assert_equal TypeName::Class.new(name: :A, constructor: true), interface.name
+    assert_equal TypeName::Class.new(name: ModuleName.parse(:A), constructor: true), interface.name
     assert_empty interface.supers
 
     interface.methods[:new].tap do |method|
       assert_instance_of Interface::Method, method
-      assert_equal TypeName::Class.new(name: :A, constructor: true), method.type_name
+      assert_equal TypeName::Class.new(name: ModuleName.parse(:A), constructor: true), method.type_name
       assert_equal "(String) -> any", method.types[0].location.source
       assert_equal Types::Instance.new, method.types[0].return_type
       assert_nil method.super_method
@@ -480,7 +481,7 @@ end
     builder = Builder.new(signatures: env)
 
     assert_raises Builder::RecursiveDefinitionError do
-      builder.build(TypeName::Instance.new(name: :A))
+      builder.build(TypeName::Instance.new(name: ModuleName.parse(:A)))
     end
   end
 
@@ -504,7 +505,7 @@ end
 
     builder = Builder.new(signatures: env)
 
-    sig = env.find_class(:Object)
+    sig = env.find_class(ModuleName.parse(:Object))
     interface = builder.instance_to_interface(sig)
 
     assert_instance_of Interface::Abstract, interface

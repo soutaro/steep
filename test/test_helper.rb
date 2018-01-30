@@ -181,7 +181,7 @@ module ASTAssertion
 
   def assert_named_type(type, name: nil, kind: nil)
     assert_instance_of Steep::AST::Types::Name, type
-    assert_equal name, type.name.name if name
+    assert_equal Steep::ModuleName.parse(name), type.name.name if name
     case kind
     when :interface
       assert_instance_of Steep::TypeName::Interface, type.name

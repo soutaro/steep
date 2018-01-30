@@ -103,7 +103,7 @@ module Steep
         supers = []
         methods = {}
 
-        klass = build(TypeName::Instance.new(name: :Class))
+        klass = build(TypeName::Instance.new(name: ModuleName.parse(:Class)))
         instantiated = klass.instantiate(
           type: nil,
           args: [AST::Types::Instance.new],
@@ -112,8 +112,8 @@ module Steep
         )
         methods.merge!(instantiated.methods)
 
-        unless sig.name == :BasicObject
-          super_class_name = sig.super_class&.name || :Object
+        unless sig.name == ModuleName.parse(:BasicObject)
+          super_class_name = sig.super_class&.name || ModuleName.parse(:Object)
           merge_mixin(TypeName::Class.new(name: super_class_name, constructor: constructor),
                       [],
                       methods: methods,
@@ -177,7 +177,7 @@ module Steep
         supers = [sig.self_type].compact
         methods = {}
 
-        module_instance = build(TypeName::Instance.new(name: :Module))
+        module_instance = build(TypeName::Instance.new(name: ModuleName.parse(:Module)))
         instantiated = module_instance.instantiate(
           type: nil,
           args: [],
@@ -226,8 +226,8 @@ module Steep
         methods = {}
 
         if sig.is_a?(AST::Signature::Class)
-          unless sig.name == :BasicObject
-            super_class_name = sig.super_class&.name || :Object
+          unless sig.name == ModuleName.parse(:BasicObject)
+            super_class_name = sig.super_class&.name || ModuleName.parse(:Object)
             super_class_interface = build(TypeName::Instance.new(name: super_class_name))
 
             supers.push(*super_class_interface.supers)
