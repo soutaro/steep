@@ -190,12 +190,12 @@ union_seq: simple_type BAR simple_type { result = [val[0], val[2]] }
 keyword: IDENT
        | MODULE_NAME
        | INTERFACE_NAME
-       | ANY { result = :any }
-       | CLASS { result = :class }
-       | MODULE { result = :module }
-       | INSTANCE { result = :instance }
-       | BLOCK { result = :block }
-       | INCLUDE { result = :include }
+       | ANY
+       | CLASS
+       | MODULE
+       | INSTANCE
+       | BLOCK
+       | INCLUDE
 
 signatures: { result = [] }
           | interface signatures { result = [val[0]] + val[1] }
