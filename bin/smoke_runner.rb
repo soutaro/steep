@@ -15,6 +15,7 @@ OptionParser.new do |opts|
 end.parse!(ARGV)
 
 Expectation = Struct.new(:line, :message, :path)
+allowed_paths = []
 
 failed = false
 
@@ -41,6 +42,10 @@ ARGV.each do |arg|
           line = comment.location.line
 
           expectations << Expectation.new(line+offset, message, file)
+        end
+
+        if src =~ /ALLOW FAILURE/
+          allowed_paths << file
         end
       end
 
@@ -82,22 +87,32 @@ ARGV.each do |arg|
 
   expectations.each do |expectation|
     deleted = lines.reject! do |string|
-      string =~ /:#{expectation.line}:\d+: #{Regexp.quote expectation.message}\Z/
+      string =~ /\A#{Regexp.escape(expectation.path.to_s)}:#{expectation.line}:\d+: #{Regexp.quote expectation.message}\Z/
     end
 
     unless deleted
-      puts Rainbow("  💀 Expected error not found: #{expectation.path}:#{expectation.line}:#{expectation.message}").red
-      failed = true
+      allowed = allowed_paths.any? {|path| path == expectation.path }
+      message = Rainbow("  💀 Expected error not found: #{expectation.path}:#{expectation.line}:#{expectation.message}")
+      if allowed
+        puts message.yellow
+      else
+        puts message.red
+        failed = true
+      end
     end
   end
 
   unless lines.empty?
     lines.each do |line|
-      if line =~ /:\d+:\d+:/
-        puts Rainbow("  🤦‍♀️ Unexpected error found: #{line}").red
-        failed = true
-      else
-        puts Rainbow("  🤦 Unexpected error found, but ignored: #{line}").yellow
+      if line =~ /\A([^:]+):\d+:\d+:/
+        message = Rainbow("  🤦‍♀️ Unexpected error found: #{line}")
+
+        if allowed_paths.include?(Pathname($1))
+          puts message.yellow
+        else
+          puts message.red
+          failed = true
+        end
       end
     end
   end

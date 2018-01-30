@@ -1,3 +1,5 @@
+# ALLOW FAILURE
+
 module A
   # @implements A
 

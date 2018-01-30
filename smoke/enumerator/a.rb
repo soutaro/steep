@@ -1,3 +1,5 @@
+# ALLOW FAILURE
+
 # @type var hash: Hash<Symbol, String>
 
 a = [1]

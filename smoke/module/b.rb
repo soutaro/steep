@@ -1,3 +1,5 @@
+# ALLOW FAILURE
+
 # @type var klass: Class<any>
 # @type var mod: Module
 
