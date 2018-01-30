@@ -100,7 +100,7 @@ module Steep
 
         typing.errors.each do |error|
           next if error.is_a?(Errors::FallbackAny) && !fallback_any_is_error
-          stdout.puts error.to_s
+          error.print_to stdout
         end
       end
     end

@@ -211,8 +211,11 @@ module Steep
         value = node.children[1]
 
         if (type = ivar_types[name])
-          check(value, type) do |_, value_type|
-            typing.add_error(Errors::IncompatibleAssignment.new(node: node, lhs_type: type, rhs_type: value_type))
+          check(value, type) do |_, value_type, result|
+            typing.add_error(Errors::IncompatibleAssignment.new(node: node,
+                                                                lhs_type: type,
+                                                                rhs_type: value_type,
+                                                                result: result))
           end
           typing.add_typing(node, type)
         else
@@ -297,10 +300,11 @@ module Steep
         if node.children[2]
           return_type = new.method_context&.return_type
           if return_type
-            new.check(node.children[2], return_type) do |_, actual_type|
+            new.check(node.children[2], return_type) do |_, actual_type, result|
               typing.add_error(Errors::MethodBodyTypeMismatch.new(node: node,
                                                                   expected: return_type,
-                                                                  actual: actual_type))
+                                                                  actual: actual_type,
+                                                                  result: result))
             end
           else
             new.synthesize(node.children[2])
@@ -326,10 +330,11 @@ module Steep
 
           if node.children[3]
             if new&.method_context&.method_type
-              new.check(node.children[3], new.method_context.method_type.return_type) do |return_type, actual_type|
+              new.check(node.children[3], new.method_context.method_type.return_type) do |return_type, actual_type, result|
                 typing.add_error(Errors::MethodBodyTypeMismatch.new(node: node,
                                                                     expected: return_type,
-                                                                    actual: actual_type))
+                                                                    actual: actual_type,
+                                                                    result: result))
               end
             else
               new.synthesize(node.children[3])
@@ -350,10 +355,11 @@ module Steep
 
         if value
           if method_context&.return_type
-            check(value, method_context.return_type) do |_, actual_type|
+            check(value, method_context.return_type) do |_, actual_type, result|
               typing.add_error(Errors::ReturnTypeMismatch.new(node: node,
                                                               expected: method_context.return_type,
-                                                              actual: actual_type))
+                                                              actual: actual_type,
+                                                              result: result))
             end
           else
             synthesize(value)
@@ -367,10 +373,11 @@ module Steep
 
         if value
           if block_context&.break_type
-            check(value, block_context.break_type) do |break_type, actual_type|
+            check(value, block_context.break_type) do |break_type, actual_type, result|
               typing.add_error Errors::BreakTypeMismatch.new(node: node,
                                                              expected: break_type,
-                                                             actual: actual_type)
+                                                             actual: actual_type,
+                                                             result: result)
             end
           else
             synthesize(value)
@@ -524,8 +531,11 @@ module Steep
             block_type = method_context.block_type
             block_type.params.flat_unnamed_params.map(&:last).zip(node.children).each do |(type, node)|
               if node && type
-                check(node, type) do |_, rhs_type|
-                  typing.add_error(Errors::IncompatibleAssignment.new(node: node, lhs_type: type, rhs_type: rhs_type))
+                check(node, type) do |_, rhs_type, result|
+                  typing.add_error(Errors::IncompatibleAssignment.new(node: node,
+                                                                      lhs_type: type,
+                                                                      rhs_type: rhs_type,
+                                                                      result: result))
                 end
               end
             end
@@ -627,7 +637,10 @@ module Steep
       if rhs
         if lhs_type
           check(rhs, lhs_type) do |_, rhs_type, result|
-            typing.add_error(Errors::IncompatibleAssignment.new(node: node, lhs_type: lhs_type, rhs_type: rhs_type))
+            typing.add_error(Errors::IncompatibleAssignment.new(node: node,
+                                                                lhs_type: lhs_type,
+                                                                rhs_type: rhs_type,
+                                                                result: result))
           end
           typing.add_var_type(var, lhs_type)
           typing.add_typing(node, lhs_type)
@@ -809,8 +822,11 @@ module Steep
           block_type = for_block.synthesize(block_body)
           return_type = method_type.return_type.subst(Interface::Substitution.build([method_type.block.return_type.name], [block_type]))
         else
-          for_block.check(block_body, method_type.block.return_type) do |expected, actual|
-            typing.add_error Errors::BlockTypeMismatch.new(node: node, expected: expected, actual: actual)
+          for_block.check(block_body, method_type.block.return_type) do |expected, actual, result|
+            typing.add_error Errors::BlockTypeMismatch.new(node: node,
+                                                           expected: expected,
+                                                           actual: actual,
+                                                           result: result)
           end
         end
       when !method_type.block && !block_params && !block_body

@@ -85,16 +85,22 @@ module Steep
       end
 
       def check_interface(sub_type, super_type, assumption:, trace:)
+        method_pairs = []
+
         super_type.methods.each do |name, sup_method|
           sub_method = sub_type.methods[name]
 
           if sub_method
-            result = check_method(name, sub_method, sup_method, assumption: assumption, trace: trace)
-            return result if result.failure?
+            method_pairs << [sub_method, sup_method]
           else
             return failure(error: Result::Failure::MethodMissingError.new(name: name),
                            trace: trace)
           end
+        end
+
+        method_pairs.each do |(sub_method, sup_method)|
+          result = check_method(sub_method.name, sub_method, sup_method, assumption: assumption, trace: trace)
+          return result if result.failure?
         end
 
         success

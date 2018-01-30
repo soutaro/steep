@@ -10,16 +10,46 @@ module Steep
       def location_to_str
         "#{node.loc.expression.source_buffer.name}:#{node.loc.first_line}:#{node.loc.column}"
       end
+
+      def print_to(io)
+        io.puts to_s
+      end
+    end
+
+    module ResultPrinter
+      def print_result_to(io, level: 2)
+        indent = " " * level
+        result.trace.each do |s, t|
+          case s
+          when Interface::Method
+            io.puts "#{indent}#{s.name}(#{s.type_name}) <: #{t.name}(#{t.type_name})"
+          when Interface::MethodType
+            io.puts "#{indent}#{s.location.source} <: #{t.location.source} (#{s.location.name}:#{s.location.start_line})"
+          else
+            io.puts "#{indent}#{s} <: #{t}"
+          end
+        end
+        io.puts "#{indent}  #{result.error.message}"
+      end
+
+      def print_to(io)
+        io.puts to_s
+        print_result_to io
+      end
     end
 
     class IncompatibleAssignment < Base
       attr_reader :lhs_type
       attr_reader :rhs_type
+      attr_reader :result
 
-      def initialize(node:, lhs_type:, rhs_type:)
+      include ResultPrinter
+
+      def initialize(node:, lhs_type:, rhs_type:, result:)
         super(node: node)
         @lhs_type = lhs_type
         @rhs_type = rhs_type
+        @result = result
       end
 
       def to_s
@@ -60,11 +90,15 @@ module Steep
     class ReturnTypeMismatch < Base
       attr_reader :expected
       attr_reader :actual
+      attr_reader :result
 
-      def initialize(node:, expected:, actual:)
+      include ResultPrinter
+
+      def initialize(node:, expected:, actual:, result:)
         super(node: node)
         @expected = expected
         @actual = actual
+        @result = result
       end
 
       def to_s
@@ -86,11 +120,15 @@ module Steep
     class BlockTypeMismatch < Base
       attr_reader :expected
       attr_reader :actual
+      attr_reader :result
 
-      def initialize(node:, expected:, actual:)
+      include ResultPrinter
+
+      def initialize(node:, expected:, actual:, result:)
         super(node: node)
         @expected = expected
         @actual = actual
+        @result = result
       end
 
       def to_s
@@ -101,11 +139,15 @@ module Steep
     class BreakTypeMismatch < Base
       attr_reader :expected
       attr_reader :actual
+      attr_reader :result
 
-      def initialize(node:, expected:, actual:)
+      include ResultPrinter
+
+      def initialize(node:, expected:, actual:, result:)
         super(node: node)
         @expected = expected
         @actual = actual
+        @result = result
       end
     end
 
@@ -118,11 +160,15 @@ module Steep
     class MethodBodyTypeMismatch < Base
       attr_reader :expected
       attr_reader :actual
+      attr_reader :result
 
-      def initialize(node:, expected:, actual:)
+      include ResultPrinter
+
+      def initialize(node:, expected:, actual:, result:)
         super(node: node)
         @expected = expected
         @actual = actual
+        @result = result
       end
 
       def to_s
