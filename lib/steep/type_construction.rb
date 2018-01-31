@@ -558,6 +558,29 @@ module Steep
           fallback_to_any node
         end
 
+      when :casgn
+        yield_self do
+          const_name = flatten_const_name(node)
+          if const_name
+            const_type = absolute_type((module_context&.const_types || {}))[const_name]
+          end
+
+          if const_type
+            check(node.children.last, const_type) do |_, rhs_type, result|
+              typing.add_error(Errors::IncompatibleAssignment.new(node: node,
+                                                                  lhs_type: const_type,
+                                                                  rhs_type: rhs_type,
+                                                                  result: result))
+            end
+          else
+            if module_context.const_types
+              module_context.const_types[const_name] = const_type
+            end
+          end
+
+          typing.add_typing(node, const_type)
+        end
+
       when :yield
         if method_context&.method_type
           if method_context.block_type
@@ -651,7 +674,7 @@ module Steep
         typing.add_typing(node, union_type(*types))
 
       else
-        raise "Unexpected node: #{node.inspect}, #{node.location.line}"
+        raise "Unexpected node: #{node.inspect}, #{node.location.expression}"
       end
     end
 
@@ -1127,7 +1150,7 @@ module Steep
 
       while node
         case node.type
-        when :const
+        when :const, :casgn
           path.unshift(node.children[1])
           node = node.children[0]
         when :cbase
