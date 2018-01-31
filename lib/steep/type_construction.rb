@@ -1,5 +1,29 @@
 module Steep
   class TypeConstruction
+    module Types
+      module_function
+
+      def any
+        AST::Types::Any.new
+      end
+
+      def symbol_instance
+        AST::Types::Name.new_instance(name: "::Symbol")
+      end
+
+      def nil_instance
+        AST::Types::Name.new_instance(name: "::NilClass")
+      end
+
+      def string_instance
+        AST::Types::Name.new_instance(name: "::String")
+      end
+
+      def array_instance(type)
+        AST::Types::Name.new_instance(name: "::Array", args: [type])
+      end
+    end
+
     class MethodContext
       attr_reader :name
       attr_reader :method
@@ -91,7 +115,7 @@ module Steep
       if (type = annotations.lookup_method_type(method_name))
         Interface::Method.new(type_name: nil,
                               name: method_name,
-                              types: [checker.builder.method_type_to_method_type(type)],
+                              types: [checker.builder.method_type_to_method_type(type, current: nil)],
                               super_method: method,
                               attributes: [])
       else
@@ -106,7 +130,7 @@ module Steep
       method = method_entry(method_name, receiver_type: self_type)
       method_type = method&.types&.first
       if method_type
-        var_types = TypeConstruction.parameter_types(args, method_type)
+        var_types = TypeConstruction.parameter_types(args, method_type).transform_values {|type| absolute_type(type) }
         unless TypeConstruction.valid_parameter_env?(var_types, args, method_type.params)
           typing.add_error Errors::MethodParameterTypeMismatch.new(node: node)
         end
@@ -202,7 +226,7 @@ module Steep
             typing.add_typing(node, type)
           else
             fallback_to_any node
-            typing.add_var_type var, AST::Types::Any.new
+            typing.add_var_type var, Types.any
           end
         end
 
@@ -277,7 +301,7 @@ module Steep
               end
             end
           else
-            typing.add_typing node, AST::Types::Any.new
+            typing.add_typing node, Types.any
           end
         end
 
@@ -315,7 +339,7 @@ module Steep
           module_context.defined_instance_methods << node.children[0]
         end
 
-        typing.add_typing(node, AST::Types::Any.new)
+        typing.add_typing(node, Types.any)
 
       when :defs
         synthesize(node.children[0]).tap do |self_type|
@@ -348,7 +372,7 @@ module Steep
           end
         end
 
-        typing.add_typing(node, AST::Types::Name.new_instance(name: :Symbol))
+        typing.add_typing(node, Types.symbol_instance)
 
       when :return
         value = node.children[0]
@@ -366,7 +390,7 @@ module Steep
           end
         end
 
-        typing.add_typing(node, AST::Types::Any.new)
+        typing.add_typing(node, Types.any)
 
       when :break
         value = node.children[0]
@@ -384,7 +408,7 @@ module Steep
           end
         end
 
-        typing.add_typing(node, AST::Types::Any.new)
+        typing.add_typing(node, Types.any)
 
       when :arg, :kwarg, :procarg0
         var = node.children[0]
@@ -400,16 +424,16 @@ module Steep
         type_assignment(var, rhs, node)
 
       when :int
-        typing.add_typing(node, AST::Types::Name.new_instance(name: :Integer))
+        typing.add_typing(node, AST::Types::Name.new_instance(name: "::Integer"))
 
       when :nil
-        typing.add_typing(node, AST::Types::Any.new)
+        typing.add_typing(node, Types.any)
 
       when :sym
-        typing.add_typing(node, AST::Types::Name.new_instance(name: :Symbol))
+        typing.add_typing(node, Types.symbol_instance)
 
       when :str
-        typing.add_typing(node, AST::Types::Name.new_instance(name: :String))
+        typing.add_typing(node, Types.string_instance)
 
       when :true, :false
         typing.add_typing(node, AST::Types::Name.new_interface(name: :_Boolean))
@@ -429,14 +453,14 @@ module Steep
           synthesize(child)
         end
 
-        typing.add_typing(node, AST::Types::Name.new_instance(name: :String))
+        typing.add_typing(node, Types.string_instance)
 
       when :dsym
         each_child_node(node) do |child|
           synthesize(child)
         end
 
-        typing.add_typing(node, AST::Types::Name.new_instance(name: :Symbol))
+        typing.add_typing(node, Types.symbol_instance)
 
       when :class
         yield_self do
@@ -447,64 +471,73 @@ module Steep
             end
           end
 
-          typing.add_typing(node, AST::Types::Name.new_instance(name: :NilClass))
+          typing.add_typing(node, Types.nil_instance)
         end
 
       when :module
-        annots = source.annotations(block: node)
+        yield_self do
+          annots = source.annotations(block: node)
 
-        module_type = AST::Types::Name.new_instance(name: :Module)
+          module_type = AST::Types::Name.new_instance(name: "::Module")
 
-        if annots.implement_module
-          module_name = TypeName::Module.new(name: annots.implement_module.module_name)
-          abstract = checker.builder.build(module_name)
+          if annots.implement_module
+            module_name = TypeName::Module.new(name: annots.implement_module.module_name)
+            abstract = checker.builder.build(module_name)
 
-          instance_type = AST::Types::Name.new_instance(name: annots.implement_module.module_name,
-                                                        args: annots.implement_module.module_args)
-
-          unless abstract.supers.empty?
-            instance_type = AST::Types::Intersection.new(
-              types: [instance_type, AST::Types::Name.new_instance(name: :Object)] + abstract.supers
+            instance_type = absolute_type(
+              AST::Types::Name.new_instance(
+                name: annots.implement_module.module_name,
+                args: annots.implement_module.module_args
+              )
             )
+
+            unless abstract.supers.empty?
+              instance_type = AST::Types::Intersection.new(
+                types: [instance_type,
+                        AST::Types::Name.new_instance(name: "::Object")] + abstract.supers
+              )
+            end
+
+            module_type = AST::Types::Intersection.new(types: [
+              AST::Types::Name.new_instance(name: "::Module"),
+              absolute_type(AST::Types::Name.new_module(
+                name: annots.implement_module.module_name,
+                args: annots.implement_module.module_args
+              ))
+            ])
           end
 
-          module_type = AST::Types::Intersection.new(types: [
-            AST::Types::Name.new_instance(name: :Module),
-            AST::Types::Name.new_module(name: annots.implement_module.module_name,
-                                        args: annots.implement_module.module_args)
-          ])
+          if annots.instance_type
+            instance_type = absolute_type(annots.instance_type)
+          end
+
+          if annots.module_type
+            module_type = absolute_type(annots.module_type)
+          end
+
+          module_context_ = ModuleContext.new(
+            instance_type: instance_type,
+            module_type: module_type,
+            const_types: annots.const_types
+          )
+
+          for_class = self.class.new(
+            checker: checker,
+            source: source,
+            annotations: annots,
+            var_types: {},
+            typing: typing,
+            method_context: nil,
+            block_context: nil,
+            module_context: module_context_,
+            self_type: module_context_.module_type
+          )
+
+          for_class.synthesize(node.children[1]) if node.children[1]
+          for_class.validate_method_definitions(node, module_name.name) if annots.implement_module
+
+          typing.add_typing(node, Types.nil_instance)
         end
-
-        if annots.instance_type
-          instance_type = annots.instance_type
-        end
-
-        if annots.module_type
-          module_type = annots.module_type
-        end
-
-        module_context_ = ModuleContext.new(
-          instance_type: instance_type,
-          module_type: module_type,
-          const_types: annots.const_types
-        )
-
-        for_class = self.class.new(
-          checker: checker,
-          source: source,
-          annotations: annots,
-          var_types: {},
-          typing: typing,
-          method_context: nil,
-          block_context: nil,
-          module_context: module_context_,
-          self_type: module_context_.module_type
-        )
-
-        for_class.synthesize(node.children[1]) if node.children[1]
-        for_class.validate_method_definitions(node, module_name.name) if annots.implement_module
-
-        typing.add_typing(node, AST::Types::Name.new_instance(name: :NilClass))
 
       when :self
         if self_type
@@ -516,7 +549,7 @@ module Steep
       when :const
         const_name = flatten_const_name(node)
         if const_name
-          type = (module_context&.const_types || {})[const_name]
+          type = absolute_type((module_context&.const_types || {})[const_name])
         end
 
         if type
@@ -566,14 +599,14 @@ module Steep
 
       when :array
         if node.children.empty?
-          typing.add_typing(node, AST::Types::Name.new_instance(name: :Array, args: [AST::Types::Any.new]))
+          typing.add_typing(node, Types.array_instance(Types.any))
         else
           types = node.children.map {|e| synthesize(e) }
 
           if types.uniq.size == 1
-            typing.add_typing(node, AST::Types::Name.new_instance(name: :Array, args: [types.first]))
+            typing.add_typing(node, Types.array_instance(types.first))
           else
-            typing.add_typing(node, AST::Types::Name.new_instance(name: :Array, args: [AST::Types::Any.new]))
+            typing.add_typing(node, Types.array_instance(Types.any))
           end
         end
 
@@ -625,7 +658,10 @@ module Steep
     def check(node, type)
       type_ = synthesize(node)
 
-      result = checker.check(Subtyping::Constraint.new(sub_type: type_, super_type: type))
+      result = checker.check(Subtyping::Constraint.new(
+        sub_type: type_,
+        super_type: type)
+      )
       if result.failure?
         yield(type, type_, result)
       end
@@ -659,9 +695,9 @@ module Steep
           typing.add_typing(node, lhs_type)
           var_types[var] = lhs_type
         else
-          typing.add_var_type(var, Types::Any.new)
+          typing.add_var_type(var, Types.any)
           fallback_to_any node
-          var_types[var] = Types::Any.new
+          var_types[var] = Types.any
         end
       end
     end
@@ -733,7 +769,7 @@ module Steep
       case receiver_type
       when AST::Types::Any
         arguments.each {|arg| synthesize(arg) }
-        typing.add_typing node, AST::Types::Any.new
+        typing.add_typing node, Types.any
       when nil
         arguments.each {|arg| synthesize(arg) }
         fallback_to_any node
@@ -839,7 +875,7 @@ module Steep
     end
 
     def variable_type(var)
-      var_types[var] || annotations.lookup_var_type(var.name)
+      var_types[var] || absolute_type(annotations.lookup_var_type(var.name))
     end
 
     def each_child_node(node)
@@ -1000,7 +1036,7 @@ module Steep
       if type.params.rest
         a = nodes.first
         if a&.type == :restarg
-          env[a.children.first] = Types::Name.instance(name: :Array, params: [type.params.rest])
+          env[a.children.first] = Types.array_instance(type.params.rest)
           nodes.shift
         end
       end
@@ -1021,8 +1057,13 @@ module Steep
         if node.type == :kwrestarg
           ty = type.params.rest_keywords
           if ty
-            env[node.children[0]] = Types::Name.instance(name: :Hash,
-                                                         params: [Types::Name.instance(name: :Symbol), ty])
+            env[node.children[0]] = Types::Name.instance(
+              name: "::Hash",
+              params: [
+                Types::Name.instance(name: :Symbol),
+                ty
+              ]
+            )
           end
         end
       end
@@ -1032,6 +1073,10 @@ module Steep
 
     def self.valid_parameter_env?(env, nodes, params)
       env.size == nodes.size && env.size == params.size
+    end
+
+    def absolute_type(type)
+      checker.builder.absolute_type(type, current: nil)
     end
 
     def union_type(*types)
@@ -1103,7 +1148,7 @@ module Steep
         typing.add_error Errors::FallbackAny.new(node: node)
       end
 
-      typing.add_typing node, AST::Types::Any.new
+      typing.add_typing node, Types.any
     end
 
     def self_class?(node)

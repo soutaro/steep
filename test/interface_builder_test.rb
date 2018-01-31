@@ -14,32 +14,32 @@ class InterfaceBuilderTest < Minitest::Test
   def test_method_type_to_method_type
     builder = Steep::Interface::Builder.new(signatures: {})
 
-    method = Steep::Parser.parse_method("<'a, 'b> (T0, ?T1, *T2, name: T3, ?email: T4, **T5) { (T6, ?T7, *T8) -> T9 } -> any")
-    method_type = builder.method_type_to_method_type(method)
+    method = Steep::Parser.parse_method("<'a, 'b> (::T0, ?::T1, *::T2, name: ::T3, ?email: ::T4, **::T5) { (::T6, ?::T7, *::T8) -> ::T9 } -> any")
+    method_type = builder.method_type_to_method_type(method, current: nil)
 
     assert_instance_of Steep::Interface::MethodType, method_type
 
     assert_equal [:a, :b], method_type.type_params
 
-    assert_equal [Types::Name.new_instance(name: :T0)], method_type.params.required
-    assert_equal [Types::Name.new_instance(name: :T1)], method_type.params.optional
-    assert_equal Types::Name.new_instance(name: :T2), method_type.params.rest
-    assert_equal({ name: Types::Name.new_instance(name: :T3) }, method_type.params.required_keywords)
-    assert_equal({ email: Types::Name.new_instance(name: :T4) }, method_type.params.optional_keywords)
-    assert_equal Types::Name.new_instance(name: :T5), method_type.params.rest_keywords
+    assert_equal [Types::Name.new_instance(name: "::T0")], method_type.params.required
+    assert_equal [Types::Name.new_instance(name: "::T1")], method_type.params.optional
+    assert_equal Types::Name.new_instance(name: "::T2"), method_type.params.rest
+    assert_equal({ name: Types::Name.new_instance(name: "::T3") }, method_type.params.required_keywords)
+    assert_equal({ email: Types::Name.new_instance(name: "::T4") }, method_type.params.optional_keywords)
+    assert_equal Types::Name.new_instance(name: "::T5"), method_type.params.rest_keywords
     assert_equal Types::Any.new, method_type.return_type
 
-    assert_equal [Types::Name.new_instance(name: :T6)], method_type.block.params.required
-    assert_equal [Types::Name.new_instance(name: :T7)], method_type.block.params.optional
-    assert_equal Types::Name.new_instance(name: :T8), method_type.block.params.rest
-    assert_equal Types::Name.new_instance(name: :T9), method_type.block.return_type
+    assert_equal [Types::Name.new_instance(name: "::T6")], method_type.block.params.required
+    assert_equal [Types::Name.new_instance(name: "::T7")], method_type.block.params.optional
+    assert_equal Types::Name.new_instance(name: "::T8"), method_type.block.params.rest
+    assert_equal Types::Name.new_instance(name: "::T9"), method_type.block.return_type
   end
 
   def test_method_type_to_method_type2
     builder = Steep::Interface::Builder.new(signatures: {})
 
     method = Steep::Parser.parse_method(" -> any")
-    method_type = builder.method_type_to_method_type(method)
+    method_type = builder.method_type_to_method_type(method, current: nil)
 
     assert_instance_of Steep::Interface::MethodType, method_type
 
@@ -101,11 +101,11 @@ end
     end
 
     builder = Builder.new(signatures: env)
-    mod = env.find_module(ModuleName.parse(:A))
+    mod = env.find_module(ModuleName.parse(:A).absolute!)
     interface = builder.instance_to_interface(mod)
 
     assert_instance_of Interface::Abstract, interface
-    assert_equal TypeName::Instance.new(name: ModuleName.parse(:A)), interface.name
+    assert_equal TypeName::Instance.new(name: ModuleName.parse(:A).absolute!), interface.name
     assert_empty interface.supers
 
     interface.methods[:foo].tap do |method|
@@ -152,7 +152,7 @@ end
     interface = builder.instance_to_interface(mod)
 
     assert_instance_of Interface::Abstract, interface
-    assert_equal TypeName::Instance.new(name: ModuleName.parse(:B)), interface.name
+    assert_equal TypeName::Instance.new(name: ModuleName.parse(:B).absolute!), interface.name
     assert_empty interface.supers
 
     interface.methods[:foo].tap do |method|
@@ -189,11 +189,11 @@ end
     end
 
     builder = Builder.new(signatures: env)
-    klass = env.find_class(ModuleName.parse(:A))
+    klass = env.find_class(ModuleName.parse("::A"))
     interface = builder.instance_to_interface(klass)
 
     assert_instance_of Interface::Abstract, interface
-    assert_equal TypeName::Instance.new(name: ModuleName.parse(:A)), interface.name
+    assert_equal TypeName::Instance.new(name: ModuleName.parse("::A")), interface.name
     assert_empty interface.supers
 
     interface.methods[:foo].tap do |method|
@@ -237,11 +237,11 @@ end
     end
 
     builder = Builder.new(signatures: env)
-    klass = env.find_class(ModuleName.parse(:B))
+    klass = env.find_class(ModuleName.parse("::B"))
     interface = builder.instance_to_interface(klass)
 
     assert_instance_of Interface::Abstract, interface
-    assert_equal TypeName::Instance.new(name: ModuleName.parse(:B)), interface.name
+    assert_equal TypeName::Instance.new(name: ModuleName.parse("::B")), interface.name
     assert_empty interface.supers
 
     interface.methods[:foo].tap do |method|
@@ -274,6 +274,12 @@ end
 class C <: A<String>
   include B<Integer>
 end
+
+class Integer
+end
+
+class String
+end
     EOF
 
     env = Signature::Env.new
@@ -286,19 +292,19 @@ end
     interface = builder.instance_to_interface(klass)
 
     assert_instance_of Interface::Abstract, interface
-    assert_equal TypeName::Instance.new(name: ModuleName.parse(:C)), interface.name
+    assert_equal TypeName::Instance.new(name: ModuleName.parse("::C")), interface.name
     assert_empty interface.supers
 
     interface.methods[:foo].tap do |method|
       assert_instance_of Interface::Method, method
       assert_equal "() -> 'a", method.types[0].location.source
-      assert_equal Types::Name.new_instance(name: :String), method.types[0].return_type
+      assert_equal Types::Name.new_instance(name: "::String"), method.types[0].return_type
     end
 
     interface.methods[:bar].tap do |method|
       assert_instance_of Interface::Method, method
       assert_equal "() -> 'a", method.types[0].location.source
-      assert_equal Types::Name.new_instance(name: :Integer), method.types[0].return_type
+      assert_equal Types::Name.new_instance(name: "::Integer"), method.types[0].return_type
     end
   end
 
@@ -312,6 +318,18 @@ end
 
 class Module
   def ancestors: -> Array<Module>
+end
+
+class String
+end
+
+class Numeric
+end
+
+interface _Boolean
+end
+
+class Symbol
 end
 
 module A
@@ -343,7 +361,7 @@ end
     interface = builder.module_to_interface(mod)
 
     assert_instance_of Interface::Abstract, interface
-    assert_equal TypeName::Module.new(name: ModuleName.parse(:A)), interface.name
+    assert_equal TypeName::Module.new(name: ModuleName.parse("::A")), interface.name
     assert_empty interface.supers
 
     assert_nil interface.methods[:foo]
@@ -405,7 +423,7 @@ end
     interface = builder.class_to_interface(klass, constructor: nil)
 
     assert_instance_of Interface::Abstract, interface
-    assert_equal TypeName::Class.new(name: ModuleName.parse(:A), constructor: nil), interface.name
+    assert_equal TypeName::Class.new(name: ModuleName.parse("::A"), constructor: nil), interface.name
     assert_empty interface.supers
 
     interface.methods[:foo].tap do |method|
@@ -450,12 +468,12 @@ end
     interface = builder.class_to_interface(klass, constructor: true)
 
     assert_instance_of Interface::Abstract, interface
-    assert_equal TypeName::Class.new(name: ModuleName.parse(:A), constructor: true), interface.name
+    assert_equal TypeName::Class.new(name: ModuleName.parse("::A"), constructor: true), interface.name
     assert_empty interface.supers
 
     interface.methods[:new].tap do |method|
       assert_instance_of Interface::Method, method
-      assert_equal TypeName::Class.new(name: ModuleName.parse(:A), constructor: true), method.type_name
+      assert_equal TypeName::Class.new(name: ModuleName.parse("::A"), constructor: true), method.type_name
       assert_equal "(String) -> any", method.types[0].location.source
       assert_equal Types::Instance.new, method.types[0].return_type
       assert_nil method.super_method

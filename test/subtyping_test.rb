@@ -63,8 +63,8 @@ end
 
     result = checker.check(
       Subtyping::Constraint.new(
-        sub_type: AST::Types::Name.new_instance(name: :A),
-        super_type: AST::Types::Name.new_instance(name: :B)
+        sub_type: AST::Types::Name.new_instance(name: "::A"),
+        super_type: AST::Types::Name.new_instance(name: "::B")
       )
     )
 
@@ -85,8 +85,8 @@ end
 
     result = checker.check(
       Subtyping::Constraint.new(
-        sub_type: AST::Types::Name.new_instance(name: :B),
-        super_type: AST::Types::Name.new_instance(name: :A)
+        sub_type: AST::Types::Name.new_instance(name: "::B"),
+        super_type: AST::Types::Name.new_instance(name: "::A")
       )
     )
 
@@ -94,8 +94,8 @@ end
     assert_instance_of Subtyping::Result::Failure::MethodMissingError, result.error
     assert_equal :bar, result.error.name
     assert_equal [
-                   [AST::Types::Name.new_instance(name: :B),
-                    AST::Types::Name.new_instance(name: :A)]
+                   [AST::Types::Name.new_instance(name: "::B"),
+                    AST::Types::Name.new_instance(name: "::A")]
                  ], result.trace.array
   end
 
@@ -112,8 +112,8 @@ end
 
     result = checker.check(
       Subtyping::Constraint.new(
-        sub_type: AST::Types::Name.new_instance(name: :A),
-        super_type: AST::Types::Name.new_instance(name: :B)
+        sub_type: AST::Types::Name.new_instance(name: "::A"),
+        super_type: AST::Types::Name.new_instance(name: "::B")
       )
     )
 
@@ -135,8 +135,8 @@ end
 
     result = checker.check(
       Subtyping::Constraint.new(
-        sub_type: AST::Types::Name.new_instance(name: :B),
-        super_type: AST::Types::Name.new_instance(name: :A)
+        sub_type: AST::Types::Name.new_instance(name: "::B"),
+        super_type: AST::Types::Name.new_instance(name: "::A")
       )
     )
 
@@ -156,16 +156,16 @@ end
 
     result = checker.check(
       Subtyping::Constraint.new(
-        sub_type: AST::Types::Name.new_instance(name: :B),
-        super_type: AST::Types::Name.new_instance(name: :A)
+        sub_type: AST::Types::Name.new_instance(name: "::B"),
+        super_type: AST::Types::Name.new_instance(name: "::A")
       )
     )
     assert_instance_of Subtyping::Result::Success, result
 
     result = checker.check(
       Subtyping::Constraint.new(
-        sub_type: AST::Types::Name.new_instance(name: :A),
-        super_type: AST::Types::Name.new_instance(name: :B),
+        sub_type: AST::Types::Name.new_instance(name: "::A"),
+        super_type: AST::Types::Name.new_instance(name: "::B"),
         )
     )
     assert_instance_of Subtyping::Result::Failure, result
@@ -185,16 +185,16 @@ end
 
     result = checker.check(
       Subtyping::Constraint.new(
-        sub_type: AST::Types::Name.new_instance(name: :B),
-        super_type: AST::Types::Name.new_instance(name: :A)
+        sub_type: AST::Types::Name.new_instance(name: "::B"),
+        super_type: AST::Types::Name.new_instance(name: "::A")
       )
     )
     assert_instance_of Subtyping::Result::Success, result
 
     result = checker.check(
       Subtyping::Constraint.new(
-        sub_type: AST::Types::Name.new_instance(name: :A),
-        super_type: AST::Types::Name.new_instance(name: :B),
+        sub_type: AST::Types::Name.new_instance(name: "::A"),
+        super_type: AST::Types::Name.new_instance(name: "::B"),
         )
     )
     assert_instance_of Subtyping::Result::Failure, result
@@ -215,16 +215,16 @@ end
 
     result = checker.check(
       Subtyping::Constraint.new(
-        sub_type: AST::Types::Name.new_instance(name: :A),
-        super_type: AST::Types::Name.new_instance(name: :B)
+        sub_type: AST::Types::Name.new_instance(name: "::A"),
+        super_type: AST::Types::Name.new_instance(name: "::B")
       )
     )
     assert_instance_of Subtyping::Result::Success, result
 
     result = checker.check(
       Subtyping::Constraint.new(
-        sub_type: AST::Types::Name.new_instance(name: :B),
-        super_type: AST::Types::Name.new_instance(name: :A),
+        sub_type: AST::Types::Name.new_instance(name: "::B"),
+        super_type: AST::Types::Name.new_instance(name: "::A"),
         )
     )
     assert_instance_of Subtyping::Result::Failure, result
@@ -244,16 +244,16 @@ end
 
     result = checker.check(
       Subtyping::Constraint.new(
-        sub_type: AST::Types::Name.new_instance(name: :A),
-        super_type: AST::Types::Name.new_instance(name: :B)
+        sub_type: AST::Types::Name.new_instance(name: "::A"),
+        super_type: AST::Types::Name.new_instance(name: "::B")
       )
     )
     assert_instance_of Subtyping::Result::Success, result
 
     result = checker.check(
       Subtyping::Constraint.new(
-        sub_type: AST::Types::Name.new_instance(name: :B),
-        super_type: AST::Types::Name.new_instance(name: :A),
+        sub_type: AST::Types::Name.new_instance(name: "::B"),
+        super_type: AST::Types::Name.new_instance(name: "::A"),
         )
     )
     assert_instance_of Subtyping::Result::Failure, result
@@ -273,16 +273,16 @@ end
 
     result = checker.check(
       Subtyping::Constraint.new(
-        sub_type: AST::Types::Name.new_instance(name: :A),
-        super_type: AST::Types::Name.new_instance(name: :B)
+        sub_type: AST::Types::Name.new_instance(name: "::A"),
+        super_type: AST::Types::Name.new_instance(name: "::B")
       )
     )
     assert_instance_of Subtyping::Result::Success, result
 
     result = checker.check(
       Subtyping::Constraint.new(
-        sub_type: AST::Types::Name.new_instance(name: :B),
-        super_type: AST::Types::Name.new_instance(name: :A),
+        sub_type: AST::Types::Name.new_instance(name: "::B"),
+        super_type: AST::Types::Name.new_instance(name: "::A"),
         )
     )
     assert_instance_of Subtyping::Result::Failure, result
@@ -295,9 +295,9 @@ end
 
     result = checker.check(
       Subtyping::Constraint.new(
-        sub_type: AST::Types::Name.new_instance(name: :String),
-        super_type: AST::Types::Union.new(types: [AST::Types::Name.new_instance(name: :Object),
-                                                AST::Types::Name.new_instance(name: :String)]),
+        sub_type: AST::Types::Name.new_instance(name: "::String"),
+        super_type: AST::Types::Union.new(types: [AST::Types::Name.new_instance(name: "::Object"),
+                                                AST::Types::Name.new_instance(name: "::String")]),
       )
     )
 
@@ -305,9 +305,9 @@ end
 
     result = checker.check(
       Subtyping::Constraint.new(
-        sub_type: AST::Types::Union.new(types: [AST::Types::Name.new_instance(name: :Object),
-                                                AST::Types::Name.new_instance(name: :Integer)]),
-        super_type: AST::Types::Name.new_instance(name: :String)
+        sub_type: AST::Types::Union.new(types: [AST::Types::Name.new_instance(name: "::Object"),
+                                                AST::Types::Name.new_instance(name: "::Integer")]),
+        super_type: AST::Types::Name.new_instance(name: "::String")
       )
     )
     assert_instance_of Subtyping::Result::Failure, result
@@ -315,18 +315,18 @@ end
 
     result = checker.check(
       Subtyping::Constraint.new(
-        sub_type: AST::Types::Name.new_instance(name: :Integer),
-        super_type: AST::Types::Union.new(types: [AST::Types::Name.new_instance(name: :Object),
-                                                  AST::Types::Name.new_instance(name: :BasicObject)]),
+        sub_type: AST::Types::Name.new_instance(name: "::Integer"),
+        super_type: AST::Types::Union.new(types: [AST::Types::Name.new_instance(name: "::Object"),
+                                                  AST::Types::Name.new_instance(name: "::BasicObject")]),
       )
     )
     assert_instance_of Subtyping::Result::Success, result
 
     result = checker.check(
       Subtyping::Constraint.new(
-        sub_type: AST::Types::Name.new_instance(name: :Integer),
-        super_type: AST::Types::Union.new(types: [AST::Types::Name.new_instance(name: :Object),
-                                                  AST::Types::Name.new_instance(name: :String)]),
+        sub_type: AST::Types::Name.new_instance(name: "::Integer"),
+        super_type: AST::Types::Union.new(types: [AST::Types::Name.new_instance(name: "::Object"),
+                                                  AST::Types::Name.new_instance(name: "::String")]),
         )
     )
     assert_instance_of Subtyping::Result::Success, result
@@ -338,10 +338,10 @@ end
 
     result = checker.check(
       Subtyping::Constraint.new(
-        sub_type: AST::Types::Name.new_instance(name: :String),
+        sub_type: AST::Types::Name.new_instance(name: "::String"),
         super_type: AST::Types::Intersection.new(types: [
-          AST::Types::Name.new_instance(name: :Object),
-          AST::Types::Name.new_instance(name: :String)]),
+          AST::Types::Name.new_instance(name: "::Object"),
+          AST::Types::Name.new_instance(name: "::String")]),
         )
     )
 
@@ -350,10 +350,10 @@ end
     result = checker.check(
       Subtyping::Constraint.new(
         sub_type: AST::Types::Intersection.new(types: [
-          AST::Types::Name.new_instance(name: :Object),
-          AST::Types::Name.new_instance(name: :Integer)
+          AST::Types::Name.new_instance(name: "::Object"),
+          AST::Types::Name.new_instance(name: "::Integer")
         ]),
-        super_type: AST::Types::Name.new_instance(name: :String)
+        super_type: AST::Types::Name.new_instance(name: "::String")
       )
     )
     assert_instance_of Subtyping::Result::Failure, result
@@ -361,10 +361,10 @@ end
 
     result = checker.check(
       Subtyping::Constraint.new(
-        sub_type: AST::Types::Name.new_instance(name: :Object),
+        sub_type: AST::Types::Name.new_instance(name: "::Object"),
         super_type: AST::Types::Intersection.new(types: [
-          AST::Types::Name.new_instance(name: :Integer),
-          AST::Types::Name.new_instance(name: :String)]),
+          AST::Types::Name.new_instance(name: "::Integer"),
+          AST::Types::Name.new_instance(name: "::String")]),
         )
     )
     assert_instance_of Subtyping::Result::Failure, result
@@ -374,13 +374,13 @@ end
     checker = new_checker("")
 
     interface = checker.resolve(AST::Types::Union.new(types: [
-      AST::Types::Name.new_instance(name: :String),
-      AST::Types::Name.new_instance(name: :Integer)
+      AST::Types::Name.new_instance(name: "::String"),
+      AST::Types::Name.new_instance(name: "::Integer")
     ]))
 
     assert_equal [:class], interface.methods.keys
-    assert_equal [AST::Types::Name.new_class(name: :String, constructor: nil),
-                  AST::Types::Name.new_class(name: :Integer, constructor: nil)],
+    assert_equal [AST::Types::Name.new_class(name: "::String", constructor: nil),
+                  AST::Types::Name.new_class(name: "::Integer", constructor: nil)],
                  interface.methods[:class].types.map(&:return_type)
   end
 
@@ -388,13 +388,13 @@ end
     checker = new_checker("")
 
     interface = checker.resolve(AST::Types::Intersection.new(types: [
-      AST::Types::Name.new_instance(name: :String),
-      AST::Types::Name.new_instance(name: :Integer)
+      AST::Types::Name.new_instance(name: "::String"),
+      AST::Types::Name.new_instance(name: "::Integer")
     ]))
 
     assert_equal [:class, :to_str, :to_int], interface.methods.keys
     assert_equal [], interface.methods[:class].types
-    assert_equal [AST::Types::Name.new_instance(name: :String)], interface.methods[:to_str].types.map(&:return_type)
-    assert_equal [AST::Types::Name.new_instance(name: :Integer)], interface.methods[:to_int].types.map(&:return_type)
+    assert_equal [AST::Types::Name.new_instance(name: "::String")], interface.methods[:to_str].types.map(&:return_type)
+    assert_equal [AST::Types::Name.new_instance(name: "::Integer")], interface.methods[:to_int].types.map(&:return_type)
   end
 end

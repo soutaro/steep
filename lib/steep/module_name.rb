@@ -64,5 +64,14 @@ module Steep
         end
       }
     end
+
+    def parent
+      components = components()
+      components.pop
+
+      unless components.empty?
+        self.class.parse(components.join("::"))
+      end
+    end
   end
 end

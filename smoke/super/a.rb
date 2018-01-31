@@ -3,9 +3,9 @@ class A
     # @type self: A
 
     # @type var a: Integer
-    # !expects IncompatibleAssignment: lhs_type=Integer, rhs_type=Object
+    # !expects IncompatibleAssignment: lhs_type=::Integer, rhs_type=::Object
     a = super(x)
-    # !expects IncompatibleAssignment: lhs_type=Integer, rhs_type=Object
+    # !expects IncompatibleAssignment: lhs_type=::Integer, rhs_type=::Object
     a = super
 
     # @type var b: Object

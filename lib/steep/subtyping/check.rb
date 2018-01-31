@@ -61,7 +61,7 @@ module Steep
             check_interface(sub_interface, super_interface, assumption: assumption, trace: trace)
 
           rescue => exn
-            STDERR.puts exn.inspect
+            STDERR.puts "Cannot resolve type to interface: #{exn.inspect}"
             failure(error: Result::Failure::UnknownPairError.new(constraint: constraint),
                     trace: trace)
           end

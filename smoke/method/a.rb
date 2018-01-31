@@ -1,13 +1,13 @@
 # @type method foo: (Integer, y: Integer) -> String
 
-# !expects MethodBodyTypeMismatch: method=foo, expected=String, actual=Integer
+# !expects MethodBodyTypeMismatch: method=foo, expected=::String, actual=::Integer
 def foo(x, y:)
   # @type var z: String
 
-  # !expects IncompatibleAssignment: lhs_type=String, rhs_type=Integer
+  # !expects IncompatibleAssignment: lhs_type=::String, rhs_type=::Integer
   z = x
 
-  # !expects IncompatibleAssignment: lhs_type=String, rhs_type=Integer
+  # !expects IncompatibleAssignment: lhs_type=::String, rhs_type=::Integer
   z = y
 
   3
@@ -19,7 +19,7 @@ end
 def bar(x, y)
   # @type var z: String
 
-  # !expects IncompatibleAssignment: lhs_type=String, rhs_type=Integer
+  # !expects IncompatibleAssignment: lhs_type=::String, rhs_type=::Integer
   z = x
 
   z = y

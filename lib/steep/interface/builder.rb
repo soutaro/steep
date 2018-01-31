@@ -22,7 +22,59 @@ module Steep
         @signatures = signatures
       end
 
-      def build(type_name)
+      def absolute_type_name(type_name, current:)
+        if current
+          begin
+            case type_name
+            when TypeName::Instance
+              type_name.map_module_name {|name|
+                signatures.find_class_or_module(name, current_module: current).name
+              }
+            when TypeName::Module
+              type_name.map_module_name {|name|
+                signatures.find_module(name, current_module: current).name
+              }
+            when TypeName::Class
+              type_name.map_module_name {|name|
+                signatures.find_class(name, current_module: current).name
+              }
+            else
+              type_name
+            end
+          rescue => exn
+            STDERR.puts "Cannot find absolute type name: #{exn.inspect}"
+            type_name
+          end
+        else
+          type_name.map_module_name(&:absolute!)
+        end
+      end
+
+      def absolute_type(type, current:)
+        case type
+        when AST::Types::Name
+          AST::Types::Name.new(
+            name: absolute_type_name(type.name, current: current),
+            args: type.args.map {|ty| absolute_type(ty, current: current) },
+            location: type.location
+          )
+        when AST::Types::Union
+          AST::Types::Union.new(
+            types: type.types.map {|ty| absolute_type(ty, current: current) },
+            location: type.location
+          )
+        when AST::Types::Intersection
+          AST::Types::Union.new(
+            types: type.types.map {|ty| absolute_type(ty, current: current) },
+            location: type.location
+          )
+        else
+          type
+        end
+      end
+
+      def build(type_name, current: nil)
+        type_name = absolute_type_name(type_name, current: current)
         cached = cache[type_name]
 
         case cached
@@ -57,8 +109,8 @@ module Steep
         end
       end
 
-      def merge_mixin(type_name, args, methods:, supers:)
-        mixed = block_given? ? yield : build(type_name)
+      def merge_mixin(type_name, args, methods:, supers:, current:)
+        mixed = block_given? ? yield : build(type_name, current: current)
 
         supers.push(*mixed.supers)
         instantiated = mixed.instantiate(
@@ -83,7 +135,7 @@ module Steep
           type_name: type_name,
           name: method.name,
           types: method.types.map do |method_type|
-            method_type_to_method_type(method_type)
+            method_type_to_method_type(method_type, current: type_name.name)
           end,
           super_method: super_method,
           attributes: method.attributes
@@ -103,7 +155,7 @@ module Steep
         supers = []
         methods = {}
 
-        klass = build(TypeName::Instance.new(name: ModuleName.parse(:Class)))
+        klass = build(TypeName::Instance.new(name: ModuleName.parse("::Class")))
         instantiated = klass.instantiate(
           type: nil,
           args: [AST::Types::Instance.new],
@@ -112,26 +164,29 @@ module Steep
         )
         methods.merge!(instantiated.methods)
 
-        unless sig.name == ModuleName.parse(:BasicObject)
-          super_class_name = sig.super_class&.name || ModuleName.parse(:Object)
+        unless sig.name == ModuleName.parse("::BasicObject")
+          super_class_name = sig.super_class&.name&.absolute! || ModuleName.parse("::Object")
           merge_mixin(TypeName::Class.new(name: super_class_name, constructor: constructor),
                       [],
                       methods: methods,
-                      supers: supers)
+                      supers: supers,
+                      current: sig.name)
         end
 
         sig.members.each do |member|
           case member
           when AST::Signature::Members::Include
             merge_mixin(TypeName::Module.new(name: member.name),
-                        member.args,
+                        member.args.map {|type| absolute_type(type, current: sig.name) },
                         methods: methods,
-                        supers: supers)
+                        supers: supers,
+                        current: sig.name)
           when AST::Signature::Members::Extend
             merge_mixin(TypeName::Instance.new(name: member.name),
-                        member.args,
+                        member.args.map {|type| absolute_type(type, current: sig.name) },
                         methods: methods,
-                        supers: supers)
+                        supers: supers,
+                        current: sig.name)
           end
         end
 
@@ -148,7 +203,8 @@ module Steep
                   name: :new,
                   types: member.types.map do |method_type|
                     method_type_to_method_type(method_type,
-                                               return_type_override: AST::Types::Instance.new)
+                                               return_type_override: AST::Types::Instance.new,
+                                               current: sig.name)
                   end,
                   super_method: nil,
                   attributes: []
@@ -174,10 +230,10 @@ module Steep
         type_name = TypeName::Module.new(name: sig.name)
 
         params = sig.params&.variables || []
-        supers = [sig.self_type].compact
+        supers = [sig.self_type].compact.map {|type| absolute_type(type, current: nil) }
         methods = {}
 
-        module_instance = build(TypeName::Instance.new(name: ModuleName.parse(:Module)))
+        module_instance = build(TypeName::Instance.new(name: ModuleName.parse("::Module")))
         instantiated = module_instance.instantiate(
           type: nil,
           args: [],
@@ -190,14 +246,16 @@ module Steep
           case member
           when AST::Signature::Members::Include
             merge_mixin(TypeName::Module.new(name: member.name),
-                        member.args,
+                        member.args.map {|type| absolute_type(type, current: sig.name) },
                         methods: methods,
-                        supers: supers)
+                        supers: supers,
+                        current: sig.name)
           when AST::Signature::Members::Extend
             merge_mixin(TypeName::Instance.new(name: member.name),
-                        member.args,
+                        member.args.map {|type| absolute_type(type, current: sig.name) },
                         methods: methods,
-                        supers: supers)
+                        supers: supers,
+                        current: sig.name)
           end
         end
 
@@ -226,14 +284,14 @@ module Steep
         methods = {}
 
         if sig.is_a?(AST::Signature::Class)
-          unless sig.name == ModuleName.parse(:BasicObject)
-            super_class_name = sig.super_class&.name || ModuleName.parse(:Object)
-            super_class_interface = build(TypeName::Instance.new(name: super_class_name))
+          unless sig.name == ModuleName.parse("::BasicObject")
+            super_class_name = sig.super_class&.name || ModuleName.parse("::Object")
+            super_class_interface = build(TypeName::Instance.new(name: super_class_name), current: nil)
 
             supers.push(*super_class_interface.supers)
             instantiated = super_class_interface.instantiate(
               type: nil,
-              args: sig.super_class&.args || [],
+              args: (sig.super_class&.args || []).map {|type| absolute_type(type, current: nil) },
               instance_type: AST::Types::Instance.new,
               module_type: AST::Types::Class.new
             )
@@ -252,9 +310,10 @@ module Steep
           case member
           when AST::Signature::Members::Include
             merge_mixin(TypeName::Instance.new(name: member.name),
-                        member.args,
+                        member.args.map {|type| absolute_type(type, current: sig.name) },
                         methods: methods,
-                        supers: supers)
+                        supers: supers,
+                        current: sig.name)
           end
         end
 
@@ -297,7 +356,7 @@ module Steep
             type_name: type_name,
             name: method.name,
             types: method.types.map do |method_type|
-              method_type_to_method_type(method_type)
+              method_type_to_method_type(method_type, current: nil)
             end,
             super_method: nil,
             attributes: []
@@ -312,24 +371,24 @@ module Steep
         )
       end
 
-      def method_type_to_method_type(method_type, return_type_override: nil)
+      def method_type_to_method_type(method_type, return_type_override: nil, current:)
         type_params = method_type.type_params&.variables || []
-        params = params_to_params(method_type.params)
+        params = params_to_params(method_type.params, current: current)
         block = method_type.block && Block.new(
-          params: params_to_params(method_type.block.params),
-          return_type: method_type.block.return_type
+          params: params_to_params(method_type.block.params, current: current),
+          return_type: absolute_type(method_type.block.return_type, current: current)
         )
 
         MethodType.new(
           type_params: type_params,
-          return_type: return_type_override || method_type.return_type,
+          return_type: return_type_override || absolute_type(method_type.return_type, current: current),
           block: block,
           params: params,
           location: method_type.location
         )
       end
 
-      def params_to_params(params)
+      def params_to_params(params, current:)
         required = []
         optional = []
         rest = nil
@@ -340,17 +399,17 @@ module Steep
         while params
           case params
           when AST::MethodType::Params::Required
-            required << params.type
+            required << absolute_type(params.type, current: current)
           when AST::MethodType::Params::Optional
-            optional << params.type
+            optional << absolute_type(params.type, current: current)
           when AST::MethodType::Params::Rest
-            rest = params.type
+            rest = absolute_type(params.type, current: current)
           when AST::MethodType::Params::RequiredKeyword
-            required_keywords[params.name] = params.type
+            required_keywords[params.name] = absolute_type(params.type, current: current)
           when AST::MethodType::Params::OptionalKeyword
-            optional_keywords[params.name] = params.type
+            optional_keywords[params.name] = absolute_type(params.type, current: current)
           when AST::MethodType::Params::RestKeyword
-            rest_keywords = params.type
+            rest_keywords = absolute_type(params.type, current: current)
             break
           end
           params = params.next_params

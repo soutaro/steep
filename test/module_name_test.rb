@@ -18,4 +18,10 @@ class ModuleNameTest < Minitest::Test
     assert_equal [ModuleName.parse("Object"), ModuleName.parse("String")], ModuleName.parse("Object::String").components
     assert_equal [ModuleName.parse("::Object"), ModuleName.parse("String")], ModuleName.parse("::Object::String").components
   end
+
+  def test_parent
+    assert_equal ModuleName.parse("::Object"), ModuleName.parse("::Object::String").parent
+    assert_equal ModuleName.parse("Object"), ModuleName.parse("Object::String").parent
+    assert_nil ModuleName.parse("::Object").parent
+  end
 end

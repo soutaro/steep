@@ -16,7 +16,7 @@ class A
 end
     EOS
 
-    assert_class_signature klass, name: ModuleName.parse("A")
+    assert_class_signature klass, name: ModuleName.parse("::A")
     assert_location klass, start_line: 1, start_column: 0, end_line: 2, end_column: 3
     assert_nil klass.super_class
   end
@@ -27,7 +27,7 @@ class A<'a, 'b>
 end
     EOS
 
-    assert_class_signature klass, name: ModuleName.parse(:A), params: [:a, :b]
+    assert_class_signature klass, name: ModuleName.parse("::A"), params: [:a, :b]
     assert_location klass, start_line: 1, start_column: 0, end_line: 2, end_column: 3
     assert_location klass.params, start_line: 1, start_column: 7, end_line: 1, end_column: 15
 
@@ -40,10 +40,10 @@ class A <: Object
 end
     EOS
 
-    assert_class_signature klass, name: ModuleName.parse(:A)
+    assert_class_signature klass, name: ModuleName.parse("::A")
     assert_location klass, start_line: 1, start_column: 0, end_line: 2, end_column: 3
 
-    assert_super_class klass.super_class, name: ModuleName.parse(:Object)
+    assert_super_class klass.super_class, name: ModuleName.parse("Object")
     assert_location klass.super_class, start_line: 1, start_column: 11, end_line: 1, end_column: 17
   end
 
@@ -53,12 +53,12 @@ class A <: Array<Integer>
 end
     EOS
 
-    assert_class_signature klass, name: ModuleName.parse(:A)
+    assert_class_signature klass, name: ModuleName.parse("::A")
     assert_location klass, start_line: 1, start_column: 0, end_line: 2, end_column: 3
 
-    assert_super_class klass.super_class, name: ModuleName.parse(:Array) do |args|
+    assert_super_class klass.super_class, name: ModuleName.parse("Array") do |args|
       assert_equal 1, args.size
-      assert_named_type args[0], name: ModuleName.parse(:Integer), kind: :instance
+      assert_named_type args[0], name: ModuleName.parse("Integer"), kind: :instance
     end
     assert_location klass.super_class, start_line: 1, start_column: 11, end_line: 1, end_column: 25
   end
@@ -69,7 +69,7 @@ module M
 end
     EOS
 
-    assert_module_signature mod, name: ModuleName.parse(:M) do |m|
+    assert_module_signature mod, name: ModuleName.parse("::M") do |m|
       assert_nil m.self_type
     end
     assert_location mod, start_line: 1, start_column: 0, end_line: 2, end_column: 3
@@ -81,7 +81,7 @@ module M<'a, 'b>
 end
     EOS
 
-    assert_module_signature mod, name: ModuleName.parse(:M), params: [:a, :b] do |m|
+    assert_module_signature mod, name: ModuleName.parse("::M"), params: [:a, :b] do |m|
       assert_nil m.self_type
     end
     assert_location mod, start_line: 1, start_column: 0, end_line: 2, end_column: 3
@@ -93,7 +93,7 @@ module M: X
 end
     EOS
 
-    assert_module_signature mod, name: ModuleName.parse(:M) do |m|
+    assert_module_signature mod, name: ModuleName.parse("::M") do |m|
       assert_named_type m.self_type, name: ModuleName.parse(:X), kind: :instance
     end
     assert_location mod, start_line: 1, start_column: 0, end_line: 2, end_column: 3
@@ -107,7 +107,7 @@ class X
 end
     EOS
 
-    assert_class_signature klass, name: ModuleName.parse(:X)
+    assert_class_signature klass, name: ModuleName.parse("::X")
 
     assert_equal 2, klass.members.size
 
@@ -128,7 +128,7 @@ class X
 end
     EOS
 
-    assert_class_signature klass, name: ModuleName.parse(:X)
+    assert_class_signature klass, name: ModuleName.parse("::X")
 
     assert_equal 2, klass.members.size
 
@@ -149,7 +149,7 @@ module A
 end
     EOS
 
-    assert_module_signature mod, name: ModuleName.parse(:A)
+    assert_module_signature mod, name: ModuleName.parse("::A")
 
     assert_equal 1, mod.members.size
 
@@ -176,7 +176,7 @@ module A
 end
     EOS
 
-    assert_module_signature mod, name: ModuleName.parse(:A)
+    assert_module_signature mod, name: ModuleName.parse("::A")
     assert_equal 3, mod.members.size
     mod.members.each do |member|
       assert_method_member member
@@ -192,7 +192,7 @@ module A
 end
     EOS
 
-    assert_module_signature mod, name: ModuleName.parse(:A)
+    assert_module_signature mod, name: ModuleName.parse("::A")
 
     assert_equal 1, mod.members.size
 
@@ -218,7 +218,7 @@ module A
 end
     EOS
 
-    assert_module_signature mod, name: ModuleName.parse(:A)
+    assert_module_signature mod, name: ModuleName.parse("::A")
 
     assert_equal 1, mod.members.size
 
@@ -242,7 +242,7 @@ extension Object (Pathname)
 end
     EOF
 
-    assert_extension_signature ext, module_name: ModuleName.parse(:Object), name: :Pathname do |params:, **|
+    assert_extension_signature ext, module_name: ModuleName.parse("::Object"), name: :Pathname do |params:, **|
       assert_nil params
     end
     assert_location ext, start_line: 1, start_column: 0, end_line: 2, end_column: 3
@@ -254,7 +254,7 @@ extension Array<'a> (FOO)
 end
     EOF
 
-    assert_extension_signature ext, module_name: ModuleName.parse(:Array), name: :FOO do |params:, **|
+    assert_extension_signature ext, module_name: ModuleName.parse("::Array"), name: :FOO do |params:, **|
       assert_equal params.variables, [:a]
       assert_location params, start_line: 1, start_column: 15, end_line: 1, end_column: 19
     end
@@ -268,7 +268,7 @@ class A
 end
     EOF
 
-    assert_class_signature klass, name: ModuleName.parse(:A) do |members:, **|
+    assert_class_signature klass, name: ModuleName.parse("::A") do |members:, **|
       assert_equal 1, members.size
       assert_method_member members[0], name: :>>
     end

@@ -19,7 +19,40 @@ end
 
     env.add(klass)
 
-    assert_equal klass, env.find_class(ModuleName.parse(:A))
+    assert_equal klass, env.find_class(ModuleName.parse(:A).absolute!)
+  end
+
+  def test_class_path
+    klass, _ = parse(<<-EOS)
+class A::B::C
+end
+    EOS
+
+    env.add(klass)
+
+    assert_equal klass, env.find_class(ModuleName.parse("A::B::C").absolute!)
+    assert_equal klass, env.find_class(ModuleName.parse("C"), current_module: ModuleName.parse("::A::B"))
+  end
+
+  def test_nested_path_lookup
+    abc_object, ab_object, object, _ = parse(<<-EOS)
+class A::B::C::Object
+end
+
+class A::B::Object
+end
+
+class Object
+end
+    EOS
+
+    env.add(abc_object)
+    env.add(ab_object)
+    env.add(object)
+
+    assert_equal abc_object, env.find_class(ModuleName.parse("Object"), current_module: ModuleName.parse("::A::B::C"))
+    assert_equal ab_object, env.find_class(ModuleName.parse("Object"), current_module: ModuleName.parse("::A::B"))
+    assert_equal object, env.find_class(ModuleName.parse("Object"), current_module: ModuleName.parse("::A"))
   end
 
   def test_module
@@ -30,7 +63,7 @@ end
 
     env.add(mod)
 
-    assert_equal mod, env.find_module(ModuleName.parse(:A))
+    assert_equal mod, env.find_module(ModuleName.parse(:A).absolute!)
   end
 
   def test_class_module_conflict
@@ -82,6 +115,6 @@ end
 
     env.add(extension)
 
-    assert_equal [extension], env.find_extensions(ModuleName.parse(:Object))
+    assert_equal [extension], env.find_extensions(ModuleName.parse(:Object).absolute!)
   end
 end

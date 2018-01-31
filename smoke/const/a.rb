@@ -1,7 +1,7 @@
 # @type const A: Integer
 # @type var x: String
 
-# !expects IncompatibleAssignment: lhs_type=String, rhs_type=Integer
+# !expects IncompatibleAssignment: lhs_type=::String, rhs_type=::Integer
 x = A
 
 x = B
@@ -12,7 +12,7 @@ module X
   def foo
     # @type var x: String
 
-    # !expects IncompatibleAssignment: lhs_type=String, rhs_type=Integer
+    # !expects IncompatibleAssignment: lhs_type=::String, rhs_type=::Integer
     x = A
 
     x = B
@@ -22,7 +22,7 @@ end
 
 # @type const Foo::Bar::Baz: Integer
 
-# !expects IncompatibleAssignment: lhs_type=String, rhs_type=Integer
+# !expects IncompatibleAssignment: lhs_type=::String, rhs_type=::Integer
 x = Foo::Bar::Baz
 
 z = Foo

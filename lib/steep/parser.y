@@ -212,7 +212,7 @@ interface: INTERFACE interface_name type_params interface_members END {
            }
 class_decl: CLASS module_name type_params super_opt class_members END {
               loc = val.first.location + val.last.location
-              result = AST::Signature::Class.new(name: val[1].value,
+              result = AST::Signature::Class.new(name: val[1].value.absolute!,
                                                  params: val[2],
                                                  super_class: val[3],
                                                  members: val[4],
@@ -220,7 +220,7 @@ class_decl: CLASS module_name type_params super_opt class_members END {
             }
 module_decl: MODULE module_name type_params self_type_opt class_members END {
                loc = val.first.location + val.last.location
-               result = AST::Signature::Module.new(name: val[1].value,
+               result = AST::Signature::Module.new(name: val[1].value.absolute!,
                                                    location: loc,
                                                    params: val[2],
                                                    self_type: val[3],
@@ -228,7 +228,7 @@ module_decl: MODULE module_name type_params self_type_opt class_members END {
              }
 extension_decl: EXTENSION module_name type_params LPAREN UIDENT RPAREN class_members END {
                   loc = val.first.location + val.last.location
-                  result = AST::Signature::Extension.new(module_name: val[1].value,
+                  result = AST::Signature::Extension.new(module_name: val[1].value.absolute!,
                                                          name: val[4].value,
                                                          location: loc,
                                                          params: val[2],

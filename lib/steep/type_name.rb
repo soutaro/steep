@@ -20,9 +20,17 @@ module Steep
       def to_s
         name.to_s
       end
+
+      def map_module_name
+        self.class.new(name: yield(name))
+      end
     end
 
-    class Interface < Base; end
+    class Interface < Base
+      def map_module_name
+        self
+      end
+    end
 
     class Class < Base
       attr_reader :constructor
@@ -61,6 +69,10 @@ module Steep
         end
 
         self.class.new(name: name, constructor: constructor)
+      end
+
+      def map_module_name
+        self.class.new(name: yield(name), constructor: constructor)
       end
     end
 

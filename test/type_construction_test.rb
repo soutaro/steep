@@ -163,7 +163,7 @@ z = x
                                         module_context: nil)
     construction.synthesize(source.node)
 
-    assert_equal Types::Name.new_instance(name: :Integer), typing.type_of(node: source.node)
+    assert_equal Types::Name.new_instance(name: "::Integer"), typing.type_of(node: source.node)
     assert_empty typing.errors
   end
 

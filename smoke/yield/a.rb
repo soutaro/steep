@@ -3,10 +3,10 @@ class A
   def foo()
     # @type var x: String
 
-    # !expects IncompatibleAssignment: lhs_type=String, rhs_type=Integer
+    # !expects IncompatibleAssignment: lhs_type=::String, rhs_type=::Integer
     x = yield(3)
 
-    # !expects IncompatibleAssignment: lhs_type=Integer, rhs_type=String
+    # !expects IncompatibleAssignment: lhs_type=::Integer, rhs_type=::String
     yield(x)
   end
 

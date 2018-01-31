@@ -4,7 +4,7 @@ module A
   # @implements A
 
   def count
-    # @type var n: Integer
+    # @type var n: ::Integer
     n = 0
 
     each do |_|
@@ -12,10 +12,10 @@ module A
     end
 
     # @type var s: String
-    # !expects IncompatibleAssignment: lhs_type=String, rhs_type=Integer
+    # !expects IncompatibleAssignment: lhs_type=::String, rhs_type=::Integer
     s = n
 
-    # !expects NoMethodError: type=(A & Object & _Each<Integer>), method=foo
+    # !expects NoMethodError: type=(::A & ::Object & _Each<::Integer>), method=foo
     foo()
 
     n

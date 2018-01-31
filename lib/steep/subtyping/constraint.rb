@@ -22,6 +22,13 @@ module Steep
       def to_s
         "#{sub_type} <: #{super_type}"
       end
+
+      def map
+        self.class.new(
+          sub_type: yield(sub_type),
+          super_type: yield(super_type)
+        )
+      end
     end
   end
 end
