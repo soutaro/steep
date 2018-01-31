@@ -28,8 +28,27 @@ module Steep
       @mapping = mapping
     end
 
+    class Builder < ::Parser::Builders::Default
+      def string_value(token)
+        value(token)
+      end
+
+      def emit_lambda
+        true
+      end
+    end
+
+    def self.parser
+      ::Parser::CurrentRuby.new(Builder.new).tap do |parser|
+        parser.diagnostics.all_errors_are_fatal = true
+        parser.diagnostics.ignore_warnings = true
+      end
+    end
+
     def self.parse(source_code, path:, labeling: ASTUtils::Labeling.new)
-      node = labeling.translate(::Parser::CurrentRuby.parse(source_code, path.to_s), {})
+      buffer = ::Parser::Source::Buffer.new(path.to_s, 1)
+      buffer.source = source_code
+      node = labeling.translate(parser.parse(buffer), {})
 
       annotations = []
 
