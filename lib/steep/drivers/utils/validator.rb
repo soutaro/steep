@@ -4,10 +4,12 @@ module Steep
       class Validator
         attr_reader :stdout
         attr_reader :stderr
+        attr_reader :verbose
 
-        def initialize(stdout:, stderr:)
+        def initialize(stdout:, stderr:, verbose:)
           @stdout = stdout
           @stderr = stderr
+          @verbose = verbose
         end
 
         def run(env:, builder:, check:)
@@ -44,11 +46,13 @@ module Steep
                 instance_type = AST::Types::Name.new_instance(name: sig.name, args: instance_args)
                 module_type = AST::Types::Name.new_module(name: sig.name, args: module_args)
 
+                stdout.puts "👀 Validating instance methods..." if verbose
                 instance_interface.instantiate(type: instance_type,
                                                args: instance_args,
                                                instance_type: instance_type,
                                                module_type: module_type).validate(check)
 
+                stdout.puts "👀 Validating class methods..." if verbose
                 module_interface.instantiate(type: module_type,
                                              args: module_args,
                                              instance_type: instance_type,
@@ -68,11 +72,13 @@ module Steep
                 instance_type = AST::Types::Name.new_instance(name: sig.name, args: instance_args)
                 module_type = AST::Types::Name.new_class(name: sig.name, args: module_args, constructor: nil)
 
+                stdout.puts "👀 Validating instance methods..." if verbose
                 instance_interface.instantiate(type: instance_type,
                                                args: instance_args,
                                                instance_type: instance_type,
                                                module_type: module_type).validate(check)
 
+                stdout.puts "👀 Validating class methods..." if verbose
                 module_interface.instantiate(type: module_type,
                                              args: module_args,
                                              instance_type: instance_type,

@@ -39,7 +39,7 @@ module Steep
         builder = Interface::Builder.new(signatures: env)
         check = Subtyping::Check.new(builder: builder)
 
-        validator = Utils::Validator.new(stdout: stdout, stderr: stderr)
+        validator = Utils::Validator.new(stdout: stdout, stderr: stderr, verbose: verbose)
 
         validated = validator.run(env: env, builder: builder, check: check) do |sig|
           stderr.puts "Validating #{sig.name} (#{sig.location.name}:#{sig.location.start_line})..." if verbose
