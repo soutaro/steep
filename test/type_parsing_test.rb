@@ -105,4 +105,11 @@ class TypeParsingTest < Minitest::Test
   def test_application2
     refute_nil parse_method_type("() -> Array<Array<Integer>>")
   end
+
+  def test_self
+    type = parse_method_type("() -> self").return_type
+
+    assert_instance_of AST::Types::Self, type
+    assert_location type, start_line: 1, start_column: 6, end_line: 1, end_column: 10
+  end
 end

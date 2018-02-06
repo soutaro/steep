@@ -23,7 +23,7 @@ module Steep
       end
 
       def instantiate(type:, args:, instance_type:, module_type:)
-        subst = Substitution.build(params, args, instance_type: instance_type, module_type: module_type)
+        subst = Substitution.build(params, args, instance_type: instance_type, module_type: module_type, self_type: type)
 
         Instantiated.new(
           type: type,

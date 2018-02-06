@@ -114,7 +114,7 @@ module Steep
 
         supers.push(*mixed.supers)
         instantiated = mixed.instantiate(
-          type: nil,
+          type: AST::Types::Self.new,
           args: args,
           instance_type: AST::Types::Instance.new,
           module_type: AST::Types::Class.new
@@ -157,7 +157,7 @@ module Steep
 
         klass = build(TypeName::Instance.new(name: ModuleName.parse("::Class")))
         instantiated = klass.instantiate(
-          type: nil,
+          type: AST::Types::Self.new,
           args: [AST::Types::Instance.new],
           instance_type: AST::Types::Instance.new,
           module_type: AST::Types::Class.new
@@ -235,7 +235,7 @@ module Steep
 
         module_instance = build(TypeName::Instance.new(name: ModuleName.parse("::Module")))
         instantiated = module_instance.instantiate(
-          type: nil,
+          type: AST::Types::Self.new,
           args: [],
           instance_type: AST::Types::Instance.new,
           module_type: AST::Types::Class.new
@@ -290,7 +290,7 @@ module Steep
 
             supers.push(*super_class_interface.supers)
             instantiated = super_class_interface.instantiate(
-              type: nil,
+              type: AST::Types::Self.new,
               args: (sig.super_class&.args || []).map {|type| absolute_type(type, current: nil) },
               instance_type: AST::Types::Instance.new,
               module_type: AST::Types::Class.new

@@ -149,6 +149,7 @@ simple_type: type_name {
     | CLASS { result = AST::Types::Class.new(location: val[0].location) }
     | MODULE { result = AST::Types::Class.new(location: val[0].location) }
     | INSTANCE { result = AST::Types::Instance.new(location: val[0].location) }
+    | SELF { result = AST::Types::Self.new(location: val[0].location) }
 
 type_name: module_name {
              result = LocatedValue.new(value: TypeName::Instance.new(name: val[0].value),

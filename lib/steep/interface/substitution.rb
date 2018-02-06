@@ -4,15 +4,17 @@ module Steep
       attr_reader :dictionary
       attr_reader :instance_type
       attr_reader :module_type
+      attr_reader :self_type
 
-      def initialize(dictionary:, instance_type:, module_type:)
+      def initialize(dictionary:, instance_type:, module_type:, self_type:)
         @dictionary = dictionary
         @instance_type = instance_type
         @module_type = module_type
+        @self_type = self_type
       end
 
       def self.empty
-        new(dictionary: {}, instance_type: AST::Types::Instance.new, module_type: AST::Types::Class.new)
+        new(dictionary: {}, instance_type: AST::Types::Instance.new, module_type: AST::Types::Class.new, self_type: AST::Types::Self.new)
       end
 
       def [](key)
@@ -23,7 +25,7 @@ module Steep
         dictionary.key?(var)
       end
 
-      def self.build(vars, types = nil, instance_type: AST::Types::Instance.new, module_type: AST::Types::Class.new)
+      def self.build(vars, types = nil, instance_type: AST::Types::Instance.new, module_type: AST::Types::Class.new, self_type: AST::Types::Self.new)
         types ||= vars.map {|var| AST::Types::Var.fresh(var) }
 
         raise "Invalid substitution: vars.size=#{vars.size}, types.size=#{types.size}" unless vars.size == types.size
@@ -32,14 +34,15 @@ module Steep
           d[var] = type
         end
 
-        new(dictionary: dic, instance_type: instance_type, module_type: module_type)
+        new(dictionary: dic, instance_type: instance_type, module_type: module_type, self_type: self_type)
       end
 
       def except(vars)
         self.class.new(
           dictionary: dictionary.reject {|k, _| vars.include?(k) },
           instance_type: instance_type,
-          module_type: module_type
+          module_type: module_type,
+          self_type: self_type
         )
       end
 
@@ -55,7 +58,7 @@ module Steep
       end
 
       def add!(v, ty)
-        merge!(Substitution.new(dictionary: { v => ty }, instance_type: nil, module_type: nil))
+        merge!(Substitution.new(dictionary: { v => ty }, instance_type: nil, module_type: nil, self_type: nil))
       end
     end
   end

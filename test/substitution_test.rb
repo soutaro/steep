@@ -8,10 +8,12 @@ class SubstitutionTest < Minitest::Test
     s = Substitution.build([:a, :b],
                            [Types::Name.new_instance(name: :String), Types::Any.new],
                            instance_type: Types::Name.new_instance(name: :Integer),
-                           module_type: Types::Name.new_class(name: :Object, constructor: false))
+                           module_type: Types::Name.new_class(name: :Object, constructor: false),
+                           self_type: Types::Name.new_instance(name: :Float))
 
     assert_equal Types::Name.new_instance(name: :Integer), s.instance_type
     assert_equal Types::Name.new_class(name: :Object, constructor: false), s.module_type
+    assert_equal Types::Name.new_instance(name: :Float), s.self_type
     assert_equal({ a: Types::Name.new_instance(name: :String), b: Types::Any.new }, s.dictionary)
   end
 
@@ -19,7 +21,8 @@ class SubstitutionTest < Minitest::Test
     s = Substitution.build([:a, :b],
                            [Types::Name.new_instance(name: :String), Types::Any.new],
                            instance_type: Types::Name.new_instance(name: :Integer),
-                           module_type: Types::Name.new_class(name: :Object, constructor: false))
+                           module_type: Types::Name.new_class(name: :Object, constructor: false),
+                           self_type: Types::Name.new_instance(name: :Float))
 
     assert_equal Types::Name.new_instance(name: :String), Types::Var.new(name: :a).subst(s)
     assert_equal Types::Var.new(name: :x), Types::Var.new(name: :x).subst(s)
@@ -29,6 +32,7 @@ class SubstitutionTest < Minitest::Test
 
     assert_equal Types::Name.new_instance(name: :Integer), Types::Instance.new.subst(s)
     assert_equal Types::Name.new_class(name: :Object, constructor: false), Types::Class.new.subst(s)
+    assert_equal Types::Name.new_instance(name: :Float), Types::Self.new.subst(s)
 
     assert_equal Types::Union.new(types:
                                     [

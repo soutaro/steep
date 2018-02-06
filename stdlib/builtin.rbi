@@ -4,7 +4,7 @@ end
 
 class Object <: BasicObject
   include Kernel
-  def tap: { (instance) -> any } -> instance
+  def tap: { (self) -> any } -> self
   def to_s: -> String
   def hash: -> Integer
   def eql?: (any) -> _Boolean
