@@ -19,10 +19,12 @@ end
 
 class Module
   def attr_reader: (*any) -> any
+  def class: -> any
 end
 
 class Class<'instance> <: Module
   def new: (*any, **any) -> 'instance
+  def class: -> Class.class<any>
   def allocate: -> 'instance
 end
 
