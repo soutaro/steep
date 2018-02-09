@@ -67,14 +67,14 @@ module Steep
         end
 
         class UnknownPairError
-          attr_reader :constraint
+          attr_reader :relation
 
-          def initialize(constraint:)
-            @constraint = constraint
+          def initialize(relation:)
+            @relation = relation
           end
 
           def message
-            "#{constraint} does not hold"
+            "#{relation} does not hold"
           end
         end
 

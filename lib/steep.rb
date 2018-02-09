@@ -38,7 +38,7 @@ require "steep/interface/instantiated"
 
 require "steep/subtyping/check"
 require "steep/subtyping/result"
-require "steep/subtyping/constraint"
+require "steep/subtyping/relation"
 require "steep/subtyping/trace"
 
 require "steep/signature/errors"

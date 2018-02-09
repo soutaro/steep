@@ -1,6 +1,6 @@
 module Steep
   module Subtyping
-    class Constraint
+    class Relation
       attr_reader :sub_type
       attr_reader :super_type
 

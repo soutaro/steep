@@ -681,7 +681,7 @@ module Steep
     def check(node, type)
       type_ = synthesize(node)
 
-      result = checker.check(Subtyping::Constraint.new(
+      result = checker.check(Subtyping::Relation.new(
         sub_type: type_,
         super_type: type)
       )
@@ -836,14 +836,14 @@ module Steep
     end
 
     def type_method_call(node, arg_pairs:, method_type:, block_params:, block_body:)
-      arg_constraints = arg_pairs.map do |(arg_node, param_type)|
-        Subtyping::Constraint.new(
+      arg_relations = arg_pairs.map do |(arg_node, param_type)|
+        Subtyping::Relation.new(
           sub_type: synthesize(arg_node),
           super_type: param_type
         )
       end
 
-      unless arg_constraints.all? {|constraint| checker.check(constraint).success? }
+      unless arg_relations.all? {|relation| checker.check(relation).success? }
         return
       end
 

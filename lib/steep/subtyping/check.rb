@@ -9,9 +9,9 @@ module Steep
         @cache = {}
       end
 
-      def check(constraint, assumption: Set.new, trace: Trace.new)
+      def check(relation, assumption: Set.new, trace: Trace.new)
         prefix = trace.size
-        cached = cache[constraint]
+        cached = cache[relation]
         if cached
           if cached.success?
             cached
@@ -19,13 +19,13 @@ module Steep
             cached.merge_trace(trace)
           end
         else
-          if assumption.member?(constraint)
+          if assumption.member?(relation)
             success
           else
-            trace.add(constraint.sub_type, constraint.super_type) do
-              assumption = assumption + Set.new([constraint])
-              check0(constraint, assumption: assumption, trace: trace).tap do |result|
-                cache[constraint] = result.else do |failure|
+            trace.add(relation.sub_type, relation.super_type) do
+              assumption = assumption + Set.new([relation])
+              check0(relation, assumption: assumption, trace: trace).tap do |result|
+                cache[relation] = result.else do |failure|
                   failure.drop(prefix)
                 end
               end
@@ -42,42 +42,42 @@ module Steep
         Result::Failure.new(error: error, trace: trace)
       end
 
-      def check0(constraint, assumption:, trace:)
+      def check0(relation, assumption:, trace:)
         case
-        when same_type?(constraint, assumption: assumption)
+        when same_type?(relation, assumption: assumption)
           success
 
-        when constraint.sub_type.is_a?(AST::Types::Any) || constraint.super_type.is_a?(AST::Types::Any)
+        when relation.sub_type.is_a?(AST::Types::Any) || relation.super_type.is_a?(AST::Types::Any)
           success
 
-        when !constraint.sub_type.is_a?(AST::Types::Var) && constraint.super_type.is_a?(AST::Types::Var)
+        when !relation.sub_type.is_a?(AST::Types::Var) && relation.super_type.is_a?(AST::Types::Var)
           success
 
         else
           begin
-            sub_interface = resolve(constraint.sub_type)
-            super_interface = resolve(constraint.super_type)
+            sub_interface = resolve(relation.sub_type)
+            super_interface = resolve(relation.super_type)
 
             check_interface(sub_interface, super_interface, assumption: assumption, trace: trace)
 
           rescue => exn
             STDERR.puts "Cannot resolve type to interface: #{exn.inspect}"
-            failure(error: Result::Failure::UnknownPairError.new(constraint: constraint),
+            failure(error: Result::Failure::UnknownPairError.new(relation: relation),
                     trace: trace)
           end
         end
       end
 
-      def same_type?(constraint, assumption:)
+      def same_type?(relation, assumption:)
         case
-        when constraint.sub_type == constraint.super_type
+        when relation.sub_type == relation.super_type
           true
-        when constraint.sub_type.is_a?(AST::Types::Name) && constraint.super_type.is_a?(AST::Types::Name)
-          return false unless constraint.sub_type.name == constraint.super_type.name
-          return false unless constraint.sub_type.args.size == constraint.super_type.args.size
-          constraint.sub_type.args.zip(constraint.super_type.args).all? do |(s, t)|
-            assumption.include?(Constraint.new(sub_type: s, super_type: t)) &&
-              assumption.include?(Constraint.new(sub_type: t, super_type: s))
+        when relation.sub_type.is_a?(AST::Types::Name) && relation.super_type.is_a?(AST::Types::Name)
+          return false unless relation.sub_type.name == relation.super_type.name
+          return false unless relation.sub_type.args.size == relation.super_type.args.size
+          relation.sub_type.args.zip(relation.super_type.args).all? do |(s, t)|
+            assumption.include?(Relation.new(sub_type: s, super_type: t)) &&
+              assumption.include?(Relation.new(sub_type: t, super_type: s))
           end
         else
           false
@@ -115,8 +115,8 @@ module Steep
 
               a = super_args.zip(sub_args).each.with_object(Set.new) do |(s, t), set|
                 if s && t
-                  set.add(Constraint.new(sub_type: s, super_type: t))
-                  set.add(Constraint.new(sub_type: t, super_type: s))
+                  set.add(Relation.new(sub_type: s, super_type: t))
+                  set.add(Relation.new(sub_type: t, super_type: s))
                 end
               end
 
@@ -152,9 +152,9 @@ module Steep
           check_block_given(name, sub_type.block, super_type.block, trace: trace).then do
             check_block_params(name, sub_type.block, super_type.block, assumption: assumption, trace: trace).then do
               check_block_return(sub_type.block, super_type.block, assumption: assumption, trace: trace).then do
-                constraint = Constraint.new(super_type: super_type.return_type,
+                relation = Relation.new(super_type: super_type.return_type,
                                             sub_type: sub_type.return_type)
-                check(constraint, assumption: assumption, trace: trace)
+                check(relation, assumption: assumption, trace: trace)
               end
             end
           end
@@ -265,9 +265,9 @@ module Steep
         end
 
         pairs.each do |(sub_type, super_type)|
-          constraint = Constraint.new(super_type: sub_type, sub_type: super_type)
+          relation = Relation.new(super_type: sub_type, sub_type: super_type)
 
-          result = check(constraint, assumption: assumption, trace: trace)
+          result = check(relation, assumption: assumption, trace: trace)
           return result if result.failure?
         end
 
@@ -288,9 +288,9 @@ module Steep
 
       def check_block_return(sub_block, super_block, assumption:, trace:)
         if sub_block
-          constraint = Constraint.new(sub_type: super_block.return_type,
+          relation = Relation.new(sub_type: super_block.return_type,
                                       super_type: sub_block.return_type)
-          check(constraint, assumption: assumption, trace: trace)
+          check(relation, assumption: assumption, trace: trace)
         else
           success
         end
@@ -325,9 +325,9 @@ module Steep
             case
             when type == type_
               [type]
-            when check(Constraint.new(sub_type: type_, super_type: type)).success?
+            when check(Relation.new(sub_type: type_, super_type: type)).success?
               [type]
-            when check(Constraint.new(sub_type: type, super_type: type_)).success?
+            when check(Relation.new(sub_type: type, super_type: type_)).success?
               [type_]
             else
               [type, type_]

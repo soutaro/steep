@@ -62,7 +62,7 @@ end
     EOS
 
     result = checker.check(
-      Subtyping::Constraint.new(
+      Subtyping::Relation.new(
         sub_type: AST::Types::Name.new_instance(name: "::A"),
         super_type: AST::Types::Name.new_instance(name: "::B")
       )
@@ -84,7 +84,7 @@ end
     EOS
 
     result = checker.check(
-      Subtyping::Constraint.new(
+      Subtyping::Relation.new(
         sub_type: AST::Types::Name.new_instance(name: "::B"),
         super_type: AST::Types::Name.new_instance(name: "::A")
       )
@@ -111,7 +111,7 @@ end
     EOS
 
     result = checker.check(
-      Subtyping::Constraint.new(
+      Subtyping::Relation.new(
         sub_type: AST::Types::Name.new_instance(name: "::A"),
         super_type: AST::Types::Name.new_instance(name: "::B")
       )
@@ -134,7 +134,7 @@ end
     EOS
 
     result = checker.check(
-      Subtyping::Constraint.new(
+      Subtyping::Relation.new(
         sub_type: AST::Types::Name.new_instance(name: "::B"),
         super_type: AST::Types::Name.new_instance(name: "::A")
       )
@@ -155,7 +155,7 @@ end
     EOS
 
     result = checker.check(
-      Subtyping::Constraint.new(
+      Subtyping::Relation.new(
         sub_type: AST::Types::Name.new_instance(name: "::B"),
         super_type: AST::Types::Name.new_instance(name: "::A")
       )
@@ -163,7 +163,7 @@ end
     assert_instance_of Subtyping::Result::Success, result
 
     result = checker.check(
-      Subtyping::Constraint.new(
+      Subtyping::Relation.new(
         sub_type: AST::Types::Name.new_instance(name: "::A"),
         super_type: AST::Types::Name.new_instance(name: "::B"),
         )
@@ -184,7 +184,7 @@ end
     EOS
 
     result = checker.check(
-      Subtyping::Constraint.new(
+      Subtyping::Relation.new(
         sub_type: AST::Types::Name.new_instance(name: "::B"),
         super_type: AST::Types::Name.new_instance(name: "::A")
       )
@@ -192,7 +192,7 @@ end
     assert_instance_of Subtyping::Result::Success, result
 
     result = checker.check(
-      Subtyping::Constraint.new(
+      Subtyping::Relation.new(
         sub_type: AST::Types::Name.new_instance(name: "::A"),
         super_type: AST::Types::Name.new_instance(name: "::B"),
         )
@@ -214,7 +214,7 @@ end
     EOS
 
     result = checker.check(
-      Subtyping::Constraint.new(
+      Subtyping::Relation.new(
         sub_type: AST::Types::Name.new_instance(name: "::A"),
         super_type: AST::Types::Name.new_instance(name: "::B")
       )
@@ -222,7 +222,7 @@ end
     assert_instance_of Subtyping::Result::Success, result
 
     result = checker.check(
-      Subtyping::Constraint.new(
+      Subtyping::Relation.new(
         sub_type: AST::Types::Name.new_instance(name: "::B"),
         super_type: AST::Types::Name.new_instance(name: "::A"),
         )
@@ -243,7 +243,7 @@ end
     EOS
 
     result = checker.check(
-      Subtyping::Constraint.new(
+      Subtyping::Relation.new(
         sub_type: AST::Types::Name.new_instance(name: "::A"),
         super_type: AST::Types::Name.new_instance(name: "::B")
       )
@@ -251,7 +251,7 @@ end
     assert_instance_of Subtyping::Result::Success, result
 
     result = checker.check(
-      Subtyping::Constraint.new(
+      Subtyping::Relation.new(
         sub_type: AST::Types::Name.new_instance(name: "::B"),
         super_type: AST::Types::Name.new_instance(name: "::A"),
         )
@@ -272,7 +272,7 @@ end
     EOS
 
     result = checker.check(
-      Subtyping::Constraint.new(
+      Subtyping::Relation.new(
         sub_type: AST::Types::Name.new_instance(name: "::A"),
         super_type: AST::Types::Name.new_instance(name: "::B")
       )
@@ -280,7 +280,7 @@ end
     assert_instance_of Subtyping::Result::Success, result
 
     result = checker.check(
-      Subtyping::Constraint.new(
+      Subtyping::Relation.new(
         sub_type: AST::Types::Name.new_instance(name: "::B"),
         super_type: AST::Types::Name.new_instance(name: "::A"),
         )
@@ -294,7 +294,7 @@ end
     EOS
 
     result = checker.check(
-      Subtyping::Constraint.new(
+      Subtyping::Relation.new(
         sub_type: AST::Types::Name.new_instance(name: "::String"),
         super_type: AST::Types::Union.new(types: [AST::Types::Name.new_instance(name: "::Object"),
                                                 AST::Types::Name.new_instance(name: "::String")]),
@@ -304,7 +304,7 @@ end
     assert_instance_of Subtyping::Result::Success, result
 
     result = checker.check(
-      Subtyping::Constraint.new(
+      Subtyping::Relation.new(
         sub_type: AST::Types::Union.new(types: [AST::Types::Name.new_instance(name: "::Object"),
                                                 AST::Types::Name.new_instance(name: "::Integer")]),
         super_type: AST::Types::Name.new_instance(name: "::String")
@@ -314,7 +314,7 @@ end
     assert_equal 1, result.trace.size
 
     result = checker.check(
-      Subtyping::Constraint.new(
+      Subtyping::Relation.new(
         sub_type: AST::Types::Name.new_instance(name: "::Integer"),
         super_type: AST::Types::Union.new(types: [AST::Types::Name.new_instance(name: "::Object"),
                                                   AST::Types::Name.new_instance(name: "::BasicObject")]),
@@ -323,7 +323,7 @@ end
     assert_instance_of Subtyping::Result::Success, result
 
     result = checker.check(
-      Subtyping::Constraint.new(
+      Subtyping::Relation.new(
         sub_type: AST::Types::Name.new_instance(name: "::Integer"),
         super_type: AST::Types::Union.new(types: [AST::Types::Name.new_instance(name: "::Object"),
                                                   AST::Types::Name.new_instance(name: "::String")]),
@@ -337,7 +337,7 @@ end
     EOS
 
     result = checker.check(
-      Subtyping::Constraint.new(
+      Subtyping::Relation.new(
         sub_type: AST::Types::Name.new_instance(name: "::String"),
         super_type: AST::Types::Intersection.new(types: [
           AST::Types::Name.new_instance(name: "::Object"),
@@ -348,7 +348,7 @@ end
     assert_instance_of Subtyping::Result::Success, result
 
     result = checker.check(
-      Subtyping::Constraint.new(
+      Subtyping::Relation.new(
         sub_type: AST::Types::Intersection.new(types: [
           AST::Types::Name.new_instance(name: "::Object"),
           AST::Types::Name.new_instance(name: "::Integer")
@@ -360,7 +360,7 @@ end
     assert_equal 1, result.trace.size
 
     result = checker.check(
-      Subtyping::Constraint.new(
+      Subtyping::Relation.new(
         sub_type: AST::Types::Name.new_instance(name: "::Object"),
         super_type: AST::Types::Intersection.new(types: [
           AST::Types::Name.new_instance(name: "::Integer"),
