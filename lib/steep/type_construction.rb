@@ -681,9 +681,10 @@ module Steep
     def check(node, type)
       type_ = synthesize(node)
 
-      result = checker.check(Subtyping::Relation.new(
-        sub_type: type_,
-        super_type: type)
+      result = checker.check(
+        Subtyping::Relation.new(sub_type: type_,
+                                super_type: type),
+        constraints: Subtyping::Constraints.empty
       )
       if result.failure?
         yield(type, type_, result)
@@ -843,7 +844,7 @@ module Steep
         )
       end
 
-      unless arg_relations.all? {|relation| checker.check(relation).success? }
+      unless arg_relations.all? {|relation| checker.check(relation, constraints: Subtyping::Constraints.empty).success? }
         return
       end
 

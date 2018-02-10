@@ -41,7 +41,8 @@ module Steep
                                       method,
                                       method.super_method,
                                       assumption: Set.new,
-                                      trace: Subtyping::Trace.new)
+                                      trace: Subtyping::Trace.new,
+                                      constraints: Subtyping::Constraints.empty)
 
           if result.success?
             validate_method(check, method.super_method)

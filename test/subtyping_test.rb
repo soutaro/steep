@@ -65,7 +65,8 @@ end
       Subtyping::Relation.new(
         sub_type: AST::Types::Name.new_instance(name: "::A"),
         super_type: AST::Types::Name.new_instance(name: "::B")
-      )
+      ),
+      constraints: Subtyping::Constraints.empty
     )
 
     assert_instance_of Subtyping::Result::Success, result
@@ -87,7 +88,8 @@ end
       Subtyping::Relation.new(
         sub_type: AST::Types::Name.new_instance(name: "::B"),
         super_type: AST::Types::Name.new_instance(name: "::A")
-      )
+      ),
+      constraints: Subtyping::Constraints.empty
     )
 
     assert_instance_of Subtyping::Result::Failure, result
@@ -114,7 +116,8 @@ end
       Subtyping::Relation.new(
         sub_type: AST::Types::Name.new_instance(name: "::A"),
         super_type: AST::Types::Name.new_instance(name: "::B")
-      )
+      ),
+      constraints: Subtyping::Constraints.empty
     )
 
     assert_instance_of Subtyping::Result::Failure, result
@@ -137,7 +140,8 @@ end
       Subtyping::Relation.new(
         sub_type: AST::Types::Name.new_instance(name: "::B"),
         super_type: AST::Types::Name.new_instance(name: "::A")
-      )
+      ),
+      constraints: Subtyping::Constraints.empty
     )
 
     assert_instance_of Subtyping::Result::Success, result
@@ -158,7 +162,8 @@ end
       Subtyping::Relation.new(
         sub_type: AST::Types::Name.new_instance(name: "::B"),
         super_type: AST::Types::Name.new_instance(name: "::A")
-      )
+      ),
+      constraints: Subtyping::Constraints.empty
     )
     assert_instance_of Subtyping::Result::Success, result
 
@@ -166,7 +171,8 @@ end
       Subtyping::Relation.new(
         sub_type: AST::Types::Name.new_instance(name: "::A"),
         super_type: AST::Types::Name.new_instance(name: "::B"),
-        )
+        ),
+      constraints: Subtyping::Constraints.empty
     )
     assert_instance_of Subtyping::Result::Failure, result
     assert_instance_of Subtyping::Result::Failure::UnknownPairError, result.error
@@ -187,7 +193,8 @@ end
       Subtyping::Relation.new(
         sub_type: AST::Types::Name.new_instance(name: "::B"),
         super_type: AST::Types::Name.new_instance(name: "::A")
-      )
+      ),
+      constraints: Subtyping::Constraints.empty
     )
     assert_instance_of Subtyping::Result::Success, result
 
@@ -195,7 +202,8 @@ end
       Subtyping::Relation.new(
         sub_type: AST::Types::Name.new_instance(name: "::A"),
         super_type: AST::Types::Name.new_instance(name: "::B"),
-        )
+        ),
+      constraints: Subtyping::Constraints.empty
     )
     assert_instance_of Subtyping::Result::Failure, result
     assert_instance_of Subtyping::Result::Failure::UnknownPairError, result.error
@@ -217,7 +225,8 @@ end
       Subtyping::Relation.new(
         sub_type: AST::Types::Name.new_instance(name: "::A"),
         super_type: AST::Types::Name.new_instance(name: "::B")
-      )
+      ),
+      constraints: Subtyping::Constraints.empty
     )
     assert_instance_of Subtyping::Result::Success, result
 
@@ -225,7 +234,8 @@ end
       Subtyping::Relation.new(
         sub_type: AST::Types::Name.new_instance(name: "::B"),
         super_type: AST::Types::Name.new_instance(name: "::A"),
-        )
+        ),
+      constraints: Subtyping::Constraints.empty
     )
     assert_instance_of Subtyping::Result::Failure, result
     assert_instance_of Subtyping::Result::Failure::MethodMissingError, result.error
@@ -246,7 +256,8 @@ end
       Subtyping::Relation.new(
         sub_type: AST::Types::Name.new_instance(name: "::A"),
         super_type: AST::Types::Name.new_instance(name: "::B")
-      )
+      ),
+      constraints: Subtyping::Constraints.empty
     )
     assert_instance_of Subtyping::Result::Success, result
 
@@ -254,7 +265,8 @@ end
       Subtyping::Relation.new(
         sub_type: AST::Types::Name.new_instance(name: "::B"),
         super_type: AST::Types::Name.new_instance(name: "::A"),
-        )
+        ),
+      constraints: Subtyping::Constraints.empty
     )
     assert_instance_of Subtyping::Result::Failure, result
     assert_instance_of Subtyping::Result::Failure::MethodMissingError, result.error
@@ -275,7 +287,8 @@ end
       Subtyping::Relation.new(
         sub_type: AST::Types::Name.new_instance(name: "::A"),
         super_type: AST::Types::Name.new_instance(name: "::B")
-      )
+      ),
+      constraints: Subtyping::Constraints.empty
     )
     assert_instance_of Subtyping::Result::Success, result
 
@@ -283,7 +296,8 @@ end
       Subtyping::Relation.new(
         sub_type: AST::Types::Name.new_instance(name: "::B"),
         super_type: AST::Types::Name.new_instance(name: "::A"),
-        )
+        ),
+      constraints: Subtyping::Constraints.empty
     )
     assert_instance_of Subtyping::Result::Failure, result
     assert_instance_of Subtyping::Result::Failure::MethodMissingError, result.error
@@ -298,7 +312,8 @@ end
         sub_type: AST::Types::Name.new_instance(name: "::String"),
         super_type: AST::Types::Union.new(types: [AST::Types::Name.new_instance(name: "::Object"),
                                                 AST::Types::Name.new_instance(name: "::String")]),
-      )
+      ),
+      constraints: Subtyping::Constraints.empty
     )
 
     assert_instance_of Subtyping::Result::Success, result
@@ -308,7 +323,8 @@ end
         sub_type: AST::Types::Union.new(types: [AST::Types::Name.new_instance(name: "::Object"),
                                                 AST::Types::Name.new_instance(name: "::Integer")]),
         super_type: AST::Types::Name.new_instance(name: "::String")
-      )
+      ),
+      constraints: Subtyping::Constraints.empty
     )
     assert_instance_of Subtyping::Result::Failure, result
     assert_equal 1, result.trace.size
@@ -318,7 +334,8 @@ end
         sub_type: AST::Types::Name.new_instance(name: "::Integer"),
         super_type: AST::Types::Union.new(types: [AST::Types::Name.new_instance(name: "::Object"),
                                                   AST::Types::Name.new_instance(name: "::BasicObject")]),
-      )
+      ),
+      constraints: Subtyping::Constraints.empty
     )
     assert_instance_of Subtyping::Result::Success, result
 
@@ -327,7 +344,8 @@ end
         sub_type: AST::Types::Name.new_instance(name: "::Integer"),
         super_type: AST::Types::Union.new(types: [AST::Types::Name.new_instance(name: "::Object"),
                                                   AST::Types::Name.new_instance(name: "::String")]),
-        )
+        ),
+      constraints: Subtyping::Constraints.empty
     )
     assert_instance_of Subtyping::Result::Success, result
   end
@@ -342,7 +360,8 @@ end
         super_type: AST::Types::Intersection.new(types: [
           AST::Types::Name.new_instance(name: "::Object"),
           AST::Types::Name.new_instance(name: "::String")]),
-        )
+        ),
+      constraints: Subtyping::Constraints.empty
     )
 
     assert_instance_of Subtyping::Result::Success, result
@@ -354,7 +373,8 @@ end
           AST::Types::Name.new_instance(name: "::Integer")
         ]),
         super_type: AST::Types::Name.new_instance(name: "::String")
-      )
+      ),
+      constraints: Subtyping::Constraints.empty
     )
     assert_instance_of Subtyping::Result::Failure, result
     assert_equal 1, result.trace.size
@@ -365,7 +385,8 @@ end
         super_type: AST::Types::Intersection.new(types: [
           AST::Types::Name.new_instance(name: "::Integer"),
           AST::Types::Name.new_instance(name: "::String")]),
-        )
+        ),
+      constraints: Subtyping::Constraints.empty
     )
     assert_instance_of Subtyping::Result::Failure, result
   end
@@ -377,7 +398,8 @@ end
       Subtyping::Relation.new(
         sub_type: AST::Types::Name.new_instance(name: :"::Object"),
         super_type: AST::Types::Var.new(name: :foo)
-      )
+      ),
+      constraints: Subtyping::Constraints.empty
     )
 
     # Not cached because the relation has free variables
@@ -387,7 +409,8 @@ end
       Subtyping::Relation.new(
         sub_type: AST::Types::Name.new_instance(name: :"::Integer"),
         super_type: AST::Types::Name.new_instance(name: :"::Object")
-      )
+      ),
+      constraints: Subtyping::Constraints.empty
     )
 
     # Cached because the relation does not have free variables
@@ -425,5 +448,118 @@ end
     assert_equal [], interface.methods[:class].types
     assert_equal [AST::Types::Name.new_instance(name: "::String")], interface.methods[:to_str].types.map(&:return_type)
     assert_equal [AST::Types::Name.new_instance(name: "::Integer")], interface.methods[:to_int].types.map(&:return_type)
+  end
+
+  def test_constraints1
+    checker = new_checker(<<-EOS)
+class A
+  def foo: -> Integer
+end
+
+class B<'a>
+  def foo: -> 'a
+end
+    EOS
+
+    result = checker.check(
+      Subtyping::Relation.new(
+        sub_type: AST::Types::Name.new_instance(name: "::A"),
+        super_type: AST::Types::Name.new_instance(name: "::B",
+                                                  args: [AST::Types::Var.new(name: :x)])
+      ),
+      constraints: Subtyping::Constraints.new(domain: [:x])
+    )
+
+    assert_instance_of Subtyping::Result::Success, result
+    assert_operator result.constraints, :domain?, :x
+    assert_empty result.constraints.upper_bound(:x)
+    assert_equal [AST::Types::Name.new_instance(name: :"::Integer")], result.constraints.lower_bound(:x)
+  end
+
+  def test_constraints2
+    checker = new_checker(<<-EOS)
+class A<'a>
+  def get: -> 'a
+  def set: ('a) -> self
+end
+
+class B
+  def get: -> String
+  def set: (String) -> self
+end
+    EOS
+
+    result = checker.check(
+      Subtyping::Relation.new(
+        sub_type: AST::Types::Name.new_instance(name: "::A", args: [AST::Types::Var.new(name: :x)]),
+        super_type: AST::Types::Name.new_instance(name: "::B")
+      ),
+      constraints: Subtyping::Constraints.new(domain: [:x])
+    )
+
+    assert_instance_of Subtyping::Result::Success, result
+    assert_operator result.constraints, :domain?, :x
+    assert_equal [AST::Types::Name.new_instance(name: :"::String")], result.constraints.upper_bound(:x)
+    assert_equal [AST::Types::Name.new_instance(name: :"::String")], result.constraints.lower_bound(:x)
+
+    s = result.constraints.subst(checker)
+    assert_equal AST::Types::Name.new_instance(name: :"::String"), AST::Types::Var.new(name: :x).subst(s)
+  end
+
+  def test_constraints3
+    checker = new_checker(<<-EOS)
+class A<'a>
+  def set: ('a) -> self
+end
+
+class B
+  def get: -> String
+  def set: (String) -> self
+end
+    EOS
+
+    result = checker.check(
+      Subtyping::Relation.new(
+        sub_type: AST::Types::Name.new_instance(name: "::B"),
+        super_type: AST::Types::Name.new_instance(name: "::A", args: [AST::Types::Var.new(name: :x)])
+      ),
+      constraints: Subtyping::Constraints.new(domain: [:x])
+    )
+
+    assert_instance_of Subtyping::Result::Success, result
+    assert_operator result.constraints, :domain?, :x
+    assert_equal [AST::Types::Name.new_instance(name: :"::String")], result.constraints.upper_bound(:x)
+    assert_empty result.constraints.lower_bound(:x)
+
+    s = result.constraints.subst(checker)
+    assert_equal AST::Types::Name.new_instance(name: :"::String"), AST::Types::Var.new(name: :x).subst(s)
+  end
+
+  def test_constraints4
+    checker = new_checker(<<-EOS)
+class A<'a>
+  def set: ('a) -> self
+end
+
+class B
+  def set: (String) -> self
+end
+    EOS
+
+    result = checker.check(
+      Subtyping::Relation.new(
+        sub_type: AST::Types::Name.new_instance(name: "::A", args: [AST::Types::Var.new(name: :x)]),
+        super_type: AST::Types::Name.new_instance(name: "::B"),
+      ),
+      constraints: Subtyping::Constraints.new(domain: [:x])
+    )
+
+    assert_instance_of Subtyping::Result::Success, result
+    assert_operator result.constraints, :domain?, :x
+    assert_equal [AST::Types::Name.new_instance(name: :"::String")], result.constraints.lower_bound(:x)
+    assert_empty result.constraints.upper_bound(:x)
+
+    s = result.constraints.subst(checker)
+    assert_equal AST::Types::Name.new_instance(name: :"::String"), AST::Types::Var.new(name: :x).subst(s)
   end
 end

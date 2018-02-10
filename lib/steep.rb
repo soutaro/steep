@@ -40,6 +40,7 @@ require "steep/subtyping/check"
 require "steep/subtyping/result"
 require "steep/subtyping/relation"
 require "steep/subtyping/trace"
+require "steep/subtyping/constraints"
 
 require "steep/signature/errors"
 require "steep/parser"

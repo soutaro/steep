@@ -24,6 +24,12 @@ module Steep
       end
 
       class Success < Base
+        attr_reader :constraints
+
+        def initialize(constraints:)
+          @constraints = constraints
+        end
+
         def success?
           true
         end
