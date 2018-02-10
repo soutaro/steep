@@ -29,6 +29,13 @@ module Steep
           super_type: yield(super_type)
         )
       end
+
+      def flip
+        self.class.new(
+          sub_type: super_type,
+          super_type: sub_type
+        )
+      end
     end
   end
 end

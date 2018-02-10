@@ -74,6 +74,10 @@ module Steep
       end
 
       def same_type?(relation, assumption:)
+        if assumption.include?(relation) && assumption.include?(relation.flip)
+          return true
+        end
+
         case
         when relation.sub_type == relation.super_type
           true
@@ -81,8 +85,7 @@ module Steep
           return false unless relation.sub_type.name == relation.super_type.name
           return false unless relation.sub_type.args.size == relation.super_type.args.size
           relation.sub_type.args.zip(relation.super_type.args).all? do |(s, t)|
-            assumption.include?(Relation.new(sub_type: s, super_type: t)) &&
-              assumption.include?(Relation.new(sub_type: t, super_type: s))
+            same_type?(Relation.new(sub_type: s, super_type: t), assumption: assumption)
           end
         else
           false
