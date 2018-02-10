@@ -370,6 +370,35 @@ end
     assert_instance_of Subtyping::Result::Failure, result
   end
 
+  def test_caching
+    checker = new_checker("")
+
+    checker.check(
+      Subtyping::Relation.new(
+        sub_type: AST::Types::Name.new_instance(name: :"::Object"),
+        super_type: AST::Types::Var.new(name: :foo)
+      )
+    )
+
+    # Not cached because the relation has free variables
+    assert_empty checker.cache
+
+    checker.check(
+      Subtyping::Relation.new(
+        sub_type: AST::Types::Name.new_instance(name: :"::Integer"),
+        super_type: AST::Types::Name.new_instance(name: :"::Object")
+      )
+    )
+
+    # Cached because the relation does not have free variables
+    assert_operator checker.cache,
+                    :key?,
+                    Subtyping::Relation.new(
+                      sub_type: AST::Types::Name.new_instance(name: :"::Integer"),
+                      super_type: AST::Types::Name.new_instance(name: :"::Object")
+                    )
+  end
+
   def test_resolve1
     checker = new_checker("")
 

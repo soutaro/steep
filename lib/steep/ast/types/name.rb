@@ -109,6 +109,12 @@ module Steep
             raise "Unknown name: #{name.inspect}"
           end
         end
+
+        def free_variables
+          self.args.each.with_object(Set.new) do |type, vars|
+            vars.merge(type.free_variables)
+          end
+        end
       end
     end
   end

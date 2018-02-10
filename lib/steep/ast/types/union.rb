@@ -32,6 +32,12 @@ module Steep
         def to_s
           "(#{types.join(" | ")})"
         end
+
+        def free_variables
+          types.each.with_object(Set.new) do |type, set|
+            set.merge(type.free_variables)
+          end
+        end
       end
     end
   end

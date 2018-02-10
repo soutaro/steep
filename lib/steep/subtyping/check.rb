@@ -25,13 +25,18 @@ module Steep
             trace.add(relation.sub_type, relation.super_type) do
               assumption = assumption + Set.new([relation])
               check0(relation, assumption: assumption, trace: trace).tap do |result|
-                cache[relation] = result.else do |failure|
+                result = result.else do |failure|
                   failure.drop(prefix)
                 end
+                cache[relation] = result if cacheable?(relation)
               end
             end
           end
         end
+      end
+
+      def cacheable?(relation)
+        relation.sub_type.free_variables.empty? && relation.super_type.free_variables.empty?
       end
 
       def success

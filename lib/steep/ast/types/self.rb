@@ -20,6 +20,10 @@ module Steep
         def subst(s)
           s.self_type or raise "Unexpected substitution: #{inspect}"
         end
+
+        def free_variables
+          Set.new
+        end
       end
     end
   end

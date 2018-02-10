@@ -27,6 +27,10 @@ module Steep
         def to_s
           "any"
         end
+
+        def free_variables
+          Set.new
+        end
       end
     end
   end

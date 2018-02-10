@@ -46,6 +46,10 @@ module Steep
             self
           end
         end
+
+        def free_variables
+          Set.new([name])
+        end
       end
     end
   end
