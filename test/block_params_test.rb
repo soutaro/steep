@@ -13,9 +13,10 @@ class BlockParamsTest < Minitest::Test
     params = BlockParams.from_node(args)
 
     assert_equal [
-                   [LabeledName.new(name: :x, label: 1), nil],
-                   [LabeledName.new(name: :y, label: 2), parse_ruby("1").node]
+                   BlockParams::Param.new(var: LabeledName.new(name: :x, label: 1), type: nil, value: nil),
+                   BlockParams::Param.new(var: LabeledName.new(name: :y, label: 2), type: nil, value: parse_ruby("1").node),
                  ], params.params
+    assert_equal BlockParams::Param.new(var: LabeledName.new(name: :rest, label: 3), type: nil, value: nil), params.rest
   end
 
   def test_zip1
@@ -33,9 +34,9 @@ class BlockParamsTest < Minitest::Test
     zip = params.zip(type)
 
     assert_equal [
-                   [params.params[0][0], nil, Types::Name.new_instance(name: :Integer)],
-                   [params.params[1][0], parse_ruby("1").node, Types::Any.new],
-                   [params.rest, nil, Types::Name.new_instance(name: :Array, args: [Types::Any.new])]
+                   [params.params[0], Types::Name.new_instance(name: :Integer)],
+                   [params.params[1], Types::Any.new],
+                   [params.rest, Types::Name.new_instance(name: :Array, args: [Types::Any.new])]
                  ], zip
   end
 
@@ -54,10 +55,10 @@ class BlockParamsTest < Minitest::Test
     zip = params.zip(type)
 
     assert_equal [
-                   [params.params[0][0], nil, Types::Name.new_instance(name: :Integer)],
-                   [params.params[1][0], parse_ruby("1").node, Types::Name.new_instance(name: :String)],
-                   [params.rest, nil, Types::Name.new_instance(name: :Array,
-                                                               args: [Types::Name.new_instance(name: :String)])]
+                   [params.params[0], Types::Name.new_instance(name: :Integer)],
+                   [params.params[1], Types::Name.new_instance(name: :String)],
+                   [params.rest, Types::Name.new_instance(name: :Array,
+                                                          args: [Types::Name.new_instance(name: :String)])]
                  ], zip
   end
 
@@ -76,8 +77,8 @@ class BlockParamsTest < Minitest::Test
     zip = params.zip(type)
 
     assert_equal [
-                   [params.params[0][0], nil, Types::Name.new_instance(name: :Integer)],
-                   [params.rest, nil, Types::Name.new_instance(
+                   [params.params[0], Types::Name.new_instance(name: :Integer)],
+                   [params.rest, Types::Name.new_instance(
                      name: :Array,
                      args: [
                        Types::Union.new(types: [

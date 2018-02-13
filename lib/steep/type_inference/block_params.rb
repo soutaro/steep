@@ -1,6 +1,28 @@
 module Steep
   module TypeInference
     class BlockParams
+      class Param
+        attr_reader :var
+        attr_reader :type
+        attr_reader :value
+
+        def initialize(var:, type:, value:)
+          @var = var
+          @type = type
+          @value = value
+        end
+
+        def ==(other)
+          other.is_a?(Param) && other.var == var && other.type == type && other.value == value
+        end
+
+        alias eql? ==
+
+        def hash
+          self.class.hash ^ var.hash ^ type.hash ^ value.hash
+        end
+      end
+
       attr_reader :params
       attr_reader :rest
 
@@ -15,14 +37,12 @@ module Steep
 
         node.children.each do |arg|
           case arg.type
-          when :arg
-            params << [arg.children.first, nil]
-          when :procarg0
-            params << [arg.children.first, nil]
+          when :arg, :procarg0
+            params << Param.new(var: arg.children.first, type: nil, value: nil)
           when :optarg
-            params << arg.children
+            params << Param.new(var: arg.children.first, type: nil, value: arg.children.last)
           when :restarg
-            rest = arg.children.first
+            rest = Param.new(var: arg.children.first, type: nil, value: nil)
           end
         end
 
@@ -35,11 +55,11 @@ module Steep
       def zip(params_type)
         [].tap do |zip|
           types = params_type.flat_unnamed_params
-          params.each do |(var, node)|
+          params.each do |param|
             type = types.shift&.last || params_type.rest || AST::Types::Any.new
 
             if type
-              zip << [var, node, type]
+              zip << [param, type]
             end
           end
 
@@ -49,14 +69,14 @@ module Steep
                 name: :Array,
                 args: [params_type.rest || AST::Types::Any.new]
               )
-              zip << [rest, nil, array]
+              zip << [rest, array]
             else
               union = AST::Types::Union.new(types: types.map(&:last) + [params_type.rest].compact)
               array = AST::Types::Name.new_instance(
                 name: :Array,
                 args: [union]
               )
-              zip << [rest, nil, array]
+              zip << [rest, array]
             end
           end
         end
