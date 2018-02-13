@@ -11,6 +11,7 @@ class TypeConstructionTest < Minitest::Test
   Interface = Steep::Interface
   TypeName = Steep::TypeName
   Signature = Steep::AST::Signature
+  TypeInference = Steep::TypeInference
 
   include TestHelper
   include TypeErrorAssertions
@@ -928,8 +929,6 @@ end
   end
 
   def test_poly_method_arg
-    skip "Type variable propagation requires constraint solver!!!"
-
     source = parse_ruby(<<-EOF)
 # @type var poly: _PolyMethod
 poly = nil

@@ -446,7 +446,7 @@ module Steep
           end
         end
 
-        typing.add_typing(node, Types::Any.new)
+        typing.add_typing(node, Types.any)
 
       when :dstr
         each_child_node(node) do |child|
@@ -726,50 +726,44 @@ module Steep
       end
     end
 
-
     def type_send(node, send_node:, block_params:, block_body:)
       receiver, method_name, *arguments = send_node.children
       receiver_type = receiver ? synthesize(receiver) : self_type
+      arguments.each {|arg| synthesize(arg) }
 
       case receiver_type
       when AST::Types::Any
-        arguments.each {|arg| synthesize(arg) }
         typing.add_typing node, Types.any
+
       when nil
-        arguments.each {|arg| synthesize(arg) }
         fallback_to_any node
+
       else
         interface = checker.resolve(receiver_type)
-
         method = interface.methods[method_name]
 
         if method
           args = TypeInference::SendArgs.from_nodes(arguments)
-          params = block_params && TypeInference::BlockParams.from_node(block_params)
 
-          ret_types = method.types.map do |method_type|
-            subst = Interface::Substitution.build(method_type.type_params)
-            method_type = method_type.instantiate(subst)
-
+          return_type = method.types.map do |method_type|
             pairs = args.zip(method_type.params)
             if pairs
               type_method_call(node,
                                arg_pairs: pairs,
                                method_type: method_type,
-                               block_params: params,
+                               block_params: block_params,
                                block_body: block_body)
             end
-          end.compact
+          end.compact.first
 
-          if ret_types.empty?
+          if return_type
+            typing.add_typing node, return_type
+          else
             fallback_to_any node do
               Errors::ArgumentTypeMismatch.new(node: node, method: method_name, type: receiver_type)
             end
-          else
-            typing.add_typing node, union_type(*ret_types)
           end
         else
-          arguments.each {|arg| synthesize(arg) }
           fallback_to_any node do
             Errors::NoMethod.new(node: node, method: method_name, type: receiver_type)
           end
@@ -778,65 +772,94 @@ module Steep
     end
 
     def type_method_call(node, arg_pairs:, method_type:, block_params:, block_body:)
-      arg_relations = arg_pairs.map do |(arg_node, param_type)|
-        Subtyping::Relation.new(
-          sub_type: synthesize(arg_node),
-          super_type: param_type
-        )
-      end
+      fresh_types = method_type.type_params.map {|x| AST::Types::Var.fresh(x) }
+      instantiation = Interface::Substitution.build(method_type.type_params, fresh_types)
 
-      unless arg_relations.all? {|relation| checker.check(relation, constraints: Subtyping::Constraints.empty).success? }
-        return
-      end
+      method_type.instantiate(instantiation).yield_self do |method_type|
+        constraints = Subtyping::Constraints.new(domain: fresh_types.map(&:name))
 
-      return_type = method_type.return_type
-
-      case
-      when method_type.block && block_params && block_body
-        var_types_ = var_types.dup
-
-        block_params.zip(method_type.block.params).each do |(var, value, type)|
-          var_types_[var] = type
-          typing.add_var_type(var, type)
-
-          for_block.synthesize(value) if value
+        arg_relations = arg_pairs.map do |(arg_node, param_type)|
+          Subtyping::Relation.new(
+            sub_type: typing.type_of(node: arg_node),
+            super_type: param_type.subst(instantiation)
+          )
         end
 
-        annots = source.annotations(block: node)
+        return unless arg_relations.all? {|relation| checker.check(relation, constraints: constraints).success? }
 
-        block_context = BlockContext.new(body_type: annots.block_type,
-                                         break_type: method_type.return_type)
+        method_type.subst(constraints.subst(checker)).yield_self do |method_type|
+          case
+          when method_type.block && block_params
+            annots = source.annotations(block: node)
 
-        for_block = self.class.new(
-          checker: checker,
-          source: source,
-          annotations: annotations + annots,
-          var_types: var_types_,
-          block_context: block_context,
-          typing: typing,
-          method_context: method_context,
-          module_context: self.module_context,
-          self_type: annots.self_type || self_type
-        )
+            params = TypeInference::BlockParams.from_node(block_params, annotations: annots)
+            block_param_pairs = params.zip(method_type.block.params) or return
 
-        if method_type.block.return_type.is_a?(AST::Types::Var)
-          block_type = for_block.synthesize(block_body)
-          return_type = method_type.return_type.subst(Interface::Substitution.build([method_type.block.return_type.name], [block_type]))
-        else
-          for_block.check(block_body, method_type.block.return_type) do |expected, actual, result|
-            typing.add_error Errors::BlockTypeMismatch.new(node: node,
-                                                           expected: expected,
-                                                           actual: actual,
-                                                           result: result)
+            var_types = self.var_types.dup
+
+            block_param_pairs.each do |param, type|
+              rels = []
+
+              if param.type
+                rels << Subtyping::Relation.new(
+                  sub_type: type,
+                  super_type: param.type
+                )
+                var_types[param.var] = param.type
+              else
+                var_types[param.var] = type
+              end
+
+              return unless rels.all? {|relation| checker.check(relation, constraints: constraints).success? }
+            end
+
+            method_type.subst(constraints.subst(checker)).yield_self do |method_type|
+              if block_body
+                block_context = BlockContext.new(body_type: annots.block_type,
+                                                 break_type: method_type.return_type)
+
+                for_block = self.class.new(
+                  checker: checker,
+                  source: source,
+                  annotations: annotations + annots,
+                  var_types: var_types,
+                  block_context: block_context,
+                  typing: typing,
+                  method_context: method_context,
+                  module_context: self.module_context,
+                  self_type: annots.self_type || self_type
+                )
+
+                each_child_node(block_params) do |p|
+                  for_block.synthesize(p)
+                end
+
+                block_type = for_block.synthesize(block_body)
+
+                result = checker.check(Subtyping::Relation.new(
+                  sub_type: annots.block_type || block_type,
+                  super_type: method_type.block.return_type
+                ), constraints: constraints)
+
+                if result.success?
+                  method_type.return_type.subst(constraints.subst(checker))
+                else
+                  typing.add_error Errors::BlockTypeMismatch.new(node: node,
+                                                                 expected: method_type.block.return_type,
+                                                                 actual: annots.block_type || block_type,
+                                                                 result: result)
+                  method_type.return_type
+                end
+              end
+            end
+
+          when !method_type.block && !block_params && !block_body
+            # OK, without block
+            method_type.return_type
+
           end
         end
-      when !method_type.block && !block_params && !block_body
-        # ok
-      else
-        return nil
       end
-
-      return_type
     end
 
     def variable_type(var)
