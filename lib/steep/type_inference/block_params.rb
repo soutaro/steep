@@ -31,18 +31,21 @@ module Steep
         @rest = rest
       end
 
-      def self.from_node(node)
+      def self.from_node(node, annotations:)
         params = []
         rest = nil
 
         node.children.each do |arg|
+          var = arg.children.first
+          type = annotations.lookup_var_type(var.name)
+
           case arg.type
           when :arg, :procarg0
-            params << Param.new(var: arg.children.first, type: nil, value: nil)
+            params << Param.new(var: var, type: type, value: nil)
           when :optarg
-            params << Param.new(var: arg.children.first, type: nil, value: arg.children.last)
+            params << Param.new(var: var, type: type, value: arg.children.last)
           when :restarg
-            rest = Param.new(var: arg.children.first, type: nil, value: nil)
+            rest = Param.new(var: var, type: type, value: nil)
           end
         end
 
@@ -79,6 +82,15 @@ module Steep
               zip << [rest, array]
             end
           end
+        end
+      end
+
+      def each(&block)
+        if block_given?
+          params.each &block
+          yield rest if rest
+        else
+          enum_for :each
         end
       end
     end

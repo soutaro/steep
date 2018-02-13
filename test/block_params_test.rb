@@ -9,14 +9,45 @@ class BlockParamsTest < Minitest::Test
   Types = Steep::AST::Types
 
   def test_1
-    args = parse_ruby("proc {|x, y=1, *rest| }").node.children[1]
-    params = BlockParams.from_node(args)
+    src = parse_ruby("proc {|x, y=1, *rest| }")
+    args = src.node.children[1]
+    params = BlockParams.from_node(args, annotations: src.annotations(block: src.node))
 
     assert_equal [
                    BlockParams::Param.new(var: LabeledName.new(name: :x, label: 1), type: nil, value: nil),
                    BlockParams::Param.new(var: LabeledName.new(name: :y, label: 2), type: nil, value: parse_ruby("1").node),
                  ], params.params
     assert_equal BlockParams::Param.new(var: LabeledName.new(name: :rest, label: 3), type: nil, value: nil), params.rest
+  end
+
+  def test_2
+    src = parse_ruby(<<-EOR)
+# @type var x: Integer
+x = 10
+
+proc {|x, y=1, *rest|
+  # @type var x: String
+  # @type var rest: Array<Symbol>
+  foo()
+}
+    EOR
+
+    block = src.node.children.last
+    annots = src.annotations(block: block)
+    params = BlockParams.from_node(block.children[1], annotations: annots)
+
+    assert_equal [
+                   BlockParams::Param.new(var: LabeledName.new(name: :x, label: 2),
+                                          type: Types::Name.new_instance(name: :String),
+                                          value: nil),
+                   BlockParams::Param.new(var: LabeledName.new(name: :y, label: 3),
+                                          type: nil,
+                                          value: parse_ruby("1").node),
+                 ], params.params
+    assert_equal BlockParams::Param.new(var: LabeledName.new(name: :rest, label: 4),
+                                        type: Types::Name.new_instance(name: :Array,
+                                                                       args: [Types::Name.new_instance(name: :Symbol)]),
+                                        value: nil), params.rest
   end
 
   def test_zip1
@@ -29,7 +60,9 @@ class BlockParamsTest < Minitest::Test
       rest_keywords: nil
     )
 
-    params = BlockParams.from_node(parse_ruby("proc {|x, y=1, *rest| }").node.children[1])
+    src = parse_ruby("proc {|x, y=1, *rest| }")
+    params = BlockParams.from_node(src.node.children[1],
+                                   annotations: src.annotations(block: src.node))
 
     zip = params.zip(type)
 
@@ -50,7 +83,9 @@ class BlockParamsTest < Minitest::Test
       rest_keywords: nil
     )
 
-    params = BlockParams.from_node(parse_ruby("proc {|x, y=1, *rest| }").node.children[1])
+    src = parse_ruby("proc {|x, y=1, *rest| }")
+    params = BlockParams.from_node(src.node.children[1],
+                                   annotations: src.annotations(block: src.node))
 
     zip = params.zip(type)
 
@@ -72,7 +107,9 @@ class BlockParamsTest < Minitest::Test
       rest_keywords: nil
     )
 
-    params = BlockParams.from_node(parse_ruby("proc {|x, *rest| }").node.children[1])
+    src = parse_ruby("proc {|x, *rest| }")
+    params = BlockParams.from_node(src.node.children[1],
+                                   annotations: src.annotations(block: src.node))
 
     zip = params.zip(type)
 
