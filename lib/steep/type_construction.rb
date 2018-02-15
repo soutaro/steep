@@ -275,25 +275,19 @@ module Steep
         yield_self do
           if self_type && method_context&.method
             if method_context.super_method
+              each_child_node(node) do |child| synthesize(child) end
+              
               super_method = method_context.super_method
-
               args = TypeInference::SendArgs.from_nodes(node.children.dup)
-              ret_types = super_method.types.map do |method_type|
-                subst = Interface::Substitution.build(method_type.type_params)
-                method_type = method_type.instantiate(subst)
 
-                args_pairs = args.zip(method_type.params)
-                if args_pairs
-                  type_method_call(node, arg_pairs: args_pairs, method_type: method_type, block_params: nil, block_body: nil)
-                end
-              end.compact
+              return_type = type_method_call(node, method: super_method, args: args, block_params: nil, block_body: nil)
 
-              if ret_types.empty?
-                fallback_to_any node do
-                  Errors::ArgumentTypeMismatch.new(node: node, method: method_name, type: receiver_type)
-                end
+              if return_type
+                typing.add_typing node, return_type
               else
-                typing.add_typing node, union_type(*ret_types)
+                fallback_to_any node do
+                  Errors::ArgumentTypeMismatch.new(node: node, method: method_context.name, type: self_type)
+                end
               end
             else
               fallback_to_any node do
