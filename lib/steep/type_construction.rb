@@ -744,17 +744,11 @@ module Steep
 
         if method
           args = TypeInference::SendArgs.from_nodes(arguments)
-
-          return_type = method.types.map do |method_type|
-            pairs = args.zip(method_type.params)
-            if pairs
-              type_method_call(node,
-                               arg_pairs: pairs,
-                               method_type: method_type,
-                               block_params: block_params,
-                               block_body: block_body)
-            end
-          end.compact.first
+          return_type = type_method_call(node,
+                                         method: method,
+                                         args: args,
+                                         block_params: block_params,
+                                         block_body: block_body)
 
           if return_type
             typing.add_typing node, return_type
@@ -771,7 +765,21 @@ module Steep
       end
     end
 
-    def type_method_call(node, arg_pairs:, method_type:, block_params:, block_body:)
+    def type_method_call(node, method:, args:, block_params:, block_body:)
+      method.types.map do |method_type|
+        arg_pairs = args.zip(method_type.params)
+
+        if arg_pairs
+          try_method_type(node,
+                          method_type: method_type,
+                          arg_pairs: arg_pairs,
+                          block_params: block_params,
+                          block_body: block_body)
+        end
+      end.compact.first
+    end
+
+    def try_method_type(node, method_type:, arg_pairs:, block_params:, block_body:)
       fresh_types = method_type.type_params.map {|x| AST::Types::Var.fresh(x) }
       instantiation = Interface::Substitution.build(method_type.type_params, fresh_types)
 
