@@ -275,7 +275,9 @@ x.g(y)
     assert_equal Types::Any.new, typing.type_of(node: source.node)
 
     assert_equal 1, typing.errors.size
-    assert_argument_type_mismatch typing.errors[0], type: Types::Name.new_interface(name: :_C), method: :g
+    assert_argument_type_mismatch typing.errors[0],
+                                  expected: Types::Name.new_interface(name: :_A),
+                                  actual: Types::Name.new_interface(name: :_B)
   end
 
   def test_method_call_no_error_if_any
@@ -357,7 +359,10 @@ a.g()
     assert_equal Types::Any.new, typing.type_of(node: source.node)
 
     assert_equal 1, typing.errors.size
-    assert_argument_type_mismatch typing.errors[0], type: Types::Name.new_interface(name: :_C), method: :g
+    typing.errors.first.tap do |error|
+      assert_instance_of Steep::Errors::IncompatibleArguments, error
+      assert_equal "(_A, ?_B) -> _B", error.method_type.location.source
+    end
   end
 
   def test_method_call_extra_args
@@ -387,7 +392,10 @@ a.g(nil, nil, nil)
     assert_equal Types::Any.new, typing.type_of(node: source.node)
 
     assert_equal 1, typing.errors.size
-    assert_argument_type_mismatch typing.errors.first, type: Types::Name.new_interface(name: :_C), method: :g
+    typing.errors.first.tap do |error|
+      assert_instance_of Steep::Errors::IncompatibleArguments, error
+      assert_equal "(_A, ?_B) -> _B", error.method_type.location.source
+    end
   end
 
   def test_keyword_call
@@ -445,7 +453,11 @@ x.h()
     assert_equal Types::Any.new, typing.type_of(node: source.node)
 
     assert_equal 1, typing.errors.size
-    assert_argument_type_mismatch typing.errors[0], type: Types::Name.new_interface(name: :_C), method: :h
+
+    typing.errors.first.tap do |error|
+      assert_instance_of Steep::Errors::IncompatibleArguments, error
+      assert_equal "(a: _A, ?b: _B) -> _C", error.method_type.location.source
+    end
   end
 
   def test_extra_keyword_given
@@ -473,7 +485,10 @@ x.h(a: nil, b: nil, c: nil)
     assert_equal Types::Any.new, typing.type_of(node: source.node)
 
     assert_equal 1, typing.errors.size
-    assert_argument_type_mismatch typing.errors[0], type: Types::Name.new_interface(name: :_C), method: :h
+    typing.errors.first.tap do |error|
+      assert_instance_of Steep::Errors::IncompatibleArguments, error
+      assert_equal "(a: _A, ?b: _B) -> _C", error.method_type.location.source
+    end
   end
 
   def test_keyword_typecheck
@@ -503,7 +518,9 @@ x.h(a: y)
     assert_equal Types::Any.new, typing.type_of(node: source.node)
 
     assert_equal 1, typing.errors.size
-    assert_argument_type_mismatch typing.errors[0], type: Types::Name.new_interface(name: :_C), method: :h
+    assert_argument_type_mismatch typing.errors[0],
+                                  expected: Types::Name.new_interface(name: :_A),
+                                  actual: Types::Name.new_interface(name: :_B)
   end
 
   def test_def_no_params

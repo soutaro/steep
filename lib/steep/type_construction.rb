@@ -749,10 +749,6 @@ module Steep
 
           if return_type
             typing.add_typing node, return_type
-          else
-            fallback_to_any node do
-              Errors::ArgumentTypeMismatch.new(node: node, method: method_name, type: receiver_type)
-            end
           end
         else
           fallback_to_any node do
@@ -763,17 +759,31 @@ module Steep
     end
 
     def type_method_call(node, method:, args:, block_params:, block_body:)
-      method.types.map do |method_type|
-        arg_pairs = args.zip(method_type.params)
+      results = method.types.map do |method_type|
+        Steep.logger.tagged method_type.location.source do
+          arg_pairs = args.zip(method_type.params)
 
-        if arg_pairs
-          try_method_type(node,
-                          method_type: method_type,
-                          arg_pairs: arg_pairs,
-                          block_params: block_params,
-                          block_body: block_body)
+          if arg_pairs
+            try_method_type(node,
+                            method_type: method_type,
+                            arg_pairs: arg_pairs,
+                            block_params: block_params,
+                            block_body: block_body)
+          else
+            Errors::IncompatibleArguments.new(node: node, method_type: method_type)
+          end
         end
-      end.compact.first
+      end
+
+      if results.all? {|result| result.is_a?(Errors::Base) }
+        fallback_to_any node do
+          results.first
+        end
+      else
+        results.find do |result|
+          !result.is_a?(Errors::Base)
+        end
+      end
     end
 
     def try_method_type(node, method_type:, arg_pairs:, block_params:, block_body:)
@@ -783,14 +793,20 @@ module Steep
       method_type.instantiate(instantiation).yield_self do |method_type|
         constraints = Subtyping::Constraints.new(domain: fresh_types.map(&:name))
 
-        arg_relations = arg_pairs.map do |(arg_node, param_type)|
-          Subtyping::Relation.new(
+        arg_pairs.each do |(arg_node, param_type)|
+          relation = Subtyping::Relation.new(
             sub_type: typing.type_of(node: arg_node),
             super_type: param_type.subst(instantiation)
           )
-        end
 
-        return unless arg_relations.all? {|relation| checker.check(relation, constraints: constraints).success? }
+          checker.check(relation, constraints: constraints).else do |result|
+            return Errors::ArgumentTypeMismatch.new(
+              node: arg_node,
+              expected: relation.super_type,
+              actual: relation.sub_type
+            )
+          end
+        end
 
         method_type.subst(constraints.subst(checker)).yield_self do |method_type|
           case
@@ -798,24 +814,36 @@ module Steep
             annots = source.annotations(block: node)
 
             params = TypeInference::BlockParams.from_node(block_params, annotations: annots)
-            block_param_pairs = params.zip(method_type.block.params) or return
+            block_param_pairs = params.zip(method_type.block.params)
+
+            unless block_param_pairs
+              return Errors::IncompatibleBlockParameters.new(
+                node: node,
+                method_type: method_type
+              )
+            end
 
             var_types = self.var_types.dup
 
             block_param_pairs.each do |param, type|
-              rels = []
-
               if param.type
-                rels << Subtyping::Relation.new(
+                relation = Subtyping::Relation.new(
                   sub_type: type,
                   super_type: param.type
                 )
+
+                checker.check(relation, constraints: constraints).else do
+                  return Errors::BlockParameterTypeMismatch.new(
+                    node: param.node,
+                    expected: type,
+                    actual: param.type
+                  )
+                end
+
                 var_types[param.var] = param.type
               else
                 var_types[param.var] = type
               end
-
-              return unless rels.all? {|relation| checker.check(relation, constraints: constraints).success? }
             end
 
             method_type.subst(constraints.subst(checker)).yield_self do |method_type|
@@ -861,6 +889,21 @@ module Steep
           when !method_type.block && !block_params && !block_body
             # OK, without block
             method_type.return_type
+
+          when !method_type.block && block_params && block_body
+            Errors::UnexpectedBlockGiven.new(
+              node: node,
+              method_type: method_type
+            )
+
+          when method_type.block && !block_params && !block_body
+            Errors::RequiredBlockMissing.new(
+              node: node,
+              method_type: method_type
+            )
+
+          else
+            raise "Unexpected case condition"
 
           end
         end

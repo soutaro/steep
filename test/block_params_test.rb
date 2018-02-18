@@ -14,10 +14,10 @@ class BlockParamsTest < Minitest::Test
     params = BlockParams.from_node(args, annotations: src.annotations(block: src.node))
 
     assert_equal [
-                   BlockParams::Param.new(var: LabeledName.new(name: :x, label: 1), type: nil, value: nil),
-                   BlockParams::Param.new(var: LabeledName.new(name: :y, label: 2), type: nil, value: parse_ruby("1").node),
+                   BlockParams::Param.new(var: LabeledName.new(name: :x, label: 1), type: nil, value: nil, node: args.children[0]),
+                   BlockParams::Param.new(var: LabeledName.new(name: :y, label: 2), type: nil, value: parse_ruby("1").node, node: args.children[1]),
                  ], params.params
-    assert_equal BlockParams::Param.new(var: LabeledName.new(name: :rest, label: 3), type: nil, value: nil), params.rest
+    assert_equal BlockParams::Param.new(var: LabeledName.new(name: :rest, label: 3), type: nil, value: nil, node: args.children[2]), params.rest
   end
 
   def test_2
@@ -39,15 +39,18 @@ proc {|x, y=1, *rest|
     assert_equal [
                    BlockParams::Param.new(var: LabeledName.new(name: :x, label: 2),
                                           type: Types::Name.new_instance(name: :String),
-                                          value: nil),
+                                          value: nil,
+                                          node: block.children[1].children[0]),
                    BlockParams::Param.new(var: LabeledName.new(name: :y, label: 3),
                                           type: nil,
-                                          value: parse_ruby("1").node),
+                                          value: parse_ruby("1").node,
+                                          node: block.children[1].children[1]),
                  ], params.params
     assert_equal BlockParams::Param.new(var: LabeledName.new(name: :rest, label: 4),
                                         type: Types::Name.new_instance(name: :Array,
                                                                        args: [Types::Name.new_instance(name: :Symbol)]),
-                                        value: nil), params.rest
+                                        value: nil,
+                                        node: block.children[1].children[2]), params.rest
   end
 
   def test_zip1

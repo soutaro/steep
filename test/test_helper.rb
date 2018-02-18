@@ -60,13 +60,13 @@ module TypeErrorAssertions
     block_given? and yield error
   end
 
-  def assert_argument_type_mismatch(error, type: nil, method: nil)
+  def assert_argument_type_mismatch(error, expected: nil, actual: nil)
     assert_instance_of Steep::Errors::ArgumentTypeMismatch, error
 
-    assert_equal type, error.type if type
-    assert_equal method, error.method if method
+    assert_equal expected, error.expected if expected
+    assert_equal actual, error.actual if actual
 
-    yield type, method if block_given?
+    yield error.expected, error.actual if block_given?
   end
 
   def assert_block_type_mismatch(error, expected: nil, actual: nil)

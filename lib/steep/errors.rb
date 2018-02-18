@@ -57,18 +57,62 @@ module Steep
       end
     end
 
-    class ArgumentTypeMismatch < Base
-      attr_reader :type
-      attr_reader :method
+    class IncompatibleArguments < Base
+      attr_reader :node
+      attr_reader :method_type
 
-      def initialize(node:, type:, method:)
+      def initialize(node:, method_type:)
         super(node: node)
-        @type = type
-        @method = method
+        @method_type = method_type
       end
 
       def to_s
-        "#{location_to_str}: ArgumentTypeMismatch: type=#{type}, method=#{method}"
+        "#{location_to_str}: IncompatibleArguments: method_type=#{method_type}"
+      end
+    end
+
+    class ArgumentTypeMismatch < Base
+      attr_reader :node
+      attr_reader :expected
+      attr_reader :actual
+
+      def initialize(node:, expected:, actual:)
+        super(node: node)
+        @expected = expected
+        @actual = actual
+      end
+
+      def to_s
+        "#{location_to_str}: ArgumentTypeMismatch: expected=#{expected}, actual=#{actual}"
+      end
+    end
+
+    class IncompatibleBlockParameters < Base
+      attr_reader :node
+      attr_reader :method_type
+
+      def initialize(node:, method_type:)
+        super(node: node)
+        @method_type = method_type
+      end
+
+      def to_s
+        "#{location_to_str}: IncompatibleBlockParameters: method_type=#{method_type}"
+      end
+    end
+
+    class BlockParameterTypeMismatch < Base
+      attr_reader :expected
+      attr_reader :actual
+
+      def initialize(node:, expected:, actual:)
+        super(node: node)
+        @expected = expected
+        @actual = actual
+      end
+
+      def to_s
+        "#{location_to_str}: BlockParameterTypeMismatch: expected=#{expected}, actual=#{actual}"
       end
     end
 
@@ -107,13 +151,28 @@ module Steep
     end
 
     class UnexpectedBlockGiven < Base
-      attr_reader :method
-      attr_reader :type
+      attr_reader :method_type
 
-      def initialize(node:, type:, method:)
+      def initialize(node:, method_type:)
         super(node: node)
-        @type = type
-        @method = method
+        @method_type = method_type
+      end
+
+      def to_s
+        "#{location_to_str}: UnexpectedBlockGiven: method_type=#{method_type.location&.source}"
+      end
+    end
+
+    class RequiredBlockMissing < Base
+      attr_reader :method_type
+
+      def initialize(node:, method_type:)
+        super(node: node)
+        @method_type = method_type
+      end
+
+      def to_s
+        "#{location_to_str}: RequiredBlockMissing: method_type=#{method_type.location&.source}"
       end
     end
 

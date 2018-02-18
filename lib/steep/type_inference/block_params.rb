@@ -5,21 +5,23 @@ module Steep
         attr_reader :var
         attr_reader :type
         attr_reader :value
+        attr_reader :node
 
-        def initialize(var:, type:, value:)
+        def initialize(var:, type:, value:, node:)
           @var = var
           @type = type
           @value = value
+          @node = node
         end
 
         def ==(other)
-          other.is_a?(Param) && other.var == var && other.type == type && other.value == value
+          other.is_a?(Param) && other.var == var && other.type == type && other.value == value && other.node == node
         end
 
         alias eql? ==
 
         def hash
-          self.class.hash ^ var.hash ^ type.hash ^ value.hash
+          self.class.hash ^ var.hash ^ type.hash ^ value.hash ^ node.hash
         end
       end
 
@@ -41,11 +43,11 @@ module Steep
 
           case arg.type
           when :arg, :procarg0
-            params << Param.new(var: var, type: type, value: nil)
+            params << Param.new(var: var, type: type, value: nil, node: arg)
           when :optarg
-            params << Param.new(var: var, type: type, value: arg.children.last)
+            params << Param.new(var: var, type: type, value: arg.children.last, node: arg)
           when :restarg
-            rest = Param.new(var: var, type: type, value: nil)
+            rest = Param.new(var: var, type: type, value: nil, node: arg)
           end
         end
 
