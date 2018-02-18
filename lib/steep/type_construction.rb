@@ -166,6 +166,65 @@ module Steep
       )
     end
 
+    def for_module(node)
+      annots = source.annotations(block: node)
+
+      module_type = AST::Types::Name.new_instance(name: "::Module")
+
+      if annots.implement_module
+        module_name = TypeName::Module.new(name: annots.implement_module.module_name)
+        abstract = checker.builder.build(module_name)
+
+        instance_type = absolute_type(
+          AST::Types::Name.new_instance(
+            name: annots.implement_module.module_name,
+            args: annots.implement_module.module_args
+          )
+        )
+
+        unless abstract.supers.empty?
+          instance_type = AST::Types::Intersection.new(
+            types: [instance_type,
+                    AST::Types::Name.new_instance(name: "::Object")] + abstract.supers
+          )
+        end
+
+        module_type = AST::Types::Intersection.new(types: [
+          AST::Types::Name.new_instance(name: "::Module"),
+          absolute_type(AST::Types::Name.new_module(
+            name: annots.implement_module.module_name,
+            args: annots.implement_module.module_args
+          ))
+        ])
+      end
+
+      if annots.instance_type
+        instance_type = absolute_type(annots.instance_type)
+      end
+
+      if annots.module_type
+        module_type = absolute_type(annots.module_type)
+      end
+
+      module_context_ = ModuleContext.new(
+        instance_type: instance_type,
+        module_type: module_type,
+        const_types: annots.const_types
+      )
+
+      self.class.new(
+        checker: checker,
+        source: source,
+        annotations: annots,
+        var_types: {},
+        typing: typing,
+        method_context: nil,
+        block_context: nil,
+        module_context: module_context_,
+        self_type: module_context_.module_type
+      )
+    end
+
     def for_class(node)
       annots = source.annotations(block: node)
 
@@ -461,7 +520,8 @@ module Steep
         when :class
           yield_self do
             for_class(node).tap do |constructor|
-              constructor.synthesize(node.children[2])
+              constructor.synthesize(node.children[2]) if node.children[2]
+
               if constructor.annotations.implement_module
                 constructor.validate_method_definitions(node, constructor.annotations.implement_module.module_name)
               end
@@ -472,65 +532,13 @@ module Steep
 
         when :module
           yield_self do
-            annots = source.annotations(block: node)
+            for_module(node).yield_self do |constructor|
+              constructor.synthesize(node.children[1]) if node.children[1]
 
-            module_type = AST::Types::Name.new_instance(name: "::Module")
-
-            if annots.implement_module
-              module_name = TypeName::Module.new(name: annots.implement_module.module_name)
-              abstract = checker.builder.build(module_name)
-
-              instance_type = absolute_type(
-                AST::Types::Name.new_instance(
-                  name: annots.implement_module.module_name,
-                  args: annots.implement_module.module_args
-                )
-              )
-
-              unless abstract.supers.empty?
-                instance_type = AST::Types::Intersection.new(
-                  types: [instance_type,
-                          AST::Types::Name.new_instance(name: "::Object")] + abstract.supers
-                )
+              if constructor.annotations.implement_module
+                constructor.validate_method_definitions(node, constructor.annotations.implement_module.module_name)
               end
-
-              module_type = AST::Types::Intersection.new(types: [
-                AST::Types::Name.new_instance(name: "::Module"),
-                absolute_type(AST::Types::Name.new_module(
-                  name: annots.implement_module.module_name,
-                  args: annots.implement_module.module_args
-                ))
-              ])
             end
-
-            if annots.instance_type
-              instance_type = absolute_type(annots.instance_type)
-            end
-
-            if annots.module_type
-              module_type = absolute_type(annots.module_type)
-            end
-
-            module_context_ = ModuleContext.new(
-              instance_type: instance_type,
-              module_type: module_type,
-              const_types: annots.const_types
-            )
-
-            for_class = self.class.new(
-              checker: checker,
-              source: source,
-              annotations: annots,
-              var_types: {},
-              typing: typing,
-              method_context: nil,
-              block_context: nil,
-              module_context: module_context_,
-              self_type: module_context_.module_type
-            )
-
-            for_class.synthesize(node.children[1]) if node.children[1]
-            for_class.validate_method_definitions(node, module_name.name) if annots.implement_module
 
             typing.add_typing(node, Types.nil_instance)
           end
