@@ -282,14 +282,14 @@ module Steep
                 super_method = method_context.super_method
                 args = TypeInference::SendArgs.from_nodes(node.children.dup)
 
-                return_type = type_method_call(node, method: super_method, args: args, block_params: nil, block_body: nil)
+                return_type_or_error = type_method_call(node, method: super_method, args: args, block_params: nil, block_body: nil)
 
-                if return_type
-                  typing.add_typing node, return_type
-                else
+                if return_type_or_error.is_a?(Errors::Base)
                   fallback_to_any node do
-                    Errors::ArgumentTypeMismatch.new(node: node, method: method_context.name, type: self_type)
+                    return_type_or_error
                   end
+                else
+                  typing.add_typing node, return_type_or_error
                 end
               else
                 fallback_to_any node do
@@ -741,14 +741,18 @@ module Steep
 
         if method
           args = TypeInference::SendArgs.from_nodes(arguments)
-          return_type = type_method_call(node,
+          return_type_or_error = type_method_call(node,
                                          method: method,
                                          args: args,
                                          block_params: block_params,
                                          block_body: block_body)
 
-          if return_type
-            typing.add_typing node, return_type
+          if return_type_or_error.is_a?(Errors::Base)
+            fallback_to_any node do
+              return_type_or_error
+            end
+          else
+            typing.add_typing node, return_type_or_error
           end
         else
           fallback_to_any node do
@@ -776,9 +780,7 @@ module Steep
       end
 
       if results.all? {|result| result.is_a?(Errors::Base) }
-        fallback_to_any node do
-          results.first
-        end
+        results.first
       else
         results.find do |result|
           !result.is_a?(Errors::Base)
