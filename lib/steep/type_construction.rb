@@ -200,475 +200,478 @@ module Steep
     end
 
     def synthesize(node)
-      case node.type
-      when :begin
-        yield_self do
-          type = each_child_node(node).map do |child|
-            synthesize(child)
-          end.last
+      Steep.logger.tagged "synthesize:(#{node.location.expression.to_s.split(/:/, 2).last})" do
+        Steep.logger.debug node.type
+        case node.type
+        when :begin
+          yield_self do
+            type = each_child_node(node).map do |child|
+              synthesize(child)
+            end.last
 
-          typing.add_typing(node, type)
-        end
+            typing.add_typing(node, type)
+          end
 
-      when :lvasgn
-        yield_self do
-          var = node.children[0]
-          rhs = node.children[1]
+        when :lvasgn
+          yield_self do
+            var = node.children[0]
+            rhs = node.children[1]
 
-          type_assignment(var, rhs, node)
-        end
+            type_assignment(var, rhs, node)
+          end
 
-      when :lvar
-        yield_self do
-          var = node.children[0]
+        when :lvar
+          yield_self do
+            var = node.children[0]
 
-          if (type = variable_type(var))
+            if (type = variable_type(var))
+              typing.add_typing(node, type)
+            else
+              fallback_to_any node
+              typing.add_var_type var, Types.any
+            end
+          end
+
+        when :ivasgn
+          name = node.children[0]
+          value = node.children[1]
+
+          if (type = ivar_types[name])
+            check(value, type) do |_, value_type, result|
+              typing.add_error(Errors::IncompatibleAssignment.new(node: node,
+                                                                  lhs_type: type,
+                                                                  rhs_type: value_type,
+                                                                  result: result))
+            end
+            typing.add_typing(node, type)
+          else
+            value_type = synthesize(value)
+            typing.add_typing(node, value_type)
+          end
+
+        when :ivar
+          type = ivar_types[node.children[0]]
+          if type
             typing.add_typing(node, type)
           else
             fallback_to_any node
-            typing.add_var_type var, Types.any
           end
-        end
 
-      when :ivasgn
-        name = node.children[0]
-        value = node.children[1]
-
-        if (type = ivar_types[name])
-          check(value, type) do |_, value_type, result|
-            typing.add_error(Errors::IncompatibleAssignment.new(node: node,
-                                                                lhs_type: type,
-                                                                rhs_type: value_type,
-                                                                result: result))
+        when :send
+          yield_self do
+            if self_class?(node)
+              module_type = module_context.module_type
+              type = if module_type.is_a?(AST::Types::Name)
+                       AST::Types::Name.new(name: module_type.name.updated(constructor: method_context.constructor),
+                                            args: module_type.args)
+                     else
+                       module_type
+                     end
+              typing.add_typing(node, type)
+            else
+              type_send(node, send_node: node, block_params: nil, block_body: nil)
+            end
           end
-          typing.add_typing(node, type)
-        else
-          value_type = synthesize(value)
-          typing.add_typing(node, value_type)
-        end
 
-      when :ivar
-        type = ivar_types[node.children[0]]
-        if type
-          typing.add_typing(node, type)
-        else
-          fallback_to_any node
-        end
+        when :super
+          yield_self do
+            if self_type && method_context&.method
+              if method_context.super_method
+                each_child_node(node) do |child| synthesize(child) end
 
-      when :send
-        yield_self do
-          if self_class?(node)
-            module_type = module_context.module_type
-            type = if module_type.is_a?(AST::Types::Name)
-                     AST::Types::Name.new(name: module_type.name.updated(constructor: method_context.constructor),
-                                          args: module_type.args)
-                   else
-                     module_type
-                   end
-            typing.add_typing(node, type)
-          else
-            type_send(node, send_node: node, block_params: nil, block_body: nil)
-          end
-        end
+                super_method = method_context.super_method
+                args = TypeInference::SendArgs.from_nodes(node.children.dup)
 
-      when :super
-        yield_self do
-          if self_type && method_context&.method
-            if method_context.super_method
-              each_child_node(node) do |child| synthesize(child) end
-              
-              super_method = method_context.super_method
-              args = TypeInference::SendArgs.from_nodes(node.children.dup)
+                return_type = type_method_call(node, method: super_method, args: args, block_params: nil, block_body: nil)
 
-              return_type = type_method_call(node, method: super_method, args: args, block_params: nil, block_body: nil)
-
-              if return_type
-                typing.add_typing node, return_type
+                if return_type
+                  typing.add_typing node, return_type
+                else
+                  fallback_to_any node do
+                    Errors::ArgumentTypeMismatch.new(node: node, method: method_context.name, type: self_type)
+                  end
+                end
               else
                 fallback_to_any node do
-                  Errors::ArgumentTypeMismatch.new(node: node, method: method_context.name, type: self_type)
+                  Errors::UnexpectedSuper.new(node: node, method: method_context.name)
                 end
               end
             else
-              fallback_to_any node do
-                Errors::UnexpectedSuper.new(node: node, method: method_context.name)
-              end
+              typing.add_typing node, Types.any
             end
-          else
-            typing.add_typing node, Types.any
           end
-        end
 
-      when :block
-        yield_self do
-          send_node, params, body = node.children
-          type_send(node, send_node: send_node, block_params: params, block_body: body)
-        end
-
-      when :def
-        new = for_new_method(node.children[0],
-                             node,
-                             args: node.children[1].children,
-                             self_type: module_context&.instance_type)
-
-        each_child_node(node.children[1]) do |arg|
-          new.synthesize(arg)
-        end
-
-        if node.children[2]
-          return_type = new.method_context&.return_type
-          if return_type
-            new.check(node.children[2], return_type) do |_, actual_type, result|
-              typing.add_error(Errors::MethodBodyTypeMismatch.new(node: node,
-                                                                  expected: return_type,
-                                                                  actual: actual_type,
-                                                                  result: result))
-            end
-          else
-            new.synthesize(node.children[2])
+        when :block
+          yield_self do
+            send_node, params, body = node.children
+            type_send(node, send_node: send_node, block_params: params, block_body: body)
           end
-        end
 
-        if module_context
-          module_context.defined_instance_methods << node.children[0]
-        end
-
-        typing.add_typing(node, Types.any)
-
-      when :defs
-        synthesize(node.children[0]).tap do |self_type|
-          new = for_new_method(node.children[1],
+        when :def
+          new = for_new_method(node.children[0],
                                node,
-                               args: node.children[2].children,
-                               self_type: self_type)
+                               args: node.children[1].children,
+                               self_type: module_context&.instance_type)
 
-          each_child_node(node.children[2]) do |arg|
+          each_child_node(node.children[1]) do |arg|
             new.synthesize(arg)
           end
 
-          if node.children[3]
-            if new&.method_context&.method_type
-              new.check(node.children[3], new.method_context.method_type.return_type) do |return_type, actual_type, result|
+          if node.children[2]
+            return_type = new.method_context&.return_type
+            if return_type
+              new.check(node.children[2], return_type) do |_, actual_type, result|
                 typing.add_error(Errors::MethodBodyTypeMismatch.new(node: node,
                                                                     expected: return_type,
                                                                     actual: actual_type,
                                                                     result: result))
               end
             else
-              new.synthesize(node.children[3])
-            end
-          end
-        end
-
-        if module_context
-          if node.children[0].type == :self
-            module_context.defined_module_methods << node.children[1]
-          end
-        end
-
-        typing.add_typing(node, Types.symbol_instance)
-
-      when :return
-        value = node.children[0]
-
-        if value
-          if method_context&.return_type
-            check(value, method_context.return_type) do |_, actual_type, result|
-              typing.add_error(Errors::ReturnTypeMismatch.new(node: node,
-                                                              expected: method_context.return_type,
-                                                              actual: actual_type,
-                                                              result: result))
-            end
-          else
-            synthesize(value)
-          end
-        end
-
-        typing.add_typing(node, Types.any)
-
-      when :break
-        value = node.children[0]
-
-        if value
-          if block_context&.break_type
-            check(value, block_context.break_type) do |break_type, actual_type, result|
-              typing.add_error Errors::BreakTypeMismatch.new(node: node,
-                                                             expected: break_type,
-                                                             actual: actual_type,
-                                                             result: result)
-            end
-          else
-            synthesize(value)
-          end
-        end
-
-        typing.add_typing(node, Types.any)
-
-      when :arg, :kwarg, :procarg0
-        var = node.children[0]
-        if (type = variable_type(var))
-          typing.add_var_type(var, type)
-        else
-          fallback_to_any node
-        end
-
-      when :optarg, :kwoptarg
-        var = node.children[0]
-        rhs = node.children[1]
-        type_assignment(var, rhs, node)
-
-      when :int
-        typing.add_typing(node, AST::Types::Name.new_instance(name: "::Integer"))
-
-      when :nil
-        typing.add_typing(node, Types.any)
-
-      when :sym
-        typing.add_typing(node, Types.symbol_instance)
-
-      when :str
-        typing.add_typing(node, Types.string_instance)
-
-      when :true, :false
-        typing.add_typing(node, AST::Types::Name.new_interface(name: :_Boolean))
-
-      when :hash
-        each_child_node(node) do |pair|
-          raise "Unexpected non pair: #{pair.inspect}" unless pair.type == :pair
-          each_child_node(pair) do |e|
-            synthesize(e)
-          end
-        end
-
-        typing.add_typing(node, Types.any)
-
-      when :dstr
-        each_child_node(node) do |child|
-          synthesize(child)
-        end
-
-        typing.add_typing(node, Types.string_instance)
-
-      when :dsym
-        each_child_node(node) do |child|
-          synthesize(child)
-        end
-
-        typing.add_typing(node, Types.symbol_instance)
-
-      when :class
-        yield_self do
-          for_class(node).tap do |constructor|
-            constructor.synthesize(node.children[2])
-            if constructor.annotations.implement_module
-              constructor.validate_method_definitions(node, constructor.annotations.implement_module.module_name)
+              new.synthesize(node.children[2])
             end
           end
 
-          typing.add_typing(node, Types.nil_instance)
-        end
+          if module_context
+            module_context.defined_instance_methods << node.children[0]
+          end
 
-      when :module
-        yield_self do
-          annots = source.annotations(block: node)
+          typing.add_typing(node, Types.any)
 
-          module_type = AST::Types::Name.new_instance(name: "::Module")
+        when :defs
+          synthesize(node.children[0]).tap do |self_type|
+            new = for_new_method(node.children[1],
+                                 node,
+                                 args: node.children[2].children,
+                                 self_type: self_type)
 
-          if annots.implement_module
-            module_name = TypeName::Module.new(name: annots.implement_module.module_name)
-            abstract = checker.builder.build(module_name)
-
-            instance_type = absolute_type(
-              AST::Types::Name.new_instance(
-                name: annots.implement_module.module_name,
-                args: annots.implement_module.module_args
-              )
-            )
-
-            unless abstract.supers.empty?
-              instance_type = AST::Types::Intersection.new(
-                types: [instance_type,
-                        AST::Types::Name.new_instance(name: "::Object")] + abstract.supers
-              )
+            each_child_node(node.children[2]) do |arg|
+              new.synthesize(arg)
             end
 
-            module_type = AST::Types::Intersection.new(types: [
-              AST::Types::Name.new_instance(name: "::Module"),
-              absolute_type(AST::Types::Name.new_module(
-                name: annots.implement_module.module_name,
-                args: annots.implement_module.module_args
-              ))
-            ])
-          end
-
-          if annots.instance_type
-            instance_type = absolute_type(annots.instance_type)
-          end
-
-          if annots.module_type
-            module_type = absolute_type(annots.module_type)
-          end
-
-          module_context_ = ModuleContext.new(
-            instance_type: instance_type,
-            module_type: module_type,
-            const_types: annots.const_types
-          )
-
-          for_class = self.class.new(
-            checker: checker,
-            source: source,
-            annotations: annots,
-            var_types: {},
-            typing: typing,
-            method_context: nil,
-            block_context: nil,
-            module_context: module_context_,
-            self_type: module_context_.module_type
-          )
-
-          for_class.synthesize(node.children[1]) if node.children[1]
-          for_class.validate_method_definitions(node, module_name.name) if annots.implement_module
-
-          typing.add_typing(node, Types.nil_instance)
-        end
-
-      when :self
-        if self_type
-          typing.add_typing(node, self_type)
-        else
-          fallback_to_any node
-        end
-
-      when :const
-        const_name = flatten_const_name(node)
-        if const_name
-          type = absolute_type((module_context&.const_types || {})[const_name])
-        end
-
-        if type
-          typing.add_typing(node, type)
-        else
-          fallback_to_any node
-        end
-
-      when :casgn
-        yield_self do
-          const_name = flatten_const_name(node)
-          if const_name
-            const_type = absolute_type((module_context&.const_types || {}))[const_name]
-          end
-
-          if const_type
-            check(node.children.last, const_type) do |_, rhs_type, result|
-              typing.add_error(Errors::IncompatibleAssignment.new(node: node,
-                                                                  lhs_type: const_type,
-                                                                  rhs_type: rhs_type,
-                                                                  result: result))
-            end
-          else
-            if module_context.const_types
-              module_context.const_types[const_name] = const_type
-            end
-          end
-
-          typing.add_typing(node, const_type)
-        end
-
-      when :yield
-        if method_context&.method_type
-          if method_context.block_type
-            block_type = method_context.block_type
-            block_type.params.flat_unnamed_params.map(&:last).zip(node.children).each do |(type, node)|
-              if node && type
-                check(node, type) do |_, rhs_type, result|
-                  typing.add_error(Errors::IncompatibleAssignment.new(node: node,
-                                                                      lhs_type: type,
-                                                                      rhs_type: rhs_type,
+            if node.children[3]
+              if new&.method_context&.method_type
+                new.check(node.children[3], new.method_context.method_type.return_type) do |return_type, actual_type, result|
+                  typing.add_error(Errors::MethodBodyTypeMismatch.new(node: node,
+                                                                      expected: return_type,
+                                                                      actual: actual_type,
                                                                       result: result))
                 end
+              else
+                new.synthesize(node.children[3])
+              end
+            end
+          end
+
+          if module_context
+            if node.children[0].type == :self
+              module_context.defined_module_methods << node.children[1]
+            end
+          end
+
+          typing.add_typing(node, Types.symbol_instance)
+
+        when :return
+          value = node.children[0]
+
+          if value
+            if method_context&.return_type
+              check(value, method_context.return_type) do |_, actual_type, result|
+                typing.add_error(Errors::ReturnTypeMismatch.new(node: node,
+                                                                expected: method_context.return_type,
+                                                                actual: actual_type,
+                                                                result: result))
+              end
+            else
+              synthesize(value)
+            end
+          end
+
+          typing.add_typing(node, Types.any)
+
+        when :break
+          value = node.children[0]
+
+          if value
+            if block_context&.break_type
+              check(value, block_context.break_type) do |break_type, actual_type, result|
+                typing.add_error Errors::BreakTypeMismatch.new(node: node,
+                                                               expected: break_type,
+                                                               actual: actual_type,
+                                                               result: result)
+              end
+            else
+              synthesize(value)
+            end
+          end
+
+          typing.add_typing(node, Types.any)
+
+        when :arg, :kwarg, :procarg0
+          var = node.children[0]
+          if (type = variable_type(var))
+            typing.add_var_type(var, type)
+          else
+            fallback_to_any node
+          end
+
+        when :optarg, :kwoptarg
+          var = node.children[0]
+          rhs = node.children[1]
+          type_assignment(var, rhs, node)
+
+        when :int
+          typing.add_typing(node, AST::Types::Name.new_instance(name: "::Integer"))
+
+        when :nil
+          typing.add_typing(node, Types.any)
+
+        when :sym
+          typing.add_typing(node, Types.symbol_instance)
+
+        when :str
+          typing.add_typing(node, Types.string_instance)
+
+        when :true, :false
+          typing.add_typing(node, AST::Types::Name.new_interface(name: :_Boolean))
+
+        when :hash
+          each_child_node(node) do |pair|
+            raise "Unexpected non pair: #{pair.inspect}" unless pair.type == :pair
+            each_child_node(pair) do |e|
+              synthesize(e)
+            end
+          end
+
+          typing.add_typing(node, Types.any)
+
+        when :dstr
+          each_child_node(node) do |child|
+            synthesize(child)
+          end
+
+          typing.add_typing(node, Types.string_instance)
+
+        when :dsym
+          each_child_node(node) do |child|
+            synthesize(child)
+          end
+
+          typing.add_typing(node, Types.symbol_instance)
+
+        when :class
+          yield_self do
+            for_class(node).tap do |constructor|
+              constructor.synthesize(node.children[2])
+              if constructor.annotations.implement_module
+                constructor.validate_method_definitions(node, constructor.annotations.implement_module.module_name)
               end
             end
 
-            typing.add_typing(node, block_type.return_type)
+            typing.add_typing(node, Types.nil_instance)
+          end
+
+        when :module
+          yield_self do
+            annots = source.annotations(block: node)
+
+            module_type = AST::Types::Name.new_instance(name: "::Module")
+
+            if annots.implement_module
+              module_name = TypeName::Module.new(name: annots.implement_module.module_name)
+              abstract = checker.builder.build(module_name)
+
+              instance_type = absolute_type(
+                AST::Types::Name.new_instance(
+                  name: annots.implement_module.module_name,
+                  args: annots.implement_module.module_args
+                )
+              )
+
+              unless abstract.supers.empty?
+                instance_type = AST::Types::Intersection.new(
+                  types: [instance_type,
+                          AST::Types::Name.new_instance(name: "::Object")] + abstract.supers
+                )
+              end
+
+              module_type = AST::Types::Intersection.new(types: [
+                AST::Types::Name.new_instance(name: "::Module"),
+                absolute_type(AST::Types::Name.new_module(
+                  name: annots.implement_module.module_name,
+                  args: annots.implement_module.module_args
+                ))
+              ])
+            end
+
+            if annots.instance_type
+              instance_type = absolute_type(annots.instance_type)
+            end
+
+            if annots.module_type
+              module_type = absolute_type(annots.module_type)
+            end
+
+            module_context_ = ModuleContext.new(
+              instance_type: instance_type,
+              module_type: module_type,
+              const_types: annots.const_types
+            )
+
+            for_class = self.class.new(
+              checker: checker,
+              source: source,
+              annotations: annots,
+              var_types: {},
+              typing: typing,
+              method_context: nil,
+              block_context: nil,
+              module_context: module_context_,
+              self_type: module_context_.module_type
+            )
+
+            for_class.synthesize(node.children[1]) if node.children[1]
+            for_class.validate_method_definitions(node, module_name.name) if annots.implement_module
+
+            typing.add_typing(node, Types.nil_instance)
+          end
+
+        when :self
+          if self_type
+            typing.add_typing(node, self_type)
           else
-            typing.add_error(Errors::UnexpectedYield.new(node: node))
             fallback_to_any node
           end
-        else
-          fallback_to_any node
-        end
 
-      when :zsuper
-        yield_self do
-          if method_context&.method
-            if method_context.super_method
-              types = method_context.super_method.types.map(&:return_type)
-              typing.add_typing(node, union_type(*types))
+        when :const
+          const_name = flatten_const_name(node)
+          if const_name
+            type = absolute_type((module_context&.const_types || {})[const_name])
+          end
+
+          if type
+            typing.add_typing(node, type)
+          else
+            fallback_to_any node
+          end
+
+        when :casgn
+          yield_self do
+            const_name = flatten_const_name(node)
+            if const_name
+              const_type = absolute_type((module_context&.const_types || {}))[const_name]
+            end
+
+            if const_type
+              check(node.children.last, const_type) do |_, rhs_type, result|
+                typing.add_error(Errors::IncompatibleAssignment.new(node: node,
+                                                                    lhs_type: const_type,
+                                                                    rhs_type: rhs_type,
+                                                                    result: result))
+              end
             else
-              typing.add_error(Errors::UnexpectedSuper.new(node: node, method: method_context.name))
+              if module_context.const_types
+                module_context.const_types[const_name] = const_type
+              end
+            end
+
+            typing.add_typing(node, const_type)
+          end
+
+        when :yield
+          if method_context&.method_type
+            if method_context.block_type
+              block_type = method_context.block_type
+              block_type.params.flat_unnamed_params.map(&:last).zip(node.children).each do |(type, node)|
+                if node && type
+                  check(node, type) do |_, rhs_type, result|
+                    typing.add_error(Errors::IncompatibleAssignment.new(node: node,
+                                                                        lhs_type: type,
+                                                                        rhs_type: rhs_type,
+                                                                        result: result))
+                  end
+                end
+              end
+
+              typing.add_typing(node, block_type.return_type)
+            else
+              typing.add_error(Errors::UnexpectedYield.new(node: node))
               fallback_to_any node
             end
           else
             fallback_to_any node
           end
-        end
 
-      when :array
-        if node.children.empty?
-          typing.add_typing(node, Types.array_instance(Types.any))
-        else
-          types = node.children.map {|e| synthesize(e) }
-
-          if types.uniq.size == 1
-            typing.add_typing(node, Types.array_instance(types.first))
-          else
-            typing.add_typing(node, Types.array_instance(Types.any))
-          end
-        end
-
-      when :and
-        types = each_child_node(node).map {|child| synthesize(child) }
-        typing.add_typing(node, types.last)
-
-      when :or
-        types = each_child_node(node).map {|child| synthesize(child) }
-        type = union_type(*types)
-        typing.add_typing(node, type)
-
-      when :if
-        cond, true_clause, false_clause = node.children
-        synthesize cond
-        true_type = synthesize(true_clause) if true_clause
-        false_type = synthesize(false_clause) if false_clause
-
-        typing.add_typing(node, union_type(true_type, false_type))
-
-      when :case
-        cond, *whens = node.children
-
-        synthesize cond if cond
-
-        types = whens.map do |clause|
-          if clause&.type == :when
-            clause.children.take(clause.children.size - 1).map do |child|
-              synthesize(child)
-            end
-
-            if (body = clause.children.last)
-              synthesize body
+        when :zsuper
+          yield_self do
+            if method_context&.method
+              if method_context.super_method
+                types = method_context.super_method.types.map(&:return_type)
+                typing.add_typing(node, union_type(*types))
+              else
+                typing.add_error(Errors::UnexpectedSuper.new(node: node, method: method_context.name))
+                fallback_to_any node
+              end
             else
-              fallback_to_any body
+              fallback_to_any node
             end
-          else
-            synthesize clause if clause
           end
+
+        when :array
+          if node.children.empty?
+            typing.add_typing(node, Types.array_instance(Types.any))
+          else
+            types = node.children.map {|e| synthesize(e) }
+
+            if types.uniq.size == 1
+              typing.add_typing(node, Types.array_instance(types.first))
+            else
+              typing.add_typing(node, Types.array_instance(Types.any))
+            end
+          end
+
+        when :and
+          types = each_child_node(node).map {|child| synthesize(child) }
+          typing.add_typing(node, types.last)
+
+        when :or
+          types = each_child_node(node).map {|child| synthesize(child) }
+          type = union_type(*types)
+          typing.add_typing(node, type)
+
+        when :if
+          cond, true_clause, false_clause = node.children
+          synthesize cond
+          true_type = synthesize(true_clause) if true_clause
+          false_type = synthesize(false_clause) if false_clause
+
+          typing.add_typing(node, union_type(true_type, false_type))
+
+        when :case
+          cond, *whens = node.children
+
+          synthesize cond if cond
+
+          types = whens.map do |clause|
+            if clause&.type == :when
+              clause.children.take(clause.children.size - 1).map do |child|
+                synthesize(child)
+              end
+
+              if (body = clause.children.last)
+                synthesize body
+              else
+                fallback_to_any body
+              end
+            else
+              synthesize clause if clause
+            end
+          end
+
+          typing.add_typing(node, union_type(*types))
+
+        else
+          raise "Unexpected node: #{node.inspect}, #{node.location.expression}"
         end
-
-        typing.add_typing(node, union_type(*types))
-
-      else
-        raise "Unexpected node: #{node.inspect}, #{node.location.expression}"
       end
     end
 

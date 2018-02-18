@@ -4,6 +4,8 @@ require "pathname"
 require "parser/current"
 require "ast_utils"
 require "active_support/core_ext/object/try"
+require "logger"
+require "active_support/tagged_logging"
 
 require "steep/module_name"
 require "steep/ast/location"
@@ -57,5 +59,13 @@ require "steep/drivers/check"
 require "steep/drivers/validate"
 
 module Steep
-  # Your code goes here...
+  def self.logger
+    unless @logger
+      @logger = ActiveSupport::TaggedLogging.new(Logger.new(STDERR))
+      @logger.push_tags "Steep #{VERSION}"
+      @logger.level = Logger::ERROR
+    end
+
+    @logger
+  end
 end

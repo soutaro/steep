@@ -30,6 +30,8 @@ module Steep
       end
 
       def run
+        Steep.logger.level = Logger::DEBUG if verbose
+
         env = AST::Signature::Env.new
 
         each_signature(signature_dirs, verbose) do |signature|
@@ -57,27 +59,29 @@ module Steep
         typing = Typing.new
 
         sources.each do |source|
-          stdout.puts "Typechecking #{source.path}..." if verbose
-          annotations = source.annotations(block: source.node) || []
+          Steep.logger.tagged source.path do
+            Steep.logger.debug "Typechecking..."
+            annotations = source.annotations(block: source.node) || []
 
-          pp annotations if verbose
+            pp annotations if verbose
 
-          construction = TypeConstruction.new(
-            checker: check,
-            annotations: annotations,
-            source: source,
-            var_types: {},
-            self_type: nil,
-            block_context: nil,
-            module_context: TypeConstruction::ModuleContext.new(
-                                                             instance_type: nil,
-                                                             module_type: nil,
-                                                             const_types: annotations.const_types
-            ),
-            method_context: nil,
-            typing: typing,
-          )
-          construction.synthesize(source.node)
+            construction = TypeConstruction.new(
+              checker: check,
+              annotations: annotations,
+              source: source,
+              var_types: {},
+              self_type: nil,
+              block_context: nil,
+              module_context: TypeConstruction::ModuleContext.new(
+                instance_type: nil,
+                module_type: nil,
+                const_types: annotations.const_types
+              ),
+              method_context: nil,
+              typing: typing,
+              )
+            construction.synthesize(source.node)
+          end
         end
 
         if dump_all_types
