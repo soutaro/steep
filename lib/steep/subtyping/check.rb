@@ -10,25 +10,29 @@ module Steep
       end
 
       def check(relation, constraints:, assumption: Set.new, trace: Trace.new)
-        prefix = trace.size
-        cached = cache[relation]
-        if cached && constraints.empty?
-          if cached.success?
-            cached
+        Steep.logger.tagged "#{relation.sub_type} <: #{relation.super_type}" do
+          prefix = trace.size
+          cached = cache[relation]
+          if cached && constraints.empty?
+            if cached.success?
+              cached
+            else
+              cached.merge_trace(trace)
+            end
           else
-            cached.merge_trace(trace)
-          end
-        else
-          if assumption.member?(relation)
-            success(constraints: constraints)
-          else
-            trace.add(relation.sub_type, relation.super_type) do
-              assumption = assumption + Set.new([relation])
-              check0(relation, assumption: assumption, trace: trace, constraints: constraints).tap do |result|
-                result = result.else do |failure|
-                  failure.drop(prefix)
+            if assumption.member?(relation)
+              success(constraints: constraints)
+            else
+              trace.add(relation.sub_type, relation.super_type) do
+                assumption = assumption + Set.new([relation])
+                check0(relation, assumption: assumption, trace: trace, constraints: constraints).tap do |result|
+                  result = result.else do |failure|
+                    failure.drop(prefix)
+                  end
+
+                  Steep.logger.debug "result=#{result.class}"
+                  cache[relation] = result if cacheable?(relation)
                 end
-                cache[relation] = result if cacheable?(relation)
               end
             end
           end
