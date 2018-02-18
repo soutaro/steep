@@ -14,6 +14,7 @@ module Steep
         attr_reader :implement_module
         attr_reader :ivar_types
         attr_reader :dynamics
+        attr_reader :break_type
 
         def initialize(annotations:)
           @var_types = {}
@@ -21,6 +22,7 @@ module Steep
           @const_types = {}
           @ivar_types = {}
           @dynamics = Set.new
+          @break_type = nil
 
           annotations.each do |annotation|
             case annotation
@@ -46,6 +48,8 @@ module Steep
               ivar_types[annotation.name] = annotation.type
             when Dynamic
               dynamics << annotation.name
+            when BreakType
+              @break_type = annotation.type
             else
               raise "Unexpected annotation: #{annotation.inspect}"
             end

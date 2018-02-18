@@ -366,6 +366,7 @@ method_name: IDENT
            | BLOCK
            | INCLUDE
            | UIDENT
+           | BREAK
            | CONSTRUCTOR { result = LocatedValue.new(location: val[0].location, value: :constructor) }
            | NOCONSTRUCTOR { result = LocatedValue.new(location: val[0].location, value: :noconstructor) }
            | GT GT {
@@ -427,6 +428,10 @@ annotation: AT_TYPE VAR subject COLON type {
               loc = val.first.location + val.last.location
               result = AST::Annotation::Dynamic.new(name: val[1].value, location: loc)
             }
+          | AT_TYPE BREAK COLON type {
+             loc = val.first.location + val.last.location
+             result = AST::Annotation::BreakType.new(type: val[3], location: loc)
+           }
 
 subject: IDENT { result = val[0] }
 
@@ -555,6 +560,8 @@ def next_token
     new_token(:RETURN)
   when input.scan(/block\b/)
     new_token(:BLOCK, :block)
+  when input.scan(/break\b/)
+    new_token(:BREAK, :break)
   when input.scan(/method\b/)
     new_token(:METHOD, :method)
   when input.scan(/self\?/)

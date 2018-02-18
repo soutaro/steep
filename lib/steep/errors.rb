@@ -208,6 +208,10 @@ module Steep
         @actual = actual
         @result = result
       end
+
+      def to_s
+        "#{location_to_str}: BreakTypeMismatch: expected=#{expected}, actual=#{actual}"
+      end
     end
 
     class MethodParameterTypeMismatch < Base

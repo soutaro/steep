@@ -116,4 +116,10 @@ class AnnotationParsingTest < Minitest::Test
     assert_instance_of Steep::AST::Annotation::Dynamic, annot
     assert_equal :foo, annot.name
   end
+
+  def test_break
+    annot = parse_annotation("@type break: Integer")
+    assert_instance_of Steep::AST::Annotation::BreakType, annot
+    assert_equal Steep::AST::Types::Name.new_instance(name: :Integer), annot.type
+  end
 end

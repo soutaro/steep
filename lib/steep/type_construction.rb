@@ -848,8 +848,16 @@ module Steep
 
             method_type.subst(constraints.subst(checker)).yield_self do |method_type|
               if block_body
+                return_type = if annots.break_type
+                                union_type(method_type.return_type, annots.break_type)
+                              else
+                                method_type.return_type
+                              end
+                Steep.logger.debug("return_type = #{return_type}")
+
                 block_context = BlockContext.new(body_type: annots.block_type,
-                                                 break_type: method_type.return_type)
+                                                 break_type: annots.break_type || method_type.return_type)
+                Steep.logger.debug("block_context { body_type: #{block_context.body_type}, break_type=#{block_context.break_type} }")
 
                 for_block = self.class.new(
                   checker: checker,
@@ -875,13 +883,13 @@ module Steep
                 ), constraints: constraints)
 
                 if result.success?
-                  method_type.return_type.subst(constraints.subst(checker))
+                  return_type.subst(constraints.subst(checker))
                 else
                   typing.add_error Errors::BlockTypeMismatch.new(node: node,
                                                                  expected: method_type.block.return_type,
                                                                  actual: annots.block_type || block_type,
                                                                  result: result)
-                  method_type.return_type
+                  return_type
                 end
               end
             end

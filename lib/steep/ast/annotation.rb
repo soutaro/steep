@@ -41,6 +41,7 @@ module Steep
       class SelfType < Typed; end
       class InstanceType < Typed; end
       class ModuleType < Typed; end
+      class BreakType < Typed; end
 
       class MethodType < Named; end
       class VarType < Named; end

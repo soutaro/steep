@@ -66,6 +66,7 @@ class Hash<'key, 'value>
 end
 
 class Symbol
+  def self.all_symbols: -> Array<Symbol>
 end
 
 interface _Boolean
