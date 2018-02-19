@@ -93,15 +93,15 @@ class AnnotationParsingTest < Minitest::Test
   def test_implements
     annot = parse_annotation("@implements String")
     assert_instance_of Steep::AST::Annotation::Implements, annot
-    assert_equal ModuleName.parse(:String), annot.module_name
-    assert_empty annot.module_args
+    assert_equal ModuleName.parse(:String), annot.name.name
+    assert_empty annot.name.args
   end
 
   def test_implement2
-    annot = parse_annotation("@implements Array<String>")
+    annot = parse_annotation("@implements Array<'a>")
     assert_instance_of Steep::AST::Annotation::Implements, annot
-    assert_equal ModuleName.parse(:Array), annot.module_name
-    assert_equal [Steep::AST::Types::Name.new_instance(name: :String)], annot.module_args
+    assert_equal ModuleName.parse(:Array), annot.name.name
+    assert_equal [:a], annot.name.args
   end
 
   def test_ivar_type

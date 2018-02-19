@@ -1026,7 +1026,7 @@ string = poly.try { "string" }
   def test_module_self
     source = parse_ruby(<<-EOF)
 module Foo
-  # @implements Foo<String>
+  # @implements Foo<'a>
   
   block_given?
 end

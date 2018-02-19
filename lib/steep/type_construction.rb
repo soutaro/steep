@@ -70,13 +70,15 @@ module Steep
       attr_reader :defined_instance_methods
       attr_reader :defined_module_methods
       attr_reader :const_types
+      attr_reader :implement_name
 
-      def initialize(instance_type:, module_type:, const_types:)
+      def initialize(instance_type:, module_type:, const_types:, implement_name:)
         @instance_type = instance_type
         @module_type = module_type
         @defined_instance_methods = Set.new
         @defined_module_methods = Set.new
         @const_types = const_types
+        @implement_name = implement_name
       end
     end
 
@@ -172,29 +174,24 @@ module Steep
       module_type = AST::Types::Name.new_instance(name: "::Module")
 
       if annots.implement_module
-        module_name = TypeName::Module.new(name: annots.implement_module.module_name)
-        abstract = checker.builder.build(module_name)
+        module_name = annots.implement_module.name.name
+        module_args = annots.implement_module.name.args.map {|x| AST::Types::Var.new(name: x) }
+
+        abstract = checker.builder.build(TypeName::Instance.new(name: module_name))
 
         instance_type = absolute_type(
-          AST::Types::Name.new_instance(
-            name: annots.implement_module.module_name,
-            args: annots.implement_module.module_args
-          )
+          AST::Types::Name.new_instance(name: module_name, args: module_args)
         )
 
         unless abstract.supers.empty?
           instance_type = AST::Types::Intersection.new(
-            types: [instance_type,
-                    AST::Types::Name.new_instance(name: "::Object")] + abstract.supers
+            types: [instance_type, AST::Types::Name.new_instance(name: "::Object")] + abstract.supers.map {|x| absolute_type(x) }
           )
         end
 
         module_type = AST::Types::Intersection.new(types: [
           AST::Types::Name.new_instance(name: "::Module"),
-          absolute_type(AST::Types::Name.new_module(
-            name: annots.implement_module.module_name,
-            args: annots.implement_module.module_args
-          ))
+          absolute_type(AST::Types::Name.new_module(name: module_name, args: module_args))
         ])
       end
 
@@ -209,7 +206,8 @@ module Steep
       module_context_ = ModuleContext.new(
         instance_type: instance_type,
         module_type: module_type,
-        const_types: annots.const_types
+        const_types: annots.const_types,
+        implement_name: annots.implement_module&.name
       )
 
       self.class.new(
@@ -229,20 +227,20 @@ module Steep
       annots = source.annotations(block: node)
 
       if annots.implement_module
-        module_name = TypeName::Class.new(name: annots.implement_module.module_name, constructor: nil)
-        _ = checker.builder.build(module_name)
+        class_name = annots.implement_module.name.name
+        class_args = annots.implement_module.name.args.map {|x| AST::Types::Var.new(name: x) }
 
-        instance_type = AST::Types::Name.new_instance(name: annots.implement_module.module_name,
-                                                      args: annots.implement_module.module_args)
-        module_type = AST::Types::Name.new_class(name: annots.implement_module.module_name,
-                                                 args: annots.implement_module.module_args,
-                                                 constructor: nil)
+        _ = checker.builder.build(TypeName::Instance.new(name: class_name))
+
+        instance_type = AST::Types::Name.new_instance(name: class_name, args: class_args)
+        module_type = AST::Types::Name.new_class(name: class_name, args: class_args, constructor: nil)
       end
 
       module_context = ModuleContext.new(
         instance_type: annots.instance_type || instance_type,
         module_type: annots.module_type || module_type,
-        const_types: annots.const_types
+        const_types: annots.const_types,
+        implement_name: annots.implement_module&.name
       )
 
       self.class.new(
@@ -522,8 +520,8 @@ module Steep
             for_class(node).tap do |constructor|
               constructor.synthesize(node.children[2]) if node.children[2]
 
-              if constructor.annotations.implement_module
-                constructor.validate_method_definitions(node, constructor.annotations.implement_module.module_name)
+              if constructor.module_context&.implement_name
+                constructor.validate_method_definitions(node, constructor.module_context.implement_name)
               end
             end
 
@@ -535,8 +533,8 @@ module Steep
             for_module(node).yield_self do |constructor|
               constructor.synthesize(node.children[1]) if node.children[1]
 
-              if constructor.annotations.implement_module
-                constructor.validate_method_definitions(node, constructor.annotations.implement_module.module_name)
+              if constructor.module_context&.implement_name
+                constructor.validate_method_definitions(node, constructor.module_context.implement_name)
               end
             end
 
@@ -1144,7 +1142,7 @@ module Steep
     end
 
     def validate_method_definitions(node, module_name)
-      signature = checker.builder.signatures.find_class_or_module(module_name)
+      signature = checker.builder.signatures.find_class_or_module(module_name.name)
 
       signature.members.each do |member|
         if member.is_a?(AST::Signature::Members::Method)
@@ -1152,14 +1150,14 @@ module Steep
           when member.instance_method?
             unless module_context.defined_instance_methods.include?(member.name) || annotations.dynamics.member?(member.name)
               typing.add_error Errors::MethodDefinitionMissing.new(node: node,
-                                                                   module_name: module_name,
+                                                                   module_name: module_name.name,
                                                                    kind: :instance,
                                                                    missing_method: member.name)
             end
           when member.module_method?
             unless module_context.defined_module_methods.include?(member.name)
               typing.add_error Errors::MethodDefinitionMissing.new(node: node,
-                                                                   module_name: module_name,
+                                                                   module_name: module_name.name,
                                                                    kind: :module,
                                                                    missing_method: member.name)
             end
@@ -1170,7 +1168,7 @@ module Steep
       annotations.dynamics.each do |method_name|
         unless signature.members.any? {|sig| sig.is_a?(AST::Signature::Members::Method) && sig.name == method_name }
           typing.add_error Errors::UnexpectedDynamicMethod.new(node: node,
-                                                               module_name: module_name,
+                                                               module_name: module_name.name,
                                                                method_name: method_name)
         end
       end

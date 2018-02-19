@@ -75,7 +75,8 @@ module Steep
               module_context: TypeConstruction::ModuleContext.new(
                 instance_type: nil,
                 module_type: nil,
-                const_types: annotations.const_types
+                const_types: annotations.const_types,
+                implement_name: nil
               ),
               method_context: nil,
               typing: typing,
