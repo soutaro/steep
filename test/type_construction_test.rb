@@ -1050,4 +1050,132 @@ end
 
     assert_empty typing.errors
   end
+
+  def test_class_constructor_with_signature
+    source = parse_ruby("class Person; end")
+
+    typing = Typing.new
+    annotations = source.annotations(block: source.node)
+    checker = checker(<<EOF)
+class Person
+end
+EOF
+
+    construction = TypeConstruction.new(checker: checker,
+                                        source: source,
+                                        annotations: annotations,
+                                        var_types: {},
+                                        self_type: nil,
+                                        block_context: nil,
+                                        method_context: nil,
+                                        typing: typing,
+                                        module_context: nil)
+
+    for_class = construction.for_class(source.node)
+
+    assert_equal(
+      Annotation::Implements::Module.new(
+        name: Steep::ModuleName.parse("::Person"),
+        args: []
+      ),
+      for_class.module_context.implement_name
+    )
+    assert_equal Types::Name.new_instance(name: "::Person"), for_class.module_context.instance_type
+    assert_equal Types::Name.new_class(name: "::Person", constructor: nil), for_class.module_context.module_type
+  end
+
+  def test_class_constructor_without_signature
+    source = parse_ruby("class Person; end")
+
+    typing = Typing.new
+    annotations = source.annotations(block: source.node)
+    checker = checker(<<EOF)
+class Address
+end
+EOF
+
+    construction = TypeConstruction.new(checker: checker,
+                                        source: source,
+                                        annotations: annotations,
+                                        var_types: {},
+                                        self_type: nil,
+                                        block_context: nil,
+                                        method_context: nil,
+                                        typing: typing,
+                                        module_context: nil)
+
+    for_class = construction.for_class(source.node)
+
+    assert_nil for_class.module_context.implement_name
+    assert_nil for_class.module_context.instance_type
+    assert_nil for_class.module_context.module_type
+  end
+
+  def test_module_constructor_with_signature
+    source = parse_ruby("module Steep; end")
+
+    typing = Typing.new
+    annotations = source.annotations(block: source.node)
+    checker = checker(<<EOF)
+module Steep
+end
+EOF
+
+    construction = TypeConstruction.new(checker: checker,
+                                        source: source,
+                                        annotations: annotations,
+                                        var_types: {},
+                                        self_type: nil,
+                                        block_context: nil,
+                                        method_context: nil,
+                                        typing: typing,
+                                        module_context: nil)
+
+    for_module = construction.for_module(source.node)
+
+    assert_equal(
+      Annotation::Implements::Module.new(
+        name: Steep::ModuleName.parse("::Steep"),
+        args: []
+      ),
+      for_module.module_context.implement_name
+    )
+    assert_equal Types::Name.new_instance(name: "::Steep"), for_module.module_context.instance_type
+    assert_equal(
+      Types::Intersection.new(
+        types: [
+          Types::Name.new_instance(name: "::Module"),
+          Types::Name.new_module(name: "::Steep"),
+        ]
+      ),
+      for_module.module_context.module_type
+    )
+  end
+
+  def test_module_constructor_without_signature
+    source = parse_ruby("module Steep; end")
+
+    typing = Typing.new
+    annotations = source.annotations(block: source.node)
+    checker = checker(<<EOF)
+module Rails
+end
+EOF
+
+    construction = TypeConstruction.new(checker: checker,
+                                        source: source,
+                                        annotations: annotations,
+                                        var_types: {},
+                                        self_type: nil,
+                                        block_context: nil,
+                                        method_context: nil,
+                                        typing: typing,
+                                        module_context: nil)
+
+    for_module = construction.for_module(source.node)
+
+    assert_nil for_module.module_context.implement_name
+    assert_nil for_module.module_context.instance_type
+    assert_equal Types::Name.new_instance(name: "::Module"), for_module.module_context.module_type
+  end
 end

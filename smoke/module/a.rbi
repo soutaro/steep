@@ -5,3 +5,7 @@ end
 module A : _Each<Integer>
   def count: () -> Integer
 end
+
+module X
+  def foo: () -> Integer
+end

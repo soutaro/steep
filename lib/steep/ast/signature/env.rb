@@ -78,6 +78,14 @@ module Steep
           classes.key?(name)
         end
 
+        def class_name?(name, current_module: nil)
+          classes.key?(current_module ? current_module + name : name.absolute!)
+        end
+
+        def module_name?(name, current_module: nil)
+          modules.key?(current_module ? current_module + name : name.absolute!)
+        end
+
         def each(&block)
           if block_given?
             classes.each_value(&block)

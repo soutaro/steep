@@ -173,9 +173,20 @@ module Steep
 
       module_type = AST::Types::Name.new_instance(name: "::Module")
 
-      if annots.implement_module
-        module_name = annots.implement_module.name.name
-        module_args = annots.implement_module.name.args.map {|x| AST::Types::Var.new(name: x) }
+      implement_module_name =
+        if annots.implement_module
+          annots.implement_module.name
+        else
+          ModuleName.new(name: node.children.first.children.last.to_s, absolute: true).yield_self do |name|
+            if checker.builder.signatures.module_name?(name)
+              AST::Annotation::Implements::Module.new(name: name, args: [])
+            end
+          end
+        end
+
+      if implement_module_name
+        module_name = implement_module_name.name
+        module_args = implement_module_name.args.map {|x| AST::Types::Var.new(name: x) }
 
         abstract = checker.builder.build(TypeName::Instance.new(name: module_name))
 
@@ -207,7 +218,7 @@ module Steep
         instance_type: instance_type,
         module_type: module_type,
         const_types: annots.const_types,
-        implement_name: annots.implement_module&.name
+        implement_name: implement_module_name
       )
 
       self.class.new(
@@ -226,9 +237,20 @@ module Steep
     def for_class(node)
       annots = source.annotations(block: node)
 
-      if annots.implement_module
-        class_name = annots.implement_module.name.name
-        class_args = annots.implement_module.name.args.map {|x| AST::Types::Var.new(name: x) }
+      implement_module_name =
+        if annots.implement_module
+          annots.implement_module.name
+        else
+          ModuleName.new(name: node.children.first.children.last.to_s, absolute: true).yield_self do |name|
+            if checker.builder.signatures.class_name?(name)
+              AST::Annotation::Implements::Module.new(name: name, args: [])
+            end
+          end
+        end
+
+      if implement_module_name
+        class_name = implement_module_name.name
+        class_args = implement_module_name.args.map {|x| AST::Types::Var.new(name: x) }
 
         _ = checker.builder.build(TypeName::Instance.new(name: class_name))
 
@@ -240,7 +262,7 @@ module Steep
         instance_type: annots.instance_type || instance_type,
         module_type: annots.module_type || module_type,
         const_types: annots.const_types,
-        implement_name: annots.implement_module&.name
+        implement_name: implement_module_name
       )
 
       self.class.new(
