@@ -416,13 +416,11 @@ annotation: AT_TYPE VAR subject COLON type {
               loc = val.first.location + val.last.location
               result = AST::Annotation::IvarType.new(name: val[2].value, type: val[4], location: loc)
             }
-          | AT_IMPLEMENTS module_name {
-              loc = val.first.location + val.last.location
-              result = AST::Annotation::Implements.new(module_name: val[1].value, location: loc, module_args: [])
-            }
-          | AT_IMPLEMENTS module_name LT type_seq GT {
-              loc = val.first.location + val.last.location
-              result = AST::Annotation::Implements.new(module_name: val[1].value, location: loc, module_args: val[3])
+          | AT_IMPLEMENTS module_name type_params {
+              loc = val[0].location + (val[2]&.location || val[1].location)
+              args = val[2]&.variables || []
+              name = AST::Annotation::Implements::Module.new(name: val[1].value, args: args)
+              result = AST::Annotation::Implements.new(name: name, location: loc)
             }
           | AT_DYNAMIC method_name {
               loc = val.first.location + val.last.location
