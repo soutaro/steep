@@ -10,7 +10,7 @@ Note that Steep is not released yet (pre-released). Add `--pre` for `gem install
 
 ### Requirements
 
-Steep requires Ruby 2.4.
+Steep requires Ruby 2.5.
 
 ## Usage
 
