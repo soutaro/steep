@@ -594,7 +594,7 @@ def next_token
     new_token(:UIDENT, input.matched.to_sym)
   when input.scan(/_\w+/)
     new_token(:INTERFACE_NAME, input.matched.to_sym)
-  when input.scan(/@[\w_]+/)
+  when input.scan(/@\w+/)
     new_token(:IVAR_NAME, input.matched.to_sym)
   when input.scan(/\w+/)
     new_token(:IDENT, input.matched.to_sym)
