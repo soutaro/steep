@@ -84,6 +84,18 @@ module Steep
           end
         end
 
+        class PolyMethodSubtyping
+          attr_reader :name
+
+          def initialize(name:)
+            @name = name
+          end
+
+          def message
+            "Method #{name} requires uncheckable polymorphic subtyping"
+          end
+        end
+
         attr_reader :error
         attr_reader :trace
 

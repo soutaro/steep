@@ -64,12 +64,8 @@ module Steep
             constraints.add(relation.super_type.name, sub_type: relation.sub_type)
             success(constraints: constraints)
           else
-            if relation.sub_type.is_a?(AST::Types::Var)
-              failure(error: Result::Failure::UnknownPairError.new(relation: relation),
-                      trace: trace)
-            else
-              success(constraints: constraints)
-            end
+            failure(error: Result::Failure::UnknownPairError.new(relation: relation),
+                    trace: trace)
           end
 
         when relation.sub_type.is_a?(AST::Types::Var)
@@ -89,7 +85,10 @@ module Steep
             check_interface(sub_interface, super_interface, assumption: assumption, trace: trace, constraints: constraints)
 
           rescue => exn
-            STDERR.puts "Cannot resolve type to interface: #{exn.inspect}"
+            Steep.logger.error "Cannot resolve type to interface: #{exn.inspect}"
+            exn.backtrace.each do |t|
+              Steep.logger.debug(t)
+            end
             failure(error: Result::Failure::UnknownPairError.new(relation: relation),
                     trace: trace)
           end
@@ -141,28 +140,66 @@ module Steep
         trace.add(sub_method, super_method) do
           all_results = super_method.types.map do |super_type|
             sub_method.types.map do |sub_type|
-              super_args = super_type.type_params.map {|x| AST::Types::Var.fresh(x) }
-              sub_args = sub_type.type_params.map {|x| AST::Types::Var.fresh(x) }
-
-              a = super_args.zip(sub_args).each.with_object(Set.new) do |(s, t), set|
-                if s && t
-                  set.add(Relation.new(sub_type: s, super_type: t))
-                  set.add(Relation.new(sub_type: t, super_type: s))
-                end
-              end
-
-              super_type = super_type.instantiate(Interface::Substitution.build(super_type.type_params,
-                                                                                super_args))
-              sub_type = sub_type.instantiate(Interface::Substitution.build(sub_type.type_params,
-                                                                            sub_args))
-
               trace.add(sub_type, super_type) do
-                check_method_type(name,
-                                  sub_type,
-                                  super_type,
-                                  assumption: assumption + a,
-                                  trace: trace,
-                                  constraints: constraints)
+                case
+                when super_type.type_params.empty? && sub_type.type_params.empty?
+                  check_method_type(name,
+                                    sub_type,
+                                    super_type,
+                                    assumption: assumption,
+                                    trace: trace,
+                                    constraints: constraints)
+
+                when super_type.type_params.empty?
+                  yield_self do
+                    sub_args = sub_type.type_params.map {|x| AST::Types::Var.fresh(x) }
+                    sub_type = sub_type.instantiate(Interface::Substitution.build(sub_type.type_params,
+                                                                                  sub_args))
+
+                    match_method_type(name, sub_type, super_type, trace: trace).yield_self do |pairs|
+                      case pairs
+                      when Array
+                        subst = pairs.each.with_object(Interface::Substitution.empty) do |(sub, sup), subst|
+                          case
+                          when sub.is_a?(AST::Types::Var) && sub_args.include?(sub)
+                            subst.add!(sub.name, sup)
+                          when sup.is_a?(AST::Types::Var) && sub_args.include?(sup)
+                            subst.add!(sup.name, sub)
+                          end
+                        end
+
+                        check_method_type(name,
+                                          sub_type.subst(subst),
+                                          super_type,
+                                          assumption: assumption,
+                                          trace: trace,
+                                          constraints: constraints)
+                      else
+                        pairs
+                      end
+                    end
+                  end
+
+                when super_type.type_params.size == sub_type.type_params.size
+                  yield_self do
+                    args = sub_type.type_params.map {|x| AST::Types::Var.fresh(x) }
+
+                    sub_type = sub_type.instantiate(Interface::Substitution.build(sub_type.type_params,
+                                                                                  args))
+                    super_type = super_type.instantiate(Interface::Substitution.build(super_type.type_params,
+                                                                                      args))
+
+                    check_method_type(name,
+                                      sub_type,
+                                      super_type,
+                                      assumption: assumption,
+                                      trace: trace,
+                                      constraints: constraints)
+                  end
+                else
+                  failure(error: Result::Failure::PolyMethodSubtyping.new(name: name),
+                          trace: trace)
+                end
               end
             end
           end
@@ -208,6 +245,50 @@ module Steep
       end
 
       def check_method_params(name, sub_params, super_params, assumption:, trace:, constraints:)
+        match_params(name, sub_params, super_params, trace: trace).yield_self do |pairs|
+          case pairs
+          when Array
+            pairs.each do |(sub_type, super_type)|
+              relation = Relation.new(super_type: sub_type, sub_type: super_type)
+
+              result = check(relation, assumption: assumption, trace: trace, constraints: constraints)
+              return result if result.failure?
+            end
+
+            success(constraints: constraints)
+          else
+            pairs
+          end
+        end
+      end
+
+      def match_method_type(name, sub_type, super_type, trace:)
+        [].tap do |pairs|
+          match_params(name, sub_type.params, super_type.params, trace: trace).yield_self do |result|
+            return result unless result.is_a?(Array)
+            pairs.push(*result)
+            pairs.push [sub_type.return_type, super_type.return_type]
+
+            case
+            when !super_type.block && !sub_type.block
+              # No block required and given
+
+            when super_type.block && sub_type.block
+              match_params(name, super_type.block.params, sub_type.block.params, trace: trace).yield_self do |block_result|
+                return block_result unless block_result.is_a?(Array)
+                pairs.push(*block_result)
+                pairs.push [super_type.block.return_type, sub_type.block.return_type]
+              end
+
+            else
+              return failure(error: Result::Failure::BlockMismatchError.new(name: name),
+                             trace: trace)
+            end
+          end
+        end
+      end
+
+      def match_params(name, sub_params, super_params, trace:)
         pairs = []
 
         sub_flat = sub_params.flat_unnamed_params
@@ -296,14 +377,7 @@ module Steep
           pairs << [sub_params.rest_keywords, super_params.rest_keywords]
         end
 
-        pairs.each do |(sub_type, super_type)|
-          relation = Relation.new(super_type: sub_type, sub_type: super_type)
-
-          result = check(relation, assumption: assumption, trace: trace, constraints: constraints)
-          return result if result.failure?
-        end
-
-        success(constraints: constraints)
+        pairs
       end
 
       def check_block_params(name, sub_block, super_block, assumption:, trace:, constraints:)

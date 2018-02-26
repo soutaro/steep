@@ -165,7 +165,70 @@ end
       ),
       constraints: Subtyping::Constraints.empty
     )
+    assert_instance_of Subtyping::Result::Failure, result
+    assert_instance_of Subtyping::Result::Failure::PolyMethodSubtyping, result.error
+
+    result = checker.check(
+      Subtyping::Relation.new(
+        sub_type: AST::Types::Name.new_instance(name: "::A"),
+        super_type: AST::Types::Name.new_instance(name: "::B"),
+        ),
+      constraints: Subtyping::Constraints.empty
+    )
     assert_instance_of Subtyping::Result::Success, result
+  end
+
+  def test_interface51
+    checker = new_checker(<<-EOS)
+class A
+  def foo: <'a> ('a) -> Integer
+end
+
+class B
+  def foo: (String) -> Integer
+end
+    EOS
+
+    result = checker.check(
+      Subtyping::Relation.new(
+        sub_type: AST::Types::Name.new_instance(name: "::B"),
+        super_type: AST::Types::Name.new_instance(name: "::A")
+      ),
+      constraints: Subtyping::Constraints.empty
+    )
+    assert_instance_of Subtyping::Result::Failure, result
+    assert_instance_of Subtyping::Result::Failure::PolyMethodSubtyping, result.error
+
+    result = checker.check(
+      Subtyping::Relation.new(
+        sub_type: AST::Types::Name.new_instance(name: "::A"),
+        super_type: AST::Types::Name.new_instance(name: "::B"),
+        ),
+      constraints: Subtyping::Constraints.empty
+    )
+    assert_instance_of Subtyping::Result::Success, result
+  end
+
+  def test_interface52
+    checker = new_checker(<<-EOS)
+class A
+  def foo: <'a> ('a) -> Object
+end
+
+class B
+  def foo: (String) -> Integer
+end
+    EOS
+
+    result = checker.check(
+      Subtyping::Relation.new(
+        sub_type: AST::Types::Name.new_instance(name: "::B"),
+        super_type: AST::Types::Name.new_instance(name: "::A")
+      ),
+      constraints: Subtyping::Constraints.empty
+    )
+    assert_instance_of Subtyping::Result::Failure, result
+    assert_instance_of Subtyping::Result::Failure::PolyMethodSubtyping, result.error
 
     result = checker.check(
       Subtyping::Relation.new(
@@ -175,7 +238,7 @@ end
       constraints: Subtyping::Constraints.empty
     )
     assert_instance_of Subtyping::Result::Failure, result
-    assert_instance_of Subtyping::Result::Failure::UnknownPairError, result.error
+    assert_instance_of Subtyping::Result::Failure::MethodMissingError, result.error
   end
 
   def test_interface6
@@ -185,7 +248,7 @@ class A
 end
 
 class B
-  def foo: <'x> ('x) -> Integer
+  def foo: <'x, 'y> ('x) -> 'y
 end
     EOS
 
@@ -205,8 +268,7 @@ end
         ),
       constraints: Subtyping::Constraints.empty
     )
-    assert_instance_of Subtyping::Result::Failure, result
-    assert_instance_of Subtyping::Result::Failure::UnknownPairError, result.error
+    assert_instance_of Subtyping::Result::Success, result
   end
 
   def test_interface7
