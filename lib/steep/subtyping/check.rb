@@ -77,21 +77,64 @@ module Steep
                     trace: trace)
           end
 
-        else
-          begin
-            sub_interface = resolve(relation.sub_type)
-            super_interface = resolve(relation.super_type)
-
-            check_interface(sub_interface, super_interface, assumption: assumption, trace: trace, constraints: constraints)
-
-          rescue => exn
-            Steep.logger.error "Cannot resolve type to interface: #{exn.inspect}"
-            exn.backtrace.each do |t|
-              Steep.logger.debug(t)
-            end
-            failure(error: Result::Failure::UnknownPairError.new(relation: relation),
-                    trace: trace)
+        when relation.sub_type.is_a?(AST::Types::Union)
+          results = relation.sub_type.types.map do |sub_type|
+            check0(Relation.new(sub_type: sub_type, super_type: relation.super_type),
+                   assumption: assumption,
+                   trace: trace,
+                   constraints: constraints)
           end
+
+          if results.all?(&:success?)
+            results.first
+          else
+            results.find(&:failure?)
+          end
+
+        when relation.super_type.is_a?(AST::Types::Union)
+          results = relation.super_type.types.map do |super_type|
+            check0(Relation.new(sub_type: relation.sub_type, super_type: super_type),
+                   assumption: assumption,
+                   trace: trace,
+                   constraints: constraints)
+          end
+
+          results.find(&:success?) || results.first
+
+        when relation.sub_type.is_a?(AST::Types::Intersection)
+          results = relation.sub_type.types.map do |sub_type|
+            check0(Relation.new(sub_type: sub_type, super_type: relation.super_type),
+                   assumption: assumption,
+                   trace: trace,
+                   constraints: constraints)
+          end
+
+          results.find(&:success?) || results.first
+
+        when relation.super_type.is_a?(AST::Types::Intersection)
+          results = relation.super_type.types.map do |super_type|
+            check0(Relation.new(sub_type: relation.sub_type, super_type: super_type),
+                   assumption: assumption,
+                   trace: trace,
+                   constraints: constraints)
+          end
+
+          if results.all?(&:success?)
+            results.first
+          else
+            results.find(&:failure?)
+          end
+
+        when relation.sub_type.is_a?(AST::Types::Name) && relation.super_type.is_a?(AST::Types::Name)
+          sub_interface = resolve(relation.sub_type)
+          super_interface = resolve(relation.super_type)
+
+          check_interface(sub_interface, super_interface, assumption: assumption, trace: trace, constraints: constraints)
+
+
+        else
+          failure(error: Result::Failure::UnknownPairError.new(relation: relation),
+                  trace: trace)
         end
       end
 
