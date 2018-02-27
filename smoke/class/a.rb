@@ -8,7 +8,7 @@ class A
   end
 
   # A#bar is defined but the implementation is incompatible.
-  # !expects MethodParameterTypeMismatch: method=bar
+  # !expects MethodArityMismatch: method=bar
   def bar(y)
     y
   end

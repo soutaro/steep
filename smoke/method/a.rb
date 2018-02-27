@@ -15,7 +15,7 @@ end
 
 # @type method bar: (Integer) -> String
 
-# !expects MethodParameterTypeMismatch: method=bar
+# !expects MethodArityMismatch: method=bar
 def bar(x, y)
   # @type var z: String
 

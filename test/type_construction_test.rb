@@ -31,6 +31,14 @@ end
 class Module
   def block_given?: -> any
 end
+
+class String
+  def to_str: -> String
+end
+
+class Integer
+  def to_int: -> Integer
+end
   EOS
 
   DEFAULT_SIGS = <<-EOS
@@ -1177,5 +1185,176 @@ EOF
     assert_nil for_module.module_context.implement_name
     assert_nil for_module.module_context.instance_type
     assert_equal Types::Name.new_instance(name: "::Module"), for_module.module_context.module_type
+  end
+
+  def test_new_method_constructor
+    source = parse_ruby("class A; def foo(x); end; end")
+    def_node = source.node.children[2]
+
+    typing = Typing.new
+    annotations = source.annotations(block: source.node)
+    checker = checker(<<-EOF)
+class A
+  def foo: (String) -> Integer
+end
+    EOF
+
+    construction = TypeConstruction.new(checker: checker,
+                                        source: source,
+                                        annotations: annotations,
+                                        var_types: {},
+                                        self_type: nil,
+                                        block_context: nil,
+                                        method_context: nil,
+                                        typing: typing,
+                                        module_context: nil)
+
+    for_method = construction.for_new_method(:foo,
+                                             def_node,
+                                             args: def_node.children[1].children,
+                                             self_type: Types::Name.new_instance(name: "::A"))
+
+    method_context = for_method.method_context
+    assert_equal :foo, method_context.name
+    assert_equal :foo, method_context.method.name
+    assert_equal "(String) -> Integer", method_context.method_type.location.source
+    assert_equal Types::Name.new_instance(name: "::Integer"), method_context.return_type
+    refute method_context.constructor
+
+    assert_equal Types::Name.new_instance(name: "::A"), for_method.self_type
+    assert_nil for_method.block_context
+    assert_equal [:x], for_method.var_types.keys.map(&:name)
+    assert_equal Types::Name.new_instance(name: "::String"),
+                 for_method.var_types.find {|name, _| name.name == :x }.last
+  end
+
+  def test_new_method_constructor_union
+    source = parse_ruby("class A; def foo(x, **y); end; end")
+    def_node = source.node.children[2]
+
+    typing = Typing.new
+    annotations = source.annotations(block: source.node)
+    checker = checker(<<-EOF)
+class A
+  def foo: (String) -> Integer
+         | (Object) -> Integer
+end
+    EOF
+
+    construction = TypeConstruction.new(checker: checker,
+                                        source: source,
+                                        annotations: annotations,
+                                        var_types: {},
+                                        self_type: nil,
+                                        block_context: nil,
+                                        method_context: nil,
+                                        typing: typing,
+                                        module_context: nil)
+
+    for_method = construction.for_new_method(:foo,
+                                             def_node,
+                                             args: def_node.children[1].children,
+                                             self_type: Types::Name.new_instance(name: "::A"))
+
+    method_context = for_method.method_context
+    assert_equal :foo, method_context.name
+    assert_equal :foo, method_context.method.name
+    assert_nil method_context.method_type
+    assert_equal Types::Name.new_instance(name: "::Integer"), method_context.return_type
+    refute method_context.constructor
+
+    assert_equal Types::Name.new_instance(name: "::A"), for_method.self_type
+    assert_nil for_method.block_context
+    assert_empty for_method.var_types
+
+    assert_equal 1, typing.errors.size
+    assert_instance_of Steep::Errors::MethodDefinitionWithOverloading, typing.errors.first
+  end
+
+  def test_new_method_constructor_with_return_type
+    source = parse_ruby(<<-RUBY)
+class A
+  def foo(x)
+    # @type return: ::String
+  end
+end
+RUBY
+    def_node = source.node.children[2]
+
+    typing = Typing.new
+    annotations = source.annotations(block: source.node)
+    checker = checker(<<-EOF)
+class A
+  def foo: (String) -> Integer
+end
+    EOF
+
+    construction = TypeConstruction.new(checker: checker,
+                                        source: source,
+                                        annotations: annotations,
+                                        var_types: {},
+                                        self_type: nil,
+                                        block_context: nil,
+                                        method_context: nil,
+                                        typing: typing,
+                                        module_context: nil)
+
+    for_method = construction.for_new_method(:foo,
+                                             def_node,
+                                             args: def_node.children[1].children,
+                                             self_type: Types::Name.new_instance(name: "::A"))
+
+    method_context = for_method.method_context
+    assert_equal :foo, method_context.name
+    assert_equal :foo, method_context.method.name
+    assert_equal "(String) -> Integer", method_context.method_type.location.source
+    assert_equal Types::Name.new_instance(name: "::String"), method_context.return_type
+    refute method_context.constructor
+
+    assert_equal Types::Name.new_instance(name: "::A"), for_method.self_type
+    assert_nil for_method.block_context
+    assert_equal [:x], for_method.var_types.keys.map(&:name)
+    assert_equal Types::Name.new_instance(name: "::String"), for_method.var_types.find {|name, _| name.name == :x }.last
+
+    assert_equal 1, typing.errors.size
+    assert_instance_of Steep::Errors::MethodReturnTypeAnnotationMismatch, typing.errors.first
+  end
+
+  def test_new_method_with_incompatible_annotation
+    source = parse_ruby(<<-RUBY)
+class A
+  # @type method foo: (String) -> String
+  def foo(x)
+    nil
+  end
+end
+    RUBY
+    def_node = source.node.children[2]
+
+    typing = Typing.new
+    annotations = source.annotations(block: source.node)
+    checker = checker(<<-EOF)
+class A
+  def foo: (String) -> Integer
+end
+    EOF
+
+    construction = TypeConstruction.new(checker: checker,
+                                        source: source,
+                                        annotations: annotations,
+                                        var_types: {},
+                                        self_type: nil,
+                                        block_context: nil,
+                                        method_context: nil,
+                                        typing: typing,
+                                        module_context: nil)
+
+    for_method = construction.for_new_method(:foo,
+                                             def_node,
+                                             args: def_node.children[1].children,
+                                             self_type: Types::Name.new_instance(name: "::A"))
+
+    assert_equal 1, typing.errors.size
+    assert_instance_of Steep::Errors::IncompatibleMethodTypeAnnotation, typing.errors.first
   end
 end
