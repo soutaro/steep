@@ -65,14 +65,16 @@ module Steep
       attr_reader :defined_module_methods
       attr_reader :const_types
       attr_reader :implement_name
+      attr_reader :current_namespace
 
-      def initialize(instance_type:, module_type:, const_types:, implement_name:)
+      def initialize(instance_type:, module_type:, const_types:, implement_name:, current_namespace:)
         @instance_type = instance_type
         @module_type = module_type
         @defined_instance_methods = Set.new
         @defined_module_methods = Set.new
         @const_types = const_types
         @implement_name = implement_name
+        @current_namespace = current_namespace
       end
     end
 
@@ -108,7 +110,8 @@ module Steep
       annotation_method = annotations.lookup_method_type(method_name)&.yield_self do |method_type|
         Interface::Method.new(type_name: nil,
                               name: method_name,
-                              types: [checker.builder.method_type_to_method_type(method_type, current: nil)],
+                              types: [checker.builder.method_type_to_method_type(method_type,
+                                                                                 current: current_namespace)],
                               super_method: interface_method&.super_method,
                               attributes: [])
       end
@@ -190,6 +193,8 @@ module Steep
 
     def for_module(node)
       annots = source.annotations(block: node)
+      raise "Module definition must have a constant name" unless node.children.first.type == :const
+      new_module_name = ModuleName.parse(node.children.first.children.last.to_s)
 
       module_type = AST::Types::Name.new_instance(name: "::Module")
 
@@ -197,9 +202,9 @@ module Steep
         if annots.implement_module
           annots.implement_module.name
         else
-          ModuleName.new(name: node.children.first.children.last.to_s, absolute: true).yield_self do |name|
-            if checker.builder.signatures.module_name?(name)
-              AST::Annotation::Implements::Module.new(name: name, args: [])
+          absolute_name(new_module_name).yield_self do |module_name|
+            if checker.builder.signatures.module_name?(module_name)
+              AST::Annotation::Implements::Module.new(name: module_name, args: [])
             end
           end
         end
@@ -238,7 +243,8 @@ module Steep
         instance_type: instance_type,
         module_type: module_type,
         const_types: annots.const_types,
-        implement_name: implement_module_name
+        implement_name: implement_module_name,
+        current_namespace: nested_namespace(new_module_name)
       )
 
       self.class.new(
@@ -256,12 +262,15 @@ module Steep
 
     def for_class(node)
       annots = source.annotations(block: node)
+      raise "Class definition must have a constant name" unless node.children.first.type == :const
+
+      new_class_name = ModuleName.parse(node.children.first.children.last.to_s)
 
       implement_module_name =
         if annots.implement_module
           annots.implement_module.name
         else
-          ModuleName.new(name: node.children.first.children.last.to_s, absolute: true).yield_self do |name|
+          absolute_name(new_class_name).yield_self do |name|
             if checker.builder.signatures.class_name?(name)
               AST::Annotation::Implements::Module.new(name: name, args: [])
             end
@@ -282,7 +291,8 @@ module Steep
         instance_type: annots.instance_type || instance_type,
         module_type: annots.module_type || module_type,
         const_types: annots.const_types,
-        implement_name: implement_module_name
+        implement_name: implement_module_name,
+        current_namespace: nested_namespace(new_class_name)
       )
 
       self.class.new(
@@ -1169,8 +1179,28 @@ module Steep
       env.size == nodes.size && env.size == params.size
     end
 
+    def current_namespace
+      module_context&.current_namespace
+    end
+
+    def nested_namespace(new)
+      if current_namespace
+        current_namespace + new
+      else
+        new.absolute!
+      end
+    end
+
+    def absolute_name(module_name)
+      if current_namespace
+        current_namespace + module_name
+      else
+        module_name.absolute!
+      end
+    end
+
     def absolute_type(type)
-      checker.builder.absolute_type(type, current: nil)
+      checker.builder.absolute_type(type, current: current_namespace)
     end
 
     def union_type(*types)

@@ -1119,6 +1119,46 @@ EOF
     assert_nil for_class.module_context.module_type
   end
 
+  def test_class_constructor_nested
+    source = parse_ruby("module Steep; class ModuleName; end; end")
+
+    typing = Typing.new
+    annotations = source.annotations(block: source.node)
+    checker = checker(<<EOF)
+class Steep::ModuleName
+end
+EOF
+
+    module_context = TypeConstruction::ModuleContext.new(
+      instance_type: Types::Name.new_instance(name: "::Steep"),
+      module_type: Types::Name.new_module(name: "::Steep"),
+      const_types: {},
+      implement_name: nil,
+      current_namespace: Steep::ModuleName.parse("::Steep")
+    )
+
+    module_name_class_node = source.node.children[1]
+
+    construction = TypeConstruction.new(checker: checker,
+                                        source: source,
+                                        annotations: annotations,
+                                        var_types: {},
+                                        self_type: nil,
+                                        block_context: nil,
+                                        method_context: nil,
+                                        typing: typing,
+                                        module_context: module_context)
+
+    for_module = construction.for_class(module_name_class_node)
+
+    assert_equal(
+      Annotation::Implements::Module.new(
+        name: Steep::ModuleName.parse("::Steep::ModuleName"),
+        args: []
+      ),
+      for_module.module_context.implement_name)
+  end
+
   def test_module_constructor_with_signature
     source = parse_ruby("module Steep; end")
 
@@ -1185,6 +1225,46 @@ EOF
     assert_nil for_module.module_context.implement_name
     assert_nil for_module.module_context.instance_type
     assert_equal Types::Name.new_instance(name: "::Module"), for_module.module_context.module_type
+  end
+
+  def test_module_constructor_nested
+    source = parse_ruby("class Steep; module Printable; end; end")
+
+    typing = Typing.new
+    annotations = source.annotations(block: source.node)
+    checker = checker(<<EOF)
+module Steep::Printable
+end
+EOF
+
+    module_context = TypeConstruction::ModuleContext.new(
+      instance_type: Types::Name.new_instance(name: "::Steep"),
+      module_type: Types::Name.new_class(name: "::Steep", constructor: false),
+      const_types: {},
+      implement_name: nil,
+      current_namespace: Steep::ModuleName.parse("::Steep")
+    )
+
+    module_node = source.node.children.last
+
+    construction = TypeConstruction.new(checker: checker,
+                                        source: source,
+                                        annotations: annotations,
+                                        var_types: {},
+                                        self_type: nil,
+                                        block_context: nil,
+                                        method_context: nil,
+                                        typing: typing,
+                                        module_context: module_context)
+
+    for_module = construction.for_module(module_node)
+
+    assert_equal(
+      Annotation::Implements::Module.new(
+        name: Steep::ModuleName.parse("::Steep::Printable"),
+        args: []
+      ),
+      for_module.module_context.implement_name)
   end
 
   def test_new_method_constructor
@@ -1356,5 +1436,55 @@ end
 
     assert_equal 1, typing.errors.size
     assert_instance_of Steep::Errors::IncompatibleMethodTypeAnnotation, typing.errors.first
+  end
+
+  def test_relative_type_name
+    source = parse_ruby(<<-RUBY)
+class A
+  def foo
+    # @type var x: String
+    x = ""
+  end
+
+  # @type method bar: -> String
+  def bar
+    ""
+  end
+end
+    RUBY
+
+    typing = Typing.new
+    annotations = source.annotations(block: source.node)
+    checker = checker(<<-EOF)
+class A::String
+  def aaaaa: -> any
+end
+    EOF
+
+    construction = TypeConstruction.new(checker: checker,
+                                        source: source,
+                                        annotations: annotations,
+                                        var_types: {},
+                                        self_type: nil,
+                                        block_context: nil,
+                                        method_context: nil,
+                                        typing: typing,
+                                        module_context: nil)
+
+    construction.synthesize(source.node)
+
+    assert_equal 2, typing.errors.size
+
+    assert_any typing.errors do |error| error.is_a?(Steep::Errors::IncompatibleAssignment) end
+    typing.errors.find {|e| e.is_a?(Steep::Errors::IncompatibleAssignment) }.yield_self do |error|
+      assert_equal Types::Name.new_instance(name: "::String"), error.rhs_type
+      assert_equal Types::Name.new_instance(name: "::A::String"), error.lhs_type
+    end
+
+    assert_any typing.errors do |error| error.is_a?(Steep::Errors::MethodBodyTypeMismatch) end
+    typing.errors.find {|e| e.is_a?(Steep::Errors::MethodBodyTypeMismatch) }.yield_self do |error|
+      assert_equal Types::Name.new_instance(name: "::String"), error.actual
+      assert_equal Types::Name.new_instance(name: "::A::String"), error.expected
+    end
   end
 end
