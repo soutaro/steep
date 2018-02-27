@@ -572,7 +572,7 @@ module Steep
             for_class(node).tap do |constructor|
               constructor.synthesize(node.children[2]) if node.children[2]
 
-              if constructor.module_context&.implement_name
+              if constructor.module_context&.implement_name && !namespace_module?(node)
                 constructor.validate_method_definitions(node, constructor.module_context.implement_name)
               end
             end
@@ -585,7 +585,7 @@ module Steep
             for_module(node).yield_self do |constructor|
               constructor.synthesize(node.children[1]) if node.children[1]
 
-              if constructor.module_context&.implement_name
+              if constructor.module_context&.implement_name && !namespace_module?(node)
                 constructor.validate_method_definitions(node, constructor.module_context.implement_name)
               end
             end
@@ -1277,6 +1277,23 @@ module Steep
 
     def self_class?(node)
       node.type == :send && node.children[0]&.type == :self && node.children[1] == :class
+    end
+
+    def namespace_module?(node)
+      nodes = case node.type
+              when :class, :module
+                node.children.last&.yield_self {|child|
+                  if child.type == :begin
+                    child.children
+                  else
+                    [child]
+                  end
+                } || []
+              else
+                return false
+              end
+
+      !nodes.empty? && nodes.all? {|child| child.type == :class || child.type == :module }
     end
   end
 end

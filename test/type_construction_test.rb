@@ -1487,4 +1487,43 @@ end
       assert_equal Types::Name.new_instance(name: "::A::String"), error.expected
     end
   end
+
+  def test_namespace_module
+    source = parse_ruby(<<-RUBY)
+class A < Object
+  class String
+  end
+
+  class XYZ
+  end
+end
+    RUBY
+
+    typing = Typing.new
+    annotations = source.annotations(block: source.node)
+    checker = checker(<<-EOF)
+class A
+  def foobar: -> any
+end
+
+class A::String
+  def aaaaa: -> any
+end
+    EOF
+
+    construction = TypeConstruction.new(checker: checker,
+                                        source: source,
+                                        annotations: annotations,
+                                        var_types: {},
+                                        self_type: nil,
+                                        block_context: nil,
+                                        method_context: nil,
+                                        typing: typing,
+                                        module_context: nil)
+
+    construction.synthesize(source.node)
+
+    assert_equal 1, typing.errors.size
+    assert_instance_of Steep::Errors::MethodDefinitionMissing, typing.errors[0]
+  end
 end
