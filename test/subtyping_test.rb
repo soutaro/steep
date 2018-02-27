@@ -10,6 +10,8 @@ end
 
 class Object <: BasicObject
   def class: () -> class
+  def tap: { (self) -> any } -> self
+  def yield_self: <'a> { (self) -> 'a } -> 'a
 end
 
 class Class<'instance>
@@ -487,15 +489,15 @@ end
   def test_resolve1
     checker = new_checker("")
 
-    interface = checker.resolve(AST::Types::Union.new(types: [
+    type = AST::Types::Union.new(types: [
       AST::Types::Name.new_instance(name: "::String"),
       AST::Types::Name.new_instance(name: "::Integer")
-    ]))
+    ])
+    interface = checker.resolve(type)
 
-    assert_equal [:class], interface.methods.keys
-    assert_equal [AST::Types::Name.new_class(name: "::String", constructor: nil),
-                  AST::Types::Name.new_class(name: "::Integer", constructor: nil)],
-                 interface.methods[:class].types.map(&:return_type)
+    assert_equal [:tap, :yield_self], interface.methods.keys
+    assert_equal [type], interface.methods[:tap].types.map {|ty| ty.return_type }
+    assert_equal [[type]], interface.methods[:yield_self].types.map {|ty| ty.block.params.required }
   end
 
   def test_resolve2
@@ -506,8 +508,8 @@ end
       AST::Types::Name.new_instance(name: "::Integer")
     ]))
 
-    assert_equal [:class, :to_str, :to_int], interface.methods.keys
-    assert_equal [], interface.methods[:class].types
+    assert_equal [:class, :tap, :yield_self, :to_str, :to_int], interface.methods.keys
+    refute_empty interface.methods[:class].types
     assert_equal [AST::Types::Name.new_instance(name: "::String")], interface.methods[:to_str].types.map(&:return_type)
     assert_equal [AST::Types::Name.new_instance(name: "::Integer")], interface.methods[:to_int].types.map(&:return_type)
   end

@@ -443,19 +443,25 @@ module Steep
         end
       end
 
-      def resolve(type)
+      def resolve(type, self_type: type, instance_type: nil, module_type: nil)
         case type
         when AST::Types::Any, AST::Types::Var, AST::Types::Class, AST::Types::Instance
           raise "Cannot resolve type to interface: #{type}"
         when AST::Types::Name
           builder.build(type.name).instantiate(
-            type: type,
+            type: self_type,
             args: type.args,
-            instance_type: type.instance_type,
-            module_type: module_type(type)
+            instance_type: instance_type || type.instance_type,
+            module_type: module_type || module_type(type)
           )
         when AST::Types::Union
-          interfaces = type.types.map do |type| resolve(type) end
+          interfaces = type.types.map do |member_type|
+            fresh = AST::Types::Var.fresh(:___)
+
+            resolve(member_type, self_type: type, instance_type: fresh, module_type: fresh).select_method_type do |method_type|
+              !method_type.each_type.include?(fresh)
+            end
+          end
 
           methods = interfaces.inject(nil) do |methods, i|
             if methods
@@ -464,6 +470,7 @@ module Steep
                 if methods.key?(name)
                   case
                   when method == methods[name]
+                    intersection[name] = method
                   when check_method(name, method, methods[name],
                                     assumption: Set.new,
                                     trace: Trace.new,
@@ -474,14 +481,6 @@ module Steep
                                     trace: Trace.new,
                                     constraints: Constraints.empty).success?
                     intersection[name] = method
-                  else
-                    intersection[name] = Interface::Method.new(
-                      type_name: nil,
-                      name: name,
-                      types: methods[name].types + method.types,
-                      super_method: nil,
-                      attributes: []
-                    )
                   end
                 end
               end
@@ -516,7 +515,7 @@ module Steep
                     methods[name] = Interface::Method.new(
                       type_name: nil,
                       name: name,
-                      types: [],
+                      types: methods[name].types + method.types,
                       super_method: nil,
                       attributes: []
                     )
