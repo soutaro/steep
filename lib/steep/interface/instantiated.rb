@@ -54,6 +54,23 @@ module Steep
           end
         end
       end
+
+      def select_method_type(&block)
+        self.class.new(
+          type: type,
+          methods: methods.each.with_object({}) do |(name, method), methods|
+            methods[name] = Method.new(
+              type_name: method.type_name,
+              name: method.name,
+              types: method.types.select(&block),
+              super_method: method.super_method,
+              attributes: method.attributes
+            )
+          end.reject do |_, method|
+            method.types.empty?
+          end
+        )
+      end
     end
   end
 end

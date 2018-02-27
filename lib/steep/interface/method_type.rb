@@ -208,6 +208,19 @@ module Steep
         )
       end
 
+      def each_type(&block)
+        if block_given?
+          params.each_type(&block)
+          self.block&.tap do
+            self.block.params.each_type(&block)
+            yield(self.block.return_type)
+          end
+          yield(return_type)
+        else
+          enum_for :each_type
+        end
+      end
+
       def instantiate(s)
         self.class.new(
           type_params: [],

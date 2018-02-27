@@ -214,9 +214,60 @@ module Steep
       end
     end
 
-    class MethodParameterTypeMismatch < Base
+    class MethodArityMismatch < Base
       def to_s
-        "#{location_to_str}: MethodParameterTypeMismatch: method=#{node.children[0]}"
+        "#{location_to_str}: MethodArityMismatch: method=#{node.children[0]}"
+      end
+    end
+
+    class IncompatibleMethodTypeAnnotation < Base
+      attr_reader :interface_method
+      attr_reader :annotation_method
+      attr_reader :result
+
+      include ResultPrinter
+
+      def initialize(node:, interface_method:, annotation_method:, result:)
+        super(node: node)
+        @interface_method = interface_method
+        @annotation_method = annotation_method
+        @result = result
+      end
+
+      def to_s
+        "#{location_to_str}: IncompatibleMethodTypeAnnotation: interface_method=#{interface_method.type_name}.#{interface_method.name}, annotation_method=#{annotation_method.name}"
+      end
+    end
+
+    class MethodDefinitionWithOverloading < Base
+      attr_reader :method
+
+      def initialize(node:, method:)
+        super(node: node)
+        @method = method
+      end
+
+      def to_s
+        "#{location_to_str}: MethodDefinitionWithOverloading: method=#{method.name}, types=#{method.types.join(" | ")}"
+      end
+    end
+
+    class MethodReturnTypeAnnotationMismatch < Base
+      attr_reader :method_type
+      attr_reader :annotation_type
+      attr_reader :result
+
+      include ResultPrinter
+
+      def initialize(node:, method_type:, annotation_type:, result:)
+        super(node: node)
+        @method_type = method_type
+        @annotation_type = annotation_type
+        @result = result
+      end
+
+      def to_s
+        "#{location_to_str}: MethodReturnTypeAnnotationMismatch: method_type=#{method_type.return_type}, annotation_type=#{annotation_type}"
       end
     end
 

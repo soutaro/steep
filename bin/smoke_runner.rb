@@ -14,7 +14,10 @@ OptionParser.new do |opts|
   opts.on("-v", "--verbose") do verbose = true end
 end.parse!(ARGV)
 
-Expectation = Struct.new(:line, :message, :path)
+Expectation = Struct.new(:line, :message, :path, :starts) do
+  attr_accessor :prefix_test
+end
+
 allowed_paths = []
 
 failed = false
@@ -35,6 +38,14 @@ ARGV.each do |arg|
       _, comments, _ = parser.tokenize(buffer)
       comments.each do |comment|
         src = comment.text.gsub(/\A#\s*/, '')
+
+        if src =~ /!expects\*(@(\+\d+))?/
+          offset = $2&.to_i || 1
+          message = src.gsub!(/\A!expects\*(@\+\d+)? +/, '')
+          line = comment.location.line
+
+          expectations << Expectation.new(line+offset, message, file).tap {|e| e.prefix_test = true }
+        end
 
         if src =~ /!expects(@(\+\d+))?/
           offset = $2&.to_i || 1
@@ -87,7 +98,11 @@ ARGV.each do |arg|
 
   expectations.each do |expectation|
     deleted = lines.reject! do |string|
-      string =~ /\A#{Regexp.escape(expectation.path.to_s)}:#{expectation.line}:\d+: #{Regexp.quote expectation.message}\Z/
+      if expectation.prefix_test
+        string =~ /\A#{Regexp.escape(expectation.path.to_s)}:#{expectation.line}:\d+: #{Regexp.quote expectation.message}/
+      else
+        string =~ /\A#{Regexp.escape(expectation.path.to_s)}:#{expectation.line}:\d+: #{Regexp.quote expectation.message}\Z/
+      end
     end
 
     unless deleted

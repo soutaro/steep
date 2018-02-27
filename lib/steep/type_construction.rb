@@ -27,6 +27,8 @@ module Steep
     class MethodContext
       attr_reader :name
       attr_reader :method
+      attr_reader :method_type
+      attr_reader :return_type
       attr_reader :constructor
 
       def initialize(name:, method:, method_type:, return_type:, constructor:)
@@ -37,16 +39,8 @@ module Steep
         @constructor = constructor
       end
 
-      def return_type
-        @return_type || method_type&.return_type
-      end
-
       def block_type
         method_type&.block
-      end
-
-      def method_type
-        @method_type || method&.types&.first
       end
 
       def super_method
@@ -106,38 +100,64 @@ module Steep
       @module_context = module_context
     end
 
-    def method_entry(method_name, receiver_type:)
-      method = nil
-
-      if receiver_type
-        interface = checker.resolve(receiver_type)
-        method = interface.methods[method_name]
-      end
-
-      if (type = annotations.lookup_method_type(method_name))
-        Interface::Method.new(type_name: nil,
-                              name: method_name,
-                              types: [checker.builder.method_type_to_method_type(type, current: nil)],
-                              super_method: method,
-                              attributes: [])
-      else
-        method
-      end
-    end
-
     def for_new_method(method_name, node, args:, self_type:)
       annots = source.annotations(block: node)
       self_type = annots.self_type || self_type
 
-      method = method_entry(method_name, receiver_type: self_type)
-      method_type = method&.types&.first
-      if method_type
+      interface_method = self_type && checker.resolve(self_type).methods[method_name]
+      annotation_method = annotations.lookup_method_type(method_name)&.yield_self do |method_type|
+        Interface::Method.new(type_name: nil,
+                              name: method_name,
+                              types: [checker.builder.method_type_to_method_type(method_type, current: nil)],
+                              super_method: interface_method&.super_method,
+                              attributes: [])
+      end
+
+      if interface_method && annotation_method
+        result = checker.check_method(method_name,
+                                      annotation_method,
+                                      interface_method,
+                                      assumption: Set.new,
+                                      trace: Subtyping::Trace.new,
+                                      constraints: Subtyping::Constraints.empty)
+
+        if result.failure?
+          typing.add_error Errors::IncompatibleMethodTypeAnnotation.new(
+            node: node,
+            annotation_method: annotation_method,
+            interface_method: interface_method,
+            result: result
+          )
+        end
+      end
+
+      method = annotation_method || interface_method
+
+      case
+      when method && method.types.size == 1
+        method_type = method.types.first
+        return_type = method_type.return_type
         var_types = TypeConstruction.parameter_types(args, method_type).transform_values {|type| absolute_type(type) }
         unless TypeConstruction.valid_parameter_env?(var_types, args, method_type.params)
-          typing.add_error Errors::MethodParameterTypeMismatch.new(node: node)
+          typing.add_error Errors::MethodArityMismatch.new(node: node)
         end
+      when method
+        typing.add_error Errors::MethodDefinitionWithOverloading.new(node: node, method: method)
+        return_type = union_type(*method.types.map(&:return_type))
+        var_types = {}
       else
         var_types = {}
+      end
+
+      if annots.return_type && return_type
+        return_type_relation = Subtyping::Relation.new(sub_type: annots.return_type,
+                                                       super_type: return_type)
+        checker.check(return_type_relation, constraints: Subtyping::Constraints.empty).else do |result|
+          typing.add_error Errors::MethodReturnTypeAnnotationMismatch.new(node: node,
+                                                                          method_type: return_type,
+                                                                          annotation_type: annots.return_type,
+                                                                          result: result)
+        end
       end
 
       constructor_method = method&.attributes&.include?(:constructor)
@@ -146,7 +166,7 @@ module Steep
         name: method_name,
         method: method,
         method_type: method_type,
-        return_type: annots.return_type,
+        return_type: annots.return_type || return_type,
         constructor: constructor_method
       )
 
