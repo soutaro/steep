@@ -282,7 +282,7 @@ module Steep
       Steep.logger.tagged "synthesize:(#{node.location.expression.to_s.split(/:/, 2).last})" do
         Steep.logger.debug node.type
         case node.type
-        when :begin
+        when :begin, :kwbegin
           yield_self do
             type = each_child_node(node).map do |child|
               synthesize(child)
@@ -696,6 +696,36 @@ module Steep
           end
 
           typing.add_typing(node, union_type(*types))
+
+        when :rescue
+          yield_self do
+            body, *resbodies, else_node = node.children
+            body_type = synthesize(body) if body
+            resbody_types = resbodies.map { |resbody| synthesize(resbody) }
+            else_type = synthesize(else_node) if else_node
+            types = []
+            types << body_type unless else_node
+            types.concat resbody_types
+            types << else_type
+            typing.add_typing(node, union_type(*types))
+          end
+
+        when :resbody
+          yield_self do
+            klasses, asgn, body = node.children
+            synthesize(klasses) if klasses
+            synthesize(asgn) if asgn
+            body_type = synthesize(body) if body
+            typing.add_typing(node, body_type)
+          end
+
+        when :ensure
+          yield_self do
+            body, ensure_body = node.children
+            body_type = synthesize(body) if body
+            synthesize(ensure_body) if ensure_body
+            typing.add_typing(node, union_type(body_type))
+          end
 
         else
           raise "Unexpected node: #{node.inspect}, #{node.location.expression}"
