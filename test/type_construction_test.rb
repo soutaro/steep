@@ -1526,4 +1526,76 @@ end
     assert_equal 1, typing.errors.size
     assert_instance_of Steep::Errors::MethodDefinitionMissing, typing.errors[0]
   end
+
+  def test_namespace_module_nested
+    source = parse_ruby(<<-RUBY)
+class A::String < Object
+  def foo
+    # @type var x: String
+    x = ""
+  end
+end
+    RUBY
+
+    typing = Typing.new
+    annotations = source.annotations(block: source.node)
+    checker = checker(<<-EOF)
+class A
+end
+
+class A::String
+  def foo: -> any
+end
+    EOF
+
+    construction = TypeConstruction.new(checker: checker,
+                                        source: source,
+                                        annotations: annotations,
+                                        var_types: {},
+                                        self_type: nil,
+                                        block_context: nil,
+                                        method_context: nil,
+                                        typing: typing,
+                                        module_context: nil)
+
+    construction.synthesize(source.node)
+
+    assert_empty typing.errors
+  end
+
+  def test_namespace_module_nested2
+    source = parse_ruby(<<-RUBY)
+class ::A::String < Object
+  def foo
+    # @type var x: String
+    x = ""
+  end
+end
+    RUBY
+
+    typing = Typing.new
+    annotations = source.annotations(block: source.node)
+    checker = checker(<<-EOF)
+class A
+end
+
+class A::String
+  def foo: -> any
+end
+    EOF
+
+    construction = TypeConstruction.new(checker: checker,
+                                        source: source,
+                                        annotations: annotations,
+                                        var_types: {},
+                                        self_type: nil,
+                                        block_context: nil,
+                                        method_context: nil,
+                                        typing: typing,
+                                        module_context: nil)
+
+    construction.synthesize(source.node)
+
+    assert_empty typing.errors
+  end
 end

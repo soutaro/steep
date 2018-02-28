@@ -193,8 +193,7 @@ module Steep
 
     def for_module(node)
       annots = source.annotations(block: node)
-      raise "Module definition must have a constant name" unless node.children.first.type == :const
-      new_module_name = ModuleName.parse(node.children.first.children.last.to_s)
+      new_module_name = ModuleName.from_node(node.children.first) or raise "Unexpected module name: #{node.children.first}"
 
       module_type = AST::Types::Name.new_instance(name: "::Module")
 
@@ -262,9 +261,7 @@ module Steep
 
     def for_class(node)
       annots = source.annotations(block: node)
-      raise "Class definition must have a constant name" unless node.children.first.type == :const
-
-      new_class_name = ModuleName.parse(node.children.first.children.last.to_s)
+      new_class_name = ModuleName.from_node(node.children.first) or raise "Unexpected class name: #{node.children.first}"
 
       implement_module_name =
         if annots.implement_module
@@ -1184,7 +1181,10 @@ module Steep
     end
 
     def nested_namespace(new)
-      if current_namespace
+      case
+      when !new.simple?
+        current_namespace
+      when current_namespace
         current_namespace + new
       else
         new.absolute!
