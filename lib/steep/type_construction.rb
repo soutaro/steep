@@ -65,14 +65,16 @@ module Steep
       attr_reader :defined_module_methods
       attr_reader :const_types
       attr_reader :implement_name
+      attr_reader :current_namespace
 
-      def initialize(instance_type:, module_type:, const_types:, implement_name:)
+      def initialize(instance_type:, module_type:, const_types:, implement_name:, current_namespace:)
         @instance_type = instance_type
         @module_type = module_type
         @defined_instance_methods = Set.new
         @defined_module_methods = Set.new
         @const_types = const_types
         @implement_name = implement_name
+        @current_namespace = current_namespace
       end
     end
 
@@ -108,7 +110,8 @@ module Steep
       annotation_method = annotations.lookup_method_type(method_name)&.yield_self do |method_type|
         Interface::Method.new(type_name: nil,
                               name: method_name,
-                              types: [checker.builder.method_type_to_method_type(method_type, current: nil)],
+                              types: [checker.builder.method_type_to_method_type(method_type,
+                                                                                 current: current_namespace)],
                               super_method: interface_method&.super_method,
                               attributes: [])
       end
@@ -190,6 +193,7 @@ module Steep
 
     def for_module(node)
       annots = source.annotations(block: node)
+      new_module_name = ModuleName.from_node(node.children.first) or raise "Unexpected module name: #{node.children.first}"
 
       module_type = AST::Types::Name.new_instance(name: "::Module")
 
@@ -197,9 +201,9 @@ module Steep
         if annots.implement_module
           annots.implement_module.name
         else
-          ModuleName.new(name: node.children.first.children.last.to_s, absolute: true).yield_self do |name|
-            if checker.builder.signatures.module_name?(name)
-              AST::Annotation::Implements::Module.new(name: name, args: [])
+          absolute_name(new_module_name).yield_self do |module_name|
+            if checker.builder.signatures.module_name?(module_name)
+              AST::Annotation::Implements::Module.new(name: module_name, args: [])
             end
           end
         end
@@ -238,7 +242,8 @@ module Steep
         instance_type: instance_type,
         module_type: module_type,
         const_types: annots.const_types,
-        implement_name: implement_module_name
+        implement_name: implement_module_name,
+        current_namespace: nested_namespace(new_module_name)
       )
 
       self.class.new(
@@ -256,12 +261,13 @@ module Steep
 
     def for_class(node)
       annots = source.annotations(block: node)
+      new_class_name = ModuleName.from_node(node.children.first) or raise "Unexpected class name: #{node.children.first}"
 
       implement_module_name =
         if annots.implement_module
           annots.implement_module.name
         else
-          ModuleName.new(name: node.children.first.children.last.to_s, absolute: true).yield_self do |name|
+          absolute_name(new_class_name).yield_self do |name|
             if checker.builder.signatures.class_name?(name)
               AST::Annotation::Implements::Module.new(name: name, args: [])
             end
@@ -282,7 +288,8 @@ module Steep
         instance_type: annots.instance_type || instance_type,
         module_type: annots.module_type || module_type,
         const_types: annots.const_types,
-        implement_name: implement_module_name
+        implement_name: implement_module_name,
+        current_namespace: nested_namespace(new_class_name)
       )
 
       self.class.new(
@@ -562,7 +569,7 @@ module Steep
             for_class(node).tap do |constructor|
               constructor.synthesize(node.children[2]) if node.children[2]
 
-              if constructor.module_context&.implement_name
+              if constructor.module_context&.implement_name && !namespace_module?(node)
                 constructor.validate_method_definitions(node, constructor.module_context.implement_name)
               end
             end
@@ -575,7 +582,7 @@ module Steep
             for_module(node).yield_self do |constructor|
               constructor.synthesize(node.children[1]) if node.children[1]
 
-              if constructor.module_context&.implement_name
+              if constructor.module_context&.implement_name && !namespace_module?(node)
                 constructor.validate_method_definitions(node, constructor.module_context.implement_name)
               end
             end
@@ -1169,8 +1176,31 @@ module Steep
       env.size == nodes.size && env.size == params.size
     end
 
+    def current_namespace
+      module_context&.current_namespace
+    end
+
+    def nested_namespace(new)
+      case
+      when !new.simple?
+        current_namespace
+      when current_namespace
+        current_namespace + new
+      else
+        new.absolute!
+      end
+    end
+
+    def absolute_name(module_name)
+      if current_namespace
+        current_namespace + module_name
+      else
+        module_name.absolute!
+      end
+    end
+
     def absolute_type(type)
-      checker.builder.absolute_type(type, current: nil)
+      checker.builder.absolute_type(type, current: current_namespace)
     end
 
     def union_type(*types)
@@ -1247,6 +1277,23 @@ module Steep
 
     def self_class?(node)
       node.type == :send && node.children[0]&.type == :self && node.children[1] == :class
+    end
+
+    def namespace_module?(node)
+      nodes = case node.type
+              when :class, :module
+                node.children.last&.yield_self {|child|
+                  if child.type == :begin
+                    child.children
+                  else
+                    [child]
+                  end
+                } || []
+              else
+                return false
+              end
+
+      !nodes.empty? && nodes.all? {|child| child.type == :class || child.type == :module }
     end
   end
 end

@@ -12,6 +12,27 @@ module Steep
       new(name: name.gsub(/\A::/, ""), absolute: name.start_with?("::"))
     end
 
+    def self.from_node(node)
+      case node.type
+      when :const
+        relative_node = new(name: node.children.last.to_s, absolute: false)
+        parent_node = node.children.first
+
+        case parent_node&.type
+        when :cbase
+          relative_node.absolute!
+        when nil
+          relative_node
+        else
+          from_node(parent_node)&.yield_self do |parent|
+            parent + relative_node
+          end
+        end
+      else
+        nil
+      end
+    end
+
     def ==(other)
       other.is_a?(self.class) && other.name == name && other.absolute? == absolute?
     end
@@ -72,6 +93,10 @@ module Steep
       unless components.empty?
         self.class.parse(components.join("::"))
       end
+    end
+
+    def simple?
+      components.size == 1
     end
   end
 end

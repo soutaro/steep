@@ -76,7 +76,8 @@ module Steep
                 instance_type: nil,
                 module_type: nil,
                 const_types: annotations.const_types,
-                implement_name: nil
+                implement_name: nil,
+                current_namespace: nil
               ),
               method_context: nil,
               typing: typing,
