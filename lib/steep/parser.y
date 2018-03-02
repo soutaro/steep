@@ -400,7 +400,7 @@ annotation: AT_TYPE VAR subject COLON type {
             }
           | AT_TYPE CONST module_name COLON type {
               loc = val.first.location + val.last.location
-              result = AST::Annotation::ConstType.new(name: val[2].value.to_s.to_sym,
+              result = AST::Annotation::ConstType.new(name: val[2].value,
                                                       type: val[4],
                                                       location: loc)
             }

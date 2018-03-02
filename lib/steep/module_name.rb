@@ -28,6 +28,20 @@ module Steep
             parent + relative_node
           end
         end
+      when :casgn
+        relative_node = new(name: node.children[1], absolute: false)
+        parent_node = node.children.first
+
+        case parent_node&.type
+        when :cbase
+          relative_node.absolute!
+        when nil
+          relative_node
+        else
+          from_node(parent_node)&.yield_self do |parent|
+            parent + relative_node
+          end
+        end
       else
         nil
       end

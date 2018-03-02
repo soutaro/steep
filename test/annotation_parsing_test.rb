@@ -60,21 +60,21 @@ class AnnotationParsingTest < Minitest::Test
   def test_const_type
     annot = parse_annotation("@type const Foo::Bar::Baz: String")
     assert_instance_of Steep::AST::Annotation::ConstType, annot
-    assert_equal :"Foo::Bar::Baz", annot.name
+    assert_equal ModuleName.parse("Foo::Bar::Baz"), annot.name
     assert_equal Steep::AST::Types::Name.new_instance(name: :String), annot.type
   end
 
   def test_const_type2
     annot = parse_annotation("@type const Foo: String")
     assert_instance_of Steep::AST::Annotation::ConstType, annot
-    assert_equal :"Foo", annot.name
+    assert_equal ModuleName.parse("Foo"), annot.name
     assert_equal Steep::AST::Types::Name.new_instance(name: :String), annot.type
   end
 
   def test_const_type3
     annot = parse_annotation("@type const ::Foo: String")
     assert_instance_of Steep::AST::Annotation::ConstType, annot
-    assert_equal :"::Foo", annot.name
+    assert_equal ModuleName.parse("::Foo"), annot.name
     assert_equal Steep::AST::Types::Name.new_instance(name: :String), annot.type
   end
 

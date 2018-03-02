@@ -877,6 +877,73 @@ end
     end
   end
 
+  def test_constant_annotation
+    source = parse_ruby(<<-EOF)
+# @type const Hello: Integer
+# @type var hello: Integer
+hello = Hello
+    EOF
+
+    typing = Typing.new
+    annotations = source.annotations(block: source.node)
+    checker = checker()
+
+    module_context = TypeConstruction::ModuleContext.new(
+      instance_type: nil,
+      module_type: nil,
+      const_types: annotations.const_types,
+      implement_name: nil,
+      current_namespace: nil
+    )
+
+    construction = TypeConstruction.new(checker: checker,
+                                        source: source,
+                                        annotations: annotations,
+                                        var_types: {},
+                                        block_context: nil,
+                                        self_type: nil,
+                                        method_context: nil,
+                                        typing: typing,
+                                        module_context: module_context)
+    construction.synthesize(source.node)
+
+    assert_empty typing.errors
+  end
+
+  def test_constant_annotation2
+    source = parse_ruby(<<-EOF)
+# @type const Hello::World: Integer
+Hello::World = ""
+    EOF
+
+    typing = Typing.new
+    annotations = source.annotations(block: source.node)
+    checker = checker()
+
+    module_context = TypeConstruction::ModuleContext.new(
+      instance_type: nil,
+      module_type: nil,
+      const_types: annotations.const_types,
+      implement_name: nil,
+      current_namespace: nil
+    )
+
+    construction = TypeConstruction.new(checker: checker,
+                                        source: source,
+                                        annotations: annotations,
+                                        var_types: {},
+                                        block_context: nil,
+                                        self_type: nil,
+                                        method_context: nil,
+                                        typing: typing,
+                                        module_context: module_context)
+    construction.synthesize(source.node)
+
+    assert_any typing.errors do |error|
+      error.is_a?(Steep::Errors::IncompatibleAssignment)
+    end
+  end
+
   def test_union_method
     source = parse_ruby(<<-EOF)
 # @type var k: _Kernel

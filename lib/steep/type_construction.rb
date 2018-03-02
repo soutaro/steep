@@ -598,10 +598,8 @@ module Steep
           end
 
         when :const
-          const_name = flatten_const_name(node)
-          if const_name
-            type = absolute_type((module_context&.const_types || {})[const_name])
-          end
+          const_name = ModuleName.from_node(node)
+          type = const_name && const_type(const_name)
 
           if type
             typing.add_typing(node, type)
@@ -611,25 +609,23 @@ module Steep
 
         when :casgn
           yield_self do
-            const_name = flatten_const_name(node)
-            if const_name
-              const_type = absolute_type((module_context&.const_types || {}))[const_name]
-            end
+            const_name = ModuleName.from_node(node)
+            type = const_name && const_type(const_name)
 
-            if const_type
-              check(node.children.last, const_type) do |_, rhs_type, result|
+            if type
+              check(node.children.last, type) do |_, rhs_type, result|
                 typing.add_error(Errors::IncompatibleAssignment.new(node: node,
-                                                                    lhs_type: const_type,
+                                                                    lhs_type: type,
                                                                     rhs_type: rhs_type,
                                                                     result: result))
               end
-            else
-              if module_context.const_types
-                module_context.const_types[const_name] = const_type
-              end
-            end
 
-            typing.add_typing(node, const_type)
+              typing.add_typing(node, type)
+            else
+              rhs_type = synthesize(node.children.last)
+              typing.add_error(Errors::UnknownConstantAssigned.new(node: node, type: rhs_type))
+              typing.add_typing(node, rhs_type)
+            end
           end
 
         when :yield
@@ -1007,6 +1003,11 @@ module Steep
 
     def variable_type(var)
       var_types[var] || absolute_type(annotations.lookup_var_type(var.name))
+    end
+
+    def const_type(name)
+      type = (module_context&.const_types || {})[name]
+      absolute_type(type)
     end
 
     def each_child_node(node)
