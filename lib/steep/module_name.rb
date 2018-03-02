@@ -29,7 +29,7 @@ module Steep
           end
         end
       when :casgn
-        relative_node = new(name: node.children[1], absolute: false)
+        relative_node = new(name: node.children[1].to_s, absolute: false)
         parent_node = node.children.first
 
         case parent_node&.type

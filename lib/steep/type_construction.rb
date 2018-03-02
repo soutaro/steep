@@ -64,10 +64,11 @@ module Steep
       attr_reader :defined_instance_methods
       attr_reader :defined_module_methods
       attr_reader :const_types
+      attr_reader :const_env
       attr_reader :implement_name
       attr_reader :current_namespace
 
-      def initialize(instance_type:, module_type:, const_types:, implement_name:, current_namespace:)
+      def initialize(instance_type:, module_type:, const_types:, implement_name:, current_namespace:, const_env:)
         @instance_type = instance_type
         @module_type = module_type
         @defined_instance_methods = Set.new
@@ -75,6 +76,11 @@ module Steep
         @const_types = const_types
         @implement_name = implement_name
         @current_namespace = current_namespace
+        @const_env = const_env
+      end
+
+      def find_constant(name)
+        const_types[name] || const_env.lookup(name)
       end
     end
 
@@ -238,12 +244,14 @@ module Steep
         module_type = absolute_type(annots.module_type)
       end
 
+      new_namespace = nested_namespace(new_module_name)
       module_context_ = ModuleContext.new(
         instance_type: instance_type,
         module_type: module_type,
         const_types: annots.const_types,
         implement_name: implement_module_name,
-        current_namespace: nested_namespace(new_module_name)
+        current_namespace: new_namespace,
+        const_env: TypeInference::ConstantEnv.new(signatures: checker.builder.signatures, current_namespace: new_namespace)
       )
 
       self.class.new(
@@ -284,12 +292,14 @@ module Steep
         module_type = AST::Types::Name.new_class(name: class_name, args: class_args, constructor: nil)
       end
 
+      new_namespace = nested_namespace(new_class_name)
       module_context = ModuleContext.new(
         instance_type: annots.instance_type || instance_type,
         module_type: annots.module_type || module_type,
         const_types: annots.const_types,
         implement_name: implement_module_name,
-        current_namespace: nested_namespace(new_class_name)
+        current_namespace: new_namespace,
+        const_env: TypeInference::ConstantEnv.new(signatures: checker.builder.signatures, current_namespace: new_namespace)
       )
 
       self.class.new(
@@ -1006,8 +1016,9 @@ module Steep
     end
 
     def const_type(name)
-      type = (module_context&.const_types || {})[name]
-      absolute_type(type)
+      module_context&.find_constant(name)&.yield_self do |type|
+        absolute_type(type)
+      end
     end
 
     def each_child_node(node)

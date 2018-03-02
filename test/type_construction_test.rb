@@ -12,6 +12,7 @@ class TypeConstructionTest < Minitest::Test
   TypeName = Steep::TypeName
   Signature = Steep::AST::Signature
   TypeInference = Steep::TypeInference
+  ConstantEnv = Steep::TypeInference::ConstantEnv
 
   include TestHelper
   include TypeErrorAssertions
@@ -888,12 +889,15 @@ hello = Hello
     annotations = source.annotations(block: source.node)
     checker = checker()
 
+    env = ConstantEnv.new(signatures: checker.builder.signatures, current_namespace: nil)
+
     module_context = TypeConstruction::ModuleContext.new(
       instance_type: nil,
       module_type: nil,
       const_types: annotations.const_types,
       implement_name: nil,
-      current_namespace: nil
+      current_namespace: nil,
+      const_env: env
     )
 
     construction = TypeConstruction.new(checker: checker,
@@ -920,12 +924,52 @@ Hello::World = ""
     annotations = source.annotations(block: source.node)
     checker = checker()
 
+    env = ConstantEnv.new(signatures: checker.builder.signatures, current_namespace: nil)
+
     module_context = TypeConstruction::ModuleContext.new(
       instance_type: nil,
       module_type: nil,
       const_types: annotations.const_types,
       implement_name: nil,
-      current_namespace: nil
+      current_namespace: nil,
+      const_env: env
+    )
+
+    construction = TypeConstruction.new(checker: checker,
+                                        source: source,
+                                        annotations: annotations,
+                                        var_types: {},
+                                        block_context: nil,
+                                        self_type: nil,
+                                        method_context: nil,
+                                        typing: typing,
+                                        module_context: module_context)
+    construction.synthesize(source.node)
+
+    assert_any typing.errors do |error|
+      error.is_a?(Steep::Errors::IncompatibleAssignment)
+    end
+  end
+
+  def test_constant_signature
+    source = parse_ruby(<<-EOF)
+# @type var x: String
+x = String
+    EOF
+
+    typing = Typing.new
+    annotations = source.annotations(block: source.node)
+    checker = checker()
+
+    env = ConstantEnv.new(signatures: checker.builder.signatures, current_namespace: nil)
+
+    module_context = TypeConstruction::ModuleContext.new(
+      instance_type: nil,
+      module_type: nil,
+      const_types: annotations.const_types,
+      implement_name: nil,
+      current_namespace: nil,
+      const_env: env
     )
 
     construction = TypeConstruction.new(checker: checker,
@@ -1201,7 +1245,8 @@ EOF
       module_type: Types::Name.new_module(name: "::Steep"),
       const_types: {},
       implement_name: nil,
-      current_namespace: Steep::ModuleName.parse("::Steep")
+      current_namespace: Steep::ModuleName.parse("::Steep"),
+      const_env: nil
     )
 
     module_name_class_node = source.node.children[1]
@@ -1309,7 +1354,8 @@ EOF
       module_type: Types::Name.new_class(name: "::Steep", constructor: false),
       const_types: {},
       implement_name: nil,
-      current_namespace: Steep::ModuleName.parse("::Steep")
+      current_namespace: Steep::ModuleName.parse("::Steep"),
+      const_env: nil
     )
 
     module_node = source.node.children.last
