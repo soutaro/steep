@@ -889,7 +889,7 @@ hello = Hello
     annotations = source.annotations(block: source.node)
     checker = checker()
 
-    env = ConstantEnv.new(signatures: checker.builder.signatures, current_namespace: nil)
+    env = ConstantEnv.new(builder: checker.builder, current_namespace: nil)
 
     module_context = TypeConstruction::ModuleContext.new(
       instance_type: nil,
@@ -924,7 +924,7 @@ Hello::World = ""
     annotations = source.annotations(block: source.node)
     checker = checker()
 
-    env = ConstantEnv.new(signatures: checker.builder.signatures, current_namespace: nil)
+    env = ConstantEnv.new(builder: checker.builder, current_namespace: nil)
 
     module_context = TypeConstruction::ModuleContext.new(
       instance_type: nil,
@@ -961,7 +961,7 @@ x = String
     annotations = source.annotations(block: source.node)
     checker = checker()
 
-    env = ConstantEnv.new(signatures: checker.builder.signatures, current_namespace: nil)
+    env = ConstantEnv.new(builder: checker.builder, current_namespace: nil)
 
     module_context = TypeConstruction::ModuleContext.new(
       instance_type: nil,
@@ -986,6 +986,45 @@ x = String
     assert_any typing.errors do |error|
       error.is_a?(Steep::Errors::IncompatibleAssignment)
     end
+  end
+
+  def test_constant_signature2
+    source = parse_ruby(<<-EOF)
+X = 3
+# @type var x: String
+x = X
+    EOF
+
+    typing = Typing.new
+    annotations = source.annotations(block: source.node)
+    checker = checker(<<-EOF)
+X: Module
+    EOF
+
+    env = ConstantEnv.new(builder: checker.builder, current_namespace: nil)
+
+    module_context = TypeConstruction::ModuleContext.new(
+      instance_type: nil,
+      module_type: nil,
+      const_types: annotations.const_types,
+      implement_name: nil,
+      current_namespace: nil,
+      const_env: env
+    )
+
+    construction = TypeConstruction.new(checker: checker,
+                                        source: source,
+                                        annotations: annotations,
+                                        var_types: {},
+                                        block_context: nil,
+                                        self_type: nil,
+                                        method_context: nil,
+                                        typing: typing,
+                                        module_context: module_context)
+    construction.synthesize(source.node)
+
+    assert_equal 2, typing.errors.size
+    assert typing.errors.all? {|error| error.is_a?(Steep::Errors::IncompatibleAssignment) }
   end
 
   def test_union_method

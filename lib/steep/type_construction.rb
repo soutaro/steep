@@ -251,7 +251,7 @@ module Steep
         const_types: annots.const_types,
         implement_name: implement_module_name,
         current_namespace: new_namespace,
-        const_env: TypeInference::ConstantEnv.new(signatures: checker.builder.signatures, current_namespace: new_namespace)
+        const_env: TypeInference::ConstantEnv.new(builder: checker.builder, current_namespace: new_namespace)
       )
 
       self.class.new(
@@ -299,7 +299,7 @@ module Steep
         const_types: annots.const_types,
         implement_name: implement_module_name,
         current_namespace: new_namespace,
-        const_env: TypeInference::ConstantEnv.new(signatures: checker.builder.signatures, current_namespace: new_namespace)
+        const_env: TypeInference::ConstantEnv.new(builder: checker.builder, current_namespace: new_namespace)
       )
 
       self.class.new(

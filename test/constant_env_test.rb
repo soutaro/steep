@@ -45,7 +45,8 @@ end
       end
     end
 
-    Steep::TypeInference::ConstantEnv.new(signatures: signatures, current_namespace: current_namespace)
+    builder = Steep::Interface::Builder.new(signatures: signatures)
+    Steep::TypeInference::ConstantEnv.new(builder: builder, current_namespace: current_namespace)
   end
 
   def test_from_toplevel
@@ -92,5 +93,24 @@ EOS
                  env.lookup(ModuleName.parse("A::B::C"))
     assert_equal Types::Name.new_module(name: "::A::B::C"),
                  env.lookup(ModuleName.parse("B::C"))
+  end
+
+  def test_constant
+    env = constant_env(<<EOS, current_namespace: ModuleName.parse("::A"))
+module A
+end
+
+Foo: Integer
+A::Foo: String
+Bar: Symbol
+EOS
+
+    assert_equal Types::Name.new_instance(name: "::Integer"),
+                 env.lookup(ModuleName.parse("::Foo"))
+    assert_equal Types::Name.new_instance(name: "::String"),
+                 env.lookup(ModuleName.parse("Foo"))
+    assert_equal Types::Name.new_instance(name: "::Symbol"),
+                 env.lookup(ModuleName.parse("Bar"))
+    assert_nil env.lookup(ModuleName.parse("Baz"))
   end
 end
