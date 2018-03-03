@@ -1750,4 +1750,39 @@ end
 
     assert_empty typing.errors
   end
+
+  def test_masgn
+    source = parse_ruby(<<-EOF)
+# @type var a: String
+# @type ivar @b: String
+a, @b = 1, 2
+    EOF
+
+    typing = Typing.new
+    annotations = source.annotations(block: source.node)
+    checker = checker()
+
+    construction = TypeConstruction.new(checker: checker,
+                                        source: source,
+                                        annotations: annotations,
+                                        ivar_types: annotations.ivar_types,
+                                        var_types: {},
+                                        self_type: nil,
+                                        block_context: nil,
+                                        method_context: nil,
+                                        typing: typing,
+                                        module_context: nil)
+
+    construction.synthesize(source.node)
+
+    assert_equal 2, typing.errors.size
+    assert_any typing.errors do |error|
+      error.is_a?(Steep::Errors::IncompatibleAssignment) &&
+        error.node.type == :lvasgn
+    end
+    assert_any typing.errors do |error|
+      error.is_a?(Steep::Errors::IncompatibleAssignment) &&
+        error.node.type == :ivasgn
+    end
+  end
 end

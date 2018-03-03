@@ -352,18 +352,7 @@ module Steep
           name = node.children[0]
           value = node.children[1]
 
-          if (type = ivar_types[name])
-            check(value, type) do |_, value_type, result|
-              typing.add_error(Errors::IncompatibleAssignment.new(node: node,
-                                                                  lhs_type: type,
-                                                                  rhs_type: value_type,
-                                                                  result: result))
-            end
-            typing.add_typing(node, type)
-          else
-            value_type = synthesize(value)
-            typing.add_typing(node, value_type)
-          end
+          type_ivasgn(name, value, node)
 
         when :ivar
           type = ivar_types[node.children[0]]
@@ -760,6 +749,9 @@ module Steep
             typing.add_typing(node, union_type(body_type))
           end
 
+        when :masgn
+          type_masgn(node)
+
         else
           raise "Unexpected node: #{node.inspect}, #{node.location.expression}"
         end
@@ -811,6 +803,45 @@ module Steep
           fallback_to_any node
           var_types[var] = Types.any
         end
+      end
+    end
+
+    def type_ivasgn(name, rhs, node)
+      if (type = ivar_types[name])
+        check(rhs, type) do |_, value_type, result|
+          typing.add_error(Errors::IncompatibleAssignment.new(node: node,
+                                                              lhs_type: type,
+                                                              rhs_type: value_type,
+                                                              result: result))
+        end
+        typing.add_typing(node, type)
+      else
+        value_type = synthesize(rhs)
+        typing.add_typing(node, value_type)
+      end
+    end
+
+    def type_masgn(node)
+      lhs, rhs = node.children
+
+      case
+      when rhs.type == :array && lhs.children.all? {|a| a.type == :lvasgn || a.type == :ivasgn } && lhs.children.size == rhs.children.size
+        rhs_type = synthesize(rhs)
+        pairs = lhs.children.zip(rhs.children)
+        pairs.each do |(l, r)|
+          case
+          when l.type == :lvasgn
+            type_assignment(l.children.first, r, l)
+          when l.type == :ivasgn
+            type_ivasgn(l.children.first, r, l)
+          end
+        end
+
+        typing.add_typing(node, rhs_type)
+
+      else
+        Steep.logger.error("Unsupported masgn: #{rhs.type}")
+        typing.add_typing(node, Types.any)
       end
     end
 
