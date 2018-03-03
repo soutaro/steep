@@ -201,6 +201,16 @@ signatures: { result = [] }
           | class_decl signatures { result = [val[0]] + val[1] }
           | module_decl signatures { result = [val[0]] + val[1] }
           | extension_decl signatures { result = [val[0]] + val[1] }
+          | const_decl signatures { result = [val[0]] + val[1] }
+
+const_decl: module_name COLON type {
+              loc = val.first.location + val.last.location
+              result = AST::Signature::Const.new(
+                location: loc,
+                name: val[0].value,
+                type: val[2]
+              )
+            }
 
 interface: INTERFACE interface_name type_params interface_members END {
              loc = val.first.location + val.last.location
@@ -211,6 +221,7 @@ interface: INTERFACE interface_name type_params interface_members END {
                methods: val[3]
              )
            }
+
 class_decl: CLASS module_name type_params super_opt class_members END {
               loc = val.first.location + val.last.location
               result = AST::Signature::Class.new(name: val[1].value.absolute!,
