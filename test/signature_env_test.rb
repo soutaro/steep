@@ -117,4 +117,24 @@ end
 
     assert_equal [extension], env.find_extensions(ModuleName.parse(:Object).absolute!)
   end
+
+  def test_constant
+    const, _ = parse(<<-EOS)
+Steep::Version: Integer
+    EOS
+
+    env.add(const)
+
+    assert_equal const, env.find_const(ModuleName.parse("::Steep::Version"))
+    assert_equal const, env.find_const(ModuleName.parse("Steep::Version"))
+    assert_equal const, env.find_const(ModuleName.parse("Version"), current_module: ModuleName.parse("::Steep"))
+    assert_nil env.find_const(ModuleName.parse("Steep"))
+
+    assert env.const_name?(ModuleName.parse("::Steep::Version"))
+    assert env.const_name?(ModuleName.parse("Steep::Version"))
+    refute env.const_name?(ModuleName.parse("Steep"))
+    refute env.const_name?(ModuleName.parse("Version"))
+
+    assert env.const_name?(ModuleName.parse("Version"), current_module: ModuleName.parse("::Steep"))
+  end
 end

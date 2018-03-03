@@ -77,7 +77,8 @@ module Steep
                 module_type: nil,
                 const_types: annotations.const_types,
                 implement_name: nil,
-                current_namespace: nil
+                current_namespace: nil,
+                const_env: TypeInference::ConstantEnv.new(builder: check.builder, current_namespace: nil)
               ),
               method_context: nil,
               typing: typing,

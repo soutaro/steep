@@ -6,12 +6,14 @@ module Steep
         attr_reader :classes
         attr_reader :extensions
         attr_reader :interfaces
+        attr_reader :constants
 
         def initialize()
           @modules = {}
           @classes = {}
           @extensions = {}
           @interfaces = {}
+          @constants = {}
         end
 
         def add(sig)
@@ -31,6 +33,8 @@ module Steep
               raise "Duplicated extension: #{sig.module_name.absolute!} (#{sig.name})"
             end
             extensions[sig.module_name.absolute!] << sig
+          when Signature::Const
+            constants[sig.name.absolute!] = sig
           else
             raise "Unknown signature:: #{sig}"
           end
@@ -54,6 +58,10 @@ module Steep
 
         def find_extensions(name, current_module: nil)
           find_name(extensions, name, current_module: current_module) || []
+        end
+
+        def find_const(name, current_module: nil)
+          find_name(constants, name, current_module: current_module)
         end
 
         def find_name(hash, name, current_module:)
@@ -86,11 +94,16 @@ module Steep
           modules.key?(current_module ? current_module + name : name.absolute!)
         end
 
+        def const_name?(name, current_module: nil)
+          constants.key?(current_module ? current_module + name : name.absolute!)
+        end
+
         def each(&block)
           if block_given?
             classes.each_value(&block)
             modules.each_value(&block)
             interfaces.each_value(&block)
+            constants.each_value(&block)
           else
             enum_for :each
           end

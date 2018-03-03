@@ -64,10 +64,11 @@ module Steep
       attr_reader :defined_instance_methods
       attr_reader :defined_module_methods
       attr_reader :const_types
+      attr_reader :const_env
       attr_reader :implement_name
       attr_reader :current_namespace
 
-      def initialize(instance_type:, module_type:, const_types:, implement_name:, current_namespace:)
+      def initialize(instance_type:, module_type:, const_types:, implement_name:, current_namespace:, const_env:)
         @instance_type = instance_type
         @module_type = module_type
         @defined_instance_methods = Set.new
@@ -75,6 +76,11 @@ module Steep
         @const_types = const_types
         @implement_name = implement_name
         @current_namespace = current_namespace
+        @const_env = const_env
+      end
+
+      def find_constant(name)
+        const_types[name] || const_env.lookup(name)
       end
     end
 
@@ -238,12 +244,14 @@ module Steep
         module_type = absolute_type(annots.module_type)
       end
 
+      new_namespace = nested_namespace(new_module_name)
       module_context_ = ModuleContext.new(
         instance_type: instance_type,
         module_type: module_type,
         const_types: annots.const_types,
         implement_name: implement_module_name,
-        current_namespace: nested_namespace(new_module_name)
+        current_namespace: new_namespace,
+        const_env: TypeInference::ConstantEnv.new(builder: checker.builder, current_namespace: new_namespace)
       )
 
       self.class.new(
@@ -284,12 +292,14 @@ module Steep
         module_type = AST::Types::Name.new_class(name: class_name, args: class_args, constructor: nil)
       end
 
+      new_namespace = nested_namespace(new_class_name)
       module_context = ModuleContext.new(
         instance_type: annots.instance_type || instance_type,
         module_type: annots.module_type || module_type,
         const_types: annots.const_types,
         implement_name: implement_module_name,
-        current_namespace: nested_namespace(new_class_name)
+        current_namespace: new_namespace,
+        const_env: TypeInference::ConstantEnv.new(builder: checker.builder, current_namespace: new_namespace)
       )
 
       self.class.new(
@@ -598,10 +608,8 @@ module Steep
           end
 
         when :const
-          const_name = flatten_const_name(node)
-          if const_name
-            type = absolute_type((module_context&.const_types || {})[const_name])
-          end
+          const_name = ModuleName.from_node(node)
+          type = const_name && const_type(const_name)
 
           if type
             typing.add_typing(node, type)
@@ -611,25 +619,23 @@ module Steep
 
         when :casgn
           yield_self do
-            const_name = flatten_const_name(node)
-            if const_name
-              const_type = absolute_type((module_context&.const_types || {}))[const_name]
-            end
+            const_name = ModuleName.from_node(node)
+            type = const_name && const_type(const_name)
 
-            if const_type
-              check(node.children.last, const_type) do |_, rhs_type, result|
+            if type
+              check(node.children.last, type) do |_, rhs_type, result|
                 typing.add_error(Errors::IncompatibleAssignment.new(node: node,
-                                                                    lhs_type: const_type,
+                                                                    lhs_type: type,
                                                                     rhs_type: rhs_type,
                                                                     result: result))
               end
-            else
-              if module_context.const_types
-                module_context.const_types[const_name] = const_type
-              end
-            end
 
-            typing.add_typing(node, const_type)
+              typing.add_typing(node, type)
+            else
+              rhs_type = synthesize(node.children.last)
+              typing.add_error(Errors::UnknownConstantAssigned.new(node: node, type: rhs_type))
+              typing.add_typing(node, rhs_type)
+            end
           end
 
         when :yield
@@ -1007,6 +1013,12 @@ module Steep
 
     def variable_type(var)
       var_types[var] || absolute_type(annotations.lookup_var_type(var.name))
+    end
+
+    def const_type(name)
+      module_context&.find_constant(name)&.yield_self do |type|
+        absolute_type(type)
+      end
     end
 
     def each_child_node(node)
