@@ -378,6 +378,60 @@ module Steep
             end
           end
 
+        when :op_asgn
+          yield_self do
+            lhs, op, rhs = node.children
+
+            synthesize(rhs)
+
+            lhs_type = case lhs.type
+                       when :lvasgn
+                         variable_type(lhs.children.first)
+                       when :ivasgn
+                         ivar_types[lhs.children.first]
+                       else
+                         raise
+                       end
+
+            case
+            when lhs_type == Types.any
+              typing.add_typing(node, lhs_type)
+            when !lhs_type
+              fallback_to_any(node)
+            else
+              lhs_interface = checker.resolve(lhs_type)
+              op_method = lhs_interface.methods[op]
+
+              if op_method
+                args = TypeInference::SendArgs.from_nodes([rhs])
+                return_type_or_error = type_method_call(node, method: op_method, args: args, block_params: nil, block_body: nil)
+
+                if return_type_or_error.is_a?(Errors::Base)
+                  typing.add_error return_type_or_error
+                else
+                  result = checker.check(
+                    Subtyping::Relation.new(sub_type: return_type_or_error, super_type: lhs_type),
+                    constraints: Subtyping::Constraints.empty
+                  )
+                  if result.failure?
+                    typing.add_error(
+                      Errors::IncompatibleAssignment.new(
+                        node: node,
+                        lhs_type: lhs_type,
+                        rhs_type: return_type_or_error,
+                        result: result
+                      )
+                    )
+                  end
+                end
+              else
+                typing.add_error Errors::NoMethod.new(node: node, method: op, type: lhs_type)
+              end
+
+              typing.add_typing(node, lhs_type)
+            end
+          end
+
         when :super
           yield_self do
             if self_type && method_context&.method
