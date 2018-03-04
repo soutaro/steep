@@ -49,6 +49,10 @@ end
 
 class Regexp
 end
+
+class Array<'a>
+  def each: { ('a) -> any } -> self
+end
   EOS
 
   DEFAULT_SIGS = <<-EOS
@@ -2231,5 +2235,67 @@ end
                                         break_context: nil)
 
     construction.synthesize(source.node)
+  end
+
+  def test_restargs
+    source = parse_ruby(<<-'EOF')
+def f(*x)
+  # @type var y: String
+  y = x
+end
+    EOF
+
+    typing = Typing.new
+    annotations = source.annotations(block: source.node)
+    checker = checker()
+
+    construction = TypeConstruction.new(checker: checker,
+                                        source: source,
+                                        annotations: annotations,
+                                        ivar_types: annotations.ivar_types,
+                                        var_types: {},
+                                        self_type: Types::Name.new_instance(name: "::Object"),
+                                        block_context: nil,
+                                        method_context: nil,
+                                        typing: typing,
+                                        module_context: nil,
+                                        break_context: nil)
+
+    construction.synthesize(source.node)
+
+    assert_equal 2, typing.errors.size
+    assert_any typing.errors do |error| error.is_a?(Steep::Errors::FallbackAny) end
+    assert_any typing.errors do |error| error.is_a?(Steep::Errors::IncompatibleAssignment) end
+  end
+
+  def test_restargs2
+    source = parse_ruby(<<-'EOF')
+# @type method f: (*String) -> any
+def f(*x)
+  # @type var y: String
+  y = x
+end
+    EOF
+
+    typing = Typing.new
+    annotations = source.annotations(block: source.node)
+    checker = checker()
+
+    construction = TypeConstruction.new(checker: checker,
+                                        source: source,
+                                        annotations: annotations,
+                                        ivar_types: annotations.ivar_types,
+                                        var_types: {},
+                                        self_type: Types::Name.new_instance(name: "::Object"),
+                                        block_context: nil,
+                                        method_context: nil,
+                                        typing: typing,
+                                        module_context: nil,
+                                        break_context: nil)
+
+    construction.synthesize(source.node)
+
+    assert_equal 1, typing.errors.size
+    assert_any typing.errors do |error| error.is_a?(Steep::Errors::IncompatibleAssignment) end
   end
 end

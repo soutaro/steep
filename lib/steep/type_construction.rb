@@ -628,6 +628,19 @@ module Steep
           rhs = node.children[1]
           type_assignment(var, rhs, node)
 
+        when :restarg
+          yield_self do
+            var = node.children[0]
+            if (type = variable_type(var))
+              typing.add_var_type(var, type)
+            else
+              typing.add_error Errors::FallbackAny.new(node: node)
+              Types.array_instance(Types.any).yield_self do |type|
+                typing.add_var_type(var, type)
+              end
+            end
+          end
+
         when :int
           typing.add_typing(node, AST::Types::Name.new_instance(name: "::Integer"))
 
