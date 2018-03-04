@@ -214,6 +214,18 @@ module Steep
       end
     end
 
+    class UnexpectedBreak < Base
+      def to_s
+        "#{location_to_str}: UnexpectedBreak"
+      end
+    end
+
+    class UnexpectedBreakValue < Base
+      def to_s
+        "#{location_to_str}: UnexpectedBreakValue"
+      end
+    end
+
     class MethodArityMismatch < Base
       def to_s
         "#{location_to_str}: MethodArityMismatch: method=#{node.children[0]}"

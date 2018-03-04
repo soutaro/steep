@@ -49,12 +49,18 @@ module Steep
     end
 
     class BlockContext
-      attr_reader :break_type
       attr_reader :body_type
 
-      def initialize(break_type:, body_type:)
-        @break_type = break_type
+      def initialize(body_type:)
         @body_type = body_type
+      end
+    end
+
+    class BreakContext
+      attr_reader :type
+
+      def initialize(type:)
+        @type = type
       end
     end
 
@@ -94,8 +100,9 @@ module Steep
     attr_reader :block_context
     attr_reader :module_context
     attr_reader :self_type
+    attr_reader :break_context
 
-    def initialize(checker:, source:, annotations:, var_types:, ivar_types: {}, typing:, self_type:, method_context:, block_context:, module_context:)
+    def initialize(checker:, source:, annotations:, var_types:, ivar_types: {}, typing:, self_type:, method_context:, block_context:, module_context:, break_context:)
       @checker = checker
       @source = source
       @annotations = annotations
@@ -106,6 +113,7 @@ module Steep
       @block_context = block_context
       @method_context = method_context
       @module_context = module_context
+      @break_context = break_context
     end
 
     def for_new_method(method_name, node, args:, self_type:)
@@ -193,7 +201,8 @@ module Steep
         method_context: method_context,
         typing: typing,
         module_context: module_context,
-        ivar_types: ivar_types
+        ivar_types: ivar_types,
+        break_context: nil
       )
     end
 
@@ -263,7 +272,8 @@ module Steep
         method_context: nil,
         block_context: nil,
         module_context: module_context_,
-        self_type: module_context_.module_type
+        self_type: module_context_.module_type,
+        break_context: nil
       )
     end
 
@@ -311,7 +321,8 @@ module Steep
         method_context: nil,
         block_context: nil,
         module_context: module_context,
-        self_type: module_context.module_type
+        self_type: module_context.module_type,
+        break_context: nil
       )
     end
 
@@ -550,17 +561,24 @@ module Steep
         when :break
           value = node.children[0]
 
-          if value
-            if block_context&.break_type
-              check(value, block_context.break_type) do |break_type, actual_type, result|
+          if break_context
+            case
+            when value && break_context.type
+              check(value, break_context.type) do |break_type, actual_type, result|
                 typing.add_error Errors::BreakTypeMismatch.new(node: node,
                                                                expected: break_type,
                                                                actual: actual_type,
                                                                result: result)
               end
+            when !value && !break_context.type
+              # ok
             else
-              synthesize(value)
+              synthesize(value) if value
+              typing.add_error Errors::UnexpectedBreakValue.new(node: node)
             end
+          else
+            synthesize(value)
+            typing.add_error Errors::UnexpectedBreak.new(node: node)
           end
 
           typing.add_typing(node, Types.any)
@@ -1033,9 +1051,11 @@ module Steep
                               end
                 Steep.logger.debug("return_type = #{return_type}")
 
-                block_context = BlockContext.new(body_type: annots.block_type,
-                                                 break_type: annots.break_type || method_type.return_type)
-                Steep.logger.debug("block_context { body_type: #{block_context.body_type}, break_type=#{block_context.break_type} }")
+                block_context = BlockContext.new(body_type: annots.block_type)
+                Steep.logger.debug("block_context { body_type: #{block_context.body_type} }")
+
+                break_context = BreakContext.new(type: annots.break_type || method_type.return_type)
+                Steep.logger.debug("break_context { type: #{break_context.type} }")
 
                 for_block = self.class.new(
                   checker: checker,
@@ -1046,7 +1066,8 @@ module Steep
                   typing: typing,
                   method_context: method_context,
                   module_context: self.module_context,
-                  self_type: annots.self_type || self_type
+                  self_type: annots.self_type || self_type,
+                  break_context: break_context
                 )
 
                 each_child_node(block_params) do |p|

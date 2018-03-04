@@ -82,6 +82,7 @@ module Steep
               ),
               method_context: nil,
               typing: typing,
+              break_context: nil
               )
             construction.synthesize(source.node)
           end

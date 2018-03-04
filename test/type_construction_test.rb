@@ -112,7 +112,8 @@ x = nil
                                         block_context: nil,
                                         typing: typing,
                                         method_context: nil,
-                                        module_context: nil)
+                                        module_context: nil,
+                                        break_context: nil)
     construction.synthesize(source.node)
 
     assert_equal Types::Name.new_interface(name: :_A), typing.type_of(node: source.node)
@@ -139,7 +140,8 @@ z = x
                                         typing: typing,
                                         block_context: nil,
                                         method_context: nil,
-                                        module_context: nil)
+                                        module_context: nil,
+                                        break_context: nil)
     construction.synthesize(source.node)
 
     assert_equal Types::Name.new_interface(name: :_A), typing.type_of(node: source.node)
@@ -171,7 +173,8 @@ z = x
                                         self_type: nil,
                                         typing: typing,
                                         method_context: nil,
-                                        module_context: nil)
+                                        module_context: nil,
+                                        break_context: nil)
     construction.synthesize(source.node)
 
     assert_equal Types::Name.new_instance(name: "::Integer"), typing.type_of(node: source.node)
@@ -197,7 +200,8 @@ z = x
                                         self_type: nil,
                                         typing: typing,
                                         method_context: nil,
-                                        module_context: nil)
+                                        module_context: nil,
+                                        break_context: nil)
     construction.synthesize(source.node)
 
     assert_equal Types::Name.new_interface(name: :_A), typing.type_of(node: source.node)
@@ -223,7 +227,8 @@ x.f
                                         self_type: nil,
                                         typing: typing,
                                         method_context: nil,
-                                        module_context: nil)
+                                        module_context: nil,
+                                        break_context: nil)
     construction.synthesize(source.node)
 
     assert_equal Types::Name.new_interface(name: :_A), typing.type_of(node: source.node)
@@ -251,7 +256,8 @@ x.g(y)
                                         self_type: nil,
                                         typing: typing,
                                         method_context: nil,
-                                        module_context: nil)
+                                        module_context: nil,
+                                        break_context: nil)
     construction.synthesize(source.node)
 
     assert_equal Types::Name.new_interface(name: :_B), typing.type_of(node: source.node)
@@ -279,7 +285,8 @@ x.g(y)
                                         self_type: nil,
                                         typing: typing,
                                         method_context: nil,
-                                        module_context: nil)
+                                        module_context: nil,
+                                        break_context: nil)
     construction.synthesize(source.node)
 
     assert_equal Types::Any.new, typing.type_of(node: source.node)
@@ -307,7 +314,8 @@ x.no_such_method
                                         self_type: nil,
                                         typing: typing,
                                         method_context: nil,
-                                        module_context: nil)
+                                        module_context: nil,
+                                        break_context: nil)
     construction.synthesize(source.node)
 
     assert_equal Types::Any.new, typing.type_of(node: source.node)
@@ -333,7 +341,8 @@ x.no_such_method
                                         self_type: nil,
                                         typing: typing,
                                         method_context: nil,
-                                        module_context: nil)
+                                        module_context: nil,
+                                        break_context: nil)
     construction.synthesize(source.node)
 
     assert_equal Types::Any.new, typing.type_of(node: source.node)
@@ -363,7 +372,8 @@ a.g()
                                         self_type: nil,
                                         method_context: nil,
                                         typing: typing,
-                                        module_context: nil)
+                                        module_context: nil,
+                                        break_context: nil)
     construction.synthesize(source.node)
 
     assert_equal Types::Any.new, typing.type_of(node: source.node)
@@ -396,7 +406,8 @@ a.g(nil, nil, nil)
                                         self_type: nil,
                                         method_context: nil,
                                         typing: typing,
-                                        module_context: nil)
+                                        module_context: nil,
+                                        break_context: nil)
     construction.synthesize(source.node)
 
     assert_equal Types::Any.new, typing.type_of(node: source.node)
@@ -431,7 +442,8 @@ x.h(a: a, b: b)
                                         self_type: nil,
                                         method_context: nil,
                                         typing: typing,
-                                        module_context: nil)
+                                        module_context: nil,
+                                        break_context: nil)
     construction.synthesize(source.node)
 
     assert_equal Types::Name.new_interface(name: :_C), typing.type_of(node: source.node)
@@ -457,7 +469,8 @@ x.h()
                                         self_type: nil,
                                         method_context: nil,
                                         typing: typing,
-                                        module_context: nil)
+                                        module_context: nil,
+                                        break_context: nil)
     construction.synthesize(source.node)
 
     assert_equal Types::Any.new, typing.type_of(node: source.node)
@@ -489,7 +502,8 @@ x.h(a: nil, b: nil, c: nil)
                                         self_type: nil,
                                         method_context: nil,
                                         typing: typing,
-                                        module_context: nil)
+                                        module_context: nil,
+                                        break_context: nil)
     construction.synthesize(source.node)
 
     assert_equal Types::Any.new, typing.type_of(node: source.node)
@@ -522,7 +536,8 @@ x.h(a: y)
                                         self_type: nil,
                                         method_context: nil,
                                         typing: typing,
-                                        module_context: nil)
+                                        module_context: nil,
+                                        break_context: nil)
     construction.synthesize(source.node)
 
     assert_equal Types::Any.new, typing.type_of(node: source.node)
@@ -553,7 +568,8 @@ end
                                         self_type: nil,
                                         method_context: nil,
                                         typing: typing,
-                                        module_context: nil)
+                                        module_context: nil,
+                                        break_context: nil)
     construction.synthesize(source.node)
 
     def_body = source.node.children[2]
@@ -580,7 +596,8 @@ end
                                         self_type: nil,
                                         method_context: nil,
                                         typing: typing,
-                                        module_context: nil)
+                                        module_context: nil,
+                                        break_context: nil)
     construction.synthesize(source.node)
 
     def_body = source.node.children[2]
@@ -609,7 +626,8 @@ end
                                         self_type: nil,
                                         method_context: nil,
                                         typing: typing,
-                                        module_context: nil)
+                                        module_context: nil,
+                                        break_context: nil)
     construction.synthesize(source.node)
 
     refute_empty typing.errors
@@ -644,7 +662,8 @@ end
                                         self_type: nil,
                                         method_context: nil,
                                         typing: typing,
-                                        module_context: nil)
+                                        module_context: nil,
+                                        break_context: nil)
     construction.synthesize(source.node)
 
     refute_empty typing.errors
@@ -683,7 +702,8 @@ end
                                         self_type: nil,
                                         method_context: nil,
                                         typing: typing,
-                                        module_context: nil)
+                                        module_context: nil,
+                                        break_context: nil)
     construction.synthesize(source.node)
 
     assert_equal Types::Name.new_interface(name: :_X), typing.type_of_variable(name: :a)
@@ -715,7 +735,8 @@ end
                                         self_type: nil,
                                         method_context: nil,
                                         typing: typing,
-                                        module_context: nil)
+                                        module_context: nil,
+                                        break_context: nil)
     construction.synthesize(source.node)
 
     assert_any typing.var_typing do |var, type| var.name == :a && type.is_a?(Types::Name) && type.name == TypeName::Interface.new(name: :_A) end
@@ -746,7 +767,8 @@ end
                                         self_type: nil,
                                         method_context: nil,
                                         typing: typing,
-                                        module_context: nil)
+                                        module_context: nil,
+                                        break_context: nil)
     construction.synthesize(source.node)
 
     assert_equal Types::Name.new_interface(name: :_X), typing.type_of_variable(name: :x)
@@ -777,7 +799,8 @@ end
                                         self_type: nil,
                                         method_context: nil,
                                         typing: typing,
-                                        module_context: nil)
+                                        module_context: nil,
+                                        break_context: nil)
     construction.synthesize(source.node)
 
     assert_equal Types::Name.new_interface(name: :_X), typing.type_of_variable(name: :x)
@@ -811,7 +834,8 @@ end
                                         self_type: nil,
                                         method_context: nil,
                                         typing: typing,
-                                        module_context: nil)
+                                        module_context: nil,
+                                        break_context: nil)
     construction.synthesize(source.node)
 
     assert_equal Types::Name.new_interface(name: :_X), typing.type_of_variable(name: :x)
@@ -843,7 +867,8 @@ end
                                         self_type: nil,
                                         method_context: nil,
                                         typing: typing,
-                                        module_context: nil)
+                                        module_context: nil,
+                                        break_context: nil)
     construction.synthesize(source.node)
 
     assert_empty typing.errors
@@ -871,7 +896,8 @@ end
                                         self_type: nil,
                                         method_context: nil,
                                         typing: typing,
-                                        module_context: nil)
+                                        module_context: nil,
+                                        break_context: nil)
     construction.synthesize(source.node)
 
     assert_any typing.errors do |error|
@@ -909,7 +935,8 @@ hello = Hello
                                         self_type: nil,
                                         method_context: nil,
                                         typing: typing,
-                                        module_context: module_context)
+                                        module_context: module_context,
+                                        break_context: nil)
     construction.synthesize(source.node)
 
     assert_empty typing.errors
@@ -944,7 +971,8 @@ Hello::World = ""
                                         self_type: nil,
                                         method_context: nil,
                                         typing: typing,
-                                        module_context: module_context)
+                                        module_context: module_context,
+                                        break_context: nil)
     construction.synthesize(source.node)
 
     assert_any typing.errors do |error|
@@ -981,7 +1009,8 @@ x = String
                                         self_type: nil,
                                         method_context: nil,
                                         typing: typing,
-                                        module_context: module_context)
+                                        module_context: module_context,
+                                        break_context: nil)
     construction.synthesize(source.node)
 
     assert_any typing.errors do |error|
@@ -1021,7 +1050,8 @@ X: Module
                                         self_type: nil,
                                         method_context: nil,
                                         typing: typing,
-                                        module_context: module_context)
+                                        module_context: module_context,
+                                        break_context: nil)
     construction.synthesize(source.node)
 
     assert_equal 2, typing.errors.size
@@ -1056,7 +1086,8 @@ d = k.foo(c)
                                         self_type: nil,
                                         method_context: nil,
                                         typing: typing,
-                                        module_context: nil)
+                                        module_context: nil,
+                                        break_context: nil)
     construction.synthesize(source.node)
 
     assert_empty typing.errors
@@ -1087,7 +1118,8 @@ end
                                         self_type: nil,
                                         method_context: nil,
                                         typing: typing,
-                                        module_context: nil)
+                                        module_context: nil,
+                                        break_context: nil)
     construction.synthesize(source.node)
 
     assert_equal 2, typing.errors.size
@@ -1125,7 +1157,8 @@ string = poly.snd(1, "a")
                                         self_type: nil,
                                         method_context: nil,
                                         typing: typing,
-                                        module_context: nil)
+                                        module_context: nil,
+                                        break_context: nil)
     construction.synthesize(source.node)
 
     assert_empty typing.errors
@@ -1152,7 +1185,8 @@ string = poly.try { "string" }
                                         self_type: nil,
                                         method_context: nil,
                                         typing: typing,
-                                        module_context: nil)
+                                        module_context: nil,
+                                        break_context: nil)
     construction.synthesize(source.node)
 
     assert_empty typing.errors
@@ -1173,7 +1207,8 @@ string = poly.try { "string" }
                                         self_type: nil,
                                         method_context: nil,
                                         typing: typing,
-                                        module_context: nil)
+                                        module_context: nil,
+                                        break_context: nil)
 
     assert_equal Types::Union.new(types: [Types::Name.new_interface(name: :_A), Types::Name.new_interface(name: :_C)]),
                  construction.union_type(Types::Name.new_interface(name: :_A), Types::Name.new_interface(name: :_C))
@@ -1203,7 +1238,8 @@ end
                                         block_context: nil,
                                         method_context: nil,
                                         typing: typing,
-                                        module_context: nil)
+                                        module_context: nil,
+                                        break_context: nil)
 
     construction.synthesize(source.node)
 
@@ -1228,7 +1264,8 @@ EOF
                                         block_context: nil,
                                         method_context: nil,
                                         typing: typing,
-                                        module_context: nil)
+                                        module_context: nil,
+                                        break_context: nil)
 
     for_class = construction.for_class(source.node)
 
@@ -1261,7 +1298,8 @@ EOF
                                         block_context: nil,
                                         method_context: nil,
                                         typing: typing,
-                                        module_context: nil)
+                                        module_context: nil,
+                                        break_context: nil)
 
     for_class = construction.for_class(source.node)
 
@@ -1299,7 +1337,8 @@ EOF
                                         block_context: nil,
                                         method_context: nil,
                                         typing: typing,
-                                        module_context: module_context)
+                                        module_context: module_context,
+                                        break_context: nil)
 
     for_module = construction.for_class(module_name_class_node)
 
@@ -1329,7 +1368,8 @@ EOF
                                         block_context: nil,
                                         method_context: nil,
                                         typing: typing,
-                                        module_context: nil)
+                                        module_context: nil,
+                                        break_context: nil)
 
     for_module = construction.for_module(source.node)
 
@@ -1370,7 +1410,8 @@ EOF
                                         block_context: nil,
                                         method_context: nil,
                                         typing: typing,
-                                        module_context: nil)
+                                        module_context: nil,
+                                        break_context: nil)
 
     for_module = construction.for_module(source.node)
 
@@ -1408,7 +1449,8 @@ EOF
                                         block_context: nil,
                                         method_context: nil,
                                         typing: typing,
-                                        module_context: module_context)
+                                        module_context: module_context,
+                                        break_context: nil)
 
     for_module = construction.for_module(module_node)
 
@@ -1440,7 +1482,8 @@ end
                                         block_context: nil,
                                         method_context: nil,
                                         typing: typing,
-                                        module_context: nil)
+                                        module_context: nil,
+                                        break_context: nil)
 
     for_method = construction.for_new_method(:foo,
                                              def_node,
@@ -1482,7 +1525,8 @@ end
                                         block_context: nil,
                                         method_context: nil,
                                         typing: typing,
-                                        module_context: nil)
+                                        module_context: nil,
+                                        break_context: nil)
 
     for_method = construction.for_new_method(:foo,
                                              def_node,
@@ -1530,7 +1574,8 @@ end
                                         block_context: nil,
                                         method_context: nil,
                                         typing: typing,
-                                        module_context: nil)
+                                        module_context: nil,
+                                        break_context: nil)
 
     for_method = construction.for_new_method(:foo,
                                              def_node,
@@ -1580,7 +1625,8 @@ end
                                         block_context: nil,
                                         method_context: nil,
                                         typing: typing,
-                                        module_context: nil)
+                                        module_context: nil,
+                                        break_context: nil)
 
     for_method = construction.for_new_method(:foo,
                                              def_node,
@@ -1622,7 +1668,8 @@ end
                                         block_context: nil,
                                         method_context: nil,
                                         typing: typing,
-                                        module_context: nil)
+                                        module_context: nil,
+                                        break_context: nil)
 
     construction.synthesize(source.node)
 
@@ -1672,7 +1719,8 @@ end
                                         block_context: nil,
                                         method_context: nil,
                                         typing: typing,
-                                        module_context: nil)
+                                        module_context: nil,
+                                        break_context: nil)
 
     construction.synthesize(source.node)
 
@@ -1709,7 +1757,8 @@ end
                                         block_context: nil,
                                         method_context: nil,
                                         typing: typing,
-                                        module_context: nil)
+                                        module_context: nil,
+                                        break_context: nil)
 
     construction.synthesize(source.node)
 
@@ -1745,7 +1794,8 @@ end
                                         block_context: nil,
                                         method_context: nil,
                                         typing: typing,
-                                        module_context: nil)
+                                        module_context: nil,
+                                        break_context: nil)
 
     construction.synthesize(source.node)
 
@@ -1772,7 +1822,8 @@ a, @b = 1, 2
                                         block_context: nil,
                                         method_context: nil,
                                         typing: typing,
-                                        module_context: nil)
+                                        module_context: nil,
+                                        break_context: nil)
 
     construction.synthesize(source.node)
 
@@ -1808,7 +1859,8 @@ a += 3
                                         block_context: nil,
                                         method_context: nil,
                                         typing: typing,
-                                        module_context: nil)
+                                        module_context: nil,
+                                        break_context: nil)
 
     construction.synthesize(source.node)
 
