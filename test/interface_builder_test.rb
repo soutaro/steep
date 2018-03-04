@@ -534,4 +534,118 @@ end
       assert_nil method.super_method
     end
   end
+
+  def test_instance_variables
+    sigs = parse_signature(<<-EOF)
+class BasicObject
+end
+
+class Object <: BasicObject
+end
+
+class String
+end
+
+class Class
+end
+
+class Module <: Class
+end
+
+module Bar
+  @bar: Integer
+end
+
+class Foo
+  include Bar
+  @foo: String
+end
+    EOF
+
+    env = Signature::Env.new
+    sigs.each do |sig|
+      env.add sig
+    end
+
+    builder = Builder.new(signatures: env)
+
+    klass = env.find_class(ModuleName.parse(:Foo))
+    interface = builder.instance_to_interface(klass)
+
+    assert_instance_of Interface::Abstract, interface
+    assert_equal Types::Name.new_instance(name: "String"), interface.ivars[:"@foo"]
+    assert_equal Types::Name.new_instance(name: "Integer"), interface.ivars[:"@bar"]
+  end
+
+  def test_instance_variables2
+    sigs = parse_signature(<<-EOF)
+class BasicObject
+end
+
+class Object <: BasicObject
+end
+
+class String
+end
+
+class Class
+end
+
+class Foo
+  @foo: String
+end
+
+class Bar <: Foo
+  @foo: Integer
+end
+    EOF
+
+    env = Signature::Env.new
+    sigs.each do |sig|
+      env.add sig
+    end
+
+    builder = Builder.new(signatures: env)
+
+    klass = env.find_class(ModuleName.parse(:Bar))
+    interface = builder.instance_to_interface(klass)
+
+    assert_instance_of Interface::Abstract, interface
+    assert_equal Types::Name.new_instance(name: "Integer"), interface.ivars[:"@foo"]
+  end
+
+  def test_instance_variables3
+    sigs = parse_signature(<<-EOF)
+class BasicObject
+end
+
+class Object <: BasicObject
+end
+
+class String
+end
+
+class Foo<'a>
+  @foo: 'a
+end
+    EOF
+
+    env = Signature::Env.new
+    sigs.each do |sig|
+      env.add sig
+    end
+
+    builder = Builder.new(signatures: env)
+
+    klass = env.find_class(ModuleName.parse(:Foo))
+    interface = builder.instance_to_interface(klass).instantiate(
+      type: Types::Self.new,
+      args: [Types::Var.new(name: :hoge)],
+      instance_type: Types::Instance.new,
+      module_type: Types::Class.new
+    )
+
+    assert_instance_of Interface::Instantiated, interface
+    assert_equal Types::Var.new(name: :hoge), interface.ivars[:"@foo"]
+  end
 end

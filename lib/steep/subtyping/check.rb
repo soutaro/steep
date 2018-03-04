@@ -533,7 +533,9 @@ module Steep
             end
           end
 
-          Interface::Instantiated.new(type: type, methods: methods)
+          Interface::Instantiated.new(type: type,
+                                      methods: methods,
+                                      ivars: {})
 
         when AST::Types::Intersection
           interfaces = type.types.map do |type| resolve(type) end
@@ -573,7 +575,9 @@ module Steep
             end
           end
 
-          Interface::Instantiated.new(type: type, methods: methods)
+          Interface::Instantiated.new(type: type,
+                                      methods: methods,
+                                      ivars: {})
         end
       end
     end

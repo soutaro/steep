@@ -109,7 +109,7 @@ module Steep
         end
       end
 
-      def merge_mixin(type_name, args, methods:, supers:, current:)
+      def merge_mixin(type_name, args, methods:, ivars:, supers:, current:)
         mixed = block_given? ? yield : build(type_name, current: current)
 
         supers.push(*mixed.supers)
@@ -127,6 +127,8 @@ module Steep
             new_method.with_super(super_method)
           end
         end
+
+        merge_ivars ivars, instantiated.ivars, from: type_name.name, to: current
       end
 
       def add_method(type_name, method, methods:)
@@ -169,6 +171,7 @@ module Steep
           merge_mixin(TypeName::Class.new(name: super_class_name, constructor: constructor),
                       [],
                       methods: methods,
+                      ivars: {},
                       supers: supers,
                       current: sig.name)
         end
@@ -180,11 +183,13 @@ module Steep
                         member.args.map {|type| absolute_type(type, current: sig.name) },
                         methods: methods,
                         supers: supers,
+                        ivars: {},
                         current: sig.name)
           when AST::Signature::Members::Extend
             merge_mixin(TypeName::Instance.new(name: member.name),
                         member.args.map {|type| absolute_type(type, current: sig.name) },
                         methods: methods,
+                        ivars: {},
                         supers: supers,
                         current: sig.name)
           end
@@ -222,7 +227,8 @@ module Steep
           name: type_name,
           params: params,
           methods: methods,
-          supers: supers
+          supers: supers,
+          ivars: {}
         )
       end
 
@@ -248,12 +254,14 @@ module Steep
             merge_mixin(TypeName::Module.new(name: member.name),
                         member.args.map {|type| absolute_type(type, current: sig.name) },
                         methods: methods,
+                        ivars: {},
                         supers: supers,
                         current: sig.name)
           when AST::Signature::Members::Extend
             merge_mixin(TypeName::Instance.new(name: member.name),
                         member.args.map {|type| absolute_type(type, current: sig.name) },
                         methods: methods,
+                        ivars: {},
                         supers: supers,
                         current: sig.name)
           end
@@ -272,7 +280,8 @@ module Steep
           name: type_name,
           params: params,
           methods: methods,
-          supers: supers
+          supers: supers,
+          ivars: {}
         )
       end
 
@@ -282,6 +291,7 @@ module Steep
         params = sig.params&.variables || []
         supers = []
         methods = {}
+        ivars = {}
 
         if sig.is_a?(AST::Signature::Class)
           unless sig.name == ModuleName.parse("::BasicObject")
@@ -297,6 +307,7 @@ module Steep
             )
 
             methods.merge!(instantiated.methods)
+            merge_ivars(ivars, instantiated.ivars, from: super_class_name, to: sig.name)
           end
         end
 
@@ -312,6 +323,7 @@ module Steep
             merge_mixin(TypeName::Instance.new(name: member.name),
                         member.args.map {|type| absolute_type(type, current: sig.name) },
                         methods: methods,
+                        ivars: ivars,
                         supers: supers,
                         current: sig.name)
           end
@@ -325,6 +337,8 @@ module Steep
                 add_method(type_name, member, methods: methods)
               end
             end
+          when AST::Signature::Members::Ivar
+            merge_ivars ivars, { member.name => member.type }, from: sig.name, to: sig.name
           end
         end
 
@@ -343,8 +357,18 @@ module Steep
           name: type_name,
           params: params,
           methods: methods,
-          supers: supers
+          supers: supers,
+          ivars: ivars
         )
+      end
+
+      def merge_ivars(dest, new_vars, from:, to:)
+        dest.merge!(new_vars) do |name, original_type, new_type|
+          unless original_type == new_type
+            Steep.logger.error("Instance variables cannot have different types from super/mixins: #{name} in #{to}: #{new_type} (from #{from}) != #{original_type}")
+          end
+          new_type
+        end
       end
 
       def interface_to_interface(_, sig)
@@ -367,7 +391,8 @@ module Steep
           name: type_name,
           params: variables,
           methods: methods,
-          supers: []
+          supers: [],
+          ivars: {}
         )
       end
 

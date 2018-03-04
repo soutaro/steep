@@ -3,14 +3,16 @@ module Steep
     class Instantiated
       attr_reader :type
       attr_reader :methods
+      attr_reader :ivars
 
-      def initialize(type:, methods:)
+      def initialize(type:, methods:, ivars:)
         @type = type
         @methods = methods
+        @ivars = ivars
       end
 
       def ==(other)
-        other.is_a?(self.class) && other.type == type && other.params == params && other.methods == methods
+        other.is_a?(self.class) && other.type == type && other.params == params && other.methods == methods && other.ivars == ivars
       end
 
       class InvalidMethodOverrideError < StandardError
@@ -64,11 +66,12 @@ module Steep
               name: method.name,
               types: method.types.select(&block),
               super_method: method.super_method,
-              attributes: method.attributes
+              attributes: method.attributes,
             )
           end.reject do |_, method|
             method.types.empty?
-          end
+          end,
+          ivars: ivars
         )
       end
     end
