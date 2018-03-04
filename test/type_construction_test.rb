@@ -2455,4 +2455,96 @@ end
     assert_equal 1, typing.errors.size
     assert_any typing.errors do |error| error.is_a?(Steep::Errors::FallbackAny) end
   end
+
+  def test_splat
+    source = parse_ruby(<<-'EOF')
+a = [1]
+
+# @type var b: Array<String>
+b = [*a]
+    EOF
+
+    typing = Typing.new
+    annotations = source.annotations(block: source.node)
+    checker = checker()
+
+    construction = TypeConstruction.new(checker: checker,
+                                        source: source,
+                                        annotations: annotations,
+                                        ivar_types: annotations.ivar_types,
+                                        var_types: {},
+                                        self_type: Types::Name.new_instance(name: "::Object"),
+                                        block_context: nil,
+                                        method_context: nil,
+                                        typing: typing,
+                                        module_context: nil,
+                                        break_context: nil)
+
+    construction.synthesize(source.node)
+
+    assert_equal 1, typing.errors.size
+    assert_any typing.errors do |error|
+      error.is_a?(Steep::Errors::IncompatibleAssignment)
+    end
+  end
+
+  def test_splat_range
+    source = parse_ruby(<<-'EOF')
+# @type var b: Array<String>
+b = [*1...3]
+    EOF
+
+    typing = Typing.new
+    annotations = source.annotations(block: source.node)
+    checker = checker()
+
+    construction = TypeConstruction.new(checker: checker,
+                                        source: source,
+                                        annotations: annotations,
+                                        ivar_types: annotations.ivar_types,
+                                        var_types: {},
+                                        self_type: Types::Name.new_instance(name: "::Object"),
+                                        block_context: nil,
+                                        method_context: nil,
+                                        typing: typing,
+                                        module_context: nil,
+                                        break_context: nil)
+
+    construction.synthesize(source.node)
+
+    assert_equal 1, typing.errors.size
+    assert_any typing.errors do |error|
+      error.is_a?(Steep::Errors::IncompatibleAssignment)
+    end
+  end
+
+  def test_splat_error
+    source = parse_ruby(<<-'EOF')
+a = 1
+b = [*a]
+    EOF
+
+    typing = Typing.new
+    annotations = source.annotations(block: source.node)
+    checker = checker()
+
+    construction = TypeConstruction.new(checker: checker,
+                                        source: source,
+                                        annotations: annotations,
+                                        ivar_types: annotations.ivar_types,
+                                        var_types: {},
+                                        self_type: Types::Name.new_instance(name: "::Object"),
+                                        block_context: nil,
+                                        method_context: nil,
+                                        typing: typing,
+                                        module_context: nil,
+                                        break_context: nil)
+
+    construction.synthesize(source.node)
+
+    assert_equal 1, typing.errors.size
+    assert_any typing.errors do |error|
+      error.is_a?(Steep::Errors::FallbackAny)
+    end
+  end
 end

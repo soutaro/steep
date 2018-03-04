@@ -126,9 +126,8 @@ module Steep
       annots = source.annotations(block: node)
       self_type = annots.self_type || self_type
 
-      self_interface = self_type && self_type != Types.any && checker.resolve(self_type)
-      interface_method = self_interface&.yield_self {|i| i.methods[method_name] }
-      interface_method ||= nil
+      self_interface = self_type && (self_type != Types.any || nil) && checker.resolve(self_type)
+      interface_method = self_interface&.yield_self {|interface| interface.methods[method_name] }
       annotation_method = annotations.lookup_method_type(method_name)&.yield_self do |method_type|
         Interface::Method.new(type_name: nil,
                               name: method_name,
@@ -788,15 +787,35 @@ module Steep
           end
 
         when :array
-          if node.children.empty?
-            typing.add_typing(node, Types.array_instance(Types.any))
-          else
-            types = node.children.map {|e| synthesize(e) }
-
-            if types.uniq.size == 1
-              typing.add_typing(node, Types.array_instance(types.first))
-            else
+          yield_self do
+            if node.children.empty?
               typing.add_typing(node, Types.array_instance(Types.any))
+            else
+              types = node.children.map do |e|
+                if e.type == :splat
+                  type = synthesize(e.children.first)
+                  case
+                  when type.is_a?(AST::Types::Name) && type.name.is_a?(TypeName::Instance) && type.name.name == ModuleName.new(name: "Array", absolute: true)
+                    type.args.first
+                  when type.is_a?(AST::Types::Name) && type.name.is_a?(TypeName::Instance) && type.name.name == ModuleName.new(name: "Range", absolute: true)
+                    type.args.first
+                  when type.is_a?(AST::Types::Any)
+                    type
+                  else
+                    Steep.logger.error("Splat in array should be an Array or Range: #{type}")
+                    fallback_to_any e
+                  end
+                else
+                  synthesize(e)
+                end
+              end
+
+              if types.uniq.size == 1
+                typing.add_typing(node, Types.array_instance(types.first))
+              else
+                typing.add_error Errors::FallbackAny.new(node: node)
+                typing.add_typing(node, Types.array_instance(Types.any))
+              end
             end
           end
 
@@ -960,6 +979,17 @@ module Steep
               fallback_to_any node
             end
           end
+
+        when :splat
+          yield_self do
+            Steep.logger.error "Unexpected splat: splat have to be in an array"
+          end
+
+          each_child_node node do |child|
+            synthesize(child)
+          end
+
+          fallback_to_any node
 
         else
           raise "Unexpected node: #{node.inspect}, #{node.location.expression}"
