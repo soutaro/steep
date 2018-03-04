@@ -346,4 +346,15 @@ Foo::Bar::Baz: String
     assert_equal ModuleName.parse("Foo::Bar::Baz"), c2.name
     assert_equal Steep::AST::Types::Name.new_instance(name: "String"), c2.type
   end
+
+  def test_gvar
+    g, _ = parse(<<-EOF)
+$PROGRAM_NAME: String
+    EOF
+
+    assert_instance_of Steep::AST::Signature::Gvar, g
+    assert_location g, start_line: 1, start_column: 0, end_line: 1, end_column: 21
+    assert_equal :"$PROGRAM_NAME", g.name
+    assert_equal Steep::AST::Types::Name.new_instance(name: "String"), g.type
+  end
 end

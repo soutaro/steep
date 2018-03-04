@@ -202,6 +202,16 @@ signatures: { result = [] }
           | module_decl signatures { result = [val[0]] + val[1] }
           | extension_decl signatures { result = [val[0]] + val[1] }
           | const_decl signatures { result = [val[0]] + val[1] }
+          | gvar_decl signatures { result = [val[0]] + val[1] }
+
+gvar_decl: GVAR COLON type {
+             loc = val.first.location + val.last.location
+             result = AST::Signature::Gvar.new(
+               location: loc,
+               name: val[0].value,
+               type: val[2]
+             )
+           }
 
 const_decl: module_name COLON type {
               loc = val.first.location + val.last.location
@@ -601,6 +611,8 @@ def next_token
     new_token(:NOCONSTRUCTOR, false)
   when input.scan(/\w+(\!|\?)/)
     new_token(:METHOD_NAME, input.matched.to_sym)
+  when input.scan(/\$\w+\b/)
+    new_token(:GVAR, input.matched.to_sym)
   when input.scan(/[A-Z]\w*/)
     new_token(:UIDENT, input.matched.to_sym)
   when input.scan(/_\w+/)

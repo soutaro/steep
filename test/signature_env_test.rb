@@ -137,4 +137,15 @@ Steep::Version: Integer
 
     assert env.const_name?(ModuleName.parse("Version"), current_module: ModuleName.parse("::Steep"))
   end
+
+  def test_gvar
+    gvar, _ = parse(<<-EOS)
+$VERSION: Integer
+    EOS
+
+    env.add(gvar)
+
+    assert_equal gvar, env.find_gvar(:"$VERSION")
+    assert_nil env.find_gvar(:"$HOGE")
+  end
 end

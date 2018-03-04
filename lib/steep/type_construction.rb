@@ -930,6 +930,36 @@ module Steep
 
           typing.add_typing(node, Types.any)
 
+        when :gvasgn
+          yield_self do
+            name, rhs = node.children
+            type = checker.builder.signatures.find_gvar(name)&.type
+
+            if type
+              check(rhs, type) do |_, rhs_type, result|
+                typing.add_error(Errors::IncompatibleAssignment.new(node: node,
+                                                                    lhs_type: type,
+                                                                    rhs_type: rhs_type,
+                                                                    result: result))
+              end
+            else
+              synthesize(rhs)
+              fallback_to_any node
+            end
+          end
+
+        when :gvar
+          yield_self do
+            name = node.children.first
+            type = checker.builder.signatures.find_gvar(name)&.type
+
+            if type
+              typing.add_typing(node, type)
+            else
+              fallback_to_any node
+            end
+          end
+
         else
           raise "Unexpected node: #{node.inspect}, #{node.location.expression}"
         end
