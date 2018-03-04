@@ -2206,4 +2206,30 @@ end
 
     assert_empty typing.errors
   end
+
+  def test_method_arg_assign
+    source = parse_ruby(<<-'EOF')
+def f(x)
+  x = "forever" if x == nil
+end
+    EOF
+
+    typing = Typing.new
+    annotations = source.annotations(block: source.node)
+    checker = checker()
+
+    construction = TypeConstruction.new(checker: checker,
+                                        source: source,
+                                        annotations: annotations,
+                                        ivar_types: annotations.ivar_types,
+                                        var_types: {},
+                                        self_type: Types::Name.new_instance(name: "::Object"),
+                                        block_context: nil,
+                                        method_context: nil,
+                                        typing: typing,
+                                        module_context: nil,
+                                        break_context: nil)
+
+    construction.synthesize(source.node)
+  end
 end

@@ -1214,7 +1214,7 @@ module Steep
     end
 
     def variable_type(var)
-      var_types[var] || absolute_type(annotations.lookup_var_type(var.name))
+      typing.var_typing[var] || var_types[var] || absolute_type(annotations.lookup_var_type(var.name))
     end
 
     def const_type(name)
