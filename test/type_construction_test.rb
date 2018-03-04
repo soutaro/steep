@@ -1850,6 +1850,72 @@ a, @b = 1, 2
     end
   end
 
+  def test_masgn_array
+    source = parse_ruby(<<-EOF)
+# @type var a: String
+# @type ivar @b: String
+x = [1, 2]
+a, @b = x
+    EOF
+
+    typing = Typing.new
+    annotations = source.annotations(block: source.node)
+    checker = checker()
+
+    construction = TypeConstruction.new(checker: checker,
+                                        source: source,
+                                        annotations: annotations,
+                                        ivar_types: annotations.ivar_types,
+                                        var_types: {},
+                                        self_type: nil,
+                                        block_context: nil,
+                                        method_context: nil,
+                                        typing: typing,
+                                        module_context: nil,
+                                        break_context: nil)
+
+    construction.synthesize(source.node)
+
+    assert_equal 2, typing.errors.size
+    assert_any typing.errors do |error|
+      error.is_a?(Steep::Errors::IncompatibleAssignment) &&
+        error.node.type == :lvasgn
+    end
+    assert_any typing.errors do |error|
+      error.is_a?(Steep::Errors::IncompatibleAssignment) &&
+        error.node.type == :ivasgn
+    end
+  end
+
+  def test_masgn_array_error
+    source = parse_ruby(<<-EOF)
+a, @b = 3
+    EOF
+
+    typing = Typing.new
+    annotations = source.annotations(block: source.node)
+    checker = checker()
+
+    construction = TypeConstruction.new(checker: checker,
+                                        source: source,
+                                        annotations: annotations,
+                                        ivar_types: annotations.ivar_types,
+                                        var_types: {},
+                                        self_type: nil,
+                                        block_context: nil,
+                                        method_context: nil,
+                                        typing: typing,
+                                        module_context: nil,
+                                        break_context: nil)
+
+    construction.synthesize(source.node)
+
+    assert_equal 1, typing.errors.size
+    assert_any typing.errors do |error|
+      error.is_a?(Steep::Errors::FallbackAny)
+    end
+  end
+
   def test_op_asgn
     source = parse_ruby(<<-EOF)
 # @type var a: String

@@ -1011,28 +1011,13 @@ module Steep
     end
 
     def type_assignment(var, rhs, node)
-      lhs_type = variable_type(var)
-
       if rhs
-        if lhs_type
-          check(rhs, lhs_type) do |_, rhs_type, result|
-            typing.add_error(Errors::IncompatibleAssignment.new(node: node,
-                                                                lhs_type: lhs_type,
-                                                                rhs_type: rhs_type,
-                                                                result: result))
-          end
-          typing.add_var_type(var, lhs_type)
-          typing.add_typing(node, lhs_type)
-          var_types[var] = lhs_type
-          lhs_type
-        else
-          rhs_type = synthesize(rhs)
-          typing.add_var_type(var, rhs_type)
-          typing.add_typing(node, rhs_type)
-          var_types[var] = rhs_type
-          rhs_type
-        end
+        rhs_type = synthesize(rhs)
+        node_type = assign_type_to_variable(var, rhs_type, node)
+        typing.add_typing(node, node_type)
       else
+        lhs_type = variable_type(var)
+
         if lhs_type
           typing.add_var_type(var, lhs_type)
           typing.add_typing(node, lhs_type)
@@ -1045,27 +1030,66 @@ module Steep
       end
     end
 
-    def type_ivasgn(name, rhs, node)
-      if (type = ivar_types[name])
-        check(rhs, type) do |_, value_type, result|
+    def assign_type_to_variable(var, type, node)
+      lhs_type = variable_type(var)
+
+      if lhs_type
+        result = checker.check(
+          Subtyping::Relation.new(sub_type: type, super_type: lhs_type),
+          constraints: Subtyping::Constraints.empty
+        )
+        if result.failure?
           typing.add_error(Errors::IncompatibleAssignment.new(node: node,
-                                                              lhs_type: type,
-                                                              rhs_type: value_type,
+                                                              lhs_type: lhs_type,
+                                                              rhs_type: type,
                                                               result: result))
         end
-        typing.add_typing(node, type)
+        typing.add_var_type(var, lhs_type)
+        var_types[var] = lhs_type
+        lhs_type
       else
-        value_type = synthesize(rhs)
-        typing.add_typing(node, value_type)
+        typing.add_var_type(var, type)
+        var_types[var] = type
+        type
+      end
+    end
+
+    def type_ivasgn(name, rhs, node)
+      rhs_type = synthesize(rhs)
+      ivar_type = assign_type_to_ivar(name, rhs_type, node)
+
+      if ivar_type
+        typing.add_typing(node, ivar_type)
+      else
+        fallback_to_any node
+      end
+    end
+
+    def assign_type_to_ivar(name, rhs_type, node)
+      type = ivar_types[name]
+
+      if type
+        result = checker.check(
+          Subtyping::Relation.new(sub_type: type, super_type: rhs_type),
+          constraints: Subtyping::Constraints.empty
+        )
+        if result.failure?
+          typing.add_error(Errors::IncompatibleAssignment.new(node: node,
+                                                              lhs_type: type,
+                                                              rhs_type: rhs_type,
+                                                              result: result))
+
+          type
+        end
       end
     end
 
     def type_masgn(node)
       lhs, rhs = node.children
+      rhs_type = synthesize(rhs)
 
       case
       when rhs.type == :array && lhs.children.all? {|a| a.type == :lvasgn || a.type == :ivasgn } && lhs.children.size == rhs.children.size
-        rhs_type = synthesize(rhs)
         pairs = lhs.children.zip(rhs.children)
         pairs.each do |(l, r)|
           case
@@ -1078,9 +1102,26 @@ module Steep
 
         typing.add_typing(node, rhs_type)
 
+      when rhs_type.is_a?(AST::Types::Any)
+        fallback_to_any(node)
+
+      when rhs_type.is_a?(AST::Types::Name) && rhs_type.name.is_a?(TypeName::Instance) && rhs_type.name.name == ModuleName.new(name: "Array", absolute: true)
+        element_type = rhs_type.args.first
+
+        lhs.children.each do |assignment|
+          case assignment.type
+          when :lvasgn
+            assign_type_to_variable(assignment.children.first, element_type, assignment)
+          when :ivasgn
+            assign_type_to_ivar(assignment.children.first, element_type, assignment)
+          end
+        end
+
+        typing.add_typing node, rhs_type
+
       else
-        Steep.logger.error("Unsupported masgn: #{rhs.type}")
-        typing.add_typing(node, Types.any)
+        Steep.logger.error("Unsupported masgn: #{rhs.type} (#{rhs_type})")
+        fallback_to_any(node)
       end
     end
 
