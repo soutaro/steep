@@ -2387,4 +2387,72 @@ x = $HOGE
     assert_equal 2, typing.errors.size
     assert typing.errors.all? {|error| error.is_a?(Steep::Errors::FallbackAny) }
   end
+
+  def test_ivar
+    source = parse_ruby(<<-'EOF')
+class A
+  def foo
+    @foo
+  end
+end
+    EOF
+
+    typing = Typing.new
+    annotations = source.annotations(block: source.node)
+    checker = checker(<<-EOF)
+class A
+  def foo: -> String
+  @foo: String
+end
+    EOF
+
+    construction = TypeConstruction.new(checker: checker,
+                                        source: source,
+                                        annotations: annotations,
+                                        ivar_types: annotations.ivar_types,
+                                        var_types: {},
+                                        self_type: Types::Name.new_instance(name: "::Object"),
+                                        block_context: nil,
+                                        method_context: nil,
+                                        typing: typing,
+                                        module_context: nil,
+                                        break_context: nil)
+
+    construction.synthesize(source.node)
+
+    assert_empty typing.errors
+  end
+
+  def test_ivar2
+    source = parse_ruby(<<-'EOF')
+class A
+  x = @foo
+end
+    EOF
+
+    typing = Typing.new
+    annotations = source.annotations(block: source.node)
+    checker = checker(<<-EOF)
+class A
+  @foo: String
+end
+    EOF
+
+    construction = TypeConstruction.new(checker: checker,
+                                        source: source,
+                                        annotations: annotations,
+                                        ivar_types: annotations.ivar_types,
+                                        var_types: {},
+                                        self_type: Types::Name.new_instance(name: "::Object"),
+                                        block_context: nil,
+                                        method_context: nil,
+                                        typing: typing,
+                                        module_context: nil,
+                                        break_context: nil)
+
+    construction.synthesize(source.node)
+
+    assert_equal 1, typing.errors.size
+    assert_any typing.errors do |error| error.is_a?(Steep::Errors::FallbackAny) end
+  end
 end

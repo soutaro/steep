@@ -126,7 +126,8 @@ module Steep
       annots = source.annotations(block: node)
       self_type = annots.self_type || self_type
 
-      interface_method = self_type && self_type != Types.any && checker.resolve(self_type).methods[method_name]
+      self_interface = self_type && self_type != Types.any && checker.resolve(self_type)
+      interface_method = self_interface&.yield_self {|i| i.methods[method_name] }
       interface_method ||= nil
       annotation_method = annotations.lookup_method_type(method_name)&.yield_self do |method_type|
         Interface::Method.new(type_name: nil,
@@ -194,9 +195,9 @@ module Steep
         constructor: constructor_method
       )
 
-      ivar_types = annots.ivar_types.keys.each.with_object({}) do |var, env|
-        env[var] = annots.ivar_types[var]
-      end
+      ivar_types = {}
+      ivar_types.merge!(self_interface.ivars) if self_interface
+      ivar_types.merge!(annots.ivar_types)
 
       self.class.new(
         checker: checker,
