@@ -824,6 +824,31 @@ module Steep
         when :masgn
           type_masgn(node)
 
+        when :while, :while_post, :until, :until_post
+          yield_self do
+            cond, body = node.children
+
+            synthesize(cond)
+
+            for_loop = TypeConstruction.new(
+              checker: checker,
+              source: source,
+              annotations: annotations,
+              var_types: var_types,
+              ivar_types: ivar_types,
+              typing: typing,
+              self_type: self_type,
+              method_context: method_context,
+              block_context: block_context,
+              module_context: module_context,
+              break_context: BreakContext.new(type: nil)
+            )
+
+            for_loop.synthesize(body)
+
+            typing.add_typing(node, Types.any)
+          end
+
         else
           raise "Unexpected node: #{node.inspect}, #{node.location.expression}"
         end
