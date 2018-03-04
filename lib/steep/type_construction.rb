@@ -124,7 +124,8 @@ module Steep
       annots = source.annotations(block: node)
       self_type = annots.self_type || self_type
 
-      interface_method = self_type && checker.resolve(self_type).methods[method_name]
+      interface_method = self_type && self_type != Types.any && checker.resolve(self_type).methods[method_name]
+      interface_method ||= nil
       annotation_method = annotations.lookup_method_type(method_name)&.yield_self do |method_type|
         Interface::Method.new(type_name: nil,
                               name: method_name,
