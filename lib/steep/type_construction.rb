@@ -22,6 +22,10 @@ module Steep
       def array_instance(type)
         AST::Types::Name.new_instance(name: "::Array", args: [type])
       end
+
+      def range_instance(type)
+        AST::Types::Name.new_instance(name: "::Range", args: [type])
+      end
     end
 
     class MethodContext
@@ -848,6 +852,11 @@ module Steep
 
             typing.add_typing(node, Types.any)
           end
+
+        when :irange, :erange
+          types = node.children.map {|n| synthesize(n) }
+          type = Types.range_instance(union_type(*types))
+          typing.add_typing(node, type)
 
         else
           raise "Unexpected node: #{node.inspect}, #{node.location.expression}"
