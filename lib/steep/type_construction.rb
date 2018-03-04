@@ -869,6 +869,9 @@ module Steep
           # ignore
           typing.add_typing(node, Types.any)
 
+        when :nth_ref
+          typing.add_typing(node, Types.string_instance)
+
         else
           raise "Unexpected node: #{node.inspect}, #{node.location.expression}"
         end
