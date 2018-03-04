@@ -1087,7 +1087,13 @@ module Steep
     def type_send(node, send_node:, block_params:, block_body:)
       receiver, method_name, *arguments = send_node.children
       receiver_type = receiver ? synthesize(receiver) : self_type
-      arguments.each {|arg| synthesize(arg) }
+      arguments.each do |arg|
+        if arg.type == :splat
+          synthesize(arg.children.first)
+        else
+          synthesize(arg)
+        end
+      end
 
       case receiver_type
       when AST::Types::Any

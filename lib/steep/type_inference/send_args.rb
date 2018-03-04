@@ -30,9 +30,15 @@ module Steep
               kw_args = h
               rest_kw = r
             else
+              if rest
+                Steep.logger.error("Non tail rest args cannot be typed")
+              end
               args << node
             end
           else
+            if rest
+              Steep.logger.error("Non tail rest args cannot be typed")
+            end
             args << node
           end
 
@@ -83,7 +89,7 @@ module Steep
             end
 
             union = AST::Types::Union.new(types: ps.map(&:last) + [params.rest])
-            array = AST::Types::Name.new_instance(name: :Array, args: [union])
+            array = AST::Types::Name.new_instance(name: :"::Array", args: [union])
 
             if rest
               pairs << [rest, array]
@@ -96,10 +102,15 @@ module Steep
               end
 
               if rest
-                pairs << [rest, AST::Types::Name.new_instance(name: :Array, args: [params.rest])]
+                pairs << [rest, AST::Types::Name.new_instance(name: :"::Array", args: [params.rest])]
               end
             else
               return
+            end
+          when args.empty? && ps.empty?
+            case
+            when rest && params.rest
+              pairs << [rest, AST::Types::Name.new_instance(name: :"::Array", args: [params.rest])]
             end
           end
 

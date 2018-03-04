@@ -2547,4 +2547,49 @@ b = [*a]
       error.is_a?(Steep::Errors::FallbackAny)
     end
   end
+
+  def test_splat_arg
+    source = parse_ruby(<<-'EOF')
+a = A.new
+a.gen(*["1"])
+    EOF
+
+    typing = Typing.new
+    annotations = source.annotations(block: source.node)
+    checker = checker(<<-EOF)
+class A
+  def initialize: () -> any
+  def gen: (*Integer) -> String
+end
+    EOF
+
+    env = ConstantEnv.new(builder: checker.builder, current_namespace: nil)
+    module_context = TypeConstruction::ModuleContext.new(
+      instance_type: nil,
+      module_type: nil,
+      const_types: annotations.const_types,
+      implement_name: nil,
+      current_namespace: nil,
+      const_env: env
+    )
+
+    construction = TypeConstruction.new(checker: checker,
+                                        source: source,
+                                        annotations: annotations,
+                                        ivar_types: annotations.ivar_types,
+                                        var_types: {},
+                                        self_type: Types::Name.new_instance(name: "::Object"),
+                                        block_context: nil,
+                                        method_context: nil,
+                                        typing: typing,
+                                        module_context: module_context,
+                                        break_context: nil)
+
+    construction.synthesize(source.node)
+
+    assert_equal 1, typing.errors.size
+    assert_any typing.errors do |error|
+      error.is_a?(Steep::Errors::ArgumentTypeMismatch)
+    end
+  end
 end
