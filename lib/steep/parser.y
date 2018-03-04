@@ -285,6 +285,16 @@ class_member: instance_method_member
             | module_instance_method_member
             | include_member
             | extend_member
+            | ivar_member
+
+ivar_member: IVAR_NAME COLON type {
+               loc = val.first.location + val.last.location
+               result = AST::Signature::Members::Ivar.new(
+                 location: loc,
+                 name: val[0].value,
+                 type: val[2]
+               )
+             }
 
 instance_method_member: DEF constructor_method method_name COLON method_type_union {
                           loc = val.first.location + val.last.last.location

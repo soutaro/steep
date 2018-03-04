@@ -53,6 +53,18 @@ module Steep
             attributes.include?(:constructor)
           end
         end
+
+        class Ivar
+          attr_reader :location
+          attr_reader :name
+          attr_reader :type
+
+          def initialize(location:, name:, type:)
+            @location = location
+            @name = name
+            @type = type
+          end
+        end
       end
     end
   end

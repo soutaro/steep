@@ -357,4 +357,23 @@ $PROGRAM_NAME: String
     assert_equal :"$PROGRAM_NAME", g.name
     assert_equal Steep::AST::Types::Name.new_instance(name: "String"), g.type
   end
+
+  def test_ivar
+    klass, _ = parse(<<-EOF)
+class A
+  @name: String
+end
+    EOF
+
+    assert_class_signature klass, name: ModuleName.parse("::A")
+
+    assert_equal 1, klass.members.size
+
+    klass.members[0].yield_self do |member|
+      assert_instance_of Steep::AST::Signature::Members::Ivar, member
+      assert_location member, start_line: 2, start_column: 2, end_line: 2, end_column: 15
+      assert_equal :"@name", member.name
+      assert_equal Steep::AST::Types::Name.new_instance(name: "String"), member.type
+    end
+  end
 end
