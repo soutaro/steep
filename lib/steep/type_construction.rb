@@ -872,6 +872,13 @@ module Steep
         when :nth_ref
           typing.add_typing(node, Types.string_instance)
 
+        when :or_asgn, :and_asgn
+          yield_self do
+            _, rhs = node.children
+            rhs_type = synthesize(rhs)
+            typing.add_typing(node, rhs_type)
+          end
+
         else
           raise "Unexpected node: #{node.inspect}, #{node.location.expression}"
         end
