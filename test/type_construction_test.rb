@@ -1935,7 +1935,7 @@ end
 
     assert_equal 1, typing.errors.size
     assert_any typing.errors do |error|
-      error.is_a?(Steep::Errors::UnexpectedBreakValue)
+      error.is_a?(Steep::Errors::UnexpectedJumpValue)
     end
   end
 
@@ -2118,5 +2118,92 @@ a ||= a + "foo"
     assert_any typing.errors do |error|
       error.is_a?(Steep::Errors::NoMethod)
     end
+  end
+
+  def test_next
+    source = parse_ruby(<<-'EOF')
+while true
+  next
+end
+    EOF
+
+    typing = Typing.new
+    annotations = source.annotations(block: source.node)
+    checker = checker()
+
+    construction = TypeConstruction.new(checker: checker,
+                                        source: source,
+                                        annotations: annotations,
+                                        ivar_types: annotations.ivar_types,
+                                        var_types: {},
+                                        self_type: Types::Name.new_instance(name: "::Object"),
+                                        block_context: nil,
+                                        method_context: nil,
+                                        typing: typing,
+                                        module_context: nil,
+                                        break_context: nil)
+
+    construction.synthesize(source.node)
+
+    assert_empty typing.errors
+  end
+
+  def test_next1
+    source = parse_ruby(<<-'EOF')
+while true
+  next 3
+end
+    EOF
+
+    typing = Typing.new
+    annotations = source.annotations(block: source.node)
+    checker = checker()
+
+    construction = TypeConstruction.new(checker: checker,
+                                        source: source,
+                                        annotations: annotations,
+                                        ivar_types: annotations.ivar_types,
+                                        var_types: {},
+                                        self_type: Types::Name.new_instance(name: "::Object"),
+                                        block_context: nil,
+                                        method_context: nil,
+                                        typing: typing,
+                                        module_context: nil,
+                                        break_context: nil)
+
+    construction.synthesize(source.node)
+
+    refute_empty typing.errors
+    assert_any typing.errors do |error|
+      error.is_a?(Steep::Errors::UnexpectedJumpValue)
+    end
+  end
+
+  def test_next2
+    source = parse_ruby(<<-'EOF')
+tap do |a|
+  next
+end
+    EOF
+
+    typing = Typing.new
+    annotations = source.annotations(block: source.node)
+    checker = checker()
+
+    construction = TypeConstruction.new(checker: checker,
+                                        source: source,
+                                        annotations: annotations,
+                                        ivar_types: annotations.ivar_types,
+                                        var_types: {},
+                                        self_type: Types::Name.new_instance(name: "::Object"),
+                                        block_context: nil,
+                                        method_context: nil,
+                                        typing: typing,
+                                        module_context: nil,
+                                        break_context: nil)
+
+    construction.synthesize(source.node)
+
+    assert_empty typing.errors
   end
 end

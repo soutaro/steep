@@ -214,15 +214,15 @@ module Steep
       end
     end
 
-    class UnexpectedBreak < Base
+    class UnexpectedJump < Base
       def to_s
-        "#{location_to_str}: UnexpectedBreak"
+        "#{location_to_str}: UnexpectedJump"
       end
     end
 
-    class UnexpectedBreakValue < Base
+    class UnexpectedJumpValue < Base
       def to_s
-        "#{location_to_str}: UnexpectedBreakValue"
+        "#{location_to_str}: UnexpectedJumpValue"
       end
     end
 

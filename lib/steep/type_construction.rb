@@ -61,10 +61,12 @@ module Steep
     end
 
     class BreakContext
-      attr_reader :type
+      attr_reader :break_type
+      attr_reader :next_type
 
-      def initialize(type:)
-        @type = type
+      def initialize(break_type:, next_type:)
+        @break_type = break_type
+        @next_type = next_type
       end
     end
 
@@ -568,22 +570,47 @@ module Steep
 
           if break_context
             case
-            when value && break_context.type
-              check(value, break_context.type) do |break_type, actual_type, result|
+            when value && break_context.break_type
+              check(value, break_context.break_type) do |break_type, actual_type, result|
                 typing.add_error Errors::BreakTypeMismatch.new(node: node,
                                                                expected: break_type,
                                                                actual: actual_type,
                                                                result: result)
               end
-            when !value && !break_context.type
+            when !value
               # ok
             else
               synthesize(value) if value
-              typing.add_error Errors::UnexpectedBreakValue.new(node: node)
+              typing.add_error Errors::UnexpectedJumpValue.new(node: node)
             end
           else
             synthesize(value)
-            typing.add_error Errors::UnexpectedBreak.new(node: node)
+            typing.add_error Errors::UnexpectedJump.new(node: node)
+          end
+
+          typing.add_typing(node, Types.any)
+
+        when :next
+          value = node.children[0]
+
+          if break_context
+            case
+            when value && break_context.next_type
+              check(value, break_context.next_type) do |break_type, actual_type, result|
+                typing.add_error Errors::BreakTypeMismatch.new(node: node,
+                                                               expected: break_type,
+                                                               actual: actual_type,
+                                                               result: result)
+              end
+            when !value
+              # ok
+            else
+              synthesize(value) if value
+              typing.add_error Errors::UnexpectedJumpValue.new(node: node)
+            end
+          else
+            synthesize(value)
+            typing.add_error Errors::UnexpectedJump.new(node: node)
           end
 
           typing.add_typing(node, Types.any)
@@ -603,6 +630,9 @@ module Steep
 
         when :int
           typing.add_typing(node, AST::Types::Name.new_instance(name: "::Integer"))
+
+        when :float
+          typing.add_typing(node, AST::Types::Name.new_instance(name: "::Float"))
 
         when :nil
           typing.add_typing(node, Types.any)
@@ -846,7 +876,7 @@ module Steep
               method_context: method_context,
               block_context: block_context,
               module_context: module_context,
-              break_context: BreakContext.new(type: nil)
+              break_context: BreakContext.new(break_type: nil, next_type: nil)
             )
 
             for_loop.synthesize(body)
@@ -879,6 +909,13 @@ module Steep
             rhs_type = synthesize(rhs)
             typing.add_typing(node, rhs_type)
           end
+
+        when :defined?
+          each_child_node(node) do |child|
+            synthesize(child)
+          end
+
+          typing.add_typing(node, Types.any)
 
         else
           raise "Unexpected node: #{node.inspect}, #{node.location.expression}"
@@ -1110,8 +1147,11 @@ module Steep
                 block_context = BlockContext.new(body_type: annots.block_type)
                 Steep.logger.debug("block_context { body_type: #{block_context.body_type} }")
 
-                break_context = BreakContext.new(type: annots.break_type || method_type.return_type)
-                Steep.logger.debug("break_context { type: #{break_context.type} }")
+                break_context = BreakContext.new(
+                  break_type: annots.break_type || method_type.return_type,
+                  next_type: annots.block_type
+                )
+                Steep.logger.debug("break_context { type: #{break_context.break_type} }")
 
                 for_block = self.class.new(
                   checker: checker,
