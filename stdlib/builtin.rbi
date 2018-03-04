@@ -102,3 +102,6 @@ class Enumerator<'a>
   def with_object: <'b> ('b) { ('a, 'b) -> any } -> 'b
   def with_index: { ('a, Integer) -> any } -> self
 end
+
+class Regexp
+end

@@ -858,6 +858,17 @@ module Steep
           type = Types.range_instance(union_type(*types))
           typing.add_typing(node, type)
 
+        when :regexp
+          each_child_node(node) do |child|
+            synthesize(child)
+          end
+
+          typing.add_typing(node, AST::Types::Name.new_instance(name: "::Regexp"))
+
+        when :regopt
+          # ignore
+          typing.add_typing(node, Types.any)
+
         else
           raise "Unexpected node: #{node.inspect}, #{node.location.expression}"
         end

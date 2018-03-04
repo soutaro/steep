@@ -46,6 +46,9 @@ class Range<'a>
   def begin: -> 'a
   def end: -> 'a
 end
+
+class Regexp
+end
   EOS
 
   DEFAULT_SIGS = <<-EOS
@@ -2022,6 +2025,37 @@ a = 2..."a"
     assert_equal 1, typing.errors.size
     assert_any typing.errors do |error|
       error.is_a?(Steep::Errors::IncompatibleAssignment)
+    end
+  end
+
+  def test_regexp
+    source = parse_ruby(<<-'EOF')
+# @type var a: Regexp
+a = /./
+a = /#{a + 3}/
+    EOF
+
+    typing = Typing.new
+    annotations = source.annotations(block: source.node)
+    checker = checker()
+
+    construction = TypeConstruction.new(checker: checker,
+                                        source: source,
+                                        annotations: annotations,
+                                        ivar_types: annotations.ivar_types,
+                                        var_types: {},
+                                        self_type: Types::Name.new_instance(name: "::Object"),
+                                        block_context: nil,
+                                        method_context: nil,
+                                        typing: typing,
+                                        module_context: nil,
+                                        break_context: nil)
+
+    construction.synthesize(source.node)
+
+    assert_equal 1, typing.errors.size
+    assert_any typing.errors do |error|
+      error.is_a?(Steep::Errors::NoMethod)
     end
   end
 end
