@@ -392,12 +392,19 @@ method_name: IDENT
            | CLASS
            | MODULE
            | INSTANCE
+           | EXTEND
+           | INCLUDE
            | OPERATOR
            | METHOD_NAME
            | BLOCK
            | INCLUDE
            | UIDENT
            | BREAK
+           | STAR | STAR2
+           | PERCENT | MINUS
+           | LT | GT
+           | METHOD
+           | BAR { result = LocatedValue.new(location: val[0].location, value: :|) }
            | CONSTRUCTOR { result = LocatedValue.new(location: val[0].location, value: :constructor) }
            | NOCONSTRUCTOR { result = LocatedValue.new(location: val[0].location, value: :noconstructor) }
            | GT GT {
@@ -561,10 +568,14 @@ def next_token
     new_token(:LTCOLON)
   when input.scan(/(\[\]=)|(\[\])|===|==|\^|!=|<</)
     new_token(:OPERATOR, input.matched.to_sym)
+  when input.scan(/<=/)
+    new_token(:OPERATOR, :<=)
+  when input.scan(/>=/)
+    new_token(:OPERATOR, :>=)
   when input.scan(/</)
-    new_token(:LT)
+    new_token(:LT, :<)
   when input.scan(/>/)
-    new_token(:GT)
+    new_token(:GT, :>)
   when input.scan(/any\b/)
     new_token(:ANY, :any)
   when input.scan(/interface\b/)
@@ -605,6 +616,8 @@ def next_token
     new_token(:CLASS, :class)
   when input.scan(/module\b/)
     new_token(:MODULE, :module)
+  when input.scan(/include\?/)
+    new_token(:METHOD_NAME, :include?)
   when input.scan(/include\b/)
     new_token(:INCLUDE, :include)
   when input.scan(/extend\b/)
@@ -613,13 +626,25 @@ def next_token
     new_token(:INSTANCE, :instance)
   when input.scan(/ivar\b/)
     new_token(:IVAR, :ivar)
+  when input.scan(/%/)
+    new_token(:PERCENT, :%)
+  when input.scan(/-/)
+    new_token(:MINUS, :-)
+  when input.scan(/&/)
+    new_token(:OPERATOR, :&)
+  when input.scan(/~/)
+    new_token(:OPERATOR, :~)
+  when input.scan(/\//)
+    new_token(:OPERATOR, :/)
+  when input.scan(/!/)
+    new_token(:OPERATOR, :!)
   when input.scan(/extension\b/)
     new_token(:EXTENSION, :extension)
   when input.scan(/constructor\b/)
     new_token(:CONSTRUCTOR, true)
   when input.scan(/noconstructor\b/)
     new_token(:NOCONSTRUCTOR, false)
-  when input.scan(/\w+(\!|\?)/)
+  when input.scan(/\w+(\!|\?|=)/)
     new_token(:METHOD_NAME, input.matched.to_sym)
   when input.scan(/\$\w+\b/)
     new_token(:GVAR, input.matched.to_sym)
