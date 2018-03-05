@@ -578,6 +578,10 @@ module Steep
           Interface::Instantiated.new(type: type,
                                       methods: methods,
                                       ivars: {})
+        when AST::Types::Void
+          Interface::Instantiated.new(type: type,
+                                      methods: {},
+                                      ivars: {})
         end
       end
     end

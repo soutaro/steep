@@ -112,4 +112,12 @@ class TypeParsingTest < Minitest::Test
     assert_instance_of AST::Types::Self, type
     assert_location type, start_line: 1, start_column: 6, end_line: 1, end_column: 10
   end
+
+  def test_void
+    type = parse_method_type("() -> void").return_type
+
+    assert_instance_of AST::Types::Void, type
+    assert_equal AST::Types::Void.new, type
+    assert_location type, start_line: 1, start_column: 6, end_line: 1, end_column: 10
+  end
 end
