@@ -1079,9 +1079,10 @@ module Steep
                                                               rhs_type: rhs_type,
                                                               result: result))
 
-          type
         end
       end
+      
+      type
     end
 
     def type_masgn(node)
@@ -1182,6 +1183,7 @@ module Steep
                             block_params: block_params,
                             block_body: block_body)
           else
+            Steep.logger.debug(node.inspect)
             Errors::IncompatibleArguments.new(node: node, method_type: method_type)
           end
         end

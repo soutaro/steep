@@ -338,7 +338,10 @@ module Steep
               end
             end
           when AST::Signature::Members::Ivar
-            merge_ivars ivars, { member.name => member.type }, from: sig.name, to: sig.name
+            merge_ivars ivars,
+                        { member.name => absolute_type(member.type, current: sig.name) },
+                        from: sig.name,
+                        to: sig.name
           end
         end
 

@@ -549,6 +549,9 @@ end
 class Class
 end
 
+class Integer
+end
+
 class Module <: Class
 end
 
@@ -573,8 +576,8 @@ end
     interface = builder.instance_to_interface(klass)
 
     assert_instance_of Interface::Abstract, interface
-    assert_equal Types::Name.new_instance(name: "String"), interface.ivars[:"@foo"]
-    assert_equal Types::Name.new_instance(name: "Integer"), interface.ivars[:"@bar"]
+    assert_equal Types::Name.new_instance(name: "::String"), interface.ivars[:"@foo"]
+    assert_equal Types::Name.new_instance(name: "::Integer"), interface.ivars[:"@bar"]
   end
 
   def test_instance_variables2
