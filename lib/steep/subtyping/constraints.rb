@@ -107,6 +107,19 @@ module Steep
           enum_for :each_constraint
         end
       end
+
+      def to_s
+        strings = []
+
+        each_constraint do |var, subs, supers|
+          s = [subs.size > 0 && AST::Types::Intersection.new(types: subs),
+               var,
+               supers.size > 0 && AST::Types::Union.new(types: supers)].select(&:itself)
+          strings << s.join("<:")
+        end
+
+        "{ #{strings.join(", ")} }"
+      end
     end
   end
 end
