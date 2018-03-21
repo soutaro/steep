@@ -2658,4 +2658,110 @@ end
       error.is_a?(Steep::Errors::ArgumentTypeMismatch)
     end
   end
+
+  def test_void
+    source = parse_ruby(<<-'EOF')
+class Hoge
+  def foo(a)
+    # @type var x: Integer
+    x = a.foo(self)
+    a.foo(self).class
+  end
+end
+    EOF
+
+    typing = Typing.new
+    annotations = source.annotations(block: source.node)
+    checker = checker(<<-EOF)
+class Hoge
+  def foo: (self) -> void
+end
+    EOF
+
+    env = ConstantEnv.new(builder: checker.builder, current_namespace: nil)
+    module_context = TypeConstruction::ModuleContext.new(
+      instance_type: nil,
+      module_type: nil,
+      const_types: annotations.const_types,
+      implement_name: nil,
+      current_namespace: nil,
+      const_env: env
+    )
+
+    construction = TypeConstruction.new(checker: checker,
+                                        source: source,
+                                        annotations: annotations,
+                                        ivar_types: annotations.ivar_types,
+                                        var_types: {},
+                                        self_type: Types::Name.new_instance(name: "::Object"),
+                                        block_context: nil,
+                                        method_context: nil,
+                                        typing: typing,
+                                        module_context: module_context,
+                                        break_context: nil)
+
+    construction.synthesize(source.node)
+
+    assert_equal 2, typing.errors.size
+    assert_any typing.errors do |error|
+      error.is_a?(Steep::Errors::IncompatibleAssignment) && error.rhs_type.is_a?(Types::Void)
+    end
+    assert_any typing.errors do |error|
+      error.is_a?(Steep::Errors::NoMethod) && error.type.is_a?(Types::Void)
+    end
+  end
+
+  def test_void2
+    source = parse_ruby(<<-'EOF')
+class Hoge
+  def foo()
+    # @type var x: String
+    x = yield
+    x = yield.class
+
+    self.foo { 30 }
+  end
+end
+    EOF
+
+    typing = Typing.new
+    annotations = source.annotations(block: source.node)
+    checker = checker(<<-EOF)
+class Hoge
+  def foo: () { () -> void } -> any
+end
+    EOF
+
+    env = ConstantEnv.new(builder: checker.builder, current_namespace: nil)
+    module_context = TypeConstruction::ModuleContext.new(
+      instance_type: nil,
+      module_type: nil,
+      const_types: annotations.const_types,
+      implement_name: nil,
+      current_namespace: nil,
+      const_env: env
+    )
+
+    construction = TypeConstruction.new(checker: checker,
+                                        source: source,
+                                        annotations: annotations,
+                                        ivar_types: annotations.ivar_types,
+                                        var_types: {},
+                                        self_type: Types::Name.new_instance(name: "::Object"),
+                                        block_context: nil,
+                                        method_context: nil,
+                                        typing: typing,
+                                        module_context: module_context,
+                                        break_context: nil)
+
+    construction.synthesize(source.node)
+
+    assert_equal 2, typing.errors.size
+    assert_any typing.errors do |error|
+      error.is_a?(Steep::Errors::IncompatibleAssignment) && error.rhs_type.is_a?(Types::Void)
+    end
+    assert_any typing.errors do |error|
+      error.is_a?(Steep::Errors::NoMethod) && error.type.is_a?(Types::Void)
+    end
+  end
 end

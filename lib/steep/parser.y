@@ -150,6 +150,7 @@ simple_type: type_name {
     | MODULE { result = AST::Types::Class.new(location: val[0].location) }
     | INSTANCE { result = AST::Types::Instance.new(location: val[0].location) }
     | SELF { result = AST::Types::Self.new(location: val[0].location) }
+    | VOID { result = AST::Types::Void.new(location: val[0].location) }
 
 type_name: module_name {
              result = LocatedValue.new(value: TypeName::Instance.new(name: val[0].value),
@@ -385,7 +386,7 @@ method_type_union: method_type { result = [val[0]] }
 method_name: IDENT
            | MODULE_NAME
            | INTERFACE_NAME
-           | ANY
+           | ANY | VOID
            | INTERFACE
            | END
            | PLUS
@@ -578,6 +579,8 @@ def next_token
     new_token(:GT, :>)
   when input.scan(/any\b/)
     new_token(:ANY, :any)
+  when input.scan(/void\b/)
+    new_token(:VOID, :void)
   when input.scan(/interface\b/)
     new_token(:INTERFACE, :interface)
   when input.scan(/end\b/)

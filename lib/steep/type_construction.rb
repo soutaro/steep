@@ -496,7 +496,7 @@ module Steep
 
           if node.children[2]
             return_type = new.method_context&.return_type
-            if return_type
+            if return_type && !return_type.is_a?(AST::Types::Void)
               new.check(node.children[2], return_type) do |_, actual_type, result|
                 typing.add_error(Errors::MethodBodyTypeMismatch.new(node: node,
                                                                     expected: return_type,
@@ -526,8 +526,9 @@ module Steep
             end
 
             if node.children[3]
-              if new&.method_context&.method_type
-                new.check(node.children[3], new.method_context.method_type.return_type) do |return_type, actual_type, result|
+              return_type = new.method_context&.return_type
+              if return_type && !return_type.is_a?(AST::Types::Void)
+                new.check(node.children[3], return_type) do |return_type, actual_type, result|
                   typing.add_error(Errors::MethodBodyTypeMismatch.new(node: node,
                                                                       expected: return_type,
                                                                       actual: actual_type,
@@ -551,7 +552,7 @@ module Steep
           value = node.children[0]
 
           if value
-            if method_context&.return_type
+            if method_context&.return_type && !method_context.return_type.is_a?(AST::Types::Void)
               check(value, method_context.return_type) do |_, actual_type, result|
                 typing.add_error(Errors::ReturnTypeMismatch.new(node: node,
                                                                 expected: method_context.return_type,
@@ -1081,7 +1082,7 @@ module Steep
 
         end
       end
-      
+
       type
     end
 
@@ -1295,18 +1296,22 @@ module Steep
 
                 block_type = for_block.synthesize(block_body)
 
-                result = checker.check(Subtyping::Relation.new(
-                  sub_type: annots.block_type || block_type,
-                  super_type: method_type.block.return_type
-                ), constraints: constraints)
+                unless method_type.block.return_type.is_a?(AST::Types::Void)
+                  result = checker.check(Subtyping::Relation.new(
+                    sub_type: annots.block_type || block_type,
+                    super_type: method_type.block.return_type
+                  ), constraints: constraints)
 
-                if result.success?
-                  return_type.subst(constraints.subst(checker))
+                  if result.success?
+                    return_type.subst(constraints.subst(checker))
+                  else
+                    typing.add_error Errors::BlockTypeMismatch.new(node: node,
+                                                                   expected: method_type.block.return_type,
+                                                                   actual: annots.block_type || block_type,
+                                                                   result: result)
+                    return_type
+                  end
                 else
-                  typing.add_error Errors::BlockTypeMismatch.new(node: node,
-                                                                 expected: method_type.block.return_type,
-                                                                 actual: annots.block_type || block_type,
-                                                                 result: result)
                   return_type
                 end
               end

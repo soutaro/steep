@@ -367,6 +367,29 @@ end
     assert_instance_of Subtyping::Result::Failure::MethodMissingError, result.error
   end
 
+  def test_void
+    checker = new_checker("")
+
+    result = checker.check(
+      Subtyping::Relation.new(
+        sub_type: AST::Types::Void.new,
+        super_type: AST::Types::Void.new
+      ),
+      constraints: Subtyping::Constraints.empty
+    )
+    assert_instance_of Subtyping::Result::Success, result
+
+    result = checker.check(
+      Subtyping::Relation.new(
+        sub_type: AST::Types::Void.new,
+        super_type: AST::Types::Name.new_instance(name: "::A"),
+        ),
+      constraints: Subtyping::Constraints.empty
+    )
+    assert_instance_of Subtyping::Result::Failure, result
+    assert_instance_of Subtyping::Result::Failure::UnknownPairError, result.error
+  end
+
   def test_union
     checker = new_checker(<<-EOS)
     EOS
@@ -512,6 +535,16 @@ end
     refute_empty interface.methods[:class].types
     assert_equal [AST::Types::Name.new_instance(name: "::String")], interface.methods[:to_str].types.map(&:return_type)
     assert_equal [AST::Types::Name.new_instance(name: "::Integer")], interface.methods[:to_int].types.map(&:return_type)
+  end
+
+  def test_resolve_void
+    checker = new_checker("")
+
+    interface = checker.resolve(AST::Types::Void.new)
+
+    assert_instance_of Interface::Instantiated, interface
+    assert_empty interface.methods
+    assert_empty interface.ivars
   end
 
   def test_constraints1
