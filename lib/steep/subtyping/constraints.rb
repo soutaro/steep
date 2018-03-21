@@ -45,8 +45,15 @@ module Steep
       def add(var, sub_type: nil, super_type: nil)
         subs, supers = dictionary[var]
 
-        supers << super_type if super_type
-        subs << sub_type if sub_type
+        if super_type
+          supers << super_type
+          supers.uniq!
+        end
+
+        if sub_type
+          subs << sub_type
+          subs.uniq!
+        end
       end
 
       def domain?(var)

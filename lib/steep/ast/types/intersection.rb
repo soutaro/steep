@@ -6,7 +6,13 @@ module Steep
         attr_reader :location
 
         def initialize(types:, location: nil)
-          @types = types
+          @types = types.flat_map do |type|
+            if type.is_a?(Intersection)
+              type.types
+            else
+              [type]
+            end
+          end.uniq.reject {|type| type.is_a?(Any) }
           @location = location
         end
 
