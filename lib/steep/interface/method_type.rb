@@ -143,6 +143,16 @@ module Steep
       def size
         required.size + optional.size + (rest ? 1 : 0) + required_keywords.size + optional_keywords.size + (rest_keywords ? 1 : 0)
       end
+
+      def to_s
+        required = self.required.map {|ty| ty.to_s }
+        optional = self.optional.map {|ty| "?#{ty}" }
+        rest = self.rest ? ["*#{self.rest}"] : []
+        required_keywords = self.required_keywords.map {|name, type| "#{name}: #{type}" }
+        optional_keywords = self.optional_keywords.map {|name, type| "?#{name}: #{type}"}
+        rest_keywords = self.rest_keywords ? ["**#{self.rest_keywords}"] : []
+        "(#{(required + optional + rest + required_keywords + optional_keywords + rest_keywords).join(", ")})"
+      end
     end
 
     class Block
@@ -167,6 +177,10 @@ module Steep
           params: params.subst(s),
           return_type: return_type.subst(s)
         )
+      end
+
+      def to_s
+        "{ #{params} -> #{return_type} }"
       end
     end
 
@@ -229,6 +243,14 @@ module Steep
           return_type: return_type.subst(s),
           location: location,
           )
+      end
+
+      def to_s
+        type_params = !self.type_params.empty? ? "<#{self.type_params.join(", ")}> " : ""
+        params = self.params.to_s
+        block = self.block ? " #{self.block}" : ""
+
+        "#{type_params}#{params}#{block} -> #{return_type}"
       end
     end
   end
