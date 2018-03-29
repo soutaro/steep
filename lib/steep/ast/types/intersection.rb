@@ -6,14 +6,31 @@ module Steep
         attr_reader :location
 
         def initialize(types:, location: nil)
-          @types = types.flat_map do |type|
+          @types = types
+          @location = location
+        end
+
+        def self.build(types:, location: nil)
+          types.flat_map do |type|
             if type.is_a?(Intersection)
               type.types
             else
               [type]
             end
-          end.uniq.reject {|type| type.is_a?(Any) }
-          @location = location
+          end.map do |type|
+            case type
+            when AST::Types::Any
+              return AST::Types::Any.new()
+            when AST::Types::Bot
+              return AST::Types::Bot.new()
+            when AST::Types::Top
+              nil
+            else
+              type
+            end
+          end.compact.uniq.yield_self do |tys|
+            new(types: tys.sort_by(&:hash), location: location)
+          end
         end
 
         def ==(other, ignore_location: false)
