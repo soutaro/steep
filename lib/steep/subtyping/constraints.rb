@@ -215,10 +215,17 @@ module Steep
               if result.success?
                 vars << var
 
-                type = if variance.contravariant?(var)
+                type = case
+                       when variance.contravariant?(var)
                          upper_bound
-                       else
+                       when variance.covariant?(var)
                          lower_bound
+                       else
+                         if lower_bound.level.join > upper_bound.level.join
+                           upper_bound
+                         else
+                           lower_bound
+                         end
                        end
 
                 types << type

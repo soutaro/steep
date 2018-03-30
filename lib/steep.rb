@@ -9,6 +9,7 @@ require "active_support/tagged_logging"
 
 require "steep/module_name"
 require "steep/ast/location"
+require "steep/ast/types/helper"
 require "steep/ast/types/any"
 require "steep/ast/types/instance"
 require "steep/ast/types/class"

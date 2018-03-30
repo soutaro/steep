@@ -24,6 +24,10 @@ module Steep
         def free_variables
           Set.new
         end
+
+        def level
+          [0]
+        end
       end
     end
   end
