@@ -89,11 +89,35 @@ end
       contravariants: Set.new([:b, :c])
     )
 
-    subst = constraints.solution(checker, variance: variance)
+    subst = constraints.solution(checker, variance: variance, variables: Set.new([:a, :b, :c]))
 
     assert_equal string, subst[:a]
     assert_equal integer, subst[:b]
     assert_equal object, subst[:c]
+  end
+
+  def test_subst2
+    checker = new_checker("")
+
+    object = AST::Types::Name.new_instance(name: :Object)
+    string = AST::Types::Name.new_instance(name: :String)
+    integer = AST::Types::Name.new_instance(name: :Integer)
+
+    constraints = Subtyping::Constraints.new(unknowns: [:a, :b, :c])
+    constraints.add(:a, sub_type: string)
+    constraints.add(:b, super_type: integer)
+    constraints.add(:c, sub_type: object, super_type: object)
+
+    variance = Subtyping::VariableVariance.new(
+      covariants: Set.new([:a, :c]),
+      contravariants: Set.new([:b, :c])
+    )
+
+    subst = constraints.solution(checker, variance: variance, variables: Set.new([:a, :b]))
+
+    assert_equal string, subst[:a]
+    assert_equal integer, subst[:b]
+    refute_operator subst, :key?, :c
   end
 
   def test_variable_elimination

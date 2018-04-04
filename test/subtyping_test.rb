@@ -601,7 +601,7 @@ end
     assert_equal AST::Types::Name.new_instance(name: :"::String"), result.constraints.lower_bound(:x)
 
     variance = Subtyping::VariableVariance.new(covariants: Set.new([:x]), contravariants: Set.new([:x]))
-    s = result.constraints.solution(checker, variance: variance)
+    s = result.constraints.solution(checker, variance: variance, variables: Set.new([:x]))
     assert_equal AST::Types::Name.new_instance(name: :"::String"), AST::Types::Var.new(name: :x).subst(s)
   end
 
@@ -631,7 +631,7 @@ end
     assert_instance_of AST::Types::Bot, result.constraints.lower_bound(:x)
 
     variance = Subtyping::VariableVariance.new(contravariants: Set.new([:x]), covariants: Set.new)
-    s = result.constraints.solution(checker, variance: variance)
+    s = result.constraints.solution(checker, variance: variance, variables: Set.new([:x]))
     assert_equal AST::Types::Name.new_instance(name: :"::String"), AST::Types::Var.new(name: :x).subst(s)
   end
 
@@ -663,7 +663,7 @@ end
 
     variance = Subtyping::VariableVariance.new(contravariants: Set.new([:x]),
                                                covariants: Set.new([:x]))
-    s = result.constraints.solution(checker, variance: variance)
+    s = result.constraints.solution(checker, variance: variance, variables: Set.new([:x]))
     assert_equal AST::Types::Name.new_instance(name: :"::String"), AST::Types::Var.new(name: :x).subst(s)
   end
 end

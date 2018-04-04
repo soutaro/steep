@@ -1201,6 +1201,7 @@ module Steep
 
     def try_method_type(node, method_type:, arg_pairs:, block_params:, block_body:)
       fresh_types = method_type.type_params.map {|x| AST::Types::Var.fresh(x) }
+      fresh_vars = Set.new(fresh_types.map(&:name))
       instantiation = Interface::Substitution.build(method_type.type_params, fresh_types)
 
       method_type.instantiate(instantiation).yield_self do |method_type|
@@ -1222,7 +1223,7 @@ module Steep
           end
         end
 
-        method_type.subst(constraints.solution(checker, variance: variance)).yield_self do |method_type|
+        method_type.subst(constraints.solution(checker, variance: variance, variables: fresh_vars)).yield_self do |method_type|
           case
           when method_type.block && block_params
             annots = source.annotations(block: node)
@@ -1260,7 +1261,7 @@ module Steep
               end
             end
 
-            method_type.subst(constraints.solution(checker, variance: variance)).yield_self do |method_type|
+            method_type.subst(constraints.solution(checker, variance: variance, variables: fresh_vars)).yield_self do |method_type|
               if block_body
                 return_type = if annots.break_type
                                 union_type(method_type.return_type, annots.break_type)
@@ -1304,7 +1305,7 @@ module Steep
                   ), constraints: constraints)
 
                   if result.success?
-                    return_type.subst(constraints.solution(checker, variance: variance))
+                    return_type.subst(constraints.solution(checker, variance: variance, variables: fresh_vars))
                   else
                     typing.add_error Errors::BlockTypeMismatch.new(node: node,
                                                                    expected: method_type.block.return_type,

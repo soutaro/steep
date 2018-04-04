@@ -201,39 +201,41 @@ module Steep
         end
       end
 
-      def solution(checker, variance:)
+      def solution(checker, variance:, variables:)
         vars = []
         types = []
 
         dictionary.each_key do |var|
-          if has_constraint?(var)
-            upper_bound = upper_bound(var)
-            lower_bound = lower_bound(var)
-            relation = Relation.new(sub_type: lower_bound, super_type: upper_bound)
+          if variables.include?(var)
+            if has_constraint?(var)
+              upper_bound = upper_bound(var)
+              lower_bound = lower_bound(var)
+              relation = Relation.new(sub_type: lower_bound, super_type: upper_bound)
 
-            checker.check(relation, constraints: self.class.empty).yield_self do |result|
-              if result.success?
-                vars << var
+              checker.check(relation, constraints: self.class.empty).yield_self do |result|
+                if result.success?
+                  vars << var
 
-                type = case
-                       when variance.contravariant?(var)
-                         upper_bound
-                       when variance.covariant?(var)
-                         lower_bound
-                       else
-                         if lower_bound.level.join > upper_bound.level.join
+                  type = case
+                         when variance.contravariant?(var)
                            upper_bound
-                         else
+                         when variance.covariant?(var)
                            lower_bound
+                         else
+                           if lower_bound.level.join > upper_bound.level.join
+                             upper_bound
+                           else
+                             lower_bound
+                           end
                          end
-                       end
 
-                types << type
-              else
-                raise UnsatisfiableConstraint.new(var: var,
-                                                  sub_type: lower_bound,
-                                                  super_type: upper_bound,
-                                                  result: result)
+                  types << type
+                else
+                  raise UnsatisfiableConstraint.new(var: var,
+                                                    sub_type: lower_bound,
+                                                    super_type: upper_bound,
+                                                    result: result)
+                end
               end
             end
           end
