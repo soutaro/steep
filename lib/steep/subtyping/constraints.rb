@@ -60,6 +60,7 @@ module Steep
         attr_reader :var
         attr_reader :sub_type
         attr_reader :super_type
+        attr_reader :result
 
         def initialize(var:, sub_type:, super_type:, result:)
           @var = var
