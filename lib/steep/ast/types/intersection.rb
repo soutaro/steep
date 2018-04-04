@@ -10,6 +10,29 @@ module Steep
           @location = location
         end
 
+        def self.build(types:, location: nil)
+          types.flat_map do |type|
+            if type.is_a?(Intersection)
+              type.types
+            else
+              [type]
+            end
+          end.map do |type|
+            case type
+            when AST::Types::Any
+              return AST::Types::Any.new()
+            when AST::Types::Bot
+              return AST::Types::Bot.new()
+            when AST::Types::Top
+              nil
+            else
+              type
+            end
+          end.compact.uniq.yield_self do |tys|
+            new(types: tys.sort_by(&:hash), location: location)
+          end
+        end
+
         def ==(other, ignore_location: false)
           other.is_a?(Intersection) &&
             other.types == types &&
@@ -37,6 +60,12 @@ module Steep
           types.each.with_object(Set.new) do |type, set|
             set.merge(type.free_variables)
           end
+        end
+
+        include Helper::ChildrenLevel
+
+        def level
+          [0] + level_of_children(types)
         end
       end
     end

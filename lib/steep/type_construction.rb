@@ -1201,10 +1201,13 @@ module Steep
 
     def try_method_type(node, method_type:, arg_pairs:, block_params:, block_body:)
       fresh_types = method_type.type_params.map {|x| AST::Types::Var.fresh(x) }
+      fresh_vars = Set.new(fresh_types.map(&:name))
       instantiation = Interface::Substitution.build(method_type.type_params, fresh_types)
 
       method_type.instantiate(instantiation).yield_self do |method_type|
-        constraints = Subtyping::Constraints.new(domain: fresh_types.map(&:name))
+        constraints = Subtyping::Constraints.new(unknowns: fresh_types.map(&:name))
+        variance = Subtyping::VariableVariance.from_method_type(method_type)
+        occurence = Subtyping::VariableOccurence.from_method_type(method_type)
 
         arg_pairs.each do |(arg_node, param_type)|
           relation = Subtyping::Relation.new(
@@ -1221,122 +1224,157 @@ module Steep
           end
         end
 
-        method_type.subst(constraints.subst(checker)).yield_self do |method_type|
-          case
-          when method_type.block && block_params
-            annots = source.annotations(block: node)
+        if method_type.block && block_params
+          block_annotations = source.annotations(block: node)
 
-            params = TypeInference::BlockParams.from_node(block_params, annotations: annots)
-            block_param_pairs = params.zip(method_type.block.params)
+          params = TypeInference::BlockParams.from_node(block_params, annotations: block_annotations)
+          block_param_pairs = params.zip(method_type.block.params)
 
-            unless block_param_pairs
-              return Errors::IncompatibleBlockParameters.new(
-                node: node,
-                method_type: method_type
+          unless block_param_pairs
+            return Errors::IncompatibleBlockParameters.new(
+              node: node,
+              method_type: method_type
+            )
+          end
+
+          block_param_pairs.each do |param, type|
+            if param.type
+              relation = Subtyping::Relation.new(
+                sub_type: type,
+                super_type: param.type
               )
-            end
 
-            var_types = self.var_types.dup
-
-            block_param_pairs.each do |param, type|
-              if param.type
-                relation = Subtyping::Relation.new(
-                  sub_type: type,
-                  super_type: param.type
+              checker.check(relation, constraints: constraints).else do |result|
+                return Errors::BlockParameterTypeMismatch.new(
+                  node: param.node,
+                  expected: type,
+                  actual: param.type
                 )
-
-                checker.check(relation, constraints: constraints).else do
-                  return Errors::BlockParameterTypeMismatch.new(
-                    node: param.node,
-                    expected: type,
-                    actual: param.type
-                  )
-                end
-
-                var_types[param.var] = param.type
-              else
-                var_types[param.var] = type
               end
             end
+          end
 
-            method_type.subst(constraints.subst(checker)).yield_self do |method_type|
-              if block_body
-                return_type = if annots.break_type
-                                union_type(method_type.return_type, annots.break_type)
-                              else
-                                method_type.return_type
-                              end
-                Steep.logger.debug("return_type = #{return_type}")
+          if block_annotations.block_type
+            relation = Subtyping::Relation.new(
+              sub_type: absolute_type(block_annotations.block_type),
+              super_type: method_type.block.return_type
+            )
 
-                block_context = BlockContext.new(body_type: annots.block_type)
-                Steep.logger.debug("block_context { body_type: #{block_context.body_type} }")
+            checker.check(relation, constraints: constraints).else do |result|
+              typing.add_error Errors::BlockTypeMismatch.new(node: node,
+                                                             expected: method_type.block.return_type,
+                                                             actual: block_annotations.block_type,
+                                                             result: result)
+            end
+          end
+        end
 
-                break_context = BreakContext.new(
-                  break_type: annots.break_type || method_type.return_type,
-                  next_type: annots.block_type
-                )
-                Steep.logger.debug("break_context { type: #{break_context.break_type} }")
+        case
+        when method_type.block && block_params && block_body
+          Steep.logger.debug "block is okay: method_type=#{method_type}"
+          Steep.logger.debug "Constraints = #{constraints}"
 
-                for_block = self.class.new(
-                  checker: checker,
-                  source: source,
-                  annotations: annotations + annots,
-                  var_types: var_types,
-                  block_context: block_context,
-                  typing: typing,
-                  method_context: method_context,
-                  module_context: self.module_context,
-                  self_type: annots.self_type || self_type,
-                  break_context: break_context
-                )
+          begin
+            method_type.subst(constraints.solution(checker, variance: variance, variables: occurence.params)).yield_self do |method_type|
+              block_annotations = source.annotations(block: node)
 
-                each_child_node(block_params) do |p|
-                  for_block.synthesize(p)
-                end
+              params = TypeInference::BlockParams.from_node(block_params, annotations: block_annotations)
+              block_param_pairs = params.zip(method_type.block.params)
 
-                block_type = for_block.synthesize(block_body)
+              block_var_types = self.var_types.dup
 
-                unless method_type.block.return_type.is_a?(AST::Types::Void)
-                  result = checker.check(Subtyping::Relation.new(
-                    sub_type: annots.block_type || block_type,
-                    super_type: method_type.block.return_type
-                  ), constraints: constraints)
-
-                  if result.success?
-                    return_type.subst(constraints.subst(checker))
-                  else
-                    typing.add_error Errors::BlockTypeMismatch.new(node: node,
-                                                                   expected: method_type.block.return_type,
-                                                                   actual: annots.block_type || block_type,
-                                                                   result: result)
-                    return_type
-                  end
+              block_param_pairs.each do |param, type|
+                if param.type
+                  block_var_types[param.var] = param.type
                 else
+                  block_var_types[param.var] = type
+                end
+              end
+
+              return_type = if block_annotations.break_type
+                              union_type(method_type.return_type, block_annotations.break_type)
+                            else
+                              method_type.return_type
+                            end
+              Steep.logger.debug("return_type = #{return_type}")
+
+              block_context = BlockContext.new(body_type: block_annotations.block_type)
+              Steep.logger.debug("block_context { body_type: #{block_context.body_type} }")
+
+              break_context = BreakContext.new(
+                break_type: block_annotations.break_type || method_type.return_type,
+                next_type: block_annotations.block_type
+              )
+              Steep.logger.debug("break_context { type: #{break_context.break_type} }")
+
+              for_block = self.class.new(
+                checker: checker,
+                source: source,
+                annotations: annotations + block_annotations,
+                var_types: block_var_types,
+                block_context: block_context,
+                typing: typing,
+                method_context: method_context,
+                module_context: module_context,
+                self_type: block_annotations.self_type || self_type,
+                break_context: break_context
+              )
+
+              each_child_node(block_params) do |p|
+                for_block.synthesize(p)
+              end
+
+              block_body_type = for_block.synthesize(block_body)
+
+              unless method_type.block.return_type.is_a?(AST::Types::Void)
+                result = checker.check(Subtyping::Relation.new(
+                  sub_type: block_annotations.block_type || block_body_type,
+                  super_type: method_type.block.return_type
+                ), constraints: constraints)
+
+                if result.success?
+                  return_type.subst(constraints.solution(checker, variance: variance, variables: fresh_vars))
+                else
+                  typing.add_error Errors::BlockTypeMismatch.new(node: node,
+                                                                 expected: method_type.block.return_type,
+                                                                 actual: block_annotations.block_type || block_body_type,
+                                                                 result: result)
                   return_type
                 end
+              else
+                return_type
               end
             end
 
-          when !method_type.block && !block_params && !block_body
-            # OK, without block
-            method_type.return_type
-
-          when !method_type.block && block_params && block_body
-            Errors::UnexpectedBlockGiven.new(
-              node: node,
-              method_type: method_type
+          rescue Subtyping::Constraints::UnsatisfiableConstraint => exn
+            typing.add_error Errors::UnsatisfiableConstraint.new(node: node,
+                                                                 method_type: method_type,
+                                                                 var: exn.var,
+                                                                 sub_type: exn.sub_type,
+                                                                 super_type: exn.super_type,
+                                                                 result: exn.result
             )
-
-          when method_type.block && !block_params && !block_body
-            Errors::RequiredBlockMissing.new(
-              node: node,
-              method_type: method_type
-            )
-
-          else
-            raise "Unexpected case condition"
-
+            fallback_any_rec node
           end
+
+        when !method_type.block && !block_params && !block_body
+          # OK, without block
+          method_type.subst(constraints.solution(checker, variance: variance, variables: fresh_vars)).return_type
+
+        when !method_type.block && block_params && block_body
+          Errors::UnexpectedBlockGiven.new(
+            node: node,
+            method_type: method_type
+          )
+
+        when method_type.block && !block_params && !block_body
+          Errors::RequiredBlockMissing.new(
+            node: node,
+            method_type: method_type
+          )
+
+        else
+          raise "Unexpected case condition"
         end
       end
     end
@@ -1666,6 +1704,16 @@ module Steep
               end
 
       !nodes.empty? && nodes.all? {|child| child.type == :class || child.type == :module }
+    end
+
+    def fallback_any_rec(node)
+      fallback_to_any(node) unless typing.has_type?(node)
+
+      each_child_node(node) do |child|
+        fallback_any_rec(child)
+      end
+
+      typing.type_of(node: node)
     end
   end
 end

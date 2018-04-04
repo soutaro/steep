@@ -1,7 +1,7 @@
 module Steep
   module AST
     module Types
-      class Self
+      class Top
         attr_reader :location
 
         def initialize(location: nil)
@@ -9,16 +9,23 @@ module Steep
         end
 
         def ==(other, ignore_location: false)
-          other.is_a?(Self) &&
-            (ignore_location || !other.location || !location || other.location == location)
+          other.is_a?(Top) && (ignore_location || !other.location || !location || other.location == location)
         end
 
-        def to_s
-          "self"
+        def hash
+          self.class.hash
+        end
+
+        def eql?(other)
+          __send__(:==, other, ignore_location: true)
         end
 
         def subst(s)
-          s.self_type or raise "Unexpected substitution: #{inspect}"
+          self
+        end
+
+        def to_s
+          "⟙"
         end
 
         def free_variables
@@ -26,7 +33,7 @@ module Steep
         end
 
         def level
-          [0]
+          [2]
         end
       end
     end

@@ -115,6 +115,12 @@ module Steep
             vars.merge(type.free_variables)
           end
         end
+
+        include Helper::ChildrenLevel
+
+        def level
+          [0] + level_of_children(args)
+        end
       end
     end
   end

@@ -51,7 +51,12 @@ class Regexp
 end
 
 class Array<'a>
+  def []: (Integer) -> 'a
+  def []=: (Integer, 'a) -> 'a
+  def <<: ('a) -> self
   def each: { ('a) -> any } -> self
+  def zip: <'b> (Array<'b>) -> Array<'a | 'b>
+  def each_with_object: <'b> ('b) { ('a, 'b) -> any } -> 'b
 end
   EOS
 
@@ -2763,5 +2768,61 @@ end
     assert_any typing.errors do |error|
       error.is_a?(Steep::Errors::NoMethod) && error.type.is_a?(Types::Void)
     end
+  end
+
+  def test_zip
+    source = parse_ruby(<<EOF)
+a = [1]
+
+# @type var b: ::Array<Integer|String>
+b = a.zip(["foo"])
+EOF
+    typing = Typing.new
+    annotations = source.annotations(block: source.node)
+    checker = checker("")
+
+    construction = TypeConstruction.new(checker: checker,
+                                        source: source,
+                                        annotations: annotations,
+                                        var_types: {},
+                                        block_context: nil,
+                                        self_type: nil,
+                                        method_context: nil,
+                                        typing: typing,
+                                        module_context: nil,
+                                        break_context: nil)
+    construction.synthesize(source.node)
+
+    assert_empty typing.errors
+  end
+
+  def test_each_with_object
+    source = parse_ruby(<<EOF)
+a = [1]
+
+# @type var b: ::Array<Integer>
+b = a.each_with_object([]) do |x, y|
+  # @type var y: ::Array<String>
+  y << ""
+end
+EOF
+    typing = Typing.new
+    annotations = source.annotations(block: source.node)
+    checker = checker("")
+
+    construction = TypeConstruction.new(checker: checker,
+                                        source: source,
+                                        annotations: annotations,
+                                        var_types: {},
+                                        block_context: nil,
+                                        self_type: nil,
+                                        method_context: nil,
+                                        typing: typing,
+                                        module_context: nil,
+                                        break_context: nil)
+    construction.synthesize(source.node)
+
+    refute_empty typing.errors
+    assert_instance_of Steep::Errors::IncompatibleAssignment, typing.errors[0]
   end
 end

@@ -59,8 +59,14 @@ module Steep
         when relation.sub_type.is_a?(AST::Types::Any) || relation.super_type.is_a?(AST::Types::Any)
           success(constraints: constraints)
 
+        when relation.super_type.is_a?(AST::Types::Top)
+          success(constraints: constraints)
+
+        when relation.sub_type.is_a?(AST::Types::Bot)
+          success(constraints: constraints)
+
         when relation.super_type.is_a?(AST::Types::Var)
-          if constraints.domain?(relation.super_type.name)
+          if constraints.unknown?(relation.super_type.name)
             constraints.add(relation.super_type.name, sub_type: relation.sub_type)
             success(constraints: constraints)
           else
@@ -69,7 +75,7 @@ module Steep
           end
 
         when relation.sub_type.is_a?(AST::Types::Var)
-          if constraints.domain?(relation.sub_type.name)
+          if constraints.unknown?(relation.sub_type.name)
             constraints.add(relation.sub_type.name, super_type: relation.super_type)
             success(constraints: constraints)
           else
@@ -126,11 +132,29 @@ module Steep
           end
 
         when relation.sub_type.is_a?(AST::Types::Name) && relation.super_type.is_a?(AST::Types::Name)
-          sub_interface = resolve(relation.sub_type)
-          super_interface = resolve(relation.super_type)
+          if relation.sub_type.name == relation.super_type.name && relation.sub_type.args.size == relation.super_type.args.size
+            results = relation.sub_type.args.zip(relation.super_type.args).flat_map do |(sub, sup)|
+              Relation.new(sub_type: sub, super_type: sup).yield_self do |rel|
+                [rel, rel.flip]
+              end
+            end.map do |relation|
+              check0(relation,
+                     assumption: assumption,
+                     trace: trace,
+                     constraints: constraints)
+            end
 
-          check_interface(sub_interface, super_interface, assumption: assumption, trace: trace, constraints: constraints)
+            if results.all?(&:success?)
+              results.first
+            else
+              results.find(&:failure?)
+            end
+          else
+            sub_interface = resolve(relation.sub_type)
+            super_interface = resolve(relation.super_type)
 
+            check_interface(sub_interface, super_interface, assumption: assumption, trace: trace, constraints: constraints)
+          end
 
         else
           failure(error: Result::Failure::UnknownPairError.new(relation: relation),
@@ -199,6 +223,8 @@ module Steep
                     sub_type = sub_type.instantiate(Interface::Substitution.build(sub_type.type_params,
                                                                                   sub_args))
 
+                    constraints.add_var(*sub_args)
+
                     match_method_type(name, sub_type, super_type, trace: trace).yield_self do |pairs|
                       case pairs
                       when Array
@@ -231,6 +257,8 @@ module Steep
                                                                                   args))
                     super_type = super_type.instantiate(Interface::Substitution.build(super_type.type_params,
                                                                                       args))
+
+                    constraints.add_var(*args)
 
                     check_method_type(name,
                                       sub_type,

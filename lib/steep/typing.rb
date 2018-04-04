@@ -23,6 +23,10 @@ module Steep
       type
     end
 
+    def has_type?(node)
+      typing.key?(node.__id__)
+    end
+
     def add_var_type(variable, type)
       if var_typing.key?(variable)
         unless var_typing[variable] == type
