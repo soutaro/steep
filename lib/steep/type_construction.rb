@@ -1204,7 +1204,8 @@ module Steep
       instantiation = Interface::Substitution.build(method_type.type_params, fresh_types)
 
       method_type.instantiate(instantiation).yield_self do |method_type|
-        constraints = Subtyping::Constraints.new(domain: fresh_types.map(&:name))
+        constraints = Subtyping::Constraints.new(unknowns: fresh_types.map(&:name))
+        variance = Subtyping::VariableVariance.from_method_type(method_type)
 
         arg_pairs.each do |(arg_node, param_type)|
           relation = Subtyping::Relation.new(
@@ -1221,7 +1222,7 @@ module Steep
           end
         end
 
-        method_type.subst(constraints.subst(checker)).yield_self do |method_type|
+        method_type.subst(constraints.solution(checker, variance: variance)).yield_self do |method_type|
           case
           when method_type.block && block_params
             annots = source.annotations(block: node)
@@ -1259,7 +1260,7 @@ module Steep
               end
             end
 
-            method_type.subst(constraints.subst(checker)).yield_self do |method_type|
+            method_type.subst(constraints.solution(checker, variance: variance)).yield_self do |method_type|
               if block_body
                 return_type = if annots.break_type
                                 union_type(method_type.return_type, annots.break_type)
@@ -1303,7 +1304,7 @@ module Steep
                   ), constraints: constraints)
 
                   if result.success?
-                    return_type.subst(constraints.subst(checker))
+                    return_type.subst(constraints.solution(checker, variance: variance))
                   else
                     typing.add_error Errors::BlockTypeMismatch.new(node: node,
                                                                    expected: method_type.block.return_type,

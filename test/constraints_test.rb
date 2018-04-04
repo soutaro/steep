@@ -51,71 +51,72 @@ end
   end
 
   def test_bounds
-    checker = new_checker("")
+    constraints = Subtyping::Constraints.new(unknowns: [:a, :b, :c])
 
-    constraints = Subtyping::Constraints.new(domain: [:a])
-    constraints.add(:a, sub_type: AST::Types::Name.new_instance(name: :String))
-    constraints.add(:a, super_type: AST::Types::Name.new_instance(name: :Integer))
+    string = AST::Types::Name.new_instance(name: :String)
+    integer = AST::Types::Name.new_instance(name: :Integer)
 
-    assert_equal [AST::Types::Name.new_instance(name: :String)], constraints.lower_bound(:a)
-    assert_equal [AST::Types::Name.new_instance(name: :Integer)], constraints.upper_bound(:a)
+    constraints.add(:a, sub_type: string)
+    constraints.add(:a, super_type: integer)
+
+    constraints.add(:b, sub_type: string)
+    constraints.add(:b, sub_type: integer)
+    constraints.add(:b, super_type: integer)
+    constraints.add(:b, super_type: string)
+
+    assert_equal string, constraints.lower_bound(:a)
+    assert_equal integer, constraints.upper_bound(:a)
+    assert_equal AST::Types::Intersection.build(types: [string, integer]), constraints.lower_bound(:b)
+    assert_equal AST::Types::Union.build(types: [string, integer]), constraints.upper_bound(:b)
+    assert_equal AST::Types::Bot.new, constraints.lower_bound(:c)
+    assert_equal AST::Types::Top.new, constraints.upper_bound(:c)
   end
 
   def test_subst
     checker = new_checker("")
 
-    constraints = Subtyping::Constraints.new(domain: [:a, :b])
-    constraints.add(:a, sub_type: AST::Types::Name.new_instance(name: :String))
-    constraints.add(:b, sub_type: AST::Types::Var.new(name: :a))
+    object = AST::Types::Name.new_instance(name: :Object)
+    string = AST::Types::Name.new_instance(name: :String)
+    integer = AST::Types::Name.new_instance(name: :Integer)
 
-    subst = constraints.subst(checker)
+    constraints = Subtyping::Constraints.new(unknowns: [:a, :b, :c])
+    constraints.add(:a, sub_type: string)
+    constraints.add(:b, super_type: integer)
+    constraints.add(:c, sub_type: object, super_type: object)
 
-    assert_equal AST::Types::Name.new_instance(name: :String), subst[:a]
-    assert_equal AST::Types::Name.new_instance(name: :String), subst[:b]
+    variance = Subtyping::VariableVariance.new(
+      covariants: Set.new([:a, :c]),
+      contravariants: Set.new([:b, :c])
+    )
+
+    subst = constraints.solution(checker, variance: variance)
+
+    assert_equal string, subst[:a]
+    assert_equal integer, subst[:b]
+    assert_equal object, subst[:c]
   end
 
-  def test_subst2
-    checker = new_checker("")
+  def test_variable_elimination
+    constraints = Subtyping::Constraints.new(unknowns: [])
+    constraints.add_var(:a, :b)
 
-    constraints = Subtyping::Constraints.new(domain: [:a])
-    constraints.add(:a, super_type: AST::Types::Name.new_instance(name: :String))
+    assert_equal AST::Types::Var.new(name: :x),
+                 constraints.eliminate_variable(AST::Types::Var.new(name: :x), to: AST::Types::Top.new)
+    assert_equal AST::Types::Top.new,
+                 constraints.eliminate_variable(AST::Types::Var.new(name: :a), to: AST::Types::Top.new)
+    assert_equal AST::Types::Bot.new,
+                 constraints.eliminate_variable(AST::Types::Var.new(name: :a), to: AST::Types::Bot.new)
+    assert_equal AST::Types::Any.new,
+                 constraints.eliminate_variable(AST::Types::Var.new(name: :a), to: AST::Types::Any.new)
 
-    subst = constraints.subst(checker)
-    assert_equal AST::Types::Name.new_instance(name: :String), subst[:a]
-  end
-
-  def test_subst3
-    checker = new_checker("")
-
-    constraints = Subtyping::Constraints.new(domain: [:a])
-    constraints.add(:a,
-                    super_type: AST::Types::Name.new_instance(name: :String),
-                    sub_type: AST::Types::Name.new_instance(name: :Integer))
-
-    assert_raises Subtyping::Constraints::UnsatisfiableConstraint do
-      constraints.subst(checker)
-    end
-  end
-
-  def test_subst4
-    checker = new_checker("")
-
-    constraints = Subtyping::Constraints.new(domain: [:a])
-    constraints.add(:a,
-                    super_type: AST::Types::Name.new_instance(name: :String),
-                    sub_type: AST::Types::Var.fresh(:x))
-
-    assert_raises Subtyping::Constraints::UnsatisfiableConstraint do
-      constraints.subst(checker)
-    end
-  end
-
-  def test_subst5
-    checker = new_checker("")
-
-    constraints = Subtyping::Constraints.new(domain: [:a])
-
-    subst = constraints.subst(checker)
-    refute_operator subst, :key?, :a
+    assert_equal AST::Types::Any.new,
+                 constraints.eliminate_variable(AST::Types::Union.build(types: [AST::Types::Var.new(name: :a)]),
+                                                to: AST::Types::Top.new)
+    assert_equal AST::Types::Any.new,
+                 constraints.eliminate_variable(AST::Types::Intersection.build(types: [AST::Types::Var.new(name: :a)]),
+                                                to: AST::Types::Bot.new)
+    assert_equal AST::Types::Name.new(name: "::String", args: [AST::Types::Any.new]),
+                 constraints.eliminate_variable(AST::Types::Name.new(name: "::String", args: [AST::Types::Var.new(name: :a)]),
+                                                to: AST::Types::Top.new)
   end
 end

@@ -59,8 +59,14 @@ module Steep
         when relation.sub_type.is_a?(AST::Types::Any) || relation.super_type.is_a?(AST::Types::Any)
           success(constraints: constraints)
 
+        when relation.super_type.is_a?(AST::Types::Top)
+          success(constraints: constraints)
+
+        when relation.sub_type.is_a?(AST::Types::Bot)
+          success(constraints: constraints)
+
         when relation.super_type.is_a?(AST::Types::Var)
-          if constraints.domain?(relation.super_type.name)
+          if constraints.unknown?(relation.super_type.name)
             constraints.add(relation.super_type.name, sub_type: relation.sub_type)
             success(constraints: constraints)
           else
@@ -69,7 +75,7 @@ module Steep
           end
 
         when relation.sub_type.is_a?(AST::Types::Var)
-          if constraints.domain?(relation.sub_type.name)
+          if constraints.unknown?(relation.sub_type.name)
             constraints.add(relation.sub_type.name, super_type: relation.super_type)
             success(constraints: constraints)
           else
@@ -130,7 +136,6 @@ module Steep
           super_interface = resolve(relation.super_type)
 
           check_interface(sub_interface, super_interface, assumption: assumption, trace: trace, constraints: constraints)
-
 
         else
           failure(error: Result::Failure::UnknownPairError.new(relation: relation),
@@ -199,6 +204,8 @@ module Steep
                     sub_type = sub_type.instantiate(Interface::Substitution.build(sub_type.type_params,
                                                                                   sub_args))
 
+                    constraints.add_var(*sub_args)
+
                     match_method_type(name, sub_type, super_type, trace: trace).yield_self do |pairs|
                       case pairs
                       when Array
@@ -231,6 +238,8 @@ module Steep
                                                                                   args))
                     super_type = super_type.instantiate(Interface::Substitution.build(super_type.type_params,
                                                                                       args))
+
+                    constraints.add_var(*args)
 
                     check_method_type(name,
                                       sub_type,

@@ -48,6 +48,7 @@ require "steep/subtyping/result"
 require "steep/subtyping/relation"
 require "steep/subtyping/trace"
 require "steep/subtyping/constraints"
+require "steep/subtyping/variable_variance"
 
 require "steep/signature/errors"
 require "steep/parser"

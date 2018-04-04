@@ -232,6 +232,7 @@ end
     assert_instance_of Subtyping::Result::Failure, result
     assert_instance_of Subtyping::Result::Failure::PolyMethodSubtyping, result.error
 
+
     result = checker.check(
       Subtyping::Relation.new(
         sub_type: AST::Types::Name.new_instance(name: "::A"),
@@ -564,13 +565,13 @@ end
         super_type: AST::Types::Name.new_instance(name: "::B",
                                                   args: [AST::Types::Var.new(name: :x)])
       ),
-      constraints: Subtyping::Constraints.new(domain: [:x])
+      constraints: Subtyping::Constraints.new(unknowns: [:x])
     )
 
     assert_instance_of Subtyping::Result::Success, result
-    assert_operator result.constraints, :domain?, :x
-    assert_empty result.constraints.upper_bound(:x)
-    assert_equal [AST::Types::Name.new_instance(name: :"::Integer")], result.constraints.lower_bound(:x)
+    assert_operator result.constraints, :unknown?, :x
+    assert_instance_of AST::Types::Top, result.constraints.upper_bound(:x)
+    assert_equal AST::Types::Name.new_instance(name: :"::Integer"), result.constraints.lower_bound(:x)
   end
 
   def test_constraints2
@@ -591,15 +592,16 @@ end
         sub_type: AST::Types::Name.new_instance(name: "::A", args: [AST::Types::Var.new(name: :x)]),
         super_type: AST::Types::Name.new_instance(name: "::B")
       ),
-      constraints: Subtyping::Constraints.new(domain: [:x])
+      constraints: Subtyping::Constraints.new(unknowns: [:x])
     )
 
     assert_instance_of Subtyping::Result::Success, result
-    assert_operator result.constraints, :domain?, :x
-    assert_equal [AST::Types::Name.new_instance(name: :"::String")], result.constraints.upper_bound(:x)
-    assert_equal [AST::Types::Name.new_instance(name: :"::String")], result.constraints.lower_bound(:x)
+    assert_operator result.constraints, :unknown?, :x
+    assert_equal AST::Types::Name.new_instance(name: :"::String"), result.constraints.upper_bound(:x)
+    assert_equal AST::Types::Name.new_instance(name: :"::String"), result.constraints.lower_bound(:x)
 
-    s = result.constraints.subst(checker)
+    variance = Subtyping::VariableVariance.new(covariants: Set.new([:x]), contravariants: Set.new([:x]))
+    s = result.constraints.solution(checker, variance: variance)
     assert_equal AST::Types::Name.new_instance(name: :"::String"), AST::Types::Var.new(name: :x).subst(s)
   end
 
@@ -620,15 +622,16 @@ end
         sub_type: AST::Types::Name.new_instance(name: "::B"),
         super_type: AST::Types::Name.new_instance(name: "::A", args: [AST::Types::Var.new(name: :x)])
       ),
-      constraints: Subtyping::Constraints.new(domain: [:x])
+      constraints: Subtyping::Constraints.new(unknowns: [:x])
     )
 
     assert_instance_of Subtyping::Result::Success, result
-    assert_operator result.constraints, :domain?, :x
-    assert_equal [AST::Types::Name.new_instance(name: :"::String")], result.constraints.upper_bound(:x)
-    assert_empty result.constraints.lower_bound(:x)
+    assert_operator result.constraints, :unknown?, :x
+    assert_equal AST::Types::Name.new_instance(name: :"::String"), result.constraints.upper_bound(:x)
+    assert_instance_of AST::Types::Bot, result.constraints.lower_bound(:x)
 
-    s = result.constraints.subst(checker)
+    variance = Subtyping::VariableVariance.new(contravariants: Set.new([:x]), covariants: Set.new)
+    s = result.constraints.solution(checker, variance: variance)
     assert_equal AST::Types::Name.new_instance(name: :"::String"), AST::Types::Var.new(name: :x).subst(s)
   end
 
@@ -648,15 +651,19 @@ end
         sub_type: AST::Types::Name.new_instance(name: "::A", args: [AST::Types::Var.new(name: :x)]),
         super_type: AST::Types::Name.new_instance(name: "::B"),
       ),
-      constraints: Subtyping::Constraints.new(domain: [:x])
+      constraints: Subtyping::Constraints.new(unknowns: [:x])
     )
 
     assert_instance_of Subtyping::Result::Success, result
-    assert_operator result.constraints, :domain?, :x
-    assert_equal [AST::Types::Name.new_instance(name: :"::String")], result.constraints.lower_bound(:x)
-    assert_empty result.constraints.upper_bound(:x)
+    assert_operator result.constraints, :unknown?, :x
+    assert_equal AST::Types::Name.new_instance(name: :"::String"), result.constraints.lower_bound(:x)
+    assert_instance_of AST::Types::Top, result.constraints.upper_bound(:x)
 
-    s = result.constraints.subst(checker)
+    puts result.constraints
+
+    variance = Subtyping::VariableVariance.new(contravariants: Set.new([:x]),
+                                               covariants: Set.new([:x]))
+    s = result.constraints.solution(checker, variance: variance)
     assert_equal AST::Types::Name.new_instance(name: :"::String"), AST::Types::Var.new(name: :x).subst(s)
   end
 end
