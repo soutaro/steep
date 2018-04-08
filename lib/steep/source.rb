@@ -248,5 +248,16 @@ module Steep
     def annotations(block:)
       AST::Annotation::Collection.new(annotations: mapping[block.__id__] || [])
     end
+
+    def each_annotation
+      if block_given?
+        mapping.each_key do |id|
+          node = ObjectSpace._id2ref(id)
+          yield node, mapping[id]
+        end
+      else
+        enum_for :each_annotation
+      end
+    end
   end
 end
