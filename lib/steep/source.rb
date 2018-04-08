@@ -83,29 +83,157 @@ module Steep
       new(path: path, node: node, mapping: mapping)
     end
 
-    def self.construct_mapping(node:, annotations:, mapping:)
-      each_child_node(node) do |child|
-        construct_mapping(node: child, annotations: annotations, mapping: mapping)
-      end
-
+    def self.construct_mapping(node:, annotations:, mapping:, line_range: nil)
       case node.type
-      when :def, :block, :module, :class
-        start_line = node.loc.line
-        end_line = node.loc.last_line
+      when :if
+        if node.loc.expression.begin_pos == node.loc.keyword.begin_pos
+          construct_mapping(node: node.children[0],
+                            annotations: annotations,
+                            mapping: mapping,
+                            line_range: nil)
 
-        consumed = []
+          if node.children[1]
+            if node.loc.keyword.source == "if"
+              then_start = node.loc.begin&.loc&.last_line || node.children[0].loc.last_line
+              then_end = node.children[2] ? node.loc.else.line : node.loc.last_line
+            else
+              then_start = node.loc.else.last_line
+              then_end = node.loc.last_line
+            end
+            construct_mapping(node: node.children[1],
+                              annotations: annotations,
+                              mapping: mapping,
+                              line_range: then_start...then_end)
+          end
 
-        annotations.each do |annot|
-          if start_line <= annot.line && annot.line < end_line
-            consumed << annot
-            mapping[node.__id__] = [] unless mapping.key?(node.__id__)
-            mapping[node.__id__] << annot.annotation
+          if node.children[2]
+            if node.loc.keyword.source == "if"
+              else_start = node.loc.else.last_line
+              else_end = node.loc.last_line
+            else
+              else_start = node.loc.begin&.last_line || node.children[0].loc.last_line
+              else_end = node.children[1] ? node.loc.else.line : node.loc.last_line
+            end
+            construct_mapping(node: node.children[2],
+                              annotations: annotations,
+                              mapping: mapping,
+                              line_range: else_start...else_end)
+          end
+
+        else
+          # postfix if/unless
+          each_child_node(node) do |child|
+            construct_mapping(node: child, annotations: annotations, mapping: mapping, line_range: nil)
           end
         end
 
-        consumed.each do |annot|
-          annotations.delete annot
+      when :while, :until
+        if node.loc.expression.begin_pos == node.loc.keyword.begin_pos
+          construct_mapping(node: node.children[0],
+                            annotations: annotations,
+                            mapping: mapping,
+                            line_range: nil)
+
+          if node.children[1]
+            body_start = node.children[0].loc.last_line
+            body_end = node.loc.end.line
+
+            construct_mapping(node: node.children[1],
+                              annotations: annotations,
+                              mapping: mapping,
+                              line_range: body_start...body_end)
+          end
+
+        else
+          # postfix while
+          each_child_node(node) do |child|
+            construct_mapping(node: child, annotations: annotations, mapping: mapping, line_range: nil)
+          end
         end
+
+      when :while_post, :until_post
+        construct_mapping(node: node.children[0],
+                          annotations: annotations,
+                          mapping: mapping,
+                          line_range: nil)
+
+        if node.children[1]
+          body_start = node.loc.expression.line
+          body_end = node.loc.keyword.line
+
+          construct_mapping(node: node.children[1],
+                            annotations: annotations,
+                            mapping: mapping,
+                            line_range: body_start...body_end)
+        end
+
+      when :case
+        if node.children[0]
+          construct_mapping(node: node.children[0], annotations: annotations, mapping: mapping, line_range: nil)
+        end
+
+        if node.loc.else
+          else_node = node.children.last
+          else_start = node.loc.else.last_line
+          else_end = node.loc.end.line
+
+          construct_mapping(node: else_node,
+                            annotations: annotations,
+                            mapping: mapping,
+                            line_range: else_start...else_end)
+        end
+
+        node.children.drop(1).each do |child|
+          if child&.type == :when
+            construct_mapping(node: child, annotations: annotations, mapping: mapping, line_range: nil)
+          end
+        end
+
+      when :rescue
+        if node.children.last
+          else_node = node.children.last
+          else_start = node.loc.else.last_line
+          else_end = node.loc.last_line
+
+          construct_mapping(node: else_node,
+                            annotations: annotations,
+                            mapping: mapping,
+                            line_range: else_start...else_end)
+        end
+
+        each_child_node(node) do |child|
+          construct_mapping(node: child, annotations: annotations, mapping: mapping, line_range: nil)
+        end
+
+      else
+        each_child_node(node) do |child|
+          construct_mapping(node: child, annotations: annotations, mapping: mapping, line_range: nil)
+        end
+      end
+
+      associated_annotations = annotations.select do |annot|
+        case node.type
+        when :def, :module, :class, :block, :when, :ensure
+          loc = node.loc
+          loc.line <= annot.line && annot.line < loc.last_line
+
+        when :resbody
+          if node.loc.keyword.begin_pos == node.loc.expression.begin_pos
+            # skip postfix rescue
+            loc = node.loc
+            loc.line <= annot.line && annot.line < loc.last_line
+          end
+        else
+          if line_range
+            line_range.begin <= annot.line && annot.line < line_range.end
+          end
+        end
+      end
+
+      associated_annotations.each do |annot|
+        mapping[node.__id__] = [] unless mapping.key?(node.__id__)
+        mapping[node.__id__] << annot.annotation
+        annotations.delete annot
       end
     end
 

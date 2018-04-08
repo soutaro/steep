@@ -72,4 +72,235 @@ Foo::Bar.new
     assert_equal T::Any.new, block_annotations.lookup_var_type(:x5)
     assert_equal T::Name.new_instance(name: :Integer), block_annotations.block_type
   end
+
+  def parse_source(src)
+    Steep::Source.parse(src, path: Pathname("foo.rb"))
+  end
+
+  def test_if
+    source = parse_source(<<-EOF)
+if foo
+  # @type var x: String
+  x + "foo"
+else
+  # @type var y: Integer
+  y + "foo"
+end
+    EOF
+
+    source.node.yield_self do |node|
+      annotations = source.annotations(block: node)
+      assert_nil annotations.var_types[:x]
+      assert_nil annotations.var_types[:y]
+    end
+
+    source.node.children[1].yield_self do |node|
+      annotations = source.annotations(block: node)
+      refute_nil annotations.var_types[:x]
+      assert_nil annotations.var_types[:y]
+    end
+
+    source.node.children[2].yield_self do |node|
+      annotations = source.annotations(block: node)
+      assert_nil annotations.var_types[:x]
+      refute_nil annotations.var_types[:y]
+    end
+  end
+
+  def test_unless
+    source = parse_source(<<-EOF)
+unless foo then
+  # @type var x: Integer
+  x + 1
+else
+  # @type var y: String
+  y + "foo"
+end
+    EOF
+
+    source.node.yield_self do |node|
+      annotations = source.annotations(block: node)
+      assert_nil annotations.var_types[:x]
+      assert_nil annotations.var_types[:y]
+    end
+
+    source.node.children[1].yield_self do |node|
+      annotations = source.annotations(block: node)
+      assert_nil annotations.var_types[:x]
+      refute_nil annotations.var_types[:y]
+    end
+
+    source.node.children[2].yield_self do |node|
+      annotations = source.annotations(block: node)
+      refute_nil annotations.var_types[:x]
+      assert_nil annotations.var_types[:y]
+    end
+  end
+
+  def test_postfix_if
+    source = parse_source(<<-EOF)
+x + 1 if foo
+y + "foo" unless bar
+    EOF
+
+    source.annotations(block: source.node)
+  end
+
+  def test_while
+    source = parse_source(<<-EOF)
+while foo
+  # @type var x: Integer
+  x.foo
+end
+    EOF
+
+    source.node.yield_self do |node|
+      annotations = source.annotations(block: node)
+      assert_nil annotations.var_types[:x]
+    end
+
+    source.node.children[1].yield_self do |node|
+      annotations = source.annotations(block: node)
+      refute_nil annotations.var_types[:x]
+    end
+  end
+
+  def test_until
+    source = parse_source(<<-EOF)
+until foo
+  # @type var x: Integer
+  x.foo
+end
+    EOF
+
+    source.node.yield_self do |node|
+      annotations = source.annotations(block: node)
+      assert_nil annotations.var_types[:x]
+    end
+
+    source.node.children[1].yield_self do |node|
+      annotations = source.annotations(block: node)
+      refute_nil annotations.var_types[:x]
+    end
+  end
+
+  def test_postfix_while_until
+    source = parse_source(<<-EOF)
+x + 1 while foo
+y + "foo" until bar
+    EOF
+
+    source.annotations(block: source.node)
+  end
+
+  def test_post_while
+    source = parse_source(<<-EOF)
+begin
+  # @type var x: Integer
+  x.foo
+x.bar
+end while foo()
+    EOF
+
+    source.node.yield_self do |node|
+      annotations = source.annotations(block: node)
+      assert_nil annotations.var_types[:x]
+    end
+
+    source.node.children[1].yield_self do |node|
+      annotations = source.annotations(block: node)
+      refute_nil annotations.var_types[:x]
+    end
+  end
+
+  def test_post_until
+    source = parse_source(<<-EOF)
+begin
+  # @type var x: Integer
+  x.foo
+x.bar
+end until foo()
+    EOF
+
+    source.node.yield_self do |node|
+      annotations = source.annotations(block: node)
+      assert_nil annotations.var_types[:x]
+    end
+
+    source.node.children[1].yield_self do |node|
+      annotations = source.annotations(block: node)
+      refute_nil annotations.var_types[:x]
+    end
+  end
+
+  def test_case
+    source = parse_source(<<-EOF)
+case foo
+when bar
+  # @type var x: String
+  x+1
+else
+  # @type var y: Integer
+  y - 1
+end
+    EOF
+
+    source.node.yield_self do |node|
+      annotations = source.annotations(block: node)
+      assert_nil annotations.var_types[:x]
+      assert_nil annotations.var_types[:y]
+    end
+
+    source.node.children[1].yield_self do |node|
+      annotations = source.annotations(block: node)
+      refute_nil annotations.var_types[:x]
+      assert_nil annotations.var_types[:y]
+    end
+
+    source.node.children[2].yield_self do |node|
+      annotations = source.annotations(block: node)
+      assert_nil annotations.var_types[:x]
+      refute_nil annotations.var_types[:y]
+    end
+  end
+
+  def test_rescue
+    source = parse_source(<<-EOF)
+begin
+ foo
+rescue Z => x
+  # @type var x: String
+  x+1
+else
+  # @type var y: Integer
+  y - 1
+end
+    EOF
+
+    source.node.yield_self do |node|
+      annotations = source.annotations(block: node)
+      assert_nil annotations.var_types[:x]
+      assert_nil annotations.var_types[:y]
+    end
+
+    source.node.children[0].children[1].yield_self do |node|
+      annotations = source.annotations(block: node)
+      refute_nil annotations.var_types[:x]
+      assert_nil annotations.var_types[:y]
+    end
+
+    source.node.children[0].children.last.yield_self do |node|
+      annotations = source.annotations(block: node)
+      assert_nil annotations.var_types[:x]
+      refute_nil annotations.var_types[:y]
+    end
+  end
+
+  def test_postfix_rescue
+    source = parse_source(<<-EOF)
+x + 1 rescue foo
+    EOF
+
+    source.annotations(block: source.node)
+  end
 end
