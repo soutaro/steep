@@ -16,100 +16,7 @@ class TypeConstructionTest < Minitest::Test
 
   include TestHelper
   include TypeErrorAssertions
-
-  BUILTIN = <<-EOS
-class BasicObject
-end
-
-class Object <: BasicObject
-  def class: -> module
-  def tap: { (instance) -> any } -> instance
-end
-
-class Class<'a>
-end
-
-class Module
-  def block_given?: -> any
-end
-
-class String
-  def to_str: -> String
-  def +: (String) -> String
-end
-
-class Integer
-  def to_int: -> Integer
-end
-
-class Range<'a>
-  def begin: -> 'a
-  def end: -> 'a
-end
-
-class Regexp
-end
-
-class Array<'a>
-  def []: (Integer) -> 'a
-  def []=: (Integer, 'a) -> 'a
-  def <<: ('a) -> self
-  def each: { ('a) -> any } -> self
-  def zip: <'b> (Array<'b>) -> Array<'a | 'b>
-  def each_with_object: <'b> ('b) { ('a, 'b) -> any } -> 'b
-end
-  EOS
-
-  DEFAULT_SIGS = <<-EOS
-interface _A
-  def +: (_A) -> _A
-end
-
-interface _B
-end
-
-interface _C
-  def f: () -> _A
-  def g: (_A, ?_B) -> _B
-  def h: (a: _A, ?b: _B) -> _C
-end
-
-interface _D
-  def foo: () -> any
-end
-
-interface _X
-  def f: () { (_A) -> _D } -> _C 
-end
-
-interface _Kernel
-  def foo: (_A) -> _B
-         | (_C) -> _D
-end
-
-interface _PolyMethod
-  def snd: <'a>(any, 'a) -> 'a
-  def try: <'a> { (any) -> 'a } -> 'a
-end
-
-module Foo<'a>
-end
-  EOS
-
-  def checker(sigs = DEFAULT_SIGS)
-    signatures = Signature::Env.new.tap do |env|
-      parse_signature(BUILTIN).each do |sig|
-        env.add sig
-      end
-
-      parse_signature(sigs).each do |sig|
-        env.add sig
-      end
-    end
-
-    builder = Interface::Builder.new(signatures: signatures)
-    Subtyping::Check.new(builder: builder)
-  end
+  include SubtypingHelper
 
   def test_lvar_with_annotation
     source = parse_ruby(<<-EOF)
@@ -119,7 +26,7 @@ x = nil
 
     typing = Typing.new
     annotations = source.annotations(block: source.node)
-    checker = checker()
+    checker = new_subtyping_checker()
 
     construction = TypeConstruction.new(checker: checker,
                                         source: source,
@@ -147,7 +54,7 @@ z = x
 
     typing = Typing.new
     annotations = source.annotations(block: source.node)
-    checker = checker()
+    checker = new_subtyping_checker()
 
     construction = TypeConstruction.new(checker: checker,
                                         source: source,
@@ -180,7 +87,7 @@ z = x
 
     typing = Typing.new
     annotations = source.annotations(block: source.node)
-    checker = checker()
+    checker = new_subtyping_checker()
 
     construction = TypeConstruction.new(checker: checker,
                                         source: source,
@@ -207,7 +114,7 @@ z = x
 
     typing = Typing.new
     annotations = source.annotations(block: source.node)
-    checker = checker()
+    checker = new_subtyping_checker()
 
     construction = TypeConstruction.new(checker: checker,
                                         source: source,
@@ -234,7 +141,7 @@ x.f
 
     typing = Typing.new
     annotations = source.annotations(block: source.node)
-    checker = checker()
+    checker = new_subtyping_checker()
 
     construction = TypeConstruction.new(checker: checker,
                                         source: source,
@@ -263,7 +170,7 @@ x.g(y)
 
     typing = Typing.new
     annotations = source.annotations(block: source.node)
-    checker = checker()
+    checker = new_subtyping_checker()
 
     construction = TypeConstruction.new(checker: checker,
                                         source: source,
@@ -292,7 +199,7 @@ x.g(y)
 
     typing = Typing.new
     annotations = source.annotations(block: source.node)
-    checker = checker()
+    checker = new_subtyping_checker()
 
     construction = TypeConstruction.new(checker: checker,
                                         source: source,
@@ -323,7 +230,7 @@ x.no_such_method
     typing = Typing.new
     annotations = source.annotations(block: source.node)
 
-    construction = TypeConstruction.new(checker: checker(),
+    construction = TypeConstruction.new(checker: new_subtyping_checker(),
                                         source: source,
                                         annotations: annotations,
                                         var_types: {},
@@ -348,7 +255,7 @@ x.no_such_method
 
     typing = Typing.new
     annotations = source.annotations(block: source.node)
-    checker = checker()
+    checker = new_subtyping_checker()
 
     construction = TypeConstruction.new(checker: checker,
                                         source: source,
@@ -379,7 +286,7 @@ a.g()
 
     typing = Typing.new
     annotations = source.annotations(block: source.node)
-    checker = checker()
+    checker = new_subtyping_checker()
 
     construction = TypeConstruction.new(checker: checker,
                                         source: source,
@@ -413,7 +320,7 @@ a.g(nil, nil, nil)
 
     typing = Typing.new
     annotations = source.annotations(block: source.node)
-    checker = checker()
+    checker = new_subtyping_checker()
 
     construction = TypeConstruction.new(checker: checker,
                                         source: source,
@@ -449,7 +356,7 @@ x.h(a: a, b: b)
 
     typing = Typing.new
     annotations = source.annotations(block: source.node)
-    checker = checker()
+    checker = new_subtyping_checker()
 
     construction = TypeConstruction.new(checker: checker,
                                         source: source,
@@ -476,7 +383,7 @@ x.h()
 
     typing = Typing.new
     annotations = source.annotations(block: source.node)
-    checker = checker()
+    checker = new_subtyping_checker()
 
     construction = TypeConstruction.new(checker: checker,
                                         source: source,
@@ -509,7 +416,7 @@ x.h(a: nil, b: nil, c: nil)
 
     typing = Typing.new
     annotations = source.annotations(block: source.node)
-    checker = checker()
+    checker = new_subtyping_checker()
 
     construction = TypeConstruction.new(checker: checker,
                                         source: source,
@@ -543,7 +450,7 @@ x.h(a: y)
 
     typing = Typing.new
     annotations = source.annotations(block: source.node)
-    checker = checker()
+    checker = new_subtyping_checker()
 
     construction = TypeConstruction.new(checker: checker,
                                         source: source,
@@ -575,7 +482,7 @@ end
 
     typing = Typing.new
     annotations = source.annotations(block: source.node)
-    checker = checker()
+    checker = new_subtyping_checker()
 
     construction = TypeConstruction.new(checker: checker,
                                         source: source,
@@ -603,7 +510,7 @@ end
 
     typing = Typing.new
     annotations = source.annotations(block: source.node)
-    checker = checker()
+    checker = new_subtyping_checker()
 
     construction = TypeConstruction.new(checker: checker,
                                         source: source,
@@ -633,7 +540,7 @@ end
 
     typing = Typing.new
     annotations = source.annotations(block: source.node)
-    checker = checker()
+    checker = new_subtyping_checker()
 
     construction = TypeConstruction.new(checker: checker,
                                         source: source,
@@ -669,7 +576,7 @@ end
 
     typing = Typing.new
     annotations = source.annotations(block: source.node)
-    checker = checker()
+    checker = new_subtyping_checker()
 
     construction = TypeConstruction.new(checker: checker,
                                         source: source,
@@ -709,7 +616,7 @@ end
 
     typing = Typing.new
     annotations = source.annotations(block: source.node)
-    checker = checker()
+    checker = new_subtyping_checker()
 
     construction = TypeConstruction.new(checker: checker,
                                         source: source,
@@ -742,7 +649,7 @@ end
 
     typing = Typing.new
     annotations = source.annotations(block: source.node)
-    checker = checker()
+    checker = new_subtyping_checker()
 
     construction = TypeConstruction.new(checker: checker,
                                         source: source,
@@ -774,7 +681,7 @@ end
 
     typing = Typing.new
     annotations = source.annotations(block: source.node)
-    checker = checker()
+    checker = new_subtyping_checker()
 
     construction = TypeConstruction.new(checker: checker,
                                         source: source,
@@ -806,7 +713,7 @@ end
 
     typing = Typing.new
     annotations = source.annotations(block: source.node)
-    checker = checker()
+    checker = new_subtyping_checker()
 
     construction = TypeConstruction.new(checker: checker,
                                         source: source,
@@ -841,7 +748,7 @@ end
 
     typing = Typing.new
     annotations = source.annotations(block: source.node)
-    checker = checker()
+    checker = new_subtyping_checker()
 
     construction = TypeConstruction.new(checker: checker,
                                         source: source,
@@ -874,7 +781,7 @@ end
 
     typing = Typing.new
     annotations = source.annotations(block: source.node)
-    checker = checker()
+    checker = new_subtyping_checker()
 
     construction = TypeConstruction.new(checker: checker,
                                         source: source,
@@ -903,7 +810,7 @@ end
 
     typing = Typing.new
     annotations = source.annotations(block: source.node)
-    checker = checker()
+    checker = new_subtyping_checker()
 
     construction = TypeConstruction.new(checker: checker,
                                         source: source,
@@ -931,7 +838,7 @@ hello = Hello
 
     typing = Typing.new
     annotations = source.annotations(block: source.node)
-    checker = checker()
+    checker = new_subtyping_checker()
 
     env = ConstantEnv.new(builder: checker.builder, current_namespace: nil)
 
@@ -967,7 +874,7 @@ Hello::World = ""
 
     typing = Typing.new
     annotations = source.annotations(block: source.node)
-    checker = checker()
+    checker = new_subtyping_checker()
 
     env = ConstantEnv.new(builder: checker.builder, current_namespace: nil)
 
@@ -1005,7 +912,7 @@ x = String
 
     typing = Typing.new
     annotations = source.annotations(block: source.node)
-    checker = checker()
+    checker = new_subtyping_checker()
 
     env = ConstantEnv.new(builder: checker.builder, current_namespace: nil)
 
@@ -1044,7 +951,7 @@ x = X
 
     typing = Typing.new
     annotations = source.annotations(block: source.node)
-    checker = checker(<<-EOF)
+    checker = new_subtyping_checker(<<-EOF)
 X: Module
     EOF
 
@@ -1093,7 +1000,7 @@ d = k.foo(c)
 
     typing = Typing.new
     annotations = source.annotations(block: source.node)
-    checker = checker()
+    checker = new_subtyping_checker()
 
     construction = TypeConstruction.new(checker: checker,
                                         source: source,
@@ -1125,7 +1032,7 @@ end
 
     typing = Typing.new
     annotations = source.annotations(block: source.node)
-    checker = checker()
+    checker = new_subtyping_checker()
 
     construction = TypeConstruction.new(checker: checker,
                                         source: source,
@@ -1164,7 +1071,7 @@ string = poly.snd(1, "a")
 
     typing = Typing.new
     annotations = source.annotations(block: source.node)
-    checker = checker()
+    checker = new_subtyping_checker()
 
     construction = TypeConstruction.new(checker: checker,
                                         source: source,
@@ -1192,7 +1099,7 @@ string = poly.try { "string" }
 
     typing = Typing.new
     annotations = source.annotations(block: source.node)
-    checker = checker()
+    checker = new_subtyping_checker()
 
     construction = TypeConstruction.new(checker: checker,
                                         source: source,
@@ -1214,7 +1121,7 @@ string = poly.try { "string" }
 
     typing = Typing.new
     annotations = source.annotations(block: source.node)
-    checker = checker()
+    checker = new_subtyping_checker()
 
     construction = TypeConstruction.new(checker: checker,
                                         source: source,
@@ -1245,7 +1152,7 @@ end
 
     typing = Typing.new
     annotations = source.annotations(block: source.node)
-    checker = checker()
+    checker = new_subtyping_checker()
 
     construction = TypeConstruction.new(checker: checker,
                                         source: source,
@@ -1268,7 +1175,7 @@ end
 
     typing = Typing.new
     annotations = source.annotations(block: source.node)
-    checker = checker(<<EOF)
+    checker = new_subtyping_checker(<<EOF)
 class Person
 end
 EOF
@@ -1302,7 +1209,7 @@ EOF
 
     typing = Typing.new
     annotations = source.annotations(block: source.node)
-    checker = checker(<<EOF)
+    checker = new_subtyping_checker(<<EOF)
 class Address
 end
 EOF
@@ -1330,7 +1237,7 @@ EOF
 
     typing = Typing.new
     annotations = source.annotations(block: source.node)
-    checker = checker(<<EOF)
+    checker = new_subtyping_checker(<<EOF)
 class Steep::ModuleName
 end
 EOF
@@ -1372,7 +1279,7 @@ EOF
 
     typing = Typing.new
     annotations = source.annotations(block: source.node)
-    checker = checker(<<EOF)
+    checker = new_subtyping_checker(<<EOF)
 module Steep
 end
 EOF
@@ -1414,7 +1321,7 @@ EOF
 
     typing = Typing.new
     annotations = source.annotations(block: source.node)
-    checker = checker(<<EOF)
+    checker = new_subtyping_checker(<<EOF)
 module Rails
 end
 EOF
@@ -1442,7 +1349,7 @@ EOF
 
     typing = Typing.new
     annotations = source.annotations(block: source.node)
-    checker = checker(<<EOF)
+    checker = new_subtyping_checker(<<EOF)
 module Steep::Printable
 end
 EOF
@@ -1485,7 +1392,7 @@ EOF
 
     typing = Typing.new
     annotations = source.annotations(block: source.node)
-    checker = checker(<<-EOF)
+    checker = new_subtyping_checker(<<-EOF)
 class A
   def foo: (String) -> Integer
 end
@@ -1527,7 +1434,7 @@ end
 
     typing = Typing.new
     annotations = source.annotations(block: source.node)
-    checker = checker(<<-EOF)
+    checker = new_subtyping_checker(<<-EOF)
 class A
   def foo: (String) -> Integer
          | (Object) -> Integer
@@ -1577,7 +1484,7 @@ RUBY
 
     typing = Typing.new
     annotations = source.annotations(block: source.node)
-    checker = checker(<<-EOF)
+    checker = new_subtyping_checker(<<-EOF)
 class A
   def foo: (String) -> Integer
 end
@@ -1628,7 +1535,7 @@ end
 
     typing = Typing.new
     annotations = source.annotations(block: source.node)
-    checker = checker(<<-EOF)
+    checker = new_subtyping_checker(<<-EOF)
 class A
   def foo: (String) -> Integer
 end
@@ -1671,7 +1578,7 @@ end
 
     typing = Typing.new
     annotations = source.annotations(block: source.node)
-    checker = checker(<<-EOF)
+    checker = new_subtyping_checker(<<-EOF)
 class A::String
   def aaaaa: -> any
 end
@@ -1718,7 +1625,7 @@ end
 
     typing = Typing.new
     annotations = source.annotations(block: source.node)
-    checker = checker(<<-EOF)
+    checker = new_subtyping_checker(<<-EOF)
 class A
   def foobar: -> any
 end
@@ -1757,7 +1664,7 @@ end
 
     typing = Typing.new
     annotations = source.annotations(block: source.node)
-    checker = checker(<<-EOF)
+    checker = new_subtyping_checker(<<-EOF)
 class A
 end
 
@@ -1794,7 +1701,7 @@ end
 
     typing = Typing.new
     annotations = source.annotations(block: source.node)
-    checker = checker(<<-EOF)
+    checker = new_subtyping_checker(<<-EOF)
 class A
 end
 
@@ -1828,7 +1735,7 @@ a, @b = 1, 2
 
     typing = Typing.new
     annotations = source.annotations(block: source.node)
-    checker = checker()
+    checker = new_subtyping_checker()
 
     construction = TypeConstruction.new(checker: checker,
                                         source: source,
@@ -1865,7 +1772,7 @@ a, @b = x
 
     typing = Typing.new
     annotations = source.annotations(block: source.node)
-    checker = checker()
+    checker = new_subtyping_checker()
 
     construction = TypeConstruction.new(checker: checker,
                                         source: source,
@@ -1899,7 +1806,7 @@ a, @b = 3
 
     typing = Typing.new
     annotations = source.annotations(block: source.node)
-    checker = checker()
+    checker = new_subtyping_checker()
 
     construction = TypeConstruction.new(checker: checker,
                                         source: source,
@@ -1931,7 +1838,7 @@ a += 3
 
     typing = Typing.new
     annotations = source.annotations(block: source.node)
-    checker = checker()
+    checker = new_subtyping_checker()
 
     construction = TypeConstruction.new(checker: checker,
                                         source: source,
@@ -1962,7 +1869,7 @@ end
 
     typing = Typing.new
     annotations = source.annotations(block: source.node)
-    checker = checker()
+    checker = new_subtyping_checker()
 
     construction = TypeConstruction.new(checker: checker,
                                         source: source,
@@ -1992,7 +1899,7 @@ end
 
     typing = Typing.new
     annotations = source.annotations(block: source.node)
-    checker = checker()
+    checker = new_subtyping_checker()
 
     construction = TypeConstruction.new(checker: checker,
                                         source: source,
@@ -2025,7 +1932,7 @@ end
 
     typing = Typing.new
     annotations = source.annotations(block: source.node)
-    checker = checker()
+    checker = new_subtyping_checker()
 
     construction = TypeConstruction.new(checker: checker,
                                         source: source,
@@ -2053,7 +1960,7 @@ end while true
 
     typing = Typing.new
     annotations = source.annotations(block: source.node)
-    checker = checker()
+    checker = new_subtyping_checker()
 
     construction = TypeConstruction.new(checker: checker,
                                         source: source,
@@ -2081,7 +1988,7 @@ a = 2..."a"
 
     typing = Typing.new
     annotations = source.annotations(block: source.node)
-    checker = checker()
+    checker = new_subtyping_checker()
 
     construction = TypeConstruction.new(checker: checker,
                                         source: source,
@@ -2112,7 +2019,7 @@ a = /#{a + 3}/
 
     typing = Typing.new
     annotations = source.annotations(block: source.node)
-    checker = checker()
+    checker = new_subtyping_checker()
 
     construction = TypeConstruction.new(checker: checker,
                                         source: source,
@@ -2142,7 +2049,7 @@ a = $1
 
     typing = Typing.new
     annotations = source.annotations(block: source.node)
-    checker = checker()
+    checker = new_subtyping_checker()
 
     construction = TypeConstruction.new(checker: checker,
                                         source: source,
@@ -2173,7 +2080,7 @@ a ||= a + "foo"
 
     typing = Typing.new
     annotations = source.annotations(block: source.node)
-    checker = checker()
+    checker = new_subtyping_checker()
 
     construction = TypeConstruction.new(checker: checker,
                                         source: source,
@@ -2204,7 +2111,7 @@ end
 
     typing = Typing.new
     annotations = source.annotations(block: source.node)
-    checker = checker()
+    checker = new_subtyping_checker()
 
     construction = TypeConstruction.new(checker: checker,
                                         source: source,
@@ -2232,7 +2139,7 @@ end
 
     typing = Typing.new
     annotations = source.annotations(block: source.node)
-    checker = checker()
+    checker = new_subtyping_checker()
 
     construction = TypeConstruction.new(checker: checker,
                                         source: source,
@@ -2263,7 +2170,7 @@ end
 
     typing = Typing.new
     annotations = source.annotations(block: source.node)
-    checker = checker()
+    checker = new_subtyping_checker()
 
     construction = TypeConstruction.new(checker: checker,
                                         source: source,
@@ -2291,7 +2198,7 @@ end
 
     typing = Typing.new
     annotations = source.annotations(block: source.node)
-    checker = checker()
+    checker = new_subtyping_checker()
 
     construction = TypeConstruction.new(checker: checker,
                                         source: source,
@@ -2318,7 +2225,7 @@ end
 
     typing = Typing.new
     annotations = source.annotations(block: source.node)
-    checker = checker()
+    checker = new_subtyping_checker()
 
     construction = TypeConstruction.new(checker: checker,
                                         source: source,
@@ -2350,7 +2257,7 @@ end
 
     typing = Typing.new
     annotations = source.annotations(block: source.node)
-    checker = checker()
+    checker = new_subtyping_checker()
 
     construction = TypeConstruction.new(checker: checker,
                                         source: source,
@@ -2378,7 +2285,7 @@ x = $HOGE
 
     typing = Typing.new
     annotations = source.annotations(block: source.node)
-    checker = checker(<<-EOF)
+    checker = new_subtyping_checker(<<-EOF)
 $HOGE: Integer
     EOF
 
@@ -2409,7 +2316,7 @@ x = $HOGE
 
     typing = Typing.new
     annotations = source.annotations(block: source.node)
-    checker = checker(<<-EOF)
+    checker = new_subtyping_checker(<<-EOF)
 $HOGE: Integer
     EOF
 
@@ -2439,7 +2346,7 @@ x = $HOGE
 
     typing = Typing.new
     annotations = source.annotations(block: source.node)
-    checker = checker()
+    checker = new_subtyping_checker()
 
     construction = TypeConstruction.new(checker: checker,
                                         source: source,
@@ -2470,7 +2377,7 @@ end
 
     typing = Typing.new
     annotations = source.annotations(block: source.node)
-    checker = checker(<<-EOF)
+    checker = new_subtyping_checker(<<-EOF)
 class A
   def foo: -> String
   @foo: String
@@ -2503,7 +2410,7 @@ end
 
     typing = Typing.new
     annotations = source.annotations(block: source.node)
-    checker = checker(<<-EOF)
+    checker = new_subtyping_checker(<<-EOF)
 class A
   @foo: String
 end
@@ -2537,7 +2444,7 @@ b = [*a]
 
     typing = Typing.new
     annotations = source.annotations(block: source.node)
-    checker = checker()
+    checker = new_subtyping_checker()
 
     construction = TypeConstruction.new(checker: checker,
                                         source: source,
@@ -2567,7 +2474,7 @@ b = [*1...3]
 
     typing = Typing.new
     annotations = source.annotations(block: source.node)
-    checker = checker()
+    checker = new_subtyping_checker()
 
     construction = TypeConstruction.new(checker: checker,
                                         source: source,
@@ -2597,7 +2504,7 @@ b = [*a]
 
     typing = Typing.new
     annotations = source.annotations(block: source.node)
-    checker = checker()
+    checker = new_subtyping_checker()
 
     construction = TypeConstruction.new(checker: checker,
                                         source: source,
@@ -2627,7 +2534,7 @@ a.gen(*["1"])
 
     typing = Typing.new
     annotations = source.annotations(block: source.node)
-    checker = checker(<<-EOF)
+    checker = new_subtyping_checker(<<-EOF)
 class A
   def initialize: () -> any
   def gen: (*Integer) -> String
@@ -2677,7 +2584,7 @@ end
 
     typing = Typing.new
     annotations = source.annotations(block: source.node)
-    checker = checker(<<-EOF)
+    checker = new_subtyping_checker(<<-EOF)
 class Hoge
   def foo: (self) -> void
 end
@@ -2731,7 +2638,7 @@ end
 
     typing = Typing.new
     annotations = source.annotations(block: source.node)
-    checker = checker(<<-EOF)
+    checker = new_subtyping_checker(<<-EOF)
 class Hoge
   def foo: () { () -> void } -> any
 end
@@ -2779,7 +2686,7 @@ b = a.zip(["foo"])
 EOF
     typing = Typing.new
     annotations = source.annotations(block: source.node)
-    checker = checker("")
+    checker = new_subtyping_checker("")
 
     construction = TypeConstruction.new(checker: checker,
                                         source: source,
@@ -2808,7 +2715,7 @@ end
 EOF
     typing = Typing.new
     annotations = source.annotations(block: source.node)
-    checker = checker("")
+    checker = new_subtyping_checker("")
 
     construction = TypeConstruction.new(checker: checker,
                                         source: source,
