@@ -293,8 +293,12 @@ class String
   def +: (String) -> String
 end
 
-class Integer
+class Numeric
+  def +: (Numeric) -> Numeric
   def to_int: -> Integer
+end
+
+class Integer <: Numeric
 end
 
 class Range<'a>

@@ -2098,7 +2098,7 @@ a ||= a + "foo"
 
     assert_equal 1, typing.errors.size
     assert_any typing.errors do |error|
-      error.is_a?(Steep::Errors::NoMethod)
+      error.is_a?(Steep::Errors::ArgumentTypeMismatch)
     end
   end
 
