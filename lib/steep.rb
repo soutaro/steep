@@ -61,6 +61,7 @@ require "steep/type_construction"
 require "steep/type_inference/send_args"
 require "steep/type_inference/block_params"
 require "steep/type_inference/constant_env"
+require "steep/type_inference/type_env"
 
 require "steep/drivers/utils/validator"
 require "steep/drivers/utils/each_signature"
