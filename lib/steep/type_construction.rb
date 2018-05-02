@@ -75,55 +75,54 @@ module Steep
       attr_reader :module_type
       attr_reader :defined_instance_methods
       attr_reader :defined_module_methods
-      attr_reader :const_types
       attr_reader :const_env
       attr_reader :implement_name
       attr_reader :current_namespace
 
-      def initialize(instance_type:, module_type:, const_types:, implement_name:, current_namespace:, const_env:)
+      def initialize(instance_type:, module_type:, implement_name:, current_namespace:, const_env:)
         @instance_type = instance_type
         @module_type = module_type
         @defined_instance_methods = Set.new
         @defined_module_methods = Set.new
-        @const_types = const_types
         @implement_name = implement_name
         @current_namespace = current_namespace
         @const_env = const_env
-      end
-
-      def find_constant(name)
-        const_types[name] || const_env.lookup(name)
       end
     end
 
     attr_reader :checker
     attr_reader :source
     attr_reader :annotations
-    attr_reader :var_types
-    attr_reader :ivar_types
     attr_reader :typing
     attr_reader :method_context
     attr_reader :block_context
     attr_reader :module_context
     attr_reader :self_type
     attr_reader :break_context
+    attr_reader :type_env
 
-    def initialize(checker:, source:, annotations:, var_types:, ivar_types: {}, typing:, self_type:, method_context:, block_context:, module_context:, break_context:)
+    def initialize(checker:, source:, annotations:, type_env:, typing:, self_type:, method_context:, block_context:, module_context:, break_context:)
       @checker = checker
       @source = source
       @annotations = annotations
-      @var_types = var_types
-      @ivar_types = ivar_types
       @typing = typing
       @self_type = self_type
       @block_context = block_context
       @method_context = method_context
       @module_context = module_context
       @break_context = break_context
+      @type_env = type_env
     end
 
     def for_new_method(method_name, node, args:, self_type:)
       annots = source.annotations(block: node)
+      type_env = TypeInference::TypeEnv.new(subtyping: checker,
+                                            const_env: module_context&.const_env || self.type_env.const_env)
+
+      self.type_env.const_types.each do |name, type|
+        type_env.set(const: name, type: type)
+      end
+      
       self_type = annots.self_type || self_type
 
       self_interface = self_type && (self_type != Types.any || nil) && checker.resolve(self_type)
@@ -194,21 +193,34 @@ module Steep
         constructor: constructor_method
       )
 
+      var_types.each do |name, type|
+        type_env.set(lvar: name, type: type)
+      end
+
       ivar_types = {}
       ivar_types.merge!(self_interface.ivars) if self_interface
       ivar_types.merge!(annots.ivar_types)
+
+      ivar_types.each do |name, type|
+        type_env.set(ivar: name, type: type)
+      end
+
+      type_env = type_env.with_annotations(
+        lvar_types: annots.var_types.transform_values {|annot| absolute_type(annot.type) },
+        ivar_types: annots.ivar_types,
+        const_types: annots.const_types.transform_values {|type| absolute_type(type) }
+      )
 
       self.class.new(
         checker: checker,
         source: source,
         annotations: annots,
-        var_types: var_types,
+        type_env: type_env,
         block_context: nil,
         self_type: self_type,
         method_context: method_context,
         typing: typing,
         module_context: module_context,
-        ivar_types: ivar_types,
         break_context: nil
       )
     end
@@ -261,20 +273,26 @@ module Steep
       end
 
       new_namespace = nested_namespace(new_module_name)
+      module_const_env = TypeInference::ConstantEnv.new(builder: checker.builder, current_namespace: new_namespace)
+
       module_context_ = ModuleContext.new(
         instance_type: instance_type,
         module_type: module_type,
-        const_types: annots.const_types,
         implement_name: implement_module_name,
         current_namespace: new_namespace,
-        const_env: TypeInference::ConstantEnv.new(builder: checker.builder, current_namespace: new_namespace)
+        const_env: module_const_env
       )
+
+      module_type_env = TypeInference::TypeEnv.build(annotations: annots,
+                                                     subtyping: checker,
+                                                     const_env: module_const_env,
+                                                     signatures: checker.builder.signatures)
 
       self.class.new(
         checker: checker,
         source: source,
         annotations: annots,
-        var_types: {},
+        type_env: module_type_env,
         typing: typing,
         method_context: nil,
         block_context: nil,
@@ -310,20 +328,28 @@ module Steep
       end
 
       new_namespace = nested_namespace(new_class_name)
+      class_const_env = TypeInference::ConstantEnv.new(builder: checker.builder, current_namespace: new_namespace)
+
       module_context = ModuleContext.new(
         instance_type: annots.instance_type || instance_type,
         module_type: annots.module_type || module_type,
-        const_types: annots.const_types,
         implement_name: implement_module_name,
         current_namespace: new_namespace,
-        const_env: TypeInference::ConstantEnv.new(builder: checker.builder, current_namespace: new_namespace)
+        const_env: class_const_env
+      )
+
+      class_type_env = TypeInference::TypeEnv.build(
+        annotations: annots,
+        const_env: class_const_env,
+        signatures: checker.builder.signatures,
+        subtyping: checker
       )
 
       self.class.new(
         checker: checker,
         source: source,
         annotations: annots,
-        var_types: {},
+        type_env: class_type_env,
         typing: typing,
         method_context: nil,
         block_context: nil,
@@ -357,13 +383,11 @@ module Steep
         when :lvar
           yield_self do
             var = node.children[0]
-
-            if (type = variable_type(var))
-              typing.add_typing(node, type)
-            else
+            type = type_env.get(lvar: var.name) do
               fallback_to_any node
-              typing.add_var_type var, Types.any
             end
+
+            typing.add_typing node, type
           end
 
         when :ivasgn
@@ -373,11 +397,12 @@ module Steep
           type_ivasgn(name, value, node)
 
         when :ivar
-          type = ivar_types[node.children[0]]
-          if type
+          yield_self do
+            name = node.children[0]
+            type = type_env.get(ivar: name) do
+              fallback_to_any node
+            end
             typing.add_typing(node, type)
-          else
-            fallback_to_any node
           end
 
         when :send
@@ -404,9 +429,13 @@ module Steep
 
             lhs_type = case lhs.type
                        when :lvasgn
-                         variable_type(lhs.children.first)
+                         type_env.get(lvar: lhs.children.first.name) do
+                           break
+                         end
                        when :ivasgn
-                         ivar_types[lhs.children.first]
+                         type_env.get(ivar: lhs.children.first) do
+                           break
+                         end
                        else
                          raise
                        end
@@ -617,29 +646,30 @@ module Steep
           typing.add_typing(node, Types.any)
 
         when :arg, :kwarg, :procarg0
-          var = node.children[0]
-          if (type = variable_type(var))
-            typing.add_var_type(var, type)
-          else
-            fallback_to_any node
+          yield_self do
+            var = node.children[0]
+            type = type_env.get(lvar: var.name) do
+              fallback_to_any node
+            end
+            typing.add_typing(node, type)
           end
 
         when :optarg, :kwoptarg
-          var = node.children[0]
-          rhs = node.children[1]
-          type_assignment(var, rhs, node)
+          yield_self do
+            var = node.children[0]
+            rhs = node.children[1]
+            type_assignment(var, rhs, node)
+          end
 
         when :restarg
           yield_self do
             var = node.children[0]
-            if (type = variable_type(var))
-              typing.add_var_type(var, type)
-            else
+            type = type_env.get(lvar: var.name) do
               typing.add_error Errors::FallbackAny.new(node: node)
-              Types.array_instance(Types.any).yield_self do |type|
-                typing.add_var_type(var, type)
-              end
+              Types.array_instance(Types.any)
             end
+
+            typing.add_typing(node, type)
           end
 
         when :int
@@ -719,10 +749,10 @@ module Steep
 
         when :const
           const_name = ModuleName.from_node(node)
-          type = const_name && const_type(const_name)
-
-          if type
-            typing.add_typing(node, type)
+          if const_name
+            type_env.get(const: const_name) do
+              fallback_to_any node
+            end
           else
             fallback_to_any node
           end
@@ -730,21 +760,25 @@ module Steep
         when :casgn
           yield_self do
             const_name = ModuleName.from_node(node)
-            type = const_name && const_type(const_name)
-
-            if type
-              check(node.children.last, type) do |_, rhs_type, result|
-                typing.add_error(Errors::IncompatibleAssignment.new(node: node,
-                                                                    lhs_type: type,
-                                                                    rhs_type: rhs_type,
-                                                                    result: result))
+            if const_name
+              value_type = synthesize(node.children.last)
+              type = type_env.assign(const: const_name, type: value_type) do |error|
+                case error
+                when Subtyping::Result::Failure
+                  const_type = type_env.get(const: const_name)
+                  typing.add_error(Errors::IncompatibleAssignment.new(node: node,
+                                                                      lhs_type: const_type,
+                                                                      rhs_type: value_type,
+                                                                      result: error))
+                when nil
+                  typing.add_error(Errors::UnknownConstantAssigned.new(node: node, type: value_type))
+                end
               end
 
               typing.add_typing(node, type)
             else
-              rhs_type = synthesize(node.children.last)
-              typing.add_error(Errors::UnknownConstantAssigned.new(node: node, type: rhs_type))
-              typing.add_typing(node, rhs_type)
+              synthesize(node.children.last)
+              fallback_to_any(node)
             end
           end
 
@@ -903,14 +937,13 @@ module Steep
               checker: checker,
               source: source,
               annotations: annotations,
-              var_types: var_types,
-              ivar_types: ivar_types,
               typing: typing,
               self_type: self_type,
               method_context: method_context,
               block_context: block_context,
               module_context: module_context,
-              break_context: BreakContext.new(break_type: nil, next_type: nil)
+              break_context: BreakContext.new(break_type: nil, next_type: nil),
+              type_env: type_env
             )
 
             for_loop.synthesize(body)
@@ -1017,6 +1050,7 @@ module Steep
         node_type = assign_type_to_variable(var, rhs_type, node)
         typing.add_typing(node, node_type)
       else
+        raise
         lhs_type = variable_type(var)
 
         if lhs_type
@@ -1032,58 +1066,31 @@ module Steep
     end
 
     def assign_type_to_variable(var, type, node)
-      lhs_type = variable_type(var)
-
-      if lhs_type
-        result = checker.check(
-          Subtyping::Relation.new(sub_type: type, super_type: lhs_type),
-          constraints: Subtyping::Constraints.empty
-        )
-        if result.failure?
-          typing.add_error(Errors::IncompatibleAssignment.new(node: node,
-                                                              lhs_type: lhs_type,
-                                                              rhs_type: type,
-                                                              result: result))
-        end
-        typing.add_var_type(var, lhs_type)
-        var_types[var] = lhs_type
-        lhs_type
-      else
-        typing.add_var_type(var, type)
-        var_types[var] = type
-        type
+      name = var.name
+      type_env.assign(lvar: name, type: type) do |result|
+        var_type = type_env.get(lvar: name)
+        typing.add_error(Errors::IncompatibleAssignment.new(node: node,
+                                                            lhs_type: var_type,
+                                                            rhs_type: type,
+                                                            result: result))
       end
     end
 
     def type_ivasgn(name, rhs, node)
       rhs_type = synthesize(rhs)
-      ivar_type = assign_type_to_ivar(name, rhs_type, node)
-
-      if ivar_type
-        typing.add_typing(node, ivar_type)
-      else
-        fallback_to_any node
-      end
-    end
-
-    def assign_type_to_ivar(name, rhs_type, node)
-      type = ivar_types[name]
-
-      if type
-        result = checker.check(
-          Subtyping::Relation.new(sub_type: type, super_type: rhs_type),
-          constraints: Subtyping::Constraints.empty
-        )
-        if result.failure?
+      ivar_type = type_env.assign(ivar: name, type: rhs_type) do |error|
+        case error
+        when Subtyping::Result::Failure
+          type = type_env.get(ivar: name)
           typing.add_error(Errors::IncompatibleAssignment.new(node: node,
                                                               lhs_type: type,
                                                               rhs_type: rhs_type,
-                                                              result: result))
-
+                                                              result: error))
+        when nil
+          fallback_to_any node
         end
       end
-
-      type
+      typing.add_typing(node, ivar_type)
     end
 
     def type_masgn(node)
@@ -1115,7 +1122,20 @@ module Steep
           when :lvasgn
             assign_type_to_variable(assignment.children.first, element_type, assignment)
           when :ivasgn
-            assign_type_to_ivar(assignment.children.first, element_type, assignment)
+            assignment.children.first.yield_self do |ivar|
+              type_env.assign(ivar: ivar, type: element_type) do |error|
+                case error
+                when Subtyping::Result::Failure
+                  type = type_env.get(ivar: ivar)
+                  typing.add_error(Errors::IncompatibleAssignment.new(node: assignment,
+                                                                      lhs_type: type,
+                                                                      rhs_type: element_type,
+                                                                      result: error))
+                when nil
+                  fallback_to_any node
+                end
+              end
+            end
           end
         end
 
@@ -1281,14 +1301,20 @@ module Steep
               params = TypeInference::BlockParams.from_node(block_params, annotations: block_annotations)
               block_param_pairs = params.zip(method_type.block.params)
 
-              block_var_types = self.var_types.dup
-
-              block_param_pairs.each do |param, type|
-                if param.type
-                  block_var_types[param.var] = param.type
-                else
-                  block_var_types[param.var] = type
+              block_type_env = type_env.dup.yield_self do |env|
+                block_param_pairs.each do |param, type|
+                  if param.type
+                    env.set(lvar: param.var.name, type: param.type)
+                  else
+                    env.set(lvar: param.var.name, type: type)
+                  end
                 end
+
+                env.with_annotations(
+                  lvar_types: block_annotations.var_types.transform_values {|annot| absolute_type(annot.type) },
+                  ivar_types: block_annotations.ivar_types,
+                  const_types: block_annotations.const_types.transform_values {|type| absolute_type(type) }
+                )
               end
 
               return_type = if block_annotations.break_type
@@ -1311,7 +1337,7 @@ module Steep
                 checker: checker,
                 source: source,
                 annotations: annotations + block_annotations,
-                var_types: block_var_types,
+                type_env: block_type_env,
                 block_context: block_context,
                 typing: typing,
                 method_context: method_context,
@@ -1376,16 +1402,6 @@ module Steep
         else
           raise "Unexpected case condition"
         end
-      end
-    end
-
-    def variable_type(var)
-      typing.var_typing[var] || var_types[var] || absolute_type(annotations.lookup_var_type(var.name))
-    end
-
-    def const_type(name)
-      module_context&.find_constant(name)&.yield_self do |type|
-        absolute_type(type)
       end
     end
 

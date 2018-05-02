@@ -29,13 +29,13 @@ module Steep
       def self.build(annotations:, signatures:, subtyping:, const_env:)
         new(subtyping: subtyping, const_env: const_env).tap do |env|
           annotations.var_types.each do |name, annot|
-            env.set(lvar: name, type: annot.type)
+            env.set(lvar: name, type: subtyping.builder.absolute_type(annot.type, current: const_env.current_namespace))
           end
           annotations.ivar_types.each do |name, type|
-            env.set(ivar: name, type: type)
+            env.set(ivar: name, type: subtyping.builder.absolute_type(type, current: const_env.current_namespace))
           end
           annotations.const_types.each do |name, type|
-            env.set(const: name, type: type)
+            env.set(const: name, type: subtyping.builder.absolute_type(type, current: const_env.current_namespace))
           end
           signatures.globals.each do |name, annot|
             type = subtyping.builder.absolute_type(annot.type, current: nil)
@@ -84,12 +84,17 @@ module Steep
       # @type method assert: (const: ModuleName) { () -> void } -> AST::Type
       #                    | (gvar: Symbol) { () -> void } -> AST::Type
       #                    | (ivar: Symbol) { () -> void } -> AST::Type
-      #                    | (lvar: Symbol | LabeledName) { () -> void } -> AST::Type
+      #                    | (lvar: Symbol) { () -> AST::Type | nil } -> AST::Type
       def get(lvar: nil, const: nil, gvar: nil, ivar: nil)
         case
         when lvar
           lvar_name(lvar).yield_self do |name|
-            lvar_types[name] or raise
+            if lvar_types.key?(name)
+              lvar_types[name]
+            else
+              ty = yield
+              lvar_types[name] = ty || AST::Types::Any.new
+            end
           end
         when const
           if const_types.key?(const)

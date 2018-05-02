@@ -186,9 +186,12 @@ class TypeEnvTest < Minitest::Test
     const_env = TypeInference::ConstantEnv.new(builder: subtyping.builder, current_namespace: nil)
     type_env = TypeInference::TypeEnv.new(subtyping: new_subtyping_checker(), const_env: const_env)
 
-    assert_raises do
-      type_env.get(lvar: :x) {|error| assert_nil error }
-    end
+    type = type_env.get(lvar: :x) { AST::Types::Name.new_instance(name: "::String") }
+    # Returns a type which obtained from given block
+    assert_equal AST::Types::Name.new_instance(name: "::String"), type
+
+    # And update environment
+    assert_equal AST::Types::Name.new_instance(name: "::String"), type_env.lvar_types[:x]
   end
 
   def test_lvar_without_annotation
@@ -466,8 +469,8 @@ EOF
                                        subtyping: subtyping,
                                        const_env: const_env)
 
-    assert_equal AST::Types::Name.new_instance(name: :X), env.get(lvar: :x)
-    assert_equal AST::Types::Name.new_instance(name: :Y), env.get(ivar: :"@y")
+    assert_equal AST::Types::Name.new_instance(name: "::X"), env.get(lvar: :x)
+    assert_equal AST::Types::Name.new_instance(name: "::Y"), env.get(ivar: :"@y")
     assert_equal AST::Types::Name.new_instance(name: "::Integer"), env.get(const: ModuleName.parse("Foo"))
     assert_equal AST::Types::Name.new_instance(name: "::String"), env.get(gvar: :"$foo")
   end

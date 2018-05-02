@@ -37,6 +37,28 @@ module TestHelper
   def parse_ruby(string)
     Steep::Source.parse(string, path: Pathname("test.rb"))
   end
+
+  def dig(node, *indexes)
+    if indexes.size == 1
+      node.children[indexes.first]
+    else
+      dig(node.children[indexes.first], *indexes.drop(1))
+    end
+  end
+
+  def lvar_in(node, name)
+    if (node.type == :lvar || node.type == :lvasgn) && node.children[0].name == name
+      return node
+    else
+      node.children.each do |child|
+        if child.is_a?(AST::Node)
+          lvar = lvar_in(child, name)
+          return lvar if lvar
+        end
+      end
+      nil
+    end
+  end
 end
 
 module TypeErrorAssertions
