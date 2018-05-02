@@ -29,7 +29,11 @@ module Steep
               type
             end
           end.compact.uniq.yield_self do |tys|
-            new(types: tys.sort_by(&:hash), location: location)
+            if tys.length == 1
+              tys.first
+            else
+              new(types: tys.sort_by(&:hash), location: location)
+            end
           end
         end
 

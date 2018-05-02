@@ -313,6 +313,7 @@ end
 class String
   def to_str: -> String
   def +: (String) -> String
+  def size: -> Integer
 end
 
 class Numeric

@@ -3118,4 +3118,259 @@ EOF
     refute_empty typing.errors
     assert_instance_of Steep::Errors::IncompatibleAssignment, typing.errors[0]
   end
+
+  def test_if_typing
+    source = parse_ruby(<<EOF)
+if 3
+  x = 1
+  y = (x + 1).to_int
+else
+  x = "foo"
+  y = (x.to_str).size
+end
+EOF
+    typing = Typing.new
+    annotations = source.annotations(block: source.node)
+    checker = new_subtyping_checker("")
+    const_env = ConstantEnv.new(builder: checker.builder, current_namespace: nil)
+    type_env = TypeEnv.build(annotations: annotations,
+                             subtyping: checker,
+                             const_env: const_env,
+                             signatures: checker.builder.signatures)
+
+    construction = TypeConstruction.new(checker: checker,
+                                        source: source,
+                                        annotations: annotations,
+                                        type_env: type_env,
+                                        block_context: nil,
+                                        self_type: nil,
+                                        method_context: nil,
+                                        typing: typing,
+                                        module_context: nil,
+                                        break_context: nil)
+    construction.synthesize(source.node)
+
+    assert_empty typing.errors
+    assert_equal Types::Union.build(types: [Types::Name.new_instance(name: "::String"),
+                                            Types::Name.new_instance(name: "::Integer")]),
+                 type_env.lvar_types[:x]
+    assert_equal Types::Name.new_instance(name: "::Integer"),
+                 type_env.lvar_types[:y]
+  end
+
+  def test_if_annotation
+    source = parse_ruby(<<EOF)
+# @type var x: String | Integer
+x = nil
+
+if 3
+  # @type var x: String
+  x + ""
+else
+  # @type var x: Integer
+  x + 1
+end
+EOF
+    typing = Typing.new
+    annotations = source.annotations(block: source.node)
+    checker = new_subtyping_checker("")
+    const_env = ConstantEnv.new(builder: checker.builder, current_namespace: nil)
+    type_env = TypeEnv.build(annotations: annotations,
+                             subtyping: checker,
+                             const_env: const_env,
+                             signatures: checker.builder.signatures)
+
+    construction = TypeConstruction.new(checker: checker,
+                                        source: source,
+                                        annotations: annotations,
+                                        type_env: type_env,
+                                        block_context: nil,
+                                        self_type: nil,
+                                        method_context: nil,
+                                        typing: typing,
+                                        module_context: nil,
+                                        break_context: nil)
+
+    if_node = dig(source.node, 1)
+
+    true_construction = construction.for_branch(if_node.children[1])
+    assert_equal Types::Name.new_instance(name: "::String"), true_construction.type_env.lvar_types[:x]
+
+    false_construction = construction.for_branch(if_node.children[2])
+    assert_equal Types::Name.new_instance(name: "::Integer"), false_construction.type_env.lvar_types[:x]
+
+    construction.synthesize(source.node)
+    assert_empty typing.errors
+  end
+
+  def test_if_annotation_error
+    source = parse_ruby(<<EOF)
+# @type var x: Array<String>
+x = nil
+
+if 3
+  # @type var x: String
+  x + ""
+else
+  # @type var x: Integer
+  x + 1
+end
+EOF
+    typing = Typing.new
+    annotations = source.annotations(block: source.node)
+    checker = new_subtyping_checker("")
+    const_env = ConstantEnv.new(builder: checker.builder, current_namespace: nil)
+    type_env = TypeEnv.build(annotations: annotations,
+                             subtyping: checker,
+                             const_env: const_env,
+                             signatures: checker.builder.signatures)
+
+    construction = TypeConstruction.new(checker: checker,
+                                        source: source,
+                                        annotations: annotations,
+                                        type_env: type_env,
+                                        block_context: nil,
+                                        self_type: nil,
+                                        method_context: nil,
+                                        typing: typing,
+                                        module_context: nil,
+                                        break_context: nil)
+
+    construction.synthesize(source.node)
+
+    if_node = dig(source.node, 1)
+
+    true_construction = construction.for_branch(if_node.children[1])
+    assert_equal Types::Name.new_instance(name: "::String"), true_construction.type_env.lvar_types[:x]
+
+    false_construction = construction.for_branch(if_node.children[2])
+    assert_equal Types::Name.new_instance(name: "::Integer"), false_construction.type_env.lvar_types[:x]
+
+    typing.errors.find {|error| error.node == if_node.children[1] }.yield_self do |error|
+      assert_instance_of Steep::Errors::IncompatibleAnnotation, error
+      assert_equal :x, error.var_name
+    end
+
+    typing.errors.find {|error| error.node == if_node.children[2] }.yield_self do |error|
+      assert_instance_of Steep::Errors::IncompatibleAnnotation, error
+      assert_equal :x, error.var_name
+    end
+  end
+
+  def test_when_typing
+    source = parse_ruby(<<EOF)
+case
+when 30
+  x = 1
+  y = (x + 1).to_int
+else
+  x = "foo"
+  y = (x.to_str).size
+end
+EOF
+    typing = Typing.new
+    annotations = source.annotations(block: source.node)
+    checker = new_subtyping_checker("")
+    const_env = ConstantEnv.new(builder: checker.builder, current_namespace: nil)
+    type_env = TypeEnv.build(annotations: annotations,
+                             subtyping: checker,
+                             const_env: const_env,
+                             signatures: checker.builder.signatures)
+
+    construction = TypeConstruction.new(checker: checker,
+                                        source: source,
+                                        annotations: annotations,
+                                        type_env: type_env,
+                                        block_context: nil,
+                                        self_type: nil,
+                                        method_context: nil,
+                                        typing: typing,
+                                        module_context: nil,
+                                        break_context: nil)
+    construction.synthesize(source.node)
+
+    assert_empty typing.errors
+    assert_equal Types::Union.build(types: [Types::Name.new_instance(name: "::String"),
+                                            Types::Name.new_instance(name: "::Integer")]),
+                 type_env.lvar_types[:x]
+    assert_equal Types::Name.new_instance(name: "::Integer"),
+                 type_env.lvar_types[:y]
+  end
+
+  def test_where_typing
+    source = parse_ruby(<<EOF)
+# @type var x: Integer | String
+x = nil
+
+while 3
+  # @type var x: Integer
+  x + 3 
+end
+EOF
+    typing = Typing.new
+    annotations = source.annotations(block: source.node)
+    checker = new_subtyping_checker("")
+    const_env = ConstantEnv.new(builder: checker.builder, current_namespace: nil)
+    type_env = TypeEnv.build(annotations: annotations,
+                             subtyping: checker,
+                             const_env: const_env,
+                             signatures: checker.builder.signatures)
+
+    construction = TypeConstruction.new(checker: checker,
+                                        source: source,
+                                        annotations: annotations,
+                                        type_env: type_env,
+                                        block_context: nil,
+                                        self_type: nil,
+                                        method_context: nil,
+                                        typing: typing,
+                                        module_context: nil,
+                                        break_context: nil)
+    construction.synthesize(source.node)
+
+    assert_empty typing.errors
+  end
+
+  def test_rescue_typing
+    source = parse_ruby(<<EOF)
+# @type const E: any
+# @type const F: any
+
+begin
+  1 + 2
+rescue E
+  x = 3
+  x + 1
+rescue F
+  # @type var x: String
+  x = "foo"
+  x + ""
+end
+EOF
+    typing = Typing.new
+    annotations = source.annotations(block: source.node)
+    checker = new_subtyping_checker("")
+    const_env = ConstantEnv.new(builder: checker.builder, current_namespace: nil)
+    type_env = TypeEnv.build(annotations: annotations,
+                             subtyping: checker,
+                             const_env: const_env,
+                             signatures: checker.builder.signatures)
+
+    construction = TypeConstruction.new(checker: checker,
+                                        source: source,
+                                        annotations: annotations,
+                                        type_env: type_env,
+                                        block_context: nil,
+                                        self_type: nil,
+                                        method_context: nil,
+                                        typing: typing,
+                                        module_context: nil,
+                                        break_context: nil)
+    construction.synthesize(source.node)
+
+    assert_empty typing.errors
+    assert_equal Types::Union.build(types: [Types::Name.new_instance(name: "::String"),
+                                            Types::Name.new_instance(name: "::Integer")]),
+                 type_env.lvar_types[:x]
+  end
 end

@@ -134,10 +134,12 @@ end
                  constraints.eliminate_variable(AST::Types::Var.new(name: :a), to: AST::Types::Any.new)
 
     assert_equal AST::Types::Any.new,
-                 constraints.eliminate_variable(AST::Types::Union.build(types: [AST::Types::Var.new(name: :a)]),
+                 constraints.eliminate_variable(AST::Types::Union.build(types: [AST::Types::Var.new(name: :a),
+                                                                                AST::Types::Var.new(name: :b)]),
                                                 to: AST::Types::Top.new)
     assert_equal AST::Types::Any.new,
-                 constraints.eliminate_variable(AST::Types::Intersection.build(types: [AST::Types::Var.new(name: :a)]),
+                 constraints.eliminate_variable(AST::Types::Intersection.build(types: [AST::Types::Var.new(name: :a),
+                                                                                       AST::Types::Var.new(name: :b)]),
                                                 to: AST::Types::Bot.new)
     assert_equal AST::Types::Name.new(name: "::String", args: [AST::Types::Any.new]),
                  constraints.eliminate_variable(AST::Types::Name.new(name: "::String", args: [AST::Types::Var.new(name: :a)]),

@@ -122,7 +122,7 @@ module Steep
       self.type_env.const_types.each do |name, type|
         type_env.set(const: name, type: type)
       end
-      
+
       self_type = annots.self_type || self_type
 
       self_interface = self_type && (self_type != Types.any || nil) && checker.resolve(self_type)
@@ -356,6 +356,42 @@ module Steep
         module_context: module_context,
         self_type: module_context.module_type,
         break_context: nil
+      )
+    end
+
+    def for_branch(node)
+      annots = source.annotations(block: node)
+
+      type_env = self.type_env.with_annotations(
+        lvar_types: annots.var_types.transform_values {|a| absolute_type(a.type) },
+        ivar_types: annots.ivar_types.transform_values {|ty| absolute_type(ty) },
+        const_types: annots.const_types.transform_values {|ty| absolute_type(ty) },
+        gvar_types: {}
+      ) do |var, result|
+        typing.add_error(
+          Errors::IncompatibleAnnotation.new(node: node,
+                                             var_name: var,
+                                             result: result)
+        )
+      end
+
+      with(type_env: type_env)
+    end
+
+    NOTHING = ::Object.new
+
+    def with(annotations: NOTHING, type_env: NOTHING, method_context: NOTHING, block_context: NOTHING, module_context: NOTHING, self_type: NOTHING, break_context: NOTHING)
+      self.class.new(
+        checker: checker,
+        source: source,
+        annotations: annotations.equal?(NOTHING) ? self.annotations : annotations,
+        type_env: type_env.equal?(NOTHING) ? self.type_env : type_env,
+        typing: typing,
+        method_context: method_context.equal?(NOTHING) ? self.method_context : method_context,
+        block_context: block_context.equal?(NOTHING) ? self.block_context : block_context,
+        module_context: module_context.equal?(NOTHING) ? self.module_context : module_context,
+        self_type: self_type.equal?(NOTHING) ? self.self_type : self_type,
+        break_context: break_context.equal?(NOTHING) ? self.break_context : break_context
       )
     end
 
@@ -866,9 +902,20 @@ module Steep
         when :if
           cond, true_clause, false_clause = node.children
           synthesize cond
-          true_type = synthesize(true_clause) if true_clause
-          false_type = synthesize(false_clause) if false_clause
+          if true_clause
+            true_type, true_env = for_branch(true_clause).yield_self do |constructor|
+              type = constructor.synthesize(true_clause)
+              [type, constructor.type_env]
+            end
+          end
+          if false_clause
+            false_type, false_env = for_branch(false_clause).yield_self do |constructor|
+              type = constructor.synthesize(false_clause)
+              [type, constructor.type_env]
+            end
+          end
 
+          type_env.join!([true_env, false_env].compact)
           typing.add_typing(node, union_type(true_type, false_type))
 
         when :case
@@ -876,34 +923,56 @@ module Steep
 
           synthesize cond if cond
 
-          types = whens.map do |clause|
+          pairs = whens.map do |clause|
             if clause&.type == :when
               clause.children.take(clause.children.size - 1).map do |child|
                 synthesize(child)
               end
 
               if (body = clause.children.last)
-                synthesize body
+                for_branch(body).yield_self do |body_construction|
+                  type = body_construction.synthesize(body)
+                  [type, body_construction.type_env]
+                end
               else
-                fallback_to_any body
+                [Types.any, nil]
               end
             else
-              synthesize clause if clause
+              if clause
+                for_branch(clause).yield_self do |body_construction|
+                  type = body_construction.synthesize(clause)
+                  [type, body_construction.type_env]
+                end
+              end
             end
-          end
+          end.compact
 
+          types = pairs.map(&:first)
+          envs = pairs.map(&:last)
+
+          type_env.join!(envs.compact)
           typing.add_typing(node, union_type(*types))
 
         when :rescue
           yield_self do
             body, *resbodies, else_node = node.children
             body_type = synthesize(body) if body
-            resbody_types = resbodies.map { |resbody| synthesize(resbody) }
-            else_type = synthesize(else_node) if else_node
-            types = []
-            types << body_type unless else_node
-            types.concat resbody_types
-            types << else_type
+
+            resbody_pairs = resbodies.map do |resbody|
+              resbody_construction = for_branch(resbody)
+              [resbody_construction.synthesize(resbody), resbody_construction.type_env]
+            end
+            resbody_types, resbody_envs = resbody_pairs.transpose
+
+            if else_node
+              else_construction = for_branch(else_node)
+              else_type = else_construction.synthesize(else_node)
+              else_env = else_construction.type_env
+            end
+
+            type_env.join!([*resbody_envs, else_env].compact)
+
+            types = [body_type, *resbody_types, else_type].compact
             typing.add_typing(node, union_type(*types))
           end
 
@@ -933,20 +1002,11 @@ module Steep
 
             synthesize(cond)
 
-            for_loop = TypeConstruction.new(
-              checker: checker,
-              source: source,
-              annotations: annotations,
-              typing: typing,
-              self_type: self_type,
-              method_context: method_context,
-              block_context: block_context,
-              module_context: module_context,
-              break_context: BreakContext.new(break_type: nil, next_type: nil),
-              type_env: type_env
-            )
-
-            for_loop.synthesize(body)
+            if body
+              for_loop = for_branch(body).with(break_context: BreakContext.new(break_type: nil, next_type: nil))
+              for_loop.synthesize(body)
+              type_env.join!([for_loop.type_env])
+            end
 
             typing.add_typing(node, Types.any)
           end

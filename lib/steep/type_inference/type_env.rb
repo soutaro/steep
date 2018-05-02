@@ -73,11 +73,7 @@ module Steep
         end
 
         lvars.each do |name, types|
-          if types.size == 1
-            set(lvar: name, type: types.first)
-          else
-            set(lvar: name, type: AST::Types::Union.build(types: types))
-          end
+          set(lvar: name, type: AST::Types::Union.build(types: types))
         end
       end
 

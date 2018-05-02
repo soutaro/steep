@@ -4,12 +4,12 @@ module Steep
       module Helper
         module ChildrenLevel
           def level_of_children(children)
-            children.map(&:level).inject() do |a, b|
+            children.map(&:level).sort {|a, b| b.size <=> a.size }.inject() do |a, b|
               a.zip(b).map do |(x, y)|
                 if x && y
                   x + y
                 else
-                  x || y || 0
+                  x || y
                 end
               end
             end || []

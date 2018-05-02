@@ -411,5 +411,22 @@ module Steep
         "#{location_to_str}: UnsatisfiableConstraint: method_type=#{method_type}, constraint=#{sub_type} <: '#{var} <: #{super_type}"
       end
     end
+
+    class IncompatibleAnnotation < Base
+      attr_reader :var_name
+      attr_reader :result
+
+      def initialize(node:, var_name:, result:)
+        super(node: node)
+        @var_name = var_name
+        @result = result
+      end
+
+      include ResultPrinter
+
+      def to_s
+        "#{location_to_str}: IncompatibleAnnotation: var_name=#{var_name}, #{result.relation}"
+      end
+    end
   end
 end
