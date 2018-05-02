@@ -23,6 +23,7 @@ module Steep
       class Typed
         attr_reader :type
         attr_reader :annotation
+        attr_reader :location
 
         def initialize(type:, location: nil)
           @type = type

@@ -65,24 +65,29 @@ module Steep
 
             pp annotations if verbose
 
+            const_env = TypeInference::ConstantEnv.new(builder: check.builder, current_namespace: nil)
+            type_env = TypeInference::TypeEnv.build(annotations: annotations,
+                                                    subtyping: check,
+                                                    const_env: const_env,
+                                                    signatures: check.builder.signatures)
+
             construction = TypeConstruction.new(
               checker: check,
               annotations: annotations,
               source: source,
-              var_types: {},
               self_type: nil,
               block_context: nil,
               module_context: TypeConstruction::ModuleContext.new(
                 instance_type: nil,
                 module_type: nil,
-                const_types: annotations.const_types,
                 implement_name: nil,
                 current_namespace: nil,
-                const_env: TypeInference::ConstantEnv.new(builder: check.builder, current_namespace: nil)
+                const_env: const_env
               ),
               method_context: nil,
               typing: typing,
-              break_context: nil
+              break_context: nil,
+              type_env: type_env
               )
             construction.synthesize(source.node)
           end

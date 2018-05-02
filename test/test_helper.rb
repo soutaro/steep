@@ -37,6 +37,28 @@ module TestHelper
   def parse_ruby(string)
     Steep::Source.parse(string, path: Pathname("test.rb"))
   end
+
+  def dig(node, *indexes)
+    if indexes.size == 1
+      node.children[indexes.first]
+    else
+      dig(node.children[indexes.first], *indexes.drop(1))
+    end
+  end
+
+  def lvar_in(node, name)
+    if (node.type == :lvar || node.type == :lvasgn) && node.children[0].name == name
+      return node
+    else
+      node.children.each do |child|
+        if child.is_a?(AST::Node)
+          lvar = lvar_in(child, name)
+          return lvar if lvar
+        end
+      end
+      nil
+    end
+  end
 end
 
 module TypeErrorAssertions
@@ -268,5 +290,106 @@ module ASTAssertion
     assert_instance_of Steep::AST::Annotation::MethodType, annot
     assert_equal name, annot.name if name
     yield name: annot.name, type: annot.type if block_given?
+  end
+end
+
+module SubtypingHelper
+  BUILTIN = <<-EOS
+class BasicObject
+end
+
+class Object <: BasicObject
+  def class: -> module
+  def tap: { (instance) -> any } -> instance
+end
+
+class Class<'a>
+end
+
+class Module
+  def block_given?: -> any
+end
+
+class String
+  def to_str: -> String
+  def +: (String) -> String
+  def size: -> Integer
+end
+
+class Numeric
+  def +: (Numeric) -> Numeric
+  def to_int: -> Integer
+end
+
+class Integer <: Numeric
+end
+
+class Range<'a>
+  def begin: -> 'a
+  def end: -> 'a
+end
+
+class Regexp
+end
+
+class Array<'a>
+  def []: (Integer) -> 'a
+  def []=: (Integer, 'a) -> 'a
+  def <<: ('a) -> self
+  def each: { ('a) -> any } -> self
+  def zip: <'b> (Array<'b>) -> Array<'a | 'b>
+  def each_with_object: <'b> ('b) { ('a, 'b) -> any } -> 'b
+end
+  EOS
+
+  DEFAULT_SIGS = <<-EOS
+interface _A
+  def +: (_A) -> _A
+end
+
+interface _B
+end
+
+interface _C
+  def f: () -> _A
+  def g: (_A, ?_B) -> _B
+  def h: (a: _A, ?b: _B) -> _C
+end
+
+interface _D
+  def foo: () -> any
+end
+
+interface _X
+  def f: () { (_A) -> _D } -> _C 
+end
+
+interface _Kernel
+  def foo: (_A) -> _B
+         | (_C) -> _D
+end
+
+interface _PolyMethod
+  def snd: <'a>(any, 'a) -> 'a
+  def try: <'a> { (any) -> 'a } -> 'a
+end
+
+module Foo<'a>
+end
+  EOS
+
+  def new_subtyping_checker(sigs = DEFAULT_SIGS)
+    signatures = Steep::AST::Signature::Env.new.tap do |env|
+      parse_signature(BUILTIN).each do |sig|
+        env.add sig
+      end
+
+      parse_signature(sigs).each do |sig|
+        env.add sig
+      end
+    end
+
+    builder = Steep::Interface::Builder.new(signatures: signatures)
+    Steep::Subtyping::Check.new(builder: builder)
   end
 end

@@ -13,103 +13,11 @@ class TypeConstructionTest < Minitest::Test
   Signature = Steep::AST::Signature
   TypeInference = Steep::TypeInference
   ConstantEnv = Steep::TypeInference::ConstantEnv
+  TypeEnv = Steep::TypeInference::TypeEnv
 
   include TestHelper
   include TypeErrorAssertions
-
-  BUILTIN = <<-EOS
-class BasicObject
-end
-
-class Object <: BasicObject
-  def class: -> module
-  def tap: { (instance) -> any } -> instance
-end
-
-class Class<'a>
-end
-
-class Module
-  def block_given?: -> any
-end
-
-class String
-  def to_str: -> String
-  def +: (String) -> String
-end
-
-class Integer
-  def to_int: -> Integer
-end
-
-class Range<'a>
-  def begin: -> 'a
-  def end: -> 'a
-end
-
-class Regexp
-end
-
-class Array<'a>
-  def []: (Integer) -> 'a
-  def []=: (Integer, 'a) -> 'a
-  def <<: ('a) -> self
-  def each: { ('a) -> any } -> self
-  def zip: <'b> (Array<'b>) -> Array<'a | 'b>
-  def each_with_object: <'b> ('b) { ('a, 'b) -> any } -> 'b
-end
-  EOS
-
-  DEFAULT_SIGS = <<-EOS
-interface _A
-  def +: (_A) -> _A
-end
-
-interface _B
-end
-
-interface _C
-  def f: () -> _A
-  def g: (_A, ?_B) -> _B
-  def h: (a: _A, ?b: _B) -> _C
-end
-
-interface _D
-  def foo: () -> any
-end
-
-interface _X
-  def f: () { (_A) -> _D } -> _C 
-end
-
-interface _Kernel
-  def foo: (_A) -> _B
-         | (_C) -> _D
-end
-
-interface _PolyMethod
-  def snd: <'a>(any, 'a) -> 'a
-  def try: <'a> { (any) -> 'a } -> 'a
-end
-
-module Foo<'a>
-end
-  EOS
-
-  def checker(sigs = DEFAULT_SIGS)
-    signatures = Signature::Env.new.tap do |env|
-      parse_signature(BUILTIN).each do |sig|
-        env.add sig
-      end
-
-      parse_signature(sigs).each do |sig|
-        env.add sig
-      end
-    end
-
-    builder = Interface::Builder.new(signatures: signatures)
-    Subtyping::Check.new(builder: builder)
-  end
+  include SubtypingHelper
 
   def test_lvar_with_annotation
     source = parse_ruby(<<-EOF)
@@ -119,12 +27,17 @@ x = nil
 
     typing = Typing.new
     annotations = source.annotations(block: source.node)
-    checker = checker()
+    checker = new_subtyping_checker()
+    const_env = ConstantEnv.new(builder: checker.builder, current_namespace: nil)
+    type_env = TypeEnv.build(annotations: annotations,
+                             subtyping: checker,
+                             const_env: const_env,
+                             signatures: checker.builder.signatures)
 
     construction = TypeConstruction.new(checker: checker,
                                         source: source,
                                         annotations: annotations,
-                                        var_types: {},
+                                        type_env: type_env,
                                         self_type: nil,
                                         block_context: nil,
                                         typing: typing,
@@ -147,12 +60,17 @@ z = x
 
     typing = Typing.new
     annotations = source.annotations(block: source.node)
-    checker = checker()
+    checker = new_subtyping_checker()
+    const_env = ConstantEnv.new(builder: checker.builder, current_namespace: nil)
+    type_env = TypeEnv.build(annotations: annotations,
+                             subtyping: checker,
+                             const_env: const_env,
+                             signatures: checker.builder.signatures)
 
     construction = TypeConstruction.new(checker: checker,
                                         source: source,
                                         annotations: annotations,
-                                        var_types: {},
+                                        type_env: type_env,
                                         self_type: nil,
                                         typing: typing,
                                         block_context: nil,
@@ -180,12 +98,17 @@ z = x
 
     typing = Typing.new
     annotations = source.annotations(block: source.node)
-    checker = checker()
+    checker = new_subtyping_checker()
+    const_env = ConstantEnv.new(builder: checker.builder, current_namespace: nil)
+    type_env = TypeEnv.build(annotations: annotations,
+                             subtyping: checker,
+                             const_env: const_env,
+                             signatures: checker.builder.signatures)
 
     construction = TypeConstruction.new(checker: checker,
                                         source: source,
                                         annotations: annotations,
-                                        var_types: {},
+                                        type_env: type_env,
                                         block_context: nil,
                                         self_type: nil,
                                         typing: typing,
@@ -207,12 +130,17 @@ z = x
 
     typing = Typing.new
     annotations = source.annotations(block: source.node)
-    checker = checker()
+    checker = new_subtyping_checker()
+    const_env = ConstantEnv.new(builder: checker.builder, current_namespace: nil)
+    type_env = TypeEnv.build(annotations: annotations,
+                             subtyping: checker,
+                             const_env: const_env,
+                             signatures: checker.builder.signatures)
 
     construction = TypeConstruction.new(checker: checker,
                                         source: source,
                                         annotations: annotations,
-                                        var_types: {},
+                                        type_env: type_env,
                                         block_context: nil,
                                         self_type: nil,
                                         typing: typing,
@@ -234,12 +162,17 @@ x.f
 
     typing = Typing.new
     annotations = source.annotations(block: source.node)
-    checker = checker()
+    checker = new_subtyping_checker()
+    const_env = ConstantEnv.new(builder: checker.builder, current_namespace: nil)
+    type_env = TypeEnv.build(annotations: annotations,
+                             subtyping: checker,
+                             const_env: const_env,
+                             signatures: checker.builder.signatures)
 
     construction = TypeConstruction.new(checker: checker,
                                         source: source,
                                         annotations: annotations,
-                                        var_types: {},
+                                        type_env: type_env,
                                         block_context: nil,
                                         self_type: nil,
                                         typing: typing,
@@ -263,12 +196,17 @@ x.g(y)
 
     typing = Typing.new
     annotations = source.annotations(block: source.node)
-    checker = checker()
+    checker = new_subtyping_checker()
+    const_env = ConstantEnv.new(builder: checker.builder, current_namespace: nil)
+    type_env = TypeEnv.build(annotations: annotations,
+                             subtyping: checker,
+                             const_env: const_env,
+                             signatures: checker.builder.signatures)
 
     construction = TypeConstruction.new(checker: checker,
                                         source: source,
                                         annotations: annotations,
-                                        var_types: {},
+                                        type_env: type_env,
                                         block_context: nil,
                                         self_type: nil,
                                         typing: typing,
@@ -292,12 +230,17 @@ x.g(y)
 
     typing = Typing.new
     annotations = source.annotations(block: source.node)
-    checker = checker()
+    checker = new_subtyping_checker()
+    const_env = ConstantEnv.new(builder: checker.builder, current_namespace: nil)
+    type_env = TypeEnv.build(annotations: annotations,
+                             subtyping: checker,
+                             const_env: const_env,
+                             signatures: checker.builder.signatures)
 
     construction = TypeConstruction.new(checker: checker,
                                         source: source,
                                         annotations: annotations,
-                                        var_types: {},
+                                        type_env: type_env,
                                         block_context: nil,
                                         self_type: nil,
                                         typing: typing,
@@ -322,11 +265,17 @@ x.no_such_method
 
     typing = Typing.new
     annotations = source.annotations(block: source.node)
+    checker = new_subtyping_checker
+    const_env = ConstantEnv.new(builder: checker.builder, current_namespace: nil)
+    type_env = TypeEnv.build(annotations: annotations,
+                             subtyping: checker,
+                             const_env: const_env,
+                             signatures: checker.builder.signatures)
 
-    construction = TypeConstruction.new(checker: checker(),
+    construction = TypeConstruction.new(checker: checker,
                                         source: source,
                                         annotations: annotations,
-                                        var_types: {},
+                                        type_env: type_env,
                                         block_context: nil,
                                         self_type: nil,
                                         typing: typing,
@@ -348,12 +297,17 @@ x.no_such_method
 
     typing = Typing.new
     annotations = source.annotations(block: source.node)
-    checker = checker()
+    checker = new_subtyping_checker()
+    const_env = ConstantEnv.new(builder: checker.builder, current_namespace: nil)
+    type_env = TypeEnv.build(annotations: annotations,
+                             subtyping: checker,
+                             const_env: const_env,
+                             signatures: checker.builder.signatures)
 
     construction = TypeConstruction.new(checker: checker,
                                         source: source,
                                         annotations: annotations,
-                                        var_types: {},
+                                        type_env: type_env,
                                         block_context: nil,
                                         self_type: nil,
                                         typing: typing,
@@ -379,12 +333,17 @@ a.g()
 
     typing = Typing.new
     annotations = source.annotations(block: source.node)
-    checker = checker()
+    checker = new_subtyping_checker()
+    const_env = ConstantEnv.new(builder: checker.builder, current_namespace: nil)
+    type_env = TypeEnv.build(annotations: annotations,
+                             subtyping: checker,
+                             const_env: const_env,
+                             signatures: checker.builder.signatures)
 
     construction = TypeConstruction.new(checker: checker,
                                         source: source,
                                         annotations: annotations,
-                                        var_types: {},
+                                        type_env: type_env,
                                         block_context: nil,
                                         self_type: nil,
                                         method_context: nil,
@@ -413,12 +372,17 @@ a.g(nil, nil, nil)
 
     typing = Typing.new
     annotations = source.annotations(block: source.node)
-    checker = checker()
+    checker = new_subtyping_checker()
+    const_env = ConstantEnv.new(builder: checker.builder, current_namespace: nil)
+    type_env = TypeEnv.build(annotations: annotations,
+                             subtyping: checker,
+                             const_env: const_env,
+                             signatures: checker.builder.signatures)
 
     construction = TypeConstruction.new(checker: checker,
                                         source: source,
                                         annotations: annotations,
-                                        var_types: {},
+                                        type_env: type_env,
                                         block_context: nil,
                                         self_type: nil,
                                         method_context: nil,
@@ -449,12 +413,17 @@ x.h(a: a, b: b)
 
     typing = Typing.new
     annotations = source.annotations(block: source.node)
-    checker = checker()
+    checker = new_subtyping_checker()
+    const_env = ConstantEnv.new(builder: checker.builder, current_namespace: nil)
+    type_env = TypeEnv.build(annotations: annotations,
+                             subtyping: checker,
+                             const_env: const_env,
+                             signatures: checker.builder.signatures)
 
     construction = TypeConstruction.new(checker: checker,
                                         source: source,
                                         annotations: annotations,
-                                        var_types: {},
+                                        type_env: type_env,
                                         block_context: nil,
                                         self_type: nil,
                                         method_context: nil,
@@ -476,12 +445,17 @@ x.h()
 
     typing = Typing.new
     annotations = source.annotations(block: source.node)
-    checker = checker()
+    checker = new_subtyping_checker()
+    const_env = ConstantEnv.new(builder: checker.builder, current_namespace: nil)
+    type_env = TypeEnv.build(annotations: annotations,
+                             subtyping: checker,
+                             const_env: const_env,
+                             signatures: checker.builder.signatures)
 
     construction = TypeConstruction.new(checker: checker,
                                         source: source,
                                         annotations: annotations,
-                                        var_types: {},
+                                        type_env: type_env,
                                         block_context: nil,
                                         self_type: nil,
                                         method_context: nil,
@@ -509,12 +483,17 @@ x.h(a: nil, b: nil, c: nil)
 
     typing = Typing.new
     annotations = source.annotations(block: source.node)
-    checker = checker()
+    checker = new_subtyping_checker()
+    const_env = ConstantEnv.new(builder: checker.builder, current_namespace: nil)
+    type_env = TypeEnv.build(annotations: annotations,
+                             subtyping: checker,
+                             const_env: const_env,
+                             signatures: checker.builder.signatures)
 
     construction = TypeConstruction.new(checker: checker,
                                         source: source,
                                         annotations: annotations,
-                                        var_types: {},
+                                        type_env: type_env,
                                         block_context: nil,
                                         self_type: nil,
                                         method_context: nil,
@@ -543,12 +522,17 @@ x.h(a: y)
 
     typing = Typing.new
     annotations = source.annotations(block: source.node)
-    checker = checker()
+    checker = new_subtyping_checker()
+    const_env = ConstantEnv.new(builder: checker.builder, current_namespace: nil)
+    type_env = TypeEnv.build(annotations: annotations,
+                             subtyping: checker,
+                             const_env: const_env,
+                             signatures: checker.builder.signatures)
 
     construction = TypeConstruction.new(checker: checker,
                                         source: source,
                                         annotations: annotations,
-                                        var_types: {},
+                                        type_env: type_env,
                                         block_context: nil,
                                         self_type: nil,
                                         method_context: nil,
@@ -575,12 +559,17 @@ end
 
     typing = Typing.new
     annotations = source.annotations(block: source.node)
-    checker = checker()
+    checker = new_subtyping_checker()
+    const_env = ConstantEnv.new(builder: checker.builder, current_namespace: nil)
+    type_env = TypeEnv.build(annotations: annotations,
+                             subtyping: checker,
+                             const_env: const_env,
+                             signatures: checker.builder.signatures)
 
     construction = TypeConstruction.new(checker: checker,
                                         source: source,
                                         annotations: annotations,
-                                        var_types: {},
+                                        type_env: type_env,
                                         block_context: nil,
                                         self_type: nil,
                                         method_context: nil,
@@ -603,12 +592,17 @@ end
 
     typing = Typing.new
     annotations = source.annotations(block: source.node)
-    checker = checker()
+    checker = new_subtyping_checker()
+    const_env = ConstantEnv.new(builder: checker.builder, current_namespace: nil)
+    type_env = TypeEnv.build(annotations: annotations,
+                             subtyping: checker,
+                             const_env: const_env,
+                             signatures: checker.builder.signatures)
 
     construction = TypeConstruction.new(checker: checker,
                                         source: source,
                                         annotations: annotations,
-                                        var_types: {},
+                                        type_env: type_env,
                                         block_context: nil,
                                         self_type: nil,
                                         method_context: nil,
@@ -619,8 +613,7 @@ end
 
     def_body = source.node.children[2]
     assert_equal Types::Name.new_interface(name: :_A), typing.type_of(node: def_body)
-    assert_equal Types::Name.new_interface(name: :_A), typing.type_of_variable(name: :x)
-    assert_equal Types::Name.new_interface(name: :_A), typing.type_of_variable(name: :y)
+    assert_equal Types::Name.new_interface(name: :_A), typing.type_of(node: def_body.children[1])
   end
 
   def test_def_param_error
@@ -628,17 +621,24 @@ end
 def foo(x, y = x)
   # @type var x: _A
   # @type var y: _C
+  x
+  y
 end
     EOF
 
     typing = Typing.new
     annotations = source.annotations(block: source.node)
-    checker = checker()
+    checker = new_subtyping_checker()
+    const_env = ConstantEnv.new(builder: checker.builder, current_namespace: nil)
+    type_env = TypeEnv.build(annotations: annotations,
+                             subtyping: checker,
+                             const_env: const_env,
+                             signatures: checker.builder.signatures)
 
     construction = TypeConstruction.new(checker: checker,
                                         source: source,
                                         annotations: annotations,
-                                        var_types: {},
+                                        type_env: type_env,
                                         block_context: nil,
                                         self_type: nil,
                                         method_context: nil,
@@ -655,8 +655,11 @@ end
       assert_equal :y, error.node.children[0].name
     end
 
-    assert_equal Types::Name.new_interface(name: :_A), typing.type_of_variable(name: :x)
-    assert_equal Types::Name.new_interface(name: :_C), typing.type_of_variable(name: :y)
+    x = dig(source.node, 2, 0)
+    y = dig(source.node, 2, 1)
+
+    assert_equal Types::Name.new_interface(name: :_A), typing.type_of(node: x)
+    assert_equal Types::Name.new_interface(name: :_C), typing.type_of(node: y)
   end
 
   def test_def_kw_param_error
@@ -664,17 +667,24 @@ end
 def foo(x:, y: x)
   # @type var x: _A
   # @type var y: _C
+  x
+  y
 end
     EOF
 
     typing = Typing.new
     annotations = source.annotations(block: source.node)
-    checker = checker()
+    checker = new_subtyping_checker()
+    const_env = ConstantEnv.new(builder: checker.builder, current_namespace: nil)
+    type_env = TypeEnv.build(annotations: annotations,
+                             subtyping: checker,
+                             const_env: const_env,
+                             signatures: checker.builder.signatures)
 
     construction = TypeConstruction.new(checker: checker,
                                         source: source,
                                         annotations: annotations,
-                                        var_types: {},
+                                        type_env: type_env,
                                         block_context: nil,
                                         self_type: nil,
                                         method_context: nil,
@@ -691,8 +701,11 @@ end
       assert_equal :y, error.node.children[0].name
     end
 
-    assert_equal Types::Name.new_interface(name: :_A), typing.type_of_variable(name: :x)
-    assert_equal Types::Name.new_interface(name: :_C), typing.type_of_variable(name: :y)
+    x = dig(source.node, 2, 0)
+    y = dig(source.node, 2, 1)
+
+    assert_equal Types::Name.new_interface(name: :_A), typing.type_of(node: x)
+    assert_equal Types::Name.new_interface(name: :_C), typing.type_of(node: y)
   end
 
   def test_block
@@ -704,17 +717,27 @@ b = a.f do |x|
   # @type var x: _A
   # @type var y: _B
   y = nil
+  x
+  y
 end
+
+a
+b
     EOF
 
     typing = Typing.new
     annotations = source.annotations(block: source.node)
-    checker = checker()
+    checker = new_subtyping_checker()
+    const_env = ConstantEnv.new(builder: checker.builder, current_namespace: nil)
+    type_env = TypeEnv.build(annotations: annotations,
+                             subtyping: checker,
+                             const_env: const_env,
+                             signatures: checker.builder.signatures)
 
     construction = TypeConstruction.new(checker: checker,
                                         source: source,
                                         annotations: annotations,
-                                        var_types: {},
+                                        type_env: type_env,
                                         block_context: nil,
                                         self_type: nil,
                                         method_context: nil,
@@ -723,10 +746,15 @@ end
                                         break_context: nil)
     construction.synthesize(source.node)
 
-    assert_equal Types::Name.new_interface(name: :_X), typing.type_of_variable(name: :a)
-    assert_equal Types::Name.new_interface(name: :_C), typing.type_of_variable(name: :b)
-    assert_equal Types::Name.new_interface(name: :_A), typing.type_of_variable(name: :x)
-    assert_equal Types::Name.new_interface(name: :_B), typing.type_of_variable(name: :y)
+    a = dig(source.node, 2)
+    b = dig(source.node, 3)
+    x = dig(source.node, 1, 1, 2, 1)
+    y = dig(source.node, 1, 1, 2, 2)
+
+    assert_equal Types::Name.new_interface(name: :_X), typing.type_of(node: a)
+    assert_equal Types::Name.new_interface(name: :_C), typing.type_of(node: b)
+    assert_equal Types::Name.new_interface(name: :_A), typing.type_of(node: x)
+    assert_equal Types::Name.new_interface(name: :_B), typing.type_of(node: y)
   end
 
   def test_block_shadow
@@ -742,12 +770,17 @@ end
 
     typing = Typing.new
     annotations = source.annotations(block: source.node)
-    checker = checker()
+    checker = new_subtyping_checker()
+    const_env = ConstantEnv.new(builder: checker.builder, current_namespace: nil)
+    type_env = TypeEnv.build(annotations: annotations,
+                             subtyping: checker,
+                             const_env: const_env,
+                             signatures: checker.builder.signatures)
 
     construction = TypeConstruction.new(checker: checker,
                                         source: source,
                                         annotations: annotations,
-                                        var_types: {},
+                                        type_env: type_env,
                                         block_context: nil,
                                         self_type: nil,
                                         method_context: nil,
@@ -756,9 +789,11 @@ end
                                         break_context: nil)
     construction.synthesize(source.node)
 
-    assert_any typing.var_typing do |var, type| var.name == :a && type.is_a?(Types::Name) && type.name == TypeName::Interface.new(name: :_A) end
-    assert_any typing.var_typing do |var, type| var.name == :a && type.is_a?(Types::Name) && type.name == TypeName::Interface.new(name: :_X) end
-    assert_equal Types::Name.new_interface(name: :_A), typing.type_of_variable(name: :b)
+    block_body = dig(source.node, 1, 2)
+
+    assert_equal Types::Name.new_interface(name: :_X), typing.type_of(node: lvar_in(source.node, :a))
+    assert_equal Types::Name.new_interface(name: :_A), typing.type_of(node: lvar_in(block_body, :a))
+    assert_equal Types::Name.new_interface(name: :_A), typing.type_of(node: lvar_in(block_body, :b))
   end
 
   def test_block_param_type
@@ -768,18 +803,24 @@ x = nil
 
 x.f do |a|
   # @type var d: _D
+  a
   d = nil
 end
     EOF
 
     typing = Typing.new
     annotations = source.annotations(block: source.node)
-    checker = checker()
+    checker = new_subtyping_checker()
+    const_env = ConstantEnv.new(builder: checker.builder, current_namespace: nil)
+    type_env = TypeEnv.build(annotations: annotations,
+                             subtyping: checker,
+                             const_env: const_env,
+                             signatures: checker.builder.signatures)
 
     construction = TypeConstruction.new(checker: checker,
                                         source: source,
                                         annotations: annotations,
-                                        var_types: {},
+                                        type_env: type_env,
                                         block_context: nil,
                                         self_type: nil,
                                         method_context: nil,
@@ -788,9 +829,9 @@ end
                                         break_context: nil)
     construction.synthesize(source.node)
 
-    assert_equal Types::Name.new_interface(name: :_X), typing.type_of_variable(name: :x)
-    assert_equal Types::Name.new_interface(name: :_A), typing.type_of_variable(name: :a)
-    assert_equal Types::Name.new_interface(name: :_D), typing.type_of_variable(name: :d)
+    assert_equal Types::Name.new_interface(name: :_X), typing.type_of(node: lvar_in(source.node, :x))
+    assert_equal Types::Name.new_interface(name: :_A), typing.type_of(node: lvar_in(source.node, :a))
+    assert_equal Types::Name.new_interface(name: :_D), typing.type_of(node: lvar_in(source.node, :d))
     assert_empty typing.errors
   end
 
@@ -806,12 +847,17 @@ end
 
     typing = Typing.new
     annotations = source.annotations(block: source.node)
-    checker = checker()
+    checker = new_subtyping_checker()
+    const_env = ConstantEnv.new(builder: checker.builder, current_namespace: nil)
+    type_env = TypeEnv.build(annotations: annotations,
+                             subtyping: checker,
+                             const_env: const_env,
+                             signatures: checker.builder.signatures)
 
     construction = TypeConstruction.new(checker: checker,
                                         source: source,
                                         annotations: annotations,
-                                        var_types: {},
+                                        type_env: type_env,
                                         block_context: nil,
                                         self_type: nil,
                                         method_context: nil,
@@ -820,8 +866,8 @@ end
                                         break_context: nil)
     construction.synthesize(source.node)
 
-    assert_equal Types::Name.new_interface(name: :_X), typing.type_of_variable(name: :x)
-    assert_equal Types::Name.new_interface(name: :_A), typing.type_of_variable(name: :a)
+    assert_equal Types::Name.new_interface(name: :_X), typing.type_of(node: lvar_in(source.node, :x))
+    assert_equal Types::Name.new_interface(name: :_A), typing.type_of(node: lvar_in(source.node, :a))
 
     assert_equal 1, typing.errors.size
     assert_block_type_mismatch typing.errors[0], expected: Types::Name.new_interface(name: :_D), actual: Types::Name.new_interface(name: :_A)
@@ -841,12 +887,17 @@ end
 
     typing = Typing.new
     annotations = source.annotations(block: source.node)
-    checker = checker()
+    checker = new_subtyping_checker()
+    const_env = ConstantEnv.new(builder: checker.builder, current_namespace: nil)
+    type_env = TypeEnv.build(annotations: annotations,
+                             subtyping: checker,
+                             const_env: const_env,
+                             signatures: checker.builder.signatures)
 
     construction = TypeConstruction.new(checker: checker,
                                         source: source,
                                         annotations: annotations,
-                                        var_types: {},
+                                        type_env: type_env,
                                         block_context: nil,
                                         self_type: nil,
                                         method_context: nil,
@@ -855,8 +906,8 @@ end
                                         break_context: nil)
     construction.synthesize(source.node)
 
-    assert_equal Types::Name.new_interface(name: :_X), typing.type_of_variable(name: :x)
-    assert_equal Types::Name.new_interface(name: :_A), typing.type_of_variable(name: :a)
+    assert_equal Types::Name.new_interface(name: :_X), typing.type_of(node: lvar_in(source.node, :x))
+    assert_equal Types::Name.new_interface(name: :_A), typing.type_of(node: lvar_in(source.node, :a))
 
     assert_equal 1, typing.errors.size
     assert_break_type_mismatch typing.errors[0], expected: Types::Name.new_interface(name: :_C), actual: Types::Name.new_interface(name: :_A)
@@ -874,12 +925,17 @@ end
 
     typing = Typing.new
     annotations = source.annotations(block: source.node)
-    checker = checker()
+    checker = new_subtyping_checker()
+    const_env = ConstantEnv.new(builder: checker.builder, current_namespace: nil)
+    type_env = TypeEnv.build(annotations: annotations,
+                             subtyping: checker,
+                             const_env: const_env,
+                             signatures: checker.builder.signatures)
 
     construction = TypeConstruction.new(checker: checker,
                                         source: source,
                                         annotations: annotations,
-                                        var_types: {},
+                                        type_env: type_env,
                                         block_context: nil,
                                         self_type: nil,
                                         method_context: nil,
@@ -903,12 +959,17 @@ end
 
     typing = Typing.new
     annotations = source.annotations(block: source.node)
-    checker = checker()
+    checker = new_subtyping_checker()
+    const_env = ConstantEnv.new(builder: checker.builder, current_namespace: nil)
+    type_env = TypeEnv.build(annotations: annotations,
+                             subtyping: checker,
+                             const_env: const_env,
+                             signatures: checker.builder.signatures)
 
     construction = TypeConstruction.new(checker: checker,
                                         source: source,
                                         annotations: annotations,
-                                        var_types: {},
+                                        type_env: type_env,
                                         block_context: nil,
                                         self_type: nil,
                                         method_context: nil,
@@ -931,23 +992,25 @@ hello = Hello
 
     typing = Typing.new
     annotations = source.annotations(block: source.node)
-    checker = checker()
-
-    env = ConstantEnv.new(builder: checker.builder, current_namespace: nil)
+    checker = new_subtyping_checker()
+    const_env = ConstantEnv.new(builder: checker.builder, current_namespace: nil)
+    type_env = TypeEnv.build(annotations: annotations,
+                             subtyping: checker,
+                             const_env: const_env,
+                             signatures: checker.builder.signatures)
 
     module_context = TypeConstruction::ModuleContext.new(
       instance_type: nil,
       module_type: nil,
-      const_types: annotations.const_types,
       implement_name: nil,
       current_namespace: nil,
-      const_env: env
+      const_env: const_env
     )
 
     construction = TypeConstruction.new(checker: checker,
                                         source: source,
                                         annotations: annotations,
-                                        var_types: {},
+                                        type_env: type_env,
                                         block_context: nil,
                                         self_type: nil,
                                         method_context: nil,
@@ -967,14 +1030,18 @@ Hello::World = ""
 
     typing = Typing.new
     annotations = source.annotations(block: source.node)
-    checker = checker()
+    checker = new_subtyping_checker()
+    const_env = ConstantEnv.new(builder: checker.builder, current_namespace: nil)
+    type_env = TypeEnv.build(annotations: annotations,
+                             subtyping: checker,
+                             const_env: const_env,
+                             signatures: checker.builder.signatures)
 
     env = ConstantEnv.new(builder: checker.builder, current_namespace: nil)
 
     module_context = TypeConstruction::ModuleContext.new(
       instance_type: nil,
       module_type: nil,
-      const_types: annotations.const_types,
       implement_name: nil,
       current_namespace: nil,
       const_env: env
@@ -983,7 +1050,7 @@ Hello::World = ""
     construction = TypeConstruction.new(checker: checker,
                                         source: source,
                                         annotations: annotations,
-                                        var_types: {},
+                                        type_env: type_env,
                                         block_context: nil,
                                         self_type: nil,
                                         method_context: nil,
@@ -995,6 +1062,8 @@ Hello::World = ""
     assert_any typing.errors do |error|
       error.is_a?(Steep::Errors::IncompatibleAssignment)
     end
+
+    assert_equal Types::Name.new_instance(name: "::Integer"), typing.type_of(node: source.node)
   end
 
   def test_constant_signature
@@ -1005,14 +1074,18 @@ x = String
 
     typing = Typing.new
     annotations = source.annotations(block: source.node)
-    checker = checker()
+    checker = new_subtyping_checker()
+    const_env = ConstantEnv.new(builder: checker.builder, current_namespace: nil)
+    type_env = TypeEnv.build(annotations: annotations,
+                             subtyping: checker,
+                             const_env: const_env,
+                             signatures: checker.builder.signatures)
 
     env = ConstantEnv.new(builder: checker.builder, current_namespace: nil)
 
     module_context = TypeConstruction::ModuleContext.new(
       instance_type: nil,
       module_type: nil,
-      const_types: annotations.const_types,
       implement_name: nil,
       current_namespace: nil,
       const_env: env
@@ -1021,7 +1094,7 @@ x = String
     construction = TypeConstruction.new(checker: checker,
                                         source: source,
                                         annotations: annotations,
-                                        var_types: {},
+                                        type_env: type_env,
                                         block_context: nil,
                                         self_type: nil,
                                         method_context: nil,
@@ -1044,25 +1117,27 @@ x = X
 
     typing = Typing.new
     annotations = source.annotations(block: source.node)
-    checker = checker(<<-EOF)
+    checker = new_subtyping_checker(<<-EOF)
 X: Module
     EOF
-
-    env = ConstantEnv.new(builder: checker.builder, current_namespace: nil)
+    const_env = ConstantEnv.new(builder: checker.builder, current_namespace: nil)
+    type_env = TypeEnv.build(annotations: annotations,
+                             subtyping: checker,
+                             const_env: const_env,
+                             signatures: checker.builder.signatures)
 
     module_context = TypeConstruction::ModuleContext.new(
       instance_type: nil,
       module_type: nil,
-      const_types: annotations.const_types,
       implement_name: nil,
       current_namespace: nil,
-      const_env: env
+      const_env: const_env
     )
 
     construction = TypeConstruction.new(checker: checker,
                                         source: source,
                                         annotations: annotations,
-                                        var_types: {},
+                                        type_env: type_env,
                                         block_context: nil,
                                         self_type: nil,
                                         method_context: nil,
@@ -1093,12 +1168,17 @@ d = k.foo(c)
 
     typing = Typing.new
     annotations = source.annotations(block: source.node)
-    checker = checker()
+    checker = new_subtyping_checker()
+    const_env = ConstantEnv.new(builder: checker.builder, current_namespace: nil)
+    type_env = TypeEnv.build(annotations: annotations,
+                             subtyping: checker,
+                             const_env: const_env,
+                             signatures: checker.builder.signatures)
 
     construction = TypeConstruction.new(checker: checker,
                                         source: source,
                                         annotations: annotations,
-                                        var_types: {},
+                                        type_env: type_env,
                                         block_context: nil,
                                         self_type: nil,
                                         method_context: nil,
@@ -1125,12 +1205,17 @@ end
 
     typing = Typing.new
     annotations = source.annotations(block: source.node)
-    checker = checker()
+    checker = new_subtyping_checker()
+    const_env = ConstantEnv.new(builder: checker.builder, current_namespace: nil)
+    type_env = TypeEnv.build(annotations: annotations,
+                             subtyping: checker,
+                             const_env: const_env,
+                             signatures: checker.builder.signatures)
 
     construction = TypeConstruction.new(checker: checker,
                                         source: source,
                                         annotations: annotations,
-                                        var_types: {},
+                                        type_env: type_env,
                                         block_context: nil,
                                         self_type: nil,
                                         method_context: nil,
@@ -1164,12 +1249,17 @@ string = poly.snd(1, "a")
 
     typing = Typing.new
     annotations = source.annotations(block: source.node)
-    checker = checker()
+    checker = new_subtyping_checker()
+    const_env = ConstantEnv.new(builder: checker.builder, current_namespace: nil)
+    type_env = TypeEnv.build(annotations: annotations,
+                             subtyping: checker,
+                             const_env: const_env,
+                             signatures: checker.builder.signatures)
 
     construction = TypeConstruction.new(checker: checker,
                                         source: source,
                                         annotations: annotations,
-                                        var_types: {},
+                                        type_env: type_env,
                                         block_context: nil,
                                         self_type: nil,
                                         method_context: nil,
@@ -1192,12 +1282,17 @@ string = poly.try { "string" }
 
     typing = Typing.new
     annotations = source.annotations(block: source.node)
-    checker = checker()
+    checker = new_subtyping_checker()
+    const_env = ConstantEnv.new(builder: checker.builder, current_namespace: nil)
+    type_env = TypeEnv.build(annotations: annotations,
+                             subtyping: checker,
+                             const_env: const_env,
+                             signatures: checker.builder.signatures)
 
     construction = TypeConstruction.new(checker: checker,
                                         source: source,
                                         annotations: annotations,
-                                        var_types: {},
+                                        type_env: type_env,
                                         block_context: nil,
                                         self_type: nil,
                                         method_context: nil,
@@ -1214,12 +1309,17 @@ string = poly.try { "string" }
 
     typing = Typing.new
     annotations = source.annotations(block: source.node)
-    checker = checker()
+    checker = new_subtyping_checker()
+    const_env = ConstantEnv.new(builder: checker.builder, current_namespace: nil)
+    type_env = TypeEnv.build(annotations: annotations,
+                             subtyping: checker,
+                             const_env: const_env,
+                             signatures: checker.builder.signatures)
 
     construction = TypeConstruction.new(checker: checker,
                                         source: source,
                                         annotations: annotations,
-                                        var_types: {},
+                                        type_env: type_env,
                                         block_context: nil,
                                         self_type: nil,
                                         method_context: nil,
@@ -1245,12 +1345,17 @@ end
 
     typing = Typing.new
     annotations = source.annotations(block: source.node)
-    checker = checker()
+    checker = new_subtyping_checker()
+    const_env = ConstantEnv.new(builder: checker.builder, current_namespace: nil)
+    type_env = TypeEnv.build(annotations: annotations,
+                             subtyping: checker,
+                             const_env: const_env,
+                             signatures: checker.builder.signatures)
 
     construction = TypeConstruction.new(checker: checker,
                                         source: source,
                                         annotations: annotations,
-                                        var_types: {},
+                                        type_env: type_env,
                                         self_type: nil,
                                         block_context: nil,
                                         method_context: nil,
@@ -1268,15 +1373,20 @@ end
 
     typing = Typing.new
     annotations = source.annotations(block: source.node)
-    checker = checker(<<EOF)
+    checker = new_subtyping_checker(<<EOF)
 class Person
 end
 EOF
+    const_env = ConstantEnv.new(builder: checker.builder, current_namespace: nil)
+    type_env = TypeEnv.build(annotations: annotations,
+                             subtyping: checker,
+                             const_env: const_env,
+                             signatures: checker.builder.signatures)
 
     construction = TypeConstruction.new(checker: checker,
                                         source: source,
                                         annotations: annotations,
-                                        var_types: {},
+                                        type_env: type_env,
                                         self_type: nil,
                                         block_context: nil,
                                         method_context: nil,
@@ -1302,15 +1412,20 @@ EOF
 
     typing = Typing.new
     annotations = source.annotations(block: source.node)
-    checker = checker(<<EOF)
+    checker = new_subtyping_checker(<<EOF)
 class Address
 end
 EOF
+    const_env = ConstantEnv.new(builder: checker.builder, current_namespace: nil)
+    type_env = TypeEnv.build(annotations: annotations,
+                             subtyping: checker,
+                             const_env: const_env,
+                             signatures: checker.builder.signatures)
 
     construction = TypeConstruction.new(checker: checker,
                                         source: source,
                                         annotations: annotations,
-                                        var_types: {},
+                                        type_env: type_env,
                                         self_type: nil,
                                         block_context: nil,
                                         method_context: nil,
@@ -1330,18 +1445,22 @@ EOF
 
     typing = Typing.new
     annotations = source.annotations(block: source.node)
-    checker = checker(<<EOF)
+    checker = new_subtyping_checker(<<EOF)
 class Steep::ModuleName
 end
 EOF
+    const_env = ConstantEnv.new(builder: checker.builder, current_namespace: nil)
+    type_env = TypeEnv.build(annotations: annotations,
+                             subtyping: checker,
+                             const_env: const_env,
+                             signatures: checker.builder.signatures)
 
     module_context = TypeConstruction::ModuleContext.new(
       instance_type: Types::Name.new_instance(name: "::Steep"),
       module_type: Types::Name.new_module(name: "::Steep"),
-      const_types: {},
       implement_name: nil,
       current_namespace: Steep::ModuleName.parse("::Steep"),
-      const_env: nil
+      const_env: const_env
     )
 
     module_name_class_node = source.node.children[1]
@@ -1349,7 +1468,7 @@ EOF
     construction = TypeConstruction.new(checker: checker,
                                         source: source,
                                         annotations: annotations,
-                                        var_types: {},
+                                        type_env: type_env,
                                         self_type: nil,
                                         block_context: nil,
                                         method_context: nil,
@@ -1372,15 +1491,20 @@ EOF
 
     typing = Typing.new
     annotations = source.annotations(block: source.node)
-    checker = checker(<<EOF)
+    checker = new_subtyping_checker(<<EOF)
 module Steep
 end
 EOF
+    const_env = ConstantEnv.new(builder: checker.builder, current_namespace: nil)
+    type_env = TypeEnv.build(annotations: annotations,
+                             subtyping: checker,
+                             const_env: const_env,
+                             signatures: checker.builder.signatures)
 
     construction = TypeConstruction.new(checker: checker,
                                         source: source,
                                         annotations: annotations,
-                                        var_types: {},
+                                        type_env: type_env,
                                         self_type: nil,
                                         block_context: nil,
                                         method_context: nil,
@@ -1414,15 +1538,20 @@ EOF
 
     typing = Typing.new
     annotations = source.annotations(block: source.node)
-    checker = checker(<<EOF)
+    checker = new_subtyping_checker(<<EOF)
 module Rails
 end
 EOF
+    const_env = ConstantEnv.new(builder: checker.builder, current_namespace: nil)
+    type_env = TypeEnv.build(annotations: annotations,
+                             subtyping: checker,
+                             const_env: const_env,
+                             signatures: checker.builder.signatures)
 
     construction = TypeConstruction.new(checker: checker,
                                         source: source,
                                         annotations: annotations,
-                                        var_types: {},
+                                        type_env: type_env,
                                         self_type: nil,
                                         block_context: nil,
                                         method_context: nil,
@@ -1442,18 +1571,22 @@ EOF
 
     typing = Typing.new
     annotations = source.annotations(block: source.node)
-    checker = checker(<<EOF)
+    checker = new_subtyping_checker(<<EOF)
 module Steep::Printable
 end
 EOF
+    const_env = ConstantEnv.new(builder: checker.builder, current_namespace: nil)
+    type_env = TypeEnv.build(annotations: annotations,
+                             subtyping: checker,
+                             const_env: const_env,
+                             signatures: checker.builder.signatures)
 
     module_context = TypeConstruction::ModuleContext.new(
       instance_type: Types::Name.new_instance(name: "::Steep"),
       module_type: Types::Name.new_class(name: "::Steep", constructor: false),
-      const_types: {},
       implement_name: nil,
       current_namespace: Steep::ModuleName.parse("::Steep"),
-      const_env: nil
+      const_env: const_env
     )
 
     module_node = source.node.children.last
@@ -1461,7 +1594,7 @@ EOF
     construction = TypeConstruction.new(checker: checker,
                                         source: source,
                                         annotations: annotations,
-                                        var_types: {},
+                                        type_env: type_env,
                                         self_type: nil,
                                         block_context: nil,
                                         method_context: nil,
@@ -1485,16 +1618,21 @@ EOF
 
     typing = Typing.new
     annotations = source.annotations(block: source.node)
-    checker = checker(<<-EOF)
+    checker = new_subtyping_checker(<<-EOF)
 class A
   def foo: (String) -> Integer
 end
     EOF
+    const_env = ConstantEnv.new(builder: checker.builder, current_namespace: nil)
+    type_env = TypeEnv.build(annotations: annotations,
+                             subtyping: checker,
+                             const_env: const_env,
+                             signatures: checker.builder.signatures)
 
     construction = TypeConstruction.new(checker: checker,
                                         source: source,
                                         annotations: annotations,
-                                        var_types: {},
+                                        type_env: type_env,
                                         self_type: nil,
                                         block_context: nil,
                                         method_context: nil,
@@ -1516,9 +1654,9 @@ end
 
     assert_equal Types::Name.new_instance(name: "::A"), for_method.self_type
     assert_nil for_method.block_context
-    assert_equal [:x], for_method.var_types.keys.map(&:name)
+    assert_equal [:x], for_method.type_env.lvar_types.keys
     assert_equal Types::Name.new_instance(name: "::String"),
-                 for_method.var_types.find {|name, _| name.name == :x }.last
+                 for_method.type_env.lvar_types[:x]
   end
 
   def test_new_method_constructor_union
@@ -1527,17 +1665,22 @@ end
 
     typing = Typing.new
     annotations = source.annotations(block: source.node)
-    checker = checker(<<-EOF)
+    checker = new_subtyping_checker(<<-EOF)
 class A
   def foo: (String) -> Integer
          | (Object) -> Integer
 end
     EOF
+    const_env = ConstantEnv.new(builder: checker.builder, current_namespace: nil)
+    type_env = TypeEnv.build(annotations: annotations,
+                             subtyping: checker,
+                             const_env: const_env,
+                             signatures: checker.builder.signatures)
 
     construction = TypeConstruction.new(checker: checker,
                                         source: source,
                                         annotations: annotations,
-                                        var_types: {},
+                                        type_env: type_env,
                                         self_type: nil,
                                         block_context: nil,
                                         method_context: nil,
@@ -1559,7 +1702,7 @@ end
 
     assert_equal Types::Name.new_instance(name: "::A"), for_method.self_type
     assert_nil for_method.block_context
-    assert_empty for_method.var_types
+    assert_empty for_method.type_env.lvar_types
 
     assert_equal 1, typing.errors.size
     assert_instance_of Steep::Errors::MethodDefinitionWithOverloading, typing.errors.first
@@ -1577,16 +1720,21 @@ RUBY
 
     typing = Typing.new
     annotations = source.annotations(block: source.node)
-    checker = checker(<<-EOF)
+    checker = new_subtyping_checker(<<-EOF)
 class A
   def foo: (String) -> Integer
 end
     EOF
+    const_env = ConstantEnv.new(builder: checker.builder, current_namespace: nil)
+    type_env = TypeEnv.build(annotations: annotations,
+                             subtyping: checker,
+                             const_env: const_env,
+                             signatures: checker.builder.signatures)
 
     construction = TypeConstruction.new(checker: checker,
                                         source: source,
                                         annotations: annotations,
-                                        var_types: {},
+                                        type_env: type_env,
                                         self_type: nil,
                                         block_context: nil,
                                         method_context: nil,
@@ -1608,8 +1756,8 @@ end
 
     assert_equal Types::Name.new_instance(name: "::A"), for_method.self_type
     assert_nil for_method.block_context
-    assert_equal [:x], for_method.var_types.keys.map(&:name)
-    assert_equal Types::Name.new_instance(name: "::String"), for_method.var_types.find {|name, _| name.name == :x }.last
+    assert_equal [:x], for_method.type_env.lvar_types.keys
+    assert_equal Types::Name.new_instance(name: "::String"), for_method.type_env.lvar_types[:x]
 
     assert_equal 1, typing.errors.size
     assert_instance_of Steep::Errors::MethodReturnTypeAnnotationMismatch, typing.errors.first
@@ -1628,16 +1776,21 @@ end
 
     typing = Typing.new
     annotations = source.annotations(block: source.node)
-    checker = checker(<<-EOF)
+    checker = new_subtyping_checker(<<-EOF)
 class A
   def foo: (String) -> Integer
 end
     EOF
+    const_env = ConstantEnv.new(builder: checker.builder, current_namespace: nil)
+    type_env = TypeEnv.build(annotations: annotations,
+                             subtyping: checker,
+                             const_env: const_env,
+                             signatures: checker.builder.signatures)
 
     construction = TypeConstruction.new(checker: checker,
                                         source: source,
                                         annotations: annotations,
-                                        var_types: {},
+                                        type_env: type_env,
                                         self_type: nil,
                                         block_context: nil,
                                         method_context: nil,
@@ -1671,16 +1824,21 @@ end
 
     typing = Typing.new
     annotations = source.annotations(block: source.node)
-    checker = checker(<<-EOF)
+    checker = new_subtyping_checker(<<-EOF)
 class A::String
   def aaaaa: -> any
 end
     EOF
+    const_env = ConstantEnv.new(builder: checker.builder, current_namespace: nil)
+    type_env = TypeEnv.build(annotations: annotations,
+                             subtyping: checker,
+                             const_env: const_env,
+                             signatures: checker.builder.signatures)
 
     construction = TypeConstruction.new(checker: checker,
                                         source: source,
                                         annotations: annotations,
-                                        var_types: {},
+                                        type_env: type_env,
                                         self_type: nil,
                                         block_context: nil,
                                         method_context: nil,
@@ -1718,7 +1876,7 @@ end
 
     typing = Typing.new
     annotations = source.annotations(block: source.node)
-    checker = checker(<<-EOF)
+    checker = new_subtyping_checker(<<-EOF)
 class A
   def foobar: -> any
 end
@@ -1727,11 +1885,16 @@ class A::String
   def aaaaa: -> any
 end
     EOF
+    const_env = ConstantEnv.new(builder: checker.builder, current_namespace: nil)
+    type_env = TypeEnv.build(annotations: annotations,
+                             subtyping: checker,
+                             const_env: const_env,
+                             signatures: checker.builder.signatures)
 
     construction = TypeConstruction.new(checker: checker,
                                         source: source,
                                         annotations: annotations,
-                                        var_types: {},
+                                        type_env: type_env,
                                         self_type: nil,
                                         block_context: nil,
                                         method_context: nil,
@@ -1757,7 +1920,7 @@ end
 
     typing = Typing.new
     annotations = source.annotations(block: source.node)
-    checker = checker(<<-EOF)
+    checker = new_subtyping_checker(<<-EOF)
 class A
 end
 
@@ -1765,11 +1928,16 @@ class A::String
   def foo: -> any
 end
     EOF
+    const_env = ConstantEnv.new(builder: checker.builder, current_namespace: nil)
+    type_env = TypeEnv.build(annotations: annotations,
+                             subtyping: checker,
+                             const_env: const_env,
+                             signatures: checker.builder.signatures)
 
     construction = TypeConstruction.new(checker: checker,
                                         source: source,
                                         annotations: annotations,
-                                        var_types: {},
+                                        type_env: type_env,
                                         self_type: nil,
                                         block_context: nil,
                                         method_context: nil,
@@ -1794,7 +1962,7 @@ end
 
     typing = Typing.new
     annotations = source.annotations(block: source.node)
-    checker = checker(<<-EOF)
+    checker = new_subtyping_checker(<<-EOF)
 class A
 end
 
@@ -1802,11 +1970,16 @@ class A::String
   def foo: -> any
 end
     EOF
+    const_env = ConstantEnv.new(builder: checker.builder, current_namespace: nil)
+    type_env = TypeEnv.build(annotations: annotations,
+                             subtyping: checker,
+                             const_env: const_env,
+                             signatures: checker.builder.signatures)
 
     construction = TypeConstruction.new(checker: checker,
                                         source: source,
                                         annotations: annotations,
-                                        var_types: {},
+                                        type_env: type_env,
                                         self_type: nil,
                                         block_context: nil,
                                         method_context: nil,
@@ -1828,13 +2001,17 @@ a, @b = 1, 2
 
     typing = Typing.new
     annotations = source.annotations(block: source.node)
-    checker = checker()
+    checker = new_subtyping_checker()
+    const_env = ConstantEnv.new(builder: checker.builder, current_namespace: nil)
+    type_env = TypeEnv.build(annotations: annotations,
+                             subtyping: checker,
+                             const_env: const_env,
+                             signatures: checker.builder.signatures)
 
     construction = TypeConstruction.new(checker: checker,
                                         source: source,
                                         annotations: annotations,
-                                        ivar_types: annotations.ivar_types,
-                                        var_types: {},
+                                        type_env: type_env,
                                         self_type: nil,
                                         block_context: nil,
                                         method_context: nil,
@@ -1865,13 +2042,17 @@ a, @b = x
 
     typing = Typing.new
     annotations = source.annotations(block: source.node)
-    checker = checker()
+    checker = new_subtyping_checker()
+    const_env = ConstantEnv.new(builder: checker.builder, current_namespace: nil)
+    type_env = TypeEnv.build(annotations: annotations,
+                             subtyping: checker,
+                             const_env: const_env,
+                             signatures: checker.builder.signatures)
 
     construction = TypeConstruction.new(checker: checker,
                                         source: source,
                                         annotations: annotations,
-                                        ivar_types: annotations.ivar_types,
-                                        var_types: {},
+                                        type_env: type_env,
                                         self_type: nil,
                                         block_context: nil,
                                         method_context: nil,
@@ -1899,13 +2080,17 @@ a, @b = 3
 
     typing = Typing.new
     annotations = source.annotations(block: source.node)
-    checker = checker()
+    checker = new_subtyping_checker()
+    const_env = ConstantEnv.new(builder: checker.builder, current_namespace: nil)
+    type_env = TypeEnv.build(annotations: annotations,
+                             subtyping: checker,
+                             const_env: const_env,
+                             signatures: checker.builder.signatures)
 
     construction = TypeConstruction.new(checker: checker,
                                         source: source,
                                         annotations: annotations,
-                                        ivar_types: annotations.ivar_types,
-                                        var_types: {},
+                                        type_env: type_env,
                                         self_type: nil,
                                         block_context: nil,
                                         method_context: nil,
@@ -1931,13 +2116,17 @@ a += 3
 
     typing = Typing.new
     annotations = source.annotations(block: source.node)
-    checker = checker()
+    checker = new_subtyping_checker()
+    const_env = ConstantEnv.new(builder: checker.builder, current_namespace: nil)
+    type_env = TypeEnv.build(annotations: annotations,
+                             subtyping: checker,
+                             const_env: const_env,
+                             signatures: checker.builder.signatures)
 
     construction = TypeConstruction.new(checker: checker,
                                         source: source,
                                         annotations: annotations,
-                                        ivar_types: annotations.ivar_types,
-                                        var_types: {},
+                                        type_env: type_env,
                                         self_type: nil,
                                         block_context: nil,
                                         method_context: nil,
@@ -1962,13 +2151,17 @@ end
 
     typing = Typing.new
     annotations = source.annotations(block: source.node)
-    checker = checker()
+    checker = new_subtyping_checker()
+    const_env = ConstantEnv.new(builder: checker.builder, current_namespace: nil)
+    type_env = TypeEnv.build(annotations: annotations,
+                             subtyping: checker,
+                             const_env: const_env,
+                             signatures: checker.builder.signatures)
 
     construction = TypeConstruction.new(checker: checker,
                                         source: source,
                                         annotations: annotations,
-                                        ivar_types: annotations.ivar_types,
-                                        var_types: {},
+                                        type_env: type_env,
                                         self_type: nil,
                                         block_context: nil,
                                         method_context: nil,
@@ -1992,13 +2185,17 @@ end
 
     typing = Typing.new
     annotations = source.annotations(block: source.node)
-    checker = checker()
+    checker = new_subtyping_checker()
+    const_env = ConstantEnv.new(builder: checker.builder, current_namespace: nil)
+    type_env = TypeEnv.build(annotations: annotations,
+                             subtyping: checker,
+                             const_env: const_env,
+                             signatures: checker.builder.signatures)
 
     construction = TypeConstruction.new(checker: checker,
                                         source: source,
                                         annotations: annotations,
-                                        ivar_types: annotations.ivar_types,
-                                        var_types: {},
+                                        type_env: type_env,
                                         self_type: Types::Name.new_instance(name: "::Object"),
                                         block_context: nil,
                                         method_context: nil,
@@ -2025,13 +2222,17 @@ end
 
     typing = Typing.new
     annotations = source.annotations(block: source.node)
-    checker = checker()
+    checker = new_subtyping_checker()
+    const_env = ConstantEnv.new(builder: checker.builder, current_namespace: nil)
+    type_env = TypeEnv.build(annotations: annotations,
+                             subtyping: checker,
+                             const_env: const_env,
+                             signatures: checker.builder.signatures)
 
     construction = TypeConstruction.new(checker: checker,
                                         source: source,
                                         annotations: annotations,
-                                        ivar_types: annotations.ivar_types,
-                                        var_types: {},
+                                        type_env: type_env,
                                         self_type: Types::Name.new_instance(name: "::Object"),
                                         block_context: nil,
                                         method_context: nil,
@@ -2053,13 +2254,17 @@ end while true
 
     typing = Typing.new
     annotations = source.annotations(block: source.node)
-    checker = checker()
+    checker = new_subtyping_checker()
+    const_env = ConstantEnv.new(builder: checker.builder, current_namespace: nil)
+    type_env = TypeEnv.build(annotations: annotations,
+                             subtyping: checker,
+                             const_env: const_env,
+                             signatures: checker.builder.signatures)
 
     construction = TypeConstruction.new(checker: checker,
                                         source: source,
                                         annotations: annotations,
-                                        ivar_types: annotations.ivar_types,
-                                        var_types: {},
+                                        type_env: type_env,
                                         self_type: Types::Name.new_instance(name: "::Object"),
                                         block_context: nil,
                                         method_context: nil,
@@ -2081,13 +2286,17 @@ a = 2..."a"
 
     typing = Typing.new
     annotations = source.annotations(block: source.node)
-    checker = checker()
+    checker = new_subtyping_checker()
+    const_env = ConstantEnv.new(builder: checker.builder, current_namespace: nil)
+    type_env = TypeEnv.build(annotations: annotations,
+                             subtyping: checker,
+                             const_env: const_env,
+                             signatures: checker.builder.signatures)
 
     construction = TypeConstruction.new(checker: checker,
                                         source: source,
                                         annotations: annotations,
-                                        ivar_types: annotations.ivar_types,
-                                        var_types: {},
+                                        type_env: type_env,
                                         self_type: Types::Name.new_instance(name: "::Object"),
                                         block_context: nil,
                                         method_context: nil,
@@ -2112,13 +2321,17 @@ a = /#{a + 3}/
 
     typing = Typing.new
     annotations = source.annotations(block: source.node)
-    checker = checker()
+    checker = new_subtyping_checker()
+    const_env = ConstantEnv.new(builder: checker.builder, current_namespace: nil)
+    type_env = TypeEnv.build(annotations: annotations,
+                             subtyping: checker,
+                             const_env: const_env,
+                             signatures: checker.builder.signatures)
 
     construction = TypeConstruction.new(checker: checker,
                                         source: source,
                                         annotations: annotations,
-                                        ivar_types: annotations.ivar_types,
-                                        var_types: {},
+                                        type_env: type_env,
                                         self_type: Types::Name.new_instance(name: "::Object"),
                                         block_context: nil,
                                         method_context: nil,
@@ -2142,13 +2355,17 @@ a = $1
 
     typing = Typing.new
     annotations = source.annotations(block: source.node)
-    checker = checker()
+    checker = new_subtyping_checker()
+    const_env = ConstantEnv.new(builder: checker.builder, current_namespace: nil)
+    type_env = TypeEnv.build(annotations: annotations,
+                             subtyping: checker,
+                             const_env: const_env,
+                             signatures: checker.builder.signatures)
 
     construction = TypeConstruction.new(checker: checker,
                                         source: source,
                                         annotations: annotations,
-                                        ivar_types: annotations.ivar_types,
-                                        var_types: {},
+                                        type_env: type_env,
                                         self_type: Types::Name.new_instance(name: "::Object"),
                                         block_context: nil,
                                         method_context: nil,
@@ -2173,13 +2390,17 @@ a ||= a + "foo"
 
     typing = Typing.new
     annotations = source.annotations(block: source.node)
-    checker = checker()
+    checker = new_subtyping_checker()
+    const_env = ConstantEnv.new(builder: checker.builder, current_namespace: nil)
+    type_env = TypeEnv.build(annotations: annotations,
+                             subtyping: checker,
+                             const_env: const_env,
+                             signatures: checker.builder.signatures)
 
     construction = TypeConstruction.new(checker: checker,
                                         source: source,
                                         annotations: annotations,
-                                        ivar_types: annotations.ivar_types,
-                                        var_types: {},
+                                        type_env: type_env,
                                         self_type: Types::Name.new_instance(name: "::Object"),
                                         block_context: nil,
                                         method_context: nil,
@@ -2191,7 +2412,7 @@ a ||= a + "foo"
 
     assert_equal 1, typing.errors.size
     assert_any typing.errors do |error|
-      error.is_a?(Steep::Errors::NoMethod)
+      error.is_a?(Steep::Errors::ArgumentTypeMismatch)
     end
   end
 
@@ -2204,13 +2425,17 @@ end
 
     typing = Typing.new
     annotations = source.annotations(block: source.node)
-    checker = checker()
+    checker = new_subtyping_checker()
+    const_env = ConstantEnv.new(builder: checker.builder, current_namespace: nil)
+    type_env = TypeEnv.build(annotations: annotations,
+                             subtyping: checker,
+                             const_env: const_env,
+                             signatures: checker.builder.signatures)
 
     construction = TypeConstruction.new(checker: checker,
                                         source: source,
                                         annotations: annotations,
-                                        ivar_types: annotations.ivar_types,
-                                        var_types: {},
+                                        type_env: type_env,
                                         self_type: Types::Name.new_instance(name: "::Object"),
                                         block_context: nil,
                                         method_context: nil,
@@ -2232,13 +2457,17 @@ end
 
     typing = Typing.new
     annotations = source.annotations(block: source.node)
-    checker = checker()
+    checker = new_subtyping_checker()
+    const_env = ConstantEnv.new(builder: checker.builder, current_namespace: nil)
+    type_env = TypeEnv.build(annotations: annotations,
+                             subtyping: checker,
+                             const_env: const_env,
+                             signatures: checker.builder.signatures)
 
     construction = TypeConstruction.new(checker: checker,
                                         source: source,
                                         annotations: annotations,
-                                        ivar_types: annotations.ivar_types,
-                                        var_types: {},
+                                        type_env: type_env,
                                         self_type: Types::Name.new_instance(name: "::Object"),
                                         block_context: nil,
                                         method_context: nil,
@@ -2263,13 +2492,17 @@ end
 
     typing = Typing.new
     annotations = source.annotations(block: source.node)
-    checker = checker()
+    checker = new_subtyping_checker()
+    const_env = ConstantEnv.new(builder: checker.builder, current_namespace: nil)
+    type_env = TypeEnv.build(annotations: annotations,
+                             subtyping: checker,
+                             const_env: const_env,
+                             signatures: checker.builder.signatures)
 
     construction = TypeConstruction.new(checker: checker,
                                         source: source,
                                         annotations: annotations,
-                                        ivar_types: annotations.ivar_types,
-                                        var_types: {},
+                                        type_env: type_env,
                                         self_type: Types::Name.new_instance(name: "::Object"),
                                         block_context: nil,
                                         method_context: nil,
@@ -2291,13 +2524,17 @@ end
 
     typing = Typing.new
     annotations = source.annotations(block: source.node)
-    checker = checker()
+    checker = new_subtyping_checker()
+    const_env = ConstantEnv.new(builder: checker.builder, current_namespace: nil)
+    type_env = TypeEnv.build(annotations: annotations,
+                             subtyping: checker,
+                             const_env: const_env,
+                             signatures: checker.builder.signatures)
 
     construction = TypeConstruction.new(checker: checker,
                                         source: source,
                                         annotations: annotations,
-                                        ivar_types: annotations.ivar_types,
-                                        var_types: {},
+                                        type_env: type_env,
                                         self_type: Types::Name.new_instance(name: "::Object"),
                                         block_context: nil,
                                         method_context: nil,
@@ -2318,13 +2555,17 @@ end
 
     typing = Typing.new
     annotations = source.annotations(block: source.node)
-    checker = checker()
+    checker = new_subtyping_checker()
+    const_env = ConstantEnv.new(builder: checker.builder, current_namespace: nil)
+    type_env = TypeEnv.build(annotations: annotations,
+                             subtyping: checker,
+                             const_env: const_env,
+                             signatures: checker.builder.signatures)
 
     construction = TypeConstruction.new(checker: checker,
                                         source: source,
                                         annotations: annotations,
-                                        ivar_types: annotations.ivar_types,
-                                        var_types: {},
+                                        type_env: type_env,
                                         self_type: Types::Name.new_instance(name: "::Object"),
                                         block_context: nil,
                                         method_context: nil,
@@ -2350,13 +2591,17 @@ end
 
     typing = Typing.new
     annotations = source.annotations(block: source.node)
-    checker = checker()
+    checker = new_subtyping_checker()
+    const_env = ConstantEnv.new(builder: checker.builder, current_namespace: nil)
+    type_env = TypeEnv.build(annotations: annotations,
+                             subtyping: checker,
+                             const_env: const_env,
+                             signatures: checker.builder.signatures)
 
     construction = TypeConstruction.new(checker: checker,
                                         source: source,
                                         annotations: annotations,
-                                        ivar_types: annotations.ivar_types,
-                                        var_types: {},
+                                        type_env: type_env,
                                         self_type: Types::Name.new_instance(name: "::Object"),
                                         block_context: nil,
                                         method_context: nil,
@@ -2378,15 +2623,19 @@ x = $HOGE
 
     typing = Typing.new
     annotations = source.annotations(block: source.node)
-    checker = checker(<<-EOF)
+    checker = new_subtyping_checker(<<-EOF)
 $HOGE: Integer
     EOF
+    const_env = ConstantEnv.new(builder: checker.builder, current_namespace: nil)
+    type_env = TypeEnv.build(annotations: annotations,
+                             subtyping: checker,
+                             const_env: const_env,
+                             signatures: checker.builder.signatures)
 
     construction = TypeConstruction.new(checker: checker,
                                         source: source,
                                         annotations: annotations,
-                                        ivar_types: annotations.ivar_types,
-                                        var_types: {},
+                                        type_env: type_env,
                                         self_type: Types::Name.new_instance(name: "::Object"),
                                         block_context: nil,
                                         method_context: nil,
@@ -2409,15 +2658,19 @@ x = $HOGE
 
     typing = Typing.new
     annotations = source.annotations(block: source.node)
-    checker = checker(<<-EOF)
+    checker = new_subtyping_checker(<<-EOF)
 $HOGE: Integer
     EOF
+    const_env = ConstantEnv.new(builder: checker.builder, current_namespace: nil)
+    type_env = TypeEnv.build(annotations: annotations,
+                             subtyping: checker,
+                             const_env: const_env,
+                             signatures: checker.builder.signatures)
 
     construction = TypeConstruction.new(checker: checker,
                                         source: source,
                                         annotations: annotations,
-                                        ivar_types: annotations.ivar_types,
-                                        var_types: {},
+                                        type_env: type_env,
                                         self_type: Types::Name.new_instance(name: "::Object"),
                                         block_context: nil,
                                         method_context: nil,
@@ -2439,13 +2692,17 @@ x = $HOGE
 
     typing = Typing.new
     annotations = source.annotations(block: source.node)
-    checker = checker()
+    checker = new_subtyping_checker()
+    const_env = ConstantEnv.new(builder: checker.builder, current_namespace: nil)
+    type_env = TypeEnv.build(annotations: annotations,
+                             subtyping: checker,
+                             const_env: const_env,
+                             signatures: checker.builder.signatures)
 
     construction = TypeConstruction.new(checker: checker,
                                         source: source,
                                         annotations: annotations,
-                                        ivar_types: annotations.ivar_types,
-                                        var_types: {},
+                                        type_env: type_env,
                                         self_type: Types::Name.new_instance(name: "::Object"),
                                         block_context: nil,
                                         method_context: nil,
@@ -2470,18 +2727,22 @@ end
 
     typing = Typing.new
     annotations = source.annotations(block: source.node)
-    checker = checker(<<-EOF)
+    checker = new_subtyping_checker(<<-EOF)
 class A
   def foo: -> String
   @foo: String
 end
     EOF
+    const_env = ConstantEnv.new(builder: checker.builder, current_namespace: nil)
+    type_env = TypeEnv.build(annotations: annotations,
+                             subtyping: checker,
+                             const_env: const_env,
+                             signatures: checker.builder.signatures)
 
     construction = TypeConstruction.new(checker: checker,
                                         source: source,
                                         annotations: annotations,
-                                        ivar_types: annotations.ivar_types,
-                                        var_types: {},
+                                        type_env: type_env,
                                         self_type: Types::Name.new_instance(name: "::Object"),
                                         block_context: nil,
                                         method_context: nil,
@@ -2503,17 +2764,21 @@ end
 
     typing = Typing.new
     annotations = source.annotations(block: source.node)
-    checker = checker(<<-EOF)
+    checker = new_subtyping_checker(<<-EOF)
 class A
   @foo: String
 end
     EOF
+    const_env = ConstantEnv.new(builder: checker.builder, current_namespace: nil)
+    type_env = TypeEnv.build(annotations: annotations,
+                             subtyping: checker,
+                             const_env: const_env,
+                             signatures: checker.builder.signatures)
 
     construction = TypeConstruction.new(checker: checker,
                                         source: source,
                                         annotations: annotations,
-                                        ivar_types: annotations.ivar_types,
-                                        var_types: {},
+                                        type_env: type_env,
                                         self_type: Types::Name.new_instance(name: "::Object"),
                                         block_context: nil,
                                         method_context: nil,
@@ -2537,13 +2802,17 @@ b = [*a]
 
     typing = Typing.new
     annotations = source.annotations(block: source.node)
-    checker = checker()
+    checker = new_subtyping_checker()
+    const_env = ConstantEnv.new(builder: checker.builder, current_namespace: nil)
+    type_env = TypeEnv.build(annotations: annotations,
+                             subtyping: checker,
+                             const_env: const_env,
+                             signatures: checker.builder.signatures)
 
     construction = TypeConstruction.new(checker: checker,
                                         source: source,
                                         annotations: annotations,
-                                        ivar_types: annotations.ivar_types,
-                                        var_types: {},
+                                        type_env: type_env,
                                         self_type: Types::Name.new_instance(name: "::Object"),
                                         block_context: nil,
                                         method_context: nil,
@@ -2567,13 +2836,17 @@ b = [*1...3]
 
     typing = Typing.new
     annotations = source.annotations(block: source.node)
-    checker = checker()
+    checker = new_subtyping_checker()
+    const_env = ConstantEnv.new(builder: checker.builder, current_namespace: nil)
+    type_env = TypeEnv.build(annotations: annotations,
+                             subtyping: checker,
+                             const_env: const_env,
+                             signatures: checker.builder.signatures)
 
     construction = TypeConstruction.new(checker: checker,
                                         source: source,
                                         annotations: annotations,
-                                        ivar_types: annotations.ivar_types,
-                                        var_types: {},
+                                        type_env: type_env,
                                         self_type: Types::Name.new_instance(name: "::Object"),
                                         block_context: nil,
                                         method_context: nil,
@@ -2597,13 +2870,17 @@ b = [*a]
 
     typing = Typing.new
     annotations = source.annotations(block: source.node)
-    checker = checker()
+    checker = new_subtyping_checker()
+    const_env = ConstantEnv.new(builder: checker.builder, current_namespace: nil)
+    type_env = TypeEnv.build(annotations: annotations,
+                             subtyping: checker,
+                             const_env: const_env,
+                             signatures: checker.builder.signatures)
 
     construction = TypeConstruction.new(checker: checker,
                                         source: source,
                                         annotations: annotations,
-                                        ivar_types: annotations.ivar_types,
-                                        var_types: {},
+                                        type_env: type_env,
                                         self_type: Types::Name.new_instance(name: "::Object"),
                                         block_context: nil,
                                         method_context: nil,
@@ -2627,28 +2904,30 @@ a.gen(*["1"])
 
     typing = Typing.new
     annotations = source.annotations(block: source.node)
-    checker = checker(<<-EOF)
+    checker = new_subtyping_checker(<<-EOF)
 class A
   def initialize: () -> any
   def gen: (*Integer) -> String
 end
     EOF
+    const_env = ConstantEnv.new(builder: checker.builder, current_namespace: nil)
+    type_env = TypeEnv.build(annotations: annotations,
+                             subtyping: checker,
+                             const_env: const_env,
+                             signatures: checker.builder.signatures)
 
-    env = ConstantEnv.new(builder: checker.builder, current_namespace: nil)
     module_context = TypeConstruction::ModuleContext.new(
       instance_type: nil,
       module_type: nil,
-      const_types: annotations.const_types,
       implement_name: nil,
       current_namespace: nil,
-      const_env: env
+      const_env: const_env
     )
 
     construction = TypeConstruction.new(checker: checker,
                                         source: source,
                                         annotations: annotations,
-                                        ivar_types: annotations.ivar_types,
-                                        var_types: {},
+                                        type_env: type_env,
                                         self_type: Types::Name.new_instance(name: "::Object"),
                                         block_context: nil,
                                         method_context: nil,
@@ -2677,27 +2956,29 @@ end
 
     typing = Typing.new
     annotations = source.annotations(block: source.node)
-    checker = checker(<<-EOF)
+    checker = new_subtyping_checker(<<-EOF)
 class Hoge
   def foo: (self) -> void
 end
     EOF
+    const_env = ConstantEnv.new(builder: checker.builder, current_namespace: nil)
+    type_env = TypeEnv.build(annotations: annotations,
+                             subtyping: checker,
+                             const_env: const_env,
+                             signatures: checker.builder.signatures)
 
-    env = ConstantEnv.new(builder: checker.builder, current_namespace: nil)
     module_context = TypeConstruction::ModuleContext.new(
       instance_type: nil,
       module_type: nil,
-      const_types: annotations.const_types,
       implement_name: nil,
       current_namespace: nil,
-      const_env: env
+      const_env: const_env
     )
 
     construction = TypeConstruction.new(checker: checker,
                                         source: source,
                                         annotations: annotations,
-                                        ivar_types: annotations.ivar_types,
-                                        var_types: {},
+                                        type_env: type_env,
                                         self_type: Types::Name.new_instance(name: "::Object"),
                                         block_context: nil,
                                         method_context: nil,
@@ -2731,27 +3012,29 @@ end
 
     typing = Typing.new
     annotations = source.annotations(block: source.node)
-    checker = checker(<<-EOF)
+    checker = new_subtyping_checker(<<-EOF)
 class Hoge
   def foo: () { () -> void } -> any
 end
     EOF
+    const_env = ConstantEnv.new(builder: checker.builder, current_namespace: nil)
+    type_env = TypeEnv.build(annotations: annotations,
+                             subtyping: checker,
+                             const_env: const_env,
+                             signatures: checker.builder.signatures)
 
-    env = ConstantEnv.new(builder: checker.builder, current_namespace: nil)
     module_context = TypeConstruction::ModuleContext.new(
       instance_type: nil,
       module_type: nil,
-      const_types: annotations.const_types,
       implement_name: nil,
       current_namespace: nil,
-      const_env: env
+      const_env: const_env
     )
 
     construction = TypeConstruction.new(checker: checker,
                                         source: source,
                                         annotations: annotations,
-                                        ivar_types: annotations.ivar_types,
-                                        var_types: {},
+                                        type_env: type_env,
                                         self_type: Types::Name.new_instance(name: "::Object"),
                                         block_context: nil,
                                         method_context: nil,
@@ -2779,12 +3062,17 @@ b = a.zip(["foo"])
 EOF
     typing = Typing.new
     annotations = source.annotations(block: source.node)
-    checker = checker("")
+    checker = new_subtyping_checker("")
+    const_env = ConstantEnv.new(builder: checker.builder, current_namespace: nil)
+    type_env = TypeEnv.build(annotations: annotations,
+                             subtyping: checker,
+                             const_env: const_env,
+                             signatures: checker.builder.signatures)
 
     construction = TypeConstruction.new(checker: checker,
                                         source: source,
                                         annotations: annotations,
-                                        var_types: {},
+                                        type_env: type_env,
                                         block_context: nil,
                                         self_type: nil,
                                         method_context: nil,
@@ -2808,12 +3096,17 @@ end
 EOF
     typing = Typing.new
     annotations = source.annotations(block: source.node)
-    checker = checker("")
+    checker = new_subtyping_checker("")
+    const_env = ConstantEnv.new(builder: checker.builder, current_namespace: nil)
+    type_env = TypeEnv.build(annotations: annotations,
+                             subtyping: checker,
+                             const_env: const_env,
+                             signatures: checker.builder.signatures)
 
     construction = TypeConstruction.new(checker: checker,
                                         source: source,
                                         annotations: annotations,
-                                        var_types: {},
+                                        type_env: type_env,
                                         block_context: nil,
                                         self_type: nil,
                                         method_context: nil,
@@ -2824,5 +3117,260 @@ EOF
 
     refute_empty typing.errors
     assert_instance_of Steep::Errors::IncompatibleAssignment, typing.errors[0]
+  end
+
+  def test_if_typing
+    source = parse_ruby(<<EOF)
+if 3
+  x = 1
+  y = (x + 1).to_int
+else
+  x = "foo"
+  y = (x.to_str).size
+end
+EOF
+    typing = Typing.new
+    annotations = source.annotations(block: source.node)
+    checker = new_subtyping_checker("")
+    const_env = ConstantEnv.new(builder: checker.builder, current_namespace: nil)
+    type_env = TypeEnv.build(annotations: annotations,
+                             subtyping: checker,
+                             const_env: const_env,
+                             signatures: checker.builder.signatures)
+
+    construction = TypeConstruction.new(checker: checker,
+                                        source: source,
+                                        annotations: annotations,
+                                        type_env: type_env,
+                                        block_context: nil,
+                                        self_type: nil,
+                                        method_context: nil,
+                                        typing: typing,
+                                        module_context: nil,
+                                        break_context: nil)
+    construction.synthesize(source.node)
+
+    assert_empty typing.errors
+    assert_equal Types::Union.build(types: [Types::Name.new_instance(name: "::String"),
+                                            Types::Name.new_instance(name: "::Integer")]),
+                 type_env.lvar_types[:x]
+    assert_equal Types::Name.new_instance(name: "::Integer"),
+                 type_env.lvar_types[:y]
+  end
+
+  def test_if_annotation
+    source = parse_ruby(<<EOF)
+# @type var x: String | Integer
+x = nil
+
+if 3
+  # @type var x: String
+  x + ""
+else
+  # @type var x: Integer
+  x + 1
+end
+EOF
+    typing = Typing.new
+    annotations = source.annotations(block: source.node)
+    checker = new_subtyping_checker("")
+    const_env = ConstantEnv.new(builder: checker.builder, current_namespace: nil)
+    type_env = TypeEnv.build(annotations: annotations,
+                             subtyping: checker,
+                             const_env: const_env,
+                             signatures: checker.builder.signatures)
+
+    construction = TypeConstruction.new(checker: checker,
+                                        source: source,
+                                        annotations: annotations,
+                                        type_env: type_env,
+                                        block_context: nil,
+                                        self_type: nil,
+                                        method_context: nil,
+                                        typing: typing,
+                                        module_context: nil,
+                                        break_context: nil)
+
+    if_node = dig(source.node, 1)
+
+    true_construction = construction.for_branch(if_node.children[1])
+    assert_equal Types::Name.new_instance(name: "::String"), true_construction.type_env.lvar_types[:x]
+
+    false_construction = construction.for_branch(if_node.children[2])
+    assert_equal Types::Name.new_instance(name: "::Integer"), false_construction.type_env.lvar_types[:x]
+
+    construction.synthesize(source.node)
+    assert_empty typing.errors
+  end
+
+  def test_if_annotation_error
+    source = parse_ruby(<<EOF)
+# @type var x: Array<String>
+x = nil
+
+if 3
+  # @type var x: String
+  x + ""
+else
+  # @type var x: Integer
+  x + 1
+end
+EOF
+    typing = Typing.new
+    annotations = source.annotations(block: source.node)
+    checker = new_subtyping_checker("")
+    const_env = ConstantEnv.new(builder: checker.builder, current_namespace: nil)
+    type_env = TypeEnv.build(annotations: annotations,
+                             subtyping: checker,
+                             const_env: const_env,
+                             signatures: checker.builder.signatures)
+
+    construction = TypeConstruction.new(checker: checker,
+                                        source: source,
+                                        annotations: annotations,
+                                        type_env: type_env,
+                                        block_context: nil,
+                                        self_type: nil,
+                                        method_context: nil,
+                                        typing: typing,
+                                        module_context: nil,
+                                        break_context: nil)
+
+    construction.synthesize(source.node)
+
+    if_node = dig(source.node, 1)
+
+    true_construction = construction.for_branch(if_node.children[1])
+    assert_equal Types::Name.new_instance(name: "::String"), true_construction.type_env.lvar_types[:x]
+
+    false_construction = construction.for_branch(if_node.children[2])
+    assert_equal Types::Name.new_instance(name: "::Integer"), false_construction.type_env.lvar_types[:x]
+
+    typing.errors.find {|error| error.node == if_node.children[1] }.yield_self do |error|
+      assert_instance_of Steep::Errors::IncompatibleAnnotation, error
+      assert_equal :x, error.var_name
+    end
+
+    typing.errors.find {|error| error.node == if_node.children[2] }.yield_self do |error|
+      assert_instance_of Steep::Errors::IncompatibleAnnotation, error
+      assert_equal :x, error.var_name
+    end
+  end
+
+  def test_when_typing
+    source = parse_ruby(<<EOF)
+case
+when 30
+  x = 1
+  y = (x + 1).to_int
+else
+  x = "foo"
+  y = (x.to_str).size
+end
+EOF
+    typing = Typing.new
+    annotations = source.annotations(block: source.node)
+    checker = new_subtyping_checker("")
+    const_env = ConstantEnv.new(builder: checker.builder, current_namespace: nil)
+    type_env = TypeEnv.build(annotations: annotations,
+                             subtyping: checker,
+                             const_env: const_env,
+                             signatures: checker.builder.signatures)
+
+    construction = TypeConstruction.new(checker: checker,
+                                        source: source,
+                                        annotations: annotations,
+                                        type_env: type_env,
+                                        block_context: nil,
+                                        self_type: nil,
+                                        method_context: nil,
+                                        typing: typing,
+                                        module_context: nil,
+                                        break_context: nil)
+    construction.synthesize(source.node)
+
+    assert_empty typing.errors
+    assert_equal Types::Union.build(types: [Types::Name.new_instance(name: "::String"),
+                                            Types::Name.new_instance(name: "::Integer")]),
+                 type_env.lvar_types[:x]
+    assert_equal Types::Name.new_instance(name: "::Integer"),
+                 type_env.lvar_types[:y]
+  end
+
+  def test_where_typing
+    source = parse_ruby(<<EOF)
+# @type var x: Integer | String
+x = nil
+
+while 3
+  # @type var x: Integer
+  x + 3 
+end
+EOF
+    typing = Typing.new
+    annotations = source.annotations(block: source.node)
+    checker = new_subtyping_checker("")
+    const_env = ConstantEnv.new(builder: checker.builder, current_namespace: nil)
+    type_env = TypeEnv.build(annotations: annotations,
+                             subtyping: checker,
+                             const_env: const_env,
+                             signatures: checker.builder.signatures)
+
+    construction = TypeConstruction.new(checker: checker,
+                                        source: source,
+                                        annotations: annotations,
+                                        type_env: type_env,
+                                        block_context: nil,
+                                        self_type: nil,
+                                        method_context: nil,
+                                        typing: typing,
+                                        module_context: nil,
+                                        break_context: nil)
+    construction.synthesize(source.node)
+
+    assert_empty typing.errors
+  end
+
+  def test_rescue_typing
+    source = parse_ruby(<<EOF)
+# @type const E: any
+# @type const F: any
+
+begin
+  1 + 2
+rescue E
+  x = 3
+  x + 1
+rescue F
+  # @type var x: String
+  x = "foo"
+  x + ""
+end
+EOF
+    typing = Typing.new
+    annotations = source.annotations(block: source.node)
+    checker = new_subtyping_checker("")
+    const_env = ConstantEnv.new(builder: checker.builder, current_namespace: nil)
+    type_env = TypeEnv.build(annotations: annotations,
+                             subtyping: checker,
+                             const_env: const_env,
+                             signatures: checker.builder.signatures)
+
+    construction = TypeConstruction.new(checker: checker,
+                                        source: source,
+                                        annotations: annotations,
+                                        type_env: type_env,
+                                        block_context: nil,
+                                        self_type: nil,
+                                        method_context: nil,
+                                        typing: typing,
+                                        module_context: nil,
+                                        break_context: nil)
+    construction.synthesize(source.node)
+
+    assert_empty typing.errors
+    assert_equal Types::Union.build(types: [Types::Name.new_instance(name: "::String"),
+                                            Types::Name.new_instance(name: "::Integer")]),
+                 type_env.lvar_types[:x]
   end
 end

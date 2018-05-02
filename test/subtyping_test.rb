@@ -659,8 +659,6 @@ end
     assert_equal AST::Types::Name.new_instance(name: :"::String"), result.constraints.lower_bound(:x)
     assert_instance_of AST::Types::Top, result.constraints.upper_bound(:x)
 
-    puts result.constraints
-
     variance = Subtyping::VariableVariance.new(contravariants: Set.new([:x]),
                                                covariants: Set.new([:x]))
     s = result.constraints.solution(checker, variance: variance, variables: Set.new([:x]))
