@@ -22,7 +22,14 @@ end
 
 case x
 when String
+  # !expects@+2 IncompatibleAnnotation: var_name=x, ::Integer <: ::String
   # @type var x: Integer
-  # !expects NoMethodError: type=::Integer, method=foobar
+  x + 1
+end
+
+case x
+when Object
+  # !expects@+2 IncompatibleTypeCase: var_name=x, ::Object <: (::Integer | ::String | ::Symbol)
+  # !expects NoMethodError: type=::Object, method=foobar
   x.foobar
 end

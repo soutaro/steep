@@ -362,22 +362,29 @@ module Steep
     def for_branch(node, type_case_override: nil)
       annots = source.annotations(block: node)
 
-      annotations_lvar_types = annots.var_types.transform_values {|a| absolute_type(a.type) }
-      lvar_types = if type_case_override
-                     type_case_override.merge(annotations_lvar_types)
-                   else
-                     annotations_lvar_types
-                   end
+      type_env = self.type_env
 
-      type_env = self.type_env.with_annotations(
-        lvar_types: lvar_types,
+      if type_case_override
+        type_env = type_env.with_annotations(lvar_types: type_case_override) do |var, relation, result|
+          typing.add_error(
+            Errors::IncompatibleTypeCase.new(node: node,
+                                             var_name: var,
+                                             relation: relation,
+                                             result: result)
+          )
+        end
+      end
+
+      type_env = type_env.with_annotations(
+        lvar_types: annots.var_types.transform_values {|a| absolute_type(a.type) },
         ivar_types: annots.ivar_types.transform_values {|ty| absolute_type(ty) },
         const_types: annots.const_types.transform_values {|ty| absolute_type(ty) },
         gvar_types: {}
-      ) do |var, result|
+      ) do |var, relation, result|
         typing.add_error(
           Errors::IncompatibleAnnotation.new(node: node,
                                              var_name: var,
+                                             relation: relation,
                                              result: result)
         )
       end
