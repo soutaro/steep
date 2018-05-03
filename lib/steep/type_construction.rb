@@ -919,39 +919,41 @@ module Steep
           typing.add_typing(node, union_type(true_type, false_type))
 
         when :case
-          cond, *whens = node.children
+          yield_self do
+            cond, *whens = node.children
 
-          synthesize cond if cond
+            synthesize cond if cond
 
-          pairs = whens.map do |clause|
-            if clause&.type == :when
-              clause.children.take(clause.children.size - 1).map do |child|
-                synthesize(child)
-              end
+            pairs = whens.map do |clause|
+              if clause&.type == :when
+                clause.children.take(clause.children.size - 1).map do |child|
+                  synthesize(child)
+                end
 
-              if (body = clause.children.last)
-                for_branch(body).yield_self do |body_construction|
-                  type = body_construction.synthesize(body)
-                  [type, body_construction.type_env]
+                if (body = clause.children.last)
+                  for_branch(body).yield_self do |body_construction|
+                    type = body_construction.synthesize(body)
+                    [type, body_construction.type_env]
+                  end
+                else
+                  [Types.any, nil]
                 end
               else
-                [Types.any, nil]
-              end
-            else
-              if clause
-                for_branch(clause).yield_self do |body_construction|
-                  type = body_construction.synthesize(clause)
-                  [type, body_construction.type_env]
+                if clause
+                  for_branch(clause).yield_self do |body_construction|
+                    type = body_construction.synthesize(clause)
+                    [type, body_construction.type_env]
+                  end
                 end
               end
-            end
-          end.compact
+            end.compact
 
-          types = pairs.map(&:first)
-          envs = pairs.map(&:last)
+            types = pairs.map(&:first)
+            envs = pairs.map(&:last)
 
-          type_env.join!(envs.compact)
-          typing.add_typing(node, union_type(*types))
+            type_env.join!(envs.compact)
+            typing.add_typing(node, union_type(*types))
+          end
 
         when :rescue
           yield_self do
