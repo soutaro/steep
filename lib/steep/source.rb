@@ -189,6 +189,23 @@ module Steep
           end
         end
 
+      when :when
+        last_cond = node.children[-2]
+        body = node.children.last
+
+        node.children.take(node.children.size-1) do |child|
+          construct_mapping(node: child, annotations: annotations, mapping: mapping, line_range: nil)
+        end
+
+        if body
+          cond_end = last_cond.loc.last_line+1
+          body_end = body.loc.last_line
+          construct_mapping(node: body,
+                            annotations: annotations,
+                            mapping: mapping,
+                            line_range: cond_end...body_end)
+        end
+
       when :rescue
         if node.children.last
           else_node = node.children.last
@@ -213,7 +230,7 @@ module Steep
 
       associated_annotations = annotations.select do |annot|
         case node.type
-        when :def, :module, :class, :block, :when, :ensure
+        when :def, :module, :class, :block, :ensure
           loc = node.loc
           loc.line <= annot.line && annot.line < loc.last_line
 
