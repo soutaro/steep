@@ -137,6 +137,36 @@ end
     end
   end
 
+  def test_elsif
+    source = parse_source(<<-EOF)
+if foo
+  # @type var x: String
+  x + "foo"
+elsif bar
+  # @type var y: Integer
+  y + "foo"
+end
+    EOF
+
+    source.node.yield_self do |node|
+      annotations = source.annotations(block: node)
+      assert_nil annotations.var_types[:x]
+      assert_nil annotations.var_types[:y]
+    end
+
+    source.node.children[1].yield_self do |node|
+      annotations = source.annotations(block: node)
+      refute_nil annotations.var_types[:x]
+      assert_nil annotations.var_types[:y]
+    end
+
+    source.node.children[2].children[1].yield_self do |node|
+      annotations = source.annotations(block: node)
+      assert_nil annotations.var_types[:x]
+      refute_nil annotations.var_types[:y]
+    end
+  end
+
   def test_postfix_if
     source = parse_source(<<-EOF)
 x + 1 if foo

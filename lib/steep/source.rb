@@ -99,7 +99,7 @@ module Steep
                               line_range: nil)
 
             if node.children[1]
-              if node.loc.keyword.source == "if"
+              if node.loc.keyword.source == "if" || node.loc.keyword.source == "elsif"
                 then_start = node.loc.begin&.loc&.last_line || node.children[0].loc.last_line
                 then_end = node.children[2] ? node.loc.else.line : node.loc.last_line
               else
@@ -113,7 +113,7 @@ module Steep
             end
 
             if node.children[2]
-              if node.loc.keyword.source == "if"
+              if node.loc.keyword.source == "if" || node.loc.keyword.source == "elsif"
                 else_start = node.loc.else.last_line
                 else_end = node.loc.last_line
               else
