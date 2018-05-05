@@ -138,7 +138,7 @@ block_params2: { result = nil }
 simple_type: type_name {
         result = AST::Types::Name.new(name: val[0].value, location: val[0].location, args: [])
       }
-    | type_name LT type_seq GT {
+    | instance_type_name LT type_seq GT {
         loc = val[0].location + val[3].location
         name = val[0].value
         args = val[2]
@@ -152,10 +152,16 @@ simple_type: type_name {
     | SELF { result = AST::Types::Self.new(location: val[0].location) }
     | VOID { result = AST::Types::Void.new(location: val[0].location) }
 
-type_name: module_name {
-             result = LocatedValue.new(value: TypeName::Instance.new(name: val[0].value),
-                                       location: val[0].location)
-           }
+instance_type_name: module_name {
+                      result = LocatedValue.new(value: TypeName::Instance.new(name: val[0].value),
+                                                location: val[0].location)
+                    }
+                  | INTERFACE_NAME {
+                      result = LocatedValue.new(value: TypeName::Interface.new(name: val[0].value),
+                                                location: val[0].location)
+                    }
+
+type_name: instance_type_name
          | module_name DOT CLASS constructor {
              loc = val[0].location + (val[3] || val[2]).location
              result = LocatedValue.new(value: TypeName::Class.new(name: val[0].value, constructor: val[3]&.value),
@@ -165,10 +171,6 @@ type_name: module_name {
              loc = val[0].location + val.last.location
              result = LocatedValue.new(value: TypeName::Module.new(name: val[0].value),
                                        location: loc)
-           }
-         | INTERFACE_NAME {
-             result = LocatedValue.new(value: TypeName::Interface.new(name: val[0].value),
-                                       location: val[0].location)
            }
 
 constructor: { result = nil }
