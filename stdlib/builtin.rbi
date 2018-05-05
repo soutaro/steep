@@ -18,6 +18,7 @@ class Object <: BasicObject
   def freeze: -> self
   def method: (Symbol) -> Method
   def yield_self: <'a>{ (self) -> 'a } -> 'a
+  def dup: -> self
 end
 
 class Module
@@ -41,16 +42,24 @@ end
 module Kernel
   def raise: () -> any
            | (String) -> any
+           | (*any) -> any
 
   def block_given?: -> _Boolean
   def include: (Module) -> _Boolean
   def prepend: (Module) -> _Boolean
   def enum_for: (Symbol, *any) -> any
+  def require_relative: (*String) -> void
+  def require: (*String) -> void
+  def loop: { () -> void } -> void
+  def puts: (*any) -> void
+  def eval: (String, ?Integer, ?String) -> any
 end
 
 class Array<'a>
   def []: (Integer) -> 'a
+        | (Integer, Integer) -> self
   def []=: (Integer, 'a) -> 'a
+         | (Integer, Integer, self) -> self
   def empty?: -> _Boolean
   def size: -> Integer
   def map: <'b> { ('a) -> 'b } -> Array<'b>
@@ -75,6 +84,12 @@ class Array<'a>
   def reverse: -> self
   def +: (self) -> self
   def last: -> 'a
+  def slice!: (Integer) -> self
+            | (Integer, Integer) -> self
+            | (Range<Integer>) -> self
+  def first: -> 'a
+  def replace: (self) -> self
+  def transpose: -> self
 end
 
 class Hash<'key, 'value>
@@ -179,6 +194,17 @@ class String
   def %: (any) -> String
   def <<: (String) -> self
   def chars: -> Array<String>
+  def slice!: (Integer) -> String
+            | (Integer, Integer) -> String
+            | (String) -> String
+            | (Regexp, ?Integer) -> String
+            | (Range<Integer>) -> String
+  def unpack: (String) -> Array<any>
+  def b: -> String
+  def downcase: -> String
+  def bytes: -> Array<Integer>
+  def split: (String) -> Array<String>
+           | (Regexp) -> Array<String>
 end
 
 class Enumerator<'a>
@@ -187,4 +213,13 @@ class Enumerator<'a>
 end
 
 class Regexp
+end
+
+class File
+  def self.binread: (String) -> String
+  def self.extname: (String) -> String
+  def self.basename: (String) -> String
+  def self.readable?: (String) -> _Boolean
+  def self.binwrite: (String, String) -> void
+  def self.read: (String) -> String
 end
