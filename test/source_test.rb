@@ -303,4 +303,12 @@ x + 1 rescue foo
 
     source.annotations(block: source.node)
   end
+
+  def test_ternary_operator
+    source = parse_source(<<-EOF)
+a = test() ? foo : bar
+    EOF
+
+    assert_instance_of Steep::Source, source
+  end
 end

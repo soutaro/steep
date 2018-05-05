@@ -86,44 +86,51 @@ module Steep
     def self.construct_mapping(node:, annotations:, mapping:, line_range: nil)
       case node.type
       when :if
-        if node.loc.expression.begin_pos == node.loc.keyword.begin_pos
-          construct_mapping(node: node.children[0],
-                            annotations: annotations,
-                            mapping: mapping,
-                            line_range: nil)
-
-          if node.children[1]
-            if node.loc.keyword.source == "if"
-              then_start = node.loc.begin&.loc&.last_line || node.children[0].loc.last_line
-              then_end = node.children[2] ? node.loc.else.line : node.loc.last_line
-            else
-              then_start = node.loc.else.last_line
-              then_end = node.loc.last_line
-            end
-            construct_mapping(node: node.children[1],
-                              annotations: annotations,
-                              mapping: mapping,
-                              line_range: then_start...then_end)
-          end
-
-          if node.children[2]
-            if node.loc.keyword.source == "if"
-              else_start = node.loc.else.last_line
-              else_end = node.loc.last_line
-            else
-              else_start = node.loc.begin&.last_line || node.children[0].loc.last_line
-              else_end = node.children[1] ? node.loc.else.line : node.loc.last_line
-            end
-            construct_mapping(node: node.children[2],
-                              annotations: annotations,
-                              mapping: mapping,
-                              line_range: else_start...else_end)
-          end
-
-        else
-          # postfix if/unless
-          each_child_node(node) do |child|
+        if node.loc.is_a?(::Parser::Source::Map::Ternary)
+          # Skip ternary operator
+          each_child_node node do |child|
             construct_mapping(node: child, annotations: annotations, mapping: mapping, line_range: nil)
+          end
+        else
+          if node.loc.expression.begin_pos == node.loc.keyword.begin_pos
+            construct_mapping(node: node.children[0],
+                              annotations: annotations,
+                              mapping: mapping,
+                              line_range: nil)
+
+            if node.children[1]
+              if node.loc.keyword.source == "if"
+                then_start = node.loc.begin&.loc&.last_line || node.children[0].loc.last_line
+                then_end = node.children[2] ? node.loc.else.line : node.loc.last_line
+              else
+                then_start = node.loc.else.last_line
+                then_end = node.loc.last_line
+              end
+              construct_mapping(node: node.children[1],
+                                annotations: annotations,
+                                mapping: mapping,
+                                line_range: then_start...then_end)
+            end
+
+            if node.children[2]
+              if node.loc.keyword.source == "if"
+                else_start = node.loc.else.last_line
+                else_end = node.loc.last_line
+              else
+                else_start = node.loc.begin&.last_line || node.children[0].loc.last_line
+                else_end = node.children[1] ? node.loc.else.line : node.loc.last_line
+              end
+              construct_mapping(node: node.children[2],
+                                annotations: annotations,
+                                mapping: mapping,
+                                line_range: else_start...else_end)
+            end
+
+          else
+            # postfix if/unless
+            each_child_node(node) do |child|
+              construct_mapping(node: child, annotations: annotations, mapping: mapping, line_range: nil)
+            end
           end
         end
 
