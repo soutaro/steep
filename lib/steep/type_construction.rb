@@ -427,7 +427,11 @@ module Steep
             var = node.children[0]
             rhs = node.children[1]
 
-            type_assignment(var, rhs, node)
+            if var.name == :_
+              typing.add_typing(node, Types.any)
+            else
+              type_assignment(var, rhs, node)
+            end
           end
 
         when :lvar
