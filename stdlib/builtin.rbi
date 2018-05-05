@@ -17,6 +17,7 @@ class Object <: BasicObject
   def inspect: -> String
   def freeze: -> self
   def method: (Symbol) -> Method
+  def yield_self: <'a>{ (self) -> 'a } -> 'a
 end
 
 class Module
@@ -99,6 +100,7 @@ end
 
 class Numeric
   def +: (Numeric) -> Numeric
+  def /: (Numeric) -> Numeric
   def <=: (any) -> any
   def >=: (any) -> any
   def < : (any) -> any
@@ -111,12 +113,16 @@ class Integer <: Numeric
        | (Numeric) -> Numeric
   def ^: (Numeric) -> Integer
   def *: (Integer) -> Integer
+       | (Float) -> Float
+       | (Numeric) -> Numeric
   def >>: (Integer) -> Integer
   def step: (Integer, ?Integer) { (Integer) -> any } -> self
           | (Integer, ?Integer) -> Enumerator<Integer>
   def times: { (Integer) -> any } -> self
   def %: (Integer) -> Integer
   def -: (Integer) -> Integer
+       | (Float) -> Float
+       | (Numeric) -> Numeric
   def &: (Integer) -> Integer
   def |: (Integer) -> Integer
   def []: (Integer) -> Integer
@@ -124,16 +130,36 @@ class Integer <: Numeric
   def floor: (Integer) -> Integer
   def **: (Integer) -> Integer
   def /: (Integer) -> Integer
+       | (Float) -> Float
+       | (Numeric) -> Numeric
   def ~: () -> Integer
 end
 
 class Float <: Numeric
   def *: (Float) -> Float
+       | (Integer) -> Float
+       | (Numeric) -> Numeric
   def -: (Float) -> Float
   def +: (Float) -> Float
        | (Numeric) -> Numeric
   def round: (Integer) -> (Float | Integer)
+           | () -> Integer
+  def floor: -> Integer
   def /: (Float) -> Float
+       | (Integer) -> Float
+       | (Numeric) -> Numeric
+end
+
+Math::PI: Float
+
+class Complex <: Numeric
+  def self.polar: (Numeric, Numeric) -> instance
+  def +: (Complex) -> Complex
+       | (Numeric) -> Numeric
+  def conjugate: -> Complex
+  def *: (Complex) -> Complex
+       | (Numeric) -> Numeric
+  def real: -> Float
 end
 
 class Range<'a>
