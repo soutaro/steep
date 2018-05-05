@@ -73,18 +73,19 @@ module Steep
         end
       end
 
-      def build(type_name, current: nil)
+      def build(type_name, current: nil, with_initialize: false)
         type_name = absolute_type_name(type_name, current: current)
-        cached = cache[type_name]
+        cache_key = [type_name, with_initialize]
+        cached = cache[cache_key]
 
         case cached
         when nil
           begin
-            cache[type_name] = type_name
+            cache[cache_key] = type_name
 
             interface = case type_name
                         when TypeName::Instance
-                          instance_to_interface(signatures.find_class_or_module(type_name.name))
+                          instance_to_interface(signatures.find_class_or_module(type_name.name), with_initialize: with_initialize)
                         when TypeName::Module
                           module_to_interface(signatures.find_module(type_name.name))
                         when TypeName::Class
@@ -97,7 +98,7 @@ module Steep
                           raise "Unexpected type_name: #{type_name.inspect}"
                         end
 
-            cache[type_name] = interface
+            cache[cache_key]= interface
           rescue RecursiveDefinitionError => exn
             exn.chain.unshift(type_name)
             raise
@@ -285,7 +286,7 @@ module Steep
         )
       end
 
-      def instance_to_interface(sig)
+      def instance_to_interface(sig, with_initialize:)
         type_name = TypeName::Instance.new(name: sig.name)
 
         params = sig.params&.variables || []
@@ -333,7 +334,7 @@ module Steep
           case member
           when AST::Signature::Members::Method
             if member.instance_method?
-              unless member.name == :initialize
+              if with_initialize || member.name != :initialize
                 add_method(type_name, member, methods: methods)
               end
             end

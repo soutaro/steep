@@ -125,7 +125,7 @@ module Steep
 
       self_type = annots.self_type || self_type
 
-      self_interface = self_type && (self_type != Types.any || nil) && checker.resolve(self_type)
+      self_interface = self_type && (self_type != Types.any || nil) && checker.resolve(self_type, with_initialize: true)
       interface_method = self_interface&.yield_self {|interface| interface.methods[method_name] }
       annotation_method = annotations.lookup_method_type(method_name)&.yield_self do |method_type|
         Interface::Method.new(type_name: nil,
@@ -496,7 +496,7 @@ module Steep
             when !lhs_type
               fallback_to_any(node)
             else
-              lhs_interface = checker.resolve(lhs_type)
+              lhs_interface = checker.resolve(lhs_type, with_initialize: false)
               op_method = lhs_interface.methods[op]
 
               if op_method
@@ -898,8 +898,8 @@ module Steep
               if types.uniq.size == 1
                 typing.add_typing(node, Types.array_instance(types.first))
               else
-                typing.add_error Errors::FallbackAny.new(node: node)
-                typing.add_typing(node, Types.array_instance(Types.any))
+                # typing.add_error Errors::FallbackAny.new(node: node)
+                typing.add_typing(node, Types.array_instance(union_type(*types)))
               end
             end
           end
@@ -1267,7 +1267,7 @@ module Steep
         fallback_to_any node
 
       else
-        interface = checker.resolve(receiver_type)
+        interface = checker.resolve(receiver_type, with_initialize: false)
         method = interface.methods[method_name]
 
         if method

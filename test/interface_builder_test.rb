@@ -102,7 +102,7 @@ end
 
     builder = Builder.new(signatures: env)
     mod = env.find_module(ModuleName.parse(:A).absolute!)
-    interface = builder.instance_to_interface(mod)
+    interface = builder.instance_to_interface(mod, with_initialize: false)
 
     assert_instance_of Interface::Abstract, interface
     assert_equal TypeName::Instance.new(name: ModuleName.parse(:A).absolute!), interface.name
@@ -149,7 +149,7 @@ end
 
     builder = Builder.new(signatures: env)
     mod = env.find_module(ModuleName.parse(:B))
-    interface = builder.instance_to_interface(mod)
+    interface = builder.instance_to_interface(mod, with_initialize: false)
 
     assert_instance_of Interface::Abstract, interface
     assert_equal TypeName::Instance.new(name: ModuleName.parse(:B).absolute!), interface.name
@@ -190,7 +190,7 @@ end
 
     builder = Builder.new(signatures: env)
     klass = env.find_class(ModuleName.parse("::A"))
-    interface = builder.instance_to_interface(klass)
+    interface = builder.instance_to_interface(klass, with_initialize: false)
 
     assert_instance_of Interface::Abstract, interface
     assert_equal TypeName::Instance.new(name: ModuleName.parse("::A")), interface.name
@@ -238,7 +238,7 @@ end
 
     builder = Builder.new(signatures: env)
     klass = env.find_class(ModuleName.parse("::B"))
-    interface = builder.instance_to_interface(klass)
+    interface = builder.instance_to_interface(klass, with_initialize: false)
 
     assert_instance_of Interface::Abstract, interface
     assert_equal TypeName::Instance.new(name: ModuleName.parse("::B")), interface.name
@@ -289,7 +289,7 @@ end
 
     builder = Builder.new(signatures: env)
     klass = env.find_class(ModuleName.parse(:C))
-    interface = builder.instance_to_interface(klass)
+    interface = builder.instance_to_interface(klass, with_initialize: false)
 
     assert_instance_of Interface::Abstract, interface
     assert_equal TypeName::Instance.new(name: ModuleName.parse("::C")), interface.name
@@ -524,7 +524,7 @@ end
     builder = Builder.new(signatures: env)
 
     sig = env.find_class(ModuleName.parse(:Object))
-    interface = builder.instance_to_interface(sig)
+    interface = builder.instance_to_interface(sig, with_initialize: false)
 
     assert_instance_of Interface::Abstract, interface
 
@@ -573,7 +573,7 @@ end
     builder = Builder.new(signatures: env)
 
     klass = env.find_class(ModuleName.parse(:Foo))
-    interface = builder.instance_to_interface(klass)
+    interface = builder.instance_to_interface(klass, with_initialize: false)
 
     assert_instance_of Interface::Abstract, interface
     assert_equal Types::Name.new_instance(name: "::String"), interface.ivars[:"@foo"]
@@ -611,7 +611,7 @@ end
     builder = Builder.new(signatures: env)
 
     klass = env.find_class(ModuleName.parse(:Bar))
-    interface = builder.instance_to_interface(klass)
+    interface = builder.instance_to_interface(klass, with_initialize: false)
 
     assert_instance_of Interface::Abstract, interface
     assert_equal Types::Name.new_instance(name: "Integer"), interface.ivars[:"@foo"]
@@ -641,7 +641,7 @@ end
     builder = Builder.new(signatures: env)
 
     klass = env.find_class(ModuleName.parse(:Foo))
-    interface = builder.instance_to_interface(klass).instantiate(
+    interface = builder.instance_to_interface(klass, with_initialize: false).instantiate(
       type: Types::Self.new,
       args: [Types::Var.new(name: :hoge)],
       instance_type: Types::Instance.new,

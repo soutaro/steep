@@ -150,8 +150,8 @@ module Steep
               results.find(&:failure?)
             end
           else
-            sub_interface = resolve(relation.sub_type)
-            super_interface = resolve(relation.super_type)
+            sub_interface = resolve(relation.sub_type, with_initialize: false)
+            super_interface = resolve(relation.super_type, with_initialize: false)
 
             check_interface(sub_interface, super_interface, assumption: assumption, trace: trace, constraints: constraints)
           end
@@ -514,12 +514,12 @@ module Steep
         end
       end
 
-      def resolve(type, self_type: type, instance_type: nil, module_type: nil)
+      def resolve(type, self_type: type, instance_type: nil, module_type: nil, with_initialize:)
         case type
         when AST::Types::Any, AST::Types::Var, AST::Types::Class, AST::Types::Instance
           raise "Cannot resolve type to interface: #{type}"
         when AST::Types::Name
-          builder.build(type.name).instantiate(
+          builder.build(type.name, with_initialize: with_initialize).instantiate(
             type: self_type,
             args: type.args,
             instance_type: instance_type || type.instance_type,
@@ -529,7 +529,7 @@ module Steep
           interfaces = type.types.map do |member_type|
             fresh = AST::Types::Var.fresh(:___)
 
-            resolve(member_type, self_type: type, instance_type: fresh, module_type: fresh).select_method_type do |method_type|
+            resolve(member_type, self_type: type, instance_type: fresh, module_type: fresh, with_initialize: with_initialize).select_method_type do |method_type|
               !method_type.each_type.include?(fresh)
             end
           end
@@ -566,7 +566,7 @@ module Steep
                                       ivars: {})
 
         when AST::Types::Intersection
-          interfaces = type.types.map do |type| resolve(type) end
+          interfaces = type.types.map do |type| resolve(type, with_initialize: with_initialize) end
 
           methods = interfaces.inject(nil) do |methods, i|
             if methods

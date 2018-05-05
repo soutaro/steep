@@ -517,7 +517,7 @@ end
       AST::Types::Name.new_instance(name: "::String"),
       AST::Types::Name.new_instance(name: "::Integer")
     ])
-    interface = checker.resolve(type)
+    interface = checker.resolve(type, with_initialize: false)
 
     assert_equal [:tap, :yield_self], interface.methods.keys
     assert_equal [type], interface.methods[:tap].types.map {|ty| ty.return_type }
@@ -527,10 +527,13 @@ end
   def test_resolve2
     checker = new_checker("")
 
-    interface = checker.resolve(AST::Types::Intersection.new(types: [
-      AST::Types::Name.new_instance(name: "::String"),
-      AST::Types::Name.new_instance(name: "::Integer")
-    ]))
+    interface = checker.resolve(
+      AST::Types::Intersection.new(types: [
+        AST::Types::Name.new_instance(name: "::String"),
+        AST::Types::Name.new_instance(name: "::Integer")
+      ]),
+      with_initialize: false
+    )
 
     assert_equal [:class, :tap, :yield_self, :to_str, :to_int], interface.methods.keys
     refute_empty interface.methods[:class].types
@@ -541,7 +544,7 @@ end
   def test_resolve_void
     checker = new_checker("")
 
-    interface = checker.resolve(AST::Types::Void.new)
+    interface = checker.resolve(AST::Types::Void.new, with_initialize: false)
 
     assert_instance_of Interface::Instantiated, interface
     assert_empty interface.methods
