@@ -359,18 +359,32 @@ module Steep
       )
     end
 
-    def for_branch(node)
+    def for_branch(node, type_case_override: nil)
       annots = source.annotations(block: node)
 
-      type_env = self.type_env.with_annotations(
+      type_env = self.type_env
+
+      if type_case_override
+        type_env = type_env.with_annotations(lvar_types: type_case_override) do |var, relation, result|
+          typing.add_error(
+            Errors::IncompatibleTypeCase.new(node: node,
+                                             var_name: var,
+                                             relation: relation,
+                                             result: result)
+          )
+        end
+      end
+
+      type_env = type_env.with_annotations(
         lvar_types: annots.var_types.transform_values {|a| absolute_type(a.type) },
         ivar_types: annots.ivar_types.transform_values {|ty| absolute_type(ty) },
         const_types: annots.const_types.transform_values {|ty| absolute_type(ty) },
         gvar_types: {}
-      ) do |var, result|
+      ) do |var, relation, result|
         typing.add_error(
           Errors::IncompatibleAnnotation.new(node: node,
                                              var_name: var,
+                                             relation: relation,
                                              result: result)
         )
       end
@@ -919,39 +933,66 @@ module Steep
           typing.add_typing(node, union_type(true_type, false_type))
 
         when :case
-          cond, *whens = node.children
+          yield_self do
+            cond, *whens = node.children
 
-          synthesize cond if cond
-
-          pairs = whens.map do |clause|
-            if clause&.type == :when
-              clause.children.take(clause.children.size - 1).map do |child|
-                synthesize(child)
+            if cond
+              cond_type = synthesize(cond)
+              if cond.type == :lvar && cond_type.is_a?(AST::Types::Union)
+                var_name = cond.children.first.name
+                var_types = cond_type.types.dup
               end
+            end
 
-              if (body = clause.children.last)
-                for_branch(body).yield_self do |body_construction|
-                  type = body_construction.synthesize(body)
-                  [type, body_construction.type_env]
+            pairs = whens.each.with_object([]) do |clause, pairs|
+              if clause&.type == :when
+                test_types = clause.children.take(clause.children.size - 1).map do |child|
+                  synthesize(child)
+                end
+
+                if (body = clause.children.last)
+                  if var_name && var_types && test_types.all? {|type| type.is_a?(AST::Types::Name) && type.name.is_a?(TypeName::Class) && type.args.empty? }
+                    var_types_in_body = test_types.map(&:instance_type)
+                    var_types.reject! {|type|
+                      var_types_in_body.any? {|test_type|
+                        test_type.==(type, ignore_location: true)
+                      }
+                    }
+
+                    type_case_override = { var_name => union_type(*var_types_in_body) }
+                  else
+                    type_case_override = nil
+                  end
+
+                  for_branch(body, type_case_override: type_case_override).yield_self do |body_construction|
+                    type = body_construction.synthesize(body)
+                    pairs << [type, body_construction.type_env]
+                  end
+                else
+                  pairs << [Types.any, nil]
                 end
               else
-                [Types.any, nil]
-              end
-            else
-              if clause
-                for_branch(clause).yield_self do |body_construction|
-                  type = body_construction.synthesize(clause)
-                  [type, body_construction.type_env]
+                if clause
+                  if var_types && !var_types.empty?
+                    type_case_override = { var_name => union_type(*var_types) }
+                  else
+                    type_case_override = nil
+                  end
+
+                  for_branch(clause, type_case_override: type_case_override).yield_self do |body_construction|
+                    type = body_construction.synthesize(clause)
+                    pairs << [type, body_construction.type_env]
+                  end
                 end
               end
             end
-          end.compact
 
-          types = pairs.map(&:first)
-          envs = pairs.map(&:last)
+            types = pairs.map(&:first)
+            envs = pairs.map(&:last)
 
-          type_env.join!(envs.compact)
-          typing.add_typing(node, union_type(*types))
+            type_env.join!(envs.compact)
+            typing.add_typing(node, union_type(*types))
+          end
 
         when :rescue
           yield_self do

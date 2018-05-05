@@ -96,7 +96,6 @@ module Steep
           end
         end
 
-        attr_reader :relation
         attr_reader :error
         attr_reader :trace
 

@@ -324,6 +324,10 @@ end
 class Integer <: Numeric
 end
 
+class Symbol
+  def id2name: -> String
+end
+
 class Range<'a>
   def begin: -> 'a
   def end: -> 'a

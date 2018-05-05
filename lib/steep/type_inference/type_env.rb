@@ -210,7 +210,7 @@ module Steep
         constraints = Subtyping::Constraints.new(unknowns: Set.new)
 
         subtyping.check(relation, constraints: constraints).else do |result|
-          yield name, result
+          yield name, relation, result
         end
 
         annotated_type

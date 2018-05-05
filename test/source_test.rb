@@ -251,7 +251,7 @@ end
       assert_nil annotations.var_types[:y]
     end
 
-    source.node.children[1].yield_self do |node|
+    source.node.children[1].children.last.yield_self do |node|
       annotations = source.annotations(block: node)
       refute_nil annotations.var_types[:x]
       assert_nil annotations.var_types[:y]
