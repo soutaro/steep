@@ -800,9 +800,10 @@ module Steep
         when :const
           const_name = ModuleName.from_node(node)
           if const_name
-            type_env.get(const: const_name) do
+            type = type_env.get(const: const_name) do
               fallback_to_any node
             end
+            typing.add_typing node, type
           else
             fallback_to_any node
           end
