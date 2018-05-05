@@ -628,22 +628,36 @@ module Steep
           typing.add_typing(node, Types.symbol_instance)
 
         when :return
-          value = node.children[0]
-
-          if value
-            if method_context&.return_type && !method_context.return_type.is_a?(AST::Types::Void)
-              check(value, method_context.return_type) do |_, actual_type, result|
-                typing.add_error(Errors::ReturnTypeMismatch.new(node: node,
-                                                                expected: method_context.return_type,
-                                                                actual: actual_type,
-                                                                result: result))
+          yield_self do
+            if node.children.size > 0
+              return_types = node.children.map do |value|
+                synthesize(value)
               end
-            else
-              synthesize(value)
-            end
-          end
 
-          typing.add_typing(node, Types.any)
+              value_type = if return_types.size == 1
+                             return_types.first
+                           else
+                             Types.array_instance(union_type(*return_types))
+                           end
+
+              if method_context&.return_type && !method_context.return_type.is_a?(AST::Types::Void)
+                result = checker.check(
+                  Subtyping::Relation.new(sub_type: value_type,
+                                          super_type: method_context.return_type),
+                  constraints: Subtyping::Constraints.empty
+                )
+
+                if result.failure?
+                  typing.add_error(Errors::ReturnTypeMismatch.new(node: node,
+                                                                  expected: method_context.return_type,
+                                                                  actual: value_type,
+                                                                  result: result))
+                end
+              end
+            end
+
+            typing.add_typing(node, Types.any)
+          end
 
         when :break
           value = node.children[0]
