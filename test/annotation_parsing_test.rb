@@ -112,9 +112,23 @@ class AnnotationParsingTest < Minitest::Test
   end
 
   def test_dynamic
-    annot = parse_annotation("@dynamic foo")
-    assert_instance_of Steep::AST::Annotation::Dynamic, annot
-    assert_equal :foo, annot.name
+    parse_annotation("@dynamic foo").yield_self do |annot|
+      assert_instance_of Steep::AST::Annotation::Dynamic, annot
+      assert_equal :foo, annot.name
+      assert_equal :instance, annot.kind
+    end
+
+    parse_annotation("@dynamic self.foo").yield_self do |annot|
+      assert_instance_of Steep::AST::Annotation::Dynamic, annot
+      assert_equal :foo, annot.name
+      assert_equal :module, annot.kind
+    end
+
+    parse_annotation("@dynamic self?.foo").yield_self do |annot|
+      assert_instance_of Steep::AST::Annotation::Dynamic, annot
+      assert_equal :foo, annot.name
+      assert_equal :module_instance, annot.kind
+    end
   end
 
   def test_break

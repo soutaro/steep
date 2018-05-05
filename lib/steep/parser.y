@@ -463,8 +463,16 @@ annotation: AT_TYPE VAR subject COLON type {
             }
           | AT_DYNAMIC method_name {
               loc = val.first.location + val.last.location
-              result = AST::Annotation::Dynamic.new(name: val[1].value, location: loc)
+              result = AST::Annotation::Dynamic.new(name: val[1].value, location: loc, kind: :instance)
             }
+          | AT_DYNAMIC SELF DOT method_name {
+             loc = val.first.location + val.last.location
+             result = AST::Annotation::Dynamic.new(name: val[3].value, location: loc, kind: :module)
+           }
+           | AT_DYNAMIC SELFQ DOT method_name {
+             loc = val.first.location + val.last.location
+             result = AST::Annotation::Dynamic.new(name: val[3].value, location: loc, kind: :module_instance)
+           }
           | AT_TYPE BREAK COLON type {
              loc = val.first.location + val.last.location
              result = AST::Annotation::BreakType.new(type: val[3], location: loc)

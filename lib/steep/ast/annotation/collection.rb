@@ -21,7 +21,7 @@ module Steep
           @method_types = {}
           @const_types = {}
           @ivar_types = {}
-          @dynamics = Set.new
+          @dynamics = {}
           @break_type = nil
 
           annotations.each do |annotation|
@@ -47,7 +47,7 @@ module Steep
             when IvarType
               ivar_types[annotation.name] = annotation.type
             when Dynamic
-              dynamics << annotation.name
+              dynamics[annotation.name] = annotation
             when BreakType
               @break_type = annotation.type
             else

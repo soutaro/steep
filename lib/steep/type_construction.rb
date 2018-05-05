@@ -1745,16 +1745,27 @@ module Steep
 
       signature.members.each do |member|
         if member.is_a?(AST::Signature::Members::Method)
-          case
-          when member.instance_method?
-            unless module_context.defined_instance_methods.include?(member.name) || annotations.dynamics.member?(member.name)
+          if member.instance_method?
+            case
+            when module_context.defined_instance_methods.include?(member.name)
+              # ok
+            when annotations.dynamics[member.name]&.instance_method?
+              # ok
+            else
               typing.add_error Errors::MethodDefinitionMissing.new(node: node,
                                                                    module_name: module_name.name,
                                                                    kind: :instance,
                                                                    missing_method: member.name)
             end
-          when member.module_method?
-            unless module_context.defined_module_methods.include?(member.name)
+          end
+
+          if member.module_method?
+            case
+            when module_context.defined_module_methods.include?(member.name)
+              # ok
+            when annotations.dynamics[member.name]&.module_method?
+              # ok
+            else
               typing.add_error Errors::MethodDefinitionMissing.new(node: node,
                                                                    module_name: module_name.name,
                                                                    kind: :module,
@@ -1764,8 +1775,15 @@ module Steep
         end
       end
 
-      annotations.dynamics.each do |method_name|
-        unless signature.members.any? {|sig| sig.is_a?(AST::Signature::Members::Method) && sig.name == method_name }
+      annotations.dynamics.each do |method_name, annotation|
+        method_signature = signature.members.find {|sig| sig.is_a?(AST::Signature::Members::Method) && sig.name == method_name }
+
+        case
+        when annotation.module_method? && method_signature&.module_method?
+          # ok
+        when annotation.instance_method? && method_signature&.instance_method?
+          # ok
+        else
           typing.add_error Errors::UnexpectedDynamicMethod.new(node: node,
                                                                module_name: module_name.name,
                                                                method_name: method_name)

@@ -12,7 +12,7 @@ class AnnotationCollectionTest < Minitest::Test
       Annotation::VarType.new(name: :y, type: Types::Name.new_instance(name: :Y)),
       Annotation::ReturnType.new(type: Types::Name.new_instance(name: :Z)),
       Annotation::BlockType.new(type: Types::Name.new_instance(name: :A)),
-      Annotation::Dynamic.new(name: :path)
+      Annotation::Dynamic.new(name: :path, kind: :instance)
     ])
   end
 
@@ -48,6 +48,10 @@ class AnnotationCollectionTest < Minitest::Test
   end
 
   def test_dynamics
-    assert_equal Set.new([:path]), annotations.dynamics
+    annotations.dynamics[:path].yield_self do |annot|
+      assert_instance_of Annotation::Dynamic, annot
+      assert annot.instance_method?
+      refute annot.module_method?
+    end
   end
 end
