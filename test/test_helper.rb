@@ -337,6 +337,7 @@ class Regexp
 end
 
 class Array<'a>
+  def initialize: -> any
   def []: (Integer) -> 'a
   def []=: (Integer, 'a) -> 'a
   def <<: ('a) -> self

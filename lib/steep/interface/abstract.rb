@@ -26,6 +26,7 @@ module Steep
       end
 
       def instantiate(type:, args:, instance_type:, module_type:)
+        Steep.logger.debug("type=#{type}, self=#{name}, args=#{args}, params=#{params}")
         subst = Substitution.build(params, args, instance_type: instance_type, module_type: module_type, self_type: type)
 
         Instantiated.new(

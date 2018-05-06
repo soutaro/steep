@@ -9,7 +9,7 @@ b = a.each.with_object([]) do |i, xs|
   xs << i.to_s
 end
 
-# !expects IncompatibleAssignment: lhs_type=::Array<::Integer>, rhs_type=Array<String>
+# !expects IncompatibleAssignment: lhs_type=::Array<::Integer>, rhs_type=::Array<::String>
 c = a.each.with_object([]) do |i, xs|
   # @type var xs: Array<String>
   xs << i.to_s

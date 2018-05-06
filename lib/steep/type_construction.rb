@@ -1381,7 +1381,7 @@ module Steep
             if param.type
               relation = Subtyping::Relation.new(
                 sub_type: type,
-                super_type: param.type
+                super_type: absolute_type(param.type)
               )
 
               checker.check(relation, constraints: constraints).else do |result|
@@ -1403,7 +1403,7 @@ module Steep
             checker.check(relation, constraints: constraints).else do |result|
               typing.add_error Errors::BlockTypeMismatch.new(node: node,
                                                              expected: method_type.block.return_type,
-                                                             actual: block_annotations.block_type,
+                                                             actual: absolute_type(block_annotations.block_type),
                                                              result: result)
             end
           end
@@ -1424,34 +1424,34 @@ module Steep
               block_type_env = type_env.dup.yield_self do |env|
                 block_param_pairs.each do |param, type|
                   if param.type
-                    env.set(lvar: param.var.name, type: param.type)
+                    env.set(lvar: param.var.name, type: absolute_type(param.type))
                   else
-                    env.set(lvar: param.var.name, type: type)
+                    env.set(lvar: param.var.name, type: absolute_type(type))
                   end
                 end
 
                 env.with_annotations(
                   lvar_types: block_annotations.var_types.transform_values {|annot| absolute_type(annot.type) },
-                  ivar_types: block_annotations.ivar_types,
+                  ivar_types: block_annotations.ivar_types.transform_values {|type| absolute_type(type) },
                   const_types: block_annotations.const_types.transform_values {|type| absolute_type(type) }
                 )
               end
 
               return_type = if block_annotations.break_type
-                              union_type(method_type.return_type, block_annotations.break_type)
+                              union_type(method_type.return_type, absolute_type(block_annotations.break_type))
                             else
                               method_type.return_type
                             end
               Steep.logger.debug("return_type = #{return_type}")
 
-              block_context = BlockContext.new(body_type: block_annotations.block_type)
+              block_context = BlockContext.new(body_type: absolute_type(block_annotations.block_type))
               Steep.logger.debug("block_context { body_type: #{block_context.body_type} }")
 
               break_context = BreakContext.new(
-                break_type: block_annotations.break_type || method_type.return_type,
-                next_type: block_annotations.block_type
+                break_type: absolute_type(block_annotations.break_type) || method_type.return_type,
+                next_type: absolute_type(block_annotations.block_type)
               )
-              Steep.logger.debug("break_context { type: #{break_context.break_type} }")
+              Steep.logger.debug("break_context { type: #{absolute_type(break_context.break_type)} }")
 
               for_block = self.class.new(
                 checker: checker,
@@ -1462,7 +1462,7 @@ module Steep
                 typing: typing,
                 method_context: method_context,
                 module_context: module_context,
-                self_type: block_annotations.self_type || self_type,
+                self_type: absolute_type(block_annotations.self_type) || self_type,
                 break_context: break_context
               )
 
@@ -1746,7 +1746,9 @@ module Steep
     end
 
     def absolute_type(type)
-      checker.builder.absolute_type(type, current: current_namespace)
+      if type
+        checker.builder.absolute_type(type, current: current_namespace)
+      end
     end
 
     def union_type(*types)

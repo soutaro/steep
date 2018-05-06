@@ -12,6 +12,7 @@ class Object <: BasicObject
   def class: () -> class
   def tap: { (self) -> any } -> self
   def yield_self: <'a> { (self) -> 'a } -> 'a
+  def allocate: -> instance
 end
 
 class Class<'instance>
@@ -535,10 +536,25 @@ end
       with_initialize: false
     )
 
-    assert_equal [:class, :tap, :yield_self, :to_str, :to_int], interface.methods.keys
+    assert_equal [:class, :tap, :yield_self, :allocate, :to_str, :to_int], interface.methods.keys
     refute_empty interface.methods[:class].types
     assert_equal [AST::Types::Name.new_instance(name: "::String")], interface.methods[:to_str].types.map(&:return_type)
     assert_equal [AST::Types::Name.new_instance(name: "::Integer")], interface.methods[:to_int].types.map(&:return_type)
+  end
+
+  def test_resolve3
+    checker = new_checker("")
+
+    type = AST::Types::Name.new_class(name: "::Array", constructor: false)
+    interface = checker.resolve(type, with_initialize: false)
+
+    interface.methods[:allocate].yield_self do |method|
+      method.types.first.yield_self do |type|
+        # Instance type through class type will be with `any` application
+        assert_equal AST::Types::Name.new_instance(name: "::Array", args: [AST::Types::Any.new]),
+                     type.return_type
+      end
+    end
   end
 
   def test_resolve_void
