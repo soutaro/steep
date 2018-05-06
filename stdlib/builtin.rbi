@@ -19,6 +19,7 @@ class Object <: BasicObject
   def method: (Symbol) -> Method
   def yield_self: <'a>{ (self) -> 'a } -> 'a
   def dup: -> self
+  def send: (Symbol, *any) -> any
 end
 
 class Module
@@ -90,6 +91,7 @@ class Array<'a>
   def first: -> 'a
   def replace: (self) -> self
   def transpose: -> self
+  def fill: ('a) -> self
 end
 
 class Hash<'key, 'value>
