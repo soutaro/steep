@@ -68,6 +68,7 @@ require "steep/drivers/utils/each_signature"
 require "steep/drivers/check"
 require "steep/drivers/validate"
 require "steep/drivers/annotations"
+require "steep/drivers/scaffold"
 
 module Steep
   def self.logger
