@@ -16,7 +16,7 @@ module Steep
     end
 
     def self.available_commands
-      [:check, :validate, :annotations]
+      [:check, :validate, :annotations, :scaffold]
     end
 
     def setup_global_options
@@ -96,6 +96,11 @@ module Steep
     def process_annotations
       source_paths = argv.map {|file| Pathname(file) }
       Drivers::Annotations.new(source_paths: source_paths, stdout: stdout, stderr: stderr).run
+    end
+
+    def process_scaffold
+      source_paths = argv.map {|file| Pathname(file) }
+      Drivers::Scaffold.new(source_paths: source_paths, stdout: stdout, stderr: stderr).run
     end
   end
 end
