@@ -288,13 +288,15 @@ module Steep
       end
 
       def check_method_type(name, sub_type, super_type, assumption:, trace:, constraints:)
-        check_method_params(name, sub_type.params, super_type.params, assumption: assumption, trace: trace, constraints: constraints).then do
-          check_block_given(name, sub_type.block, super_type.block, trace: trace, constraints: constraints).then do
-            check_block_params(name, sub_type.block, super_type.block, assumption: assumption, trace: trace, constraints: constraints).then do
-              check_block_return(sub_type.block, super_type.block, assumption: assumption, trace: trace, constraints:constraints).then do
-                relation = Relation.new(super_type: super_type.return_type,
-                                            sub_type: sub_type.return_type)
-                check(relation, assumption: assumption, trace: trace, constraints: constraints)
+        Steep.logger.tagged("#{name}: #{sub_type} <: #{super_type}") do
+          check_method_params(name, sub_type.params, super_type.params, assumption: assumption, trace: trace, constraints: constraints).then do
+            check_block_given(name, sub_type.block, super_type.block, trace: trace, constraints: constraints).then do
+              check_block_params(name, sub_type.block, super_type.block, assumption: assumption, trace: trace, constraints: constraints).then do
+                check_block_return(sub_type.block, super_type.block, assumption: assumption, trace: trace, constraints:constraints).then do
+                  relation = Relation.new(super_type: super_type.return_type,
+                                          sub_type: sub_type.return_type)
+                  check(relation, assumption: assumption, trace: trace, constraints: constraints)
+                end
               end
             end
           end
@@ -515,16 +517,31 @@ module Steep
       end
 
       def resolve(type, self_type: type, instance_type: nil, module_type: nil, with_initialize:)
+        Steep.logger.debug("Check#resolve: type=#{type}")
         case type
         when AST::Types::Any, AST::Types::Var, AST::Types::Class, AST::Types::Instance
           raise "Cannot resolve type to interface: #{type}"
         when AST::Types::Name
-          builder.build(type.name, with_initialize: with_initialize).instantiate(
-            type: self_type,
-            args: type.args,
-            instance_type: instance_type || type.instance_type,
-            module_type: module_type || module_type(type)
-          )
+          builder.build(type.name, with_initialize: with_initialize).yield_self do |abstract|
+            case type.name
+            when TypeName::Instance, TypeName::Interface
+              abstract.instantiate(
+                type: self_type,
+                args: type.args,
+                instance_type: type,
+                module_type: module_type || module_type(type)
+              )
+            when TypeName::Class, TypeName::Module
+              signature = builder.signatures.find_class_or_module(type.name.name)
+              args = signature.params&.variables&.map { AST::Types::Any.new } || []
+              abstract.instantiate(
+                type: self_type,
+                args: [],
+                instance_type: AST::Types::Name.new_instance(name: type.name.name, args: args),
+                module_type: module_type || module_type(type)
+              )
+            end
+          end
         when AST::Types::Union
           interfaces = type.types.map do |member_type|
             fresh = AST::Types::Var.fresh(:___)

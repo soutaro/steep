@@ -154,7 +154,6 @@ module Steep
       def class_to_interface(sig, constructor:)
         type_name = TypeName::Class.new(name: sig.name, constructor: constructor)
 
-        params = sig.params&.variables || []
         supers = []
         methods = {}
 
@@ -226,7 +225,7 @@ module Steep
 
         Abstract.new(
           name: type_name,
-          params: params,
+          params: [],
           methods: methods,
           supers: supers,
           ivars: {}
@@ -236,7 +235,6 @@ module Steep
       def module_to_interface(sig)
         type_name = TypeName::Module.new(name: sig.name)
 
-        params = sig.params&.variables || []
         supers = [sig.self_type].compact.map {|type| absolute_type(type, current: nil) }
         methods = {}
 
@@ -279,7 +277,7 @@ module Steep
 
         Abstract.new(
           name: type_name,
-          params: params,
+          params: [],
           methods: methods,
           supers: supers,
           ivars: {}

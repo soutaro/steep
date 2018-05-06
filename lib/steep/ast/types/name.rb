@@ -85,7 +85,7 @@ module Steep
             self.class.new_class(location: location,
                                  name: name.name,
                                  constructor: constructor,
-                                 args: args)
+                                 args: [])
           when TypeName::Class
             self
           when TypeName::Module, TypeName::Interface
