@@ -554,21 +554,53 @@ module Steep
           methods = interfaces.inject(nil) do |methods, i|
             if methods
               intersection = {}
-              i.methods.each do |name, method|
-                if methods.key?(name)
+              i.methods.each do |name, new_method|
+                existing_method = methods[name]
+
+                if existing_method
                   case
-                  when method == methods[name]
-                    intersection[name] = method
-                  when check_method(name, method, methods[name],
+                  when new_method == existing_method
+                    intersection[name] = new_method
+                  when check_method(name, new_method, existing_method,
                                     assumption: Set.new,
                                     trace: Trace.new,
                                     constraints: Constraints.empty).success?
-                    intersection[name] = methods[name]
-                  when check_method(name, methods[name], method,
+                    intersection[name] = existing_method
+                  when check_method(name, existing_method, new_method,
                                     assumption: Set.new,
                                     trace: Trace.new,
                                     constraints: Constraints.empty).success?
-                    intersection[name] = method
+                    intersection[name] = new_method
+                  else
+                    merged_method_types = []
+
+                    existing_method.types.each do |existing_method_type|
+                      new_method.types.each do |new_method_type|
+                        if existing_method_type.params == new_method_type.params &&
+                          existing_method_type.block == new_method_type.block &&
+                          existing_method_type.type_params == new_method_type.type_params
+                          merged_method_types << existing_method_type.with(
+                            return_type: AST::Types::Union.build(
+                              types: [
+                                existing_method_type.return_type,
+                                new_method_type.return_type
+                              ]
+                            ),
+                            location: nil
+                          )
+                        end
+                      end
+                    end
+
+                    unless merged_method_types.empty?
+                      intersection[name] = Interface::Method.new(
+                        type_name: nil,
+                        name: name,
+                        types: merged_method_types,
+                        super_method: nil,
+                        attributes: []
+                      )
+                    end
                   end
                 end
               end

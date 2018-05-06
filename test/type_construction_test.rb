@@ -3412,6 +3412,86 @@ EOF
     assert_empty typing.errors
   end
 
+  def test_type_case_array
+    source = parse_ruby(<<EOF)
+# @type var x: Array<String> | Array<Integer> | Range<Symbol>
+x = nil
+
+case x
+when Array
+  y = x[0]
+else
+  z = x.begin
+end
+EOF
+    typing = Typing.new
+    annotations = source.annotations(block: source.node)
+    checker = new_subtyping_checker("")
+    const_env = ConstantEnv.new(builder: checker.builder, current_namespace: nil)
+    type_env = TypeEnv.build(annotations: annotations,
+                             subtyping: checker,
+                             const_env: const_env,
+                             signatures: checker.builder.signatures)
+
+    construction = TypeConstruction.new(checker: checker,
+                                        source: source,
+                                        annotations: annotations,
+                                        type_env: type_env,
+                                        block_context: nil,
+                                        self_type: nil,
+                                        method_context: nil,
+                                        typing: typing,
+                                        module_context: nil,
+                                        break_context: nil)
+    construction.synthesize(source.node)
+
+    assert_empty typing.errors
+    assert_equal Types::Union.build(types:[Types::Name.new_instance(name: "::String"),
+                                           Types::Name.new_instance(name: "::Integer")]),
+                 construction.type_env.lvar_types[:y]
+    assert_equal Types::Name.new_instance(name: "::Symbol"),
+                 construction.type_env.lvar_types[:z]
+  end
+
+  def test_type_case_array2
+    source = parse_ruby(<<EOF)
+# @type var x: Array<String> | Array<Integer>
+x = nil
+
+case x
+when Array
+  y = x[0]
+else
+  z = x
+end
+EOF
+    typing = Typing.new
+    annotations = source.annotations(block: source.node)
+    checker = new_subtyping_checker("")
+    const_env = ConstantEnv.new(builder: checker.builder, current_namespace: nil)
+    type_env = TypeEnv.build(annotations: annotations,
+                             subtyping: checker,
+                             const_env: const_env,
+                             signatures: checker.builder.signatures)
+
+    construction = TypeConstruction.new(checker: checker,
+                                        source: source,
+                                        annotations: annotations,
+                                        type_env: type_env,
+                                        block_context: nil,
+                                        self_type: nil,
+                                        method_context: nil,
+                                        typing: typing,
+                                        module_context: nil,
+                                        break_context: nil)
+    construction.synthesize(source.node)
+
+    assert_equal 1, typing.errors.size
+    typing.errors[0].yield_self do |error|
+      assert_instance_of Steep::Errors::ElseOnExhaustiveCase, error
+    end
+  end
+
   def test_initialize_typing
     source = parse_ruby(<<EOF)
 class Foo
