@@ -245,6 +245,16 @@ module Steep
           )
       end
 
+      def with(type_params: NONE, params: NONE, block: NONE, return_type: NONE, location: NONE)
+        self.class.new(
+          type_params: type_params.equal?(NONE) ? self.type_params : type_params,
+          params: params.equal?(NONE) ? self.params : params,
+          block: block.equal?(NONE) ? self.block : block,
+          return_type: return_type.equal?(NONE) ? self.return_type : return_type,
+          location: location.equal?(NONE) ? self.location : location
+        )
+      end
+
       def to_s
         type_params = !self.type_params.empty? ? "<#{self.type_params.join(", ")}> " : ""
         params = self.params.to_s

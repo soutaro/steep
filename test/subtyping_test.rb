@@ -520,7 +520,7 @@ end
     ])
     interface = checker.resolve(type, with_initialize: false)
 
-    assert_equal [:tap, :yield_self], interface.methods.keys
+    assert_equal [:tap, :yield_self, :allocate], interface.methods.keys
     assert_equal [type], interface.methods[:tap].types.map {|ty| ty.return_type }
     assert_equal [[type]], interface.methods[:yield_self].types.map {|ty| ty.block.params.required }
   end
@@ -555,6 +555,23 @@ end
                      type.return_type
       end
     end
+  end
+
+  def test_resolve4
+    checker = new_checker("")
+
+    interface = checker.resolve(
+      AST::Types::Union.new(types: [
+        AST::Types::Name.new_instance(name: "::Array", args: [AST::Types::Name.new_instance(name: "::Integer")]),
+        AST::Types::Name.new_instance(name: "::Array", args: [AST::Types::Name.new_instance(name: "::String")])
+      ]),
+      with_initialize: false
+    )
+
+    assert_equal [:tap, :yield_self, :allocate, :[]], interface.methods.keys
+    assert_equal [AST::Types::Union.build(types: [AST::Types::Name.new_instance(name: "::Integer"),
+                                                  AST::Types::Name.new_instance(name: "::String")])],
+                 interface.methods[:[]].types.map(&:return_type)
   end
 
   def test_resolve_void
