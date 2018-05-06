@@ -449,5 +449,13 @@ module Steep
         "#{location_to_str}: IncompatibleTypeCase: var_name=#{var_name}, #{relation}"
       end
     end
+
+    class ElseOnExhaustiveCase < Base
+      def initialize(node:, type:)
+        def to_s
+          "#{location_to_str}: ElseOnExhaustiveCase: type=#{type}"
+        end
+      end
+    end
   end
 end

@@ -971,10 +971,17 @@ module Steep
 
                 if (body = clause.children.last)
                   if var_name && var_types && test_types.all? {|type| type.is_a?(AST::Types::Name) && type.name.is_a?(TypeName::Class) && type.args.empty? }
-                    var_types_in_body = test_types.map(&:instance_type)
+                    var_types_in_body = test_types.flat_map {|test_type|
+                      filtered_types = var_types.select {|var_type| var_type.name.name == test_type.name.name }
+                      if filtered_types.empty?
+                        test_type.instance_type
+                      else
+                        filtered_types
+                      end
+                    }
                     var_types.reject! {|type|
                       var_types_in_body.any? {|test_type|
-                        test_type.==(type, ignore_location: true)
+                        test_type.name.name == type.name.name
                       }
                     }
 
@@ -992,10 +999,13 @@ module Steep
                 end
               else
                 if clause
-                  if var_types && !var_types.empty?
-                    type_case_override = { var_name => union_type(*var_types) }
-                  else
-                    type_case_override = nil
+                  if var_types
+                    if !var_types.empty?
+                      type_case_override = { var_name => union_type(*var_types) }
+                    else
+                      typing.add_error Errors::ElseOnExhaustiveCase.new(node: node, type: cond_type)
+                      type_case_override = { var_name => AST::Types::Any.new }
+                    end
                   end
 
                   for_branch(clause, type_case_override: type_case_override).yield_self do |body_construction|
@@ -1314,7 +1324,7 @@ module Steep
 
     def type_method_call(node, method:, args:, block_params:, block_body:)
       results = method.types.map do |method_type|
-        Steep.logger.tagged method_type.location.source do
+        Steep.logger.tagged method_type.location&.source do
           arg_pairs = args.zip(method_type.params)
 
           if arg_pairs
