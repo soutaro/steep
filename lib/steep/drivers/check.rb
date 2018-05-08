@@ -75,7 +75,7 @@ module Steep
               checker: check,
               annotations: annotations,
               source: source,
-              self_type: nil,
+              self_type: AST::Types::Name.new_instance(name: "::Object"),
               block_context: nil,
               module_context: TypeConstruction::ModuleContext.new(
                 instance_type: nil,
