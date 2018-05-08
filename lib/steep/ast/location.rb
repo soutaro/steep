@@ -47,6 +47,10 @@ module Steep
         @source ||= buffer.source(start_pos...end_pos)
       end
 
+      def to_s
+        "#{start_line}:#{start_column}...#{end_line}:#{end_column}"
+      end
+
       def ==(other)
         other.is_a?(Location) &&
           other.buffer == buffer &&
