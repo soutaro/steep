@@ -23,7 +23,7 @@ module Steep
         end
 
         def to_s
-          "any"
+          "void"
         end
 
         def free_variables
