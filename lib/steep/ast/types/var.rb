@@ -10,19 +10,16 @@ module Steep
           @location = location
         end
 
-        def ==(other, ignore_location: false)
+        def ==(other)
           other.is_a?(Var) &&
-            other.name == name &&
-            (ignore_location || !other.location || !location || other.location == location)
+            other.name == name
         end
 
         def hash
           self.class.hash ^ name.hash
         end
 
-        def eql?(other)
-          __send__(:==, other, ignore_location: true)
-        end
+        alias eql? ==
 
         def self.fresh(name)
           @mutex ||= Mutex.new

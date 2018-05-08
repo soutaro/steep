@@ -37,19 +37,16 @@ module Steep
           end
         end
 
-        def ==(other, ignore_location: false)
+        def ==(other)
           other.is_a?(Union) &&
-            other.types == types &&
-            (ignore_location || !other.location || !location || other.location == location)
+            other.types == types
         end
 
         def hash
           self.class.hash ^ types.hash
         end
 
-        def eql?(other)
-          __send__(:==, other, ignore_location: true)
-        end
+        alias eql? ==
 
         def subst(s)
           self.class.new(location: location,

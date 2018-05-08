@@ -8,10 +8,15 @@ module Steep
           @location = location
         end
 
-        def ==(other, ignore_location: false)
-          other.is_a?(Self) &&
-            (ignore_location || !other.location || !location || other.location == location)
+        def ==(other)
+          other.is_a?(Self)
         end
+
+        def hash
+          self.class.hash
+        end
+
+        alias eql? ==
 
         def to_s
           "self"

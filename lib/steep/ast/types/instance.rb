@@ -9,8 +9,14 @@ module Steep
         end
 
         def ==(other)
-          other.is_a?(Instance) && (!other.location || !location || other.location == location)
+          other.is_a?(Instance)
         end
+
+        def hash
+          self.class.hash
+        end
+
+        alias eql? ==
 
         def subst(s)
           s.instance_type or raise "Unexpected substitution: #{inspect}"

@@ -12,9 +12,8 @@ module Steep
           @args = args
         end
 
-        def ==(other, ignore_location: false)
+        def ==(other)
           other.is_a?(Name) &&
-            (ignore_location || !other.location || !location || other.location == location) &&
             other.name == name &&
             other.args == args
         end
@@ -23,9 +22,7 @@ module Steep
           self.class.hash ^ name.hash ^ args.hash
         end
 
-        def eql?(other)
-          __send__(:==, other, ignore_location: true)
-        end
+        alias eql? ==
 
         def to_s
           if args.empty?
