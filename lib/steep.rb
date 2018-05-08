@@ -1,7 +1,6 @@
 require "steep/version"
 
 require "pathname"
-require "parser/current"
 require "ast_utils"
 require "active_support/core_ext/object/try"
 require "logger"
