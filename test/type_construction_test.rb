@@ -1523,7 +1523,7 @@ EOF
     )
     assert_equal Types::Name.new_instance(name: "::Steep"), for_module.module_context.instance_type
     assert_equal(
-      Types::Intersection.new(
+      Types::Intersection.build(
         types: [
           Types::Name.new_instance(name: "::Module"),
           Types::Name.new_module(name: "::Steep"),

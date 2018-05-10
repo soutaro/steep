@@ -253,12 +253,12 @@ module Steep
         )
 
         unless abstract.supers.empty?
-          instance_type = AST::Types::Intersection.new(
+          instance_type = AST::Types::Intersection.build(
             types: [instance_type, AST::Types::Name.new_instance(name: "::Object")] + abstract.supers.map {|x| absolute_type(x) }
           )
         end
 
-        module_type = AST::Types::Intersection.new(types: [
+        module_type = AST::Types::Intersection.build(types: [
           AST::Types::Name.new_instance(name: "::Module"),
           absolute_type(AST::Types::Name.new_module(name: module_name, args: module_args))
         ])

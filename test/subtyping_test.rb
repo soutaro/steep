@@ -446,7 +446,7 @@ end
     result = checker.check(
       Subtyping::Relation.new(
         sub_type: AST::Types::Name.new_instance(name: "::String"),
-        super_type: AST::Types::Intersection.new(types: [
+        super_type: AST::Types::Intersection.build(types: [
           AST::Types::Name.new_instance(name: "::Object"),
           AST::Types::Name.new_instance(name: "::String")]),
         ),
@@ -457,7 +457,7 @@ end
 
     result = checker.check(
       Subtyping::Relation.new(
-        sub_type: AST::Types::Intersection.new(types: [
+        sub_type: AST::Types::Intersection.build(types: [
           AST::Types::Name.new_instance(name: "::Object"),
           AST::Types::Name.new_instance(name: "::Integer")
         ]),
@@ -471,7 +471,7 @@ end
     result = checker.check(
       Subtyping::Relation.new(
         sub_type: AST::Types::Name.new_instance(name: "::Object"),
-        super_type: AST::Types::Intersection.new(types: [
+        super_type: AST::Types::Intersection.build(types: [
           AST::Types::Name.new_instance(name: "::Integer"),
           AST::Types::Name.new_instance(name: "::String")]),
         ),
@@ -529,14 +529,14 @@ end
     checker = new_checker("")
 
     interface = checker.resolve(
-      AST::Types::Intersection.new(types: [
+      AST::Types::Intersection.build(types: [
         AST::Types::Name.new_instance(name: "::String"),
         AST::Types::Name.new_instance(name: "::Integer")
       ]),
       with_initialize: false
     )
 
-    assert_equal [:class, :tap, :yield_self, :allocate, :to_str, :to_int], interface.methods.keys
+    assert_equal [:class, :tap, :yield_self, :allocate, :to_str, :to_int].sort, interface.methods.keys.sort
     refute_empty interface.methods[:class].types
     assert_equal [AST::Types::Name.new_instance(name: "::String")], interface.methods[:to_str].types.map(&:return_type)
     assert_equal [AST::Types::Name.new_instance(name: "::Integer")], interface.methods[:to_int].types.map(&:return_type)
