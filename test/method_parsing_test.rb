@@ -261,10 +261,11 @@ class MethodParsingTest < Minitest::Test
     assert_params_length method.params, 2
 
     assert_required_param method.params, index: 0 do |type, params|
-      assert_union_type type do |(t1, t2)|
-        assert_type_var t1, name: :a
+      assert_union_type type do |types|
+        t1 = types.find {|type| type.name == :a }
+        t2 = types.find {|type| type.name == :b }
+
         assert_location t1, start_column: 1, end_column: 3
-        assert_type_var t2, name: :b
         assert_location t2, start_column: 6, end_column: 8
       end
       assert_location type, start_column: 1, end_column: 8
@@ -272,22 +273,28 @@ class MethodParsingTest < Minitest::Test
     end
 
     assert_optional_param method.params, index: 1 do |type, params|
-      assert_union_type type do |(t1, t2)|
-        assert_type_var t1, name: :c
-        assert_location t1, start_column: 11, end_column: 13
-        assert_type_var t2, name: :d
-        assert_location t2, start_column: 14, end_column: 16
+      assert_union_type type do |types|
+        c = types.find {|type| type.name == :c }
+        d = types.find {|type| type.name == :d }
+
+        assert_type_var c, name: :c
+        assert_location c, start_column: 11, end_column: 13
+        assert_type_var d, name: :d
+        assert_location d, start_column: 14, end_column: 16
       end
       assert_location type, start_column: 11, end_column: 16
       assert_location params, start_column: 10, end_column: 16
     end
 
     assert_named_type method.return_type, name: :Array do |(type)|
-      assert_union_type type do |(t1, t2)|
-        assert_type_var t1, name: :a
-        assert_location t1, start_column: 26, end_column: 28
-        assert_type_var t2, name: :b
-        assert_location t2, start_column: 31, end_column: 33
+      assert_union_type type do |types|
+        a = types.find {|type| type.name == :a }
+        b = types.find {|type| type.name == :b }
+
+        assert_type_var a, name: :a
+        assert_location a, start_column: 26, end_column: 28
+        assert_type_var b, name: :b
+        assert_location b, start_column: 31, end_column: 33
       end
       assert_location type, start_column: 26, end_column: 33
     end

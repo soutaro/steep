@@ -1763,12 +1763,7 @@ module Steep
 
     def union_type(*types)
       types_ = checker.compact(types.compact)
-
-      if types_.size == 1
-        types_.first
-      else
-        AST::Types::Union.new(types: types_)
-      end
+      AST::Types::Union.build(types: types_)
     end
 
     def validate_method_definitions(node, module_name)

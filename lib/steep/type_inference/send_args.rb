@@ -132,7 +132,7 @@ module Steep
 
           if rest_kw
             value_type = unless ks.empty?
-                           AST::Types::Union.new(types: ks.values + [params.rest_keywords])
+                           AST::Types::Union.build(types: ks.values + [params.rest_keywords])
                          else
                            params.rest_keywords
                          end

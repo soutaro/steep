@@ -121,7 +121,7 @@ proc {|x, y=1, *rest|
                    [params.rest, Types::Name.new_instance(
                      name: :Array,
                      args: [
-                       Types::Union.new(types: [
+                       Types::Union.build(types: [
                          Types::Name.new_instance(name: :Object),
                          Types::Name.new_instance(name: :String)])
                        ])

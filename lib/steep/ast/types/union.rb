@@ -49,12 +49,12 @@ module Steep
         alias eql? ==
 
         def subst(s)
-          self.class.new(location: location,
-                         types: types.map {|ty| ty.subst(s) })
+          self.class.build(location: location,
+                           types: types.map {|ty| ty.subst(s) })
         end
 
         def to_s
-          "(#{types.join(" | ")})"
+          "(#{types.map(&:to_s).sort.join(" | ")})"
         end
 
         def free_variables

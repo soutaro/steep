@@ -399,8 +399,8 @@ end
     result = checker.check(
       Subtyping::Relation.new(
         sub_type: AST::Types::Name.new_instance(name: "::String"),
-        super_type: AST::Types::Union.new(types: [AST::Types::Name.new_instance(name: "::Object"),
-                                                AST::Types::Name.new_instance(name: "::String")]),
+        super_type: AST::Types::Union.build(types: [AST::Types::Name.new_instance(name: "::Object"),
+                                                    AST::Types::Name.new_instance(name: "::String")]),
       ),
       constraints: Subtyping::Constraints.empty
     )
@@ -409,8 +409,8 @@ end
 
     result = checker.check(
       Subtyping::Relation.new(
-        sub_type: AST::Types::Union.new(types: [AST::Types::Name.new_instance(name: "::Object"),
-                                                AST::Types::Name.new_instance(name: "::Integer")]),
+        sub_type: AST::Types::Union.build(types: [AST::Types::Name.new_instance(name: "::Object"),
+                                                  AST::Types::Name.new_instance(name: "::Integer")]),
         super_type: AST::Types::Name.new_instance(name: "::String")
       ),
       constraints: Subtyping::Constraints.empty
@@ -421,8 +421,8 @@ end
     result = checker.check(
       Subtyping::Relation.new(
         sub_type: AST::Types::Name.new_instance(name: "::Integer"),
-        super_type: AST::Types::Union.new(types: [AST::Types::Name.new_instance(name: "::Object"),
-                                                  AST::Types::Name.new_instance(name: "::BasicObject")]),
+        super_type: AST::Types::Union.build(types: [AST::Types::Name.new_instance(name: "::Object"),
+                                                    AST::Types::Name.new_instance(name: "::BasicObject")]),
       ),
       constraints: Subtyping::Constraints.empty
     )
@@ -431,8 +431,8 @@ end
     result = checker.check(
       Subtyping::Relation.new(
         sub_type: AST::Types::Name.new_instance(name: "::Integer"),
-        super_type: AST::Types::Union.new(types: [AST::Types::Name.new_instance(name: "::Object"),
-                                                  AST::Types::Name.new_instance(name: "::String")]),
+        super_type: AST::Types::Union.build(types: [AST::Types::Name.new_instance(name: "::Object"),
+                                                    AST::Types::Name.new_instance(name: "::String")]),
         ),
       constraints: Subtyping::Constraints.empty
     )
@@ -514,7 +514,7 @@ end
   def test_resolve1
     checker = new_checker("")
 
-    type = AST::Types::Union.new(types: [
+    type = AST::Types::Union.build(types: [
       AST::Types::Name.new_instance(name: "::String"),
       AST::Types::Name.new_instance(name: "::Integer")
     ])
@@ -561,7 +561,7 @@ end
     checker = new_checker("")
 
     interface = checker.resolve(
-      AST::Types::Union.new(types: [
+      AST::Types::Union.build(types: [
         AST::Types::Name.new_instance(name: "::Array", args: [AST::Types::Name.new_instance(name: "::Integer")]),
         AST::Types::Name.new_instance(name: "::Array", args: [AST::Types::Name.new_instance(name: "::String")])
       ]),

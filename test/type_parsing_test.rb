@@ -74,16 +74,14 @@ class TypeParsingTest < Minitest::Test
     assert_location type, start_line: 1, start_column: 6, end_line: 1, end_column: 20
     assert_size 3, type.types
 
-    a, b, c = type.types
+    assert_location type.types.find {|type| type.name == :a},
+                    start_line: 1, start_column: 7, end_line: 1, end_column: 9
 
-    assert_type_var a, name: :a
-    assert_location a, start_line: 1, start_column: 7, end_line: 1, end_column: 9
+    assert_location type.types.find {|type| type.name == :b },
+                    start_line: 1, start_column: 12, end_line: 1, end_column: 14
 
-    assert_type_var b, name: :b
-    assert_location b, start_line: 1, start_column: 12, end_line: 1, end_column: 14
-
-    assert_type_var c, name: :c
-    assert_location c, start_line: 1, start_column: 17, end_line: 1, end_column: 19
+    assert_location type.types.find {|type| type.name == :c },
+                    start_line: 1, start_column: 17, end_line: 1, end_column: 19
   end
 
   def test_application

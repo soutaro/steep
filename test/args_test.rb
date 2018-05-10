@@ -250,7 +250,7 @@ class ArgsTest < Minitest::Test
           name: :Hash,
           args: [
             Types::Name.new_instance(name: :Symbol),
-            Types::Union.new(types: [
+            Types::Union.build(types: [
               Types::Name.new_instance(name: :Integer),
               Types::Name.new_instance(name: :Object)
             ])

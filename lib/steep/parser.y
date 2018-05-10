@@ -16,8 +16,8 @@ method_type:
   }
 
 return_type: simple_type
-           | LPAREN union_seq RPAREN { result = AST::Types::Union.new(location: val[0].location + val[2].location,
-                                                                      types: val[1]) }
+           | LPAREN union_seq RPAREN { result = AST::Types::Union.build(location: val[0].location + val[2].location,
+                                                                        types: val[1]) }
 
 params: { result = nil }
       | LPAREN params0 RPAREN { result = LocatedValue.new(location: val[0].location + val[2].location,
@@ -180,7 +180,7 @@ constructor: { result = nil }
 type: simple_type
     | union_seq {
         loc = val[0].first.location + val[0].last.location
-        result = AST::Types::Union.new(types: val[0], location: loc)
+        result = AST::Types::Union.build(types: val[0], location: loc)
       }
 
 type_seq: type { result = [val[0]] }

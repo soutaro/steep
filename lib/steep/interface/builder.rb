@@ -59,12 +59,12 @@ module Steep
             location: type.location
           )
         when AST::Types::Union
-          AST::Types::Union.new(
+          AST::Types::Union.build(
             types: type.types.map {|ty| absolute_type(ty, current: current) },
             location: type.location
           )
         when AST::Types::Intersection
-          AST::Types::Intersection.new(
+          AST::Types::Intersection.build(
             types: type.types.map {|ty| absolute_type(ty, current: current) },
             location: type.location
           )

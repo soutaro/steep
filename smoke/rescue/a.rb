@@ -1,6 +1,6 @@
 # @type var a: Integer
 
-# !expects IncompatibleAssignment: lhs_type=::Integer, rhs_type=(::String | ::Integer)
+# !expects IncompatibleAssignment: lhs_type=::Integer, rhs_type=(::Integer | ::String)
 a = begin
       'foo'
     rescue
@@ -9,12 +9,12 @@ a = begin
 
 # @type var b: Integer
 
-# !expects IncompatibleAssignment: lhs_type=::Integer, rhs_type=(::String | ::Integer)
+# !expects IncompatibleAssignment: lhs_type=::Integer, rhs_type=(::Integer | ::String)
 b = 'foo' rescue 1
 
 # @type var c: Integer
 
-# !expects IncompatibleAssignment: lhs_type=::Integer, rhs_type=(::String | ::Symbol | ::Integer)
+# !expects IncompatibleAssignment: lhs_type=::Integer, rhs_type=(::Integer | ::String | ::Symbol)
 c = begin
       'foo'
     rescue RuntimeError
@@ -34,7 +34,7 @@ d = begin
 
 # @type var e: Integer
 
-# !expects IncompatibleAssignment: lhs_type=::Integer, rhs_type=(::String | ::Symbol | ::Integer | ::Array<::Integer>)
+# !expects IncompatibleAssignment: lhs_type=::Integer, rhs_type=(::Array<::Integer> | ::Integer | ::String | ::Symbol)
 e = begin
       'foo'
     rescue RuntimeError

@@ -1327,7 +1327,7 @@ string = poly.try { "string" }
                                         module_context: nil,
                                         break_context: nil)
 
-    assert_equal Types::Union.new(types: [Types::Name.new_interface(name: :_A), Types::Name.new_interface(name: :_C)]),
+    assert_equal Types::Union.build(types: [Types::Name.new_interface(name: :_A), Types::Name.new_interface(name: :_C)]),
                  construction.union_type(Types::Name.new_interface(name: :_A), Types::Name.new_interface(name: :_C))
 
     assert_equal Types::Name.new_interface(name: :_A),

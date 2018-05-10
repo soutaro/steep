@@ -76,7 +76,7 @@ module Steep
               )
               zip << [rest, array]
             else
-              union = AST::Types::Union.new(types: types.map(&:last) + [params_type.rest].compact)
+              union = AST::Types::Union.build(types: types.map(&:last) + [params_type.rest])
               array = AST::Types::Name.new_instance(
                 name: :Array,
                 args: [union]
