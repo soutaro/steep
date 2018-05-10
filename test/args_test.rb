@@ -189,8 +189,8 @@ class ArgsTest < Minitest::Test
       [[parse_ruby("1").node, Types::Name.new_instance(name: :String)],
        [parse_ruby("args").node, Types::Name.new_instance(
          name: :"::Array",
-         args: [Types::Union.new(types: [Types::Name.new_instance(name: :Integer),
-                                         Types::Name.new_instance(name: :Object)])]
+         args: [Types::Union.build(types: [Types::Name.new_instance(name: :Integer),
+                                           Types::Name.new_instance(name: :Object)])]
        )]],
       pairs
     )
@@ -281,6 +281,40 @@ class ArgsTest < Minitest::Test
         [
           parse_ruby("[1]").node,
           Types::Name.new_instance(name: :"::Array", args: [Types::Name.new_instance(name: :String)])
+        ]
+      ],
+      pairs
+    )
+  end
+
+  def test_zip12
+    params = Params.new(
+      required: [Types::Name.new_instance(name: :String)],
+      optional: [Types::Name.new_instance(name: :Integer)],
+      rest: Types::Name.new_instance(name: :String),
+      required_keywords: {},
+      optional_keywords: {},
+      rest_keywords: nil
+    )
+
+    args = SendArgs.from_nodes(parse_ruby("foo(*(_ = nil))").node.children.drop(2))
+
+    pairs = args.zip(params)
+
+    refute_nil pairs
+    assert_equal(
+      [
+        [
+          parse_ruby("(_ = nil)").node,
+          Types::Name.new_instance(
+            name: :"::Array",
+            args: [
+              Types::Union.build(types: [
+                Types::Name.new_instance(name: :String),
+                Types::Name.new_instance(name: :Integer),
+              ])
+            ]
+          )
         ]
       ],
       pairs

@@ -84,11 +84,13 @@ module Steep
 
           case
           when args.empty? && !ps.empty?
-            unless ps.first[0] == :optional
-              return
+            unless rest
+              unless ps.first[0] == :optional
+                return
+              end
             end
 
-            union = AST::Types::Union.new(types: ps.map(&:last) + [params.rest])
+            union = AST::Types::Union.build(types: ps.map(&:last) + [params.rest])
             array = AST::Types::Name.new_instance(name: :"::Array", args: [union])
 
             if rest

@@ -1302,10 +1302,10 @@ module Steep
         if method
           args = TypeInference::SendArgs.from_nodes(arguments)
           return_type_or_error = type_method_call(node,
-                                         method: method,
-                                         args: args,
-                                         block_params: block_params,
-                                         block_body: block_body)
+                                                  method: method,
+                                                  args: args,
+                                                  block_params: block_params,
+                                                  block_body: block_body)
 
           if return_type_or_error.is_a?(Errors::Base)
             fallback_to_any node do
