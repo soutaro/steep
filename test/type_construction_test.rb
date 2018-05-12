@@ -3611,4 +3611,46 @@ EOF
 
     assert_empty typing.errors
   end
+
+  def test_polymorphic
+    source = parse_ruby(<<EOF)
+class Optional
+  def map(x)
+    yield x
+  end
+end
+
+# @type var x: Optional
+x = nil
+(x.map("foo") {|x| x.size }) + 3
+(x.map("foo") {|x| (_ = x) }) + 3
+EOF
+
+    typing = Typing.new
+    annotations = source.annotations(block: source.node)
+    checker = new_subtyping_checker(<<EOF)
+class Optional
+  def map: <'a, 'b> ('a) { ('a) -> 'b } -> 'b
+end
+EOF
+    const_env = ConstantEnv.new(builder: checker.builder, current_namespace: nil)
+    type_env = TypeEnv.build(annotations: annotations,
+                             subtyping: checker,
+                             const_env: const_env,
+                             signatures: checker.builder.signatures)
+
+    construction = TypeConstruction.new(checker: checker,
+                                        source: source,
+                                        annotations: annotations,
+                                        type_env: type_env,
+                                        block_context: nil,
+                                        self_type: nil,
+                                        method_context: nil,
+                                        typing: typing,
+                                        module_context: nil,
+                                        break_context: nil)
+    construction.synthesize(source.node)
+
+    assert_empty typing.errors
+  end
 end

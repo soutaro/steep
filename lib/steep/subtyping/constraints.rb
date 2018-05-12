@@ -238,6 +238,9 @@ module Steep
                                                     result: result)
                 end
               end
+            else
+              vars << var
+              types << AST::Types::Any.new
             end
           end
         end
