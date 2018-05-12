@@ -29,6 +29,7 @@ class Module
                      | -> any
   def extend: (Module) -> any
   def attr_accessor: (*Symbol) -> any
+  def attr_writer: (*Symbol) -> any
 end
 
 class Method
