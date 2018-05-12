@@ -895,31 +895,32 @@ module Steep
             if node.children.empty?
               typing.add_typing(node, Types.array_instance(Types.any))
             else
-              types = node.children.map do |e|
+              types = node.children.flat_map do |e|
                 if e.type == :splat
-                  type = synthesize(e.children.first)
-                  case
-                  when type.is_a?(AST::Types::Name) && type.name.is_a?(TypeName::Instance) && type.name.name == ModuleName.new(name: "Array", absolute: true)
-                    type.args.first
-                  when type.is_a?(AST::Types::Name) && type.name.is_a?(TypeName::Instance) && type.name.name == ModuleName.new(name: "Range", absolute: true)
-                    type.args.first
-                  when type.is_a?(AST::Types::Any)
-                    type
-                  else
-                    Steep.logger.error("Splat in array should be an Array or Range: #{type}")
-                    fallback_to_any e
+                  Steep.logger.info "Typing of splat in array is incompatible with Ruby; it does not use #to_a method"
+                  synthesize(e.children.first).yield_self do |type|
+                    case type
+                    when AST::Types::Union
+                      type.types
+                    else
+                      [type]
+                    end
+                  end.map do |type|
+                    case
+                    when type.is_a?(AST::Types::Name) && type.name.is_a?(TypeName::Instance) && type.name.name == ModuleName.new(name: "Array", absolute: true)
+                      type.args.first
+                    when type.is_a?(AST::Types::Name) && type.name.is_a?(TypeName::Instance) && type.name.name == ModuleName.new(name: "Range", absolute: true)
+                      type.args.first
+                    else
+                      type
+                    end
                   end
                 else
-                  synthesize(e)
+                  [synthesize(e)]
                 end
               end
 
-              if types.uniq.size == 1
-                typing.add_typing(node, Types.array_instance(types.first))
-              else
-                # typing.add_error Errors::FallbackAny.new(node: node)
-                typing.add_typing(node, Types.array_instance(union_type(*types)))
-              end
+              typing.add_typing(node, Types.array_instance(AST::Types::Union.build(types: types)))
             end
           end
 

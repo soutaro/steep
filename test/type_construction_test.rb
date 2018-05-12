@@ -2862,10 +2862,11 @@ b = [*1...3]
     end
   end
 
-  def test_splat_error
+  def test_splat_object
     source = parse_ruby(<<-'EOF')
-a = 1
-b = [*a]
+# @type var a: Array<Symbol> | Integer
+a = nil
+b = [*a, *["foo"]]
     EOF
 
     typing = Typing.new
@@ -2890,10 +2891,14 @@ b = [*a]
 
     construction.synthesize(source.node)
 
-    assert_equal 1, typing.errors.size
-    assert_any typing.errors do |error|
-      error.is_a?(Steep::Errors::FallbackAny)
-    end
+    assert_empty typing.errors
+    assert_equal Types::Name.new_instance(name: "::Array",
+                                          args: [Types::Union.build(types: [
+                                            Types::Name.new_instance(name: "::Integer"),
+                                            Types::Name.new_instance(name: "::Symbol"),
+                                            Types::Name.new_instance(name: "::String")
+                                          ])]),
+                 type_env.lvar_types[:b]
   end
 
   def test_splat_arg
