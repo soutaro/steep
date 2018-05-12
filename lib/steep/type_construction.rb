@@ -1272,6 +1272,39 @@ module Steep
 
         typing.add_typing node, rhs_type
 
+      when rhs_type.is_a?(AST::Types::Union) &&
+        rhs_type.types.all? {|type| type.is_a?(AST::Types::Name) && type.name.is_a?(TypeName::Instance) && type.name.name == ModuleName.new(name: "Array", absolute: true) }
+
+        types = rhs_type.types.flat_map do |type|
+          type.args.first
+        end
+
+        element_type = AST::Types::Union.build(types: types)
+
+        lhs.children.each do |assignment|
+          case assignment.type
+          when :lvasgn
+            assign_type_to_variable(assignment.children.first, element_type, assignment)
+          when :ivasgn
+            assignment.children.first.yield_self do |ivar|
+              type_env.assign(ivar: ivar, type: element_type) do |error|
+                case error
+                when Subtyping::Result::Failure
+                  type = type_env.get(ivar: ivar)
+                  typing.add_error(Errors::IncompatibleAssignment.new(node: assignment,
+                                                                      lhs_type: type,
+                                                                      rhs_type: element_type,
+                                                                      result: error))
+                when nil
+                  fallback_to_any node
+                end
+              end
+            end
+          end
+        end
+
+        typing.add_typing node, rhs_type
+
       else
         Steep.logger.error("Unsupported masgn: #{rhs.type} (#{rhs_type})")
         fallback_to_any(node)
