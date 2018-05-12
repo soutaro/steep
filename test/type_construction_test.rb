@@ -3696,4 +3696,94 @@ EOF
 
     assert_empty typing.errors
   end
+
+  def test_parameterized_class
+    source = parse_ruby(<<EOF)
+class Container
+  def initialize()
+  end
+
+  def value
+    @value
+  end
+
+  def value=(v)
+    @value = v
+  end
+end
+
+# @type var container: Container<Integer>
+container = Container.new
+container.value = 3
+container.value + 4
+EOF
+
+    typing = Typing.new
+    annotations = source.annotations(block: source.node)
+    checker = new_subtyping_checker(<<EOF)
+class Container<'a>
+  @value: 'a
+  def initialize: () -> any
+  def value: -> 'a
+  def value=: ('a) -> 'a
+end
+EOF
+    const_env = ConstantEnv.new(builder: checker.builder, current_namespace: nil)
+    type_env = TypeEnv.build(annotations: annotations,
+                             subtyping: checker,
+                             const_env: const_env,
+                             signatures: checker.builder.signatures)
+
+    construction = TypeConstruction.new(checker: checker,
+                                        source: source,
+                                        annotations: annotations,
+                                        type_env: type_env,
+                                        block_context: nil,
+                                        self_type: nil,
+                                        method_context: nil,
+                                        typing: typing,
+                                        module_context: nil,
+                                        break_context: nil)
+    construction.synthesize(source.node)
+
+    assert_empty typing.errors
+  end
+
+  def test_parameterized_module
+    source = parse_ruby(<<EOF)
+module Value
+  def value
+    @value
+  end
+end
+EOF
+
+    typing = Typing.new
+    annotations = source.annotations(block: source.node)
+    checker = new_subtyping_checker(<<EOF)
+module Value<'a>
+  @value: 'a
+  def value: -> 'a
+end
+EOF
+    const_env = ConstantEnv.new(builder: checker.builder, current_namespace: nil)
+    type_env = TypeEnv.build(annotations: annotations,
+                             subtyping: checker,
+                             const_env: const_env,
+                             signatures: checker.builder.signatures)
+
+    construction = TypeConstruction.new(checker: checker,
+                                        source: source,
+                                        annotations: annotations,
+                                        type_env: type_env,
+                                        block_context: nil,
+                                        self_type: nil,
+                                        method_context: nil,
+                                        typing: typing,
+                                        module_context: nil,
+                                        break_context: nil)
+    construction.synthesize(source.node)
+
+    assert_empty typing.errors
+  end
 end

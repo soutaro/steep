@@ -237,7 +237,9 @@ module Steep
         else
           absolute_name(new_module_name).yield_self do |module_name|
             if checker.builder.signatures.module_name?(module_name)
-              AST::Annotation::Implements::Module.new(name: module_name, args: [])
+              signature = checker.builder.signatures.find_module(module_name)
+              AST::Annotation::Implements::Module.new(name: module_name,
+                                                      args: signature.params&.variables || [])
             end
           end
         end
@@ -312,7 +314,9 @@ module Steep
         else
           absolute_name(new_class_name).yield_self do |name|
             if checker.builder.signatures.class_name?(name)
-              AST::Annotation::Implements::Module.new(name: name, args: [])
+              signature = checker.builder.signatures.find_class(name)
+              AST::Annotation::Implements::Module.new(name: name,
+                                                      args: signature.params&.variables || [])
             end
           end
         end
@@ -324,7 +328,7 @@ module Steep
         _ = checker.builder.build(TypeName::Instance.new(name: class_name))
 
         instance_type = AST::Types::Name.new_instance(name: class_name, args: class_args)
-        module_type = AST::Types::Name.new_class(name: class_name, args: class_args, constructor: nil)
+        module_type = AST::Types::Name.new_class(name: class_name, args: [], constructor: nil)
       end
 
       new_namespace = nested_namespace(new_class_name)
