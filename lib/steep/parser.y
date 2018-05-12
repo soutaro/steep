@@ -1,5 +1,7 @@
 class Steep::Parser
 
+expect 1
+
 rule
 
 target: type_METHOD method_type { result = val[1] }
@@ -274,7 +276,7 @@ module_name: module_name0
 module_name0: UIDENT {
                 result = LocatedValue.new(location: val[0].location, value: ModuleName.parse(val[0].value))
               }
-           | UIDENT COLON2 module_name {
+           | UIDENT COLON2 module_name0 {
                location = val[0].location + val.last.location
                name = ModuleName.parse(val[0].value) + val.last.value
                result = LocatedValue.new(location: location, value: name)
@@ -400,7 +402,6 @@ method_name: IDENT
            | OPERATOR
            | METHOD_NAME
            | BLOCK
-           | INCLUDE
            | UIDENT
            | BREAK
            | STAR | STAR2
