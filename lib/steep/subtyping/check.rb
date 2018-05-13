@@ -516,11 +516,20 @@ module Steep
         end
       end
 
+      class CannotResolveError < StandardError
+        attr_reader :type
+
+        def initialize(type:)
+          @type = type
+          super "Type #{type} cannot resolve to interface"
+        end
+      end
+
       def resolve(type, self_type: type, instance_type: nil, module_type: nil, with_initialize:)
         Steep.logger.debug("Check#resolve: type=#{type}")
         case type
         when AST::Types::Any, AST::Types::Var, AST::Types::Class, AST::Types::Instance
-          raise "Cannot resolve type to interface: #{type}"
+          raise CannotResolveError.new(type: type)
         when AST::Types::Name
           builder.build(type.name, with_initialize: with_initialize).yield_self do |abstract|
             case type.name

@@ -3661,6 +3661,11 @@ class Optional
   def map(x)
     yield x
   end
+
+  def map2(x)
+    x.foo
+    yield x
+  end
 end
 
 # @type var x: Optional
@@ -3674,6 +3679,7 @@ EOF
     checker = new_subtyping_checker(<<EOF)
 class Optional
   def map: <'a, 'b> ('a) { ('a) -> 'b } -> 'b
+  def map2: <'a, 'b> ('a) { ('a) -> 'b } -> 'b
 end
 EOF
     const_env = ConstantEnv.new(builder: checker.builder, current_namespace: nil)
@@ -3694,7 +3700,10 @@ EOF
                                         break_context: nil)
     construction.synthesize(source.node)
 
-    assert_empty typing.errors
+    assert_equal 1, typing.errors.size
+    assert_any typing.errors do |error|
+      error.is_a?(Steep::Errors::NoMethod)
+    end
   end
 
   def test_parameterized_class

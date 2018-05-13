@@ -1334,25 +1334,31 @@ module Steep
         fallback_to_any node
 
       else
-        interface = checker.resolve(receiver_type, with_initialize: false)
-        method = interface.methods[method_name]
+        begin
+          interface = checker.resolve(receiver_type, with_initialize: false)
+          method = interface.methods[method_name]
 
-        if method
-          args = TypeInference::SendArgs.from_nodes(arguments)
-          return_type_or_error = type_method_call(node,
-                                                  method: method,
-                                                  args: args,
-                                                  block_params: block_params,
-                                                  block_body: block_body)
+          if method
+            args = TypeInference::SendArgs.from_nodes(arguments)
+            return_type_or_error = type_method_call(node,
+                                                    method: method,
+                                                    args: args,
+                                                    block_params: block_params,
+                                                    block_body: block_body)
 
-          if return_type_or_error.is_a?(Errors::Base)
-            fallback_to_any node do
-              return_type_or_error
+            if return_type_or_error.is_a?(Errors::Base)
+              fallback_to_any node do
+                return_type_or_error
+              end
+            else
+              typing.add_typing node, return_type_or_error
             end
           else
-            typing.add_typing node, return_type_or_error
+            fallback_to_any node do
+              Errors::NoMethod.new(node: node, method: method_name, type: receiver_type)
+            end
           end
-        else
+        rescue Subtyping::Check::CannotResolveError
           fallback_to_any node do
             Errors::NoMethod.new(node: node, method: method_name, type: receiver_type)
           end
