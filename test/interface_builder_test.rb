@@ -651,4 +651,85 @@ end
     assert_instance_of Interface::Instantiated, interface
     assert_equal Types::Var.new(name: :hoge), interface.ivars[:"@foo"]
   end
+
+  def test_ivar_validate
+    sigs = parse_signature(<<-EOF)
+class BasicObject
+end
+
+class Object <: BasicObject
+end
+
+class String
+end
+
+class Integer
+  def to_int: -> Integer
+end
+
+class Class
+end
+
+class Foo
+  @foo: String
+end
+
+class Bar <: Foo
+  @foo: String
+end
+
+class Baz <: Foo
+  @foo: Integer
+end
+
+class Hoge <: Foo
+  @foo: any
+end
+    EOF
+
+    env = Signature::Env.new
+    sigs.each do |sig|
+      env.add sig
+    end
+
+    builder = Builder.new(signatures: env)
+    checker = Steep::Subtyping::Check.new(builder: builder)
+
+    env.find_class(ModuleName.parse(:Bar)).yield_self do |klass|
+      interface = builder.instance_to_interface(klass, with_initialize: false)
+      instantiated = interface.instantiate(type: Types::Name.new_instance(name: "::Bar"),
+                                           args: [],
+                                           instance_type: Types::Name.new_instance(name: "::Bar"),
+                                           module_type: Types::Name.new_class(name: "::Bar", constructor: false),
+                                           )
+
+      instantiated.validate(checker)
+    end
+
+    env.find_class(ModuleName.parse(:Baz)).yield_self do |klass|
+      interface = builder.instance_to_interface(klass, with_initialize: false)
+      instantiated = interface.instantiate(type: Types::Name.new_instance(name: "::Baz"),
+                                           args: [],
+                                           instance_type: Types::Name.new_instance(name: "::Baz"),
+                                           module_type: Types::Name.new_class(name: "::Baz", constructor: false),
+                                           )
+
+      assert_raises Interface::Instantiated::InvalidIvarOverrideError do
+        instantiated.validate(checker)
+      end
+    end
+
+    env.find_class(ModuleName.parse(:Hoge)).yield_self do |klass|
+      interface = builder.instance_to_interface(klass, with_initialize: false)
+      instantiated = interface.instantiate(type: Types::Name.new_instance(name: "::Hoge"),
+                                           args: [],
+                                           instance_type: Types::Name.new_instance(name: "::Hoge"),
+                                           module_type: Types::Name.new_class(name: "::Hoge", constructor: false),
+                                           )
+
+      assert_raises Interface::Instantiated::InvalidIvarOverrideError do
+        instantiated.validate(checker)
+      end
+    end
+  end
 end

@@ -42,6 +42,7 @@ require "steep/interface/builder"
 require "steep/interface/substitution"
 require "steep/interface/abstract"
 require "steep/interface/instantiated"
+require "steep/interface/ivar_chain"
 
 require "steep/subtyping/check"
 require "steep/subtyping/result"

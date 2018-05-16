@@ -6,14 +6,18 @@ module Steep
       attr_reader :params
       attr_reader :methods
       attr_reader :supers
-      attr_reader :ivars
+      attr_reader :ivar_chains
 
-      def initialize(name:, params:, methods:, supers:, ivars:)
+      def initialize(name:, params:, methods:, supers:, ivar_chains:)
         @name = name
         @params = params
         @methods = methods
         @supers = supers
-        @ivars = ivars
+        @ivar_chains = ivar_chains
+      end
+
+      def ivars
+        @ivars ||= ivar_chains.transform_values(&:type)
       end
 
       def ==(other)
@@ -32,7 +36,7 @@ module Steep
         Instantiated.new(
           type: type,
           methods: methods.transform_values {|method| method.subst(subst) },
-          ivars: ivars.transform_values {|type| type.subst(subst) }
+          ivar_chains: ivar_chains.transform_values {|chain| chain.subst(subst) }
         )
       end
     end

@@ -621,7 +621,7 @@ module Steep
 
           Interface::Instantiated.new(type: type,
                                       methods: methods,
-                                      ivars: {})
+                                      ivar_chains: {})
 
         when AST::Types::Intersection
           interfaces = type.types.map do |type| resolve(type, with_initialize: with_initialize) end
@@ -663,11 +663,11 @@ module Steep
 
           Interface::Instantiated.new(type: type,
                                       methods: methods,
-                                      ivars: {})
+                                      ivar_chains: {})
         when AST::Types::Void
           Interface::Instantiated.new(type: type,
                                       methods: {},
-                                      ivars: {})
+                                      ivar_chains: {})
         end
       end
     end

@@ -100,6 +100,11 @@ module Steep
               end
             end
             stdout.puts "  🚨 #{exn.result.error.message}"
+
+          rescue Interface::Instantiated::InvalidIvarOverrideError => exn
+            result = false
+            stdout.puts "😱 #{exn.message}"
+
           end
 
           result

@@ -129,7 +129,7 @@ module Steep
           end
         end
 
-        merge_ivars ivars, instantiated.ivars, from: type_name.name, to: current
+        merge_ivars ivars, instantiated.ivars
       end
 
       def add_method(type_name, method, methods:)
@@ -228,7 +228,7 @@ module Steep
           params: [],
           methods: methods,
           supers: supers,
-          ivars: {}
+          ivar_chains: {}
         )
       end
 
@@ -280,7 +280,7 @@ module Steep
           params: [],
           methods: methods,
           supers: supers,
-          ivars: {}
+          ivar_chains: {}
         )
       end
 
@@ -290,7 +290,7 @@ module Steep
         params = sig.params&.variables || []
         supers = []
         methods = {}
-        ivars = {}
+        ivar_chains = {}
 
         if sig.is_a?(AST::Signature::Class)
           unless sig.name == ModuleName.parse("::BasicObject")
@@ -306,7 +306,7 @@ module Steep
             )
 
             methods.merge!(instantiated.methods)
-            merge_ivars(ivars, instantiated.ivars, from: super_class_name, to: sig.name)
+            merge_ivars(ivar_chains, instantiated.ivars)
           end
         end
 
@@ -322,7 +322,7 @@ module Steep
             merge_mixin(TypeName::Instance.new(name: member.name),
                         member.args.map {|type| absolute_type(type, current: sig.name) },
                         methods: methods,
-                        ivars: ivars,
+                        ivars: ivar_chains,
                         supers: supers,
                         current: sig.name)
           end
@@ -337,10 +337,8 @@ module Steep
               end
             end
           when AST::Signature::Members::Ivar
-            merge_ivars ivars,
-                        { member.name => absolute_type(member.type, current: sig.name) },
-                        from: sig.name,
-                        to: sig.name
+            merge_ivars(ivar_chains,
+                        { member.name => absolute_type(member.type, current: sig.name) })
           end
         end
 
@@ -360,16 +358,13 @@ module Steep
           params: params,
           methods: methods,
           supers: supers,
-          ivars: ivars
+          ivar_chains: ivar_chains
         )
       end
 
-      def merge_ivars(dest, new_vars, from:, to:)
-        dest.merge!(new_vars) do |name, original_type, new_type|
-          unless original_type == new_type
-            Steep.logger.error("Instance variables cannot have different types from super/mixins: #{name} in #{to}: #{new_type} (from #{from}) != #{original_type}")
-          end
-          new_type
+      def merge_ivars(dest, new_vars)
+        new_vars.each do |name, new_type|
+          dest[name] = IvarChain.new(type: new_type, parent: dest[name])
         end
       end
 
@@ -394,7 +389,7 @@ module Steep
           params: variables,
           methods: methods,
           supers: [],
-          ivars: {}
+          ivar_chains: {}
         )
       end
 
