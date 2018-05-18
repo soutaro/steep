@@ -207,9 +207,7 @@ module Steep
                   type_name: type_name,
                   name: :new,
                   types: member.types.map do |method_type|
-                    method_type_to_method_type(method_type,
-                                               return_type_override: AST::Types::Instance.new,
-                                               current: sig.name)
+                    method_type_to_method_type(method_type, current: sig.name).with(return_type: AST::Types::Instance.new)
                   end,
                   super_method: nil,
                   attributes: []
@@ -393,7 +391,7 @@ module Steep
         )
       end
 
-      def method_type_to_method_type(method_type, return_type_override: nil, current:)
+      def method_type_to_method_type(method_type, current:)
         type_params = method_type.type_params&.variables || []
         params = params_to_params(method_type.params, current: current)
         block = method_type.block && Block.new(
@@ -403,7 +401,7 @@ module Steep
 
         MethodType.new(
           type_params: type_params,
-          return_type: return_type_override || absolute_type(method_type.return_type, current: current),
+          return_type: absolute_type(method_type.return_type, current: current),
           block: block,
           params: params,
           location: method_type.location
