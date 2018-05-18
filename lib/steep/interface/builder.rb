@@ -155,7 +155,22 @@ module Steep
         type_name = TypeName::Class.new(name: sig.name, constructor: constructor)
 
         supers = []
-        methods = {}
+        methods = {
+          new: Method.new(
+            type_name: TypeName::Class.new(name: "Builtin", constructor: true),
+            name: :new,
+            types: [
+              MethodType.new(type_params: [],
+                             params: Params.empty,
+                             block: nil,
+                             return_type: AST::Types::Instance.new,
+                             location: nil
+              )
+            ],
+            super_method: nil,
+            attributes: []
+          )
+        }
 
         klass = build(TypeName::Instance.new(name: ModuleName.parse("::Class")))
         instantiated = klass.instantiate(

@@ -17,6 +17,17 @@ module Steep
         @rest_keywords = rest_keywords
       end
 
+      def self.empty
+        self.new(
+          required: [],
+          optional: [],
+          rest: nil,
+          required_keywords: {},
+          optional_keywords: {},
+          rest_keywords: nil
+        )
+      end
+
       def ==(other)
         other.is_a?(self.class) &&
           other.required == required &&
