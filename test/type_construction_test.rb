@@ -3827,4 +3827,68 @@ EOF
 
     assert_empty typing.errors
   end
+
+  def test_initialize2
+    source = parse_ruby(<<EOF)
+# @type var hello: Integer
+hello = Array.new(3, "")[0]
+EOF
+
+    typing = Typing.new
+    annotations = source.annotations(block: source.node)
+    checker = new_subtyping_checker("")
+    const_env = ConstantEnv.new(builder: checker.builder, current_namespace: nil)
+    type_env = TypeEnv.build(annotations: annotations,
+                             subtyping: checker,
+                             const_env: const_env,
+                             signatures: checker.builder.signatures)
+
+    construction = TypeConstruction.new(checker: checker,
+                                        source: source,
+                                        annotations: annotations,
+                                        type_env: type_env,
+                                        block_context: nil,
+                                        self_type: nil,
+                                        method_context: nil,
+                                        typing: typing,
+                                        module_context: nil,
+                                        break_context: nil)
+    construction.synthesize(source.node)
+
+    assert_any typing.errors do |error|
+      error.is_a?(Steep::Errors::IncompatibleAssignment) &&
+        error.lhs_type == Types::Name.new_instance(name: "::Integer") &&
+        error.rhs_type == Types::Name.new_instance(name: "::String")
+    end
+  end
+
+  def test_initialize_unbound_type_var_fallback_to_any
+    source = parse_ruby(<<EOF)
+# @type var x: Integer    
+x = Array.new(3)[0]
+EOF
+
+    typing = Typing.new
+    annotations = source.annotations(block: source.node)
+    checker = new_subtyping_checker("")
+    const_env = ConstantEnv.new(builder: checker.builder, current_namespace: nil)
+    type_env = TypeEnv.build(annotations: annotations,
+                             subtyping: checker,
+                             const_env: const_env,
+                             signatures: checker.builder.signatures)
+
+    construction = TypeConstruction.new(checker: checker,
+                                        source: source,
+                                        annotations: annotations,
+                                        type_env: type_env,
+                                        block_context: nil,
+                                        self_type: nil,
+                                        method_context: nil,
+                                        typing: typing,
+                                        module_context: nil,
+                                        break_context: nil)
+    construction.synthesize(source.node)
+
+    assert_empty typing.errors
+  end
 end

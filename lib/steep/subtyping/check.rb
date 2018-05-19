@@ -542,7 +542,7 @@ module Steep
               )
             when TypeName::Class, TypeName::Module
               signature = builder.signatures.find_class_or_module(type.name.name)
-              args = signature.params&.variables&.map { AST::Types::Any.new } || []
+              args = signature.params&.variables&.map {|var| AST::Types::Var.new(name: var) } || []
               abstract.instantiate(
                 type: self_type,
                 args: [],

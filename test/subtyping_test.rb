@@ -12,11 +12,11 @@ class Object <: BasicObject
   def class: () -> class
   def tap: { (self) -> any } -> self
   def yield_self: <'a> { (self) -> 'a } -> 'a
-  def allocate: -> instance
 end
 
 class Class<'instance>
   def new: (*any, **any) -> 'instance
+  def allocate: -> any
 end
 
 class Module
@@ -520,7 +520,7 @@ end
     ])
     interface = checker.resolve(type, with_initialize: false)
 
-    assert_equal [:tap, :yield_self, :allocate], interface.methods.keys
+    assert_equal [:tap, :yield_self], interface.methods.keys
     assert_equal [type], interface.methods[:tap].types.map {|ty| ty.return_type }
     assert_equal [[type]], interface.methods[:yield_self].types.map {|ty| ty.block.params.required }
   end
@@ -536,7 +536,7 @@ end
       with_initialize: false
     )
 
-    assert_equal [:class, :tap, :yield_self, :allocate, :to_str, :to_int].sort, interface.methods.keys.sort
+    assert_equal [:class, :tap, :yield_self, :to_str, :to_int].sort, interface.methods.keys.sort
     refute_empty interface.methods[:class].types
     assert_equal [AST::Types::Name.new_instance(name: "::String")], interface.methods[:to_str].types.map(&:return_type)
     assert_equal [AST::Types::Name.new_instance(name: "::Integer")], interface.methods[:to_int].types.map(&:return_type)
@@ -545,13 +545,12 @@ end
   def test_resolve3
     checker = new_checker("")
 
-    type = AST::Types::Name.new_class(name: "::Array", constructor: false)
+    type = AST::Types::Name.new_class(name: "::Array", constructor: true)
     interface = checker.resolve(type, with_initialize: false)
 
-    interface.methods[:allocate].yield_self do |method|
-      method.types.first.yield_self do |type|
-        # Instance type through class type will be with `any` application
-        assert_equal AST::Types::Name.new_instance(name: "::Array", args: [AST::Types::Any.new]),
+    interface.methods[:new].yield_self do |method|
+      method.types.each do |type|
+        assert_equal AST::Types::Name.new_instance(name: "::Array", args: [AST::Types::Var.new(name: :a)]),
                      type.return_type
       end
     end
@@ -568,7 +567,7 @@ end
       with_initialize: false
     )
 
-    assert_equal [:tap, :yield_self, :allocate, :[]], interface.methods.keys
+    assert_equal [:tap, :yield_self, :[]], interface.methods.keys
     assert_equal [AST::Types::Union.build(types: [AST::Types::Name.new_instance(name: "::Integer"),
                                                   AST::Types::Name.new_instance(name: "::String")])],
                  interface.methods[:[]].types.map(&:return_type)

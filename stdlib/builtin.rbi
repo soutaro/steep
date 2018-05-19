@@ -38,7 +38,7 @@ end
 class Class<'instance> <: Module
   def new: (*any, **any) -> 'instance
   def class: -> Class.class
-  def allocate: -> 'instance
+  def allocate: -> any
 end
 
 module Kernel

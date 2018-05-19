@@ -221,8 +221,14 @@ module Steep
                 methods[:new] = Method.new(
                   type_name: type_name,
                   name: :new,
-                  types: member.types.map do |method_type|
-                    method_type_to_method_type(method_type, current: sig.name).with(return_type: AST::Types::Instance.new)
+                  types: member.types.map do |method_type_sig|
+                    method_type = method_type_to_method_type(method_type_sig, current: sig.name).with(return_type: AST::Types::Instance.new)
+                    args = (sig.params&.variables || []) + method_type.type_params
+
+                    method_type.with(
+                      type_params: args,
+                      return_type: AST::Types::Instance.new
+                    )
                   end,
                   super_method: nil,
                   attributes: []

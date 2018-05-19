@@ -441,6 +441,76 @@ end
     assert_nil interface.methods[:new]
   end
 
+  def test_class_to_interface_initializer
+    sigs = parse_signature(<<-EOF)
+class BasicObject
+end
+
+class Object <: BasicObject
+end
+
+class Class<'a>
+end
+
+class Array<'a>
+  def initialize: (Integer, 'a) -> any
+end
+    EOF
+
+    env = Signature::Env.new
+    sigs.each do |sig|
+      env.add sig
+    end
+
+    builder = Builder.new(signatures: env)
+    klass = env.find_class(ModuleName.parse("::Array"))
+    interface = builder.class_to_interface(klass, constructor: true)
+
+    assert_empty interface.params
+
+    interface.methods[:new].types.yield_self do |types|
+      assert_equal 1, types.size
+      types.first.yield_self do |method_type|
+        assert_equal "<'a> (Integer, 'a) -> instance", method_type.to_s
+      end
+    end
+  end
+
+  def test_class_to_interface_initializer2
+    sigs = parse_signature(<<-EOF)
+class BasicObject
+end
+
+class Object <: BasicObject
+end
+
+class Class<'a>
+end
+
+class Array<'a>
+  def initialize: <'b> (Integer) { (Integer, 'b) -> 'a } -> any
+end
+    EOF
+
+    env = Signature::Env.new
+    sigs.each do |sig|
+      env.add sig
+    end
+
+    builder = Builder.new(signatures: env)
+    klass = env.find_class(ModuleName.parse("::Array"))
+    interface = builder.class_to_interface(klass, constructor: true)
+
+    assert_empty interface.params
+
+    interface.methods[:new].types.yield_self do |types|
+      assert_equal 1, types.size
+      types.first.yield_self do |method_type|
+        assert_equal "<'a, 'b> (Integer) { (Integer, 'b) -> 'a } -> instance", method_type.to_s
+      end
+    end
+  end
+
   def test_class_to_interface_constructor
     sigs = parse_signature(<<-EOF)
 class BasicObject

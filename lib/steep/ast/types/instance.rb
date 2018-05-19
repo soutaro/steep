@@ -26,6 +26,10 @@ module Steep
           Set.new
         end
 
+        def to_s
+          "instance"
+        end
+
         def level
           [0]
         end

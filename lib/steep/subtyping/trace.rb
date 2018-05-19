@@ -35,8 +35,12 @@ module Steep
       end
 
       def each
-        array.each do |pair|
-          yield *pair
+        if block_given?
+          array.each do |pair|
+            yield *pair
+          end
+        else
+          enum_for :each
         end
       end
     end

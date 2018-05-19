@@ -136,6 +136,14 @@ module Steep
         end
       end
 
+      def free_variables
+        Set.new.tap do |fvs|
+          each_type do |type|
+            fvs.merge type.free_variables
+          end
+        end
+      end
+
       def closed?
         required.all?(&:closed?) && optional.all?(&:closed?) && (!rest || rest.closed?) && required_keywords.values.all?(&:closed?) && optional_keywords.values.all?(&:closed?) && (!rest_keywords || rest_keywords.closed?)
       end
@@ -190,6 +198,10 @@ module Steep
         )
       end
 
+      def free_variables
+        params.free_variables + return_type.free_variables
+      end
+
       def to_s
         "{ #{params} -> #{return_type} }"
       end
@@ -219,6 +231,10 @@ module Steep
           other.block == block &&
           other.return_type == return_type &&
           (!other.location || !location || other.location == location)
+      end
+
+      def free_variables
+        (params.free_variables + (block&.free_variables || Set.new) + return_type.free_variables) - Set.new(type_params)
       end
 
       def subst(s)
@@ -267,7 +283,7 @@ module Steep
       end
 
       def to_s
-        type_params = !self.type_params.empty? ? "<#{self.type_params.join(", ")}> " : ""
+        type_params = !self.type_params.empty? ? "<#{self.type_params.map{|x| "'#{x}" }.join(", ")}> " : ""
         params = self.params.to_s
         block = self.block ? " #{self.block}" : ""
 
