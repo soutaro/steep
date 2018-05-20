@@ -63,6 +63,8 @@ module Steep
       def join!(envs)
         lvars = {}
 
+        common_vars = envs.map {|env| Set.new(env.lvar_types.keys) }.inject {|a, b| a & b }
+
         envs.each do |env|
           env.lvar_types.each do |name, type|
             unless lvar_types.key?(name)
@@ -73,7 +75,11 @@ module Steep
         end
 
         lvars.each do |name, types|
-          set(lvar: name, type: AST::Types::Union.build(types: types))
+          if lvar_types.key?(name) || common_vars.member?(name)
+            set(lvar: name, type: AST::Types::Union.build(types: types))
+          else
+            set(lvar: name, type: AST::Types::Union.build(types: types + [AST::Types::Name.new_instance(name: "::NilClass")]))
+          end
         end
       end
 

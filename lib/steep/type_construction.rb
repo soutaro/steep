@@ -940,8 +940,20 @@ module Steep
           end
 
         when :and
-          types = each_child_node(node).map {|child| synthesize(child) }
-          typing.add_typing(node, types.last)
+          yield_self do
+            left, right = node.children
+            synthesize(left)
+
+            truthy_vars = TypeConstruction.truthy_variables(left)
+            right_type, right_env = for_branch(right, truthy_vars: truthy_vars).yield_self do |constructor|
+              type = constructor.synthesize(right)
+              [type, constructor.type_env]
+            end
+
+            type_env.join!([right_env, TypeInference::TypeEnv.new(subtyping: checker,
+                                                                  const_env: nil)])
+            typing.add_typing(node, union_type(right_type, Types.nil_instance))
+          end
 
         when :or
           types = each_child_node(node).map {|child| synthesize(child) }
