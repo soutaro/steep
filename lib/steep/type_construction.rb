@@ -490,6 +490,24 @@ module Steep
             end
           end
 
+        when :csend
+          yield_self do
+            type = if self_class?(node)
+                     module_type = module_context.module_type
+                     type = if module_type.is_a?(AST::Types::Name)
+                              AST::Types::Name.new(name: module_type.name.updated(constructor: method_context.constructor),
+                                                   args: module_type.args)
+                            else
+                              module_type
+                            end
+                     typing.add_typing(node, type)
+                   else
+                     type_send(node, send_node: node, block_params: nil, block_body: nil, unwrap: true)
+                   end
+
+            union_type(type, Types.nil_instance)
+          end
+
         when :op_asgn
           yield_self do
             lhs, op, rhs = node.children
@@ -1341,7 +1359,7 @@ module Steep
       end
     end
 
-    def type_send(node, send_node:, block_params:, block_body:)
+    def type_send(node, send_node:, block_params:, block_body:, unwrap: false)
       receiver, method_name, *arguments = send_node.children
       receiver_type = receiver ? synthesize(receiver) : self_type
       arguments.each do |arg|
@@ -1350,6 +1368,10 @@ module Steep
         else
           synthesize(arg)
         end
+      end
+
+      if unwrap
+        receiver_type = TypeConstruction.unwrap(receiver_type)
       end
 
       case receiver_type
