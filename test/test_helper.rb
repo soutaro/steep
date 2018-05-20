@@ -347,6 +347,9 @@ class Array<'a>
   def zip: <'b> (Array<'b>) -> Array<'a | 'b>
   def each_with_object: <'b> ('b) { ('a, 'b) -> any } -> 'b
 end
+
+class NilClass
+end
   EOS
 
   DEFAULT_SIGS = <<-EOS

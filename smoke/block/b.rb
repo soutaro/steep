@@ -1,5 +1,5 @@
 # @type var a: A
-a = nil
+a = (_ = nil)
 
 a.bar do |x|
   # !expects BreakTypeMismatch: expected=::Symbol, actual=::Integer

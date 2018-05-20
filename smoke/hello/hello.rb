@@ -1,8 +1,8 @@
 # @type var x: _Foo
 # @type var y: _Bar
 
-x = nil
-y = nil
+x = (_ = nil)
+y = (_ = nil)
 
 a = x.foo
 

@@ -1,6 +1,6 @@
 # @type var foo: Foo
 
-foo = nil
+foo = (_ = nil)
 
 foo.try do |x|
   # @type var string: String

@@ -363,10 +363,21 @@ module Steep
       )
     end
 
-    def for_branch(node, type_case_override: nil)
+    def for_branch(node, truthy_vars: Set.new, type_case_override: nil)
       annots = source.annotations(block: node)
 
       type_env = self.type_env
+
+      lvar_types = self.type_env.lvar_types.each.with_object({}) do |(var, type), env|
+        if truthy_vars.member?(var)
+          env[var] = TypeConstruction.unwrap(type)
+        else
+          env[var] = type
+        end
+      end
+      type_env = type_env.with_annotations(lvar_types: lvar_types) do |var, relation, result|
+        raise "Unexpected annotate failure: #{relation}"
+      end
 
       if type_case_override
         type_env = type_env.with_annotations(lvar_types: type_case_override) do |var, relation, result|
@@ -751,7 +762,7 @@ module Steep
           typing.add_typing(node, AST::Types::Name.new_instance(name: "::Float"))
 
         when :nil
-          typing.add_typing(node, Types.any)
+          typing.add_typing(node, Types.nil_instance)
 
         when :sym
           typing.add_typing(node, Types.symbol_instance)
@@ -940,8 +951,11 @@ module Steep
         when :if
           cond, true_clause, false_clause = node.children
           synthesize cond
+
+          truthy_vars = TypeConstruction.truthy_variables(cond)
+
           if true_clause
-            true_type, true_env = for_branch(true_clause).yield_self do |constructor|
+            true_type, true_env = for_branch(true_clause, truthy_vars: truthy_vars).yield_self do |constructor|
               type = constructor.synthesize(true_clause)
               [type, constructor.type_env]
             end
@@ -1000,7 +1014,7 @@ module Steep
                     pairs << [type, body_construction.type_env]
                   end
                 else
-                  pairs << [Types.any, nil]
+                  pairs << [Types.nil_instance, nil]
                 end
               else
                 if clause
@@ -1806,8 +1820,7 @@ module Steep
     end
 
     def union_type(*types)
-      types_ = checker.compact(types.compact)
-      AST::Types::Union.build(types: types_)
+      AST::Types::Union.build(types: types)
     end
 
     def validate_method_definitions(node, module_name)
@@ -1919,6 +1932,31 @@ module Steep
       end
 
       typing.type_of(node: node)
+    end
+
+    def self.unwrap(type)
+      case
+      when type.is_a?(AST::Types::Union)
+        types = type.types.reject {|type| type.is_a?(AST::Types::Name) && type.name == TypeName::Instance.new(name: ModuleName.parse("::NilClass")) }
+        AST::Types::Union.build(types: types)
+      else
+        type
+      end
+    end
+
+    def self.truthy_variables(node)
+      case node&.type
+      when :lvar
+        Set.new([node.children.first.name])
+      when :lvasgn
+        Set.new([node.children.first.name]) + truthy_variables(node.children[1])
+      when :and
+        truthy_variables(node.children[0]) + truthy_variables(node.children[1])
+      when :begin
+        truthy_variables(node.children.last)
+      else
+        Set.new()
+      end
     end
   end
 end

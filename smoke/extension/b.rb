@@ -1,5 +1,5 @@
 # @type var foo: Foo
-foo = nil
+foo = (_ = nil)
 
 # @type var integer: Integer
 
