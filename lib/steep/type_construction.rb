@@ -1120,9 +1120,10 @@ module Steep
             cond, body = node.children
 
             synthesize(cond)
+            truthy_vars = node.type == :while ? TypeConstruction.truthy_variables(cond) : Set.new
 
             if body
-              for_loop = for_branch(body).with(break_context: BreakContext.new(break_type: nil, next_type: nil))
+              for_loop = for_branch(body, truthy_vars: truthy_vars).with(break_context: BreakContext.new(break_type: nil, next_type: nil))
               for_loop.synthesize(body)
               type_env.join!([for_loop.type_env])
             end

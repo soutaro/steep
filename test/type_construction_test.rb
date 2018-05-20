@@ -4024,4 +4024,41 @@ EOF
       Types::Name.new_instance(name: "::NilClass")
     ]), type_env.lvar_types[:z]
   end
+
+  def test_while
+    source = parse_ruby(<<EOF)
+while line = gets
+  # @type var x: String
+  x = line
+end
+EOF
+
+    typing = Typing.new
+    annotations = source.annotations(block: source.node)
+    checker = new_subtyping_checker("")
+    const_env = ConstantEnv.new(builder: checker.builder, current_namespace: nil)
+    type_env = TypeEnv.build(annotations: annotations,
+                             subtyping: checker,
+                             const_env: const_env,
+                             signatures: checker.builder.signatures)
+
+    construction = TypeConstruction.new(checker: checker,
+                                        source: source,
+                                        annotations: annotations,
+                                        type_env: type_env,
+                                        block_context: nil,
+                                        self_type: Types::Name.new_instance(name: "::Object"),
+                                        method_context: nil,
+                                        typing: typing,
+                                        module_context: nil,
+                                        break_context: nil)
+    construction.synthesize(source.node)
+
+    assert_empty typing.errors
+
+    assert_equal Types::Union.build(types: [
+      Types::Name.new_instance(name: "::String"),
+      Types::Name.new_instance(name: "::NilClass")
+    ]), type_env.lvar_types[:line]
+  end
 end

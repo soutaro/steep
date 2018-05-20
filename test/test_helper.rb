@@ -301,6 +301,7 @@ end
 class Object <: BasicObject
   def class: -> module
   def tap: { (instance) -> any } -> instance
+  def gets: -> (String | NilClass)
 end
 
 class Class<'a>
