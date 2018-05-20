@@ -4061,4 +4061,122 @@ EOF
       Types::Name.new_instance(name: "::NilClass")
     ]), type_env.lvar_types[:line]
   end
+
+  def test_case_non_exhaustive
+    source = parse_ruby(<<EOF)
+# @type var x: String | Integer
+x = ""
+
+y = case x
+when String
+  3
+end
+EOF
+
+    typing = Typing.new
+    annotations = source.annotations(block: source.node)
+    checker = new_subtyping_checker("")
+    const_env = ConstantEnv.new(builder: checker.builder, current_namespace: nil)
+    type_env = TypeEnv.build(annotations: annotations,
+                             subtyping: checker,
+                             const_env: const_env,
+                             signatures: checker.builder.signatures)
+
+    construction = TypeConstruction.new(checker: checker,
+                                        source: source,
+                                        annotations: annotations,
+                                        type_env: type_env,
+                                        block_context: nil,
+                                        self_type: Types::Name.new_instance(name: "::Object"),
+                                        method_context: nil,
+                                        typing: typing,
+                                        module_context: nil,
+                                        break_context: nil)
+    construction.synthesize(source.node)
+
+    assert_empty typing.errors
+
+    assert_equal Types::Union.build(types: [
+      Types::Name.new_instance(name: "::Integer"),
+      Types::Name.new_instance(name: "::NilClass")
+    ]), type_env.lvar_types[:y]
+  end
+
+  def test_case_exhaustive
+    source = parse_ruby(<<EOF)
+# @type var x: String | Integer
+x = ""
+
+y = case x
+when String
+  3
+when Integer
+  4
+end
+EOF
+
+    typing = Typing.new
+    annotations = source.annotations(block: source.node)
+    checker = new_subtyping_checker("")
+    const_env = ConstantEnv.new(builder: checker.builder, current_namespace: nil)
+    type_env = TypeEnv.build(annotations: annotations,
+                             subtyping: checker,
+                             const_env: const_env,
+                             signatures: checker.builder.signatures)
+
+    construction = TypeConstruction.new(checker: checker,
+                                        source: source,
+                                        annotations: annotations,
+                                        type_env: type_env,
+                                        block_context: nil,
+                                        self_type: Types::Name.new_instance(name: "::Object"),
+                                        method_context: nil,
+                                        typing: typing,
+                                        module_context: nil,
+                                        break_context: nil)
+    construction.synthesize(source.node)
+
+    assert_empty typing.errors
+
+    assert_equal Types::Name.new_instance(name: "::Integer"), type_env.lvar_types[:y]
+  end
+
+  def test_case_exhaustive_else
+    source = parse_ruby(<<EOF)
+# @type var x: String | Integer
+
+y = case (x = "")
+when String
+  3
+else
+  4
+end
+EOF
+
+    typing = Typing.new
+    annotations = source.annotations(block: source.node)
+    checker = new_subtyping_checker("")
+    const_env = ConstantEnv.new(builder: checker.builder, current_namespace: nil)
+    type_env = TypeEnv.build(annotations: annotations,
+                             subtyping: checker,
+                             const_env: const_env,
+                             signatures: checker.builder.signatures)
+
+    construction = TypeConstruction.new(checker: checker,
+                                        source: source,
+                                        annotations: annotations,
+                                        type_env: type_env,
+                                        block_context: nil,
+                                        self_type: Types::Name.new_instance(name: "::Object"),
+                                        method_context: nil,
+                                        typing: typing,
+                                        module_context: nil,
+                                        break_context: nil)
+    construction.synthesize(source.node)
+
+    assert_empty typing.errors
+
+    assert_equal Types::Name.new_instance(name: "::Integer"), type_env.lvar_types[:y]
+  end
+
 end

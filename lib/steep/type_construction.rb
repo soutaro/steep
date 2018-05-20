@@ -1006,8 +1006,8 @@ module Steep
 
             if cond
               cond_type = synthesize(cond)
-              if cond.type == :lvar && cond_type.is_a?(AST::Types::Union)
-                var_name = cond.children.first.name
+              if cond_type.is_a?(AST::Types::Union)
+                var_names = TypeConstruction.value_variables(cond)
                 var_types = cond_type.types.dup
               end
             end
@@ -1019,7 +1019,7 @@ module Steep
                 end
 
                 if (body = clause.children.last)
-                  if var_name && var_types && test_types.all? {|type| type.is_a?(AST::Types::Name) && type.name.is_a?(TypeName::Class) && type.args.empty? }
+                  if var_names && var_types && test_types.all? {|type| type.is_a?(AST::Types::Name) && type.name.is_a?(TypeName::Class) && type.args.empty? }
                     var_types_in_body = test_types.flat_map {|test_type|
                       filtered_types = var_types.select {|var_type| var_type.name.name == test_type.name.name }
                       if filtered_types.empty?
@@ -1034,7 +1034,9 @@ module Steep
                       }
                     }
 
-                    type_case_override = { var_name => union_type(*var_types_in_body) }
+                    type_case_override = var_names.each.with_object({}) do |var_name, hash|
+                      hash[var_name] = union_type(*var_types_in_body)
+                    end
                   else
                     type_case_override = nil
                   end
@@ -1050,10 +1052,15 @@ module Steep
                 if clause
                   if var_types
                     if !var_types.empty?
-                      type_case_override = { var_name => union_type(*var_types) }
+                      type_case_override = var_names.each.with_object({}) do |var_name, hash|
+                        hash[var_name] = union_type(*var_types)
+                      end
+                      var_types.clear
                     else
                       typing.add_error Errors::ElseOnExhaustiveCase.new(node: node, type: cond_type)
-                      type_case_override = { var_name => AST::Types::Any.new }
+                      type_case_override = var_names.each.with_object({}) do |var_name, hash|
+                        hash[var_name] = Types.any
+                      end
                     end
                   end
 
@@ -1067,6 +1074,12 @@ module Steep
 
             types = pairs.map(&:first)
             envs = pairs.map(&:last)
+
+            if var_types
+              unless var_types.empty? || whens.last
+                types.push Types.nil_instance
+              end
+            end
 
             type_env.join!(envs.compact)
             typing.add_typing(node, union_type(*types))
@@ -1991,6 +2004,19 @@ module Steep
         truthy_variables(node.children.last)
       else
         Set.new()
+      end
+    end
+
+    def self.value_variables(node)
+      case node&.type
+      when :lvar
+        Set.new([node.children.first.name])
+      when :lvasgn
+        Set.new([node.children.first.name]) + value_variables(node.children[1])
+      when :begin
+        value_variables(node.children.last)
+      else
+        Set.new
       end
     end
   end
