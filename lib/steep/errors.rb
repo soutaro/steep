@@ -12,7 +12,8 @@ module Steep
       end
 
       def print_to(io)
-        io.puts to_s
+        source = node.loc.expression.source
+        io.puts "#{to_s} (#{source.split(/\n/).first})"
       end
     end
 
@@ -33,7 +34,7 @@ module Steep
       end
 
       def print_to(io)
-        io.puts to_s
+        super
         print_result_to io
       end
     end
