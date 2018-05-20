@@ -20,6 +20,7 @@ class Object <: BasicObject
   def yield_self: <'a>{ (self) -> 'a } -> 'a
   def dup: -> self
   def send: (Symbol, *any) -> any
+  def instance_variable_get: (Symbol) -> any
 end
 
 class Module
@@ -69,12 +70,14 @@ class Array<'a>
   def all?: { (any) -> any } -> _Boolean
   def sort_by: { ('a) -> any } -> Array<'a>
   def zip: <'b> (Array<'b>) -> Array<any>
+         | <'b, 'c> (Array<'b>) { ('a, 'b) -> 'c }-> Array<'c>
   def each: { ('a) -> any } -> instance
           | -> Enumerator<'a>
   def select: { ('a) -> any } -> Array<'a>
   def <<: ('a) -> instance
   def filter: { ('a) -> any } -> Array<'a>
   def *: (Integer) -> self
+       | (String) -> String
   def max: -> 'a
   def min: -> 'a
   def -: (self) -> self
@@ -93,6 +96,9 @@ class Array<'a>
   def replace: (self) -> self
   def transpose: -> self
   def fill: ('a) -> self
+  def grep: (any) -> self
+          | <'b> (any) { ('a) -> 'b } -> Array<'b>
+  def uniq: -> self
 end
 
 class Hash<'key, 'value>
@@ -103,14 +109,21 @@ class Hash<'key, 'value>
   def each_key: { ('key) -> any } -> instance
               | -> Enumerator<'a>
   def self.[]: (Array<any>) -> Hash<'key, 'value>
+  def keys: () -> Array<'key>
 end
 
 class Symbol
   def self.all_symbols: -> Array<Symbol>
 end
 
+interface _ToS
+  def to_s: -> String
+end
+
 interface _Boolean
   def !: -> _Boolean
+  def to_s: -> String
+  def ==: (any) -> _Boolean
 end
 
 class NilClass
@@ -119,10 +132,10 @@ end
 class Numeric
   def +: (Numeric) -> Numeric
   def /: (Numeric) -> Numeric
-  def <=: (any) -> any
-  def >=: (any) -> any
-  def < : (any) -> any
-  def >: (any) -> any
+  def <=: (any) -> _Boolean
+  def >=: (any) -> _Boolean
+  def < : (any) -> _Boolean
+  def >: (any) -> _Boolean
 end
 
 class Integer <: Numeric
@@ -190,6 +203,8 @@ class Range<'a>
 end
 
 class String
+  def []: (Range<Integer>) -> String
+  def to_sym: -> Symbol
   def +: (String) -> String
   def to_str: -> String
   def size: -> Integer
@@ -208,6 +223,18 @@ class String
   def bytes: -> Array<Integer>
   def split: (String) -> Array<String>
            | (Regexp) -> Array<String>
+  def gsub: (Regexp, String) -> self
+          | (String, String) -> self
+          | (Regexp) { (String) -> _ToS } -> String
+  def gsub!: (Regexp, String) -> self
+           | (String, String) -> self
+           | (Regexp) { (String) -> _ToS } -> String
+  def sub: (Regexp | String, String) -> self
+         | (Regexp | String) { (String) -> _ToS } -> String
+  def chomp: -> String
+  def *: (Integer) -> String
+  def scan: (Regexp) { (Array<String>) -> void } -> String
+          | (Regexp) -> Array<String>
 end
 
 class Enumerator<'a>
