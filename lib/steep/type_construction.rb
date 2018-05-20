@@ -1102,7 +1102,7 @@ module Steep
           # ignore
           typing.add_typing(node, Types.any)
 
-        when :nth_ref
+        when :nth_ref, :back_ref
           typing.add_typing(node, Types.string_instance)
 
         when :or_asgn, :and_asgn
