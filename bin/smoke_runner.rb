@@ -101,7 +101,7 @@ ARGV.each do |arg|
       if expectation.prefix_test
         string =~ /\A#{Regexp.escape(expectation.path.to_s)}:#{expectation.line}:\d+: #{Regexp.quote expectation.message}/
       else
-        string =~ /\A#{Regexp.escape(expectation.path.to_s)}:#{expectation.line}:\d+: #{Regexp.quote expectation.message}\Z/
+        string =~ /\A#{Regexp.escape(expectation.path.to_s)}:#{expectation.line}:\d+: #{Regexp.quote expectation.message} \(/
       end
     end
 
