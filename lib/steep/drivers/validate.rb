@@ -17,6 +17,8 @@ module Steep
       include Utils::EachSignature
 
       def run
+        Steep.logger.level = Logger::DEBUG if verbose
+
         env = AST::Signature::Env.new
 
         each_signature(signature_dirs, verbose) do |signature|
