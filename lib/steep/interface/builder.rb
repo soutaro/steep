@@ -195,7 +195,7 @@ module Steep
           case member
           when AST::Signature::Members::Include
             merge_mixin(TypeName::Module.new(name: member.name),
-                        member.args.map {|type| absolute_type(type, current: sig.name) },
+                        [],
                         methods: methods,
                         supers: supers,
                         ivars: {},
