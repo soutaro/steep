@@ -411,6 +411,10 @@ method_name: IDENT
            | BAR { result = LocatedValue.new(location: val[0].location, value: :|) }
            | CONSTRUCTOR { result = LocatedValue.new(location: val[0].location, value: :constructor) }
            | NOCONSTRUCTOR { result = LocatedValue.new(location: val[0].location, value: :noconstructor) }
+           | ANY QUESTION {
+             raise ParseError, "\nunexpected method name any ?" unless val[0].location.pred?(val[1].location)
+             result = LocatedValue.new(location: val[0].location + val[1].location, value: :any?)
+           }
            | GT GT {
                raise ParseError, "\nunexpected method name > >" unless val[0].location.pred?(val[1].location)
                result = LocatedValue.new(location: val[0].location + val[1].location, value: :>>)
