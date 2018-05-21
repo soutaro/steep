@@ -253,16 +253,14 @@ module Steep
                   yield_self do
                     args = sub_type.type_params.map {|x| AST::Types::Var.fresh(x) }
 
-                    sub_type = sub_type.instantiate(Interface::Substitution.build(sub_type.type_params,
-                                                                                  args))
-                    super_type = super_type.instantiate(Interface::Substitution.build(super_type.type_params,
-                                                                                      args))
+                    sub_type_ = sub_type.instantiate(Interface::Substitution.build(sub_type.type_params, args))
+                    super_type_ = super_type.instantiate(Interface::Substitution.build(super_type.type_params, args))
 
                     constraints.add_var(*args)
 
                     check_method_type(name,
-                                      sub_type,
-                                      super_type,
+                                      sub_type_,
+                                      super_type_,
                                       assumption: assumption,
                                       trace: trace,
                                       constraints: constraints)
