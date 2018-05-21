@@ -25,7 +25,7 @@ module Steep
           when Interface::Method
             io.puts "#{indent}#{s.name}(#{s.type_name}) <: #{t.name}(#{t.type_name})"
           when Interface::MethodType
-            io.puts "#{indent}#{s.location.source} <: #{t.location.source} (#{s.location.name}:#{s.location.start_line})"
+            io.puts "#{indent}#{s} <: #{t} (#{s.location.name}:#{s.location.start_line})"
           else
             io.puts "#{indent}#{s} <: #{t}"
           end
