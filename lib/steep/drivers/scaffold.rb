@@ -56,7 +56,7 @@ module Steep
           @source = source
           @stderr = stderr
           @modules = []
-          @constants = []
+          @constants = {}
         end
 
         def write(io:)
@@ -83,8 +83,8 @@ module Steep
             end
           end
 
-          constants.each do |name|
-            io.puts "#{name}: any"
+          constants.each do |name, ty|
+            io.puts "#{name}: #{ty}"
           end
         end
 
@@ -134,7 +134,7 @@ module Steep
             name, args, body = node.children
 
             if current_module
-              current_module.methods[name] = "(#{arg_types(args)}) -> any"
+              current_module.methods[name] = "(#{arg_types(args)}) -> #{guess_type(body)}"
             end
 
             if body
@@ -148,7 +148,7 @@ module Steep
             name = node.children[0]
 
             if current_module && is_instance_method
-              current_module.ivars[name] = "any"
+              current_module.ivars[name] = guess_type(node.children[1])
             end
 
             each_child_node(node) do |child|
@@ -163,7 +163,7 @@ module Steep
               _, name, args, body = node.children
 
               if current_module
-                current_module.singleton_methods[name] = "(#{arg_types(args)}) -> any"
+                current_module.singleton_methods[name] = "(#{arg_types(args)}) -> #{guess_type(body)}"
               end
 
               if body
@@ -179,7 +179,7 @@ module Steep
               stderr.puts "Unexpected casgn: #{node}, #{node.loc.line}"
             end
 
-            constants << full_name(current_path, node.children[1])
+            constants[full_name(current_path, node.children[1])] = guess_type(node.children[2])
 
             if node.children[2]
               generate(node.children[2],
@@ -192,6 +192,82 @@ module Steep
             each_child_node(node) do |child|
               generate(child, current_path: current_path, current_module: current_module, is_instance_method: is_instance_method)
             end
+          end
+        end
+
+        def guess_type(node)
+          return "any" unless node
+          case node.type
+          when :false, :true
+            "_Boolean"
+          when :int
+            "Integer"
+          when :float
+            "Float"
+          when :complex
+            "Complex"
+          when :rational
+            "Rational"
+          when :str, :dstr, :xstr
+            "String"
+          when :sym, :dsym
+            "Symbol"
+          when :regexp
+            "Regexp"
+          when :array
+            "Array<any>"
+          when :hash
+            "Hash<any, any>"
+          when :irange, :erange
+            "Range<any>"
+          when :lvasgn, :ivasgn, :cvasgn, :gvasgn, :casgn
+            guess_type(node.children.last)
+          when :send
+            if node.children[1] == :[]=
+              guess_type(node.children.last)
+            else
+              "any"
+            end
+          when :begin
+            # should support shortcut return?
+            guess_type(node.children.last)
+          when :return
+            children = node.children
+            if children.size == 1
+              guess_type(node.children.last)
+            else
+              "Array<any>" # or Tuple or any?
+            end
+          when :if
+            children = node.children
+            if children[2]
+              ty1 = guess_type(children[1])
+              ty2 = guess_type(children[2])
+              if ty1 == ty2
+                ty1
+              else
+                "any"
+              end
+            else
+              "void" # assuming no-else if statement implies void
+            end
+          when :while, :until, :while_post, :until_post, :for
+            "void"
+          when :case
+            children = node.children
+            if children.last
+              ty = guess_type(children.last)
+              children[1..-2].each do |child|
+                return "any" if ty != guess_type(child.children.last)
+              end
+              ty
+            else
+              "any"
+            end
+          when :masgn
+            "void" # assuming masgn implies void
+          else
+            "any"
           end
         end
 
@@ -209,13 +285,13 @@ module Steep
             when :arg
               "any"
             when :optarg
-              "?any"
+              "?#{guess_type(arg.children[1])}"
             when :restarg
               "*any"
             when :kwarg
               "#{arg.children.first.name}: any"
             when :kwoptarg
-              "?#{arg.children.first.name}: any"
+              "?#{arg.children.first.name}: #{guess_type(arg.children[1])}"
             when :kwrestarg
               "**any"
             end
