@@ -59,8 +59,8 @@ module Kernel
 end
 
 class Array<'a>
-  def []: (Integer) -> ('a | nil)
-        | (Integer, Integer) -> ('a | nil)
+  def []: (Integer) -> 'a
+        | (Integer, Integer) -> (self | nil)
   def []=: (Integer, 'a) -> 'a
          | (Integer, Integer, self) -> self
   def empty?: -> _Boolean
