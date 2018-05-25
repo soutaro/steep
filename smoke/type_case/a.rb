@@ -1,6 +1,6 @@
 # @type var x: Integer | String | Symbol
 
-x = nil
+x = (_ = nil)
 
 case x
 when Integer, String

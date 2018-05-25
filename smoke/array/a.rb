@@ -7,10 +7,9 @@ a[1] = 3
 a[2] = "foo"
 
 # @type var i: Integer
-# @type var s: String
-
 i = a[0]
 
+# @type var s: String
 # !expects IncompatibleAssignment: lhs_type=::String, rhs_type=::Integer
 s = a[1]
 

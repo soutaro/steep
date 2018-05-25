@@ -153,6 +153,8 @@ simple_type: type_name {
     | INSTANCE { result = AST::Types::Instance.new(location: val[0].location) }
     | SELF { result = AST::Types::Self.new(location: val[0].location) }
     | VOID { result = AST::Types::Void.new(location: val[0].location) }
+    | NIL { result = AST::Types::Name.new_instance(name: ModuleName.new(name: "NilClass", absolute: true),
+                                                   location: val[0].location) }
 
 instance_type_name: module_name {
                       result = LocatedValue.new(value: TypeName::Instance.new(name: val[0].value),
@@ -592,6 +594,8 @@ def next_token
     new_token(:LT, :<)
   when input.scan(/>/)
     new_token(:GT, :>)
+  when input.scan(/nil\b/)
+    new_token(:NIL, :nil)
   when input.scan(/any\b/)
     new_token(:ANY, :any)
   when input.scan(/void\b/)

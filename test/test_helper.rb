@@ -301,6 +301,7 @@ end
 class Object <: BasicObject
   def class: -> module
   def tap: { (instance) -> any } -> instance
+  def gets: -> (String | NilClass)
 end
 
 class Class<'a>
@@ -346,6 +347,9 @@ class Array<'a>
   def each: { ('a) -> any } -> self
   def zip: <'b> (Array<'b>) -> Array<'a | 'b>
   def each_with_object: <'b> ('b) { ('a, 'b) -> any } -> 'b
+end
+
+class NilClass
 end
   EOS
 

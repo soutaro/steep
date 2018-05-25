@@ -363,10 +363,21 @@ module Steep
       )
     end
 
-    def for_branch(node, type_case_override: nil)
+    def for_branch(node, truthy_vars: Set.new, type_case_override: nil)
       annots = source.annotations(block: node)
 
       type_env = self.type_env
+
+      lvar_types = self.type_env.lvar_types.each.with_object({}) do |(var, type), env|
+        if truthy_vars.member?(var)
+          env[var] = TypeConstruction.unwrap(type)
+        else
+          env[var] = type
+        end
+      end
+      type_env = type_env.with_annotations(lvar_types: lvar_types) do |var, relation, result|
+        raise "Unexpected annotate failure: #{relation}"
+      end
 
       if type_case_override
         type_env = type_env.with_annotations(lvar_types: type_case_override) do |var, relation, result|
@@ -477,6 +488,24 @@ module Steep
             else
               type_send(node, send_node: node, block_params: nil, block_body: nil)
             end
+          end
+
+        when :csend
+          yield_self do
+            type = if self_class?(node)
+                     module_type = module_context.module_type
+                     type = if module_type.is_a?(AST::Types::Name)
+                              AST::Types::Name.new(name: module_type.name.updated(constructor: method_context.constructor),
+                                                   args: module_type.args)
+                            else
+                              module_type
+                            end
+                     typing.add_typing(node, type)
+                   else
+                     type_send(node, send_node: node, block_params: nil, block_body: nil, unwrap: true)
+                   end
+
+            union_type(type, Types.nil_instance)
           end
 
         when :op_asgn
@@ -751,7 +780,7 @@ module Steep
           typing.add_typing(node, AST::Types::Name.new_instance(name: "::Float"))
 
         when :nil
-          typing.add_typing(node, Types.any)
+          typing.add_typing(node, Types.nil_instance)
 
         when :sym
           typing.add_typing(node, Types.symbol_instance)
@@ -929,8 +958,20 @@ module Steep
           end
 
         when :and
-          types = each_child_node(node).map {|child| synthesize(child) }
-          typing.add_typing(node, types.last)
+          yield_self do
+            left, right = node.children
+            synthesize(left)
+
+            truthy_vars = TypeConstruction.truthy_variables(left)
+            right_type, right_env = for_branch(right, truthy_vars: truthy_vars).yield_self do |constructor|
+              type = constructor.synthesize(right)
+              [type, constructor.type_env]
+            end
+
+            type_env.join!([right_env, TypeInference::TypeEnv.new(subtyping: checker,
+                                                                  const_env: nil)])
+            typing.add_typing(node, union_type(right_type, Types.nil_instance))
+          end
 
         when :or
           types = each_child_node(node).map {|child| synthesize(child) }
@@ -940,8 +981,11 @@ module Steep
         when :if
           cond, true_clause, false_clause = node.children
           synthesize cond
+
+          truthy_vars = TypeConstruction.truthy_variables(cond)
+
           if true_clause
-            true_type, true_env = for_branch(true_clause).yield_self do |constructor|
+            true_type, true_env = for_branch(true_clause, truthy_vars: truthy_vars).yield_self do |constructor|
               type = constructor.synthesize(true_clause)
               [type, constructor.type_env]
             end
@@ -962,8 +1006,8 @@ module Steep
 
             if cond
               cond_type = synthesize(cond)
-              if cond.type == :lvar && cond_type.is_a?(AST::Types::Union)
-                var_name = cond.children.first.name
+              if cond_type.is_a?(AST::Types::Union)
+                var_names = TypeConstruction.value_variables(cond)
                 var_types = cond_type.types.dup
               end
             end
@@ -975,7 +1019,7 @@ module Steep
                 end
 
                 if (body = clause.children.last)
-                  if var_name && var_types && test_types.all? {|type| type.is_a?(AST::Types::Name) && type.name.is_a?(TypeName::Class) && type.args.empty? }
+                  if var_names && var_types && test_types.all? {|type| type.is_a?(AST::Types::Name) && type.name.is_a?(TypeName::Class) && type.args.empty? }
                     var_types_in_body = test_types.flat_map {|test_type|
                       filtered_types = var_types.select {|var_type| var_type.name.name == test_type.name.name }
                       if filtered_types.empty?
@@ -990,7 +1034,9 @@ module Steep
                       }
                     }
 
-                    type_case_override = { var_name => union_type(*var_types_in_body) }
+                    type_case_override = var_names.each.with_object({}) do |var_name, hash|
+                      hash[var_name] = union_type(*var_types_in_body)
+                    end
                   else
                     type_case_override = nil
                   end
@@ -1000,16 +1046,21 @@ module Steep
                     pairs << [type, body_construction.type_env]
                   end
                 else
-                  pairs << [Types.any, nil]
+                  pairs << [Types.nil_instance, nil]
                 end
               else
                 if clause
                   if var_types
                     if !var_types.empty?
-                      type_case_override = { var_name => union_type(*var_types) }
+                      type_case_override = var_names.each.with_object({}) do |var_name, hash|
+                        hash[var_name] = union_type(*var_types)
+                      end
+                      var_types.clear
                     else
                       typing.add_error Errors::ElseOnExhaustiveCase.new(node: node, type: cond_type)
-                      type_case_override = { var_name => AST::Types::Any.new }
+                      type_case_override = var_names.each.with_object({}) do |var_name, hash|
+                        hash[var_name] = Types.any
+                      end
                     end
                   end
 
@@ -1023,6 +1074,12 @@ module Steep
 
             types = pairs.map(&:first)
             envs = pairs.map(&:last)
+
+            if var_types
+              unless var_types.empty? || whens.last
+                types.push Types.nil_instance
+              end
+            end
 
             type_env.join!(envs.compact)
             typing.add_typing(node, union_type(*types))
@@ -1076,9 +1133,10 @@ module Steep
             cond, body = node.children
 
             synthesize(cond)
+            truthy_vars = node.type == :while ? TypeConstruction.truthy_variables(cond) : Set.new
 
             if body
-              for_loop = for_branch(body).with(break_context: BreakContext.new(break_type: nil, next_type: nil))
+              for_loop = for_branch(body, truthy_vars: truthy_vars).with(break_context: BreakContext.new(break_type: nil, next_type: nil))
               for_loop.synthesize(body)
               type_env.join!([for_loop.type_env])
             end
@@ -1315,7 +1373,7 @@ module Steep
       end
     end
 
-    def type_send(node, send_node:, block_params:, block_body:)
+    def type_send(node, send_node:, block_params:, block_body:, unwrap: false)
       receiver, method_name, *arguments = send_node.children
       receiver_type = receiver ? synthesize(receiver) : self_type
       arguments.each do |arg|
@@ -1324,6 +1382,10 @@ module Steep
         else
           synthesize(arg)
         end
+      end
+
+      if unwrap
+        receiver_type = TypeConstruction.unwrap(receiver_type)
       end
 
       case receiver_type
@@ -1806,8 +1868,7 @@ module Steep
     end
 
     def union_type(*types)
-      types_ = checker.compact(types.compact)
-      AST::Types::Union.build(types: types_)
+      AST::Types::Union.build(types: types)
     end
 
     def validate_method_definitions(node, module_name)
@@ -1919,6 +1980,44 @@ module Steep
       end
 
       typing.type_of(node: node)
+    end
+
+    def self.unwrap(type)
+      case
+      when type.is_a?(AST::Types::Union)
+        types = type.types.reject {|type| type.is_a?(AST::Types::Name) && type.name == TypeName::Instance.new(name: ModuleName.parse("::NilClass")) }
+        AST::Types::Union.build(types: types)
+      else
+        type
+      end
+    end
+
+    def self.truthy_variables(node)
+      case node&.type
+      when :lvar
+        Set.new([node.children.first.name])
+      when :lvasgn
+        Set.new([node.children.first.name]) + truthy_variables(node.children[1])
+      when :and
+        truthy_variables(node.children[0]) + truthy_variables(node.children[1])
+      when :begin
+        truthy_variables(node.children.last)
+      else
+        Set.new()
+      end
+    end
+
+    def self.value_variables(node)
+      case node&.type
+      when :lvar
+        Set.new([node.children.first.name])
+      when :lvasgn
+        Set.new([node.children.first.name]) + value_variables(node.children[1])
+      when :begin
+        value_variables(node.children.last)
+      else
+        Set.new
+      end
     end
   end
 end

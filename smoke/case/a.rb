@@ -1,6 +1,6 @@
 # @type var a: Integer
 
-# !expects IncompatibleAssignment: lhs_type=::Integer, rhs_type=(::Array<::String> | ::Integer | ::String)
+# !expects IncompatibleAssignment: lhs_type=::Integer, rhs_type=(::Array<::String> | ::Integer | ::NilClass | ::String)
 a = case 1
     when 2
       1
@@ -16,5 +16,5 @@ a = case 1
 a = case
     # !expects ArgumentTypeMismatch: expected=::Integer, actual=::String
     when 1+"a"
-      nil
+      (_ = nil)
     end

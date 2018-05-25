@@ -22,7 +22,7 @@ class TypeConstructionTest < Minitest::Test
   def test_lvar_with_annotation
     source = parse_ruby(<<-EOF)
 # @type var x: _A
-x = nil
+x = (_ = nil)
     EOF
 
     typing = Typing.new
@@ -54,7 +54,7 @@ x = nil
     source = parse_ruby(<<-EOF)
 # @type var x: _B
 # @type var z: _A
-x = nil
+x = (_ = nil)
 z = x
     EOF
 
@@ -124,7 +124,7 @@ z = x
   def test_lvar_without_annotation_inference
     source = parse_ruby(<<-EOF)
 # @type var x: _A
-x = nil
+x = (_ = nil)
 z = x
     EOF
 
@@ -156,7 +156,7 @@ z = x
   def test_method_call
     source = parse_ruby(<<-EOF)
 # @type var x: _C
-x = nil
+x = (_ = nil)
 x.f
     EOF
 
@@ -189,8 +189,8 @@ x.f
     source = parse_ruby(<<-EOF)
 # @type var x: _C
 # @type var y: _A
-x = nil
-y = nil
+x = (_ = nil)
+y = (_ = nil)
 x.g(y)
     EOF
 
@@ -223,8 +223,8 @@ x.g(y)
     source = parse_ruby(<<-EOF)
 # @type var x: _C
 # @type var y: _B
-x = nil
-y = nil
+x = (_ = nil)
+y = (_ = nil)
 x.g(y)
     EOF
 
@@ -259,7 +259,7 @@ x.g(y)
 
   def test_method_call_no_error_if_any
     source = parse_ruby(<<-EOF)
-x = nil
+x = (_ = nil)
 x.no_such_method
     EOF
 
@@ -291,7 +291,7 @@ x.no_such_method
   def test_method_call_no_method_error
     source = parse_ruby(<<-EOF)
 # @type var x: _C
-x = nil
+x = (_ = nil)
 x.no_such_method
     EOF
 
@@ -326,8 +326,8 @@ x.no_such_method
     source = parse_ruby(<<-EOF)
 # @type var x: _A
 # @type var a: _C
-a = nil
-x = nil
+a = (_ = nil)
+x = (_ = nil)
 a.g()
     EOF
 
@@ -365,9 +365,9 @@ a.g()
     source = parse_ruby(<<-EOF)
 # @type var x: _A
 # @type var a: _C
-a = nil
-x = nil
-a.g(nil, nil, nil)
+a = (_ = nil)
+x = (_ = nil)
+a.g(_ = nil, _ = nil, _ = nil)
     EOF
 
     typing = Typing.new
@@ -405,9 +405,9 @@ a.g(nil, nil, nil)
 # @type var x: _C
 # @type var a: _A
 # @type var b: _B
-x = nil
-a = nil
-b = nil
+x = (_ = nil)
+a = (_ = nil)
+b = (_ = nil)
 x.h(a: a, b: b)
     EOF
 
@@ -439,7 +439,7 @@ x.h(a: a, b: b)
   def test_keyword_missing
     source = parse_ruby(<<-EOF)
 # @type var x: _C
-x = nil
+x = (_ = nil)
 x.h()
     EOF
 
@@ -477,7 +477,7 @@ x.h()
   def test_extra_keyword_given
     source = parse_ruby(<<-EOF)
 # @type var x: _C
-x = nil
+x = (_ = nil)
 x.h(a: nil, b: nil, c: nil)
     EOF
 
@@ -515,8 +515,8 @@ x.h(a: nil, b: nil, c: nil)
     source = parse_ruby(<<-EOF)
 # @type var x: _C
 # @type var y: _B
-x = nil
-y = nil
+x = (_ = nil)
+y = (_ = nil)
 x.h(a: y)
     EOF
 
@@ -553,7 +553,7 @@ x.h(a: y)
     source = parse_ruby(<<-EOF)
 def foo
   # @type var x: _A
-  x = nil
+  x = (_ = nil)
 end
     EOF
 
@@ -711,12 +711,12 @@ end
   def test_block
     source = parse_ruby(<<-EOF)
 # @type var a: _X
-a = nil
+a = (_ = nil)
 
 b = a.f do |x|
   # @type var x: _A
   # @type var y: _B
-  y = nil
+  y = (_ = nil)
   x
   y
 end
@@ -760,7 +760,7 @@ b
   def test_block_shadow
     source = parse_ruby(<<-EOF)
 # @type var a: _X
-a = nil
+a = (_ = nil)
 
 a.f do |a|
   # @type var a: _A
@@ -799,12 +799,12 @@ end
   def test_block_param_type
     source = parse_ruby(<<-EOF)
 # @type var x: _X
-x = nil
+x = (_ = nil)
 
 x.f do |a|
   # @type var d: _D
   a
-  d = nil
+  d = (_ = nil)
 end
     EOF
 
@@ -838,7 +838,7 @@ end
   def test_block_value_type
     source = parse_ruby(<<-EOF)
 # @type var x: _X
-x = nil
+x = (_ = nil)
 
 x.f do |a|
   a
@@ -876,12 +876,12 @@ end
   def test_block_break_type
     source = parse_ruby(<<-EOF)
 # @type var x: _X
-x = nil
+x = (_ = nil)
 
 x.f do |a|
   break a
   # @type var d: _D
-  d = nil
+  d = (_ = nil)
 end
     EOF
 
@@ -918,7 +918,7 @@ end
 def foo()
   # @type return: _A
   # @type var a: _A
-  a = nil
+  a = (_ = nil)
   return a
 end
     EOF
@@ -952,7 +952,7 @@ end
 def foo()
   # @type return: _X
   # @type var a: _A
-  a = nil
+  a = (_ = nil)
   return a
 end
     EOF
@@ -1155,9 +1155,9 @@ X: Module
 # @type var k: _Kernel
 # @type var a: _A
 # @type var c: _C
-k = nil
-a = nil
-c = nil
+k = (_ = nil)
+a = (_ = nil)
+c = (_ = nil)
 
 # @type var b: _B
 # b = k.foo(a)
@@ -1196,7 +1196,7 @@ def foo
   # @type ivar @x: _A
   # @type var y: _D
   
-  y = nil
+  y = (_ = nil)
   
   @x = y
   y = @x
@@ -1241,7 +1241,7 @@ end
   def test_poly_method_arg
     source = parse_ruby(<<-EOF)
 # @type var poly: _PolyMethod
-poly = nil
+poly = (_ = nil)
 
 # @type var string: String
 string = poly.snd(1, "a")
@@ -1274,7 +1274,7 @@ string = poly.snd(1, "a")
   def test_poly_method_block
     source = parse_ruby(<<-EOF)
 # @type var poly: _PolyMethod
-poly = nil
+poly = (_ = nil)
 
 # @type var string: String
 string = poly.try { "string" }
@@ -2076,7 +2076,7 @@ a, @b = x
   def test_masgn_union
     source = parse_ruby(<<-EOF)
 # @type var x: Array<Integer> | Array<String>
-x = nil
+x = (_ = nil)
 a, b = x
     EOF
 
@@ -2903,7 +2903,7 @@ b = [*1...3]
   def test_splat_object
     source = parse_ruby(<<-'EOF')
 # @type var a: Array<Symbol> | Integer
-a = nil
+a = (_ = nil)
 b = [*a, *["foo"]]
     EOF
 
@@ -3204,7 +3204,7 @@ EOF
   def test_if_annotation
     source = parse_ruby(<<EOF)
 # @type var x: String | Integer
-x = nil
+x = (_ = nil)
 
 if 3
   # @type var x: String
@@ -3249,7 +3249,7 @@ EOF
   def test_if_annotation_error
     source = parse_ruby(<<EOF)
 # @type var x: Array<String>
-x = nil
+x = (_ = nil)
 
 if 3
   # @type var x: String
@@ -3343,7 +3343,7 @@ EOF
   def test_where_typing
     source = parse_ruby(<<EOF)
 # @type var x: Integer | String
-x = nil
+x = (_ = nil)
 
 while 3
   # @type var x: Integer
@@ -3420,7 +3420,7 @@ EOF
   def test_type_case_case_when
     source = parse_ruby(<<EOF)
 # @type var x: String | Integer | Symbol
-x = nil
+x = (_ = nil)
 
 case x
 when String
@@ -3458,11 +3458,12 @@ EOF
   def test_type_case_array
     source = parse_ruby(<<EOF)
 # @type var x: Array<String> | Array<Integer> | Range<Symbol>
-x = nil
+x = (_ = nil)
 
 case x
 when Array
   y = x[0]
+  z = :foo
 else
   z = x.begin
 end
@@ -3490,7 +3491,8 @@ EOF
 
     assert_empty typing.errors
     assert_equal Types::Union.build(types:[Types::Name.new_instance(name: "::String"),
-                                           Types::Name.new_instance(name: "::Integer")]),
+                                           Types::Name.new_instance(name: "::Integer"),
+                                           Types::Name.new_instance(name: "::NilClass")]),
                  construction.type_env.lvar_types[:y]
     assert_equal Types::Name.new_instance(name: "::Symbol"),
                  construction.type_env.lvar_types[:z]
@@ -3499,7 +3501,7 @@ EOF
   def test_type_case_array2
     source = parse_ruby(<<EOF)
 # @type var x: Array<String> | Array<Integer>
-x = nil
+x = (_ = nil)
 
 case x
 when Array
@@ -3669,7 +3671,7 @@ class Optional
 end
 
 # @type var x: Optional
-x = nil
+x = (_ = nil)
 (x.map("foo") {|x| x.size }) + 3
 (x.map("foo") {|x| (_ = x) }) + 3
 EOF
@@ -3891,4 +3893,290 @@ EOF
 
     assert_empty typing.errors
   end
+
+  def test_truthy_variables
+    assert_equal Set.new([:x]), TypeConstruction.truthy_variables(parse_ruby("x = 1").node)
+    assert_equal Set.new([:x, :y]), TypeConstruction.truthy_variables(parse_ruby("x = y = 1").node)
+    assert_equal Set.new([:x]), TypeConstruction.truthy_variables(parse_ruby("(x = 1) && f()").node)
+  end
+
+  def test_unwrap
+    assert_equal Types::Name.new_instance(name: "::Integer"),
+                 TypeConstruction.unwrap(
+                   Types::Union.build(types: [
+                     Types::Name.new_instance(name: "::Integer"),
+                     Types::Name.new_instance(name: "::NilClass"),
+                   ])
+                 )
+  end
+
+  def test_if_unwrap
+    source = parse_ruby(<<EOF)
+# @type var x: Integer | NilClass    
+x = nil
+
+if x
+  x + 1
+end
+EOF
+
+    typing = Typing.new
+    annotations = source.annotations(block: source.node)
+    checker = new_subtyping_checker("")
+    const_env = ConstantEnv.new(builder: checker.builder, current_namespace: nil)
+    type_env = TypeEnv.build(annotations: annotations,
+                             subtyping: checker,
+                             const_env: const_env,
+                             signatures: checker.builder.signatures)
+
+    construction = TypeConstruction.new(checker: checker,
+                                        source: source,
+                                        annotations: annotations,
+                                        type_env: type_env,
+                                        block_context: nil,
+                                        self_type: nil,
+                                        method_context: nil,
+                                        typing: typing,
+                                        module_context: nil,
+                                        break_context: nil)
+    construction.synthesize(source.node)
+
+    assert_empty typing.errors
+  end
+
+  def test_and_unwrap
+    source = parse_ruby(<<EOF)
+# @type var x: Integer | NilClass    
+x = nil
+# @type var y1: Integer
+y1 = 3
+
+z = (x && y1 = y = x + 1)
+EOF
+
+    typing = Typing.new
+    annotations = source.annotations(block: source.node)
+    checker = new_subtyping_checker("")
+    const_env = ConstantEnv.new(builder: checker.builder, current_namespace: nil)
+    type_env = TypeEnv.build(annotations: annotations,
+                             subtyping: checker,
+                             const_env: const_env,
+                             signatures: checker.builder.signatures)
+
+    construction = TypeConstruction.new(checker: checker,
+                                        source: source,
+                                        annotations: annotations,
+                                        type_env: type_env,
+                                        block_context: nil,
+                                        self_type: nil,
+                                        method_context: nil,
+                                        typing: typing,
+                                        module_context: nil,
+                                        break_context: nil)
+    construction.synthesize(source.node)
+
+    assert_empty typing.errors
+
+    assert_equal Types::Union.build(types: [
+      Types::Name.new_instance(name: "::Numeric"),
+      Types::Name.new_instance(name: "::NilClass")
+    ]), type_env.lvar_types[:y]
+
+    assert_equal Types::Union.build(types: [
+      Types::Name.new_instance(name: "::Integer"),
+      Types::Name.new_instance(name: "::NilClass")
+    ]), type_env.lvar_types[:z]
+  end
+
+  def test_csend_unwrap
+    source = parse_ruby(<<EOF)
+# @type var x: String | NilClass    
+x = nil
+
+z = x&.size()
+EOF
+
+    typing = Typing.new
+    annotations = source.annotations(block: source.node)
+    checker = new_subtyping_checker("")
+    const_env = ConstantEnv.new(builder: checker.builder, current_namespace: nil)
+    type_env = TypeEnv.build(annotations: annotations,
+                             subtyping: checker,
+                             const_env: const_env,
+                             signatures: checker.builder.signatures)
+
+    construction = TypeConstruction.new(checker: checker,
+                                        source: source,
+                                        annotations: annotations,
+                                        type_env: type_env,
+                                        block_context: nil,
+                                        self_type: nil,
+                                        method_context: nil,
+                                        typing: typing,
+                                        module_context: nil,
+                                        break_context: nil)
+    construction.synthesize(source.node)
+
+    assert_empty typing.errors
+
+    assert_equal Types::Union.build(types: [
+      Types::Name.new_instance(name: "::Integer"),
+      Types::Name.new_instance(name: "::NilClass")
+    ]), type_env.lvar_types[:z]
+  end
+
+  def test_while
+    source = parse_ruby(<<EOF)
+while line = gets
+  # @type var x: String
+  x = line
+end
+EOF
+
+    typing = Typing.new
+    annotations = source.annotations(block: source.node)
+    checker = new_subtyping_checker("")
+    const_env = ConstantEnv.new(builder: checker.builder, current_namespace: nil)
+    type_env = TypeEnv.build(annotations: annotations,
+                             subtyping: checker,
+                             const_env: const_env,
+                             signatures: checker.builder.signatures)
+
+    construction = TypeConstruction.new(checker: checker,
+                                        source: source,
+                                        annotations: annotations,
+                                        type_env: type_env,
+                                        block_context: nil,
+                                        self_type: Types::Name.new_instance(name: "::Object"),
+                                        method_context: nil,
+                                        typing: typing,
+                                        module_context: nil,
+                                        break_context: nil)
+    construction.synthesize(source.node)
+
+    assert_empty typing.errors
+
+    assert_equal Types::Union.build(types: [
+      Types::Name.new_instance(name: "::String"),
+      Types::Name.new_instance(name: "::NilClass")
+    ]), type_env.lvar_types[:line]
+  end
+
+  def test_case_non_exhaustive
+    source = parse_ruby(<<EOF)
+# @type var x: String | Integer
+x = ""
+
+y = case x
+when String
+  3
+end
+EOF
+
+    typing = Typing.new
+    annotations = source.annotations(block: source.node)
+    checker = new_subtyping_checker("")
+    const_env = ConstantEnv.new(builder: checker.builder, current_namespace: nil)
+    type_env = TypeEnv.build(annotations: annotations,
+                             subtyping: checker,
+                             const_env: const_env,
+                             signatures: checker.builder.signatures)
+
+    construction = TypeConstruction.new(checker: checker,
+                                        source: source,
+                                        annotations: annotations,
+                                        type_env: type_env,
+                                        block_context: nil,
+                                        self_type: Types::Name.new_instance(name: "::Object"),
+                                        method_context: nil,
+                                        typing: typing,
+                                        module_context: nil,
+                                        break_context: nil)
+    construction.synthesize(source.node)
+
+    assert_empty typing.errors
+
+    assert_equal Types::Union.build(types: [
+      Types::Name.new_instance(name: "::Integer"),
+      Types::Name.new_instance(name: "::NilClass")
+    ]), type_env.lvar_types[:y]
+  end
+
+  def test_case_exhaustive
+    source = parse_ruby(<<EOF)
+# @type var x: String | Integer
+x = ""
+
+y = case x
+when String
+  3
+when Integer
+  4
+end
+EOF
+
+    typing = Typing.new
+    annotations = source.annotations(block: source.node)
+    checker = new_subtyping_checker("")
+    const_env = ConstantEnv.new(builder: checker.builder, current_namespace: nil)
+    type_env = TypeEnv.build(annotations: annotations,
+                             subtyping: checker,
+                             const_env: const_env,
+                             signatures: checker.builder.signatures)
+
+    construction = TypeConstruction.new(checker: checker,
+                                        source: source,
+                                        annotations: annotations,
+                                        type_env: type_env,
+                                        block_context: nil,
+                                        self_type: Types::Name.new_instance(name: "::Object"),
+                                        method_context: nil,
+                                        typing: typing,
+                                        module_context: nil,
+                                        break_context: nil)
+    construction.synthesize(source.node)
+
+    assert_empty typing.errors
+
+    assert_equal Types::Name.new_instance(name: "::Integer"), type_env.lvar_types[:y]
+  end
+
+  def test_case_exhaustive_else
+    source = parse_ruby(<<EOF)
+# @type var x: String | Integer
+
+y = case (x = "")
+when String
+  3
+else
+  4
+end
+EOF
+
+    typing = Typing.new
+    annotations = source.annotations(block: source.node)
+    checker = new_subtyping_checker("")
+    const_env = ConstantEnv.new(builder: checker.builder, current_namespace: nil)
+    type_env = TypeEnv.build(annotations: annotations,
+                             subtyping: checker,
+                             const_env: const_env,
+                             signatures: checker.builder.signatures)
+
+    construction = TypeConstruction.new(checker: checker,
+                                        source: source,
+                                        annotations: annotations,
+                                        type_env: type_env,
+                                        block_context: nil,
+                                        self_type: Types::Name.new_instance(name: "::Object"),
+                                        method_context: nil,
+                                        typing: typing,
+                                        module_context: nil,
+                                        break_context: nil)
+    construction.synthesize(source.node)
+
+    assert_empty typing.errors
+
+    assert_equal Types::Name.new_instance(name: "::Integer"), type_env.lvar_types[:y]
+  end
+
 end

@@ -55,19 +55,19 @@ module Kernel
   def require: (*String) -> void
   def loop: { () -> void } -> void
   def puts: (*any) -> void
-  def eval: (String, ?Integer, ?String) -> any
+  def eval: (String, ? Integer | nil, ?String) -> any
 end
 
 class Array<'a>
   def []: (Integer) -> 'a
-        | (Integer, Integer) -> self
+        | (Integer, Integer) -> (self | nil)
   def []=: (Integer, 'a) -> 'a
          | (Integer, Integer, self) -> self
   def empty?: -> _Boolean
   def size: -> Integer
   def map: <'b> { ('a) -> 'b } -> Array<'b>
   def join: (any) -> String
-  def all?: { (any) -> any } -> _Boolean
+  def all?: { ('a) -> any } -> _Boolean
   def sort_by: { ('a) -> any } -> Array<'a>
   def zip: <'b> (Array<'b>) -> Array<any>
          | <'b, 'c> (Array<'b>) { ('a, 'b) -> 'c }-> Array<'c>
@@ -88,11 +88,11 @@ class Array<'a>
   def pack: (String, ?buffer: String) -> String
   def reverse: -> self
   def +: (self) -> self
-  def last: -> 'a
+  def last: -> ('a | nil)
   def slice!: (Integer) -> self
             | (Integer, Integer) -> self
             | (Range<Integer>) -> self
-  def first: -> 'a
+  def first: -> ('a | nil)
   def replace: (self) -> self
   def transpose: -> self
   def fill: ('a) -> self
@@ -102,7 +102,7 @@ class Array<'a>
 end
 
 class Hash<'key, 'value>
-  def []: ('key) -> 'value
+  def []: ('key) -> ('value | nil)
   def []=: ('key, 'value) -> 'value
   def size: -> Integer
   def transform_values: <'a> { ('value) -> 'a } -> Hash<'key, 'a>
@@ -252,4 +252,5 @@ class File
   def self.readable?: (String) -> _Boolean
   def self.binwrite: (String, String) -> void
   def self.read: (String) -> String
+               | (String, Integer | nil) -> (String | nil)
 end
