@@ -1207,16 +1207,16 @@ module Steep
             end
           end
 
-        when :splat
+        when :splat, :block_pass
           yield_self do
-            Steep.logger.error "Unexpected splat: splat have to be in an array"
-          end
+            Steep.logger.error "Unsupported node #{node.type}"
 
-          each_child_node node do |child|
-            synthesize(child)
-          end
+            each_child_node node do |child|
+              synthesize(child)
+            end
 
-          fallback_to_any node
+            typing.add_typing node, Types.any
+          end
 
         else
           raise "Unexpected node: #{node.inspect}, #{node.location.expression}"
