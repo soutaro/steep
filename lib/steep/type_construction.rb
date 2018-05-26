@@ -165,7 +165,7 @@ module Steep
         method_type = method.types.first
         return_type = method_type.return_type
         var_types = TypeConstruction.parameter_types(args, method_type).transform_values {|type| absolute_type(type) }
-        unless TypeConstruction.valid_parameter_env?(var_types, args, method_type.params)
+        unless TypeConstruction.valid_parameter_env?(var_types, args.reject {|arg| arg.type == :blockarg }, method_type.params)
           typing.add_error Errors::MethodArityMismatch.new(node: node)
         end
       when method
@@ -511,6 +511,12 @@ module Steep
 
             union_type(type, Types.nil_instance)
           end
+
+        when :match_with_lvasgn
+          each_child_node(node) do |child|
+            synthesize(child)
+          end
+          typing.add_typing(node, Types.any)
 
         when :op_asgn
           yield_self do
@@ -1288,7 +1294,7 @@ module Steep
             end
           end
 
-        when :splat, :block_pass
+        when :splat, :block_pass, :blockarg
           yield_self do
             Steep.logger.error "Unsupported node #{node.type}"
 
