@@ -2,149 +2,218 @@ module Steep
   module TypeInference
     class SendArgs
       attr_reader :args
-      attr_reader :rest
       attr_reader :kw_args
-      attr_reader :rest_kw
 
-      def initialize(args:, rest:, kw_args:, rest_kw:)
+      def initialize(args:, kw_args:)
         @args = args
-        @rest = rest
         @kw_args = kw_args
-        @rest_kw = rest_kw
       end
 
       def self.from_nodes(nodes)
         args = []
-        rest = nil
-        kw_args = {}
-        rest_kw = nil
+        last_hash = nil
 
-        until nodes.empty?
-          node = nodes.shift
-
-          case node.type
-          when :splat
-            rest = node.children.first
-          when :hash
-            if nodes.empty? && ((h, r) = kw_args?(node))
-              kw_args = h
-              rest_kw = r
-            else
-              if rest
-                Steep.logger.error("Non tail rest args cannot be typed")
-              end
-              args << node
-            end
-          else
-            if rest
-              Steep.logger.error("Non tail rest args cannot be typed")
-            end
-            args << node
+        nodes.each do |node|
+          if last_hash
+            args << last_hash
+            last_hash = nil
           end
 
+          case node.type
+          when :hash
+            last_hash = node
+          else
+            args << node
+          end
         end
 
-        new(args: args, rest: rest, kw_args: kw_args, rest_kw: rest_kw)
+        if last_hash
+          unless kw_args?(last_hash)
+            args << last_hash
+            last_hash = nil
+          end
+        end
+
+        new(args: args, kw_args: last_hash)
       end
 
       def self.kw_args?(node)
-        hash = {}
-        kw_splat = nil
-
-        children = node.children.dup
-
-        if children.last&.type == :kwsplat
-          kw_splat = children.pop.children.first
-        end
-
-        if children.all? {|pair| pair.children.first.type == :sym }
-          children.each do |pair|
-            key = pair.children.first.children.last
-            value = pair.children.last
-            hash[key] = value
+        node.children.all? do |child|
+          case child.type
+          when :pair
+            child.children[0].type == :sym
+          when :kwsplat
+            true
           end
+        end
+      end
 
-          [hash, kw_splat]
+      def each_keyword_arg
+        if block_given?
+          if kw_args
+            kw_args.children.each do |node|
+              if node.type == :pair
+                yield node
+              end
+            end
+          end
         else
-          nil
+          enum_for :each_keyword_arg
+        end
+      end
+
+      def kwsplat_nodes
+        if kw_args
+          kw_args.children.select do |node|
+            node.type == :kwsplat
+          end
+        else
+          []
         end
       end
 
       def zip(params)
-        [].tap do |pairs|
-          args = self.args.dup
-          ps = params.flat_unnamed_params
+        Set.new(
+          [].tap do |pairs|
+            consumed_keywords = Set.new
+            rest_types = []
 
-          while !args.empty? && !ps.empty?
-            arg = args.shift
-            (_, type) = ps.shift
+            params.required_keywords.each do |name, type|
+              if (node = each_keyword_arg.find {|pair| pair.children[0].children[0] == name })
+                pairs << [node.children[1], type]
+                consumed_keywords << name
+              else
+                if kwsplat_nodes.any?
+                  rest_types << type
+                else
+                  return
+                end
+              end
+            end
 
-            pairs << [arg, type]
-          end
+            params.optional_keywords.each do |name, type|
+              if (node = each_keyword_arg.find {|pair| pair.children[0].children[0] == name })
+                pairs << [node.children[1], type]
+                consumed_keywords << name
+              else
+                if kwsplat_nodes.any?
+                  rest_types << type
+                end
+              end
+            end
 
-          case
-          when args.empty? && !ps.empty?
-            unless rest
-              unless ps.first[0] == :optional
+            if params.rest_keywords
+              each_keyword_arg do |pair|
+                name = pair.children[0].children[0]
+                node = pair.children[1]
+
+                unless consumed_keywords.include?(name)
+                  pairs << [node, params.rest_keywords]
+                end
+              end
+
+              if kwsplat_nodes.any?
+                pairs << [kw_args,
+                          AST::Types::Name.new_instance(
+                            name: "::Hash",
+                            args: [
+                              AST::Types::Name.new_instance(name: "::Symbol"),
+                              AST::Types::Union.build(types: rest_types + [params.rest_keywords])
+                            ]
+                          )]
+              end
+            end
+
+            if params.has_keyword?
+              if !params.rest_keywords
+                if kwsplat_nodes.empty?
+                  if each_keyword_arg.any? {|pair| !consumed_keywords.include?(pair.children[0].children[0]) }
+                    return
+                  end
+                end
+              end
+            end
+
+            args = self.args.dup
+            unless params.has_keyword?
+              args << kw_args if kw_args
+            end
+
+            arg_types = {}
+
+            params.required.each do |param|
+              if args.any?
+                next_arg(args) do |arg|
+                  save_arg_type(arg, param, arg_types)
+                end
+                consume_arg(args)
+              else
                 return
               end
             end
 
-            union = AST::Types::Union.build(types: ps.map(&:last) + [params.rest])
-            array = AST::Types::Name.new_instance(name: :"::Array", args: [union])
-
-            if rest
-              pairs << [rest, array]
-            end
-
-          when !args.empty? && ps.empty?
-            if params.rest
-              args.each do |arg|
-                pairs << [arg, params.rest]
+            params.optional.each do |param|
+              next_arg(args) do |arg|
+                save_arg_type(arg, param, arg_types)
               end
+              consume_arg(args)
+            end
 
-              if rest
-                pairs << [rest, AST::Types::Name.new_instance(name: :"::Array", args: [params.rest])]
+            if args.any?
+              if params.rest
+                args.each do |arg|
+                  save_arg_type(arg, params.rest, arg_types)
+                end
+              else
+                if args.none? {|arg| arg.type == :splat }
+                  return
+                end
               end
-            else
-              return
             end
-          when args.empty? && ps.empty?
-            case
-            when rest && params.rest
-              pairs << [rest, AST::Types::Name.new_instance(name: :"::Array", args: [params.rest])]
-            end
-          end
 
-          ks = params.flat_keywords.dup
-          kw_args.each do |key, node|
-            type = ks.delete(key) || params.rest_keywords
-            if type
-              pairs << [node, type]
-            else
-              return
+            (self.args + [kw_args].compact).each do |arg|
+              types = arg_types[arg.object_id]
+
+              if types
+                if arg.type == :splat
+                  type = AST::Types::Name.new_instance(name: "::Array", args: [AST::Types::Union.build(types: types)])
+                else
+                  type = AST::Types::Union.build(types: types)
+                end
+                pairs << [arg, type]
+              end
             end
           end
+        )
+      end
 
-          if ks.any? {|name, _| params.required_keywords.key?(name) }
-            return
+      def save_arg_type(arg, type, hash)
+        if hash.key?(arg.object_id)
+          types = hash[arg.object_id]
+        else
+          types = hash[arg.object_id] = []
+        end
+
+        types << type
+      end
+
+      def next_arg(args)
+        if args.any?
+          case args[0].type
+          when :splat
+            args.each do |arg|
+              yield arg
+            end
+          else
+            yield args[0]
           end
+        end
+      end
 
-          if rest_kw
-            value_type = unless ks.empty?
-                           AST::Types::Union.build(types: ks.values + [params.rest_keywords])
-                         else
-                           params.rest_keywords
-                         end
-            hash = AST::Types::Name.new_instance(
-              name: :Hash,
-              args: [
-                AST::Types::Name.new_instance(name: :Symbol),
-                value_type
-              ]
-            )
-
-            pairs << [rest_kw, hash]
+      def consume_arg(args)
+        if args.any?
+          unless args[0].type == :splat
+            args.shift
           end
         end
       end

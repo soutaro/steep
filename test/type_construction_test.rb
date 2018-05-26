@@ -478,7 +478,7 @@ x.h()
     source = parse_ruby(<<-EOF)
 # @type var x: _C
 x = (_ = nil)
-x.h(a: nil, b: nil, c: nil)
+x.h(a: (_ = nil), b: (_ = nil), c: (_ = nil))
     EOF
 
     typing = Typing.new

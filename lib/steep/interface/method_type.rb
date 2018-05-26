@@ -148,6 +148,10 @@ module Steep
         required.all?(&:closed?) && optional.all?(&:closed?) && (!rest || rest.closed?) && required_keywords.values.all?(&:closed?) && optional_keywords.values.all?(&:closed?) && (!rest_keywords || rest_keywords.closed?)
       end
 
+      def has_keyword?
+        required_keywords.any? || optional_keywords.any? || rest_keywords
+      end
+
       def subst(s)
         self.class.new(
           required: required.map {|t| t.subst(s) },

@@ -1436,7 +1436,8 @@ module Steep
       receiver_type = receiver ? synthesize(receiver) : self_type
       arguments.each do |arg|
         if arg.type == :splat
-          synthesize(arg.children.first)
+          type = synthesize(arg.children[0])
+          typing.add_typing(arg, Types.array_instance(type))
         else
           synthesize(arg)
         end
