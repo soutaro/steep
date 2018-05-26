@@ -23,16 +23,27 @@ module Steep
         end
 
         def each_ruby_source(source_paths, verbose)
+          each_ruby_file source_paths do |file|
+            begin
+              stdout.puts "Loading Ruby program #{file}..." if verbose
+              if (source = Source.parse(file.read, path: file.to_s, labeling: labeling))
+                yield source
+              end
+            rescue => exn
+              Steep.logger.error "Error occured on parsing #{file}: #{exn.inspect}"
+            end
+          end
+        end
+
+        def each_ruby_file(source_paths)
           source_paths.each do |path|
             if path.file?
-              stdout.puts "Loading Ruby program #{path}..." if verbose
-              yield Source.parse(path.read, path: path.to_s, labeling: labeling)
+              yield path
             end
 
             if path.directory?
               each_file_in_dir(".rb", path) do |file|
-                stdout.puts "Loading Ruby program #{file}..." if verbose
-                yield Source.parse(file.read, path: file.to_s, labeling: labeling)
+                yield file
               end
             end
           end
