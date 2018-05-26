@@ -756,6 +756,12 @@ module Steep
 
           typing.add_typing(node, Types.any)
 
+        when :retry
+          unless break_context
+            typing.add_error Errors::UnexpectedJump.new(node: node)
+          end
+          typing.add_typing(node, Types.any)
+
         when :arg, :kwarg, :procarg0
           yield_self do
             var = node.children[0]
