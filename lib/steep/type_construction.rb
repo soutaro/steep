@@ -482,7 +482,7 @@ module Steep
           yield_self do
             if self_class?(node)
               module_type = module_context.module_type
-              type = if module_type.is_a?(AST::Types::Name)
+              type = if module_type.is_a?(AST::Types::Name) && module_type.name.is_a?(TypeName::Class)
                        AST::Types::Name.new(name: module_type.name.updated(constructor: method_context.constructor),
                                             args: module_type.args)
                      else
