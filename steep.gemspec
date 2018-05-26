@@ -28,6 +28,7 @@ Gem::Specification.new do |spec|
   spec.add_development_dependency "minitest", "~> 5.0"
   spec.add_development_dependency "racc", "~> 1.4"
   spec.add_development_dependency "rainbow", "~> 2.2.2"
+  spec.add_development_dependency "rubocop", "~> 0.56.0"
 
   spec.add_runtime_dependency "parser", "~> 2.4"
   spec.add_runtime_dependency "ast_utils", "~> 0.1.0"
