@@ -534,7 +534,8 @@ module Steep
                            break
                          end
                        else
-                         raise
+                         Steep.logger.error("Unexpected op_asgn lhs: #{lhs.type}")
+                         nil
                        end
 
             case
