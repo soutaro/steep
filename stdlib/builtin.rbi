@@ -59,32 +59,27 @@ module Kernel
 end
 
 class Array<'a>
+  include Enumerable<'a, self>
+
   def []: (Integer) -> 'a
         | (Integer, Integer) -> (self | nil)
   def []=: (Integer, 'a) -> 'a
          | (Integer, Integer, self) -> self
   def empty?: -> _Boolean
   def size: -> Integer
-  def map: <'b> { ('a) -> 'b } -> Array<'b>
   def join: (any) -> String
-  def all?: { ('a) -> any } -> _Boolean
-  def sort_by: { ('a) -> any } -> Array<'a>
   def zip: <'b> (Array<'b>) -> Array<any>
          | <'b, 'c> (Array<'b>) { ('a, 'b) -> 'c }-> Array<'c>
-  def each: { ('a) -> any } -> instance
-          | -> Enumerator<'a>
-  def select: { ('a) -> any } -> Array<'a>
+  def each: { ('a) -> any } -> self
+          | -> Enumerator<'a, self>
   def <<: ('a) -> instance
   def filter: { ('a) -> any } -> Array<'a>
   def *: (Integer) -> self
        | (String) -> String
-  def max: -> 'a
-  def min: -> 'a
   def -: (self) -> self
   def sort: -> self
           | { ('a, 'a) -> any } -> self
   def include?: ('a) -> any
-  def flat_map: <'b> { ('a) -> Array<'b> } -> Array<'b>
   def pack: (String, ?buffer: String) -> String
   def reverse: -> self
   def +: (self) -> self
@@ -92,13 +87,9 @@ class Array<'a>
   def slice!: (Integer) -> self
             | (Integer, Integer) -> self
             | (Range<Integer>) -> self
-  def first: -> ('a | nil)
   def replace: (self) -> self
   def transpose: -> self
   def fill: ('a) -> self
-  def grep: (any) -> self
-          | <'b> (any) { ('a) -> 'b } -> Array<'b>
-  def uniq: -> self
 end
 
 class Hash<'key, 'value>
@@ -107,7 +98,7 @@ class Hash<'key, 'value>
   def size: -> Integer
   def transform_values: <'a> { ('value) -> 'a } -> Hash<'key, 'a>
   def each_key: { ('key) -> any } -> instance
-              | -> Enumerator<'a>
+              | -> Enumerator<'a, self>
   def self.[]: (Array<any>) -> Hash<'key, 'value>
   def keys: () -> Array<'key>
 end
@@ -148,7 +139,7 @@ class Integer <: Numeric
        | (Numeric) -> Numeric
   def >>: (Integer) -> Integer
   def step: (Integer, ?Integer) { (Integer) -> any } -> self
-          | (Integer, ?Integer) -> Enumerator<Integer>
+          | (Integer, ?Integer) -> Enumerator<Integer, self>
   def times: { (Integer) -> any } -> self
   def %: (Integer) -> Integer
   def -: (Integer) -> Integer
@@ -237,9 +228,181 @@ class String
           | (Regexp) -> Array<String>
 end
 
-class Enumerator<'a>
-  def with_object: <'b> ('b) { ('a, 'b) -> any } -> 'b
-  def with_index: { ('a, Integer) -> any } -> self
+interface _Iteratable<'a, 'b>
+  def each: () { ('a) -> void } -> 'b
+end
+
+module Enumerable<'a, 'b> : _Iteratable<'a, 'b>
+  def all?: -> _Boolean
+          | { ('a) -> any } -> _Boolean
+          | (any) -> _Boolean
+
+  def any?: -> _Boolean
+          | { ('a) -> any } -> _Boolean
+          | (any) -> _Boolean
+
+  def chunk: { ('a) -> any } -> Enumerator<'a, self>
+
+  def chunk_while: { ('a, 'a) -> any } -> Enumerator<'a, 'b>
+
+  def collect: <'x> { ('a) -> 'x } -> Array<'x>
+             | <'x> -> Enumerator<'a, Array<'x>>
+
+  def map: <'x> { ('a) -> 'x } -> Array<'x>
+         | <'x> -> Enumerator<'a, Array<'x>>
+
+  def flat_map: <'x> { ('a) -> Array<'x> } -> Array<'x>
+              | <'x> -> Enumerator<'a, Array<'x>>
+
+  def collect_concat: <'x> { ('a) -> Array<'x> } -> Array<'x>
+                    | <'x> -> Enumerator<'a, Array<'x>>
+
+  def count: -> Integer
+           | (any) -> Integer
+           | { ('a) -> any } -> Integer
+
+  def cycle: (?Integer) -> Enumerator<'a, nil>
+           | (?Integer) { ('a) -> any } -> nil
+
+  def detect: ('a) { ('a) -> any } -> 'a
+            | { ('a) -> any } -> ('a | nil)
+            | -> Enumerator<'a, 'a | nil>
+            | ('a) -> Enumerator<'a, 'a>
+
+  def find: ('a) { ('a) -> any } -> 'a
+          | { ('a) -> any } -> ('a | nil)
+          | -> Enumerator<'a, 'a | nil>
+          | ('a) -> Enumerator<'a, 'a>
+
+  def drop: (Integer) -> Array<'a>
+
+  def drop_while: -> Enumerator<'a, Array<'a>>
+                | { ('a) -> any } -> Array<'a>
+
+  def each_cons: (Integer) -> Enumerator<Array<'a>, nil>
+               | (Integer) { (Array<'a>) -> any } -> nil
+
+  def each_entry: -> Enumerator<'a, self>
+                | { ('a) -> any } -> self
+
+  def each_slice: (Integer) -> Enumerator<Array<'a>, nil>
+                | (Integer) { (Array<'a>) -> any } -> nil
+
+  def each_with_index: { ('a, Integer) -> any } -> self
+
+  def each_with_object: <'x> ('x) { ('a, 'x) -> any } -> 'x
+
+  def to_a: -> Array<'a>
+  def entries: -> Array<'a>
+
+  def find_all: -> Enumerator<'a, Array<'a>>
+              | { ('a) -> any } -> Array<'a>
+  def select: -> Enumerator<'a, Array<'a>>
+            | { ('a) -> any } -> Array<'a>
+
+  def find_index: (any) -> (Integer | nil)
+                | { ('a) -> any } -> (Integer | nil)
+                | -> Enumerator<'a, Integer | nil>
+
+  def first: () -> ('a | nil)
+           | (Integer) -> Array<'a>
+
+  def grep: (any) -> Array<'a>
+          | <'x> (any) { ('a) -> 'x } -> Array<'x>
+
+  def grep_v: (any) -> Array<'a>
+            | <'x> (any) { ('a) -> 'x } -> Array<'x>
+
+  def group_by: <'x> { ('a) -> 'x } -> Hash<'x, Array<'a>>
+
+  def member?: (any) -> _Boolean
+  def include?: (any) -> _Boolean
+
+  def inject: <'x> ('x) { ('x, 'a) -> 'x } -> 'x
+            | (Symbol) -> any
+            | (any, Symbol) -> any
+            | { ('a, 'a) -> 'a } -> 'a
+
+
+  def reduce: <'x> ('x) { ('x, 'a) -> 'x } -> 'x
+            | (Symbol) -> any
+            | (any, Symbol) -> any
+            | { ('a, 'a) -> 'a } -> 'a
+
+  def max: -> ('a | nil)
+         | (Integer) -> Array<'a>
+         | { ('a, 'a) -> Integer } -> ('a | nil)
+         | (Integer) { ('a, 'a) -> Integer } -> Array<'a>
+
+  def max_by: { ('a, 'a) -> Integer } -> ('a | nil)
+            | (Integer) { ('a, 'a) -> Integer } -> Array<'a>
+
+  def min: -> ('a | nil)
+         | (Integer) -> Array<'a>
+         | { ('a, 'a) -> Integer } -> ('a | nil)
+         | (Integer) { ('a, 'a) -> Integer } -> Array<'a>
+
+  def min_by: { ('a, 'a) -> Integer } -> ('a | nil)
+            | (Integer) { ('a, 'a) -> Integer } -> Array<'a>
+
+  def min_max: -> Array<'a>
+             | { ('a, 'a) -> Integer } -> Array<'a>
+
+  def min_max_by: { ('a, 'a) -> Integer } -> Array<'a>
+
+  def none?: -> _Boolean
+           | { ('a) -> any } -> _Boolean
+           | (any) -> _Boolean
+
+  def one?: -> _Boolean
+          | { ('a) -> any } -> _Boolean
+          | (any) -> _Boolean
+
+  def partition: { ('a) -> any } -> Array<Array<'a>>
+               | -> Enumerator<'a, Array<Array<'a>>>
+
+  def reject: { ('a) -> any } -> Array<'a>
+            | -> Enumerator<'a, Array<'a>>
+
+  def reverse_each: { ('a) -> void } -> self
+                  | -> Enumerator<'a, self>
+
+  def slice_after: (any) -> Enumerator<Array<'a>, nil>
+                 | { ('a) -> any } -> Enumerator<Array<'a>, nil>
+
+  def slice_before: (any) -> Enumerator<Array<'a>, nil>
+                  | { ('a) -> any } -> Enumerator<Array<'a>, nil>
+
+  def slice_when: { ('a, 'a) -> any } -> Enumerator<Array<'a>, nil>
+
+  def sort: -> Array<'a>
+          | { ('a, 'a) -> Integer } -> Array<'a>
+
+  def sort_by: { ('a) -> any } -> Array<'a>
+             | -> Enumerator<'a, Array<'a>>
+
+  def sum: () -> Numeric
+         | (Numeric) -> Numeric
+         | (any) -> any
+         | (?any) { ('a) -> any } -> any
+
+  def take: (Integer) -> Array<'a>
+
+  def take_while: { ('a) -> any } -> Array<'a>
+                | -> Enumerator<'a, Array<'a>>
+
+
+  def to_h: -> Hash<any, any>
+
+  def uniq: -> Array<'a>
+          | { ('a) -> any } -> Array<'a>
+end
+
+class Enumerator<'a, 'b>
+  include Enumerable<'a, 'b>
+  def each: { ('a) -> any } -> 'b
+  def with_object: <'x> ('x) { ('a, 'x) -> any } -> 'x
+  def with_index: { ('a, Integer) -> any } -> 'b
 end
 
 class Regexp

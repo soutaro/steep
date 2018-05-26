@@ -10,7 +10,7 @@ hash = a.each.with_object("") do |x, y|
   hash = y
 end
 
-# !expects IncompatibleAssignment: lhs_type=::Hash<::Symbol, ::String>, rhs_type=::Enumerator<::Integer>
+# !expects IncompatibleAssignment: lhs_type=::Hash<::Symbol, ::String>, rhs_type=::Array<::Integer>
 hash = a.each.with_index do |x, y|
   # !expects IncompatibleAssignment: lhs_type=::Hash<::Symbol, ::String>, rhs_type=::Integer
   hash = x
