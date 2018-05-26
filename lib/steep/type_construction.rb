@@ -1115,7 +1115,15 @@ module Steep
 
               case
               when exn_classes && var_name
-                type_override[var_name] = AST::Types::Union.build(types: exn_types.map(&:instance_type))
+                instance_types = exn_types.map do |type|
+                  case
+                  when type.is_a?(AST::Types::Name) && type.name.is_a?(TypeName::Class)
+                    type.instance_type
+                  else
+                    Types.any
+                  end
+                end
+                type_override[var_name] = AST::Types::Union.build(types: instance_types)
               when var_name
                 type_override[var_name] = Types.any
               end
