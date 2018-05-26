@@ -4259,4 +4259,47 @@ EOF
       assert_instance_of Steep::Errors::FallbackAny, error
     end
   end
+
+  def test_splat_kw_args
+    source = parse_ruby(<<EOF)
+test = KWArgTest.new
+
+params = { a: 123 }
+test.foo(123, **params)
+test.foo(123, **123)
+EOF
+
+    typing = Typing.new
+    annotations = source.annotations(block: source.node)
+    checker = new_subtyping_checker(<<-EOF)
+class KWArgTest
+  def foo: (Integer, **String) -> void
+end
+    EOF
+    const_env = ConstantEnv.new(builder: checker.builder, current_namespace: nil)
+    type_env = TypeEnv.build(annotations: annotations,
+                             subtyping: checker,
+                             const_env: const_env,
+                             signatures: checker.builder.signatures)
+
+    construction = TypeConstruction.new(checker: checker,
+                                        source: source,
+                                        annotations: annotations,
+                                        type_env: type_env,
+                                        block_context: nil,
+                                        self_type: Types::Name.new_instance(name: "::Object"),
+                                        method_context: nil,
+                                        typing: typing,
+                                        module_context: nil,
+                                        break_context: nil)
+    construction.synthesize(source.node)
+
+    assert_equal 2, typing.errors.size
+    assert_any typing.errors do |error|
+      error.is_a?(Steep::Errors::ArgumentTypeMismatch)
+    end
+    assert_any typing.errors do |error|
+      error.is_a?(Steep::Errors::UnexpectedSplat)
+    end
+  end
 end

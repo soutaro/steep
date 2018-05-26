@@ -458,5 +458,18 @@ module Steep
         end
       end
     end
+
+    class UnexpectedSplat < Base
+      attr_reader :type
+
+      def initialize(node:, type:)
+        super(node: node)
+        @type = type
+      end
+
+      def to_s
+        "#{location_to_str}: UnexpectedSplat: type=#{type}"
+      end
+    end
   end
 end

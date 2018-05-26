@@ -807,14 +807,37 @@ module Steep
           typing.add_typing(node, AST::Types::Name.new_interface(name: :_Boolean))
 
         when :hash
-          each_child_node(node) do |pair|
-            raise "Unexpected non pair: #{pair.inspect}" unless pair.type == :pair
-            each_child_node(pair) do |e|
-              synthesize(e)
-            end
-          end
+          yield_self do
+            key_types = []
+            value_types = []
 
-          typing.add_typing(node, Types.any)
+            each_child_node(node) do |child|
+              case child.type
+              when :pair
+                key, value = child.children
+                key_types << synthesize(key)
+                value_types << synthesize(value)
+              when :kwsplat
+                splat_type = synthesize(child.children[0])
+
+                if splat_type.is_a?(AST::Types::Name) && splat_type.name == TypeName::Instance.new(name: ModuleName.parse("::Hash"))
+                  key_types << splat_type.args[0]
+                  value_types << splat_type.args[1]
+                else
+                  typing.add_error Errors::UnexpectedSplat.new(node: child, type: splat_type)
+                  key_types << Types.any
+                  value_types << Types.any
+                end
+              else
+                raise "Unexpected non pair: #{child.inspect}" unless child.type == :pair
+              end
+            end
+
+            key_type = key_types.empty? ? Types.any : AST::Types::Union.build(types: key_types)
+            value_type = value_types.empty? ? Types.any : AST::Types::Union.build(types: value_types)
+
+            typing.add_typing(node, Types.hash_instance(key_type, value_type))
+          end
 
         when :dstr
           each_child_node(node) do |child|
