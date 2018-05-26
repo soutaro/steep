@@ -5,6 +5,7 @@ require "ast_utils"
 require "active_support/core_ext/object/try"
 require "logger"
 require "active_support/tagged_logging"
+require "rainbow"
 
 require "steep/module_name"
 require "steep/ast/location"

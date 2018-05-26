@@ -8,12 +8,12 @@ module Steep
       end
 
       def location_to_str
-        "#{node.loc.expression.source_buffer.name}:#{node.loc.first_line}:#{node.loc.column}"
+        Rainbow("#{node.loc.expression.source_buffer.name}:#{node.loc.first_line}:#{node.loc.column}").red
       end
 
       def print_to(io)
         source = node.loc.expression.source
-        io.puts "#{to_s} (#{source.split(/\n/).first})"
+        io.puts "#{to_s} (#{Rainbow(source.split(/\n/).first).blue})"
       end
     end
 

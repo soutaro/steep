@@ -74,6 +74,7 @@ ARGV.each do |arg|
                                        stdout: stdout,
                                        stderr: stderr)
 
+    Rainbow.enabled = false
     driver.run
   rescue => exn
     puts "ERROR: #{exn.inspect}"
@@ -82,6 +83,8 @@ ARGV.each do |arg|
     end
 
     failed = true
+  ensure
+    Rainbow.enabled = true
   end
 
   if verbose
