@@ -1091,8 +1091,43 @@ module Steep
             body_type = synthesize(body) if body
 
             resbody_pairs = resbodies.map do |resbody|
-              resbody_construction = for_branch(resbody)
-              [resbody_construction.synthesize(resbody), resbody_construction.type_env]
+              exn_classes, assignment, body = resbody.children
+
+              if exn_classes
+                case exn_classes.type
+                when :array
+                  exn_types = exn_classes.children.map {|child| synthesize(child) }
+                else
+                  Steep.logger.error "Unexpected exception list: #{exn_classes.type}"
+                end
+              end
+
+              if assignment
+                case assignment.type
+                when :lvasgn
+                  var_name = assignment.children[0].name
+                else
+                  Steep.logger.error "Unexpected rescue variable assignment: #{assignment.type}"
+                end
+              end
+
+              type_override = {}
+
+              case
+              when exn_classes && var_name
+                type_override[var_name] = AST::Types::Union.build(types: exn_types.map(&:instance_type))
+              when var_name
+                type_override[var_name] = Types.any
+              end
+
+              resbody_construction = for_branch(resbody, type_case_override: type_override)
+
+              type = if body
+                       resbody_construction.synthesize(body)
+                     else
+                       Types.nil_instance
+                     end
+              [type, resbody_construction.type_env]
             end
             resbody_types, resbody_envs = resbody_pairs.transpose
 

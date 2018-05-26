@@ -3388,6 +3388,49 @@ rescue F
   # @type var x: String
   x = "foo"
   x + ""
+rescue
+  x = :foo
+end
+EOF
+    typing = Typing.new
+    annotations = source.annotations(block: source.node)
+    checker = new_subtyping_checker("")
+    const_env = ConstantEnv.new(builder: checker.builder, current_namespace: nil)
+    type_env = TypeEnv.build(annotations: annotations,
+                             subtyping: checker,
+                             const_env: const_env,
+                             signatures: checker.builder.signatures)
+
+    construction = TypeConstruction.new(checker: checker,
+                                        source: source,
+                                        annotations: annotations,
+                                        type_env: type_env,
+                                        block_context: nil,
+                                        self_type: nil,
+                                        method_context: nil,
+                                        typing: typing,
+                                        module_context: nil,
+                                        break_context: nil)
+    construction.synthesize(source.node)
+
+    assert_empty typing.errors
+    assert_equal Types::Union.build(types: [Types::Name.new_instance(name: "::String"),
+                                            Types::Name.new_instance(name: "::Integer"),
+                                            Types::Name.new_instance(name: "::Symbol")]),
+                 type_env.lvar_types[:x]
+  end
+
+  def test_rescue_bidning_typing
+    source = parse_ruby(<<EOF)
+# @type const E: String.class
+# @type const F: Integer.class
+
+begin
+  1 + 2
+rescue E => exn
+  exn + ""
+rescue F => exn
+  exn + 3
 end
 EOF
     typing = Typing.new
@@ -3414,7 +3457,7 @@ EOF
     assert_empty typing.errors
     assert_equal Types::Union.build(types: [Types::Name.new_instance(name: "::String"),
                                             Types::Name.new_instance(name: "::Integer")]),
-                 type_env.lvar_types[:x]
+                 type_env.lvar_types[:exn]
   end
 
   def test_type_case_case_when
