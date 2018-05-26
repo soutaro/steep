@@ -1300,7 +1300,7 @@ module Steep
             end
           end
 
-        when :splat, :block_pass, :blockarg
+        when :splat, :block_pass, :blockarg, :sclass
           yield_self do
             Steep.logger.error "Unsupported node #{node.type}"
 
