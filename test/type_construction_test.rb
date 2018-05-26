@@ -4222,4 +4222,41 @@ EOF
     assert_equal Types::Name.new_instance(name: "::Integer"), type_env.lvar_types[:y]
   end
 
+  def test_def_with_splat_kwargs
+    source = parse_ruby(<<EOF)
+# @type method f: (**String) -> any
+def f(**args)
+  args[:foo] + "hoge"
+end
+
+def g(**xs)
+end
+EOF
+
+    typing = Typing.new
+    annotations = source.annotations(block: source.node)
+    checker = new_subtyping_checker("")
+    const_env = ConstantEnv.new(builder: checker.builder, current_namespace: nil)
+    type_env = TypeEnv.build(annotations: annotations,
+                             subtyping: checker,
+                             const_env: const_env,
+                             signatures: checker.builder.signatures)
+
+    construction = TypeConstruction.new(checker: checker,
+                                        source: source,
+                                        annotations: annotations,
+                                        type_env: type_env,
+                                        block_context: nil,
+                                        self_type: Types::Name.new_instance(name: "::Object"),
+                                        method_context: nil,
+                                        typing: typing,
+                                        module_context: nil,
+                                        break_context: nil)
+    construction.synthesize(source.node)
+
+    assert_equal 1, typing.errors.size
+    typing.errors[0].yield_self do |error|
+      assert_instance_of Steep::Errors::FallbackAny, error
+    end
+  end
 end

@@ -349,6 +349,11 @@ class Array<'a>
   def each_with_object: <'b> ('b) { ('a, 'b) -> any } -> 'b
 end
 
+class Hash<'a, 'b>
+  def []: ('a) -> 'b
+  def []=: ('a, 'b) -> 'b
+end
+
 class NilClass
 end
   EOS

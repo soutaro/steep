@@ -23,6 +23,10 @@ module Steep
         AST::Types::Name.new_instance(name: "::Array", args: [type])
       end
 
+      def hash_instance(key, value)
+        AST::Types::Name.new_instance(name: "::Hash", args: [key, value])
+      end
+
       def range_instance(type)
         AST::Types::Name.new_instance(name: "::Range", args: [type])
       end
@@ -768,6 +772,17 @@ module Steep
             type = type_env.get(lvar: var.name) do
               typing.add_error Errors::FallbackAny.new(node: node)
               Types.array_instance(Types.any)
+            end
+
+            typing.add_typing(node, type)
+          end
+
+        when :kwrestarg
+          yield_self do
+            var = node.children[0]
+            type = type_env.get(lvar: var.name) do
+              typing.add_error Errors::FallbackAny.new(node: node)
+              Types.hash_instance(Types.symbol_instance, Types.any)
             end
 
             typing.add_typing(node, type)
@@ -1863,13 +1878,7 @@ module Steep
         if node.type == :kwrestarg
           ty = type.params.rest_keywords
           if ty
-            env[node.children[0]] = Types::Name.instance(
-              name: "::Hash",
-              params: [
-                Types::Name.instance(name: :Symbol),
-                ty
-              ]
-            )
+            env[node.children[0]] = Types.hash_instance(Types.symbol_instance, ty)
           end
         end
       end
