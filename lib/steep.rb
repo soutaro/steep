@@ -71,6 +71,10 @@ require "steep/drivers/validate"
 require "steep/drivers/annotations"
 require "steep/drivers/scaffold"
 
+if ENV["NO_COLOR"]
+  Rainbow.enabled = false
+end
+
 module Steep
   def self.logger
     unless @logger
