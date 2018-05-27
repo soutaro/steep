@@ -457,7 +457,9 @@ class TypeEnvTest < Minitest::Test
       AST::Annotation::ConstType.new(name: ModuleName.parse("Foo"), type: AST::Types::Name.new_instance(name: "::Integer")),
       AST::Annotation::ReturnType.new(type: AST::Types::Name.new_instance(name: :Z)),
       AST::Annotation::BlockType.new(type: AST::Types::Name.new_instance(name: :A)),
-      AST::Annotation::Dynamic.new(name: :path, kind: :instance)
+      AST::Annotation::Dynamic.new(names: [
+        AST::Annotation::Dynamic::Name.new(name: :path, kind: :instance)
+      ])
     ])
 
     subtyping = new_subtyping_checker(<<EOF)

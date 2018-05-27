@@ -47,7 +47,9 @@ module Steep
             when IvarType
               ivar_types[annotation.name] = annotation.type
             when Dynamic
-              dynamics[annotation.name] = annotation
+              annotation.names.each do |name|
+                dynamics[name.name] = name
+              end
             when BreakType
               @break_type = annotation.type
             else

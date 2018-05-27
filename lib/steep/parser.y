@@ -470,21 +470,28 @@ annotation: AT_TYPE VAR subject COLON type {
               name = AST::Annotation::Implements::Module.new(name: val[1].value, args: args)
               result = AST::Annotation::Implements.new(name: name, location: loc)
             }
-          | AT_DYNAMIC method_name {
-              loc = val.first.location + val.last.location
-              result = AST::Annotation::Dynamic.new(name: val[1].value, location: loc, kind: :instance)
-            }
-          | AT_DYNAMIC SELF DOT method_name {
-             loc = val.first.location + val.last.location
-             result = AST::Annotation::Dynamic.new(name: val[3].value, location: loc, kind: :module)
-           }
-           | AT_DYNAMIC SELFQ DOT method_name {
-             loc = val.first.location + val.last.location
-             result = AST::Annotation::Dynamic.new(name: val[3].value, location: loc, kind: :module_instance)
+          | AT_DYNAMIC dynamic_names {
+             loc = val[0].location + val[1].last.location
+             result = AST::Annotation::Dynamic.new(names: val[1], location: loc)
            }
           | AT_TYPE BREAK COLON type {
              loc = val.first.location + val.last.location
              result = AST::Annotation::BreakType.new(type: val[3], location: loc)
+           }
+
+dynamic_names: dynamic_name COMMA dynamic_names { result = [val[0]] + val[2] }
+             | dynamic_name { result = val }
+
+dynamic_name: method_name {
+             result = AST::Annotation::Dynamic::Name.new(name: val[0].value, location: val[0].location, kind: :instance)
+           }
+           | SELF DOT method_name {
+             loc = val.first.location + val.last.location
+             result = AST::Annotation::Dynamic::Name.new(name: val[2].value, location: loc, kind: :module)
+           }
+           | SELFQ DOT method_name {
+             loc = val.first.location + val.last.location
+             result = AST::Annotation::Dynamic::Name.new(name: val[2].value, location: loc, kind: :module_instance)
            }
 
 subject: IDENT { result = val[0] }
@@ -517,7 +524,8 @@ end
 
 def self.parse_annotation_opt(input, buffer:, offset: 0)
   new(:ANNOTATION, input: input, buffer: buffer, offset: offset).do_parse
-rescue
+rescue => exn
+  Steep.logger.debug "Parsing comment failed: #{exn.inspect}"
   nil
 end
 

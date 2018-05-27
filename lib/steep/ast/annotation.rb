@@ -86,29 +86,44 @@ module Steep
       end
 
       class Dynamic
-        attr_reader :location
-        attr_reader :kind
-        attr_reader :name
+        class Name
+          attr_reader :kind
+          attr_reader :name
+          attr_reader :location
 
-        def initialize(name:, location: nil, kind:)
+          def initialize(name:, kind:, location: nil)
+            @name = name
+            @kind = kind
+            @location = location
+          end
+
+          def instance_method?
+            kind == :instance || kind == :module_instance
+          end
+
+          def module_method?
+            kind == :module || kind == :module_instance
+          end
+
+          def ==(other)
+            other.is_a?(Name) &&
+              other.name == name &&
+              other.kind == kind
+          end
+        end
+
+        attr_reader :location
+        attr_reader :names
+
+        def initialize(names:, location: nil)
           @location = location
-          @name = name
-          @kind = kind
+          @names = names
         end
 
         def ==(other)
           other.is_a?(Dynamic) &&
-            other.name == name &&
-            (!other.location || location || other.location == location) &&
-            other.kind == kind
-        end
-
-        def instance_method?
-          kind == :instance || kind == :module_instance
-        end
-
-        def module_method?
-          kind == :module || kind == :module_instance
+            other.names == names &&
+            (!other.location || location || other.location == location)
         end
       end
     end
