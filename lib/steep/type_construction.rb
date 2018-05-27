@@ -30,6 +30,10 @@ module Steep
       def range_instance(type)
         AST::Types::Name.new_instance(name: "::Range", args: [type])
       end
+
+      def boolean?(type)
+        type == AST::Types::Name.new_interface(name: :_Boolean)
+      end
     end
 
     class MethodContext
@@ -1011,7 +1015,7 @@ module Steep
         when :and
           yield_self do
             left, right = node.children
-            synthesize(left)
+            left_type = synthesize(left)
 
             truthy_vars = TypeConstruction.truthy_variables(left)
             right_type, right_env = for_branch(right, truthy_vars: truthy_vars).yield_self do |constructor|
@@ -1021,7 +1025,12 @@ module Steep
 
             type_env.join!([right_env, TypeInference::TypeEnv.new(subtyping: checker,
                                                                   const_env: nil)])
-            typing.add_typing(node, union_type(right_type, Types.nil_instance))
+
+            if Types.boolean?(left_type)
+              typing.add_typing(node, union_type(left_type, right_type))
+            else
+              typing.add_typing(node, union_type(right_type, Types.nil_instance))
+            end
           end
 
         when :or
