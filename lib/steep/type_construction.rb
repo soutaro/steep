@@ -553,7 +553,12 @@ module Steep
 
               if op_method
                 args = TypeInference::SendArgs.from_nodes([rhs])
-                return_type_or_error = type_method_call(node, method: op_method, args: args, block_params: nil, block_body: nil)
+                return_type_or_error = type_method_call(node,
+                                                        receiver_type: lhs_type,
+                                                        method: op_method,
+                                                        args: args,
+                                                        block_params: nil,
+                                                        block_body: nil)
 
                 if return_type_or_error.is_a?(Errors::Base)
                   typing.add_error return_type_or_error
@@ -590,7 +595,12 @@ module Steep
                 super_method = method_context.super_method
                 args = TypeInference::SendArgs.from_nodes(node.children.dup)
 
-                return_type_or_error = type_method_call(node, method: super_method, args: args, block_params: nil, block_body: nil)
+                return_type_or_error = type_method_call(node,
+                                                        receiver_type: self_type,
+                                                        method: super_method,
+                                                        args: args,
+                                                        block_params: nil,
+                                                        block_body: nil)
 
                 if return_type_or_error.is_a?(Errors::Base)
                   fallback_to_any node do
@@ -1510,7 +1520,8 @@ module Steep
                                                     method: method,
                                                     args: args,
                                                     block_params: block_params,
-                                                    block_body: block_body)
+                                                    block_body: block_body,
+                                                    receiver_type: receiver_type)
 
             if return_type_or_error.is_a?(Errors::Base)
               fallback_to_any node do
@@ -1532,20 +1543,21 @@ module Steep
       end
     end
 
-    def type_method_call(node, method:, args:, block_params:, block_body:)
+    def type_method_call(node, receiver_type:, method:, args:, block_params:, block_body:)
       results = method.types.map do |method_type|
         Steep.logger.tagged method_type.location&.source do
           arg_pairs = args.zip(method_type.params)
 
           if arg_pairs
             try_method_type(node,
+                            receiver_type: receiver_type,
                             method_type: method_type,
                             arg_pairs: arg_pairs,
                             block_params: block_params,
                             block_body: block_body)
           else
             Steep.logger.debug(node.inspect)
-            Errors::IncompatibleArguments.new(node: node, method_type: method_type)
+            Errors::IncompatibleArguments.new(node: node, receiver_type: receiver_type, method_type: method_type)
           end
         end
       end
@@ -1559,7 +1571,7 @@ module Steep
       end
     end
 
-    def try_method_type(node, method_type:, arg_pairs:, block_params:, block_body:)
+    def try_method_type(node, receiver_type:, method_type:, arg_pairs:, block_params:, block_body:)
       fresh_types = method_type.type_params.map {|x| AST::Types::Var.fresh(x) }
       fresh_vars = Set.new(fresh_types.map(&:name))
       instantiation = Interface::Substitution.build(method_type.type_params, fresh_types)
@@ -1578,6 +1590,7 @@ module Steep
           checker.check(relation, constraints: constraints).else do |result|
             return Errors::ArgumentTypeMismatch.new(
               node: arg_node,
+              receiver_type: receiver_type,
               expected: relation.super_type,
               actual: relation.sub_type
             )

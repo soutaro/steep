@@ -3,7 +3,7 @@
 a = []
 a[1] = 3
 
-# !expects ArgumentTypeMismatch: expected=::Integer, actual=::String
+# !expects ArgumentTypeMismatch: receiver=::Array<::Integer>, expected=::Integer, actual=::String
 a[2] = "foo"
 
 # @type var i: Integer

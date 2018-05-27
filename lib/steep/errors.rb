@@ -60,15 +60,17 @@ module Steep
 
     class IncompatibleArguments < Base
       attr_reader :node
+      attr_reader :receiver_type
       attr_reader :method_type
 
-      def initialize(node:, method_type:)
+      def initialize(node:, receiver_type:, method_type:)
         super(node: node)
+        @receiver_type = receiver_type
         @method_type = method_type
       end
 
       def to_s
-        "#{location_to_str}: IncompatibleArguments: method_type=#{method_type}"
+        "#{location_to_str}: IncompatibleArguments: receiver=#{receiver_type}, method_type=#{method_type}"
       end
     end
 
@@ -76,15 +78,17 @@ module Steep
       attr_reader :node
       attr_reader :expected
       attr_reader :actual
+      attr_reader :receiver_type
 
-      def initialize(node:, expected:, actual:)
+      def initialize(node:, receiver_type:, expected:, actual:)
         super(node: node)
+        @receiver_type = receiver_type
         @expected = expected
         @actual = actual
       end
 
       def to_s
-        "#{location_to_str}: ArgumentTypeMismatch: expected=#{expected}, actual=#{actual}"
+        "#{location_to_str}: ArgumentTypeMismatch: receiver=#{receiver_type}, expected=#{expected}, actual=#{actual}"
       end
     end
 

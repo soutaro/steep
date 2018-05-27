@@ -16,7 +16,7 @@ a = begin
 def foo(a)
   10
 ensure
-  # !expects ArgumentTypeMismatch: expected=::Integer, actual=::String
+  # !expects ArgumentTypeMismatch: receiver=::Integer, expected=::Integer, actual=::String
   1 + '1'
   a
 end

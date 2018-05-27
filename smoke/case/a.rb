@@ -14,7 +14,7 @@ a = case 1
     end
 
 a = case
-    # !expects ArgumentTypeMismatch: expected=::Integer, actual=::String
+    # !expects ArgumentTypeMismatch: receiver=::Integer, expected=::Integer, actual=::String
     when 1+"a"
       (_ = nil)
     end
