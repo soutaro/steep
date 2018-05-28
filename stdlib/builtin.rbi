@@ -31,6 +31,8 @@ class Module
   def extend: (Module) -> any
   def attr_accessor: (*Symbol) -> any
   def attr_writer: (*Symbol) -> any
+  def include: (Module) -> _Boolean
+  def prepend: (Module) -> _Boolean
 end
 
 class Method
@@ -48,8 +50,6 @@ module Kernel
            | (*any) -> any
 
   def block_given?: -> _Boolean
-  def include: (Module) -> _Boolean
-  def prepend: (Module) -> _Boolean
   def enum_for: (Symbol, *any) -> any
   def require_relative: (*String) -> void
   def require: (*String) -> void
@@ -61,35 +61,159 @@ end
 class Array<'a>
   include Enumerable<'a, self>
 
-  def []: (Integer) -> 'a
-        | (Integer, Integer) -> (self | nil)
-  def []=: (Integer, 'a) -> 'a
-         | (Integer, Integer, self) -> self
-  def empty?: -> _Boolean
-  def size: -> Integer
-  def join: (any) -> String
-  def zip: <'b> (Array<'b>) -> Array<any>
-         | <'b, 'c> (Array<'b>) { ('a, 'b) -> 'c }-> Array<'c>
-  def each: { ('a) -> any } -> self
-          | -> Enumerator<'a, self>
-  def <<: ('a) -> instance
-  def filter: { ('a) -> any } -> Array<'a>
+  def initialize: (?Integer, ?'a) -> any
+                | (self) -> any
+                | (Integer) { (Integer) -> 'a } -> any
+
   def *: (Integer) -> self
        | (String) -> String
   def -: (self) -> self
-  def sort: -> self
-          | { ('a, 'a) -> any } -> self
-  def include?: ('a) -> any
-  def pack: (String, ?buffer: String) -> String
-  def reverse: -> self
   def +: (self) -> self
-  def last: -> ('a | nil)
-  def slice!: (Integer) -> self
-            | (Integer, Integer) -> self
-            | (Range<Integer>) -> self
-  def replace: (self) -> self
-  def transpose: -> self
+  def <<: ('a) -> self
+
+  def []: (Integer) -> 'a
+        | (Range<Integer>) -> (self | nil)
+        | (Integer, Integer) -> (self | nil)
+  def at: (Integer) -> 'a
+        | (Range<Integer>) -> (self | nil)
+        | (Integer, Integer) -> (self | nil)
+  def []=: (Integer, 'a) -> 'a
+         | (Integer, Integer, 'a) -> 'a
+         | (Integer, Integer, self) -> self
+         | (Range<Integer>, 'a) -> 'a
+         | (Range<Integer>, self) -> self
+
+  def push: (*'a) -> self
+  def append: (*'a) -> self
+
+  def clear: -> self
+
+  def collect!: { ('a) -> 'a } -> self
+              | -> Enumerator<'a, self>
+  def map!: { ('a) -> 'a } -> self
+          | -> Enumerator<'a, self>
+
+  def combination: (?Integer) { (self) -> any } -> Array<self>
+                 | (?Integer) -> Enumerator<self, Array<self>>
+
+  def empty?: -> _Boolean
+  def compact: -> self
+  def compact!: -> (self | nil)
+  def concat: (*Array<'a>) -> self
+            | (*'a) -> self
+  def delete: ('a) -> ('a | nil)
+            | <'x> ('a) { ('a) -> any } -> ('a | 'x)
+  def delete_at: (Integer) -> ('a | nil)
+  def delete_if: { ('a) -> any } -> self
+               | -> Enumerator<'a, self>
+  def reject!: { ('a) -> any } -> (self | nil)
+             | -> Enumerator<'a, self | nil>
+  def dig: (Integer, any) -> any
+  def each: { ('a) -> any } -> self
+          | -> Enumerator<'a, self>
+  def each_index: { (Integer) -> any } -> self
+                | -> Enumerator<Integer, self>
+  def fetch: (Integer) -> 'a
+           | (Integer, 'a) -> 'a
+           | (Integer) { (Integer) -> 'a } -> 'a
   def fill: ('a) -> self
+          | { (Integer) -> 'a } -> self
+          | ('a, Integer, ?Integer|nil) -> self
+          | ('a, Range<Integer>) -> self
+          | (Integer, ?Integer|nil) { (Integer) -> 'a} -> self
+          | (Range<Integer>) { (Integer) -> 'a } -> self
+
+  def find_index: ('a) -> (Integer | nil)
+                | { ('a) -> any } -> (Integer | nil)
+                | -> Enumerator<'a, Integer | nil>
+
+  def index: ('a) -> (Integer | nil)
+           | { ('a) -> any } -> (Integer | nil)
+           | -> Enumerator<'a, Integer | nil>
+
+  def flatten: (?Integer | nil) -> Array<any>
+  def flatten!: (?Integer | nil) -> (self | nil)
+
+  def insert: (Integer, *'a) -> self
+
+  def join: (any) -> String
+
+  def keep_if: { ('a) -> any } -> self
+             | -> Enumerator<'a, self>
+
+  def last: -> ('a | nil)
+          | (Integer) -> self
+
+  def length: -> Integer
+  def size: -> Integer
+
+  def pack: (String, ?buffer: String) -> String
+
+  def permutation: (?Integer) { (self) -> any } -> Array<self>
+                 | (?Integer) -> Enumerator<self, Array<self>>
+
+  def pop: -> ('a | nil)
+         | (Integer) -> self
+
+  def unshift: (*'a) -> self
+  def prepend: (*'a) -> self
+
+  def product: (*Array<'a>) -> Array<Array<'a>>
+             | (*Array<'a>) { (Array<'a>) -> any } -> self
+
+  def rassoc: (any) -> any
+
+  def repeated_combination: (Integer) { (self) -> any } -> self
+                          | (Integer) -> Enumerator<self, self>
+
+  def repeated_permutation: (Integer) { (self) -> any } -> self
+                          | (Integer) -> Enumerator<self, self>
+
+  def replace: (self) -> self
+
+  def reverse: -> self
+  def reverse!: -> self
+
+  def rindex: ('a) -> (Integer | nil)
+            | { ('a) -> any } -> (Integer | nil)
+            | -> Enumerator<'a, Integer | nil>
+
+  def rotate: (?Integer) -> self
+
+  def rotate!: (?Integer) -> self
+
+  def sample: (?random: any) -> ('a | nil)
+            | (Integer, ?random: any) -> self
+
+  def select!: -> Enumerator<'a, self>
+             | { ('a) -> any } -> self
+
+  def shift: -> ('a | nil)
+           | (Integer) -> self
+
+  def shuffle: (?random: any) -> self
+
+  def shuffle!: (?random: any) -> self
+
+  def slice: (Integer) -> ('a | nil)
+           | (Integer, Integer) -> (self | nil)
+           | (Range<Integer>) -> (self | nil)
+
+  def slice!: (Integer) -> ('a | nil)
+            | (Integer, Integer) -> (self | nil)
+            | (Range<Integer>) -> (self | nil)
+
+  def to_h: -> Hash<any, any>
+
+  def transpose: -> self
+
+  def uniq!: -> (self | nil)
+           | { ('a) -> any } -> (self | nil)
+
+  def values_at: (*Integer | Range<Integer>) -> self
+
+  def zip: <'x> (Array<'x>) -> Array<any>
+         | <'x, 'y> (Array<'x>) { ('a, 'x) -> 'y }-> Array<'y>
 end
 
 class Hash<'key, 'value>
