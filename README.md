@@ -4,9 +4,7 @@
 
 Install via RubyGems.
 
-    $ gem install steep --pre
-
-Note that Steep is not released yet (pre-released). Add `--pre` for `gem install`.
+    $ gem install steep
 
 ### Requirements
 
@@ -17,59 +15,169 @@ Steep requires Ruby 2.5.
 Steep does not infer types from Ruby programs, but requires declaring types and writing annotations.
 You have to go on the following three steps.
 
-### 1. Declare Signatures
+### 1. Declare Types
 
-Declare signatures in `.rbi` files.
+Declare types in `.rbi` files in `sig` directory.
 
 ```
-interface _Foo {
-  def do_something: (String) -> any
-}
+class Person
+  @name: String
+  @contacts: Array<Email | Phone>
 
-module Fooable : _Foo {
-  def foo: (Array<String>) { (String) -> String } -> any
-}
-
-class SuperFoo {
-  include Fooable
-
+  def initialize: (name: String) -> any
   def name: -> String
-  def do_something: (String) -> any
-  def bar: (?Symbol, size: Integer) -> Symbol
-}
+  def contacts: -> Array<Email | Phone>
+  def guess_country: -> (String | nil)
+end
+
+class Email
+  @address: String
+
+  def initialize: (address: String) -> any
+  def address: -> String
+end
+
+class Phone
+  @country: String
+  @number: String
+
+  def initialize: (country: String, number: String) -> any
+  def country: -> String
+  def number: -> String
+
+  def self.countries: -> Hash<String, String>
+end
 ```
 
-### 2. Annotate Ruby Code
+* You can use simple *generics*, like `Hash<String, String>`.
+* You can use *union types*, like `Email | Phone`.
+* You have to declare not only public methods but also private methods and instance variables.
+* You can declare *singleton methods*, like `self.countries`.
+* There is `nil` type to represent *nullable* types.
 
-Write annotations to your Ruby code.
+### 2. Write Ruby Code
+
+Write Ruby code with annotations.
 
 ```rb
-class Foo
-  # @implements SuperFoo
-  # @type const Helper: FooHelper
+class Person
+  # `@dynamic` annotation is to tell steep that
+  # the `name` and `contacts` methods are defined without def syntax.
+  # (Steep can skip checking if the methods are implemented.)
 
-  # @dynamic name
+  # @dynamic name, contacts
   attr_reader :name
+  attr_reader :contacts
 
-  def do_something(string)
-    # ...
+  def initialize(name:)
+    @name = name
+    @contacts = []
   end
 
-  def bar(symbol = :default, size:)
-    Helper.run_bar(symbol, size: size)
+  def guess_country()
+    contacts.map do |contact|
+      # With case expression, simple type-case is implemented.
+      # `contact` has type of `Phone | Email` but in the `when` clause, contact has type of `Phone`.
+      case contact
+      when Phone
+        contact.country
+      end
+    end.compact.first
+  end
+end
+
+class Email
+  # @dynamic address
+  attr_reader :address
+
+  def initialize(address:)
+    @address = address
+  end
+
+  def ==(other)
+    # `other` has type of `any`, which means type checking is skipped.
+    # No type errors can be detected in this method.
+    other.is_a?(self.class) && other.address == address
+  end
+
+  def hash
+    self.class.hash ^ address.hash
+  end
+end
+
+class Phone
+  # @dynamic country, number
+
+  def initialize(country:, number:)
+    @country = country
+    @number = number
+  end
+
+  def ==(other)
+    # You cannot use `case` for type case because `other` has type of `any`, not a union type.
+    # You have to explicitly declare the type of `other` in `if` expression.
+
+    if other.is_a?(Phone)
+      # @type var other: Phone
+      other.country == country && other.number == number
+    end
+  end
+
+  def hash
+    self.class.hash ^ country.hash ^ number.hash
   end
 end
 ```
 
 ### 3. Type Check
 
-Run `steep check` command to type check.
+Run `steep check` command to type check. 💡
 
 ```
-$ steep check lib/foo.rb
-foo.rb:41:18: NoMethodError: type=FooHelper, method=run_bar
-foo.rb:42:24: NoMethodError: type=String, method==~
+$ steep check lib
+lib/phone.rb:46:0: MethodDefinitionMissing: module=::Phone, method=self.countries (class Phone)
 ```
+
+You now find `Phone.countries` method is not implemented yet. 🙃
+
+## Scaffolding
+
+You can use `steep scaffold` command to generate a signature declaration.
+
+```
+$ steep scaffold lib/*.rb
+class Person
+  @name: any
+  @contacts: Array<any>
+  def initialize: (name: any) -> Array<any>
+  def guess_country: () -> any
+end
+
+class Email
+  @address: any
+  def initialize: (address: any) -> any
+  def ==: (any) -> any
+  def hash: () -> any
+end
+
+class Phone
+  @country: any
+  @number: any
+  def initialize: (country: any, number: any) -> any
+  def ==: (any) -> void
+  def hash: () -> any
+end
+```
+
+It prints all methods, classes, instance variables, and constants.
+It can be a good starting point to writing signatures.
+
+Because it just prints all `def`s, you may find some odd points:
+
+* The type of `initialize` in `Person` looks strange.
+* There are no `attr_reader` methods extracted.
+
+Generally, these are by our design.
 
 ## Commandline
 
@@ -85,7 +193,7 @@ If you don't specify `-I` option, it assumes `sig` directory.
 
 ### Detecting Fallback
 
-When Steep finds a node which cannot be typed, it assumes the type of the node is *any*.
+When Steep finds an expression which cannot be typed, it assumes the type of the node is *any*.
 *any* type does not raise any type error so that fallback to *any* may hide some type errors.
 
 Using `--fallback-any-is-error` option prints the fallbacks.
@@ -99,6 +207,11 @@ When you are debugging, printing all types of all node in the source code may he
 Use `--dump-all-types` for that.
 
     $ steep check --dump-all-types test.rb
+
+### Verbose option
+
+Try `-v` option to report more information about type checking.
+
 
 ## Examples
 
