@@ -1984,46 +1984,56 @@ module Steep
 
     def validate_method_definitions(node, module_name)
       signature = checker.builder.signatures.find_class_or_module(module_name.name)
+      expected_instance_method_names = Set.new()
+      expected_module_method_names = Set.new
 
       signature.members.each do |member|
-        if member.is_a?(AST::Signature::Members::Method)
+        case member
+        when AST::Signature::Members::Method
           if member.instance_method?
-            case
-            when module_context.defined_instance_methods.include?(member.name)
-              # ok
-            when annotations.dynamics[member.name]&.instance_method?
-              # ok
-            else
-              typing.add_error Errors::MethodDefinitionMissing.new(node: node,
-                                                                   module_name: module_name.name,
-                                                                   kind: :instance,
-                                                                   missing_method: member.name)
-            end
+            expected_instance_method_names << member.name
           end
-
           if member.module_method?
-            case
-            when module_context.defined_module_methods.include?(member.name)
-              # ok
-            when annotations.dynamics[member.name]&.module_method?
-              # ok
-            else
-              typing.add_error Errors::MethodDefinitionMissing.new(node: node,
-                                                                   module_name: module_name.name,
-                                                                   kind: :module,
-                                                                   missing_method: member.name)
-            end
+            expected_module_method_names << member.name
           end
+        when AST::Signature::Members::Attr
+          expected_instance_method_names << member.name
+          expected_instance_method_names << "#{member.name}=".to_sym if member.accessor?
+        end
+      end
+
+      expected_instance_method_names.each do |method_name|
+        case
+        when module_context.defined_instance_methods.include?(method_name)
+          # ok
+        when annotations.dynamics[method_name]&.instance_method?
+          # ok
+        else
+          typing.add_error Errors::MethodDefinitionMissing.new(node: node,
+                                                               module_name: module_name.name,
+                                                               kind: :instance,
+                                                               missing_method: method_name)
+        end
+      end
+      expected_module_method_names.each do |method_name|
+        case
+        when module_context.defined_module_methods.include?(method_name)
+          # ok
+        when annotations.dynamics[method_name]&.module_method?
+          # ok
+        else
+          typing.add_error Errors::MethodDefinitionMissing.new(node: node,
+                                                               module_name: module_name.name,
+                                                               kind: :module,
+                                                               missing_method: method_name)
         end
       end
 
       annotations.dynamics.each do |method_name, annotation|
-        method_signature = signature.members.find {|sig| sig.is_a?(AST::Signature::Members::Method) && sig.name == method_name }
-
         case
-        when annotation.module_method? && method_signature&.module_method?
+        when annotation.module_method? && expected_module_method_names.member?(method_name)
           # ok
-        when annotation.instance_method? && method_signature&.instance_method?
+        when annotation.instance_method? && expected_instance_method_names.member?(method_name)
           # ok
         else
           typing.add_error Errors::UnexpectedDynamicMethod.new(node: node,
