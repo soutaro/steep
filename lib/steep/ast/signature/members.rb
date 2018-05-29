@@ -65,6 +65,30 @@ module Steep
             @type = type
           end
         end
+
+        class Attr
+          attr_reader :location
+          attr_reader :kind
+          attr_reader :name
+          attr_reader :ivar
+          attr_reader :type
+
+          def initialize(location:, kind:, name:, ivar:, type:)
+            @location = location
+            @kind = kind
+            @name = name
+            @ivar = ivar
+            @type = type
+          end
+
+          def reader?
+            kind == :reader
+          end
+
+          def accessor?
+            kind == :accessor
+          end
+        end
       end
     end
   end

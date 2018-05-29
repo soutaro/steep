@@ -358,6 +358,45 @@ module Steep
           when AST::Signature::Members::Ivar
             merge_ivars(ivar_chains,
                         { member.name => absolute_type(member.type, current: sig.name) })
+          when AST::Signature::Members::Attr
+            if member.ivar != false
+              ivar_name = member.ivar || "@#{member.name}".to_sym
+              merge_ivars(ivar_chains,
+                          { ivar_name => absolute_type(member.type, current: sig.name) })
+            end
+
+            reader_method = AST::Signature::Members::Method.new(
+              location: member.location,
+              name: member.name,
+              kind: :instance,
+              types: [
+                AST::MethodType.new(location: member.type.location,
+                                    type_params: nil,
+                                    params: nil,
+                                    block: nil,
+                                    return_type: member.type)
+              ],
+              attributes: []
+            )
+            add_method(type_name, reader_method, methods: methods)
+
+            if member.accessor?
+              writer_method = AST::Signature::Members::Method.new(
+                location: member.location,
+                name: "#{member.name}=".to_sym,
+                kind: :instance,
+                types: [
+                  AST::MethodType.new(location: member.type.location,
+                                      type_params: nil,
+                                      params: AST::MethodType::Params::Required.new(location: member.type.location,
+                                                                                    type: member.type),
+                                      block: nil,
+                                      return_type: member.type)
+                ],
+                attributes: []
+              )
+              add_method(type_name, writer_method, methods: methods)
+            end
           end
         end
 

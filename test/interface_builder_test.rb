@@ -802,4 +802,60 @@ end
       end
     end
   end
+
+  def test_attributes
+    sigs = parse_signature(<<-EOF)
+class BasicObject
+end
+
+class Object <: BasicObject
+end
+
+class String
+end
+
+class Class
+end
+
+class Integer
+end
+
+class Module <: Class
+end
+
+class Hello
+  attr_reader name: String
+  attr_reader phone (): String
+  attr_accessor address (@contact): String
+end
+    EOF
+
+    env = Signature::Env.new
+    sigs.each do |sig|
+      env.add sig
+    end
+
+    builder = Builder.new(signatures: env)
+
+    klass = env.find_class(ModuleName.parse(:Hello))
+    interface = builder.instance_to_interface(klass, with_initialize: false)
+
+    assert_instance_of Interface::Abstract, interface
+    assert_equal Types::Name.new_instance(name: "::String"), interface.ivars[:@name]
+    assert_nil interface.ivars[:@phone]
+    assert_equal Types::Name.new_instance(name: "::String"), interface.ivars[:@contact]
+
+    interface.methods[:name].yield_self do |method|
+      assert_equal ["() -> ::String"], method.types.map(&:to_s)
+    end
+    interface.methods[:phone].yield_self do |method|
+      assert_equal ["() -> ::String"], method.types.map(&:to_s)
+    end
+    interface.methods[:address].yield_self do |method|
+      assert_equal ["() -> ::String"], method.types.map(&:to_s)
+    end
+    interface.methods[:address=].yield_self do |method|
+      assert_equal ["(::String) -> ::String"], method.types.map(&:to_s)
+    end
+  end
 end

@@ -293,6 +293,8 @@ class_member: instance_method_member
             | include_member
             | extend_member
             | ivar_member
+            | attr_reader_member
+            | attr_accessor_member
 
 ivar_member: IVAR_NAME COLON type {
                loc = val.first.location + val.last.location
@@ -353,6 +355,18 @@ extend_member: EXTEND module_name {
                  name = val[1].value
                  result = AST::Signature::Members::Extend.new(name: name, location: loc, args: val[3])
                }
+attr_reader_member: ATTR_READER method_name attr_ivar_opt COLON type {
+                      loc = val.first.location + val.last.location
+                      result = AST::Signature::Members::Attr.new(location: loc, name: val[1].value, kind: :reader, ivar: val[2], type: val[4])
+                    }
+attr_accessor_member: ATTR_ACCESSOR method_name attr_ivar_opt COLON type {
+                        loc = val.first.location + val.last.location
+                        result = AST::Signature::Members::Attr.new(location: loc, name: val[1].value, kind: :accessor, ivar: val[2], type: val[4])
+                      }
+
+attr_ivar_opt: { result = nil }
+             | LPAREN RPAREN { result = false }
+             | LPAREN IVAR_NAME RPAREN { result = val[1].value }
 
 constructor_method: { result = false }
                   | LPAREN CONSTRUCTOR RPAREN { result = true }
@@ -421,6 +435,8 @@ method_name: IDENT
                raise ParseError, "\nunexpected method name > >" unless val[0].location.pred?(val[1].location)
                result = LocatedValue.new(location: val[0].location + val[1].location, value: :>>)
              }
+           | ATTR_READER
+           | ATTR_ACCESSOR
 
 annotation: AT_TYPE VAR subject COLON type {
               loc = val.first.location + val.last.location
@@ -640,6 +656,10 @@ def next_token
     new_token(:SELF, :self)
   when input.scan(/'\w+/)
     new_token(:TVAR, input.matched.gsub(/\A'/, '').to_sym)
+  when input.scan(/attr_reader\b/)
+    new_token(:ATTR_READER, :attr_reader)
+  when input.scan(/attr_accessor\b/)
+    new_token(:ATTR_ACCESSOR, :attr_accessor)
   when input.scan(/instance\b/)
     new_token(:INSTANCE, :instance)
   when input.scan(/class\b/)

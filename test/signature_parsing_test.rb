@@ -376,4 +376,82 @@ end
       assert_equal Steep::AST::Types::Name.new_instance(name: "String"), member.type
     end
   end
+
+  def test_attr_reader
+    klass, _ = parse(<<-EOF)
+class A
+  attr_reader name: String
+  attr_reader name (@name): String
+  attr_reader name (): String
+end
+    EOF
+
+    assert_class_signature klass, name: ModuleName.parse("::A")
+
+    klass.members[0].yield_self do |member|
+      assert_instance_of Steep::AST::Signature::Members::Attr, member
+      assert_location member, start_line: 2, start_column: 2, end_line: 2, end_column: 26
+      assert_equal :reader, member.kind
+      assert_equal :name, member.name
+      assert_equal Steep::AST::Types::Name.new_instance(name: "String"), member.type
+      assert_nil member.ivar
+    end
+
+    klass.members[1].yield_self do |member|
+      assert_instance_of Steep::AST::Signature::Members::Attr, member
+      assert_location member, start_line: 3, start_column: 2, end_line: 3, end_column: 34
+      assert_equal :reader, member.kind
+      assert_equal :name, member.name
+      assert_equal Steep::AST::Types::Name.new_instance(name: "String"), member.type
+      assert_equal :"@name", member.ivar
+    end
+
+    klass.members[2].yield_self do |member|
+      assert_instance_of Steep::AST::Signature::Members::Attr, member
+      assert_location member, start_line: 4, start_column: 2, end_line: 4, end_column: 29
+      assert_equal :reader, member.kind
+      assert_equal :name, member.name
+      assert_equal Steep::AST::Types::Name.new_instance(name: "String"), member.type
+      assert_equal false, member.ivar
+    end
+  end
+
+  def test_attr_accessor
+    klass, _ = parse(<<-EOF)
+class A
+  attr_accessor name: String
+  attr_accessor name (@name): String
+  attr_accessor name (): String
+end
+    EOF
+
+    assert_class_signature klass, name: ModuleName.parse("::A")
+
+    klass.members[0].yield_self do |member|
+      assert_instance_of Steep::AST::Signature::Members::Attr, member
+      assert_location member, start_line: 2, start_column: 2, end_line: 2, end_column: 28
+      assert_equal :accessor, member.kind
+      assert_equal :name, member.name
+      assert_equal Steep::AST::Types::Name.new_instance(name: "String"), member.type
+      assert_nil member.ivar
+    end
+
+    klass.members[1].yield_self do |member|
+      assert_instance_of Steep::AST::Signature::Members::Attr, member
+      assert_location member, start_line: 3, start_column: 2, end_line: 3, end_column: 36
+      assert_equal :accessor, member.kind
+      assert_equal :name, member.name
+      assert_equal Steep::AST::Types::Name.new_instance(name: "String"), member.type
+      assert_equal :"@name", member.ivar
+    end
+
+    klass.members[2].yield_self do |member|
+      assert_instance_of Steep::AST::Signature::Members::Attr, member
+      assert_location member, start_line: 4, start_column: 2, end_line: 4, end_column: 31
+      assert_equal :accessor, member.kind
+      assert_equal :name, member.name
+      assert_equal Steep::AST::Types::Name.new_instance(name: "String"), member.type
+      assert_equal false, member.ivar
+    end
+  end
 end
