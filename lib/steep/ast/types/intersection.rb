@@ -20,9 +20,9 @@ module Steep
           end.map do |type|
             case type
             when AST::Types::Any
-              return AST::Types::Any.new()
+              return AST::Types::Any.new(location: location)
             when AST::Types::Bot
-              return AST::Types::Bot.new()
+              return AST::Types::Bot.new(location: location)
             when AST::Types::Top
               nil
             else
