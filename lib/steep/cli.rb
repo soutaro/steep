@@ -78,14 +78,20 @@ module Steep
 
     def process_validate
       verbose = false
+      no_builtin = false
 
       OptionParser.new do |opts|
         opts.on("--verbose") { verbose = true }
+        opts.on("--no-builtin") { no_builtin = true }
       end.parse!(argv)
 
       signature_dirs = argv.map {|path| Pathname(path) }
       if signature_dirs.empty?
         signature_dirs << Pathname(".")
+      end
+
+      unless no_builtin
+        signature_dirs.unshift Pathname(__dir__).join("../../stdlib").realpath
       end
 
       Drivers::Validate.new(signature_dirs: signature_dirs, stdout: stdout, stderr: stderr).tap do |validate|
