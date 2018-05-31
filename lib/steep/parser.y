@@ -202,6 +202,8 @@ keyword: IDENT
        | INSTANCE
        | BLOCK
        | INCLUDE
+       | IVAR
+       | SELF
 
 signatures: { result = [] }
           | interface signatures { result = [val[0]] + val[1] }

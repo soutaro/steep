@@ -146,12 +146,14 @@ end
 module A
   def itself: () -> instance
             | (any) -> any
+
+  def foo: (self: any, ivar: any) -> any
 end
     EOS
 
     assert_module_signature mod, name: ModuleName.parse("::A")
 
-    assert_equal 1, mod.members.size
+    assert_equal 2, mod.members.size
 
     assert_method_member mod.members[0], name: :itself, kind: :instance, attributes: [] do |types:, **|
       assert_equal 2, types.size
@@ -165,6 +167,11 @@ end
       assert_location types[1], start_line: 3, start_column: 14, end_line: 3, end_column: 26
     end
     assert_location mod.members[0], start_line: 2, start_column: 2, end_line: 3, end_column: 26
+
+    assert_method_member mod.members[1], name: :foo, kind: :instance, attributes: [] do |types:, **|
+      assert_equal 1, types.size
+      assert_equal "(self: any, ivar: any) -> any", types.first.location.source
+    end
   end
 
   def test_parsing_constructor_method

@@ -3,6 +3,7 @@
 ## master
 
 * Fix validate command to load stdlib
+* Fix parsing keyword argument type
 
 ## 0.2.0 (2018-05-30)
 
