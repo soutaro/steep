@@ -2,6 +2,8 @@
 
 ## master
 
+## 0.3.0 (2018-05-31)
+
 * Add `interface` command to print interface built for given type
 * Add `--strict` option for `check` command
 * Fix `scaffold` command for empty class/modules
