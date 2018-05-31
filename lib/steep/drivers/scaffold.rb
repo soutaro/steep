@@ -45,6 +45,12 @@ module Steep
           def module?
             kind == :module
           end
+
+          attr_accessor :has_subclass
+
+          def namespace_class?
+            has_subclass && methods.empty? && singleton_methods.empty?
+          end
         end
 
         attr_reader :source
@@ -63,7 +69,7 @@ module Steep
           generate(source.node, current_path: [])
 
           modules.each do |mod|
-            unless mod.methods.empty? && mod.singleton_methods.empty?
+            unless mod.namespace_class?
               io.puts "#{mod.kind} #{mod.name}"
 
               mod.ivars.each do |name, type|
@@ -119,6 +125,10 @@ module Steep
                        current_module: mod)
             end
 
+            if current_module
+              current_module.has_subclass = true
+            end
+
           when :class
             name = module_name(node.children[0])
             klass = Module.new(name: full_name(current_path, name), kind: :class)
@@ -128,6 +138,10 @@ module Steep
               generate(node.children[2],
                        current_path: current_path + [name],
                        current_module: klass)
+            end
+
+            if current_module
+              current_module.has_subclass = true
             end
 
           when :def
