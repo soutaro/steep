@@ -2,6 +2,7 @@
 
 ## master
 
+* Add `STDOUT` and `StringIO` minimal definition
 * Fix validate command to load stdlib
 * Fix parsing keyword argument type
 

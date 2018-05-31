@@ -532,7 +532,12 @@ end
 class Regexp
 end
 
-class File
+class IO
+  def gets: -> (String | nil)
+  def puts: (*any) -> void
+end
+
+class File <: IO
   def self.binread: (String) -> String
   def self.extname: (String) -> String
   def self.basename: (String) -> String
@@ -540,4 +545,11 @@ class File
   def self.binwrite: (String, String) -> void
   def self.read: (String) -> String
                | (String, Integer | nil) -> (String | nil)
+end
+
+STDOUT: IO
+
+class StringIO
+  def initialize: (?String, ?String) -> any
+  def puts: (*any) -> void
 end
