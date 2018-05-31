@@ -647,6 +647,20 @@ module Steep
             else
               new.synthesize(node.children[2])
             end
+          else
+            return_type = new.method_context&.return_type
+            if return_type && !return_type.is_a?(AST::Types::Void)
+              result = checker.check(
+                Subtyping::Relation.new(sub_type: Types.nil_instance, super_type: return_type),
+                constraints: Subtyping::Constraints.empty
+              )
+              if result.failure?
+                typing.add_error(Errors::MethodBodyTypeMismatch.new(node: node,
+                                                                    expected: return_type,
+                                                                    actual: Types.nil_instance,
+                                                                    result: result))
+              end
+            end            
           end
 
           if module_context

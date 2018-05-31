@@ -2,6 +2,7 @@
 
 ## master
 
+* Type check method definition with empty body
 * Add `STDOUT` and `StringIO` minimal definition
 * Fix validate command to load stdlib
 * Fix parsing keyword argument type
