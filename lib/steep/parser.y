@@ -7,6 +7,7 @@ rule
 target: type_METHOD method_type { result = val[1] }
       | type_SIGNATURE signatures { result = val[1] }
       | type_ANNOTATION annotation { result = val[1] }
+      | type_TYPE type { result = val[1] }
 
 method_type:
   type_params params block_opt ARROW return_type {
@@ -545,6 +546,10 @@ def self.parse_annotation_opt(input, buffer:, offset: 0)
 rescue => exn
   Steep.logger.debug "Parsing comment failed: #{exn.inspect}"
   nil
+end
+
+def self.parse_type(input, name: nil)
+  new(:TYPE, buffer: AST::Buffer.new(name: name, content: input), offset: 0).do_parse
 end
 
 class LocatedValue

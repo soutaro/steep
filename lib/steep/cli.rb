@@ -16,7 +16,7 @@ module Steep
     end
 
     def self.available_commands
-      [:check, :validate, :annotations, :scaffold]
+      [:check, :validate, :annotations, :scaffold, :interface]
     end
 
     def setup_global_options
@@ -109,6 +109,22 @@ module Steep
     def process_scaffold
       source_paths = argv.map {|file| Pathname(file) }
       Drivers::Scaffold.new(source_paths: source_paths, stdout: stdout, stderr: stderr).run
+    end
+
+    def process_interface
+      signature_dirs = []
+      no_builtin = false
+
+      OptionParser.new do |opts|
+        opts.on("-I [PATH]") {|path| signature_dirs << Pathname(path) }
+        opts.on("--no-builtin") { no_builtin = true }
+      end
+
+      unless no_builtin
+        signature_dirs.unshift Pathname(__dir__).join("../../stdlib").realpath
+      end
+
+      Drivers::PrintInterface.new(type_name: argv.first, signature_dirs: signature_dirs, stdout: stdout, stderr: stderr).run
     end
   end
 end
