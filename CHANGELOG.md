@@ -2,6 +2,7 @@
 
 ## master
 
+* Add `--strict` option for `check` command
 * Fix `scaffold` command for empty class/modules
 * Type check method definition with empty body
 * Add `STDOUT` and `StringIO` minimal definition
