@@ -136,4 +136,13 @@ class TypeParsingTest < Minitest::Test
     ]), type
     assert_location type, start_line: 1, start_column: 6, end_line: 1, end_column: 17
   end
+
+  def test_any_q
+    type = parse_method_type("() -> any?").return_type
+    assert_equal AST::Types::Union.build(types: [
+      AST::Types::Any.new(),
+      AST::Types::Name.new_instance(name: "::NilClass"),
+    ]), type
+    assert_location type, start_line: 1, start_column: 6, end_line: 1, end_column: 10
+  end
 end

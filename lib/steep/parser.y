@@ -154,6 +154,18 @@ simple_type: type_name {
     | VOID { result = AST::Types::Void.new(location: val[0].location) }
     | NIL { result = AST::Types::Name.new_instance(name: ModuleName.new(name: "NilClass", absolute: true),
                                                    location: val[0].location) }
+    | simple_type QUESTION {
+        type = val[0]
+        nil_type = AST::Types::Name.new_instance(name: ModuleName.new(name: "NilClass", absolute: true),
+                                                 location: val[1].location)
+        result = AST::Types::Union.build(types: [type, nil_type], location: val[0].location + val[1].location)
+      }
+    | SELFQ {
+        type = AST::Types::Self.new(location: val[0].location)
+        nil_type = AST::Types::Name.new_instance(name: ModuleName.new(name: "NilClass", absolute: true),
+                                                 location: val[0].location)
+        result = AST::Types::Union.build(types: [type, nil_type], location: val[0].location)
+      }
 
 paren_type: LPAREN type RPAREN { result = val[1].with_location(val[0].location + val[2].location) }
           | simple_type
@@ -407,40 +419,53 @@ interface_method: DEF method_name COLON method_type_union {
 method_type_union: method_type { result = [val[0]] }
                  | method_type BAR method_type_union { result = [val[0]] + val[2] }
 
-method_name: IDENT
-           | MODULE_NAME
-           | INTERFACE_NAME
-           | ANY | VOID
-           | INTERFACE
-           | END
-           | PLUS
-           | CLASS
-           | MODULE
-           | INSTANCE
-           | EXTEND
-           | INCLUDE
-           | OPERATOR
-           | METHOD_NAME
-           | BLOCK
-           | UIDENT
-           | BREAK
+method_name: method_name0
            | STAR | STAR2
            | PERCENT | MINUS
            | LT | GT
-           | METHOD
            | BAR { result = LocatedValue.new(location: val[0].location, value: :|) }
-           | CONSTRUCTOR { result = LocatedValue.new(location: val[0].location, value: :constructor) }
-           | NOCONSTRUCTOR { result = LocatedValue.new(location: val[0].location, value: :noconstructor) }
-           | ANY QUESTION {
-             raise ParseError, "\nunexpected method name any ?" unless val[0].location.pred?(val[1].location)
-             result = LocatedValue.new(location: val[0].location + val[1].location, value: :any?)
+           | method_name0 EQ {
+               raise ParseError, "\nunexpected method name #{val[0].to_s} =" unless val[0].location.pred?(val[1].location)
+               result = LocatedValue.new(location: val[0].location + val[1].location,
+                                         value: :"#{val[0].value}=")
+             }
+           | method_name0 QUESTION {
+               raise ParseError, "\nunexpected method name #{val[0].to_s} ?" unless val[0].location.pred?(val[1].location)
+               result = LocatedValue.new(location: val[0].location + val[1].location,
+                                         value: :"#{val[0].value}?")
+           }
+           | method_name0 BANG {
+               raise ParseError, "\nunexpected method name #{val[0].to_s} !" unless val[0].location.pred?(val[1].location)
+               result = LocatedValue.new(location: val[0].location + val[1].location,
+                                         value: :"#{val[0].value}!")
            }
            | GT GT {
                raise ParseError, "\nunexpected method name > >" unless val[0].location.pred?(val[1].location)
                result = LocatedValue.new(location: val[0].location + val[1].location, value: :>>)
              }
-           | ATTR_READER
-           | ATTR_ACCESSOR
+
+method_name0: IDENT
+            | UIDENT
+            | MODULE_NAME
+            | INTERFACE_NAME
+            | ANY | VOID
+            | INTERFACE
+            | END
+            | PLUS
+            | CLASS
+            | MODULE
+            | INSTANCE
+            | EXTEND
+            | INCLUDE
+            | OPERATOR
+            | BANG
+            | BLOCK
+            | BREAK
+            | METHOD
+            | CONSTRUCTOR { result = LocatedValue.new(location: val[0].location, value: :constructor) }
+            | NOCONSTRUCTOR { result = LocatedValue.new(location: val[0].location, value: :noconstructor) }
+            | ATTR_READER
+            | ATTR_ACCESSOR
 
 annotation: AT_TYPE VAR subject COLON type {
               loc = val.first.location + val.last.location
@@ -592,6 +617,8 @@ def next_token
     new_token(:ARROW)
   when input.scan(/\?/)
     new_token(:QUESTION)
+  when input.scan(/!/)
+    new_token(:BANG)
   when input.scan(/\(/)
     new_token(:LPAREN, nil)
   when input.scan(/\)/)
@@ -622,6 +649,8 @@ def next_token
     new_token(:OPERATOR, :<=)
   when input.scan(/>=/)
     new_token(:OPERATOR, :>=)
+  when input.scan(/=/)
+    new_token(:EQ, :"=")
   when input.scan(/</)
     new_token(:LT, :<)
   when input.scan(/>/)
@@ -674,8 +703,6 @@ def next_token
     new_token(:CLASS, :class)
   when input.scan(/module\b/)
     new_token(:MODULE, :module)
-  when input.scan(/include\?/)
-    new_token(:METHOD_NAME, :include?)
   when input.scan(/include\b/)
     new_token(:INCLUDE, :include)
   when input.scan(/extend\b/)
@@ -694,16 +721,12 @@ def next_token
     new_token(:OPERATOR, :~)
   when input.scan(/\//)
     new_token(:OPERATOR, :/)
-  when input.scan(/!/)
-    new_token(:OPERATOR, :!)
   when input.scan(/extension\b/)
     new_token(:EXTENSION, :extension)
   when input.scan(/constructor\b/)
     new_token(:CONSTRUCTOR, true)
   when input.scan(/noconstructor\b/)
     new_token(:NOCONSTRUCTOR, false)
-  when input.scan(/\w+(\!|\?|=)/)
-    new_token(:METHOD_NAME, input.matched.to_sym)
   when input.scan(/\$\w+\b/)
     new_token(:GVAR, input.matched.to_sym)
   when input.scan(/[A-Z]\w*/)
