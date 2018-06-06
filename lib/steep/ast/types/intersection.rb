@@ -68,6 +68,10 @@ module Steep
         def level
           [0] + level_of_children(types)
         end
+
+        def with_location(new_location)
+          self.class.new(types: types, location: new_location)
+        end
       end
     end
   end

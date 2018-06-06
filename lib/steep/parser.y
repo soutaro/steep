@@ -18,15 +18,13 @@ method_type:
                                  return_type: val[4])
   }
 
-return_type: simple_type
-           | LPAREN union_seq RPAREN { result = AST::Types::Union.build(location: val[0].location + val[2].location,
-                                                                        types: val[1]) }
+return_type: paren_type
 
 params: { result = nil }
       | LPAREN params0 RPAREN { result = LocatedValue.new(location: val[0].location + val[2].location,
                                                           value: val[1]) }
-      | type { result = LocatedValue.new(location: val[0].location,
-                                         value: AST::MethodType::Params::Required.new(location: val[0].location, type: val[0])) }
+      | simple_type { result = LocatedValue.new(location: val[0].location,
+                                                value: AST::MethodType::Params::Required.new(location: val[0].location, type: val[0])) }
 
 params0: required_param { result = AST::MethodType::Params::Required.new(location: val[0].location, type: val[0]) }
        | required_param COMMA params0 {
@@ -157,6 +155,9 @@ simple_type: type_name {
     | NIL { result = AST::Types::Name.new_instance(name: ModuleName.new(name: "NilClass", absolute: true),
                                                    location: val[0].location) }
 
+paren_type: LPAREN type RPAREN { result = val[1].with_location(val[0].location + val[2].location) }
+          | simple_type
+
 instance_type_name: module_name {
                       result = LocatedValue.new(value: TypeName::Instance.new(name: val[0].value),
                                                 location: val[0].location)
@@ -182,7 +183,7 @@ constructor: { result = nil }
            | CONSTRUCTOR
            | NOCONSTRUCTOR
 
-type: simple_type
+type: paren_type
     | union_seq {
         loc = val[0].first.location + val[0].last.location
         result = AST::Types::Union.build(types: val[0], location: loc)

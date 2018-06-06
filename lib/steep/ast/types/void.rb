@@ -29,6 +29,10 @@ module Steep
         def free_variables
           Set.new
         end
+
+        def with_location(new_location)
+          self.class.new(location: new_location)
+        end
       end
     end
   end

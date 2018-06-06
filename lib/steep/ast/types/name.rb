@@ -32,6 +32,10 @@ module Steep
           end
         end
 
+        def with_location(new_location)
+          self.class.new(name: name, args: args, location: new_location)
+        end
+
         def self.new_module(location: nil, name:, args: [])
           name = ModuleName.parse(name) unless name.is_a?(ModuleName)
           new(location: location,
