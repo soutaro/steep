@@ -168,4 +168,14 @@ class TypeParsingTest < Minitest::Test
       assert_equal AST::Types::Boolean.new, type
     end
   end
+  
+  def test_tuple_type
+    parse_type("[1, String]").yield_self do |type|
+      assert_equal AST::Types::Tuple.new(types: [parse_type("1"), parse_type("String")]), type
+    end
+
+    assert_raises Racc::ParseError do
+      parse_type("[]")
+    end
+  end
 end
