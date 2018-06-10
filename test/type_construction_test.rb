@@ -4514,9 +4514,9 @@ EOF
   def test_literal
     source = parse_ruby(<<EOF)
 # @type var x: 123
-x = (_ = 123)
+x = 123
 a = ClassWithLiteralArg.new.foo(x)
-b = ClassWithLiteralArg.new.bar(x)
+b = ClassWithLiteralArg.new.foo(123)
 c = ClassWithLiteralArg.new.foo(1234)
 EOF
 
@@ -4525,7 +4525,7 @@ EOF
     checker = new_subtyping_checker(<<-EOF)
 class ClassWithLiteralArg
   def foo: (123) -> "foo"
-  def bar: (Integer) -> :bar
+         | (Integer) -> :bar
 end
     EOF
 
@@ -4547,13 +4547,10 @@ end
                                         break_context: nil)
     construction.synthesize(source.node)
 
-    assert_equal 1, typing.errors.size
-    typing.errors[0].yield_self do |error|
-      assert_instance_of Steep::Errors::ArgumentTypeMismatch, error
-    end
+    assert_empty typing.errors
 
     assert_equal parse_type('"foo"'), type_env.lvar_types[:a]
-    assert_equal parse_type(':bar'), type_env.lvar_types[:b]
-    assert_equal parse_type('any'), type_env.lvar_types[:c]
+    assert_equal parse_type('"foo"'), type_env.lvar_types[:b]
+    assert_equal parse_type(':bar'), type_env.lvar_types[:c]
   end
 end

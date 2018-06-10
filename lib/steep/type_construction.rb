@@ -432,14 +432,14 @@ module Steep
       )
     end
 
-    def synthesize(node)
+    def synthesize(node, hint: nil)
       Steep.logger.tagged "synthesize:(#{node.location.expression.to_s.split(/:/, 2).last})" do
         Steep.logger.debug node.type
         case node.type
         when :begin, :kwbegin
           yield_self do
             type = each_child_node(node).map do |child|
-              synthesize(child)
+              synthesize(child, hint: hint)
             end.last
 
             typing.add_typing(node, type)
@@ -829,20 +829,44 @@ module Steep
             typing.add_typing(node, type)
           end
 
-        when :int
-          typing.add_typing(node, AST::Types::Name.new_instance(name: "::Integer"))
-
         when :float
           typing.add_typing(node, AST::Types::Name.new_instance(name: "::Float"))
 
         when :nil
           typing.add_typing(node, Types.nil_instance)
 
+        when :int
+          yield_self do
+            literal_type = test_literal_type(node.children[0], hint)
+
+            if literal_type
+              typing.add_typing(node, literal_type)
+            else
+              typing.add_typing(node, AST::Types::Name.new_instance(name: "::Integer"))
+            end
+          end
+
         when :sym
-          typing.add_typing(node, Types.symbol_instance)
+          yield_self do
+            literal_type = test_literal_type(node.children[0], hint)
+
+            if literal_type
+              typing.add_typing(node, literal_type)
+            else
+              typing.add_typing(node, Types.symbol_instance)
+            end
+          end
 
         when :str
-          typing.add_typing(node, Types.string_instance)
+          yield_self do
+            literal_type = test_literal_type(node.children[0], hint)
+
+            if literal_type
+              typing.add_typing(node, literal_type)
+            else
+              typing.add_typing(node, Types.string_instance)
+            end
+          end
 
         when :true, :false
           typing.add_typing(node, AST::Types::Name.new_interface(name: :_Boolean))
@@ -1070,13 +1094,13 @@ module Steep
 
           if true_clause
             true_type, true_env = for_branch(true_clause, truthy_vars: truthy_vars).yield_self do |constructor|
-              type = constructor.synthesize(true_clause)
+              type = constructor.synthesize(true_clause, hint: hint)
               [type, constructor.type_env]
             end
           end
           if false_clause
             false_type, false_env = for_branch(false_clause).yield_self do |constructor|
-              type = constructor.synthesize(false_clause)
+              type = constructor.synthesize(false_clause, hint: hint)
               [type, constructor.type_env]
             end
           end
@@ -1099,7 +1123,7 @@ module Steep
             pairs = whens.each.with_object([]) do |clause, pairs|
               if clause&.type == :when
                 test_types = clause.children.take(clause.children.size - 1).map do |child|
-                  synthesize(child)
+                  synthesize(child, hint: hint)
                 end
 
                 if (body = clause.children.last)
@@ -1126,7 +1150,7 @@ module Steep
                   end
 
                   for_branch(body, type_case_override: type_case_override).yield_self do |body_construction|
-                    type = body_construction.synthesize(body)
+                    type = body_construction.synthesize(body, hint: hint)
                     pairs << [type, body_construction.type_env]
                   end
                 else
@@ -1149,7 +1173,7 @@ module Steep
                   end
 
                   for_branch(clause, type_case_override: type_case_override).yield_self do |body_construction|
-                    type = body_construction.synthesize(clause)
+                    type = body_construction.synthesize(clause, hint: hint)
                     pairs << [type, body_construction.type_env]
                   end
                 end
@@ -1352,7 +1376,7 @@ module Steep
     end
 
     def check(node, type)
-      type_ = synthesize(node)
+      type_ = synthesize(node, hint: type)
 
       result = checker.check(
         Subtyping::Relation.new(sub_type: type_,
@@ -1366,7 +1390,7 @@ module Steep
 
     def type_assignment(var, rhs, node)
       if rhs
-        rhs_type = synthesize(rhs)
+        rhs_type = synthesize(rhs, hint: type_env.lvar_types[var.name])
         node_type = assign_type_to_variable(var, rhs_type, node)
         typing.add_typing(node, node_type)
       else
@@ -1675,7 +1699,7 @@ module Steep
                          type = construction.synthesize(arg_node.children[0])
                          child_typing.add_typing(arg_node, Types.array_instance(type))
                        else
-                         construction.synthesize(arg_node)
+                         construction.synthesize(arg_node, hint: param_type)
                        end
 
             relation = Subtyping::Relation.new(
@@ -2201,6 +2225,19 @@ module Steep
         value_variables(node.children.last)
       else
         Set.new
+      end
+    end
+
+    def test_literal_type(literal, hint)
+      case hint
+      when AST::Types::Literal
+        if hint.value == literal
+          hint
+        end
+      when AST::Types::Union
+        if hint.types.any? {|ty| ty.is_a?(AST::Types::Literal) && ty.value == literal }
+          hint
+        end
       end
     end
   end
