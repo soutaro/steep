@@ -445,7 +445,7 @@ class TypeEnvTest < Minitest::Test
     ]), original_env.get(lvar: :x)
 
     assert_equal AST::Types::Union.build(types: [AST::Types::Name.new_instance(name: "::Integer"),
-                                                 AST::Types::Name.new_instance(name: "::NilClass")]),
+                                                 AST::Types::Nil.new]),
                  original_env.get(lvar: :y)
     assert_instance_of AST::Types::Any, original_env.get(lvar: :z)
   end

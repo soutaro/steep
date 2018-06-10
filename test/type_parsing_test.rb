@@ -123,7 +123,7 @@ class TypeParsingTest < Minitest::Test
     type = parse_method_type("() -> (String | nil)").return_type
     assert_equal AST::Types::Union.build(types: [
       AST::Types::Name.new_instance(name: ModuleName.parse("String")),
-      AST::Types::Name.new_instance(name: "::NilClass"),
+      AST::Types::Nil.new()
     ]), type
     assert_location type, start_line: 1, start_column: 6, end_line: 1, end_column: 20
   end
@@ -132,7 +132,7 @@ class TypeParsingTest < Minitest::Test
     type = parse_method_type("() -> (any | nil)").return_type
     assert_equal AST::Types::Union.build(types: [
       AST::Types::Any.new(),
-      AST::Types::Name.new_instance(name: "::NilClass"),
+      AST::Types::Nil.new()
     ]), type
     assert_location type, start_line: 1, start_column: 6, end_line: 1, end_column: 17
   end
@@ -141,7 +141,7 @@ class TypeParsingTest < Minitest::Test
     type = parse_method_type("() -> any?").return_type
     assert_equal AST::Types::Union.build(types: [
       AST::Types::Any.new(),
-      AST::Types::Name.new_instance(name: "::NilClass"),
+      AST::Types::Nil.new()
     ]), type
     assert_location type, start_line: 1, start_column: 6, end_line: 1, end_column: 10
   end

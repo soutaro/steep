@@ -1,6 +1,6 @@
 # @type var a: Integer
 
-# !expects IncompatibleAssignment: lhs_type=::Integer, rhs_type=(::Array<::String> | ::Integer | ::NilClass | ::String)
+# !expects IncompatibleAssignment: lhs_type=::Integer, rhs_type=(::Array<::String> | ::Integer | ::String | nil)
 a = case 1
     when 2
       1

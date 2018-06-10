@@ -528,6 +528,12 @@ module Steep
         case type
         when AST::Types::Any, AST::Types::Var, AST::Types::Class, AST::Types::Instance
           raise CannotResolveError.new(type: type)
+        when AST::Types::Nil
+          resolve(AST::Types::Name.new_instance(name: "::NilClass"),
+                  self_type: self_type,
+                  instance_type: instance_type,
+                  module_type: module_type,
+                  with_initialize: with_initialize)
         when AST::Types::Name
           builder.build(type.name, with_initialize: with_initialize).yield_self do |abstract|
             case type.name

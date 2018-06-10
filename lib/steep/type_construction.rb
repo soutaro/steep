@@ -12,7 +12,7 @@ module Steep
       end
 
       def nil_instance
-        AST::Types::Name.new_instance(name: "::NilClass")
+        AST::Types::Nil.new
       end
 
       def string_instance
@@ -2120,7 +2120,7 @@ module Steep
     def self.unwrap(type)
       case
       when type.is_a?(AST::Types::Union)
-        types = type.types.reject {|type| type.is_a?(AST::Types::Name) && type.name == TypeName::Instance.new(name: ModuleName.parse("::NilClass")) }
+        types = type.types.reject {|type| type.is_a?(AST::Types::Nil) }
         AST::Types::Union.build(types: types)
       else
         type

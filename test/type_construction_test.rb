@@ -3535,7 +3535,7 @@ EOF
     assert_empty typing.errors
     assert_equal Types::Union.build(types:[Types::Name.new_instance(name: "::String"),
                                            Types::Name.new_instance(name: "::Integer"),
-                                           Types::Name.new_instance(name: "::NilClass")]),
+                                           Types::Nil.new]),
                  construction.type_env.lvar_types[:y]
     assert_equal Types::Name.new_instance(name: "::Symbol"),
                  construction.type_env.lvar_types[:z]
@@ -3948,14 +3948,14 @@ EOF
                  TypeConstruction.unwrap(
                    Types::Union.build(types: [
                      Types::Name.new_instance(name: "::Integer"),
-                     Types::Name.new_instance(name: "::NilClass"),
+                     Types::Nil.new
                    ])
                  )
   end
 
   def test_if_unwrap
     source = parse_ruby(<<EOF)
-# @type var x: Integer | NilClass    
+# @type var x: Integer?
 x = nil
 
 if x
@@ -3989,7 +3989,7 @@ EOF
 
   def test_and_unwrap
     source = parse_ruby(<<EOF)
-# @type var x: Integer | NilClass    
+# @type var x: Integer?
 x = nil
 # @type var y1: Integer
 y1 = 3
@@ -4022,18 +4022,18 @@ EOF
 
     assert_equal Types::Union.build(types: [
       Types::Name.new_instance(name: "::Numeric"),
-      Types::Name.new_instance(name: "::NilClass")
+      Types::Nil.new
     ]), type_env.lvar_types[:y]
 
     assert_equal Types::Union.build(types: [
       Types::Name.new_instance(name: "::Integer"),
-      Types::Name.new_instance(name: "::NilClass")
+      Types::Nil.new
     ]), type_env.lvar_types[:z]
   end
 
   def test_csend_unwrap
     source = parse_ruby(<<EOF)
-# @type var x: String | NilClass    
+# @type var x: String?
 x = nil
 
 z = x&.size()
@@ -4064,7 +4064,7 @@ EOF
 
     assert_equal Types::Union.build(types: [
       Types::Name.new_instance(name: "::Integer"),
-      Types::Name.new_instance(name: "::NilClass")
+      Types::Nil.new
     ]), type_env.lvar_types[:z]
   end
 
@@ -4101,7 +4101,7 @@ EOF
 
     assert_equal Types::Union.build(types: [
       Types::Name.new_instance(name: "::String"),
-      Types::Name.new_instance(name: "::NilClass")
+      Types::Nil.new
     ]), type_env.lvar_types[:line]
   end
 
@@ -4141,7 +4141,7 @@ EOF
 
     assert_equal Types::Union.build(types: [
       Types::Name.new_instance(name: "::Integer"),
-      Types::Name.new_instance(name: "::NilClass")
+      Types::Nil.new
     ]), type_env.lvar_types[:y]
   end
 
@@ -4403,5 +4403,111 @@ end
     construction.synthesize(source.node)
 
     refute_empty typing.errors
+  end
+
+  def test_nil_reject
+    source = parse_ruby(<<EOF)
+# @type var x: Integer?
+x = "x"
+EOF
+
+    typing = Typing.new
+    annotations = source.annotations(block: source.node)
+    checker = new_subtyping_checker()
+
+    const_env = ConstantEnv.new(builder: checker.builder, current_namespace: nil)
+    type_env = TypeEnv.build(annotations: annotations,
+                             subtyping: checker,
+                             const_env: const_env,
+                             signatures: checker.builder.signatures)
+
+    construction = TypeConstruction.new(checker: checker,
+                                        source: source,
+                                        annotations: annotations,
+                                        type_env: type_env,
+                                        block_context: nil,
+                                        self_type: Types::Name.new_instance(name: "::Object"),
+                                        method_context: nil,
+                                        typing: typing,
+                                        module_context: nil,
+                                        break_context: nil)
+    construction.synthesize(source.node)
+
+    assert_equal 1, typing.errors.size
+    typing.errors[0].yield_self do |error|
+      assert_instance_of Steep::Errors::IncompatibleAssignment, error
+    end
+  end
+
+  def test_nil_method
+    source = parse_ruby(<<EOF)
+nil.class
+nil.no_such_method
+EOF
+
+    typing = Typing.new
+    annotations = source.annotations(block: source.node)
+    checker = new_subtyping_checker()
+
+    const_env = ConstantEnv.new(builder: checker.builder, current_namespace: nil)
+    type_env = TypeEnv.build(annotations: annotations,
+                             subtyping: checker,
+                             const_env: const_env,
+                             signatures: checker.builder.signatures)
+
+    construction = TypeConstruction.new(checker: checker,
+                                        source: source,
+                                        annotations: annotations,
+                                        type_env: type_env,
+                                        block_context: nil,
+                                        self_type: Types::Name.new_instance(name: "::Object"),
+                                        method_context: nil,
+                                        typing: typing,
+                                        module_context: nil,
+                                        break_context: nil)
+    construction.synthesize(source.node)
+
+    assert_equal 1, typing.errors.size
+    typing.errors[0].yield_self do |error|
+      assert_instance_of Steep::Errors::NoMethod, error
+      assert_equal :no_such_method, error.method
+    end
+  end
+
+  def test_optional_method
+    source = parse_ruby(<<EOF)
+# @type var x: Integer?
+x = 3
+x.to_s
+x.no_such_method
+EOF
+
+    typing = Typing.new
+    annotations = source.annotations(block: source.node)
+    checker = new_subtyping_checker()
+
+    const_env = ConstantEnv.new(builder: checker.builder, current_namespace: nil)
+    type_env = TypeEnv.build(annotations: annotations,
+                             subtyping: checker,
+                             const_env: const_env,
+                             signatures: checker.builder.signatures)
+
+    construction = TypeConstruction.new(checker: checker,
+                                        source: source,
+                                        annotations: annotations,
+                                        type_env: type_env,
+                                        block_context: nil,
+                                        self_type: Types::Name.new_instance(name: "::Object"),
+                                        method_context: nil,
+                                        typing: typing,
+                                        module_context: nil,
+                                        break_context: nil)
+    construction.synthesize(source.node)
+
+    assert_equal 1, typing.errors.size
+    typing.errors[0].yield_self do |error|
+      assert_instance_of Steep::Errors::NoMethod, error
+      assert_equal :no_such_method, error.method
+    end
   end
 end
