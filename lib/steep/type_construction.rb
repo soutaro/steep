@@ -1374,13 +1374,9 @@ module Steep
         lhs_type = variable_type(var)
 
         if lhs_type
-          typing.add_var_type(var, lhs_type)
           typing.add_typing(node, lhs_type)
-          var_types[var] = lhs_type
         else
-          typing.add_var_type(var, Types.any)
           fallback_to_any node
-          var_types[var] = Types.any
         end
       end
     end

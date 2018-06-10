@@ -27,28 +27,8 @@ module Steep
       typing.key?(node.__id__)
     end
 
-    def add_var_type(variable, type)
-      if var_typing.key?(variable)
-        unless var_typing[variable] == type
-          raise "Unexpected variable typing: existing=#{var_typing[variable]}, new=#{type}"
-        end
-      end
-
-      var_typing[variable] = type
-    end
-
     def type_of(node:)
       typing[node.__id__] or raise "Unknown node for typing: #{node.inspect}"
-    end
-
-    def type_of_variable(name: nil, label: nil)
-      var_typing.each do |var, type|
-        if (!name || var.name == name) && (!label || var.label == label)
-          return type
-        end
-      end
-
-      raise "Unknown variable for typing: #{name}@#{label}"
     end
 
     def dump(io)
