@@ -866,11 +866,11 @@ end
                                         break_context: nil)
     construction.synthesize(source.node)
 
-    assert_equal Types::Name.new_interface(name: :_X), typing.type_of(node: lvar_in(source.node, :x))
-    assert_equal Types::Name.new_interface(name: :_A), typing.type_of(node: lvar_in(source.node, :a))
-
     assert_equal 1, typing.errors.size
     assert_block_type_mismatch typing.errors[0], expected: Types::Name.new_interface(name: :_D), actual: Types::Name.new_interface(name: :_A)
+
+    assert_equal Types::Name.new_interface(name: :_X), typing.type_of(node: lvar_in(source.node, :x))
+    assert_equal Types::Any.new, typing.type_of(node: lvar_in(source.node, :a))
   end
 
   def test_block_break_type
