@@ -83,6 +83,14 @@ module Steep
                     trace: trace)
           end
 
+        when relation.sub_type.is_a?(AST::Types::Literal)
+          check0(
+            Relation.new(sub_type: relation.sub_type.back_type, super_type: relation.super_type),
+            assumption: assumption,
+            trace: trace,
+            constraints: constraints
+          )
+
         when relation.sub_type.is_a?(AST::Types::Union)
           results = relation.sub_type.types.map do |sub_type|
             check0(Relation.new(sub_type: sub_type, super_type: relation.super_type),

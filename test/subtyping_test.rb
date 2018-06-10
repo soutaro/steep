@@ -369,6 +369,37 @@ end
     assert_instance_of Subtyping::Result::Failure::MethodMissingError, result.error
   end
 
+  def test_literal0
+    checker = new_checker("")
+
+    result = checker.check(
+      Subtyping::Relation.new(
+        sub_type: parse_type("123"),
+        super_type: parse_type("::Integer"),
+      ),
+      constraints: Subtyping::Constraints.empty
+    )
+    assert_instance_of Subtyping::Result::Success, result
+
+    result = checker.check(
+      Subtyping::Relation.new(
+        sub_type: parse_type("::Integer"),
+        super_type: parse_type("123"),
+        ),
+      constraints: Subtyping::Constraints.empty
+    )
+    assert_instance_of Subtyping::Result::Failure, result
+
+    result = checker.check(
+      Subtyping::Relation.new(
+        sub_type: parse_type('"Foo"'),
+        super_type: parse_type("::Integer"),
+        ),
+      constraints: Subtyping::Constraints.empty
+    )
+    assert_instance_of Subtyping::Result::Failure, result
+  end
+
   def test_void
     checker = new_checker("")
 

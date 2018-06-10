@@ -163,6 +163,9 @@ simple_type: type_name {
         nil_type = AST::Types::Nil.new(location: val[0].location)
         result = AST::Types::Union.build(types: [type, nil_type], location: val[0].location)
       }
+    | INT { result = AST::Types::Literal.new(value: val[0].value, location: val[0].location) }
+    | STRING { result = AST::Types::Literal.new(value: val[0].value, location: val[0].location) }
+    | SYMBOL { result = AST::Types::Literal.new(value: val[0].value, location: val[0].location) }
 
 paren_type: LPAREN type RPAREN { result = val[1].with_location(val[0].location + val[2].location) }
           | simple_type
@@ -626,6 +629,8 @@ def next_token
     new_token(:RBRACE, nil)
   when input.scan(/,/)
     new_token(:COMMA, nil)
+  when input.scan(/:\w+/)
+    new_token(:SYMBOL, input.matched[1..-1].to_sym)
   when input.scan(/::/)
     new_token(:COLON2)
   when input.scan(/:/)
@@ -732,6 +737,10 @@ def next_token
     new_token(:INTERFACE_NAME, input.matched.to_sym)
   when input.scan(/@\w+/)
     new_token(:IVAR_NAME, input.matched.to_sym)
+  when input.scan(/\d+/)
+    new_token(:INT, input.matched.to_i)
+  when input.scan(/\"[^\"]*\"/)
+    new_token(:STRING, input.matched[1...-1])
   when input.scan(/\w+/)
     new_token(:IDENT, input.matched.to_sym)
   end
