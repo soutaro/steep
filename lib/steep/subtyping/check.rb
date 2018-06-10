@@ -164,6 +164,24 @@ module Steep
             check_interface(sub_interface, super_interface, assumption: assumption, trace: trace, constraints: constraints)
           end
 
+        when relation.sub_type.is_a?(AST::Types::Tuple) && relation.super_type.is_a?(AST::Types::Tuple)
+          if relation.sub_type.types[0, relation.super_type.types.size] == relation.super_type.types
+            success(constraints: constraints)
+          else
+            failure(error: Result::Failure::UnknownPairError.new(relation: relation),
+                    trace: trace)
+          end
+
+        when relation.sub_type.is_a?(AST::Types::Tuple)
+          sub_interface = resolve(relation.sub_type, with_initialize: false)
+          super_interface = resolve(relation.super_type, with_initialize: false)
+
+          check_interface(sub_interface,
+                          super_interface,
+                          assumption: assumption,
+                          trace: trace,
+                          constraints: constraints)
+
         else
           failure(error: Result::Failure::UnknownPairError.new(relation: relation),
                   trace: trace)
