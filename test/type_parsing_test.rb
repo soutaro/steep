@@ -145,4 +145,21 @@ class TypeParsingTest < Minitest::Test
     ]), type
     assert_location type, start_line: 1, start_column: 6, end_line: 1, end_column: 10
   end
+
+  def test_literal_type
+    parse_type("1").yield_self do |type|
+      assert_equal AST::Types::Literal.new(value: 1), type
+      assert_equal AST::Types::Name.new_instance(name: "::Integer"), type.back_type
+    end
+
+    parse_type('"hello"').yield_self do |type|
+      assert_equal AST::Types::Literal.new(value: "hello"), type
+      assert_equal AST::Types::Name.new_instance(name: "::String"), type.back_type
+    end
+
+    parse_type(":foo123").yield_self do |type|
+      assert_equal AST::Types::Literal.new(value: :foo123), type
+      assert_equal AST::Types::Name.new_instance(name: "::Symbol"), type.back_type
+    end
+  end
 end

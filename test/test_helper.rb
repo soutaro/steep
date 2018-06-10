@@ -29,6 +29,10 @@ module TestHelper
     Steep::Parser.parse_method(string)
   end
 
+  def parse_type(string)
+    Steep::Parser.parse_type(string)
+  end
+
   def parse_single_method(string, super_method: nil, attributes: [])
     type = Steep::Parser.parse_method(string)
     Steep::Interface::Method.new(types: [type], super_method: super_method, attributes: attributes)

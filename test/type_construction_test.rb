@@ -4510,4 +4510,47 @@ EOF
       assert_equal :no_such_method, error.method
     end
   end
+
+  def test_literal
+    source = parse_ruby(<<EOF)
+# @type var x: 123
+x = 123
+a = ClassWithLiteralArg.new.foo(x)
+b = ClassWithLiteralArg.new.foo(123)
+c = ClassWithLiteralArg.new.foo(1234)
+EOF
+
+    typing = Typing.new
+    annotations = source.annotations(block: source.node)
+    checker = new_subtyping_checker(<<-EOF)
+class ClassWithLiteralArg
+  def foo: (123) -> "foo"
+         | (Integer) -> :bar
+end
+    EOF
+
+    const_env = ConstantEnv.new(builder: checker.builder, current_namespace: nil)
+    type_env = TypeEnv.build(annotations: annotations,
+                             subtyping: checker,
+                             const_env: const_env,
+                             signatures: checker.builder.signatures)
+
+    construction = TypeConstruction.new(checker: checker,
+                                        source: source,
+                                        annotations: annotations,
+                                        type_env: type_env,
+                                        block_context: nil,
+                                        self_type: Types::Name.new_instance(name: "::Object"),
+                                        method_context: nil,
+                                        typing: typing,
+                                        module_context: nil,
+                                        break_context: nil)
+    construction.synthesize(source.node)
+
+    assert_empty typing.errors
+
+    assert_equal parse_type('"foo"'), type_env.lvar_types[:a]
+    assert_equal parse_type('"foo"'), type_env.lvar_types[:b]
+    assert_equal parse_type(':bar'), type_env.lvar_types[:c]
+  end
 end
