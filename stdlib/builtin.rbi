@@ -55,7 +55,7 @@ module Kernel
   def require: (*String) -> void
   def loop: { () -> void } -> void
   def puts: (*any) -> void
-  def eval: (String, ? Integer | nil, ?String) -> any
+  def eval: (String, ? Integer?, ?String) -> any
 end
 
 class Array<'a>
@@ -72,11 +72,11 @@ class Array<'a>
   def <<: ('a) -> self
 
   def []: (Integer) -> 'a
-        | (Range<Integer>) -> (self | nil)
-        | (Integer, Integer) -> (self | nil)
+        | (Range<Integer>) -> self?
+        | (Integer, Integer) -> self?
   def at: (Integer) -> 'a
-        | (Range<Integer>) -> (self | nil)
-        | (Integer, Integer) -> (self | nil)
+        | (Range<Integer>) -> self?
+        | (Integer, Integer) -> self?
   def []=: (Integer, 'a) -> 'a
          | (Integer, Integer, 'a) -> 'a
          | (Integer, Integer, self) -> self
@@ -98,16 +98,16 @@ class Array<'a>
 
   def empty?: -> _Boolean
   def compact: -> self
-  def compact!: -> (self | nil)
+  def compact!: -> self?
   def concat: (*Array<'a>) -> self
             | (*'a) -> self
-  def delete: ('a) -> ('a | nil)
+  def delete: ('a) -> 'a?
             | <'x> ('a) { ('a) -> any } -> ('a | 'x)
-  def delete_at: (Integer) -> ('a | nil)
+  def delete_at: (Integer) -> 'a?
   def delete_if: { ('a) -> any } -> self
                | -> Enumerator<'a, self>
-  def reject!: { ('a) -> any } -> (self | nil)
-             | -> Enumerator<'a, self | nil>
+  def reject!: { ('a) -> any } -> self?
+             | -> Enumerator<'a, self?>
   def dig: (Integer, any) -> any
   def each: { ('a) -> any } -> self
           | -> Enumerator<'a, self>
@@ -118,21 +118,21 @@ class Array<'a>
            | (Integer) { (Integer) -> 'a } -> 'a
   def fill: ('a) -> self
           | { (Integer) -> 'a } -> self
-          | ('a, Integer, ?Integer|nil) -> self
+          | ('a, Integer, ?Integer?) -> self
           | ('a, Range<Integer>) -> self
-          | (Integer, ?Integer|nil) { (Integer) -> 'a} -> self
+          | (Integer, ?Integer?) { (Integer) -> 'a} -> self
           | (Range<Integer>) { (Integer) -> 'a } -> self
 
-  def find_index: ('a) -> (Integer | nil)
-                | { ('a) -> any } -> (Integer | nil)
-                | -> Enumerator<'a, Integer | nil>
+  def find_index: ('a) -> Integer?
+                | { ('a) -> any } -> Integer?
+                | -> Enumerator<'a, Integer?>
 
-  def index: ('a) -> (Integer | nil)
-           | { ('a) -> any } -> (Integer | nil)
-           | -> Enumerator<'a, Integer | nil>
+  def index: ('a) -> Integer?
+           | { ('a) -> any } -> Integer?
+           | -> Enumerator<'a, Integer?>
 
-  def flatten: (?Integer | nil) -> Array<any>
-  def flatten!: (?Integer | nil) -> (self | nil)
+  def flatten: (?Integer?) -> Array<any>
+  def flatten!: (?Integer?) -> self?
 
   def insert: (Integer, *'a) -> self
 
@@ -141,7 +141,7 @@ class Array<'a>
   def keep_if: { ('a) -> any } -> self
              | -> Enumerator<'a, self>
 
-  def last: -> ('a | nil)
+  def last: -> 'a?
           | (Integer) -> self
 
   def length: -> Integer
@@ -152,7 +152,7 @@ class Array<'a>
   def permutation: (?Integer) { (self) -> any } -> Array<self>
                  | (?Integer) -> Enumerator<self, Array<self>>
 
-  def pop: -> ('a | nil)
+  def pop: -> 'a?
          | (Integer) -> self
 
   def unshift: (*'a) -> self
@@ -174,41 +174,41 @@ class Array<'a>
   def reverse: -> self
   def reverse!: -> self
 
-  def rindex: ('a) -> (Integer | nil)
-            | { ('a) -> any } -> (Integer | nil)
-            | -> Enumerator<'a, Integer | nil>
+  def rindex: ('a) -> Integer?
+            | { ('a) -> any } -> Integer?
+            | -> Enumerator<'a, Integer?>
 
   def rotate: (?Integer) -> self
 
   def rotate!: (?Integer) -> self
 
-  def sample: (?random: any) -> ('a | nil)
+  def sample: (?random: any) -> 'a?
             | (Integer, ?random: any) -> self
 
   def select!: -> Enumerator<'a, self>
              | { ('a) -> any } -> self
 
-  def shift: -> ('a | nil)
+  def shift: -> 'a?
            | (Integer) -> self
 
   def shuffle: (?random: any) -> self
 
   def shuffle!: (?random: any) -> self
 
-  def slice: (Integer) -> ('a | nil)
-           | (Integer, Integer) -> (self | nil)
-           | (Range<Integer>) -> (self | nil)
+  def slice: (Integer) -> 'a?
+           | (Integer, Integer) -> self?
+           | (Range<Integer>) -> self?
 
-  def slice!: (Integer) -> ('a | nil)
-            | (Integer, Integer) -> (self | nil)
-            | (Range<Integer>) -> (self | nil)
+  def slice!: (Integer) -> 'a?
+            | (Integer, Integer) -> self?
+            | (Range<Integer>) -> self?
 
   def to_h: -> Hash<any, any>
 
   def transpose: -> self
 
-  def uniq!: -> (self | nil)
-           | { ('a) -> any } -> (self | nil)
+  def uniq!: -> self?
+           | { ('a) -> any } -> self?
 
   def values_at: (*Integer | Range<Integer>) -> self
 
@@ -217,7 +217,7 @@ class Array<'a>
 end
 
 class Hash<'key, 'value>
-  def []: ('key) -> ('value | nil)
+  def []: ('key) -> 'value?
   def []=: ('key, 'value) -> 'value
   def size: -> Integer
   def transform_values: <'a> { ('value) -> 'a } -> Hash<'key, 'a>
@@ -389,13 +389,13 @@ module Enumerable<'a, 'b> : _Iteratable<'a, 'b>
            | (?Integer) { ('a) -> any } -> nil
 
   def detect: ('a) { ('a) -> any } -> 'a
-            | { ('a) -> any } -> ('a | nil)
-            | -> Enumerator<'a, 'a | nil>
+            | { ('a) -> any } -> 'a?
+            | -> Enumerator<'a, 'a?>
             | ('a) -> Enumerator<'a, 'a>
 
   def find: ('a) { ('a) -> any } -> 'a
-          | { ('a) -> any } -> ('a | nil)
-          | -> Enumerator<'a, 'a | nil>
+          | { ('a) -> any } -> 'a?
+          | -> Enumerator<'a, 'a?>
           | ('a) -> Enumerator<'a, 'a>
 
   def drop: (Integer) -> Array<'a>
@@ -424,11 +424,11 @@ module Enumerable<'a, 'b> : _Iteratable<'a, 'b>
   def select: -> Enumerator<'a, Array<'a>>
             | { ('a) -> any } -> Array<'a>
 
-  def find_index: (any) -> (Integer | nil)
-                | { ('a) -> any } -> (Integer | nil)
-                | -> Enumerator<'a, Integer | nil>
+  def find_index: (any) -> Integer?
+                | { ('a) -> any } -> Integer?
+                | -> Enumerator<'a, Integer?>
 
-  def first: () -> ('a | nil)
+  def first: () -> 'a?
            | (Integer) -> Array<'a>
 
   def grep: (any) -> Array<'a>
@@ -453,20 +453,20 @@ module Enumerable<'a, 'b> : _Iteratable<'a, 'b>
             | (any, Symbol) -> any
             | { ('a, 'a) -> 'a } -> 'a
 
-  def max: -> ('a | nil)
+  def max: -> 'a?
          | (Integer) -> Array<'a>
-         | { ('a, 'a) -> Integer } -> ('a | nil)
+         | { ('a, 'a) -> Integer } -> 'a?
          | (Integer) { ('a, 'a) -> Integer } -> Array<'a>
 
-  def max_by: { ('a, 'a) -> Integer } -> ('a | nil)
+  def max_by: { ('a, 'a) -> Integer } -> 'a?
             | (Integer) { ('a, 'a) -> Integer } -> Array<'a>
 
-  def min: -> ('a | nil)
+  def min: -> 'a?
          | (Integer) -> Array<'a>
-         | { ('a, 'a) -> Integer } -> ('a | nil)
+         | { ('a, 'a) -> Integer } -> 'a?
          | (Integer) { ('a, 'a) -> Integer } -> Array<'a>
 
-  def min_by: { ('a, 'a) -> Integer } -> ('a | nil)
+  def min_by: { ('a, 'a) -> Integer } -> 'a?
             | (Integer) { ('a, 'a) -> Integer } -> Array<'a>
 
   def min_max: -> Array<'a>
@@ -533,7 +533,7 @@ class Regexp
 end
 
 class IO
-  def gets: -> (String | nil)
+  def gets: -> String?
   def puts: (*any) -> void
 end
 
@@ -544,7 +544,7 @@ class File <: IO
   def self.readable?: (String) -> _Boolean
   def self.binwrite: (String, String) -> void
   def self.read: (String) -> String
-               | (String, Integer | nil) -> (String | nil)
+               | (String, Integer?) -> String?
 end
 
 STDOUT: IO

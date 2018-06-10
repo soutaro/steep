@@ -33,6 +33,10 @@ module Steep
         def level
           [2]
         end
+
+        def with_location(new_location)
+          self.class.new(location: new_location)
+        end
       end
     end
   end
