@@ -730,4 +730,14 @@ end
     s = result.constraints.solution(checker, variance: variance, variables: Set.new([:x]))
     assert_equal AST::Types::Name.new_instance(name: :"::String"), AST::Types::Var.new(name: :x).subst(s)
   end
+
+  def test_tuple
+    checker = new_checker("")
+
+    interface = checker.resolve(parse_type("[1, String]"), with_initialize: false)
+    assert_equal [:class, :tap, :yield_self, :[], :[]=], interface.methods.keys
+
+    assert_equal ["(0) -> 1", "(1) -> String", "(::Integer) -> (1 | String)"], interface.methods[:[]].types.map(&:to_s)
+    assert_equal ["(0, 1) -> 1", "(1, String) -> String", "(::Integer, (1 | String)) -> (1 | String)"], interface.methods[:[]=].types.map(&:to_s)
+  end
 end
