@@ -78,7 +78,7 @@ module Steep
           if lvar_types.key?(name) || common_vars.member?(name)
             set(lvar: name, type: AST::Types::Union.build(types: types))
           else
-            set(lvar: name, type: AST::Types::Union.build(types: types + [AST::Types::Name.new_instance(name: "::NilClass")]))
+            set(lvar: name, type: AST::Types::Union.build(types: types + [AST::Types::Nil.new]))
           end
         end
       end

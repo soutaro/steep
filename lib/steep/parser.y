@@ -152,18 +152,15 @@ simple_type: type_name {
     | INSTANCE { result = AST::Types::Instance.new(location: val[0].location) }
     | SELF { result = AST::Types::Self.new(location: val[0].location) }
     | VOID { result = AST::Types::Void.new(location: val[0].location) }
-    | NIL { result = AST::Types::Name.new_instance(name: ModuleName.new(name: "NilClass", absolute: true),
-                                                   location: val[0].location) }
+    | NIL { result = AST::Types::Nil.new(location: val[0].location) }
     | simple_type QUESTION {
         type = val[0]
-        nil_type = AST::Types::Name.new_instance(name: ModuleName.new(name: "NilClass", absolute: true),
-                                                 location: val[1].location)
+        nil_type = AST::Types::Nil.new(location: val[1].location)
         result = AST::Types::Union.build(types: [type, nil_type], location: val[0].location + val[1].location)
       }
     | SELFQ {
         type = AST::Types::Self.new(location: val[0].location)
-        nil_type = AST::Types::Name.new_instance(name: ModuleName.new(name: "NilClass", absolute: true),
-                                                 location: val[0].location)
+        nil_type = AST::Types::Nil.new(location: val[0].location)
         result = AST::Types::Union.build(types: [type, nil_type], location: val[0].location)
       }
 
