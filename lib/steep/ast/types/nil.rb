@@ -37,6 +37,10 @@ module Steep
         def with_location(new_location)
           self.class.new(location: new_location)
         end
+
+        def back_type
+          Name.new_instance(name: "::NilClass", location: location)
+        end
       end
     end
   end
