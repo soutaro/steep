@@ -475,5 +475,20 @@ module Steep
         "#{location_to_str}: UnexpectedSplat: type=#{type}"
       end
     end
+
+    class IncompatibleTuple < Base
+      attr_reader :expected_tuple
+      include ResultPrinter
+
+      def initialize(node:, expected_tuple:, result:)
+        super(node: node)
+        @result = result
+        @expected_tuple = expected_tuple
+      end
+
+      def to_s
+        "#{location_to_str}: IncompatibleTuple: expected_tuple=#{expected_tuple}"
+      end
+    end
   end
 end

@@ -1031,32 +1031,48 @@ module Steep
             if node.children.empty?
               typing.add_typing(node, Types.array_instance(Types.any))
             else
-              types = node.children.flat_map do |e|
-                if e.type == :splat
-                  Steep.logger.info "Typing of splat in array is incompatible with Ruby; it does not use #to_a method"
-                  synthesize(e.children.first).yield_self do |type|
-                    case type
-                    when AST::Types::Union
-                      type.types
-                    else
-                      [type]
-                    end
-                  end.map do |type|
-                    case
-                    when type.is_a?(AST::Types::Name) && type.name.is_a?(TypeName::Instance) && type.name.name == ModuleName.new(name: "Array", absolute: true)
-                      type.args.first
-                    when type.is_a?(AST::Types::Name) && type.name.is_a?(TypeName::Instance) && type.name.name == ModuleName.new(name: "Range", absolute: true)
-                      type.args.first
-                    else
-                      type
-                    end
-                  end
-                else
-                  [synthesize(e)]
-                end
+              is_tuple = hint.is_a?(AST::Types::Tuple)
+              is_tuple &&= node.children.all? {|child| child.type != :splat }
+              is_tuple &&= node.children.map.with_index do |child, index|
+                synthesize(child, hint: absolute_type(hint.types[index]))
+              end.yield_self do |types|
+                tuple = AST::Types::Tuple.new(types: types)
+                relation = Subtyping::Relation.new(sub_type: tuple, super_type: absolute_type(hint))
+                result = checker.check(relation, constraints: Subtyping::Constraints.empty)
+                result.success?
               end
 
-              typing.add_typing(node, Types.array_instance(AST::Types::Union.build(types: types)))
+              if is_tuple
+                array_type = hint
+              else
+                element_types = node.children.flat_map do |e|
+                  if e.type == :splat
+                    Steep.logger.info "Typing of splat in array is incompatible with Ruby; it does not use #to_a method"
+                    synthesize(e.children.first).yield_self do |type|
+                      case type
+                      when AST::Types::Union
+                        type.types
+                      else
+                        [type]
+                      end
+                    end.map do |type|
+                      case
+                      when type.is_a?(AST::Types::Name) && type.name.is_a?(TypeName::Instance) && type.name.name == ModuleName.new(name: "Array", absolute: true)
+                        type.args.first
+                      when type.is_a?(AST::Types::Name) && type.name.is_a?(TypeName::Instance) && type.name.name == ModuleName.new(name: "Range", absolute: true)
+                        type.args.first
+                      else
+                        type
+                      end
+                    end
+                  else
+                    [synthesize(e)]
+                  end
+                end
+                array_type = Types.array_instance(AST::Types::Union.build(types: element_types))
+              end
+
+              typing.add_typing(node, array_type)
             end
           end
 
@@ -1446,6 +1462,34 @@ module Steep
             type_assignment(l.children.first, r, l)
           when l.type == :ivasgn
             type_ivasgn(l.children.first, r, l)
+          end
+        end
+
+        typing.add_typing(node, rhs_type)
+
+      when rhs_type.is_a?(AST::Types::Tuple) && lhs.children.all? {|a| a.type == :lvasgn || a.type == :ivasgn }
+        lhs.children.each.with_index do |asgn, index|
+          type = rhs_type.types[index]
+
+          case
+          when asgn.type == :lvasgn && asgn.children[0].name != :_
+            type ||= Types.nil_instance
+            type_env.assign(lvar: asgn.children[0].name, type: type) do |result|
+              var_type = type_env.get(lvar: asgn.children[0].name)
+              typing.add_error(Errors::IncompatibleAssignment.new(node: node,
+                                                                  lhs_type: var_type,
+                                                                  rhs_type: type,
+                                                                  result: result))
+            end
+          when asgn.type == :ivasgn
+            type ||= Types.nil_instance
+            type_env.assign(ivar: asgn.children[0], type: type) do |result|
+              var_type = type_env.get(ivar: asgn.children[0])
+              typing.add_error(Errors::IncompatibleAssignment.new(node: node,
+                                                                  lhs_type: var_type,
+                                                                  rhs_type: type,
+                                                                  result: result))
+            end
           end
         end
 
