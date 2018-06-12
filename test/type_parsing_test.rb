@@ -162,4 +162,10 @@ class TypeParsingTest < Minitest::Test
       assert_equal AST::Types::Name.new_instance(name: "::Symbol"), type.back_type
     end
   end
+
+  def test_boolean
+    parse_type("bool").yield_self do |type|
+      assert_equal AST::Types::Boolean.new, type
+    end
+  end
 end

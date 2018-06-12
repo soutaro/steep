@@ -153,6 +153,7 @@ simple_type: type_name {
     | SELF { result = AST::Types::Self.new(location: val[0].location) }
     | VOID { result = AST::Types::Void.new(location: val[0].location) }
     | NIL { result = AST::Types::Nil.new(location: val[0].location) }
+    | BOOL { result = AST::Types::Boolean.new(location: val[0].location) }
     | simple_type QUESTION {
         type = val[0]
         nil_type = AST::Types::Nil.new(location: val[1].location)
@@ -462,6 +463,7 @@ method_name0: IDENT
             | BLOCK
             | BREAK
             | METHOD
+            | BOOL
             | CONSTRUCTOR { result = LocatedValue.new(location: val[0].location, value: :constructor) }
             | NOCONSTRUCTOR { result = LocatedValue.new(location: val[0].location, value: :noconstructor) }
             | ATTR_READER
@@ -659,6 +661,8 @@ def next_token
     new_token(:GT, :>)
   when input.scan(/nil\b/)
     new_token(:NIL, :nil)
+  when input.scan(/bool\b/)
+    new_token(:BOOL, :bool)
   when input.scan(/any\b/)
     new_token(:ANY, :any)
   when input.scan(/void\b/)
