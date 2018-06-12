@@ -10,7 +10,7 @@ x = :foo
 # !expects IncompatibleAssignment: lhs_type=::Integer, rhs_type=::String
 y = "foo"
 
-# !expects IncompatibleAssignment: lhs_type=::String, rhs_type=_Boolean
+# !expects IncompatibleAssignment: lhs_type=::String, rhs_type=bool
 x = true
-# !expects IncompatibleAssignment: lhs_type=::Integer, rhs_type=_Boolean
+# !expects IncompatibleAssignment: lhs_type=::Integer, rhs_type=bool
 y = false

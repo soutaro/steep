@@ -37,6 +37,15 @@ module Steep
         def with_location(new_location)
           self.class.new(location: new_location)
         end
+
+        def back_type
+          Union.build(types:
+                      [
+                        Name.new_instance(name: "::TrueClass", location: location),
+                        Name.new_instance(name: "::FalseClass", location: location)
+                      ],
+                      location: location)
+        end
       end
     end
   end
