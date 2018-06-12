@@ -4365,8 +4365,8 @@ EOF
 
     assert_empty typing.errors
 
-    assert_equal Types::Name.new_interface(name: :_Boolean), type_env.lvar_types[:a]
-    assert_equal Types::Name.new_interface(name: :_Boolean), type_env.lvar_types[:b]
+    assert_equal Types::Boolean.new, type_env.lvar_types[:a]
+    assert_equal Types::Boolean.new, type_env.lvar_types[:b]
   end
 
   def test_empty_body_method

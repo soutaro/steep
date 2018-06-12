@@ -326,7 +326,10 @@ end
 class Numeric
 end
 
-interface _Boolean
+class TrueClass
+end
+
+class FalseClass
 end
 
 class Symbol
@@ -342,7 +345,7 @@ module A
 end
 
 module B
-  def self.bar: -> _Boolean
+  def self.bar: -> bool
   def self.hoge: -> Symbol
 end
 
@@ -372,7 +375,7 @@ end
       assert_instance_of Interface::Method, method.super_method
       assert_equal "-> Object", method.super_method.types[0].location.source
       assert_instance_of Interface::Method, method.super_method.super_method
-      assert_equal "-> _Boolean", method.super_method.super_method.types[0].location.source
+      assert_equal "-> bool", method.super_method.super_method.types[0].location.source
       assert_nil method.super_method.super_method.super_method
     end
 

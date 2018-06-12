@@ -213,7 +213,7 @@ module Steep
           return "any" unless node
           case node.type
           when :false, :true
-            "_Boolean"
+            "bool"
           when :int
             "Integer"
           when :float

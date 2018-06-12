@@ -32,7 +32,7 @@ module Steep
       end
 
       def boolean?(type)
-        type == AST::Types::Name.new_interface(name: :_Boolean)
+        type.is_a?(AST::Types::Boolean)
       end
     end
 
@@ -869,7 +869,7 @@ module Steep
           end
 
         when :true, :false
-          typing.add_typing(node, AST::Types::Name.new_interface(name: :_Boolean))
+          typing.add_typing(node, AST::Types::Boolean.new)
 
         when :hash
           yield_self do

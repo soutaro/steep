@@ -536,7 +536,7 @@ module Steep
         case type
         when AST::Types::Any, AST::Types::Var, AST::Types::Class, AST::Types::Instance
           raise CannotResolveError.new(type: type)
-        when AST::Types::Nil, AST::Types::Literal
+        when AST::Types::Nil, AST::Types::Literal, AST::Types::Boolean
           resolve(type.back_type,
                   self_type: self_type,
                   instance_type: instance_type,

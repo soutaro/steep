@@ -7,13 +7,13 @@ class Object <: BasicObject
   def tap: { (self) -> any } -> self
   def to_s: -> String
   def hash: -> Integer
-  def eql?: (any) -> _Boolean
-  def ==: (any) -> _Boolean
-  def ===: (any) -> _Boolean
-  def !=: (any) -> _Boolean
+  def eql?: (any) -> bool
+  def ==: (any) -> bool
+  def ===: (any) -> bool
+  def !=: (any) -> bool
   def class: -> class
   def to_i: -> Integer
-  def is_a?: (Module) -> _Boolean
+  def is_a?: (Module) -> bool
   def inspect: -> String
   def freeze: -> self
   def method: (Symbol) -> Method
@@ -31,8 +31,8 @@ class Module
   def extend: (Module) -> any
   def attr_accessor: (*Symbol) -> any
   def attr_writer: (*Symbol) -> any
-  def include: (Module) -> _Boolean
-  def prepend: (Module) -> _Boolean
+  def include: (Module) -> bool
+  def prepend: (Module) -> bool
 end
 
 class Method
@@ -49,7 +49,7 @@ module Kernel
            | (String) -> any
            | (*any) -> any
 
-  def block_given?: -> _Boolean
+  def block_given?: -> bool
   def enum_for: (Symbol, *any) -> any
   def require_relative: (*String) -> void
   def require: (*String) -> void
@@ -96,7 +96,7 @@ class Array<'a>
   def combination: (?Integer) { (self) -> any } -> Array<self>
                  | (?Integer) -> Enumerator<self, Array<self>>
 
-  def empty?: -> _Boolean
+  def empty?: -> bool
   def compact: -> self
   def compact!: -> self?
   def concat: (*Array<'a>) -> self
@@ -235,10 +235,12 @@ interface _ToS
   def to_s: -> String
 end
 
-interface _Boolean
-  def !: -> _Boolean
-  def to_s: -> String
-  def ==: (any) -> _Boolean
+class TrueClass
+  def !: -> bool
+end
+
+class FalseClass
+  def !: -> bool
 end
 
 class NilClass
@@ -247,10 +249,10 @@ end
 class Numeric
   def +: (Numeric) -> Numeric
   def /: (Numeric) -> Numeric
-  def <=: (any) -> _Boolean
-  def >=: (any) -> _Boolean
-  def < : (any) -> _Boolean
-  def >: (any) -> _Boolean
+  def <=: (any) -> bool
+  def >=: (any) -> bool
+  def < : (any) -> bool
+  def >: (any) -> bool
 end
 
 class Integer <: Numeric
@@ -357,13 +359,13 @@ interface _Iteratable<'a, 'b>
 end
 
 module Enumerable<'a, 'b> : _Iteratable<'a, 'b>
-  def all?: -> _Boolean
-          | { ('a) -> any } -> _Boolean
-          | (any) -> _Boolean
+  def all?: -> bool
+          | { ('a) -> any } -> bool
+          | (any) -> bool
 
-  def any?: -> _Boolean
-          | { ('a) -> any } -> _Boolean
-          | (any) -> _Boolean
+  def any?: -> bool
+          | { ('a) -> any } -> bool
+          | (any) -> bool
 
   def chunk: { ('a) -> any } -> Enumerator<'a, self>
 
@@ -439,8 +441,8 @@ module Enumerable<'a, 'b> : _Iteratable<'a, 'b>
 
   def group_by: <'x> { ('a) -> 'x } -> Hash<'x, Array<'a>>
 
-  def member?: (any) -> _Boolean
-  def include?: (any) -> _Boolean
+  def member?: (any) -> bool
+  def include?: (any) -> bool
 
   def inject: <'x> ('x) { ('x, 'a) -> 'x } -> 'x
             | (Symbol) -> any
@@ -474,13 +476,13 @@ module Enumerable<'a, 'b> : _Iteratable<'a, 'b>
 
   def min_max_by: { ('a, 'a) -> Integer } -> Array<'a>
 
-  def none?: -> _Boolean
-           | { ('a) -> any } -> _Boolean
-           | (any) -> _Boolean
+  def none?: -> bool
+           | { ('a) -> any } -> bool
+           | (any) -> bool
 
-  def one?: -> _Boolean
-          | { ('a) -> any } -> _Boolean
-          | (any) -> _Boolean
+  def one?: -> bool
+          | { ('a) -> any } -> bool
+          | (any) -> bool
 
   def partition: { ('a) -> any } -> Array<Array<'a>>
                | -> Enumerator<'a, Array<Array<'a>>>
@@ -541,7 +543,7 @@ class File <: IO
   def self.binread: (String) -> String
   def self.extname: (String) -> String
   def self.basename: (String) -> String
-  def self.readable?: (String) -> _Boolean
+  def self.readable?: (String) -> bool
   def self.binwrite: (String, String) -> void
   def self.read: (String) -> String
                | (String, Integer?) -> String?
