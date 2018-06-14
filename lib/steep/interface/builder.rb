@@ -68,6 +68,11 @@ module Steep
             types: type.types.map {|ty| absolute_type(ty, current: current) },
             location: type.location
           )
+        when AST::Types::Tuple
+          AST::Types::Tuple.new(
+            types: type.types.map {|ty| absolute_type(ty, current:current) },
+            location: type.location
+          )
         else
           type
         end

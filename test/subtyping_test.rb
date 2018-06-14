@@ -730,4 +730,63 @@ end
     s = result.constraints.solution(checker, variance: variance, variables: Set.new([:x]))
     assert_equal AST::Types::Name.new_instance(name: :"::String"), AST::Types::Var.new(name: :x).subst(s)
   end
+
+  def test_tuple
+    checker = new_checker("")
+
+    interface = checker.resolve(parse_type("[1, String]"), with_initialize: false)
+    assert_equal [:class, :tap, :yield_self, :[], :[]=], interface.methods.keys
+
+    assert_equal ["(0) -> 1", "(1) -> String", "(::Integer) -> (1 | String)"], interface.methods[:[]].types.map(&:to_s)
+    assert_equal ["(0, 1) -> 1", "(1, String) -> String", "(::Integer, (1 | String)) -> (1 | String)"], interface.methods[:[]=].types.map(&:to_s)
+  end
+
+  def test_tuple_subtyping
+    checker = new_checker("")
+
+    result = checker.check(
+      Subtyping::Relation.new(
+        sub_type: parse_type("[123]"),
+        super_type: parse_type("Array<123>"),
+        ),
+      constraints: Subtyping::Constraints.empty
+    )
+    assert_instance_of Subtyping::Result::Success, result
+
+    result = checker.check(
+      Subtyping::Relation.new(
+        sub_type: parse_type("[123, String]"),
+        super_type: parse_type("Array<123 | String>"),
+        ),
+      constraints: Subtyping::Constraints.empty
+    )
+    assert_instance_of Subtyping::Result::Success, result
+
+    result = checker.check(
+      Subtyping::Relation.new(
+        sub_type: parse_type("[123]"),
+        super_type: parse_type("Array<Integer | String>"),
+        ),
+      constraints: Subtyping::Constraints.empty
+    )
+    assert_instance_of Subtyping::Result::Failure, result
+
+    result = checker.check(
+      Subtyping::Relation.new(
+        sub_type: parse_type("[123, 456]"),
+        super_type: parse_type("[123]"),
+        ),
+      constraints: Subtyping::Constraints.empty
+    )
+    assert_instance_of Subtyping::Result::Success, result
+
+    result = checker.check(
+      Subtyping::Relation.new(
+        sub_type: parse_type("[123]"),
+        super_type: parse_type("[Integer]"),
+        ),
+      constraints: Subtyping::Constraints.empty
+    )
+    assert_instance_of Subtyping::Result::Failure, result
+  end
 end

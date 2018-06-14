@@ -164,6 +164,24 @@ module Steep
             check_interface(sub_interface, super_interface, assumption: assumption, trace: trace, constraints: constraints)
           end
 
+        when relation.sub_type.is_a?(AST::Types::Tuple) && relation.super_type.is_a?(AST::Types::Tuple)
+          if relation.sub_type.types[0, relation.super_type.types.size] == relation.super_type.types
+            success(constraints: constraints)
+          else
+            failure(error: Result::Failure::UnknownPairError.new(relation: relation),
+                    trace: trace)
+          end
+
+        when relation.sub_type.is_a?(AST::Types::Tuple)
+          sub_interface = resolve(relation.sub_type, with_initialize: false)
+          super_interface = resolve(relation.super_type, with_initialize: false)
+
+          check_interface(sub_interface,
+                          super_interface,
+                          assumption: assumption,
+                          trace: trace,
+                          constraints: constraints)
+
         else
           failure(error: Result::Failure::UnknownPairError.new(relation: relation),
                   trace: trace)
@@ -680,6 +698,52 @@ module Steep
           Interface::Instantiated.new(type: type,
                                       methods: {},
                                       ivar_chains: {})
+
+        when AST::Types::Tuple
+          yield_self do
+            element_type = AST::Types::Union.build(types: type.types)
+            array_type = AST::Types::Name.new_instance(name: "::Array",
+                                                       args: [element_type])
+            array_interface = resolve(array_type, self_type: self_type, with_initialize: with_initialize)
+
+            array_interface.methods[:[]] = array_interface.methods[:[]].yield_self do |aref|
+              types = type.types.map.with_index {|elem_type, index|
+                Interface::MethodType.new(
+                  type_params: [],
+                  params: Interface::Params.new(required: [AST::Types::Literal.new(value: index)],
+                                                optional: [],
+                                                rest: nil,
+                                                required_keywords: {},
+                                                optional_keywords: {},
+                                                rest_keywords: nil),
+                  block: nil,
+                  return_type: elem_type,
+                  location: nil
+                )
+              } + aref.types
+              aref.with_types(types)
+            end
+
+            array_interface.methods[:[]=] = array_interface.methods[:[]=].yield_self do |aref|
+              types = type.types.map.with_index {|elem_type, index|
+                Interface::MethodType.new(
+                  type_params: [],
+                  params: Interface::Params.new(required: [AST::Types::Literal.new(value: index), elem_type],
+                                                optional: [],
+                                                rest: nil,
+                                                required_keywords: {},
+                                                optional_keywords: {},
+                                                rest_keywords: nil),
+                  block: nil,
+                  return_type: elem_type,
+                  location: nil
+                )
+              } + aref.types
+              aref.with_types(types)
+            end
+
+            array_interface
+          end
         end
       end
     end

@@ -167,6 +167,10 @@ simple_type: type_name {
     | INT { result = AST::Types::Literal.new(value: val[0].value, location: val[0].location) }
     | STRING { result = AST::Types::Literal.new(value: val[0].value, location: val[0].location) }
     | SYMBOL { result = AST::Types::Literal.new(value: val[0].value, location: val[0].location) }
+    | LBRACKET type_seq RBRACKET {
+        loc = val[0].location + val[2].location
+        result = AST::Types::Tuple.new(types: val[1], location: loc)
+      }
 
 paren_type: LPAREN type RPAREN { result = val[1].with_location(val[0].location + val[2].location) }
           | simple_type
@@ -649,6 +653,10 @@ def next_token
     new_token(:LTCOLON)
   when input.scan(/(\[\]=)|(\[\])|===|==|\^|!=|<</)
     new_token(:OPERATOR, input.matched.to_sym)
+  when input.scan(/\[/)
+    new_token(:LBRACKET, nil)
+  when input.scan(/\]/)
+    new_token(:RBRACKET, nil)
   when input.scan(/<=/)
     new_token(:OPERATOR, :<=)
   when input.scan(/>=/)

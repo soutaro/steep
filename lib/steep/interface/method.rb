@@ -48,6 +48,16 @@ module Steep
         )
       end
 
+      def with_types(types)
+        self.class.new(
+          type_name: type_name,
+          name: name,
+          types: types,
+          super_method: super_method,
+          attributes: attributes
+        )
+      end
+
       def include_in_chain?(method)
         (method.type_name == type_name &&
           method.name == name &&
