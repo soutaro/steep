@@ -2,6 +2,12 @@
 
 ## master
 
+## 0.4.0 (2018-06-14)
+
+* Add *tuple* type (#40)
+* Add `bool` and `nil` types (#39)
+* Add *literal type* (#37)
+
 ## 0.3.0 (2018-05-31)
 
 * Add `interface` command to print interface built for given type
