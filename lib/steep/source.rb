@@ -33,9 +33,8 @@ module Steep
         value(token)
       end
 
-      def emit_lambda
-        true
-      end
+      self.emit_lambda = true
+      self.emit_procarg0 = true
     end
 
     def self.parser
