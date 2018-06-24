@@ -84,34 +84,97 @@ module Steep
         end
 
         [].tap do |zip|
-          types = params_type.flat_unnamed_params
+          if expandable_params?(params_type) && expandable?
+            type = params_type.required[0]
 
-          (leading_params + optional_params).each do |param|
-            type = types.shift&.last || params_type.rest
+            case
+            when array?(type)
+              type_arg = type.args[0]
+              params.each do |param|
+                unless param == rest_param
+                  zip << [param, AST::Types::Union.build(types: [type_arg, AST::Types::Nil.new])]
+                else
+                  zip << [param, AST::Types::Name.new_instance(name: "::Array", args: [type_arg])]
+                end
+              end
+            when type.is_a?(AST::Types::Tuple)
+              types = type.types.dup
+              (leading_params + optional_params).each do |param|
+                ty = types.shift
+                if ty
+                  zip << [param, ty]
+                else
+                  zip << [param, AST::Types::Nil.new]
+                end
+              end
 
-            if type
-              zip << [param, type]
-            else
-              zip << [param, AST::Types::Nil.new]
+              if rest_param
+                if types.any?
+                  union = AST::Types::Union.build(types: types)
+                  zip << [rest_param, AST::Types::Name.new_instance(name: "::Array", args: [union])]
+                else
+                  zip << [rest_param, AST::Types::Nil.new]
+                end
+              end
+            end
+          else
+            types = params_type.flat_unnamed_params
+
+            (leading_params + optional_params).each do |param|
+              type = types.shift&.last || params_type.rest
+
+              if type
+                zip << [param, type]
+              else
+                zip << [param, AST::Types::Nil.new]
+              end
+            end
+
+            if rest_param
+              if types.empty?
+                array = AST::Types::Name.new_instance(
+                  name: "::Array",
+                  args: [params_type.rest || AST::Types::Any.new]
+                )
+                zip << [rest_param, array]
+              else
+                union = AST::Types::Union.build(types: types.map(&:last) + [params_type.rest])
+                array = AST::Types::Name.new_instance(
+                  name: "::Array",
+                  args: [union]
+                )
+                zip << [rest_param, array]
+              end
             end
           end
+        end
+      end
 
-          if rest_param
-            if types.empty?
-              array = AST::Types::Name.new_instance(
-                name: "::Array",
-                args: [params_type.rest || AST::Types::Any.new]
-              )
-              zip << [rest_param, array]
-            else
-              union = AST::Types::Union.build(types: types.map(&:last) + [params_type.rest])
-              array = AST::Types::Name.new_instance(
-                name: "::Array",
-                args: [union]
-              )
-              zip << [rest_param, array]
-            end
+      def array?(type)
+        type.is_a?(AST::Types::Name) &&
+          type.name.is_a?(TypeName::Instance) &&
+          type.name.name.name == "Array" && type.name.name.absolute?
+      end
+
+      def expandable_params?(params_type)
+        if params_type.flat_unnamed_params.size == 1
+          case (type = params_type.required.first)
+          when AST::Types::Tuple
+            true
+          when AST::Types::Name
+            array?(type)
           end
+        end
+      end
+
+      def expandable?
+        case
+        when leading_params.size + trailing_params.size > 1
+          true
+        when (leading_params.any? || trailing_params.any?) && rest_param
+          true
+        when params.size == 1 && params[0].node.type == :arg
+          true
         end
       end
 

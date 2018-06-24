@@ -119,4 +119,61 @@ proc {|a, b=1, *c, d|
       assert_equal [params.params[0], parse_type("Integer")], zip[0]
     end
   end
+
+  def test_zip_expand_array
+    type = Params.new(
+      required: [parse_type("::Array<Integer>")],
+      optional: [],
+      rest: nil,
+      required_keywords: {},
+      optional_keywords: {},
+      rest_keywords: nil
+    )
+
+    block_params("proc {|x,y,*z| }") do |params|
+      zip = params.zip(type)
+
+      assert_equal [params.params[0], parse_type("Integer | nil")], zip[0]
+      assert_equal [params.params[1], parse_type("Integer | nil")], zip[1]
+      assert_equal [params.params[2], parse_type("::Array<Integer>")], zip[2]
+    end
+
+    block_params("proc {|x,| }") do |params|
+      zip = params.zip(type)
+
+      assert_equal [params.params[0], parse_type("Integer | nil")], zip[0]
+    end
+  end
+
+  def test_zip_expand_tuple
+    type = Params.new(
+      required: [parse_type("[Symbol, Integer]")],
+      optional: [],
+      rest: nil,
+      required_keywords: {},
+      optional_keywords: {},
+      rest_keywords: nil
+    )
+
+    block_params("proc {|x,y,*z| }") do |params|
+      zip = params.zip(type)
+
+      assert_equal [params.params[0], parse_type("Symbol")], zip[0]
+      assert_equal [params.params[1], parse_type("Integer")], zip[1]
+      assert_equal [params.params[2], parse_type("nil")], zip[2]
+    end
+
+    block_params("proc {|x,| }") do |params|
+      zip = params.zip(type)
+
+      assert_equal [params.params[0], parse_type("Symbol")], zip[0]
+    end
+
+    block_params("proc {|x, *y| }") do |params|
+      zip = params.zip(type)
+
+      assert_equal [params.params[0], parse_type("Symbol")], zip[0]
+      assert_equal [params.params[1], parse_type("::Array<Integer>")], zip[1]
+    end
+  end
 end
