@@ -307,6 +307,8 @@ class Object <: BasicObject
   def tap: { (instance) -> any } -> instance
   def gets: -> String?
   def to_s: -> String
+  def nil?: -> bool
+  def !: -> bool
 end
 
 class Class<'a>
@@ -320,6 +322,7 @@ class String
   def to_str: -> String
   def +: (String) -> String
   def size: -> Integer
+  def -@: -> String
 end
 
 class Numeric

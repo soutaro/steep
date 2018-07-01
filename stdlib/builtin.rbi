@@ -21,6 +21,8 @@ class Object <: BasicObject
   def dup: -> self
   def send: (Symbol, *any) -> any
   def instance_variable_get: (Symbol) -> any
+  def nil?: -> bool
+  def !: -> bool
 end
 
 class Module
@@ -257,6 +259,7 @@ class Numeric
   def >=: (any) -> bool
   def < : (any) -> bool
   def >: (any) -> bool
+  def -@: -> self
 end
 
 class Integer <: Numeric

@@ -428,6 +428,7 @@ method_name: method_name0
            | STAR | STAR2
            | PERCENT | MINUS
            | LT | GT
+           | UMINUS
            | BAR { result = LocatedValue.new(location: val[0].location, value: :|) }
            | method_name0 EQ {
                raise ParseError, "\nunexpected method name #{val[0].to_s} =" unless val[0].location.pred?(val[1].location)
@@ -448,6 +449,11 @@ method_name: method_name0
                raise ParseError, "\nunexpected method name > >" unless val[0].location.pred?(val[1].location)
                result = LocatedValue.new(location: val[0].location + val[1].location, value: :>>)
              }
+           | NIL QUESTION {
+             raise ParseError, "\nunexpected method name #{val[0].to_s} ?" unless val[0].location.pred?(val[1].location)
+             result = LocatedValue.new(location: val[0].location + val[1].location,
+                                       value: :"nil?")
+           }
 
 method_name0: IDENT
             | UIDENT
@@ -624,7 +630,7 @@ def next_token
   when input.scan(/\?/)
     new_token(:QUESTION)
   when input.scan(/!/)
-    new_token(:BANG)
+    new_token(:BANG, :!)
   when input.scan(/\(/)
     new_token(:LPAREN, nil)
   when input.scan(/\)/)
@@ -681,6 +687,8 @@ def next_token
     new_token(:END, :end)
   when input.scan(/\|/)
     new_token(:BAR, :bar)
+  when input.scan(/-@/)
+    new_token(:UMINUS, :"-@")
   when input.scan(/def\b/)
     new_token(:DEF)
   when input.scan(/@type\b/)
