@@ -225,6 +225,10 @@ class Hash<'key, 'value>
               | -> Enumerator<'a, self>
   def self.[]: (Array<any>) -> Hash<'key, 'value>
   def keys: () -> Array<'key>
+  def each: { (['key, 'value]) -> any } -> self
+          | -> Enumerator<['key, 'value], self>
+
+  include Enumerable<['key, 'value], self>
 end
 
 class Symbol

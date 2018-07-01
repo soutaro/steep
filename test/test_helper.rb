@@ -357,6 +357,7 @@ end
 class Hash<'a, 'b>
   def []: ('a) -> 'b
   def []=: ('a, 'b) -> 'b
+  def each: { (['a, 'b]) -> void } -> self
 end
 
 class NilClass
