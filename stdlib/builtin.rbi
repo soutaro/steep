@@ -20,9 +20,11 @@ class Object <: BasicObject
   def yield_self: <'a>{ (self) -> 'a } -> 'a
   def dup: -> self
   def send: (Symbol, *any) -> any
+  def __send__: (Symbol, *any) -> any
   def instance_variable_get: (Symbol) -> any
   def nil?: -> bool
   def !: -> bool
+  def Array: (any) -> Array<any>
 end
 
 class Module
@@ -229,6 +231,7 @@ class Hash<'key, 'value>
   def keys: () -> Array<'key>
   def each: { (['key, 'value]) -> any } -> self
           | -> Enumerator<['key, 'value], self>
+  def key?: ('key) -> bool
 
   include Enumerable<['key, 'value], self>
 end
@@ -359,6 +362,10 @@ class String
   def *: (Integer) -> String
   def scan: (Regexp) { (Array<String>) -> void } -> String
           | (Regexp) -> Array<String>
+  def lines: -> Array<String>
+  def bytesize: -> Integer
+  def start_with?: (String) -> bool
+  def byteslice: (Integer, Integer) -> String
 end
 
 interface _Iteratable<'a, 'b>
@@ -536,9 +543,13 @@ class Enumerator<'a, 'b>
   def each: { ('a) -> any } -> 'b
   def with_object: <'x> ('x) { ('a, 'x) -> any } -> 'x
   def with_index: { ('a, Integer) -> any } -> 'b
+                | -> Enumerator<['a, Integer], 'b>
 end
 
 class Regexp
+  def self.compile: (String, *any) -> Regexp
+  def self.escape: (String) -> String
+  def source: -> String
 end
 
 class IO
