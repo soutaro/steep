@@ -1404,7 +1404,7 @@ EOF
       for_class.module_context.implement_name
     )
     assert_equal Types::Name.new_instance(name: "::Person"), for_class.module_context.instance_type
-    assert_equal Types::Name.new_class(name: "::Person", constructor: nil), for_class.module_context.module_type
+    assert_equal Types::Name.new_class(name: "::Person", constructor: true), for_class.module_context.module_type
   end
 
   def test_class_constructor_without_signature

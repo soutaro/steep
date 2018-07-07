@@ -336,7 +336,7 @@ module Steep
         _ = checker.builder.build(TypeName::Instance.new(name: class_name))
 
         instance_type = AST::Types::Name.new_instance(name: class_name, args: class_args)
-        module_type = AST::Types::Name.new_class(name: class_name, args: [], constructor: nil)
+        module_type = AST::Types::Name.new_class(name: class_name, args: [], constructor: true)
       end
 
       new_namespace = nested_namespace(new_class_name)
