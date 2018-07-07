@@ -118,7 +118,7 @@ module Steep
       OptionParser.new do |opts|
         opts.on("-I [PATH]") {|path| signature_dirs << Pathname(path) }
         opts.on("--no-builtin") { no_builtin = true }
-      end
+      end.parse!(argv)
 
       unless no_builtin
         signature_dirs.unshift Pathname(__dir__).join("../../stdlib").realpath
