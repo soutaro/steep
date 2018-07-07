@@ -83,5 +83,7 @@ module Steep
     end
 
     class Instance < Base; end
+
+    class Alias < Base; end
   end
 end
