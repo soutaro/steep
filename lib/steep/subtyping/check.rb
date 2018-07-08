@@ -140,7 +140,8 @@ module Steep
           end
 
         when relation.sub_type.is_a?(AST::Types::Name) && relation.super_type.is_a?(AST::Types::Name)
-          if relation.sub_type.name == relation.super_type.name && relation.sub_type.args.size == relation.super_type.args.size
+          case
+          when relation.sub_type.name == relation.super_type.name && relation.sub_type.args.size == relation.super_type.args.size
             results = relation.sub_type.args.zip(relation.super_type.args).flat_map do |(sub, sup)|
               Relation.new(sub_type: sub, super_type: sup).yield_self do |rel|
                 [rel, rel.flip]
@@ -157,6 +158,20 @@ module Steep
             else
               results.find(&:failure?)
             end
+          when relation.sub_type.name.is_a?(TypeName::Alias)
+            check0(
+              Relation.new(sub_type: expand_alias(relation.sub_type), super_type: relation.super_type),
+              assumption: assumption,
+              trace: trace,
+              constraints: constraints
+            )
+          when relation.super_type.name.is_a?(TypeName::Alias)
+            check0(
+              Relation.new(super_type: expand_alias(relation.super_type), sub_type: relation.sub_type),
+              assumption: assumption,
+              trace: trace,
+              constraints: constraints
+            )
           else
             sub_interface = resolve(relation.sub_type, with_initialize: false)
             super_interface = resolve(relation.super_type, with_initialize: false)
@@ -561,24 +576,29 @@ module Steep
                   module_type: module_type,
                   with_initialize: with_initialize)
         when AST::Types::Name
-          builder.build(type.name, with_initialize: with_initialize).yield_self do |abstract|
-            case type.name
-            when TypeName::Instance, TypeName::Interface
-              abstract.instantiate(
-                type: self_type,
-                args: type.args,
-                instance_type: type,
-                module_type: module_type || module_type(type)
-              )
-            when TypeName::Class, TypeName::Module
-              signature = builder.signatures.find_class_or_module(type.name.name)
-              args = signature.params&.variables&.map {|var| AST::Types::Var.new(name: var) } || []
-              abstract.instantiate(
-                type: self_type,
-                args: [],
-                instance_type: AST::Types::Name.new_instance(name: type.name.name, args: args),
-                module_type: module_type || module_type(type)
-              )
+          case type.name
+          when TypeName::Alias
+            resolve(expand_alias(type), self_type: self_type, instance_type: instance_type, module_type: module_type, with_initialize: with_initialize)
+          else
+            builder.build(type.name, with_initialize: with_initialize).yield_self do |abstract|
+              case type.name
+              when TypeName::Instance, TypeName::Interface
+                abstract.instantiate(
+                  type: self_type,
+                  args: type.args,
+                  instance_type: type,
+                  module_type: module_type || module_type(type)
+                )
+              when TypeName::Class, TypeName::Module
+                signature = builder.signatures.find_class_or_module(type.name.name)
+                args = signature.params&.variables&.map {|var| AST::Types::Var.new(name: var) } || []
+                abstract.instantiate(
+                  type: self_type,
+                  args: [],
+                  instance_type: AST::Types::Name.new_instance(name: type.name.name, args: args),
+                  module_type: module_type || module_type(type)
+                )
+              end
             end
           end
         when AST::Types::Union
@@ -745,6 +765,12 @@ module Steep
             array_interface
           end
         end
+      end
+
+      def expand_alias(type)
+        a = builder.signatures.find_alias(type.name.name) or raise "Unknown alias name: #{type.name.name}"
+        s = Interface::Substitution.build(a.params&.variables || [], type.args)
+        a.type.subst(s)
       end
     end
   end

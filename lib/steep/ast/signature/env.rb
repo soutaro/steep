@@ -8,6 +8,7 @@ module Steep
         attr_reader :interfaces
         attr_reader :constants
         attr_reader :globals
+        attr_reader :aliases
 
         def initialize()
           @modules = {}
@@ -16,6 +17,7 @@ module Steep
           @interfaces = {}
           @constants = {}
           @globals = {}
+          @aliases = {}
         end
 
         def add(sig)
@@ -40,6 +42,9 @@ module Steep
           when Signature::Gvar
             raise "Duplicated global: #{sig.name}" if globals.key?(sig.name)
             globals[sig.name] = sig
+          when Signature::Alias
+            raise "Duplicated alias: #{sig.name}" if aliases.key?(sig.name)
+            aliases[sig.name] = sig
           else
             raise "Unknown signature:: #{sig}"
           end
@@ -71,6 +76,10 @@ module Steep
 
         def find_gvar(name)
           globals[name]
+        end
+
+        def find_alias(name)
+          aliases[name]
         end
 
         def find_name(hash, name, current_module:)
