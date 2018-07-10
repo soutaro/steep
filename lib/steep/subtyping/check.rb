@@ -65,6 +65,9 @@ module Steep
         when relation.sub_type.is_a?(AST::Types::Bot)
           success(constraints: constraints)
 
+        when relation.super_type.is_a?(AST::Types::Boolean)
+          success(constraints: constraints)
+
         when relation.super_type.is_a?(AST::Types::Var)
           if constraints.unknown?(relation.super_type.name)
             constraints.add(relation.super_type.name, sub_type: relation.sub_type)
