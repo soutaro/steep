@@ -148,4 +148,15 @@ $VERSION: Integer
     assert_equal gvar, env.find_gvar(:"$VERSION")
     assert_nil env.find_gvar(:"$HOGE")
   end
+
+  def test_alias
+    a, _ = parse(<<-EOS)
+type foo = String | Integer
+    EOS
+
+    env.add(a)
+
+    assert_equal a, env.find_alias(:foo)
+    assert_nil env.find_alias(:bar)
+  end
 end

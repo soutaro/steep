@@ -461,4 +461,26 @@ end
       assert_equal false, member.ivar
     end
   end
+
+  def test_alias
+    sigs = parse(<<-EOF)
+type foo = String | Integer
+type bar<'a> = foo | Array<'a>
+type baz = bar<String>
+    EOF
+
+    sigs[0].yield_self do |sig|
+      assert_instance_of Steep::AST::Signature::Alias, sig
+      assert_equal :foo, sig.name
+      assert_nil sig.params
+      assert_equal parse_type("String | Integer"), sig.type
+    end
+
+    sigs[1].yield_self do |sig|
+      assert_instance_of Steep::AST::Signature::Alias, sig
+      assert_equal :bar, sig.name
+      assert_equal [:a], sig.params.variables
+      assert_equal parse_type("foo | Array<'a>"), sig.type
+    end
+  end
 end
