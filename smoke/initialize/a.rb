@@ -6,7 +6,7 @@ class A
   end
 
   def foo()
-    # !expects NoMethodError: type=A, method=initialize
+    # !expects NoMethodError: type=::A, method=initialize
     initialize()
   end
 end
