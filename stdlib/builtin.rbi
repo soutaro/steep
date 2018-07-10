@@ -359,6 +359,8 @@ class String
   def *: (Integer) -> String
   def scan: (Regexp) { (Array<String>) -> void } -> String
           | (Regexp) -> Array<String>
+  def empty?: -> bool
+  def length: -> Integer
 end
 
 interface _Iteratable<'a, 'b>
@@ -546,6 +548,8 @@ class IO
   def puts: (*any) -> void
 end
 
+File::FNM_DOTMATCH: Integer
+
 class File <: IO
   def self.binread: (String) -> String
   def self.extname: (String) -> String
@@ -554,6 +558,7 @@ class File <: IO
   def self.binwrite: (String, String) -> void
   def self.read: (String) -> String
                | (String, Integer?) -> String?
+  def self.fnmatch: (String, String, Integer) -> bool
 end
 
 STDOUT: IO
