@@ -25,6 +25,7 @@ class Object <: BasicObject
   def nil?: -> bool
   def !: -> bool
   def Array: (any) -> Array<any>
+  def Hash: (any) -> Hash<any, any>
 end
 
 class Module
@@ -77,6 +78,7 @@ class Array<'a>
 
   def []: (Integer) -> 'a
         | (Range<Integer>) -> self?
+        | (0, Integer) -> self
         | (Integer, Integer) -> self?
   def at: (Integer) -> 'a
         | (Range<Integer>) -> self?
@@ -232,6 +234,7 @@ class Hash<'key, 'value>
   def each: { (['key, 'value]) -> any } -> self
           | -> Enumerator<['key, 'value], self>
   def key?: ('key) -> bool
+  def merge: (Hash<'key, 'value>) -> Hash<'key, 'value>
 
   include Enumerable<['key, 'value], self>
 end
@@ -331,6 +334,7 @@ end
 
 class String
   def []: (Range<Integer>) -> String
+        | (Integer, Integer) -> String
   def to_sym: -> Symbol
   def +: (String) -> String
   def to_str: -> String
@@ -368,6 +372,7 @@ class String
   def byteslice: (Integer, Integer) -> String
   def empty?: -> bool
   def length: -> Integer
+  def force_encoding: (any) -> self
 end
 
 interface _Iteratable<'a, 'b>
@@ -557,6 +562,9 @@ end
 class IO
   def gets: -> String?
   def puts: (*any) -> void
+  def read: (Integer) -> String
+  def write: (String) -> Integer
+  def flush: () -> void
 end
 
 File::FNM_DOTMATCH: Integer
@@ -570,6 +578,9 @@ class File <: IO
   def self.read: (String) -> String
                | (String, Integer?) -> String?
   def self.fnmatch: (String, String, Integer) -> bool
+  def path: -> String
+  def self.write: (String, String) -> void
+  def self.chmod: (Integer, String) -> void
 end
 
 STDOUT: IO
@@ -577,4 +588,24 @@ STDOUT: IO
 class StringIO
   def initialize: (?String, ?String) -> any
   def puts: (*any) -> void
+end
+
+class Process::Status
+  def &: (Integer) -> Integer
+  def >>: (Integer) -> Integer
+  def coredump: -> bool
+  def exited?: -> bool
+  def exitstatus: -> Integer?
+  def pid: -> Integer
+  def signaled?: -> bool
+  def stopsig: -> Integer?
+  def success?: -> bool
+  def termsig: -> Integer?
+  def to_i: -> Integer
+  def to_int: -> Integer
+end
+
+module Marshal
+  def self.load: (String) -> any
+  def self.dump: (any) -> String
 end
