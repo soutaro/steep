@@ -464,6 +464,7 @@ module Steep
             rhs = node.children[1]
 
             if var.name == :_
+              synthesize(rhs, hint: Types.any)
               typing.add_typing(node, Types.any)
             else
               type_assignment(var, rhs, node)
@@ -914,6 +915,10 @@ module Steep
             key_type = key_types.empty? ? Types.any : AST::Types::Union.build(types: key_types)
             value_type = value_types.empty? ? Types.any : AST::Types::Union.build(types: value_types)
 
+            if key_types.empty? && value_types.empty? && !hint
+              typing.add_error Errors::FallbackAny.new(node: node)
+            end
+
             typing.add_typing(node, Types.hash_instance(key_type, value_type))
           end
 
@@ -1042,6 +1047,9 @@ module Steep
         when :array
           yield_self do
             if node.children.empty?
+              unless hint
+                typing.add_error Errors::FallbackAny.new(node: node)
+              end
               typing.add_typing(node, Types.array_instance(Types.any))
             else
               is_tuple = hint.is_a?(AST::Types::Tuple)
@@ -1446,7 +1454,7 @@ module Steep
     end
 
     def type_ivasgn(name, rhs, node)
-      rhs_type = synthesize(rhs)
+      rhs_type = synthesize(rhs, hint: type_env.get(ivar: name))
       ivar_type = type_env.assign(ivar: name, type: rhs_type) do |error|
         case error
         when Subtyping::Result::Failure
