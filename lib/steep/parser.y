@@ -139,7 +139,7 @@ block_params2: { result = nil }
 simple_type: type_name {
         result = AST::Types::Name.new(name: val[0].value, location: val[0].location, args: [])
       }
-    | instance_type_name LT type_seq GT {
+    | application_type_name LT type_seq GT {
         loc = val[0].location + val[3].location
         name = val[0].value
         args = val[2]
@@ -175,16 +175,20 @@ simple_type: type_name {
 paren_type: LPAREN type RPAREN { result = val[1].with_location(val[0].location + val[2].location) }
           | simple_type
 
-instance_type_name: module_name {
-                      result = LocatedValue.new(value: TypeName::Instance.new(name: val[0].value),
-                                                location: val[0].location)
-                    }
-                  | INTERFACE_NAME {
-                      result = LocatedValue.new(value: TypeName::Interface.new(name: val[0].value),
-                                                location: val[0].location)
-                    }
+application_type_name: module_name {
+                         result = LocatedValue.new(value: TypeName::Instance.new(name: val[0].value),
+                                                   location: val[0].location)
+                       }
+                     | INTERFACE_NAME {
+                         result = LocatedValue.new(value: TypeName::Interface.new(name: val[0].value),
+                                                   location: val[0].location)
+                       }
+                     | LIDENT {
+                         result = LocatedValue.new(value: TypeName::Alias.new(name: val[0].value),
+                                                   location: val[0].location)
+                       }
 
-type_name: instance_type_name
+type_name: application_type_name
          | module_name DOT CLASS constructor {
              loc = val[0].location + (val[3] || val[2]).location
              result = LocatedValue.new(value: TypeName::Class.new(name: val[0].value, constructor: val[3]&.value),
@@ -212,7 +216,7 @@ type_seq: type { result = [val[0]] }
 union_seq: simple_type BAR simple_type { result = [val[0], val[2]] }
          | simple_type BAR union_seq { result = [val[0]] + val[2] }
 
-keyword: IDENT
+keyword: LIDENT
        | MODULE_NAME
        | INTERFACE_NAME
        | ANY
@@ -231,6 +235,7 @@ signatures: { result = [] }
           | extension_decl signatures { result = [val[0]] + val[1] }
           | const_decl signatures { result = [val[0]] + val[1] }
           | gvar_decl signatures { result = [val[0]] + val[1] }
+          | alias_decl signatures { result = [val[0]] + val[1] }
 
 gvar_decl: GVAR COLON type {
              loc = val.first.location + val.last.location
@@ -284,6 +289,14 @@ extension_decl: EXTENSION module_name type_params LPAREN UIDENT RPAREN class_mem
                                                          params: val[2],
                                                          members: val[6])
                 }
+
+alias_decl: TYPE LIDENT type_params EQ type {
+              loc = val[0].location + val[4].location
+              result = AST::Signature::Alias.new(location: loc,
+                                                 name: val[1].value,
+                                                 params: val[2],
+                                                 type: val[4])
+            }
 
 self_type_opt: { result = nil }
              | COLON type { result = val[1] }
@@ -455,7 +468,7 @@ method_name: method_name0
                                        value: :"nil?")
            }
 
-method_name0: IDENT
+method_name0: LIDENT
             | UIDENT
             | MODULE_NAME
             | INTERFACE_NAME
@@ -474,6 +487,7 @@ method_name0: IDENT
             | BREAK
             | METHOD
             | BOOL
+            | TYPE
             | CONSTRUCTOR { result = LocatedValue.new(location: val[0].location, value: :constructor) }
             | NOCONSTRUCTOR { result = LocatedValue.new(location: val[0].location, value: :noconstructor) }
             | ATTR_READER
@@ -551,7 +565,7 @@ dynamic_name: method_name {
              result = AST::Annotation::Dynamic::Name.new(name: val[2].value, location: loc, kind: :module_instance)
            }
 
-subject: IDENT { result = val[0] }
+subject: LIDENT { result = val[0] }
 
 end
 
@@ -681,6 +695,8 @@ def next_token
     new_token(:ANY, :any)
   when input.scan(/void\b/)
     new_token(:VOID, :void)
+  when input.scan(/type\b/)
+    new_token(:TYPE, :type)
   when input.scan(/interface\b/)
     new_token(:INTERFACE, :interface)
   when input.scan(/end\b/)
@@ -761,7 +777,7 @@ def next_token
     new_token(:INT, input.matched.to_i)
   when input.scan(/\"[^\"]*\"/)
     new_token(:STRING, input.matched[1...-1])
-  when input.scan(/\w+/)
-    new_token(:IDENT, input.matched.to_sym)
+  when input.scan(/[a-z]\w*/)
+    new_token(:LIDENT, input.matched.to_sym)
   end
 end

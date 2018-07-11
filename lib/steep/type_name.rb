@@ -83,5 +83,11 @@ module Steep
     end
 
     class Instance < Base; end
+
+    class Alias < Base
+      def map_module_name
+        self
+      end
+    end
   end
 end

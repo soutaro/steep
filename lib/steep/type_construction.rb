@@ -131,10 +131,23 @@ module Steep
         type_env.set(const: name, type: type)
       end
 
-      self_type = annots.self_type || self_type
+      self_type = absolute_type(annots.self_type || self_type)
 
       self_interface = self_type && (self_type != Types.any || nil) && checker.resolve(self_type, with_initialize: true)
-      interface_method = self_interface&.yield_self {|interface| interface.methods[method_name] }
+      interface_method = self_interface&.yield_self do |interface|
+        interface.methods[method_name]&.yield_self do |method|
+          if self_type.is_a?(AST::Types::Name) && method.type_name == self_type.name
+            method
+          else
+            Interface::Method.new(type_name: self_type,
+                                  name: method_name,
+                                  types: method.types,
+                                  super_method: method,
+                                  attributes: [])
+          end
+        end
+      end
+
       annotation_method = annotations.lookup_method_type(method_name)&.yield_self do |method_type|
         Interface::Method.new(type_name: nil,
                               name: method_name,
@@ -336,7 +349,7 @@ module Steep
         _ = checker.builder.build(TypeName::Instance.new(name: class_name))
 
         instance_type = AST::Types::Name.new_instance(name: class_name, args: class_args)
-        module_type = AST::Types::Name.new_class(name: class_name, args: [], constructor: nil)
+        module_type = AST::Types::Name.new_class(name: class_name, args: [], constructor: true)
       end
 
       new_namespace = nested_namespace(new_class_name)

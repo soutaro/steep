@@ -1404,7 +1404,7 @@ EOF
       for_class.module_context.implement_name
     )
     assert_equal Types::Name.new_instance(name: "::Person"), for_class.module_context.instance_type
-    assert_equal Types::Name.new_class(name: "::Person", constructor: nil), for_class.module_context.module_type
+    assert_equal Types::Name.new_class(name: "::Person", constructor: true), for_class.module_context.module_type
   end
 
   def test_class_constructor_without_signature
@@ -4801,6 +4801,48 @@ EOF
     typing = Typing.new
     annotations = source.annotations(block: source.node)
     checker = new_subtyping_checker()
+
+    const_env = ConstantEnv.new(builder: checker.builder, current_namespace: nil)
+    type_env = TypeEnv.build(annotations: annotations,
+                             subtyping: checker,
+                             const_env: const_env,
+                             signatures: checker.builder.signatures)
+
+    construction = TypeConstruction.new(checker: checker,
+                                        source: source,
+                                        annotations: annotations,
+                                        type_env: type_env,
+                                        block_context: nil,
+                                        self_type: Types::Name.new_instance(name: "::Object"),
+                                        method_context: nil,
+                                        typing: typing,
+                                        module_context: nil,
+                                        break_context: nil)
+    construction.synthesize(source.node)
+
+    assert_empty typing.errors
+  end
+
+  def test_super
+    source = parse_ruby(<<EOF)
+class TestSuperChild
+  def foo
+    super + 3
+    super() + 1
+  end
+end
+EOF
+
+    typing = Typing.new
+    annotations = source.annotations(block: source.node)
+    checker = new_subtyping_checker(<<-EOF)
+class TestSuper
+  def foo: () -> Integer
+end
+
+class TestSuperChild <: TestSuper
+end
+    EOF
 
     const_env = ConstantEnv.new(builder: checker.builder, current_namespace: nil)
     type_env = TypeEnv.build(annotations: annotations,
