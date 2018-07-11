@@ -227,6 +227,7 @@ keyword: LIDENT
        | INCLUDE
        | IVAR
        | SELF
+       | TYPE
 
 signatures: { result = [] }
           | interface signatures { result = [val[0]] + val[1] }
