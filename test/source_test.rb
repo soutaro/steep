@@ -341,4 +341,20 @@ a = test() ? foo : bar
 
     assert_instance_of Steep::Source, source
   end
+
+  def test_defs
+    source = parse_source(<<-EOF)
+class A
+  def self.foo()
+    # @type var x: Integer
+    x = 123
+  end
+end
+    EOF
+
+    def_node = dig(source.node, 2)
+    collection = source.annotations(block: def_node)
+
+    assert_instance_of Steep::AST::Annotation::VarType, collection.var_types[:x]
+  end
 end

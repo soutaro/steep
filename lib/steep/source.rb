@@ -242,7 +242,7 @@ module Steep
 
       associated_annotations = annotations.select do |annot|
         case node.type
-        when :def, :module, :class, :block, :ensure
+        when :def, :module, :class, :block, :ensure, :defs
           loc = node.loc
           loc.line <= annot.line && annot.line < loc.last_line
 
