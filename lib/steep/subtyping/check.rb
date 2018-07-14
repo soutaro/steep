@@ -39,6 +39,10 @@ module Steep
         end
       end
 
+      def alias?(type)
+        type.is_a?(AST::Types::Name) && type.name.is_a?(TypeName::Alias)
+      end
+
       def cacheable?(relation)
         relation.sub_type.free_variables.empty? && relation.super_type.free_variables.empty?
       end
@@ -67,6 +71,22 @@ module Steep
 
         when relation.super_type.is_a?(AST::Types::Boolean)
           success(constraints: constraints)
+
+        when relation.sub_type.is_a?(AST::Types::Name) && relation.sub_type.name.is_a?(TypeName::Alias)
+          check0(
+            Relation.new(sub_type: expand_alias(relation.sub_type), super_type: relation.super_type),
+            assumption: assumption,
+            trace: trace,
+            constraints: constraints
+          )
+
+        when relation.super_type.is_a?(AST::Types::Name) && relation.super_type.name.is_a?(TypeName::Alias)
+          check0(
+            Relation.new(super_type: expand_alias(relation.super_type), sub_type: relation.sub_type),
+            assumption: assumption,
+            trace: trace,
+            constraints: constraints
+          )
 
         when relation.super_type.is_a?(AST::Types::Var)
           if constraints.unknown?(relation.super_type.name)
@@ -161,20 +181,6 @@ module Steep
             else
               results.find(&:failure?)
             end
-          when relation.sub_type.name.is_a?(TypeName::Alias)
-            check0(
-              Relation.new(sub_type: expand_alias(relation.sub_type), super_type: relation.super_type),
-              assumption: assumption,
-              trace: trace,
-              constraints: constraints
-            )
-          when relation.super_type.name.is_a?(TypeName::Alias)
-            check0(
-              Relation.new(super_type: expand_alias(relation.super_type), sub_type: relation.sub_type),
-              assumption: assumption,
-              trace: trace,
-              constraints: constraints
-            )
           else
             sub_interface = resolve(relation.sub_type, with_initialize: false)
             super_interface = resolve(relation.super_type, with_initialize: false)
@@ -771,9 +777,35 @@ module Steep
       end
 
       def expand_alias(type)
-        a = builder.signatures.find_alias(type.name.name) or raise "Unknown alias name: #{type.name.name}"
-        s = Interface::Substitution.build(a.params&.variables || [], type.args)
-        a.type.subst(s)
+        expanded = case type
+                   when AST::Types::Union
+                     AST::Types::Union.build(
+                       types: type.types.map {|ty| expand_alias(ty) },
+                       location: type.location
+                     )
+                   when AST::Types::Intersection
+                     AST::Types::Intersection.build(
+                       types: type.types.map {|ty| expand_alias(ty) },
+                       location: type.location
+                     )
+                   when AST::Types::Name
+                     if type.name.is_a?(TypeName::Alias)
+                       a = builder.signatures.find_alias(type.name.name) or raise "Unknown alias name: #{type.name.name}"
+                       args = type.args.map {|ty| expand_alias(ty) }
+                       s = Interface::Substitution.build(a.params&.variables || [], args)
+                       expand_alias(a.type.subst(s))
+                     else
+                       type
+                     end
+                   else
+                     type
+                   end
+
+        if block_given?
+          yield expanded
+        else
+          expanded
+        end
       end
     end
   end

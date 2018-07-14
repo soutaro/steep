@@ -3943,16 +3943,6 @@ EOF
     assert_equal Set.new([:x]), TypeConstruction.truthy_variables(parse_ruby("(x = 1) && f()").node)
   end
 
-  def test_unwrap
-    assert_equal Types::Name.new_instance(name: "::Integer"),
-                 TypeConstruction.unwrap(
-                   Types::Union.build(types: [
-                     Types::Name.new_instance(name: "::Integer"),
-                     Types::Nil.new
-                   ])
-                 )
-  end
-
   def test_if_unwrap
     source = parse_ruby(<<EOF)
 # @type var x: Integer?
@@ -4897,5 +4887,38 @@ EOF
     assert_all typing.errors do |error|
       error.is_a?(Steep::Errors::FallbackAny)
     end
+  end
+
+  def test_alias_hint
+    source = parse_ruby(<<EOF)
+# @type var a: a
+a = :foo
+EOF
+
+    typing = Typing.new
+    annotations = source.annotations(block: source.node)
+    checker = new_subtyping_checker(<<-EOF)
+type a = :foo | :bar
+    EOF
+
+    const_env = ConstantEnv.new(builder: checker.builder, current_namespace: nil)
+    type_env = TypeEnv.build(annotations: annotations,
+                             subtyping: checker,
+                             const_env: const_env,
+                             signatures: checker.builder.signatures)
+
+    construction = TypeConstruction.new(checker: checker,
+                                        source: source,
+                                        annotations: annotations,
+                                        type_env: type_env,
+                                        block_context: nil,
+                                        self_type: Types::Name.new_instance(name: "::Object"),
+                                        method_context: nil,
+                                        typing: typing,
+                                        module_context: nil,
+                                        break_context: nil)
+    construction.synthesize(source.node)
+
+    assert_empty typing.errors
   end
 end

@@ -195,6 +195,9 @@ module Steep
       end
 
       def assert_assign(var_type:, lhs_type:)
+        var_type = subtyping.expand_alias(var_type)
+        lhs_type = subtyping.expand_alias(lhs_type)
+
         relation = Subtyping::Relation.new(sub_type: lhs_type, super_type: var_type)
         constraints = Subtyping::Constraints.new(unknowns: Set.new)
 
@@ -212,6 +215,9 @@ module Steep
       end
 
       def assert_annotation(name, annotated_type:, original_type:)
+        annotated_type = subtyping.expand_alias(annotated_type)
+        original_type = subtyping.expand_alias(original_type)
+
         relation = Subtyping::Relation.new(sub_type: annotated_type, super_type: original_type)
         constraints = Subtyping::Constraints.new(unknowns: Set.new)
 

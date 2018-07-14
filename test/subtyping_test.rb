@@ -793,12 +793,12 @@ end
   def test_expand_alias
     checker = new_checker(<<-EOF)
 type foo = String | Integer
-type bar<'a> = 'a | Array<'a>
+type bar<'a> = 'a | Array<'a> | foo
     EOF
 
     assert_equal parse_type("String | Integer"), checker.expand_alias(parse_type("foo"))
-    assert_equal parse_type("Integer | Array<Integer>"), checker.expand_alias(parse_type("bar<Integer>"))
-    assert_raises { checker.expand_alias(:hello) }
+    assert_equal parse_type("Integer | Array<Integer> | String"), checker.expand_alias(parse_type("bar<Integer>"))
+    assert_raises { checker.expand_alias(parse_type("hello")) }
   end
 
   def test_alias
@@ -806,21 +806,25 @@ type bar<'a> = 'a | Array<'a>
 type foo = String | Integer
     EOF
 
-    result = checker.check(
+    result = checker.check0(
       Subtyping::Relation.new(
         sub_type: parse_type("String"),
         super_type: parse_type("foo")
       ),
-      constraints: Subtyping::Constraints.empty
+      constraints: Subtyping::Constraints.empty,
+      assumption: Set.new,
+      trace: Subtyping::Trace.new
     )
     assert_instance_of Subtyping::Result::Success, result
 
-    result = checker.check(
+    result = checker.check0(
       Subtyping::Relation.new(
         sub_type: parse_type("foo"),
         super_type: parse_type("String")
       ),
-      constraints: Subtyping::Constraints.empty
+      constraints: Subtyping::Constraints.empty,
+      assumption: Set.new,
+      trace: Subtyping::Trace.new
     )
     assert_instance_of Subtyping::Result::Failure, result
   end

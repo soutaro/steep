@@ -131,7 +131,7 @@ module Steep
         type_env.set(const: name, type: type)
       end
 
-      self_type = absolute_type(annots.self_type || self_type)
+      self_type = expand_alias(absolute_type(annots.self_type || self_type))
 
       self_interface = self_type && (self_type != Types.any || nil) && checker.resolve(self_type, with_initialize: true)
       interface_method = self_interface&.yield_self do |interface|
@@ -391,7 +391,7 @@ module Steep
 
       lvar_types = self.type_env.lvar_types.each.with_object({}) do |(var, type), env|
         if truthy_vars.member?(var)
-          env[var] = TypeConstruction.unwrap(type)
+          env[var] = unwrap(type)
         else
           env[var] = type
         end
@@ -499,7 +499,7 @@ module Steep
         when :send
           yield_self do
             if self_class?(node)
-              module_type = module_context.module_type
+              module_type = expand_alias(module_context.module_type)
               type = if module_type.is_a?(AST::Types::Name) && module_type.name.is_a?(TypeName::Class)
                        AST::Types::Name.new(name: module_type.name.updated(constructor: method_context.constructor),
                                             args: module_type.args)
@@ -515,7 +515,7 @@ module Steep
         when :csend
           yield_self do
             type = if self_class?(node)
-                     module_type = module_context.module_type
+                     module_type = expand_alias(module_context.module_type)
                      type = if module_type.is_a?(AST::Types::Name)
                               AST::Types::Name.new(name: module_type.name.updated(constructor: method_context.constructor),
                                                    args: module_type.args)
@@ -650,11 +650,11 @@ module Steep
           end
 
           if node.children[2]
-            return_type = new.method_context&.return_type
+            return_type = expand_alias(new.method_context&.return_type)
             if return_type && !return_type.is_a?(AST::Types::Void)
               new.check(node.children[2], return_type) do |_, actual_type, result|
                 typing.add_error(Errors::MethodBodyTypeMismatch.new(node: node,
-                                                                    expected: return_type,
+                                                                    expected: new.method_context&.return_type,
                                                                     actual: actual_type,
                                                                     result: result))
               end
@@ -662,7 +662,7 @@ module Steep
               new.synthesize(node.children[2])
             end
           else
-            return_type = new.method_context&.return_type
+            return_type = expand_alias(new.method_context&.return_type)
             if return_type && !return_type.is_a?(AST::Types::Void)
               result = checker.check(
                 Subtyping::Relation.new(sub_type: Types.nil_instance, super_type: return_type),
@@ -670,7 +670,7 @@ module Steep
               )
               if result.failure?
                 typing.add_error(Errors::MethodBodyTypeMismatch.new(node: node,
-                                                                    expected: return_type,
+                                                                    expected: new.method_context&.return_type,
                                                                     actual: Types.nil_instance,
                                                                     result: result))
               end
@@ -695,7 +695,7 @@ module Steep
             end
 
             if node.children[3]
-              return_type = new.method_context&.return_type
+              return_type = expand_alias(new.method_context&.return_type)
               if return_type && !return_type.is_a?(AST::Types::Void)
                 new.check(node.children[3], return_type) do |return_type, actual_type, result|
                   typing.add_error(Errors::MethodBodyTypeMismatch.new(node: node,
@@ -730,18 +730,20 @@ module Steep
                              Types.array_instance(union_type(*return_types))
                            end
 
-              if method_context&.return_type && !method_context.return_type.is_a?(AST::Types::Void)
-                result = checker.check(
-                  Subtyping::Relation.new(sub_type: value_type,
-                                          super_type: method_context.return_type),
-                  constraints: Subtyping::Constraints.empty
-                )
+              if (ret_type = expand_alias(method_context&.return_type))
+                unless ret_type.is_a?(AST::Types::Void)
+                  result = checker.check(
+                    Subtyping::Relation.new(sub_type: value_type,
+                                            super_type: ret_type),
+                    constraints: Subtyping::Constraints.empty
+                  )
 
-                if result.failure?
-                  typing.add_error(Errors::ReturnTypeMismatch.new(node: node,
-                                                                  expected: method_context.return_type,
-                                                                  actual: value_type,
-                                                                  result: result))
+                  if result.failure?
+                    typing.add_error(Errors::ReturnTypeMismatch.new(node: node,
+                                                                    expected: method_context&.return_type,
+                                                                    actual: value_type,
+                                                                    result: result))
+                  end
                 end
               end
             end
@@ -851,7 +853,7 @@ module Steep
 
         when :int
           yield_self do
-            literal_type = test_literal_type(node.children[0], hint)
+            literal_type = expand_alias(hint) {|hint_| test_literal_type(node.children[0], hint_) }
 
             if literal_type
               typing.add_typing(node, literal_type)
@@ -862,7 +864,7 @@ module Steep
 
         when :sym
           yield_self do
-            literal_type = test_literal_type(node.children[0], hint)
+            literal_type = expand_alias(hint) {|hint_| test_literal_type(node.children[0], hint_) }
 
             if literal_type
               typing.add_typing(node, literal_type)
@@ -873,7 +875,7 @@ module Steep
 
         when :str
           yield_self do
-            literal_type = test_literal_type(node.children[0], hint)
+            literal_type = expand_alias(hint) {|hint_| test_literal_type(node.children[0], hint_) }
 
             if literal_type
               typing.add_typing(node, literal_type)
@@ -897,15 +899,15 @@ module Steep
                 key_types << synthesize(key)
                 value_types << synthesize(value)
               when :kwsplat
-                splat_type = synthesize(child.children[0])
-
-                if splat_type.is_a?(AST::Types::Name) && splat_type.name == TypeName::Instance.new(name: ModuleName.parse("::Hash"))
-                  key_types << splat_type.args[0]
-                  value_types << splat_type.args[1]
-                else
-                  typing.add_error Errors::UnexpectedSplat.new(node: child, type: splat_type)
-                  key_types << Types.any
-                  value_types << Types.any
+                expand_alias(synthesize(child.children[0])) do |splat_type, original_type|
+                  if splat_type.is_a?(AST::Types::Name) && splat_type.name == TypeName::Instance.new(name: ModuleName.parse("::Hash"))
+                    key_types << splat_type.args[0]
+                    value_types << splat_type.args[1]
+                  else
+                    typing.add_error Errors::UnexpectedSplat.new(node: child, type: original_type)
+                    key_types << Types.any
+                    value_types << Types.any
+                  end
                 end
               else
                 raise "Unexpected non pair: #{child.inspect}" unless child.type == :pair
@@ -1052,15 +1054,19 @@ module Steep
               end
               typing.add_typing(node, Types.array_instance(Types.any))
             else
-              is_tuple = hint.is_a?(AST::Types::Tuple)
-              is_tuple &&= node.children.all? {|child| child.type != :splat }
-              is_tuple &&= node.children.map.with_index do |child, index|
-                synthesize(child, hint: absolute_type(hint.types[index]))
-              end.yield_self do |types|
-                tuple = AST::Types::Tuple.new(types: types)
-                relation = Subtyping::Relation.new(sub_type: tuple, super_type: absolute_type(hint))
-                result = checker.check(relation, constraints: Subtyping::Constraints.empty)
-                result.success?
+              is_tuple = nil
+
+              expand_alias(hint) do |hint|
+                is_tuple = hint.is_a?(AST::Types::Tuple)
+                is_tuple &&= node.children.all? {|child| child.type != :splat }
+                is_tuple &&= node.children.map.with_index do |child, index|
+                  synthesize(child, hint: absolute_type(hint.types[index]))
+                end.yield_self do |types|
+                  tuple = AST::Types::Tuple.new(types: types)
+                  relation = Subtyping::Relation.new(sub_type: tuple, super_type: absolute_type(hint))
+                  result = checker.check(relation, constraints: Subtyping::Constraints.empty)
+                  result.success?
+                end
               end
 
               if is_tuple
@@ -1070,11 +1076,13 @@ module Steep
                   if e.type == :splat
                     Steep.logger.info "Typing of splat in array is incompatible with Ruby; it does not use #to_a method"
                     synthesize(e.children.first).yield_self do |type|
-                      case type
-                      when AST::Types::Union
-                        type.types
-                      else
-                        [type]
+                      expand_alias(type) do |ty|
+                        case ty
+                        when AST::Types::Union
+                          ty.types
+                        else
+                          [ty]
+                        end
                       end
                     end.map do |type|
                       case
@@ -1150,7 +1158,7 @@ module Steep
             cond, *whens = node.children
 
             if cond
-              cond_type = synthesize(cond)
+              cond_type = expand_alias(synthesize(cond))
               if cond_type.is_a?(AST::Types::Union)
                 var_names = TypeConstruction.value_variables(cond)
                 var_types = cond_type.types.dup
@@ -1160,7 +1168,7 @@ module Steep
             pairs = whens.each.with_object([]) do |clause, pairs|
               if clause&.type == :when
                 test_types = clause.children.take(clause.children.size - 1).map do |child|
-                  synthesize(child, hint: hint)
+                  expand_alias(synthesize(child, hint: hint))
                 end
 
                 if (body = clause.children.last)
@@ -1261,6 +1269,7 @@ module Steep
               case
               when exn_classes && var_name
                 instance_types = exn_types.map do |type|
+                  type = expand_alias(type)
                   case
                   when type.is_a?(AST::Types::Name) && type.name.is_a?(TypeName::Class)
                     type.instance_type
@@ -1427,9 +1436,10 @@ module Steep
 
     def type_assignment(var, rhs, node)
       if rhs
-        rhs_type = synthesize(rhs, hint: type_env.lvar_types[var.name])
-        node_type = assign_type_to_variable(var, rhs_type, node)
-        typing.add_typing(node, node_type)
+        expand_alias(synthesize(rhs, hint: type_env.lvar_types[var.name])) do |rhs_type|
+          node_type = assign_type_to_variable(var, rhs_type, node)
+          typing.add_typing(node, node_type)
+        end
       else
         raise
         lhs_type = variable_type(var)
@@ -1472,7 +1482,8 @@ module Steep
 
     def type_masgn(node)
       lhs, rhs = node.children
-      rhs_type = synthesize(rhs)
+      rhs_original = synthesize(rhs)
+      rhs_type = expand_alias(rhs_original)
 
       case
       when rhs.type == :array && lhs.children.all? {|a| a.type == :lvasgn || a.type == :ivasgn } && lhs.children.size == rhs.children.size
@@ -1590,7 +1601,7 @@ module Steep
       receiver_type = receiver ? synthesize(receiver) : self_type
 
       if unwrap
-        receiver_type = TypeConstruction.unwrap(receiver_type)
+        receiver_type = unwrap(receiver_type)
       end
 
       case receiver_type
@@ -1851,26 +1862,28 @@ module Steep
 
                 block_body_type = for_block.synthesize(block_body)
 
-                unless method_type.block.return_type.is_a?(AST::Types::Void)
-                  result = checker.check(Subtyping::Relation.new(
-                    sub_type: block_annotations.block_type || block_body_type,
-                    super_type: method_type.block.return_type
-                  ), constraints: constraints)
+                expand_alias(method_type.block.return_type) do |block_return_type|
+                  unless block_return_type.is_a?(AST::Types::Void)
+                    result = checker.check(Subtyping::Relation.new(
+                      sub_type: block_annotations.block_type || block_body_type,
+                      super_type: block_return_type
+                    ), constraints: constraints)
 
-                  if result.success?
-                    return_type.subst(constraints.solution(checker, variance: variance, variables: fresh_vars)).tap do
-                      child_typing.save!
+                    if result.success?
+                      return_type.subst(constraints.solution(checker, variance: variance, variables: fresh_vars)).tap do
+                        child_typing.save!
+                      end
+                    else
+                      typing.add_error Errors::BlockTypeMismatch.new(node: node,
+                                                                     expected: block_return_type,
+                                                                     actual: block_annotations.block_type || block_body_type,
+                                                                     result: result)
+                      return_type
                     end
                   else
-                    typing.add_error Errors::BlockTypeMismatch.new(node: node,
-                                                                   expected: method_type.block.return_type,
-                                                                   actual: block_annotations.block_type || block_body_type,
-                                                                   result: result)
+                    child_typing.save!
                     return_type
                   end
-                else
-                  child_typing.save!
-                  return_type
                 end
               end
 
@@ -2255,13 +2268,15 @@ module Steep
       typing.type_of(node: node)
     end
 
-    def self.unwrap(type)
-      case
-      when type.is_a?(AST::Types::Union)
-        types = type.types.reject {|type| type.is_a?(AST::Types::Nil) }
-        AST::Types::Union.build(types: types)
-      else
-        type
+    def unwrap(type)
+      expand_alias(type) do |expanded|
+        case
+        when expanded.is_a?(AST::Types::Union)
+          types = expanded.types.reject {|type| type.is_a?(AST::Types::Nil) }
+          AST::Types::Union.build(types: types)
+        else
+          type
+        end
       end
     end
 
@@ -2290,6 +2305,18 @@ module Steep
         value_variables(node.children.last)
       else
         Set.new
+      end
+    end
+
+    def expand_alias(type)
+      if type
+        expanded = checker.expand_alias(type)
+      end
+
+      if block_given?
+        yield expanded, type
+      else
+        expanded
       end
     end
 
