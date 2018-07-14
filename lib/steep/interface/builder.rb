@@ -137,7 +137,7 @@ module Steep
         merge_ivars ivars, instantiated.ivars
       end
 
-      def add_method(type_name, method, methods:)
+      def add_method(type_name, method, methods:, extra_attributes: [])
         super_method = methods[method.name]
         new_method = Method.new(
           type_name: type_name,
@@ -146,7 +146,7 @@ module Steep
             method_type_to_method_type(method_type, current: type_name.name)
           end,
           super_method: super_method,
-          attributes: method.attributes
+          attributes: method.attributes + extra_attributes
         )
 
         methods[method.name] = if super_method&.include_in_chain?(new_method)
@@ -319,7 +319,7 @@ module Steep
         if sig.is_a?(AST::Signature::Class)
           unless sig.name == ModuleName.parse("::BasicObject")
             super_class_name = sig.super_class&.name || ModuleName.parse("::Object")
-            super_class_interface = build(TypeName::Instance.new(name: super_class_name), current: nil)
+            super_class_interface = build(TypeName::Instance.new(name: super_class_name), current: nil, with_initialize: with_initialize)
 
             supers.push(*super_class_interface.supers)
             instantiated = super_class_interface.instantiate(
@@ -357,7 +357,8 @@ module Steep
           when AST::Signature::Members::Method
             if member.instance_method?
               if with_initialize || member.name != :initialize
-                add_method(type_name, member, methods: methods)
+                extra_attrs = member.name == :initialize ? [:incompatible] : []
+                add_method(type_name, member, methods: methods, extra_attributes: extra_attrs)
               end
             end
           when AST::Signature::Members::Ivar

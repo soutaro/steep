@@ -908,4 +908,44 @@ end
       assert_operator interface.methods[:foo], :incompatible?
     end
   end
+
+  def test_initialize_is_incompatible
+    sigs = parse_signature(<<-EOF)
+class BasicObject
+  def initialize: () -> any
+end
+
+class Object <: BasicObject
+end
+
+class String
+end
+
+class Class
+end
+
+class Integer
+end
+
+class Module <: Class
+end
+
+class Hello
+  def initialize: (Integer) -> any
+end
+    EOF
+
+    env = Signature::Env.new
+    sigs.each do |sig|
+      env.add sig
+    end
+
+    builder = Builder.new(signatures: env)
+
+    env.find_class(ModuleName.parse(:Hello)).yield_self do |klass|
+      interface = builder.instance_to_interface(klass, with_initialize: true)
+      assert_operator interface.methods[:initialize], :incompatible?
+      refute_nil interface.methods[:initialize].super_method
+    end
+  end
 end

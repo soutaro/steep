@@ -6,4 +6,9 @@ class IncompatibleChild
 
     "123"
   end
+
+  def initialize()
+    # !expects IncompatibleArguments: receiver=::IncompatibleChild, method_type=(name: ::String) -> any
+    super()
+  end
 end
