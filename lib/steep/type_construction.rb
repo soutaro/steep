@@ -1035,8 +1035,13 @@ module Steep
           yield_self do
             if method_context&.method
               if method_context.super_method
-                types = method_context.super_method.types.map(&:return_type)
-                typing.add_typing(node, union_type(*types))
+                if method_context.method.incompatible?
+                  typing.add_error Errors::IncompatibleZuper.new(node: node, method: method_context.name)
+                  typing.add_typing node, Types.any
+                else
+                  types = method_context.super_method.types.map(&:return_type)
+                  typing.add_typing(node, union_type(*types))
+                end
               else
                 typing.add_error(Errors::UnexpectedSuper.new(node: node, method: method_context.name))
                 fallback_to_any node
