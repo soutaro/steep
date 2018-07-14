@@ -861,4 +861,51 @@ end
       assert_equal ["(::String) -> ::String"], method.types.map(&:to_s)
     end
   end
+
+  def test_incompatible_method
+    sigs = parse_signature(<<-EOF)
+class BasicObject
+end
+
+class Object <: BasicObject
+end
+
+class String
+end
+
+class Class
+end
+
+class Integer
+end
+
+class Module <: Class
+end
+
+class Hello
+  def foo: () -> Integer
+end
+
+class World <: Hello
+  def (incompatible) foo: (Object) -> String 
+end
+    EOF
+
+    env = Signature::Env.new
+    sigs.each do |sig|
+      env.add sig
+    end
+
+    builder = Builder.new(signatures: env)
+
+    env.find_class(ModuleName.parse(:Hello)).yield_self do |klass|
+      interface = builder.instance_to_interface(klass, with_initialize: false)
+      refute_operator interface.methods[:foo], :incompatible?
+    end
+
+    env.find_class(ModuleName.parse(:World)).yield_self do |klass|
+      interface = builder.instance_to_interface(klass, with_initialize: false)
+      assert_operator interface.methods[:foo], :incompatible?
+    end
+  end
 end
