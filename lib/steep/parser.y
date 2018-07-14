@@ -410,6 +410,7 @@ method_annotation_seq: method_annotation_keyword { result = [val[0]] }
                      | method_annotation_keyword COMMA method_annotation_seq { result = [val[0]] + val[2] }
 
 method_annotation_keyword: CONSTRUCTOR { result = val[0].value }
+                         | INCOMPATIBLE { result = val[0].value }
 
 super_opt: { result = nil }
          | LTCOLON super_class { result = val[1] }
@@ -498,6 +499,7 @@ method_name0: LIDENT
             | NOCONSTRUCTOR { result = LocatedValue.new(location: val[0].location, value: :noconstructor) }
             | ATTR_READER
             | ATTR_ACCESSOR
+            | INCOMPATIBLE
 
 annotation: AT_TYPE VAR subject COLON type {
               loc = val.first.location + val.last.location
@@ -705,6 +707,8 @@ def next_token
     new_token(:TYPE, :type)
   when input.scan(/interface\b/)
     new_token(:INTERFACE, :interface)
+  when input.scan(/incompatible\b/)
+    new_token(:INCOMPATIBLE, :incompatible)
   when input.scan(/end\b/)
     new_token(:END, :end)
   when input.scan(/\|/)
