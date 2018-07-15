@@ -483,4 +483,21 @@ type baz = bar<String>
       assert_equal parse_type("foo | Array<'a>"), sig.type
     end
   end
+
+  def test_incompatible_method
+    sigs = parse(<<-EOF)
+class Foo
+  def (constructor, incompatible) method: () -> Method
+end
+    EOF
+
+    sigs[0].yield_self do |sig|
+      assert_instance_of Steep::AST::Signature::Class, sig
+      assert_equal 1, sig.members.size
+      sig.members[0].yield_self do |method|
+        assert_operator method, :constructor?
+        assert_operator method, :incompatible?
+      end
+    end
+  end
 end

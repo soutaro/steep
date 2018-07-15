@@ -333,6 +333,19 @@ module Steep
       end
     end
 
+    class IncompatibleZuper < Base
+      attr_reader :method
+
+      def initialize(node:, method:)
+        super(node: node)
+        @method = method
+      end
+
+      def to_s
+        "#{location_to_str}: IncompatibleZuper: method=#{method}"
+      end
+    end
+
     class MethodDefinitionMissing < Base
       attr_reader :module_name
       attr_reader :kind

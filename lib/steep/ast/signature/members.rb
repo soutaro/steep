@@ -52,6 +52,10 @@ module Steep
           def constructor?
             attributes.include?(:constructor)
           end
+
+          def incompatible?
+            attributes.include?(:incompatible)
+          end
         end
 
         class Ivar

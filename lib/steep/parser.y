@@ -201,8 +201,8 @@ type_name: application_type_name
            }
 
 constructor: { result = nil }
-           | CONSTRUCTOR
-           | NOCONSTRUCTOR
+           | CONSTRUCTOR { result = LocatedValue.new(location: val[0].location, value: true) }
+           | NOCONSTRUCTOR { result = LocatedValue.new(location: val[0].location, value: false) }
 
 type: paren_type
     | union_seq {
@@ -340,34 +340,34 @@ ivar_member: IVAR_NAME COLON type {
                )
              }
 
-instance_method_member: DEF constructor_method method_name COLON method_type_union {
+instance_method_member: DEF method_annotations method_name COLON method_type_union {
                           loc = val.first.location + val.last.last.location
                           result = AST::Signature::Members::Method.new(
                             name: val[2].value,
                             types: val[4],
                             kind: :instance,
                             location: loc,
-                            attributes: [val[1] ? :constructor : nil].compact
+                            attributes: val[1] || []
                           )
                         }
-module_method_member: DEF constructor_method SELF DOT method_name COLON method_type_union {
+module_method_member: DEF method_annotations SELF DOT method_name COLON method_type_union {
                         loc = val.first.location + val.last.last.location
                         result = AST::Signature::Members::Method.new(
                           name: val[4].value,
                           types: val[6],
                           kind: :module,
                           location: loc,
-                          attributes: [val[1] ? :constructor : nil].compact
+                          attributes: val[1] || []
                         )
                       }
-module_instance_method_member: DEF constructor_method SELFQ DOT method_name COLON method_type_union {
+module_instance_method_member: DEF method_annotations SELFQ DOT method_name COLON method_type_union {
                                  loc = val.first.location + val.last.last.location
                                  result = AST::Signature::Members::Method.new(
                                    name: val[4].value,
                                    types: val[6],
                                    kind: :module_instance,
                                    location: loc,
-                                   attributes: [val[1] ? :constructor : nil].compact
+                                   attributes: val[1] || []
                                  )
                                }
 include_member: INCLUDE module_name {
@@ -403,8 +403,14 @@ attr_ivar_opt: { result = nil }
              | LPAREN RPAREN { result = false }
              | LPAREN IVAR_NAME RPAREN { result = val[1].value }
 
-constructor_method: { result = false }
-                  | LPAREN CONSTRUCTOR RPAREN { result = true }
+method_annotations: { result = nil }
+                  | LPAREN method_annotation_seq RPAREN { result = val[1] }
+
+method_annotation_seq: method_annotation_keyword { result = [val[0]] }
+                     | method_annotation_keyword COMMA method_annotation_seq { result = [val[0]] + val[2] }
+
+method_annotation_keyword: CONSTRUCTOR { result = val[0].value }
+                         | INCOMPATIBLE { result = val[0].value }
 
 super_opt: { result = nil }
          | LTCOLON super_class { result = val[1] }
@@ -493,6 +499,7 @@ method_name0: LIDENT
             | NOCONSTRUCTOR { result = LocatedValue.new(location: val[0].location, value: :noconstructor) }
             | ATTR_READER
             | ATTR_ACCESSOR
+            | INCOMPATIBLE
 
 annotation: AT_TYPE VAR subject COLON type {
               loc = val.first.location + val.last.location
@@ -700,6 +707,8 @@ def next_token
     new_token(:TYPE, :type)
   when input.scan(/interface\b/)
     new_token(:INTERFACE, :interface)
+  when input.scan(/incompatible\b/)
+    new_token(:INCOMPATIBLE, :incompatible)
   when input.scan(/end\b/)
     new_token(:END, :end)
   when input.scan(/\|/)
@@ -763,9 +772,9 @@ def next_token
   when input.scan(/extension\b/)
     new_token(:EXTENSION, :extension)
   when input.scan(/constructor\b/)
-    new_token(:CONSTRUCTOR, true)
+    new_token(:CONSTRUCTOR, :constructor)
   when input.scan(/noconstructor\b/)
-    new_token(:NOCONSTRUCTOR, false)
+    new_token(:NOCONSTRUCTOR, :noconstructor)
   when input.scan(/\$\w+\b/)
     new_token(:GVAR, input.matched.to_sym)
   when input.scan(/[A-Z]\w*/)

@@ -85,7 +85,7 @@ module Steep
       end
 
       def validate_method(check, method)
-        if method.super_method
+        if method.super_method && !method.incompatible?
           result = check.check_method(method.name,
                                       method,
                                       method.super_method,
