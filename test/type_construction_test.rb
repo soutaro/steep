@@ -1708,6 +1708,60 @@ end
     assert_instance_of Steep::Errors::MethodDefinitionWithOverloading, typing.errors.first
   end
 
+  def test_new_method_constructor_block
+    source = parse_ruby(<<-EOF)
+class A
+  # @type method foo: () ?{ () -> any } -> any
+  def foo()
+  end
+end
+    EOF
+    def_node = source.node.children[2]
+
+    typing = Typing.new
+    annotations = source.annotations(block: source.node)
+    checker = new_subtyping_checker(<<-EOF)
+class A
+  def foo: () -> Integer
+         | <'a> () { () -> 'a } -> 'a
+end
+    EOF
+    const_env = ConstantEnv.new(builder: checker.builder, current_namespace: nil)
+    type_env = TypeEnv.build(annotations: annotations,
+                             subtyping: checker,
+                             const_env: const_env,
+                             signatures: checker.builder.signatures)
+
+    construction = TypeConstruction.new(checker: checker,
+                                        source: source,
+                                        annotations: annotations,
+                                        type_env: type_env,
+                                        self_type: nil,
+                                        block_context: nil,
+                                        method_context: nil,
+                                        typing: typing,
+                                        module_context: nil,
+                                        break_context: nil)
+
+    for_method = construction.for_new_method(:foo,
+                                             def_node,
+                                             args: def_node.children[1].children,
+                                             self_type: Types::Name.new_instance(name: "::A"))
+
+    method_context = for_method.method_context
+    assert_equal :foo, method_context.name
+    assert_equal :foo, method_context.method.name
+    assert_equal "() ?{ () -> any } -> any", method_context.method_type.to_s
+    assert_equal parse_type("any"), method_context.return_type
+    refute method_context.constructor
+
+    assert_equal Types::Name.new_instance(name: "::A"), for_method.self_type
+    assert_nil for_method.block_context
+    assert_empty for_method.type_env.lvar_types
+
+    assert_empty typing.errors
+  end
+
   def test_new_method_constructor_with_return_type
     source = parse_ruby(<<-RUBY)
 class A

@@ -181,14 +181,20 @@ module Steep
     class Block
       attr_reader :params
       attr_reader :return_type
+      attr_reader :optional
 
-      def initialize(params:, return_type:)
+      def initialize(params:, return_type:, optional:)
         @params = params
         @return_type = return_type
+        @optional = optional
+      end
+
+      def optional?
+        @optional
       end
 
       def ==(other)
-        other.is_a?(self.class) && other.params == params && other.return_type == return_type
+        other.is_a?(self.class) && other.params == params && other.return_type == return_type && other.optional == optional
       end
 
       def closed?
@@ -198,7 +204,8 @@ module Steep
       def subst(s)
         self.class.new(
           params: params.subst(s),
-          return_type: return_type.subst(s)
+          return_type: return_type.subst(s),
+          optional: optional
         )
       end
 
@@ -207,7 +214,7 @@ module Steep
       end
 
       def to_s
-        "{ #{params} -> #{return_type} }"
+        "#{optional? ? "?" : ""}{ #{params} -> #{return_type} }"
       end
     end
 

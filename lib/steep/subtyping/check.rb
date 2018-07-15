@@ -355,7 +355,9 @@ module Steep
         case
         when !super_block && !sub_block
           success(constraints: constraints)
-        when super_block && sub_block
+        when super_block && sub_block && super_block.optional? == sub_block.optional?
+          success(constraints: constraints)
+        when sub_block&.optional?
           success(constraints: constraints)
         else
           failure(
@@ -502,7 +504,7 @@ module Steep
       end
 
       def check_block_params(name, sub_block, super_block, assumption:, trace:, constraints:)
-        if sub_block
+        if sub_block && super_block
           check_method_params(name,
                               super_block.params,
                               sub_block.params,
@@ -515,7 +517,7 @@ module Steep
       end
 
       def check_block_return(sub_block, super_block, assumption:, trace:, constraints:)
-        if sub_block
+        if sub_block && super_block
           relation = Relation.new(sub_type: super_block.return_type,
                                       super_type: sub_block.return_type)
           check(relation, assumption: assumption, trace: trace, constraints: constraints)
