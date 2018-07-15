@@ -500,4 +500,23 @@ end
       end
     end
   end
+
+  def test_optional_block
+    klass, = parse(<<-EOF)
+class Foo
+  def required_block: (Integer) { } -> Object
+  def optional_block: (Integer) ?{ () -> String } -> Object
+end
+    EOF
+
+    klass.members[0].yield_self do |required_block|
+      refute_operator required_block.types[0].block, :optional
+      assert_equal "{ }", required_block.types[0].block.location.source
+    end
+
+    klass.members[1].yield_self do |required_block|
+      assert_operator required_block.types[0].block, :optional
+      assert_equal "?{ () -> String }", required_block.types[0].block.location.source
+    end
+  end
 end
