@@ -1927,7 +1927,7 @@ module Steep
               fallback_any_rec node
             end
 
-          when !method_type.block && !block_params && !block_body
+          when (!method_type.block || method_type.block.optional?) && !block_params && !block_body
             # OK, without block
             method_type.subst(constraints.solution(checker, variance: variance, variables: fresh_vars)).return_type.tap do
               child_typing.save!
@@ -1939,7 +1939,7 @@ module Steep
               method_type: method_type
             )
 
-          when method_type.block && !block_params && !block_body
+          when method_type.block && !method_type.block.optional? && !block_params && !block_body
             Errors::RequiredBlockMissing.new(
               node: node,
               method_type: method_type
