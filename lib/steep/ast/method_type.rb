@@ -90,11 +90,13 @@ module Steep
         attr_reader :location
         attr_reader :params
         attr_reader :return_type
+        attr_reader :optional
 
-        def initialize(location:, params:, return_type:)
+        def initialize(location:, params:, return_type:, optional:)
           @location = location
           @params = params
           @return_type = return_type
+          @optional = optional
         end
       end
 

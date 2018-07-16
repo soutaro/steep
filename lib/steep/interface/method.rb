@@ -62,6 +62,10 @@ module Steep
         )
       end
 
+      def map_types
+        with_types(types.map {|type| yield type })
+      end
+
       def include_in_chain?(method)
         (method.type_name == type_name &&
           method.name == name &&

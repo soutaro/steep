@@ -92,16 +92,21 @@ optional_keyword: QUESTION keyword COLON type { result = [val[0].location + val[
                                                           val[3]] }
 
 block_opt: { result = nil }
-         | LBRACE RBRACE {
+         | block_optional LBRACE RBRACE {
              result = AST::MethodType::Block.new(params: nil,
                                                  return_type: nil,
-                                                 location: val[0].location + val[1].location)
+                                                 location: (val[0] || val[1]).location + val[2].location,
+                                                 optional: val[0]&.value || false)
            }
-         | LBRACE block_params ARROW type RBRACE {
-             result = AST::MethodType::Block.new(params: val[1],
-                                                 return_type: val[3],
-                                                 location: val[0].location + val[4].location)
+         | block_optional LBRACE block_params ARROW type RBRACE {
+             result = AST::MethodType::Block.new(params: val[2],
+                                                 return_type: val[4],
+                                                 location: (val[0] || val[1]).location + val[5].location,
+                                                 optional: val[0]&.value || false)
            }
+
+block_optional: { result = nil }
+              | QUESTION { result = LocatedValue.new(location: val[0].location, value: true) }
 
 block_params: { result = nil }
             | LPAREN block_params0 RPAREN {

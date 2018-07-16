@@ -149,21 +149,45 @@ module Steep
       end
 
       annotation_method = annotations.lookup_method_type(method_name)&.yield_self do |method_type|
-        Interface::Method.new(type_name: nil,
-                              name: method_name,
-                              types: [checker.builder.method_type_to_method_type(method_type,
-                                                                                 current: current_namespace)],
-                              super_method: interface_method&.super_method,
-                              attributes: [])
+        checker.builder.method_type_to_method_type(method_type, current: current_namespace).yield_self do |method_type|
+          subst = Interface::Substitution.build([],
+                                                instance_type: module_context&.instance_type || AST::Types::Instance.new,
+                                                module_type: module_context&.module_type || AST::Types::Class.new,
+                                                self_type: self_type)
+          Interface::Method.new(type_name: nil,
+                                name: method_name,
+                                types: [method_type.subst(subst)],
+                                super_method: interface_method&.super_method,
+                                attributes: [])
+        end
       end
 
       if interface_method && annotation_method
+        interface_types = interface_method.types.map do |method_type|
+          subst = Interface::Substitution.build(method_type.type_params)
+          method_type.instantiate(subst)
+        end
+
+        unknowns = []
+        annotation_types = annotation_method.types.each.with_object([]) do |method_type, array|
+          fresh = method_type.type_params.map {|var| AST::Types::Var.fresh(var) }
+          unknowns.push(*fresh)
+          
+          subst = Interface::Substitution.build(method_type.type_params, fresh)
+          array << method_type.instantiate(subst)
+        end
+
+        constraints = Subtyping::Constraints.new(unknowns: unknowns)
+        interface_types.each do |type|
+          constraints.add_var *type.free_variables.to_a
+        end
+
         result = checker.check_method(method_name,
-                                      annotation_method,
-                                      interface_method,
+                                      annotation_method.with_types(annotation_types),
+                                      interface_method.with_types(interface_types),
                                       assumption: Set.new,
                                       trace: Subtyping::Trace.new,
-                                      constraints: Subtyping::Constraints.empty)
+                                      constraints: constraints)
 
         if result.failure?
           typing.add_error Errors::IncompatibleMethodTypeAnnotation.new(
@@ -1903,7 +1927,7 @@ module Steep
               fallback_any_rec node
             end
 
-          when !method_type.block && !block_params && !block_body
+          when (!method_type.block || method_type.block.optional?) && !block_params && !block_body
             # OK, without block
             method_type.subst(constraints.solution(checker, variance: variance, variables: fresh_vars)).return_type.tap do
               child_typing.save!
@@ -1915,7 +1939,7 @@ module Steep
               method_type: method_type
             )
 
-          when method_type.block && !block_params && !block_body
+          when method_type.block && !method_type.block.optional? && !block_params && !block_body
             Errors::RequiredBlockMissing.new(
               node: node,
               method_type: method_type

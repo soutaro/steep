@@ -462,7 +462,8 @@ module Steep
         params = params_to_params(method_type.params, current: current)
         block = method_type.block && Block.new(
           params: params_to_params(method_type.block.params, current: current),
-          return_type: absolute_type(method_type.block.return_type, current: current)
+          return_type: absolute_type(method_type.block.return_type, current: current),
+          optional: method_type.block.optional
         )
 
         MethodType.new(
