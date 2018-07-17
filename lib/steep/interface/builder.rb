@@ -243,6 +243,17 @@ module Steep
           end
         end
 
+        signatures.find_extensions(sig.name).each do |ext|
+          ext.members.each do |member|
+            case member
+            when AST::Signature::Members::Method
+              if member.module_method?
+                add_method(type_name, member, methods: methods)
+              end
+            end
+          end
+        end
+
         unless constructor
           methods.delete(:new)
         end
@@ -295,6 +306,17 @@ module Steep
           when AST::Signature::Members::Method
             if member.module_method?
               add_method(type_name, member, methods: methods)
+            end
+          end
+        end
+
+        signatures.find_extensions(sig.name).each do |ext|
+          ext.members.each do |member|
+            case member
+            when AST::Signature::Members::Method
+              if member.module_method?
+                add_method(type_name, member, methods: methods)
+              end
             end
           end
         end
