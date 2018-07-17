@@ -75,6 +75,7 @@ module Steep
         check.verbose = verbose
         check.dump_all_types = dump_all_types
         check.fallback_any_is_error = fallback_any_is_error || strict
+        check.allow_missing_definitions = false if strict
       end.run
     end
 

@@ -10,6 +10,7 @@ module Steep
       attr_accessor :accept_implicit_any
       attr_accessor :dump_all_types
       attr_accessor :fallback_any_is_error
+      attr_accessor :allow_missing_definitions
 
       attr_reader :labeling
 
@@ -25,6 +26,7 @@ module Steep
         self.accept_implicit_any = false
         self.dump_all_types = false
         self.fallback_any_is_error = false
+        self.allow_missing_definitions = true
 
         @labeling = ASTUtils::Labeling.new
       end
@@ -113,6 +115,7 @@ module Steep
 
         typing.errors.each do |error|
           next if error.is_a?(Errors::FallbackAny) && !fallback_any_is_error
+          next if error.is_a?(Errors::MethodDefinitionMissing) && allow_missing_definitions
           error.print_to stdout
         end
       end
