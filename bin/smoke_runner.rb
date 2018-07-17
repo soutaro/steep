@@ -74,6 +74,9 @@ ARGV.each do |arg|
                                        stdout: stdout,
                                        stderr: stderr)
 
+    driver.fallback_any_is_error = false
+    driver.allow_missing_definitions = false
+
     Rainbow.enabled = false
     driver.run
   rescue => exn
