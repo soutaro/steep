@@ -528,6 +528,9 @@ module Enumerable<'a, 'b> : _Iteratable<'a, 'b>
   def sort_by: { ('a) -> any } -> Array<'a>
              | -> Enumerator<'a, Array<'a>>
 
+  def sort_by!: { ('a) -> any } -> self
+              | -> Enumerator<'a, self>
+
   def sum: () -> Numeric
          | (Numeric) -> Numeric
          | (any) -> any
