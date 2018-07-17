@@ -2234,7 +2234,7 @@ a += 3
     end
   end
 
-  def test_while
+  def test_while0
     source = parse_ruby(<<-EOF)
 while true
   break
