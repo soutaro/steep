@@ -660,7 +660,12 @@ module Steep
         when :block
           yield_self do
             send_node, params, body = node.children
-            type_send(node, send_node: send_node, block_params: params, block_body: body)
+            if send_node.type == :lambda
+              Steep.logger.error "Lambda syntax (->) is not supported yet."
+              typing.add_typing node, Types.any
+            else
+              type_send(node, send_node: send_node, block_params: params, block_body: body)
+            end
           end
 
         when :def
