@@ -1526,7 +1526,7 @@ module Steep
     end
 
     def type_ivasgn(name, rhs, node)
-      rhs_type = synthesize(rhs, hint: type_env.get(ivar: name))
+      rhs_type = synthesize(rhs, hint: type_env.get(ivar: name) { fallback_to_any(node) })
       ivar_type = type_env.assign(ivar: name, type: rhs_type) do |error|
         case error
         when Subtyping::Result::Failure
