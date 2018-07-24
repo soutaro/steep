@@ -34,6 +34,19 @@ module Steep
       def boolean?(type)
         type.is_a?(AST::Types::Boolean)
       end
+
+      def hash_instance?(type)
+        case type
+        when AST::Types::Name
+          type.name.is_a?(TypeName::Instance) && type.name.name == ModuleName.new(name: "Hash", absolute: true)
+        else
+          false
+        end
+      end
+
+      def array_instance?(type)
+        type.is_a?(AST::Types::Name) && type.name.is_a?(TypeName::Instance) && type.name.name == ModuleName.new(name: "Array", absolute: true)
+      end
     end
 
     class MethodContext
@@ -918,6 +931,11 @@ module Steep
 
         when :hash
           yield_self do
+            if Types.hash_instance?(hint)
+              key_hint = hint.args[0]
+              value_hint = hint.args[1]
+            end
+
             key_types = []
             value_types = []
 
@@ -925,8 +943,12 @@ module Steep
               case child.type
               when :pair
                 key, value = child.children
-                key_types << synthesize(key)
-                value_types << synthesize(value)
+                key_types << synthesize(key).yield_self do |type|
+                  select_super_type(type, key_hint)
+                end
+                value_types << synthesize(value).yield_self do |type|
+                  select_super_type(type, value_hint)
+                end
               when :kwsplat
                 expand_alias(synthesize(child.children[0])) do |splat_type, original_type|
                   if splat_type.is_a?(AST::Types::Name) && splat_type.name == TypeName::Instance.new(name: ModuleName.parse("::Hash"))
@@ -1106,6 +1128,10 @@ module Steep
               if is_tuple
                 array_type = hint
               else
+                element_hint = expand_alias(hint) do |hint|
+                  Types.array_instance?(hint) && hint.args[0]
+                end
+
                 element_types = node.children.flat_map do |e|
                   if e.type == :splat
                     Steep.logger.info "Typing of splat in array is incompatible with Ruby; it does not use #to_a method"
@@ -1120,7 +1146,7 @@ module Steep
                       end
                     end.map do |type|
                       case
-                      when type.is_a?(AST::Types::Name) && type.name.is_a?(TypeName::Instance) && type.name.name == ModuleName.new(name: "Array", absolute: true)
+                      when Types.array_instance?(type)
                         type.args.first
                       when type.is_a?(AST::Types::Name) && type.name.is_a?(TypeName::Instance) && type.name.name == ModuleName.new(name: "Range", absolute: true)
                         type.args.first
@@ -1129,7 +1155,7 @@ module Steep
                       end
                     end
                   else
-                    [synthesize(e)]
+                    [select_super_type(synthesize(e), element_hint)]
                   end
                 end
                 array_type = Types.array_instance(AST::Types::Union.build(types: element_types))
@@ -2366,6 +2392,27 @@ module Steep
         if hint.types.any? {|ty| ty.is_a?(AST::Types::Literal) && ty.value == literal }
           hint
         end
+      end
+    end
+
+    def select_super_type(sub_type, super_type)
+      if super_type
+        result = checker.check(
+          Subtyping::Relation.new(sub_type: sub_type, super_type: super_type),
+          constraints: Subtyping::Constraints.empty
+        )
+
+        if result.success?
+          super_type
+        else
+          if block_given?
+            yield result
+          else
+            sub_type
+          end
+        end
+      else
+        sub_type
       end
     end
   end
