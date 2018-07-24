@@ -1161,9 +1161,11 @@ module Steep
           end
 
         when :or
-          types = each_child_node(node).map {|child| synthesize(child) }
-          type = union_type(*types)
-          typing.add_typing(node, type)
+          yield_self do
+            t1, t2 = each_child_node(node).map {|child| synthesize(child) }
+            type = union_type(unwrap(t1), t2)
+            typing.add_typing(node, type)
+          end
 
         when :if
           cond, true_clause, false_clause = node.children
