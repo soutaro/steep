@@ -684,7 +684,7 @@ def next_token
     new_token(:DOT)
   when input.scan(/<:/)
     new_token(:LTCOLON)
-  when input.scan(/(\[\]=)|(\[\])|===|==|\^|!=|<</)
+  when input.scan(/(\[\]=)|(\[\])|===|==|\^|!=|<<|=~/)
     new_token(:OPERATOR, input.matched.to_sym)
   when input.scan(/\[/)
     new_token(:LBRACKET, nil)
