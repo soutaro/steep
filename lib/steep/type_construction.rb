@@ -1835,7 +1835,7 @@ module Steep
           arg_pairs.each do |(arg_node, param_type)|
             arg_type = if arg_node.type == :splat
                          type = construction.synthesize(arg_node.children[0])
-                         child_typing.add_typing(arg_node, Types.array_instance(type))
+                         child_typing.add_typing(arg_node, type)
                        else
                          construction.synthesize(arg_node, hint: param_type)
                        end

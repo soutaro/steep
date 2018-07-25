@@ -3040,6 +3040,51 @@ end
     end
   end
 
+  def test_splat_arg2
+    source = parse_ruby(<<-'EOF')
+a = A.new
+b = [1]
+a.gen(*b)
+    EOF
+
+    typing = Typing.new
+    annotations = source.annotations(block: source.node)
+    checker = new_subtyping_checker(<<-EOF)
+class A
+  def initialize: () -> any
+  def gen: (*Integer) -> String
+end
+    EOF
+    const_env = ConstantEnv.new(builder: checker.builder, current_namespace: nil)
+    type_env = TypeEnv.build(annotations: annotations,
+                             subtyping: checker,
+                             const_env: const_env,
+                             signatures: checker.builder.signatures)
+
+    module_context = TypeConstruction::ModuleContext.new(
+      instance_type: nil,
+      module_type: nil,
+      implement_name: nil,
+      current_namespace: nil,
+      const_env: const_env
+    )
+
+    construction = TypeConstruction.new(checker: checker,
+                                        source: source,
+                                        annotations: annotations,
+                                        type_env: type_env,
+                                        self_type: Types::Name.new_instance(name: "::Object"),
+                                        block_context: nil,
+                                        method_context: nil,
+                                        typing: typing,
+                                        module_context: module_context,
+                                        break_context: nil)
+
+    construction.synthesize(source.node)
+
+    assert_empty typing.errors
+  end
+
   def test_void
     source = parse_ruby(<<-'EOF')
 class Hoge
