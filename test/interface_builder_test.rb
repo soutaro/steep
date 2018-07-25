@@ -352,7 +352,7 @@ module B
 end
 
 module C
-  @address: String
+  attr_accessor address: String
   def bar: -> Object
 end
     EOF
@@ -397,6 +397,18 @@ end
     interface.methods[:ancestors].tap do |method|
       assert_instance_of Interface::Method, method
       assert_equal "-> Array<Module>", method.types[0].location.source
+      assert_nil method.super_method
+    end
+
+    interface.methods[:address].tap do |method|
+      assert_instance_of Interface::Method, method
+      assert_equal "String", method.types[0].location.source
+      assert_nil method.super_method
+    end
+
+    interface.methods[:address=].tap do |method|
+      assert_instance_of Interface::Method, method
+      assert_equal "String", method.types[0].location.source
       assert_nil method.super_method
     end
 
