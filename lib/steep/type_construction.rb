@@ -975,7 +975,7 @@ module Steep
             typing.add_typing(node, Types.hash_instance(key_type, value_type))
           end
 
-        when :dstr
+        when :dstr, :xstr
           each_child_node(node) do |child|
             synthesize(child)
           end
