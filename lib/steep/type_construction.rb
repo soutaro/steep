@@ -1901,7 +1901,7 @@ module Steep
           end
 
           case
-          when method_type.block && block_params && block_body
+          when method_type.block && block_params
             Steep.logger.debug "block is okay: method_type=#{method_type}"
             Steep.logger.debug "Constraints = #{constraints}"
 
@@ -1922,7 +1922,11 @@ module Steep
                   for_block.synthesize(p)
                 end
 
-                block_body_type = for_block.synthesize(block_body)
+                block_body_type = if block_body
+                                    for_block.synthesize(block_body)
+                                  else
+                                    Types.any
+                                  end
 
                 expand_alias(method_type.block.return_type) do |block_return_type|
                   unless block_return_type.is_a?(AST::Types::Void)
@@ -1966,7 +1970,7 @@ module Steep
               child_typing.save!
             end
 
-          when !method_type.block && block_params && block_body
+          when !method_type.block && block_params
             Errors::UnexpectedBlockGiven.new(
               node: node,
               method_type: method_type
