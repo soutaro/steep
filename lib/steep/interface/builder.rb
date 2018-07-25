@@ -272,6 +272,7 @@ module Steep
 
         supers = [sig.self_type].compact.map {|type| absolute_type(type, current: nil) }
         methods = {}
+        ivar_chains = {}
 
         module_instance = build(TypeName::Instance.new(name: ModuleName.parse("::Module")))
         instantiated = module_instance.instantiate(
@@ -288,14 +289,14 @@ module Steep
             merge_mixin(TypeName::Module.new(name: member.name),
                         member.args.map {|type| absolute_type(type, current: sig.name) },
                         methods: methods,
-                        ivars: {},
+                        ivars: ivar_chains,
                         supers: supers,
                         current: sig.name)
           when AST::Signature::Members::Extend
             merge_mixin(TypeName::Instance.new(name: member.name),
                         member.args.map {|type| absolute_type(type, current: sig.name) },
                         methods: methods,
-                        ivars: {},
+                        ivars: ivar_chains,
                         supers: supers,
                         current: sig.name)
           end
@@ -307,6 +308,9 @@ module Steep
             if member.module_method?
               add_method(type_name, member, methods: methods)
             end
+          when AST::Signature::Members::Ivar
+            merge_ivars(ivar_chains,
+                        { member.name => absolute_type(member.type, current: sig.name) })
           end
         end
 
@@ -326,7 +330,7 @@ module Steep
           params: [],
           methods: methods,
           supers: supers,
-          ivar_chains: {}
+          ivar_chains: ivar_chains
         )
       end
 

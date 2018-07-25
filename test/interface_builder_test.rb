@@ -339,6 +339,8 @@ module A
   include B
   extend C
 
+  @name: String
+
   def foo: -> Integer
   def self.bar: -> String
   def self?.baz: -> Numeric
@@ -350,6 +352,7 @@ module B
 end
 
 module C
+  @address: String
   def bar: -> Object
 end
     EOF
@@ -396,6 +399,8 @@ end
       assert_equal "-> Array<Module>", method.types[0].location.source
       assert_nil method.super_method
     end
+
+    assert_equal({ "@address": parse_type("::String"), "@name": parse_type("::String") },  interface.ivars)
   end
 
   def test_class_to_interface_no_constructor
