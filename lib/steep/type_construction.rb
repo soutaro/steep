@@ -337,7 +337,7 @@ module Steep
 
       module_context_ = ModuleContext.new(
         instance_type: instance_type,
-        module_type: module_type,
+        module_type: absolute_type(annots.self_type) || module_type,
         implement_name: implement_module_name,
         current_namespace: new_namespace,
         const_env: module_const_env
@@ -394,7 +394,7 @@ module Steep
 
       module_context = ModuleContext.new(
         instance_type: annots.instance_type || instance_type,
-        module_type: annots.module_type || module_type,
+        module_type: annots.self_type || annots.module_type || module_type,
         implement_name: implement_module_name,
         current_namespace: new_namespace,
         const_env: class_const_env

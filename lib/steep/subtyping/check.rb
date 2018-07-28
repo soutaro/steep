@@ -722,9 +722,13 @@ module Steep
             end
           end
 
+          ivar_chains = interfaces.each.with_object({}) do |interface, chains|
+            chains.merge!(interface.ivar_chains)
+          end
+
           Interface::Instantiated.new(type: type,
                                       methods: methods,
-                                      ivar_chains: {})
+                                      ivar_chains: ivar_chains)
         when AST::Types::Void
           Interface::Instantiated.new(type: type,
                                       methods: {},
