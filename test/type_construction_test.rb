@@ -249,7 +249,7 @@ x.g(y)
                                         break_context: nil)
     construction.synthesize(source.node)
 
-    assert_equal Types::Any.new, typing.type_of(node: source.node)
+    assert_equal parse_type("_B"), typing.type_of(node: source.node)
 
     assert_equal 1, typing.errors.size
     assert_argument_type_mismatch typing.errors[0],
@@ -352,7 +352,7 @@ a.g()
                                         break_context: nil)
     construction.synthesize(source.node)
 
-    assert_equal Types::Any.new, typing.type_of(node: source.node)
+    assert_equal parse_type("_B"), typing.type_of(node: source.node)
 
     assert_equal 1, typing.errors.size
     typing.errors.first.tap do |error|
@@ -391,7 +391,7 @@ a.g(_ = nil, _ = nil, _ = nil)
                                         break_context: nil)
     construction.synthesize(source.node)
 
-    assert_equal Types::Any.new, typing.type_of(node: source.node)
+    assert_equal parse_type("_B"), typing.type_of(node: source.node)
 
     assert_equal 1, typing.errors.size
     typing.errors.first.tap do |error|
@@ -464,7 +464,7 @@ x.h()
                                         break_context: nil)
     construction.synthesize(source.node)
 
-    assert_equal Types::Any.new, typing.type_of(node: source.node)
+    assert_equal parse_type("_C"), typing.type_of(node: source.node)
 
     assert_equal 1, typing.errors.size
 
@@ -502,7 +502,7 @@ x.h(a: (_ = nil), b: (_ = nil), c: (_ = nil))
                                         break_context: nil)
     construction.synthesize(source.node)
 
-    assert_equal Types::Any.new, typing.type_of(node: source.node)
+    assert_equal parse_type("_C"), typing.type_of(node: source.node)
 
     assert_equal 1, typing.errors.size
     typing.errors.first.tap do |error|
@@ -541,7 +541,7 @@ x.h(a: y)
                                         break_context: nil)
     construction.synthesize(source.node)
 
-    assert_equal Types::Any.new, typing.type_of(node: source.node)
+    assert_equal parse_type("_C"), typing.type_of(node: source.node)
 
     assert_equal 1, typing.errors.size
     assert_argument_type_mismatch typing.errors[0],
@@ -867,10 +867,12 @@ end
     construction.synthesize(source.node)
 
     assert_equal 1, typing.errors.size
-    assert_block_type_mismatch typing.errors[0], expected: Types::Name.new_interface(name: :_D), actual: Types::Name.new_interface(name: :_A)
+    assert_block_type_mismatch typing.errors[0],
+                               expected: "(_A) -> _D",
+                               actual: "(_A) -> _A"
 
     assert_equal Types::Name.new_interface(name: :_X), typing.type_of(node: lvar_in(source.node, :x))
-    assert_equal Types::Any.new, typing.type_of(node: lvar_in(source.node, :a))
+    assert_equal parse_type("_A"), typing.type_of(node: lvar_in(source.node, :a))
   end
 
   def test_block_break_type
@@ -5152,6 +5154,191 @@ EOF
     assert_equal 1, typing.errors.size
     assert_any typing.errors do |error|
       error.is_a?(Steep::Errors::UnexpectedBlockGiven)
+    end
+  end
+
+  def test_type_block
+    source = parse_ruby(<<EOF)
+foo.bar {|x, y| x }
+EOF
+
+    typing = Typing.new
+    annotations = source.annotations(block: source.node)
+    checker = new_subtyping_checker()
+
+    const_env = ConstantEnv.new(builder: checker.builder, current_namespace: nil)
+    type_env = TypeEnv.build(annotations: annotations,
+                             subtyping: checker,
+                             const_env: const_env,
+                             signatures: checker.builder.signatures)
+
+    construction = TypeConstruction.new(checker: checker,
+                                        source: source,
+                                        annotations: annotations,
+                                        type_env: type_env,
+                                        block_context: nil,
+                                        self_type: Types::Name.new_instance(name: "::Object"),
+                                        method_context: nil,
+                                        typing: typing,
+                                        module_context: nil,
+                                        break_context: nil)
+
+    block_params_node = source.node.children[1]
+    block_body_node = source.node.children[2]
+    block_annotations = source.annotations(block: source.node)
+    block_params = TypeInference::BlockParams.from_node(block_params_node, annotations: block_annotations)
+
+    type = construction.type_block(block_param_hint: nil,
+                                   block_type_hint: nil,
+                                   node_type_hint: nil,
+                                   block_params: block_params,
+                                   block_body: block_body_node,
+                                   block_annotations: block_annotations)
+    assert_equal "(any, any) -> any", type.to_s
+  end
+
+  def test_type_block_annotation
+    source = parse_ruby(<<EOF)
+foo.bar do |x, y|
+  # @type var x: String
+  # @type var y: Integer
+  # @type block: :bar
+  :foo
+end
+EOF
+
+    typing = Typing.new
+    annotations = source.annotations(block: source.node)
+    checker = new_subtyping_checker()
+
+    const_env = ConstantEnv.new(builder: checker.builder, current_namespace: nil)
+    type_env = TypeEnv.build(annotations: annotations,
+                             subtyping: checker,
+                             const_env: const_env,
+                             signatures: checker.builder.signatures)
+
+    construction = TypeConstruction.new(checker: checker,
+                                        source: source,
+                                        annotations: annotations,
+                                        type_env: type_env,
+                                        block_context: nil,
+                                        self_type: Types::Name.new_instance(name: "::Object"),
+                                        method_context: nil,
+                                        typing: typing,
+                                        module_context: nil,
+                                        break_context: nil)
+
+    block_params_node = source.node.children[1]
+    block_body_node = source.node.children[2]
+    block_annotations = source.annotations(block: source.node)
+    block_params = TypeInference::BlockParams.from_node(block_params_node, annotations: block_annotations)
+
+    type = construction.type_block(block_param_hint: nil,
+                                   block_type_hint: nil,
+                                   node_type_hint: nil,
+                                   block_params: block_params,
+                                   block_body: block_body_node,
+                                   block_annotations: block_annotations)
+    assert_equal "(::String, ::Integer) -> :bar", type.to_s
+
+    refute_empty typing.errors
+  end
+
+  def test_type_block_hint
+    source = parse_ruby(<<EOF)
+foo.bar do |x, y|
+  :foo
+end
+EOF
+
+    typing = Typing.new
+    annotations = source.annotations(block: source.node)
+    checker = new_subtyping_checker()
+
+    const_env = ConstantEnv.new(builder: checker.builder, current_namespace: nil)
+    type_env = TypeEnv.build(annotations: annotations,
+                             subtyping: checker,
+                             const_env: const_env,
+                             signatures: checker.builder.signatures)
+
+    construction = TypeConstruction.new(checker: checker,
+                                        source: source,
+                                        annotations: annotations,
+                                        type_env: type_env,
+                                        block_context: nil,
+                                        self_type: Types::Name.new_instance(name: "::Object"),
+                                        method_context: nil,
+                                        typing: typing,
+                                        module_context: nil,
+                                        break_context: nil)
+
+    hint = checker.builder.method_type_to_method_type(parse_method_type("() { (String, Integer) -> :bar } -> void"),
+                                                      current: nil)
+
+    block_params_node = source.node.children[1]
+    block_body_node = source.node.children[2]
+    block_annotations = source.annotations(block: source.node)
+    block_params = TypeInference::BlockParams.from_node(block_params_node, annotations: block_annotations)
+
+    type = construction.type_block(block_param_hint: hint.block.type.params,
+                                   block_type_hint: hint.block.type.return_type,
+                                   node_type_hint: nil,
+                                   block_params: block_params,
+                                   block_body: block_body_node,
+                                   block_annotations: block_annotations)
+    assert_equal "(::String, ::Integer) -> ::Symbol", type.to_s
+  end
+
+  def test_type_block_hint2
+    source = parse_ruby(<<EOF)
+foo.bar do |x, y, z|
+  z.bazbazbaz
+  :foo
+end
+EOF
+
+    typing = Typing.new
+    annotations = source.annotations(block: source.node)
+    checker = new_subtyping_checker()
+
+    const_env = ConstantEnv.new(builder: checker.builder, current_namespace: nil)
+    type_env = TypeEnv.build(annotations: annotations,
+                             subtyping: checker,
+                             const_env: const_env,
+                             signatures: checker.builder.signatures)
+
+    construction = TypeConstruction.new(checker: checker,
+                                        source: source,
+                                        annotations: annotations,
+                                        type_env: type_env,
+                                        block_context: nil,
+                                        self_type: Types::Name.new_instance(name: "::Object"),
+                                        method_context: nil,
+                                        typing: typing,
+                                        module_context: nil,
+                                        break_context: nil)
+
+    hint = checker.builder.method_type_to_method_type(parse_method_type("() { (String, Integer) -> :bar } -> void"),
+                                                      current: nil)
+
+    block_params_node = source.node.children[1]
+    block_body_node = source.node.children[2]
+    block_annotations = source.annotations(block: source.node)
+    block_params = TypeInference::BlockParams.from_node(block_params_node, annotations: block_annotations)
+
+    type = construction.type_block(block_param_hint: hint.block.type.params,
+                                   block_type_hint: hint.block.type.return_type,
+                                   node_type_hint: nil,
+                                   block_params: block_params,
+                                   block_body: block_body_node,
+                                   block_annotations: block_annotations)
+    assert_equal "(::String, ::Integer) -> ::Symbol", type.to_s
+
+    assert_equal 1, typing.errors.size
+    typing.errors[0].yield_self do |error|
+      assert_instance_of Steep::Errors::NoMethod, error
+      assert_equal :bazbazbaz, error.method
+      assert_instance_of Types::Nil, error.type
     end
   end
 end

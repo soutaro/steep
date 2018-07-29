@@ -98,8 +98,8 @@ module TypeErrorAssertions
   def assert_block_type_mismatch(error, expected: nil, actual: nil)
     assert_instance_of Steep::Errors::BlockTypeMismatch, error
 
-    assert_equal expected, error.expected if expected
-    assert_equal actual, error.actual if actual
+    assert_equal expected, error.expected.to_s if expected
+    assert_equal actual, error.actual.to_s if actual
 
     yield expected, actual if block_given?
   end

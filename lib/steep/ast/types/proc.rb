@@ -53,6 +53,14 @@ module Steep
           self.class.new(location: new_location)
         end
 
+        def map_type(&block)
+          self.class.new(
+            params: params.map_type(&block),
+            return_type: yield(return_type),
+            location: location
+          )
+        end
+
         # def back_type
         #   Name.new_instance(name: "::NilClass", location: location)
         # end

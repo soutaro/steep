@@ -5,9 +5,15 @@ module Steep
     attr_reader :nodes
     attr_reader :var_typing
     attr_reader :parent
+    attr_reader :parent_last_update
+    attr_reader :last_update
+    attr_reader :should_update
 
-    def initialize(parent: nil)
+    def initialize(parent: nil, parent_last_update: parent&.last_update)
       @parent = parent
+      @parent_last_update = parent_last_update
+      @last_update = parent&.last_update || 0
+      @should_update = false
 
       @errors = []
       @nodes = {}
@@ -22,6 +28,11 @@ module Steep
     def add_typing(node, type)
       typing[node.__id__] = type
       nodes[node.__id__] = node
+
+      if should_update
+        @last_update += 1
+        @should_update = false
+      end
 
       type
     end
@@ -65,7 +76,14 @@ module Steep
     end
 
     def new_child
-      yield self.class.new(parent: self)
+      child = self.class.new(parent: self)
+      @should_update = true
+
+      if block_given?
+        yield child
+      else
+        child
+      end
     end
 
     def each_typing
@@ -76,6 +94,7 @@ module Steep
 
     def save!
       raise "Unexpected save!" unless parent
+      raise "Parent modified since new_child" unless parent.last_update == parent_last_update
 
       each_typing do |node, type|
         parent.add_typing(node, type)

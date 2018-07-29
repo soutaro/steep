@@ -176,6 +176,17 @@ module Steep
         rest_keywords = self.rest_keywords ? ["**#{self.rest_keywords}"] : []
         "(#{(required + optional + rest + required_keywords + optional_keywords + rest_keywords).join(", ")})"
       end
+
+      def map_type(&block)
+        self.class.new(
+          required: required.map(&block),
+          optional: optional.map(&block),
+          rest: rest && yield(rest),
+          required_keywords: required_keywords.transform_values(&block),
+          optional_keywords: optional_keywords.transform_values(&block),
+          rest_keywords: rest_keywords && yield(rest_keywords)
+        )
+      end
     end
 
     class Block

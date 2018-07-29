@@ -63,6 +63,9 @@ module Steep
         when relation.sub_type.is_a?(AST::Types::Any) || relation.super_type.is_a?(AST::Types::Any)
           success(constraints: constraints)
 
+        when relation.super_type.is_a?(AST::Types::Void)
+          success(constraints: constraints)
+
         when relation.super_type.is_a?(AST::Types::Top)
           success(constraints: constraints)
 
@@ -186,6 +189,18 @@ module Steep
             super_interface = resolve(relation.super_type, with_initialize: false)
 
             check_interface(sub_interface, super_interface, assumption: assumption, trace: trace, constraints: constraints)
+          end
+
+        when relation.sub_type.is_a?(AST::Types::Proc) && relation.super_type.is_a?(AST::Types::Proc)
+          check_method_params(:__proc__,
+                              relation.sub_type.params, relation.super_type.params,
+                              assumption: assumption,
+                              trace: trace,
+                              constraints: constraints).then do
+            check0(Relation.new(sub_type: relation.sub_type.return_type, super_type: relation.super_type.return_type),
+                   assumption: assumption,
+                   trace: trace,
+                   constraints: constraints)
           end
 
         when relation.sub_type.is_a?(AST::Types::Tuple) && relation.super_type.is_a?(AST::Types::Tuple)
