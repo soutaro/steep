@@ -28,9 +28,9 @@ module Steep
         add_params(method_type.params, block: false, contravariants: contravariants, covariants: covariants)
         add_type(method_type.return_type, variance: :covariant, covariants: covariants, contravariants: contravariants)
 
-        method_type.block&.yield_self do |block|
-          add_params(block.params, block: true, contravariants: contravariants, covariants: covariants)
-          add_type(block.return_type, variance: :contravariant, covariants: covariants, contravariants: contravariants)
+        method_type.block&.type&.yield_self do |proc|
+          add_params(proc.params, block: true, contravariants: contravariants, covariants: covariants)
+          add_type(proc.return_type, variance: :contravariant, covariants: covariants, contravariants: contravariants)
         end
 
         new(covariants: covariants, contravariants: contravariants)

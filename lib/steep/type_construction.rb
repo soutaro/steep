@@ -1062,7 +1062,7 @@ module Steep
           if method_context&.method_type
             if method_context.block_type
               block_type = method_context.block_type
-              block_type.params.flat_unnamed_params.map(&:last).zip(node.children).each do |(type, node)|
+              block_type.type.params.flat_unnamed_params.map(&:last).zip(node.children).each do |(type, node)|
                 if node && type
                   check(node, type) do |_, rhs_type, result|
                     typing.add_error(Errors::IncompatibleAssignment.new(node: node,
@@ -1073,7 +1073,7 @@ module Steep
                 end
               end
 
-              typing.add_typing(node, block_type.return_type)
+              typing.add_typing(node, block_type.type.return_type)
             else
               typing.add_error(Errors::UnexpectedYield.new(node: node))
               fallback_to_any node
@@ -1859,7 +1859,7 @@ module Steep
             block_annotations = source.annotations(block: node)
 
             params = TypeInference::BlockParams.from_node(block_params, annotations: block_annotations)
-            block_param_pairs = params.zip(method_type.block.params)
+            block_param_pairs = params.zip(method_type.block.type.params)
 
             unless block_param_pairs
               return Errors::IncompatibleBlockParameters.new(
@@ -1888,12 +1888,12 @@ module Steep
             if block_annotations.block_type
               relation = Subtyping::Relation.new(
                 sub_type: absolute_type(block_annotations.block_type),
-                super_type: method_type.block.return_type
+                super_type: method_type.blocktype..return_type
               )
 
               checker.check(relation, constraints: constraints).else do |result|
                 typing.add_error Errors::BlockTypeMismatch.new(node: node,
-                                                               expected: method_type.block.return_type,
+                                                               expected: method_type.block.type.return_type,
                                                                actual: absolute_type(block_annotations.block_type),
                                                                result: result)
               end
@@ -1910,7 +1910,7 @@ module Steep
                 block_annotations = source.annotations(block: node)
 
                 block_param_pairs = TypeInference::BlockParams.from_node(block_params, annotations: block_annotations).yield_self do |params|
-                  params.zip(method_type.block.params)
+                  params.zip(method_type.block.type.params)
                 end
 
                 for_block, return_type = for_block(block_annotations: block_annotations,
@@ -1928,7 +1928,7 @@ module Steep
                                     Types.any
                                   end
 
-                expand_alias(method_type.block.return_type) do |block_return_type|
+                expand_alias(method_type.block.type.return_type) do |block_return_type|
                   unless block_return_type.is_a?(AST::Types::Void)
                     result = checker.check(Subtyping::Relation.new(
                       sub_type: block_annotations.block_type || block_body_type,

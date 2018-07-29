@@ -20,12 +20,12 @@ module Steep
         end
 
         method_type.block&.yield_self do |block|
-          block.params.each_type do |type|
+          block.type.params.each_type do |type|
             each_var(type) do |var|
               params << var
             end
           end
-          each_var(block.return_type) do |var|
+          each_var(block.type.return_type) do |var|
             returns << var
           end
         end

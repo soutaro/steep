@@ -179,13 +179,11 @@ module Steep
     end
 
     class Block
-      attr_reader :params
-      attr_reader :return_type
+      attr_reader :type
       attr_reader :optional
 
-      def initialize(params:, return_type:, optional:)
-        @params = params
-        @return_type = return_type
+      def initialize(type:, optional:)
+        @type = type
         @optional = optional
       end
 
@@ -194,27 +192,26 @@ module Steep
       end
 
       def ==(other)
-        other.is_a?(self.class) && other.params == params && other.return_type == return_type && other.optional == optional
+        other.is_a?(self.class) && other.type == type && other.optional == optional
       end
 
       def closed?
-        params.closed? && return_type.closed?
+        type.closed?
       end
 
       def subst(s)
         self.class.new(
-          params: params.subst(s),
-          return_type: return_type.subst(s),
+          type: type.subst(s),
           optional: optional
         )
       end
 
       def free_variables
-        params.free_variables + return_type.free_variables
+        type.free_variables
       end
 
       def to_s
-        "#{optional? ? "?" : ""}{ #{params} -> #{return_type} }"
+        "#{optional? ? "?" : ""}{ #{type} }"
       end
     end
 
@@ -264,8 +261,8 @@ module Steep
         if block_given?
           params.each_type(&block)
           self.block&.tap do
-            self.block.params.each_type(&block)
-            yield(self.block.return_type)
+            self.block.type.params.each_type(&block)
+            yield(self.block.type.return_type)
           end
           yield(return_type)
         else

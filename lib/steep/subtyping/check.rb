@@ -397,10 +397,10 @@ module Steep
               # No block required and given
 
             when super_type.block && sub_type.block
-              match_params(name, super_type.block.params, sub_type.block.params, trace: trace).yield_self do |block_result|
+              match_params(name, super_type.block.type.params, sub_type.block.type.params, trace: trace).yield_self do |block_result|
                 return block_result unless block_result.is_a?(Array)
                 pairs.push(*block_result)
-                pairs.push [super_type.block.return_type, sub_type.block.return_type]
+                pairs.push [super_type.block.type.return_type, sub_type.block.type.return_type]
               end
 
             else
@@ -506,8 +506,8 @@ module Steep
       def check_block_params(name, sub_block, super_block, assumption:, trace:, constraints:)
         if sub_block && super_block
           check_method_params(name,
-                              super_block.params,
-                              sub_block.params,
+                              super_block.type.params,
+                              sub_block.type.params,
                               assumption: assumption,
                               trace: trace,
                               constraints: constraints)
@@ -518,8 +518,8 @@ module Steep
 
       def check_block_return(sub_block, super_block, assumption:, trace:, constraints:)
         if sub_block && super_block
-          relation = Relation.new(sub_type: super_block.return_type,
-                                      super_type: sub_block.return_type)
+          relation = Relation.new(sub_type: super_block.type.return_type,
+                                      super_type: sub_block.type.return_type)
           check(relation, assumption: assumption, trace: trace, constraints: constraints)
         else
           success(constraints: constraints)
