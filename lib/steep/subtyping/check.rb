@@ -794,6 +794,28 @@ module Steep
 
             array_interface
           end
+
+        when AST::Types::Proc
+          yield_self do
+            proc_interface = resolve(type.back_type, self_type: self_type, with_initialize: with_initialize)
+            apply_type = Interface::MethodType.new(
+              type_params: [],
+              params: type.params,
+              block: nil,
+              return_type: type.return_type,
+              location: nil
+            )
+
+            proc_interface.methods[:[]] = proc_interface.methods[:[]].yield_self do |aref|
+              aref.with_types([apply_type])
+            end
+            proc_interface.methods[:call] = proc_interface.methods[:call].yield_self do |aref|
+              aref.with_types([apply_type])
+            end
+
+            proc_interface
+          end
+
         end
       end
 

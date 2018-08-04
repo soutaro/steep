@@ -61,9 +61,9 @@ module Steep
           )
         end
 
-        # def back_type
-        #   Name.new_instance(name: "::NilClass", location: location)
-        # end
+        def back_type
+          Name.new_instance(name: "::Proc", location: location)
+        end
       end
     end
   end

@@ -366,6 +366,14 @@ end
 
 class NilClass
 end
+
+class Proc
+  def []: (*any) -> any
+  def call: (*any) -> any
+  def ===: (*any) -> any
+  def yield: (*any) -> any
+  def arity: -> Integer
+end
   EOS
 
   DEFAULT_SIGS = <<-EOS
