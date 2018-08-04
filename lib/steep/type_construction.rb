@@ -1781,10 +1781,10 @@ module Steep
     end
 
     def type_method_call(node, receiver_type:, method:, args:, block_params:, block_body:)
-      results = method.types.map.with_index do |method_type, index|
+      results = method.types.map do |method_type|
         Steep.logger.tagged method_type.location&.source do
           child_typing = typing.new_child
-          arg_pairs = args.zip(method_type.params)
+          arg_pairs = args.zip(method_type.params, nil)
 
           type_or_error = if arg_pairs
                             try_method_type(node,

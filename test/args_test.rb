@@ -8,11 +8,12 @@ class ArgsTest < Minitest::Test
   Types = Steep::AST::Types
 
   def test_1
-    nodes = parse_ruby("foo(1, 2, *rest, k1: foo(), k2: bar(), **k3)").node.children.drop(2)
+    nodes = parse_ruby("foo(1, 2, *rest, k1: foo(), k2: bar(), **k3, &proc)").node.children.drop(2)
     args = SendArgs.from_nodes(nodes)
 
     assert_equal [nodes[0], nodes[1], nodes[2]], args.args
     assert_equal nodes[3], args.kw_args
+    assert_equal nodes[4], args.block_pass_arg
   end
 
   def test_2
@@ -43,7 +44,7 @@ class ArgsTest < Minitest::Test
 
     args = SendArgs.from_nodes(parse_ruby("foo(:a, :b)").node.children.drop(2))
 
-    pairs = args.zip(params)
+    pairs = args.zip(params, nil)
 
     refute_nil pairs
     assert_equal Set.new([
@@ -65,7 +66,7 @@ class ArgsTest < Minitest::Test
     )
 
     SendArgs.from_nodes(parse_ruby("foo(:a, x: 1)").node.children.drop(2)).yield_self do |args|
-      pairs = args.zip(params)
+      pairs = args.zip(params, nil)
 
       refute_nil pairs
       assert_equal Set.new([
@@ -76,7 +77,7 @@ class ArgsTest < Minitest::Test
     end
 
     SendArgs.from_nodes(parse_ruby("foo(*args)").node.children.drop(2)).yield_self do |args|
-      pairs = args.zip(params)
+      pairs = args.zip(params, nil)
 
       refute_nil pairs
       assert_equal Set.new([
@@ -104,7 +105,7 @@ class ArgsTest < Minitest::Test
     )
 
     SendArgs.from_nodes(parse_ruby("foo(foo: 1)").node.children.drop(2)).yield_self do |args|
-      pairs = args.zip(params)
+      pairs = args.zip(params, nil)
 
       refute_nil pairs
       assert_equal Set.new([
@@ -114,7 +115,7 @@ class ArgsTest < Minitest::Test
     end
 
     SendArgs.from_nodes(parse_ruby("foo(foo: 1, bar: 2)").node.children.drop(2)).yield_self do |args|
-      pairs = args.zip(params)
+      pairs = args.zip(params, nil)
 
       refute_nil pairs
       assert_equal Set.new([
@@ -125,13 +126,13 @@ class ArgsTest < Minitest::Test
     end
 
     SendArgs.from_nodes(parse_ruby("foo(bar: 2)").node.children.drop(2)).yield_self do |args|
-      pairs = args.zip(params)
+      pairs = args.zip(params, nil)
 
       assert_nil pairs
     end
 
     SendArgs.from_nodes(parse_ruby("foo(foo: 2, baz: 3)").node.children.drop(2)).yield_self do |args|
-      pairs = args.zip(params)
+      pairs = args.zip(params, nil)
 
       assert_nil pairs
     end
@@ -148,7 +149,7 @@ class ArgsTest < Minitest::Test
     )
 
     SendArgs.from_nodes(parse_ruby("foo(foo: 1)").node.children.drop(2)).yield_self do |args|
-      pairs = args.zip(params)
+      pairs = args.zip(params, nil)
 
       refute_nil pairs
       assert_equal Set.new([
@@ -158,7 +159,7 @@ class ArgsTest < Minitest::Test
     end
 
     SendArgs.from_nodes(parse_ruby("foo(foo: 1, baz: 3, **params)").node.children.drop(2)).yield_self do |args|
-      pairs = args.zip(params)
+      pairs = args.zip(params, nil)
 
       refute_nil pairs
       assert_equal Set.new([
@@ -188,7 +189,7 @@ class ArgsTest < Minitest::Test
     )
 
     SendArgs.from_nodes(parse_ruby("foo(:a, :b)").node.children.drop(2)).yield_self do |args|
-      pairs = args.zip(params)
+      pairs = args.zip(params, nil)
 
       refute_nil pairs
       assert_equal Set.new([
@@ -199,7 +200,7 @@ class ArgsTest < Minitest::Test
     end
 
     SendArgs.from_nodes(parse_ruby("foo(:a, :b, :c)").node.children.drop(2)).yield_self do |args|
-      pairs = args.zip(params)
+      pairs = args.zip(params, nil)
 
       refute_nil pairs
       assert_equal Set.new([
@@ -211,7 +212,7 @@ class ArgsTest < Minitest::Test
     end
 
     SendArgs.from_nodes(parse_ruby("foo(:a, :b, :c, *d)").node.children.drop(2)).yield_self do |args|
-      pairs = args.zip(params)
+      pairs = args.zip(params, nil)
 
       refute_nil pairs
       assert_equal Set.new([
@@ -227,7 +228,7 @@ class ArgsTest < Minitest::Test
     end
 
     SendArgs.from_nodes(parse_ruby("foo(:a, :b, :c, *d, :e)").node.children.drop(2)).yield_self do |args|
-      pairs = args.zip(params)
+      pairs = args.zip(params, nil)
 
       refute_nil pairs
       assert_equal Set.new([
@@ -244,7 +245,7 @@ class ArgsTest < Minitest::Test
     end
 
     SendArgs.from_nodes(parse_ruby("foo(:a, *b, :c)").node.children.drop(2)).yield_self do |args|
-      pairs = args.zip(params)
+      pairs = args.zip(params, nil)
 
       refute_nil pairs
       assert_equal Set.new([
@@ -267,7 +268,7 @@ class ArgsTest < Minitest::Test
     end
 
     SendArgs.from_nodes(parse_ruby("foo(*a, :b, *c)").node.children.drop(2)).yield_self do |args|
-      pairs = args.zip(params)
+      pairs = args.zip(params, nil)
 
       refute_nil pairs
       assert_equal Set.new([
@@ -298,5 +299,29 @@ class ArgsTest < Minitest::Test
                            ]),
                    pairs
     end
+  end
+
+  def test_zip6
+    params = Params.new(
+      required: [Types::Name.new_instance(name: :Integer)],
+      optional: [Types::Name.new_instance(name: :String)],
+      rest: nil,
+      required_keywords: {},
+      optional_keywords: {},
+      rest_keywords: nil
+    )
+    proc = Types::Proc.new(params: Params.empty, return_type: parse_type("String"))
+
+    args = SendArgs.from_nodes(parse_ruby("foo(:a, :b, &bar)").node.children.drop(2))
+
+    pairs = args.zip(params, proc)
+
+    refute_nil pairs
+    assert_equal Set.new([
+                           [parse_ruby(":a").node, Types::Name.new_instance(name: :Integer)],
+                           [parse_ruby(":b").node, Types::Name.new_instance(name: :String)],
+                           [parse_ruby("bar").node, proc]
+                         ]),
+                 pairs
   end
 end
