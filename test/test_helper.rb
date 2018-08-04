@@ -355,6 +355,7 @@ class Array<'a>
   def each: { ('a) -> any } -> self
   def zip: <'b> (Array<'b>) -> Array<'a | 'b>
   def each_with_object: <'b> ('b) { ('a, 'b) -> any } -> 'b
+  def map: <'x> { ('a) -> 'x } -> Array<'x>
 end
 
 class Hash<'a, 'b>

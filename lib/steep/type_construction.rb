@@ -35,6 +35,10 @@ module Steep
         type.is_a?(AST::Types::Boolean)
       end
 
+      def optional(type)
+        AST::Types::Union.build(types: [type, nil_instance])
+      end
+
       def hash_instance?(type)
         case type
         when AST::Types::Name
@@ -135,6 +139,21 @@ module Steep
       @type_env = type_env
     end
 
+    def with_new_typing(typing)
+      self.class.new(
+        checker: checker,
+        source: source,
+        annotations: annotations,
+        type_env: type_env,
+        typing: typing,
+        self_type: self_type,
+        method_context: method_context,
+        block_context: block_context,
+        module_context: module_context,
+        break_context: break_context
+      )
+    end
+
     def for_new_method(method_name, node, args:, self_type:)
       annots = source.annotations(block: node)
       type_env = TypeInference::TypeEnv.new(subtyping: checker,
@@ -222,6 +241,18 @@ module Steep
         unless TypeConstruction.valid_parameter_env?(var_types, args.reject {|arg| arg.type == :blockarg }, method_type.params)
           typing.add_error Errors::MethodArityMismatch.new(node: node)
         end
+
+        if (block_arg = args.find {|arg| arg.type == :blockarg })
+          if method_type.block
+            block_type = if method_type.block.optional?
+                           AST::Types::Union.build(types: [method_type.block.type, Types.nil_instance])
+                         else
+                           method_type.block.type
+                         end
+            var_types[block_arg.children[0].name] = block_type
+          end
+        end
+
       when method
         typing.add_error Errors::MethodDefinitionWithOverloading.new(node: node, method: method)
         return_type = union_type(*method.types.map(&:return_type))
@@ -1466,7 +1497,18 @@ module Steep
             end
           end
 
-        when :splat, :block_pass, :blockarg, :sclass
+        when :block_pass, :blockarg
+          yield_self do
+            Steep.logger.error "Supported node but appeared unexpectedly: #{node.type}"
+
+            each_child_node node do |child|
+              synthesize(child)
+            end
+
+            typing.add_typing node, Types.any
+          end
+
+        when :splat, :sclass
           yield_self do
             Steep.logger.error "Unsupported node #{node.type}"
 
@@ -1784,16 +1826,19 @@ module Steep
       results = method.types.map do |method_type|
         Steep.logger.tagged method_type.location&.source do
           child_typing = typing.new_child
-          arg_pairs = args.zip(method_type.params, nil)
+          arg_pairs = args.zip(method_type.params, method_type.block&.type)
 
           type_or_error = if arg_pairs
-                            try_method_type(node,
-                                            receiver_type: receiver_type,
-                                            method_type: method_type,
-                                            arg_pairs: arg_pairs,
-                                            block_params: block_params,
-                                            block_body: block_body,
-                                            child_typing: child_typing)
+                            self.with_new_typing(child_typing).try_method_type(
+                              node,
+                              receiver_type: receiver_type,
+                              method_type: method_type,
+                              args: args,
+                              arg_pairs: arg_pairs,
+                              block_params: block_params,
+                              block_body: block_body,
+                              child_typing: child_typing
+                            )
                           else
                             Steep.logger.debug(node.inspect)
                             Errors::IncompatibleArguments.new(node: node, receiver_type: receiver_type, method_type: method_type)
@@ -1821,7 +1866,7 @@ module Steep
       end
     end
 
-    def try_method_type(node, receiver_type:, method_type:, arg_pairs:, block_params:, block_body:, child_typing:)
+    def try_method_type(node, receiver_type:, method_type:, args:, arg_pairs:, block_params:, block_body:, child_typing:)
       fresh_types = method_type.type_params.map {|x| AST::Types::Var.fresh(x) }
       fresh_vars = Set.new(fresh_types.map(&:name))
       instantiation = Interface::Substitution.build(method_type.type_params, fresh_types)
@@ -1931,17 +1976,52 @@ module Steep
                                                 result: exn.result)
           end
 
+        when method_type.block && args.block_pass_arg
+          begin
+            method_type.subst(constraints.solution(checker, variance: variance, variables: occurence.params)).yield_self do |method_type|
+              block_type = synthesize(args.block_pass_arg, hint: method_type.block.type)
+              relation = Subtyping::Relation.new(sub_type: block_type,
+                                                 super_type: method_type.block.yield_self do |expected_block|
+                                                   if expected_block.optional?
+                                                     Types.optional(expected_block.type)
+                                                   else
+                                                     expected_block.type
+                                                   end
+                                                 end)
+              result = checker.check(relation, constraints: constraints)
+
+              case result
+              when Subtyping::Result::Success
+                method_type.return_type.subst(constraints.solution(checker, variance: variance, variables: fresh_vars))
+
+              when Subtyping::Result::Failure
+                Errors::BlockTypeMismatch.new(node: node,
+                                              expected: method_type.block.type,
+                                              actual: block_type,
+                                              result: result)
+              end
+            end
+
+          rescue Subtyping::Constraints::UnsatisfiableConstraint => exn
+            Errors::UnsatisfiableConstraint.new(node: node,
+                                                method_type: method_type,
+                                                var: exn.var,
+                                                sub_type: exn.sub_type,
+                                                super_type: exn.super_type,
+                                                result: exn.result)
+          end
+
         when (!method_type.block || method_type.block.optional?) && !block_params && !block_body
           # OK, without block
           method_type.subst(constraints.solution(checker, variance: variance, variables: fresh_vars)).return_type
 
-        when !method_type.block && block_params
+        when !method_type.block && (block_params || args.block_pass_arg)
           Errors::UnexpectedBlockGiven.new(
             node: node,
             method_type: method_type
           )
 
-        when method_type.block && !method_type.block.optional? && !block_params && !block_body
+        when method_type.block && !method_type.block.optional? && !block_params && !block_body && !args.block_pass_arg
           Errors::RequiredBlockMissing.new(
             node: node,
             method_type: method_type
