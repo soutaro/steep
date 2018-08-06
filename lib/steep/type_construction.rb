@@ -705,8 +705,7 @@ module Steep
           yield_self do
             send_node, params, body = node.children
             if send_node.type == :lambda
-              Steep.logger.error "Lambda syntax (->) is not supported yet."
-              typing.add_typing node, Types.any
+              type_lambda(node, block_params: params, block_body: body, type_hint: hint)
             else
               type_send(node, send_node: send_node, block_params: params, block_body: body)
             end
@@ -1698,6 +1697,26 @@ module Steep
         Steep.logger.error("Unsupported masgn: #{rhs.type} (#{rhs_type})")
         fallback_to_any(node)
       end
+    end
+
+    def type_lambda(node, block_params:, block_body:, type_hint:)
+      block_annotations = source.annotations(block: node)
+      params = TypeInference::BlockParams.from_node(block_params, annotations: block_annotations)
+
+      case type_hint
+      when AST::Types::Proc
+        params_hint = type_hint.params
+        return_hint = type_hint.return_type
+      end
+
+      block_type = type_block(block_param_hint: params_hint,
+                              block_type_hint: return_hint,
+                              node_type_hint: nil,
+                              block_params: params,
+                              block_body: block_body,
+                              block_annotations: block_annotations)
+
+      typing.add_typing node, block_type
     end
 
     def type_send(node, send_node:, block_params:, block_body:, unwrap: false)

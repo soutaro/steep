@@ -5426,4 +5426,75 @@ EOF
       assert_instance_of Steep::Errors::ArgumentTypeMismatch, error
     end
   end
+
+  def test_lambda1
+    source = parse_ruby(<<EOF)
+l = -> (x, y) do
+  # @type var x: Integer
+  x + y
+end
+EOF
+
+    typing = Typing.new
+    annotations = source.annotations(block: source.node)
+    checker = new_subtyping_checker()
+
+    const_env = ConstantEnv.new(builder: checker.builder, current_namespace: nil)
+    type_env = TypeEnv.build(annotations: annotations,
+                             subtyping: checker,
+                             const_env: const_env,
+                             signatures: checker.builder.signatures)
+
+    construction = TypeConstruction.new(checker: checker,
+                                        source: source,
+                                        annotations: annotations,
+                                        type_env: type_env,
+                                        block_context: nil,
+                                        self_type: Types::Name.new_instance(name: "::Object"),
+                                        method_context: nil,
+                                        typing: typing,
+                                        module_context: nil,
+                                        break_context: nil)
+
+    construction.synthesize(source.node)
+    assert_empty typing.errors
+    assert_equal "(::Integer, any) -> ::Numeric", type_env.lvar_types[:l].to_s
+  end
+
+  def test_lambda2
+    source = parse_ruby(<<EOF)
+# @type var l: String
+l = -> (x, y) do
+  x + y
+end
+EOF
+
+    typing = Typing.new
+    annotations = source.annotations(block: source.node)
+    checker = new_subtyping_checker()
+
+    const_env = ConstantEnv.new(builder: checker.builder, current_namespace: nil)
+    type_env = TypeEnv.build(annotations: annotations,
+                             subtyping: checker,
+                             const_env: const_env,
+                             signatures: checker.builder.signatures)
+
+    construction = TypeConstruction.new(checker: checker,
+                                        source: source,
+                                        annotations: annotations,
+                                        type_env: type_env,
+                                        block_context: nil,
+                                        self_type: Types::Name.new_instance(name: "::Object"),
+                                        method_context: nil,
+                                        typing: typing,
+                                        module_context: nil,
+                                        break_context: nil)
+
+    construction.synthesize(source.node)
+
+    assert_equal 1, typing.errors.size
+    typing.errors[0].yield_self do |error|
+      assert_instance_of Steep::Errors::IncompatibleAssignment, error
+    end
+  end
 end
