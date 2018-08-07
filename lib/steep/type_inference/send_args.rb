@@ -3,15 +3,24 @@ module Steep
     class SendArgs
       attr_reader :args
       attr_reader :kw_args
+      attr_reader :block_pass_arg
 
-      def initialize(args:, kw_args:)
+      def initialize(args:, kw_args:, block_pass_arg:)
         @args = args
         @kw_args = kw_args
+        @block_pass_arg = block_pass_arg
       end
 
       def self.from_nodes(nodes)
+        nodes = nodes.dup
+
         args = []
         last_hash = nil
+        block_pass_arg = nil
+
+        if nodes.last&.type == :block_pass
+          block_pass_arg = nodes.pop
+        end
 
         nodes.each do |node|
           if last_hash
@@ -34,7 +43,7 @@ module Steep
           end
         end
 
-        new(args: args, kw_args: last_hash)
+        new(args: args, kw_args: last_hash, block_pass_arg: block_pass_arg)
       end
 
       def self.kw_args?(node)
@@ -72,7 +81,7 @@ module Steep
         end
       end
 
-      def zip(params)
+      def zip(params, block)
         Set.new(
           [].tap do |pairs|
             consumed_keywords = Set.new
@@ -182,6 +191,11 @@ module Steep
                 end
                 pairs << [arg, type]
               end
+            end
+
+            case
+            when block && block_pass_arg
+              pairs << [block_pass_arg.children[0], block]
             end
           end
         )

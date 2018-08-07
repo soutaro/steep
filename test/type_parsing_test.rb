@@ -178,4 +178,16 @@ class TypeParsingTest < Minitest::Test
       parse_type("[]")
     end
   end
+
+  def test_proc_type
+    parse_type("^() -> void").yield_self do |type|
+      assert_instance_of AST::Types::Proc, type
+      assert_equal "^() -> void", type.to_s
+    end
+
+    parse_type("^(Integer, ?String, *Symbol) -> void").yield_self do |type|
+      assert_instance_of AST::Types::Proc, type
+      assert_equal "^(Integer, ?String, *Symbol) -> void", type.to_s
+    end
+  end
 end

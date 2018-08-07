@@ -73,6 +73,12 @@ module Steep
             types: type.types.map {|ty| absolute_type(ty, current:current) },
             location: type.location
           )
+        when AST::Types::Proc
+          AST::Types::Proc.new(
+            params: type.params.map_type {|ty| absolute_type(ty, current: current) },
+            return_type: absolute_type(type.return_type, current: current),
+            location: type.location
+          )
         else
           type
         end
@@ -493,8 +499,11 @@ module Steep
         type_params = method_type.type_params&.variables || []
         params = params_to_params(method_type.params, current: current)
         block = method_type.block && Block.new(
-          params: params_to_params(method_type.block.params, current: current),
-          return_type: absolute_type(method_type.block.return_type, current: current),
+          type: AST::Types::Proc.new(
+            params: params_to_params(method_type.block.params, current: current),
+            return_type: absolute_type(method_type.block.return_type, current: current),
+            location: method_type.block.location,
+            ),
           optional: method_type.block.optional
         )
 

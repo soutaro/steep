@@ -176,4 +176,100 @@ proc {|a, b=1, *c, d|
       assert_equal [params.params[1], parse_type("::Array<Integer>")], zip[1]
     end
   end
+
+  def test_param_type
+    src = parse_ruby(<<-EOR)
+proc {|a, b=1, *c, d|
+  # @type var a: String
+  # @type var c: Array<Symbol>
+  foo()
+}
+    EOR
+
+    block = src.node
+    annots = src.annotations(block: block)
+    params = BlockParams.from_node(block.children[1], annotations: annots)
+
+    param_type = params.params_type()
+    assert_equal [parse_type("String")], param_type.required
+    assert_equal [parse_type("any")], param_type.optional
+    assert_equal parse_type("Symbol"), param_type.rest
+    assert_equal({}, param_type.required_keywords)
+    assert_equal({}, param_type.optional_keywords)
+    assert_nil param_type.rest_keywords
+  end
+
+  def test_param_type_with_hint
+    src = parse_ruby(<<-EOR)
+proc {|a, b=1, *c|
+  # @type var a: String
+  # @type var b: Integer
+  # @type var c: Array<Symbol>
+  foo()
+}
+    EOR
+
+    block = src.node
+    annots = src.annotations(block: block)
+    params = BlockParams.from_node(block.children[1], annotations: annots)
+
+    yield_self do
+      hint = param_type(required: ["String"], optional: ["Integer"], rest: "Symbol")
+      param_type = params.params_type(hint: hint)
+      assert_equal "(String, ?Integer, *Symbol)", param_type.to_s
+    end
+
+    yield_self do
+      hint = param_type(required: ["String"], optional: ["Integer"])
+      param_type = params.params_type(hint: hint)
+      assert_equal "(String, ?Integer)", param_type.to_s
+    end
+
+    yield_self do
+      hint = param_type(required: ["String"])
+      param_type = params.params_type(hint: hint)
+      assert_equal "(String)", param_type.to_s
+    end
+
+    yield_self do
+      hint = param_type(required: ["String"], optional: ["Integer", "Integer"])
+      param_type = params.params_type(hint: hint)
+      assert_equal "(String, ?Integer, ?Integer)", param_type.to_s
+    end
+
+    yield_self do
+      hint = param_type(required: ["String"], optional: ["Integer", "Integer"], rest: "Symbol")
+      param_type = params.params_type(hint: hint)
+      assert_equal "(String, ?Integer, *Symbol)", param_type.to_s
+    end
+
+    yield_self do
+      hint = param_type(required: ["String", "Integer"])
+      param_type = params.params_type(hint: hint)
+      assert_equal "(String, Integer)", param_type.to_s
+    end
+
+    yield_self do
+      hint = param_type(required: [])
+      param_type = params.params_type(hint: hint)
+      assert_equal "()", param_type.to_s
+    end
+
+    yield_self do
+      hint = param_type(required: [], optional: ["Integer"])
+      param_type = params.params_type(hint: hint)
+      assert_equal "(String, ?Integer, *Symbol)", param_type.to_s
+    end
+  end
+
+  def param_type(required: [], optional: [], rest: nil, required_keywords: {}, optional_keywords: {}, rest_keywords: nil)
+    Steep::Interface::Params.new(
+      required: required.map {|s| parse_type(s) },
+      optional: optional.map {|t| parse_type(t) },
+      rest: rest&.yield_self {|t| parse_type(t) },
+      required_keywords: required_keywords.transform_values {|t| parse_type(t) },
+      optional_keywords: optional_keywords.transform_values {|t| parse_type(t) },
+      rest_keywords: rest_keywords&.yield_self {|t| parse_type(t) }
+    )
+  end
 end

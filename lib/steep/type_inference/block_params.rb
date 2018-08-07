@@ -78,6 +78,67 @@ module Steep
         )
       end
 
+      def params_type(hint: nil)
+        params_type0(hint: hint) or params_type0(hint: nil)
+      end
+
+      def params_type0(hint:)
+        if hint
+          case
+          when leading_params.size == hint.required.size
+            leadings = leading_params.map.with_index do |param, index|
+              param.type || hint.required[index]
+            end
+          when !hint.rest && hint.optional.empty? && leading_params.size > hint.required.size
+            leadings = leading_params.take(hint.required.size).map.with_index do |param, index|
+              param.type || hint.required[index]
+            end
+          when !hint.rest && hint.optional.empty? && leading_params.size < hint.required.size
+            leadings = leading_params.map.with_index do |param, index|
+              param.type || hint.optional[index]
+            end + hint.required.drop(leading_params.size)
+          else
+            return nil
+          end
+
+          case
+          when optional_params.size == hint.optional.size
+            optionals = optional_params.map.with_index do |param, index|
+              param.type || hint.optional[index]
+            end
+          when !hint.rest && optional_params.size > hint.optional.size
+            optionals = optional_params.take(hint.optional.size).map.with_index do |param, index|
+              param.type || hint.optional[index]
+            end
+          when !hint.rest && optional_params.size < hint.optional.size
+            optionals = optional_params.map.with_index do |param, index|
+              param.type || hint.optional[index]
+            end + hint.optional.drop(optional_params.size)
+          else
+            return nil
+          end
+
+          if rest_param && hint.rest
+            rest = rest_param.type&.yield_self {|ty| ty.args&.first } || hint.rest
+          else
+            rest = hint.rest
+          end
+        else
+          leadings = leading_params.map {|param| param.type || AST::Types::Any.new }
+          optionals = optional_params.map {|param| param.type || AST::Types::Any.new }
+          rest = rest_param&.yield_self {|param| param.type.args[0] }
+        end
+
+        Interface::Params.new(
+          required: leadings,
+          optional: optionals,
+          rest: rest,
+          required_keywords: {},
+          optional_keywords: {},
+          rest_keywords: nil
+        )
+      end
+
       def zip(params_type)
         if trailing_params.any?
           Steep.logger.error "Block definition with trailing required parameters are not supported yet"

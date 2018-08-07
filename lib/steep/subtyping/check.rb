@@ -63,6 +63,9 @@ module Steep
         when relation.sub_type.is_a?(AST::Types::Any) || relation.super_type.is_a?(AST::Types::Any)
           success(constraints: constraints)
 
+        when relation.super_type.is_a?(AST::Types::Void)
+          success(constraints: constraints)
+
         when relation.super_type.is_a?(AST::Types::Top)
           success(constraints: constraints)
 
@@ -186,6 +189,18 @@ module Steep
             super_interface = resolve(relation.super_type, with_initialize: false)
 
             check_interface(sub_interface, super_interface, assumption: assumption, trace: trace, constraints: constraints)
+          end
+
+        when relation.sub_type.is_a?(AST::Types::Proc) && relation.super_type.is_a?(AST::Types::Proc)
+          check_method_params(:__proc__,
+                              relation.sub_type.params, relation.super_type.params,
+                              assumption: assumption,
+                              trace: trace,
+                              constraints: constraints).then do
+            check0(Relation.new(sub_type: relation.sub_type.return_type, super_type: relation.super_type.return_type),
+                   assumption: assumption,
+                   trace: trace,
+                   constraints: constraints)
           end
 
         when relation.sub_type.is_a?(AST::Types::Tuple) && relation.super_type.is_a?(AST::Types::Tuple)
@@ -397,10 +412,10 @@ module Steep
               # No block required and given
 
             when super_type.block && sub_type.block
-              match_params(name, super_type.block.params, sub_type.block.params, trace: trace).yield_self do |block_result|
+              match_params(name, super_type.block.type.params, sub_type.block.type.params, trace: trace).yield_self do |block_result|
                 return block_result unless block_result.is_a?(Array)
                 pairs.push(*block_result)
-                pairs.push [super_type.block.return_type, sub_type.block.return_type]
+                pairs.push [super_type.block.type.return_type, sub_type.block.type.return_type]
               end
 
             else
@@ -506,8 +521,8 @@ module Steep
       def check_block_params(name, sub_block, super_block, assumption:, trace:, constraints:)
         if sub_block && super_block
           check_method_params(name,
-                              super_block.params,
-                              sub_block.params,
+                              super_block.type.params,
+                              sub_block.type.params,
                               assumption: assumption,
                               trace: trace,
                               constraints: constraints)
@@ -518,8 +533,8 @@ module Steep
 
       def check_block_return(sub_block, super_block, assumption:, trace:, constraints:)
         if sub_block && super_block
-          relation = Relation.new(sub_type: super_block.return_type,
-                                      super_type: sub_block.return_type)
+          relation = Relation.new(sub_type: super_block.type.return_type,
+                                      super_type: sub_block.type.return_type)
           check(relation, assumption: assumption, trace: trace, constraints: constraints)
         else
           success(constraints: constraints)
@@ -779,6 +794,28 @@ module Steep
 
             array_interface
           end
+
+        when AST::Types::Proc
+          yield_self do
+            proc_interface = resolve(type.back_type, self_type: self_type, with_initialize: with_initialize)
+            apply_type = Interface::MethodType.new(
+              type_params: [],
+              params: type.params,
+              block: nil,
+              return_type: type.return_type,
+              location: nil
+            )
+
+            proc_interface.methods[:[]] = proc_interface.methods[:[]].yield_self do |aref|
+              aref.with_types([apply_type])
+            end
+            proc_interface.methods[:call] = proc_interface.methods[:call].yield_self do |aref|
+              aref.with_types([apply_type])
+            end
+
+            proc_interface
+          end
+
         end
       end
 

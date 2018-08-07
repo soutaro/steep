@@ -12,7 +12,7 @@ module Steep
       end
 
       def inspect
-        "#<#{self.class}:#{self.__id__} @buffer=..., @start_pos=#{start_pos}, @end_pos=#{end_pos}, source='#{source.lines.first}', start_line=#{start_line}, start_column=#{start_column}>"
+        "#<#{self.class}:#{self.__id__} @buffer=#{buffer.name}, @start_pos=#{start_pos}, @end_pos=#{end_pos}, source='#{source.lines.first}', start_line=#{start_line}, start_column=#{start_column}>"
       end
 
       def name

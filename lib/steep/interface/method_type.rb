@@ -17,6 +17,18 @@ module Steep
         @rest_keywords = rest_keywords
       end
 
+      NONE = Object.new
+      def update(required: NONE, optional: NONE, rest: NONE, required_keywords: NONE, optional_keywords: NONE, rest_keywords: NONE)
+        self.class.new(
+          required: required.equal?(NONE) ? self.required : required,
+          optional: optional.equal?(NONE) ? self.optional : optional,
+          rest: rest.equal?(NONE) ? self.rest : rest,
+          required_keywords: required_keywords.equal?(NONE) ? self.required_keywords : required_keywords,
+          optional_keywords: optional_keywords.equal?(NONE) ? self.optional_keywords : optional_keywords,
+          rest_keywords: rest_keywords.equal?(NONE) ? self.rest_keywords : rest_keywords
+        )
+      end
+
       def self.empty
         self.new(
           required: [],
@@ -176,16 +188,25 @@ module Steep
         rest_keywords = self.rest_keywords ? ["**#{self.rest_keywords}"] : []
         "(#{(required + optional + rest + required_keywords + optional_keywords + rest_keywords).join(", ")})"
       end
+
+      def map_type(&block)
+        self.class.new(
+          required: required.map(&block),
+          optional: optional.map(&block),
+          rest: rest && yield(rest),
+          required_keywords: required_keywords.transform_values(&block),
+          optional_keywords: optional_keywords.transform_values(&block),
+          rest_keywords: rest_keywords && yield(rest_keywords)
+        )
+      end
     end
 
     class Block
-      attr_reader :params
-      attr_reader :return_type
+      attr_reader :type
       attr_reader :optional
 
-      def initialize(params:, return_type:, optional:)
-        @params = params
-        @return_type = return_type
+      def initialize(type:, optional:)
+        @type = type
         @optional = optional
       end
 
@@ -194,27 +215,26 @@ module Steep
       end
 
       def ==(other)
-        other.is_a?(self.class) && other.params == params && other.return_type == return_type && other.optional == optional
+        other.is_a?(self.class) && other.type == type && other.optional == optional
       end
 
       def closed?
-        params.closed? && return_type.closed?
+        type.closed?
       end
 
       def subst(s)
         self.class.new(
-          params: params.subst(s),
-          return_type: return_type.subst(s),
+          type: type.subst(s),
           optional: optional
         )
       end
 
       def free_variables
-        params.free_variables + return_type.free_variables
+        type.free_variables
       end
 
       def to_s
-        "#{optional? ? "?" : ""}{ #{params} -> #{return_type} }"
+        "#{optional? ? "?" : ""}{ #{type.params} -> #{type.return_type} }"
       end
     end
 
@@ -264,8 +284,8 @@ module Steep
         if block_given?
           params.each_type(&block)
           self.block&.tap do
-            self.block.params.each_type(&block)
-            yield(self.block.return_type)
+            self.block.type.params.each_type(&block)
+            yield(self.block.type.return_type)
           end
           yield(return_type)
         else

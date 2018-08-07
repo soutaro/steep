@@ -553,7 +553,7 @@ end
 
     assert_equal [:tap, :yield_self], interface.methods.keys
     assert_equal [type], interface.methods[:tap].types.map {|ty| ty.return_type }
-    assert_equal [[type]], interface.methods[:yield_self].types.map {|ty| ty.block.params.required }
+    assert_equal [[type]], interface.methods[:yield_self].types.map {|ty| ty.block.type.params.required }
   end
 
   def test_resolve2

@@ -29,10 +29,10 @@ class InterfaceBuilderTest < Minitest::Test
     assert_equal Types::Name.new_instance(name: "::T5"), method_type.params.rest_keywords
     assert_equal Types::Any.new, method_type.return_type
 
-    assert_equal [Types::Name.new_instance(name: "::T6")], method_type.block.params.required
-    assert_equal [Types::Name.new_instance(name: "::T7")], method_type.block.params.optional
-    assert_equal Types::Name.new_instance(name: "::T8"), method_type.block.params.rest
-    assert_equal Types::Name.new_instance(name: "::T9"), method_type.block.return_type
+    assert_equal [Types::Name.new_instance(name: "::T6")], method_type.block.type.params.required
+    assert_equal [Types::Name.new_instance(name: "::T7")], method_type.block.type.params.optional
+    assert_equal Types::Name.new_instance(name: "::T8"), method_type.block.type.params.rest
+    assert_equal Types::Name.new_instance(name: "::T9"), method_type.block.type.return_type
   end
 
   def test_method_type_to_method_type2
