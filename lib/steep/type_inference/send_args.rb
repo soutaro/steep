@@ -192,11 +192,6 @@ module Steep
                 pairs << [arg, type]
               end
             end
-
-            case
-            when block && block_pass_arg
-              pairs << [block_pass_arg.children[0], block]
-            end
           end
         )
       end

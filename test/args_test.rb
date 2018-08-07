@@ -320,7 +320,6 @@ class ArgsTest < Minitest::Test
     assert_equal Set.new([
                            [parse_ruby(":a").node, Types::Name.new_instance(name: :Integer)],
                            [parse_ruby(":b").node, Types::Name.new_instance(name: :String)],
-                           [parse_ruby("bar").node, proc]
                          ]),
                  pairs
   end

@@ -1496,7 +1496,38 @@ module Steep
             end
           end
 
-        when :block_pass, :blockarg
+        when :block_pass
+          yield_self do
+            value = node.children[0]
+
+            if hint.is_a?(AST::Types::Proc) && value.type == :sym
+              if hint.one_arg?
+                # Assumes Symbol#to_proc implementation
+                param_type = hint.params.required[0]
+                interface = checker.resolve(param_type, with_initialize: false)
+                method = interface.methods[value.children[0]]
+                if method
+                  return_types = method.types.flat_map do |method_type|
+                    if method_type.params.each_type.count == 0
+                      [method_type.return_type]
+                    end
+                  end
+
+                  if return_types.any?
+                    type = AST::Types::Proc.new(params: Interface::Params.empty.update(required: [param_type]),
+                                                return_type: AST::Types::Union.build(types: return_types))
+                  end
+                end
+              else
+                Steep.logger.error "Passing multiple args through Symbol#to_proc is not supported yet"
+              end
+            end
+
+            type ||= synthesize(node.children[0], hint: hint)
+            typing.add_typing node, type
+          end
+
+        when :blockarg
           yield_self do
             Steep.logger.error "Supported node but appeared unexpectedly: #{node.type}"
 
@@ -2030,7 +2061,7 @@ module Steep
                                                 result: exn.result)
           end
 
-        when (!method_type.block || method_type.block.optional?) && !block_params && !block_body
+        when (!method_type.block || method_type.block.optional?) && !block_params && !block_body && !args.block_pass_arg
           # OK, without block
           method_type.subst(constraints.solution(checker, variance: variance, variables: fresh_vars)).return_type
 

@@ -61,6 +61,15 @@ module Steep
           )
         end
 
+        def one_arg?
+          params.required.size == 1 &&
+            params.optional.empty? &&
+            !params.rest &&
+            params.required_keywords.empty? &&
+            params.optional_keywords.empty? &&
+            !params.rest_keywords
+        end
+
         def back_type
           Name.new_instance(name: "::Proc", location: location)
         end
