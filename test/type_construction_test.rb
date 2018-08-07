@@ -5497,4 +5497,75 @@ EOF
       assert_instance_of Steep::Errors::IncompatibleAssignment, error
     end
   end
+
+  def test_empty_begin
+    source = parse_ruby(<<EOF)
+a = begin; end
+EOF
+
+    typing = Typing.new
+    annotations = source.annotations(block: source.node)
+    checker = new_subtyping_checker()
+
+    const_env = ConstantEnv.new(builder: checker.builder, current_namespace: nil)
+    type_env = TypeEnv.build(annotations: annotations,
+                             subtyping: checker,
+                             const_env: const_env,
+                             signatures: checker.builder.signatures)
+
+    construction = TypeConstruction.new(checker: checker,
+                                        source: source,
+                                        annotations: annotations,
+                                        type_env: type_env,
+                                        block_context: nil,
+                                        self_type: Types::Name.new_instance(name: "::Object"),
+                                        method_context: nil,
+                                        typing: typing,
+                                        module_context: nil,
+                                        break_context: nil)
+
+    construction.synthesize(source.node)
+
+    assert_empty typing.errors
+    assert_equal parse_type("nil"), type_env.lvar_types[:a]
+  end
+
+  def test_begin_type
+    source = parse_ruby(<<EOF)
+# @type var a: :foo
+a = begin
+  :bar
+  x = :baz
+  y = :foo
+end
+EOF
+
+    typing = Typing.new
+    annotations = source.annotations(block: source.node)
+    checker = new_subtyping_checker()
+
+    const_env = ConstantEnv.new(builder: checker.builder, current_namespace: nil)
+    type_env = TypeEnv.build(annotations: annotations,
+                             subtyping: checker,
+                             const_env: const_env,
+                             signatures: checker.builder.signatures)
+
+    construction = TypeConstruction.new(checker: checker,
+                                        source: source,
+                                        annotations: annotations,
+                                        type_env: type_env,
+                                        block_context: nil,
+                                        self_type: Types::Name.new_instance(name: "::Object"),
+                                        method_context: nil,
+                                        typing: typing,
+                                        module_context: nil,
+                                        break_context: nil)
+
+    construction.synthesize(source.node)
+
+    assert_empty typing.errors
+    assert_equal parse_type(":foo"), type_env.lvar_types[:a]
+    assert_equal parse_type("::Symbol"), type_env.lvar_types[:x]
+    assert_equal parse_type(":foo"), type_env.lvar_types[:y]
+  end
 end

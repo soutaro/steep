@@ -519,9 +519,15 @@ module Steep
         case node.type
         when :begin, :kwbegin
           yield_self do
-            type = each_child_node(node).map do |child|
-              synthesize(child, hint: hint)
-            end.last
+            *mid_nodes, last_node = each_child_node(node).to_a
+            mid_nodes.each do |child|
+              synthesize(child)
+            end
+            if last_node
+              type = synthesize(last_node, hint: hint)
+            else
+              type = Types.nil_instance
+            end
 
             typing.add_typing(node, type)
           end
@@ -535,7 +541,7 @@ module Steep
               synthesize(rhs, hint: Types.any)
               typing.add_typing(node, Types.any)
             else
-              type_assignment(var, rhs, node)
+              type_assignment(var, rhs, node, hint: hint)
             end
           end
 
@@ -892,7 +898,7 @@ module Steep
           yield_self do
             var = node.children[0]
             rhs = node.children[1]
-            type_assignment(var, rhs, node)
+            type_assignment(var, rhs, node, hint: hint)
           end
 
         when :restarg
@@ -1566,9 +1572,9 @@ module Steep
       end
     end
 
-    def type_assignment(var, rhs, node)
+    def type_assignment(var, rhs, node, hint: nil)
       if rhs
-        expand_alias(synthesize(rhs, hint: type_env.lvar_types[var.name])) do |rhs_type|
+        expand_alias(synthesize(rhs, hint: type_env.lvar_types[var.name] || hint)) do |rhs_type|
           node_type = assign_type_to_variable(var, rhs_type, node)
           typing.add_typing(node, node_type)
         end
