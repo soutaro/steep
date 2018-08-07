@@ -33,7 +33,7 @@ module Steep
         end
 
         def to_s
-          "#{params} -> #{return_type}"
+          "^#{params} -> #{return_type}"
         end
 
         def free_variables

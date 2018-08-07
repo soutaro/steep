@@ -17,6 +17,18 @@ module Steep
         @rest_keywords = rest_keywords
       end
 
+      NONE = Object.new
+      def update(required: NONE, optional: NONE, rest: NONE, required_keywords: NONE, optional_keywords: NONE, rest_keywords: NONE)
+        self.class.new(
+          required: required.equal?(NONE) ? self.required : required,
+          optional: optional.equal?(NONE) ? self.optional : optional,
+          rest: rest.equal?(NONE) ? self.rest : rest,
+          required_keywords: required_keywords.equal?(NONE) ? self.required_keywords : required_keywords,
+          optional_keywords: optional_keywords.equal?(NONE) ? self.optional_keywords : optional_keywords,
+          rest_keywords: rest_keywords.equal?(NONE) ? self.rest_keywords : rest_keywords
+        )
+      end
+
       def self.empty
         self.new(
           required: [],
@@ -222,7 +234,7 @@ module Steep
       end
 
       def to_s
-        "#{optional? ? "?" : ""}{ #{type} }"
+        "#{optional? ? "?" : ""}{ #{type.params} -> #{type.return_type} }"
       end
     end
 

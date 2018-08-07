@@ -868,8 +868,8 @@ end
 
     assert_equal 1, typing.errors.size
     assert_block_type_mismatch typing.errors[0],
-                               expected: "(_A) -> _D",
-                               actual: "(_A) -> _A"
+                               expected: "^(_A) -> _D",
+                               actual: "^(_A) -> _A"
 
     assert_equal Types::Name.new_interface(name: :_X), typing.type_of(node: lvar_in(source.node, :x))
     assert_equal parse_type("_A"), typing.type_of(node: lvar_in(source.node, :a))
@@ -5194,7 +5194,7 @@ EOF
                                    block_params: block_params,
                                    block_body: block_body_node,
                                    block_annotations: block_annotations)
-    assert_equal "(any, any) -> any", type.to_s
+    assert_equal "^(any, any) -> any", type.to_s
   end
 
   def test_type_block_annotation
@@ -5239,7 +5239,7 @@ EOF
                                    block_params: block_params,
                                    block_body: block_body_node,
                                    block_annotations: block_annotations)
-    assert_equal "(::String, ::Integer) -> :bar", type.to_s
+    assert_equal "^(::String, ::Integer) -> :bar", type.to_s
 
     refute_empty typing.errors
   end
@@ -5286,7 +5286,7 @@ EOF
                                    block_params: block_params,
                                    block_body: block_body_node,
                                    block_annotations: block_annotations)
-    assert_equal "(::String, ::Integer) -> ::Symbol", type.to_s
+    assert_equal "^(::String, ::Integer) -> ::Symbol", type.to_s
   end
 
   def test_type_block_hint2
@@ -5332,7 +5332,7 @@ EOF
                                    block_params: block_params,
                                    block_body: block_body_node,
                                    block_annotations: block_annotations)
-    assert_equal "(::String, ::Integer) -> ::Symbol", type.to_s
+    assert_equal "^(::String, ::Integer) -> ::Symbol", type.to_s
 
     assert_equal 1, typing.errors.size
     typing.errors[0].yield_self do |error|
@@ -5458,7 +5458,7 @@ EOF
 
     construction.synthesize(source.node)
     assert_empty typing.errors
-    assert_equal "(::Integer, any) -> ::Numeric", type_env.lvar_types[:l].to_s
+    assert_equal "^(::Integer, any) -> ::Numeric", type_env.lvar_types[:l].to_s
   end
 
   def test_lambda2

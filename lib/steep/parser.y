@@ -214,6 +214,22 @@ type: paren_type
         loc = val[0].first.location + val[0].last.location
         result = AST::Types::Union.build(types: val[0], location: loc)
       }
+    | HAT LPAREN lambda_params RPAREN ARROW paren_type {
+      loc = val[0].location + val[5].location
+      result = AST::Types::Proc.new(params: val[2], return_type: val[5], location: loc)
+    }
+
+lambda_params: lambda_params1
+             | paren_type { result = Interface::Params.empty.update(required: [val[0]]) }
+             | paren_type COMMA lambda_params {
+                 result = val[2].update(required: [val[0]] + val[2].required)
+             }
+
+lambda_params1: { result = Interface::Params.empty }
+              | STAR paren_type { result = Interface::Params.empty.update(rest: val[1]) }
+              | QUESTION paren_type { result = Interface::Params.empty.update(optional: [val[1]]) }
+              | QUESTION paren_type COMMA lambda_params1 { result = val[3].update(optional: [val[1]] + val[3].optional) }
+
 
 type_seq: type { result = [val[0]] }
         | type COMMA type_seq { result = [val[0]] + val[2] }
@@ -494,6 +510,7 @@ method_name0: LIDENT
             | EXTEND
             | INCLUDE
             | OPERATOR
+            | HAT
             | BANG
             | BLOCK
             | BREAK
@@ -684,7 +701,9 @@ def next_token
     new_token(:DOT)
   when input.scan(/<:/)
     new_token(:LTCOLON)
-  when input.scan(/(\[\]=)|(\[\])|===|==|\^|!=|<<|=~/)
+  when input.scan(/\^/)
+    new_token(:HAT, :"^")
+  when input.scan(/(\[\]=)|(\[\])|===|==|!=|<<|=~/)
     new_token(:OPERATOR, input.matched.to_sym)
   when input.scan(/\[/)
     new_token(:LBRACKET, nil)
