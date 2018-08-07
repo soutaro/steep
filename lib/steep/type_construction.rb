@@ -1529,8 +1529,6 @@ module Steep
 
         when :blockarg
           yield_self do
-            Steep.logger.error "Supported node but appeared unexpectedly: #{node.type}"
-
             each_child_node node do |child|
               synthesize(child)
             end
