@@ -91,24 +91,6 @@ module Steep
             constraints: constraints
           )
 
-        when relation.super_type.is_a?(AST::Types::Var)
-          if constraints.unknown?(relation.super_type.name)
-            constraints.add(relation.super_type.name, sub_type: relation.sub_type)
-            success(constraints: constraints)
-          else
-            failure(error: Result::Failure::UnknownPairError.new(relation: relation),
-                    trace: trace)
-          end
-
-        when relation.sub_type.is_a?(AST::Types::Var)
-          if constraints.unknown?(relation.sub_type.name)
-            constraints.add(relation.sub_type.name, super_type: relation.super_type)
-            success(constraints: constraints)
-          else
-            failure(error: Result::Failure::UnknownPairError.new(relation: relation),
-                    trace: trace)
-          end
-
         when relation.sub_type.is_a?(AST::Types::Literal)
           check0(
             Relation.new(sub_type: relation.sub_type.back_type, super_type: relation.super_type),
@@ -163,6 +145,24 @@ module Steep
             results.first
           else
             results.find(&:failure?)
+          end
+
+        when relation.super_type.is_a?(AST::Types::Var)
+          if constraints.unknown?(relation.super_type.name)
+            constraints.add(relation.super_type.name, sub_type: relation.sub_type)
+            success(constraints: constraints)
+          else
+            failure(error: Result::Failure::UnknownPairError.new(relation: relation),
+                    trace: trace)
+          end
+
+        when relation.sub_type.is_a?(AST::Types::Var)
+          if constraints.unknown?(relation.sub_type.name)
+            constraints.add(relation.sub_type.name, super_type: relation.super_type)
+            success(constraints: constraints)
+          else
+            failure(error: Result::Failure::UnknownPairError.new(relation: relation),
+                    trace: trace)
           end
 
         when relation.sub_type.is_a?(AST::Types::Name) && relation.super_type.is_a?(AST::Types::Name)
