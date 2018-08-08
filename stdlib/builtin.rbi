@@ -108,7 +108,7 @@ class Array<'a>
   def concat: (*Array<'a>) -> self
             | (*'a) -> self
   def delete: ('a) -> 'a?
-            | <'x> ('a) { ('a) -> any } -> ('a | 'x)
+            | <'x> ('a) { () -> 'x } -> ('a | 'x)
   def delete_at: (Integer) -> 'a?
   def delete_if: { ('a) -> any } -> self
                | -> Enumerator<'a, self>
