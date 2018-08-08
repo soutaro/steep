@@ -627,3 +627,81 @@ module Marshal
   def self.load: (String) -> any
   def self.dump: (any) -> String
 end
+
+class Set<'a>
+  def self.[]: <'x> (*'x) -> Set<'x>
+
+  def initialize: (_Iteratable<'a, any>) -> any
+                | <'x> (_Iteratable<'x, any>) { ('x) -> 'a } -> any
+                | (?nil) -> any
+
+  def intersection: (_Iteratable<'a, any>) -> self
+  def &: (_Iteratable<'a, any>) -> self
+
+  def union: (_Iteratable<'a, any>) -> self
+  def +: (_Iteratable<'a, any>) -> self
+  def |: (_Iteratable<'a, any>) -> self
+
+  def difference: (_Iteratable<'a, any>) -> self
+  def -: (_Iteratable<'a, any>) -> self
+
+  def add: ('a) -> self
+  def <<: ('a) -> self
+  def add?: ('a) -> self?
+
+  def member?: (any) -> bool
+  def include?: (any) -> bool
+
+  def ^: (_Iteratable<'a, any>) -> self
+
+  def classify: <'x> { ('a) -> 'x } -> Hash<'x, self>
+
+  def clear: -> self
+
+  def collect!: { ('a) -> 'a } -> self
+  def map!: { ('a) -> 'a } -> self
+
+  def delete: (any) -> self
+  def delete?: (any) -> self?
+
+  def delete_if: { ('a) -> any } -> self
+  def reject!: { ('a) -> any } -> self
+
+  def disjoint?: (self) -> bool
+
+  def divide: { ('a, 'a) -> any } -> Set<self>
+            | { ('a) -> any } -> Set<self>
+
+  def each: { ('a) -> void } -> self
+
+  def empty?: -> bool
+
+  def flatten: -> Set<any>
+
+  def intersect?: -> bool
+
+  def keep_if: { ('a) -> any } -> self
+
+  def size: -> Integer
+  def length: -> Integer
+
+  def merge: (_Iteratable<'a, any>) -> self
+
+  def subset?: (self) -> bool
+  def proper_subst?: (self) -> bool
+
+  def superset?: (self) -> bool
+  def proper_superset?: (self) -> bool
+
+  def replace: (_Iteratable<'a, any>) -> self
+
+  def reset: -> self
+
+  def select!: { ('a) -> any } -> self?
+
+  def subtract: (_Iteratable<'a, any>) -> self
+
+  def to_a: -> Array<'a>
+
+  include Enumerable<'a, self>
+end
