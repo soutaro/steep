@@ -95,7 +95,7 @@ module Steep
             end
           when !hint.rest && hint.optional.empty? && leading_params.size < hint.required.size
             leadings = leading_params.map.with_index do |param, index|
-              param.type || hint.optional[index]
+              param.type || hint.required[index]
             end + hint.required.drop(leading_params.size)
           else
             return nil
