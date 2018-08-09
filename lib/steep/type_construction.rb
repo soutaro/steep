@@ -163,7 +163,7 @@ module Steep
         type_env.set(const: name, type: type)
       end
 
-      self_type = expand_alias(absolute_type(annots.self_type || self_type))
+      self_type = expand_alias(annots.self_type || self_type)
 
       self_interface = self_type && (self_type != Types.any || nil) && checker.resolve(self_type, with_initialize: true)
       interface_method = self_interface&.yield_self do |interface|
@@ -235,7 +235,7 @@ module Steep
       when method && method.types.size == 1
         method_type = method.types.first
         return_type = method_type.return_type
-        var_types = TypeConstruction.parameter_types(args, method_type).transform_values {|type| absolute_type(type) }
+        var_types = TypeConstruction.parameter_types(args, method_type)
         unless TypeConstruction.valid_parameter_env?(var_types, args.reject {|arg| arg.type == :blockarg }, method_type.params)
           typing.add_error Errors::MethodArityMismatch.new(node: node)
         end
@@ -347,9 +347,7 @@ module Steep
 
         abstract = checker.builder.build(TypeName::Instance.new(name: module_name))
 
-        instance_type = absolute_type(
-          AST::Types::Name.new_instance(name: module_name, args: module_args)
-        )
+        instance_type = AST::Types::Name.new_instance(name: module_name, args: module_args)
 
         unless abstract.supers.empty?
           instance_type = AST::Types::Intersection.build(
@@ -364,18 +362,18 @@ module Steep
       end
 
       if annots.instance_type
-        instance_type = absolute_type(annots.instance_type)
+        instance_type = annots.instance_type
       end
 
       if annots.module_type
-        module_type = absolute_type(annots.module_type)
+        module_type = annots.module_type
       end
 
       module_const_env = TypeInference::ConstantEnv.new(builder: checker.builder, current_namespace: new_namespace)
 
       module_context_ = ModuleContext.new(
         instance_type: instance_type,
-        module_type: absolute_type(annots.self_type) || module_type,
+        module_type: annots.self_type || module_type,
         implement_name: implement_module_name,
         current_namespace: new_namespace,
         const_env: module_const_env
@@ -1169,10 +1167,10 @@ module Steep
                 is_tuple = hint.is_a?(AST::Types::Tuple)
                 is_tuple &&= node.children.all? {|child| child.type != :splat }
                 is_tuple &&= node.children.map.with_index do |child, index|
-                  synthesize(child, hint: absolute_type(hint.types[index]))
+                  synthesize(child, hint: hint.types[index])
                 end.yield_self do |types|
                   tuple = AST::Types::Tuple.new(types: types)
-                  relation = Subtyping::Relation.new(sub_type: tuple, super_type: absolute_type(hint))
+                  relation = Subtyping::Relation.new(sub_type: tuple, super_type: hint)
                   result = checker.check(relation, constraints: Subtyping::Constraints.empty)
                   result.success?
                 end
@@ -1850,9 +1848,9 @@ module Steep
       block_type_env = type_env.dup.yield_self do |env|
         param_pairs.each do |param, type|
           if param.type
-            env.set(lvar: param.var.name, type: absolute_type(param.type))
+            env.set(lvar: param.var.name, type: param.type)
           else
-            env.set(lvar: param.var.name, type: absolute_type(type))
+            env.set(lvar: param.var.name, type: type)
           end
         end
 
@@ -1864,20 +1862,20 @@ module Steep
       end
 
       return_type = if block_annotations.break_type
-                      union_type(method_return_type, absolute_type(block_annotations.break_type))
+                      union_type(method_return_type, block_annotations.break_type)
                     else
                       method_return_type
                     end
       Steep.logger.debug("return_type = #{return_type}")
 
-      block_context = BlockContext.new(body_type: absolute_type(block_annotations.block_type))
+      block_context = BlockContext.new(body_type: block_annotations.block_type)
       Steep.logger.debug("block_context { body_type: #{block_context.body_type} }")
 
       break_context = BreakContext.new(
-        break_type: absolute_type(block_annotations.break_type) || method_return_type,
-        next_type: absolute_type(block_annotations.block_type)
+        break_type: block_annotations.break_type || method_return_type,
+        next_type: block_annotations.block_type
       )
-      Steep.logger.debug("break_context { type: #{absolute_type(break_context.break_type)} }")
+      Steep.logger.debug("break_context { type: #{break_context.break_type} }")
 
       [self.class.new(
         checker: checker,
@@ -1888,7 +1886,7 @@ module Steep
         typing: typing,
         method_context: method_context,
         module_context: module_context,
-        self_type: absolute_type(block_annotations.self_type) || self_type,
+        self_type: block_annotations.self_type || self_type,
         break_context: break_context
       ), return_type]
     end
@@ -1986,7 +1984,7 @@ module Steep
         if block_params && method_type.block
           block_annotations = source.annotations(block: node, builder: checker.builder, current_module: current_namespace)
           block_params_ = TypeInference::BlockParams.from_node(block_params, annotations: block_annotations)
-          block_param_hint = block_params_.params_type(hint: method_type.block.type.params).map_type {|type| absolute_type(type) }
+          block_param_hint = block_params_.params_type(hint: method_type.block.type.params)
 
           relation = Subtyping::Relation.new(
             sub_type: AST::Types::Proc.new(params: block_param_hint, return_type: AST::Types::Any.new),
@@ -2111,12 +2109,12 @@ module Steep
       if block_param_pairs
         block_param_pairs.each do |param, type|
           var_name = param.var.name
-          param_types_hash[var_name] = absolute_type(type)
+          param_types_hash[var_name] = type
         end
       else
         block_params.each do |param|
           var_name = param.var.name
-          param_types_hash[var_name] = absolute_type(param.type) || Types.any
+          param_types_hash[var_name] = param.type || Types.any
         end
       end
 
@@ -2131,20 +2129,20 @@ module Steep
       end
 
       break_type = if block_annotations.break_type
-                      union_type(node_type_hint, absolute_type(block_annotations.break_type))
+                      union_type(node_type_hint, block_annotations.break_type)
                     else
                       node_type_hint
                     end
       Steep.logger.debug("return_type = #{break_type}")
 
-      block_context = BlockContext.new(body_type: absolute_type(block_annotations.block_type))
+      block_context = BlockContext.new(body_type: block_annotations.block_type)
       Steep.logger.debug("block_context { body_type: #{block_context.body_type} }")
 
       break_context = BreakContext.new(
         break_type: break_type,
         next_type: block_context.body_type
       )
-      Steep.logger.debug("break_context { type: #{absolute_type(break_context.break_type)} }")
+      Steep.logger.debug("break_context { type: #{break_context.break_type} }")
 
       for_block_body = self.class.new(
         checker: checker,
@@ -2155,7 +2153,7 @@ module Steep
         typing: typing,
         method_context: method_context,
         module_context: module_context,
-        self_type: absolute_type(block_annotations.self_type) || self_type,
+        self_type: block_annotations.self_type || self_type,
         break_context: break_context
       )
 
@@ -2179,7 +2177,7 @@ module Steep
       AST::Types::Proc.new(
         params: block_param_hint || block_params.params_type,
         return_type: return_type
-      ).map_type {|type| absolute_type(type) }.tap do |type|
+      ).tap do |type|
         Steep.logger.debug "block_type == #{type}"
       end
     end
