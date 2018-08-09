@@ -6,7 +6,7 @@ class C
   end
 
   def bar
-    # !expects NoMethodError: type=C.class noconstructor, method=new
+    # !expects NoMethodError: type=::C.class noconstructor, method=new
     self.class.new
   end
 end

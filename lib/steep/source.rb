@@ -274,8 +274,8 @@ module Steep
       end
     end
 
-    def annotations(block:)
-      AST::Annotation::Collection.new(annotations: mapping[block.__id__] || [])
+    def annotations(block:, builder:, current_module:)
+      AST::Annotation::Collection.new(annotations: mapping[block.__id__] || [], builder: builder, current_module: current_module)
     end
 
     def each_annotation

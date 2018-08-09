@@ -28,14 +28,14 @@ module Steep
 
       def self.build(annotations:, signatures:, subtyping:, const_env:)
         new(subtyping: subtyping, const_env: const_env).tap do |env|
-          annotations.var_types.each do |name, annot|
-            env.set(lvar: name, type: subtyping.builder.absolute_type(annot.type, current: const_env.current_namespace))
+          annotations.lvar_types.each do |name, type|
+            env.set(lvar: name, type: type)
           end
           annotations.ivar_types.each do |name, type|
-            env.set(ivar: name, type: subtyping.builder.absolute_type(type, current: const_env.current_namespace))
+            env.set(ivar: name, type: type)
           end
           annotations.const_types.each do |name, type|
-            env.set(const: name, type: subtyping.builder.absolute_type(type, current: const_env.current_namespace))
+            env.set(const: name, type: type)
           end
           signatures.globals.each do |name, annot|
             type = subtyping.builder.absolute_type(annot.type, current: nil)

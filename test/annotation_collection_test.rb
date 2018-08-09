@@ -2,58 +2,89 @@ require "test_helper"
 
 class AnnotationCollectionTest < Minitest::Test
   include TestHelper
+  include SubtypingHelper
 
+  ModuleName = Steep::ModuleName
   Annotation = Steep::AST::Annotation
   Types = Steep::AST::Types
 
-  def annotations
-    @annotations ||= Annotation::Collection.new(annotations: [
-      Annotation::VarType.new(name: :x, type: Types::Name.new_instance(name: :X)),
-      Annotation::VarType.new(name: :y, type: Types::Name.new_instance(name: :Y)),
-      Annotation::ReturnType.new(type: Types::Name.new_instance(name: :Z)),
-      Annotation::BlockType.new(type: Types::Name.new_instance(name: :A)),
-      Annotation::Dynamic.new(names: [
-        Annotation::Dynamic::Name.new(name: :path, kind: :instance)
-      ])
-    ])
+  def builder
+    @builder ||= new_subtyping_checker(<<-EOF).builder
+class Person
+end
+
+class Person::Object
+end
+    EOF
   end
 
-  def annotations_
-    @annotations_ ||= Annotation::Collection.new(annotations: [
-      Annotation::VarType.new(name: :x, type: Types::Name.new_instance(name: :X2))
-    ])
+  def new_collection(current_module:)
+    Annotation::Collection.new(
+      annotations: [
+        Annotation::VarType.new(name: :x, type: parse_type("Object")),
+        Annotation::IvarType.new(name: :@y, type: parse_type("Object")),
+        Annotation::ConstType.new(name: ModuleName.parse("Object"), type: parse_type("Object.class")),
+        Annotation::MethodType.new(name: :foo, type: parse_method_type("() -> Object")),
+        Annotation::BlockType.new(type: parse_type("Object")),
+        Annotation::ReturnType.new(type: parse_type("Object")),
+        Annotation::SelfType.new(type: parse_type("String")),
+        Annotation::InstanceType.new(type: parse_type("String")),
+        Annotation::ModuleType.new(type: parse_type("String")),
+        Annotation::BreakType.new(type: parse_type("::Object")),
+        Annotation::Implements.new(name: Annotation::Implements::Module.new(name: ModuleName.parse("Object"), args: [])),
+        Annotation::Dynamic.new(names: [
+          Annotation::Dynamic::Name.new(name: :foo, kind: :instance),
+          Annotation::Dynamic::Name.new(name: :bar, kind: :module),
+          Annotation::Dynamic::Name.new(name: :baz, kind: :module_instance),
+        ])
+      ],
+      builder: builder,
+      current_module: current_module)
   end
 
-  def test_lookup_var_type
-    assert_equal Types::Name.new_instance(name: :X), annotations.lookup_var_type(:x)
-    assert_equal Types::Name.new_instance(name: :Y), annotations.lookup_var_type(:y)
-    assert_nil annotations.lookup_var_type(:z)
-  end
+  def test_types
+    annotations = new_collection(current_module: ModuleName.parse("::Person"))
 
-  def test_return_type
-    assert_equal Types::Name.new_instance(name: :Z), annotations.return_type
-  end
+    assert_equal parse_type("::Person::Object"), annotations.var_type(lvar: :x)
+    assert_nil annotations.var_type(lvar: :y)
 
-  def test_block_type
-    assert_equal Types::Name.new_instance(name: :A), annotations.block_type
-  end
+    assert_equal parse_type("::Person::Object"), annotations.var_type(ivar: :@y)
+    assert_nil annotations.var_type(ivar: :@x)
 
-  def test_annotations_merge
-    as = annotations + annotations_
+    assert_equal parse_type("::Person::Object.class"), annotations.var_type(const: ModuleName.parse("Object"))
+    assert_nil annotations.var_type(const: ModuleName.parse("::Object"))
 
-    assert_equal Types::Name.new_instance(name: :X2), as.lookup_var_type(:x)
-    assert_equal Types::Name.new_instance(name: :Y), as.lookup_var_type(:y)
-    assert_nil annotations.lookup_var_type(:z)
+    assert_equal "() -> ::Person::Object", annotations.method_type(:foo).to_s
 
-    assert_equal Types::Name.new_instance(name: :Z), as.return_type
-    assert_nil as.block_type
+    assert_equal parse_type("::Person::Object"), annotations.block_type
+    assert_equal parse_type("::Person::Object"), annotations.return_type
+    assert_equal parse_type("::String"), annotations.self_type
+    assert_equal parse_type("::String"), annotations.instance_type
+    assert_equal parse_type("::String"), annotations.module_type
+    assert_equal parse_type("::Object"), annotations.break_type
   end
 
   def test_dynamics
-    annotations.dynamics[:path].yield_self do |annot|
-      assert_instance_of Annotation::Dynamic::Name, annot
-      assert annot.instance_method?
-      refute annot.module_method?
-    end
+    annotations = new_collection(current_module: ModuleName.parse("::Person"))
+
+    assert_equal [:foo, :baz], annotations.instance_dynamics
+    assert_equal [:bar, :baz], annotations.module_dynamics
+  end
+
+  def test_merge_block_annotations
+    current_annotations = new_collection(current_module: ModuleName.parse("::Person"))
+
+    block_annotations = Annotation::Collection.new(annotations: [
+      Annotation::VarType.new(name: :x, type: parse_type("Integer")),
+      Annotation::BreakType.new(type: parse_type("String"))
+    ], builder: builder, current_module: ModuleName.parse("::Person"))
+
+    new_annotations = current_annotations.merge_block_annotations(block_annotations)
+
+    assert_equal parse_type("::Integer"), new_annotations.var_type(lvar: :x)
+    assert_equal parse_type("::Person::Object"), new_annotations.var_type(ivar: :@y)
+
+    assert_equal parse_type("::String"), new_annotations.break_type
+    assert_nil new_annotations.block_type
   end
 end

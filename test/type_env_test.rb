@@ -451,6 +451,13 @@ class TypeEnvTest < Minitest::Test
   end
 
   def test_build
+
+    subtyping = new_subtyping_checker(<<EOF)
+$foo: String
+EOF
+    signatures = subtyping.builder.signatures
+    const_env = TypeInference::ConstantEnv.new(builder: subtyping.builder, current_namespace: nil)
+
     annotations = AST::Annotation::Collection.new(annotations: [
       AST::Annotation::VarType.new(name: :x, type: AST::Types::Name.new_instance(name: :X)),
       AST::Annotation::IvarType.new(name: :"@y", type: AST::Types::Name.new_instance(name: :Y)),
@@ -460,13 +467,7 @@ class TypeEnvTest < Minitest::Test
       AST::Annotation::Dynamic.new(names: [
         AST::Annotation::Dynamic::Name.new(name: :path, kind: :instance)
       ])
-    ])
-
-    subtyping = new_subtyping_checker(<<EOF)
-$foo: String
-EOF
-    signatures = subtyping.builder.signatures
-    const_env = TypeInference::ConstantEnv.new(builder: subtyping.builder, current_namespace: nil)
+    ], builder: subtyping.builder, current_module: nil)
 
     env = TypeInference::TypeEnv.build(annotations: annotations,
                                        signatures: signatures,

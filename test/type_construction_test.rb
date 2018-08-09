@@ -26,8 +26,8 @@ x = (_ = nil)
     EOF
 
     typing = Typing.new
-    annotations = source.annotations(block: source.node)
     checker = new_subtyping_checker()
+    annotations = source.annotations(block: source.node, builder: checker.builder, current_module: nil)
     const_env = ConstantEnv.new(builder: checker.builder, current_namespace: nil)
     type_env = TypeEnv.build(annotations: annotations,
                              subtyping: checker,
@@ -59,8 +59,8 @@ z = x
     EOF
 
     typing = Typing.new
-    annotations = source.annotations(block: source.node)
     checker = new_subtyping_checker()
+    annotations = source.annotations(block: source.node, builder: checker.builder, current_module: nil)
     const_env = ConstantEnv.new(builder: checker.builder, current_namespace: nil)
     type_env = TypeEnv.build(annotations: annotations,
                              subtyping: checker,
@@ -97,8 +97,8 @@ z = x
     EOF
 
     typing = Typing.new
-    annotations = source.annotations(block: source.node)
     checker = new_subtyping_checker()
+    annotations = source.annotations(block: source.node, builder: checker.builder, current_module: nil)
     const_env = ConstantEnv.new(builder: checker.builder, current_namespace: nil)
     type_env = TypeEnv.build(annotations: annotations,
                              subtyping: checker,
@@ -129,8 +129,8 @@ z = x
     EOF
 
     typing = Typing.new
-    annotations = source.annotations(block: source.node)
     checker = new_subtyping_checker()
+    annotations = source.annotations(block: source.node, builder: checker.builder, current_module: nil)
     const_env = ConstantEnv.new(builder: checker.builder, current_namespace: nil)
     type_env = TypeEnv.build(annotations: annotations,
                              subtyping: checker,
@@ -161,8 +161,8 @@ x.f
     EOF
 
     typing = Typing.new
-    annotations = source.annotations(block: source.node)
     checker = new_subtyping_checker()
+    annotations = source.annotations(block: source.node, builder: checker.builder, current_module: nil)
     const_env = ConstantEnv.new(builder: checker.builder, current_namespace: nil)
     type_env = TypeEnv.build(annotations: annotations,
                              subtyping: checker,
@@ -195,8 +195,8 @@ x.g(y)
     EOF
 
     typing = Typing.new
-    annotations = source.annotations(block: source.node)
     checker = new_subtyping_checker()
+    annotations = source.annotations(block: source.node, builder: checker.builder, current_module: nil)
     const_env = ConstantEnv.new(builder: checker.builder, current_namespace: nil)
     type_env = TypeEnv.build(annotations: annotations,
                              subtyping: checker,
@@ -229,8 +229,8 @@ x.g(y)
     EOF
 
     typing = Typing.new
-    annotations = source.annotations(block: source.node)
     checker = new_subtyping_checker()
+    annotations = source.annotations(block: source.node, builder: checker.builder, current_module: nil)
     const_env = ConstantEnv.new(builder: checker.builder, current_namespace: nil)
     type_env = TypeEnv.build(annotations: annotations,
                              subtyping: checker,
@@ -264,8 +264,8 @@ x.no_such_method
     EOF
 
     typing = Typing.new
-    annotations = source.annotations(block: source.node)
-    checker = new_subtyping_checker
+    checker = new_subtyping_checker()
+    annotations = source.annotations(block: source.node, builder: checker.builder, current_module: nil)
     const_env = ConstantEnv.new(builder: checker.builder, current_namespace: nil)
     type_env = TypeEnv.build(annotations: annotations,
                              subtyping: checker,
@@ -296,8 +296,8 @@ x.no_such_method
     EOF
 
     typing = Typing.new
-    annotations = source.annotations(block: source.node)
     checker = new_subtyping_checker()
+    annotations = source.annotations(block: source.node, builder: checker.builder, current_module: nil)
     const_env = ConstantEnv.new(builder: checker.builder, current_namespace: nil)
     type_env = TypeEnv.build(annotations: annotations,
                              subtyping: checker,
@@ -332,8 +332,8 @@ a.g()
     EOF
 
     typing = Typing.new
-    annotations = source.annotations(block: source.node)
     checker = new_subtyping_checker()
+    annotations = source.annotations(block: source.node, builder: checker.builder, current_module: nil)
     const_env = ConstantEnv.new(builder: checker.builder, current_namespace: nil)
     type_env = TypeEnv.build(annotations: annotations,
                              subtyping: checker,
@@ -371,8 +371,8 @@ a.g(_ = nil, _ = nil, _ = nil)
     EOF
 
     typing = Typing.new
-    annotations = source.annotations(block: source.node)
     checker = new_subtyping_checker()
+    annotations = source.annotations(block: source.node, builder: checker.builder, current_module: nil)
     const_env = ConstantEnv.new(builder: checker.builder, current_namespace: nil)
     type_env = TypeEnv.build(annotations: annotations,
                              subtyping: checker,
@@ -412,8 +412,8 @@ x.h(a: a, b: b)
     EOF
 
     typing = Typing.new
-    annotations = source.annotations(block: source.node)
     checker = new_subtyping_checker()
+    annotations = source.annotations(block: source.node, builder: checker.builder, current_module: nil)
     const_env = ConstantEnv.new(builder: checker.builder, current_namespace: nil)
     type_env = TypeEnv.build(annotations: annotations,
                              subtyping: checker,
@@ -444,8 +444,8 @@ x.h()
     EOF
 
     typing = Typing.new
-    annotations = source.annotations(block: source.node)
     checker = new_subtyping_checker()
+    annotations = source.annotations(block: source.node, builder: checker.builder, current_module: nil)
     const_env = ConstantEnv.new(builder: checker.builder, current_namespace: nil)
     type_env = TypeEnv.build(annotations: annotations,
                              subtyping: checker,
@@ -482,8 +482,8 @@ x.h(a: (_ = nil), b: (_ = nil), c: (_ = nil))
     EOF
 
     typing = Typing.new
-    annotations = source.annotations(block: source.node)
     checker = new_subtyping_checker()
+    annotations = source.annotations(block: source.node, builder: checker.builder, current_module: nil)
     const_env = ConstantEnv.new(builder: checker.builder, current_namespace: nil)
     type_env = TypeEnv.build(annotations: annotations,
                              subtyping: checker,
@@ -521,8 +521,8 @@ x.h(a: y)
     EOF
 
     typing = Typing.new
-    annotations = source.annotations(block: source.node)
     checker = new_subtyping_checker()
+    annotations = source.annotations(block: source.node, builder: checker.builder, current_module: nil)
     const_env = ConstantEnv.new(builder: checker.builder, current_namespace: nil)
     type_env = TypeEnv.build(annotations: annotations,
                              subtyping: checker,
@@ -558,8 +558,8 @@ end
     EOF
 
     typing = Typing.new
-    annotations = source.annotations(block: source.node)
     checker = new_subtyping_checker()
+    annotations = source.annotations(block: source.node, builder: checker.builder, current_module: nil)
     const_env = ConstantEnv.new(builder: checker.builder, current_namespace: nil)
     type_env = TypeEnv.build(annotations: annotations,
                              subtyping: checker,
@@ -591,8 +591,8 @@ end
     EOF
 
     typing = Typing.new
-    annotations = source.annotations(block: source.node)
     checker = new_subtyping_checker()
+    annotations = source.annotations(block: source.node, builder: checker.builder, current_module: nil)
     const_env = ConstantEnv.new(builder: checker.builder, current_namespace: nil)
     type_env = TypeEnv.build(annotations: annotations,
                              subtyping: checker,
@@ -627,8 +627,8 @@ end
     EOF
 
     typing = Typing.new
-    annotations = source.annotations(block: source.node)
     checker = new_subtyping_checker()
+    annotations = source.annotations(block: source.node, builder: checker.builder, current_module: nil)
     const_env = ConstantEnv.new(builder: checker.builder, current_namespace: nil)
     type_env = TypeEnv.build(annotations: annotations,
                              subtyping: checker,
@@ -673,8 +673,8 @@ end
     EOF
 
     typing = Typing.new
-    annotations = source.annotations(block: source.node)
     checker = new_subtyping_checker()
+    annotations = source.annotations(block: source.node, builder: checker.builder, current_module: nil)
     const_env = ConstantEnv.new(builder: checker.builder, current_namespace: nil)
     type_env = TypeEnv.build(annotations: annotations,
                              subtyping: checker,
@@ -726,8 +726,8 @@ b
     EOF
 
     typing = Typing.new
-    annotations = source.annotations(block: source.node)
     checker = new_subtyping_checker()
+    annotations = source.annotations(block: source.node, builder: checker.builder, current_module: nil)
     const_env = ConstantEnv.new(builder: checker.builder, current_namespace: nil)
     type_env = TypeEnv.build(annotations: annotations,
                              subtyping: checker,
@@ -769,8 +769,8 @@ end
     EOF
 
     typing = Typing.new
-    annotations = source.annotations(block: source.node)
     checker = new_subtyping_checker()
+    annotations = source.annotations(block: source.node, builder: checker.builder, current_module: nil)
     const_env = ConstantEnv.new(builder: checker.builder, current_namespace: nil)
     type_env = TypeEnv.build(annotations: annotations,
                              subtyping: checker,
@@ -809,8 +809,8 @@ end
     EOF
 
     typing = Typing.new
-    annotations = source.annotations(block: source.node)
     checker = new_subtyping_checker()
+    annotations = source.annotations(block: source.node, builder: checker.builder, current_module: nil)
     const_env = ConstantEnv.new(builder: checker.builder, current_namespace: nil)
     type_env = TypeEnv.build(annotations: annotations,
                              subtyping: checker,
@@ -846,8 +846,8 @@ end
     EOF
 
     typing = Typing.new
-    annotations = source.annotations(block: source.node)
     checker = new_subtyping_checker()
+    annotations = source.annotations(block: source.node, builder: checker.builder, current_module: nil)
     const_env = ConstantEnv.new(builder: checker.builder, current_namespace: nil)
     type_env = TypeEnv.build(annotations: annotations,
                              subtyping: checker,
@@ -888,8 +888,8 @@ end
     EOF
 
     typing = Typing.new
-    annotations = source.annotations(block: source.node)
     checker = new_subtyping_checker()
+    annotations = source.annotations(block: source.node, builder: checker.builder, current_module: nil)
     const_env = ConstantEnv.new(builder: checker.builder, current_namespace: nil)
     type_env = TypeEnv.build(annotations: annotations,
                              subtyping: checker,
@@ -926,8 +926,8 @@ end
     EOF
 
     typing = Typing.new
-    annotations = source.annotations(block: source.node)
     checker = new_subtyping_checker()
+    annotations = source.annotations(block: source.node, builder: checker.builder, current_module: nil)
     const_env = ConstantEnv.new(builder: checker.builder, current_namespace: nil)
     type_env = TypeEnv.build(annotations: annotations,
                              subtyping: checker,
@@ -960,8 +960,8 @@ end
     EOF
 
     typing = Typing.new
-    annotations = source.annotations(block: source.node)
     checker = new_subtyping_checker()
+    annotations = source.annotations(block: source.node, builder: checker.builder, current_module: nil)
     const_env = ConstantEnv.new(builder: checker.builder, current_namespace: nil)
     type_env = TypeEnv.build(annotations: annotations,
                              subtyping: checker,
@@ -993,8 +993,8 @@ hello = Hello
     EOF
 
     typing = Typing.new
-    annotations = source.annotations(block: source.node)
     checker = new_subtyping_checker()
+    annotations = source.annotations(block: source.node, builder: checker.builder, current_module: nil)
     const_env = ConstantEnv.new(builder: checker.builder, current_namespace: nil)
     type_env = TypeEnv.build(annotations: annotations,
                              subtyping: checker,
@@ -1031,8 +1031,8 @@ Hello::World = ""
     EOF
 
     typing = Typing.new
-    annotations = source.annotations(block: source.node)
     checker = new_subtyping_checker()
+    annotations = source.annotations(block: source.node, builder: checker.builder, current_module: nil)
     const_env = ConstantEnv.new(builder: checker.builder, current_namespace: nil)
     type_env = TypeEnv.build(annotations: annotations,
                              subtyping: checker,
@@ -1075,8 +1075,8 @@ x = String
     EOF
 
     typing = Typing.new
-    annotations = source.annotations(block: source.node)
     checker = new_subtyping_checker()
+    annotations = source.annotations(block: source.node, builder: checker.builder, current_module: nil)
     const_env = ConstantEnv.new(builder: checker.builder, current_namespace: nil)
     type_env = TypeEnv.build(annotations: annotations,
                              subtyping: checker,
@@ -1118,10 +1118,10 @@ x = X
     EOF
 
     typing = Typing.new
-    annotations = source.annotations(block: source.node)
     checker = new_subtyping_checker(<<-EOF)
 X: Module
     EOF
+    annotations = source.annotations(block: source.node, builder: checker.builder, current_module: nil)
     const_env = ConstantEnv.new(builder: checker.builder, current_namespace: nil)
     type_env = TypeEnv.build(annotations: annotations,
                              subtyping: checker,
@@ -1169,8 +1169,8 @@ d = k.foo(c)
     EOF
 
     typing = Typing.new
-    annotations = source.annotations(block: source.node)
     checker = new_subtyping_checker()
+    annotations = source.annotations(block: source.node, builder: checker.builder, current_module: nil)
     const_env = ConstantEnv.new(builder: checker.builder, current_namespace: nil)
     type_env = TypeEnv.build(annotations: annotations,
                              subtyping: checker,
@@ -1206,8 +1206,8 @@ end
     EOF
 
     typing = Typing.new
-    annotations = source.annotations(block: source.node)
     checker = new_subtyping_checker()
+    annotations = source.annotations(block: source.node, builder: checker.builder, current_module: nil)
     const_env = ConstantEnv.new(builder: checker.builder, current_namespace: nil)
     type_env = TypeEnv.build(annotations: annotations,
                              subtyping: checker,
@@ -1250,8 +1250,8 @@ string = poly.snd(1, "a")
     EOF
 
     typing = Typing.new
-    annotations = source.annotations(block: source.node)
     checker = new_subtyping_checker()
+    annotations = source.annotations(block: source.node, builder: checker.builder, current_module: nil)
     const_env = ConstantEnv.new(builder: checker.builder, current_namespace: nil)
     type_env = TypeEnv.build(annotations: annotations,
                              subtyping: checker,
@@ -1283,8 +1283,8 @@ string = poly.try { "string" }
     EOF
 
     typing = Typing.new
-    annotations = source.annotations(block: source.node)
     checker = new_subtyping_checker()
+    annotations = source.annotations(block: source.node, builder: checker.builder, current_module: nil)
     const_env = ConstantEnv.new(builder: checker.builder, current_namespace: nil)
     type_env = TypeEnv.build(annotations: annotations,
                              subtyping: checker,
@@ -1310,8 +1310,8 @@ string = poly.try { "string" }
     source = parse_ruby("1")
 
     typing = Typing.new
-    annotations = source.annotations(block: source.node)
     checker = new_subtyping_checker()
+    annotations = source.annotations(block: source.node, builder: checker.builder, current_module: nil)
     const_env = ConstantEnv.new(builder: checker.builder, current_namespace: nil)
     type_env = TypeEnv.build(annotations: annotations,
                              subtyping: checker,
@@ -1346,8 +1346,8 @@ end
     EOF
 
     typing = Typing.new
-    annotations = source.annotations(block: source.node)
     checker = new_subtyping_checker()
+    annotations = source.annotations(block: source.node, builder: checker.builder, current_module: nil)
     const_env = ConstantEnv.new(builder: checker.builder, current_namespace: nil)
     type_env = TypeEnv.build(annotations: annotations,
                              subtyping: checker,
@@ -1374,11 +1374,11 @@ end
     source = parse_ruby("class Person; end")
 
     typing = Typing.new
-    annotations = source.annotations(block: source.node)
     checker = new_subtyping_checker(<<EOF)
 class Person
 end
 EOF
+    annotations = source.annotations(block: source.node, builder: checker.builder, current_module: nil)
     const_env = ConstantEnv.new(builder: checker.builder, current_namespace: nil)
     type_env = TypeEnv.build(annotations: annotations,
                              subtyping: checker,
@@ -1413,11 +1413,11 @@ EOF
     source = parse_ruby("class Person; end")
 
     typing = Typing.new
-    annotations = source.annotations(block: source.node)
     checker = new_subtyping_checker(<<EOF)
 class Address
 end
 EOF
+    annotations = source.annotations(block: source.node, builder: checker.builder, current_module: nil)
     const_env = ConstantEnv.new(builder: checker.builder, current_namespace: nil)
     type_env = TypeEnv.build(annotations: annotations,
                              subtyping: checker,
@@ -1446,11 +1446,11 @@ EOF
     source = parse_ruby("module Steep; class ModuleName; end; end")
 
     typing = Typing.new
-    annotations = source.annotations(block: source.node)
     checker = new_subtyping_checker(<<EOF)
 class Steep::ModuleName
 end
 EOF
+    annotations = source.annotations(block: source.node, builder: checker.builder, current_module: nil)
     const_env = ConstantEnv.new(builder: checker.builder, current_namespace: nil)
     type_env = TypeEnv.build(annotations: annotations,
                              subtyping: checker,
@@ -1492,11 +1492,11 @@ EOF
     source = parse_ruby("module Steep; end")
 
     typing = Typing.new
-    annotations = source.annotations(block: source.node)
     checker = new_subtyping_checker(<<EOF)
 module Steep
 end
 EOF
+    annotations = source.annotations(block: source.node, builder: checker.builder, current_module: nil)
     const_env = ConstantEnv.new(builder: checker.builder, current_namespace: nil)
     type_env = TypeEnv.build(annotations: annotations,
                              subtyping: checker,
@@ -1539,11 +1539,11 @@ EOF
     source = parse_ruby("module Steep; end")
 
     typing = Typing.new
-    annotations = source.annotations(block: source.node)
     checker = new_subtyping_checker(<<EOF)
 module Rails
 end
 EOF
+    annotations = source.annotations(block: source.node, builder: checker.builder, current_module: nil)
     const_env = ConstantEnv.new(builder: checker.builder, current_namespace: nil)
     type_env = TypeEnv.build(annotations: annotations,
                              subtyping: checker,
@@ -1572,11 +1572,11 @@ EOF
     source = parse_ruby("class Steep; module Printable; end; end")
 
     typing = Typing.new
-    annotations = source.annotations(block: source.node)
     checker = new_subtyping_checker(<<EOF)
 module Steep::Printable
 end
 EOF
+    annotations = source.annotations(block: source.node, builder: checker.builder, current_module: nil)
     const_env = ConstantEnv.new(builder: checker.builder, current_namespace: nil)
     type_env = TypeEnv.build(annotations: annotations,
                              subtyping: checker,
@@ -1619,12 +1619,12 @@ EOF
     def_node = source.node.children[2]
 
     typing = Typing.new
-    annotations = source.annotations(block: source.node)
     checker = new_subtyping_checker(<<-EOF)
 class A
   def foo: (String) -> Integer
 end
     EOF
+    annotations = source.annotations(block: source.node, builder: checker.builder, current_module: nil)
     const_env = ConstantEnv.new(builder: checker.builder, current_namespace: nil)
     type_env = TypeEnv.build(annotations: annotations,
                              subtyping: checker,
@@ -1666,13 +1666,13 @@ end
     def_node = source.node.children[2]
 
     typing = Typing.new
-    annotations = source.annotations(block: source.node)
     checker = new_subtyping_checker(<<-EOF)
 class A
   def foo: (String) -> Integer
          | (Object) -> Integer
 end
     EOF
+    annotations = source.annotations(block: source.node, builder: checker.builder, current_module: nil)
     const_env = ConstantEnv.new(builder: checker.builder, current_namespace: nil)
     type_env = TypeEnv.build(annotations: annotations,
                              subtyping: checker,
@@ -1721,13 +1721,13 @@ end
     def_node = source.node.children[2]
 
     typing = Typing.new
-    annotations = source.annotations(block: source.node)
     checker = new_subtyping_checker(<<-EOF)
 class A
   def foo: () -> Integer
          | <'a> () { () -> 'a } -> 'a
 end
     EOF
+    annotations = source.annotations(block: source.node, builder: checker.builder, current_module: nil)
     const_env = ConstantEnv.new(builder: checker.builder, current_namespace: nil)
     type_env = TypeEnv.build(annotations: annotations,
                              subtyping: checker,
@@ -1775,12 +1775,12 @@ RUBY
     def_node = source.node.children[2]
 
     typing = Typing.new
-    annotations = source.annotations(block: source.node)
     checker = new_subtyping_checker(<<-EOF)
 class A
   def foo: (String) -> Integer
 end
     EOF
+    annotations = source.annotations(block: source.node, builder: checker.builder, current_module: nil)
     const_env = ConstantEnv.new(builder: checker.builder, current_namespace: nil)
     type_env = TypeEnv.build(annotations: annotations,
                              subtyping: checker,
@@ -1831,12 +1831,12 @@ end
     def_node = source.node.children[2]
 
     typing = Typing.new
-    annotations = source.annotations(block: source.node)
     checker = new_subtyping_checker(<<-EOF)
 class A
   def foo: (String) -> Integer
 end
     EOF
+    annotations = source.annotations(block: source.node, builder: checker.builder, current_module: nil)
     const_env = ConstantEnv.new(builder: checker.builder, current_namespace: nil)
     type_env = TypeEnv.build(annotations: annotations,
                              subtyping: checker,
@@ -1879,12 +1879,12 @@ end
     RUBY
 
     typing = Typing.new
-    annotations = source.annotations(block: source.node)
     checker = new_subtyping_checker(<<-EOF)
 class A::String
   def aaaaa: -> any
 end
     EOF
+    annotations = source.annotations(block: source.node, builder: checker.builder, current_module: nil)
     const_env = ConstantEnv.new(builder: checker.builder, current_namespace: nil)
     type_env = TypeEnv.build(annotations: annotations,
                              subtyping: checker,
@@ -1931,7 +1931,6 @@ end
     RUBY
 
     typing = Typing.new
-    annotations = source.annotations(block: source.node)
     checker = new_subtyping_checker(<<-EOF)
 class A
   def foobar: -> any
@@ -1941,6 +1940,7 @@ class A::String
   def aaaaa: -> any
 end
     EOF
+    annotations = source.annotations(block: source.node, builder: checker.builder, current_module: nil)
     const_env = ConstantEnv.new(builder: checker.builder, current_namespace: nil)
     type_env = TypeEnv.build(annotations: annotations,
                              subtyping: checker,
@@ -1975,7 +1975,6 @@ end
     RUBY
 
     typing = Typing.new
-    annotations = source.annotations(block: source.node)
     checker = new_subtyping_checker(<<-EOF)
 class A
 end
@@ -1984,6 +1983,7 @@ class A::String
   def foo: -> any
 end
     EOF
+    annotations = source.annotations(block: source.node, builder: checker.builder, current_module: nil)
     const_env = ConstantEnv.new(builder: checker.builder, current_namespace: nil)
     type_env = TypeEnv.build(annotations: annotations,
                              subtyping: checker,
@@ -2017,7 +2017,6 @@ end
     RUBY
 
     typing = Typing.new
-    annotations = source.annotations(block: source.node)
     checker = new_subtyping_checker(<<-EOF)
 class A
 end
@@ -2026,6 +2025,7 @@ class A::String
   def foo: -> any
 end
     EOF
+    annotations = source.annotations(block: source.node, builder: checker.builder, current_module: nil)
     const_env = ConstantEnv.new(builder: checker.builder, current_namespace: nil)
     type_env = TypeEnv.build(annotations: annotations,
                              subtyping: checker,
@@ -2056,8 +2056,8 @@ a, @b = 1, 2
     EOF
 
     typing = Typing.new
-    annotations = source.annotations(block: source.node)
     checker = new_subtyping_checker()
+    annotations = source.annotations(block: source.node, builder: checker.builder, current_module: nil)
     const_env = ConstantEnv.new(builder: checker.builder, current_namespace: nil)
     type_env = TypeEnv.build(annotations: annotations,
                              subtyping: checker,
@@ -2097,8 +2097,8 @@ a, @b = x
     EOF
 
     typing = Typing.new
-    annotations = source.annotations(block: source.node)
     checker = new_subtyping_checker()
+    annotations = source.annotations(block: source.node, builder: checker.builder, current_module: nil)
     const_env = ConstantEnv.new(builder: checker.builder, current_namespace: nil)
     type_env = TypeEnv.build(annotations: annotations,
                              subtyping: checker,
@@ -2137,8 +2137,8 @@ a, b = x
     EOF
 
     typing = Typing.new
-    annotations = source.annotations(block: source.node)
     checker = new_subtyping_checker()
+    annotations = source.annotations(block: source.node, builder: checker.builder, current_module: nil)
     const_env = ConstantEnv.new(builder: checker.builder, current_namespace: nil)
     type_env = TypeEnv.build(annotations: annotations,
                              subtyping: checker,
@@ -2173,8 +2173,8 @@ a, @b = 3
     EOF
 
     typing = Typing.new
-    annotations = source.annotations(block: source.node)
     checker = new_subtyping_checker()
+    annotations = source.annotations(block: source.node, builder: checker.builder, current_module: nil)
     const_env = ConstantEnv.new(builder: checker.builder, current_namespace: nil)
     type_env = TypeEnv.build(annotations: annotations,
                              subtyping: checker,
@@ -2209,8 +2209,8 @@ a += 3
     EOF
 
     typing = Typing.new
-    annotations = source.annotations(block: source.node)
     checker = new_subtyping_checker()
+    annotations = source.annotations(block: source.node, builder: checker.builder, current_module: nil)
     const_env = ConstantEnv.new(builder: checker.builder, current_namespace: nil)
     type_env = TypeEnv.build(annotations: annotations,
                              subtyping: checker,
@@ -2244,8 +2244,8 @@ end
     EOF
 
     typing = Typing.new
-    annotations = source.annotations(block: source.node)
     checker = new_subtyping_checker()
+    annotations = source.annotations(block: source.node, builder: checker.builder, current_module: nil)
     const_env = ConstantEnv.new(builder: checker.builder, current_namespace: nil)
     type_env = TypeEnv.build(annotations: annotations,
                              subtyping: checker,
@@ -2278,8 +2278,8 @@ end
     EOF
 
     typing = Typing.new
-    annotations = source.annotations(block: source.node)
     checker = new_subtyping_checker()
+    annotations = source.annotations(block: source.node, builder: checker.builder, current_module: nil)
     const_env = ConstantEnv.new(builder: checker.builder, current_namespace: nil)
     type_env = TypeEnv.build(annotations: annotations,
                              subtyping: checker,
@@ -2315,8 +2315,8 @@ end
     EOF
 
     typing = Typing.new
-    annotations = source.annotations(block: source.node)
     checker = new_subtyping_checker()
+    annotations = source.annotations(block: source.node, builder: checker.builder, current_module: nil)
     const_env = ConstantEnv.new(builder: checker.builder, current_namespace: nil)
     type_env = TypeEnv.build(annotations: annotations,
                              subtyping: checker,
@@ -2347,8 +2347,8 @@ end while true
     EOF
 
     typing = Typing.new
-    annotations = source.annotations(block: source.node)
     checker = new_subtyping_checker()
+    annotations = source.annotations(block: source.node, builder: checker.builder, current_module: nil)
     const_env = ConstantEnv.new(builder: checker.builder, current_namespace: nil)
     type_env = TypeEnv.build(annotations: annotations,
                              subtyping: checker,
@@ -2379,8 +2379,8 @@ a = 2..."a"
     EOF
 
     typing = Typing.new
-    annotations = source.annotations(block: source.node)
     checker = new_subtyping_checker()
+    annotations = source.annotations(block: source.node, builder: checker.builder, current_module: nil)
     const_env = ConstantEnv.new(builder: checker.builder, current_namespace: nil)
     type_env = TypeEnv.build(annotations: annotations,
                              subtyping: checker,
@@ -2414,8 +2414,8 @@ a = /#{a + 3}/
     EOF
 
     typing = Typing.new
-    annotations = source.annotations(block: source.node)
     checker = new_subtyping_checker()
+    annotations = source.annotations(block: source.node, builder: checker.builder, current_module: nil)
     const_env = ConstantEnv.new(builder: checker.builder, current_namespace: nil)
     type_env = TypeEnv.build(annotations: annotations,
                              subtyping: checker,
@@ -2448,8 +2448,8 @@ a = $1
     EOF
 
     typing = Typing.new
-    annotations = source.annotations(block: source.node)
     checker = new_subtyping_checker()
+    annotations = source.annotations(block: source.node, builder: checker.builder, current_module: nil)
     const_env = ConstantEnv.new(builder: checker.builder, current_namespace: nil)
     type_env = TypeEnv.build(annotations: annotations,
                              subtyping: checker,
@@ -2483,8 +2483,8 @@ a ||= a + "foo"
     EOF
 
     typing = Typing.new
-    annotations = source.annotations(block: source.node)
     checker = new_subtyping_checker()
+    annotations = source.annotations(block: source.node, builder: checker.builder, current_module: nil)
     const_env = ConstantEnv.new(builder: checker.builder, current_namespace: nil)
     type_env = TypeEnv.build(annotations: annotations,
                              subtyping: checker,
@@ -2518,8 +2518,8 @@ end
     EOF
 
     typing = Typing.new
-    annotations = source.annotations(block: source.node)
     checker = new_subtyping_checker()
+    annotations = source.annotations(block: source.node, builder: checker.builder, current_module: nil)
     const_env = ConstantEnv.new(builder: checker.builder, current_namespace: nil)
     type_env = TypeEnv.build(annotations: annotations,
                              subtyping: checker,
@@ -2550,8 +2550,8 @@ end
     EOF
 
     typing = Typing.new
-    annotations = source.annotations(block: source.node)
     checker = new_subtyping_checker()
+    annotations = source.annotations(block: source.node, builder: checker.builder, current_module: nil)
     const_env = ConstantEnv.new(builder: checker.builder, current_namespace: nil)
     type_env = TypeEnv.build(annotations: annotations,
                              subtyping: checker,
@@ -2585,8 +2585,8 @@ end
     EOF
 
     typing = Typing.new
-    annotations = source.annotations(block: source.node)
     checker = new_subtyping_checker()
+    annotations = source.annotations(block: source.node, builder: checker.builder, current_module: nil)
     const_env = ConstantEnv.new(builder: checker.builder, current_namespace: nil)
     type_env = TypeEnv.build(annotations: annotations,
                              subtyping: checker,
@@ -2617,8 +2617,8 @@ end
     EOF
 
     typing = Typing.new
-    annotations = source.annotations(block: source.node)
     checker = new_subtyping_checker()
+    annotations = source.annotations(block: source.node, builder: checker.builder, current_module: nil)
     const_env = ConstantEnv.new(builder: checker.builder, current_namespace: nil)
     type_env = TypeEnv.build(annotations: annotations,
                              subtyping: checker,
@@ -2648,8 +2648,8 @@ end
     EOF
 
     typing = Typing.new
-    annotations = source.annotations(block: source.node)
     checker = new_subtyping_checker()
+    annotations = source.annotations(block: source.node, builder: checker.builder, current_module: nil)
     const_env = ConstantEnv.new(builder: checker.builder, current_namespace: nil)
     type_env = TypeEnv.build(annotations: annotations,
                              subtyping: checker,
@@ -2684,8 +2684,8 @@ end
     EOF
 
     typing = Typing.new
-    annotations = source.annotations(block: source.node)
     checker = new_subtyping_checker()
+    annotations = source.annotations(block: source.node, builder: checker.builder, current_module: nil)
     const_env = ConstantEnv.new(builder: checker.builder, current_namespace: nil)
     type_env = TypeEnv.build(annotations: annotations,
                              subtyping: checker,
@@ -2716,10 +2716,10 @@ x = $HOGE
     EOF
 
     typing = Typing.new
-    annotations = source.annotations(block: source.node)
     checker = new_subtyping_checker(<<-EOF)
 $HOGE: Integer
     EOF
+    annotations = source.annotations(block: source.node, builder: checker.builder, current_module: nil)
     const_env = ConstantEnv.new(builder: checker.builder, current_namespace: nil)
     type_env = TypeEnv.build(annotations: annotations,
                              subtyping: checker,
@@ -2751,10 +2751,10 @@ x = $HOGE
     EOF
 
     typing = Typing.new
-    annotations = source.annotations(block: source.node)
     checker = new_subtyping_checker(<<-EOF)
 $HOGE: Integer
     EOF
+    annotations = source.annotations(block: source.node, builder: checker.builder, current_module: nil)
     const_env = ConstantEnv.new(builder: checker.builder, current_namespace: nil)
     type_env = TypeEnv.build(annotations: annotations,
                              subtyping: checker,
@@ -2785,8 +2785,8 @@ x = $HOGE
     EOF
 
     typing = Typing.new
-    annotations = source.annotations(block: source.node)
     checker = new_subtyping_checker()
+    annotations = source.annotations(block: source.node, builder: checker.builder, current_module: nil)
     const_env = ConstantEnv.new(builder: checker.builder, current_namespace: nil)
     type_env = TypeEnv.build(annotations: annotations,
                              subtyping: checker,
@@ -2820,13 +2820,13 @@ end
     EOF
 
     typing = Typing.new
-    annotations = source.annotations(block: source.node)
     checker = new_subtyping_checker(<<-EOF)
 class A
   def foo: -> String
   @foo: String
 end
     EOF
+    annotations = source.annotations(block: source.node, builder: checker.builder, current_module: nil)
     const_env = ConstantEnv.new(builder: checker.builder, current_namespace: nil)
     type_env = TypeEnv.build(annotations: annotations,
                              subtyping: checker,
@@ -2857,12 +2857,12 @@ end
     EOF
 
     typing = Typing.new
-    annotations = source.annotations(block: source.node)
     checker = new_subtyping_checker(<<-EOF)
 class A
   @foo: String
 end
     EOF
+    annotations = source.annotations(block: source.node, builder: checker.builder, current_module: nil)
     const_env = ConstantEnv.new(builder: checker.builder, current_namespace: nil)
     type_env = TypeEnv.build(annotations: annotations,
                              subtyping: checker,
@@ -2895,8 +2895,8 @@ b = [*a]
     EOF
 
     typing = Typing.new
-    annotations = source.annotations(block: source.node)
     checker = new_subtyping_checker()
+    annotations = source.annotations(block: source.node, builder: checker.builder, current_module: nil)
     const_env = ConstantEnv.new(builder: checker.builder, current_namespace: nil)
     type_env = TypeEnv.build(annotations: annotations,
                              subtyping: checker,
@@ -2929,8 +2929,8 @@ b = [*1...3]
     EOF
 
     typing = Typing.new
-    annotations = source.annotations(block: source.node)
     checker = new_subtyping_checker()
+    annotations = source.annotations(block: source.node, builder: checker.builder, current_module: nil)
     const_env = ConstantEnv.new(builder: checker.builder, current_namespace: nil)
     type_env = TypeEnv.build(annotations: annotations,
                              subtyping: checker,
@@ -2964,8 +2964,8 @@ b = [*a, *["foo"]]
     EOF
 
     typing = Typing.new
-    annotations = source.annotations(block: source.node)
     checker = new_subtyping_checker()
+    annotations = source.annotations(block: source.node, builder: checker.builder, current_module: nil)
     const_env = ConstantEnv.new(builder: checker.builder, current_namespace: nil)
     type_env = TypeEnv.build(annotations: annotations,
                              subtyping: checker,
@@ -3002,13 +3002,13 @@ a.gen(*["1"])
     EOF
 
     typing = Typing.new
-    annotations = source.annotations(block: source.node)
     checker = new_subtyping_checker(<<-EOF)
 class A
   def initialize: () -> any
   def gen: (*Integer) -> String
 end
     EOF
+    annotations = source.annotations(block: source.node, builder: checker.builder, current_module: nil)
     const_env = ConstantEnv.new(builder: checker.builder, current_namespace: nil)
     type_env = TypeEnv.build(annotations: annotations,
                              subtyping: checker,
@@ -3050,13 +3050,13 @@ a.gen(*b)
     EOF
 
     typing = Typing.new
-    annotations = source.annotations(block: source.node)
     checker = new_subtyping_checker(<<-EOF)
 class A
   def initialize: () -> any
   def gen: (*Integer) -> String
 end
     EOF
+    annotations = source.annotations(block: source.node, builder: checker.builder, current_module: nil)
     const_env = ConstantEnv.new(builder: checker.builder, current_namespace: nil)
     type_env = TypeEnv.build(annotations: annotations,
                              subtyping: checker,
@@ -3099,12 +3099,12 @@ end
     EOF
 
     typing = Typing.new
-    annotations = source.annotations(block: source.node)
     checker = new_subtyping_checker(<<-EOF)
 class Hoge
   def foo: (self) -> void
 end
     EOF
+    annotations = source.annotations(block: source.node, builder: checker.builder, current_module: nil)
     const_env = ConstantEnv.new(builder: checker.builder, current_namespace: nil)
     type_env = TypeEnv.build(annotations: annotations,
                              subtyping: checker,
@@ -3155,12 +3155,12 @@ end
     EOF
 
     typing = Typing.new
-    annotations = source.annotations(block: source.node)
     checker = new_subtyping_checker(<<-EOF)
 class Hoge
   def foo: () { () -> void } -> any
 end
     EOF
+    annotations = source.annotations(block: source.node, builder: checker.builder, current_module: nil)
     const_env = ConstantEnv.new(builder: checker.builder, current_namespace: nil)
     type_env = TypeEnv.build(annotations: annotations,
                              subtyping: checker,
@@ -3205,8 +3205,8 @@ a = [1]
 b = a.zip(["foo"])
 EOF
     typing = Typing.new
-    annotations = source.annotations(block: source.node)
     checker = new_subtyping_checker("")
+    annotations = source.annotations(block: source.node, builder: checker.builder, current_module: nil)
     const_env = ConstantEnv.new(builder: checker.builder, current_namespace: nil)
     type_env = TypeEnv.build(annotations: annotations,
                              subtyping: checker,
@@ -3239,8 +3239,8 @@ b = a.each_with_object([]) do |x, y|
 end
 EOF
     typing = Typing.new
-    annotations = source.annotations(block: source.node)
     checker = new_subtyping_checker("")
+    annotations = source.annotations(block: source.node, builder: checker.builder, current_module: nil)
     const_env = ConstantEnv.new(builder: checker.builder, current_namespace: nil)
     type_env = TypeEnv.build(annotations: annotations,
                              subtyping: checker,
@@ -3274,8 +3274,8 @@ else
 end
 EOF
     typing = Typing.new
-    annotations = source.annotations(block: source.node)
     checker = new_subtyping_checker("")
+    annotations = source.annotations(block: source.node, builder: checker.builder, current_module: nil)
     const_env = ConstantEnv.new(builder: checker.builder, current_namespace: nil)
     type_env = TypeEnv.build(annotations: annotations,
                              subtyping: checker,
@@ -3316,8 +3316,8 @@ else
 end
 EOF
     typing = Typing.new
-    annotations = source.annotations(block: source.node)
     checker = new_subtyping_checker("")
+    annotations = source.annotations(block: source.node, builder: checker.builder, current_module: nil)
     const_env = ConstantEnv.new(builder: checker.builder, current_namespace: nil)
     type_env = TypeEnv.build(annotations: annotations,
                              subtyping: checker,
@@ -3361,8 +3361,8 @@ else
 end
 EOF
     typing = Typing.new
-    annotations = source.annotations(block: source.node)
     checker = new_subtyping_checker("")
+    annotations = source.annotations(block: source.node, builder: checker.builder, current_module: nil)
     const_env = ConstantEnv.new(builder: checker.builder, current_namespace: nil)
     type_env = TypeEnv.build(annotations: annotations,
                              subtyping: checker,
@@ -3413,8 +3413,8 @@ else
 end
 EOF
     typing = Typing.new
-    annotations = source.annotations(block: source.node)
     checker = new_subtyping_checker("")
+    annotations = source.annotations(block: source.node, builder: checker.builder, current_module: nil)
     const_env = ConstantEnv.new(builder: checker.builder, current_namespace: nil)
     type_env = TypeEnv.build(annotations: annotations,
                              subtyping: checker,
@@ -3452,8 +3452,8 @@ while 3
 end
 EOF
     typing = Typing.new
-    annotations = source.annotations(block: source.node)
     checker = new_subtyping_checker("")
+    annotations = source.annotations(block: source.node, builder: checker.builder, current_module: nil)
     const_env = ConstantEnv.new(builder: checker.builder, current_namespace: nil)
     type_env = TypeEnv.build(annotations: annotations,
                              subtyping: checker,
@@ -3494,8 +3494,8 @@ rescue
 end
 EOF
     typing = Typing.new
-    annotations = source.annotations(block: source.node)
     checker = new_subtyping_checker("")
+    annotations = source.annotations(block: source.node, builder: checker.builder, current_module: nil)
     const_env = ConstantEnv.new(builder: checker.builder, current_namespace: nil)
     type_env = TypeEnv.build(annotations: annotations,
                              subtyping: checker,
@@ -3535,8 +3535,8 @@ rescue F => exn
 end
 EOF
     typing = Typing.new
-    annotations = source.annotations(block: source.node)
     checker = new_subtyping_checker("")
+    annotations = source.annotations(block: source.node, builder: checker.builder, current_module: nil)
     const_env = ConstantEnv.new(builder: checker.builder, current_namespace: nil)
     type_env = TypeEnv.build(annotations: annotations,
                              subtyping: checker,
@@ -3576,8 +3576,8 @@ else
 end
 EOF
     typing = Typing.new
-    annotations = source.annotations(block: source.node)
     checker = new_subtyping_checker("")
+    annotations = source.annotations(block: source.node, builder: checker.builder, current_module: nil)
     const_env = ConstantEnv.new(builder: checker.builder, current_namespace: nil)
     type_env = TypeEnv.build(annotations: annotations,
                              subtyping: checker,
@@ -3613,8 +3613,8 @@ else
 end
 EOF
     typing = Typing.new
-    annotations = source.annotations(block: source.node)
     checker = new_subtyping_checker("")
+    annotations = source.annotations(block: source.node, builder: checker.builder, current_module: nil)
     const_env = ConstantEnv.new(builder: checker.builder, current_namespace: nil)
     type_env = TypeEnv.build(annotations: annotations,
                              subtyping: checker,
@@ -3655,8 +3655,8 @@ else
 end
 EOF
     typing = Typing.new
-    annotations = source.annotations(block: source.node)
     checker = new_subtyping_checker("")
+    annotations = source.annotations(block: source.node, builder: checker.builder, current_module: nil)
     const_env = ConstantEnv.new(builder: checker.builder, current_namespace: nil)
     type_env = TypeEnv.build(annotations: annotations,
                              subtyping: checker,
@@ -3689,12 +3689,12 @@ class Foo
 end
 EOF
     typing = Typing.new
-    annotations = source.annotations(block: source.node)
     checker = new_subtyping_checker(<<EOS)
 class Foo
   def initialize: (String) -> any
 end
 EOS
+    annotations = source.annotations(block: source.node, builder: checker.builder, current_module: nil)
     const_env = ConstantEnv.new(builder: checker.builder, current_namespace: nil)
     type_env = TypeEnv.build(annotations: annotations,
                              subtyping: checker,
@@ -3722,8 +3722,8 @@ EOS
 x = (_ = 3)
 EOF
     typing = Typing.new
-    annotations = source.annotations(block: source.node)
     checker = new_subtyping_checker("")
+    annotations = source.annotations(block: source.node, builder: checker.builder, current_module: nil)
     const_env = ConstantEnv.new(builder: checker.builder, current_namespace: nil)
     type_env = TypeEnv.build(annotations: annotations,
                              subtyping: checker,
@@ -3750,8 +3750,8 @@ EOF
 Array.new
 EOF
     typing = Typing.new
-    annotations = source.annotations(block: source.node)
     checker = new_subtyping_checker("")
+    annotations = source.annotations(block: source.node, builder: checker.builder, current_module: nil)
     const_env = ConstantEnv.new(builder: checker.builder, current_namespace: nil)
     type_env = TypeEnv.build(annotations: annotations,
                              subtyping: checker,
@@ -3778,8 +3778,8 @@ EOF
 (_ = []).[]=(*(_ = nil))
 EOF
     typing = Typing.new
-    annotations = source.annotations(block: source.node)
     checker = new_subtyping_checker("")
+    annotations = source.annotations(block: source.node, builder: checker.builder, current_module: nil)
     const_env = ConstantEnv.new(builder: checker.builder, current_namespace: nil)
     type_env = TypeEnv.build(annotations: annotations,
                              subtyping: checker,
@@ -3821,13 +3821,13 @@ x = (_ = nil)
 EOF
 
     typing = Typing.new
-    annotations = source.annotations(block: source.node)
     checker = new_subtyping_checker(<<EOF)
 class Optional
   def map: <'a, 'b> ('a) { ('a) -> 'b } -> 'b
   def map2: <'a, 'b> ('a) { ('a) -> 'b } -> 'b
 end
 EOF
+    annotations = source.annotations(block: source.node, builder: checker.builder, current_module: nil)
     const_env = ConstantEnv.new(builder: checker.builder, current_namespace: nil)
     type_env = TypeEnv.build(annotations: annotations,
                              subtyping: checker,
@@ -3874,7 +3874,6 @@ container.value + 4
 EOF
 
     typing = Typing.new
-    annotations = source.annotations(block: source.node)
     checker = new_subtyping_checker(<<EOF)
 class Container<'a>
   @value: 'a
@@ -3883,6 +3882,7 @@ class Container<'a>
   def value=: ('a) -> 'a
 end
 EOF
+    annotations = source.annotations(block: source.node, builder: checker.builder, current_module: nil)
     const_env = ConstantEnv.new(builder: checker.builder, current_namespace: nil)
     type_env = TypeEnv.build(annotations: annotations,
                              subtyping: checker,
@@ -3914,13 +3914,13 @@ end
 EOF
 
     typing = Typing.new
-    annotations = source.annotations(block: source.node)
     checker = new_subtyping_checker(<<EOF)
 module Value<'a>
   @value: 'a
   def value: -> 'a
 end
 EOF
+    annotations = source.annotations(block: source.node, builder: checker.builder, current_module: nil)
     const_env = ConstantEnv.new(builder: checker.builder, current_namespace: nil)
     type_env = TypeEnv.build(annotations: annotations,
                              subtyping: checker,
@@ -3948,11 +3948,11 @@ hello = HelloWorld.new
 EOF
 
     typing = Typing.new
-    annotations = source.annotations(block: source.node)
     checker = new_subtyping_checker(<<EOF)
 class HelloWorld
 end
 EOF
+    annotations = source.annotations(block: source.node, builder: checker.builder, current_module: nil)
     const_env = ConstantEnv.new(builder: checker.builder, current_namespace: nil)
     type_env = TypeEnv.build(annotations: annotations,
                              subtyping: checker,
@@ -3981,8 +3981,8 @@ hello = Array.new(3, "")[0]
 EOF
 
     typing = Typing.new
-    annotations = source.annotations(block: source.node)
     checker = new_subtyping_checker("")
+    annotations = source.annotations(block: source.node, builder: checker.builder, current_module: nil)
     const_env = ConstantEnv.new(builder: checker.builder, current_namespace: nil)
     type_env = TypeEnv.build(annotations: annotations,
                              subtyping: checker,
@@ -4015,8 +4015,8 @@ x = Array.new(3)[0]
 EOF
 
     typing = Typing.new
-    annotations = source.annotations(block: source.node)
     checker = new_subtyping_checker("")
+    annotations = source.annotations(block: source.node, builder: checker.builder, current_module: nil)
     const_env = ConstantEnv.new(builder: checker.builder, current_namespace: nil)
     type_env = TypeEnv.build(annotations: annotations,
                              subtyping: checker,
@@ -4055,8 +4055,8 @@ end
 EOF
 
     typing = Typing.new
-    annotations = source.annotations(block: source.node)
     checker = new_subtyping_checker("")
+    annotations = source.annotations(block: source.node, builder: checker.builder, current_module: nil)
     const_env = ConstantEnv.new(builder: checker.builder, current_namespace: nil)
     type_env = TypeEnv.build(annotations: annotations,
                              subtyping: checker,
@@ -4089,8 +4089,8 @@ z = (x && y1 = y = x + 1)
 EOF
 
     typing = Typing.new
-    annotations = source.annotations(block: source.node)
     checker = new_subtyping_checker("")
+    annotations = source.annotations(block: source.node, builder: checker.builder, current_module: nil)
     const_env = ConstantEnv.new(builder: checker.builder, current_namespace: nil)
     type_env = TypeEnv.build(annotations: annotations,
                              subtyping: checker,
@@ -4131,8 +4131,8 @@ z = x&.size()
 EOF
 
     typing = Typing.new
-    annotations = source.annotations(block: source.node)
     checker = new_subtyping_checker("")
+    annotations = source.annotations(block: source.node, builder: checker.builder, current_module: nil)
     const_env = ConstantEnv.new(builder: checker.builder, current_namespace: nil)
     type_env = TypeEnv.build(annotations: annotations,
                              subtyping: checker,
@@ -4168,8 +4168,8 @@ end
 EOF
 
     typing = Typing.new
-    annotations = source.annotations(block: source.node)
     checker = new_subtyping_checker("")
+    annotations = source.annotations(block: source.node, builder: checker.builder, current_module: nil)
     const_env = ConstantEnv.new(builder: checker.builder, current_namespace: nil)
     type_env = TypeEnv.build(annotations: annotations,
                              subtyping: checker,
@@ -4208,8 +4208,8 @@ end
 EOF
 
     typing = Typing.new
-    annotations = source.annotations(block: source.node)
     checker = new_subtyping_checker("")
+    annotations = source.annotations(block: source.node, builder: checker.builder, current_module: nil)
     const_env = ConstantEnv.new(builder: checker.builder, current_namespace: nil)
     type_env = TypeEnv.build(annotations: annotations,
                              subtyping: checker,
@@ -4250,8 +4250,8 @@ end
 EOF
 
     typing = Typing.new
-    annotations = source.annotations(block: source.node)
     checker = new_subtyping_checker("")
+    annotations = source.annotations(block: source.node, builder: checker.builder, current_module: nil)
     const_env = ConstantEnv.new(builder: checker.builder, current_namespace: nil)
     type_env = TypeEnv.build(annotations: annotations,
                              subtyping: checker,
@@ -4288,8 +4288,8 @@ end
 EOF
 
     typing = Typing.new
-    annotations = source.annotations(block: source.node)
     checker = new_subtyping_checker("")
+    annotations = source.annotations(block: source.node, builder: checker.builder, current_module: nil)
     const_env = ConstantEnv.new(builder: checker.builder, current_namespace: nil)
     type_env = TypeEnv.build(annotations: annotations,
                              subtyping: checker,
@@ -4325,8 +4325,8 @@ end
 EOF
 
     typing = Typing.new
-    annotations = source.annotations(block: source.node)
     checker = new_subtyping_checker("")
+    annotations = source.annotations(block: source.node, builder: checker.builder, current_module: nil)
     const_env = ConstantEnv.new(builder: checker.builder, current_namespace: nil)
     type_env = TypeEnv.build(annotations: annotations,
                              subtyping: checker,
@@ -4361,12 +4361,12 @@ test.foo(123, **123)
 EOF
 
     typing = Typing.new
-    annotations = source.annotations(block: source.node)
     checker = new_subtyping_checker(<<-EOF)
 class KWArgTest
   def foo: (Integer, **String) -> void
 end
     EOF
+    annotations = source.annotations(block: source.node, builder: checker.builder, current_module: nil)
     const_env = ConstantEnv.new(builder: checker.builder, current_namespace: nil)
     type_env = TypeEnv.build(annotations: annotations,
                              subtyping: checker,
@@ -4402,9 +4402,8 @@ end
 EOF
 
     typing = Typing.new
-    annotations = source.annotations(block: source.node)
-    checker = new_subtyping_checker(<<-EOF)
-    EOF
+    checker = new_subtyping_checker()
+    annotations = source.annotations(block: source.node, builder: checker.builder, current_module: nil)
     const_env = ConstantEnv.new(builder: checker.builder, current_namespace: nil)
     type_env = TypeEnv.build(annotations: annotations,
                              subtyping: checker,
@@ -4433,9 +4432,8 @@ b = false || true
 EOF
 
     typing = Typing.new
-    annotations = source.annotations(block: source.node)
-    checker = new_subtyping_checker(<<-EOF)
-    EOF
+    checker = new_subtyping_checker()
+    annotations = source.annotations(block: source.node, builder: checker.builder, current_module: nil)
     const_env = ConstantEnv.new(builder: checker.builder, current_namespace: nil)
     type_env = TypeEnv.build(annotations: annotations,
                              subtyping: checker,
@@ -4469,12 +4467,12 @@ end
 EOF
 
     typing = Typing.new
-    annotations = source.annotations(block: source.node)
     checker = new_subtyping_checker(<<-EOF)
 class EmptyBodyMethod
   def foo: () -> String
 end
     EOF
+    annotations = source.annotations(block: source.node, builder: checker.builder, current_module: nil)
     const_env = ConstantEnv.new(builder: checker.builder, current_namespace: nil)
     type_env = TypeEnv.build(annotations: annotations,
                              subtyping: checker,
@@ -4503,9 +4501,8 @@ x = "x"
 EOF
 
     typing = Typing.new
-    annotations = source.annotations(block: source.node)
     checker = new_subtyping_checker()
-
+    annotations = source.annotations(block: source.node, builder: checker.builder, current_module: nil)
     const_env = ConstantEnv.new(builder: checker.builder, current_namespace: nil)
     type_env = TypeEnv.build(annotations: annotations,
                              subtyping: checker,
@@ -4537,9 +4534,8 @@ nil.no_such_method
 EOF
 
     typing = Typing.new
-    annotations = source.annotations(block: source.node)
     checker = new_subtyping_checker()
-
+    annotations = source.annotations(block: source.node, builder: checker.builder, current_module: nil)
     const_env = ConstantEnv.new(builder: checker.builder, current_namespace: nil)
     type_env = TypeEnv.build(annotations: annotations,
                              subtyping: checker,
@@ -4574,9 +4570,8 @@ x.no_such_method
 EOF
 
     typing = Typing.new
-    annotations = source.annotations(block: source.node)
     checker = new_subtyping_checker()
-
+    annotations = source.annotations(block: source.node, builder: checker.builder, current_module: nil)
     const_env = ConstantEnv.new(builder: checker.builder, current_namespace: nil)
     type_env = TypeEnv.build(annotations: annotations,
                              subtyping: checker,
@@ -4612,13 +4607,13 @@ c = ClassWithLiteralArg.new.foo(1234)
 EOF
 
     typing = Typing.new
-    annotations = source.annotations(block: source.node)
     checker = new_subtyping_checker(<<-EOF)
 class ClassWithLiteralArg
   def foo: (123) -> "foo"
          | (Integer) -> :bar
 end
     EOF
+    annotations = source.annotations(block: source.node, builder: checker.builder, current_module: nil)
 
     const_env = ConstantEnv.new(builder: checker.builder, current_namespace: nil)
     type_env = TypeEnv.build(annotations: annotations,
@@ -4657,9 +4652,8 @@ y + "bar"
 EOF
 
     typing = Typing.new
-    annotations = source.annotations(block: source.node)
     checker = new_subtyping_checker()
-
+    annotations = source.annotations(block: source.node, builder: checker.builder, current_module: nil)
     const_env = ConstantEnv.new(builder: checker.builder, current_namespace: nil)
     type_env = TypeEnv.build(annotations: annotations,
                              subtyping: checker,
@@ -4692,9 +4686,8 @@ c = x[2]
 EOF
 
     typing = Typing.new
-    annotations = source.annotations(block: source.node)
     checker = new_subtyping_checker()
-
+    annotations = source.annotations(block: source.node, builder: checker.builder, current_module: nil)
     const_env = ConstantEnv.new(builder: checker.builder, current_namespace: nil)
     type_env = TypeEnv.build(annotations: annotations,
                              subtyping: checker,
@@ -4728,13 +4721,12 @@ x = ["foo", 1]
 EOF
 
     typing = Typing.new
-    annotations = source.annotations(block: source.node)
     checker = new_subtyping_checker(<<-EOF)
 class TupleMethod
   def foo: ([Integer, String]) -> [Integer, String]
 end
     EOF
-
+    annotations = source.annotations(block: source.node, builder: checker.builder, current_module: nil)
     const_env = ConstantEnv.new(builder: checker.builder, current_namespace: nil)
     type_env = TypeEnv.build(annotations: annotations,
                              subtyping: checker,
@@ -4762,13 +4754,12 @@ x = TupleMethod.new.foo([1, "foo"])
 EOF
 
     typing = Typing.new
-    annotations = source.annotations(block: source.node)
     checker = new_subtyping_checker(<<-EOF)
 class TupleMethod
   def foo: ([Integer, String]) -> [String, Integer]
 end
     EOF
-
+    annotations = source.annotations(block: source.node, builder: checker.builder, current_module: nil)
     const_env = ConstantEnv.new(builder: checker.builder, current_namespace: nil)
     type_env = TypeEnv.build(annotations: annotations,
                              subtyping: checker,
@@ -4799,13 +4790,12 @@ _, _, _, c = TupleMethod.new.foo()
 EOF
 
     typing = Typing.new
-    annotations = source.annotations(block: source.node)
     checker = new_subtyping_checker(<<-EOF)
 class TupleMethod
   def foo: () -> [String, Integer, bool]
 end
     EOF
-
+    annotations = source.annotations(block: source.node, builder: checker.builder, current_module: nil)
     const_env = ConstantEnv.new(builder: checker.builder, current_namespace: nil)
     type_env = TypeEnv.build(annotations: annotations,
                              subtyping: checker,
@@ -4846,9 +4836,8 @@ end
 EOF
 
     typing = Typing.new
-    annotations = source.annotations(block: source.node)
     checker = new_subtyping_checker()
-
+    annotations = source.annotations(block: source.node, builder: checker.builder, current_module: nil)
     const_env = ConstantEnv.new(builder: checker.builder, current_namespace: nil)
     type_env = TypeEnv.build(annotations: annotations,
                              subtyping: checker,
@@ -4890,9 +4879,8 @@ end
 EOF
 
     typing = Typing.new
-    annotations = source.annotations(block: source.node)
     checker = new_subtyping_checker()
-
+    annotations = source.annotations(block: source.node, builder: checker.builder, current_module: nil)
     const_env = ConstantEnv.new(builder: checker.builder, current_namespace: nil)
     type_env = TypeEnv.build(annotations: annotations,
                              subtyping: checker,
@@ -4925,7 +4913,6 @@ end
 EOF
 
     typing = Typing.new
-    annotations = source.annotations(block: source.node)
     checker = new_subtyping_checker(<<-EOF)
 class TestSuper
   def foo: () -> Integer
@@ -4934,7 +4921,7 @@ end
 class TestSuperChild <: TestSuper
 end
     EOF
-
+    annotations = source.annotations(block: source.node, builder: checker.builder, current_module: nil)
     const_env = ConstantEnv.new(builder: checker.builder, current_namespace: nil)
     type_env = TypeEnv.build(annotations: annotations,
                              subtyping: checker,
@@ -4963,9 +4950,8 @@ end
 EOF
 
     typing = Typing.new
-    annotations = source.annotations(block: source.node)
     checker = new_subtyping_checker()
-
+    annotations = source.annotations(block: source.node, builder: checker.builder, current_module: nil)
     const_env = ConstantEnv.new(builder: checker.builder, current_namespace: nil)
     type_env = TypeEnv.build(annotations: annotations,
                              subtyping: checker,
@@ -4997,11 +4983,10 @@ a = :foo
 EOF
 
     typing = Typing.new
-    annotations = source.annotations(block: source.node)
     checker = new_subtyping_checker(<<-EOF)
 type a = :foo | :bar
     EOF
-
+    annotations = source.annotations(block: source.node, builder: checker.builder, current_module: nil)
     const_env = ConstantEnv.new(builder: checker.builder, current_namespace: nil)
     type_env = TypeEnv.build(annotations: annotations,
                              subtyping: checker,
@@ -5033,9 +5018,8 @@ b = "foo" || x
 EOF
 
     typing = Typing.new
-    annotations = source.annotations(block: source.node)
     checker = new_subtyping_checker()
-
+    annotations = source.annotations(block: source.node, builder: checker.builder, current_module: nil)
     const_env = ConstantEnv.new(builder: checker.builder, current_namespace: nil)
     type_env = TypeEnv.build(annotations: annotations,
                              subtyping: checker,
@@ -5066,9 +5050,8 @@ x = { foo: "bar" }
 EOF
 
     typing = Typing.new
-    annotations = source.annotations(block: source.node)
     checker = new_subtyping_checker()
-
+    annotations = source.annotations(block: source.node, builder: checker.builder, current_module: nil)
     const_env = ConstantEnv.new(builder: checker.builder, current_namespace: nil)
     type_env = TypeEnv.build(annotations: annotations,
                              subtyping: checker,
@@ -5097,9 +5080,8 @@ x = [:foo, :bar]
 EOF
 
     typing = Typing.new
-    annotations = source.annotations(block: source.node)
     checker = new_subtyping_checker()
-
+    annotations = source.annotations(block: source.node, builder: checker.builder, current_module: nil)
     const_env = ConstantEnv.new(builder: checker.builder, current_namespace: nil)
     type_env = TypeEnv.build(annotations: annotations,
                              subtyping: checker,
@@ -5130,9 +5112,8 @@ x.to_s {|x| }
 EOF
 
     typing = Typing.new
-    annotations = source.annotations(block: source.node)
     checker = new_subtyping_checker()
-
+    annotations = source.annotations(block: source.node, builder: checker.builder, current_module: nil)
     const_env = ConstantEnv.new(builder: checker.builder, current_namespace: nil)
     type_env = TypeEnv.build(annotations: annotations,
                              subtyping: checker,
@@ -5163,9 +5144,8 @@ foo.bar {|x, y| x }
 EOF
 
     typing = Typing.new
-    annotations = source.annotations(block: source.node)
     checker = new_subtyping_checker()
-
+    annotations = source.annotations(block: source.node, builder: checker.builder, current_module: nil)
     const_env = ConstantEnv.new(builder: checker.builder, current_namespace: nil)
     type_env = TypeEnv.build(annotations: annotations,
                              subtyping: checker,
@@ -5185,7 +5165,7 @@ EOF
 
     block_params_node = source.node.children[1]
     block_body_node = source.node.children[2]
-    block_annotations = source.annotations(block: source.node)
+    block_annotations = source.annotations(block: source.node, builder: checker.builder, current_module: nil)
     block_params = TypeInference::BlockParams.from_node(block_params_node, annotations: block_annotations)
 
     type = construction.type_block(block_param_hint: nil,
@@ -5208,9 +5188,8 @@ end
 EOF
 
     typing = Typing.new
-    annotations = source.annotations(block: source.node)
     checker = new_subtyping_checker()
-
+    annotations = source.annotations(block: source.node, builder: checker.builder, current_module: nil)
     const_env = ConstantEnv.new(builder: checker.builder, current_namespace: nil)
     type_env = TypeEnv.build(annotations: annotations,
                              subtyping: checker,
@@ -5230,7 +5209,7 @@ EOF
 
     block_params_node = source.node.children[1]
     block_body_node = source.node.children[2]
-    block_annotations = source.annotations(block: source.node)
+    block_annotations = source.annotations(block: source.node, builder: checker.builder, current_module: nil)
     block_params = TypeInference::BlockParams.from_node(block_params_node, annotations: block_annotations)
 
     type = construction.type_block(block_param_hint: nil,
@@ -5252,9 +5231,8 @@ end
 EOF
 
     typing = Typing.new
-    annotations = source.annotations(block: source.node)
     checker = new_subtyping_checker()
-
+    annotations = source.annotations(block: source.node, builder: checker.builder, current_module: nil)
     const_env = ConstantEnv.new(builder: checker.builder, current_namespace: nil)
     type_env = TypeEnv.build(annotations: annotations,
                              subtyping: checker,
@@ -5277,7 +5255,7 @@ EOF
 
     block_params_node = source.node.children[1]
     block_body_node = source.node.children[2]
-    block_annotations = source.annotations(block: source.node)
+    block_annotations = source.annotations(block: source.node, builder: checker.builder, current_module: nil)
     block_params = TypeInference::BlockParams.from_node(block_params_node, annotations: block_annotations)
 
     type = construction.type_block(block_param_hint: hint.block.type.params,
@@ -5298,9 +5276,8 @@ end
 EOF
 
     typing = Typing.new
-    annotations = source.annotations(block: source.node)
     checker = new_subtyping_checker()
-
+    annotations = source.annotations(block: source.node, builder: checker.builder, current_module: nil)
     const_env = ConstantEnv.new(builder: checker.builder, current_namespace: nil)
     type_env = TypeEnv.build(annotations: annotations,
                              subtyping: checker,
@@ -5323,7 +5300,7 @@ EOF
 
     block_params_node = source.node.children[1]
     block_body_node = source.node.children[2]
-    block_annotations = source.annotations(block: source.node)
+    block_annotations = source.annotations(block: source.node, builder: checker.builder, current_module: nil)
     block_params = TypeInference::BlockParams.from_node(block_params_node, annotations: block_annotations)
 
     type = construction.type_block(block_param_hint: hint.block.type.params,
@@ -5354,13 +5331,12 @@ a = MethodWithBlockArg.new.foo {|x| x.to_s }
 EOF
 
     typing = Typing.new
-    annotations = source.annotations(block: source.node)
     checker = new_subtyping_checker(<<EOF)
 class MethodWithBlockArg
   def foo: <'x> { (Integer) -> 'x } -> Array<'x>
 end
 EOF
-
+    annotations = source.annotations(block: source.node, builder: checker.builder, current_module: nil)
     const_env = ConstantEnv.new(builder: checker.builder, current_namespace: nil)
     type_env = TypeEnv.build(annotations: annotations,
                              subtyping: checker,
@@ -5395,13 +5371,12 @@ end
 EOF
 
     typing = Typing.new
-    annotations = source.annotations(block: source.node)
     checker = new_subtyping_checker(<<EOF)
 class MethodWithBlockArg
   def foo: <'x> { (Integer) -> 'x } -> Array<'x>
 end
 EOF
-
+    annotations = source.annotations(block: source.node, builder: checker.builder, current_module: nil)
     const_env = ConstantEnv.new(builder: checker.builder, current_namespace: nil)
     type_env = TypeEnv.build(annotations: annotations,
                              subtyping: checker,
@@ -5436,9 +5411,8 @@ end
 EOF
 
     typing = Typing.new
-    annotations = source.annotations(block: source.node)
     checker = new_subtyping_checker()
-
+    annotations = source.annotations(block: source.node, builder: checker.builder, current_module: nil)
     const_env = ConstantEnv.new(builder: checker.builder, current_namespace: nil)
     type_env = TypeEnv.build(annotations: annotations,
                              subtyping: checker,
@@ -5470,9 +5444,8 @@ end
 EOF
 
     typing = Typing.new
-    annotations = source.annotations(block: source.node)
     checker = new_subtyping_checker()
-
+    annotations = source.annotations(block: source.node, builder: checker.builder, current_module: nil)
     const_env = ConstantEnv.new(builder: checker.builder, current_namespace: nil)
     type_env = TypeEnv.build(annotations: annotations,
                              subtyping: checker,
@@ -5504,8 +5477,8 @@ a = begin; end
 EOF
 
     typing = Typing.new
-    annotations = source.annotations(block: source.node)
     checker = new_subtyping_checker()
+    annotations = source.annotations(block: source.node, builder: checker.builder, current_module: nil)
 
     const_env = ConstantEnv.new(builder: checker.builder, current_namespace: nil)
     type_env = TypeEnv.build(annotations: annotations,
@@ -5541,9 +5514,8 @@ end
 EOF
 
     typing = Typing.new
-    annotations = source.annotations(block: source.node)
     checker = new_subtyping_checker()
-
+    annotations = source.annotations(block: source.node, builder: checker.builder, current_module: nil)
     const_env = ConstantEnv.new(builder: checker.builder, current_namespace: nil)
     type_env = TypeEnv.build(annotations: annotations,
                              subtyping: checker,
