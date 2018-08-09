@@ -15,8 +15,7 @@ module Steep
         def ==(other)
           other.is_a?(self.class) &&
             other.name == name &&
-            other.type == type &&
-            (!other.location || !location || other.location == location)
+            other.type == type
         end
       end
 
@@ -32,8 +31,7 @@ module Steep
 
         def ==(other)
           other.is_a?(self.class) &&
-            other.type == type &&
-            (!other.location || !location || other.location == location)
+            other.type == type
         end
       end
 
@@ -73,15 +71,13 @@ module Steep
         attr_reader :location
         attr_reader :name
 
-        def initialize(name:, location:)
+        def initialize(name:, location: nil)
           @location = location
           @name = name
         end
 
         def ==(other)
-          other.is_a?(Implements) &&
-            other.name == name &&
-            other.location == location
+          other.is_a?(Implements) && other.name == name
         end
       end
 
@@ -122,8 +118,7 @@ module Steep
 
         def ==(other)
           other.is_a?(Dynamic) &&
-            other.names == names &&
-            (!other.location || location || other.location == location)
+            other.names == names
         end
       end
     end

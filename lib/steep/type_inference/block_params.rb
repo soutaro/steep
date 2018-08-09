@@ -56,7 +56,7 @@ module Steep
 
         node.children.each do |arg|
           var = arg.children.first
-          type = annotations.lookup_var_type(var.name)
+          type = annotations.var_type(lvar: var.name)
 
           case arg.type
           when :arg, :procarg0

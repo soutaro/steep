@@ -155,7 +155,7 @@ module Steep
     end
 
     def for_new_method(method_name, node, args:, self_type:)
-      annots = source.annotations(block: node)
+      annots = source.annotations(block: node, builder: checker.builder, current_module: current_namespace)
       type_env = TypeInference::TypeEnv.new(subtyping: checker,
                                             const_env: module_context&.const_env || self.type_env.const_env)
 
@@ -180,18 +180,16 @@ module Steep
         end
       end
 
-      annotation_method = annotations.lookup_method_type(method_name)&.yield_self do |method_type|
-        checker.builder.method_type_to_method_type(method_type, current: current_namespace).yield_self do |method_type|
-          subst = Interface::Substitution.build([],
-                                                instance_type: module_context&.instance_type || AST::Types::Instance.new,
-                                                module_type: module_context&.module_type || AST::Types::Class.new,
-                                                self_type: self_type)
-          Interface::Method.new(type_name: nil,
-                                name: method_name,
-                                types: [method_type.subst(subst)],
-                                super_method: interface_method&.super_method,
-                                attributes: [])
-        end
+      annotation_method = annotations.method_type(method_name)&.yield_self do |method_type|
+        subst = Interface::Substitution.build([],
+                                              instance_type: module_context&.instance_type || AST::Types::Instance.new,
+                                              module_type: module_context&.module_type || AST::Types::Class.new,
+                                              self_type: self_type)
+        Interface::Method.new(type_name: nil,
+                              name: method_name,
+                              types: [method_type.subst(subst)],
+                              super_method: interface_method&.super_method,
+                              attributes: [])
       end
 
       if interface_method && annotation_method
@@ -295,9 +293,9 @@ module Steep
       end
 
       type_env = type_env.with_annotations(
-        lvar_types: annots.var_types.transform_values {|annot| absolute_type(annot.type) },
+        lvar_types: annots.lvar_types,
         ivar_types: annots.ivar_types,
-        const_types: annots.const_types.transform_values {|type| absolute_type(type) }
+        const_types: annots.const_types,
       )
 
       self.class.new(
@@ -315,23 +313,33 @@ module Steep
     end
 
     def for_module(node)
-      annots = source.annotations(block: node)
       new_module_name = ModuleName.from_node(node.children.first) or raise "Unexpected module name: #{node.children.first}"
+      new_namespace = nested_namespace(new_module_name)
 
+      annots = source.annotations(block: node, builder: checker.builder, current_module: new_namespace)
       module_type = AST::Types::Name.new_instance(name: "::Module")
 
-      implement_module_name =
-        if annots.implement_module
-          annots.implement_module.name
+      implement_module_name = yield_self do
+        if (annotation = annots.implement_module_annotation)
+          absolute_name(annotation.name.name).yield_self do |absolute_name|
+            if checker.builder.signatures.module_name?(absolute_name)
+              AST::Annotation::Implements::Module.new(name: absolute_name,
+                                                      args: annotation.name.args)
+            else
+              Steep.logger.error "Unknown module name given to @implements: #{annotation.name.name}"
+              nil
+            end
+          end
         else
-          absolute_name(new_module_name).yield_self do |module_name|
-            if checker.builder.signatures.module_name?(module_name)
-              signature = checker.builder.signatures.find_module(module_name)
-              AST::Annotation::Implements::Module.new(name: module_name,
+          absolute_name(new_module_name).yield_self do |absolute_name|
+            if checker.builder.signatures.module_name?(absolute_name)
+              signature = checker.builder.signatures.find_module(absolute_name)
+              AST::Annotation::Implements::Module.new(name: absolute_name,
                                                       args: signature.params&.variables || [])
             end
           end
         end
+      end
 
       if implement_module_name
         module_name = implement_module_name.name
@@ -363,7 +371,6 @@ module Steep
         module_type = absolute_type(annots.module_type)
       end
 
-      new_namespace = nested_namespace(new_module_name)
       module_const_env = TypeInference::ConstantEnv.new(builder: checker.builder, current_namespace: new_namespace)
 
       module_context_ = ModuleContext.new(
@@ -394,21 +401,32 @@ module Steep
     end
 
     def for_class(node)
-      annots = source.annotations(block: node)
       new_class_name = ModuleName.from_node(node.children.first) or raise "Unexpected class name: #{node.children.first}"
+      new_namespace = nested_namespace(new_class_name)
 
-      implement_module_name =
-        if annots.implement_module
-          annots.implement_module.name
+      annots = source.annotations(block: node, builder: checker.builder, current_module: new_namespace)
+
+      implement_module_name = yield_self do
+        if (annotation = annots.implement_module_annotation)
+          absolute_name(annotation.name.name).yield_self do |absolute_name|
+            if checker.builder.signatures.class_name?(absolute_name)
+              AST::Annotation::Implements::Module.new(name: absolute_name,
+                                                      args: annotation.name.args)
+            else
+              Steep.logger.error "Unknown class name given to @implements: #{annotation.name.name}"
+              nil
+            end
+          end
         else
-          absolute_name(new_class_name).yield_self do |name|
-            if checker.builder.signatures.class_name?(name)
-              signature = checker.builder.signatures.find_class(name)
-              AST::Annotation::Implements::Module.new(name: name,
+          absolute_name(new_class_name).yield_self do |absolute_name|
+            if checker.builder.signatures.class_name?(absolute_name)
+              signature = checker.builder.signatures.find_class(absolute_name)
+              AST::Annotation::Implements::Module.new(name: absolute_name,
                                                       args: signature.params&.variables || [])
             end
           end
         end
+      end
 
       if implement_module_name
         class_name = implement_module_name.name
@@ -420,7 +438,6 @@ module Steep
         module_type = AST::Types::Name.new_class(name: class_name, args: [], constructor: true)
       end
 
-      new_namespace = nested_namespace(new_class_name)
       class_const_env = TypeInference::ConstantEnv.new(builder: checker.builder, current_namespace: new_namespace)
 
       module_context = ModuleContext.new(
@@ -453,7 +470,7 @@ module Steep
     end
 
     def for_branch(node, truthy_vars: Set.new, type_case_override: nil)
-      annots = source.annotations(block: node)
+      annots = source.annotations(block: node, builder: checker.builder, current_module: current_namespace)
 
       type_env = self.type_env
 
@@ -480,9 +497,9 @@ module Steep
       end
 
       type_env = type_env.with_annotations(
-        lvar_types: annots.var_types.transform_values {|a| absolute_type(a.type) },
-        ivar_types: annots.ivar_types.transform_values {|ty| absolute_type(ty) },
-        const_types: annots.const_types.transform_values {|ty| absolute_type(ty) },
+        lvar_types: annots.lvar_types,
+        ivar_types: annots.ivar_types,
+        const_types: annots.const_types,
         gvar_types: {}
       ) do |var, relation, result|
         typing.add_error(
@@ -1735,7 +1752,7 @@ module Steep
     end
 
     def type_lambda(node, block_params:, block_body:, type_hint:)
-      block_annotations = source.annotations(block: node)
+      block_annotations = source.annotations(block: node, builder: checker.builder, current_module: current_namespace)
       params = TypeInference::BlockParams.from_node(block_params, annotations: block_annotations)
 
       case type_hint
@@ -1814,7 +1831,7 @@ module Steep
 
         if block_body && block_params
           unless typing.has_type?(block_body)
-            block_annotations = source.annotations(block: node)
+            block_annotations = source.annotations(block: node, builder: checker.builder, current_module: current_namespace)
             params = TypeInference::BlockParams.from_node(block_params, annotations: block_annotations)
             pairs = params.each.map {|param| [param, Types.any] }
 
@@ -1840,9 +1857,9 @@ module Steep
         end
 
         env.with_annotations(
-          lvar_types: block_annotations.var_types.transform_values {|annot| absolute_type(annot.type) },
-          ivar_types: block_annotations.ivar_types.transform_values {|type| absolute_type(type) },
-          const_types: block_annotations.const_types.transform_values {|type| absolute_type(type) }
+          lvar_types: block_annotations.lvar_types,
+          ivar_types: block_annotations.ivar_types,
+          const_types: block_annotations.const_types,
         )
       end
 
@@ -1865,7 +1882,7 @@ module Steep
       [self.class.new(
         checker: checker,
         source: source,
-        annotations: annotations + block_annotations,
+        annotations: annotations.merge_block_annotations(block_annotations),
         type_env: block_type_env,
         block_context: block_context,
         typing: typing,
@@ -1967,7 +1984,7 @@ module Steep
         end
 
         if block_params && method_type.block
-          block_annotations = source.annotations(block: node)
+          block_annotations = source.annotations(block: node, builder: checker.builder, current_module: current_namespace)
           block_params_ = TypeInference::BlockParams.from_node(block_params, annotations: block_annotations)
           block_param_hint = block_params_.params_type(hint: method_type.block.type.params).map_type {|type| absolute_type(type) }
 
@@ -2108,8 +2125,8 @@ module Steep
           env.set(lvar: name, type: type)
         end
 
-        block_annotations.var_types.each do |name, annot|
-          env.set(lvar: name, type: absolute_type(annot.type))
+        block_annotations.lvar_types.each do |name, type|
+          env.set(lvar: name, type: type)
         end
       end
 
@@ -2132,7 +2149,7 @@ module Steep
       for_block_body = self.class.new(
         checker: checker,
         source: source,
-        annotations: annotations + block_annotations,
+        annotations: annotations.merge_block_annotations(block_annotations),
         type_env: block_type_env,
         block_context: block_context,
         typing: typing,
@@ -2415,7 +2432,7 @@ module Steep
         case
         when module_context.defined_instance_methods.include?(method_name)
           # ok
-        when annotations.dynamics[method_name]&.instance_method?
+        when annotations.instance_dynamics.include?(method_name)
           # ok
         else
           typing.add_error Errors::MethodDefinitionMissing.new(node: node,
@@ -2428,7 +2445,7 @@ module Steep
         case
         when module_context.defined_module_methods.include?(method_name)
           # ok
-        when annotations.dynamics[method_name]&.module_method?
+        when annotations.module_dynamics.include?(method_name)
           # ok
         else
           typing.add_error Errors::MethodDefinitionMissing.new(node: node,
@@ -2438,13 +2455,15 @@ module Steep
         end
       end
 
-      annotations.dynamics.each do |method_name, annotation|
-        case
-        when annotation.module_method? && expected_module_method_names.member?(method_name)
-          # ok
-        when annotation.instance_method? && expected_instance_method_names.member?(method_name)
-          # ok
-        else
+      annotations.instance_dynamics.each do |method_name|
+        unless expected_instance_method_names.member?(method_name)
+          typing.add_error Errors::UnexpectedDynamicMethod.new(node: node,
+                                                               module_name: module_name.name,
+                                                               method_name: method_name)
+        end
+      end
+      annotations.module_dynamics.each do |method_name|
+        unless expected_module_method_names.member?(method_name)
           typing.add_error Errors::UnexpectedDynamicMethod.new(node: node,
                                                                module_name: module_name.name,
                                                                method_name: method_name)

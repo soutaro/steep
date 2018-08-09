@@ -2,78 +2,155 @@ module Steep
   module AST
     module Annotation
       class Collection
-        attr_reader :var_types
-        attr_reader :method_types
         attr_reader :annotations
-        attr_reader :block_type
-        attr_reader :return_type
-        attr_reader :self_type
-        attr_reader :const_types
-        attr_reader :instance_type
-        attr_reader :module_type
-        attr_reader :implement_module
-        attr_reader :ivar_types
-        attr_reader :dynamics
-        attr_reader :break_type
+        attr_reader :builder
+        attr_reader :current_module
 
-        def initialize(annotations:)
-          @var_types = {}
-          @method_types = {}
-          @const_types = {}
-          @ivar_types = {}
-          @dynamics = {}
-          @break_type = nil
+        attr_reader :var_type_annotations
+        attr_reader :const_type_annotations
+        attr_reader :ivar_type_annotations
+        attr_reader :method_type_annotations
+        attr_reader :block_type_annotation
+        attr_reader :return_type_annotation
+        attr_reader :self_type_annotation
+        attr_reader :instance_type_annotation
+        attr_reader :module_type_annotation
+        attr_reader :implement_module_annotation
+        attr_reader :dynamic_annotations
+        attr_reader :break_type_annotation
+
+        def initialize(annotations:, builder:, current_module:)
+          @annotations = annotations
+          @builder = builder
+          @current_module = current_module
+
+          @var_type_annotations = {}
+          @method_type_annotations = {}
+          @const_type_annotations = {}
+          @ivar_type_annotations = {}
+          @dynamic_annotations = []
 
           annotations.each do |annotation|
             case annotation
             when VarType
-              var_types[annotation.name] = annotation
+              var_type_annotations[annotation.name] = annotation
             when MethodType
-              method_types[annotation.name] = annotation
+              method_type_annotations[annotation.name] = annotation
             when BlockType
-              @block_type = annotation.type
+              @block_type_annotation = annotation
             when ReturnType
-              @return_type = annotation.type
+              @return_type_annotation = annotation
             when SelfType
-              @self_type = annotation.type
+              @self_type_annotation = annotation
             when ConstType
-              @const_types[annotation.name] = annotation.type
+              @const_type_annotations[annotation.name] = annotation
             when InstanceType
-              @instance_type = annotation.type
+              @instance_type_annotation = annotation
             when ModuleType
-              @module_type = annotation.type
+              @module_type_annotation = annotation
             when Implements
-              @implement_module = annotation
+              @implement_module_annotation = annotation
             when IvarType
-              ivar_types[annotation.name] = annotation.type
+              @ivar_type_annotations[annotation.name] = annotation
             when Dynamic
-              annotation.names.each do |name|
-                dynamics[name.name] = name
-              end
+              @dynamic_annotations << annotation
             when BreakType
-              @break_type = annotation.type
+              @break_type_annotation = annotation
             else
               raise "Unexpected annotation: #{annotation.inspect}"
             end
           end
-
-          @annotations = annotations
         end
 
-        def lookup_var_type(name)
-          var_types[name]&.type
+        def absolute_type(type)
+          if type
+            builder.absolute_type(type, current: current_module)
+          end
         end
 
-        def lookup_method_type(name)
-          method_types[name]&.type
+        def var_type(lvar: nil, ivar: nil, const: nil)
+          case
+          when lvar
+            absolute_type(var_type_annotations[lvar]&.type)
+          when ivar
+            absolute_type(ivar_type_annotations[ivar]&.type)
+          when const
+            absolute_type(const_type_annotations[const]&.type)
+          end
         end
 
-        def lookup_const_type(node)
-          const_types[node]
+        def method_type(name)
+          if (a = method_type_annotations[name])
+            builder.method_type_to_method_type(a.type, current: current_module)
+          end
         end
 
-        def +(other)
-          self.class.new(annotations: annotations.reject {|a| a.is_a?(BlockType) } + other.annotations)
+        def block_type
+          absolute_type(block_type_annotation&.type)
+        end
+
+        def return_type
+          absolute_type(return_type_annotation&.type)
+        end
+
+        def self_type
+          absolute_type(self_type_annotation&.type)
+        end
+
+        def instance_type
+          absolute_type(instance_type_annotation&.type)
+        end
+
+        def module_type
+          absolute_type(module_type_annotation&.type)
+        end
+
+        def break_type
+          absolute_type(break_type_annotation&.type)
+        end
+
+        def lvar_types
+          var_type_annotations.each_key.with_object({}) do |name, hash|
+            hash[name] = var_type(lvar: name)
+          end
+        end
+
+        def ivar_types
+          ivar_type_annotations.each_key.with_object({}) do |name, hash|
+            hash[name] = var_type(ivar: name)
+          end
+        end
+
+        def const_types
+          const_type_annotations.each_key.with_object({}) do |name, hash|
+            hash[name] = var_type(const: name)
+          end
+        end
+
+        def instance_dynamics
+          dynamic_annotations.flat_map do |annot|
+            annot.names.select(&:instance_method?).map(&:name)
+          end
+        end
+
+        def module_dynamics
+          dynamic_annotations.flat_map do |annot|
+            annot.names.select(&:module_method?).map(&:name)
+          end
+        end
+
+        def merge_block_annotations(annotations)
+          if annotations.current_module != current_module || annotations.builder != builder
+            raise "Cannot merge another annotation: self=#{self}, other=#{annotations}"
+          end
+
+          retained_annotations = self.annotations.reject do |annotation|
+            annotation.is_a?(BlockType) || annotation.is_a?(BreakType)
+          end
+
+          self.class.new(annotations: retained_annotations + annotations.annotations,
+                         builder: builder,
+                         current_module: current_module)
         end
 
         def any?(&block)

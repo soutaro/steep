@@ -63,7 +63,7 @@ module Steep
         sources.each do |source|
           Steep.logger.tagged source.path do
             Steep.logger.debug "Typechecking..."
-            annotations = source.annotations(block: source.node) || []
+            annotations = source.annotations(block: source.node, builder: check.builder, current_module: nil)
 
             pp annotations if verbose
 
