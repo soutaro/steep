@@ -2,6 +2,18 @@
 
 ## master
 
+## 0.5.0 (2018-08-11)
+
+* Support *lambda* `->` (#47)
+* Introduce *incompatible* method (#45)
+* Add type alias (#44)
+* Steep is MIT license (#43)
+* Improved block parameter typing (#41) 
+* Support optional block
+* Support attributes in module
+* Support `:xstr` node
+* Allow missing method definition with `steep check` without `--strict`
+
 ## 0.4.0 (2018-06-14)
 
 * Add *tuple* type (#40)
