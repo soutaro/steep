@@ -12,6 +12,7 @@ Gem::Specification.new do |spec|
   spec.summary       = %q{Gradual Typing for Ruby}
   spec.description   = %q{Gradual Typing for Ruby}
   spec.homepage      = "https://github.com/soutaro/steep"
+  spec.license       = 'MIT'
 
   spec.files         = `git ls-files -z`.split("\x0").reject do |f|
     f.match(%r{^(test|spec|features)/})
