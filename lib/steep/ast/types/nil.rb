@@ -39,7 +39,7 @@ module Steep
         end
 
         def back_type
-          Name.new_instance(name: "::NilClass", location: location)
+          Name.new_instance(name: Builtin::NilClass.module_name, location: location)
         end
       end
     end

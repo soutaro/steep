@@ -16,7 +16,7 @@ class Object <: BasicObject
   def tap: { (instance) -> any } -> instance
 end
 
-class Class<'a>
+class Class
 end
 
 class Module

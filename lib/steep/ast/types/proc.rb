@@ -71,7 +71,7 @@ module Steep
         end
 
         def back_type
-          Name.new_instance(name: "::Proc", location: location)
+          Name.new_instance(name: Builtin::Proc.module_name, location: location)
         end
       end
     end

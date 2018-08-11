@@ -20,8 +20,8 @@ end
 class String
   def to_str: -> String
 end
-class Class<'a>
-  def new: (*any) -> 'a
+class Class
+  def new: (*any) -> any
 end
 class Object <: BasicObject end
 class BasicObject

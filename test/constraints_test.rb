@@ -12,8 +12,8 @@ class Object <: BasicObject
   def class: () -> class
 end
 
-class Class<'instance>
-  def new: (*any, **any) -> 'instance
+class Class
+  def new: (*any) -> any
 end
 
 class Module

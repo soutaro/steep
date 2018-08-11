@@ -44,11 +44,11 @@ module Steep
         def back_type
           case value
           when Integer
-            Name.new_instance(name: "::Integer")
+            Name.new_instance(name: Builtin::Integer.module_name, location: location)
           when String
-            Name.new_instance(name: "::String")
+            Name.new_instance(name: Builtin::String.module_name, location: location)
           when Symbol
-            Name.new_instance(name: "::Symbol")
+            Name.new_instance(name: Builtin::Symbol.module_name, location: location)
           else
             raise "Unexpected literal type: #{value.inspect}"
           end

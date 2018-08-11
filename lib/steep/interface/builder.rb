@@ -181,17 +181,17 @@ module Steep
           )
         }
 
-        klass = build(TypeName::Instance.new(name: ModuleName.parse("::Class")))
+        klass = build(TypeName::Instance.new(name: AST::Builtin::Class.module_name))
         instantiated = klass.instantiate(
           type: AST::Types::Self.new,
-          args: [AST::Types::Instance.new],
+          args: [],
           instance_type: AST::Types::Instance.new,
           module_type: AST::Types::Class.new
         )
         methods.merge!(instantiated.methods)
 
-        unless module_name == ModuleName.parse("::BasicObject")
-          super_class_name = sig.super_class&.name&.yield_self {|name| absolute_type_name(name, current: namespace) } || ModuleName.parse("::Object")
+        unless module_name == AST::Builtin::BasicObject.module_name
+          super_class_name = sig.super_class&.name&.yield_self {|name| absolute_type_name(name, current: namespace) } || AST::Builtin::Object.module_name
           merge_mixin(TypeName::Class.new(name: super_class_name, constructor: constructor),
                       [],
                       methods: methods,
@@ -258,6 +258,11 @@ module Steep
           end
         end
 
+        if methods[:new]&.type_name&.name == AST::Builtin::Class.module_name
+          new_types = methods[:new].types.map {|method_type| method_type.with(return_type: AST::Types::Instance.new) }
+          methods[:new] = methods[:new].with_types(new_types)
+        end
+
         unless constructor
           methods.delete(:new)
         end
@@ -280,7 +285,7 @@ module Steep
         methods = {}
         ivar_chains = {}
 
-        module_instance = build(TypeName::Instance.new(name: ModuleName.parse("::Module")))
+        module_instance = build(TypeName::Instance.new(name: AST::Builtin::Module.module_name))
         instantiated = module_instance.instantiate(
           type: AST::Types::Self.new,
           args: [],
@@ -353,8 +358,8 @@ module Steep
         ivar_chains = {}
 
         if sig.is_a?(AST::Signature::Class)
-          unless sig.name == ModuleName.parse("::BasicObject")
-            super_class_name = sig.super_class&.name || ModuleName.parse("::Object")
+          unless sig.name == AST::Builtin::BasicObject.module_name
+            super_class_name = sig.super_class&.name || AST::Builtin::Object.module_name
             super_class_interface = build(TypeName::Instance.new(name: super_class_name),
                                           current: namespace,
                                           with_initialize: with_initialize)

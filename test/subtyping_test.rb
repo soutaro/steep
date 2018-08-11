@@ -14,8 +14,8 @@ class Object <: BasicObject
   def yield_self: <'a> { (self) -> 'a } -> 'a
 end
 
-class Class<'instance>
-  def new: (*any, **any) -> 'instance
+class Class
+  def new: (*any) -> any
   def allocate: -> any
 end
 

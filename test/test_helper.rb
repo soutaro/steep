@@ -311,7 +311,7 @@ class Object <: BasicObject
   def !: -> bool
 end
 
-class Class<'a>
+class Class
 end
 
 class Module

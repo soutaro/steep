@@ -768,8 +768,7 @@ module Steep
         when AST::Types::Tuple
           yield_self do
             element_type = AST::Types::Union.build(types: type.types)
-            array_type = AST::Types::Name.new_instance(name: "::Array",
-                                                       args: [element_type])
+            array_type = AST::Builtin::Array.instance_type(element_type)
             array_interface = resolve(array_type, self_type: self_type, with_initialize: with_initialize)
 
             array_interface.methods[:[]] = array_interface.methods[:[]].yield_self do |aref|

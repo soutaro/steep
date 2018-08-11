@@ -41,8 +41,8 @@ module Steep
         def back_type
           Union.build(types:
                       [
-                        Name.new_instance(name: "::TrueClass", location: location),
-                        Name.new_instance(name: "::FalseClass", location: location)
+                        Builtin::TrueClass.instance_type,
+                        Builtin::FalseClass.instance_type
                       ],
                       location: location)
         end

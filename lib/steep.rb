@@ -41,8 +41,8 @@ require "steep/ast/signature/alias"
 require "steep/ast/annotation"
 require "steep/ast/annotation/collection"
 require "steep/ast/buffer"
-
 require "steep/type_name"
+require "steep/ast/builtin"
 
 require "steep/interface/method_type"
 require "steep/interface/method"

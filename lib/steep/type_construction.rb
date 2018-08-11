@@ -1,58 +1,5 @@
 module Steep
   class TypeConstruction
-    module Types
-      module_function
-
-      def any
-        AST::Types::Any.new
-      end
-
-      def symbol_instance
-        AST::Types::Name.new_instance(name: "::Symbol")
-      end
-
-      def nil_instance
-        AST::Types::Nil.new
-      end
-
-      def string_instance
-        AST::Types::Name.new_instance(name: "::String")
-      end
-
-      def array_instance(type)
-        AST::Types::Name.new_instance(name: "::Array", args: [type])
-      end
-
-      def hash_instance(key, value)
-        AST::Types::Name.new_instance(name: "::Hash", args: [key, value])
-      end
-
-      def range_instance(type)
-        AST::Types::Name.new_instance(name: "::Range", args: [type])
-      end
-
-      def boolean?(type)
-        type.is_a?(AST::Types::Boolean)
-      end
-
-      def optional(type)
-        AST::Types::Union.build(types: [type, nil_instance])
-      end
-
-      def hash_instance?(type)
-        case type
-        when AST::Types::Name
-          type.name.is_a?(TypeName::Instance) && type.name.name == ModuleName.parse("::Hash")
-        else
-          false
-        end
-      end
-
-      def array_instance?(type)
-        type.is_a?(AST::Types::Name) && type.name.is_a?(TypeName::Instance) && type.name.name == ModuleName.parse("::Array")
-      end
-    end
-
     class MethodContext
       attr_reader :name
       attr_reader :method
@@ -169,7 +116,7 @@ module Steep
 
       self_type = expand_alias(annots.self_type || self_type)
 
-      self_interface = self_type && (self_type != Types.any || nil) && checker.resolve(self_type, with_initialize: true)
+      self_interface = self_type && (self_type != AST::Builtin.any_type || nil) && checker.resolve(self_type, with_initialize: true)
       interface_method = self_interface&.yield_self do |interface|
         interface.methods[method_name]&.yield_self do |method|
           if self_type.is_a?(AST::Types::Name) && method.type_name == self_type.name
@@ -247,7 +194,7 @@ module Steep
         if (block_arg = args.find {|arg| arg.type == :blockarg })
           if method_type.block
             block_type = if method_type.block.optional?
-                           AST::Types::Union.build(types: [method_type.block.type, Types.nil_instance])
+                           AST::Types::Union.build(types: [method_type.block.type, AST::Builtin.nil_type])
                          else
                            method_type.block.type
                          end
@@ -321,7 +268,7 @@ module Steep
       new_namespace = nested_namespace_for_module(new_module_name)
 
       annots = source.annotations(block: node, builder: checker.builder, current_module: new_namespace)
-      module_type = AST::Types::Name.new_instance(name: "::Module")
+      module_type = AST::Builtin::Module.instance_type
 
       implement_module_name = yield_self do
         if (annotation = annots.implement_module_annotation)
@@ -355,12 +302,12 @@ module Steep
 
         unless abstract.supers.empty?
           instance_type = AST::Types::Intersection.build(
-            types: [instance_type, AST::Types::Name.new_instance(name: "::Object")] + abstract.supers.map {|x| absolute_type(x) }
+            types: [instance_type, AST::Builtin::Object.instance_type] + abstract.supers.map {|x| absolute_type(x) }
           )
         end
 
         module_type = AST::Types::Intersection.build(types: [
-          AST::Types::Name.new_instance(name: "::Module"),
+          AST::Builtin::Module.instance_type,
           absolute_type(AST::Types::Name.new_module(name: module_name, args: module_args))
         ])
       end
@@ -555,7 +502,7 @@ module Steep
             if last_node
               type = synthesize(last_node, hint: hint)
             else
-              type = Types.nil_instance
+              type = AST::Builtin.nil_type
             end
 
             typing.add_typing(node, type)
@@ -567,8 +514,8 @@ module Steep
             rhs = node.children[1]
 
             if var.name == :_
-              synthesize(rhs, hint: Types.any)
-              typing.add_typing(node, Types.any)
+              synthesize(rhs, hint: AST::Builtin.any_type)
+              typing.add_typing(node, AST::Builtin.any_type)
             else
               type_assignment(var, rhs, node, hint: hint)
             end
@@ -630,14 +577,14 @@ module Steep
                      type_send(node, send_node: node, block_params: nil, block_body: nil, unwrap: true)
                    end
 
-            union_type(type, Types.nil_instance)
+            union_type(type, AST::Builtin.nil_type)
           end
 
         when :match_with_lvasgn
           each_child_node(node) do |child|
             synthesize(child)
           end
-          typing.add_typing(node, Types.any)
+          typing.add_typing(node, AST::Builtin.any_type)
 
         when :op_asgn
           yield_self do
@@ -660,7 +607,7 @@ module Steep
                        end
 
             case
-            when lhs_type == Types.any
+            when lhs_type == AST::Builtin.any_type
               typing.add_typing(node, lhs_type)
             when !lhs_type
               fallback_to_any(node)
@@ -732,7 +679,7 @@ module Steep
                 end
               end
             else
-              typing.add_typing node, Types.any
+              typing.add_typing node, AST::Builtin.any_type
             end
           end
 
@@ -772,13 +719,13 @@ module Steep
             return_type = expand_alias(new.method_context&.return_type)
             if return_type && !return_type.is_a?(AST::Types::Void)
               result = checker.check(
-                Subtyping::Relation.new(sub_type: Types.nil_instance, super_type: return_type),
+                Subtyping::Relation.new(sub_type: AST::Builtin.nil_type, super_type: return_type),
                 constraints: Subtyping::Constraints.empty
               )
               if result.failure?
                 typing.add_error(Errors::MethodBodyTypeMismatch.new(node: node,
                                                                     expected: new.method_context&.return_type,
-                                                                    actual: Types.nil_instance,
+                                                                    actual: AST::Builtin.nil_type,
                                                                     result: result))
               end
             end            
@@ -788,7 +735,7 @@ module Steep
             module_context.defined_instance_methods << node.children[0]
           end
 
-          typing.add_typing(node, Types.any)
+          typing.add_typing(node, AST::Builtin.any_type)
 
         when :defs
           synthesize(node.children[0]).tap do |self_type|
@@ -822,7 +769,7 @@ module Steep
             end
           end
 
-          typing.add_typing(node, Types.symbol_instance)
+          typing.add_typing(node, AST::Builtin::Symbol.instance_type)
 
         when :return
           yield_self do
@@ -834,7 +781,7 @@ module Steep
               value_type = if return_types.size == 1
                              return_types.first
                            else
-                             Types.array_instance(union_type(*return_types))
+                             AST::Builtin::Array.instance_type(union_type(*return_types))
                            end
 
               if (ret_type = expand_alias(method_context&.return_type))
@@ -855,7 +802,7 @@ module Steep
               end
             end
 
-            typing.add_typing(node, Types.any)
+            typing.add_typing(node, AST::Builtin.any_type)
           end
 
         when :break
@@ -881,7 +828,7 @@ module Steep
             typing.add_error Errors::UnexpectedJump.new(node: node)
           end
 
-          typing.add_typing(node, Types.any)
+          typing.add_typing(node, AST::Builtin.any_type)
 
         when :next
           value = node.children[0]
@@ -906,13 +853,13 @@ module Steep
             typing.add_error Errors::UnexpectedJump.new(node: node)
           end
 
-          typing.add_typing(node, Types.any)
+          typing.add_typing(node, AST::Builtin.any_type)
 
         when :retry
           unless break_context
             typing.add_error Errors::UnexpectedJump.new(node: node)
           end
-          typing.add_typing(node, Types.any)
+          typing.add_typing(node, AST::Builtin.any_type)
 
         when :arg, :kwarg, :procarg0
           yield_self do
@@ -935,7 +882,7 @@ module Steep
             var = node.children[0]
             type = type_env.get(lvar: var.name) do
               typing.add_error Errors::FallbackAny.new(node: node)
-              Types.array_instance(Types.any)
+              AST::Builtin::Array.instance_type(AST::Builtin.any_type)
             end
 
             typing.add_typing(node, type)
@@ -946,17 +893,17 @@ module Steep
             var = node.children[0]
             type = type_env.get(lvar: var.name) do
               typing.add_error Errors::FallbackAny.new(node: node)
-              Types.hash_instance(Types.symbol_instance, Types.any)
+              AST::Builtin::Hash.instance_type(AST::Builtin::Symbol.instance_type, AST::Builtin.any_type)
             end
 
             typing.add_typing(node, type)
           end
 
         when :float
-          typing.add_typing(node, AST::Types::Name.new_instance(name: "::Float"))
+          typing.add_typing(node, AST::Builtin::Float.instance_type)
 
         when :nil
-          typing.add_typing(node, Types.nil_instance)
+          typing.add_typing(node, AST::Builtin.nil_type)
 
         when :int
           yield_self do
@@ -965,7 +912,7 @@ module Steep
             if literal_type
               typing.add_typing(node, literal_type)
             else
-              typing.add_typing(node, AST::Types::Name.new_instance(name: "::Integer"))
+              typing.add_typing(node, AST::Builtin::Integer.instance_type)
             end
           end
 
@@ -976,7 +923,7 @@ module Steep
             if literal_type
               typing.add_typing(node, literal_type)
             else
-              typing.add_typing(node, Types.symbol_instance)
+              typing.add_typing(node, AST::Builtin::Symbol.instance_type)
             end
           end
 
@@ -987,7 +934,7 @@ module Steep
             if literal_type
               typing.add_typing(node, literal_type)
             else
-              typing.add_typing(node, Types.string_instance)
+              typing.add_typing(node, AST::Builtin::String.instance_type)
             end
           end
 
@@ -996,7 +943,7 @@ module Steep
 
         when :hash
           yield_self do
-            if Types.hash_instance?(hint)
+            if AST::Builtin::Hash.instance_type?(hint)
               key_hint = hint.args[0]
               value_hint = hint.args[1]
             end
@@ -1016,13 +963,13 @@ module Steep
                 end
               when :kwsplat
                 expand_alias(synthesize(child.children[0])) do |splat_type, original_type|
-                  if splat_type.is_a?(AST::Types::Name) && splat_type.name == TypeName::Instance.new(name: ModuleName.parse("::Hash"))
+                  if AST::Builtin::Hash.instance_type?(splat_type)
                     key_types << splat_type.args[0]
                     value_types << splat_type.args[1]
                   else
                     typing.add_error Errors::UnexpectedSplat.new(node: child, type: original_type)
-                    key_types << Types.any
-                    value_types << Types.any
+                    key_types << AST::Builtin.any_type
+                    value_types << AST::Builtin.any_type
                   end
                 end
               else
@@ -1030,14 +977,14 @@ module Steep
               end
             end
 
-            key_type = key_types.empty? ? Types.any : AST::Types::Union.build(types: key_types)
-            value_type = value_types.empty? ? Types.any : AST::Types::Union.build(types: value_types)
+            key_type = key_types.empty? ? AST::Builtin.any_type : AST::Types::Union.build(types: key_types)
+            value_type = value_types.empty? ? AST::Builtin.any_type : AST::Types::Union.build(types: value_types)
 
             if key_types.empty? && value_types.empty? && !hint
               typing.add_error Errors::FallbackAny.new(node: node)
             end
 
-            typing.add_typing(node, Types.hash_instance(key_type, value_type))
+            typing.add_typing(node, AST::Builtin::Hash.instance_type(key_type, value_type))
           end
 
         when :dstr, :xstr
@@ -1045,14 +992,14 @@ module Steep
             synthesize(child)
           end
 
-          typing.add_typing(node, Types.string_instance)
+          typing.add_typing(node, AST::Builtin::String.instance_type)
 
         when :dsym
           each_child_node(node) do |child|
             synthesize(child)
           end
 
-          typing.add_typing(node, Types.symbol_instance)
+          typing.add_typing(node, AST::Builtin::Symbol.instance_type)
 
         when :class
           yield_self do
@@ -1064,7 +1011,7 @@ module Steep
               end
             end
 
-            typing.add_typing(node, Types.nil_instance)
+            typing.add_typing(node, AST::Builtin.nil_type)
           end
 
         when :module
@@ -1077,7 +1024,7 @@ module Steep
               end
             end
 
-            typing.add_typing(node, Types.nil_instance)
+            typing.add_typing(node, AST::Builtin.nil_type)
           end
 
         when :self
@@ -1153,7 +1100,7 @@ module Steep
               if method_context.super_method
                 if method_context.method.incompatible?
                   typing.add_error Errors::IncompatibleZuper.new(node: node, method: method_context.name)
-                  typing.add_typing node, Types.any
+                  typing.add_typing node, AST::Builtin.any_type
                 else
                   types = method_context.super_method.types.map(&:return_type)
                   typing.add_typing(node, union_type(*types))
@@ -1173,7 +1120,7 @@ module Steep
               unless hint
                 typing.add_error Errors::FallbackAny.new(node: node)
               end
-              typing.add_typing(node, Types.array_instance(Types.any))
+              typing.add_typing(node, AST::Builtin::Array.instance_type(AST::Builtin.any_type))
             else
               is_tuple = nil
 
@@ -1194,7 +1141,7 @@ module Steep
                 array_type = hint
               else
                 element_hint = expand_alias(hint) do |hint|
-                  Types.array_instance?(hint) && hint.args[0]
+                  AST::Builtin::Array.instance_type?(hint) && hint.args[0]
                 end
 
                 element_types = node.children.flat_map do |e|
@@ -1211,11 +1158,9 @@ module Steep
                       end
                     end.map do |type|
                       case
-                      when Types.array_instance?(type)
+                      when AST::Builtin::Array.instance_type?(type)
                         type.args.first
-                      when type.is_a?(AST::Types::Name) &&
-                        type.name.is_a?(TypeName::Instance) &&
-                        type.name.name == ModuleName.parse("::Range")
+                      when AST::Builtin::Range.instance_type?(type)
                         type.args.first
                       else
                         type
@@ -1225,7 +1170,7 @@ module Steep
                     [select_super_type(synthesize(e), element_hint)]
                   end
                 end
-                array_type = Types.array_instance(AST::Types::Union.build(types: element_types))
+                array_type = AST::Builtin::Array.instance_type(AST::Types::Union.build(types: element_types))
               end
 
               typing.add_typing(node, array_type)
@@ -1246,10 +1191,10 @@ module Steep
             type_env.join!([right_env, TypeInference::TypeEnv.new(subtyping: checker,
                                                                   const_env: nil)])
 
-            if Types.boolean?(left_type)
+            if left_type.is_a?(AST::Types::Boolean)
               typing.add_typing(node, union_type(left_type, right_type))
             else
-              typing.add_typing(node, union_type(right_type, Types.nil_instance))
+              typing.add_typing(node, union_type(right_type, AST::Builtin.nil_type))
             end
           end
 
@@ -1328,7 +1273,7 @@ module Steep
                     pairs << [type, body_construction.type_env]
                   end
                 else
-                  pairs << [Types.nil_instance, nil]
+                  pairs << [AST::Builtin.nil_type, nil]
                 end
               else
                 if clause
@@ -1341,7 +1286,7 @@ module Steep
                     else
                       typing.add_error Errors::ElseOnExhaustiveCase.new(node: node, type: cond_type)
                       type_case_override = var_names.each.with_object({}) do |var_name, hash|
-                        hash[var_name] = Types.any
+                        hash[var_name] = AST::Builtin.any_type
                       end
                     end
                   end
@@ -1359,7 +1304,7 @@ module Steep
 
             if var_types
               unless var_types.empty? || whens.last
-                types.push Types.nil_instance
+                types.push AST::Builtin.nil_type
               end
             end
 
@@ -1403,12 +1348,12 @@ module Steep
                   when type.is_a?(AST::Types::Name) && type.name.is_a?(TypeName::Class)
                     type.instance_type
                   else
-                    Types.any
+                    AST::Builtin.any_type
                   end
                 end
                 type_override[var_name] = AST::Types::Union.build(types: instance_types)
               when var_name
-                type_override[var_name] = Types.any
+                type_override[var_name] = AST::Builtin.any_type
               end
 
               resbody_construction = for_branch(resbody, type_case_override: type_override)
@@ -1416,7 +1361,7 @@ module Steep
               type = if body
                        resbody_construction.synthesize(body)
                      else
-                       Types.nil_instance
+                       AST::Builtin.nil_type
                      end
               [type, resbody_construction.type_env]
             end
@@ -1467,12 +1412,12 @@ module Steep
               type_env.join!([for_loop.type_env])
             end
 
-            typing.add_typing(node, Types.any)
+            typing.add_typing(node, AST::Builtin.any_type)
           end
 
         when :irange, :erange
           types = node.children.map {|n| synthesize(n) }
-          type = Types.range_instance(union_type(*types))
+          type = AST::Builtin::Range.instance_type(union_type(*types))
           typing.add_typing(node, type)
 
         when :regexp
@@ -1480,14 +1425,14 @@ module Steep
             synthesize(child)
           end
 
-          typing.add_typing(node, AST::Types::Name.new_instance(name: "::Regexp"))
+          typing.add_typing(node, AST::Builtin::Regexp.instance_type)
 
         when :regopt
           # ignore
-          typing.add_typing(node, Types.any)
+          typing.add_typing(node, AST::Builtin.any_type)
 
         when :nth_ref, :back_ref
-          typing.add_typing(node, Types.string_instance)
+          typing.add_typing(node, AST::Builtin::String.instance_type)
 
         when :or_asgn, :and_asgn
           yield_self do
@@ -1501,7 +1446,7 @@ module Steep
             synthesize(child)
           end
 
-          typing.add_typing(node, Types.any)
+          typing.add_typing(node, AST::Builtin.any_type)
 
         when :gvasgn
           yield_self do
@@ -1569,7 +1514,7 @@ module Steep
               synthesize(child)
             end
 
-            typing.add_typing node, Types.any
+            typing.add_typing node, AST::Builtin.any_type
           end
 
         when :splat, :sclass
@@ -1580,7 +1525,7 @@ module Steep
               synthesize(child)
             end
 
-            typing.add_typing node, Types.any
+            typing.add_typing node, AST::Builtin.any_type
           end
 
         else
@@ -1673,7 +1618,7 @@ module Steep
 
           case
           when asgn.type == :lvasgn && asgn.children[0].name != :_
-            type ||= Types.nil_instance
+            type ||= AST::Builtin.nil_type
             type_env.assign(lvar: asgn.children[0].name, type: type) do |result|
               var_type = type_env.get(lvar: asgn.children[0].name)
               typing.add_error(Errors::IncompatibleAssignment.new(node: node,
@@ -1682,7 +1627,7 @@ module Steep
                                                                   result: result))
             end
           when asgn.type == :ivasgn
-            type ||= Types.nil_instance
+            type ||= AST::Builtin.nil_type
             type_env.assign(ivar: asgn.children[0], type: type) do |result|
               var_type = type_env.get(ivar: asgn.children[0])
               typing.add_error(Errors::IncompatibleAssignment.new(node: node,
@@ -1698,9 +1643,7 @@ module Steep
       when rhs_type.is_a?(AST::Types::Any)
         fallback_to_any(node)
 
-      when rhs_type.is_a?(AST::Types::Name) &&
-        rhs_type.name.is_a?(TypeName::Instance) &&
-        rhs_type.name.name == ModuleName.parse("::Array")
+      when AST::Builtin::Array.instance_type?(rhs_type)
         element_type = rhs_type.args.first
 
         lhs.children.each do |assignment|
@@ -1728,11 +1671,7 @@ module Steep
         typing.add_typing node, rhs_type
 
       when rhs_type.is_a?(AST::Types::Union) &&
-        rhs_type.types.all? do |type|
-          type.is_a?(AST::Types::Name) &&
-            type.name.is_a?(TypeName::Instance) &&
-            type.name.name == ModuleName.parse("::Array")
-        end
+        rhs_type.types.all? {|type| AST::Builtin::Array.instance_type?(type) }
 
         types = rhs_type.types.flat_map do |type|
           type.args.first
@@ -1800,7 +1739,7 @@ module Steep
 
       case receiver_type
       when AST::Types::Any
-        typing.add_typing node, Types.any
+        typing.add_typing node, AST::Builtin.any_type
 
       when nil
         fallback_to_any node
@@ -1841,7 +1780,7 @@ module Steep
           unless typing.has_type?(arg)
             if arg.type == :splat
               type = synthesize(arg.children[0])
-              typing.add_typing(arg, Types.array_instance(type))
+              typing.add_typing(arg, AST::Builtin::Array.instance_type(type))
             else
               synthesize(arg)
             end
@@ -1852,11 +1791,11 @@ module Steep
           unless typing.has_type?(block_body)
             block_annotations = source.annotations(block: node, builder: checker.builder, current_module: current_namespace)
             params = TypeInference::BlockParams.from_node(block_params, annotations: block_annotations)
-            pairs = params.each.map {|param| [param, Types.any] }
+            pairs = params.each.map {|param| [param, AST::Builtin.any_type] }
 
             for_block, _ = for_block(block_annotations: block_annotations,
                                      param_pairs: pairs,
-                                     method_return_type: Types.any,
+                                     method_return_type: AST::Builtin.any_type,
                                      typing: typing)
 
             for_block.synthesize(block_body)
@@ -1949,7 +1888,7 @@ module Steep
 
         case method_type.return_type
         when AST::Types::Var
-          Types.any
+          AST::Builtin.any_type
         else
           method_type.return_type
         end
@@ -2073,7 +2012,7 @@ module Steep
               relation = Subtyping::Relation.new(sub_type: block_type,
                                                  super_type: method_type.block.yield_self do |expected_block|
                                                    if expected_block.optional?
-                                                     Types.optional(expected_block.type)
+                                                     AST::Builtin.optional(expected_block.type)
                                                    else
                                                      expected_block.type
                                                    end
@@ -2135,7 +2074,7 @@ module Steep
       else
         block_params.each do |param|
           var_name = param.var.name
-          param_types_hash[var_name] = param.type || Types.any
+          param_types_hash[var_name] = param.type || AST::Builtin.any_type
         end
       end
 
@@ -2192,7 +2131,7 @@ module Steep
                         for_block_body.synthesize(block_body, hint: block_type_hint)
                       end
       else
-        return_type = Types.any
+        return_type = AST::Builtin.any_type
       end
 
       AST::Types::Proc.new(
@@ -2361,7 +2300,7 @@ module Steep
       if type.params.rest
         a = nodes.first
         if a&.type == :restarg
-          env[a.children.first] = Types.array_instance(type.params.rest)
+          env[a.children.first] = AST::Builtin::Array.instance_type(type.params.rest)
           nodes.shift
         end
       end
@@ -2382,7 +2321,7 @@ module Steep
         if node.type == :kwrestarg
           ty = type.params.rest_keywords
           if ty
-            env[node.children[0]] = Types.hash_instance(Types.symbol_instance, ty)
+            env[node.children[0]] = AST::Builtin::Hash.instance_type(AST::Builtin::Symbol.instance_type, ty)
           end
         end
       end
@@ -2513,7 +2452,7 @@ module Steep
         typing.add_error Errors::FallbackAny.new(node: node)
       end
 
-      typing.add_typing node, Types.any
+      typing.add_typing node, AST::Builtin.any_type
     end
 
     def self_class?(node)
