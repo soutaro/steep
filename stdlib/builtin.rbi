@@ -44,7 +44,6 @@ class Method
 end
 
 class Class <: Module
-  def new: (*any) -> any
   def class: -> Class.class
   def allocate: -> any
 end

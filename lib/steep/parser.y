@@ -259,16 +259,50 @@ rule
                                   result = AST::MethodType::Params::Rest.new(location: val[0].first, type: val[0].last)
                                 }
 
-                   simple_type: type_name
+              application_args: # nothing
                                 {
-                                  result = AST::Types::Name.new(name: val[0].value, location: val[0].location, args: [])
+                                  result = nil
                                 }
-                              | application_type_name tLT type_seq tGT
+                              | tLT type_seq tGT
                                 {
-                                  loc = val[0].location + val[3].location
-                                  name = val[0].value
-                                  args = val[2]
-                                  result = AST::Types::Name.new(location: loc, name: name, args: args)
+                                  result = LocatedValue.new(location: val[0].location + val[2].location,
+                                                            value: val[1])
+                                }
+
+                   simple_type: module_name tDOT kCLASS constructor
+                                {
+                                  loc = val[0].location + (val[3] || val[2]).location
+                                  result = AST::Types::Name::Class.new(name: val[0].value,
+                                                                       constructor: val[3]&.value,
+                                                                       location: loc)
+                                }
+                              | module_name tDOT kMODULE
+                                {
+                                  loc = val[0].location + val[2].location
+                                  result = AST::Types::Name::Module.new(name: val[0].value, location: loc)
+                                }
+                              | module_name application_args
+                                {
+                                  loc = val[0].location + val[1]&.location
+                                  result = AST::Types::Name::Instance.new(name: val[0].value,
+                                                                          location: loc,
+                                                                          args: val[1]&.value || [])
+                                }
+                              | tINTERFACE_NAME application_args
+                                {
+                                  interface_name = InterfaceName.new(name: val[0].value)
+                                  loc = val[0].location + val[1]&.location
+                                  result = AST::Types::Name::Interface.new(name: interface_name,
+                                                                           location: loc,
+                                                                           args: val[1]&.value || [])
+                                }
+                              | tIDENT application_args
+                                {
+                                  alias_name = AliasName.new(name: val[0].value)
+                                  loc = val[0].location + val[1]&.location
+                                  result = AST::Types::Name::Alias.new(name: alias_name,
+                                                                       location: loc,
+                                                                       args: val[1]&.value || [])
                                 }
                               | kANY
                                 {
@@ -341,38 +375,6 @@ rule
                                   result = val[1].with_location(val[0].location + val[2].location)
                                 }
                               | simple_type
-
-         application_type_name: module_name
-                                {
-                                  result = LocatedValue.new(value: TypeName::Instance.new(name: val[0].value),
-                                                            location: val[0].location)
-                                }
-                              | tINTERFACE_NAME
-                                {
-                                  interface_name = InterfaceName.new(name: val[0].value)
-                                  result = LocatedValue.new(value: TypeName::Interface.new(name: interface_name),
-                                                            location: val[0].location)
-                                }
-                              | tIDENT
-                                {
-                                  alias_name = AliasName.new(name: val[0].value)
-                                  result = LocatedValue.new(value: TypeName::Alias.new(name: alias_name),
-                                                            location: val[0].location)
-                                }
-
-                     type_name: application_type_name
-                              | module_name tDOT kCLASS constructor
-                                {
-                                  loc = val[0].location + (val[3] || val[2]).location
-                                  result = LocatedValue.new(value: TypeName::Class.new(name: val[0].value, constructor: val[3]&.value),
-                                                            location: loc)
-                                }
-                              | module_name tDOT kMODULE
-                                {
-                                  loc = val[0].location + val.last.location
-                                  result = LocatedValue.new(value: TypeName::Module.new(name: val[0].value),
-                                                            location: loc)
-                                }
 
                    constructor: # nothing
                                 {

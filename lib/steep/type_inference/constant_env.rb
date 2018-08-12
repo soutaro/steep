@@ -34,11 +34,9 @@ module Steep
         full_name = name.in_namespace(namespace)
         case
         when signatures.module_name?(full_name)
-          AST::Types::Name.new(name: TypeName::Module.new(name: full_name),
-                               args: [])
+          AST::Types::Name::Module.new(name: full_name)
         when signatures.class_name?(full_name)
-          AST::Types::Name.new(name: TypeName::Class.new(name: full_name, constructor: true),
-                               args: [])
+          AST::Types::Name::Class.new(name: full_name, constructor: true)
         when signatures.const_name?(full_name)
           builder.absolute_type(signatures.find_const(name, current_module: namespace).type,
                                 current: namespace)

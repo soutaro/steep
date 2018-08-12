@@ -9,7 +9,6 @@ class TypeConstructionTest < Minitest::Test
   Annotation = Steep::AST::Annotation
   Types = Steep::AST::Types
   Interface = Steep::Interface
-  TypeName = Steep::TypeName
   Signature = Steep::AST::Signature
   TypeInference = Steep::TypeInference
   ConstantEnv = Steep::TypeInference::ConstantEnv
@@ -3632,12 +3631,8 @@ EOF
     construction.synthesize(source.node)
 
     assert_empty typing.errors
-    assert_equal Types::Union.build(types:[Types::Name.new_instance(name: "::String"),
-                                           Types::Name.new_instance(name: "::Integer"),
-                                           Types::Nil.new]),
-                 construction.type_env.lvar_types[:y]
-    assert_equal Types::Name.new_instance(name: "::Symbol"),
-                 construction.type_env.lvar_types[:z]
+    assert_equal parse_type("::String | ::Integer | nil"), construction.type_env.lvar_types[:y]
+    assert_equal parse_type("::Symbol"), construction.type_env.lvar_types[:z]
   end
 
   def test_type_case_array2
@@ -5353,6 +5348,10 @@ EOF
                                         break_context: nil)
 
     construction.synthesize(source.node)
+
+    typing.errors.each do |error|
+      error.print_to STDOUT
+    end
 
     assert_empty typing.errors
     assert_equal parse_type("::Array< ::String>"), type_env.lvar_types[:a]

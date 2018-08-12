@@ -5,67 +5,61 @@ class TypeParsingTest < Minitest::Test
   include ASTAssertion
 
   AST = Steep::AST
-  TypeName = Steep::TypeName
   ModuleName = Steep::ModuleName
   InterfaceName = Steep::InterfaceName
 
   def test_interface
     type = parse_method_type("() -> _Foo").return_type
-    assert_instance_of AST::Types::Name, type
+    assert_instance_of AST::Types::Name::Interface, type
     assert_location type, start_line: 1, start_column: 6, end_line: 1, end_column: 10
-    assert_equal TypeName::Interface.new(name: InterfaceName.new(name: :_Foo)), type.name
+    assert_equal InterfaceName.new(name: :_Foo), type.name
     assert_equal [], type.args
   end
 
   def test_instance
     type = parse_method_type("() -> Foo").return_type
-    assert_instance_of AST::Types::Name, type
+    assert_instance_of AST::Types::Name::Instance, type
     assert_location type, start_line: 1, start_column: 6, end_line: 1, end_column: 9
-    assert_equal TypeName::Instance.new(name: ModuleName.new(namespace: AST::Namespace.empty, name: :Foo)), type.name
+    assert_equal ModuleName.new(namespace: AST::Namespace.empty, name: :Foo), type.name
     assert_equal [], type.args
   end
 
   def test_class
     type = parse_method_type("() -> Foo.class").return_type
 
-    assert_instance_of AST::Types::Name, type
+    assert_instance_of AST::Types::Name::Class, type
     assert_location type, start_line: 1, start_column: 6, end_line: 1, end_column: 15
-    assert_equal TypeName::Class.new(name: ModuleName.new(namespace: AST::Namespace.empty, name: :Foo),
-                                     constructor: nil),
+    assert_equal ModuleName.new(namespace: AST::Namespace.empty, name: :Foo),
                  type.name
-    assert_equal [], type.args
+    assert_nil type.constructor
   end
 
   def test_module
     type = parse_method_type("() -> Foo.module").return_type
 
-    assert_instance_of AST::Types::Name, type
+    assert_instance_of AST::Types::Name::Module, type
     assert_location type, start_line: 1, start_column: 6, end_line: 1, end_column: 16
-    assert_equal TypeName::Module.new(name: ModuleName.new(namespace: AST::Namespace.empty, name: :Foo)),
+    assert_equal ModuleName.new(namespace: AST::Namespace.empty, name: :Foo),
                  type.name
-    assert_equal [], type.args
   end
 
   def test_module_constructor
     type = parse_method_type("() -> Foo.class constructor").return_type
 
-    assert_instance_of AST::Types::Name, type
+    assert_instance_of AST::Types::Name::Class, type
     assert_location type, start_line: 1, start_column: 6, end_line: 1, end_column: 27
-    assert_equal TypeName::Class.new(name: ModuleName.new(namespace: AST::Namespace.empty, name: :Foo),
-                                     constructor: true),
+    assert_equal ModuleName.new(namespace: AST::Namespace.empty, name: :Foo),
                  type.name
-    assert_equal [], type.args
+    assert type.constructor
   end
 
   def test_class_noconstructor
     type = parse_method_type("() -> Foo.class noconstructor").return_type
 
-    assert_instance_of AST::Types::Name, type
+    assert_instance_of AST::Types::Name::Class, type
     assert_location type, start_line: 1, start_column: 6, end_line: 1, end_column: 29
-    assert_equal TypeName::Class.new(name: ModuleName.new(namespace: AST::Namespace.empty, name: :Foo),
-                                     constructor: false),
-                 type.name
-    assert_equal [], type.args
+    assert_equal ModuleName.new(namespace: AST::Namespace.empty, name: :Foo),type.name
+    refute type.constructor
   end
 
   def test_type_var
@@ -95,9 +89,9 @@ class TypeParsingTest < Minitest::Test
   def test_application
     type = parse_method_type("() -> Array<'a, 'b>").return_type
 
-    assert_instance_of AST::Types::Name, type
+    assert_instance_of AST::Types::Name::Instance, type
     assert_location type, start_line: 1, start_column: 6, end_line: 1, end_column: 19
-    assert_equal TypeName::Instance.new(name: ModuleName.new(name: :Array, namespace: AST::Namespace.empty)), type.name
+    assert_equal ModuleName.new(name: :Array, namespace: AST::Namespace.empty), type.name
 
     assert_size 2, type.args
 

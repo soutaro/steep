@@ -39,9 +39,9 @@ module Steep
         end
 
         def back_type
-          Name.new(name: TypeName::Instance.new(name: Builtin::NilClass.module_name),
-                   args: [],
-                   location: location)
+          Name::Instance.new(name: Builtin::NilClass.module_name,
+                             args: [],
+                             location: location)
         end
       end
     end

@@ -53,9 +53,7 @@ module Steep
                     raise "Unexpected literal type: #{value.inspect}"
                   end
 
-          Name.new(name: TypeName::Instance.new(name: klass.module_name),
-                   args: [],
-                   location: location)
+          Name::Instance.new(name: klass.module_name, args: [], location: location)
         end
       end
     end

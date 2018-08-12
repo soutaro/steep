@@ -19,6 +19,14 @@ module Steep
         other.is_a?(self.class) && other.type == type && other.params == params && other.methods == methods && other.ivars == ivars
       end
 
+      def subst(s)
+        self.class.new(
+          type: type,
+          methods: methods.transform_values {|type| type.subst(s) },
+          ivar_chains: ivar_chains.transform_values {|chain| chain.subst(s) }
+        )
+      end
+
       class InvalidMethodOverrideError < StandardError
         attr_reader :type
         attr_reader :current_method

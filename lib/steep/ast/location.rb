@@ -59,11 +59,15 @@ module Steep
       end
 
       def +(other)
-        raise "Invalid concat: buffer=#{buffer.name}, other.buffer=#{other.buffer.name}" unless other.buffer == buffer
+        if other
+          raise "Invalid concat: buffer=#{buffer.name}, other.buffer=#{other.buffer.name}" unless other.buffer == buffer
 
-        self.class.new(buffer: buffer,
-                       start_pos: start_pos,
-                       end_pos: other.end_pos)
+          self.class.new(buffer: buffer,
+                         start_pos: start_pos,
+                         end_pos: other.end_pos)
+        else
+          self
+        end
       end
 
       def self.concat(*locations)

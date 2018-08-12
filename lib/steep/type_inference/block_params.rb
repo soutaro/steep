@@ -210,7 +210,7 @@ module Steep
           case (type = params_type.required.first)
           when AST::Types::Tuple
             true
-          when AST::Types::Name
+          when AST::Types::Name::Base
             AST::Builtin::Array.instance_type?(type)
           end
         end

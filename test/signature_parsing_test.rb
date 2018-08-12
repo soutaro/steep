@@ -3,8 +3,8 @@ require "test_helper"
 class SignatureParsingTest < Minitest::Test
   include TestHelper
   include ASTAssertion
-  TypeName = Steep::TypeName
   ModuleName = Steep::ModuleName
+  AST = Steep::AST
 
   def parse(src)
     Steep::Parser.parse_signature(src)
@@ -58,7 +58,8 @@ end
 
     assert_super_class klass.super_class, name: ModuleName.parse("Array") do |args|
       assert_equal 1, args.size
-      assert_named_type args[0], name: ModuleName.parse("Integer"), kind: :instance
+      assert_instance_of AST::Types::Name::Instance, args[0]
+      assert_equal ModuleName.parse("Integer"), args[0].name
     end
     assert_location klass.super_class, start_line: 1, start_column: 11, end_line: 1, end_column: 25
   end
@@ -94,7 +95,8 @@ end
     EOS
 
     assert_module_signature mod, name: ModuleName.parse("::M") do |m|
-      assert_named_type m.self_type, name: ModuleName.parse(:X), kind: :instance
+      assert_instance_of AST::Types::Name::Instance, m.self_type
+      assert_equal ModuleName.parse("X"), m.self_type.name
     end
     assert_location mod, start_line: 1, start_column: 0, end_line: 2, end_column: 3
   end
@@ -327,7 +329,8 @@ end
     assert_interface_method method, name: :[] do |method_type|
       assert_params_length method_type.params, 1
       assert_required_param method_type.params, index: 0 do |type, params|
-        assert_named_type type, name: ModuleName.parse(:Integer)
+        assert_instance_of AST::Types::Name::Instance, type
+        assert_equal ModuleName.parse(:Integer), type.name
         assert_location params, start_line: 2, start_column: 11, end_line: 2, end_column: 18
       end
 

@@ -12,26 +12,24 @@ module Steep
 
         def instance_type(*args)
           arity == args.size or raise "Mulformed instance type: name=#{module_name}, args=#{args}"
-          Types::Name.new(name: TypeName::Instance.new(name: module_name),
-                          args: args)
+          Types::Name::Instance.new(name: module_name, args: args)
         end
 
         def class_type(constructor: nil)
-          Types::Name.new(name: TypeName::Class.new(name: module_name, constructor: constructor),
-                          args: [])
+          Types::Name::Class.new(name: module_name, constructor: constructor)
         end
 
         def module_type
-          Types::Name.new(name: TypeName::Module.new(name: module_name), args: [])
+          Types::Name::Module.new(name: module_name)
         end
 
         def instance_type?(type, args: nil)
-          if type.is_a?(Types::Name) && type.name.is_a?(TypeName::Instance)
+          if type.is_a?(Types::Name::Instance)
             if args
               arity == args.size or raise "Mulformed instance type: name=#{module_name}, args=#{args}"
-              type.name.name == module_name && type.args == args
+              type.name == module_name && type.args == args
             else
-              type.name.name == module_name && type.args.size == arity
+              type.name == module_name && type.args.size == arity
             end
           else
             false
@@ -41,11 +39,11 @@ module Steep
         NONE = ::Object.new
 
         def class_type?(type, constructor: NONE)
-          if type.is_a?(Types::Name) && type.name.is_a?(TypeName::Class)
+          if type.is_a?(Types::Name::Class)
             unless constructor.equal?(NONE)
-              type.name.name == module_name && type.name.constructor == constructor
+              type.name == module_name && type.name.constructor == constructor
             else
-              type.name.name == module_name
+              type.name == module_name
             end
           else
             false
@@ -53,8 +51,8 @@ module Steep
         end
 
         def module_type?(type)
-          if type.is_a?(Types::Name) && type.name.is_a?(TypeName::Module)
-            type.name.name == module_name
+          if type.is_a?(Types::Name::Module)
+            type.name == module_name
           else
             false
           end

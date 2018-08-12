@@ -4,31 +4,27 @@ require 'steep'
 require 'minitest/autorun'
 require "pp"
 
-class Steep::AST::Types::Name
+module Steep::AST::Types::Name
   def self.new_module(location: nil, name:, args: [])
     name = Steep::ModuleName.parse(name.to_s) unless name.is_a?(Steep::ModuleName)
-    new(location: location,
-        name: Steep::TypeName::Module.new(name: name),
-        args: args)
+    Steep::AST::Types::Name::Module.new(name: name, location: location)
   end
 
   def self.new_class(location: nil, name:, constructor:, args: [])
     name = Steep::ModuleName.parse(name.to_s) unless name.is_a?(Steep::ModuleName)
-    new(location: location,
-        name: Steep::TypeName::Class.new(name: name, constructor: constructor),
-        args: args)
+    Steep::AST::Types::Name::Class.new(location: location,
+                                       name: name,
+                                       constructor: constructor)
   end
 
   def self.new_instance(location: nil, name:, args: [])
     name = Steep::ModuleName.parse(name.to_s) unless name.is_a?(Steep::ModuleName)
-    new(location: location,
-        name: Steep::TypeName::Instance.new(name: name),
-        args: args)
+    Steep::AST::Types::Name::Instance.new(location: location, name: name, args: args)
   end
 
   def self.new_interface(location: nil, name:, args: [])
     name = Steep::InterfaceName.new(name: name) if name.is_a?(Symbol)
-    new(location: location, name: Steep::TypeName::Interface.new(name: name), args: args)
+    Steep::AST::Types::Name::Interface.new(location: location, name: name, args: args)
   end
 end
 
@@ -161,6 +157,12 @@ module ASTAssertion
     assert_equal end_column, loc.end_column if end_column
   end
 
+  def assert_instance_name_type(type, name: nil)
+    assert_instance_of Steep::AST::Types::Name::Instance, type
+    assert_equal name, type.name if name
+    yield type.args if block_given?
+  end
+
   def assert_required_param(params, index:, &block)
     if index == 0
       assert_instance_of Steep::AST::MethodType::Params::Required, params
@@ -231,22 +233,6 @@ module ASTAssertion
   def assert_type_params(params, variables: nil)
     assert_instance_of Steep::AST::TypeParams, params
     assert_equal variables, params.variables if variables
-  end
-
-  def assert_named_type(type, name: nil, kind: nil)
-    assert_instance_of Steep::AST::Types::Name, type
-    assert_equal Steep::ModuleName.parse(name), type.name.name if name
-    case kind
-    when :interface
-      assert_instance_of Steep::TypeName::Interface, type.name
-    when :class
-      assert_instance_of Steep::TypeName::Class, type.name
-    when :module
-      assert_instance_of Steep::TypeName::Module, type.name
-    when :instance
-      assert_instance_of Steep::TypeName::Instance, type.name
-    end
-    yield type.args if block_given?
   end
 
   def assert_union_type(type)

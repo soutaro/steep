@@ -116,10 +116,22 @@ module Steep
 
       self_type = expand_alias(annots.self_type || self_type)
 
-      self_interface = self_type && (self_type != AST::Builtin.any_type || nil) && checker.resolve(self_type, with_initialize: true)
+      self_interface = self_type && (self_type != AST::Builtin.any_type || nil) && case self_type
+                                                                                   when AST::Types::Name::Instance
+                                                                                     yield_self do
+                                                                                       class_type = AST::Types::Name::Class.new(name: self_type.name, constructor: false)
+                                                                                       checker.resolve_instance(self_type,
+                                                                                                                self_type: self_type,
+                                                                                                                instance_type: self_type,
+                                                                                                                module_type: class_type,
+                                                                                                                with_initialize: true)
+                                                                                     end
+                                                                                   else
+                                                                                     checker.resolve(self_type)
+                                                                                   end
       interface_method = self_interface&.yield_self do |interface|
         interface.methods[method_name]&.yield_self do |method|
-          if self_type.is_a?(AST::Types::Name) && method.type_name == self_type.name
+          if self_type.is_a?(AST::Types::Name::Base) && method.type_name == self_type.name
             method
           else
             Interface::Method.new(type_name: self_type,
@@ -296,9 +308,9 @@ module Steep
         module_name = implement_module_name.name
         module_args = implement_module_name.args.map {|x| AST::Types::Var.new(name: x) }
 
-        abstract = checker.builder.build(TypeName::Instance.new(name: module_name))
+        abstract = checker.builder.build_module(module_name)
 
-        instance_type = AST::Types::Name.new(name: TypeName::Instance.new(name: module_name), args: module_args)
+        instance_type = AST::Types::Name::Instance.new(name: module_name, args: module_args)
 
         unless abstract.supers.empty?
           instance_type = AST::Types::Intersection.build(
@@ -308,7 +320,7 @@ module Steep
 
         module_type = AST::Types::Intersection.build(types: [
           AST::Builtin::Module.instance_type,
-          absolute_type(AST::Types::Name.new(name: TypeName::Module.new(name: module_name), args: []))
+          AST::Types::Name::Module.new(name: module_name)
         ])
       end
 
@@ -386,10 +398,10 @@ module Steep
         class_name = implement_module_name.name
         class_args = implement_module_name.args.map {|x| AST::Types::Var.new(name: x) }
 
-        _ = checker.builder.build(TypeName::Instance.new(name: class_name))
+        _ = checker.builder.build_instance(class_name, with_initialize: true)
 
-        instance_type = AST::Types::Name.new(name: TypeName::Instance.new(name: class_name), args: class_args)
-        module_type = AST::Types::Name.new(name: TypeName::Class.new(name: class_name, constructor: true), args: [])
+        instance_type = AST::Types::Name::Instance.new(name: class_name, args: class_args)
+        module_type = AST::Types::Name::Class.new(name: class_name, constructor: true)
       end
 
       const_context = if new_namespace.empty?
@@ -550,9 +562,8 @@ module Steep
           yield_self do
             if self_class?(node)
               module_type = expand_alias(module_context.module_type)
-              type = if module_type.is_a?(AST::Types::Name) && module_type.name.is_a?(TypeName::Class)
-                       AST::Types::Name.new(name: module_type.name.updated(constructor: method_context.constructor),
-                                            args: module_type.args)
+              type = if module_type.is_a?(AST::Types::Name::Class)
+                       AST::Types::Name::Class.new(name: module_type.name, constructor: method_context.constructor)
                      else
                        module_type
                      end
@@ -566,9 +577,8 @@ module Steep
           yield_self do
             type = if self_class?(node)
                      module_type = expand_alias(module_context.module_type)
-                     type = if module_type.is_a?(AST::Types::Name)
-                              AST::Types::Name.new(name: module_type.name.updated(constructor: method_context.constructor),
-                                                   args: module_type.args)
+                     type = if module_type.is_a?(AST::Types::Name::Class)
+                              AST::Types::Name::Class.new(name: module_type.name, constructor: method_context.constructor)
                             else
                               module_type
                             end
@@ -612,7 +622,7 @@ module Steep
             when !lhs_type
               fallback_to_any(node)
             else
-              lhs_interface = checker.resolve(lhs_type, with_initialize: false)
+              lhs_interface = checker.resolve(lhs_type)
               op_method = lhs_interface.methods[op]
 
               if op_method
@@ -1246,18 +1256,18 @@ module Steep
                 end
 
                 if (body = clause.children.last)
-                  if var_names && var_types && test_types.all? {|type| type.is_a?(AST::Types::Name) && type.name.is_a?(TypeName::Class) && type.args.empty? }
+                  if var_names && var_types && test_types.all? {|type| type.is_a?(AST::Types::Name::Class) }
                     var_types_in_body = test_types.flat_map {|test_type|
-                      filtered_types = var_types.select {|var_type| var_type.name.name == test_type.name.name }
+                      filtered_types = var_types.select {|var_type| var_type.name == test_type.name }
                       if filtered_types.empty?
-                        test_type.instance_type
+                        to_instance_type(test_type)
                       else
                         filtered_types
                       end
                     }
                     var_types.reject! {|type|
                       var_types_in_body.any? {|test_type|
-                        test_type.name.name == type.name.name
+                        test_type.name == type.name
                       }
                     }
 
@@ -1345,8 +1355,8 @@ module Steep
                 instance_types = exn_types.map do |type|
                   type = expand_alias(type)
                   case
-                  when type.is_a?(AST::Types::Name) && type.name.is_a?(TypeName::Class)
-                    type.instance_type
+                  when type.is_a?(AST::Types::Name::Class)
+                    to_instance_type(type)
                   else
                     AST::Builtin.any_type
                   end
@@ -1485,7 +1495,7 @@ module Steep
               if hint.one_arg?
                 # Assumes Symbol#to_proc implementation
                 param_type = hint.params.required[0]
-                interface = checker.resolve(param_type, with_initialize: false)
+                interface = checker.resolve(param_type)
                 method = interface.methods[value.children[0]]
                 if method
                   return_types = method.types.flat_map do |method_type|
@@ -1746,7 +1756,8 @@ module Steep
 
       else
         begin
-          interface = checker.resolve(receiver_type, with_initialize: false)
+          interface = checker.resolve(receiver_type)
+
           method = interface.methods[method_name]
 
           if method
@@ -2570,6 +2581,17 @@ module Steep
       else
         sub_type
       end
+    end
+
+    def to_instance_type(type, args: nil)
+      args = args || case type
+                     when AST::Types::Name::Class
+                       checker.builder.signatures.find_class(type.name).params&.variables || []
+                     when AST::Types::Name::Module
+                       checker.builder.signatures.find_module(type.name).params&.variables || []
+                     end
+
+      AST::Types::Name::Instance.new(name: type.name, args: args)
     end
   end
 end
