@@ -25,7 +25,7 @@ module Steep
                 instance_interface = builder.build(instance_name)
 
                 args = instance_interface.params.map {|var| AST::Types::Var.fresh(var) }
-                instance_type = AST::Types::Name.new_interface(name: sig.name, args: args)
+                instance_type = AST::Types::Name.new(name: TypeName::Interface.new(name: sig.name), args: args)
 
                 instance_interface.instantiate(type: instance_type,
                                                args: args,
@@ -43,8 +43,9 @@ module Steep
                 module_interface = builder.build(module_name)
                 module_args = module_interface.params.map {|var| AST::Types::Var.fresh(var) }
 
-                instance_type = AST::Types::Name.new_instance(name: sig.name, args: instance_args)
-                module_type = AST::Types::Name.new_module(name: sig.name, args: module_args)
+                instance_type = AST::Types::Name.new(name: TypeName::Instance.new(name: sig.name),
+                                                     args: instance_args)
+                module_type = AST::Types::Name.new(name: TypeName::Module.new(name: sig.name), args: [])
 
                 stdout.puts "👀 Validating instance methods..." if verbose
                 instance_interface.instantiate(type: instance_type,
@@ -69,8 +70,8 @@ module Steep
                 module_interface = builder.build(module_name)
                 module_args = module_interface.params.map {|var| AST::Types::Var.fresh(var) }
 
-                instance_type = AST::Types::Name.new_instance(name: sig.name, args: instance_args)
-                module_type = AST::Types::Name.new_class(name: sig.name, args: module_args, constructor: nil)
+                instance_type = AST::Types::Name.new(name: TypeName::Instance.new(name: sig.name), args: instance_args)
+                module_type = AST::Types::Name.new(name: TypeName::Class.new(name: sig.name, constructor: nil), args: module_args)
 
                 stdout.puts "👀 Validating instance methods..." if verbose
                 instance_interface.instantiate(type: instance_type,

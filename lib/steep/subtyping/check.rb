@@ -637,7 +637,7 @@ module Steep
                 abstract.instantiate(
                   type: self_type,
                   args: [],
-                  instance_type: AST::Types::Name.new_instance(name: type.name.name, args: args),
+                  instance_type: AST::Types::Name.new(name: TypeName::Instance.new(name: type.name.name), args: args),
                   module_type: module_type || type
                 )
               end

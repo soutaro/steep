@@ -36,32 +36,6 @@ module Steep
           self.class.new(name: name, args: args, location: new_location)
         end
 
-        def self.new_module(location: nil, name:, args: [])
-          name = ModuleName.parse(name) unless name.is_a?(ModuleName)
-          new(location: location,
-              name: TypeName::Module.new(name: name),
-              args: args)
-        end
-
-        def self.new_class(location: nil, name:, constructor:, args: [])
-          name = ModuleName.parse(name) unless name.is_a?(ModuleName)
-          new(location: location,
-              name: TypeName::Class.new(name: name, constructor: constructor),
-              args: args)
-        end
-
-        def self.new_instance(location: nil, name:, args: [])
-          name = ModuleName.parse(name) unless name.is_a?(ModuleName)
-          new(location: location,
-              name: TypeName::Instance.new(name: name),
-              args: args)
-        end
-
-        def self.new_interface(location: nil, name:, args: [])
-          name = InterfaceName.new(name: name) if name.is_a?(Symbol)
-          new(location: location, name: TypeName::Interface.new(name: name), args: args)
-        end
-
         def subst(s)
           self.class.new(location: location,
                          name: name,
@@ -73,9 +47,9 @@ module Steep
           when TypeName::Interface, TypeName::Instance
             self
           when TypeName::Module, TypeName::Class
-            self.class.new_instance(location: location,
-                                    name: name.name,
-                                    args: args)
+            self.class.new(name: TypeName::Instance.new(name: name.name),
+                           location: location,
+                           args: [])
           else
             raise "Unknown name: #{name.inspect}"
           end
@@ -84,10 +58,8 @@ module Steep
         def class_type(constructor:)
           case name
           when TypeName::Instance
-            self.class.new_class(location: location,
-                                 name: name.name,
-                                 constructor: constructor,
-                                 args: [])
+            self.class.new(name: TypeName::Class.new(name: name.name, constructor: constructor),
+                           args: [])
           when TypeName::Class
             self
           when TypeName::Module, TypeName::Interface
@@ -100,9 +72,7 @@ module Steep
         def module_type
           case name
           when TypeName::Instance,
-            self.class.new_module(location: location,
-                                  name: name.name,
-                                  args: args)
+            self.class.new(name: TypeName::ModuleName.new(name: name.name))
           when TypeName::Module
             self
           when TypeName::Class, TypeName::Interface

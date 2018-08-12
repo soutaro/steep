@@ -4,6 +4,34 @@ require 'steep'
 require 'minitest/autorun'
 require "pp"
 
+class Steep::AST::Types::Name
+  def self.new_module(location: nil, name:, args: [])
+    name = Steep::ModuleName.parse(name.to_s) unless name.is_a?(Steep::ModuleName)
+    new(location: location,
+        name: Steep::TypeName::Module.new(name: name),
+        args: args)
+  end
+
+  def self.new_class(location: nil, name:, constructor:, args: [])
+    name = Steep::ModuleName.parse(name.to_s) unless name.is_a?(Steep::ModuleName)
+    new(location: location,
+        name: Steep::TypeName::Class.new(name: name, constructor: constructor),
+        args: args)
+  end
+
+  def self.new_instance(location: nil, name:, args: [])
+    name = Steep::ModuleName.parse(name.to_s) unless name.is_a?(Steep::ModuleName)
+    new(location: location,
+        name: Steep::TypeName::Instance.new(name: name),
+        args: args)
+  end
+
+  def self.new_interface(location: nil, name:, args: [])
+    name = Steep::InterfaceName.new(name: name) if name.is_a?(Symbol)
+    new(location: location, name: Steep::TypeName::Interface.new(name: name), args: args)
+  end
+end
+
 module TestHelper
   def assert_any(collection, &block)
     assert collection.any?(&block)

@@ -12,15 +12,17 @@ module Steep
 
         def instance_type(*args)
           arity == args.size or raise "Mulformed instance type: name=#{module_name}, args=#{args}"
-          Types::Name.new_instance(name: module_name, args: args)
+          Types::Name.new(name: TypeName::Instance.new(name: module_name),
+                          args: args)
         end
 
         def class_type(constructor: nil)
-          Types::Name.new_class(name: module_name, constructor: constructor)
+          Types::Name.new(name: TypeName::Class.new(name: module_name, constructor: constructor),
+                          args: [])
         end
 
         def module_type
-          Types::Name.new_module(name: module_name)
+          Types::Name.new(name: TypeName::Module.new(name: module_name), args: [])
         end
 
         def instance_type?(type, args: nil)

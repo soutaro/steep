@@ -42,16 +42,20 @@ module Steep
         end
 
         def back_type
-          case value
-          when Integer
-            Name.new_instance(name: Builtin::Integer.module_name, location: location)
-          when String
-            Name.new_instance(name: Builtin::String.module_name, location: location)
-          when Symbol
-            Name.new_instance(name: Builtin::Symbol.module_name, location: location)
-          else
-            raise "Unexpected literal type: #{value.inspect}"
-          end
+          klass = case value
+                  when Integer
+                    Builtin::Integer
+                  when String
+                    Builtin::String
+                  when Symbol
+                    Builtin::Symbol
+                  else
+                    raise "Unexpected literal type: #{value.inspect}"
+                  end
+
+          Name.new(name: TypeName::Instance.new(name: klass.module_name),
+                   args: [],
+                   location: location)
         end
       end
     end

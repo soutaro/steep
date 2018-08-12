@@ -298,7 +298,7 @@ module Steep
 
         abstract = checker.builder.build(TypeName::Instance.new(name: module_name))
 
-        instance_type = AST::Types::Name.new_instance(name: module_name, args: module_args)
+        instance_type = AST::Types::Name.new(name: TypeName::Instance.new(name: module_name), args: module_args)
 
         unless abstract.supers.empty?
           instance_type = AST::Types::Intersection.build(
@@ -308,7 +308,7 @@ module Steep
 
         module_type = AST::Types::Intersection.build(types: [
           AST::Builtin::Module.instance_type,
-          absolute_type(AST::Types::Name.new_module(name: module_name, args: module_args))
+          absolute_type(AST::Types::Name.new(name: TypeName::Module.new(name: module_name), args: []))
         ])
       end
 
@@ -388,8 +388,8 @@ module Steep
 
         _ = checker.builder.build(TypeName::Instance.new(name: class_name))
 
-        instance_type = AST::Types::Name.new_instance(name: class_name, args: class_args)
-        module_type = AST::Types::Name.new_class(name: class_name, args: [], constructor: true)
+        instance_type = AST::Types::Name.new(name: TypeName::Instance.new(name: class_name), args: class_args)
+        module_type = AST::Types::Name.new(name: TypeName::Class.new(name: class_name, constructor: true), args: [])
       end
 
       const_context = if new_namespace.empty?
