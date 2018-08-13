@@ -2,6 +2,10 @@
 
 ## master
 
+## 0.5.1 (2018-08-11)
+
+* Relax dependency requirements (#49, #50)
+
 ## 0.5.0 (2018-08-11)
 
 * Support *lambda* `->` (#47)
