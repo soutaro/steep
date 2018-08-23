@@ -1,5 +1,15 @@
 class Steep::Parser
 
+token kCLASS kMODULE kINTERFACE kDEF kEND kNIL kBOOL kANY kVOID kTYPE
+      kINCOMPATIBLE kAT_TYPE kAT_IMPLEMENTS kAT_DYNAMIC kCONST kVAR kRETURN
+      kBLOCK kBREAK kMETHOD kSELF kSELFQ kATTR_READER kATTR_ACCESSOR kINSTANCE
+      kINCLUDE kEXTEND kINSTANCE kIVAR kCONSTRUCTOR kNOCONSTRUCTOR kEXTENSION
+      tARROW tBANG tBAR tCOLON tCOLON2 tCOMMA tDOT tEQ tGT tGVAR tHAT tINT
+      tINTERFACE_NAME tIVAR_NAME tLBRACE tLBRACKET tIDENT tLPAREN tLT
+      tLTCOLON tMINUS tOPERATOR tPERCENT tPLUS tQUESTION tRBRACE tRBRACKET
+      tRPAREN tSTAR tSTAR2 tSTRING tSYMBOL tUIDENT tUMINUS tVAR
+      type_METHOD type_SIGNATURE type_ANNOTATION type_TYPE
+
 expect 1
 
 rule
@@ -21,7 +31,7 @@ rule
                                   result = val[1]
                                 }
 
-                   method_type: type_params params block_opt ARROW return_type
+                   method_type: type_params params block_opt tARROW return_type
                                 {
                                   result = AST::MethodType.new(location: AST::Location.concat(*val.compact.map(&:location)),
                                                                type_params: val[0],
@@ -36,7 +46,7 @@ rule
                                 {
                                   result = nil
                                 }
-                              | LPAREN params0 RPAREN
+                              | tLPAREN params0 tRPAREN
                                 {
                                   result = LocatedValue.new(location: val[0].location + val[2].location,
                                                             value: val[1])
@@ -51,7 +61,7 @@ rule
                                 {
                                   result = AST::MethodType::Params::Required.new(location: val[0].location, type: val[0])
                                 }
-                              | required_param COMMA params0
+                              | required_param tCOMMA params0
                                 {
                                   location = val[0].location
                                   result = AST::MethodType::Params::Required.new(location: location,
@@ -67,7 +77,7 @@ rule
                                 {
                                   result = AST::MethodType::Params::Optional.new(location: val[0].first, type: val[0].last)
                                 }
-                              | optional_param COMMA params1
+                              | optional_param tCOMMA params1
                                 {
                                   location = val[0].first
                                   result = AST::MethodType::Params::Optional.new(type: val[0].last, location: location, next_params: val[2])
@@ -81,7 +91,7 @@ rule
                                 {
                                   result = AST::MethodType::Params::Rest.new(location: val[0].first, type: val[0].last)
                                 }
-                              | rest_param COMMA params3
+                              | rest_param tCOMMA params3
                                 {
                                   loc = val[0].first
                                   result = AST::MethodType::Params::Rest.new(location: loc, type: val[0].last, next_params: val[2])
@@ -101,7 +111,7 @@ rule
                                   location, name, type = val[0]
                                   result = AST::MethodType::Params::OptionalKeyword.new(location: location, name: name, type: type)
                                 }
-                              | required_keyword COMMA params3
+                              | required_keyword tCOMMA params3
                                 {
                                   location, name, type = val[0]
                                   result = AST::MethodType::Params::RequiredKeyword.new(location: location,
@@ -109,7 +119,7 @@ rule
                                                                                         type: type,
                                                                                         next_params: val[2])
                                 }
-                              | optional_keyword COMMA params3
+                              | optional_keyword tCOMMA params3
                                 {
                                   location, name, type = val[0]
                                   result = AST::MethodType::Params::OptionalKeyword.new(location: location,
@@ -126,7 +136,7 @@ rule
                                 {
                                   result = nil
                                 }
-                              | STAR2 type
+                              | tSTAR2 type
                                 {
                                   result = AST::MethodType::Params::RestKeyword.new(location: val[0].location + val[1].location,
                                                                                     type: val[1])
@@ -137,7 +147,7 @@ rule
                                   result = val[0]
                                 }
 
-                optional_param: QUESTION type
+                optional_param: tQUESTION type
                                 {
                                   result = [
                                     val[0].location + val[1].location,
@@ -145,7 +155,7 @@ rule
                                   ]
                                 }
 
-                    rest_param: STAR type
+                    rest_param: tSTAR type
                                 {
                                   result = [
                                     val[0].location + val[1].location,
@@ -153,7 +163,7 @@ rule
                                   ]
                                 }
 
-              required_keyword: keyword COLON type
+              required_keyword: keyword tCOLON type
                                 {
                                   result = [
                                     val[0].location + val[2].location,
@@ -162,7 +172,7 @@ rule
                                   ]
                                 }
 
-              optional_keyword: QUESTION keyword COLON type
+              optional_keyword: tQUESTION keyword tCOLON type
                                 {
                                   result = [
                                     val[0].location + val[3].location,
@@ -175,14 +185,14 @@ rule
                                 {
                                   result = nil
                                 }
-                              | block_optional LBRACE RBRACE
+                              | block_optional tLBRACE tRBRACE
                                 {
                                   result = AST::MethodType::Block.new(params: nil,
                                                                       return_type: nil,
                                                                       location: (val[0] || val[1]).location + val[2].location,
                                                                       optional: val[0]&.value || false)
                                 }
-                              | block_optional LBRACE block_params ARROW type RBRACE
+                              | block_optional tLBRACE block_params tARROW type tRBRACE
                                 {
                                   result = AST::MethodType::Block.new(params: val[2],
                                                                       return_type: val[4],
@@ -194,7 +204,7 @@ rule
                                 {
                                   result = nil
                                 }
-                              | QUESTION
+                              | tQUESTION
                                 {
                                   result = LocatedValue.new(location: val[0].location, value: true)
                                 }
@@ -203,7 +213,7 @@ rule
                                 {
                                   result = nil
                                 }
-                              | LPAREN block_params0 RPAREN
+                              | tLPAREN block_params0 tRPAREN
                                 {
                                   result = val[1]
                                 }
@@ -213,7 +223,7 @@ rule
                                   result = AST::MethodType::Params::Required.new(location: val[0].location,
                                                                                  type: val[0])
                                 }
-                              | required_param COMMA block_params0 {
+                              | required_param tCOMMA block_params0 {
                                   result = AST::MethodType::Params::Required.new(location: val[0].location,
                                                                                  type: val[0],
                                                                                  next_params: val[2])
@@ -228,7 +238,7 @@ rule
                                   result = AST::MethodType::Params::Optional.new(location: val[0].first,
                                                                                  type: val[0].last)
                                 }
-                              | optional_param COMMA block_params1
+                              | optional_param tCOMMA block_params1
                                 {
                                   loc = val.first[0] + (val[2] || val[1]).location
                                   type = val.first[1]
@@ -253,80 +263,80 @@ rule
                                 {
                                   result = AST::Types::Name.new(name: val[0].value, location: val[0].location, args: [])
                                 }
-                              | application_type_name LT type_seq GT
+                              | application_type_name tLT type_seq tGT
                                 {
                                   loc = val[0].location + val[3].location
                                   name = val[0].value
                                   args = val[2]
                                   result = AST::Types::Name.new(location: loc, name: name, args: args)
                                 }
-                              | ANY
+                              | kANY
                                 {
                                   result = AST::Types::Any.new(location: val[0].location)
                                 }
-                              | TVAR
+                              | tVAR
                                 {
                                   result = AST::Types::Var.new(location: val[0].location, name: val[0].value)
                                 }
-                              | CLASS
+                              | kCLASS
                                 {
                                   result = AST::Types::Class.new(location: val[0].location)
                                 }
-                              | MODULE
+                              | kMODULE
                                 {
                                   result = AST::Types::Class.new(location: val[0].location)
                                 }
-                              | INSTANCE
+                              | kINSTANCE
                                 {
                                   result = AST::Types::Instance.new(location: val[0].location)
                                 }
-                              | SELF
+                              | kSELF
                                 {
                                   result = AST::Types::Self.new(location: val[0].location)
                                 }
-                              | VOID
+                              | kVOID
                                 {
                                   result = AST::Types::Void.new(location: val[0].location)
                                 }
-                              | NIL
+                              | kNIL
                                 {
                                   result = AST::Types::Nil.new(location: val[0].location)
                                 }
-                              | BOOL
+                              | kBOOL
                                 {
                                   result = AST::Types::Boolean.new(location: val[0].location)
                                 }
-                              | simple_type QUESTION
+                              | simple_type tQUESTION
                                 {
                                   type = val[0]
                                   nil_type = AST::Types::Nil.new(location: val[1].location)
                                   result = AST::Types::Union.build(types: [type, nil_type], location: val[0].location + val[1].location)
                                 }
-                              | SELFQ
+                              | kSELFQ
                                 {
                                   type = AST::Types::Self.new(location: val[0].location)
                                   nil_type = AST::Types::Nil.new(location: val[0].location)
                                   result = AST::Types::Union.build(types: [type, nil_type], location: val[0].location)
                                 }
-                              | INT
+                              | tINT
                                 {
                                   result = AST::Types::Literal.new(value: val[0].value, location: val[0].location)
                                 }
-                              | STRING
+                              | tSTRING
                                 {
                                   result = AST::Types::Literal.new(value: val[0].value, location: val[0].location)
                                 }
-                              | SYMBOL
+                              | tSYMBOL
                                 {
                                   result = AST::Types::Literal.new(value: val[0].value, location: val[0].location)
                                 }
-                              | LBRACKET type_seq RBRACKET
+                              | tLBRACKET type_seq tRBRACKET
                                 {
                                   loc = val[0].location + val[2].location
                                   result = AST::Types::Tuple.new(types: val[1], location: loc)
                                 }
 
-                    paren_type: LPAREN type RPAREN
+                    paren_type: tLPAREN type tRPAREN
                                 {
                                   result = val[1].with_location(val[0].location + val[2].location)
                                 }
@@ -337,25 +347,25 @@ rule
                                   result = LocatedValue.new(value: TypeName::Instance.new(name: val[0].value),
                                                             location: val[0].location)
                                 }
-                              | INTERFACE_NAME
+                              | tINTERFACE_NAME
                                 {
                                   result = LocatedValue.new(value: TypeName::Interface.new(name: val[0].value),
                                                             location: val[0].location)
                                 }
-                              | LIDENT
+                              | tIDENT
                                 {
                                   result = LocatedValue.new(value: TypeName::Alias.new(name: val[0].value),
                                                             location: val[0].location)
                                 }
 
                      type_name: application_type_name
-                              | module_name DOT CLASS constructor
+                              | module_name tDOT kCLASS constructor
                                 {
                                   loc = val[0].location + (val[3] || val[2]).location
                                   result = LocatedValue.new(value: TypeName::Class.new(name: val[0].value, constructor: val[3]&.value),
                                                             location: loc)
                                 }
-                              | module_name DOT MODULE
+                              | module_name tDOT kMODULE
                                 {
                                   loc = val[0].location + val.last.location
                                   result = LocatedValue.new(value: TypeName::Module.new(name: val[0].value),
@@ -366,11 +376,11 @@ rule
                                 {
                                   result = nil
                                 }
-                              | CONSTRUCTOR
+                              | kCONSTRUCTOR
                                 {
                                   result = LocatedValue.new(location: val[0].location, value: true)
                                 }
-                              | NOCONSTRUCTOR
+                              | kNOCONSTRUCTOR
                                 {
                                   result = LocatedValue.new(location: val[0].location, value: false)
                                 }
@@ -381,7 +391,7 @@ rule
                                   loc = val[0].first.location + val[0].last.location
                                   result = AST::Types::Union.build(types: val[0], location: loc)
                                 }
-                              | HAT LPAREN lambda_params RPAREN ARROW paren_type
+                              | tHAT tLPAREN lambda_params tRPAREN tARROW paren_type
                                 {
                                   loc = val[0].location + val[5].location
                                   result = AST::Types::Proc.new(params: val[2], return_type: val[5], location: loc)
@@ -392,7 +402,7 @@ rule
                                 {
                                   result = Interface::Params.empty.update(required: [val[0]])
                                 }
-                              | paren_type COMMA lambda_params
+                              | paren_type tCOMMA lambda_params
                                 {
                                   result = val[2].update(required: [val[0]] + val[2].required)
                                 }
@@ -401,15 +411,15 @@ rule
                                 {
                                   result = Interface::Params.empty
                                 }
-                              | STAR paren_type
+                              | tSTAR paren_type
                                 {
                                   result = Interface::Params.empty.update(rest: val[1])
                                 }
-                              | QUESTION paren_type
+                              | tQUESTION paren_type
                                 {
                                   result = Interface::Params.empty.update(optional: [val[1]])
                                 }
-                              | QUESTION paren_type COMMA lambda_params1
+                              | tQUESTION paren_type tCOMMA lambda_params1
                                 {
                                   result = val[3].update(optional: [val[1]] + val[3].optional)
                                 }
@@ -419,32 +429,32 @@ rule
                                 {
                                   result = [val[0]]
                                 }
-                              | type COMMA type_seq
+                              | type tCOMMA type_seq
                                 {
                                   result = [val[0]] + val[2]
                                 }
 
-                     union_seq: simple_type BAR simple_type
+                     union_seq: simple_type tBAR simple_type
                                 {
                                   result = [val[0], val[2]]
                                 }
-                              | simple_type BAR union_seq
+                              | simple_type tBAR union_seq
                                 {
                                   result = [val[0]] + val[2]
                                 }
 
-                       keyword: LIDENT
-                              | MODULE_NAME
-                              | INTERFACE_NAME
-                              | ANY
-                              | CLASS
-                              | MODULE
-                              | INSTANCE
-                              | BLOCK
-                              | INCLUDE
-                              | IVAR
-                              | SELF
-                              | TYPE
+                       keyword: tIDENT
+                              # | MODULE_NAME
+                              | tINTERFACE_NAME
+                              | kANY
+                              | kCLASS
+                              | kMODULE
+                              | kINSTANCE
+                              | kBLOCK
+                              | kINCLUDE
+                              | kIVAR
+                              | kSELF
+                              | kTYPE
 
                     signatures: # nothing
                                 {
@@ -479,7 +489,7 @@ rule
                                   result = [val[0]] + val[1]
                                 }
 
-                     gvar_decl: GVAR COLON type
+                     gvar_decl: tGVAR tCOLON type
                                 {
                                   loc = val.first.location + val.last.location
                                   result = AST::Signature::Gvar.new(
@@ -489,7 +499,7 @@ rule
                                   )
                                 }
 
-                    const_decl: module_name COLON type
+                    const_decl: module_name tCOLON type
                                 {
                                   loc = val.first.location + val.last.location
                                   result = AST::Signature::Const.new(
@@ -499,7 +509,7 @@ rule
                                   )
                                 }
 
-                     interface: INTERFACE interface_name type_params interface_members END
+                     interface: kINTERFACE interface_name type_params interface_members kEND
                                 {
                                   loc = val.first.location + val.last.location
                                   result = AST::Signature::Interface.new(
@@ -510,7 +520,7 @@ rule
                                   )
                                 }
 
-                    class_decl: CLASS module_name type_params super_opt class_members END
+                    class_decl: kCLASS module_name type_params super_opt class_members kEND
                                 {
                                   loc = val.first.location + val.last.location
                                   result = AST::Signature::Class.new(name: val[1].value.absolute!,
@@ -520,7 +530,7 @@ rule
                                                                      location: loc)
                                 }
 
-                   module_decl: MODULE module_name type_params self_type_opt class_members END
+                   module_decl: kMODULE module_name type_params self_type_opt class_members kEND
                                 {
                                   loc = val.first.location + val.last.location
                                   result = AST::Signature::Module.new(name: val[1].value.absolute!,
@@ -530,7 +540,7 @@ rule
                                                                       members: val[4])
                                 }
 
-                extension_decl: EXTENSION module_name type_params LPAREN UIDENT RPAREN class_members END
+                extension_decl: kEXTENSION module_name type_params tLPAREN tUIDENT tRPAREN class_members kEND
                                 {
                                   loc = val.first.location + val.last.location
                                   result = AST::Signature::Extension.new(module_name: val[1].value.absolute!,
@@ -540,7 +550,7 @@ rule
                                                                          members: val[6])
                                 }
 
-                    alias_decl: TYPE LIDENT type_params EQ type
+                    alias_decl: kTYPE tIDENT type_params tEQ type
                                 {
                                   loc = val[0].location + val[4].location
                                   result = AST::Signature::Alias.new(location: loc,
@@ -553,25 +563,25 @@ rule
                                 {
                                   result = nil
                                 }
-                              | COLON type
+                              | tCOLON type
                                 {
                                   result = val[1]
                                 }
 
-                interface_name: INTERFACE_NAME
+                interface_name: tINTERFACE_NAME
 
                    module_name: module_name0
-                              | COLON2 module_name0
+                              | tCOLON2 module_name0
                                 {
                                   loc = val.first.location + val.last.location
                                   result = LocatedValue.new(location: loc, value: val[1].value.absolute!)
                                 }
 
-                  module_name0: UIDENT
+                  module_name0: tUIDENT
                                 {
                                   result = LocatedValue.new(location: val[0].location, value: ModuleName.parse(val[0].value))
                                 }
-                              | UIDENT COLON2 module_name0
+                              | tUIDENT tCOLON2 module_name0
                                 {
                                   location = val[0].location + val.last.location
                                   name = ModuleName.parse(val[0].value) + val.last.value
@@ -596,7 +606,7 @@ rule
                               | attr_reader_member
                               | attr_accessor_member
 
-                   ivar_member: IVAR_NAME COLON type
+                   ivar_member: tIVAR_NAME tCOLON type
                                 {
                                   loc = val.first.location + val.last.location
                                   result = AST::Signature::Members::Ivar.new(
@@ -606,7 +616,7 @@ rule
                                   )
                                 }
 
-        instance_method_member: DEF method_annotations method_name COLON method_type_union
+        instance_method_member: kDEF method_annotations method_name tCOLON method_type_union
                                 {
                                   loc = val.first.location + val.last.last.location
                                   result = AST::Signature::Members::Method.new(
@@ -618,7 +628,7 @@ rule
                                   )
                                 }
 
-          module_method_member: DEF method_annotations SELF DOT method_name COLON method_type_union
+          module_method_member: kDEF method_annotations kSELF tDOT method_name tCOLON method_type_union
                                 {
                                   loc = val.first.location + val.last.last.location
                                   result = AST::Signature::Members::Method.new(
@@ -630,7 +640,7 @@ rule
                                   )
                                 }
 
- module_instance_method_member: DEF method_annotations SELFQ DOT method_name COLON method_type_union
+ module_instance_method_member: kDEF method_annotations kSELFQ tDOT method_name tCOLON method_type_union
                                 {
                                   loc = val.first.location + val.last.last.location
                                   result = AST::Signature::Members::Method.new(
@@ -642,39 +652,39 @@ rule
                                   )
                                 }
 
-                include_member: INCLUDE module_name
+                include_member: kINCLUDE module_name
                                 {
                                   loc = val.first.location + val.last.location
                                   name = val[1].value
                                   result = AST::Signature::Members::Include.new(name: name, location: loc, args: [])
                                 }
-                              | INCLUDE module_name LT type_seq GT
+                              | kINCLUDE module_name tLT type_seq tGT
                                 {
                                   loc = val.first.location + val.last.location
                                   name = val[1].value
                                   result = AST::Signature::Members::Include.new(name: name, location: loc, args: val[3])
                                 }
 
-                 extend_member: EXTEND module_name
+                 extend_member: kEXTEND module_name
                                 {
                                   loc = val.first.location + val.last.location
                                   name = val[1].value
                                   result = AST::Signature::Members::Extend.new(name: name, location: loc, args: [])
                                 }
-                              | EXTEND module_name LT type_seq GT
+                              | kEXTEND module_name tLT type_seq tGT
                                 {
                                   loc = val.first.location + val.last.location
                                   name = val[1].value
                                   result = AST::Signature::Members::Extend.new(name: name, location: loc, args: val[3])
                                 }
 
-            attr_reader_member: ATTR_READER method_name attr_ivar_opt COLON type
+            attr_reader_member: kATTR_READER method_name attr_ivar_opt tCOLON type
                                 {
                                   loc = val.first.location + val.last.location
                                   result = AST::Signature::Members::Attr.new(location: loc, name: val[1].value, kind: :reader, ivar: val[2], type: val[4])
                                 }
 
-          attr_accessor_member: ATTR_ACCESSOR method_name attr_ivar_opt COLON type
+          attr_accessor_member: kATTR_ACCESSOR method_name attr_ivar_opt tCOLON type
                                 {
                                   loc = val.first.location + val.last.location
                                   result = AST::Signature::Members::Attr.new(location: loc, name: val[1].value, kind: :accessor, ivar: val[2], type: val[4])
@@ -684,11 +694,11 @@ rule
                                 {
                                   result = nil
                                 }
-                              | LPAREN RPAREN
+                              | tLPAREN tRPAREN
                                 {
                                   result = false
                                 }
-                              | LPAREN IVAR_NAME RPAREN
+                              | tLPAREN tIVAR_NAME tRPAREN
                                 {
                                   result = val[1].value
                                 }
@@ -697,7 +707,7 @@ rule
                                 {
                                   result = nil
                                 }
-                              | LPAREN method_annotation_seq RPAREN
+                              | tLPAREN method_annotation_seq tRPAREN
                                 {
                                   result = val[1]
                                 }
@@ -706,16 +716,16 @@ rule
                                 {
                                   result = [val[0]]
                                 }
-                              | method_annotation_keyword COMMA method_annotation_seq
+                              | method_annotation_keyword tCOMMA method_annotation_seq
                                 {
                                   result = [val[0]] + val[2]
                                 }
 
-     method_annotation_keyword: CONSTRUCTOR
+     method_annotation_keyword: kCONSTRUCTOR
                                 {
                                   result = val[0].value
                                 }
-                              | INCOMPATIBLE
+                              | kINCOMPATIBLE
                                 {
                                   result = val[0].value
                                 }
@@ -724,7 +734,7 @@ rule
                                 {
                                   result = nil
                                 }
-                              | LTCOLON super_class
+                              | tLTCOLON super_class
                                 {
                                   result = val[1]
                                 }
@@ -733,7 +743,7 @@ rule
                                 {
                                   result = AST::Signature::SuperClass.new(location: val[0].location, name: val[0].value, args: [])
                                 }
-                              | module_name LT type_seq GT
+                              | module_name tLT type_seq tGT
                                 {
                                   loc = val[0].location + val[3].location
                                   name = val[0].value
@@ -744,17 +754,17 @@ rule
                                 {
                                   result = nil
                                 }
-                              | LT type_param_seq GT
+                              | tLT type_param_seq tGT
                                 {
                                   location = val[0].location + val[2].location
                                   result = AST::TypeParams.new(location: location, variables: val[1])
                                 }
 
-                type_param_seq: TVAR
+                type_param_seq: tVAR
                                 {
                                   result = [val[0].value]
                                 }
-                              | TVAR COMMA type_param_seq
+                              | tVAR tCOMMA type_param_seq
                                 {
                                   result = [val[0].value] + val[2]
                                 }
@@ -768,7 +778,7 @@ rule
                                   result = val[1].unshift(val[0])
                                 }
 
-              interface_method: DEF method_name COLON method_type_union
+              interface_method: kDEF method_name tCOLON method_type_union
                                 {
                                   loc = val[0].location + val[3].last.location
                                   result = AST::Signature::Interface::Method.new(location: loc, name: val[1].value, types: val[3])
@@ -778,157 +788,157 @@ rule
                                 {
                                   result = [val[0]]
                                 }
-                              | method_type BAR method_type_union
+                              | method_type tBAR method_type_union
                                 {
                                   result = [val[0]] + val[2]
                                 }
 
                    method_name: method_name0
-                              | STAR
-                              | STAR2
-                              | PERCENT
-                              | MINUS
-                              | LT
-                              | GT
-                              | UMINUS
-                              | BAR
+                              | tSTAR
+                              | tSTAR2
+                              | tPERCENT
+                              | tMINUS
+                              | tLT
+                              | tGT
+                              | tUMINUS
+                              | tBAR
                                 {
                                   result = LocatedValue.new(location: val[0].location, value: :|)
                                 }
-                              | method_name0 EQ
+                              | method_name0 tEQ
                                 {
                                   raise ParseError, "\nunexpected method name #{val[0].to_s} =" unless val[0].location.pred?(val[1].location)
                                   result = LocatedValue.new(location: val[0].location + val[1].location,
                                                            value: :"#{val[0].value}=")
                                 }
-                              | method_name0 QUESTION
+                              | method_name0 tQUESTION
                                 {
                                   raise ParseError, "\nunexpected method name #{val[0].to_s} ?" unless val[0].location.pred?(val[1].location)
                                   result = LocatedValue.new(location: val[0].location + val[1].location,
                                                            value: :"#{val[0].value}?")
                                 }
-                              | method_name0 BANG
+                              | method_name0 tBANG
                                 {
                                   raise ParseError, "\nunexpected method name #{val[0].to_s} !" unless val[0].location.pred?(val[1].location)
                                   result = LocatedValue.new(location: val[0].location + val[1].location,
                                                            value: :"#{val[0].value}!")
                                 }
-                              | GT GT
+                              | tGT tGT
                                 {
                                   raise ParseError, "\nunexpected method name > >" unless val[0].location.pred?(val[1].location)
                                   result = LocatedValue.new(location: val[0].location + val[1].location, value: :>>)
                                 }
-                              | NIL QUESTION
+                              | kNIL tQUESTION
                                 {
                                   raise ParseError, "\nunexpected method name #{val[0].to_s} ?" unless val[0].location.pred?(val[1].location)
                                   result = LocatedValue.new(location: val[0].location + val[1].location,
                                                          value: :"nil?")
                                 }
 
-                  method_name0: LIDENT
-                              | UIDENT
-                              | MODULE_NAME
-                              | INTERFACE_NAME
-                              | ANY
-                              | VOID
-                              | INTERFACE
-                              | END
-                              | PLUS
-                              | CLASS
-                              | MODULE
-                              | INSTANCE
-                              | EXTEND
-                              | INCLUDE
-                              | OPERATOR
-                              | HAT
-                              | BANG
-                              | BLOCK
-                              | BREAK
-                              | METHOD
-                              | BOOL
-                              | TYPE
-                              | CONSTRUCTOR
+                  method_name0: tIDENT
+                              | tUIDENT
+                              # | MODULE_NAME
+                              | tINTERFACE_NAME
+                              | kANY
+                              | kVOID
+                              | kINTERFACE
+                              | kEND
+                              | tPLUS
+                              | kCLASS
+                              | kMODULE
+                              | kINSTANCE
+                              | kEXTEND
+                              | kINCLUDE
+                              | tOPERATOR
+                              | tHAT
+                              | tBANG
+                              | kBLOCK
+                              | kBREAK
+                              | kMETHOD
+                              | kBOOL
+                              | kTYPE
+                              | kCONSTRUCTOR
                                 {
                                   result = LocatedValue.new(location: val[0].location, value: :constructor)
                                 }
-                              | NOCONSTRUCTOR
+                              | kNOCONSTRUCTOR
                                 {
                                   result = LocatedValue.new(location: val[0].location, value: :noconstructor)
                                 }
-                              | ATTR_READER
-                              | ATTR_ACCESSOR
-                              | INCOMPATIBLE
+                              | kATTR_READER
+                              | kATTR_ACCESSOR
+                              | kINCOMPATIBLE
 
-                    annotation: AT_TYPE VAR subject COLON type
+                    annotation: kAT_TYPE kVAR subject tCOLON type
                                 {
                                   loc = val.first.location + val.last.location
                                   result = AST::Annotation::VarType.new(location: loc,
                                                                         name: val[2].value,
                                                                         type: val[4])
                                 }
-                              | AT_TYPE METHOD subject COLON method_type
+                              | kAT_TYPE kMETHOD subject tCOLON method_type
                                 {
                                   loc = val.first.location + val.last.location
                                   result = AST::Annotation::MethodType.new(location: loc,
                                                                            name: val[2].value,
                                                                            type: val[4])
                                 }
-                              | AT_TYPE RETURN COLON type
+                              | kAT_TYPE kRETURN tCOLON type
                                 {
                                   loc = val.first.location + val.last.location
                                   result = AST::Annotation::ReturnType.new(type: val[3], location: loc)
                                 }
-                              | AT_TYPE BLOCK COLON type
+                              | kAT_TYPE kBLOCK tCOLON type
                                 {
                                   loc = val.first.location + val.last.location
                                   result = AST::Annotation::BlockType.new(type: val[3], location: loc)
                                 }
-                              | AT_TYPE SELF COLON type
+                              | kAT_TYPE kSELF tCOLON type
                                 {
                                   loc = val.first.location + val.last.location
                                   result = AST::Annotation::SelfType.new(type: val[3], location: loc)
                                 }
-                              | AT_TYPE CONST module_name COLON type
+                              | kAT_TYPE kCONST module_name tCOLON type
                                 {
                                   loc = val.first.location + val.last.location
                                   result = AST::Annotation::ConstType.new(name: val[2].value,
                                                                           type: val[4],
                                                                           location: loc)
                                 }
-                              | AT_TYPE INSTANCE COLON type
+                              | kAT_TYPE kINSTANCE tCOLON type
                                 {
                                   loc = val.first.location + val.last.location
                                   result = AST::Annotation::InstanceType.new(type: val[3], location: loc)
                                 }
-                              | AT_TYPE MODULE COLON type
+                              | kAT_TYPE kMODULE tCOLON type
                                 {
                                   loc = val.first.location + val.last.location
                                   result = AST::Annotation::ModuleType.new(type: val[3], location: loc)
                                 }
-                              | AT_TYPE IVAR IVAR_NAME COLON type
+                              | kAT_TYPE kIVAR tIVAR_NAME tCOLON type
                                 {
                                   loc = val.first.location + val.last.location
                                   result = AST::Annotation::IvarType.new(name: val[2].value, type: val[4], location: loc)
                                 }
-                              | AT_IMPLEMENTS module_name type_params
+                              | kAT_IMPLEMENTS module_name type_params
                                 {
                                   loc = val[0].location + (val[2]&.location || val[1].location)
                                   args = val[2]&.variables || []
                                   name = AST::Annotation::Implements::Module.new(name: val[1].value, args: args)
                                   result = AST::Annotation::Implements.new(name: name, location: loc)
                                 }
-                              | AT_DYNAMIC dynamic_names
+                              | kAT_DYNAMIC dynamic_names
                                 {
                                   loc = val[0].location + val[1].last.location
                                   result = AST::Annotation::Dynamic.new(names: val[1], location: loc)
                                 }
-                              | AT_TYPE BREAK COLON type
+                              | kAT_TYPE kBREAK tCOLON type
                                 {
                                   loc = val.first.location + val.last.location
                                   result = AST::Annotation::BreakType.new(type: val[3], location: loc)
                                 }
 
-                 dynamic_names: dynamic_name COMMA dynamic_names
+                 dynamic_names: dynamic_name tCOMMA dynamic_names
                                 {
                                   result = [val[0]] + val[2]
                                 }
@@ -941,18 +951,18 @@ rule
                                 {
                                   result = AST::Annotation::Dynamic::Name.new(name: val[0].value, location: val[0].location, kind: :instance)
                                 }
-                              | SELF DOT method_name
+                              | kSELF tDOT method_name
                                 {
                                   loc = val.first.location + val.last.location
                                   result = AST::Annotation::Dynamic::Name.new(name: val[2].value, location: loc, kind: :module)
                                 }
-                              | SELFQ DOT method_name
+                              | kSELFQ tDOT method_name
                                 {
                                   loc = val.first.location + val.last.location
                                   result = AST::Annotation::Dynamic::Name.new(name: val[2].value, location: loc, kind: :module_instance)
                                 }
 
-                       subject: LIDENT
+                       subject: tIDENT
                                 {
                                   result = val[0]
                                 }
@@ -1030,148 +1040,148 @@ def next_token
   when input.eos?
     [false, false]
   when input.scan(/->/)
-    new_token(:ARROW)
+    new_token(:tARROW)
   when input.scan(/\?/)
-    new_token(:QUESTION)
+    new_token(:tQUESTION)
   when input.scan(/!/)
-    new_token(:BANG, :!)
+    new_token(:tBANG, :!)
   when input.scan(/\(/)
-    new_token(:LPAREN, nil)
+    new_token(:tLPAREN, nil)
   when input.scan(/\)/)
-    new_token(:RPAREN, nil)
+    new_token(:tRPAREN, nil)
   when input.scan(/{/)
-    new_token(:LBRACE, nil)
+    new_token(:tLBRACE, nil)
   when input.scan(/}/)
-    new_token(:RBRACE, nil)
+    new_token(:tRBRACE, nil)
   when input.scan(/,/)
-    new_token(:COMMA, nil)
+    new_token(:tCOMMA, nil)
   when input.scan(/:\w+/)
-    new_token(:SYMBOL, input.matched[1..-1].to_sym)
+    new_token(:tSYMBOL, input.matched[1..-1].to_sym)
   when input.scan(/::/)
-    new_token(:COLON2)
+    new_token(:tCOLON2)
   when input.scan(/:/)
-    new_token(:COLON)
+    new_token(:tCOLON)
   when input.scan(/\*\*/)
-    new_token(:STAR2, :**)
+    new_token(:tSTAR2, :**)
   when input.scan(/\*/)
-    new_token(:STAR, :*)
+    new_token(:tSTAR, :*)
   when input.scan(/\+/)
-    new_token(:PLUS, :+)
+    new_token(:tPLUS, :+)
   when input.scan(/\./)
-    new_token(:DOT)
+    new_token(:tDOT)
   when input.scan(/<:/)
-    new_token(:LTCOLON)
+    new_token(:tLTCOLON)
   when input.scan(/\^/)
-    new_token(:HAT, :"^")
+    new_token(:tHAT, :"^")
   when input.scan(/(\[\]=)|(\[\])|===|==|!=|<<|=~/)
-    new_token(:OPERATOR, input.matched.to_sym)
+    new_token(:tOPERATOR, input.matched.to_sym)
   when input.scan(/\[/)
-    new_token(:LBRACKET, nil)
+    new_token(:tLBRACKET, nil)
   when input.scan(/\]/)
-    new_token(:RBRACKET, nil)
+    new_token(:tRBRACKET, nil)
   when input.scan(/<=/)
-    new_token(:OPERATOR, :<=)
+    new_token(:tOPERATOR, :<=)
   when input.scan(/>=/)
-    new_token(:OPERATOR, :>=)
+    new_token(:tOPERATOR, :>=)
   when input.scan(/=/)
-    new_token(:EQ, :"=")
+    new_token(:tEQ, :"=")
   when input.scan(/</)
-    new_token(:LT, :<)
+    new_token(:tLT, :<)
   when input.scan(/>/)
-    new_token(:GT, :>)
+    new_token(:tGT, :>)
   when input.scan(/nil\b/)
-    new_token(:NIL, :nil)
+    new_token(:kNIL, :nil)
   when input.scan(/bool\b/)
-    new_token(:BOOL, :bool)
+    new_token(:kBOOL, :bool)
   when input.scan(/any\b/)
-    new_token(:ANY, :any)
+    new_token(:kANY, :any)
   when input.scan(/void\b/)
-    new_token(:VOID, :void)
+    new_token(:kVOID, :void)
   when input.scan(/type\b/)
-    new_token(:TYPE, :type)
+    new_token(:kTYPE, :type)
   when input.scan(/interface\b/)
-    new_token(:INTERFACE, :interface)
+    new_token(:kINTERFACE, :interface)
   when input.scan(/incompatible\b/)
-    new_token(:INCOMPATIBLE, :incompatible)
+    new_token(:kINCOMPATIBLE, :incompatible)
   when input.scan(/end\b/)
-    new_token(:END, :end)
+    new_token(:kEND, :end)
   when input.scan(/\|/)
-    new_token(:BAR, :bar)
+    new_token(:tBAR, :bar)
   when input.scan(/-@/)
-    new_token(:UMINUS, :"-@")
+    new_token(:tUMINUS, :"-@")
   when input.scan(/def\b/)
-    new_token(:DEF)
+    new_token(:kDEF)
   when input.scan(/@type\b/)
-    new_token(:AT_TYPE)
+    new_token(:kAT_TYPE)
   when input.scan(/@implements\b/)
-    new_token(:AT_IMPLEMENTS)
+    new_token(:kAT_IMPLEMENTS)
   when input.scan(/@dynamic\b/)
-    new_token(:AT_DYNAMIC)
+    new_token(:kAT_DYNAMIC)
   when input.scan(/const\b/)
-    new_token(:CONST, :const)
+    new_token(:kCONST, :const)
   when input.scan(/var\b/)
-    new_token(:VAR, :var)
+    new_token(:kVAR, :var)
   when input.scan(/return\b/)
-    new_token(:RETURN)
+    new_token(:kRETURN)
   when input.scan(/block\b/)
-    new_token(:BLOCK, :block)
+    new_token(:kBLOCK, :block)
   when input.scan(/break\b/)
-    new_token(:BREAK, :break)
+    new_token(:kBREAK, :break)
   when input.scan(/method\b/)
-    new_token(:METHOD, :method)
+    new_token(:kMETHOD, :method)
   when input.scan(/self\?/)
-    new_token(:SELFQ)
+    new_token(:kSELFQ)
   when input.scan(/self\b/)
-    new_token(:SELF, :self)
+    new_token(:kSELF, :self)
   when input.scan(/'\w+/)
-    new_token(:TVAR, input.matched.gsub(/\A'/, '').to_sym)
+    new_token(:tVAR, input.matched.gsub(/\A'/, '').to_sym)
   when input.scan(/attr_reader\b/)
-    new_token(:ATTR_READER, :attr_reader)
+    new_token(:kATTR_READER, :attr_reader)
   when input.scan(/attr_accessor\b/)
-    new_token(:ATTR_ACCESSOR, :attr_accessor)
+    new_token(:kATTR_ACCESSOR, :attr_accessor)
   when input.scan(/instance\b/)
-    new_token(:INSTANCE, :instance)
+    new_token(:kINSTANCE, :instance)
   when input.scan(/class\b/)
-    new_token(:CLASS, :class)
+    new_token(:kCLASS, :class)
   when input.scan(/module\b/)
-    new_token(:MODULE, :module)
+    new_token(:kMODULE, :module)
   when input.scan(/include\b/)
-    new_token(:INCLUDE, :include)
+    new_token(:kINCLUDE, :include)
   when input.scan(/extend\b/)
-    new_token(:EXTEND, :extend)
+    new_token(:kEXTEND, :extend)
   when input.scan(/instance\b/)
-    new_token(:INSTANCE, :instance)
+    new_token(:kINSTANCE, :instance)
   when input.scan(/ivar\b/)
-    new_token(:IVAR, :ivar)
+    new_token(:kIVAR, :ivar)
   when input.scan(/%/)
-    new_token(:PERCENT, :%)
+    new_token(:tPERCENT, :%)
   when input.scan(/-/)
-    new_token(:MINUS, :-)
+    new_token(:tMINUS, :-)
   when input.scan(/&/)
-    new_token(:OPERATOR, :&)
+    new_token(:tOPERATOR, :&)
   when input.scan(/~/)
-    new_token(:OPERATOR, :~)
+    new_token(:tOPERATOR, :~)
   when input.scan(/\//)
-    new_token(:OPERATOR, :/)
+    new_token(:tOPERATOR, :/)
   when input.scan(/extension\b/)
-    new_token(:EXTENSION, :extension)
+    new_token(:kEXTENSION, :extension)
   when input.scan(/constructor\b/)
-    new_token(:CONSTRUCTOR, :constructor)
+    new_token(:kCONSTRUCTOR, :constructor)
   when input.scan(/noconstructor\b/)
-    new_token(:NOCONSTRUCTOR, :noconstructor)
+    new_token(:kNOCONSTRUCTOR, :noconstructor)
   when input.scan(/\$\w+\b/)
-    new_token(:GVAR, input.matched.to_sym)
+    new_token(:tGVAR, input.matched.to_sym)
   when input.scan(/[A-Z]\w*/)
-    new_token(:UIDENT, input.matched.to_sym)
+    new_token(:tUIDENT, input.matched.to_sym)
   when input.scan(/_\w+/)
-    new_token(:INTERFACE_NAME, input.matched.to_sym)
+    new_token(:tINTERFACE_NAME, input.matched.to_sym)
   when input.scan(/@\w+/)
-    new_token(:IVAR_NAME, input.matched.to_sym)
+    new_token(:tIVAR_NAME, input.matched.to_sym)
   when input.scan(/\d+/)
-    new_token(:INT, input.matched.to_i)
+    new_token(:tINT, input.matched.to_i)
   when input.scan(/\"[^\"]*\"/)
-    new_token(:STRING, input.matched[1...-1])
+    new_token(:tSTRING, input.matched[1...-1])
   when input.scan(/[a-z]\w*/)
-    new_token(:LIDENT, input.matched.to_sym)
+    new_token(:tIDENT, input.matched.to_sym)
   end
 end
