@@ -4,598 +4,958 @@ expect 1
 
 rule
 
-target: type_METHOD method_type { result = val[1] }
-      | type_SIGNATURE signatures { result = val[1] }
-      | type_ANNOTATION annotation { result = val[1] }
-      | type_TYPE type { result = val[1] }
+                        target: type_METHOD method_type
+                                {
+                                  result = val[1]
+                                }
+                              | type_SIGNATURE signatures
+                                {
+                                  result = val[1]
+                                }
+                              | type_ANNOTATION annotation
+                                {
+                                  result = val[1]
+                                }
+                              | type_TYPE type
+                                {
+                                  result = val[1]
+                                }
 
-method_type:
-  type_params params block_opt ARROW return_type {
-    result = AST::MethodType.new(location: AST::Location.concat(*val.compact.map(&:location)),
-                                 type_params: val[0],
-                                 params: val[1]&.value,
-                                 block: val[2],
-                                 return_type: val[4])
-  }
+                   method_type: type_params params block_opt ARROW return_type
+                                {
+                                  result = AST::MethodType.new(location: AST::Location.concat(*val.compact.map(&:location)),
+                                                               type_params: val[0],
+                                                               params: val[1]&.value,
+                                                               block: val[2],
+                                                               return_type: val[4])
+                                }
 
-return_type: paren_type
+                   return_type: paren_type
 
-params: { result = nil }
-      | LPAREN params0 RPAREN { result = LocatedValue.new(location: val[0].location + val[2].location,
-                                                          value: val[1]) }
-      | simple_type { result = LocatedValue.new(location: val[0].location,
-                                                value: AST::MethodType::Params::Required.new(location: val[0].location, type: val[0])) }
+                        params: # nothing
+                                {
+                                  result = nil
+                                }
+                              | LPAREN params0 RPAREN
+                                {
+                                  result = LocatedValue.new(location: val[0].location + val[2].location,
+                                                            value: val[1])
+                                }
+                              | simple_type
+                                {
+                                  result = LocatedValue.new(location: val[0].location,
+                                                            value: AST::MethodType::Params::Required.new(location: val[0].location, type: val[0]))
+                                }
 
-params0: required_param { result = AST::MethodType::Params::Required.new(location: val[0].location, type: val[0]) }
-       | required_param COMMA params0 {
-           location = val[0].location
-           result = AST::MethodType::Params::Required.new(location: location,
-                                                          type: val[0],
-                                                          next_params: val[2])
-         }
-       | params1 { result = val[0] }
+                       params0: required_param
+                                {
+                                  result = AST::MethodType::Params::Required.new(location: val[0].location, type: val[0])
+                                }
+                              | required_param COMMA params0
+                                {
+                                  location = val[0].location
+                                  result = AST::MethodType::Params::Required.new(location: location,
+                                                                                 type: val[0],
+                                                                                 next_params: val[2])
+                                }
+                              | params1
+                                {
+                                  result = val[0]
+                                }
 
-params1: optional_param { result = AST::MethodType::Params::Optional.new(location: val[0].first, type: val[0].last) }
-       | optional_param COMMA params1 {
-           location = val[0].first
-           result = AST::MethodType::Params::Optional.new(type: val[0].last, location: location, next_params: val[2])
-         }
-       | params2 { result = val[0] }
+                       params1: optional_param
+                                {
+                                  result = AST::MethodType::Params::Optional.new(location: val[0].first, type: val[0].last)
+                                }
+                              | optional_param COMMA params1
+                                {
+                                  location = val[0].first
+                                  result = AST::MethodType::Params::Optional.new(type: val[0].last, location: location, next_params: val[2])
+                                }
+                              | params2
+                                {
+                                  result = val[0]
+                                }
 
-params2: rest_param { result = AST::MethodType::Params::Rest.new(location: val[0].first, type: val[0].last) }
-       | rest_param COMMA params3 {
-           loc = val[0].first
-           result = AST::MethodType::Params::Rest.new(location: loc, type: val[0].last, next_params: val[2])
-         }
-       | params3 { result = val[0] }
+                       params2: rest_param
+                                {
+                                  result = AST::MethodType::Params::Rest.new(location: val[0].first, type: val[0].last)
+                                }
+                              | rest_param COMMA params3
+                                {
+                                  loc = val[0].first
+                                  result = AST::MethodType::Params::Rest.new(location: loc, type: val[0].last, next_params: val[2])
+                                }
+                              | params3
+                                {
+                                  result = val[0]
+                                }
 
-params3: required_keyword {
-           location, name, type = val[0]
-           result = AST::MethodType::Params::RequiredKeyword.new(location: location, name: name, type: type)
-         }
-       | optional_keyword {
-           location, name, type = val[0]
-           result = AST::MethodType::Params::OptionalKeyword.new(location: location, name: name, type: type)
-         }
-       | required_keyword COMMA params3 {
-           location, name, type = val[0]
-           result = AST::MethodType::Params::RequiredKeyword.new(location: location,
-                                                                 name: name,
-                                                                 type: type,
-                                                                 next_params: val[2])
-         }
-       | optional_keyword COMMA params3 {
-           location, name, type = val[0]
-           result = AST::MethodType::Params::OptionalKeyword.new(location: location,
-                                                                 name: name,
-                                                                 type: type,
-                                                                 next_params: val[2])
-         }
-       | params4 { result = val[0] }
+                       params3: required_keyword
+                                {
+                                  location, name, type = val[0]
+                                  result = AST::MethodType::Params::RequiredKeyword.new(location: location, name: name, type: type)
+                                }
+                              | optional_keyword
+                                {
+                                  location, name, type = val[0]
+                                  result = AST::MethodType::Params::OptionalKeyword.new(location: location, name: name, type: type)
+                                }
+                              | required_keyword COMMA params3
+                                {
+                                  location, name, type = val[0]
+                                  result = AST::MethodType::Params::RequiredKeyword.new(location: location,
+                                                                                        name: name,
+                                                                                        type: type,
+                                                                                        next_params: val[2])
+                                }
+                              | optional_keyword COMMA params3
+                                {
+                                  location, name, type = val[0]
+                                  result = AST::MethodType::Params::OptionalKeyword.new(location: location,
+                                                                                        name: name,
+                                                                                        type: type,
+                                                                                        next_params: val[2])
+                                }
+                              | params4
+                                {
+                                  result = val[0]
+                                }
 
-params4: { result = nil }
-       | STAR2 type {
-           result = AST::MethodType::Params::RestKeyword.new(location: val[0].location + val[1].location,
-                                                             type: val[1])
-         }
+                       params4: # nothing
+                                {
+                                  result = nil
+                                }
+                              | STAR2 type
+                                {
+                                  result = AST::MethodType::Params::RestKeyword.new(location: val[0].location + val[1].location,
+                                                                                    type: val[1])
+                                }
 
-required_param: type { result = val[0] }
-optional_param: QUESTION type { result = [val[0].location + val[1].location,
-                                          val[1]] }
-rest_param: STAR type { result = [val[0].location + val[1].location,
-                                  val[1]] }
-required_keyword: keyword COLON type { result = [val[0].location + val[2].location,
-                                                 val[0].value,
-                                                 val[2]] }
-optional_keyword: QUESTION keyword COLON type { result = [val[0].location + val[3].location,
-                                                          val[1].value,
-                                                          val[3]] }
+                required_param: type
+                                {
+                                  result = val[0]
+                                }
 
-block_opt: { result = nil }
-         | block_optional LBRACE RBRACE {
-             result = AST::MethodType::Block.new(params: nil,
-                                                 return_type: nil,
-                                                 location: (val[0] || val[1]).location + val[2].location,
-                                                 optional: val[0]&.value || false)
-           }
-         | block_optional LBRACE block_params ARROW type RBRACE {
-             result = AST::MethodType::Block.new(params: val[2],
-                                                 return_type: val[4],
-                                                 location: (val[0] || val[1]).location + val[5].location,
-                                                 optional: val[0]&.value || false)
-           }
+                optional_param: QUESTION type
+                                {
+                                  result = [
+                                    val[0].location + val[1].location,
+                                    val[1]
+                                  ]
+                                }
 
-block_optional: { result = nil }
-              | QUESTION { result = LocatedValue.new(location: val[0].location, value: true) }
+                    rest_param: STAR type
+                                {
+                                  result = [
+                                    val[0].location + val[1].location,
+                                    val[1]
+                                  ]
+                                }
 
-block_params: { result = nil }
-            | LPAREN block_params0 RPAREN {
-                result = val[1]
-              }
+              required_keyword: keyword COLON type
+                                {
+                                  result = [
+                                    val[0].location + val[2].location,
+                                    val[0].value,
+                                    val[2]
+                                  ]
+                                }
 
-block_params0: required_param {
-                 result = AST::MethodType::Params::Required.new(location: val[0].location,
-                                                                type: val[0])
-               }
-             | required_param COMMA block_params0 {
-                 result = AST::MethodType::Params::Required.new(location: val[0].location,
-                                                                type: val[0],
-                                                                next_params: val[2])
-               }
-             | block_params1 { result = val[0] }
+              optional_keyword: QUESTION keyword COLON type
+                                {
+                                  result = [
+                                    val[0].location + val[3].location,
+                                    val[1].value,
+                                    val[3]
+                                  ]
+                                }
 
-block_params1: optional_param {
-                 result = AST::MethodType::Params::Optional.new(location: val[0].first,
-                                                                type: val[0].last)
-              }
-            | optional_param COMMA block_params1 {
-                loc = val.first[0] + (val[2] || val[1]).location
-                type = val.first[1]
-                next_params = val[2]
-                result = AST::MethodType::Params::Optional.new(location: loc, type: type, next_params: next_params)
-              }
-            | block_params2 { result = val[0] }
+                     block_opt: # nothing
+                                {
+                                  result = nil
+                                }
+                              | block_optional LBRACE RBRACE
+                                {
+                                  result = AST::MethodType::Block.new(params: nil,
+                                                                      return_type: nil,
+                                                                      location: (val[0] || val[1]).location + val[2].location,
+                                                                      optional: val[0]&.value || false)
+                                }
+                              | block_optional LBRACE block_params ARROW type RBRACE
+                                {
+                                  result = AST::MethodType::Block.new(params: val[2],
+                                                                      return_type: val[4],
+                                                                      location: (val[0] || val[1]).location + val[5].location,
+                                                                      optional: val[0]&.value || false)
+                                }
 
-block_params2: { result = nil }
-             | rest_param {
-                 result = AST::MethodType::Params::Rest.new(location: val[0].first, type: val[0].last)
-               }
+                block_optional: # nothing
+                                {
+                                  result = nil
+                                }
+                              | QUESTION
+                                {
+                                  result = LocatedValue.new(location: val[0].location, value: true)
+                                }
 
-simple_type: type_name {
-        result = AST::Types::Name.new(name: val[0].value, location: val[0].location, args: [])
-      }
-    | application_type_name LT type_seq GT {
-        loc = val[0].location + val[3].location
-        name = val[0].value
-        args = val[2]
-        result = AST::Types::Name.new(location: loc, name: name, args: args)
-      }
-    | ANY { result = AST::Types::Any.new(location: val[0].location) }
-    | TVAR { result = AST::Types::Var.new(location: val[0].location, name: val[0].value) }
-    | CLASS { result = AST::Types::Class.new(location: val[0].location) }
-    | MODULE { result = AST::Types::Class.new(location: val[0].location) }
-    | INSTANCE { result = AST::Types::Instance.new(location: val[0].location) }
-    | SELF { result = AST::Types::Self.new(location: val[0].location) }
-    | VOID { result = AST::Types::Void.new(location: val[0].location) }
-    | NIL { result = AST::Types::Nil.new(location: val[0].location) }
-    | BOOL { result = AST::Types::Boolean.new(location: val[0].location) }
-    | simple_type QUESTION {
-        type = val[0]
-        nil_type = AST::Types::Nil.new(location: val[1].location)
-        result = AST::Types::Union.build(types: [type, nil_type], location: val[0].location + val[1].location)
-      }
-    | SELFQ {
-        type = AST::Types::Self.new(location: val[0].location)
-        nil_type = AST::Types::Nil.new(location: val[0].location)
-        result = AST::Types::Union.build(types: [type, nil_type], location: val[0].location)
-      }
-    | INT { result = AST::Types::Literal.new(value: val[0].value, location: val[0].location) }
-    | STRING { result = AST::Types::Literal.new(value: val[0].value, location: val[0].location) }
-    | SYMBOL { result = AST::Types::Literal.new(value: val[0].value, location: val[0].location) }
-    | LBRACKET type_seq RBRACKET {
-        loc = val[0].location + val[2].location
-        result = AST::Types::Tuple.new(types: val[1], location: loc)
-      }
+                  block_params: # nothing
+                                {
+                                  result = nil
+                                }
+                              | LPAREN block_params0 RPAREN
+                                {
+                                  result = val[1]
+                                }
 
-paren_type: LPAREN type RPAREN { result = val[1].with_location(val[0].location + val[2].location) }
-          | simple_type
+                 block_params0: required_param
+                                {
+                                  result = AST::MethodType::Params::Required.new(location: val[0].location,
+                                                                                 type: val[0])
+                                }
+                              | required_param COMMA block_params0 {
+                                  result = AST::MethodType::Params::Required.new(location: val[0].location,
+                                                                                 type: val[0],
+                                                                                 next_params: val[2])
+                                }
+                              | block_params1
+                                {
+                                  result = val[0]
+                                }
 
-application_type_name: module_name {
-                         result = LocatedValue.new(value: TypeName::Instance.new(name: val[0].value),
-                                                   location: val[0].location)
-                       }
-                     | INTERFACE_NAME {
-                         result = LocatedValue.new(value: TypeName::Interface.new(name: val[0].value),
-                                                   location: val[0].location)
-                       }
-                     | LIDENT {
-                         result = LocatedValue.new(value: TypeName::Alias.new(name: val[0].value),
-                                                   location: val[0].location)
-                       }
+                 block_params1: optional_param
+                                {
+                                  result = AST::MethodType::Params::Optional.new(location: val[0].first,
+                                                                                 type: val[0].last)
+                                }
+                              | optional_param COMMA block_params1
+                                {
+                                  loc = val.first[0] + (val[2] || val[1]).location
+                                  type = val.first[1]
+                                  next_params = val[2]
+                                  result = AST::MethodType::Params::Optional.new(location: loc, type: type, next_params: next_params)
+                                }
+                              | block_params2
+                                {
+                                  result = val[0]
+                                }
 
-type_name: application_type_name
-         | module_name DOT CLASS constructor {
-             loc = val[0].location + (val[3] || val[2]).location
-             result = LocatedValue.new(value: TypeName::Class.new(name: val[0].value, constructor: val[3]&.value),
-                                       location: loc)
-           }
-         | module_name DOT MODULE {
-             loc = val[0].location + val.last.location
-             result = LocatedValue.new(value: TypeName::Module.new(name: val[0].value),
-                                       location: loc)
-           }
+                 block_params2: # nothing
+                                {
+                                  result = nil
+                                }
+                              | rest_param
+                                {
+                                  result = AST::MethodType::Params::Rest.new(location: val[0].first, type: val[0].last)
+                                }
 
-constructor: { result = nil }
-           | CONSTRUCTOR { result = LocatedValue.new(location: val[0].location, value: true) }
-           | NOCONSTRUCTOR { result = LocatedValue.new(location: val[0].location, value: false) }
+                   simple_type: type_name
+                                {
+                                  result = AST::Types::Name.new(name: val[0].value, location: val[0].location, args: [])
+                                }
+                              | application_type_name LT type_seq GT
+                                {
+                                  loc = val[0].location + val[3].location
+                                  name = val[0].value
+                                  args = val[2]
+                                  result = AST::Types::Name.new(location: loc, name: name, args: args)
+                                }
+                              | ANY
+                                {
+                                  result = AST::Types::Any.new(location: val[0].location)
+                                }
+                              | TVAR
+                                {
+                                  result = AST::Types::Var.new(location: val[0].location, name: val[0].value)
+                                }
+                              | CLASS
+                                {
+                                  result = AST::Types::Class.new(location: val[0].location)
+                                }
+                              | MODULE
+                                {
+                                  result = AST::Types::Class.new(location: val[0].location)
+                                }
+                              | INSTANCE
+                                {
+                                  result = AST::Types::Instance.new(location: val[0].location)
+                                }
+                              | SELF
+                                {
+                                  result = AST::Types::Self.new(location: val[0].location)
+                                }
+                              | VOID
+                                {
+                                  result = AST::Types::Void.new(location: val[0].location)
+                                }
+                              | NIL
+                                {
+                                  result = AST::Types::Nil.new(location: val[0].location)
+                                }
+                              | BOOL
+                                {
+                                  result = AST::Types::Boolean.new(location: val[0].location)
+                                }
+                              | simple_type QUESTION
+                                {
+                                  type = val[0]
+                                  nil_type = AST::Types::Nil.new(location: val[1].location)
+                                  result = AST::Types::Union.build(types: [type, nil_type], location: val[0].location + val[1].location)
+                                }
+                              | SELFQ
+                                {
+                                  type = AST::Types::Self.new(location: val[0].location)
+                                  nil_type = AST::Types::Nil.new(location: val[0].location)
+                                  result = AST::Types::Union.build(types: [type, nil_type], location: val[0].location)
+                                }
+                              | INT
+                                {
+                                  result = AST::Types::Literal.new(value: val[0].value, location: val[0].location)
+                                }
+                              | STRING
+                                {
+                                  result = AST::Types::Literal.new(value: val[0].value, location: val[0].location)
+                                }
+                              | SYMBOL
+                                {
+                                  result = AST::Types::Literal.new(value: val[0].value, location: val[0].location)
+                                }
+                              | LBRACKET type_seq RBRACKET
+                                {
+                                  loc = val[0].location + val[2].location
+                                  result = AST::Types::Tuple.new(types: val[1], location: loc)
+                                }
 
-type: paren_type
-    | union_seq {
-        loc = val[0].first.location + val[0].last.location
-        result = AST::Types::Union.build(types: val[0], location: loc)
-      }
-    | HAT LPAREN lambda_params RPAREN ARROW paren_type {
-      loc = val[0].location + val[5].location
-      result = AST::Types::Proc.new(params: val[2], return_type: val[5], location: loc)
-    }
+                    paren_type: LPAREN type RPAREN
+                                {
+                                  result = val[1].with_location(val[0].location + val[2].location)
+                                }
+                              | simple_type
 
-lambda_params: lambda_params1
-             | paren_type { result = Interface::Params.empty.update(required: [val[0]]) }
-             | paren_type COMMA lambda_params {
-                 result = val[2].update(required: [val[0]] + val[2].required)
-             }
+         application_type_name: module_name
+                                {
+                                  result = LocatedValue.new(value: TypeName::Instance.new(name: val[0].value),
+                                                            location: val[0].location)
+                                }
+                              | INTERFACE_NAME
+                                {
+                                  result = LocatedValue.new(value: TypeName::Interface.new(name: val[0].value),
+                                                            location: val[0].location)
+                                }
+                              | LIDENT
+                                {
+                                  result = LocatedValue.new(value: TypeName::Alias.new(name: val[0].value),
+                                                            location: val[0].location)
+                                }
 
-lambda_params1: { result = Interface::Params.empty }
-              | STAR paren_type { result = Interface::Params.empty.update(rest: val[1]) }
-              | QUESTION paren_type { result = Interface::Params.empty.update(optional: [val[1]]) }
-              | QUESTION paren_type COMMA lambda_params1 { result = val[3].update(optional: [val[1]] + val[3].optional) }
+                     type_name: application_type_name
+                              | module_name DOT CLASS constructor
+                                {
+                                  loc = val[0].location + (val[3] || val[2]).location
+                                  result = LocatedValue.new(value: TypeName::Class.new(name: val[0].value, constructor: val[3]&.value),
+                                                            location: loc)
+                                }
+                              | module_name DOT MODULE
+                                {
+                                  loc = val[0].location + val.last.location
+                                  result = LocatedValue.new(value: TypeName::Module.new(name: val[0].value),
+                                                            location: loc)
+                                }
+
+                   constructor: # nothing
+                                {
+                                  result = nil
+                                }
+                              | CONSTRUCTOR
+                                {
+                                  result = LocatedValue.new(location: val[0].location, value: true)
+                                }
+                              | NOCONSTRUCTOR
+                                {
+                                  result = LocatedValue.new(location: val[0].location, value: false)
+                                }
+
+                          type: paren_type
+                              | union_seq
+                                {
+                                  loc = val[0].first.location + val[0].last.location
+                                  result = AST::Types::Union.build(types: val[0], location: loc)
+                                }
+                              | HAT LPAREN lambda_params RPAREN ARROW paren_type
+                                {
+                                  loc = val[0].location + val[5].location
+                                  result = AST::Types::Proc.new(params: val[2], return_type: val[5], location: loc)
+                                }
+
+                 lambda_params: lambda_params1
+                              | paren_type
+                                {
+                                  result = Interface::Params.empty.update(required: [val[0]])
+                                }
+                              | paren_type COMMA lambda_params
+                                {
+                                  result = val[2].update(required: [val[0]] + val[2].required)
+                                }
+
+                lambda_params1: # nothing
+                                {
+                                  result = Interface::Params.empty
+                                }
+                              | STAR paren_type
+                                {
+                                  result = Interface::Params.empty.update(rest: val[1])
+                                }
+                              | QUESTION paren_type
+                                {
+                                  result = Interface::Params.empty.update(optional: [val[1]])
+                                }
+                              | QUESTION paren_type COMMA lambda_params1
+                                {
+                                  result = val[3].update(optional: [val[1]] + val[3].optional)
+                                }
 
 
-type_seq: type { result = [val[0]] }
-        | type COMMA type_seq { result = [val[0]] + val[2] }
+                      type_seq: type
+                                {
+                                  result = [val[0]]
+                                }
+                              | type COMMA type_seq
+                                {
+                                  result = [val[0]] + val[2]
+                                }
 
-union_seq: simple_type BAR simple_type { result = [val[0], val[2]] }
-         | simple_type BAR union_seq { result = [val[0]] + val[2] }
+                     union_seq: simple_type BAR simple_type
+                                {
+                                  result = [val[0], val[2]]
+                                }
+                              | simple_type BAR union_seq
+                                {
+                                  result = [val[0]] + val[2]
+                                }
 
-keyword: LIDENT
-       | MODULE_NAME
-       | INTERFACE_NAME
-       | ANY
-       | CLASS
-       | MODULE
-       | INSTANCE
-       | BLOCK
-       | INCLUDE
-       | IVAR
-       | SELF
-       | TYPE
+                       keyword: LIDENT
+                              | MODULE_NAME
+                              | INTERFACE_NAME
+                              | ANY
+                              | CLASS
+                              | MODULE
+                              | INSTANCE
+                              | BLOCK
+                              | INCLUDE
+                              | IVAR
+                              | SELF
+                              | TYPE
 
-signatures: { result = [] }
-          | interface signatures { result = [val[0]] + val[1] }
-          | class_decl signatures { result = [val[0]] + val[1] }
-          | module_decl signatures { result = [val[0]] + val[1] }
-          | extension_decl signatures { result = [val[0]] + val[1] }
-          | const_decl signatures { result = [val[0]] + val[1] }
-          | gvar_decl signatures { result = [val[0]] + val[1] }
-          | alias_decl signatures { result = [val[0]] + val[1] }
+                    signatures: # nothing
+                                {
+                                  result = []
+                                }
+                              | interface signatures
+                                {
+                                  result = [val[0]] + val[1]
+                                }
+                              | class_decl signatures
+                                {
+                                  result = [val[0]] + val[1]
+                                }
+                              | module_decl signatures
+                                {
+                                  result = [val[0]] + val[1]
+                                }
+                              | extension_decl signatures
+                                {
+                                  result = [val[0]] + val[1]
+                                }
+                              | const_decl signatures
+                                {
+                                  result = [val[0]] + val[1]
+                                }
+                              | gvar_decl signatures
+                                {
+                                  result = [val[0]] + val[1]
+                                }
+                              | alias_decl signatures
+                                {
+                                  result = [val[0]] + val[1]
+                                }
 
-gvar_decl: GVAR COLON type {
-             loc = val.first.location + val.last.location
-             result = AST::Signature::Gvar.new(
-               location: loc,
-               name: val[0].value,
-               type: val[2]
-             )
-           }
+                     gvar_decl: GVAR COLON type
+                                {
+                                  loc = val.first.location + val.last.location
+                                  result = AST::Signature::Gvar.new(
+                                    location: loc,
+                                    name: val[0].value,
+                                    type: val[2]
+                                  )
+                                }
 
-const_decl: module_name COLON type {
-              loc = val.first.location + val.last.location
-              result = AST::Signature::Const.new(
-                location: loc,
-                name: val[0].value,
-                type: val[2]
-              )
-            }
+                    const_decl: module_name COLON type
+                                {
+                                  loc = val.first.location + val.last.location
+                                  result = AST::Signature::Const.new(
+                                    location: loc,
+                                    name: val[0].value,
+                                    type: val[2]
+                                  )
+                                }
 
-interface: INTERFACE interface_name type_params interface_members END {
-             loc = val.first.location + val.last.location
-             result = AST::Signature::Interface.new(
-               location: loc,
-               name: val[1].value,
-               params: val[2],
-               methods: val[3]
-             )
-           }
+                     interface: INTERFACE interface_name type_params interface_members END
+                                {
+                                  loc = val.first.location + val.last.location
+                                  result = AST::Signature::Interface.new(
+                                    location: loc,
+                                    name: val[1].value,
+                                    params: val[2],
+                                    methods: val[3]
+                                  )
+                                }
 
-class_decl: CLASS module_name type_params super_opt class_members END {
-              loc = val.first.location + val.last.location
-              result = AST::Signature::Class.new(name: val[1].value.absolute!,
-                                                 params: val[2],
-                                                 super_class: val[3],
-                                                 members: val[4],
-                                                 location: loc)
-            }
-module_decl: MODULE module_name type_params self_type_opt class_members END {
-               loc = val.first.location + val.last.location
-               result = AST::Signature::Module.new(name: val[1].value.absolute!,
-                                                   location: loc,
-                                                   params: val[2],
-                                                   self_type: val[3],
-                                                   members: val[4])
-             }
-extension_decl: EXTENSION module_name type_params LPAREN UIDENT RPAREN class_members END {
-                  loc = val.first.location + val.last.location
-                  result = AST::Signature::Extension.new(module_name: val[1].value.absolute!,
-                                                         name: val[4].value,
-                                                         location: loc,
-                                                         params: val[2],
-                                                         members: val[6])
-                }
+                    class_decl: CLASS module_name type_params super_opt class_members END
+                                {
+                                  loc = val.first.location + val.last.location
+                                  result = AST::Signature::Class.new(name: val[1].value.absolute!,
+                                                                     params: val[2],
+                                                                     super_class: val[3],
+                                                                     members: val[4],
+                                                                     location: loc)
+                                }
 
-alias_decl: TYPE LIDENT type_params EQ type {
-              loc = val[0].location + val[4].location
-              result = AST::Signature::Alias.new(location: loc,
-                                                 name: val[1].value,
-                                                 params: val[2],
-                                                 type: val[4])
-            }
+                   module_decl: MODULE module_name type_params self_type_opt class_members END
+                                {
+                                  loc = val.first.location + val.last.location
+                                  result = AST::Signature::Module.new(name: val[1].value.absolute!,
+                                                                      location: loc,
+                                                                      params: val[2],
+                                                                      self_type: val[3],
+                                                                      members: val[4])
+                                }
 
-self_type_opt: { result = nil }
-             | COLON type { result = val[1] }
+                extension_decl: EXTENSION module_name type_params LPAREN UIDENT RPAREN class_members END
+                                {
+                                  loc = val.first.location + val.last.location
+                                  result = AST::Signature::Extension.new(module_name: val[1].value.absolute!,
+                                                                         name: val[4].value,
+                                                                         location: loc,
+                                                                         params: val[2],
+                                                                         members: val[6])
+                                }
 
-interface_name: INTERFACE_NAME
+                    alias_decl: TYPE LIDENT type_params EQ type
+                                {
+                                  loc = val[0].location + val[4].location
+                                  result = AST::Signature::Alias.new(location: loc,
+                                                                     name: val[1].value,
+                                                                     params: val[2],
+                                                                     type: val[4])
+                                }
 
-module_name: module_name0
-           | COLON2 module_name0 {
-               loc = val.first.location + val.last.location
-               result = LocatedValue.new(location: loc, value: val[1].value.absolute!)
-             }
+                 self_type_opt: # nothing
+                                {
+                                  result = nil
+                                }
+                              | COLON type
+                                {
+                                  result = val[1]
+                                }
 
-module_name0: UIDENT {
-                result = LocatedValue.new(location: val[0].location, value: ModuleName.parse(val[0].value))
-              }
-           | UIDENT COLON2 module_name0 {
-               location = val[0].location + val.last.location
-               name = ModuleName.parse(val[0].value) + val.last.value
-               result = LocatedValue.new(location: location, value: name)
-             }
+                interface_name: INTERFACE_NAME
 
-class_members: { result = [] }
-             | class_member class_members { result = [val[0]] + val[1] }
+                   module_name: module_name0
+                              | COLON2 module_name0
+                                {
+                                  loc = val.first.location + val.last.location
+                                  result = LocatedValue.new(location: loc, value: val[1].value.absolute!)
+                                }
 
-class_member: instance_method_member
-            | module_method_member
-            | module_instance_method_member
-            | include_member
-            | extend_member
-            | ivar_member
-            | attr_reader_member
-            | attr_accessor_member
+                  module_name0: UIDENT
+                                {
+                                  result = LocatedValue.new(location: val[0].location, value: ModuleName.parse(val[0].value))
+                                }
+                              | UIDENT COLON2 module_name0
+                                {
+                                  location = val[0].location + val.last.location
+                                  name = ModuleName.parse(val[0].value) + val.last.value
+                                  result = LocatedValue.new(location: location, value: name)
+                                }
 
-ivar_member: IVAR_NAME COLON type {
-               loc = val.first.location + val.last.location
-               result = AST::Signature::Members::Ivar.new(
-                 location: loc,
-                 name: val[0].value,
-                 type: val[2]
-               )
-             }
+                 class_members: # nothing
+                                {
+                                  result = []
+                                }
+                              | class_member class_members
+                                {
+                                  result = [val[0]] + val[1]
+                                }
 
-instance_method_member: DEF method_annotations method_name COLON method_type_union {
-                          loc = val.first.location + val.last.last.location
-                          result = AST::Signature::Members::Method.new(
-                            name: val[2].value,
-                            types: val[4],
-                            kind: :instance,
-                            location: loc,
-                            attributes: val[1] || []
-                          )
-                        }
-module_method_member: DEF method_annotations SELF DOT method_name COLON method_type_union {
-                        loc = val.first.location + val.last.last.location
-                        result = AST::Signature::Members::Method.new(
-                          name: val[4].value,
-                          types: val[6],
-                          kind: :module,
-                          location: loc,
-                          attributes: val[1] || []
-                        )
-                      }
-module_instance_method_member: DEF method_annotations SELFQ DOT method_name COLON method_type_union {
-                                 loc = val.first.location + val.last.last.location
-                                 result = AST::Signature::Members::Method.new(
-                                   name: val[4].value,
-                                   types: val[6],
-                                   kind: :module_instance,
-                                   location: loc,
-                                   attributes: val[1] || []
-                                 )
-                               }
-include_member: INCLUDE module_name {
-                  loc = val.first.location + val.last.location
-                  name = val[1].value
-                  result = AST::Signature::Members::Include.new(name: name, location: loc, args: [])
-                }
-              | INCLUDE module_name LT type_seq GT {
-                  loc = val.first.location + val.last.location
-                  name = val[1].value
-                  result = AST::Signature::Members::Include.new(name: name, location: loc, args: val[3])
-                }
-extend_member: EXTEND module_name {
-                 loc = val.first.location + val.last.location
-                 name = val[1].value
-                 result = AST::Signature::Members::Extend.new(name: name, location: loc, args: [])
-               }
-             | EXTEND module_name LT type_seq GT {
-                 loc = val.first.location + val.last.location
-                 name = val[1].value
-                 result = AST::Signature::Members::Extend.new(name: name, location: loc, args: val[3])
-               }
-attr_reader_member: ATTR_READER method_name attr_ivar_opt COLON type {
-                      loc = val.first.location + val.last.location
-                      result = AST::Signature::Members::Attr.new(location: loc, name: val[1].value, kind: :reader, ivar: val[2], type: val[4])
-                    }
-attr_accessor_member: ATTR_ACCESSOR method_name attr_ivar_opt COLON type {
-                        loc = val.first.location + val.last.location
-                        result = AST::Signature::Members::Attr.new(location: loc, name: val[1].value, kind: :accessor, ivar: val[2], type: val[4])
-                      }
+                  class_member: instance_method_member
+                              | module_method_member
+                              | module_instance_method_member
+                              | include_member
+                              | extend_member
+                              | ivar_member
+                              | attr_reader_member
+                              | attr_accessor_member
 
-attr_ivar_opt: { result = nil }
-             | LPAREN RPAREN { result = false }
-             | LPAREN IVAR_NAME RPAREN { result = val[1].value }
+                   ivar_member: IVAR_NAME COLON type
+                                {
+                                  loc = val.first.location + val.last.location
+                                  result = AST::Signature::Members::Ivar.new(
+                                    location: loc,
+                                    name: val[0].value,
+                                    type: val[2]
+                                  )
+                                }
 
-method_annotations: { result = nil }
-                  | LPAREN method_annotation_seq RPAREN { result = val[1] }
+        instance_method_member: DEF method_annotations method_name COLON method_type_union
+                                {
+                                  loc = val.first.location + val.last.last.location
+                                  result = AST::Signature::Members::Method.new(
+                                    name: val[2].value,
+                                    types: val[4],
+                                    kind: :instance,
+                                    location: loc,
+                                    attributes: val[1] || []
+                                  )
+                                }
 
-method_annotation_seq: method_annotation_keyword { result = [val[0]] }
-                     | method_annotation_keyword COMMA method_annotation_seq { result = [val[0]] + val[2] }
+          module_method_member: DEF method_annotations SELF DOT method_name COLON method_type_union
+                                {
+                                  loc = val.first.location + val.last.last.location
+                                  result = AST::Signature::Members::Method.new(
+                                    name: val[4].value,
+                                    types: val[6],
+                                    kind: :module,
+                                    location: loc,
+                                    attributes: val[1] || []
+                                  )
+                                }
 
-method_annotation_keyword: CONSTRUCTOR { result = val[0].value }
-                         | INCOMPATIBLE { result = val[0].value }
+ module_instance_method_member: DEF method_annotations SELFQ DOT method_name COLON method_type_union
+                                {
+                                  loc = val.first.location + val.last.last.location
+                                  result = AST::Signature::Members::Method.new(
+                                    name: val[4].value,
+                                    types: val[6],
+                                    kind: :module_instance,
+                                    location: loc,
+                                    attributes: val[1] || []
+                                  )
+                                }
 
-super_opt: { result = nil }
-         | LTCOLON super_class { result = val[1] }
+                include_member: INCLUDE module_name
+                                {
+                                  loc = val.first.location + val.last.location
+                                  name = val[1].value
+                                  result = AST::Signature::Members::Include.new(name: name, location: loc, args: [])
+                                }
+                              | INCLUDE module_name LT type_seq GT
+                                {
+                                  loc = val.first.location + val.last.location
+                                  name = val[1].value
+                                  result = AST::Signature::Members::Include.new(name: name, location: loc, args: val[3])
+                                }
 
-super_class: module_name {
-               result = AST::Signature::SuperClass.new(location: val[0].location, name: val[0].value, args: [])
-             }
-           | module_name LT type_seq GT {
-               loc = val[0].location + val[3].location
-               name = val[0].value
-               result = AST::Signature::SuperClass.new(location: loc, name: name, args: val[2])
-             }
+                 extend_member: EXTEND module_name
+                                {
+                                  loc = val.first.location + val.last.location
+                                  name = val[1].value
+                                  result = AST::Signature::Members::Extend.new(name: name, location: loc, args: [])
+                                }
+                              | EXTEND module_name LT type_seq GT
+                                {
+                                  loc = val.first.location + val.last.location
+                                  name = val[1].value
+                                  result = AST::Signature::Members::Extend.new(name: name, location: loc, args: val[3])
+                                }
 
-type_params: { result = nil }
-           | LT type_param_seq GT {
-              location = val[0].location + val[2].location
-              result = AST::TypeParams.new(location: location, variables: val[1])
-            }
+            attr_reader_member: ATTR_READER method_name attr_ivar_opt COLON type
+                                {
+                                  loc = val.first.location + val.last.location
+                                  result = AST::Signature::Members::Attr.new(location: loc, name: val[1].value, kind: :reader, ivar: val[2], type: val[4])
+                                }
 
-type_param_seq: TVAR { result = [val[0].value] }
-           | TVAR COMMA type_param_seq { result = [val[0].value] + val[2] }
+          attr_accessor_member: ATTR_ACCESSOR method_name attr_ivar_opt COLON type
+                                {
+                                  loc = val.first.location + val.last.location
+                                  result = AST::Signature::Members::Attr.new(location: loc, name: val[1].value, kind: :accessor, ivar: val[2], type: val[4])
+                                }
 
-interface_members: { result = [] }
-           | interface_method interface_members { result = val[1].unshift(val[0]) }
+                 attr_ivar_opt: # nothing
+                                {
+                                  result = nil
+                                }
+                              | LPAREN RPAREN
+                                {
+                                  result = false
+                                }
+                              | LPAREN IVAR_NAME RPAREN
+                                {
+                                  result = val[1].value
+                                }
 
-interface_method: DEF method_name COLON method_type_union {
-                    loc = val[0].location + val[3].last.location
-                    result = AST::Signature::Interface::Method.new(location: loc, name: val[1].value, types: val[3])
-                  }
+            method_annotations: # nothing
+                                {
+                                  result = nil
+                                }
+                              | LPAREN method_annotation_seq RPAREN
+                                {
+                                  result = val[1]
+                                }
 
-method_type_union: method_type { result = [val[0]] }
-                 | method_type BAR method_type_union { result = [val[0]] + val[2] }
+         method_annotation_seq: method_annotation_keyword
+                                {
+                                  result = [val[0]]
+                                }
+                              | method_annotation_keyword COMMA method_annotation_seq
+                                {
+                                  result = [val[0]] + val[2]
+                                }
 
-method_name: method_name0
-           | STAR | STAR2
-           | PERCENT | MINUS
-           | LT | GT
-           | UMINUS
-           | BAR { result = LocatedValue.new(location: val[0].location, value: :|) }
-           | method_name0 EQ {
-               raise ParseError, "\nunexpected method name #{val[0].to_s} =" unless val[0].location.pred?(val[1].location)
-               result = LocatedValue.new(location: val[0].location + val[1].location,
-                                         value: :"#{val[0].value}=")
-             }
-           | method_name0 QUESTION {
-               raise ParseError, "\nunexpected method name #{val[0].to_s} ?" unless val[0].location.pred?(val[1].location)
-               result = LocatedValue.new(location: val[0].location + val[1].location,
-                                         value: :"#{val[0].value}?")
-           }
-           | method_name0 BANG {
-               raise ParseError, "\nunexpected method name #{val[0].to_s} !" unless val[0].location.pred?(val[1].location)
-               result = LocatedValue.new(location: val[0].location + val[1].location,
-                                         value: :"#{val[0].value}!")
-           }
-           | GT GT {
-               raise ParseError, "\nunexpected method name > >" unless val[0].location.pred?(val[1].location)
-               result = LocatedValue.new(location: val[0].location + val[1].location, value: :>>)
-             }
-           | NIL QUESTION {
-             raise ParseError, "\nunexpected method name #{val[0].to_s} ?" unless val[0].location.pred?(val[1].location)
-             result = LocatedValue.new(location: val[0].location + val[1].location,
-                                       value: :"nil?")
-           }
+     method_annotation_keyword: CONSTRUCTOR
+                                {
+                                  result = val[0].value
+                                }
+                              | INCOMPATIBLE
+                                {
+                                  result = val[0].value
+                                }
 
-method_name0: LIDENT
-            | UIDENT
-            | MODULE_NAME
-            | INTERFACE_NAME
-            | ANY | VOID
-            | INTERFACE
-            | END
-            | PLUS
-            | CLASS
-            | MODULE
-            | INSTANCE
-            | EXTEND
-            | INCLUDE
-            | OPERATOR
-            | HAT
-            | BANG
-            | BLOCK
-            | BREAK
-            | METHOD
-            | BOOL
-            | TYPE
-            | CONSTRUCTOR { result = LocatedValue.new(location: val[0].location, value: :constructor) }
-            | NOCONSTRUCTOR { result = LocatedValue.new(location: val[0].location, value: :noconstructor) }
-            | ATTR_READER
-            | ATTR_ACCESSOR
-            | INCOMPATIBLE
+                     super_opt: # nothing
+                                {
+                                  result = nil
+                                }
+                              | LTCOLON super_class
+                                {
+                                  result = val[1]
+                                }
 
-annotation: AT_TYPE VAR subject COLON type {
-              loc = val.first.location + val.last.location
-              result = AST::Annotation::VarType.new(location: loc,
-                                                    name: val[2].value,
-                                                    type: val[4])
-            }
-          | AT_TYPE METHOD subject COLON method_type {
-              loc = val.first.location + val.last.location
-              result = AST::Annotation::MethodType.new(location: loc,
-                                                       name: val[2].value,
-                                                       type: val[4])
-            }
-          | AT_TYPE RETURN COLON type {
-              loc = val.first.location + val.last.location
-              result = AST::Annotation::ReturnType.new(type: val[3], location: loc)
-            }
-          | AT_TYPE BLOCK COLON type {
-              loc = val.first.location + val.last.location
-              result = AST::Annotation::BlockType.new(type: val[3], location: loc)
-            }
-          | AT_TYPE SELF COLON type {
-              loc = val.first.location + val.last.location
-              result = AST::Annotation::SelfType.new(type: val[3], location: loc)
-            }
-          | AT_TYPE CONST module_name COLON type {
-              loc = val.first.location + val.last.location
-              result = AST::Annotation::ConstType.new(name: val[2].value,
-                                                      type: val[4],
-                                                      location: loc)
-            }
-          | AT_TYPE INSTANCE COLON type {
-              loc = val.first.location + val.last.location
-              result = AST::Annotation::InstanceType.new(type: val[3], location: loc)
-            }
-          | AT_TYPE MODULE COLON type {
-              loc = val.first.location + val.last.location
-              result = AST::Annotation::ModuleType.new(type: val[3], location: loc)
-            }
-          | AT_TYPE IVAR IVAR_NAME COLON type {
-              loc = val.first.location + val.last.location
-              result = AST::Annotation::IvarType.new(name: val[2].value, type: val[4], location: loc)
-            }
-          | AT_IMPLEMENTS module_name type_params {
-              loc = val[0].location + (val[2]&.location || val[1].location)
-              args = val[2]&.variables || []
-              name = AST::Annotation::Implements::Module.new(name: val[1].value, args: args)
-              result = AST::Annotation::Implements.new(name: name, location: loc)
-            }
-          | AT_DYNAMIC dynamic_names {
-             loc = val[0].location + val[1].last.location
-             result = AST::Annotation::Dynamic.new(names: val[1], location: loc)
-           }
-          | AT_TYPE BREAK COLON type {
-             loc = val.first.location + val.last.location
-             result = AST::Annotation::BreakType.new(type: val[3], location: loc)
-           }
+                   super_class: module_name
+                                {
+                                  result = AST::Signature::SuperClass.new(location: val[0].location, name: val[0].value, args: [])
+                                }
+                              | module_name LT type_seq GT
+                                {
+                                  loc = val[0].location + val[3].location
+                                  name = val[0].value
+                                  result = AST::Signature::SuperClass.new(location: loc, name: name, args: val[2])
+                                }
 
-dynamic_names: dynamic_name COMMA dynamic_names { result = [val[0]] + val[2] }
-             | dynamic_name { result = val }
+                   type_params: # nothing
+                                {
+                                  result = nil
+                                }
+                              | LT type_param_seq GT
+                                {
+                                  location = val[0].location + val[2].location
+                                  result = AST::TypeParams.new(location: location, variables: val[1])
+                                }
 
-dynamic_name: method_name {
-             result = AST::Annotation::Dynamic::Name.new(name: val[0].value, location: val[0].location, kind: :instance)
-           }
-           | SELF DOT method_name {
-             loc = val.first.location + val.last.location
-             result = AST::Annotation::Dynamic::Name.new(name: val[2].value, location: loc, kind: :module)
-           }
-           | SELFQ DOT method_name {
-             loc = val.first.location + val.last.location
-             result = AST::Annotation::Dynamic::Name.new(name: val[2].value, location: loc, kind: :module_instance)
-           }
+                type_param_seq: TVAR
+                                {
+                                  result = [val[0].value]
+                                }
+                              | TVAR COMMA type_param_seq
+                                {
+                                  result = [val[0].value] + val[2]
+                                }
 
-subject: LIDENT { result = val[0] }
+             interface_members: # nothing
+                                {
+                                  result = []
+                                }
+                              | interface_method interface_members
+                                {
+                                  result = val[1].unshift(val[0])
+                                }
+
+              interface_method: DEF method_name COLON method_type_union
+                                {
+                                  loc = val[0].location + val[3].last.location
+                                  result = AST::Signature::Interface::Method.new(location: loc, name: val[1].value, types: val[3])
+                                }
+
+             method_type_union: method_type
+                                {
+                                  result = [val[0]]
+                                }
+                              | method_type BAR method_type_union
+                                {
+                                  result = [val[0]] + val[2]
+                                }
+
+                   method_name: method_name0
+                              | STAR
+                              | STAR2
+                              | PERCENT
+                              | MINUS
+                              | LT
+                              | GT
+                              | UMINUS
+                              | BAR
+                                {
+                                  result = LocatedValue.new(location: val[0].location, value: :|)
+                                }
+                              | method_name0 EQ
+                                {
+                                  raise ParseError, "\nunexpected method name #{val[0].to_s} =" unless val[0].location.pred?(val[1].location)
+                                  result = LocatedValue.new(location: val[0].location + val[1].location,
+                                                           value: :"#{val[0].value}=")
+                                }
+                              | method_name0 QUESTION
+                                {
+                                  raise ParseError, "\nunexpected method name #{val[0].to_s} ?" unless val[0].location.pred?(val[1].location)
+                                  result = LocatedValue.new(location: val[0].location + val[1].location,
+                                                           value: :"#{val[0].value}?")
+                                }
+                              | method_name0 BANG
+                                {
+                                  raise ParseError, "\nunexpected method name #{val[0].to_s} !" unless val[0].location.pred?(val[1].location)
+                                  result = LocatedValue.new(location: val[0].location + val[1].location,
+                                                           value: :"#{val[0].value}!")
+                                }
+                              | GT GT
+                                {
+                                  raise ParseError, "\nunexpected method name > >" unless val[0].location.pred?(val[1].location)
+                                  result = LocatedValue.new(location: val[0].location + val[1].location, value: :>>)
+                                }
+                              | NIL QUESTION
+                                {
+                                  raise ParseError, "\nunexpected method name #{val[0].to_s} ?" unless val[0].location.pred?(val[1].location)
+                                  result = LocatedValue.new(location: val[0].location + val[1].location,
+                                                         value: :"nil?")
+                                }
+
+                  method_name0: LIDENT
+                              | UIDENT
+                              | MODULE_NAME
+                              | INTERFACE_NAME
+                              | ANY
+                              | VOID
+                              | INTERFACE
+                              | END
+                              | PLUS
+                              | CLASS
+                              | MODULE
+                              | INSTANCE
+                              | EXTEND
+                              | INCLUDE
+                              | OPERATOR
+                              | HAT
+                              | BANG
+                              | BLOCK
+                              | BREAK
+                              | METHOD
+                              | BOOL
+                              | TYPE
+                              | CONSTRUCTOR
+                                {
+                                  result = LocatedValue.new(location: val[0].location, value: :constructor)
+                                }
+                              | NOCONSTRUCTOR
+                                {
+                                  result = LocatedValue.new(location: val[0].location, value: :noconstructor)
+                                }
+                              | ATTR_READER
+                              | ATTR_ACCESSOR
+                              | INCOMPATIBLE
+
+                    annotation: AT_TYPE VAR subject COLON type
+                                {
+                                  loc = val.first.location + val.last.location
+                                  result = AST::Annotation::VarType.new(location: loc,
+                                                                        name: val[2].value,
+                                                                        type: val[4])
+                                }
+                              | AT_TYPE METHOD subject COLON method_type
+                                {
+                                  loc = val.first.location + val.last.location
+                                  result = AST::Annotation::MethodType.new(location: loc,
+                                                                           name: val[2].value,
+                                                                           type: val[4])
+                                }
+                              | AT_TYPE RETURN COLON type
+                                {
+                                  loc = val.first.location + val.last.location
+                                  result = AST::Annotation::ReturnType.new(type: val[3], location: loc)
+                                }
+                              | AT_TYPE BLOCK COLON type
+                                {
+                                  loc = val.first.location + val.last.location
+                                  result = AST::Annotation::BlockType.new(type: val[3], location: loc)
+                                }
+                              | AT_TYPE SELF COLON type
+                                {
+                                  loc = val.first.location + val.last.location
+                                  result = AST::Annotation::SelfType.new(type: val[3], location: loc)
+                                }
+                              | AT_TYPE CONST module_name COLON type
+                                {
+                                  loc = val.first.location + val.last.location
+                                  result = AST::Annotation::ConstType.new(name: val[2].value,
+                                                                          type: val[4],
+                                                                          location: loc)
+                                }
+                              | AT_TYPE INSTANCE COLON type
+                                {
+                                  loc = val.first.location + val.last.location
+                                  result = AST::Annotation::InstanceType.new(type: val[3], location: loc)
+                                }
+                              | AT_TYPE MODULE COLON type
+                                {
+                                  loc = val.first.location + val.last.location
+                                  result = AST::Annotation::ModuleType.new(type: val[3], location: loc)
+                                }
+                              | AT_TYPE IVAR IVAR_NAME COLON type
+                                {
+                                  loc = val.first.location + val.last.location
+                                  result = AST::Annotation::IvarType.new(name: val[2].value, type: val[4], location: loc)
+                                }
+                              | AT_IMPLEMENTS module_name type_params
+                                {
+                                  loc = val[0].location + (val[2]&.location || val[1].location)
+                                  args = val[2]&.variables || []
+                                  name = AST::Annotation::Implements::Module.new(name: val[1].value, args: args)
+                                  result = AST::Annotation::Implements.new(name: name, location: loc)
+                                }
+                              | AT_DYNAMIC dynamic_names
+                                {
+                                  loc = val[0].location + val[1].last.location
+                                  result = AST::Annotation::Dynamic.new(names: val[1], location: loc)
+                                }
+                              | AT_TYPE BREAK COLON type
+                                {
+                                  loc = val.first.location + val.last.location
+                                  result = AST::Annotation::BreakType.new(type: val[3], location: loc)
+                                }
+
+                 dynamic_names: dynamic_name COMMA dynamic_names
+                                {
+                                  result = [val[0]] + val[2]
+                                }
+                              | dynamic_name
+                                {
+                                  result = val
+                                }
+
+                  dynamic_name: method_name
+                                {
+                                  result = AST::Annotation::Dynamic::Name.new(name: val[0].value, location: val[0].location, kind: :instance)
+                                }
+                              | SELF DOT method_name
+                                {
+                                  loc = val.first.location + val.last.location
+                                  result = AST::Annotation::Dynamic::Name.new(name: val[2].value, location: loc, kind: :module)
+                                }
+                              | SELFQ DOT method_name
+                                {
+                                  loc = val.first.location + val.last.location
+                                  result = AST::Annotation::Dynamic::Name.new(name: val[2].value, location: loc, kind: :module_instance)
+                                }
+
+                       subject: LIDENT
+                                {
+                                  result = val[0]
+                                }
 
 end
 
