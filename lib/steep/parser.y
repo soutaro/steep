@@ -444,7 +444,6 @@ rule
                                 }
 
                        keyword: tIDENT
-                              # | MODULE_NAME
                               | tINTERFACE_NAME
                               | kANY
                               | kCLASS
@@ -837,7 +836,6 @@ rule
 
                   method_name0: tIDENT
                               | tUIDENT
-                              # | MODULE_NAME
                               | tINTERFACE_NAME
                               | kANY
                               | kVOID
