@@ -214,7 +214,7 @@ module Steep
       def array?(type)
         type.is_a?(AST::Types::Name) &&
           type.name.is_a?(TypeName::Instance) &&
-          type.name.name.name == "Array" && type.name.name.absolute?
+          type.name.name == ModuleName.new(namespace: AST::Namespace.root, name: :Array)
       end
 
       def expandable_params?(params_type)

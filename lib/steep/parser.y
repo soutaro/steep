@@ -503,7 +503,7 @@ rule
                                   loc = val.first.location + val.last.location
                                   result = AST::Signature::Const.new(
                                     location: loc,
-                                    name: val[0].value,
+                                    name: val[0].value.absolute!,
                                     type: val[2]
                                   )
                                 }
@@ -569,11 +569,30 @@ rule
 
                 interface_name: tINTERFACE_NAME
 
-                   module_name: module_name0
-                              | tCOLON2 module_name0
-                                {
-                                  loc = val.first.location + val.last.location
-                                  result = LocatedValue.new(location: loc, value: val[1].value.absolute!)
+                   module_name: namespace {
+            		              namespace = val[0].value
+            		              component = namespace.path.last
+            		              name = ModuleName.new(namespace: namespace.parent, name: component)
+            		              result = LocatedValue.new(location: val[0].location, value: name)
+              		              }
+
+                     namespace: namespace0 {
+                                  namespace = AST::Namespace.new(path: val[0].value, absolute: false)
+                                  result = LocatedValue.new(location: val[0].location, value: namespace)
+                                }
+                              | tCOLON2 namespace0 {
+                                  namespace = AST::Namespace.new(path: val[1].value, absolute: true)
+                                  location = val[0].location + val[1].location
+                                  result = LocatedValue.new(location: location, value: namespace)
+                                }
+
+                    namespace0: tUIDENT {
+                                  result = LocatedValue.new(location: val[0].location, value: [val[0].value])
+                                }
+                              | tUIDENT tCOLON2 namespace0 {
+                                  array = [val[0].value] + val[2].value
+                                  location = val[0].location + val[2].location
+                                  result = LocatedValue.new(location: location, value: array)
                                 }
 
                   module_name0: tUIDENT
@@ -653,26 +672,26 @@ rule
 
                 include_member: kINCLUDE module_name
                                 {
-                                  loc = val.first.location + val.last.location
+                                  loc = val[0].location + val[1].location
                                   name = val[1].value
                                   result = AST::Signature::Members::Include.new(name: name, location: loc, args: [])
                                 }
                               | kINCLUDE module_name tLT type_seq tGT
                                 {
-                                  loc = val.first.location + val.last.location
+                                  loc = val[0].location + val[4].location
                                   name = val[1].value
                                   result = AST::Signature::Members::Include.new(name: name, location: loc, args: val[3])
                                 }
 
                  extend_member: kEXTEND module_name
                                 {
-                                  loc = val.first.location + val.last.location
+                                  loc = val[0].location + val[1].location
                                   name = val[1].value
                                   result = AST::Signature::Members::Extend.new(name: name, location: loc, args: [])
                                 }
                               | kEXTEND module_name tLT type_seq tGT
                                 {
-                                  loc = val.first.location + val.last.location
+                                  loc = val[0].location + val[4].location
                                   name = val[1].value
                                   result = AST::Signature::Members::Extend.new(name: name, location: loc, args: val[3])
                                 }
@@ -898,7 +917,7 @@ rule
                                 }
                               | kAT_TYPE kCONST module_name tCOLON type
                                 {
-                                  loc = val.first.location + val.last.location
+                                  loc = val[0].location + val[4].location
                                   result = AST::Annotation::ConstType.new(name: val[2].value,
                                                                           type: val[4],
                                                                           location: loc)
@@ -964,7 +983,6 @@ rule
                                 {
                                   result = val[0]
                                 }
-
 end
 
 ---- inner

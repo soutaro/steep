@@ -3,34 +3,26 @@ require_relative "test_helper"
 class ModuleNameTest < Minitest::Test
   include TestHelper
 
+  Namespace = Steep::AST::Namespace
   ModuleName = Steep::ModuleName
 
-  def test_absolute
-    assert_operator ModuleName.parse("::Object"), :absolute?
-    assert_operator ModuleName.parse("Object"), :relative?
-  end
+  def test_from_const_node
+    assert_equal ModuleName.new(namespace: Namespace.empty, name: :C), ModuleName.from_node(parse_ruby("C").node)
+    assert_equal ModuleName.new(namespace: Namespace.root, name: :C), ModuleName.from_node(parse_ruby("::C").node)
 
-  def test_concat
-    assert_equal ModuleName.parse("Object::String"), ModuleName.parse("Object") + ModuleName.parse("String")
-    assert_equal ModuleName.parse("Object::String"), ModuleName.parse("Object") + "String"
-    assert_equal ModuleName.parse("::String"), ModuleName.parse("Object") + "::String"
-  end
-
-  def test_components
-    assert_equal [ModuleName.parse("Object"), ModuleName.parse("String")], ModuleName.parse("Object::String").components
-    assert_equal [ModuleName.parse("::Object"), ModuleName.parse("String")], ModuleName.parse("::Object::String").components
-  end
-
-  def test_parent
-    assert_equal ModuleName.parse("::Object"), ModuleName.parse("::Object::String").parent
-    assert_equal ModuleName.parse("Object"), ModuleName.parse("Object::String").parent
-    assert_nil ModuleName.parse("::Object").parent
-  end
-
-  def test_from_node
-    assert_equal ModuleName.parse("A::B::C"), ModuleName.from_node(parse_ruby("A::B::C").node)
-    assert_equal ModuleName.parse("::A::B::C"), ModuleName.from_node(parse_ruby("::A::B::C").node)
+    assert_equal ModuleName.new(namespace: Namespace.parse("A::B"), name: :C), ModuleName.from_node(parse_ruby("A::B::C").node)
+    assert_equal ModuleName.new(namespace: Namespace.parse("::A::B"), name: :C), ModuleName.from_node(parse_ruby("::A::B::C").node)
     assert_nil ModuleName.from_node(parse_ruby("x").node)
     assert_nil ModuleName.from_node(parse_ruby("A::x::C").node)
+  end
+
+  def test_from_casgn_node
+    assert_equal ModuleName.new(namespace: Namespace.empty, name: :C), ModuleName.from_node(parse_ruby("C = 1").node)
+    assert_equal ModuleName.new(namespace: Namespace.root, name: :C), ModuleName.from_node(parse_ruby("::C = 2").node)
+
+    assert_equal ModuleName.new(namespace: Namespace.parse("A::B"), name: :C), ModuleName.from_node(parse_ruby("A::B::C = 3").node)
+    assert_equal ModuleName.new(namespace: Namespace.parse("::A::B"), name: :C), ModuleName.from_node(parse_ruby("::A::B::C = 4").node)
+    assert_nil ModuleName.from_node(parse_ruby("x = 5").node)
+    assert_nil ModuleName.from_node(parse_ruby("A::x::C = 6").node)
   end
 end

@@ -20,13 +20,19 @@ module Steep
           @aliases = {}
         end
 
+        def assert_absolute_name(name)
+          name.namespace.absolute? or raise "Absolute name expected: #{name}"
+        end
+
         def add(sig)
           case sig
           when Signature::Class
-            raise "Duplicated class: #{sig.name}" if classes.key?(sig.name.absolute!) || modules.key?(sig.name.absolute!)
-            classes[sig.name.absolute!] = sig
+            assert_absolute_name sig.name
+            raise "Duplicated class: #{sig.name}" if classes.key?(sig.name) || modules.key?(sig.name)
+            classes[sig.name] = sig
           when Signature::Module
-            raise "Duplicated module: #{sig.name}" if classes.key?(sig.name.absolute!) || modules.key?(sig.name.absolute!)
+            assert_absolute_name sig.name
+            raise "Duplicated module: #{sig.name}" if classes.key?(sig.name) || modules.key?(sig.name)
             modules[sig.name.absolute!] = sig
           when Signature::Interface
             raise "Duplicated interface: #{sig.name}" if interfaces.key?(sig.name)
@@ -38,7 +44,8 @@ module Steep
             end
             extensions[sig.module_name.absolute!] << sig
           when Signature::Const
-            constants[sig.name.absolute!] = sig
+            assert_absolute_name sig.name
+            constants[sig.name] = sig
           when Signature::Gvar
             raise "Duplicated global: #{sig.name}" if globals.key?(sig.name)
             globals[sig.name] = sig
@@ -50,15 +57,15 @@ module Steep
           end
         end
 
-        def find_module(name, current_module: nil)
+        def find_module(name, current_module: AST::Namespace.root)
           find_name(modules, name, current_module: current_module) or raise "Unknown module: #{name}"
         end
 
-        def find_class(name, current_module: nil)
+        def find_class(name, current_module: AST::Namespace.root)
           find_name(classes, name, current_module: current_module) or raise "Unknown class: #{name}"
         end
 
-        def find_class_or_module(name, current_module: nil)
+        def find_class_or_module(name, current_module: AST::Namespace.root)
           sig =
             find_name(modules, name, current_module: current_module) ||
               find_name(classes, name, current_module: current_module)
@@ -66,11 +73,11 @@ module Steep
           sig or raise "Unknown class/module: #{name}}"
         end
 
-        def find_extensions(name, current_module: nil)
+        def find_extensions(name, current_module: AST::Namespace.root)
           find_name(extensions, name, current_module: current_module) || []
         end
 
-        def find_const(name, current_module: nil)
+        def find_const(name, current_module: Namespace.root)
           find_name(constants, name, current_module: current_module)
         end
 
@@ -83,10 +90,14 @@ module Steep
         end
 
         def find_name(hash, name, current_module:)
-          if current_module
-            hash[current_module + name] || find_name(hash, name, current_module: current_module.parent)
+          current_module.absolute? or raise "Current namespace should be absolute: #{current_module}"
+
+          if (object = hash[name.in_namespace(current_module)])
+            object
           else
-            hash[name.absolute!]
+            unless current_module.empty?
+              find_name(hash, name, current_module: current_module.parent)
+            end
           end
         end
 
@@ -94,26 +105,19 @@ module Steep
           interfaces[name] or raise "Unknown interface: #{name}"
         end
 
-        def module?(type_name, current_module: nil)
-          name = type_name.map_module_name {|m| current_module ? current_module + m : m.absolute! }.name
-          modules.key?(name)
-        end
-
-        def class?(type_name, current_module: nil)
-          name = type_name.map_module_name {|m| current_module ? current_name + m : m.absolute! }.name
+        def class_name?(name)
+          assert_absolute_name name
           classes.key?(name)
         end
 
-        def class_name?(name, current_module: nil)
-          classes.key?(current_module ? current_module + name : name.absolute!)
+        def module_name?(name)
+          assert_absolute_name name
+          modules.key?(name)
         end
 
-        def module_name?(name, current_module: nil)
-          modules.key?(current_module ? current_module + name : name.absolute!)
-        end
-
-        def const_name?(name, current_module: nil)
-          constants.key?(current_module ? current_module + name : name.absolute!)
+        def const_name?(name)
+          assert_absolute_name name
+          constants.key?(name)
         end
 
         def each(&block)

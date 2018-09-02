@@ -7,6 +7,7 @@ class AnnotationCollectionTest < Minitest::Test
   ModuleName = Steep::ModuleName
   Annotation = Steep::AST::Annotation
   Types = Steep::AST::Types
+  AST = Steep::AST
 
   def builder
     @builder ||= new_subtyping_checker(<<-EOF).builder
@@ -43,7 +44,7 @@ end
   end
 
   def test_types
-    annotations = new_collection(current_module: ModuleName.parse("::Person"))
+    annotations = new_collection(current_module: AST::Namespace.parse("::Person"))
 
     assert_equal parse_type("::Person::Object"), annotations.var_type(lvar: :x)
     assert_nil annotations.var_type(lvar: :y)
@@ -65,19 +66,20 @@ end
   end
 
   def test_dynamics
-    annotations = new_collection(current_module: ModuleName.parse("::Person"))
+    annotations = new_collection(current_module: AST::Namespace.parse("::Person"))
 
     assert_equal [:foo, :baz], annotations.instance_dynamics
     assert_equal [:bar, :baz], annotations.module_dynamics
   end
 
   def test_merge_block_annotations
-    current_annotations = new_collection(current_module: ModuleName.parse("::Person"))
+    namespace = AST::Namespace.parse("::Person")
+    current_annotations = new_collection(current_module: namespace)
 
     block_annotations = Annotation::Collection.new(annotations: [
       Annotation::VarType.new(name: :x, type: parse_type("Integer")),
       Annotation::BreakType.new(type: parse_type("String"))
-    ], builder: builder, current_module: ModuleName.parse("::Person"))
+    ], builder: builder, current_module: namespace)
 
     new_annotations = current_annotations.merge_block_annotations(block_annotations)
 

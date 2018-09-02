@@ -23,30 +23,26 @@ module Steep
       end
 
       def absolute_type_name(type_name, current:)
-        if current
-          begin
-            case type_name
-            when TypeName::Instance
-              type_name.map_module_name {|name|
-                signatures.find_class_or_module(name, current_module: current).name
-              }
-            when TypeName::Module
-              type_name.map_module_name {|name|
-                signatures.find_module(name, current_module: current).name
-              }
-            when TypeName::Class
-              type_name.map_module_name {|name|
-                signatures.find_class(name, current_module: current).name
-              }
-            else
-              type_name
-            end
-          rescue => exn
-            STDERR.puts "Cannot find absolute type name: #{exn.inspect}"
+        begin
+          case type_name
+          when TypeName::Instance
+            type_name.map_module_name {|name|
+              signatures.find_class_or_module(name, current_module: current).name
+            }
+          when TypeName::Module
+            type_name.map_module_name {|name|
+              signatures.find_module(name, current_module: current).name
+            }
+          when TypeName::Class
+            type_name.map_module_name {|name|
+              signatures.find_class(name, current_module: current).name
+            }
+          else
             type_name
           end
-        else
-          type_name.map_module_name(&:absolute!)
+        rescue RuntimeError => exn
+          STDERR.puts "Cannot find absolute type name: #{exn.inspect}"
+          type_name
         end
       end
 
@@ -84,7 +80,7 @@ module Steep
         end
       end
 
-      def build(type_name, current: nil, with_initialize: false)
+      def build(type_name, current: AST::Namespace.root, with_initialize: false)
         type_name = absolute_type_name(type_name, current: current)
         cache_key = [type_name, with_initialize]
         cached = cache[cache_key]
@@ -143,13 +139,13 @@ module Steep
         merge_ivars ivars, instantiated.ivars
       end
 
-      def add_method(type_name, method, methods:, extra_attributes: [])
+      def add_method(type_name, method, methods:, extra_attributes: [], current:)
         super_method = methods[method.name]
         new_method = Method.new(
           type_name: type_name,
           name: method.name,
           types: method.types.map do |method_type|
-            method_type_to_method_type(method_type, current: type_name.name)
+            method_type_to_method_type(method_type, current: current)
           end,
           super_method: super_method,
           attributes: method.attributes + extra_attributes
@@ -163,7 +159,9 @@ module Steep
       end
 
       def class_to_interface(sig, constructor:)
-        type_name = TypeName::Class.new(name: sig.name, constructor: constructor)
+        module_name = sig.name
+        namespace = module_name.namespace.append(module_name.name)
+        type_name = TypeName::Class.new(name: module_name, constructor: constructor)
 
         supers = []
         methods = {
@@ -192,14 +190,14 @@ module Steep
         )
         methods.merge!(instantiated.methods)
 
-        unless sig.name == ModuleName.parse("::BasicObject")
-          super_class_name = sig.super_class&.name&.absolute! || ModuleName.parse("::Object")
+        unless module_name == ModuleName.parse("::BasicObject")
+          super_class_name = sig.super_class&.name&.yield_self {|name| absolute_type_name(name, current: namespace) } || ModuleName.parse("::Object")
           merge_mixin(TypeName::Class.new(name: super_class_name, constructor: constructor),
                       [],
                       methods: methods,
                       ivars: {},
                       supers: supers,
-                      current: sig.name)
+                      current: namespace)
         end
 
         sig.members.each do |member|
@@ -210,14 +208,14 @@ module Steep
                         methods: methods,
                         supers: supers,
                         ivars: {},
-                        current: sig.name)
+                        current: namespace)
           when AST::Signature::Members::Extend
             merge_mixin(TypeName::Instance.new(name: member.name),
-                        member.args.map {|type| absolute_type(type, current: sig.name) },
+                        member.args.map {|type| absolute_type(type, current: namespace) },
                         methods: methods,
                         ivars: {},
                         supers: supers,
-                        current: sig.name)
+                        current: namespace)
           end
         end
 
@@ -226,14 +224,14 @@ module Steep
           when AST::Signature::Members::Method
             case
             when member.module_method?
-              add_method(type_name, member, methods: methods)
+              add_method(type_name, member, methods: methods, current: namespace)
             when member.instance_method? && member.name == :initialize
               if constructor
                 methods[:new] = Method.new(
                   type_name: type_name,
                   name: :new,
                   types: member.types.map do |method_type_sig|
-                    method_type = method_type_to_method_type(method_type_sig, current: sig.name).with(return_type: AST::Types::Instance.new)
+                    method_type = method_type_to_method_type(method_type_sig, current: namespace).with(return_type: AST::Types::Instance.new)
                     args = (sig.params&.variables || []) + method_type.type_params
 
                     method_type.with(
@@ -254,7 +252,7 @@ module Steep
             case member
             when AST::Signature::Members::Method
               if member.module_method?
-                add_method(type_name, member, methods: methods)
+                add_method(type_name, member, methods: methods, current: namespace)
               end
             end
           end
@@ -274,9 +272,11 @@ module Steep
       end
 
       def module_to_interface(sig)
-        type_name = TypeName::Module.new(name: sig.name)
+        module_name = sig.name
+        namespace = module_name.namespace.append(module_name.name)
+        type_name = TypeName::Module.new(name: module_name)
 
-        supers = [sig.self_type].compact.map {|type| absolute_type(type, current: nil) }
+        supers = [sig.self_type].compact.map {|type| absolute_type(type, current: namespace) }
         methods = {}
         ivar_chains = {}
 
@@ -293,18 +293,18 @@ module Steep
           case member
           when AST::Signature::Members::Include
             merge_mixin(TypeName::Module.new(name: member.name),
-                        member.args.map {|type| absolute_type(type, current: sig.name) },
+                        member.args.map {|type| absolute_type(type, current: namespace) },
                         methods: methods,
                         ivars: ivar_chains,
                         supers: supers,
-                        current: sig.name)
+                        current: namespace)
           when AST::Signature::Members::Extend
             merge_mixin(TypeName::Instance.new(name: member.name),
-                        member.args.map {|type| absolute_type(type, current: sig.name) },
+                        member.args.map {|type| absolute_type(type, current: namespace) },
                         methods: methods,
                         ivars: ivar_chains,
                         supers: supers,
-                        current: sig.name)
+                        current: namespace)
           end
         end
 
@@ -312,22 +312,22 @@ module Steep
           case member
           when AST::Signature::Members::Method
             if member.module_method?
-              add_method(type_name, member, methods: methods)
+              add_method(type_name, member, methods: methods, current: namespace)
             end
           when AST::Signature::Members::Ivar
             merge_ivars(ivar_chains,
-                        { member.name => absolute_type(member.type, current: sig.name) })
+                        { member.name => absolute_type(member.type, current: namespace) })
           when AST::Signature::Members::Attr
             merge_attribute(sig, ivar_chains, methods, type_name, member)
           end
         end
 
-        signatures.find_extensions(sig.name).each do |ext|
+        signatures.find_extensions(module_name).each do |ext|
           ext.members.each do |member|
             case member
             when AST::Signature::Members::Method
               if member.module_method?
-                add_method(type_name, member, methods: methods)
+                add_method(type_name, member, methods: methods, current: namespace)
               end
             end
           end
@@ -343,7 +343,9 @@ module Steep
       end
 
       def instance_to_interface(sig, with_initialize:)
-        type_name = TypeName::Instance.new(name: sig.name)
+        module_name = sig.name
+        namespace = module_name.namespace.append(module_name.name)
+        type_name = TypeName::Instance.new(name: module_name)
 
         params = sig.params&.variables || []
         supers = []
@@ -353,12 +355,14 @@ module Steep
         if sig.is_a?(AST::Signature::Class)
           unless sig.name == ModuleName.parse("::BasicObject")
             super_class_name = sig.super_class&.name || ModuleName.parse("::Object")
-            super_class_interface = build(TypeName::Instance.new(name: super_class_name), current: nil, with_initialize: with_initialize)
+            super_class_interface = build(TypeName::Instance.new(name: super_class_name),
+                                          current: namespace,
+                                          with_initialize: with_initialize)
 
             supers.push(*super_class_interface.supers)
             instantiated = super_class_interface.instantiate(
               type: AST::Types::Self.new,
-              args: (sig.super_class&.args || []).map {|type| absolute_type(type, current: nil) },
+              args: (sig.super_class&.args || []).map {|type| absolute_type(type, current: namespace) },
               instance_type: AST::Types::Instance.new,
               module_type: AST::Types::Class.new
             )
@@ -370,7 +374,7 @@ module Steep
 
         if sig.is_a?(AST::Signature::Module)
           if sig.self_type
-            supers << sig.self_type
+            supers << absolute_type(sig.self_type, current: namespace)
           end
         end
 
@@ -378,11 +382,11 @@ module Steep
           case member
           when AST::Signature::Members::Include
             merge_mixin(TypeName::Instance.new(name: member.name),
-                        member.args.map {|type| absolute_type(type, current: sig.name) },
+                        member.args.map {|type| absolute_type(type, current: namespace) },
                         methods: methods,
                         ivars: ivar_chains,
                         supers: supers,
-                        current: sig.name)
+                        current: namespace)
           end
         end
 
@@ -392,14 +396,14 @@ module Steep
             if member.instance_method?
               if with_initialize || member.name != :initialize
                 extra_attrs = member.name == :initialize ? [:incompatible] : []
-                add_method(type_name, member, methods: methods, extra_attributes: extra_attrs)
+                add_method(type_name, member, methods: methods, extra_attributes: extra_attrs, current: namespace)
               end
             end
           when AST::Signature::Members::Ivar
             merge_ivars(ivar_chains,
-                        { member.name => absolute_type(member.type, current: sig.name) })
+                        { member.name => absolute_type(member.type, current: namespace) })
           when AST::Signature::Members::Attr
-            merge_attribute(sig, ivar_chains, methods, type_name, member)
+            merge_attribute(sig, ivar_chains, methods, type_name, member, current: namespace)
           end
         end
 
@@ -408,7 +412,7 @@ module Steep
             case member
             when AST::Signature::Members::Method
               if member.instance_method?
-                add_method(type_name, member, methods: methods)
+                add_method(type_name, member, methods: methods, current: namespace)
               end
             end
           end
@@ -423,11 +427,11 @@ module Steep
         )
       end
 
-      def merge_attribute(sig, ivar_chains, methods, type_name, member)
+      def merge_attribute(sig, ivar_chains, methods, type_name, member, current:)
         if member.ivar != false
           ivar_name = member.ivar || "@#{member.name}".to_sym
           merge_ivars(ivar_chains,
-                      { ivar_name => absolute_type(member.type, current: sig.name) })
+                      { ivar_name => absolute_type(member.type, current: current) })
         end
 
         reader_method = AST::Signature::Members::Method.new(
@@ -443,7 +447,7 @@ module Steep
           ],
           attributes: []
         )
-        add_method(type_name, reader_method, methods: methods)
+        add_method(type_name, reader_method, methods: methods, current: current)
 
         if member.accessor?
           writer_method = AST::Signature::Members::Method.new(
@@ -453,14 +457,16 @@ module Steep
             types: [
               AST::MethodType.new(location: member.type.location,
                                   type_params: nil,
-                                  params: AST::MethodType::Params::Required.new(location: member.type.location,
-                                                                                type: member.type),
+                                  params: AST::MethodType::Params::Required.new(
+                                    location: member.type.location,
+                                    type: member.type
+                                  ),
                                   block: nil,
                                   return_type: member.type)
             ],
             attributes: []
           )
-          add_method(type_name, writer_method, methods: methods)
+          add_method(type_name, writer_method, methods: methods, current: current)
         end
       end
 
@@ -479,7 +485,7 @@ module Steep
             type_name: type_name,
             name: method.name,
             types: method.types.map do |method_type|
-              method_type_to_method_type(method_type, current: nil)
+              method_type_to_method_type(method_type, current: AST::Namespace.root)
             end,
             super_method: nil,
             attributes: []

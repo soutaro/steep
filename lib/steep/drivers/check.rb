@@ -63,11 +63,11 @@ module Steep
         sources.each do |source|
           Steep.logger.tagged source.path do
             Steep.logger.debug "Typechecking..."
-            annotations = source.annotations(block: source.node, builder: check.builder, current_module: nil)
+            annotations = source.annotations(block: source.node, builder: check.builder, current_module: AST::Namespace.root)
 
             pp annotations if verbose
 
-            const_env = TypeInference::ConstantEnv.new(builder: check.builder, current_namespace: nil)
+            const_env = TypeInference::ConstantEnv.new(builder: check.builder, context: nil)
             type_env = TypeInference::TypeEnv.build(annotations: annotations,
                                                     subtyping: check,
                                                     const_env: const_env,
@@ -83,7 +83,7 @@ module Steep
                 instance_type: nil,
                 module_type: nil,
                 implement_name: nil,
-                current_namespace: nil,
+                current_namespace: AST::Namespace.root,
                 const_env: const_env
               ),
               method_context: nil,

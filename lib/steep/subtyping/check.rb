@@ -553,11 +553,16 @@ module Steep
       end
 
       def module_type(type)
-        case
-        when builder.signatures.class?(type.name)
-          type.class_type(constructor: nil)
-        when builder.signatures.module?(type.name)
-          type.module_type
+        case type.name
+        when TypeName::Instance
+          case
+          when builder.signatures.class_name?(type.name.name)
+            type.class_type(constructor: nil)
+          when builder.signatures.module_name?(type.name.name)
+            type.module_type
+          end
+        else
+          nil
         end
       end
 
@@ -633,7 +638,7 @@ module Steep
                   type: self_type,
                   args: [],
                   instance_type: AST::Types::Name.new_instance(name: type.name.name, args: args),
-                  module_type: module_type || module_type(type)
+                  module_type: module_type || type
                 )
               end
             end
@@ -844,10 +849,11 @@ module Steep
                      )
                    when AST::Types::Name
                      if type.name.is_a?(TypeName::Alias)
-                       a = builder.signatures.find_alias(type.name.name) or raise "Unknown alias name: #{type.name.name}"
+                       alias_sig = builder.signatures.find_alias(type.name.name) or raise "Unknown alias name: #{type.name.name}"
+                       expanded_alias = builder.absolute_type(alias_sig.type, current: AST::Namespace.root)
                        args = type.args.map {|ty| expand_alias(ty) }
-                       s = Interface::Substitution.build(a.params&.variables || [], args)
-                       expand_alias(a.type.subst(s))
+                       s = Interface::Substitution.build(alias_sig.params&.variables || [], args)
+                       expand_alias(expanded_alias.subst(s))
                      else
                        type
                      end

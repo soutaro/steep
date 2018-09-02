@@ -38,7 +38,7 @@ module Steep
             env.set(const: name, type: type)
           end
           signatures.globals.each do |name, annot|
-            type = subtyping.builder.absolute_type(annot.type, current: nil)
+            type = subtyping.builder.absolute_type(annot.type, current: AST::Namespace.root)
             env.set(gvar: name, type: type)
           end
         end

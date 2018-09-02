@@ -42,14 +42,14 @@ module Steep
       def hash_instance?(type)
         case type
         when AST::Types::Name
-          type.name.is_a?(TypeName::Instance) && type.name.name == ModuleName.new(name: "Hash", absolute: true)
+          type.name.is_a?(TypeName::Instance) && type.name.name == ModuleName.parse("::Hash")
         else
           false
         end
       end
 
       def array_instance?(type)
-        type.is_a?(AST::Types::Name) && type.name.is_a?(TypeName::Instance) && type.name.name == ModuleName.new(name: "Array", absolute: true)
+        type.is_a?(AST::Types::Name) && type.name.is_a?(TypeName::Instance) && type.name.name == ModuleName.parse("::Array")
       end
     end
 
@@ -112,6 +112,10 @@ module Steep
         @implement_name = implement_name
         @current_namespace = current_namespace
         @const_env = const_env
+      end
+
+      def const_context
+        const_env.context
       end
     end
 
@@ -314,7 +318,7 @@ module Steep
 
     def for_module(node)
       new_module_name = ModuleName.from_node(node.children.first) or raise "Unexpected module name: #{node.children.first}"
-      new_namespace = nested_namespace(new_module_name)
+      new_namespace = nested_namespace_for_module(new_module_name)
 
       annots = source.annotations(block: node, builder: checker.builder, current_module: new_namespace)
       module_type = AST::Types::Name.new_instance(name: "::Module")
@@ -369,7 +373,12 @@ module Steep
         module_type = annots.module_type
       end
 
-      module_const_env = TypeInference::ConstantEnv.new(builder: checker.builder, current_namespace: new_namespace)
+      const_context = if new_namespace.empty?
+                        nil
+                      else
+                        ModuleName.new(name: new_namespace.path.last, namespace: new_namespace.parent)
+                      end
+      module_const_env = TypeInference::ConstantEnv.new(builder: checker.builder, context: const_context)
 
       module_context_ = ModuleContext.new(
         instance_type: instance_type,
@@ -400,7 +409,7 @@ module Steep
 
     def for_class(node)
       new_class_name = ModuleName.from_node(node.children.first) or raise "Unexpected class name: #{node.children.first}"
-      new_namespace = nested_namespace(new_class_name)
+      new_namespace = nested_namespace_for_module(new_class_name)
 
       annots = source.annotations(block: node, builder: checker.builder, current_module: new_namespace)
 
@@ -436,7 +445,12 @@ module Steep
         module_type = AST::Types::Name.new_class(name: class_name, args: [], constructor: true)
       end
 
-      class_const_env = TypeInference::ConstantEnv.new(builder: checker.builder, current_namespace: new_namespace)
+      const_context = if new_namespace.empty?
+                        nil
+                      else
+                        ModuleName.new(name: new_namespace.path.last, namespace: new_namespace.parent)
+                      end
+      class_const_env = TypeInference::ConstantEnv.new(builder: checker.builder, context: const_context)
 
       module_context = ModuleContext.new(
         instance_type: annots.instance_type || instance_type,
@@ -1199,7 +1213,9 @@ module Steep
                       case
                       when Types.array_instance?(type)
                         type.args.first
-                      when type.is_a?(AST::Types::Name) && type.name.is_a?(TypeName::Instance) && type.name.name == ModuleName.new(name: "Range", absolute: true)
+                      when type.is_a?(AST::Types::Name) &&
+                        type.name.is_a?(TypeName::Instance) &&
+                        type.name.name == ModuleName.parse("::Range")
                         type.args.first
                       else
                         type
@@ -1490,7 +1506,8 @@ module Steep
         when :gvasgn
           yield_self do
             name, rhs = node.children
-            type = checker.builder.signatures.find_gvar(name)&.type
+            type = checker.builder.absolute_type(checker.builder.signatures.find_gvar(name)&.type,
+                                                 current: AST::Namespace.root)
 
             if type
               check(rhs, type) do |_, rhs_type, result|
@@ -1508,13 +1525,11 @@ module Steep
         when :gvar
           yield_self do
             name = node.children.first
-            type = checker.builder.signatures.find_gvar(name)&.type
-
-            if type
-              typing.add_typing(node, type)
-            else
-              fallback_to_any node
+            type = type_env.get(gvar: name) do
+              typing.add_error Errors::FallbackAny.new(node: node)
             end
+
+            typing.add_typing(node, type)
           end
 
         when :block_pass
@@ -1683,7 +1698,9 @@ module Steep
       when rhs_type.is_a?(AST::Types::Any)
         fallback_to_any(node)
 
-      when rhs_type.is_a?(AST::Types::Name) && rhs_type.name.is_a?(TypeName::Instance) && rhs_type.name.name == ModuleName.new(name: "Array", absolute: true)
+      when rhs_type.is_a?(AST::Types::Name) &&
+        rhs_type.name.is_a?(TypeName::Instance) &&
+        rhs_type.name.name == ModuleName.parse("::Array")
         element_type = rhs_type.args.first
 
         lhs.children.each do |assignment|
@@ -1711,7 +1728,11 @@ module Steep
         typing.add_typing node, rhs_type
 
       when rhs_type.is_a?(AST::Types::Union) &&
-        rhs_type.types.all? {|type| type.is_a?(AST::Types::Name) && type.name.is_a?(TypeName::Instance) && type.name.name == ModuleName.new(name: "Array", absolute: true) }
+        rhs_type.types.all? do |type|
+          type.is_a?(AST::Types::Name) &&
+            type.name.is_a?(TypeName::Instance) &&
+            type.name.name == ModuleName.parse("::Array")
+        end
 
         types = rhs_type.types.flat_map do |type|
           type.args.first
@@ -2374,23 +2395,20 @@ module Steep
     end
 
     def current_namespace
-      module_context&.current_namespace
+      module_context&.current_namespace || AST::Namespace.root
     end
 
-    def nested_namespace(new)
-      case
-      when !new.simple?
-        current_namespace
-      when current_namespace
-        current_namespace + new
+    def nested_namespace_for_module(module_name)
+      if module_name.relative? && module_name.namespace.empty?
+        current_namespace.append(module_name.name)
       else
-        new.absolute!
+        current_namespace
       end
     end
 
     def absolute_name(module_name)
       if current_namespace
-        current_namespace + module_name
+        module_name.in_namespace(current_namespace)
       else
         module_name.absolute!
       end

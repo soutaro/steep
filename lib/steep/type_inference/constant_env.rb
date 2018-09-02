@@ -2,51 +2,47 @@ module Steep
   module TypeInference
     class ConstantEnv
       attr_reader :builder
-      attr_reader :current_namespace
+      attr_reader :context
       attr_reader :cache
 
-      def initialize(builder:, current_namespace:)
+      # ConstantEnv receives an optional ModuleName, not a Namespace, because this is a simulation of Ruby.
+      # Any namespace is a module or class.
+      def initialize(builder:, context:)
         @cache = {}
         @builder = builder
-        @current_namespace = current_namespace
+        @context = context
       end
 
       def signatures
         builder.signatures
       end
 
-      def lookup(name)
-        unless cache.key?(name)
-          cache[name] = lookup0(name, namespace: current_namespace)
-        end
-
-        cache[name]
+      def namespace
+        @namespace ||= if context
+                         context.namespace.append(context.name)
+                       else
+                         AST::Namespace.root
+                       end
       end
 
+      def lookup(name)
+        cache[name] ||= lookup0(name, namespace: namespace)
+      end
+
+      # @type method lookup0: (ModuleName, namespace: AST::Namespace) -> Type
       def lookup0(name, namespace:)
-        if name.absolute?
-          case
-          when signatures.module_name?(name)
-            AST::Types::Name.new_module(name: name)
-          when signatures.class_name?(name)
-            AST::Types::Name.new_class(name: name, constructor: true)
-          when signatures.const_name?(name)
-            builder.absolute_type(signatures.find_const(name).type, current: nil)
-          end
+        full_name = name.in_namespace(namespace)
+        case
+        when signatures.module_name?(full_name)
+          AST::Types::Name.new_module(name: full_name)
+        when signatures.class_name?(full_name)
+          AST::Types::Name.new_class(name: full_name, constructor: true)
+        when signatures.const_name?(full_name)
+          builder.absolute_type(signatures.find_const(name, current_module: namespace).type,
+                                current: namespace)
         else
-          if namespace
-            case
-            when signatures.module_name?(name, current_module: namespace)
-              AST::Types::Name.new_module(name: namespace + name)
-            when signatures.class_name?(name, current_module: namespace)
-              AST::Types::Name.new_class(name: namespace + name, constructor: true)
-            when signatures.const_name?(name, current_module: namespace)
-              builder.absolute_type(signatures.find_const(name, current_module: namespace).type, current: nil)
-            else
-              lookup0(name, namespace: namespace.parent)
-            end
-          else
-            lookup0(name.absolute!, namespace: nil)
+          unless namespace.empty?
+            lookup0(name, namespace: namespace.parent)
           end
         end
       end

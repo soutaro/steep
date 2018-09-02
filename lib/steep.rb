@@ -7,6 +7,7 @@ require "logger"
 require "active_support/tagged_logging"
 require "rainbow"
 
+require "steep/ast/namespace"
 require "steep/module_name"
 require "steep/ast/location"
 require "steep/ast/types/helper"

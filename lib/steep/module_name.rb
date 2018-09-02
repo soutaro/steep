@@ -1,54 +1,53 @@
 module Steep
   class ModuleName
+    attr_reader :namespace
     attr_reader :name
+    attr_reader :location
 
-    def initialize(name:, absolute:)
+    def initialize(namespace:, name:, location: nil)
+      @namespace = namespace
       @name = name
-      @absolute = absolute
+      @location = location
     end
 
-    def self.parse(name)
-      name = name.to_s
-      new(name: name.gsub(/\A::/, ""), absolute: name.start_with?("::"))
+    def absolute?
+      namespace.absolute?
+    end
+
+    def relative?
+      !absolute?
     end
 
     def self.from_node(node)
       case node.type
-      when :const
-        relative_node = new(name: node.children.last.to_s, absolute: false)
-        parent_node = node.children.first
-
-        case parent_node&.type
-        when :cbase
-          relative_node.absolute!
-        when nil
-          relative_node
-        else
-          from_node(parent_node)&.yield_self do |parent|
-            parent + relative_node
-          end
-        end
-      when :casgn
-        relative_node = new(name: node.children[1].to_s, absolute: false)
-        parent_node = node.children.first
-
-        case parent_node&.type
-        when :cbase
-          relative_node.absolute!
-        when nil
-          relative_node
-        else
-          from_node(parent_node)&.yield_self do |parent|
-            parent + relative_node
-          end
-        end
-      else
-        nil
+      when :const, :casgn
+        namespace = namespace_from_node(node.children[0]) or return
+        name = node.children[1]
+        new(namespace: namespace, name: name)
       end
     end
 
+    def self.namespace_from_node(node)
+      case node&.type
+      when nil
+        AST::Namespace.empty
+      when :cbase
+        AST::Namespace.root
+      when :const
+        namespace_from_node(node.children[0])&.yield_self do |parent|
+          parent.append(node.children[1])
+        end
+      end
+    end
+
+    def self.parse(string)
+      namespace = AST::Namespace.parse(string.to_s)
+      *_, name = namespace.path
+      new(namespace: namespace.parent, name: name)
+    end
+
     def ==(other)
-      other.is_a?(self.class) && other.name == name && other.absolute? == absolute?
+      other.is_a?(self.class) && other.name == name && other.namespace == namespace
     end
 
     def hash
@@ -58,59 +57,20 @@ module Steep
     alias eql? ==
 
     def absolute!
-      self.class.new(name: name, absolute: true)
+      self.class.new(namespace: namespace.absolute!,
+                     name: name)
     end
 
-    def absolute?
-      !!@absolute
-    end
-
-    def relative?
-      !absolute?
+    def in_namespace(namespace)
+      if absolute?
+        self
+      else
+        self.class.new(namespace: namespace + self.namespace, name: name)
+      end
     end
 
     def to_s
-      if absolute?
-        "::#{name}"
-      else
-        name
-      end
-    end
-
-    def +(other)
-      case other
-      when self.class
-        if other.absolute?
-          other
-        else
-          self.class.new(name: "#{name}::#{other.name}", absolute: absolute?)
-        end
-      else
-        self + self.class.parse(other)
-      end
-    end
-
-    def components
-      name.split(/::/).map.with_index {|s, index|
-        if index == 0 && absolute?
-          self.class.parse(s).absolute!
-        else
-          self.class.parse(s)
-        end
-      }
-    end
-
-    def parent
-      components = components()
-      components.pop
-
-      unless components.empty?
-        self.class.parse(components.join("::"))
-      end
-    end
-
-    def simple?
-      components.size == 1
+      "#{namespace}#{name}"
     end
   end
 end

@@ -345,12 +345,12 @@ Foo::Bar::Baz: String
 
     assert_instance_of Steep::AST::Signature::Const, c1
     assert_location c1, start_line: 1, start_column: 0, end_line: 1, end_column: 12
-    assert_equal ModuleName.parse("Foo"), c1.name
+    assert_equal ModuleName.parse("::Foo"), c1.name
     assert_equal Steep::AST::Types::Name.new_instance(name: "Integer"), c1.type
 
     assert_instance_of Steep::AST::Signature::Const, c2
     assert_location c2, start_line: 2, start_column: 0, end_line: 2, end_column: 21
-    assert_equal ModuleName.parse("Foo::Bar::Baz"), c2.name
+    assert_equal ModuleName.parse("::Foo::Bar::Baz"), c2.name
     assert_equal Steep::AST::Types::Name.new_instance(name: "String"), c2.type
   end
 

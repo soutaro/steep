@@ -36,6 +36,9 @@ class Array<'a>
   def []: (Integer) -> 'a
   def []=: (Integer, 'a) -> 'a
 end
+
+class Symbol
+end
   EOB
 
   def new_checker(signature)
@@ -747,7 +750,7 @@ end
     result = checker.check(
       Subtyping::Relation.new(
         sub_type: parse_type("[123]"),
-        super_type: parse_type("Array<123>"),
+        super_type: parse_type("::Array<123>"),
         ),
       constraints: Subtyping::Constraints.empty
     )
@@ -756,7 +759,7 @@ end
     result = checker.check(
       Subtyping::Relation.new(
         sub_type: parse_type("[123, String]"),
-        super_type: parse_type("Array<123 | String>"),
+        super_type: parse_type("::Array<123 | String>"),
         ),
       constraints: Subtyping::Constraints.empty
     )
@@ -765,7 +768,7 @@ end
     result = checker.check(
       Subtyping::Relation.new(
         sub_type: parse_type("[123]"),
-        super_type: parse_type("Array<Integer | String>"),
+        super_type: parse_type("::Array< ::Integer | ::String>"),
         ),
       constraints: Subtyping::Constraints.empty
     )
@@ -783,7 +786,7 @@ end
     result = checker.check(
       Subtyping::Relation.new(
         sub_type: parse_type("[123]"),
-        super_type: parse_type("[Integer]"),
+        super_type: parse_type("[::Integer]"),
         ),
       constraints: Subtyping::Constraints.empty
     )
@@ -796,8 +799,8 @@ type foo = String | Integer
 type bar<'a> = 'a | Array<'a> | foo
     EOF
 
-    assert_equal parse_type("String | Integer"), checker.expand_alias(parse_type("foo"))
-    assert_equal parse_type("Integer | Array<Integer> | String"), checker.expand_alias(parse_type("bar<Integer>"))
+    assert_equal parse_type("::String | ::Integer"), checker.expand_alias(parse_type("foo"))
+    assert_equal parse_type("::Integer | ::Array< ::Integer> | ::String"), checker.expand_alias(parse_type("bar< ::Integer>"))
     assert_raises { checker.expand_alias(parse_type("hello")) }
   end
 
@@ -808,7 +811,7 @@ type foo = String | Integer
 
     result = checker.check0(
       Subtyping::Relation.new(
-        sub_type: parse_type("String"),
+        sub_type: parse_type("::String"),
         super_type: parse_type("foo")
       ),
       constraints: Subtyping::Constraints.empty,
@@ -820,7 +823,7 @@ type foo = String | Integer
     result = checker.check0(
       Subtyping::Relation.new(
         sub_type: parse_type("foo"),
-        super_type: parse_type("String")
+        super_type: parse_type("::String")
       ),
       constraints: Subtyping::Constraints.empty,
       assumption: Set.new,

@@ -4,6 +4,7 @@ class ConstantEnvTest < Minitest::Test
   include TestHelper
 
   Types = Steep::AST::Types
+  Namespace = Steep::AST::Namespace
   ModuleName = Steep::ModuleName
 
   BUILTIN = <<-EOS
@@ -30,11 +31,14 @@ class Integer
   def to_int: -> Integer
 end
 
+class Symbol
+end
+
 module Kernel
 end
   EOS
 
-  def constant_env(sigs = "", current_namespace:)
+  def constant_env(sigs = "", context:)
     signatures = Steep::AST::Signature::Env.new.tap do |env|
       parse_signature(BUILTIN).each do |sig|
         env.add sig
@@ -46,11 +50,11 @@ end
     end
 
     builder = Steep::Interface::Builder.new(signatures: signatures)
-    Steep::TypeInference::ConstantEnv.new(builder: builder, current_namespace: current_namespace)
+    Steep::TypeInference::ConstantEnv.new(builder: builder, context: context)
   end
 
   def test_from_toplevel
-    env = constant_env(current_namespace: nil)
+    env = constant_env(context: nil)
 
     assert_equal Types::Name.new_class(name: "::BasicObject", constructor: true),
                  env.lookup(ModuleName.parse("BasicObject"))
@@ -59,7 +63,7 @@ end
   end
 
   def test_from_module
-    env = constant_env(<<EOS, current_namespace: ModuleName.parse("::A"))
+    env = constant_env(<<EOS, context: ModuleName.parse("::A"))
 module A
 end
 
@@ -76,7 +80,7 @@ EOS
   end
 
   def test_nested_module
-    env = constant_env(<<EOS, current_namespace: ModuleName.parse("::A"))
+    env = constant_env(<<EOS, context: ModuleName.parse("::A"))
 module A
 end
 
@@ -96,7 +100,7 @@ EOS
   end
 
   def test_constant
-    env = constant_env(<<EOS, current_namespace: ModuleName.parse("::A"))
+    env = constant_env(<<EOS, context: ModuleName.parse("::A"))
 module A
 end
 
