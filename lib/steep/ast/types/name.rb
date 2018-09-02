@@ -58,6 +58,7 @@ module Steep
         end
 
         def self.new_interface(location: nil, name:, args: [])
+          name = InterfaceName.new(name: name) if name.is_a?(Symbol)
           new(location: location, name: TypeName::Interface.new(name: name), args: args)
         end
 

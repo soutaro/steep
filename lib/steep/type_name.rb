@@ -27,6 +27,11 @@ module Steep
     end
 
     class Interface < Base
+      def initialize(name:)
+        name.is_a?(InterfaceName) or raise "name should be InterfaceName: #{name.inspect}"
+        super
+      end
+
       def map_module_name
         self
       end
@@ -85,6 +90,11 @@ module Steep
     class Instance < Base; end
 
     class Alias < Base
+      def initialize(name:)
+        name.is_a?(AliasName) or raise "name should be AliasName: #{name.inspect}"
+        super
+      end
+
       def map_module_name
         self
       end

@@ -7,12 +7,13 @@ class TypeParsingTest < Minitest::Test
   AST = Steep::AST
   TypeName = Steep::TypeName
   ModuleName = Steep::ModuleName
+  InterfaceName = Steep::InterfaceName
 
   def test_interface
     type = parse_method_type("() -> _Foo").return_type
     assert_instance_of AST::Types::Name, type
     assert_location type, start_line: 1, start_column: 6, end_line: 1, end_column: 10
-    assert_equal TypeName::Interface.new(name: :_Foo), type.name
+    assert_equal TypeName::Interface.new(name: InterfaceName.new(name: :_Foo)), type.name
     assert_equal [], type.args
   end
 

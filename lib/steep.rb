@@ -9,6 +9,8 @@ require "rainbow"
 
 require "steep/ast/namespace"
 require "steep/module_name"
+require "steep/interface_name"
+require "steep/alias_name"
 require "steep/ast/location"
 require "steep/ast/types/helper"
 require "steep/ast/types/any"

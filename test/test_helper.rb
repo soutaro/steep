@@ -252,7 +252,10 @@ module ASTAssertion
 
   def assert_interface_signature(sig, name: nil, params: nil)
     assert_instance_of Steep::AST::Signature::Interface, sig
-    assert_equal name, sig.name if name
+    if name
+      name = Steep::InterfaceName.new(name: name) if name.is_a?(Symbol)
+      assert_equal name, sig.name
+    end
     assert_equal params, sig.params&.variables if params
     yield name: sig.name, params: sig.params, methods: sig.methods if block_given?
   end

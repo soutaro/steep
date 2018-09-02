@@ -3,6 +3,8 @@ require_relative "test_helper"
 class SignatureEnvTest < Minitest::Test
   ModuleName = Steep::ModuleName
   Namespace = Steep::AST::Namespace
+  InterfaceName = Steep::InterfaceName
+  AliasName = Steep::AliasName
 
   def parse(src)
     Steep::Parser.parse_signature(src)
@@ -106,7 +108,7 @@ end
 
     env.add(interface)
 
-    assert_equal interface, env.find_interface(:_A)
+    assert_equal interface, env.find_interface(InterfaceName.new(name: :_A))
   end
 
   def test_extension
@@ -153,7 +155,7 @@ type foo = String | Integer
 
     env.add(a)
 
-    assert_equal a, env.find_alias(:foo)
-    assert_nil env.find_alias(:bar)
+    assert_equal a, env.find_alias(AliasName.new(name: :foo))
+    assert_nil env.find_alias(AliasName.new(name: :bar))
   end
 end

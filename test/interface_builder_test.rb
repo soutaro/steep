@@ -11,6 +11,7 @@ class InterfaceBuilderTest < Minitest::Test
   ModuleName = Steep::ModuleName
   Signature = Steep::AST::Signature
   Namespace = Steep::AST::Namespace
+  InterfaceName = Steep::InterfaceName
 
   def signatures(sigs = "")
     default = <<-EOF
@@ -119,10 +120,12 @@ end
     EOF
 
     builder = Builder.new(signatures: signatures)
-    interface = builder.interface_to_interface(:_Array, signatures.find_interface(:_Array))
+    name = InterfaceName.new(name: :_Array)
+    interface = builder.interface_to_interface(name,
+                                               signatures.find_interface(name))
 
     assert_instance_of Interface::Abstract, interface
-    assert_equal TypeName::Interface.new(name: :_Array), interface.name
+    assert_equal TypeName::Interface.new(name: name), interface.name
     assert_equal [:a], interface.params
 
     assert_equal 2, interface.methods.size

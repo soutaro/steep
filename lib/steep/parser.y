@@ -349,12 +349,14 @@ rule
                                 }
                               | tINTERFACE_NAME
                                 {
-                                  result = LocatedValue.new(value: TypeName::Interface.new(name: val[0].value),
+                                  interface_name = InterfaceName.new(name: val[0].value)
+                                  result = LocatedValue.new(value: TypeName::Interface.new(name: interface_name),
                                                             location: val[0].location)
                                 }
                               | tIDENT
                                 {
-                                  result = LocatedValue.new(value: TypeName::Alias.new(name: val[0].value),
+                                  alias_name = AliasName.new(name: val[0].value)
+                                  result = LocatedValue.new(value: TypeName::Alias.new(name: alias_name),
                                                             location: val[0].location)
                                 }
 
@@ -552,8 +554,9 @@ rule
                     alias_decl: kTYPE tIDENT type_params tEQ type
                                 {
                                   loc = val[0].location + val[4].location
+                                  name = AliasName.new(name: val[1].value)
                                   result = AST::Signature::Alias.new(location: loc,
-                                                                     name: val[1].value,
+                                                                     name: name,
                                                                      params: val[2],
                                                                      type: val[4])
                                 }
@@ -567,7 +570,10 @@ rule
                                   result = val[1]
                                 }
 
-                interface_name: tINTERFACE_NAME
+                interface_name: tINTERFACE_NAME {
+                                  name = InterfaceName.new(name: val[0].value)
+                                  result = LocatedValue.new(location: val[0].value, value: name)
+                                }
 
                    module_name: namespace {
             		              namespace = val[0].value

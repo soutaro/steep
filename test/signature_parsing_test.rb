@@ -471,14 +471,14 @@ type baz = bar<String>
 
     sigs[0].yield_self do |sig|
       assert_instance_of Steep::AST::Signature::Alias, sig
-      assert_equal :foo, sig.name
+      assert_equal Steep::AliasName.new(name: :foo), sig.name
       assert_nil sig.params
       assert_equal parse_type("String | Integer"), sig.type
     end
 
     sigs[1].yield_self do |sig|
       assert_instance_of Steep::AST::Signature::Alias, sig
-      assert_equal :bar, sig.name
+      assert_equal Steep::AliasName.new(name: :bar), sig.name
       assert_equal [:a], sig.params.variables
       assert_equal parse_type("foo | Array<'a>"), sig.type
     end
