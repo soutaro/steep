@@ -899,6 +899,16 @@ type bar<'a> = 'a | Array<'a> | foo
     assert_raises { checker.expand_alias(parse_type("hello")) }
   end
 
+  def test_expand_alias2
+    checker = new_checker(<<-EOF)
+type Foo::foo = String | ::String | Integer
+class Foo::String
+end
+    EOF
+
+    assert_equal parse_type("::Foo::String | ::String | ::Integer"), checker.expand_alias(parse_type("Foo::foo"))
+  end
+
   def test_alias
     checker = new_checker(<<-EOF)
 type foo = String | Integer

@@ -175,7 +175,9 @@ type foo = String | Integer
 
     env.add(a)
 
-    assert_equal a, env.find_alias(Names::Alias.new(name: :foo))
-    assert_nil env.find_alias(Names::Alias.new(name: :bar))
+    assert_equal a, env.find_alias(Names::Alias.parse("foo"), namespace: Namespace.root)
+    assert_raises do
+      env.find_alias(Names::Alias.parse("bar"), namespace: Namespace.root)
+    end
   end
 end

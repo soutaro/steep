@@ -58,8 +58,9 @@ module Steep
             location: type.location
           )
         when AST::Types::Name::Alias
+          signature = signatures.find_alias(type.name, namespace: current)
           AST::Types::Name::Alias.new(
-            name: type.name,
+            name: signature.name,
             args: type.args.map {|arg| absolute_type(arg, current: current) },
             location: type.location
           )

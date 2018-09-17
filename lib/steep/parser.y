@@ -9,7 +9,7 @@ token kCLASS kMODULE kINTERFACE kDEF kEND kNIL kBOOL kANY kVOID kTYPE
       tLTCOLON tMINUS tOPERATOR tPERCENT tPLUS tQUESTION tRBRACE tRBRACKET
       tRPAREN tSTAR tSTAR2 tSTRING tSYMBOL tUIDENT tUMINUS tVAR
       type_METHOD type_SIGNATURE type_ANNOTATION type_TYPE
-      tQUALIFIED_MODULE_NAME tQUALIFIED_INTERFACE_NAME
+      tQUALIFIED_MODULE_NAME tQUALIFIED_INTERFACE_NAME tQUALIFIED_ALIAS_NAME
 
 expect 1
 
@@ -296,11 +296,10 @@ rule
                                                                            location: loc,
                                                                            args: val[1]&.value || [])
                                 }
-                              | tIDENT application_args
+                              | alias_name application_args
                                 {
-                                  alias_name = Names::Alias.new(name: val[0].value)
                                   loc = val[0].location + val[1]&.location
-                                  result = AST::Types::Name::Alias.new(name: alias_name,
+                                  result = AST::Types::Name::Alias.new(name: val[0].value,
                                                                        location: loc,
                                                                        args: val[1]&.value || [])
                                 }
@@ -553,12 +552,11 @@ rule
                                                                          members: val[6])
                                 }
 
-                    alias_decl: kTYPE tIDENT type_params tEQ type
+                    alias_decl: kTYPE alias_name type_params tEQ type
                                 {
                                   loc = val[0].location + val[4].location
-                                  name = Names::Alias.new(name: val[1].value)
                                   result = AST::Signature::Alias.new(location: loc,
-                                                                     name: name,
+                                                                     name: val[1].value.absolute!,
                                                                      params: val[2],
                                                                      type: val[4])
                                 }
@@ -581,6 +579,12 @@ rule
                    module_name: tQUALIFIED_MODULE_NAME
                               | tUIDENT {
                                   name = Names::Module.new(name: val[0].value, namespace: AST::Namespace.empty)
+                                  result = LocatedValue.new(location: val[0].location, value: name)
+                                }
+
+                    alias_name: tQUALIFIED_ALIAS_NAME
+                              | tIDENT {
+                                  name = Names::Alias.new(name: val[0].value, namespace: AST::Namespace.empty)
                                   result = LocatedValue.new(location: val[0].location, value: name)
                                 }
 
@@ -1169,6 +1173,10 @@ def next_token
     new_token(:tQUALIFIED_INTERFACE_NAME, Names::Interface.parse(input.matched))
   when input.scan(/([A-Z]\w*::)+_\w+/)
     new_token(:tQUALIFIED_INTERFACE_NAME, Names::Interface.parse(input.matched))
+  when input.scan(/::([A-Z]\w*::)*[a-z]\w*/)
+    new_token(:tQUALIFIED_ALIAS_NAME, Names::Alias.parse(input.matched))
+  when input.scan(/([A-Z]\w*::)+[a-z]\w*/)
+    new_token(:tQUALIFIED_ALIAS_NAME, Names::Alias.parse(input.matched))
   when input.scan(/[A-Z]\w*/)
     new_token(:tUIDENT, input.matched.to_sym)
   when input.scan(/_\w+/)

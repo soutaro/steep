@@ -226,4 +226,21 @@ class TypeParsingTest < Minitest::Test
       assert_equal "^(Integer, ?String, *Symbol) -> void", type.to_s
     end
   end
+
+  def test_alias
+    parse_type("foo").yield_self do |type|
+      assert_instance_of AST::Types::Name::Alias, type
+      assert_equal Names::Alias.new(name: :foo, namespace: AST::Namespace.empty), type.name
+    end
+
+    parse_type("::foo").yield_self do |type|
+      assert_instance_of AST::Types::Name::Alias, type
+      assert_equal Names::Alias.new(name: :foo, namespace: AST::Namespace.root), type.name
+    end
+
+    parse_type("Foo::foo").yield_self do |type|
+      assert_instance_of AST::Types::Name::Alias, type
+      assert_equal Names::Alias.new(name: :foo, namespace: AST::Namespace.parse("Foo")), type.name
+    end
+  end
 end

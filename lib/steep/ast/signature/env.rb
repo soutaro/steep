@@ -51,6 +51,7 @@ module Steep
             raise "Duplicated global: #{sig.name}" if globals.key?(sig.name)
             globals[sig.name] = sig
           when Signature::Alias
+            assert_absolute_name sig.name
             raise "Duplicated alias: #{sig.name}" if aliases.key?(sig.name)
             aliases[sig.name] = sig
           else
@@ -86,8 +87,8 @@ module Steep
           globals[name]
         end
 
-        def find_alias(name)
-          aliases[name]
+        def find_alias(name, namespace:)
+          find_name(aliases, name, current_module: namespace) or raise "Unknown alias: #{name}"
         end
 
         def find_name(hash, name, current_module:)

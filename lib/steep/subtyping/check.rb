@@ -934,16 +934,12 @@ module Steep
                        types: type.types.map {|ty| expand_alias(ty) },
                        location: type.location
                      )
-                   when AST::Types::Name::Base
-                     if type.is_a?(AST::Types::Name::Alias)
-                       alias_sig = builder.signatures.find_alias(type.name) or raise "Unknown alias name: #{type.name}"
-                       expanded_alias = builder.absolute_type(alias_sig.type, current: AST::Namespace.root)
-                       args = type.args.map {|ty| expand_alias(ty) }
-                       s = Interface::Substitution.build(alias_sig.params&.variables || [], args)
-                       expand_alias(expanded_alias.subst(s))
-                     else
-                       type
-                     end
+                   when AST::Types::Name::Alias
+                     alias_sig = builder.signatures.find_alias(type.name, namespace: AST::Namespace.root)
+                     expanded_alias = builder.absolute_type(alias_sig.type, current: alias_sig.name.namespace)
+                     args = type.args.map {|ty| expand_alias(ty) }
+                     s = Interface::Substitution.build(alias_sig.params&.variables || [], args)
+                     expand_alias(expanded_alias.subst(s))
                    else
                      type
                    end
