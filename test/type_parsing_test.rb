@@ -23,6 +23,22 @@ class TypeParsingTest < Minitest::Test
     assert_equal [], type.args
   end
 
+  def test_instance_qualified
+    type = parse_type("::Foo")
+    assert_instance_of AST::Types::Name::Instance, type
+    assert_location type, start_line: 1, start_column: 0, end_line: 1, end_column: 5
+    assert_equal Names::Module.new(namespace: AST::Namespace.root, name: :Foo), type.name
+    assert_equal [], type.args
+  end
+
+  def test_instance_qualified2
+    type = parse_type("::Foo::Bar")
+    assert_instance_of AST::Types::Name::Instance, type
+    assert_location type, start_line: 1, start_column: 0, end_line: 1, end_column: 10
+    assert_equal Names::Module.new(namespace: AST::Namespace.parse("::Foo"), name: :Bar), type.name
+    assert_equal [], type.args
+  end
+
   def test_class
     type = parse_method_type("() -> Foo.class").return_type
 

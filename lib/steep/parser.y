@@ -4,11 +4,12 @@ token kCLASS kMODULE kINTERFACE kDEF kEND kNIL kBOOL kANY kVOID kTYPE
       kINCOMPATIBLE kAT_TYPE kAT_IMPLEMENTS kAT_DYNAMIC kCONST kVAR kRETURN
       kBLOCK kBREAK kMETHOD kSELF kSELFQ kATTR_READER kATTR_ACCESSOR kINSTANCE
       kINCLUDE kEXTEND kINSTANCE kIVAR kCONSTRUCTOR kNOCONSTRUCTOR kEXTENSION
-      tARROW tBANG tBAR tCOLON tCOLON2 tCOMMA tDOT tEQ tGT tGVAR tHAT tINT
+      tARROW tBANG tBAR tCOLON tCOMMA tDOT tEQ tGT tGVAR tHAT tINT
       tINTERFACE_NAME tIVAR_NAME tLBRACE tLBRACKET tIDENT tLPAREN tLT
       tLTCOLON tMINUS tOPERATOR tPERCENT tPLUS tQUESTION tRBRACE tRBRACKET
       tRPAREN tSTAR tSTAR2 tSTRING tSYMBOL tUIDENT tUMINUS tVAR
       type_METHOD type_SIGNATURE type_ANNOTATION type_TYPE
+      tQUALIFIED_MODULE_NAME 
 
 expect 1
 
@@ -577,41 +578,10 @@ rule
                                   result = LocatedValue.new(location: val[0].value, value: name)
                                 }
 
-                   module_name: namespace {
-            		              namespace = val[0].value
-            		              component = namespace.path.last
-            		              name = Names::Module.new(namespace: namespace.parent, name: component)
-            		              result = LocatedValue.new(location: val[0].location, value: name)
-              		              }
-
-                     namespace: namespace0 {
-                                  namespace = AST::Namespace.new(path: val[0].value, absolute: false)
-                                  result = LocatedValue.new(location: val[0].location, value: namespace)
-                                }
-                              | tCOLON2 namespace0 {
-                                  namespace = AST::Namespace.new(path: val[1].value, absolute: true)
-                                  location = val[0].location + val[1].location
-                                  result = LocatedValue.new(location: location, value: namespace)
-                                }
-
-                    namespace0: tUIDENT {
-                                  result = LocatedValue.new(location: val[0].location, value: [val[0].value])
-                                }
-                              | tUIDENT tCOLON2 namespace0 {
-                                  array = [val[0].value] + val[2].value
-                                  location = val[0].location + val[2].location
-                                  result = LocatedValue.new(location: location, value: array)
-                                }
-
-                  module_name0: tUIDENT
-                                {
-                                  result = LocatedValue.new(location: val[0].location, value: Names::Module.parse(val[0].value))
-                                }
-                              | tUIDENT tCOLON2 module_name0
-                                {
-                                  location = val[0].location + val.last.location
-                                  name = Names::Module.parse(val[0].value) + val.last.value
-                                  result = LocatedValue.new(location: location, value: name)
+                   module_name: tQUALIFIED_MODULE_NAME
+                              | tUIDENT {
+                                  name = Names::Module.new(name: val[0].value, namespace: AST::Namespace.empty)
+                                  result = LocatedValue.new(location: val[0].location, value: name)
                                 }
 
                  class_members: # nothing
@@ -1081,10 +1051,6 @@ def next_token
     new_token(:tCOMMA, nil)
   when input.scan(/:\w+/)
     new_token(:tSYMBOL, input.matched[1..-1].to_sym)
-  when input.scan(/::/)
-    new_token(:tCOLON2)
-  when input.scan(/:/)
-    new_token(:tCOLON)
   when input.scan(/\*\*/)
     new_token(:tSTAR2, :**)
   when input.scan(/\*/)
@@ -1195,6 +1161,10 @@ def next_token
     new_token(:kNOCONSTRUCTOR, :noconstructor)
   when input.scan(/\$\w+\b/)
     new_token(:tGVAR, input.matched.to_sym)
+  when input.scan(/::([A-Z]\w*::)*[A-Z]\w*/)
+    new_token(:tQUALIFIED_MODULE_NAME, Names::Module.parse(input.matched))
+  when input.scan(/([A-Z]\w*::)+[A-Z]\w*/)
+    new_token(:tQUALIFIED_MODULE_NAME, Names::Module.parse(input.matched))
   when input.scan(/[A-Z]\w*/)
     new_token(:tUIDENT, input.matched.to_sym)
   when input.scan(/_\w+/)
@@ -1207,5 +1177,7 @@ def next_token
     new_token(:tSTRING, input.matched[1...-1])
   when input.scan(/[a-z]\w*/)
     new_token(:tIDENT, input.matched.to_sym)
+  when input.scan(/:/)
+    new_token(:tCOLON)
   end
 end
