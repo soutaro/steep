@@ -1,10 +1,8 @@
 require_relative "test_helper"
 
 class SignatureEnvTest < Minitest::Test
-  ModuleName = Steep::ModuleName
+  Names = Steep::Names
   Namespace = Steep::AST::Namespace
-  InterfaceName = Steep::InterfaceName
-  AliasName = Steep::AliasName
 
   def parse(src)
     Steep::Parser.parse_signature(src)
@@ -22,7 +20,7 @@ end
 
     env.add(klass)
 
-    assert_equal klass, env.find_class(ModuleName.parse("::A"))
+    assert_equal klass, env.find_class(Names::Module.parse("::A"))
   end
 
   def test_class_path
@@ -33,8 +31,8 @@ end
 
     env.add(klass)
 
-    assert_equal klass, env.find_class(ModuleName.parse("::A::B::C"))
-    assert_equal klass, env.find_class(ModuleName.parse("C"), current_module: Namespace.parse("::A::B"))
+    assert_equal klass, env.find_class(Names::Module.parse("::A::B::C"))
+    assert_equal klass, env.find_class(Names::Module.parse("C"), current_module: Namespace.parse("::A::B"))
   end
 
   def test_nested_path_lookup
@@ -53,9 +51,9 @@ end
     env.add(ab_object)
     env.add(object)
 
-    assert_equal abc_object, env.find_class(ModuleName.parse("Object"), current_module: Namespace.parse("::A::B::C"))
-    assert_equal ab_object, env.find_class(ModuleName.parse("Object"), current_module: Namespace.parse("::A::B"))
-    assert_equal object, env.find_class(ModuleName.parse("Object"), current_module: Namespace.parse("::A"))
+    assert_equal abc_object, env.find_class(Names::Module.parse("Object"), current_module: Namespace.parse("::A::B::C"))
+    assert_equal ab_object, env.find_class(Names::Module.parse("Object"), current_module: Namespace.parse("::A::B"))
+    assert_equal object, env.find_class(Names::Module.parse("Object"), current_module: Namespace.parse("::A"))
   end
 
   def test_module
@@ -66,8 +64,8 @@ end
 
     env.add(mod)
 
-    assert_equal mod, env.find_module(ModuleName.parse("::A"))
-    assert_equal mod, env.find_module(ModuleName.parse("A"))
+    assert_equal mod, env.find_module(Names::Module.parse("::A"))
+    assert_equal mod, env.find_module(Names::Module.parse("A"))
   end
 
   def test_class_module_conflict
@@ -108,7 +106,7 @@ end
 
     env.add(interface)
 
-    assert_equal interface, env.find_interface(InterfaceName.new(name: :_A))
+    assert_equal interface, env.find_interface(Names::Interface.new(name: :_A))
   end
 
   def test_extension
@@ -119,7 +117,7 @@ end
 
     env.add(extension)
 
-    assert_equal [extension], env.find_extensions(ModuleName.parse(:Object).absolute!)
+    assert_equal [extension], env.find_extensions(Names::Module.parse(:Object).absolute!)
   end
 
   def test_constant
@@ -129,12 +127,12 @@ Steep::Version: Integer
 
     env.add(const)
 
-    assert_equal const, env.find_const(ModuleName.parse("::Steep::Version"))
-    assert_equal const, env.find_const(ModuleName.parse("Steep::Version"))
-    assert_equal const, env.find_const(ModuleName.parse("Version"), current_module: Namespace.parse("::Steep"))
-    assert_nil env.find_const(ModuleName.parse("Steep"))
+    assert_equal const, env.find_const(Names::Module.parse("::Steep::Version"))
+    assert_equal const, env.find_const(Names::Module.parse("Steep::Version"))
+    assert_equal const, env.find_const(Names::Module.parse("Version"), current_module: Namespace.parse("::Steep"))
+    assert_nil env.find_const(Names::Module.parse("Steep"))
 
-    assert env.const_name?(ModuleName.parse("::Steep::Version"))
+    assert env.const_name?(Names::Module.parse("::Steep::Version"))
   end
 
   def test_gvar
@@ -155,7 +153,7 @@ type foo = String | Integer
 
     env.add(a)
 
-    assert_equal a, env.find_alias(AliasName.new(name: :foo))
-    assert_nil env.find_alias(AliasName.new(name: :bar))
+    assert_equal a, env.find_alias(Names::Alias.new(name: :foo))
+    assert_nil env.find_alias(Names::Alias.new(name: :bar))
   end
 end

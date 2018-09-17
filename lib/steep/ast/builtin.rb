@@ -6,7 +6,7 @@ module Steep
         attr_reader :arity
 
         def initialize(module_name, arity: 0)
-          @module_name = ModuleName.parse(module_name)
+          @module_name = Names::Module.parse(module_name)
           @arity = arity
         end
 

@@ -4,7 +4,7 @@ class AnnotationCollectionTest < Minitest::Test
   include TestHelper
   include SubtypingHelper
 
-  ModuleName = Steep::ModuleName
+  Names = Steep::Names
   Annotation = Steep::AST::Annotation
   Types = Steep::AST::Types
   AST = Steep::AST
@@ -24,7 +24,7 @@ end
       annotations: [
         Annotation::VarType.new(name: :x, type: parse_type("Object")),
         Annotation::IvarType.new(name: :@y, type: parse_type("Object")),
-        Annotation::ConstType.new(name: ModuleName.parse("Object"), type: parse_type("Object.class")),
+        Annotation::ConstType.new(name: Names::Module.parse("Object"), type: parse_type("Object.class")),
         Annotation::MethodType.new(name: :foo, type: parse_method_type("() -> Object")),
         Annotation::BlockType.new(type: parse_type("Object")),
         Annotation::ReturnType.new(type: parse_type("Object")),
@@ -32,7 +32,7 @@ end
         Annotation::InstanceType.new(type: parse_type("String")),
         Annotation::ModuleType.new(type: parse_type("String")),
         Annotation::BreakType.new(type: parse_type("::Object")),
-        Annotation::Implements.new(name: Annotation::Implements::Module.new(name: ModuleName.parse("Object"), args: [])),
+        Annotation::Implements.new(name: Annotation::Implements::Module.new(name: Names::Module.parse("Object"), args: [])),
         Annotation::Dynamic.new(names: [
           Annotation::Dynamic::Name.new(name: :foo, kind: :instance),
           Annotation::Dynamic::Name.new(name: :bar, kind: :module),
@@ -52,8 +52,8 @@ end
     assert_equal parse_type("::Person::Object"), annotations.var_type(ivar: :@y)
     assert_nil annotations.var_type(ivar: :@x)
 
-    assert_equal parse_type("::Person::Object.class"), annotations.var_type(const: ModuleName.parse("Object"))
-    assert_nil annotations.var_type(const: ModuleName.parse("::Object"))
+    assert_equal parse_type("::Person::Object.class"), annotations.var_type(const: Names::Module.parse("Object"))
+    assert_nil annotations.var_type(const: Names::Module.parse("::Object"))
 
     assert_equal "() -> ::Person::Object", annotations.method_type(:foo).to_s
 

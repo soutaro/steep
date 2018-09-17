@@ -79,7 +79,7 @@ module Steep
           attr_reader :constructor
 
           def initialize(name:, constructor:, location: nil)
-            raise "Name should be a module name: #{name.inspect}" unless name.is_a?(ModuleName)
+            raise "Name should be a module name: #{name.inspect}" unless name.is_a?(Names::Module)
             super(name: name, location: location)
             @constructor = constructor
           end

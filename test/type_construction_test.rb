@@ -1396,7 +1396,7 @@ EOF
 
     assert_equal(
       Annotation::Implements::Module.new(
-        name: Steep::ModuleName.parse("::Person"),
+        name: Steep::Names::Module.parse("::Person"),
         args: []
       ),
       for_class.module_context.implement_name
@@ -1439,11 +1439,11 @@ EOF
   end
 
   def test_class_constructor_nested
-    source = parse_ruby("module Steep; class ModuleName; end; end")
+    source = parse_ruby("module Steep; class Names::Module; end; end")
 
     typing = Typing.new
     checker = new_subtyping_checker(<<EOF)
-class Steep::ModuleName
+class Steep::Names::Module
 end
 EOF
     annotations = source.annotations(block: source.node, builder: checker.builder, current_module: Namespace.parse("::Steep"))
@@ -1478,7 +1478,7 @@ EOF
 
     assert_equal(
       Annotation::Implements::Module.new(
-        name: Steep::ModuleName.parse("::Steep::ModuleName"),
+        name: Steep::Names::Module.parse("::Steep::Names::Module"),
         args: []
       ),
       for_module.module_context.implement_name)
@@ -1514,7 +1514,7 @@ EOF
 
     assert_equal(
       Annotation::Implements::Module.new(
-        name: Steep::ModuleName.parse("::Steep"),
+        name: Steep::Names::Module.parse("::Steep"),
         args: []
       ),
       for_module.module_context.implement_name
@@ -1574,7 +1574,7 @@ end
 EOF
     annotations = source.annotations(block: source.node, builder: checker.builder,
                                      current_module: Namespace.parse("::Steep"))
-    const_env = ConstantEnv.new(builder: checker.builder, context: Steep::ModuleName.parse("::Steep"))
+    const_env = ConstantEnv.new(builder: checker.builder, context: Steep::Names::Module.parse("::Steep"))
     type_env = TypeEnv.build(annotations: annotations,
                              subtyping: checker,
                              const_env: const_env,
@@ -1605,7 +1605,7 @@ EOF
 
     assert_equal(
       Annotation::Implements::Module.new(
-        name: Steep::ModuleName.parse("::Steep::Printable"),
+        name: Steep::Names::Module.parse("::Steep::Printable"),
         args: []
       ),
       for_module.module_context.implement_name)

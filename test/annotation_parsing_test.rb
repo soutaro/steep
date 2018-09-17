@@ -4,7 +4,7 @@ class AnnotationParsingTest < Minitest::Test
   Parser = Steep::Parser
   include TestHelper
   include ASTAssertion
-  ModuleName = Steep::ModuleName
+  Names = Steep::Names
   
   def parse_annotation(source)
     Parser.parse_annotation_opt(source, buffer: Steep::AST::Buffer.new(name: nil, content: source))
@@ -60,21 +60,21 @@ class AnnotationParsingTest < Minitest::Test
   def test_const_type
     annot = parse_annotation("@type const Foo::Bar::Baz: String")
     assert_instance_of Steep::AST::Annotation::ConstType, annot
-    assert_equal ModuleName.parse("Foo::Bar::Baz"), annot.name
+    assert_equal Names::Module.parse("Foo::Bar::Baz"), annot.name
     assert_equal Steep::AST::Types::Name.new_instance(name: :String), annot.type
   end
 
   def test_const_type2
     annot = parse_annotation("@type const Foo: String")
     assert_instance_of Steep::AST::Annotation::ConstType, annot
-    assert_equal ModuleName.parse("Foo"), annot.name
+    assert_equal Names::Module.parse("Foo"), annot.name
     assert_equal Steep::AST::Types::Name.new_instance(name: :String), annot.type
   end
 
   def test_const_type3
     annot = parse_annotation("@type const ::Foo: String")
     assert_instance_of Steep::AST::Annotation::ConstType, annot
-    assert_equal ModuleName.parse("::Foo"), annot.name
+    assert_equal Names::Module.parse("::Foo"), annot.name
     assert_equal Steep::AST::Types::Name.new_instance(name: :String), annot.type
   end
 
@@ -93,14 +93,14 @@ class AnnotationParsingTest < Minitest::Test
   def test_implements
     annot = parse_annotation("@implements String")
     assert_instance_of Steep::AST::Annotation::Implements, annot
-    assert_equal ModuleName.parse(:String), annot.name.name
+    assert_equal Names::Module.parse(:String), annot.name.name
     assert_empty annot.name.args
   end
 
   def test_implement2
     annot = parse_annotation("@implements Array<'a>")
     assert_instance_of Steep::AST::Annotation::Implements, annot
-    assert_equal ModuleName.parse(:Array), annot.name.name
+    assert_equal Names::Module.parse(:Array), annot.name.name
     assert_equal [:a], annot.name.args
   end
 

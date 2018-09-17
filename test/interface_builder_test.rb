@@ -7,10 +7,9 @@ class InterfaceBuilderTest < Minitest::Test
   Substitution = Steep::Interface::Substitution
   Builder = Steep::Interface::Builder
   Types = Steep::AST::Types
-  ModuleName = Steep::ModuleName
+  Names = Steep::Names
   Signature = Steep::AST::Signature
   Namespace = Steep::AST::Namespace
-  InterfaceName = Steep::InterfaceName
 
   def signatures(sigs = "")
     default = <<-EOF
@@ -151,7 +150,7 @@ end
     EOF
 
     builder = Builder.new(signatures: signatures)
-    name = InterfaceName.new(name: :_Array)
+    name = Names::Interface.new(name: :_Array)
     interface = builder.interface_to_interface(name, signatures.find_interface(name))
 
     assert_instance_of Interface::Abstract, interface
@@ -184,11 +183,11 @@ end
     EOF
 
     builder = Builder.new(signatures: signatures)
-    mod = signatures.find_module(ModuleName.parse("::A"))
+    mod = signatures.find_module(Names::Module.parse("::A"))
     interface = builder.instance_to_interface(mod, with_initialize: false)
 
     assert_instance_of Interface::Abstract, interface
-    assert_equal ModuleName.parse(:A).absolute!, interface.name
+    assert_equal Names::Module.parse(:A).absolute!, interface.name
     assert_empty interface.supers
 
     interface.methods[:foo].tap do |method|
@@ -226,11 +225,11 @@ end
     EOF
 
     builder = Builder.new(signatures: signatures)
-    mod = signatures.find_module(ModuleName.parse(:B))
+    mod = signatures.find_module(Names::Module.parse(:B))
     interface = builder.instance_to_interface(mod, with_initialize: false)
 
     assert_instance_of Interface::Abstract, interface
-    assert_equal ModuleName.parse(:B).absolute!, interface.name
+    assert_equal Names::Module.parse(:B).absolute!, interface.name
     assert_empty interface.supers
 
     interface.methods[:foo].tap do |method|
@@ -256,11 +255,11 @@ end
     EOF
 
     builder = Builder.new(signatures: signatures)
-    klass = signatures.find_class(ModuleName.parse("::A"))
+    klass = signatures.find_class(Names::Module.parse("::A"))
     interface = builder.instance_to_interface(klass, with_initialize: false)
 
     assert_instance_of Interface::Abstract, interface
-    assert_equal ModuleName.parse("::A"), interface.name
+    assert_equal Names::Module.parse("::A"), interface.name
     assert_empty interface.supers
 
     interface.methods[:foo].tap do |method|
@@ -293,11 +292,11 @@ end
     EOF
 
     builder = Builder.new(signatures: signatures)
-    klass = signatures.find_class(ModuleName.parse("::B"))
+    klass = signatures.find_class(Names::Module.parse("::B"))
     interface = builder.instance_to_interface(klass, with_initialize: false)
 
     assert_instance_of Interface::Abstract, interface
-    assert_equal ModuleName.parse("::B"), interface.name
+    assert_equal Names::Module.parse("::B"), interface.name
     assert_empty interface.supers
 
     interface.methods[:foo].tap do |method|
@@ -327,11 +326,11 @@ end
     EOF
 
     builder = Builder.new(signatures: signatures)
-    klass = signatures.find_class(ModuleName.parse("::C"))
+    klass = signatures.find_class(Names::Module.parse("::C"))
     interface = builder.instance_to_interface(klass, with_initialize: false)
 
     assert_instance_of Interface::Abstract, interface
-    assert_equal ModuleName.parse("::C"), interface.name
+    assert_equal Names::Module.parse("::C"), interface.name
     assert_empty interface.supers
 
     interface.methods[:foo].tap do |method|
@@ -374,11 +373,11 @@ end
     EOF
 
     builder = Builder.new(signatures: signatures)
-    mod = signatures.find_module(ModuleName.parse(:A))
+    mod = signatures.find_module(Names::Module.parse(:A))
     interface = builder.module_to_interface(mod)
 
     assert_instance_of Interface::Abstract, interface
-    assert_equal ModuleName.parse("::A"), interface.name
+    assert_equal Names::Module.parse("::A"), interface.name
     assert_empty interface.supers
 
     assert_nil interface.methods[:foo]
@@ -435,11 +434,11 @@ end
     EOF
 
     builder = Builder.new(signatures: signatures)
-    klass = signatures.find_class(ModuleName.parse(:A))
+    klass = signatures.find_class(Names::Module.parse(:A))
     interface = builder.class_to_interface(klass, constructor: nil)
 
     assert_instance_of Interface::Abstract, interface
-    assert_equal ModuleName.parse("::A"), interface.name
+    assert_equal Names::Module.parse("::A"), interface.name
     assert_empty interface.supers
 
     interface.methods[:foo].tap do |method|
@@ -465,7 +464,7 @@ end
     EOF
 
     builder = Builder.new(signatures: signatures)
-    klass = signatures.find_class(ModuleName.parse("::Array"))
+    klass = signatures.find_class(Names::Module.parse("::Array"))
     interface = builder.class_to_interface(klass, constructor: true)
 
     assert_empty interface.params
@@ -488,7 +487,7 @@ end
     EOF
 
     builder = Builder.new(signatures: signatures)
-    klass = signatures.find_class(ModuleName.parse("::Array"))
+    klass = signatures.find_class(Names::Module.parse("::Array"))
     interface = builder.class_to_interface(klass, constructor: true)
 
     assert_empty interface.params
@@ -511,16 +510,16 @@ end
     EOF
 
     builder = Builder.new(signatures: signatures)
-    klass = signatures.find_class(ModuleName.parse(:A))
+    klass = signatures.find_class(Names::Module.parse(:A))
     interface = builder.class_to_interface(klass, constructor: true)
 
     assert_instance_of Interface::Abstract, interface
-    assert_equal ModuleName.parse("::A"), interface.name
+    assert_equal Names::Module.parse("::A"), interface.name
     assert_empty interface.supers
 
     interface.methods[:new].tap do |method|
       assert_instance_of Interface::Method, method
-      assert_equal ModuleName.parse("::A"), method.type_name
+      assert_equal Names::Module.parse("::A"), method.type_name
       assert_equal "(String) -> any", method.types[0].location.source
       assert_equal "(::String) -> instance", method.types[0].to_s
       assert_equal Types::Instance.new, method.types[0].return_type
@@ -537,10 +536,10 @@ end
     EOF
 
     builder = Builder.new(signatures: signatures)
-    interface = builder.build_class(ModuleName.parse("::A"), constructor: true)
+    interface = builder.build_class(Names::Module.parse("::A"), constructor: true)
 
     assert_instance_of Interface::Abstract, interface
-    assert_equal ModuleName.parse("::A"), interface.name
+    assert_equal Names::Module.parse("::A"), interface.name
     assert_empty interface.supers
 
     interface.methods[:new].tap do |method|
@@ -564,7 +563,7 @@ end
     builder = Builder.new(signatures: signatures)
 
     assert_raises Builder::RecursiveDefinitionError do
-      builder.build_instance(ModuleName.parse("::A"), with_initialize: false)
+      builder.build_instance(Names::Module.parse("::A"), with_initialize: false)
     end
   end
 
@@ -577,7 +576,7 @@ end
 
     builder = Builder.new(signatures: signatures)
 
-    sig = signatures.find_class(ModuleName.parse(:Object))
+    sig = signatures.find_class(Names::Module.parse(:Object))
     interface = builder.instance_to_interface(sig, with_initialize: false)
 
     assert_instance_of Interface::Abstract, interface
@@ -602,7 +601,7 @@ end
     EOF
 
     builder = Builder.new(signatures: signatures)
-    klass = signatures.find_class(ModuleName.parse(:Foo))
+    klass = signatures.find_class(Names::Module.parse(:Foo))
     interface = builder.instance_to_interface(klass, with_initialize: false)
 
     assert_instance_of Interface::Abstract, interface
@@ -622,7 +621,7 @@ end
     EOF
 
     builder = Builder.new(signatures: signatures)
-    klass = signatures.find_class(ModuleName.parse(:Bar))
+    klass = signatures.find_class(Names::Module.parse(:Bar))
     interface = builder.instance_to_interface(klass, with_initialize: false)
 
     assert_instance_of Interface::Abstract, interface
@@ -637,7 +636,7 @@ end
     EOF
 
     builder = Builder.new(signatures: signatures)
-    klass = signatures.find_class(ModuleName.parse(:Foo))
+    klass = signatures.find_class(Names::Module.parse(:Foo))
     interface = builder.instance_to_interface(klass, with_initialize: false).instantiate(
       type: Types::Self.new,
       args: [Types::Var.new(name: :hoge)],
@@ -671,7 +670,7 @@ end
     builder = Builder.new(signatures: signatures)
     checker = Steep::Subtyping::Check.new(builder: builder)
 
-    signatures.find_class(ModuleName.parse(:Bar)).yield_self do |klass|
+    signatures.find_class(Names::Module.parse(:Bar)).yield_self do |klass|
       interface = builder.instance_to_interface(klass, with_initialize: false)
       instantiated = interface.instantiate(type: Types::Name.new_instance(name: "::Bar"),
                                            args: [],
@@ -682,7 +681,7 @@ end
       instantiated.validate(checker)
     end
 
-    signatures.find_class(ModuleName.parse(:Baz)).yield_self do |klass|
+    signatures.find_class(Names::Module.parse(:Baz)).yield_self do |klass|
       interface = builder.instance_to_interface(klass, with_initialize: false)
       instantiated = interface.instantiate(type: Types::Name.new_instance(name: "::Baz"),
                                            args: [],
@@ -695,7 +694,7 @@ end
       end
     end
 
-    signatures.find_class(ModuleName.parse(:Hoge)).yield_self do |klass|
+    signatures.find_class(Names::Module.parse(:Hoge)).yield_self do |klass|
       interface = builder.instance_to_interface(klass, with_initialize: false)
       instantiated = interface.instantiate(type: Types::Name.new_instance(name: "::Hoge"),
                                            args: [],
@@ -719,7 +718,7 @@ end
     EOF
 
     builder = Builder.new(signatures: signatures)
-    klass = signatures.find_class(ModuleName.parse(:Hello))
+    klass = signatures.find_class(Names::Module.parse(:Hello))
     interface = builder.instance_to_interface(klass, with_initialize: false)
 
     assert_instance_of Interface::Abstract, interface
@@ -753,12 +752,12 @@ end
     EOF
 
     builder = Builder.new(signatures: signatures)
-    signatures.find_class(ModuleName.parse(:Hello)).yield_self do |klass|
+    signatures.find_class(Names::Module.parse(:Hello)).yield_self do |klass|
       interface = builder.instance_to_interface(klass, with_initialize: false)
       refute_operator interface.methods[:foo], :incompatible?
     end
 
-    signatures.find_class(ModuleName.parse(:World)).yield_self do |klass|
+    signatures.find_class(Names::Module.parse(:World)).yield_self do |klass|
       interface = builder.instance_to_interface(klass, with_initialize: false)
       assert_operator interface.methods[:foo], :incompatible?
     end
@@ -773,7 +772,7 @@ end
 
     builder = Builder.new(signatures: signatures)
 
-    signatures.find_class(ModuleName.parse(:Hello)).yield_self do |klass|
+    signatures.find_class(Names::Module.parse(:Hello)).yield_self do |klass|
       interface = builder.instance_to_interface(klass, with_initialize: true)
       assert_operator interface.methods[:initialize], :incompatible?
       refute_nil interface.methods[:initialize].super_method

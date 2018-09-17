@@ -5,14 +5,13 @@ class TypeParsingTest < Minitest::Test
   include ASTAssertion
 
   AST = Steep::AST
-  ModuleName = Steep::ModuleName
-  InterfaceName = Steep::InterfaceName
+  Names = Steep::Names
 
   def test_interface
     type = parse_method_type("() -> _Foo").return_type
     assert_instance_of AST::Types::Name::Interface, type
     assert_location type, start_line: 1, start_column: 6, end_line: 1, end_column: 10
-    assert_equal InterfaceName.new(name: :_Foo), type.name
+    assert_equal Names::Interface.new(name: :_Foo), type.name
     assert_equal [], type.args
   end
 
@@ -20,7 +19,7 @@ class TypeParsingTest < Minitest::Test
     type = parse_method_type("() -> Foo").return_type
     assert_instance_of AST::Types::Name::Instance, type
     assert_location type, start_line: 1, start_column: 6, end_line: 1, end_column: 9
-    assert_equal ModuleName.new(namespace: AST::Namespace.empty, name: :Foo), type.name
+    assert_equal Names::Module.new(namespace: AST::Namespace.empty, name: :Foo), type.name
     assert_equal [], type.args
   end
 
@@ -29,7 +28,7 @@ class TypeParsingTest < Minitest::Test
 
     assert_instance_of AST::Types::Name::Class, type
     assert_location type, start_line: 1, start_column: 6, end_line: 1, end_column: 15
-    assert_equal ModuleName.new(namespace: AST::Namespace.empty, name: :Foo),
+    assert_equal Names::Module.new(namespace: AST::Namespace.empty, name: :Foo),
                  type.name
     assert_nil type.constructor
   end
@@ -39,7 +38,7 @@ class TypeParsingTest < Minitest::Test
 
     assert_instance_of AST::Types::Name::Module, type
     assert_location type, start_line: 1, start_column: 6, end_line: 1, end_column: 16
-    assert_equal ModuleName.new(namespace: AST::Namespace.empty, name: :Foo),
+    assert_equal Names::Module.new(namespace: AST::Namespace.empty, name: :Foo),
                  type.name
   end
 
@@ -48,7 +47,7 @@ class TypeParsingTest < Minitest::Test
 
     assert_instance_of AST::Types::Name::Class, type
     assert_location type, start_line: 1, start_column: 6, end_line: 1, end_column: 27
-    assert_equal ModuleName.new(namespace: AST::Namespace.empty, name: :Foo),
+    assert_equal Names::Module.new(namespace: AST::Namespace.empty, name: :Foo),
                  type.name
     assert type.constructor
   end
@@ -58,7 +57,7 @@ class TypeParsingTest < Minitest::Test
 
     assert_instance_of AST::Types::Name::Class, type
     assert_location type, start_line: 1, start_column: 6, end_line: 1, end_column: 29
-    assert_equal ModuleName.new(namespace: AST::Namespace.empty, name: :Foo),type.name
+    assert_equal Names::Module.new(namespace: AST::Namespace.empty, name: :Foo),type.name
     refute type.constructor
   end
 
@@ -91,7 +90,7 @@ class TypeParsingTest < Minitest::Test
 
     assert_instance_of AST::Types::Name::Instance, type
     assert_location type, start_line: 1, start_column: 6, end_line: 1, end_column: 19
-    assert_equal ModuleName.new(name: :Array, namespace: AST::Namespace.empty), type.name
+    assert_equal Names::Module.new(name: :Array, namespace: AST::Namespace.empty), type.name
 
     assert_size 2, type.args
 
@@ -124,7 +123,7 @@ class TypeParsingTest < Minitest::Test
   def test_optional
     type = parse_method_type("() -> (String | nil)").return_type
     assert_equal AST::Types::Union.build(types: [
-      AST::Types::Name.new_instance(name: ModuleName.new(name: :String, namespace: AST::Namespace.empty)),
+      AST::Types::Name.new_instance(name: Names::Module.new(name: :String, namespace: AST::Namespace.empty)),
       AST::Types::Nil.new()
     ]), type
     assert_location type, start_line: 1, start_column: 6, end_line: 1, end_column: 20
@@ -151,19 +150,19 @@ class TypeParsingTest < Minitest::Test
   def test_literal_type
     parse_type("1").yield_self do |type|
       assert_equal AST::Types::Literal.new(value: 1), type
-      assert_equal AST::Types::Name.new_instance(name: ModuleName.new(name: :Integer, namespace: AST::Namespace.root)),
+      assert_equal AST::Types::Name.new_instance(name: Names::Module.new(name: :Integer, namespace: AST::Namespace.root)),
                    type.back_type
     end
 
     parse_type('"hello"').yield_self do |type|
       assert_equal AST::Types::Literal.new(value: "hello"), type
-      assert_equal AST::Types::Name.new_instance(name: ModuleName.new(name: :String, namespace: AST::Namespace.root)),
+      assert_equal AST::Types::Name.new_instance(name: Names::Module.new(name: :String, namespace: AST::Namespace.root)),
                    type.back_type
     end
 
     parse_type(":foo123").yield_self do |type|
       assert_equal AST::Types::Literal.new(value: :foo123), type
-      assert_equal AST::Types::Name.new_instance(name: ModuleName.new(name: :Symbol, namespace: AST::Namespace.root)),
+      assert_equal AST::Types::Name.new_instance(name: Names::Module.new(name: :Symbol, namespace: AST::Namespace.root)),
                    type.back_type
     end
   end

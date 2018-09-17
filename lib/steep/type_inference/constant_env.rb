@@ -5,7 +5,7 @@ module Steep
       attr_reader :context
       attr_reader :cache
 
-      # ConstantEnv receives an optional ModuleName, not a Namespace, because this is a simulation of Ruby.
+      # ConstantEnv receives an optional Names::Module, not a Namespace, because this is a simulation of Ruby.
       # Any namespace is a module or class.
       def initialize(builder:, context:)
         @cache = {}
@@ -29,7 +29,7 @@ module Steep
         cache[name] ||= lookup0(name, namespace: namespace)
       end
 
-      # @type method lookup0: (ModuleName, namespace: AST::Namespace) -> Type
+      # @type method lookup0: (Names::Module, namespace: AST::Namespace) -> Type
       def lookup0(name, namespace:)
         full_name = name.in_namespace(namespace)
         case

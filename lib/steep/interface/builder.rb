@@ -187,7 +187,7 @@ module Steep
         supers = []
         methods = {
           new: Method.new(
-            type_name: ModuleName.parse(name: "__Builtin__"),
+            type_name: Names::Module.parse(name: "__Builtin__"),
             name: :new,
             types: [
               MethodType.new(type_params: [],

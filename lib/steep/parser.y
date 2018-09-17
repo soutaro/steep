@@ -290,7 +290,7 @@ rule
                                 }
                               | tINTERFACE_NAME application_args
                                 {
-                                  interface_name = InterfaceName.new(name: val[0].value)
+                                  interface_name = Names::Interface.new(name: val[0].value)
                                   loc = val[0].location + val[1]&.location
                                   result = AST::Types::Name::Interface.new(name: interface_name,
                                                                            location: loc,
@@ -298,7 +298,7 @@ rule
                                 }
                               | tIDENT application_args
                                 {
-                                  alias_name = AliasName.new(name: val[0].value)
+                                  alias_name = Names::Alias.new(name: val[0].value)
                                   loc = val[0].location + val[1]&.location
                                   result = AST::Types::Name::Alias.new(name: alias_name,
                                                                        location: loc,
@@ -556,7 +556,7 @@ rule
                     alias_decl: kTYPE tIDENT type_params tEQ type
                                 {
                                   loc = val[0].location + val[4].location
-                                  name = AliasName.new(name: val[1].value)
+                                  name = Names::Alias.new(name: val[1].value)
                                   result = AST::Signature::Alias.new(location: loc,
                                                                      name: name,
                                                                      params: val[2],
@@ -573,14 +573,14 @@ rule
                                 }
 
                 interface_name: tINTERFACE_NAME {
-                                  name = InterfaceName.new(name: val[0].value)
+                                  name = Names::Interface.new(name: val[0].value)
                                   result = LocatedValue.new(location: val[0].value, value: name)
                                 }
 
                    module_name: namespace {
             		              namespace = val[0].value
             		              component = namespace.path.last
-            		              name = ModuleName.new(namespace: namespace.parent, name: component)
+            		              name = Names::Module.new(namespace: namespace.parent, name: component)
             		              result = LocatedValue.new(location: val[0].location, value: name)
               		              }
 
@@ -605,12 +605,12 @@ rule
 
                   module_name0: tUIDENT
                                 {
-                                  result = LocatedValue.new(location: val[0].location, value: ModuleName.parse(val[0].value))
+                                  result = LocatedValue.new(location: val[0].location, value: Names::Module.parse(val[0].value))
                                 }
                               | tUIDENT tCOLON2 module_name0
                                 {
                                   location = val[0].location + val.last.location
-                                  name = ModuleName.parse(val[0].value) + val.last.value
+                                  name = Names::Module.parse(val[0].value) + val.last.value
                                   result = LocatedValue.new(location: location, value: name)
                                 }
 

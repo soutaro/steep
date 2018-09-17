@@ -5,7 +5,7 @@ class MethodParsingTest < Minitest::Test
 
   T = Steep::AST::Types
   Interface = Steep::Interface
-  ModuleName = Steep::ModuleName
+  Names = Steep::Names
 
   def test_no_params1
     method = Steep::Parser.parse_method("() -> any")
@@ -37,7 +37,7 @@ class MethodParsingTest < Minitest::Test
       assert_location params, start_line: 1, start_column: 1, end_line: 1, end_column: 4
     end
     assert_required_param method.params, index: 1 do |type, params|
-      assert_instance_name_type type, name: ModuleName.parse(:String)
+      assert_instance_name_type type, name: Names::Module.parse(:String)
       assert_location type, start_line: 1, start_column: 6, end_line: 1, end_column: 12
       assert_location params, start_line: 1, start_column: 6, end_line: 1, end_column: 12
     end
@@ -53,7 +53,7 @@ class MethodParsingTest < Minitest::Test
 
     assert_params_length method.params, 2
     assert_optional_param method.params, index: 0 do |type, params|
-      assert_instance_name_type type, name: ModuleName.parse("String")
+      assert_instance_name_type type, name: Names::Module.parse("String")
       assert_location type, start_line: 1, start_column: 2, end_line: 1, end_column: 8
       assert_location params, start_line: 1, start_column: 1, end_line: 1, end_column: 8
     end
@@ -74,7 +74,7 @@ class MethodParsingTest < Minitest::Test
 
     assert_params_length method.params, 1
     assert_rest_param method.params, index: 0 do |type, params|
-      assert_instance_name_type type, name: ModuleName.parse(:Integer)
+      assert_instance_name_type type, name: Names::Module.parse(:Integer)
       assert_location type, start_line: 1, start_column: 2, end_line: 1, end_column: 9
       assert_location params, start_line: 1, start_column: 1, end_line: 1, end_column: 9
     end
@@ -90,7 +90,7 @@ class MethodParsingTest < Minitest::Test
 
     assert_params_length method.params, 2
     assert_required_keyword method.params, index: 0, name: :name do |type, params|
-      assert_instance_name_type type, name: ModuleName.parse("String")
+      assert_instance_name_type type, name: Names::Module.parse("String")
       assert_location type, start_line: 1, start_column: 7, end_line: 1, end_column: 13
       assert_location params, start_line: 1, start_column: 1, end_line: 1, end_column: 13
     end
@@ -110,7 +110,7 @@ class MethodParsingTest < Minitest::Test
 
     assert_params_length method.params, 2
     assert_optional_keyword method.params, index: 0, name: :name do |type, params|
-      assert_instance_name_type type, name: ModuleName.parse("String")
+      assert_instance_name_type type, name: Names::Module.parse("String")
       assert_location type, start_line: 1, start_column: 8, end_line: 1, end_column: 14
       assert_location params, start_line: 1, start_column: 1, end_line: 1, end_column: 14
     end
@@ -130,7 +130,7 @@ class MethodParsingTest < Minitest::Test
 
     assert_params_length method.params, 1
     assert_rest_keyword method.params, index: 0 do |type, params|
-      assert_instance_name_type type, name: ModuleName.parse("Integer")
+      assert_instance_name_type type, name: Names::Module.parse("Integer")
       assert_location type, start_line: 1, start_column: 3, end_line: 1, end_column: 10
       assert_location params, start_line: 1, start_column: 1, end_line: 1, end_column: 10
     end
@@ -194,12 +194,12 @@ class MethodParsingTest < Minitest::Test
 
     assert_params_length method.block.params, 1
     assert_rest_param method.block.params, index: 0 do |type, params|
-      assert_instance_name_type type, name: ModuleName.parse(:Integer)
+      assert_instance_name_type type, name: Names::Module.parse(:Integer)
       assert_location type, start_line: 1, start_column: 7, end_line: 1, end_column: 14
       assert_location params, start_line: 1, start_column: 6, end_line: 1, end_column: 14
     end
 
-    assert_instance_name_type method.block.return_type, name: ModuleName.parse(:String)
+    assert_instance_name_type method.block.return_type, name: Names::Module.parse(:String)
     assert_location method.block.return_type, start_line: 1, start_column: 19, end_line: 1, end_column: 25
 
     assert_any_type method.return_type
@@ -293,7 +293,7 @@ class MethodParsingTest < Minitest::Test
       assert_location params, start_column: 10, end_column: 16
     end
 
-    assert_instance_name_type method.return_type, name: ModuleName.parse(:Array) do |(type)|
+    assert_instance_name_type method.return_type, name: Names::Module.parse(:Array) do |(type)|
       assert_union_type type do |types|
         a = types.find {|type| type.name == :a }
         b = types.find {|type| type.name == :b }

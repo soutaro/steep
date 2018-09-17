@@ -5,7 +5,7 @@ class ConstantEnvTest < Minitest::Test
 
   Types = Steep::AST::Types
   Namespace = Steep::AST::Namespace
-  ModuleName = Steep::ModuleName
+  Names = Steep::Names
 
   BUILTIN = <<-EOS
 class BasicObject
@@ -57,13 +57,13 @@ end
     env = constant_env(context: nil)
 
     assert_equal Types::Name.new_class(name: "::BasicObject", constructor: true),
-                 env.lookup(ModuleName.parse("BasicObject"))
+                 env.lookup(Names::Module.parse("BasicObject"))
     assert_equal Types::Name.new_module(name: "::Kernel"),
-                 env.lookup(ModuleName.parse("Kernel"))
+                 env.lookup(Names::Module.parse("Kernel"))
   end
 
   def test_from_module
-    env = constant_env(<<EOS, context: ModuleName.parse("::A"))
+    env = constant_env(<<EOS, context: Names::Module.parse("::A"))
 module A
 end
 
@@ -72,15 +72,15 @@ end
 EOS
 
     assert_equal Types::Name.new_module(name: "::A::String"),
-                 env.lookup(ModuleName.parse("String"))
+                 env.lookup(Names::Module.parse("String"))
     assert_equal Types::Name.new_class(name: "::String", constructor: true),
-                 env.lookup(ModuleName.parse("::String"))
+                 env.lookup(Names::Module.parse("::String"))
     assert_equal Types::Name.new_module(name: "::Kernel"),
-                 env.lookup(ModuleName.parse("Kernel"))
+                 env.lookup(Names::Module.parse("Kernel"))
   end
 
   def test_nested_module
-    env = constant_env(<<EOS, context: ModuleName.parse("::A"))
+    env = constant_env(<<EOS, context: Names::Module.parse("::A"))
 module A
 end
 
@@ -92,15 +92,15 @@ end
 EOS
 
     assert_equal Types::Name.new_module(name: "::A::B::C"),
-                 env.lookup(ModuleName.parse("::A::B::C"))
+                 env.lookup(Names::Module.parse("::A::B::C"))
     assert_equal Types::Name.new_module(name: "::A::B::C"),
-                 env.lookup(ModuleName.parse("A::B::C"))
+                 env.lookup(Names::Module.parse("A::B::C"))
     assert_equal Types::Name.new_module(name: "::A::B::C"),
-                 env.lookup(ModuleName.parse("B::C"))
+                 env.lookup(Names::Module.parse("B::C"))
   end
 
   def test_constant
-    env = constant_env(<<EOS, context: ModuleName.parse("::A"))
+    env = constant_env(<<EOS, context: Names::Module.parse("::A"))
 module A
 end
 
@@ -110,11 +110,11 @@ Bar: Symbol
 EOS
 
     assert_equal Types::Name.new_instance(name: "::Integer"),
-                 env.lookup(ModuleName.parse("::Foo"))
+                 env.lookup(Names::Module.parse("::Foo"))
     assert_equal Types::Name.new_instance(name: "::String"),
-                 env.lookup(ModuleName.parse("Foo"))
+                 env.lookup(Names::Module.parse("Foo"))
     assert_equal Types::Name.new_instance(name: "::Symbol"),
-                 env.lookup(ModuleName.parse("Bar"))
-    assert_nil env.lookup(ModuleName.parse("Baz"))
+                 env.lookup(Names::Module.parse("Bar"))
+    assert_nil env.lookup(Names::Module.parse("Baz"))
   end
 end

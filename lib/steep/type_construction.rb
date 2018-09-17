@@ -276,7 +276,7 @@ module Steep
     end
 
     def for_module(node)
-      new_module_name = ModuleName.from_node(node.children.first) or raise "Unexpected module name: #{node.children.first}"
+      new_module_name = Names::Module.from_node(node.children.first) or raise "Unexpected module name: #{node.children.first}"
       new_namespace = nested_namespace_for_module(new_module_name)
 
       annots = source.annotations(block: node, builder: checker.builder, current_module: new_namespace)
@@ -335,7 +335,7 @@ module Steep
       const_context = if new_namespace.empty?
                         nil
                       else
-                        ModuleName.new(name: new_namespace.path.last, namespace: new_namespace.parent)
+                        Names::Module.new(name: new_namespace.path.last, namespace: new_namespace.parent)
                       end
       module_const_env = TypeInference::ConstantEnv.new(builder: checker.builder, context: const_context)
 
@@ -367,7 +367,7 @@ module Steep
     end
 
     def for_class(node)
-      new_class_name = ModuleName.from_node(node.children.first) or raise "Unexpected class name: #{node.children.first}"
+      new_class_name = Names::Module.from_node(node.children.first) or raise "Unexpected class name: #{node.children.first}"
       new_namespace = nested_namespace_for_module(new_class_name)
 
       annots = source.annotations(block: node, builder: checker.builder, current_module: new_namespace)
@@ -407,7 +407,7 @@ module Steep
       const_context = if new_namespace.empty?
                         nil
                       else
-                        ModuleName.new(name: new_namespace.path.last, namespace: new_namespace.parent)
+                        Names::Module.new(name: new_namespace.path.last, namespace: new_namespace.parent)
                       end
       class_const_env = TypeInference::ConstantEnv.new(builder: checker.builder, context: const_context)
 
@@ -1045,7 +1045,7 @@ module Steep
           end
 
         when :const
-          const_name = ModuleName.from_node(node)
+          const_name = Names::Module.from_node(node)
           if const_name
             type = type_env.get(const: const_name) do
               fallback_to_any node
@@ -1057,7 +1057,7 @@ module Steep
 
         when :casgn
           yield_self do
-            const_name = ModuleName.from_node(node)
+            const_name = Names::Module.from_node(node)
             if const_name
               value_type = synthesize(node.children.last)
               type = type_env.assign(const: const_name, type: value_type) do |error|
