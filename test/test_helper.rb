@@ -21,11 +21,6 @@ module Steep::AST::Types::Name
     name = Steep::Names::Module.parse(name.to_s) unless name.is_a?(Steep::Names::Module)
     Steep::AST::Types::Name::Instance.new(location: location, name: name, args: args)
   end
-
-  def self.new_interface(location: nil, name:, args: [])
-    name = Steep::Names::Interface.new(name: name) if name.is_a?(Symbol)
-    Steep::AST::Types::Name::Interface.new(location: location, name: name, args: args)
-  end
 end
 
 module TestHelper
@@ -267,7 +262,7 @@ module ASTAssertion
   def assert_interface_signature(sig, name: nil, params: nil)
     assert_instance_of Steep::AST::Signature::Interface, sig
     if name
-      name = Steep::Names::Interface.new(name: name) if name.is_a?(Symbol)
+      name = Steep::Names::Interface.new(name: name, namespace: Steep::AST::Namespace.empty) if name.is_a?(Symbol)
       assert_equal name, sig.name
     end
     assert_equal params, sig.params&.variables if params

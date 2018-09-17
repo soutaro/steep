@@ -299,7 +299,7 @@ interface _Enumerable
 end
     EOF
 
-    assert_interface_signature interface, name: :_Enumerable do |params:, **|
+    assert_interface_signature interface, name: Names::Interface.parse("::_Enumerable") do |params:, **|
       assert_nil params
     end
     assert_location interface, start_line: 1, start_column: 0, end_line: 2, end_column: 3
@@ -311,7 +311,7 @@ interface _Enumerable<'a>
 end
     EOF
 
-    assert_interface_signature interface, name: :_Enumerable, params: [:a]
+    assert_interface_signature interface, name: Names::Interface.parse("::_Enumerable"), params: [:a]
     assert_location interface, start_line: 1, start_column: 0, end_line: 2, end_column: 3
   end
 
@@ -322,7 +322,7 @@ interface _Array<'a>
 end
     EOF
 
-    assert_interface_signature interface, name: :_Array, params: [:a]
+    assert_interface_signature interface, name: Names::Interface.parse("::_Array"), params: [:a]
     assert_location interface, start_line: 1, start_column: 0, end_line: 3, end_column: 3
 
     method = interface.methods[0]

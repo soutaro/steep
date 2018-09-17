@@ -150,7 +150,7 @@ end
     EOF
 
     builder = Builder.new(signatures: signatures)
-    name = Names::Interface.new(name: :_Array)
+    name = Names::Interface.new(name: :_Array, namespace: Namespace.root)
     interface = builder.interface_to_interface(name, signatures.find_interface(name))
 
     assert_instance_of Interface::Abstract, interface

@@ -35,6 +35,7 @@ module Steep
             raise "Duplicated module: #{sig.name}" if classes.key?(sig.name) || modules.key?(sig.name)
             modules[sig.name.absolute!] = sig
           when Signature::Interface
+            assert_absolute_name sig.name
             raise "Duplicated interface: #{sig.name}" if interfaces.key?(sig.name)
             interfaces[sig.name] = sig
           when Signature::Extension
@@ -101,8 +102,8 @@ module Steep
           end
         end
 
-        def find_interface(name)
-          interfaces[name] or raise "Unknown interface: #{name}"
+        def find_interface(name, namespace: Namespace.root)
+          find_name(interfaces, name, current_module: namespace) or raise "Unknown interface: #{name}"
         end
 
         def class_name?(name)

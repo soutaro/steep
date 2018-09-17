@@ -51,8 +51,9 @@ module Steep
             location: type.location
           )
         when AST::Types::Name::Interface
+          signature = signatures.find_interface(type.name, namespace: current)
           AST::Types::Name::Interface.new(
-            name: type.name,
+            name: signature.name,
             args: type.args.map {|arg| absolute_type(arg, current: current) },
             location: type.location
           )
@@ -527,7 +528,7 @@ module Steep
             type_name: type_name,
             name: method.name,
             types: method.types.map do |method_type|
-              method_type_to_method_type(method_type, current: AST::Namespace.root)
+              method_type_to_method_type(method_type, current: type_name.namespace)
             end,
             super_method: nil,
             attributes: []

@@ -8,10 +8,26 @@ class TypeParsingTest < Minitest::Test
   Names = Steep::Names
 
   def test_interface
-    type = parse_method_type("() -> _Foo").return_type
+    type = parse_type("_Foo")
     assert_instance_of AST::Types::Name::Interface, type
-    assert_location type, start_line: 1, start_column: 6, end_line: 1, end_column: 10
-    assert_equal Names::Interface.new(name: :_Foo), type.name
+    assert_location type, start_line: 1, start_column: 0, end_line: 1, end_column: 4
+    assert_equal Names::Interface.new(name: :_Foo, namespace: AST::Namespace.empty), type.name
+    assert_equal [], type.args
+  end
+
+  def test_interface_qualified
+    type = parse_type("::_Foo")
+    assert_instance_of AST::Types::Name::Interface, type
+    assert_location type, start_line: 1, start_column: 0, end_line: 1, end_column: 6
+    assert_equal Names::Interface.new(name: :_Foo, namespace: AST::Namespace.root), type.name
+    assert_equal [], type.args
+  end
+
+  def test_interface_qualified2
+    type = parse_type("Hello::_Foo")
+    assert_instance_of AST::Types::Name::Interface, type
+    assert_location type, start_line: 1, start_column: 0, end_line: 1, end_column: 11
+    assert_equal Names::Interface.new(name: :_Foo, namespace: AST::Namespace.parse("Hello")), type.name
     assert_equal [], type.args
   end
 

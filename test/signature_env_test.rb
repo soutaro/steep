@@ -106,7 +106,29 @@ end
 
     env.add(interface)
 
-    assert_equal interface, env.find_interface(Names::Interface.new(name: :_A))
+    assert_equal interface, env.find_interface(Names::Interface.new(name: :_A, namespace: Namespace.empty))
+  end
+
+  def test_interface2
+    interface, _ = parse(<<-EOS)
+interface StrongJSON::_A
+end
+    EOS
+
+    env.add(interface)
+
+    assert_equal interface, env.find_interface(Names::Interface.parse("::StrongJSON::_A"))
+  end
+
+  def test_interface3
+    interface, _ = parse(<<-EOS)
+interface StrongJSON::_A
+end
+    EOS
+
+    env.add(interface)
+
+    assert_equal interface, env.find_interface(Names::Interface.parse("_A"), namespace: Namespace.parse("::StrongJSON"))
   end
 
   def test_extension

@@ -46,7 +46,7 @@ x = (_ = nil)
                                         break_context: nil)
     construction.synthesize(source.node)
 
-    assert_equal Types::Name.new_interface(name: :_A), typing.type_of(node: source.node)
+    assert_equal parse_type("::_A"), typing.type_of(node: source.node)
     assert_empty typing.errors
   end
 
@@ -79,12 +79,12 @@ z = x
                                         break_context: nil)
     construction.synthesize(source.node)
 
-    assert_equal Types::Name.new_interface(name: :_A), typing.type_of(node: source.node)
+    assert_equal parse_type("::_A"), typing.type_of(node: source.node)
 
     assert_equal 1, typing.errors.size
     assert_incompatible_assignment typing.errors[0],
-                                   lhs_type: Types::Name.new_interface(name: :_A),
-                                   rhs_type: Types::Name.new_interface(name: :_B) do |error|
+                                   lhs_type: parse_type("::_A"),
+                                   rhs_type: parse_type("::_B") do |error|
       assert_equal :lvasgn, error.node.type
       assert_equal :z, error.node.children[0].name
     end
@@ -149,7 +149,7 @@ z = x
                                         break_context: nil)
     construction.synthesize(source.node)
 
-    assert_equal Types::Name.new_interface(name: :_A), typing.type_of(node: source.node)
+    assert_equal parse_type("::_A"), typing.type_of(node: source.node)
     assert_empty typing.errors
   end
 
@@ -181,7 +181,7 @@ x.f
                                         break_context: nil)
     construction.synthesize(source.node)
 
-    assert_equal Types::Name.new_interface(name: :_A), typing.type_of(node: source.node)
+    assert_equal parse_type("::_A"), typing.type_of(node: source.node)
     assert_empty typing.errors
   end
 
@@ -215,7 +215,7 @@ x.g(y)
                                         break_context: nil)
     construction.synthesize(source.node)
 
-    assert_equal Types::Name.new_interface(name: :_B), typing.type_of(node: source.node)
+    assert_equal parse_type("::_B"), typing.type_of(node: source.node)
     assert_empty typing.errors
   end
 
@@ -249,12 +249,12 @@ x.g(y)
                                         break_context: nil)
     construction.synthesize(source.node)
 
-    assert_equal parse_type("_B"), typing.type_of(node: source.node)
+    assert_equal parse_type("::_B"), typing.type_of(node: source.node)
 
     assert_equal 1, typing.errors.size
     assert_argument_type_mismatch typing.errors[0],
-                                  expected: Types::Name.new_interface(name: :_A),
-                                  actual: Types::Name.new_interface(name: :_B)
+                                  expected: parse_type("::_A"),
+                                  actual: parse_type("::_B")
   end
 
   def test_method_call_no_error_if_any
@@ -319,7 +319,7 @@ x.no_such_method
     assert_equal Types::Any.new, typing.type_of(node: source.node)
 
     assert_equal 1, typing.errors.size
-    assert_no_method_error typing.errors.first, method: :no_such_method, type: Types::Name.new_interface(name: :_C)
+    assert_no_method_error typing.errors.first, method: :no_such_method, type: parse_type("::_C")
   end
 
   def test_method_call_missing_argument
@@ -352,7 +352,7 @@ a.g()
                                         break_context: nil)
     construction.synthesize(source.node)
 
-    assert_equal parse_type("_B"), typing.type_of(node: source.node)
+    assert_equal parse_type("::_B"), typing.type_of(node: source.node)
 
     assert_equal 1, typing.errors.size
     typing.errors.first.tap do |error|
@@ -391,7 +391,7 @@ a.g(_ = nil, _ = nil, _ = nil)
                                         break_context: nil)
     construction.synthesize(source.node)
 
-    assert_equal parse_type("_B"), typing.type_of(node: source.node)
+    assert_equal parse_type("::_B"), typing.type_of(node: source.node)
 
     assert_equal 1, typing.errors.size
     typing.errors.first.tap do |error|
@@ -432,7 +432,7 @@ x.h(a: a, b: b)
                                         break_context: nil)
     construction.synthesize(source.node)
 
-    assert_equal Types::Name.new_interface(name: :_C), typing.type_of(node: source.node)
+    assert_equal parse_type("::_C"), typing.type_of(node: source.node)
     assert_empty typing.errors
   end
 
@@ -464,7 +464,7 @@ x.h()
                                         break_context: nil)
     construction.synthesize(source.node)
 
-    assert_equal parse_type("_C"), typing.type_of(node: source.node)
+    assert_equal parse_type("::_C"), typing.type_of(node: source.node)
 
     assert_equal 1, typing.errors.size
 
@@ -502,7 +502,7 @@ x.h(a: (_ = nil), b: (_ = nil), c: (_ = nil))
                                         break_context: nil)
     construction.synthesize(source.node)
 
-    assert_equal parse_type("_C"), typing.type_of(node: source.node)
+    assert_equal parse_type("::_C"), typing.type_of(node: source.node)
 
     assert_equal 1, typing.errors.size
     typing.errors.first.tap do |error|
@@ -541,12 +541,12 @@ x.h(a: y)
                                         break_context: nil)
     construction.synthesize(source.node)
 
-    assert_equal parse_type("_C"), typing.type_of(node: source.node)
+    assert_equal parse_type("::_C"), typing.type_of(node: source.node)
 
     assert_equal 1, typing.errors.size
     assert_argument_type_mismatch typing.errors[0],
-                                  expected: Types::Name.new_interface(name: :_A),
-                                  actual: Types::Name.new_interface(name: :_B)
+                                  expected: parse_type("::_A"),
+                                  actual: parse_type("::_B")
   end
 
   def test_def_no_params
@@ -579,7 +579,7 @@ end
     construction.synthesize(source.node)
 
     def_body = source.node.children[2]
-    assert_equal Types::Name.new_interface(name: :_A), typing.type_of(node: def_body)
+    assert_equal parse_type("::_A"), typing.type_of(node: def_body)
   end
 
   def test_def_param
@@ -612,8 +612,8 @@ end
     construction.synthesize(source.node)
 
     def_body = source.node.children[2]
-    assert_equal Types::Name.new_interface(name: :_A), typing.type_of(node: def_body)
-    assert_equal Types::Name.new_interface(name: :_A), typing.type_of(node: def_body.children[1])
+    assert_equal parse_type("::_A"), typing.type_of(node: def_body)
+    assert_equal parse_type("::_A"), typing.type_of(node: def_body.children[1])
   end
 
   def test_def_param_error
@@ -649,8 +649,8 @@ end
 
     refute_empty typing.errors
     assert_incompatible_assignment typing.errors[0],
-                                   lhs_type: Types::Name.new_interface(name: :_C),
-                                   rhs_type: Types::Name.new_interface(name: :_A) do |error|
+                                   lhs_type: parse_type("::_C"),
+                                   rhs_type: parse_type("::_A") do |error|
       assert_equal :optarg, error.node.type
       assert_equal :y, error.node.children[0].name
     end
@@ -658,8 +658,8 @@ end
     x = dig(source.node, 2, 0)
     y = dig(source.node, 2, 1)
 
-    assert_equal Types::Name.new_interface(name: :_A), typing.type_of(node: x)
-    assert_equal Types::Name.new_interface(name: :_C), typing.type_of(node: y)
+    assert_equal parse_type("::_A"), typing.type_of(node: x)
+    assert_equal parse_type("::_C"), typing.type_of(node: y)
   end
 
   def test_def_kw_param_error
@@ -695,8 +695,8 @@ end
 
     refute_empty typing.errors
     assert_incompatible_assignment typing.errors[0],
-                                   lhs_type: Types::Name.new_interface(name: :_C),
-                                   rhs_type: Types::Name.new_interface(name: :_A) do |error|
+                                   lhs_type: parse_type("::_C"),
+                                   rhs_type: parse_type("::_A") do |error|
       assert_equal :kwoptarg, error.node.type
       assert_equal :y, error.node.children[0].name
     end
@@ -704,8 +704,8 @@ end
     x = dig(source.node, 2, 0)
     y = dig(source.node, 2, 1)
 
-    assert_equal Types::Name.new_interface(name: :_A), typing.type_of(node: x)
-    assert_equal Types::Name.new_interface(name: :_C), typing.type_of(node: y)
+    assert_equal parse_type("::_A"), typing.type_of(node: x)
+    assert_equal parse_type("::_C"), typing.type_of(node: y)
   end
 
   def test_block
@@ -751,10 +751,10 @@ b
     x = dig(source.node, 1, 1, 2, 1)
     y = dig(source.node, 1, 1, 2, 2)
 
-    assert_equal Types::Name.new_interface(name: :_X), typing.type_of(node: a)
-    assert_equal Types::Name.new_interface(name: :_C), typing.type_of(node: b)
-    assert_equal Types::Name.new_interface(name: :_A), typing.type_of(node: x)
-    assert_equal Types::Name.new_interface(name: :_B), typing.type_of(node: y)
+    assert_equal parse_type("::_X"), typing.type_of(node: a)
+    assert_equal parse_type("::_C"), typing.type_of(node: b)
+    assert_equal parse_type("::_A"), typing.type_of(node: x)
+    assert_equal parse_type("::_B"), typing.type_of(node: y)
   end
 
   def test_block_shadow
@@ -791,9 +791,9 @@ end
 
     block_body = dig(source.node, 1, 2)
 
-    assert_equal Types::Name.new_interface(name: :_X), typing.type_of(node: lvar_in(source.node, :a))
-    assert_equal Types::Name.new_interface(name: :_A), typing.type_of(node: lvar_in(block_body, :a))
-    assert_equal Types::Name.new_interface(name: :_A), typing.type_of(node: lvar_in(block_body, :b))
+    assert_equal parse_type("::_X"), typing.type_of(node: lvar_in(source.node, :a))
+    assert_equal parse_type("::_A"), typing.type_of(node: lvar_in(block_body, :a))
+    assert_equal parse_type("::_A"), typing.type_of(node: lvar_in(block_body, :b))
   end
 
   def test_block_param_type
@@ -829,9 +829,9 @@ end
                                         break_context: nil)
     construction.synthesize(source.node)
 
-    assert_equal Types::Name.new_interface(name: :_X), typing.type_of(node: lvar_in(source.node, :x))
-    assert_equal Types::Name.new_interface(name: :_A), typing.type_of(node: lvar_in(source.node, :a))
-    assert_equal Types::Name.new_interface(name: :_D), typing.type_of(node: lvar_in(source.node, :d))
+    assert_equal parse_type("::_X"), typing.type_of(node: lvar_in(source.node, :x))
+    assert_equal parse_type("::_A"), typing.type_of(node: lvar_in(source.node, :a))
+    assert_equal parse_type("::_D"), typing.type_of(node: lvar_in(source.node, :d))
     assert_empty typing.errors
   end
 
@@ -868,11 +868,11 @@ end
 
     assert_equal 1, typing.errors.size
     assert_block_type_mismatch typing.errors[0],
-                               expected: "^(_A) -> _D",
-                               actual: "^(_A) -> _A"
+                               expected: "^(::_A) -> ::_D",
+                               actual: "^(::_A) -> ::_A"
 
-    assert_equal Types::Name.new_interface(name: :_X), typing.type_of(node: lvar_in(source.node, :x))
-    assert_equal parse_type("_A"), typing.type_of(node: lvar_in(source.node, :a))
+    assert_equal parse_type("::_X"), typing.type_of(node: lvar_in(source.node, :x))
+    assert_equal parse_type("::_A"), typing.type_of(node: lvar_in(source.node, :a))
   end
 
   def test_block_break_type
@@ -908,11 +908,11 @@ end
                                         break_context: nil)
     construction.synthesize(source.node)
 
-    assert_equal Types::Name.new_interface(name: :_X), typing.type_of(node: lvar_in(source.node, :x))
-    assert_equal Types::Name.new_interface(name: :_A), typing.type_of(node: lvar_in(source.node, :a))
+    assert_equal parse_type("::_X"), typing.type_of(node: lvar_in(source.node, :x))
+    assert_equal parse_type("::_A"), typing.type_of(node: lvar_in(source.node, :a))
 
     assert_equal 1, typing.errors.size
-    assert_break_type_mismatch typing.errors[0], expected: Types::Name.new_interface(name: :_C), actual: Types::Name.new_interface(name: :_A)
+    assert_break_type_mismatch typing.errors[0], expected: parse_type("::_C"), actual: parse_type("::_A")
   end
 
   def test_return_type
@@ -981,7 +981,7 @@ end
     construction.synthesize(source.node)
 
     assert_any typing.errors do |error|
-      error.is_a?(Steep::Errors::ReturnTypeMismatch) && error.expected == Types::Name.new_interface(name: :_X) && error.actual == Types::Name.new_interface(name: :_A)
+      error.is_a?(Steep::Errors::ReturnTypeMismatch) && error.expected == parse_type("::_X") && error.actual == parse_type("::_A")
     end
   end
 
@@ -1325,11 +1325,11 @@ string = poly.try { "string" }
                                         module_context: nil,
                                         break_context: nil)
 
-    assert_equal Types::Union.build(types: [Types::Name.new_interface(name: :_A), Types::Name.new_interface(name: :_C)]),
-                 construction.union_type(Types::Name.new_interface(name: :_A), Types::Name.new_interface(name: :_C))
+    assert_equal parse_type("_A | _C"),
+                 construction.union_type(parse_type("_A"), parse_type("_C"))
 
-    assert_equal Types::Name.new_interface(name: :_A),
-                 construction.union_type(Types::Name.new_interface(name: :_A), Types::Name.new_interface(name: :_A))
+    assert_equal parse_type("_A"),
+                 construction.union_type(parse_type("_A"), parse_type("_A"))
   end
 
   def test_module_self

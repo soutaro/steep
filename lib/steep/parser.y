@@ -9,7 +9,7 @@ token kCLASS kMODULE kINTERFACE kDEF kEND kNIL kBOOL kANY kVOID kTYPE
       tLTCOLON tMINUS tOPERATOR tPERCENT tPLUS tQUESTION tRBRACE tRBRACKET
       tRPAREN tSTAR tSTAR2 tSTRING tSYMBOL tUIDENT tUMINUS tVAR
       type_METHOD type_SIGNATURE type_ANNOTATION type_TYPE
-      tQUALIFIED_MODULE_NAME 
+      tQUALIFIED_MODULE_NAME tQUALIFIED_INTERFACE_NAME
 
 expect 1
 
@@ -289,11 +289,10 @@ rule
                                                                           location: loc,
                                                                           args: val[1]&.value || [])
                                 }
-                              | tINTERFACE_NAME application_args
+                              | interface_name application_args
                                 {
-                                  interface_name = Names::Interface.new(name: val[0].value)
                                   loc = val[0].location + val[1]&.location
-                                  result = AST::Types::Name::Interface.new(name: interface_name,
+                                  result = AST::Types::Name::Interface.new(name: val[0].value,
                                                                            location: loc,
                                                                            args: val[1]&.value || [])
                                 }
@@ -518,7 +517,7 @@ rule
                                   loc = val.first.location + val.last.location
                                   result = AST::Signature::Interface.new(
                                     location: loc,
-                                    name: val[1].value,
+                                    name: val[1].value.absolute!,
                                     params: val[2],
                                     methods: val[3]
                                   )
@@ -573,9 +572,10 @@ rule
                                   result = val[1]
                                 }
 
-                interface_name: tINTERFACE_NAME {
-                                  name = Names::Interface.new(name: val[0].value)
-                                  result = LocatedValue.new(location: val[0].value, value: name)
+                interface_name: tQUALIFIED_INTERFACE_NAME
+                              | tINTERFACE_NAME {
+                                  name = Names::Interface.new(name: val[0].value, namespace: AST::Namespace.empty)
+                                  result = LocatedValue.new(location: val[0].location, value: name)
                                 }
 
                    module_name: tQUALIFIED_MODULE_NAME
@@ -1165,6 +1165,10 @@ def next_token
     new_token(:tQUALIFIED_MODULE_NAME, Names::Module.parse(input.matched))
   when input.scan(/([A-Z]\w*::)+[A-Z]\w*/)
     new_token(:tQUALIFIED_MODULE_NAME, Names::Module.parse(input.matched))
+  when input.scan(/::([A-Z]\w*::)*_\w+/)
+    new_token(:tQUALIFIED_INTERFACE_NAME, Names::Interface.parse(input.matched))
+  when input.scan(/([A-Z]\w*::)+_\w+/)
+    new_token(:tQUALIFIED_INTERFACE_NAME, Names::Interface.parse(input.matched))
   when input.scan(/[A-Z]\w*/)
     new_token(:tUIDENT, input.matched.to_sym)
   when input.scan(/_\w+/)
