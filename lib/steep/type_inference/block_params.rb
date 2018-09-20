@@ -149,13 +149,13 @@ module Steep
             type = params_type.required[0]
 
             case
-            when array?(type)
+            when AST::Builtin::Array.instance_type?(type)
               type_arg = type.args[0]
               params.each do |param|
                 unless param == rest_param
-                  zip << [param, AST::Types::Union.build(types: [type_arg, AST::Types::Nil.new])]
+                  zip << [param, AST::Types::Union.build(types: [type_arg, AST::Builtin.nil_type])]
                 else
-                  zip << [param, AST::Types::Name.new_instance(name: "::Array", args: [type_arg])]
+                  zip << [param, AST::Builtin::Array.instance_type(type_arg)]
                 end
               end
             when type.is_a?(AST::Types::Tuple)
@@ -172,7 +172,7 @@ module Steep
               if rest_param
                 if types.any?
                   union = AST::Types::Union.build(types: types)
-                  zip << [rest_param, AST::Types::Name.new_instance(name: "::Array", args: [union])]
+                  zip << [rest_param, AST::Builtin::Array.instance_type(union)]
                 else
                   zip << [rest_param, AST::Types::Nil.new]
                 end
@@ -187,23 +187,17 @@ module Steep
               if type
                 zip << [param, type]
               else
-                zip << [param, AST::Types::Nil.new]
+                zip << [param, AST::Builtin.nil_type]
               end
             end
 
             if rest_param
               if types.empty?
-                array = AST::Types::Name.new_instance(
-                  name: "::Array",
-                  args: [params_type.rest || AST::Types::Any.new]
-                )
+                array = AST::Builtin::Array.instance_type(params_type.rest || AST::Builtin.any_type)
                 zip << [rest_param, array]
               else
                 union = AST::Types::Union.build(types: types.map(&:last) + [params_type.rest])
-                array = AST::Types::Name.new_instance(
-                  name: "::Array",
-                  args: [union]
-                )
+                array = AST::Builtin::Array.instance_type(union)
                 zip << [rest_param, array]
               end
             end
@@ -211,19 +205,13 @@ module Steep
         end
       end
 
-      def array?(type)
-        type.is_a?(AST::Types::Name) &&
-          type.name.is_a?(TypeName::Instance) &&
-          type.name.name.name == "Array" && type.name.name.absolute?
-      end
-
       def expandable_params?(params_type)
         if params_type.flat_unnamed_params.size == 1
           case (type = params_type.required.first)
           when AST::Types::Tuple
             true
-          when AST::Types::Name
-            array?(type)
+          when AST::Types::Name::Base
+            AST::Builtin::Array.instance_type?(type)
           end
         end
       end

@@ -133,14 +133,11 @@ module Steep
 
       def eliminate_variable(type, to:)
         case type
-        when AST::Types::Name
+        when AST::Types::Name::Instance, AST::Types::Name::Alias, AST::Types::Name::Interface
           type.args.map do |ty|
             eliminate_variable(ty, to: AST::Types::Any.new)
           end.yield_self do |args|
-            AST::Types::Name.new(
-              name: type.name,
-              args: args
-            )
+            type.class.new(name: type.name, args: args, location: type.location)
           end
         when AST::Types::Union
           type.types.map do |ty|

@@ -8,11 +8,12 @@ class BlockParamsTest < Minitest::Test
   LabeledName = ASTUtils::Labeling::LabeledName
   Params = Steep::Interface::Params
   Types = Steep::AST::Types
+  Namespace = Steep::AST::Namespace
 
   def block_params(src)
     source = parse_ruby(src)
     args = source.node.children[1]
-    annotations = source.annotations(block: source.node, builder: builder, current_module: nil)
+    annotations = source.annotations(block: source.node, builder: builder, current_module: Namespace.root)
     params = BlockParams.from_node(args, annotations: annotations)
     yield params, args.children
   end
@@ -43,7 +44,7 @@ proc {|a, b=1, *c, d|
     EOR
 
     block = src.node.children.last
-    annots = src.annotations(block: block, builder: builder, current_module: nil)
+    annots = src.annotations(block: block, builder: builder, current_module: Namespace.root)
     params = BlockParams.from_node(block.children[1], annotations: annots)
     args = block.children[1].children
 
@@ -193,7 +194,7 @@ proc {|a, b=1, *c, d|
     EOR
 
     block = src.node
-    annots = src.annotations(block: block, builder: builder, current_module: nil)
+    annots = src.annotations(block: block, builder: builder, current_module: Namespace.root)
     params = BlockParams.from_node(block.children[1], annotations: annots)
 
     param_type = params.params_type()
@@ -216,7 +217,7 @@ proc {|a, b=1, *c|
     EOR
 
     block = src.node
-    annots = src.annotations(block: block, builder: builder, current_module: nil)
+    annots = src.annotations(block: block, builder: builder, current_module: Namespace.root)
     params = BlockParams.from_node(block.children[1], annotations: annots)
 
     yield_self do

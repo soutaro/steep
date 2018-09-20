@@ -3,5 +3,5 @@
 a = ["", :foo]
 
 # @type var x: Integer
-# !expects IncompatibleAssignment: lhs_type=::Integer, rhs_type=String
+# !expects IncompatibleAssignment: lhs_type=::Integer, rhs_type=::String
 x = a[0]

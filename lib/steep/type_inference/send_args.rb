@@ -123,12 +123,9 @@ module Steep
 
               if kwsplat_nodes.any?
                 pairs << [kw_args,
-                          AST::Types::Name.new_instance(
-                            name: "::Hash",
-                            args: [
-                              AST::Types::Name.new_instance(name: "::Symbol"),
-                              AST::Types::Union.build(types: rest_types + [params.rest_keywords])
-                            ]
+                          AST::Builtin::Hash.instance_type(
+                            AST::Builtin::Symbol.instance_type,
+                            AST::Types::Union.build(types: rest_types + [params.rest_keywords])
                           )]
               end
             end
@@ -185,7 +182,7 @@ module Steep
 
               if types
                 if arg.type == :splat
-                  type = AST::Types::Name.new_instance(name: "::Array", args: [AST::Types::Union.build(types: types)])
+                  type = AST::Builtin::Array.instance_type(AST::Types::Union.build(types: types))
                 else
                   type = AST::Types::Union.build(types: types)
                 end

@@ -21,11 +21,10 @@ module Steep
             case sig
             when AST::Signature::Interface
               yield_self do
-                instance_name = TypeName::Interface.new(name: sig.name)
-                instance_interface = builder.build(instance_name)
+                instance_interface = builder.build_interface(sig.name)
 
                 args = instance_interface.params.map {|var| AST::Types::Var.fresh(var) }
-                instance_type = AST::Types::Name.new_interface(name: sig.name, args: args)
+                instance_type = AST::Types::Name::Interface.new(name: sig.name, args: args)
 
                 instance_interface.instantiate(type: instance_type,
                                                args: args,
@@ -35,16 +34,14 @@ module Steep
 
             when AST::Signature::Module
               yield_self do
-                instance_name = TypeName::Instance.new(name: sig.name)
-                instance_interface = builder.build(instance_name)
+                instance_interface = builder.build_instance(sig.name, with_initialize: true)
                 instance_args = instance_interface.params.map {|var| AST::Types::Var.fresh(var) }
 
-                module_name = TypeName::Module.new(name: sig.name)
-                module_interface = builder.build(module_name)
+                module_interface = builder.build_module(sig.name)
                 module_args = module_interface.params.map {|var| AST::Types::Var.fresh(var) }
 
-                instance_type = AST::Types::Name.new_instance(name: sig.name, args: instance_args)
-                module_type = AST::Types::Name.new_module(name: sig.name, args: module_args)
+                instance_type = AST::Types::Name::Instance.new(name: sig.name, args: instance_args)
+                module_type = AST::Types::Name::Module.new(name: sig.name)
 
                 stdout.puts "👀 Validating instance methods..." if verbose
                 instance_interface.instantiate(type: instance_type,
@@ -61,16 +58,14 @@ module Steep
 
             when AST::Signature::Class
               yield_self do
-                instance_name = TypeName::Instance.new(name: sig.name)
-                instance_interface = builder.build(instance_name)
+                instance_interface = builder.build_instance(sig.name, with_initialize: true)
                 instance_args = instance_interface.params.map {|var| AST::Types::Var.fresh(var) }
 
-                module_name = TypeName::Class.new(name: sig.name, constructor: nil)
-                module_interface = builder.build(module_name)
+                module_interface = builder.build_class(sig.name, constructor: true)
                 module_args = module_interface.params.map {|var| AST::Types::Var.fresh(var) }
 
-                instance_type = AST::Types::Name.new_instance(name: sig.name, args: instance_args)
-                module_type = AST::Types::Name.new_class(name: sig.name, args: module_args, constructor: nil)
+                instance_type = AST::Types::Name::Instance.new(name: sig.name, args: instance_args)
+                module_type = AST::Types::Name::Class.new(name: sig.name, constructor: true)
 
                 stdout.puts "👀 Validating instance methods..." if verbose
                 instance_interface.instantiate(type: instance_type,
@@ -94,7 +89,7 @@ module Steep
               when Interface::Method
                 stdout.puts "  #{s.name}(#{s.type_name}) <: #{t.name}(#{t.type_name})"
               when Interface::MethodType
-                stdout.puts "  #{s.location.source} <: #{t.location.source} (#{s.location.name}:#{s.location.start_line})"
+                stdout.puts "  #{s} <: #{t} (#{s.location&.name||"?"}:#{s.location&.start_line||"?"})"
               else
                 stdout.puts "  #{s} <: #{t}"
               end

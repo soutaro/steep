@@ -43,8 +43,7 @@ end
 class Method
 end
 
-class Class<'instance> <: Module
-  def new: (*any, **any) -> 'instance
+class Class <: Module
   def class: -> Class.class
   def allocate: -> any
 end

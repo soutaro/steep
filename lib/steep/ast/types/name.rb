@@ -1,126 +1,167 @@
 module Steep
   module AST
     module Types
-      class Name
-        attr_reader :location
-        attr_reader :name
-        attr_reader :args
+      module Name
+        class Base
+          attr_reader :location
+          attr_reader :name
 
-        def initialize(name:, args:, location: nil)
-          @location = location
-          @name = name
-          @args = args
-        end
-
-        def ==(other)
-          other.is_a?(Name) &&
-            other.name == name &&
-            other.args == args
-        end
-
-        def hash
-          self.class.hash ^ name.hash ^ args.hash
-        end
-
-        alias eql? ==
-
-        def to_s
-          if args.empty?
-            "#{name}"
-          else
-            "#{name}<#{args.join(", ")}>"
+          def initialize(name:, location: nil)
+            @location = location
+            @name = name
           end
-        end
 
-        def with_location(new_location)
-          self.class.new(name: name, args: args, location: new_location)
-        end
+          def free_variables
+            Set.new
+          end
 
-        def self.new_module(location: nil, name:, args: [])
-          name = ModuleName.parse(name) unless name.is_a?(ModuleName)
-          new(location: location,
-              name: TypeName::Module.new(name: name),
-              args: args)
-        end
-
-        def self.new_class(location: nil, name:, constructor:, args: [])
-          name = ModuleName.parse(name) unless name.is_a?(ModuleName)
-          new(location: location,
-              name: TypeName::Class.new(name: name, constructor: constructor),
-              args: args)
-        end
-
-        def self.new_instance(location: nil, name:, args: [])
-          name = ModuleName.parse(name) unless name.is_a?(ModuleName)
-          new(location: location,
-              name: TypeName::Instance.new(name: name),
-              args: args)
-        end
-
-        def self.new_interface(location: nil, name:, args: [])
-          new(location: location, name: TypeName::Interface.new(name: name), args: args)
-        end
-
-        def subst(s)
-          self.class.new(location: location,
-                         name: name,
-                         args: args.map {|a| a.subst(s) })
-        end
-
-        def instance_type
-          case name
-          when TypeName::Interface, TypeName::Instance
+          def subst(s)
             self
-          when TypeName::Module, TypeName::Class
-            self.class.new_instance(location: location,
-                                    name: name.name,
-                                    args: args)
-          else
-            raise "Unknown name: #{name.inspect}"
+          end
+
+          def level
+            [0]
           end
         end
 
-        def class_type(constructor:)
-          case name
-          when TypeName::Instance
-            self.class.new_class(location: location,
-                                 name: name.name,
-                                 constructor: constructor,
-                                 args: [])
-          when TypeName::Class
-            self
-          when TypeName::Module, TypeName::Interface
-            raise "Cannot make class type: #{inspect}"
-          else
-            raise "Unknown name: #{name.inspect}"
+        class Applying < Base
+          attr_reader :args
+
+          def initialize(name:, args:, location: nil)
+            super(name: name, location: location)
+            @args = args
+          end
+
+          def ==(other)
+            other.class == self.class &&
+              other.name == name &&
+              other.args == args
+          end
+
+          alias eql? ==
+
+          def hash
+            self.class.hash ^ name.hash ^ args.hash
+          end
+
+          def to_s
+            if args.empty?
+              "#{name}"
+            else
+              "#{name}<#{args.join(", ")}>"
+            end
+          end
+
+          def with_location(new_location)
+            self.class.new(name: name, args: args, location: new_location)
+          end
+
+          def subst(s)
+            self.class.new(location: location,
+                           name: name,
+                           args: args.map {|a| a.subst(s) })
+          end
+
+          def free_variables
+            args.each.with_object(Set.new) do |type, vars|
+              vars.merge(type.free_variables)
+            end
+          end
+
+          include Helper::ChildrenLevel
+
+          def level
+            [0] + level_of_children(args)
           end
         end
 
-        def module_type
-          case name
-          when TypeName::Instance,
-            self.class.new_module(location: location,
-                                  name: name.name,
-                                  args: args)
-          when TypeName::Module
-            self
-          when TypeName::Class, TypeName::Interface
-            raise "Cannot make module type: #{inspect}"
-          else
-            raise "Unknown name: #{name.inspect}"
+        class Class < Base
+          attr_reader :constructor
+
+          def initialize(name:, constructor:, location: nil)
+            raise "Name should be a module name: #{name.inspect}" unless name.is_a?(Names::Module)
+            super(name: name, location: location)
+            @constructor = constructor
+          end
+
+          def ==(other)
+            other.class == self.class &&
+              other.name == name &&
+              other.constructor == constructor
+          end
+
+          alias eql? ==
+
+          def hash
+            self.class.hash ^ name.hash ^ constructor.hash
+          end
+
+          def to_s
+            k = case constructor
+                when true
+                  " constructor"
+                when false
+                  " noconstructor"
+                when nil
+                  ""
+                end
+            "#{name.to_s}.class#{k}"
+          end
+
+          def with_location(new_location)
+            self.class.new(name: name, constructor: constructor, location: new_location)
+          end
+
+          def to_instance(*args)
+            Instance.new(name: name, args: args)
+          end
+
+          NOTHING = ::Object.new
+
+          def updated(constructor: NOTHING)
+            if NOTHING == constructor
+              constructor = self.constructor
+            end
+
+            self.class.new(name: name, constructor: constructor, location: location)
           end
         end
 
-        def free_variables
-          self.args.each.with_object(Set.new) do |type, vars|
-            vars.merge(type.free_variables)
+        class Module < Base
+          def ==(other)
+            other.class == self.class &&
+              other.name == name
+          end
+
+          alias eql? ==
+
+          def hash
+            self.class.hash ^ name.hash
+          end
+
+          def to_s
+            "#{name.to_s}.module"
+          end
+
+          def with_location(new_location)
+            self.class.new(name: name, location: new_location)
           end
         end
 
-        include Helper::ChildrenLevel
+        class Instance < Applying
+          def to_class(constructor:)
+            Class.new(name: name, location: location, constructor: constructor)
+          end
 
-        def level
-          [0] + level_of_children(args)
+          def to_module
+            Module.new(name: name, location: location)
+          end
+        end
+
+        class Interface < Applying
+        end
+
+        class Alias < Applying
         end
       end
     end

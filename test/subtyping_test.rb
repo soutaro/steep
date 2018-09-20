@@ -14,12 +14,13 @@ class Object <: BasicObject
   def yield_self: <'a> { (self) -> 'a } -> 'a
 end
 
-class Class<'instance>
-  def new: (*any, **any) -> 'instance
+class Class
+  def new: (*any) -> any 
   def allocate: -> any
 end
 
 class Module
+  def attr_reader: (Symbol) -> nil
 end
 
 class String
@@ -35,6 +36,13 @@ end
 class Array<'a>
   def []: (Integer) -> 'a
   def []=: (Integer, 'a) -> 'a
+end
+
+class Symbol
+end
+
+module Kernel
+  def Integer: (any) -> Integer
 end
   EOB
 
@@ -65,10 +73,7 @@ end
     EOS
 
     result = checker.check(
-      Subtyping::Relation.new(
-        sub_type: AST::Types::Name.new_instance(name: "::A"),
-        super_type: AST::Types::Name.new_instance(name: "::B")
-      ),
+      Subtyping::Relation.new(sub_type: parse_type("::A"), super_type: parse_type("::B")),
       constraints: Subtyping::Constraints.empty
     )
 
@@ -542,14 +547,129 @@ end
                     )
   end
 
-  def test_resolve1
+  def test_resolve_instance
     checker = new_checker("")
 
-    type = AST::Types::Union.build(types: [
-      AST::Types::Name.new_instance(name: "::String"),
-      AST::Types::Name.new_instance(name: "::Integer")
-    ])
-    interface = checker.resolve(type, with_initialize: false)
+    type = parse_type("::String")
+    interface = checker.resolve(type)
+
+    assert_equal [:class, :tap, :yield_self, :to_str], interface.methods.keys
+    assert_equal ["() -> ::String.class"], interface.methods[:class].types.map(&:to_s)
+    assert_equal ["() { (::String) -> any } -> ::String"], interface.methods[:tap].types.map(&:to_s)
+    assert_equal ["<'a> () { (::String) -> 'a } -> 'a"], interface.methods[:yield_self].types.map(&:to_s)
+    assert_equal ["() -> ::String"], interface.methods[:to_str].types.map(&:to_s)
+  end
+
+  def test_resolve_instance2
+    checker = new_checker("")
+
+    type = parse_type("::Array< ::Integer>")
+    interface = checker.resolve(type)
+
+    assert_equal [:class, :tap, :yield_self, :[], :[]=], interface.methods.keys
+    assert_equal ["() -> ::Array.class"], interface.methods[:class].types.map(&:to_s)
+    assert_equal ["() { (::Array<::Integer>) -> any } -> ::Array<::Integer>"], interface.methods[:tap].types.map(&:to_s)
+    assert_equal ["<'a> () { (::Array<::Integer>) -> 'a } -> 'a"], interface.methods[:yield_self].types.map(&:to_s)
+    assert_equal ["(::Integer) -> ::Integer"], interface.methods[:[]].types.map(&:to_s)
+    assert_equal ["(::Integer, ::Integer) -> ::Integer"], interface.methods[:[]=].types.map(&:to_s)
+  end
+
+  def test_resolve_instance3
+    checker = new_checker("")
+
+    type = parse_type("::Kernel")
+    interface = checker.resolve(type)
+
+    assert_equal [:Integer], interface.methods.keys
+    assert_equal ["(any) -> ::Integer"], interface.methods[:Integer].types.map(&:to_s)
+  end
+
+  def test_resolve_class
+    checker = new_checker("")
+
+    type = parse_type("::Array.class")
+    interface = checker.resolve(type)
+
+    assert_equal [:class, :tap, :yield_self, :allocate], interface.methods.keys
+    assert_equal ["() -> ::Class.class"], interface.methods[:class].types.map(&:to_s)
+    assert_equal ["() { (::Array.class) -> any } -> ::Array.class"], interface.methods[:tap].types.map(&:to_s)
+    assert_equal ["<'a> () { (::Array.class) -> 'a } -> 'a"], interface.methods[:yield_self].types.map(&:to_s)
+    assert_equal ["() -> any"], interface.methods[:allocate].types.map(&:to_s)
+  end
+
+  def test_resolve_class2
+    checker = new_checker("class A end")
+
+    type = parse_type("::A.class constructor")
+    interface = checker.resolve(type)
+
+    interface.methods[:new].yield_self do |method|
+      assert_equal ["() -> ::A"], method.types.map(&:to_s)
+    end
+  end
+
+  def test_resolve_class3
+    checker = new_checker(<<-EOF)
+class Set<'a>
+  def initialize: (Array<'a>) -> any
+end
+    EOF
+
+    type = parse_type("::Set.class constructor")
+    interface = checker.resolve(type)
+
+    interface.methods[:new].yield_self do |method|
+      assert_equal ["<'a> (::Array<'a>) -> ::Set<'a>"], method.types.map(&:to_s)
+    end
+  end
+
+  def test_resolve_class4
+    checker = new_checker(<<-EOF)
+class Set<'a>
+  def initialize: (Array<'a>) -> any
+end
+    EOF
+
+    type = parse_type("::Set.class constructor")
+    interface = checker.resolve(type)
+
+    interface.methods[:new].yield_self do |method|
+      assert_equal ["<'a> (::Array<'a>) -> ::Set<'a>"], method.types.map(&:to_s)
+    end
+  end
+
+  def test_resolve_module
+    checker = new_checker("")
+
+    type = parse_type("::Kernel.module")
+    interface = checker.resolve(type)
+
+    assert_equal [:class, :tap, :yield_self, :attr_reader], interface.methods.keys
+    assert_equal ["() -> ::Module.class"], interface.methods[:class].types.map(&:to_s)
+    assert_equal ["() { (::Kernel.module) -> any } -> ::Kernel.module"], interface.methods[:tap].types.map(&:to_s)
+    assert_equal ["<'a> () { (::Kernel.module) -> 'a } -> 'a"], interface.methods[:yield_self].types.map(&:to_s)
+    assert_equal ["(::Symbol) -> nil"], interface.methods[:attr_reader].types.map(&:to_s)
+  end
+
+  def test_resolve_interface
+    checker = new_checker(<<EOF)
+interface _A<'a>
+  def each: { ('a) -> any } -> self
+end
+EOF
+
+    type = parse_type("_A< ::Integer>")
+    interface = checker.resolve(type)
+
+    assert_equal [:each], interface.methods.keys
+    assert_equal ["() { (::Integer) -> any } -> _A<::Integer>"], interface.methods[:each].types.map(&:to_s)
+  end
+
+  def test_resolve_union
+    checker = new_checker("")
+
+    type = parse_type("::String | ::Integer")
+    interface = checker.resolve(type)
 
     assert_equal [:tap, :yield_self], interface.methods.keys
     assert_equal [type], interface.methods[:tap].types.map {|ty| ty.return_type }
@@ -563,8 +683,7 @@ end
       AST::Types::Intersection.build(types: [
         AST::Types::Name.new_instance(name: "::String"),
         AST::Types::Name.new_instance(name: "::Integer")
-      ]),
-      with_initialize: false
+      ])
     )
 
     assert_equal [:class, :tap, :yield_self, :to_str, :to_int].sort, interface.methods.keys.sort
@@ -573,41 +692,24 @@ end
     assert_equal [AST::Types::Name.new_instance(name: "::Integer")], interface.methods[:to_int].types.map(&:return_type)
   end
 
-  def test_resolve3
-    checker = new_checker("")
-
-    type = AST::Types::Name.new_class(name: "::Array", constructor: true)
-    interface = checker.resolve(type, with_initialize: false)
-
-    interface.methods[:new].yield_self do |method|
-      method.types.each do |type|
-        assert_equal AST::Types::Name.new_instance(name: "::Array", args: [AST::Types::Var.new(name: :a)]),
-                     type.return_type
-      end
-    end
-  end
-
   def test_resolve4
     checker = new_checker("")
 
-    interface = checker.resolve(
-      AST::Types::Union.build(types: [
-        AST::Types::Name.new_instance(name: "::Array", args: [AST::Types::Name.new_instance(name: "::Integer")]),
-        AST::Types::Name.new_instance(name: "::Array", args: [AST::Types::Name.new_instance(name: "::String")])
-      ]),
-      with_initialize: false
-    )
+    interface = checker.resolve(parse_type("::Array< ::Integer> | ::Array< ::String>"))
 
     assert_equal [:tap, :yield_self, :[]], interface.methods.keys
-    assert_equal [AST::Types::Union.build(types: [AST::Types::Name.new_instance(name: "::Integer"),
-                                                  AST::Types::Name.new_instance(name: "::String")])],
-                 interface.methods[:[]].types.map(&:return_type)
+    assert_equal ["() { ((::Array<::Integer> | ::Array<::String>)) -> any } -> (::Array<::Integer> | ::Array<::String>)"],
+                 interface.methods[:tap].types.map(&:to_s)
+    assert_equal ["<'a> () { ((::Array<::Integer> | ::Array<::String>)) -> 'a } -> 'a"],
+                 interface.methods[:yield_self].types.map(&:to_s)
+    assert_equal ["(::Integer) -> (::Integer | ::String)"],
+                 interface.methods[:[]].types.map(&:to_s)
   end
 
   def test_resolve_void
     checker = new_checker("")
 
-    interface = checker.resolve(AST::Types::Void.new, with_initialize: false)
+    interface = checker.resolve(AST::Types::Void.new)
 
     assert_instance_of Interface::Instantiated, interface
     assert_empty interface.methods
@@ -626,18 +728,14 @@ end
     EOS
 
     result = checker.check(
-      Subtyping::Relation.new(
-        sub_type: AST::Types::Name.new_instance(name: "::A"),
-        super_type: AST::Types::Name.new_instance(name: "::B",
-                                                  args: [AST::Types::Var.new(name: :x)])
-      ),
+      Subtyping::Relation.new(sub_type: parse_type("::A"), super_type: parse_type("::B<'x>")),
       constraints: Subtyping::Constraints.new(unknowns: [:x])
     )
 
     assert_instance_of Subtyping::Result::Success, result
     assert_operator result.constraints, :unknown?, :x
     assert_instance_of AST::Types::Top, result.constraints.upper_bound(:x)
-    assert_equal AST::Types::Name.new_instance(name: :"::Integer"), result.constraints.lower_bound(:x)
+    assert_equal parse_type("::Integer"), result.constraints.lower_bound(:x)
   end
 
   def test_constraints2
@@ -734,7 +832,7 @@ end
   def test_tuple
     checker = new_checker("")
 
-    interface = checker.resolve(parse_type("[1, String]"), with_initialize: false)
+    interface = checker.resolve(parse_type("[1, String]"))
     assert_equal [:class, :tap, :yield_self, :[], :[]=], interface.methods.keys
 
     assert_equal ["(0) -> 1", "(1) -> String", "(::Integer) -> (1 | String)"], interface.methods[:[]].types.map(&:to_s)
@@ -747,7 +845,7 @@ end
     result = checker.check(
       Subtyping::Relation.new(
         sub_type: parse_type("[123]"),
-        super_type: parse_type("Array<123>"),
+        super_type: parse_type("::Array<123>"),
         ),
       constraints: Subtyping::Constraints.empty
     )
@@ -756,7 +854,7 @@ end
     result = checker.check(
       Subtyping::Relation.new(
         sub_type: parse_type("[123, String]"),
-        super_type: parse_type("Array<123 | String>"),
+        super_type: parse_type("::Array<123 | String>"),
         ),
       constraints: Subtyping::Constraints.empty
     )
@@ -765,7 +863,7 @@ end
     result = checker.check(
       Subtyping::Relation.new(
         sub_type: parse_type("[123]"),
-        super_type: parse_type("Array<Integer | String>"),
+        super_type: parse_type("::Array< ::Integer | ::String>"),
         ),
       constraints: Subtyping::Constraints.empty
     )
@@ -783,7 +881,7 @@ end
     result = checker.check(
       Subtyping::Relation.new(
         sub_type: parse_type("[123]"),
-        super_type: parse_type("[Integer]"),
+        super_type: parse_type("[::Integer]"),
         ),
       constraints: Subtyping::Constraints.empty
     )
@@ -796,9 +894,19 @@ type foo = String | Integer
 type bar<'a> = 'a | Array<'a> | foo
     EOF
 
-    assert_equal parse_type("String | Integer"), checker.expand_alias(parse_type("foo"))
-    assert_equal parse_type("Integer | Array<Integer> | String"), checker.expand_alias(parse_type("bar<Integer>"))
+    assert_equal parse_type("::String | ::Integer"), checker.expand_alias(parse_type("foo"))
+    assert_equal parse_type("::Integer | ::Array< ::Integer> | ::String"), checker.expand_alias(parse_type("bar< ::Integer>"))
     assert_raises { checker.expand_alias(parse_type("hello")) }
+  end
+
+  def test_expand_alias2
+    checker = new_checker(<<-EOF)
+type Foo::foo = String | ::String | Integer
+class Foo::String
+end
+    EOF
+
+    assert_equal parse_type("::Foo::String | ::String | ::Integer"), checker.expand_alias(parse_type("Foo::foo"))
   end
 
   def test_alias
@@ -808,7 +916,7 @@ type foo = String | Integer
 
     result = checker.check0(
       Subtyping::Relation.new(
-        sub_type: parse_type("String"),
+        sub_type: parse_type("::String"),
         super_type: parse_type("foo")
       ),
       constraints: Subtyping::Constraints.empty,
@@ -820,7 +928,7 @@ type foo = String | Integer
     result = checker.check0(
       Subtyping::Relation.new(
         sub_type: parse_type("foo"),
-        super_type: parse_type("String")
+        super_type: parse_type("::String")
       ),
       constraints: Subtyping::Constraints.empty,
       assumption: Set.new,

@@ -54,11 +54,11 @@ module Steep
             covariants << type.name
             contravariants << type.name
           end
-        when AST::Types::Union, AST::Types::Intersection
+        when AST::Types::Union, AST::Types::Intersection, AST::Types::Tuple
           type.types.each do |ty|
             add_type(ty, variance: variance, covariants: covariants, contravariants: contravariants)
           end
-        when AST::Types::Name
+        when AST::Types::Name::Interface, AST::Types::Name::Instance, AST::Types::Name::Alias
           type.args.each do |arg|
             add_type(arg, variance: :invariant, covariants: covariants, contravariants: contravariants)
           end

@@ -8,7 +8,7 @@ class TypeEnvTest < Minitest::Test
 
   def test_ivar_without_annotation
     subtyping = new_subtyping_checker()
-    const_env = TypeInference::ConstantEnv.new(builder: subtyping.builder, current_namespace: nil)
+    const_env = TypeInference::ConstantEnv.new(builder: subtyping.builder, context: nil)
     type_env = TypeInference::TypeEnv.new(subtyping: new_subtyping_checker(), const_env: const_env)
 
     # If no annotation is given to ivar, assign yields the block with nil and returns `any`
@@ -27,7 +27,7 @@ class TypeEnvTest < Minitest::Test
 
   def test_ivar_with_annotation
     subtyping = new_subtyping_checker()
-    const_env = TypeInference::ConstantEnv.new(builder: subtyping.builder, current_namespace: nil)
+    const_env = TypeInference::ConstantEnv.new(builder: subtyping.builder, context: nil)
     type_env = TypeInference::TypeEnv.new(subtyping: new_subtyping_checker(), const_env: const_env)
 
     type_env.set(ivar: :"@x", type: AST::Types::Name.new_instance(name: "::Numeric"))
@@ -59,7 +59,7 @@ class TypeEnvTest < Minitest::Test
 
   def test_gvar_without_annotation
     subtyping = new_subtyping_checker()
-    const_env = TypeInference::ConstantEnv.new(builder: subtyping.builder, current_namespace: nil)
+    const_env = TypeInference::ConstantEnv.new(builder: subtyping.builder, context: nil)
     type_env = TypeInference::TypeEnv.new(subtyping: new_subtyping_checker(), const_env: const_env)
 
     # If no annotation is given to ivar, assign yields the block with nil and returns `any`
@@ -78,7 +78,7 @@ class TypeEnvTest < Minitest::Test
 
   def test_gvar_with_annotation
     subtyping = new_subtyping_checker()
-    const_env = TypeInference::ConstantEnv.new(builder: subtyping.builder, current_namespace: nil)
+    const_env = TypeInference::ConstantEnv.new(builder: subtyping.builder, context: nil)
     type_env = TypeInference::TypeEnv.new(subtyping: new_subtyping_checker(), const_env: const_env)
 
     type_env.set(gvar: :"$x", type: AST::Types::Name.new_instance(name: "::Numeric"))
@@ -110,18 +110,18 @@ class TypeEnvTest < Minitest::Test
 
   def test_const_without_annotation
     subtyping = new_subtyping_checker()
-    const_env = TypeInference::ConstantEnv.new(builder: subtyping.builder, current_namespace: nil)
+    const_env = TypeInference::ConstantEnv.new(builder: subtyping.builder, context: nil)
     type_env = TypeInference::TypeEnv.new(subtyping: new_subtyping_checker(), const_env: const_env)
 
     # When constant type is known from const env
 
     yield_self do
-      type = type_env.get(const: ModuleName.parse("Regexp"))
+      type = type_env.get(const: Names::Module.parse("Regexp"))
       assert_equal AST::Types::Name.new_class(name: "::Regexp", constructor: true), type
     end
 
     yield_self do
-      type = type_env.assign(const: ModuleName.parse("Regexp"),
+      type = type_env.assign(const: Names::Module.parse("Regexp"),
                              type: AST::Types::Name.new_instance(name: "::String")) do |error|
         assert_instance_of Subtyping::Result::Failure, error
       end
@@ -129,7 +129,7 @@ class TypeEnvTest < Minitest::Test
     end
 
     yield_self do
-      type = type_env.assign(const: ModuleName.parse("Regexp"),
+      type = type_env.assign(const: Names::Module.parse("Regexp"),
                              type: AST::Types::Any.new) do |_|
         raise
       end
@@ -139,12 +139,12 @@ class TypeEnvTest < Minitest::Test
     # When constant type is unknown
 
     yield_self do
-      type = type_env.get(const: ModuleName.parse("HOGE")) do end
+      type = type_env.get(const: Names::Module.parse("HOGE")) do end
       assert_instance_of AST::Types::Any, type
     end
 
     yield_self do
-      type = type_env.assign(const: ModuleName.parse("HOGE"),
+      type = type_env.assign(const: Names::Module.parse("HOGE"),
                              type: AST::Types::Name.new_instance(name: "::String")) do |error|
         assert_nil error
       end
@@ -154,18 +154,18 @@ class TypeEnvTest < Minitest::Test
 
   def test_const_with_annotation
     subtyping = new_subtyping_checker()
-    const_env = TypeInference::ConstantEnv.new(builder: subtyping.builder, current_namespace: nil)
+    const_env = TypeInference::ConstantEnv.new(builder: subtyping.builder, context: nil)
     type_env = TypeInference::TypeEnv.new(subtyping: new_subtyping_checker(), const_env: const_env)
 
-    type_env.set(const: ModuleName.parse("Regexp"), type: AST::Types::Name.new_instance(name: "::String"))
+    type_env.set(const: Names::Module.parse("Regexp"), type: AST::Types::Name.new_instance(name: "::String"))
 
     yield_self do
-      type = type_env.get(const: ModuleName.parse("Regexp"))
+      type = type_env.get(const: Names::Module.parse("Regexp"))
       assert_equal AST::Types::Name.new_instance(name: "::String"), type
     end
 
     yield_self do
-      type = type_env.assign(const: ModuleName.parse("Regexp"),
+      type = type_env.assign(const: Names::Module.parse("Regexp"),
                              type: AST::Types::Name.new_instance(name: "::Integer")) do |error|
         assert_instance_of Subtyping::Result::Failure, error
       end
@@ -173,7 +173,7 @@ class TypeEnvTest < Minitest::Test
     end
 
     yield_self do
-      type = type_env.assign(const: ModuleName.parse("Regexp"),
+      type = type_env.assign(const: Names::Module.parse("Regexp"),
                              type: AST::Types::Name.new_instance(name: "::String")) do |_|
         raise
       end
@@ -183,7 +183,7 @@ class TypeEnvTest < Minitest::Test
 
   def test_lvar_get_without_assign
     subtyping = new_subtyping_checker()
-    const_env = TypeInference::ConstantEnv.new(builder: subtyping.builder, current_namespace: nil)
+    const_env = TypeInference::ConstantEnv.new(builder: subtyping.builder, context: nil)
     type_env = TypeInference::TypeEnv.new(subtyping: new_subtyping_checker(), const_env: const_env)
 
     type = type_env.get(lvar: :x) { AST::Types::Name.new_instance(name: "::String") }
@@ -196,7 +196,7 @@ class TypeEnvTest < Minitest::Test
 
   def test_lvar_without_annotation
     subtyping = new_subtyping_checker()
-    const_env = TypeInference::ConstantEnv.new(builder: subtyping.builder, current_namespace: nil)
+    const_env = TypeInference::ConstantEnv.new(builder: subtyping.builder, context: nil)
     type_env = TypeInference::TypeEnv.new(subtyping: new_subtyping_checker(), const_env: const_env)
 
     yield_self do
@@ -217,7 +217,7 @@ class TypeEnvTest < Minitest::Test
 
   def test_lvar_with_annotation
     subtyping = new_subtyping_checker()
-    const_env = TypeInference::ConstantEnv.new(builder: subtyping.builder, current_namespace: nil)
+    const_env = TypeInference::ConstantEnv.new(builder: subtyping.builder, context: nil)
     type_env = TypeInference::TypeEnv.new(subtyping: new_subtyping_checker(), const_env: const_env)
 
     type_env.set(lvar: :x, type: AST::Types::Name.new_instance(name: "::Numeric"))
@@ -231,7 +231,7 @@ class TypeEnvTest < Minitest::Test
 
   def test_with_annotation_lvar
     subtyping = new_subtyping_checker()
-    const_env = TypeInference::ConstantEnv.new(builder: subtyping.builder, current_namespace: nil)
+    const_env = TypeInference::ConstantEnv.new(builder: subtyping.builder, context: nil)
     original_env = TypeInference::TypeEnv.new(subtyping: new_subtyping_checker(), const_env: const_env)
 
     union_type = AST::Types::Union.build(types: [
@@ -275,7 +275,7 @@ class TypeEnvTest < Minitest::Test
 
   def test_with_annotation_ivar
     subtyping = new_subtyping_checker()
-    const_env = TypeInference::ConstantEnv.new(builder: subtyping.builder, current_namespace: nil)
+    const_env = TypeInference::ConstantEnv.new(builder: subtyping.builder, context: nil)
     original_env = TypeInference::TypeEnv.new(subtyping: new_subtyping_checker(), const_env: const_env)
 
     union_type = AST::Types::Union.build(types: [
@@ -319,7 +319,7 @@ class TypeEnvTest < Minitest::Test
 
   def test_with_annotation_gvar
     subtyping = new_subtyping_checker()
-    const_env = TypeInference::ConstantEnv.new(builder: subtyping.builder, current_namespace: nil)
+    const_env = TypeInference::ConstantEnv.new(builder: subtyping.builder, context: nil)
     original_env = TypeInference::TypeEnv.new(subtyping: new_subtyping_checker(), const_env: const_env)
 
     union_type = AST::Types::Union.build(types: [
@@ -363,7 +363,7 @@ class TypeEnvTest < Minitest::Test
 
   def test_with_annotation_const
     subtyping = new_subtyping_checker()
-    const_env = TypeInference::ConstantEnv.new(builder: subtyping.builder, current_namespace: nil)
+    const_env = TypeInference::ConstantEnv.new(builder: subtyping.builder, context: nil)
     original_env = TypeInference::TypeEnv.new(subtyping: new_subtyping_checker(), const_env: const_env)
 
     union_type = AST::Types::Union.build(types: [
@@ -371,57 +371,57 @@ class TypeEnvTest < Minitest::Test
       AST::Types::Name.new_instance(name: "::String")
     ])
 
-    original_env.set(const: ModuleName.parse("FOO"), type: union_type)
+    original_env.set(const: Names::Module.parse("FOO"), type: union_type)
 
     yield_self do
       type_env = original_env.with_annotations(const_types: {
-        ModuleName.parse("FOO") => AST::Types::Name.new_instance(name: "::String")
+        Names::Module.parse("FOO") => AST::Types::Name.new_instance(name: "::String")
       }) do |_, _|
         raise
       end
 
       assert_equal AST::Types::Name.new_instance(name: "::String"),
-                   type_env.get(const: ModuleName.parse("FOO")) { raise }
+                   type_env.get(const: Names::Module.parse("FOO")) { raise }
     end
 
     yield_self do
       type_env = original_env.with_annotations(const_types: {
-        ModuleName.parse("FOO") => AST::Types::Name.new_instance(name: "::Regexp")
+        Names::Module.parse("FOO") => AST::Types::Name.new_instance(name: "::Regexp")
       }) do |name, relation, error|
-        assert_equal name, ModuleName.parse("FOO")
+        assert_equal name, Names::Module.parse("FOO")
         assert_instance_of Subtyping::Result::Failure, error
       end
 
       assert_equal AST::Types::Name.new_instance(name: "::Regexp"),
-                   type_env.get(const: ModuleName.parse("FOO")) { raise }
+                   type_env.get(const: Names::Module.parse("FOO")) { raise }
     end
 
     yield_self do
       type_env = original_env.with_annotations(const_types: {
-        ModuleName.parse("String") => AST::Types::Name.new_instance(name: "::Regexp")
+        Names::Module.parse("String") => AST::Types::Name.new_instance(name: "::Regexp")
       }) do |name, relation, error|
-        assert_equal name, ModuleName.parse("String")
+        assert_equal name, Names::Module.parse("String")
         assert_instance_of Subtyping::Result::Failure, error
       end
 
       assert_equal AST::Types::Name.new_instance(name: "::Regexp"),
-                   type_env.get(const: ModuleName.parse("String")) { raise }
+                   type_env.get(const: Names::Module.parse("String")) { raise }
     end
 
     yield_self do
       type_env = original_env.with_annotations(const_types: {
-        ModuleName.parse("BAR") => AST::Types::Name.new_instance(name: "::String")
+        Names::Module.parse("BAR") => AST::Types::Name.new_instance(name: "::String")
       }) do |_, _, _|
         raise
       end
 
-      assert_equal AST::Types::Name.new_instance(name: "::String"), type_env.get(const: ModuleName.parse("BAR")) { raise }
+      assert_equal AST::Types::Name.new_instance(name: "::String"), type_env.get(const: Names::Module.parse("BAR")) { raise }
     end
   end
 
   def test_join
     subtyping = new_subtyping_checker()
-    const_env = TypeInference::ConstantEnv.new(builder: subtyping.builder, current_namespace: nil)
+    const_env = TypeInference::ConstantEnv.new(builder: subtyping.builder, context: nil)
     original_env = TypeInference::TypeEnv.new(subtyping: new_subtyping_checker(), const_env: const_env)
 
     original_env.set(lvar: :z, type: AST::Types::Any.new)
@@ -451,23 +451,24 @@ class TypeEnvTest < Minitest::Test
   end
 
   def test_build
-
     subtyping = new_subtyping_checker(<<EOF)
+class X end
+class Y end
 $foo: String
 EOF
     signatures = subtyping.builder.signatures
-    const_env = TypeInference::ConstantEnv.new(builder: subtyping.builder, current_namespace: nil)
+    const_env = TypeInference::ConstantEnv.new(builder: subtyping.builder, context: nil)
 
     annotations = AST::Annotation::Collection.new(annotations: [
       AST::Annotation::VarType.new(name: :x, type: AST::Types::Name.new_instance(name: :X)),
       AST::Annotation::IvarType.new(name: :"@y", type: AST::Types::Name.new_instance(name: :Y)),
-      AST::Annotation::ConstType.new(name: ModuleName.parse("Foo"), type: AST::Types::Name.new_instance(name: "::Integer")),
+      AST::Annotation::ConstType.new(name: Names::Module.parse("Foo"), type: AST::Types::Name.new_instance(name: "::Integer")),
       AST::Annotation::ReturnType.new(type: AST::Types::Name.new_instance(name: :Z)),
       AST::Annotation::BlockType.new(type: AST::Types::Name.new_instance(name: :A)),
       AST::Annotation::Dynamic.new(names: [
         AST::Annotation::Dynamic::Name.new(name: :path, kind: :instance)
       ])
-    ], builder: subtyping.builder, current_module: nil)
+    ], builder: subtyping.builder, current_module: AST::Namespace.root)
 
     env = TypeInference::TypeEnv.build(annotations: annotations,
                                        signatures: signatures,
@@ -476,7 +477,7 @@ EOF
 
     assert_equal AST::Types::Name.new_instance(name: "::X"), env.get(lvar: :x)
     assert_equal AST::Types::Name.new_instance(name: "::Y"), env.get(ivar: :"@y")
-    assert_equal AST::Types::Name.new_instance(name: "::Integer"), env.get(const: ModuleName.parse("Foo"))
+    assert_equal AST::Types::Name.new_instance(name: "::Integer"), env.get(const: Names::Module.parse("Foo"))
     assert_equal AST::Types::Name.new_instance(name: "::String"), env.get(gvar: :"$foo")
   end
 end

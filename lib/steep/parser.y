@@ -4,11 +4,12 @@ token kCLASS kMODULE kINTERFACE kDEF kEND kNIL kBOOL kANY kVOID kTYPE
       kINCOMPATIBLE kAT_TYPE kAT_IMPLEMENTS kAT_DYNAMIC kCONST kVAR kRETURN
       kBLOCK kBREAK kMETHOD kSELF kSELFQ kATTR_READER kATTR_ACCESSOR kINSTANCE
       kINCLUDE kEXTEND kINSTANCE kIVAR kCONSTRUCTOR kNOCONSTRUCTOR kEXTENSION
-      tARROW tBANG tBAR tCOLON tCOLON2 tCOMMA tDOT tEQ tGT tGVAR tHAT tINT
+      tARROW tBANG tBAR tCOLON tCOMMA tDOT tEQ tGT tGVAR tHAT tINT
       tINTERFACE_NAME tIVAR_NAME tLBRACE tLBRACKET tIDENT tLPAREN tLT
       tLTCOLON tMINUS tOPERATOR tPERCENT tPLUS tQUESTION tRBRACE tRBRACKET
       tRPAREN tSTAR tSTAR2 tSTRING tSYMBOL tUIDENT tUMINUS tVAR
       type_METHOD type_SIGNATURE type_ANNOTATION type_TYPE
+      tQUALIFIED_MODULE_NAME tQUALIFIED_INTERFACE_NAME tQUALIFIED_ALIAS_NAME
 
 expect 1
 
@@ -259,16 +260,48 @@ rule
                                   result = AST::MethodType::Params::Rest.new(location: val[0].first, type: val[0].last)
                                 }
 
-                   simple_type: type_name
+              application_args: # nothing
                                 {
-                                  result = AST::Types::Name.new(name: val[0].value, location: val[0].location, args: [])
+                                  result = nil
                                 }
-                              | application_type_name tLT type_seq tGT
+                              | tLT type_seq tGT
                                 {
-                                  loc = val[0].location + val[3].location
-                                  name = val[0].value
-                                  args = val[2]
-                                  result = AST::Types::Name.new(location: loc, name: name, args: args)
+                                  result = LocatedValue.new(location: val[0].location + val[2].location,
+                                                            value: val[1])
+                                }
+
+                   simple_type: module_name tDOT kCLASS constructor
+                                {
+                                  loc = val[0].location + (val[3] || val[2]).location
+                                  result = AST::Types::Name::Class.new(name: val[0].value,
+                                                                       constructor: val[3]&.value,
+                                                                       location: loc)
+                                }
+                              | module_name tDOT kMODULE
+                                {
+                                  loc = val[0].location + val[2].location
+                                  result = AST::Types::Name::Module.new(name: val[0].value, location: loc)
+                                }
+                              | module_name application_args
+                                {
+                                  loc = val[0].location + val[1]&.location
+                                  result = AST::Types::Name::Instance.new(name: val[0].value,
+                                                                          location: loc,
+                                                                          args: val[1]&.value || [])
+                                }
+                              | interface_name application_args
+                                {
+                                  loc = val[0].location + val[1]&.location
+                                  result = AST::Types::Name::Interface.new(name: val[0].value,
+                                                                           location: loc,
+                                                                           args: val[1]&.value || [])
+                                }
+                              | alias_name application_args
+                                {
+                                  loc = val[0].location + val[1]&.location
+                                  result = AST::Types::Name::Alias.new(name: val[0].value,
+                                                                       location: loc,
+                                                                       args: val[1]&.value || [])
                                 }
                               | kANY
                                 {
@@ -341,36 +374,6 @@ rule
                                   result = val[1].with_location(val[0].location + val[2].location)
                                 }
                               | simple_type
-
-         application_type_name: module_name
-                                {
-                                  result = LocatedValue.new(value: TypeName::Instance.new(name: val[0].value),
-                                                            location: val[0].location)
-                                }
-                              | tINTERFACE_NAME
-                                {
-                                  result = LocatedValue.new(value: TypeName::Interface.new(name: val[0].value),
-                                                            location: val[0].location)
-                                }
-                              | tIDENT
-                                {
-                                  result = LocatedValue.new(value: TypeName::Alias.new(name: val[0].value),
-                                                            location: val[0].location)
-                                }
-
-                     type_name: application_type_name
-                              | module_name tDOT kCLASS constructor
-                                {
-                                  loc = val[0].location + (val[3] || val[2]).location
-                                  result = LocatedValue.new(value: TypeName::Class.new(name: val[0].value, constructor: val[3]&.value),
-                                                            location: loc)
-                                }
-                              | module_name tDOT kMODULE
-                                {
-                                  loc = val[0].location + val.last.location
-                                  result = LocatedValue.new(value: TypeName::Module.new(name: val[0].value),
-                                                            location: loc)
-                                }
 
                    constructor: # nothing
                                 {
@@ -503,7 +506,7 @@ rule
                                   loc = val.first.location + val.last.location
                                   result = AST::Signature::Const.new(
                                     location: loc,
-                                    name: val[0].value,
+                                    name: val[0].value.absolute!,
                                     type: val[2]
                                   )
                                 }
@@ -513,7 +516,7 @@ rule
                                   loc = val.first.location + val.last.location
                                   result = AST::Signature::Interface.new(
                                     location: loc,
-                                    name: val[1].value,
+                                    name: val[1].value.absolute!,
                                     params: val[2],
                                     methods: val[3]
                                   )
@@ -549,11 +552,11 @@ rule
                                                                          members: val[6])
                                 }
 
-                    alias_decl: kTYPE tIDENT type_params tEQ type
+                    alias_decl: kTYPE alias_name type_params tEQ type
                                 {
                                   loc = val[0].location + val[4].location
                                   result = AST::Signature::Alias.new(location: loc,
-                                                                     name: val[1].value,
+                                                                     name: val[1].value.absolute!,
                                                                      params: val[2],
                                                                      type: val[4])
                                 }
@@ -567,24 +570,22 @@ rule
                                   result = val[1]
                                 }
 
-                interface_name: tINTERFACE_NAME
-
-                   module_name: module_name0
-                              | tCOLON2 module_name0
-                                {
-                                  loc = val.first.location + val.last.location
-                                  result = LocatedValue.new(location: loc, value: val[1].value.absolute!)
+                interface_name: tQUALIFIED_INTERFACE_NAME
+                              | tINTERFACE_NAME {
+                                  name = Names::Interface.new(name: val[0].value, namespace: AST::Namespace.empty)
+                                  result = LocatedValue.new(location: val[0].location, value: name)
                                 }
 
-                  module_name0: tUIDENT
-                                {
-                                  result = LocatedValue.new(location: val[0].location, value: ModuleName.parse(val[0].value))
+                   module_name: tQUALIFIED_MODULE_NAME
+                              | tUIDENT {
+                                  name = Names::Module.new(name: val[0].value, namespace: AST::Namespace.empty)
+                                  result = LocatedValue.new(location: val[0].location, value: name)
                                 }
-                              | tUIDENT tCOLON2 module_name0
-                                {
-                                  location = val[0].location + val.last.location
-                                  name = ModuleName.parse(val[0].value) + val.last.value
-                                  result = LocatedValue.new(location: location, value: name)
+
+                    alias_name: tQUALIFIED_ALIAS_NAME
+                              | tIDENT {
+                                  name = Names::Alias.new(name: val[0].value, namespace: AST::Namespace.empty)
+                                  result = LocatedValue.new(location: val[0].location, value: name)
                                 }
 
                  class_members: # nothing
@@ -653,26 +654,26 @@ rule
 
                 include_member: kINCLUDE module_name
                                 {
-                                  loc = val.first.location + val.last.location
+                                  loc = val[0].location + val[1].location
                                   name = val[1].value
                                   result = AST::Signature::Members::Include.new(name: name, location: loc, args: [])
                                 }
                               | kINCLUDE module_name tLT type_seq tGT
                                 {
-                                  loc = val.first.location + val.last.location
+                                  loc = val[0].location + val[4].location
                                   name = val[1].value
                                   result = AST::Signature::Members::Include.new(name: name, location: loc, args: val[3])
                                 }
 
                  extend_member: kEXTEND module_name
                                 {
-                                  loc = val.first.location + val.last.location
+                                  loc = val[0].location + val[1].location
                                   name = val[1].value
                                   result = AST::Signature::Members::Extend.new(name: name, location: loc, args: [])
                                 }
                               | kEXTEND module_name tLT type_seq tGT
                                 {
-                                  loc = val.first.location + val.last.location
+                                  loc = val[0].location + val[4].location
                                   name = val[1].value
                                   result = AST::Signature::Members::Extend.new(name: name, location: loc, args: val[3])
                                 }
@@ -898,7 +899,7 @@ rule
                                 }
                               | kAT_TYPE kCONST module_name tCOLON type
                                 {
-                                  loc = val.first.location + val.last.location
+                                  loc = val[0].location + val[4].location
                                   result = AST::Annotation::ConstType.new(name: val[2].value,
                                                                           type: val[4],
                                                                           location: loc)
@@ -964,7 +965,6 @@ rule
                                 {
                                   result = val[0]
                                 }
-
 end
 
 ---- inner
@@ -1055,10 +1055,6 @@ def next_token
     new_token(:tCOMMA, nil)
   when input.scan(/:\w+/)
     new_token(:tSYMBOL, input.matched[1..-1].to_sym)
-  when input.scan(/::/)
-    new_token(:tCOLON2)
-  when input.scan(/:/)
-    new_token(:tCOLON)
   when input.scan(/\*\*/)
     new_token(:tSTAR2, :**)
   when input.scan(/\*/)
@@ -1169,6 +1165,18 @@ def next_token
     new_token(:kNOCONSTRUCTOR, :noconstructor)
   when input.scan(/\$\w+\b/)
     new_token(:tGVAR, input.matched.to_sym)
+  when input.scan(/::([A-Z]\w*::)*[A-Z]\w*/)
+    new_token(:tQUALIFIED_MODULE_NAME, Names::Module.parse(input.matched))
+  when input.scan(/([A-Z]\w*::)+[A-Z]\w*/)
+    new_token(:tQUALIFIED_MODULE_NAME, Names::Module.parse(input.matched))
+  when input.scan(/::([A-Z]\w*::)*_\w+/)
+    new_token(:tQUALIFIED_INTERFACE_NAME, Names::Interface.parse(input.matched))
+  when input.scan(/([A-Z]\w*::)+_\w+/)
+    new_token(:tQUALIFIED_INTERFACE_NAME, Names::Interface.parse(input.matched))
+  when input.scan(/::([A-Z]\w*::)*[a-z]\w*/)
+    new_token(:tQUALIFIED_ALIAS_NAME, Names::Alias.parse(input.matched))
+  when input.scan(/([A-Z]\w*::)+[a-z]\w*/)
+    new_token(:tQUALIFIED_ALIAS_NAME, Names::Alias.parse(input.matched))
   when input.scan(/[A-Z]\w*/)
     new_token(:tUIDENT, input.matched.to_sym)
   when input.scan(/_\w+/)
@@ -1181,5 +1189,7 @@ def next_token
     new_token(:tSTRING, input.matched[1...-1])
   when input.scan(/[a-z]\w*/)
     new_token(:tIDENT, input.matched.to_sym)
+  when input.scan(/:/)
+    new_token(:tCOLON)
   end
 end

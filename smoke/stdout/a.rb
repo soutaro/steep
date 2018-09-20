@@ -4,5 +4,5 @@ class A
   end
 end
 
-A.new(STDOUT)
-A.new(StringIO.new)
+A.new.write_to(io: STDOUT)
+A.new.write_to(io: StringIO.new)

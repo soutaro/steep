@@ -1,8 +1,8 @@
-interface _Each<'a>
-  def each: { ('a) -> any } -> instance
+interface _Each<'a, 'b>
+  def each: { ('a) -> any } -> 'b
 end
 
-module A : _Each<Integer>
+module A : _Each<Integer, A>
   def count: () -> Integer
 end
 
