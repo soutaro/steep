@@ -87,7 +87,7 @@ module Steep
     unless @logger
       @logger = ActiveSupport::TaggedLogging.new(Logger.new(STDERR))
       @logger.push_tags "Steep #{VERSION}"
-      @logger.level = Logger::ERROR
+      @logger.level = Logger::WARN
     end
 
     @logger
