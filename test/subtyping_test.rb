@@ -8,7 +8,7 @@ class SubtypingTest < Minitest::Test
 class BasicObject
 end
 
-class Object <: BasicObject
+class Object < BasicObject
   def class: () -> class
   def tap: { (self) -> any } -> self
   def yield_self: <'a> { (self) -> 'a } -> 'a
@@ -563,7 +563,7 @@ end
   def test_resolve_instance2
     checker = new_checker("")
 
-    type = parse_type("::Array< ::Integer>")
+    type = parse_type("::Array<::Integer>")
     interface = checker.resolve(type)
 
     assert_equal [:class, :tap, :yield_self, :[], :[]=], interface.methods.keys
@@ -658,7 +658,7 @@ interface _A<'a>
 end
 EOF
 
-    type = parse_type("_A< ::Integer>")
+    type = parse_type("_A<::Integer>")
     interface = checker.resolve(type)
 
     assert_equal [:each], interface.methods.keys
@@ -695,7 +695,7 @@ EOF
   def test_resolve4
     checker = new_checker("")
 
-    interface = checker.resolve(parse_type("::Array< ::Integer> | ::Array< ::String>"))
+    interface = checker.resolve(parse_type("::Array<::Integer> | ::Array<::String>"))
 
     assert_equal [:tap, :yield_self, :[]], interface.methods.keys
     assert_equal ["() { ((::Array<::Integer> | ::Array<::String>)) -> any } -> (::Array<::Integer> | ::Array<::String>)"],
@@ -863,7 +863,7 @@ end
     result = checker.check(
       Subtyping::Relation.new(
         sub_type: parse_type("[123]"),
-        super_type: parse_type("::Array< ::Integer | ::String>"),
+        super_type: parse_type("::Array<::Integer | ::String>"),
         ),
       constraints: Subtyping::Constraints.empty
     )
@@ -895,7 +895,7 @@ type bar<'a> = 'a | Array<'a> | foo
     EOF
 
     assert_equal parse_type("::String | ::Integer"), checker.expand_alias(parse_type("foo"))
-    assert_equal parse_type("::Integer | ::Array< ::Integer> | ::String"), checker.expand_alias(parse_type("bar< ::Integer>"))
+    assert_equal parse_type("::Integer | ::Array<::Integer> | ::String"), checker.expand_alias(parse_type("bar<::Integer>"))
     assert_raises { checker.expand_alias(parse_type("hello")) }
   end
 

@@ -314,7 +314,7 @@ module SubtypingHelper
 class BasicObject
 end
 
-class Object <: BasicObject
+class Object < BasicObject
   def class: -> module
   def tap: { (instance) -> any } -> instance
   def gets: -> String?
@@ -342,7 +342,7 @@ class Numeric
   def to_int: -> Integer
 end
 
-class Integer <: Numeric
+class Integer < Numeric
 end
 
 class Symbol

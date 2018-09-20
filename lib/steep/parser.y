@@ -6,7 +6,7 @@ token kCLASS kMODULE kINTERFACE kDEF kEND kNIL kBOOL kANY kVOID kTYPE
       kINCLUDE kEXTEND kINSTANCE kIVAR kCONSTRUCTOR kNOCONSTRUCTOR kEXTENSION
       tARROW tBANG tBAR tCOLON tCOMMA tDOT tEQ tGT tGVAR tHAT tINT
       tINTERFACE_NAME tIVAR_NAME tLBRACE tLBRACKET tIDENT tLPAREN tLT
-      tLTCOLON tMINUS tOPERATOR tPERCENT tPLUS tQUESTION tRBRACE tRBRACKET
+      tMINUS tOPERATOR tPERCENT tPLUS tQUESTION tRBRACE tRBRACKET
       tRPAREN tSTAR tSTAR2 tSTRING tSYMBOL tUIDENT tUMINUS tVAR
       type_METHOD type_SIGNATURE type_ANNOTATION type_TYPE
       tQUALIFIED_MODULE_NAME tQUALIFIED_INTERFACE_NAME tQUALIFIED_ALIAS_NAME
@@ -522,14 +522,35 @@ rule
                                   )
                                 }
 
-                    class_decl: kCLASS module_name type_params super_opt class_members kEND
+                    class_decl: kCLASS module_name class_params_super class_members kEND
                                 {
                                   loc = val.first.location + val.last.location
                                   result = AST::Signature::Class.new(name: val[1].value.absolute!,
-                                                                     params: val[2],
-                                                                     super_class: val[3],
-                                                                     members: val[4],
+                                                                     params: val[2][0],
+                                                                     super_class: val[2][1],
+                                                                     members: val[3],
                                                                      location: loc)
+                                }
+
+              class_params_super: # nothing
+                                {
+                                  result = [nil, nil]
+                                }
+                                | tLT super_class
+                                {
+                                  result = [nil, val[1]]
+                                }
+                                | tLT type_param_seq tGT
+                                {
+                                  location = val[0].location + val[2].location
+                                  params = AST::TypeParams.new(location: location, variables: val[1])
+                                  result = [params, nil]
+                                }
+                                | tLT type_param_seq tGT tLT super_class
+                                {
+                                  location = val[0].location + val[2].location
+                                  params = AST::TypeParams.new(location: location, variables: val[1])
+                                  result = [params, val[4]]
                                 }
 
                    module_decl: kMODULE module_name type_params self_type_opt class_members kEND
@@ -728,15 +749,6 @@ rule
                               | kINCOMPATIBLE
                                 {
                                   result = val[0].value
-                                }
-
-                     super_opt: # nothing
-                                {
-                                  result = nil
-                                }
-                              | tLTCOLON super_class
-                                {
-                                  result = val[1]
                                 }
 
                    super_class: module_name
@@ -1064,7 +1076,9 @@ def next_token
   when input.scan(/\./)
     new_token(:tDOT)
   when input.scan(/<:(?!:)/)
-    new_token(:tLTCOLON)
+    loc = new_token("<:")[1].location
+    Steep.logger.warn("`<:` syntax for super class is deprecated. Use `<` instead. (#{loc.buffer.name}:#{loc})")
+    new_token(:tLT)
   when input.scan(/\^/)
     new_token(:tHAT, :"^")
   when input.scan(/(\[\]=)|(\[\])|===|==|!=|<<|=~/)

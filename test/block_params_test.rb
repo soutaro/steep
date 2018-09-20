@@ -50,7 +50,7 @@ proc {|a, b=1, *c, d|
 
     assert_equal [BlockParams::Param.new(var: args[0].children[0], type: parse_type("::String"), value: nil, node: args[0])], params.leading_params
     assert_equal [BlockParams::Param.new(var: args[1].children[0], type: nil, value: parse_ruby("1").node, node: args[1])], params.optional_params
-    assert_equal BlockParams::Param.new(var: args[2].children[0], type: parse_type("::Array< ::Symbol>"), value: nil, node: args[2]), params.rest_param
+    assert_equal BlockParams::Param.new(var: args[2].children[0], type: parse_type("::Array<::Symbol>"), value: nil, node: args[2]), params.rest_param
     assert_equal [BlockParams::Param.new(var: args[3].children[0], type: nil, value: nil, node: args[3])], params.trailing_params
   end
 
@@ -105,7 +105,7 @@ proc {|a, b=1, *c, d|
       zip = params.zip(type)
 
       assert_equal [params.params[0], parse_type("::Integer")], zip[0]
-      assert_equal [params.params[1], parse_type("::Array< ::Object | ::String>")], zip[1]
+      assert_equal [params.params[1], parse_type("::Array<::Object | ::String>")], zip[1]
     end
   end
 
@@ -142,7 +142,7 @@ proc {|a, b=1, *c, d|
 
       assert_equal [params.params[0], parse_type("::Integer | nil")], zip[0]
       assert_equal [params.params[1], parse_type("::Integer | nil")], zip[1]
-      assert_equal [params.params[2], parse_type("::Array< ::Integer>")], zip[2]
+      assert_equal [params.params[2], parse_type("::Array<::Integer>")], zip[2]
     end
 
     block_params("proc {|x,| }") do |params|
@@ -180,7 +180,7 @@ proc {|a, b=1, *c, d|
       zip = params.zip(type)
 
       assert_equal [params.params[0], parse_type("::Symbol")], zip[0]
-      assert_equal [params.params[1], parse_type("::Array< ::Integer>")], zip[1]
+      assert_equal [params.params[1], parse_type("::Array<::Integer>")], zip[1]
     end
   end
 

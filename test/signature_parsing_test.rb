@@ -36,7 +36,7 @@ end
 
   def test_parsing_class2
     klass, _ = parse(<<-EOS)
-class A <: Object
+class A < Object
 end
     EOS
 
@@ -44,12 +44,12 @@ end
     assert_location klass, start_line: 1, start_column: 0, end_line: 2, end_column: 3
 
     assert_super_class klass.super_class, name: Names::Module.parse("Object")
-    assert_location klass.super_class, start_line: 1, start_column: 11, end_line: 1, end_column: 17
+    assert_location klass.super_class, start_line: 1, start_column: 10, end_line: 1, end_column: 16
   end
 
   def test_parsing_class3
     klass, _ = parse(<<-EOS)
-class A <: Array<Integer>
+class A<'x> < Array<Integer>
 end
     EOS
 
@@ -61,7 +61,7 @@ end
       assert_instance_of AST::Types::Name::Instance, args[0]
       assert_equal Names::Module.parse("Integer"), args[0].name
     end
-    assert_location klass.super_class, start_line: 1, start_column: 11, end_line: 1, end_column: 25
+    assert_location klass.super_class, start_line: 1, start_column: 14, end_line: 1, end_column: 28
   end
 
   def test_parsing_module0

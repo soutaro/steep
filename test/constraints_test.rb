@@ -8,7 +8,7 @@ class ConstraintsTest < Minitest::Test
 class BasicObject
 end
 
-class Object <: BasicObject
+class Object < BasicObject
   def class: () -> class
 end
 

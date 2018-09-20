@@ -2,7 +2,7 @@ class BasicObject
   def __id__: -> Integer
 end
 
-class Object <: BasicObject
+class Object < BasicObject
   include Kernel
   def tap: { (self) -> any } -> self
   def to_s: -> String
@@ -43,7 +43,7 @@ end
 class Method
 end
 
-class Class <: Module
+class Class < Module
   def class: -> Class.class
   def allocate: -> any
 end
@@ -267,7 +267,7 @@ class Numeric
   def -@: -> self
 end
 
-class Integer <: Numeric
+class Integer < Numeric
   def to_int: -> Integer
   def +: (Integer) -> Integer
        | (Numeric) -> Numeric
@@ -295,7 +295,7 @@ class Integer <: Numeric
   def ~: () -> Integer
 end
 
-class Float <: Numeric
+class Float < Numeric
   def *: (Float) -> Float
        | (Integer) -> Float
        | (Numeric) -> Numeric
@@ -312,7 +312,7 @@ end
 
 Math::PI: Float
 
-class Complex <: Numeric
+class Complex < Numeric
   def self.polar: (Numeric, Numeric) -> instance
   def +: (Complex) -> Complex
        | (Numeric) -> Numeric
@@ -571,7 +571,7 @@ end
 
 File::FNM_DOTMATCH: Integer
 
-class File <: IO
+class File < IO
   def self.binread: (String) -> String
   def self.extname: (String) -> String
   def self.basename: (String) -> String

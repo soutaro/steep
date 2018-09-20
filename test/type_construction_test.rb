@@ -4911,7 +4911,7 @@ class TestSuper
   def foo: () -> Integer
 end
 
-class TestSuperChild <: TestSuper
+class TestSuperChild < TestSuper
 end
     EOF
     annotations = source.annotations(block: source.node, builder: checker.builder, current_module: Namespace.root)
@@ -5354,7 +5354,7 @@ EOF
     end
 
     assert_empty typing.errors
-    assert_equal parse_type("::Array< ::String>"), type_env.lvar_types[:a]
+    assert_equal parse_type("::Array<::String>"), type_env.lvar_types[:a]
   end
 
   def test_type_proc_objects
