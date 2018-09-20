@@ -1063,7 +1063,7 @@ def next_token
     new_token(:tPLUS, :+)
   when input.scan(/\./)
     new_token(:tDOT)
-  when input.scan(/<:/)
+  when input.scan(/<:(?!:)/)
     new_token(:tLTCOLON)
   when input.scan(/\^/)
     new_token(:tHAT, :"^")
