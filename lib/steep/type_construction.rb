@@ -953,6 +953,8 @@ module Steep
 
         when :hash
           yield_self do
+            ty = try_hash_type(node, hint) and return ty
+
             if AST::Builtin::Hash.instance_type?(hint)
               key_hint = hint.args[0]
               value_hint = hint.args[1]
@@ -2592,6 +2594,44 @@ module Steep
                      end
 
       AST::Types::Name::Instance.new(name: type.name, args: args)
+    end
+
+    def try_hash_type(node, hint)
+      if hint.is_a?(AST::Types::Hash)
+        typing.new_child do |child_typing|
+          new_construction = with_new_typing(child_typing)
+          elem_types = hint.elements.dup
+
+          each_child_node(node) do |child|
+            case child.type
+            when :pair
+              key, value = child.children
+
+              key_value = case key.type
+                          when :str, :int, :sym
+                            key.children[0]
+                          else
+                            return nil
+                          end
+
+              return nil unless elem_types.key?(key_value)
+
+              key_hint = AST::Types::Literal.new(value: key_value)
+              value_hint = elem_types.delete(key_value)
+
+              new_construction.check(key, key_hint) { return nil }
+              new_construction.check(value, value_hint) { return nil }
+            else
+              return nil
+            end
+          end
+
+          return nil unless elem_types.empty?
+
+          child_typing.save!
+          return typing.add_typing(node, hint)
+        end
+      end
     end
   end
 end
