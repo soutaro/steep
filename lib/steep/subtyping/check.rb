@@ -898,6 +898,53 @@ module Steep
             array_interface
           end
 
+        when AST::Types::Hash
+          yield_self do
+            key_type = AST::Types::Union.build(types: type.elements.keys.map {|val| AST::Types::Literal.new(value: val) })
+            value_type = AST::Types::Union.build(types: type.elements.values)
+            hash_interface = resolve(AST::Builtin::Hash.instance_type(key_type, value_type), self_type: self_type)
+
+            hash_interface.methods[:[]] = hash_interface.methods[:[]].yield_self do |ref|
+              types = type.elements.map do |key, value_type|
+                Interface::MethodType.new(
+                  type_params: [],
+                  params: Interface::Params.new(required: [AST::Types::Literal.new(value: key)],
+                                                optional: [],
+                                                rest: nil,
+                                                required_keywords: {},
+                                                optional_keywords: {},
+                                                rest_keywords: nil),
+                  return_type: value_type,
+                  block: nil,
+                  location: nil
+                )
+              end
+
+              ref.with_types(types + ref.types)
+            end
+
+            hash_interface.methods[:[]=] = hash_interface.methods[:[]=].yield_self do |method|
+              types = type.elements.map do |key, value_type|
+                Interface::MethodType.new(
+                  type_params: [],
+                  params: Interface::Params.new(required: [AST::Types::Literal.new(value: key), value_type],
+                                                optional: [],
+                                                rest: nil,
+                                                required_keywords: {},
+                                                optional_keywords: {},
+                                                rest_keywords: nil),
+                  return_type: value_type,
+                  block: nil,
+                  location: nil
+                )
+              end
+
+              method.with_types(types + method.types)
+            end
+
+            hash_interface
+          end
+
         when AST::Types::Proc
           yield_self do
             proc_interface = resolve(type.back_type, self_type: self_type)

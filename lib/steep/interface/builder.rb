@@ -85,6 +85,11 @@ module Steep
             return_type: absolute_type(type.return_type, current: current),
             location: type.location
           )
+        when AST::Types::Hash
+          AST::Types::Hash.new(
+            elements: type.elements.transform_values {|ty| absolute_type(ty, current: current) },
+            location: type.location
+          )
         else
           type
         end
