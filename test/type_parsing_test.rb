@@ -137,6 +137,13 @@ class TypeParsingTest < Minitest::Test
     refute_nil parse_method_type("() -> Array<Array<Integer>>")
   end
 
+  def test_application3
+    type = parse_type("Array<::Object>")
+    assert_instance_name_type type, name: Names::Module.parse("Array")
+    assert_equal 1, type.args.size
+    assert_instance_name_type type.args[0], name: Names::Module.parse("::Object")
+  end
+
   def test_self
     type = parse_method_type("() -> self").return_type
 

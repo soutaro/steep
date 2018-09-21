@@ -11,7 +11,7 @@ class ConstantEnvTest < Minitest::Test
 class BasicObject
 end
 
-class Object <: BasicObject
+class Object < BasicObject
   def class: -> module
   def tap: { (instance) -> any } -> instance
 end

@@ -22,7 +22,7 @@ end
 class Class
   def new: (*any) -> any
 end
-class Object <: BasicObject end
+class Object < BasicObject end
 class BasicObject
   def initialize: () -> any
 end
@@ -281,7 +281,7 @@ class A
   def foo: () -> A
 end
 
-class B <: A
+class B < A
   include C
   def foo: () -> B
 end
@@ -320,7 +320,7 @@ module B<'a>
   def bar: () -> 'a
 end
 
-class C <: A<String>
+class C < A<String>
   include B<Integer>
 end
     EOF
@@ -615,7 +615,7 @@ class Foo
   @foo: String
 end
 
-class Bar <: Foo
+class Bar < Foo
   @foo: Integer
 end
     EOF
@@ -654,15 +654,15 @@ class Foo
   @foo: String
 end
 
-class Bar <: Foo
+class Bar < Foo
   @foo: String
 end
 
-class Baz <: Foo
+class Baz < Foo
   @foo: Integer
 end
 
-class Hoge <: Foo
+class Hoge < Foo
   @foo: any
 end
     EOF
@@ -746,7 +746,7 @@ class Hello
   def foo: () -> Integer
 end
 
-class World <: Hello
+class World < Hello
   def (incompatible) foo: (Object) -> String 
 end
     EOF

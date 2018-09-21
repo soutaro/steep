@@ -3,7 +3,7 @@ class IncompatibleSuper
   def initialize: (name: String) -> any
 end
 
-class IncompatibleChild <: IncompatibleSuper
+class IncompatibleChild < IncompatibleSuper
   def initialize: () -> any
   def (incompatible) foo: (Object) -> String
 end
