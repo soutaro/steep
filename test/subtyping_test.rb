@@ -38,6 +38,13 @@ class Array<'a>
   def []=: (Integer, 'a) -> 'a
 end
 
+class Hash<'a, 'b>
+  def []: ('a) -> 'b
+  def []=: ('a, 'b) -> 'b
+  def keys: -> Array<'a>
+  def values: -> Array<'b>
+end
+
 class Symbol
 end
 
@@ -929,6 +936,66 @@ type foo = String | Integer
       Subtyping::Relation.new(
         sub_type: parse_type("foo"),
         super_type: parse_type("::String")
+      ),
+      constraints: Subtyping::Constraints.empty,
+      assumption: Set.new,
+      trace: Subtyping::Trace.new
+    )
+    assert_instance_of Subtyping::Result::Failure, result
+  end
+
+  def test_resolve_hash
+    checker = new_checker("")
+
+    type = parse_type("{ foo: ::Integer, bar: ::String }")
+    interface = checker.resolve(type)
+
+    interface.methods[:[]].yield_self do |method|
+      assert_equal ["(:foo) -> ::Integer",
+                    "(:bar) -> ::String",
+                    "((:bar | :foo)) -> (::Integer | ::String)"],
+                   method.types.map(&:to_s)
+    end
+
+    interface.methods[:[]=].yield_self do |method|
+      assert_equal ["(:foo, ::Integer) -> ::Integer",
+                    "(:bar, ::String) -> ::String",
+                    "((:bar | :foo), (::Integer | ::String)) -> (::Integer | ::String)"],
+                   method.types.map(&:to_s)
+    end
+
+    interface.methods[:keys].yield_self do |method|
+      assert_equal ["() -> ::Array<(:bar | :foo)>"], method.types.map(&:to_s)
+    end
+
+    interface.methods[:values].yield_self do |method|
+      assert_equal ["() -> ::Array<(::Integer | ::String)>"], method.types.map(&:to_s)
+    end
+
+    interface.methods[:tap].yield_self do |method|
+      assert_equal ["() { ({ :foo => ::Integer, :bar => ::String }) -> any } -> { :foo => ::Integer, :bar => ::String }"],
+                   method.types.map(&:to_s)
+    end
+  end
+
+  def test_hash
+    checker = new_checker("")
+
+    result = checker.check0(
+      Subtyping::Relation.new(
+        sub_type: parse_type("{ foo: Integer }"),
+        super_type: parse_type("{ foo: Integer }")
+      ),
+      constraints: Subtyping::Constraints.empty,
+      assumption: Set.new,
+      trace: Subtyping::Trace.new
+    )
+    assert_instance_of Subtyping::Result::Success, result
+
+    result = checker.check0(
+      Subtyping::Relation.new(
+        sub_type: parse_type("{ foo: Integer }"),
+        super_type: parse_type("{ }")
       ),
       constraints: Subtyping::Constraints.empty,
       assumption: Set.new,

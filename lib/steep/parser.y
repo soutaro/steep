@@ -5,7 +5,7 @@ token kCLASS kMODULE kINTERFACE kDEF kEND kNIL kBOOL kANY kVOID kTYPE
       kBLOCK kBREAK kMETHOD kSELF kSELFQ kATTR_READER kATTR_ACCESSOR kINSTANCE
       kINCLUDE kEXTEND kINSTANCE kIVAR kCONSTRUCTOR kNOCONSTRUCTOR kEXTENSION
       tARROW tBANG tBAR tCOLON tCOMMA tDOT tEQ tGT tGVAR tHAT tINT
-      tINTERFACE_NAME tIVAR_NAME tLBRACE tLBRACKET tIDENT tLPAREN tLT
+      tINTERFACE_NAME tIVAR_NAME tLBRACE tLBRACKET tIDENT tLPAREN tLT tROCKET
       tMINUS tOPERATOR tPERCENT tPLUS tQUESTION tRBRACE tRBRACKET
       tRPAREN tSTAR tSTAR2 tSTRING tSYMBOL tUIDENT tUMINUS tVAR
       type_METHOD type_SIGNATURE type_ANNOTATION type_TYPE
@@ -369,9 +369,40 @@ rule
                                   result = AST::Types::Tuple.new(types: val[1], location: loc)
                                 }
 
+                 hash_elements: # nothing
+                                {
+                                  result = {}
+                                }
+                              | hash_element tCOMMA hash_elements
+                                {
+                                  result = val[0].merge(val[2])
+                                }
+                              | hash_element
+                  hash_element: tINT tROCKET type
+                                {
+                                  result = { val[0].value => val[2] }
+                                }
+                              | tSTRING tROCKET type
+                                {
+                                  result = { val[0].value => val[2] }
+                                }
+                              | tSYMBOL tROCKET type
+                                {
+                                  result = { val[0].value => val[2] }
+                                }
+                              | keyword tCOLON type
+                                {
+                                  result = { val[0].value => val[2] }
+                                }
+
                     paren_type: tLPAREN type tRPAREN
                                 {
                                   result = val[1].with_location(val[0].location + val[2].location)
+                                }
+                              | tLBRACE hash_elements tRBRACE
+                                {
+                                  location = val[0].location + val[2].location
+                                  result = AST::Types::Hash.new(elements: val[1], location: location)
                                 }
                               | simple_type
 
@@ -1081,6 +1112,8 @@ def next_token
     new_token(:tLT)
   when input.scan(/\^/)
     new_token(:tHAT, :"^")
+  when input.scan(/=>/)
+    new_token(:tROCKET, :"=>")
   when input.scan(/(\[\]=)|(\[\])|===|==|!=|<<|=~/)
     new_token(:tOPERATOR, input.matched.to_sym)
   when input.scan(/\[/)
