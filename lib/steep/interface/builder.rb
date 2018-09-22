@@ -227,7 +227,7 @@ module Steep
         sig.members.each do |member|
           case member
           when AST::Signature::Members::Include
-            member_name = signatures.find_module(member.name, current_module: AST::Namespace.root).name
+            member_name = signatures.find_module(member.name, current_module: namespace).name
             build_module(member_name).yield_self do |module_interface|
               merge_mixin(module_interface,
                           [],
@@ -237,7 +237,7 @@ module Steep
                           current: namespace)
             end
           when AST::Signature::Members::Extend
-            member_name = signatures.find_module(member.name, current_module: AST::Namespace.root).name
+            member_name = signatures.find_module(member.name, current_module: namespace).name
             build_instance(member_name, with_initialize: false).yield_self do |module_interface|
               merge_mixin(module_interface,
                           member.args.map {|type| absolute_type(type, current: namespace) },
@@ -330,7 +330,7 @@ module Steep
         sig.members.each do |member|
           case member
           when AST::Signature::Members::Include
-            member_name = signatures.find_module(member.name, current_module: AST::Namespace.root).name
+            member_name = signatures.find_module(member.name, current_module: namespace).name
             build_module(member_name).yield_self do |module_interface|
               merge_mixin(module_interface,
                           member.args.map {|type| absolute_type(type, current: namespace) },
@@ -340,7 +340,7 @@ module Steep
                           current: namespace)
             end
           when AST::Signature::Members::Extend
-            member_name = signatures.find_module(member.name, current_module: AST::Namespace.root).name
+            member_name = signatures.find_module(member.name, current_module: namespace).name
             build_instance(member_name, with_initialize: false).yield_self do |module_interface|
               merge_mixin(module_interface,
                           member.args.map {|type| absolute_type(type, current: namespace) },

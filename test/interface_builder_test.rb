@@ -27,7 +27,7 @@ class BasicObject
   def initialize: () -> any
 end
 class Module
-  def ancestors: -> Array<Module>
+  def ancestors: -> any
 end
 
 class Numeric
@@ -406,7 +406,7 @@ end
 
     interface.methods[:ancestors].tap do |method|
       assert_instance_of Interface::Method, method
-      assert_equal "-> Array<Module>", method.types[0].location.source
+      assert_equal "-> any", method.types[0].location.source
       assert_nil method.super_method
     end
 
@@ -776,6 +776,35 @@ end
       interface = builder.instance_to_interface(klass, with_initialize: true)
       assert_operator interface.methods[:initialize], :incompatible?
       refute_nil interface.methods[:initialize].super_method
+    end
+  end
+
+  def test_relative_include
+    signatures = signatures(<<-EOF)
+module A::B::C
+end
+
+class A::B::X
+  include C
+  extend C
+end
+
+module A::B::Y
+  include C
+  extend C
+end
+    EOF
+
+    builder = Builder.new(signatures: signatures)
+
+    signatures.find_class(Names::Module.parse("::A::B::X")).yield_self do |klass|
+      builder.instance_to_interface(klass, with_initialize: true)
+      builder.class_to_interface(klass, constructor: true)
+    end
+
+    signatures.find_module(Names::Module.parse("::A::B::Y")).yield_self do |klass|
+      builder.instance_to_interface(klass, with_initialize: true)
+      builder.module_to_interface(klass)
     end
   end
 end
