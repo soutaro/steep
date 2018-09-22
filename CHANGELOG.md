@@ -2,6 +2,14 @@
 
 ## master
 
+## 0.6.0 (2018-09-23)
+
+* Update ast_utils
+* Introduce *hash* type `{ id: Integer, name: String }` (#54)
+* Revise signature syntax; use `<` instead of `<:` for inheritance (#53)
+* Interface and alias name can be namespaced (#52)
+* Grammar formatting (#51 @iliabylich)
+
 ## 0.5.1 (2018-08-11)
 
 * Relax dependency requirements (#49, #50)
@@ -12,7 +20,7 @@
 * Introduce *incompatible* method (#45)
 * Add type alias (#44)
 * Steep is MIT license (#43)
-* Improved block parameter typing (#41) 
+* Improved block parameter typing (#41)
 * Support optional block
 * Support attributes in module
 * Support `:xstr` node
