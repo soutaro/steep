@@ -38,7 +38,7 @@ module Steep
     end
 
     def self.parser
-      ::Parser::CurrentRuby.new(Builder.new).tap do |parser|
+      ::Parser::Ruby25.new(Builder.new).tap do |parser|
         parser.diagnostics.all_errors_are_fatal = true
         parser.diagnostics.ignore_warnings = true
       end
@@ -60,7 +60,7 @@ module Steep
       _, comments, _ = yield_self do
         buffer = ::Parser::Source::Buffer.new(path.to_s)
         buffer.source = source_code
-        parser = ::Parser::CurrentRuby.new
+        parser = ::Parser::Ruby25.new
 
         parser.tokenize(buffer)
       end
