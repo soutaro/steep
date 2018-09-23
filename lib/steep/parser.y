@@ -667,6 +667,15 @@ rule
                                     type: val[2]
                                   )
                                 }
+                              | kAT_TYPE tCOLON type
+                                {
+                                  loc = val.first.location + val.last.location
+                                  result = AST::Signature::Members::Ivar.new(
+                                    location: loc,
+                                    name: :"@type",
+                                    type: val[2]
+                                  )
+                                }
 
         instance_method_member: kDEF method_annotations method_name tCOLON method_type_union
                                 {
