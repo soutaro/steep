@@ -1129,10 +1129,19 @@ module Steep
         when :array
           yield_self do
             if node.children.empty?
-              unless hint
-                typing.add_error Errors::FallbackAny.new(node: node)
-              end
-              typing.add_typing(node, AST::Builtin::Array.instance_type(AST::Builtin.any_type))
+              typing.add_error Errors::FallbackAny.new(node: node) unless hint
+
+              array_type = if hint
+                             relation = Subtyping::Relation.new(
+                               sub_type: AST::Builtin::Array.instance_type(AST::Builtin.any_type),
+                               super_type: hint
+                             )
+                             if checker.check(relation, constraints: Subtyping::Constraints.empty).success?
+                               hint
+                             end
+                           end
+
+              typing.add_typing(node, array_type || AST::Builtin::Array.instance_type(AST::Builtin.any_type))
             else
               is_tuple = nil
 
@@ -1749,46 +1758,49 @@ module Steep
         receiver_type = unwrap(receiver_type)
       end
 
-      case receiver_type
-      when AST::Types::Any
-        typing.add_typing node, AST::Builtin.any_type
+      return_type = case receiver_type
+                    when AST::Types::Any
+                      typing.add_typing node, AST::Builtin.any_type
 
-      when nil
-        fallback_to_any node
+                    when nil
+                      fallback_to_any node
 
-      else
-        begin
-          interface = checker.resolve(receiver_type)
+                    else
+                      begin
+                        interface = checker.resolve(receiver_type)
 
-          method = interface.methods[method_name]
+                        method = interface.methods[method_name]
 
-          if method
-            args = TypeInference::SendArgs.from_nodes(arguments)
-            return_type_or_error = type_method_call(node,
-                                                    method: method,
-                                                    args: args,
-                                                    block_params: block_params,
-                                                    block_body: block_body,
-                                                    receiver_type: receiver_type)
+                        if method
+                          args = TypeInference::SendArgs.from_nodes(arguments)
+                          return_type_or_error = type_method_call(node,
+                                                                  method: method,
+                                                                  args: args,
+                                                                  block_params: block_params,
+                                                                  block_body: block_body,
+                                                                  receiver_type: receiver_type)
 
-            if return_type_or_error.is_a?(Errors::Base)
-              fallback_to_any node do
-                return_type_or_error
-              end
-            else
-              typing.add_typing node, return_type_or_error
-            end
-          else
-            fallback_to_any node do
-              Errors::NoMethod.new(node: node, method: method_name, type: receiver_type)
-            end
-          end
-        rescue Subtyping::Check::CannotResolveError
-          fallback_to_any node do
-            Errors::NoMethod.new(node: node, method: method_name, type: receiver_type)
-          end
-        end
-      end.tap do
+                          if return_type_or_error.is_a?(Errors::Base)
+                            fallback_to_any node do
+                              return_type_or_error
+                            end
+                          else
+                            typing.add_typing node, return_type_or_error
+                          end
+                        else
+                          fallback_to_any node do
+                            Errors::NoMethod.new(node: node, method: method_name, type: receiver_type)
+                          end
+                        end
+                      rescue Subtyping::Check::CannotResolveError
+                        fallback_to_any node do
+                          Errors::NoMethod.new(node: node, method: method_name, type: receiver_type)
+                        end
+                      end
+                    end
+
+      case return_type
+      when nil, Errors::Base
         arguments.each do |arg|
           unless typing.has_type?(arg)
             if arg.type == :splat
@@ -1814,6 +1826,8 @@ module Steep
             for_block.synthesize(block_body)
           end
         end
+      else
+        return_type
       end
     end
 

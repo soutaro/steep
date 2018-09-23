@@ -5720,4 +5720,38 @@ end
 
     assert_empty typing.errors
   end
+
+  def test_array_arg
+    source = parse_ruby(<<-EOF)
+WithArray.new.foo(path: [])
+    EOF
+
+    typing = Typing.new
+    checker = new_subtyping_checker(<<-EOF)
+class WithArray
+  def foo: (?path: Array<Symbol>) -> void
+end
+    EOF
+    annotations = source.annotations(block: source.node, builder: checker.builder, current_module: Namespace.root)
+    const_env = ConstantEnv.new(builder: checker.builder, context: nil)
+    type_env = TypeEnv.build(annotations: annotations,
+                             subtyping: checker,
+                             const_env: const_env,
+                             signatures: checker.builder.signatures)
+
+    construction = TypeConstruction.new(checker: checker,
+                                        source: source,
+                                        annotations: annotations,
+                                        type_env: type_env,
+                                        block_context: nil,
+                                        self_type: Types::Name.new_instance(name: "::Object"),
+                                        method_context: nil,
+                                        typing: typing,
+                                        module_context: nil,
+                                        break_context: nil)
+
+    construction.synthesize(source.node)
+
+    assert_empty typing.errors
+  end
 end
