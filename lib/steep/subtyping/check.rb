@@ -147,23 +147,17 @@ module Steep
             results.find(&:failure?)
           end
 
-        when relation.super_type.is_a?(AST::Types::Var)
-          if constraints.unknown?(relation.super_type.name)
-            constraints.add(relation.super_type.name, sub_type: relation.sub_type)
-            success(constraints: constraints)
-          else
-            failure(error: Result::Failure::UnknownPairError.new(relation: relation),
-                    trace: trace)
-          end
+        when relation.super_type.is_a?(AST::Types::Var) && constraints.unknown?(relation.super_type.name)
+          constraints.add(relation.super_type.name, sub_type: relation.sub_type)
+          success(constraints: constraints)
 
-        when relation.sub_type.is_a?(AST::Types::Var)
-          if constraints.unknown?(relation.sub_type.name)
-            constraints.add(relation.sub_type.name, super_type: relation.super_type)
-            success(constraints: constraints)
-          else
-            failure(error: Result::Failure::UnknownPairError.new(relation: relation),
-                    trace: trace)
-          end
+        when relation.sub_type.is_a?(AST::Types::Var) && constraints.unknown?(relation.sub_type.name)
+          constraints.add(relation.sub_type.name, super_type: relation.super_type)
+          success(constraints: constraints)
+
+        when relation.super_type.is_a?(AST::Types::Var) || relation.sub_type.is_a?(AST::Types::Var)
+          failure(error: Result::Failure::UnknownPairError.new(relation: relation),
+                  trace: trace)
 
         when relation.sub_type.is_a?(AST::Types::Name::Base) && relation.super_type.is_a?(AST::Types::Name::Base)
           if (pairs = extract_nominal_pairs(relation))

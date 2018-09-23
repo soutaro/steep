@@ -1932,6 +1932,8 @@ module Steep
         occurence = Subtyping::VariableOccurence.from_method_type(method_type)
 
         arg_pairs.each do |(arg_node, param_type)|
+          param_type = param_type.subst(instantiation)
+
           arg_type = if arg_node.type == :splat
                        type = construction.synthesize(arg_node.children[0])
                        child_typing.add_typing(arg_node, type)
@@ -1941,7 +1943,7 @@ module Steep
 
           relation = Subtyping::Relation.new(
             sub_type: arg_type,
-            super_type: param_type.subst(instantiation)
+            super_type: param_type
           )
 
           checker.check(relation, constraints: constraints).else do |result|

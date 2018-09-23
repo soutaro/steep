@@ -5670,4 +5670,54 @@ EOF
       error.is_a?(Steep::Errors::IncompatibleAssignment)
     end
   end
+
+  def test_polymorphic_method
+    source = parse_ruby(<<-EOF)
+class WithPolyMethod
+  def foo(x)
+    Factory.new(x)
+  end
+end
+    EOF
+
+    typing = Typing.new
+    checker = new_subtyping_checker(<<-EOF)
+interface _A<'a>
+  def get: -> 'a
+end
+
+class Factory<'a>
+  def initialize: (_A<'a>) -> any
+end
+
+class WithPolyMethod
+  def foo: <'x> (_A<'x>) -> Factory<'x>
+end
+    EOF
+    annotations = source.annotations(block: source.node, builder: checker.builder, current_module: Namespace.root)
+    const_env = ConstantEnv.new(builder: checker.builder, context: nil)
+    type_env = TypeEnv.build(annotations: annotations,
+                             subtyping: checker,
+                             const_env: const_env,
+                             signatures: checker.builder.signatures)
+
+    construction = TypeConstruction.new(checker: checker,
+                                        source: source,
+                                        annotations: annotations,
+                                        type_env: type_env,
+                                        block_context: nil,
+                                        self_type: Types::Name.new_instance(name: "::Object"),
+                                        method_context: nil,
+                                        typing: typing,
+                                        module_context: nil,
+                                        break_context: nil)
+
+    construction.synthesize(source.node)
+
+    typing.errors.each do |error|
+      error.print_to(STDOUT)
+    end
+
+    assert_empty typing.errors
+  end
 end
