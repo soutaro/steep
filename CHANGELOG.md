@@ -2,6 +2,16 @@
 
 ## master
 
+## 0.7.0 (2018-09-24)
+
+* Add some builtin
+* Fix array argument typing
+* Allow `@type` instance variable declaration in signature
+* Fix `@type` annotation parsing
+* Fix polymorphic method type inference
+* Fix relative module lookup
+* Fix module name tokenization
+
 ## 0.6.0 (2018-09-23)
 
 * Update ast_utils
