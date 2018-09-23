@@ -26,6 +26,10 @@ class Object < BasicObject
   def !: -> bool
   def Array: (any) -> Array<any>
   def Hash: (any) -> Hash<any, any>
+  def instance_eval: <'x> { (self) -> 'x } -> 'x
+                   | (String, ?String, ?Integer) -> any
+  def define_singleton_method: (Symbol | String, any) -> Symbol
+                             | (Symbol) { (*any) -> any } -> Symbol
 end
 
 class Module
@@ -234,6 +238,7 @@ class Hash<'key, 'value>
           | -> Enumerator<['key, 'value], self>
   def key?: ('key) -> bool
   def merge: (Hash<'key, 'value>) -> Hash<'key, 'value>
+  def delete: ('key) -> 'value?
 
   include Enumerable<['key, 'value], self>
 end
