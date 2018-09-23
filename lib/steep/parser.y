@@ -918,7 +918,7 @@ rule
                                                                         name: val[2].value,
                                                                         type: val[4])
                                 }
-                              | kAT_TYPE kMETHOD subject tCOLON method_type
+                              | kAT_TYPE kMETHOD method_name tCOLON method_type
                                 {
                                   loc = val.first.location + val.last.location
                                   result = AST::Annotation::MethodType.new(location: loc,
