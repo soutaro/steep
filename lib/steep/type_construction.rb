@@ -2499,7 +2499,7 @@ module Steep
       if hint.is_a?(AST::Types::Hash)
         typing.new_child do |child_typing|
           new_construction = with_new_typing(child_typing)
-          elem_types = hint.elements.dup
+          elements = {}
 
           each_child_node(node) do |child|
             case child.type
@@ -2513,22 +2513,28 @@ module Steep
                             return nil
                           end
 
-              return nil unless elem_types.key?(key_value)
-
               key_hint = AST::Types::Literal.new(value: key_value)
-              value_hint = elem_types.delete(key_value)
+              value_hint = hint.elements[key_value]
 
-              new_construction.check(key, key_hint) { return nil }
-              new_construction.check(value, value_hint) { return nil }
+              value_type = new_construction.synthesize(value, hint: value_hint)
+
+              if value_hint
+                relation = Subtyping::Relation.new(sub_type: value_type, super_type: value_hint)
+                if checker.check(relation, constraints: Subtyping::Constraints.empty).success?
+                  value_type = value_hint
+                end
+              end
+
+              elements[key_value] = value_type
             else
               return nil
             end
           end
 
-          return nil unless elem_types.empty?
-
           child_typing.save!
-          return typing.add_typing(node, hint)
+
+          hash = AST::Types::Hash.new(elements: elements)
+          typing.add_typing(node, hash)
         end
       end
     end
