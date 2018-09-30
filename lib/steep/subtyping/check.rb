@@ -225,6 +225,25 @@ module Steep
                           trace: trace,
                           constraints: constraints)
 
+        when relation.sub_type.is_a?(AST::Types::Hash) && relation.super_type.is_a?(AST::Types::Hash)
+          if Set.new(relation.sub_type.elements.keys).superset?(Set.new(relation.super_type.elements.keys))
+            keys = relation.super_type.elements.keys
+            type_pairs = keys.map {|key| [relation.sub_type.elements[key], relation.super_type.elements[key]] }
+            results = type_pairs.flat_map do |t1, t2|
+              relation = Relation.new(sub_type: t1, super_type: t2)
+              [check0(relation, assumption: assumption, trace: trace, constraints: constraints),
+               check0(relation.flip, assumption: assumption, trace: trace, constraints: constraints)]
+            end
+
+            if results.all?(&:success?)
+              success(constraints: constraints)
+            else
+              results.find(&:failure?)
+            end
+          else
+            failure(error: Result::Failure::UnknownPairError.new(relation: relation),
+                    trace: trace)
+          end
         else
           failure(error: Result::Failure::UnknownPairError.new(relation: relation),
                   trace: trace)
