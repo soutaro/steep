@@ -991,16 +991,47 @@ type foo = String | Integer
       trace: Subtyping::Trace.new
     )
     assert_instance_of Subtyping::Result::Success, result
+  end
 
+  def test_hash2
+    checker = new_checker("")
+
+    constraints = Subtyping::Constraints.new(unknowns: [:a])
     result = checker.check0(
       Subtyping::Relation.new(
         sub_type: parse_type("{ foo: Integer }"),
-        super_type: parse_type("{ }")
+        super_type: parse_type("{ foo: 'a }")
       ),
-      constraints: Subtyping::Constraints.empty,
+      constraints: constraints,
       assumption: Set.new,
       trace: Subtyping::Trace.new
     )
-    assert_instance_of Subtyping::Result::Failure, result
+    assert_instance_of Subtyping::Result::Success, result
+
+    assert_equal({ a: parse_type("Integer") },
+                 constraints.solution(checker,
+                                      variance: Subtyping::VariableVariance.new(covariants: Set.new, contravariants: Set.new),
+                                      variables: [:a]).dictionary)
+  end
+
+  def test_hash3
+    checker = new_checker("")
+
+    constraints = Subtyping::Constraints.new(unknowns: [:a])
+    result = checker.check0(
+      Subtyping::Relation.new(
+        sub_type: parse_type("{ foo: Integer, bar: String }"),
+        super_type: parse_type("{ foo: 'a }")
+      ),
+      constraints: constraints,
+      assumption: Set.new,
+      trace: Subtyping::Trace.new
+    )
+    assert_instance_of Subtyping::Result::Success, result
+
+    assert_equal({ a: parse_type("Integer") },
+                 constraints.solution(checker,
+                                      variance: Subtyping::VariableVariance.new(covariants: Set.new, contravariants: Set.new),
+                                      variables: [:a]).dictionary)
   end
 end

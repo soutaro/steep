@@ -225,6 +225,25 @@ module Steep
                           trace: trace,
                           constraints: constraints)
 
+        when relation.sub_type.is_a?(AST::Types::Hash) && relation.super_type.is_a?(AST::Types::Hash)
+          if Set.new(relation.sub_type.elements.keys).superset?(Set.new(relation.super_type.elements.keys))
+            keys = relation.super_type.elements.keys
+            type_pairs = keys.map {|key| [relation.sub_type.elements[key], relation.super_type.elements[key]] }
+            results = type_pairs.flat_map do |t1, t2|
+              relation = Relation.new(sub_type: t1, super_type: t2)
+              [check0(relation, assumption: assumption, trace: trace, constraints: constraints),
+               check0(relation.flip, assumption: assumption, trace: trace, constraints: constraints)]
+            end
+
+            if results.all?(&:success?)
+              success(constraints: constraints)
+            else
+              results.find(&:failure?)
+            end
+          else
+            failure(error: Result::Failure::UnknownPairError.new(relation: relation),
+                    trace: trace)
+          end
         else
           failure(error: Result::Failure::UnknownPairError.new(relation: relation),
                   trace: trace)
@@ -572,51 +591,6 @@ module Steep
           check(relation, assumption: assumption, trace: trace, constraints: constraints)
         else
           success(constraints: constraints)
-        end
-      end
-
-      def module_type(type)
-        case type.name
-        when TypeName::Instance
-          case
-          when builder.signatures.class_name?(type.name.name)
-            type.class_type(constructor: nil)
-          when builder.signatures.module_name?(type.name.name)
-            type.module_type
-          end
-        else
-          nil
-        end
-      end
-
-      def compact(types)
-        types = types.reject {|type| type.is_a?(AST::Types::Any) }
-
-        if types.empty?
-          [AST::Types::Any.new]
-        else
-          compact0(types)
-        end
-      end
-
-      def compact0(types)
-        if types.size == 1
-          types
-        else
-          type, *types_ = types
-          compacted = compact0(types_)
-          compacted.flat_map do |type_|
-            case
-            when type == type_
-              [type]
-            when check(Relation.new(sub_type: type_, super_type: type), constraints: Constraints.empty).success?
-              [type]
-            when check(Relation.new(sub_type: type, super_type: type_), constraints: Constraints.empty).success?
-              [type_]
-            else
-              [type, type_]
-            end
-          end.uniq
         end
       end
 
