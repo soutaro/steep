@@ -29,7 +29,7 @@ module Steep
             builder = Interface::Builder.new(signatures: env)
             check = Subtyping::Check.new(builder: builder)
 
-            interface = check.resolve(type, with_initialize: true)
+            interface = check.resolve(type)
 
             stdout.puts "#{type}"
             stdout.puts "- Instance variables:"
