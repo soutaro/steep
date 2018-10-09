@@ -16,7 +16,7 @@ module Steep
     end
 
     def self.available_commands
-      [:check, :validate, :annotations, :scaffold, :interface]
+      [:check, :validate, :annotations, :scaffold, :interface, :version]
     end
 
     def setup_global_options
@@ -126,6 +126,10 @@ module Steep
       end
 
       Drivers::PrintInterface.new(type_name: argv.first, signature_dirs: signature_dirs, stdout: stdout, stderr: stderr).run
+    end
+
+    def process_version
+      stdout.puts Steep::VERSION
     end
   end
 end
