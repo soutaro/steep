@@ -65,8 +65,6 @@ module Steep
             Steep.logger.debug "Typechecking..."
             annotations = source.annotations(block: source.node, builder: check.builder, current_module: AST::Namespace.root)
 
-            pp annotations if verbose
-
             const_env = TypeInference::ConstantEnv.new(builder: check.builder, context: nil)
             type_env = TypeInference::TypeEnv.build(annotations: annotations,
                                                     subtyping: check,
