@@ -6,13 +6,13 @@ class ArgsTest < Minitest::Test
   SendArgs = Steep::TypeInference::SendArgs
   Params = Steep::Interface::Params
   Types = Steep::AST::Types
+  AST = Steep::AST
 
   def test_1
     nodes = parse_ruby("foo(1, 2, *rest, k1: foo(), k2: bar(), **k3, &proc)").node.children.drop(2)
     args = SendArgs.from_nodes(nodes)
 
-    assert_equal [nodes[0], nodes[1], nodes[2]], args.args
-    assert_equal nodes[3], args.kw_args
+    assert_equal [nodes[0], nodes[1], nodes[2], nodes[3]], args.args
     assert_equal nodes[4], args.block_pass_arg
   end
 
@@ -20,8 +20,7 @@ class ArgsTest < Minitest::Test
     nodes = parse_ruby("foo({ k1: foo(), k2: bar() }, **k3)").node.children.drop(2)
     args = SendArgs.from_nodes(nodes)
 
-    assert_equal [nodes[0]], args.args
-    assert_equal nodes[1], args.kw_args
+    assert_equal [nodes[0], nodes[1]], args.args
   end
 
   def test_3
@@ -29,298 +28,292 @@ class ArgsTest < Minitest::Test
     args = SendArgs.from_nodes(nodes)
 
     assert_equal [nodes[0]], args.args
-    assert_nil args.kw_args
   end
 
-  def test_zip1
+  def test_zip_0
     params = Params.new(
-      required: [Types::Name.new_instance(name: :Integer)],
-      optional: [Types::Name.new_instance(name: :String)],
-      rest: nil,
-      required_keywords: {},
-      optional_keywords: {},
-      rest_keywords: nil
-    )
-
-    args = SendArgs.from_nodes(parse_ruby("foo(:a, :b)").node.children.drop(2))
-
-    pairs = args.zip(params, nil)
-
-    refute_nil pairs
-    assert_equal Set.new([
-                           [parse_ruby(":a").node, Types::Name.new_instance(name: :Integer)],
-                           [parse_ruby(":b").node, Types::Name.new_instance(name: :String)]
-                         ]),
-                 pairs
-  end
-
-  def test_zip2
-    params = Params.new(
-      required: [Types::Name.new_instance(name: :Integer),
-                 Types::Name.new_instance(name: :String)],
+      required: [parse_type("Integer"), parse_type("String")],
       optional: [],
       rest: nil,
-      required_keywords: {},
-      optional_keywords: {},
-      rest_keywords: nil
-    )
-
-    SendArgs.from_nodes(parse_ruby("foo(:a, x: 1)").node.children.drop(2)).yield_self do |args|
-      pairs = args.zip(params, nil)
-
-      refute_nil pairs
-      assert_equal Set.new([
-                             [args.args[0], Types::Name.new_instance(name: :Integer)],
-                             [args.kw_args, Types::Name.new_instance(name: :String)],
-                           ]),
-                   pairs
-    end
-
-    SendArgs.from_nodes(parse_ruby("foo(*args)").node.children.drop(2)).yield_self do |args|
-      pairs = args.zip(params, nil)
-
-      refute_nil pairs
-      assert_equal Set.new([
-                             [args.args[0],
-                              Types::Name.new_instance(name: "::Array",
-                                                       args: [
-                                                         Types::Union.build(types: [
-                                                           Types::Name.new_instance(name: :Integer),
-                                                           Types::Name.new_instance(name: :String),
-                                                         ])
-                                                       ])]
-                           ]),
-                   pairs
-    end
-  end
-
-  def test_zip3
-    params = Params.new(
-      required: [],
-      optional: [],
-      rest: nil,
-      required_keywords: { foo: Types::Name.new_instance(name: :Object) },
-      optional_keywords: { bar: Types::Name.new_instance(name: :Integer) },
-      rest_keywords: nil
-    )
-
-    SendArgs.from_nodes(parse_ruby("foo(foo: 1)").node.children.drop(2)).yield_self do |args|
-      pairs = args.zip(params, nil)
-
-      refute_nil pairs
-      assert_equal Set.new([
-                             [parse_ruby("1").node, Types::Name.new_instance(name: :Object)]
-                           ]),
-                   pairs
-    end
-
-    SendArgs.from_nodes(parse_ruby("foo(foo: 1, bar: 2)").node.children.drop(2)).yield_self do |args|
-      pairs = args.zip(params, nil)
-
-      refute_nil pairs
-      assert_equal Set.new([
-                             [parse_ruby("1").node, Types::Name.new_instance(name: :Object)],
-                             [parse_ruby("2").node, Types::Name.new_instance(name: :Integer)]
-                           ]),
-                   pairs
-    end
-
-    SendArgs.from_nodes(parse_ruby("foo(bar: 2)").node.children.drop(2)).yield_self do |args|
-      pairs = args.zip(params, nil)
-
-      assert_nil pairs
-    end
-
-    SendArgs.from_nodes(parse_ruby("foo(foo: 2, baz: 3)").node.children.drop(2)).yield_self do |args|
-      pairs = args.zip(params, nil)
-
-      assert_nil pairs
-    end
-  end
-
-  def test_zip4
-    params = Params.new(
-      required: [],
-      optional: [],
-      rest: nil,
-      required_keywords: { foo: Types::Name.new_instance(name: :Object) },
-      optional_keywords: { bar: Types::Name.new_instance(name: :Integer) },
-      rest_keywords: Types::Name.new_instance(name: :String)
-    )
-
-    SendArgs.from_nodes(parse_ruby("foo(foo: 1)").node.children.drop(2)).yield_self do |args|
-      pairs = args.zip(params, nil)
-
-      refute_nil pairs
-      assert_equal Set.new([
-                             [parse_ruby("1").node, Types::Name.new_instance(name: :Object)]
-                           ]),
-                   pairs
-    end
-
-    SendArgs.from_nodes(parse_ruby("foo(foo: 1, baz: 3, **params)").node.children.drop(2)).yield_self do |args|
-      pairs = args.zip(params, nil)
-
-      refute_nil pairs
-      assert_equal Set.new([
-                             [parse_ruby("1").node, Types::Name.new_instance(name: :Object)],
-                             [parse_ruby("3").node, Types::Name.new_instance(name: :String)],
-                             [args.kw_args, Types::Name.new_instance(name: "::Hash",
-                                                                     args: [
-                                                                       Types::Name.new_instance(name: "::Symbol"),
-                                                                       Types::Union.build(types: [
-                                                                         Types::Name.new_instance(name: :String),
-                                                                         Types::Name.new_instance(name: :Integer)
-                                                                       ])
-                                                                     ])]
-                           ]),
-                   pairs
-    end
-  end
-
-  def test_zip5
-    params = Params.new(
-      required: [Types::Name.new_instance(name: :Integer)],
-      optional: [Types::Name.new_instance(name: :String)],
-      rest: Types::Name.new_instance(name: :Object),
       required_keywords: {},
       optional_keywords: {},
       rest_keywords: nil
     )
 
     SendArgs.from_nodes(parse_ruby("foo(:a, :b)").node.children.drop(2)).yield_self do |args|
-      pairs = args.zip(params, nil)
+      pairs, *rest = args.zips(params, nil)
 
-      refute_nil pairs
-      assert_equal Set.new([
-                             [parse_ruby(":a").node, Types::Name.new_instance(name: :Integer)],
-                             [parse_ruby(":b").node, Types::Name.new_instance(name: :String)]
-                           ]),
-                   pairs
+      assert_empty rest
+
+      assert_equal [
+                     [parse_ruby(":a").node, parse_type("Integer")],
+                     [parse_ruby(":b").node, parse_type("String")]
+                   ], pairs
     end
 
-    SendArgs.from_nodes(parse_ruby("foo(:a, :b, :c)").node.children.drop(2)).yield_self do |args|
-      pairs = args.zip(params, nil)
-
-      refute_nil pairs
-      assert_equal Set.new([
-                             [parse_ruby(":a").node, Types::Name.new_instance(name: :Integer)],
-                             [parse_ruby(":b").node, Types::Name.new_instance(name: :String)],
-                             [parse_ruby(":c").node, Types::Name.new_instance(name: :Object)]
-                           ]),
-                   pairs
+    SendArgs.from_nodes(parse_ruby("foo(:a)").node.children.drop(2)).yield_self do |args|
+      zips = args.zips(params, nil)
+      assert_empty zips
     end
 
-    SendArgs.from_nodes(parse_ruby("foo(:a, :b, :c, *d)").node.children.drop(2)).yield_self do |args|
-      pairs = args.zip(params, nil)
-
-      refute_nil pairs
-      assert_equal Set.new([
-                             [parse_ruby(":a").node, Types::Name.new_instance(name: :Integer)],
-                             [parse_ruby(":b").node, Types::Name.new_instance(name: :String)],
-                             [parse_ruby(":c").node, Types::Name.new_instance(name: :Object)],
-                             [args.args[3], Types::Name.new_instance(name: "::Array",
-                                                                     args: [
-                                                                       Types::Name.new_instance(name: :Object)
-                                                                     ])]
-                           ]),
-                   pairs
-    end
-
-    SendArgs.from_nodes(parse_ruby("foo(:a, :b, :c, *d, :e)").node.children.drop(2)).yield_self do |args|
-      pairs = args.zip(params, nil)
-
-      refute_nil pairs
-      assert_equal Set.new([
-                             [parse_ruby(":a").node, Types::Name.new_instance(name: :Integer)],
-                             [parse_ruby(":b").node, Types::Name.new_instance(name: :String)],
-                             [parse_ruby(":c").node, Types::Name.new_instance(name: :Object)],
-                             [args.args[3], Types::Name.new_instance(name: "::Array",
-                                                                     args: [
-                                                                       Types::Name.new_instance(name: :Object)
-                                                                     ])],
-                             [parse_ruby(":e").node, Types::Name.new_instance(name: :Object)],
-                           ]),
-                   pairs
-    end
-
-    SendArgs.from_nodes(parse_ruby("foo(:a, *b, :c)").node.children.drop(2)).yield_self do |args|
-      pairs = args.zip(params, nil)
-
-      refute_nil pairs
-      assert_equal Set.new([
-                             [parse_ruby(":a").node, Types::Name.new_instance(name: :Integer)],
-                             [args.args[1],
-                              Types::Name.new_instance(name: "::Array",
-                                                       args: [
-                                                         Types::Union.build(types: [
-                                                           Types::Name.new_instance(name: :Object),
-                                                           Types::Name.new_instance(name: :String),
-                                                         ])
-                                                       ])],
-                             [parse_ruby(":c").node,
-                              Types::Union.build(types: [
-                                Types::Name.new_instance(name: :Object),
-                                Types::Name.new_instance(name: :String),
-                              ])]
-                           ]),
-                   pairs
-    end
-
-    SendArgs.from_nodes(parse_ruby("foo(*a, :b, *c)").node.children.drop(2)).yield_self do |args|
-      pairs = args.zip(params, nil)
-
-      refute_nil pairs
-      assert_equal Set.new([
-                             [args.args[0],
-                              Types::Name.new_instance(name: "::Array",
-                                                       args: [
-                                                         Types::Union.build(types: [
-                                                           Types::Name.new_instance(name: :Integer),
-                                                           Types::Name.new_instance(name: :Object),
-                                                           Types::Name.new_instance(name: :String),
-                                                         ])
-                                                       ])],
-                             [args.args[1],
-                              Types::Union.build(types: [
-                                Types::Name.new_instance(name: :Integer),
-                                Types::Name.new_instance(name: :Object),
-                                Types::Name.new_instance(name: :String),
-                              ])],
-                             [args.args[2],
-                              Types::Name.new_instance(name: "::Array",
-                                                       args: [
-                                                         Types::Union.build(types: [
-                                                           Types::Name.new_instance(name: :Integer),
-                                                           Types::Name.new_instance(name: :Object),
-                                                           Types::Name.new_instance(name: :String),
-                                                         ])
-                                                       ])],
-                           ]),
-                   pairs
+    SendArgs.from_nodes(parse_ruby("foo(1, 2, 3)").node.children.drop(2)).yield_self do |args|
+      zips = args.zips(params, nil)
+      assert_empty zips
     end
   end
 
-  def test_zip6
+  def test_zip_1
     params = Params.new(
-      required: [Types::Name.new_instance(name: :Integer)],
-      optional: [Types::Name.new_instance(name: :String)],
+      required: [],
+      optional: [parse_type("Integer"), parse_type("String")],
       rest: nil,
       required_keywords: {},
       optional_keywords: {},
       rest_keywords: nil
     )
-    proc = Types::Proc.new(params: Params.empty, return_type: parse_type("String"))
 
-    args = SendArgs.from_nodes(parse_ruby("foo(:a, :b, &bar)").node.children.drop(2))
+    SendArgs.from_nodes(parse_ruby("foo(:a)").node.children.drop(2)).yield_self do |args|
+      pairs, *rest = args.zips(params, nil)
+      assert_empty rest
+      assert_equal [[parse_ruby(":a").node, parse_type("Integer")]], pairs
+    end
 
-    pairs = args.zip(params, proc)
+    SendArgs.from_nodes(parse_ruby("foo()").node.children.drop(2)).yield_self do |args|
+      pairs, *rest = args.zips(params, nil)
+      assert_empty rest
+      assert_empty pairs
+    end
 
-    refute_nil pairs
-    assert_equal Set.new([
-                           [parse_ruby(":a").node, Types::Name.new_instance(name: :Integer)],
-                           [parse_ruby(":b").node, Types::Name.new_instance(name: :String)],
-                         ]),
-                 pairs
+    SendArgs.from_nodes(parse_ruby("foo(1, 2, 3)").node.children.drop(2)).yield_self do |args|
+      zips = args.zips(params, nil)
+      assert_empty zips
+    end
+  end
+
+  def test_zip_2
+    params = Params.new(
+      required: [parse_type("Integer")],
+      optional: [],
+      rest: nil,
+      required_keywords: { name: parse_type("String") },
+      optional_keywords: {},
+      rest_keywords: nil
+    )
+
+    SendArgs.from_nodes(parse_ruby("foo(:a, name: 'hello')").node.children.drop(2)).yield_self do |args|
+      pairs, *rest = args.zips(params, nil)
+      assert_empty rest
+      assert_equal [
+                     [parse_ruby(":a").node, parse_type("Integer")],
+                     parse_ruby("{ name: 'hello' }").node
+                   ], pairs
+    end
+
+    SendArgs.from_nodes(parse_ruby("foo(:a)").node.children.drop(2)).yield_self do |args|
+      zips = args.zips(params, nil)
+      assert_empty zips
+    end
+
+    SendArgs.from_nodes(parse_ruby("foo(1, 2)").node.children.drop(2)).yield_self do |args|
+      pairs, *rest = args.zips(params, nil)
+      assert_empty rest
+      assert_equal [
+                     [parse_ruby("1").node, parse_type("Integer")],
+                     parse_ruby("2").node
+                   ], pairs
+    end
+  end
+
+  def test_zip_3
+    params = Params.new(
+      required: [],
+      optional: [parse_type("Symbol")],
+      rest: nil,
+      required_keywords: {},
+      optional_keywords: { name: parse_type("String") },
+      rest_keywords: nil
+    )
+
+    SendArgs.from_nodes(parse_ruby("foo(:a, name: 'hello')").node.children.drop(2)).yield_self do |args|
+      pairs, *rest = args.zips(params, nil)
+      assert_empty rest
+      assert_equal [
+                     [parse_ruby(":a").node, parse_type("Symbol")],
+                     parse_ruby("{ name: 'hello' }").node
+                   ], pairs
+    end
+
+    SendArgs.from_nodes(parse_ruby("foo(:a)").node.children.drop(2)).yield_self do |args|
+      pairs1, pairs2, *rest = args.zips(params, nil)
+
+      assert_empty rest
+      assert_equal [
+                     parse_ruby(":a").node
+                   ], pairs1
+      assert_equal [
+                     [parse_ruby(":a").node, parse_type("Symbol")]
+                   ], pairs2
+    end
+  end
+
+  def test_zip_4
+    params = Params.new(
+      required: [],
+      optional: [],
+      rest: parse_type("Integer"),
+      required_keywords: {},
+      optional_keywords: { name: parse_type("String") },
+      rest_keywords: nil
+    )
+
+    SendArgs.from_nodes(parse_ruby("foo(:a, name: 'hello')").node.children.drop(2)).yield_self do |args|
+      pairs1, pairs2, *rest = args.zips(params, nil)
+      assert_empty rest
+      assert_equal [
+                     [parse_ruby(":a").node, parse_type("Integer")],
+                     parse_ruby("{ name: 'hello' }").node
+                   ], pairs1
+      assert_equal [
+                     [parse_ruby(":a").node, parse_type("Integer")],
+                     [parse_ruby("{ name: 'hello' }").node, parse_type("Integer")]
+                   ], pairs2
+    end
+
+    SendArgs.from_nodes(parse_ruby("foo()").node.children.drop(2)).yield_self do |args|
+      pairs, *rest = args.zips(params, nil)
+      assert_empty rest
+      assert_equal [], pairs
+    end
+  end
+
+  def params(ruby)
+    parse_ruby(ruby).node.children.drop(2)
+  end
+
+  def test_zip_5
+    params = Params.new(
+      required: [parse_type("String")],
+      optional: [parse_type("Symbol"), parse_type("Integer")],
+      rest: parse_type("Integer"),
+      required_keywords: {},
+      optional_keywords: {},
+      rest_keywords: nil
+    )
+
+    SendArgs.from_nodes(params("foo(1, 2, 3, *args)")).yield_self do |args|
+      pairs, *rest = args.zips(params, nil)
+
+      assert_empty rest
+
+      assert_equal [
+                     [parse_ruby("1").node, parse_type("String")],
+                     [parse_ruby("2").node, parse_type("Symbol")],
+                     [parse_ruby("3").node, parse_type("Integer")],
+                     [args.args[3], parse_type("::Array<Integer>")]
+                   ], pairs
+
+    end
+
+    SendArgs.from_nodes(params("foo(1, 2, *args)")).yield_self do |args|
+      pairs, *rest = args.zips(params, nil)
+
+      assert_empty rest
+
+      assert_equal [
+                     [parse_ruby("1").node, parse_type("String")],
+                     [parse_ruby("2").node, parse_type("Symbol")],
+                     [args.args[2], parse_type("::Array<Integer>")]
+                   ], pairs
+
+    end
+
+    SendArgs.from_nodes(params("foo(1, *args)")).yield_self do |args|
+      pairs, *rest = args.zips(params, nil)
+
+      assert_empty rest
+
+      assert_equal [
+                     [parse_ruby("1").node, parse_type("String")],
+                     [args.args[1],
+                      AST::Types::Intersection.build(types: [
+                        parse_type("::Array<Symbol>"),
+                        parse_type("::Array<Integer>")
+                      ])
+                     ]
+                   ], pairs
+
+    end
+
+    SendArgs.from_nodes(params("foo(*args)")).yield_self do |args|
+      pairs, *rest = args.zips(params, nil)
+
+      assert_empty rest
+      assert_nil pairs
+    end
+  end
+
+  def test_zip_6
+    params = Params.new(
+      required: [],
+      optional: [],
+      rest: parse_type("Integer"),
+      required_keywords: { name: parse_type("String") },
+      optional_keywords: {},
+      rest_keywords: nil
+    )
+
+    SendArgs.from_nodes(params("foo(*args, name: 1)")).yield_self do |args|
+      pairs, *rest = args.zips(params, nil)
+
+      assert_empty rest
+
+      assert_equal [
+                     [args.args[0], parse_type("::Array<Integer>")],
+                     args.args[1]
+                   ], pairs
+    end
+
+    SendArgs.from_nodes(params("foo(*args)")).yield_self do |args|
+      pairs, *rest = args.zips(params, nil)
+
+      assert_empty rest
+      assert_nil pairs
+    end
+  end
+
+  def test_zip_7
+    params = Params.new(
+      required: [],
+      optional: [],
+      rest: parse_type("Integer"),
+      required_keywords: {},
+      optional_keywords: { foo: parse_type("bar") },
+      rest_keywords: nil
+    )
+
+    SendArgs.from_nodes(params("foo(*args, name: 1)")).yield_self do |args|
+      pairs1, pairs2, *rest = args.zips(params, nil)
+
+      assert_empty rest
+
+      assert_equal [
+                     [args.args[0], parse_type("::Array<Integer>")],
+                     args.args[1]
+                   ], pairs1
+
+      assert_equal [
+                     [args.args[0], parse_type("::Array<Integer>")],
+                     [args.args[1], parse_type("Integer")]
+                   ], pairs2
+    end
+
+    SendArgs.from_nodes(params("foo(*args)")).yield_self do |args|
+      pairs, *rest = args.zips(params, nil)
+
+      assert_empty rest
+      assert_equal [
+                     [args.args[0], parse_type("::Array<Integer>")]
+                   ], pairs
+    end
   end
 end

@@ -62,6 +62,35 @@ module Steep
         !required_keywords.empty? || !optional_keywords.empty? || rest_keywords
       end
 
+      def without_keywords
+        self.class.new(
+          required: required,
+          optional: optional,
+          rest: rest,
+          required_keywords: {},
+          optional_keywords: {},
+          rest_keywords: nil
+        )
+      end
+
+      def drop_first
+        case
+        when required.any? || optional.any? || rest
+          self.class.new(
+            required: required.any? ? required.drop(1) : [],
+            optional: required.empty? && optional.any? ? optional.drop(1) : optional,
+            rest: required.empty? && optional.empty? ? nil : rest,
+            required_keywords: required_keywords,
+            optional_keywords: optional_keywords,
+            rest_keywords: rest_keywords
+          )
+        when has_keywords?
+          without_keywords
+        else
+          raise "Cannot drop from empty params"
+        end
+      end
+
       def each_missing_argument(args)
         required.size.times do |index|
           if index >= args.size
@@ -160,10 +189,6 @@ module Steep
         required.all?(&:closed?) && optional.all?(&:closed?) && (!rest || rest.closed?) && required_keywords.values.all?(&:closed?) && optional_keywords.values.all?(&:closed?) && (!rest_keywords || rest_keywords.closed?)
       end
 
-      def has_keyword?
-        required_keywords.any? || optional_keywords.any? || rest_keywords
-      end
-
       def subst(s)
         self.class.new(
           required: required.map {|t| t.subst(s) },
@@ -198,6 +223,10 @@ module Steep
           optional_keywords: optional_keywords.transform_values(&block),
           rest_keywords: rest_keywords && yield(rest_keywords)
         )
+      end
+
+      def empty?
+        required.empty? && optional.empty? && !rest && !has_keywords?
       end
     end
 

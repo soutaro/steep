@@ -503,5 +503,31 @@ module Steep
         "#{location_to_str}: IncompatibleTuple: expected_tuple=#{expected_tuple}"
       end
     end
+
+    class UnexpectedKeyword < Base
+      attr_reader :unexpected_keywords
+
+      def initialize(node:, unexpected_keywords:)
+        super(node: node)
+        @unexpected_keywords = unexpected_keywords
+      end
+
+      def to_s
+        "#{location_to_str}: UnexpectedKeyword: #{unexpected_keywords.join(", ")}"
+      end
+    end
+
+    class MissingKeyword < Base
+      attr_reader :missing_keywords
+
+      def initialize(node:, missing_keywords:)
+        super(node: node)
+        @missing_keywords = missing_keywords
+      end
+
+      def to_s
+        "#{location_to_str}: MissingKeyword: #{missing_keywords.join(", ")}"
+      end
+    end
   end
 end
