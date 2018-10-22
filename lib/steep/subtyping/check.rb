@@ -225,7 +225,7 @@ module Steep
                           trace: trace,
                           constraints: constraints)
 
-        when relation.sub_type.is_a?(AST::Types::Hash) && relation.super_type.is_a?(AST::Types::Hash)
+        when relation.sub_type.is_a?(AST::Types::Record) && relation.super_type.is_a?(AST::Types::Record)
           if Set.new(relation.sub_type.elements.keys).superset?(Set.new(relation.super_type.elements.keys))
             keys = relation.super_type.elements.keys
             type_pairs = keys.map {|key| [relation.sub_type.elements[key], relation.super_type.elements[key]] }
@@ -866,7 +866,7 @@ module Steep
             array_interface
           end
 
-        when AST::Types::Hash
+        when AST::Types::Record
           yield_self do
             key_type = AST::Types::Union.build(types: type.elements.keys.map {|val| AST::Types::Literal.new(value: val) })
             value_type = AST::Types::Union.build(types: type.elements.values)

@@ -1,7 +1,7 @@
 module Steep
   module AST
     module Types
-      class Hash
+      class Record
         attr_reader :location
         attr_reader :elements
 
@@ -11,7 +11,7 @@ module Steep
         end
 
         def ==(other)
-          other.is_a?(Hash) && other.elements == elements
+          other.is_a?(Record) && other.elements == elements
         end
 
         def hash

@@ -402,7 +402,7 @@ rule
                               | tLBRACE hash_elements tRBRACE
                                 {
                                   location = val[0].location + val[2].location
-                                  result = AST::Types::Hash.new(elements: val[1], location: location)
+                                  result = AST::Types::Record.new(elements: val[1], location: location)
                                 }
                               | simple_type
 

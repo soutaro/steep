@@ -2044,7 +2044,7 @@ module Steep
             end
           )
 
-          hash_type = AST::Types::Hash.new(elements: hash_elements)
+          hash_type = AST::Types::Record.new(elements: hash_elements)
         end
 
         node_type = synthesize(node, hint: hash_type)
@@ -2656,7 +2656,7 @@ module Steep
     end
 
     def try_hash_type(node, hint)
-      if hint.is_a?(AST::Types::Hash)
+      if hint.is_a?(AST::Types::Record)
         typing.new_child do |child_typing|
           new_construction = with_new_typing(child_typing)
           elements = {}
@@ -2693,7 +2693,7 @@ module Steep
 
           child_typing.save!
 
-          hash = AST::Types::Hash.new(elements: elements)
+          hash = AST::Types::Record.new(elements: elements)
           typing.add_typing(node, hash)
         end
       end

@@ -253,18 +253,18 @@ class TypeParsingTest < Minitest::Test
 
   def test_hash
     parse_type("{}").yield_self do |type|
-      assert_instance_of AST::Types::Hash, type
+      assert_instance_of AST::Types::Record, type
       assert_equal({}, type.elements)
     end
 
     parse_type("{ 1 => Integer, :foo => :bar, \"baz\" => String }").yield_self do |type|
-      assert_instance_of AST::Types::Hash, type
+      assert_instance_of AST::Types::Record, type
       assert_equal({ 1 => parse_type("Integer"), :foo => parse_type(":bar"), "baz" => parse_type("String") },
                    type.elements)
     end
 
     parse_type("{ foo: String }").yield_self do |type|
-      assert_instance_of AST::Types::Hash, type
+      assert_instance_of AST::Types::Record, type
       assert_equal({ :foo => parse_type("String") }, type.elements)
     end
   end

@@ -314,11 +314,11 @@ class MethodParsingTest < Minitest::Test
     end
 
     Steep::Parser.parse_method("-> { foo: String }").yield_self do |method|
-      assert_instance_of T::Hash, method.return_type
+      assert_instance_of T::Record, method.return_type
     end
 
     Steep::Parser.parse_method("{ -> { foo: String } } -> void").yield_self do |method|
-      assert_instance_of T::Hash, method.block.return_type
+      assert_instance_of T::Record, method.block.return_type
     end
   end
 end
