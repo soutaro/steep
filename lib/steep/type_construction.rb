@@ -1555,13 +1555,13 @@ module Steep
       end
     end
 
-    def check(node, type)
+    def check(node, type, constraints: Subtyping::Constraints.empty)
       type_ = synthesize(node, hint: type)
 
       result = checker.check(
         Subtyping::Relation.new(sub_type: type_,
                                 super_type: type),
-        constraints: Subtyping::Constraints.empty
+        constraints: constraints
       )
       if result.failure?
         yield(type, type_, result)
@@ -1881,24 +1881,36 @@ module Steep
     def type_method_call(node, receiver_type:, method:, args:, block_params:, block_body:)
       results = method.types.map do |method_type|
         Steep.logger.tagged method_type.location&.source do
-          child_typing = typing.new_child
-          arg_pairs = args.zip(method_type.params, method_type.block&.type)
+          zips = args.zips(method_type.params, method_type.block&.type)
 
-          type_or_error = if arg_pairs
-                            self.with_new_typing(child_typing).try_method_type(
-                              node,
-                              receiver_type: receiver_type,
-                              method_type: method_type,
-                              args: args,
-                              arg_pairs: arg_pairs,
-                              block_params: block_params,
-                              block_body: block_body,
-                              child_typing: child_typing
-                            )
-                          else
-                            Steep.logger.debug(node.inspect)
-                            Errors::IncompatibleArguments.new(node: node, receiver_type: receiver_type, method_type: method_type)
-                          end
+          type_or_error, child_typing = if zips.any?
+                                          zips.map do |arg_pairs|
+                                            child_typing = typing.new_child
+
+                                            result = self.with_new_typing(child_typing).try_method_type(
+                                              node,
+                                              receiver_type: receiver_type,
+                                              method_type: method_type,
+                                              args: args,
+                                              arg_pairs: arg_pairs,
+                                              block_params: block_params,
+                                              block_body: block_body,
+                                              child_typing: child_typing
+                                            )
+
+                                            unless result.is_a?(Errors::Base)
+                                              break [[result, child_typing]]
+                                            end
+
+                                            [result, child_typing]
+                                          end.first
+                                        else
+                                          Steep.logger.debug(node.inspect)
+                                          [
+                                            Errors::IncompatibleArguments.new(node: node, receiver_type: receiver_type, method_type: method_type),
+                                            typing.new_child
+                                          ]
+                                        end
 
           [child_typing, type_or_error, method_type]
         end
@@ -1920,6 +1932,139 @@ module Steep
           method_type.return_type
         end
       end
+    end
+
+    def check_keyword_arg(receiver_type:, node:, method_type:, constraints:)
+      params = method_type.params
+
+      case node.type
+      when :hash
+        keyword_hash_type = AST::Builtin::Hash.instance_type(AST::Builtin::Symbol.instance_type,
+                                                             AST::Builtin.any_type)
+        typing.add_typing node, keyword_hash_type
+
+        given_keys = Set.new()
+
+        node.children.each do |element|
+          case element.type
+          when :pair
+            key_node, value_node = element.children
+
+            case key_node.type
+            when :sym
+              key_symbol = key_node.children[0]
+              keyword_type = case
+                             when params.required_keywords.key?(key_symbol)
+                               params.required_keywords[key_symbol]
+                             when params.optional_keywords.key?(key_symbol)
+                               AST::Types::Union.build(
+                                 types: [params.optional_keywords[key_symbol],
+                                         AST::Builtin.nil_type]
+                               )
+                             when params.rest_keywords
+                               params.rest_keywords
+                             end
+
+              typing.add_typing key_node, AST::Builtin::Symbol.instance_type
+
+              given_keys << key_symbol
+
+              if keyword_type
+                check(value_node, keyword_type, constraints: constraints) do |expected, actual, result|
+                  return Errors::IncompatibleAssignment.new(
+                    node: value_node,
+                    lhs_type: expected,
+                    rhs_type: actual,
+                    result: result
+                  )
+                end
+              else
+                synthesize(value_node)
+              end
+
+            else
+              check(key_node, AST::Builtin::Symbol.instance_type, constraints: constraints) do |expected, actual, result|
+                return Errors::IncompatibleAssignment.new(
+                  node: key_node,
+                  lhs_type: expected,
+                  rhs_type: actual,
+                  result: result
+                )
+              end
+            end
+
+          when :kwsplat
+            Steep.logger.warn("Keyword arg with kwsplat(**) node are not supported.")
+
+            check(element.children[0], keyword_hash_type, constraints: constraints) do |expected, actual, result|
+              return Errors::IncompatibleAssignment.new(
+                node: node,
+                lhs_type: expected,
+                rhs_type: actual,
+                result: result
+              )
+            end
+
+            given_keys = true
+          end
+        end
+
+        case given_keys
+        when Set
+          missing_keywords = Set.new(params.required_keywords.keys) - given_keys
+          unless missing_keywords.empty?
+            return Errors::MissingKeyword.new(node: node,
+                                              missing_keywords: missing_keywords)
+          end
+
+          extra_keywords = given_keys - Set.new(params.required_keywords.keys) - Set.new(params.optional_keywords.keys)
+          if extra_keywords.any? && !params.rest_keywords
+            return Errors::UnexpectedKeyword.new(node: node,
+                                                 unexpected_keywords: extra_keywords)
+          end
+        end
+      else
+        if params.rest_keywords
+          Steep.logger.warn("Method call with rest keywords type is detected. Rough approximation to be improved.")
+
+          value_types = params.required_keywords.values +
+            params.optional_keywords.values.map {|type| AST::Types::Union.build(types: [type, AST::Builtin.nil_type]) } +
+            [params.rest_keywords]
+
+          hash_type = AST::Builtin::Hash.instance_type(
+            AST::Builtin::Symbol.instance_type,
+            AST::Types::Union.build(types: value_types,
+                                    location: method_type.location)
+          )
+        else
+          hash_elements = params.required_keywords.merge(
+            method_type.optional_keywords.transform_values do |type|
+              AST::Types::Union.build(types: [type, AST::Builtin.nil_type],
+                                      location: method_type.location)
+            end
+          )
+
+          hash_type = AST::Types::Hash.new(elements: hash_elements)
+        end
+
+        node_type = synthesize(node, hint: hash_type)
+
+        relation = Subtyping::Relation.new(
+          sub_type: node_type,
+          super_type: hash_type
+        )
+
+        checker.check(relation, constraints: constraints).else do
+          return Errors::ArgumentTypeMismatch.new(
+            node: node,
+            receiver_type: receiver_type,
+            expected: relation.super_type,
+            actual: relation.sub_type
+          )
+        end
+      end
+
+      nil
     end
 
     def try_method_type(node, receiver_type:, method_type:, args:, arg_pairs:, block_params:, block_body:, child_typing:)
@@ -1945,28 +2090,43 @@ module Steep
         variance = Subtyping::VariableVariance.from_method_type(method_type)
         occurence = Subtyping::VariableOccurence.from_method_type(method_type)
 
-        arg_pairs.each do |(arg_node, param_type)|
-          param_type = param_type.subst(instantiation)
+        arg_pairs.each do |pair|
+          case pair
+          when Array
+            (arg_node, param_type) = pair
 
-          arg_type = if arg_node.type == :splat
-                       type = construction.synthesize(arg_node.children[0])
-                       child_typing.add_typing(arg_node, type)
-                     else
-                       construction.synthesize(arg_node, hint: param_type)
-                     end
+            param_type = param_type.subst(instantiation)
 
-          relation = Subtyping::Relation.new(
-            sub_type: arg_type,
-            super_type: param_type
-          )
+            arg_type = if arg_node.type == :splat
+                         type = construction.synthesize(arg_node.children[0])
+                         child_typing.add_typing(arg_node, type)
+                       else
+                         construction.synthesize(arg_node, hint: param_type)
+                       end
 
-          checker.check(relation, constraints: constraints).else do |result|
-            return Errors::ArgumentTypeMismatch.new(
-              node: arg_node,
-              receiver_type: receiver_type,
-              expected: relation.super_type,
-              actual: relation.sub_type
+            relation = Subtyping::Relation.new(
+              sub_type: arg_type,
+              super_type: param_type
             )
+
+            checker.check(relation, constraints: constraints).else do |result|
+              return Errors::ArgumentTypeMismatch.new(
+                node: arg_node,
+                receiver_type: receiver_type,
+                expected: relation.super_type,
+                actual: relation.sub_type
+              )
+            end
+          else
+            # keyword
+            result = check_keyword_arg(receiver_type: receiver_type,
+                                       node: pair,
+                                       method_type: method_type,
+                                       constraints: constraints)
+
+            if result.is_a?(Errors::Base)
+              return result
+            end
           end
         end
 

@@ -2,12 +2,10 @@ module Steep
   module TypeInference
     class SendArgs
       attr_reader :args
-      attr_reader :kw_args
       attr_reader :block_pass_arg
 
-      def initialize(args:, kw_args:, block_pass_arg:)
+      def initialize(args:, block_pass_arg:)
         @args = args
-        @kw_args = kw_args
         @block_pass_arg = block_pass_arg
       end
 
@@ -15,7 +13,6 @@ module Steep
         nodes = nodes.dup
 
         args = []
-        last_hash = nil
         block_pass_arg = nil
 
         if nodes.last&.type == :block_pass
@@ -23,38 +20,20 @@ module Steep
         end
 
         nodes.each do |node|
-          if last_hash
-            args << last_hash
-            last_hash = nil
-          end
-
-          case node.type
-          when :hash
-            last_hash = node
-          else
-            args << node
-          end
+          args << node
         end
 
-        if last_hash
-          unless kw_args?(last_hash)
-            args << last_hash
-            last_hash = nil
-          end
-        end
-
-        new(args: args, kw_args: last_hash, block_pass_arg: block_pass_arg)
+        new(args: args, block_pass_arg: block_pass_arg)
       end
 
-      def self.kw_args?(node)
-        node.children.all? do |child|
-          case child.type
-          when :pair
-            child.children[0].type == :sym
-          when :kwsplat
-            true
-          end
-        end
+      def drop_first
+        raise "Cannot drop first from empty args" if args.empty?
+        self.class.new(args: args.drop(1), block_pass_arg: block_pass_arg)
+      end
+
+      def drop_last
+        raise "Cannot drop last from empty args" if args.empty?
+        self.class.new(args: args.take(args.size - 1), block_pass_arg: block_pass_arg)
       end
 
       def each_keyword_arg
@@ -81,146 +60,135 @@ module Steep
         end
       end
 
-      def zip(params, block)
-        Set.new(
-          [].tap do |pairs|
-            consumed_keywords = Set.new
-            rest_types = []
-
-            params.required_keywords.each do |name, type|
-              if (node = each_keyword_arg.find {|pair| pair.children[0].children[0] == name })
-                pairs << [node.children[1], type]
-                consumed_keywords << name
-              else
-                if kwsplat_nodes.any?
-                  rest_types << type
-                else
-                  return
-                end
-              end
-            end
-
-            params.optional_keywords.each do |name, type|
-              if (node = each_keyword_arg.find {|pair| pair.children[0].children[0] == name })
-                pairs << [node.children[1], type]
-                consumed_keywords << name
-              else
-                if kwsplat_nodes.any?
-                  rest_types << type
-                end
-              end
-            end
-
-            if params.rest_keywords
-              each_keyword_arg do |pair|
-                name = pair.children[0].children[0]
-                node = pair.children[1]
-
-                unless consumed_keywords.include?(name)
-                  pairs << [node, params.rest_keywords]
-                end
-              end
-
-              if kwsplat_nodes.any?
-                pairs << [kw_args,
-                          AST::Builtin::Hash.instance_type(
-                            AST::Builtin::Symbol.instance_type,
-                            AST::Types::Union.build(types: rest_types + [params.rest_keywords])
-                          )]
-              end
-            end
-
-            if params.has_keyword?
-              if !params.rest_keywords
-                if kwsplat_nodes.empty?
-                  if each_keyword_arg.any? {|pair| !consumed_keywords.include?(pair.children[0].children[0]) }
-                    return
-                  end
-                end
-              end
-            end
-
-            args = self.args.dup
-            unless params.has_keyword?
-              args << kw_args if kw_args
-            end
-
-            arg_types = {}
-
-            params.required.each do |param|
-              if args.any?
-                next_arg(args) do |arg|
-                  save_arg_type(arg, param, arg_types)
-                end
-                consume_arg(args)
-              else
-                return
-              end
-            end
-
-            params.optional.each do |param|
-              next_arg(args) do |arg|
-                save_arg_type(arg, param, arg_types)
-              end
-              consume_arg(args)
-            end
-
-            if args.any?
-              if params.rest
-                args.each do |arg|
-                  save_arg_type(arg, params.rest, arg_types)
-                end
-              else
-                if args.none? {|arg| arg.type == :splat }
-                  return
-                end
-              end
-            end
-
-            (self.args + [kw_args].compact).each do |arg|
-              types = arg_types[arg.object_id]
-
-              if types
-                if arg.type == :splat
-                  type = AST::Builtin::Array.instance_type(AST::Types::Union.build(types: types))
-                else
-                  type = AST::Types::Union.build(types: types)
-                end
-                pairs << [arg, type]
-              end
-            end
-          end
-        )
+      def zips(params, block_type)
+        zip0(params, block_type).map do |pairs|
+          group_pairs(pairs)
+        end
       end
 
-      def save_arg_type(arg, type, hash)
-        if hash.key?(arg.object_id)
-          types = hash[arg.object_id]
-        else
-          types = hash[arg.object_id] = []
+      def group_pairs(pairs)
+        types = pairs.each_with_object({}) do |pair, hash|
+          case pair
+          when Array
+            node, type = pair
+            hash[node.__id__] ||= [node]
+            hash[node.__id__] << type
+          else
+            hash[node.__id__] = pair
+          end
         end
 
-        types << type
+        types.map do |_, array|
+          case array
+          when Array
+            node, *types_ = array
+            [node, AST::Types::Intersection.build(types: types_)]
+          else
+            array
+          end
+        end
       end
 
-      def next_arg(args)
-        if args.any?
-          case args[0].type
-          when :splat
-            args.each do |arg|
-              yield arg
+      def add_pair(pairs, pair)
+        pairs.map do |ps|
+          if block_given?
+            yield ps, pair
+          else
+            [pair] + ps
+          end
+        end
+      end
+
+      def zip0(params, block_type)
+        case
+        when params.empty? && args.empty?
+          [[]]
+
+        when params.required.any?
+          if args.any?
+            first_arg = args[0]
+
+            case first_arg.type
+            when :splat
+              []
+            else
+              rest = drop_first.zip0(params.drop_first, block_type)
+              pair = [first_arg, params.required[0]]
+
+              add_pair(rest, pair)
             end
           else
-            yield args[0]
+            []
           end
-        end
-      end
 
-      def consume_arg(args)
-        if args.any?
-          unless args[0].type == :splat
-            args.shift
+        when params.has_keywords? && params.required_keywords.any?
+          if args.any?
+            rest = drop_last.zip0(params.without_keywords, block_type)
+            last_arg = args.last
+
+            return [] if last_arg.type == :splat
+
+            add_pair(rest, last_arg) do |ps, p|
+              ps + [p]
+            end
+          else
+            []
           end
+
+        when params.has_keywords? && params.required_keywords.empty?
+          if args.any?
+            rest = drop_last.zip0(params.without_keywords, block_type)
+            last_arg = args.last
+
+            no_keyword = zip0(params.without_keywords, block_type)
+
+            if last_arg.type == :splat
+              no_keyword
+            else
+              add_pair(rest, last_arg) do |ps, p|
+                ps + [p]
+              end + no_keyword
+            end
+          else
+            zip0(params.without_keywords, block_type)
+          end
+
+        when params.optional.any?
+          if args.any?
+            first_arg = args[0]
+
+            case first_arg.type
+            when :splat
+              rest = zip0(params.drop_first, block_type)
+              pair = [args[0], AST::Builtin::Array.instance_type(params.optional[0])]
+            else
+              rest = drop_first.zip0(params.drop_first, block_type)
+              pair = [args[0], params.optional[0]]
+            end
+
+            add_pair(rest, pair)
+          else
+            zip0(params.drop_first, block_type)
+          end
+
+        when params.rest
+          if args.any?
+            rest = drop_first.zip0(params, block_type)
+            first_arg = args[0]
+
+            case first_arg.type
+            when :splat
+              pair = [first_arg, AST::Builtin::Array.instance_type(params.rest)]
+            else
+              pair = [first_arg, params.rest]
+            end
+
+            add_pair(rest, pair)
+          else
+            zip0(params.drop_first, block_type)
+          end
+        else
+          []
         end
       end
     end

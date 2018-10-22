@@ -506,8 +506,8 @@ x.h(a: (_ = nil), b: (_ = nil), c: (_ = nil))
 
     assert_equal 1, typing.errors.size
     typing.errors.first.tap do |error|
-      assert_instance_of Steep::Errors::IncompatibleArguments, error
-      assert_equal "(a: _A, ?b: _B) -> _C", error.method_type.location.source
+      assert_instance_of Steep::Errors::UnexpectedKeyword, error
+      assert_equal Set.new([:c]), error.unexpected_keywords
     end
   end
 
@@ -544,9 +544,9 @@ x.h(a: y)
     assert_equal parse_type("::_C"), typing.type_of(node: source.node)
 
     assert_equal 1, typing.errors.size
-    assert_argument_type_mismatch typing.errors[0],
-                                  expected: parse_type("::_A"),
-                                  actual: parse_type("::_B")
+    assert_incompatible_assignment typing.errors[0],
+                                   lhs_type: parse_type("::_A"),
+                                   rhs_type: parse_type("::_B")
   end
 
   def test_def_no_params
@@ -4378,12 +4378,61 @@ end
                                         break_context: nil)
     construction.synthesize(source.node)
 
-    assert_equal 2, typing.errors.size
+    assert_equal 1, typing.errors.size
+
     assert_any typing.errors do |error|
-      error.is_a?(Steep::Errors::ArgumentTypeMismatch)
+      error.is_a?(Steep::Errors::IncompatibleAssignment) &&
+        error.rhs_type == parse_type("::Integer") &&
+        error.lhs_type == parse_type("::Hash<::Symbol, any>")
     end
+  end
+
+  def test_splat_kw_args_2
+    source = parse_ruby(<<EOF)
+test = KWArgTest.new
+
+params = { a: 123 }
+test.foo(123, params)
+test.foo(123, 123)
+EOF
+
+    typing = Typing.new
+    checker = new_subtyping_checker(<<-EOF)
+class KWArgTest
+  def foo: (Integer, **String) -> void
+end
+    EOF
+    annotations = source.annotations(block: source.node, builder: checker.builder, current_module: Namespace.root)
+    const_env = ConstantEnv.new(builder: checker.builder, context: nil)
+    type_env = TypeEnv.build(annotations: annotations,
+                             subtyping: checker,
+                             const_env: const_env,
+                             signatures: checker.builder.signatures)
+
+    construction = TypeConstruction.new(checker: checker,
+                                        source: source,
+                                        annotations: annotations,
+                                        type_env: type_env,
+                                        block_context: nil,
+                                        self_type: Types::Name.new_instance(name: "::Object"),
+                                        method_context: nil,
+                                        typing: typing,
+                                        module_context: nil,
+                                        break_context: nil)
+    construction.synthesize(source.node)
+
+    assert_equal 2, typing.errors.size
+
     assert_any typing.errors do |error|
-      error.is_a?(Steep::Errors::UnexpectedSplat)
+      error.is_a?(Steep::Errors::ArgumentTypeMismatch) &&
+        error.actual == parse_type("::Hash<::Symbol, ::Integer>") &&
+        error.expected == parse_type("::Hash<::Symbol, ::String>")
+    end
+
+    assert_any typing.errors do |error|
+      error.is_a?(Steep::Errors::ArgumentTypeMismatch) &&
+        error.actual == parse_type("::Integer") &&
+        error.expected == parse_type("::Hash<::Symbol, ::String>")
     end
   end
 

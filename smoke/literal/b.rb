@@ -5,5 +5,5 @@ l.foo(3)
 l.foo(4)
 
 l.bar(foo: :foo)
-# !expects ArgumentTypeMismatch: receiver=::LiteralMethods, expected=:foo, actual=::Symbol
+# !expects IncompatibleAssignment: lhs_type=:foo, rhs_type=::Symbol
 l.bar(foo: :bar)
