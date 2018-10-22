@@ -2,6 +2,11 @@
 
 ## master
 
+## 0.7.1 (2018-10-22)
+
+* Rename *hash type* to *record type* (#60)
+* Fix keyword typing (#59)
+
 ## 0.7.0 (2018-09-24)
 
 * Add some builtin
