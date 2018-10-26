@@ -27,6 +27,7 @@ class Object < BasicObject
   def Array: (any) -> Array<any>
   def Hash: (any) -> Hash<any, any>
   def instance_eval: <'x> { (self) -> 'x } -> 'x
+                   | <'x> { () -> 'x } -> 'x
                    | (String, ?String, ?Integer) -> any
   def define_singleton_method: (Symbol | String, any) -> Symbol
                              | (Symbol) { (*any) -> any } -> Symbol
