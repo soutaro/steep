@@ -560,10 +560,65 @@ class Enumerator<'a, 'b>
                 | -> Enumerator<['a, Integer], 'b>
 end
 
+class Encoding
+end
+
 class Regexp
-  def self.compile: (String, *any) -> Regexp
+  def self.compile: (String) -> Regexp
+                  | (String, Integer) -> Regexp
+                  | (String, bool) -> Regexp
+                  | (Regexp) -> Regexp
   def self.escape: (String) -> String
+  def self.last_match: -> MatchData?
+                     | (Integer) -> String?
+  def self.quote: (String) -> String
+  def self.try_convert: (any) -> Regexp?
+  def self.union: (*String) -> Regexp
+                | (Array<String>) -> Regexp
+                | (*Regexp) -> Regexp
+                | (Array<Regexp>) -> Regexp
+
+  def initialize: (String) -> any
+                | (String, Integer) -> any
+                | (String, bool) -> any
+                | (Regexp) -> any
+  def ===: (String) -> bool
+  def =~: (String) -> Integer?
+  def casefold?: -> bool
+  def encoding: -> Encoding
+  def fixed_encoding?: -> bool
+  def match: (String) -> MatchData?
+           | (String, Integer) -> MatchData?
+           | <'a> (String) { (MatchData) -> 'a } -> ('a | nil)
+           | <'a> (String, Integer) { (MatchData) -> 'a } -> ('a | nil)
+  def match?: (String) -> bool
+            | (String, Integer) -> bool
+  def named_captures: -> Hash<String, Array<Integer>>
+  def names: -> Array<String>
+  def options: -> Integer
   def source: -> String
+  def ~: -> Integer?
+end
+
+class MatchData
+  def []: (Integer | String | Symbol) -> String?
+        | (Integer, Integer) -> Array<String>
+        | (Range<Integer>) -> Array<String>
+  def begin: (Integer) -> Integer?
+           | (String | Symbol) -> Integer
+  def captures: -> Array<String>
+  def end: (Integer | String | Symbol) -> Integer
+  def length: -> Integer
+  def named_captures: -> Hash<String, String?>
+  def names: -> Array<String>
+  def offset: (Integer | String | Symbol) -> [Integer, Integer]
+  def post_match: -> String
+  def pre_match: -> String
+  def regexp: -> Regexp
+  def size: -> Integer
+  def string: -> String
+  def to_a: -> Array<String>
+  def values_at: (*(Integer | String | Symbol)) -> Array<String?>
 end
 
 class IO
