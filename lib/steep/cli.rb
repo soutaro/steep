@@ -2,6 +2,8 @@ require 'optparse'
 
 module Steep
   class CLI
+    ::Version = Steep::VERSION
+
     attr_reader :argv
     attr_reader :stdout
     attr_reader :stdin
@@ -20,6 +22,12 @@ module Steep
     end
 
     def setup_global_options
+      version = OptionParser.new.version
+      if version
+        stdout.puts version
+        return false
+      end
+
       true
     end
 
