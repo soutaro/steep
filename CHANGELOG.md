@@ -2,6 +2,9 @@
 
 ## master
 
+* Fix `--version` handling (#57 @ybiquitous, #58)
+* Add `Regexp` and `MatchData` (#58 @ybiquitous)
+
 ## 0.7.1 (2018-10-22)
 
 * Rename *hash type* to *record type* (#60)
