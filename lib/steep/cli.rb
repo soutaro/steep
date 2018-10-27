@@ -82,7 +82,7 @@ module Steep
     end
 
     def self.available_commands
-      [:check, :validate, :annotations, :scaffold, :interface, :version]
+      [:check, :validate, :annotations, :scaffold, :interface, :version, :paths]
     end
 
     def process_global_options
@@ -184,6 +184,18 @@ module Steep
 
     def process_version
       stdout.puts Steep::VERSION
+    end
+
+    def process_paths
+      signature_options = SignatureOptions.new
+
+      OptionParser.new do |opts|
+        handle_dir_options opts, signature_options
+      end.parse!(argv)
+
+      signature_options.paths.each do |path|
+        stdout.puts path
+      end
     end
   end
 end
