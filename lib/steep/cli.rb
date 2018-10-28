@@ -27,16 +27,14 @@ module Steep
           case types
           when nil
             []
-          when true
-            [Pathname("sig")]
-          else
-            Array(types).map do |type|
+          when String
+            types.split(/:/).map do |type|
               Pathname(type)
             end
           end
         end
 
-        base_dir = Pathname(spec.base_dir)
+        base_dir = Pathname(spec.gem_dir)
         type_dirs.map do |dir|
           base_dir + dir
         end.select(&:directory?)
@@ -44,7 +42,7 @@ module Steep
 
       def paths
         options = if @options.none? {|option| option.is_a?(Pathname) }
-                    [Pathname("sig")]
+                    @options + [Pathname("sig")]
                   else
                     @options
                   end

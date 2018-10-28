@@ -1,0 +1,2 @@
+class WithSteepTypes
+end

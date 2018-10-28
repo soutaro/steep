@@ -3,6 +3,8 @@ require 'steep'
 
 require 'minitest/autorun'
 require "pp"
+require "open3"
+require "tmpdir"
 
 module Steep::AST::Types::Name
   def self.new_module(location: nil, name:, args: [])
@@ -437,5 +439,53 @@ end
 
     builder = Steep::Interface::Builder.new(signatures: signatures)
     Steep::Subtyping::Check.new(builder: builder)
+  end
+end
+
+module ShellHelper
+  def chdir(path)
+    if path.relative?
+      path = current_dir + path
+    end
+    dirs.push(path)
+    yield
+  ensure
+    dirs.pop
+  end
+
+  def current_dir
+    dirs.last
+  end
+
+  def push_env(env)
+    envs.push env
+    yield
+  ensure
+    envs.pop
+  end
+
+  def env_vars
+    envs.each.with_object({}) do |update_env, env_vars|
+      env_vars.merge!(update_env)
+    end
+  end
+
+  def sh(*command)
+    Open3.capture3(env_vars, *command, chdir: current_dir.to_s)
+  end
+
+  def sh!(*command)
+    stdout, stderr, status = sh(*command)
+    unless status.success?
+      raise "Failed to execute: #{command.join(" ")}, #{status.inspect}, stdout=#{stdout.inspect}, stderr=#{stderr.inspect}"
+    end
+
+    [stdout, stderr]
+  end
+
+  def in_tmpdir(&block)
+    Dir.mktmpdir do |dir|
+      chdir(Pathname(dir), &block)
+    end
   end
 end
