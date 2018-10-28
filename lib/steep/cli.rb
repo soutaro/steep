@@ -6,6 +6,7 @@ module Steep
 
     class SignatureOptions
       attr_reader :no_builtin
+      attr_reader :no_bundler
 
       def initialize
         @options = []
@@ -15,14 +16,20 @@ module Steep
         @no_builtin = true
       end
 
+      def no_bundler!
+        @no_bundler = true
+      end
+
       def <<(option)
         @options << option
       end
 
       def find_gem_dir(gem)
         name, version = gem.split(/:/)
-        spec = Gem::Specification.find_by_name(name, version)
+        dirs_from_spec Gem::Specification.find_by_name(name, version)
+      end
 
+      def dirs_from_spec(spec)
         type_dirs = spec.metadata["steep_types"].yield_self do |types|
           case types
           when nil
@@ -40,12 +47,26 @@ module Steep
         end.select(&:directory?)
       end
 
+      def add_bundler_gems(options)
+        if defined?(Bundler)
+          Steep.logger.info "Bundler detected!"
+          Bundler.load.gems.each do |spec|
+            dirs = dirs_from_spec(spec)
+            options.unshift *dirs
+          end
+        end
+      end
+
       def paths
         options = if @options.none? {|option| option.is_a?(Pathname) }
                     @options + [Pathname("sig")]
                   else
                     @options
                   end
+
+        unless no_bundler
+          add_bundler_gems(options)
+        end
 
         paths = options.flat_map do |option|
           case option
@@ -116,6 +137,7 @@ module Steep
       opts.on("-I [PATH]") {|path| options << Pathname(path) }
       opts.on("-G [GEM]") {|gem| options << gem }
       opts.on("--no-builtin") { options.no_builtin! }
+      opts.on("--no-bundler") { options.no_bundler! }
     end
 
     def process_check
