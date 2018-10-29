@@ -4,3 +4,4 @@ source 'https://rubygems.org'
 gemspec
 
 gem "with_steep_types", path: "test/gems/with_steep_types"
+gem "without_steep_types", path: "test/gems/without_steep_types"
