@@ -111,11 +111,22 @@ module Steep
           end
         end
 
-        typing.errors.each do |error|
-          next if error.is_a?(Errors::FallbackAny) && !fallback_any_is_error
-          next if error.is_a?(Errors::MethodDefinitionMissing) && allow_missing_definitions
+        errors = typing.errors.select do |error|
+          case
+          when error.is_a?(Errors::FallbackAny) && !fallback_any_is_error
+            false
+          when error.is_a?(Errors::MethodDefinitionMissing) && allow_missing_definitions
+            false
+          else
+            true
+          end
+        end
+
+        errors.each do |error|
           error.print_to stdout
         end
+
+        errors.empty? ? 0 : 1
       end
     end
   end

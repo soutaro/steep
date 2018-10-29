@@ -26,6 +26,8 @@ module Steep
             end
           end
         end
+
+        0
       end
     end
   end

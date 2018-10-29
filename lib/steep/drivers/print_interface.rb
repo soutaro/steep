@@ -48,11 +48,14 @@ module Steep
                 puts "    - #{Rainbow(method_type.to_s).red} (#{loc})"
               end
             end
+            0
           rescue Steep::Subtyping::Check::CannotResolveError
             stderr.puts "🤔 #{Rainbow(type.to_s).red} cannot be resolved to interface"
+            1
           end
         else
           stderr.puts "Pass a type name to command line"
+          1
         end
       end
     end
