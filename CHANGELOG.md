@@ -2,6 +2,10 @@
 
 ## master
 
+## 0.8.0 (2018-10-29)
+
+* Load types from gems (#64, #66)
+* Fix exit status (#65)
 * Fix `--version` handling (#57 @ybiquitous, #58)
 * Add `Regexp` and `MatchData` (#58 @ybiquitous)
 

@@ -208,10 +208,39 @@ Use `--dump-all-types` for that.
 
     $ steep check --dump-all-types test.rb
 
-### Verbose option
+### Verbose Option
 
 Try `-v` option to report more information about type checking.
 
+### Loading Type definitions from Gems
+
+You can pass `-G` option to specify name of gems to load type definitions.
+
+```
+$ steep check -G strong_json lib
+```
+
+When you are using bundler, Steep load type definitions from bundled gems automatically.
+
+```
+$ bundle exec steep check lib
+```
+
+To disable automatic gem detection from bundler, you can specify `--no-bundler` option.
+
+```
+$ bundle exec steep check --no-bundler -G strong_json lib
+```
+
+## Making a Gem with Type Definition
+
+Put your type definition file in a directory, ship that in your gem, and let `metadata` of the gemspec to contain `"steep_types" => dir_name`.
+
+```rb
+spec.metadata = { "steep_types" => "sig" }
+```
+
+We recommend using `sig` as a name of the directory for type definitions, but you can use any directory.
 
 ## Examples
 
