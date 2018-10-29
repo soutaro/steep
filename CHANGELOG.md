@@ -2,6 +2,10 @@
 
 ## master
 
+## 0.8.1 (2018-10-29)
+
+* Remove duplicated detected paths (#67)
+
 ## 0.8.0 (2018-10-29)
 
 * Load types from gems (#64, #66)
