@@ -5,6 +5,26 @@ module Steep
     BUILTIN_PATH = Pathname(__dir__).join("../../stdlib").realpath
 
     class SignatureOptions
+      class MissingGemError < StandardError
+        attr_reader :name
+        attr_reader :version
+
+        def initialize(name:, version:)
+          @name = name
+          @version = version
+          super "Requested gem not found: name=#{name}, version=#{version}"
+        end
+      end
+
+      class NoTypeDefinitionFromGemError < StandardError
+        attr_reader :gemspec
+
+        def initialize(gemspec:)
+          @gemspec = gemspec
+          super "Gem does not provide Steep type: gem=#{gemspec.name}"
+        end
+      end
+
       attr_reader :no_builtin
       attr_reader :no_bundler
 
@@ -26,7 +46,18 @@ module Steep
 
       def find_gem_dir(gem)
         name, version = gem.split(/:/)
-        dirs_from_spec Gem::Specification.find_by_name(name, version)
+        spec =
+          begin
+            Gem::Specification.find_by_name(name, version)
+          rescue Gem::MissingSpecError
+            raise MissingGemError.new(name: name, version: version)
+          end
+
+        dirs_from_spec(spec).tap do |dirs|
+          if dirs.empty?
+            raise NoTypeDefinitionFromGemError.new(gemspec: spec)
+          end
+        end
       end
 
       def dirs_from_spec(spec)
@@ -140,66 +171,82 @@ module Steep
       opts.on("--no-bundler") { options.no_bundler! }
     end
 
+    def with_signature_options
+      yield SignatureOptions.new
+    rescue SignatureOptions::MissingGemError => exn
+      stderr.puts Rainbow("Gem not found: name=#{exn.name}, version=#{exn.version}").red
+      1
+    rescue SignatureOptions::NoTypeDefinitionFromGemError => exn
+      stderr.puts Rainbow("Type definition directory not found: #{exn.gemspec.name} (#{exn.gemspec.version})").red
+      1
+    end
+
     def process_check
-      signature_options = SignatureOptions.new
-      verbose = false
-      dump_all_types = false
-      fallback_any_is_error = false
-      strict = false
+      with_signature_options do |signature_options|
+        verbose = false
+        dump_all_types = false
+        fallback_any_is_error = false
+        strict = false
 
-      OptionParser.new do |opts|
-        handle_dir_options opts, signature_options
-        opts.on("--verbose") { verbose = true }
-        opts.on("--dump-all-types") { dump_all_types = true }
-        opts.on("--strict") { strict = true }
-        opts.on("--fallback-any-is-error") { fallback_any_is_error = true }
-      end.parse!(argv)
+        OptionParser.new do |opts|
+          handle_dir_options opts, signature_options
+          opts.on("--verbose") { verbose = true }
+          opts.on("--dump-all-types") { dump_all_types = true }
+          opts.on("--strict") { strict = true }
+          opts.on("--fallback-any-is-error") { fallback_any_is_error = true }
+        end.parse!(argv)
 
-      source_paths = argv.map {|path| Pathname(path) }
-      if source_paths.empty?
-        source_paths << Pathname(".")
+        source_paths = argv.map {|path| Pathname(path) }
+        if source_paths.empty?
+          source_paths << Pathname(".")
+        end
+
+        Drivers::Check.new(source_paths: source_paths, signature_dirs: signature_options.paths, stdout: stdout, stderr: stderr).tap do |check|
+          check.verbose = verbose
+          check.dump_all_types = dump_all_types
+          check.fallback_any_is_error = fallback_any_is_error || strict
+          check.allow_missing_definitions = false if strict
+        end.run
       end
-
-      Drivers::Check.new(source_paths: source_paths, signature_dirs: signature_options.paths, stdout: stdout, stderr: stderr).tap do |check|
-        check.verbose = verbose
-        check.dump_all_types = dump_all_types
-        check.fallback_any_is_error = fallback_any_is_error || strict
-        check.allow_missing_definitions = false if strict
-      end.run
     end
 
     def process_validate
-      verbose = false
-      signature_options = SignatureOptions.new
+      with_signature_options do |signature_options|
+        verbose = false
 
-      OptionParser.new do |opts|
-        handle_dir_options opts, signature_options
-        opts.on("--verbose") { verbose = true }
-      end.parse!(argv)
+        OptionParser.new do |opts|
+          handle_dir_options opts, signature_options
+          opts.on("--verbose") { verbose = true }
+        end.parse!(argv)
 
-      Drivers::Validate.new(signature_dirs: signature_options.paths, stdout: stdout, stderr: stderr).tap do |validate|
-        validate.verbose = verbose
-      end.run
+        Drivers::Validate.new(signature_dirs: signature_options.paths, stdout: stdout, stderr: stderr).tap do |validate|
+          validate.verbose = verbose
+        end.run
+      end
     end
 
     def process_annotations
       source_paths = argv.map {|file| Pathname(file) }
       Drivers::Annotations.new(source_paths: source_paths, stdout: stdout, stderr: stderr).run
+      0
     end
 
     def process_scaffold
       source_paths = argv.map {|file| Pathname(file) }
       Drivers::Scaffold.new(source_paths: source_paths, stdout: stdout, stderr: stderr).run
+      0
     end
 
     def process_interface
-      signature_options = SignatureOptions.new
+      with_signature_options do |signature_options|
+        OptionParser.new do |opts|
+          handle_dir_options opts, signature_options
+        end.parse!(argv)
 
-      OptionParser.new do |opts|
-        handle_dir_options opts, signature_options
-      end.parse!(argv)
+        Drivers::PrintInterface.new(type_name: argv.first, signature_dirs: signature_options.paths, stdout: stdout, stderr: stderr).run
 
-      Drivers::PrintInterface.new(type_name: argv.first, signature_dirs: signature_options.paths, stdout: stdout, stderr: stderr).run
+        0
+      end
     end
 
     def process_version
@@ -208,17 +255,17 @@ module Steep
     end
 
     def process_paths
-      signature_options = SignatureOptions.new
+      with_signature_options do |signature_options|
+        OptionParser.new do |opts|
+          handle_dir_options opts, signature_options
+        end.parse!(argv)
 
-      OptionParser.new do |opts|
-        handle_dir_options opts, signature_options
-      end.parse!(argv)
+        signature_options.paths.each do |path|
+          stdout.puts path
+        end
 
-      signature_options.paths.each do |path|
-        stdout.puts path
+        0
       end
-
-      0
     end
   end
 end

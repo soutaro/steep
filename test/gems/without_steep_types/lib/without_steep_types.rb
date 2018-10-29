@@ -1,0 +1,3 @@
+class WithoutSteepTypes
+
+end
