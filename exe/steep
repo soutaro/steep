@@ -8,7 +8,7 @@ require 'steep'
 require 'steep/cli'
 
 begin
-  Steep::CLI.new(argv: ARGV.dup, stdout: STDOUT, stderr: STDERR, stdin: STDIN).run
+  exit Steep::CLI.new(argv: ARGV.dup, stdout: STDOUT, stderr: STDERR, stdin: STDIN).run
 rescue => exn
   STDERR.puts exn.inspect
   exn.backtrace.each do |t|

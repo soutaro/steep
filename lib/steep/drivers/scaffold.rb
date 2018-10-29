@@ -20,6 +20,7 @@ module Steep
         each_ruby_source(source_paths, false) do |source|
           Generator.new(source: source, stderr: stderr).write(io: stdout)
         end
+        0
       end
 
       class Generator

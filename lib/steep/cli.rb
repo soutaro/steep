@@ -204,6 +204,7 @@ module Steep
 
     def process_version
       stdout.puts Steep::VERSION
+      0
     end
 
     def process_paths
@@ -216,6 +217,8 @@ module Steep
       signature_options.paths.each do |path|
         stdout.puts path
       end
+
+      0
     end
   end
 end

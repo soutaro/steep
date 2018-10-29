@@ -32,7 +32,7 @@ module Steep
 
         validator.run(env: env, builder: builder, check: check) do |sig|
           stderr.puts "Validating #{sig.name} (#{sig.location.name}:#{sig.location.start_line})..." if verbose
-        end
+        end ? 0 : 1
       end
     end
   end
