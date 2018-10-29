@@ -114,7 +114,7 @@ module Steep
           paths.unshift BUILTIN_PATH
         end
 
-        paths
+        paths.reverse.uniq(&:realpath).reverse
       end
     end
 

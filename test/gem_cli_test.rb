@@ -26,6 +26,14 @@ class GemCLITest < Minitest::Test
     end
   end
 
+  def test_G_option_does_not_have_duplicated_paths
+    chdir Pathname(__dir__).parent do
+      stdout, _ = sh!("bundle exec exe/steep paths --no-bundler -G with_steep_types -G with_steep_types -I test/gems/with_steep_types/sig ::WithSteepTypes")
+      assert_includes stdout.lines, "test/gems/with_steep_types/sig\n"
+      assert_equal 1, stdout.lines.count {|line| line =~ /with_steep_types/ }
+    end
+  end
+
   def test_G_option_with_gem_without_types
     chdir Pathname(__dir__).parent do
       _, stderr, status = sh("bundle exec exe/steep interface --no-bundler -G without_steep_types ::Integer")
