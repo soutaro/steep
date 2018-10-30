@@ -165,14 +165,14 @@ module Steep
         annotation_types = annotation_method.types.each.with_object([]) do |method_type, array|
           fresh = method_type.type_params.map {|var| AST::Types::Var.fresh(var) }
           unknowns.push(*fresh)
-          
+
           subst = Interface::Substitution.build(method_type.type_params, fresh)
           array << method_type.instantiate(subst)
         end
 
         constraints = Subtyping::Constraints.new(unknowns: unknowns)
         interface_types.each do |type|
-          constraints.add_var *type.free_variables.to_a
+          constraints.add_var(*type.free_variables.to_a)
         end
 
         result = checker.check_method(method_name,
