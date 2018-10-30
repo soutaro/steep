@@ -229,7 +229,7 @@ module Steep
 
       def each(&block)
         if block_given?
-          params.each &block
+          params.each(&block)
         else
           enum_for :each
         end
