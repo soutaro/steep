@@ -12,7 +12,6 @@ class Object < BasicObject
   def ===: (any) -> bool
   def !=: (any) -> bool
   def class: -> class
-  def to_i: -> Integer
   def is_a?: (Module) -> bool
   def inspect: -> String
   def freeze: -> self
@@ -64,6 +63,8 @@ module Kernel
   def loop: { () -> void } -> void
   def puts: (*any) -> void
   def eval: (String, ? Integer?, ?String) -> any
+  def Integer: (String, Integer) -> Integer
+             | (_ToI | _ToInt) -> Integer
 end
 
 class Array<'a>
@@ -251,6 +252,14 @@ interface _ToS
   def to_s: -> String
 end
 
+interface _ToI
+  def to_i: -> Integer
+end
+
+interface _ToInt
+  def to_int: -> Integer
+end
+
 class TrueClass
   def !: -> bool
 end
@@ -273,6 +282,7 @@ class Numeric
 end
 
 class Integer < Numeric
+  def to_i: -> Integer
   def to_int: -> Integer
   def +: (Integer) -> Integer
        | (Numeric) -> Numeric
@@ -377,6 +387,8 @@ class String
   def empty?: -> bool
   def length: -> Integer
   def force_encoding: (any) -> self
+  def to_i: -> Integer
+          | (Integer) -> Integer
 end
 
 interface _Iteratable<'a, 'b>
