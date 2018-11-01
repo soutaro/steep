@@ -274,7 +274,7 @@ module ASTAssertion
   def assert_interface_method(method, name: nil)
     assert_instance_of Steep::AST::Signature::Interface::Method, method
     assert_equal name, method.name if name
-    yield *method.types if block_given?
+    yield(*method.types) if block_given?
   end
 
   def assert_include_member(member, name: nil, args: nil)

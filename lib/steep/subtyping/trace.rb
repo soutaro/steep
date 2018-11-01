@@ -37,7 +37,7 @@ module Steep
       def each
         if block_given?
           array.each do |pair|
-            yield *pair
+            yield(*pair)
           end
         else
           enum_for :each

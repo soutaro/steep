@@ -39,10 +39,10 @@ module Steep
 
       def params
         [].tap do |params|
-          params.push *leading_params
-          params.push *optional_params
+          params.push(*leading_params)
+          params.push(*optional_params)
           params.push rest_param if rest_param
-          params.push *trailing_params
+          params.push(*trailing_params)
         end
       end
 
@@ -229,7 +229,7 @@ module Steep
 
       def each(&block)
         if block_given?
-          params.each &block
+          params.each(&block)
         else
           enum_for :each
         end
