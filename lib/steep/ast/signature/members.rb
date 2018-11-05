@@ -56,6 +56,10 @@ module Steep
           def incompatible?
             attributes.include?(:incompatible)
           end
+
+          def private?
+            attributes.include?(:private)
+          end
         end
 
         class Ivar
