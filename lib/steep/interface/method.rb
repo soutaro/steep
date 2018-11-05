@@ -28,6 +28,10 @@ module Steep
         attributes.include?(:incompatible)
       end
 
+      def private?
+        attributes.include?(:private)
+      end
+
       def closed?
         types.all?(&:closed?)
       end

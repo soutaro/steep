@@ -779,6 +779,38 @@ end
     end
   end
 
+  def test_initialize_is_private
+    signatures = signatures(<<-EOF)
+class Hello
+  def initialize: (Integer) -> any
+end
+    EOF
+
+    builder = Builder.new(signatures: signatures)
+
+    signatures.find_class(Names::Module.parse(:Hello)).yield_self do |klass|
+      interface = builder.instance_to_interface(klass, with_initialize: true)
+      assert_operator interface.methods[:initialize], :private?
+      refute_nil interface.methods[:initialize].super_method
+    end
+  end
+
+  def test_private_method_type
+    signatures = signatures(<<-EOF)
+class Hello
+  def (private) puts: (String) -> void
+end
+    EOF
+
+    builder = Builder.new(signatures: signatures)
+
+    signatures.find_class(Names::Module.parse(:Hello)).yield_self do |klass|
+      interface = builder.instance_to_interface(klass, with_initialize: false)
+      assert_operator interface.methods[:puts], :private?
+      assert_nil interface.methods[:puts].super_method
+    end
+  end
+
   def test_relative_include
     signatures = signatures(<<-EOF)
 module A::B::C

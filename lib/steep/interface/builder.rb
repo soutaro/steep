@@ -444,7 +444,7 @@ module Steep
           when AST::Signature::Members::Method
             if member.instance_method?
               if with_initialize || member.name != :initialize
-                extra_attrs = member.name == :initialize ? [:incompatible] : []
+                extra_attrs = member.name == :initialize ? [:incompatible, :private] : []
                 add_method(module_name, member, methods: methods, extra_attributes: extra_attrs, current: namespace)
               end
             end
