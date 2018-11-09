@@ -469,10 +469,15 @@ module Steep
     end
 
     class ElseOnExhaustiveCase < Base
+      attr_reader :type
+
       def initialize(node:, type:)
-        def to_s
-          "#{location_to_str}: ElseOnExhaustiveCase: type=#{type}"
-        end
+        super(node: node)
+        @type = type
+      end
+
+      def to_s
+        "#{location_to_str}: ElseOnExhaustiveCase: type=#{type}"
       end
     end
 
