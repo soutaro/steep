@@ -377,6 +377,7 @@ class String
   def sub: (Regexp | String, String) -> self
          | (Regexp | String) { (String) -> _ToS } -> String
   def chomp: -> String
+           | (String) -> String
   def *: (Integer) -> String
   def scan: (Regexp) { (Array<String>) -> void } -> String
           | (Regexp) -> Array<String>
@@ -389,6 +390,7 @@ class String
   def force_encoding: (any) -> self
   def to_i: -> Integer
           | (Integer) -> Integer
+  def end_with?: (*String) -> bool
 end
 
 interface _Iteratable<'a, 'b>
@@ -677,6 +679,11 @@ STDOUT: IO
 class StringIO
   def initialize: (?String, ?String) -> any
   def puts: (*any) -> void
+  def readline: () -> String
+              | (String) -> String
+  def write: (String) -> void
+  def flush: () -> void
+  def string: -> String
 end
 
 class Process::Status
