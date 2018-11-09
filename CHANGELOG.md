@@ -2,6 +2,11 @@
 
 ## master
 
+## 0.8.2 (2018-11-09)
+
+* Fix ElseOnExhaustiveCase error implementation
+* Add some builtin methods
+
 ## 0.8.1 (2018-10-29)
 
 * Remove duplicated detected paths (#67)
