@@ -6,7 +6,7 @@ class A
   end
 
   def foo()
-    # !expects NoMethodError: type=::A, method=initialize
+    # initialize is a private method, so can be called here
     initialize()
   end
 end

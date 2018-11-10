@@ -1767,7 +1767,7 @@ module Steep
 
                     else
                       begin
-                        interface = checker.resolve(receiver_type)
+                        interface = checker.resolve(receiver_type, with_private: !receiver)
 
                         method = interface.methods[method_name]
 
