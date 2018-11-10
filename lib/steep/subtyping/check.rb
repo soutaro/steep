@@ -603,8 +603,8 @@ module Steep
         end
       end
 
-      def resolve_instance(type, self_type:, instance_type:, module_type:, with_initialize: false)
-        abstract_interface = builder.build_instance(type.name, with_initialize: with_initialize)
+      def resolve_instance(type, self_type:, instance_type:, module_type:, with_private: false)
+        abstract_interface = builder.build_instance(type.name).without_private(!with_private)
 
         module_type = module_type || case builder.signatures.find_class_or_module(type.name)
                                      when AST::Signature::Class

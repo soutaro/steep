@@ -34,7 +34,7 @@ module Steep
 
             when AST::Signature::Module
               yield_self do
-                instance_interface = builder.build_instance(sig.name, with_initialize: true)
+                instance_interface = builder.build_instance(sig.name)
                 instance_args = instance_interface.params.map {|var| AST::Types::Var.fresh(var) }
 
                 module_interface = builder.build_module(sig.name)
@@ -58,7 +58,7 @@ module Steep
 
             when AST::Signature::Class
               yield_self do
-                instance_interface = builder.build_instance(sig.name, with_initialize: true)
+                instance_interface = builder.build_instance(sig.name)
                 instance_args = instance_interface.params.map {|var| AST::Types::Var.fresh(var) }
 
                 module_interface = builder.build_class(sig.name, constructor: true)

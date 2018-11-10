@@ -132,11 +132,11 @@ module Steep
         end
       end
 
-      def build_instance(module_name, with_initialize:)
+      def build_instance(module_name)
         assert_absolute_name! module_name
         signature = signatures.find_class_or_module(module_name, current_module: AST::Namespace.root)
-        cache_interface(instance_cache, key: [signature.name, with_initialize]) do
-          instance_to_interface(signature, with_initialize: with_initialize)
+        cache_interface(instance_cache, key: signature.name) do
+          instance_to_interface(signature)
         end
       end
 
@@ -209,7 +209,7 @@ module Steep
           )
         }
 
-        klass = build_instance(AST::Builtin::Class.module_name, with_initialize: false)
+        klass = build_instance(AST::Builtin::Class.module_name)
         instantiated = klass.instantiate(
           type: AST::Types::Self.new,
           args: [],
@@ -238,7 +238,7 @@ module Steep
             end
           when AST::Signature::Members::Extend
             member_name = signatures.find_module(member.name, current_module: namespace).name
-            build_instance(member_name, with_initialize: false).yield_self do |module_interface|
+            build_instance(member_name).yield_self do |module_interface|
               merge_mixin(module_interface,
                           member.args.map {|type| absolute_type(type, current: namespace) },
                           methods: methods,
@@ -318,7 +318,7 @@ module Steep
         methods = {}
         ivar_chains = {}
 
-        module_instance = build_instance(AST::Builtin::Module.module_name, with_initialize: false)
+        module_instance = build_instance(AST::Builtin::Module.module_name)
         instantiated = module_instance.instantiate(
           type: AST::Types::Self.new,
           args: [],
@@ -341,7 +341,7 @@ module Steep
             end
           when AST::Signature::Members::Extend
             member_name = signatures.find_module(member.name, current_module: namespace).name
-            build_instance(member_name, with_initialize: false).yield_self do |module_interface|
+            build_instance(member_name).yield_self do |module_interface|
               merge_mixin(module_interface,
                           member.args.map {|type| absolute_type(type, current: namespace) },
                           methods: methods,
@@ -387,7 +387,7 @@ module Steep
         )
       end
 
-      def instance_to_interface(sig, with_initialize:)
+      def instance_to_interface(sig)
         module_name = sig.name
         namespace = module_name.namespace.append(module_name.name)
 
@@ -402,8 +402,7 @@ module Steep
             if super_class_name.relative?
               super_class_name = signatures.find_class(super_class_name, current_module: namespace).name
             end
-            super_class_interface = build_instance(super_class_name,
-                                                   with_initialize: with_initialize)
+            super_class_interface = build_instance(super_class_name)
 
             supers.push(*super_class_interface.supers)
             instantiated = super_class_interface.instantiate(
@@ -428,7 +427,7 @@ module Steep
           case member
           when AST::Signature::Members::Include
             member_name = signatures.find_module(member.name, current_module: namespace).name
-            build_instance(member_name, with_initialize: false).yield_self do |module_interface|
+            build_instance(member_name).yield_self do |module_interface|
               merge_mixin(module_interface,
                           member.args.map {|type| absolute_type(type, current: namespace) },
                           methods: methods,
@@ -443,10 +442,8 @@ module Steep
           case member
           when AST::Signature::Members::Method
             if member.instance_method?
-              if with_initialize || member.name != :initialize
-                extra_attrs = member.name == :initialize ? [:incompatible, :private] : []
-                add_method(module_name, member, methods: methods, extra_attributes: extra_attrs, current: namespace)
-              end
+              extra_attrs = member.name == :initialize ? [:incompatible, :private] : []
+              add_method(module_name, member, methods: methods, extra_attributes: extra_attrs, current: namespace)
             end
           when AST::Signature::Members::Ivar
             merge_ivars(ivar_chains,
