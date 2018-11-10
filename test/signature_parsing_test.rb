@@ -504,6 +504,22 @@ end
     end
   end
 
+  def test_private_method
+    sigs = parse(<<-EOF)
+class Foo
+  def (private) method: () -> Method
+end
+    EOF
+
+    sigs[0].yield_self do |sig|
+      assert_instance_of Steep::AST::Signature::Class, sig
+      assert_equal 1, sig.members.size
+      sig.members[0].yield_self do |method|
+        assert_operator method, :private?
+      end
+    end
+  end
+
   def test_optional_block
     klass, = parse(<<-EOF)
 class Foo

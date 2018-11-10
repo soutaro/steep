@@ -603,8 +603,8 @@ module Steep
         end
       end
 
-      def resolve_instance(type, self_type:, instance_type:, module_type:, with_initialize: false)
-        abstract_interface = builder.build_instance(type.name, with_initialize: with_initialize)
+      def resolve_instance(type, self_type:, instance_type:, module_type:, with_private: false)
+        abstract_interface = builder.build_instance(type.name).without_private(!with_private)
 
         module_type = module_type || case builder.signatures.find_class_or_module(type.name)
                                      when AST::Signature::Class
@@ -621,7 +621,7 @@ module Steep
         )
       end
 
-      def resolve(type, self_type: type, instance_type: nil, module_type: nil)
+      def resolve(type, self_type: type, instance_type: nil, module_type: nil, with_private: false)
         Steep.logger.debug("Check#resolve: type=#{type}")
         case type
         when AST::Types::Any, AST::Types::Var, AST::Types::Class, AST::Types::Instance
@@ -631,14 +631,19 @@ module Steep
           resolve(type.back_type,
                   self_type: self_type,
                   instance_type: instance_type,
-                  module_type: module_type)
+                  module_type: module_type,
+                  with_private: with_private)
 
         when AST::Types::Name::Instance
-          resolve_instance(type, self_type: self_type, instance_type: instance_type, module_type: module_type)
+          resolve_instance(type,
+                           self_type: self_type,
+                           instance_type: instance_type,
+                           module_type: module_type,
+                           with_private: with_private)
 
         when AST::Types::Name::Class
           yield_self do
-            abstract_interface = builder.build_class(type.name, constructor: type.constructor)
+            abstract_interface = builder.build_class(type.name, constructor: type.constructor).without_private(!with_private)
 
             unless instance_type
               type_params = builder.signatures.find_class(type.name).params&.variables || []
@@ -662,7 +667,7 @@ module Steep
 
         when AST::Types::Name::Module
           yield_self do
-            abstract_interface = builder.build_module(type.name)
+            abstract_interface = builder.build_module(type.name).without_private(!with_private)
 
             unless instance_type
               type_params = builder.signatures.find_module(type.name).params&.variables || []
@@ -697,13 +702,17 @@ module Steep
           end
 
         when AST::Types::Name::Alias
-          resolve(expand_alias(type), self_type: self_type, instance_type: instance_type, module_type: module_type)
+          resolve(expand_alias(type),
+                  self_type: self_type,
+                  instance_type: instance_type,
+                  module_type: module_type,
+                  with_private: with_private)
 
         when AST::Types::Union
           interfaces = type.types.map do |member_type|
             fresh = AST::Types::Var.fresh(:___)
 
-            resolve(member_type, self_type: type, instance_type: fresh, module_type: fresh).select_method_type do |method_type|
+            resolve(member_type, self_type: type, instance_type: fresh, module_type: fresh, with_private: with_private).select_method_type do |method_type|
               !method_type.each_type.include?(fresh)
             end
           end
@@ -772,7 +781,9 @@ module Steep
                                       ivar_chains: {})
 
         when AST::Types::Intersection
-          interfaces = type.types.map do |type| resolve(type) end
+          interfaces = type.types.map do |type|
+            resolve(type, with_private: with_private)
+          end
 
           methods = interfaces.inject(nil) do |methods, i|
             if methods
@@ -825,7 +836,7 @@ module Steep
           yield_self do
             element_type = AST::Types::Union.build(types: type.types)
             array_type = AST::Builtin::Array.instance_type(element_type)
-            array_interface = resolve(array_type, self_type: self_type)
+            array_interface = resolve(array_type, self_type: self_type, with_private: with_private)
 
             array_interface.methods[:[]] = array_interface.methods[:[]].yield_self do |aref|
               types = type.types.map.with_index {|elem_type, index|
@@ -870,7 +881,7 @@ module Steep
           yield_self do
             key_type = AST::Types::Union.build(types: type.elements.keys.map {|val| AST::Types::Literal.new(value: val) })
             value_type = AST::Types::Union.build(types: type.elements.values)
-            hash_interface = resolve(AST::Builtin::Hash.instance_type(key_type, value_type), self_type: self_type)
+            hash_interface = resolve(AST::Builtin::Hash.instance_type(key_type, value_type), self_type: self_type, with_private: with_private)
 
             hash_interface.methods[:[]] = hash_interface.methods[:[]].yield_self do |ref|
               types = type.elements.map do |key, value_type|
@@ -915,7 +926,7 @@ module Steep
 
         when AST::Types::Proc
           yield_self do
-            proc_interface = resolve(type.back_type, self_type: self_type)
+            proc_interface = resolve(type.back_type, self_type: self_type, with_private: with_private)
             apply_type = Interface::MethodType.new(
               type_params: [],
               params: type.params,

@@ -591,6 +591,27 @@ end
     assert_equal ["(any) -> ::Integer"], interface.methods[:Integer].types.map(&:to_s)
   end
 
+  def test_resolve_instance_private
+    checker = new_checker(<<-EOF)
+class Foo
+  def foo: () -> void
+  def (private) bar: () -> void
+end
+    EOF
+
+    type = parse_type("::Foo")
+
+    checker.resolve(type).tap do |interface|
+      assert_operator interface.methods, :key?, :foo
+      refute_operator interface.methods, :key?, :bar
+    end
+
+    checker.resolve(type, with_private: true).tap do |interface|
+      assert_operator interface.methods, :key?, :foo
+      assert_operator interface.methods, :key?, :bar
+    end
+  end
+
   def test_resolve_class
     checker = new_checker("")
 
@@ -642,6 +663,27 @@ end
 
     interface.methods[:new].yield_self do |method|
       assert_equal ["<'a> (::Array<'a>) -> ::Set<'a>"], method.types.map(&:to_s)
+    end
+  end
+
+  def test_resolve_class_private
+    checker = new_checker(<<-EOF)
+class Foo
+  def self.foo: () -> void
+  def (private) self.bar: () -> void
+end
+    EOF
+
+    type = parse_type("::Foo.class")
+
+    checker.resolve(type).tap do |interface|
+      assert_operator interface.methods, :key?, :foo
+      refute_operator interface.methods, :key?, :bar
+    end
+
+    checker.resolve(type, with_private: true).tap do |interface|
+      assert_operator interface.methods, :key?, :foo
+      assert_operator interface.methods, :key?, :bar
     end
   end
 

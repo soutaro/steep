@@ -3,7 +3,7 @@ class Steep::Parser
 token kCLASS kMODULE kINTERFACE kDEF kEND kNIL kBOOL kANY kVOID kTYPE
       kINCOMPATIBLE kAT_TYPE kAT_IMPLEMENTS kAT_DYNAMIC kCONST kVAR kRETURN
       kBLOCK kBREAK kMETHOD kSELF kSELFQ kATTR_READER kATTR_ACCESSOR kINSTANCE
-      kINCLUDE kEXTEND kINSTANCE kIVAR kCONSTRUCTOR kNOCONSTRUCTOR kEXTENSION
+      kINCLUDE kEXTEND kINSTANCE kIVAR kCONSTRUCTOR kNOCONSTRUCTOR kEXTENSION kPRIVATE
       tARROW tBANG tBAR tCOLON tCOMMA tDOT tEQ tGT tGVAR tHAT tINT
       tINTERFACE_NAME tIVAR_NAME tLBRACE tLBRACKET tIDENT tLPAREN tLT tROCKET
       tMINUS tOPERATOR tPERCENT tPLUS tQUESTION tRBRACE tRBRACKET
@@ -790,6 +790,10 @@ rule
                                 {
                                   result = val[0].value
                                 }
+                              | kPRIVATE
+                                {
+                                  result = val[0].value
+                                }
 
                    super_class: module_name
                                 {
@@ -919,6 +923,7 @@ rule
                               | kATTR_READER
                               | kATTR_ACCESSOR
                               | kINCOMPATIBLE
+                              | kPRIVATE
 
                     annotation: kAT_TYPE kVAR subject tCOLON type
                                 {
@@ -1203,6 +1208,8 @@ def next_token
     new_token(:kINSTANCE, :instance)
   when input.scan(/ivar\b/)
     new_token(:kIVAR, :ivar)
+  when input.scan(/private\b/)
+    new_token(:kPRIVATE, :private)
   when input.scan(/%/)
     new_token(:tPERCENT, :%)
   when input.scan(/-/)

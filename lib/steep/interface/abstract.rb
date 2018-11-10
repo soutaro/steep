@@ -39,6 +39,30 @@ module Steep
           ivar_chains: ivar_chains.transform_values {|chain| chain.subst(subst) }
         )
       end
+
+      def without_private(option)
+        if option
+          self.class.new(
+            name: name,
+            params: params,
+            methods: methods.reject {|_, method| method.private? },
+            supers: supers,
+            ivar_chains: ivar_chains
+          )
+        else
+          self
+        end
+      end
+
+      def without_initialize
+        self.class.new(
+          name: name,
+          params: params,
+          methods: methods.reject {|_, method| method.name == :initialize },
+          supers: supers,
+          ivar_chains: ivar_chains
+        )
+      end
     end
   end
 end

@@ -124,7 +124,7 @@ module Steep
                                                                                                                 self_type: self_type,
                                                                                                                 instance_type: self_type,
                                                                                                                 module_type: class_type,
-                                                                                                                with_initialize: true)
+                                                                                                                with_private: true)
                                                                                      end
                                                                                    else
                                                                                      checker.resolve(self_type)
@@ -398,7 +398,7 @@ module Steep
         class_name = implement_module_name.name
         class_args = implement_module_name.args.map {|x| AST::Types::Var.new(name: x) }
 
-        _ = checker.builder.build_instance(class_name, with_initialize: true)
+        _ = checker.builder.build_instance(class_name)
 
         instance_type = AST::Types::Name::Instance.new(name: class_name, args: class_args)
         module_type = AST::Types::Name::Class.new(name: class_name, constructor: true)
@@ -1770,7 +1770,7 @@ module Steep
 
                     else
                       begin
-                        interface = checker.resolve(receiver_type)
+                        interface = checker.resolve(receiver_type, with_private: !receiver)
 
                         method = interface.methods[method_name]
 
