@@ -59,9 +59,24 @@ module Steep
         end
       end
 
+      class PrivateOverrideError < StandardError
+        attr_reader :child_type
+        attr_reader :super_type
+        attr_reader :method_name
+
+        def initialize(child_type:, super_type:, method_name:)
+          @child_type = child_type
+          @super_type = super_type
+          @method_name = method_name
+
+          super "Public method `#{method_name}` cannot overriden to private: #{child_type} <: #{super_type}"
+        end
+      end
+
       def validate(check)
         methods.each do |_, method|
-          validate_method(check, method)
+          validate_method_type(check, method)
+          validate_method_visibility method
         end
 
         ivar_chains.each do |name, chain|
@@ -92,7 +107,7 @@ module Steep
         validate_chain(check, name, chain.parent)
       end
 
-      def validate_method(check, method)
+      def validate_method_type(check, method)
         if method.super_method && !method.incompatible?
           result = check.check_method(method.name,
                                       method,
@@ -102,13 +117,27 @@ module Steep
                                       constraints: Subtyping::Constraints.empty)
 
           if result.success?
-            validate_method(check, method.super_method)
+            validate_method_type(check, method.super_method)
           else
             raise InvalidMethodOverrideError.new(type: type,
                                                  current_method: method,
                                                  super_method: method.super_method,
                                                  result: result)
           end
+        end
+      end
+
+      def validate_method_visibility(method)
+        if (super_method = method.super_method)
+          if method.private? && !super_method.private?
+            raise PrivateOverrideError.new(
+              child_type: method.type_name,
+              super_type: super_method.type_name,
+              method_name: method.name
+            )
+          end
+
+          validate_method_visibility(super_method)
         end
       end
 
