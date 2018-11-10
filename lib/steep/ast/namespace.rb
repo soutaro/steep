@@ -56,7 +56,7 @@ module Steep
       alias eql? ==
 
       def hash
-        self.class.hath ^ path.hash ^ absolute?.hash
+        self.class.hash ^ path.hash ^ absolute?.hash
       end
 
       def to_s
