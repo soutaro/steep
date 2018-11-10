@@ -525,8 +525,11 @@ module Steep
             var = node.children[0]
             rhs = node.children[1]
 
-            if var.name == :_
+            case var.name
+            when :_, :__any__
               synthesize(rhs, hint: AST::Builtin.any_type)
+              typing.add_typing(node, AST::Builtin.any_type)
+            when :__skip__
               typing.add_typing(node, AST::Builtin.any_type)
             else
               type_assignment(var, rhs, node, hint: hint)
