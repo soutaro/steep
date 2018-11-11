@@ -538,4 +538,17 @@ end
       assert_equal "?{ () -> String }", required_block.types[0].block.location.source
     end
   end
+
+  def test_alias
+    klass, = parse(<<-EOF)
+class Foo
+  def count: -> Integer
+  alias size count 
+end
+    EOF
+
+    klass.members[1].yield_self do |member|
+      assert_instance_of Steep::AST::Signature::Members::MethodAlias, member
+    end
+  end
 end

@@ -839,4 +839,23 @@ end
       builder.module_to_interface(klass)
     end
   end
+
+  def test_method_alias
+    signatures = signatures(<<-EOF)
+class Hello < String
+  alias to_s to_str
+  alias foo bar
+end
+    EOF
+
+    builder = Builder.new(signatures: signatures)
+    signatures.find_class(Names::Module.parse("::Hello")).yield_self do |klass|
+      interface = builder.instance_to_interface(klass)
+      method = interface.methods[:to_s]
+      assert_equal ["() -> ::String"], method.types.map(&:to_s)
+      assert_nil method.super_method
+
+      assert_nil interface.methods[:foo]
+    end
+  end
 end

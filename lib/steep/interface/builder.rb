@@ -453,6 +453,24 @@ module Steep
           end
         end
 
+        sig.members.each do |member|
+          case member
+          when AST::Signature::Members::MethodAlias
+            method = methods[member.original_name]
+            if method
+              methods[member.new_name] =  Method.new(
+                type_name: module_name,
+                name: member.new_name,
+                types: method.types,
+                super_method: nil,
+                attributes: method.attributes
+              )
+            else
+              Steep.logger.error "Cannot alias find original method `#{member.original_name}` for `#{member.new_name}` in #{module_name} (#{member.location.name || '-'}:#{member.location})"
+            end
+          end
+        end
+
         signatures.find_extensions(sig.name).each do |ext|
           ext.members.each do |member|
             case member

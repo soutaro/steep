@@ -413,9 +413,8 @@ module Enumerable<'a, 'b> : _Iteratable<'a, 'b>
   def collect: <'x> { ('a) -> 'x } -> Array<'x>
              | <'x> -> Enumerator<'a, Array<'x>>
 
-  def map: <'x> { ('a) -> 'x } -> Array<'x>
-         | <'x> -> Enumerator<'a, Array<'x>>
-
+  alias map collect
+  
   def flat_map: <'x> { ('a) -> Array<'x> } -> Array<'x>
               | <'x> -> Enumerator<'a, Array<'x>>
 
@@ -737,7 +736,7 @@ class Set<'a>
   def clear: -> self
 
   def collect!: { ('a) -> 'a } -> self
-  def map!: { ('a) -> 'a } -> self
+  alias map! collect!
 
   def delete: (any) -> self
   def delete?: (any) -> self?
@@ -761,7 +760,7 @@ class Set<'a>
   def keep_if: { ('a) -> any } -> self
 
   def size: -> Integer
-  def length: -> Integer
+  alias length size
 
   def merge: (_Iteratable<'a, any>) -> self
 

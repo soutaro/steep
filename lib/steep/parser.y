@@ -3,7 +3,7 @@ class Steep::Parser
 token kCLASS kMODULE kINTERFACE kDEF kEND kNIL kBOOL kANY kVOID kTYPE
       kINCOMPATIBLE kAT_TYPE kAT_IMPLEMENTS kAT_DYNAMIC kCONST kVAR kRETURN
       kBLOCK kBREAK kMETHOD kSELF kSELFQ kATTR_READER kATTR_ACCESSOR kINSTANCE
-      kINCLUDE kEXTEND kINSTANCE kIVAR kCONSTRUCTOR kNOCONSTRUCTOR kEXTENSION kPRIVATE
+      kINCLUDE kEXTEND kINSTANCE kIVAR kCONSTRUCTOR kNOCONSTRUCTOR kEXTENSION kPRIVATE kALIAS
       tARROW tBANG tBAR tCOLON tCOMMA tDOT tEQ tGT tGVAR tHAT tINT
       tINTERFACE_NAME tIVAR_NAME tLBRACE tLBRACKET tIDENT tLPAREN tLT tROCKET
       tMINUS tOPERATOR tPERCENT tPLUS tQUESTION tRBRACE tRBRACKET
@@ -11,7 +11,7 @@ token kCLASS kMODULE kINTERFACE kDEF kEND kNIL kBOOL kANY kVOID kTYPE
       type_METHOD type_SIGNATURE type_ANNOTATION type_TYPE
       tQUALIFIED_MODULE_NAME tQUALIFIED_INTERFACE_NAME tQUALIFIED_ALIAS_NAME
 
-expect 1
+expect 3
 
 rule
 
@@ -657,6 +657,7 @@ rule
                               | ivar_member
                               | attr_reader_member
                               | attr_accessor_member
+                              | alias_member
 
                    ivar_member: tIVAR_NAME tCOLON type
                                 {
@@ -749,6 +750,15 @@ rule
                                 {
                                   loc = val.first.location + val.last.location
                                   result = AST::Signature::Members::Attr.new(location: loc, name: val[1].value, kind: :accessor, ivar: val[2], type: val[4])
+                                }
+
+                  alias_member: kALIAS method_name method_name {
+                                  loc = val[0].location + val[2].location
+                                  result = AST::Signature::Members::MethodAlias.new(
+                                    location: loc,
+                                    new_name: val[1].value,
+                                    original_name: val[2].value
+                                  )
                                 }
 
                  attr_ivar_opt: # nothing
@@ -912,6 +922,7 @@ rule
                               | kMETHOD
                               | kBOOL
                               | kTYPE
+                              | kALIAS
                               | kCONSTRUCTOR
                                 {
                                   result = LocatedValue.new(location: val[0].location, value: :constructor)
@@ -1210,6 +1221,8 @@ def next_token
     new_token(:kIVAR, :ivar)
   when input.scan(/private\b/)
     new_token(:kPRIVATE, :private)
+  when input.scan(/alias\b/)
+    new_token(:kALIAS, :alias)
   when input.scan(/%/)
     new_token(:tPERCENT, :%)
   when input.scan(/-/)
