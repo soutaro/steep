@@ -97,6 +97,18 @@ module Steep
             kind == :accessor
           end
         end
+
+        class MethodAlias
+          attr_reader :location
+          attr_reader :new_name
+          attr_reader :original_name
+
+          def initialize(location:, new_name:, original_name:)
+            @location = location
+            @new_name = new_name
+            @original_name = original_name
+          end
+        end
       end
     end
   end
