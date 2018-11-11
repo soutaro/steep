@@ -4,6 +4,7 @@ token kCLASS kMODULE kINTERFACE kDEF kEND kNIL kBOOL kANY kVOID kTYPE
       kINCOMPATIBLE kAT_TYPE kAT_IMPLEMENTS kAT_DYNAMIC kCONST kVAR kRETURN
       kBLOCK kBREAK kMETHOD kSELF kSELFQ kATTR_READER kATTR_ACCESSOR kINSTANCE
       kINCLUDE kEXTEND kINSTANCE kIVAR kCONSTRUCTOR kNOCONSTRUCTOR kEXTENSION kPRIVATE kALIAS
+      kSUPER
       tARROW tBANG tBAR tCOLON tCOMMA tDOT tEQ tGT tGVAR tHAT tINT
       tINTERFACE_NAME tIVAR_NAME tLBRACE tLBRACKET tIDENT tLPAREN tLT tROCKET
       tMINUS tOPERATOR tPERCENT tPLUS tQUESTION tRBRACE tRBRACKET
@@ -854,6 +855,10 @@ rule
                                 {
                                   result = [val[0]]
                                 }
+                              | kSUPER
+                                {
+                                  result = [AST::MethodType::Super.new(location: val[0].location)]
+                                }
                               | method_type tBAR method_type_union
                                 {
                                   result = [val[0]] + val[2]
@@ -1223,6 +1228,8 @@ def next_token
     new_token(:kPRIVATE, :private)
   when input.scan(/alias\b/)
     new_token(:kALIAS, :alias)
+  when input.scan(/super\b/)
+    new_token(:kSUPER, :super)
   when input.scan(/%/)
     new_token(:tPERCENT, :%)
   when input.scan(/-/)

@@ -551,4 +551,19 @@ end
       assert_instance_of Steep::AST::Signature::Members::MethodAlias, member
     end
   end
+
+  def test_super
+    klass, = parse(<<-EOF)
+class Bar < Integer
+  def +: (Bar) -> Bar
+       | super
+end
+    EOF
+
+    klass.members[0].yield_self do |member|
+      assert_equal 2, member.types.size
+      assert_equal "(Bar) -> Bar", member.types[0].location.source
+      assert_instance_of Steep::AST::MethodType::Super, member.types[1]
+    end
+  end
 end
