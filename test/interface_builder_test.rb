@@ -858,4 +858,45 @@ end
       assert_nil interface.methods[:foo]
     end
   end
+
+  def test_method_super
+    signatures = signatures(<<-EOF)
+class Parent
+  def foo: () -> Integer
+end
+
+class Child < Parent
+  def foo: () -> String
+         | super
+end
+    EOF
+
+    builder = Builder.new(signatures: signatures)
+    signatures.find_class(Names::Module.parse("::Child")).yield_self do |klass|
+      interface = builder.instance_to_interface(klass)
+
+      method = interface.methods[:foo]
+      assert_equal ["() -> ::String", "() -> ::Integer"], method.types.map(&:to_s)
+    end
+  end
+
+  def test_method_super2
+    signatures = signatures(<<-EOF)
+class Parent
+end
+
+class Child < Parent
+  def foo: () -> String
+         | super
+end
+    EOF
+
+    builder = Builder.new(signatures: signatures)
+    signatures.find_class(Names::Module.parse("::Child")).yield_self do |klass|
+      interface = builder.instance_to_interface(klass)
+
+      method = interface.methods[:foo]
+      assert_equal ["() -> ::String"], method.types.map(&:to_s)
+    end
+  end
 end
