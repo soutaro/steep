@@ -2,6 +2,14 @@
 
 ## master
 
+## 0.8.3 (2018-11-11)
+
+* Private methods (#72)
+* `__skip__` to skip type checking (#73)
+* Add `alias` for method types (#75)
+* Fix `Names::Base#hash` (#69 @hanachin)
+* Add `super` in method types (#76)
+
 ## 0.8.2 (2018-11-09)
 
 * Fix ElseOnExhaustiveCase error implementation
