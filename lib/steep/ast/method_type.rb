@@ -113,6 +113,14 @@ module Steep
         @block = block
         @return_type = return_type
       end
+
+      class Super
+        attr_reader :location
+
+        def initialize(location:)
+          @location = location
+        end
+      end
     end
   end
 end

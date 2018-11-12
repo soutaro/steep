@@ -173,8 +173,18 @@ module Steep
         new_method = Method.new(
           type_name: type_name,
           name: method.name,
-          types: method.types.map do |method_type|
-            method_type_to_method_type(method_type, current: current)
+          types: method.types.flat_map do |method_type|
+            case method_type
+            when AST::MethodType
+              [method_type_to_method_type(method_type, current: current)]
+            when AST::MethodType::Super
+              if super_method
+                super_method.types
+              else
+                Steep.logger.error "`super` specified in method type, but cannot find super method of `#{method.name}` in `#{type_name}` (#{method.location.name || "-"}:#{method.location})"
+                []
+              end
+            end
           end,
           super_method: super_method,
           attributes: method.attributes + extra_attributes
