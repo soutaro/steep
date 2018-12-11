@@ -82,7 +82,8 @@ module Steep
                 module_type: nil,
                 implement_name: nil,
                 current_namespace: AST::Namespace.root,
-                const_env: const_env
+                const_env: const_env,
+                class_name: nil
               ),
               method_context: nil,
               typing: typing,

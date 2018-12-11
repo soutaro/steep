@@ -1006,7 +1006,8 @@ hello = Hello
       module_type: nil,
       implement_name: nil,
       current_namespace: nil,
-      const_env: const_env
+      const_env: const_env,
+      class_name: nil
     )
 
     construction = TypeConstruction.new(checker: checker,
@@ -1044,7 +1045,8 @@ Hello::World = ""
       module_type: nil,
       implement_name: nil,
       current_namespace: nil,
-      const_env: const_env
+      const_env: const_env,
+      class_name: nil
     )
 
     construction = TypeConstruction.new(checker: checker,
@@ -1086,7 +1088,8 @@ x = String
       module_type: nil,
       implement_name: nil,
       current_namespace: nil,
-      const_env: const_env
+      const_env: const_env,
+      class_name: nil
     )
 
     construction = TypeConstruction.new(checker: checker,
@@ -1129,7 +1132,8 @@ X: Module
       module_type: nil,
       implement_name: nil,
       current_namespace: nil,
-      const_env: const_env
+      const_env: const_env,
+      class_name: nil
     )
 
     construction = TypeConstruction.new(checker: checker,
@@ -1458,7 +1462,8 @@ EOF
       module_type: Types::Name.new_module(name: "::Steep"),
       implement_name: nil,
       current_namespace: Namespace.parse("::Steep"),
-      const_env: const_env
+      const_env: const_env,
+      class_name: nil
     )
 
     module_name_class_node = source.node.children[1]
@@ -1585,7 +1590,8 @@ EOF
       module_type: Types::Name.new_class(name: "::Steep", constructor: false),
       implement_name: nil,
       current_namespace: Namespace.parse("::Steep"),
-      const_env: const_env
+      const_env: const_env,
+      class_name: nil
     )
 
     module_node = source.node.children.last
@@ -3017,7 +3023,8 @@ end
       module_type: nil,
       implement_name: nil,
       current_namespace: nil,
-      const_env: const_env
+      const_env: const_env,
+      class_name: nil
     )
 
     construction = TypeConstruction.new(checker: checker,
@@ -3065,7 +3072,8 @@ end
       module_type: nil,
       implement_name: nil,
       current_namespace: nil,
-      const_env: const_env
+      const_env: const_env,
+      class_name: nil
     )
 
     construction = TypeConstruction.new(checker: checker,
@@ -3113,7 +3121,8 @@ end
       module_type: nil,
       implement_name: nil,
       current_namespace: nil,
-      const_env: const_env
+      const_env: const_env,
+      class_name: nil
     )
 
     construction = TypeConstruction.new(checker: checker,
@@ -3169,7 +3178,8 @@ end
       module_type: nil,
       implement_name: nil,
       current_namespace: nil,
-      const_env: const_env
+      const_env: const_env,
+      class_name: nil
     )
 
     construction = TypeConstruction.new(checker: checker,
@@ -5956,6 +5966,48 @@ end
     assert_equal 1, typing.errors.size
     assert_any typing.errors do |error|
       error.is_a?(Steep::Errors::NoMethod)
+    end
+  end
+
+  def test_inherit_class
+    checker = new_subtyping_checker(<<-EOF)
+class SuperClass
+  def foo: () -> Integer
+end
+    EOF
+
+    source = parse_ruby(<<-EOF)
+class ChildClass < SuperClass
+  def bar
+    foo + ""
+  end
+end
+    EOF
+
+    typing = Typing.new
+    annotations = source.annotations(block: source.node, builder: checker.builder, current_module: Namespace.root)
+    const_env = ConstantEnv.new(builder: checker.builder, context: nil)
+    type_env = TypeEnv.build(annotations: annotations,
+                             subtyping: checker,
+                             const_env: const_env,
+                             signatures: checker.builder.signatures)
+
+    construction = TypeConstruction.new(checker: checker,
+                                        source: source,
+                                        annotations: annotations,
+                                        type_env: type_env,
+                                        block_context: nil,
+                                        self_type: Types::Name.new_instance(name: "::Object"),
+                                        method_context: nil,
+                                        typing: typing,
+                                        module_context: nil,
+                                        break_context: nil)
+
+    construction.synthesize(source.node)
+
+    assert_equal 1, typing.errors.size
+    assert_any typing.errors do |error|
+      error.is_a?(Steep::Errors::ArgumentTypeMismatch)
     end
   end
 end

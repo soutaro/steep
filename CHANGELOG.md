@@ -2,6 +2,8 @@
 
 ## master
 
+* Automatically `@implements` super class if the class definition inherits
+
 ## 0.8.3 (2018-11-11)
 
 * Private methods (#72)

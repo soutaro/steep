@@ -50,8 +50,9 @@ module Steep
       attr_reader :const_env
       attr_reader :implement_name
       attr_reader :current_namespace
+      attr_reader :class_name
 
-      def initialize(instance_type:, module_type:, implement_name:, current_namespace:, const_env:)
+      def initialize(instance_type:, module_type:, implement_name:, current_namespace:, const_env:, class_name:)
         @instance_type = instance_type
         @module_type = module_type
         @defined_instance_methods = Set.new
@@ -59,6 +60,7 @@ module Steep
         @implement_name = implement_name
         @current_namespace = current_namespace
         @const_env = const_env
+        @class_name = class_name
       end
 
       def const_context
@@ -344,7 +346,8 @@ module Steep
         module_type: annots.self_type || module_type,
         implement_name: implement_module_name,
         current_namespace: new_namespace,
-        const_env: module_const_env
+        const_env: module_const_env,
+        class_name: absolute_name(new_module_name)
       )
 
       module_type_env = TypeInference::TypeEnv.build(annotations: annots,
@@ -368,6 +371,7 @@ module Steep
 
     def for_class(node)
       new_class_name = Names::Module.from_node(node.children.first) or raise "Unexpected class name: #{node.children.first}"
+      super_class_name = node.children[1] && Names::Module.from_node(node.children[1])
       new_namespace = nested_namespace_for_module(new_class_name)
 
       annots = source.annotations(block: node, builder: checker.builder, current_module: new_namespace)
@@ -384,14 +388,24 @@ module Steep
             end
           end
         else
-          absolute_name(new_class_name).yield_self do |absolute_name|
-            if checker.builder.signatures.class_name?(absolute_name)
-              signature = checker.builder.signatures.find_class(absolute_name)
-              AST::Annotation::Implements::Module.new(name: absolute_name,
-                                                      args: signature.params&.variables || [])
-            end
+          name = nil
+          name ||= absolute_name(new_class_name).yield_self do |absolute_name|
+            absolute_name if checker.builder.signatures.class_name?(absolute_name)
+          end
+          name ||= super_class_name && absolute_name(super_class_name).yield_self do |absolute_name|
+            absolute_name if checker.builder.signatures.class_name?(absolute_name)
+          end
+
+          if name
+            signature = checker.builder.signatures.find_class(name)
+            AST::Annotation::Implements::Module.new(name: name,
+                                                    args: signature.params&.variables || [])
           end
         end
+      end
+
+      if annots.implement_module_annotation
+        new_class_name = implement_module_name.name
       end
 
       if implement_module_name
@@ -416,7 +430,8 @@ module Steep
         module_type: annots.self_type || annots.module_type || module_type,
         implement_name: implement_module_name,
         current_namespace: new_namespace,
-        const_env: class_const_env
+        const_env: class_const_env,
+        class_name: absolute_name(new_class_name)
       )
 
       class_type_env = TypeInference::TypeEnv.build(
@@ -2465,10 +2480,12 @@ module Steep
         when annotations.instance_dynamics.include?(method_name)
           # ok
         else
-          typing.add_error Errors::MethodDefinitionMissing.new(node: node,
-                                                               module_name: module_name.name,
-                                                               kind: :instance,
-                                                               missing_method: method_name)
+          if module_name.name == module_context&.class_name
+            typing.add_error Errors::MethodDefinitionMissing.new(node: node,
+                                                                 module_name: module_name.name,
+                                                                 kind: :instance,
+                                                                 missing_method: method_name)
+          end
         end
       end
       expected_module_method_names.each do |method_name|
@@ -2478,10 +2495,12 @@ module Steep
         when annotations.module_dynamics.include?(method_name)
           # ok
         else
-          typing.add_error Errors::MethodDefinitionMissing.new(node: node,
-                                                               module_name: module_name.name,
-                                                               kind: :module,
-                                                               missing_method: method_name)
+          if module_name.name == module_context&.class_name
+            typing.add_error Errors::MethodDefinitionMissing.new(node: node,
+                                                                 module_name: module_name.name,
+                                                                 kind: :module,
+                                                                 missing_method: method_name)
+          end
         end
       end
 
