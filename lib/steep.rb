@@ -7,6 +7,7 @@ require "active_support/core_ext/object/try"
 require "logger"
 require "active_support/tagged_logging"
 require "rainbow"
+require "listen"
 
 require "steep/ast/namespace"
 require "steep/names"
