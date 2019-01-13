@@ -8,6 +8,7 @@ require "logger"
 require "active_support/tagged_logging"
 require "rainbow"
 require "listen"
+require 'pry'
 
 require "steep/ast/namespace"
 require "steep/names"
