@@ -2678,7 +2678,8 @@ module Steep
     end
 
     def try_hash_type(node, hint)
-      if hint.is_a?(AST::Types::Record)
+      case hint
+      when AST::Types::Record
         typing.new_child do |child_typing|
           new_construction = with_new_typing(child_typing)
           elements = {}
@@ -2717,6 +2718,10 @@ module Steep
 
           hash = AST::Types::Record.new(elements: elements)
           typing.add_typing(node, hash)
+        end
+      when AST::Types::Union
+        hint.types.find do |type|
+          try_hash_type(node, type)
         end
       end
     end
