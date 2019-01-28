@@ -1287,7 +1287,7 @@ module Steep
                 if (body = clause.children.last)
                   if var_names && var_types && test_types.all? {|type| type.is_a?(AST::Types::Name::Class) }
                     var_types_in_body = test_types.flat_map {|test_type|
-                      filtered_types = var_types.select {|var_type| var_type.name == test_type.name }
+                      filtered_types = var_types.select {|var_type| var_type.is_a?(AST::Types::Name::Base) && var_type.name == test_type.name }
                       if filtered_types.empty?
                         to_instance_type(test_type)
                       else
@@ -1296,7 +1296,7 @@ module Steep
                     }
                     var_types.reject! {|type|
                       var_types_in_body.any? {|test_type|
-                        test_type.name == type.name
+                        type.is_a?(AST::Types::Name::Base) && test_type.name == type.name
                       }
                     }
 
@@ -1776,7 +1776,7 @@ module Steep
         receiver_type = unwrap(receiver_type)
       end
 
-      return_type = case receiver_type
+      return_type = case expand_alias(receiver_type)
                     when AST::Types::Any
                       typing.add_typing node, AST::Builtin.any_type
 
