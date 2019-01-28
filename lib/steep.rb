@@ -84,6 +84,7 @@ require "steep/drivers/validate"
 require "steep/drivers/annotations"
 require "steep/drivers/scaffold"
 require "steep/drivers/print_interface"
+require "steep/drivers/watch"
 
 if ENV["NO_COLOR"]
   Rainbow.enabled = false
