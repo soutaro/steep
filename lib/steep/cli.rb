@@ -89,7 +89,7 @@ module Steep
       end
 
       def paths
-        options = if @options.none? {|option| option.is_a?(Pathname) }
+        options = if @options.none? {|option| option.is_a?(Pathname) } && Pathname("sig").directory?
                     @options + [Pathname("sig")]
                   else
                     @options
@@ -228,13 +228,11 @@ module Steep
     def process_annotations
       source_paths = argv.map {|file| Pathname(file) }
       Drivers::Annotations.new(source_paths: source_paths, stdout: stdout, stderr: stderr).run
-      0
     end
 
     def process_scaffold
       source_paths = argv.map {|file| Pathname(file) }
       Drivers::Scaffold.new(source_paths: source_paths, stdout: stdout, stderr: stderr).run
-      0
     end
 
     def process_interface
@@ -244,8 +242,6 @@ module Steep
         end.parse!(argv)
 
         Drivers::PrintInterface.new(type_name: argv.first, signature_dirs: signature_options.paths, stdout: stdout, stderr: stderr).run
-
-        0
       end
     end
 

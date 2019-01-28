@@ -72,7 +72,6 @@ require "steep/type_inference/block_params"
 require "steep/type_inference/constant_env"
 require "steep/type_inference/type_env"
 
-require "steep/drivers/utils/validator"
 require "steep/project"
 require "steep/project/file"
 require "steep/project/listener"
