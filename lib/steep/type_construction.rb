@@ -717,7 +717,7 @@ module Steep
             if send_node.type == :lambda
               type_lambda(node, block_params: params, block_body: body, type_hint: hint)
             else
-              type_send(node, send_node: send_node, block_params: params, block_body: body)
+              type_send(node, send_node: send_node, block_params: params, block_body: body, unwrap: send_node.type == :csend)
             end
           end
 
