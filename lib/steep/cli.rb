@@ -132,7 +132,7 @@ module Steep
     end
 
     def self.available_commands
-      [:check, :validate, :annotations, :scaffold, :interface, :version, :paths, :watch]
+      [:check, :validate, :annotations, :scaffold, :interface, :version, :paths, :watch, :langserver]
     end
 
     def process_global_options
@@ -262,6 +262,31 @@ module Steep
         end
 
         Drivers::Watch.new(source_dirs: source_dirs, signature_dirs: signature_options.paths, stdout: stdout, stderr: stderr).tap do |driver|
+          driver.options.fallback_any_is_error = fallback_any_is_error || strict
+          driver.options.allow_missing_definitions = false if strict
+        end.run
+
+        0
+      end
+    end
+
+    def process_langserver
+      with_signature_options do |signature_options|
+        strict = false
+        fallback_any_is_error = false
+
+        OptionParser.new do |opts|
+          handle_dir_options opts, signature_options
+          opts.on("--strict") { strict = true }
+          opts.on("--fallback-any-is-error") { fallback_any_is_error = true }
+        end.parse!(argv)
+
+        source_dirs = argv.map { |path| Pathname(path) }
+        if source_dirs.empty?
+          source_dirs << Pathname(".")
+        end
+
+        Drivers::Langserver.new(source_dirs: source_dirs, signature_dirs: signature_options.paths).tap do |driver|
           driver.options.fallback_any_is_error = fallback_any_is_error || strict
           driver.options.allow_missing_definitions = false if strict
         end.run
