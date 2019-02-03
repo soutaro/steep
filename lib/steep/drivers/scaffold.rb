@@ -12,13 +12,16 @@ module Steep
         @source_paths = source_paths
         @stdout = stdout
         @stderr = stderr
-
-        @labeling = ASTUtils::Labeling.new
       end
 
       def run
-        each_ruby_source(source_paths, false) do |source|
-          Generator.new(source: source, stderr: stderr).write(io: stdout)
+        source_paths.each do |path|
+          each_file_in_path(".rb", path) do |file_path|
+            file = Project::SourceFile.new(path: file_path, options: Project::Options.new)
+            file.content = file_path.read
+            file.parse
+            Generator.new(source: file.source, stderr: stderr).write(io: stdout)
+          end
         end
         0
       end

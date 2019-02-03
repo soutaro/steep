@@ -240,6 +240,9 @@ class Hash<'key, 'value>
   def key?: ('key) -> bool
   def merge: (Hash<'key, 'value>) -> Hash<'key, 'value>
   def delete: ('key) -> 'value?
+  def each_value: { ('value) -> void } -> self
+                | -> Enumerator<'valud, self>
+  def empty?: -> bool
 
   include Enumerable<['key, 'value], self>
 end

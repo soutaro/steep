@@ -27,107 +27,102 @@ module Steep
         self.dump_all_types = false
         self.fallback_any_is_error = false
         self.allow_missing_definitions = true
+      end
 
-        @labeling = ASTUtils::Labeling.new
+      def options
+        Project::Options.new.tap do |opt|
+          opt.allow_missing_definitions = allow_missing_definitions
+          opt.fallback_any_is_error = fallback_any_is_error
+        end
       end
 
       def run
         Steep.logger.level = Logger::DEBUG if verbose
 
-        env = AST::Signature::Env.new
+        project = Project.new(Project::SyntaxErrorRaisingListener.new)
 
-        each_signature(signature_dirs, verbose) do |signature|
-          env.add signature
-        end
-
-        builder = Interface::Builder.new(signatures: env)
-        check = Subtyping::Check.new(builder: builder)
-
-        validator = Utils::Validator.new(stdout: stdout, stderr: stderr, verbose: verbose)
-
-        validated = validator.run(env: env, builder: builder, check: check) do |sig|
-          stderr.puts "Validating #{sig.name} (#{sig.location.name}:#{sig.location.start_line})..." if verbose
-        end
-
-        unless validated
-          return 1
-        end
-
-        sources = []
-        each_ruby_source(source_paths, verbose) do |source|
-          sources << source
-        end
-
-        typing = Typing.new
-
-        sources.each do |source|
-          Steep.logger.tagged source.path do
-            Steep.logger.debug "Typechecking..."
-            annotations = source.annotations(block: source.node, builder: check.builder, current_module: AST::Namespace.root)
-
-            const_env = TypeInference::ConstantEnv.new(builder: check.builder, context: nil)
-            type_env = TypeInference::TypeEnv.build(annotations: annotations,
-                                                    subtyping: check,
-                                                    const_env: const_env,
-                                                    signatures: check.builder.signatures)
-
-            construction = TypeConstruction.new(
-              checker: check,
-              annotations: annotations,
-              source: source,
-              self_type: AST::Builtin::Object.instance_type,
-              block_context: nil,
-              module_context: TypeConstruction::ModuleContext.new(
-                instance_type: nil,
-                module_type: nil,
-                implement_name: nil,
-                current_namespace: AST::Namespace.root,
-                const_env: const_env,
-                class_name: nil
-              ),
-              method_context: nil,
-              typing: typing,
-              break_context: nil,
-              type_env: type_env
-              )
-            construction.synthesize(source.node)
+        source_paths.each do |path|
+          each_file_in_path(".rb", path) do |file_path|
+            file = Project::SourceFile.new(path: file_path, options: options)
+            file.content = file_path.read
+            project.source_files[file_path] = file
           end
         end
+
+        signature_dirs.each do |path|
+          each_file_in_path(".rbi", path) do |file_path|
+            file = Project::SignatureFile.new(path: file_path)
+            file.content = file_path.read
+            project.signature_files[file_path] = file
+          end
+        end
+
+        project.type_check
+
+        case signature = project.signature
+        when Project::SignatureLoaded
+          output_type_check_result(project)
+          project.has_type_error? ? 1 : 0
+        when Project::SignatureHasError
+          output_signature_errors(project)
+          1
+        end
+      end
+
+      def output_type_check_result(project)
+        # @type var project: Project
 
         if dump_all_types
-          lines = []
+          project.source_files.each_value do |file|
+            lines = []
 
-          typing.nodes.each_value do |node|
-            begin
-              type = typing.type_of(node: node)
-              lines << [node.loc.expression.source_buffer.name, [node.loc.last_line,node.loc.last_column], [node.loc.first_line, node.loc.column], node, type]
-            rescue
-              lines << [node.loc.expression.source_buffer.name, [node.loc.last_line,node.loc.last_column], [node.loc.first_line, node.loc.column], node, nil]
+            if typing = file.typing
+              typing.nodes.each_value do |node|
+                begin
+                  type = typing.type_of(node: node)
+                  lines << [node.loc.expression.source_buffer.name, [node.loc.last_line,node.loc.last_column], [node.loc.first_line, node.loc.column], node, type]
+                rescue
+                  lines << [node.loc.expression.source_buffer.name, [node.loc.last_line,node.loc.last_column], [node.loc.first_line, node.loc.column], node, nil]
+                end
+              end
+
+              lines.sort {|x,y| y <=> x }.reverse_each do |line|
+                source = line[3].loc.expression.source
+                stdout.puts "#{line[0]}:(#{line[2].join(",")}):(#{line[1].join(",")}):\t#{line[3].type}:\t#{line[4]}\t(#{source.split(/\n/).first})"
+              end
             end
           end
-
-          lines.sort {|x,y| y <=> x }.reverse_each do |line|
-            source = line[3].loc.expression.source
-            stdout.puts "#{line[0]}:(#{line[2].join(",")}):(#{line[1].join(",")}):\t#{line[3].type}:\t#{line[4]}\t(#{source.split(/\n/).first})"
-          end
         end
 
-        errors = typing.errors.select do |error|
-          case
-          when error.is_a?(Errors::FallbackAny) && !fallback_any_is_error
-            false
-          when error.is_a?(Errors::MethodDefinitionMissing) && allow_missing_definitions
-            false
+        project.source_files.each_value do |file|
+          file.errors&.each do |error|
+            error.print_to stdout
+          end
+        end
+      end
+
+      def output_signature_errors(project)
+        project.signature.errors.each do |error|
+          case error
+          when Interface::Instantiated::InvalidMethodOverrideError
+            stdout.puts "😱 #{error.message}"
+            error.result.trace.each do |s, t|
+              case s
+              when Interface::Method
+                stdout.puts "  #{s.name}(#{s.type_name}) <: #{t.name}(#{t.type_name})"
+              when Interface::MethodType
+                stdout.puts "  #{s} <: #{t} (#{s.location&.name||"?"}:#{s.location&.start_line||"?"})"
+              else
+                stdout.puts "  #{s} <: #{t}"
+              end
+            end
+            stdout.puts "  🚨 #{error.result.error.message}"
+          when Interface::Instantiated::InvalidIvarOverrideError
+            stdout.puts "😱 #{error.message}"
           else
-            true
+            stdout.puts "😱 #{error.inspect}"
           end
         end
-
-        errors.each do |error|
-          error.print_to stdout
-        end
-
-        errors.empty? ? 0 : 1
       end
     end
   end

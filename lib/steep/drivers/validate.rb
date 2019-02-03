@@ -19,20 +19,45 @@ module Steep
       def run
         Steep.logger.level = Logger::DEBUG if verbose
 
-        env = AST::Signature::Env.new
+        project = Project.new
 
-        each_signature(signature_dirs, verbose) do |signature|
-          env.add signature
+        signature_dirs.each do |path|
+          each_file_in_path(".rbi", path) do |file_path|
+            file = Project::SignatureFile.new(path: file_path)
+            file.content = file_path.read
+            project.signature_files[file_path] = file
+          end
         end
 
-        builder = Interface::Builder.new(signatures: env)
-        check = Subtyping::Check.new(builder: builder)
+        project.type_check
 
-        validator = Utils::Validator.new(stdout: stdout, stderr: stderr, verbose: verbose)
-
-        validator.run(env: env, builder: builder, check: check) do |sig|
-          stderr.puts "Validating #{sig.name} (#{sig.location.name}:#{sig.location.start_line})..." if verbose
-        end ? 0 : 1
+        case project.signature
+        when Project::SignatureHasError
+          project.signature.errors.each do |error|
+            case error
+            when Interface::Instantiated::InvalidMethodOverrideError
+              stdout.puts "😱 #{error.message}"
+              error.result.trace.each do |s, t|
+                case s
+                when Interface::Method
+                  stdout.puts "  #{s.name}(#{s.type_name}) <: #{t.name}(#{t.type_name})"
+                when Interface::MethodType
+                  stdout.puts "  #{s} <: #{t} (#{s.location&.name||"?"}:#{s.location&.start_line||"?"})"
+                else
+                  stdout.puts "  #{s} <: #{t}"
+                end
+              end
+              stdout.puts "  🚨 #{error.result.error.message}"
+            when Interface::Instantiated::InvalidIvarOverrideError
+              stdout.puts "😱 #{error.message}"
+            else
+              stdout.puts "😱 #{error.inspect}"
+            end
+          end
+          1
+        else
+          0
+        end
       end
     end
   end

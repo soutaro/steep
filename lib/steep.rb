@@ -7,6 +7,8 @@ require "active_support/core_ext/object/try"
 require "logger"
 require "active_support/tagged_logging"
 require "rainbow"
+require "listen"
+require 'pry'
 
 require "steep/ast/namespace"
 require "steep/names"
@@ -72,13 +74,17 @@ require "steep/type_inference/block_params"
 require "steep/type_inference/constant_env"
 require "steep/type_inference/type_env"
 
-require "steep/drivers/utils/validator"
+require "steep/project"
+require "steep/project/file"
+require "steep/project/listener"
+require "steep/project/options"
 require "steep/drivers/utils/each_signature"
 require "steep/drivers/check"
 require "steep/drivers/validate"
 require "steep/drivers/annotations"
 require "steep/drivers/scaffold"
 require "steep/drivers/print_interface"
+require "steep/drivers/watch"
 
 if ENV["NO_COLOR"]
   Rainbow.enabled = false
