@@ -50,7 +50,7 @@ module Steep
         end
 
         def with_location(new_location)
-          self.class.new(location: new_location)
+          self.class.new(location: new_location, params: params, return_type: return_type)
         end
 
         def map_type(&block)
