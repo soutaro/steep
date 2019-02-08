@@ -518,7 +518,7 @@ module Steep
       end
 
       def to_s
-        "#{location_to_str}: UnexpectedKeyword: #{unexpected_keywords.join(", ")}"
+        "#{location_to_str}: UnexpectedKeyword: #{unexpected_keywords.to_a.join(", ")}"
       end
     end
 
