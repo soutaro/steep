@@ -1239,7 +1239,9 @@ module Steep
 
         when :or
           yield_self do
-            t1, t2 = each_child_node(node).map {|child| synthesize(child) }
+            c1, c2 = node.children
+            t1 = synthesize(c1, hint: hint)
+            t2 = synthesize(c2, hint: unwrap(t1))
             type = union_type(unwrap(t1), t2)
             typing.add_typing(node, type)
           end
