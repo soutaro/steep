@@ -92,12 +92,16 @@ end
 
 module Steep
   def self.logger
-    unless @logger
-      @logger = ActiveSupport::TaggedLogging.new(Logger.new(STDERR))
-      @logger.push_tags "Steep #{VERSION}"
-      @logger.level = Logger::WARN
-    end
+    self.log_output = STDERR unless @logger
 
     @logger
+  end
+
+  def self.log_output=(output)
+    prev_level = @logger&.level
+
+    @logger = ActiveSupport::TaggedLogging.new(Logger.new(output))
+    @logger.push_tags "Steep #{VERSION}"
+    @logger.level = prev_level || Logger::WARN
   end
 end

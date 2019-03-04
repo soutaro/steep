@@ -170,6 +170,22 @@ module Steep
       opts.on("--verbose") do
         Steep.logger.level = Logger::DEBUG
       end
+
+      opts.on("--log-level=[debug,info,warn,error,fatal]") do |level|
+        lv = {
+          "debug" => Logger::DEBUG,
+          "info" => Logger::INFO,
+          "warn" => Logger::WARN,
+          "error" => Logger::ERROR,
+          "fatal" => Logger::FATAL
+        }[level.downcase] or raise "Unknown error level: #{level}"
+
+        Steep.logger.level = lv
+      end
+
+      opts.on("--log-output=[PATH]") do |file|
+        Steep.log_output = file
+      end
     end
 
     def handle_dir_options(opts, options)
