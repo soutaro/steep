@@ -2,9 +2,14 @@
 
 ## master
 
-* Automatically `@implements` super class if the class definition inherits
+## 0.10.0 (2019-03-05)
 
-## 0.8.3 (2018-11-11)
+* Add `watch` subcommand (#77)
+* Automatically `@implements` super class if the class definition inherits
+* Fix tuple typing
+* Fix `or` typing
+
+## 0.9.0 (2018-11-11)
 
 * Private methods (#72)
 * `__skip__` to skip type checking (#73)
