@@ -4915,6 +4915,36 @@ EOF
     end
   end
 
+  def test_tuple5_subtyping
+    source = parse_ruby(<<EOF)
+# @type var x: [Integer | String, String]
+x = [1, "foo"]
+EOF
+
+    typing = Typing.new
+    checker = new_subtyping_checker()
+    annotations = source.annotations(block: source.node, builder: checker.builder, current_module: Namespace.root)
+    const_env = ConstantEnv.new(builder: checker.builder, context: nil)
+    type_env = TypeEnv.build(annotations: annotations,
+                             subtyping: checker,
+                             const_env: const_env,
+                             signatures: checker.builder.signatures)
+
+    construction = TypeConstruction.new(checker: checker,
+                                        source: source,
+                                        annotations: annotations,
+                                        type_env: type_env,
+                                        block_context: nil,
+                                        self_type: Types::Name.new_instance(name: "::Object"),
+                                        method_context: nil,
+                                        typing: typing,
+                                        module_context: nil,
+                                        break_context: nil)
+    construction.synthesize(source.node)
+
+    assert_empty typing.errors
+  end
+
   def test_hash_tuple
     source = parse_ruby(<<EOF)
 hash = { "foo" => 1 }

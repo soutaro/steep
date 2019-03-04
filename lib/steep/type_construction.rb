@@ -1166,11 +1166,12 @@ module Steep
               expand_alias(hint) do |hint|
                 is_tuple = hint.is_a?(AST::Types::Tuple)
                 is_tuple &&= node.children.all? {|child| child.type != :splat }
-                is_tuple &&= node.children.map.with_index do |child, index|
-                  synthesize(child, hint: hint.types[index])
-                end.yield_self do |types|
-                  tuple = AST::Types::Tuple.new(types: types)
-                  relation = Subtyping::Relation.new(sub_type: tuple, super_type: hint)
+                is_tuple &&= node.children.size >= hint.types.size
+                is_tuple &&= hint.types.map.with_index do |child_type, index|
+                  child_node = node.children[index]
+                  [synthesize(child_node, hint: child_type), child_type]
+                end.all? do |node_type, hint_type|
+                  relation = Subtyping::Relation.new(sub_type: node_type, super_type: hint_type)
                   result = checker.check(relation, constraints: Subtyping::Constraints.empty)
                   result.success?
                 end
