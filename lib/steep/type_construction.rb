@@ -2058,7 +2058,7 @@ module Steep
           )
         else
           hash_elements = params.required_keywords.merge(
-            method_type.optional_keywords.transform_values do |type|
+            method_type.params.optional_keywords.transform_values do |type|
               AST::Types::Union.build(types: [type, AST::Builtin.nil_type],
                                       location: method_type.location)
             end
