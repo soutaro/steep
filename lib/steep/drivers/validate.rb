@@ -4,21 +4,16 @@ module Steep
       attr_reader :signature_dirs
       attr_reader :stdout
       attr_reader :stderr
-      attr_accessor :verbose
 
       def initialize(signature_dirs:, stdout:, stderr:)
         @signature_dirs = signature_dirs
         @stdout = stdout
         @stderr = stderr
-
-        self.verbose = false
       end
 
       include Utils::EachSignature
 
       def run
-        Steep.logger.level = Logger::DEBUG if verbose
-
         project = Project.new
 
         signature_dirs.each do |path|

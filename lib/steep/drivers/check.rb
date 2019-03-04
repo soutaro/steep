@@ -6,7 +6,6 @@ module Steep
       attr_reader :stdout
       attr_reader :stderr
 
-      attr_accessor :verbose
       attr_accessor :accept_implicit_any
       attr_accessor :dump_all_types
       attr_accessor :fallback_any_is_error
@@ -22,7 +21,6 @@ module Steep
         @stdout = stdout
         @stderr = stderr
 
-        self.verbose = false
         self.accept_implicit_any = false
         self.dump_all_types = false
         self.fallback_any_is_error = false
@@ -37,8 +35,6 @@ module Steep
       end
 
       def run
-        Steep.logger.level = Logger::DEBUG if verbose
-
         project = Project.new(Project::SyntaxErrorRaisingListener.new)
 
         source_paths.each do |path|
