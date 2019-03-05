@@ -42,6 +42,9 @@ module Steep
           rescue ::Parser::SyntaxError => exn
             Steep.logger.warn { "Syntax error on #{path}: #{exn.inspect}" }
             exn
+          rescue EncodingError => exn
+            Steep.logger.warn { "Encoding error on #{path}: #{exn.inspect}" }
+            exn
           end
       end
 

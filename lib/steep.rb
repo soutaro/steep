@@ -9,6 +9,7 @@ require "active_support/tagged_logging"
 require "rainbow"
 require "listen"
 require 'pry'
+require 'language_server-protocol'
 
 require "steep/ast/namespace"
 require "steep/names"
@@ -85,6 +86,7 @@ require "steep/drivers/annotations"
 require "steep/drivers/scaffold"
 require "steep/drivers/print_interface"
 require "steep/drivers/watch"
+require "steep/drivers/langserver"
 
 if ENV["NO_COLOR"]
   Rainbow.enabled = false
