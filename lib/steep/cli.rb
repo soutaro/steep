@@ -141,7 +141,9 @@ module Steep
           process_version
           exit 0
         end
-      end.order!
+
+        handle_logging_options(opts)
+      end.order!(argv)
 
       true
     end
@@ -164,6 +166,28 @@ module Steep
       __send__(:"process_#{command}")
     end
 
+    def handle_logging_options(opts)
+      opts.on("--verbose") do
+        Steep.logger.level = Logger::DEBUG
+      end
+
+      opts.on("--log-level=[debug,info,warn,error,fatal]") do |level|
+        lv = {
+          "debug" => Logger::DEBUG,
+          "info" => Logger::INFO,
+          "warn" => Logger::WARN,
+          "error" => Logger::ERROR,
+          "fatal" => Logger::FATAL
+        }[level.downcase] or raise "Unknown error level: #{level}"
+
+        Steep.logger.level = lv
+      end
+
+      opts.on("--log-output=[PATH]") do |file|
+        Steep.log_output = file
+      end
+    end
+
     def handle_dir_options(opts, options)
       opts.on("-I [PATH]") {|path| options << Pathname(path) }
       opts.on("-G [GEM]") {|gem| options << gem }
@@ -183,14 +207,13 @@ module Steep
 
     def process_check
       with_signature_options do |signature_options|
-        verbose = false
         dump_all_types = false
         fallback_any_is_error = false
         strict = false
 
         OptionParser.new do |opts|
+          handle_logging_options opts
           handle_dir_options opts, signature_options
-          opts.on("--verbose") { verbose = true }
           opts.on("--dump-all-types") { dump_all_types = true }
           opts.on("--strict") { strict = true }
           opts.on("--fallback-any-is-error") { fallback_any_is_error = true }
@@ -202,7 +225,6 @@ module Steep
         end
 
         Drivers::Check.new(source_paths: source_paths, signature_dirs: signature_options.paths, stdout: stdout, stderr: stderr).tap do |check|
-          check.verbose = verbose
           check.dump_all_types = dump_all_types
           check.fallback_any_is_error = fallback_any_is_error || strict
           check.allow_missing_definitions = false if strict
@@ -212,25 +234,29 @@ module Steep
 
     def process_validate
       with_signature_options do |signature_options|
-        verbose = false
-
         OptionParser.new do |opts|
+          handle_logging_options opts
           handle_dir_options opts, signature_options
-          opts.on("--verbose") { verbose = true }
         end.parse!(argv)
 
-        Drivers::Validate.new(signature_dirs: signature_options.paths, stdout: stdout, stderr: stderr).tap do |validate|
-          validate.verbose = verbose
-        end.run
+        Drivers::Validate.new(signature_dirs: signature_options.paths, stdout: stdout, stderr: stderr).run
       end
     end
 
     def process_annotations
+      OptionParser.new do |opts|
+        handle_logging_options opts
+      end.parse!(argv)
+
       source_paths = argv.map {|file| Pathname(file) }
       Drivers::Annotations.new(source_paths: source_paths, stdout: stdout, stderr: stderr).run
     end
 
     def process_scaffold
+      OptionParser.new do |opts|
+        handle_logging_options opts
+      end.parse!(argv)
+
       source_paths = argv.map {|file| Pathname(file) }
       Drivers::Scaffold.new(source_paths: source_paths, stdout: stdout, stderr: stderr).run
     end
@@ -238,6 +264,7 @@ module Steep
     def process_interface
       with_signature_options do |signature_options|
         OptionParser.new do |opts|
+          handle_logging_options opts
           handle_dir_options opts, signature_options
         end.parse!(argv)
 
@@ -251,6 +278,7 @@ module Steep
         fallback_any_is_error = false
 
         OptionParser.new do |opts|
+          handle_logging_options opts
           handle_dir_options opts, signature_options
           opts.on("--strict") { strict = true }
           opts.on("--fallback-any-is-error") { fallback_any_is_error = true }
@@ -303,6 +331,7 @@ module Steep
     def process_paths
       with_signature_options do |signature_options|
         OptionParser.new do |opts|
+          handle_logging_options opts
           handle_dir_options opts, signature_options
         end.parse!(argv)
 
