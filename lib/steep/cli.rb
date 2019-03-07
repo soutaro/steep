@@ -304,6 +304,7 @@ module Steep
         fallback_any_is_error = false
 
         OptionParser.new do |opts|
+          handle_logging_options opts
           handle_dir_options opts, signature_options
           opts.on("--strict") { strict = true }
           opts.on("--fallback-any-is-error") { fallback_any_is_error = true }
