@@ -377,4 +377,27 @@ end
     annotations = source.annotations(block: def_node, builder: builder, current_module: Namespace.parse("::A"))
     assert_equal parse_type("::Integer"), annotations.var_type(lvar: :x)
   end
+
+  def test_find_node
+    source = parse_source(<<-EOF)
+class A
+  def self.foo(bar)
+    # @type var x: Integer
+    x = 123
+  end
+end
+    EOF
+
+    assert_equal source.node, source.find_node(line: 1, column: 2)            # class
+    assert_equal dig(source.node, 0), source.find_node(line: 1, column: 6)    # A
+    assert_equal dig(source.node, 0), source.find_node(line: 1, column: 7)    # A
+    assert_equal dig(source.node, 2, 0), source.find_node(line: 2, column: 6) # self
+    assert_equal dig(source.node, 2), source.find_node(line: 2, column: 11)   # def
+    assert_equal dig(source.node, 2, 2, 0), source.find_node(line: 2, column: 15)   # bar
+    assert_equal dig(source.node, 2, 3), source.find_node(line: 4, column: 5)   # x
+    assert_equal dig(source.node, 2, 3, 1), source.find_node(line: 4, column: 8)   # 123
+    assert_equal dig(source.node, 2, 3, 1), source.find_node(line: 4, column: 9)   # 123
+    assert_equal dig(source.node, 2, 3, 1), source.find_node(line: 4, column: 10)   # 123
+    assert_equal dig(source.node, 2, 3, 1), source.find_node(line: 4, column: 11)   # 123
+  end
 end

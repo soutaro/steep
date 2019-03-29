@@ -21,6 +21,7 @@ module Steep
                 open_close: true,
                 change: LanguageServer::Protocol::Constant::TextDocumentSyncKind::FULL,
               ),
+              hover_provider: true
             ),
           )
         end
@@ -40,6 +41,37 @@ module Steep
           uri = URI.parse(request[:params][:textDocument][:uri])
           text = request[:params][:contentChanges][0][:text]
           synchronize_project(uri: uri, text: text, notifier: notifier)
+        end
+
+        subscribe :"textDocument/hover" do |request:, notifier:|
+          Steep.logger.warn request.inspect
+          uri = URI.parse(request[:params][:textDocument][:uri])
+          line = request[:params][:position][:line]
+          column = request[:params][:position][:character]
+          respond_to_hover(uri: uri, line: line, column: column, notifier: notifier, id: request[:id])
+        end
+      end
+
+      def respond_to_hover(uri:, line:, column:, notifier:, id:)
+        path = Pathname(uri.path).relative_path_from(Pathname.pwd)
+
+        if path.extname == ".rb"
+          # line in LSP is zero-origin
+          project.type_of(path: path, line: line + 1, column: column) do |type, node|
+            Steep.logger.warn "type = #{type.to_s}"
+
+            start_position = { line: node.location.line - 1, character: node.location.column }
+            end_position = { line: node.location.last_line - 1, character: node.location.last_column }
+            range = { start: start_position, end: end_position }
+
+            Steep.logger.warn "node = #{node.type}"
+            Steep.logger.warn "range = #{range.inspect}"
+
+            LanguageServer::Protocol::Interface::Hover.new(
+              contents: { kind: "markdown", value: "`#{type}`" },
+              range: range
+            )
+          end
         end
       end
 
@@ -79,7 +111,7 @@ module Steep
           subscriber = subscribers[method]
           if subscriber
             result = subscriber.call(request: request, notifier: notifier)
-            if id
+            if id && result
               writer.write(id: id, result: result)
             end
           else
