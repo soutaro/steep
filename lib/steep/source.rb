@@ -288,5 +288,29 @@ module Steep
         enum_for :each_annotation
       end
     end
+
+    # @type method find_node: (line: Integer, column: Integer, ?node: any, ?position: Integer?) -> any
+    def find_node(line:, column:, node: self.node, position: nil)
+      position ||= (line-1).times.sum do |i|
+        node.location.expression.source_buffer.source_line(i+1).size + 1
+      end + column
+
+      range = node.location.expression&.yield_self do |r|
+        r.begin_pos..r.end_pos
+      end
+
+      if range
+        if range === position
+          Source.each_child_node(node) do |child|
+            n = find_node(line: line, column: column, node: child, position: position)
+            if n
+              return n
+            end
+          end
+
+          node
+        end
+      end
+    end
   end
 end

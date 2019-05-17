@@ -32,7 +32,8 @@ class LangserverTest < Minitest::Test
           id: 0,
           result: {
             capabilities: {
-              textDocumentSync: { openClose: true, change: 1 }
+              textDocumentSync: { openClose: true, change: 1 },
+              hoverProvider:true
             }
           },
           jsonrpc: "2.0",

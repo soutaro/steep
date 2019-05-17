@@ -13,6 +13,7 @@ class Steep::Source
   def self.parse: (String, path: String, labeling: any) -> instance
   def annotations: (block: any, builder: any, current_module: any) -> Array<annotation>
   def node: -> any
+  def find_node: (line: Integer, column: Integer) -> any
 end
 
 class Steep::Typing
@@ -103,4 +104,6 @@ class Steep::Project
   def signature_updated?: -> bool
   def reload_signature: -> void
   def validate_signature: (any) -> Array<any>
+
+  def type_of: (path: Pathname, line: Integer, column: Integer) -> any
 end

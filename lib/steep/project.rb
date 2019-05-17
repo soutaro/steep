@@ -227,5 +227,28 @@ module Steep
 
       errors
     end
+
+    def type_of(path:, line:, column:)
+      if source_file = source_files[path]
+        case source = source_file.source
+        when Source
+          if typing = source_file.typing
+            node = source.find_node(line: line, column: column)
+
+            type = begin
+              typing.type_of(node: node)
+            rescue RuntimeError
+              AST::Builtin.any_type
+            end
+
+            if block_given?
+              yield type, node
+            else
+              type
+            end
+          end
+        end
+      end
+    end
   end
 end
