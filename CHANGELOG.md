@@ -2,6 +2,12 @@
 
 ## master
 
+## 0.11.0 (2019-05-18)
+
+* Skip `alias` nodes type checking (#85)
+* Add experimental LSP support (#79. #83)
+* Fix logging (#81)
+
 ## 0.10.0 (2019-03-05)
 
 * Add `watch` subcommand (#77)
