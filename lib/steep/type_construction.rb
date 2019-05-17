@@ -1559,9 +1559,9 @@ module Steep
             typing.add_typing node, AST::Builtin.any_type
           end
 
-        when :splat, :sclass
+        when :splat, :sclass, :alias
           yield_self do
-            Steep.logger.error "Unsupported node #{node.type}"
+            Steep.logger.error "Unsupported node #{node.type} (#{node.location.expression.source_buffer.name}:#{node.location.expression.line})"
 
             each_child_node node do |child|
               synthesize(child)
