@@ -5,6 +5,7 @@ module Steep
       attr_reader :signature_dirs
       attr_reader :options
       attr_reader :subscribers
+      attr_reader :open_paths
 
       include Utils::EachSignature
 
@@ -13,6 +14,7 @@ module Steep
         @signature_dirs = signature_dirs
         @options = Project::Options.new
         @subscribers = {}
+        @open_paths = Set.new
 
         subscribe :initialize do |request:, notifier:|
           LanguageServer::Protocol::Interface::InitializeResult.new(
@@ -33,8 +35,14 @@ module Steep
 
         subscribe :"textDocument/didOpen" do |request:, notifier:|
           uri = URI.parse(request[:params][:textDocument][:uri])
+          open_path uri
           text = request[:params][:textDocument][:text]
           synchronize_project(uri: uri, text: text, notifier: notifier)
+        end
+
+        subscribe :"textDocument/didClose" do |request:, notifier:|
+          uri = URI.parse(request[:params][:textDocument][:uri])
+          close_path uri
         end
 
         subscribe :"textDocument/didChange" do |request:, notifier:|
@@ -99,6 +107,18 @@ module Steep
         end
       end
 
+      def open_path?(path)
+        open_paths.member?(path)
+      end
+
+      def open_path(path)
+        open_paths << path
+      end
+
+      def close_path(path)
+        open_paths.delete path
+      end
+
       def run
         writer = LanguageServer::Protocol::Transport::Stdio::Writer.new
         reader = LanguageServer::Protocol::Transport::Stdio::Reader.new
@@ -128,37 +148,45 @@ module Steep
           file = project.source_files[path] || Project::SourceFile.new(path: path, options: options)
           file.content = text
           project.source_files[path] = file
-          project.type_check
-
-          diags = (file.errors || []).map do |error|
-            LanguageServer::Protocol::Interface::Diagnostic.new(
-              message: error.to_s,
-              severity: LanguageServer::Protocol::Constant::DiagnosticSeverity::ERROR,
-              range: LanguageServer::Protocol::Interface::Range.new(
-                start: LanguageServer::Protocol::Interface::Position.new(
-                  line: error.node.loc.line - 1,
-                  character: error.node.loc.column,
-                ),
-                end: LanguageServer::Protocol::Interface::Position.new(
-                  line: error.node.loc.last_line - 1,
-                  character: error.node.loc.last_column,
-                ),
-              )
-            )
-          end
-
-          notifier.call(
-            method: :"textDocument/publishDiagnostics",
-            params: LanguageServer::Protocol::Interface::PublishDiagnosticsParams.new(
-              uri: uri,
-              diagnostics: diags,
-            ),
-          )
         when ".rbi"
           file = project.signature_files[path] || Project::SignatureFile.new(path: path)
           file.content = text
           project.signature_files[path] = file
-          project.type_check
+        end
+
+        project.type_check
+
+        open_paths.each do |uri|
+          Pathname(uri.path).relative_path_from(Pathname.pwd).yield_self do |path|
+            case path.extname
+            when ".rb"
+              file = project.source_files[path] || Project::SourceFile.new(path: path, options: options)
+              diags = (file.errors || []).map do |error|
+                LanguageServer::Protocol::Interface::Diagnostic.new(
+                  message: error.to_s,
+                  severity: LanguageServer::Protocol::Constant::DiagnosticSeverity::ERROR,
+                  range: LanguageServer::Protocol::Interface::Range.new(
+                    start: LanguageServer::Protocol::Interface::Position.new(
+                      line: error.node.loc.line - 1,
+                      character: error.node.loc.column,
+                      ),
+                    end: LanguageServer::Protocol::Interface::Position.new(
+                      line: error.node.loc.last_line - 1,
+                      character: error.node.loc.last_column,
+                      ),
+                    )
+                )
+              end
+
+              notifier.call(
+                method: :"textDocument/publishDiagnostics",
+                params: LanguageServer::Protocol::Interface::PublishDiagnosticsParams.new(
+                  uri: uri,
+                  diagnostics: diags,
+                  ),
+                )
+            end
+          end
         end
       end
     end
