@@ -82,6 +82,17 @@ class LangserverTest < Minitest::Test
     in_tmpdir do
       Open3.popen3(langserver_command) do |stdin, stdout, stderr, wait_thr|
         stdin.puts jsonrpc(
+                     method: "textDocument/didOpen",
+                     params: {
+                       textDocument: {
+                         uri: "file:///root/workdir/example.rb",
+                         languageId: "ruby",
+                         version: 1,
+                         text: "",
+                       }
+                     }
+                   )
+        stdin.puts jsonrpc(
           method: "textDocument/didChange",
           params: {
             textDocument: {
@@ -96,21 +107,30 @@ class LangserverTest < Minitest::Test
         stdin.close
         wait_thr.join
 
-        assert_equal jsonrpc(
-          method: "textDocument/publishDiagnostics",
-          params: {
-            uri: "file:///root/workdir/example.rb",
-            diagnostics: [{
-              range: {
-                start: { line: 0, character: 0 },
-                end: { line: 0, character: 38 },
-              },
-              severity: 1,
-              message: "#{Pathname("/root/workdir/example.rb").relative_path_from(Pathname.pwd)}:1:0: NoMethodError: type=::String, method=map"
-            }]
-          },
-          jsonrpc: "2.0",
-        ), stdout.read
+        assert_equal [
+                       jsonrpc(
+                         method: "textDocument/publishDiagnostics",
+                         params: {
+                           uri: "file:///root/workdir/example.rb",
+                           diagnostics: []
+                         },
+                         jsonrpc: "2.0",),
+                       jsonrpc(
+                         method: "textDocument/publishDiagnostics",
+                         params: {
+                           uri: "file:///root/workdir/example.rb",
+                           diagnostics: [{
+                                           range: {
+                                             start: { line: 0, character: 0 },
+                                             end: { line: 0, character: 38 },
+                                           },
+                                           severity: 1,
+                                           message: "#{Pathname("/root/workdir/example.rb").relative_path_from(Pathname.pwd)}:1:0: NoMethodError: type=::String, method=map"
+                                         }]
+                         },
+                         jsonrpc: "2.0",
+                         )
+                     ].join(""), stdout.read
       end
     end
   end
