@@ -4,4 +4,6 @@ rvm:
   - 2.5.3
   - 2.6.1
 before_install: gem install bundler -v 1.13.7
-script: bundle exec rake test smoke
+script:
+  - bundle exec racc -v -o lib/steep/parser.rb lib/steep/parser.y
+  - bundle exec rake reset parser build test smoke

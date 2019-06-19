@@ -18,6 +18,13 @@ Gem::Specification.new do |spec|
     f.match(%r{^(test|spec|features)/})
   end
   spec.files         << "lib/steep/parser.rb"
+  spec.files         = Dir.chdir "vendor/ruby-signature" do
+    `git ls-files -z`.split("\x0")
+      .reject {|f| f.match(%r{^(test|spec|features)/}) }
+      .map {|f| File.join("vendor/ruby-signature", f) }
+  end
+  spec.files << "vendor/ruby-signature/lib/ruby/signature/parser.rb"
+
   spec.bindir        = "exe"
   spec.executables   = spec.files.grep(%r{^exe/}) { |f| File.basename(f) }
   spec.require_paths = ["lib"]

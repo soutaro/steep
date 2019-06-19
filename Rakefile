@@ -8,15 +8,19 @@ Rake::TestTask.new(:test) do |t|
 end
 
 task :default => :test
-task :build => :racc
-task :test => :racc
-task :install => :racc
+task :build => :parser
+task :test => :parser
+task :install => [:reset, :parser]
 
-rule /\.rb/ => ".y" do |t|
-  sh "racc", "-v", "-o", "#{t.name}", "#{t.source}"
+task :parser do
+  Dir.chdir "vendor/ruby-signature" do
+    sh "bundle exec rake parser"
+  end
 end
 
-task :racc => "lib/steep/parser.rb"
+task :reset do
+  sh "git submodule update -f --init"
+end
 
 task :smoke do
   sh "bundle", "exec", "bin/smoke_runner.rb", *Dir.glob("smoke/*")
