@@ -5,6 +5,10 @@ class TypeFactoryTest < Minitest::Test
     Ruby::Signature::Parser.parse_type(str)
   end
 
+  def parse_method_type(str)
+    Ruby::Signature::Parser.parse_method_type(str)
+  end
+
   Types = Steep::AST::Types
 
   def with_factory
@@ -113,6 +117,22 @@ class TypeFactoryTest < Minitest::Test
       factory.type(Ruby::Signature::Types::Variable.new(name: :T, location: nil)) do |type|
         assert_instance_of Types::Var, type
         assert_equal :T, type.name
+      end
+    end
+  end
+
+  def test_method_type
+    with_factory do |factory|
+      factory.method_type(parse_method_type("[A] (A) { (A, B) -> nil } -> void")).yield_self do |type|
+        assert_equal "<'A> ('A) { ('A, B) -> nil } -> void", type.to_s
+      end
+
+      factory.method_type(parse_method_type("[A] (A) -> void")).yield_self do |type|
+        assert_equal "<'A> ('A) -> void", type.to_s
+      end
+
+      factory.method_type(parse_method_type("[A] () ?{ () -> A } -> void")).yield_self do |type|
+        assert_equal "<'A> () ?{ () -> 'A } -> void", type.to_s
       end
     end
   end

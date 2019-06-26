@@ -93,6 +93,21 @@ module Steep
             rest_keywords: type.rest_keywords&.yield_self {|param| type(param.type) }
           )
         end
+
+        def method_type(method_type)
+          Interface::MethodType.new(
+            type_params: method_type.type_params,
+            return_type: type(method_type.type.return_type),
+            params: params(method_type.type),
+            location: nil,
+            block: method_type.block&.yield_self do |block|
+              Interface::Block.new(
+                optional: !block.required,
+                type: Proc.new(params: params(block.type), return_type: type(block.type.return_type), location: nil)
+              )
+            end
+          )
+        end
       end
     end
   end
