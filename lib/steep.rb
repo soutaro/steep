@@ -52,12 +52,8 @@ require "steep/ast/builtin"
 require "steep/ast/types/factory"
 
 require "steep/interface/method_type"
-require "steep/interface/method"
-require "steep/interface/builder"
 require "steep/interface/substitution"
-require "steep/interface/abstract"
-require "steep/interface/instantiated"
-require "steep/interface/ivar_chain"
+require "steep/interface/interface"
 
 require "steep/subtyping/check"
 require "steep/subtyping/result"

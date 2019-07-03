@@ -11,15 +11,25 @@ class TypeFactoryTest < Minitest::Test
 
   Types = Steep::AST::Types
 
-  def with_factory
-    env = Ruby::Signature::Environment.new()
+  def with_factory(paths = {})
+    Dir.mktmpdir do |dir|
+      root = Pathname(dir)
+      paths.each do |path, content|
+        absolute_path = root + path
+        absolute_path.parent.mkpath
+        absolute_path.write(content)
+      end
 
-    env_loader = Ruby::Signature::EnvironmentLoader.new(env: env)
-    env_loader.load
+      env = Ruby::Signature::Environment.new()
 
-    definition_builder = Ruby::Signature::DefinitionBuilder.new(env: env)
+      env_loader = Ruby::Signature::EnvironmentLoader.new(env: env)
+      env_loader.add path: root
+      env_loader.load
 
-    yield Steep::AST::Types::Factory.new(builder: definition_builder)
+      definition_builder = Ruby::Signature::DefinitionBuilder.new(env: env)
+
+      yield Steep::AST::Types::Factory.new(builder: definition_builder)
+    end
   end
 
   def test_type
@@ -133,6 +143,182 @@ class TypeFactoryTest < Minitest::Test
 
       factory.method_type(parse_method_type("[A] () ?{ () -> A } -> void")).yield_self do |type|
         assert_equal "<'A> () ?{ () -> 'A } -> void", type.to_s
+      end
+    end
+  end
+
+  def test_interface_instance
+    with_factory "foo.rbi" => <<FOO do |factory|
+class Foo[A]
+  def klass: -> class
+  def get: -> A
+  def set: (A) -> self
+  private
+  def hoge: -> instance
+end
+FOO
+      factory.type(parse_type("::Foo[::String]")).yield_self do |type|
+        factory.interface(type, private: true).yield_self do |interface|
+          assert_instance_of Steep::Interface::Interface, interface
+          assert_equal type, interface.type
+
+          assert_equal "{ () -> ::Foo.module }", interface.methods[:klass].to_s
+          assert_equal "{ () -> ::String }", interface.methods[:get].to_s
+          assert_equal "{ (::String) -> ::Foo<::String> }", interface.methods[:set].to_s
+          assert_equal "{ () -> ::Foo<any> }", interface.methods[:hoge].to_s
+        end
+
+        factory.interface(type, private: false).yield_self do |interface|
+          assert_instance_of Steep::Interface::Interface, interface
+          assert_equal type, interface.type
+
+          assert_equal "{ () -> ::Foo.module }", interface.methods[:klass].to_s
+          assert_equal "{ () -> ::String }", interface.methods[:get].to_s
+          assert_equal "{ (::String) -> ::Foo<::String> }", interface.methods[:set].to_s
+          refute_operator interface.methods, :key?, :hoge
+        end
+      end
+    end
+  end
+
+  def test_interface_interface
+    with_factory "foo.rbi" => <<FOO do |factory|
+interface _Each2[A, B]
+  def each: () { (A) -> void } -> B
+end
+FOO
+      factory.type(parse_type("::_Each2[::String, ::Array[::String]]")).yield_self do |type|
+        factory.interface(type, private: true).yield_self do |interface|
+          assert_instance_of Steep::Interface::Interface, interface
+          assert_equal type, interface.type
+
+          assert_equal "{ () { (::String) -> void } -> ::Array<::String> }", interface.methods[:each].to_s
+        end
+      end
+    end
+  end
+
+  def test_interface_class
+    with_factory "foo.rbi" => <<FOO do |factory|
+class People[X]
+  def self.all: -> Array[People[::String]]
+  def self.instance: -> instance
+  def self.itself: -> self
+end
+FOO
+      factory.type(parse_type("singleton(::People)")).yield_self do |type|
+        factory.interface(type, private: true).yield_self do |interface|
+          assert_instance_of Steep::Interface::Interface, interface
+          assert_equal type, interface.type
+
+          assert_equal "{ () -> ::Array<::People<::String>> }", interface.methods[:all].to_s
+          assert_equal "{ () -> ::People<any> }", interface.methods[:instance].to_s
+          assert_equal "{ () -> ::People.class }", interface.methods[:itself].to_s
+        end
+      end
+    end
+  end
+
+  def test_literal_type
+    with_factory do |factory|
+      factory.type(parse_type("3")).yield_self do |type|
+        factory.interface(type, private: false).yield_self do |interface|
+          assert_instance_of Steep::Interface::Interface, interface
+          assert_equal type, interface.type
+
+          assert_equal "{ (::Integer) -> ::Integer | (::Numeric) -> ::Numeric }", interface.methods[:+].to_s
+          assert_equal "{ <'X> () { (3) -> 'X } -> 'X }", interface.methods[:yield_self].to_s
+        end
+      end
+    end
+  end
+
+  def test_tuple_type
+    with_factory do |factory|
+      factory.type(parse_type("[::Integer, ::String]")).yield_self do |type|
+        factory.interface(type, private: false).yield_self do |interface|
+          assert_instance_of Steep::Interface::Interface, interface
+
+          assert_operator interface.methods[:[]].to_s,
+                          :start_with?,
+                          "{ (0) -> ::Integer | (1) -> ::String | (::Integer) -> (::Integer | ::String)"
+          assert_operator interface.methods[:[]=].to_s,
+                          :start_with?,
+                          "{ (0, ::Integer) -> ::Integer | (1, ::String) -> ::String | (::Integer, (::Integer | ::String)) -> (::Integer | ::String)"
+        end
+      end
+    end
+  end
+
+  def test_record_type
+    with_factory do |factory|
+      factory.type(parse_type("{ 1 => ::Integer, :foo => ::String, \"baz\" => bool }")).yield_self do |type|
+        factory.interface(type, private: false).yield_self do |interface|
+          assert_instance_of Steep::Interface::Interface, interface
+
+          assert_operator interface.methods[:[]].to_s,
+                          :start_with?,
+                          "{ (1) -> ::Integer | (:foo) -> ::String | (\"baz\") -> bool"
+          assert_operator interface.methods[:[]=].to_s,
+                          :start_with?,
+                          "{ (1, ::Integer) -> ::Integer | (:foo, ::String) -> ::String | (\"baz\", bool) -> bool"
+
+        end
+      end
+    end
+  end
+
+  def test_union_type
+    with_factory do |factory|
+      factory.type(parse_type("::Integer | ::String")).yield_self do |type|
+        factory.interface(type, private: false).yield_self do |interface|
+          assert_instance_of Steep::Interface::Interface, interface
+
+          interface.methods[:to_s].yield_self do |combination|
+            assert_equal :union, combination.operator
+            assert_includes combination.types.map(&:to_s), "{ () -> ::String }"
+          end
+
+          interface.methods[:+].yield_self do |combination|
+            assert_equal :union, combination.operator
+            assert_includes combination.types.map(&:to_s), "{ (::Integer) -> ::Integer | (::Numeric) -> ::Numeric }"
+            assert_includes combination.types.map(&:to_s), "{ (::String) -> ::String }"
+          end
+
+          assert_nil interface.methods[:floor]
+          assert_nil interface.methods[:end_with?]
+        end
+      end
+    end
+  end
+
+  def test_intersection_type
+    with_factory do |factory|
+      factory.type(parse_type("::Integer & ::String")).yield_self do |type|
+        factory.interface(type, private: false).yield_self do |interface|
+          assert_instance_of Steep::Interface::Interface, interface
+
+          interface.methods[:to_s].yield_self do |combination|
+            assert_equal :intersection, combination.operator
+            assert_includes combination.types.map(&:to_s), "{ () -> ::String }"
+          end
+
+          interface.methods[:+].yield_self do |combination|
+            assert_equal :intersection, combination.operator
+            assert_includes combination.types.map(&:to_s), "{ (::Integer) -> ::Integer | (::Numeric) -> ::Numeric }"
+            assert_includes combination.types.map(&:to_s), "{ (::String) -> ::String }"
+          end
+
+          interface.methods[:floor].yield_self do |combination|
+            assert_equal :overload, combination.operator
+            assert_equal "{ (::Integer) -> ::Integer }", combination.to_s
+          end
+
+          interface.methods[:end_with?].yield_self do |combination|
+            assert_equal :overload, combination.operator
+            assert_equal "{ (*::String) -> bool }", combination.to_s
+          end
+        end
       end
     end
   end

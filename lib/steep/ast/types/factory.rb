@@ -79,8 +79,16 @@ module Steep
           end
         end
 
+        def type_name_1(name)
+          Ruby::Signature::TypeName.new(name: name.name, namespace: namespace_1(name.namespace))
+        end
+
         def namespace(namespace)
           Namespace.parse(namespace.to_s)
+        end
+
+        def namespace_1(namespace)
+          Ruby::Signature::Namespace.parse(namespace.to_s)
         end
 
         def params(type)
@@ -107,6 +115,219 @@ module Steep
               )
             end
           )
+        end
+
+        class InterfaceCalculationError < StandardError
+          attr_reader :type
+
+          def initialize(type:, message:)
+            @type = type
+            super message
+          end
+        end
+
+        def interface(type, private:, self_type: type)
+          case type
+          when Name::Instance
+            Interface::Interface.new(type: self_type, private: private).tap do |interface|
+              definition = definition_builder.build_instance(type_name_1(type.name))
+
+              instance_type = Name::Instance.new(name: type.name,
+                                                 args: type.args.map { Any.new(location: nil) },
+                                                 location: nil)
+              module_type = type.to_module()
+
+              subst = Interface::Substitution.build(
+                definition.type_params,
+                type.args,
+                instance_type: instance_type,
+                module_type: module_type,
+                self_type: self_type
+              )
+
+              definition.methods.each do |name, method|
+                next if method.private? && !private
+
+                interface.methods[name] = Interface::Interface::Combination.overload(
+                  method.method_types.map {|type| method_type(type).subst(subst) }
+                )
+              end
+            end
+
+          when Name::Interface
+            Interface::Interface.new(type: self_type, private: private).tap do |interface|
+              type_name = type_name_1(type.name)
+              decl = definition_builder.env.find_class(type_name)
+              definition = definition_builder.build_interface(type_name, decl)
+
+              subst = Interface::Substitution.build(
+                definition.type_params,
+                type.args,
+                self_type: self_type
+              )
+
+              definition.methods.each do |name, method|
+                interface.methods[name] = Interface::Interface::Combination.overload(
+                  method.method_types.map {|type| method_type(type).subst(subst) }
+                )
+              end
+            end
+
+          when Name::Class
+            Interface::Interface.new(type: self_type, private: private).tap do |interface|
+              definition = definition_builder.build_singleton(type_name_1(type.name))
+
+              instance_type = Name::Instance.new(name: type.name,
+                                                 args: definition.declaration.type_params.map {Any.new(location: nil)},
+                                                 location: nil)
+              subst = Interface::Substitution.build(
+                [],
+                instance_type: instance_type,
+                module_type: type,
+                self_type: self_type
+              )
+
+              definition.methods.each do |name, method|
+                next if !private && method.private?
+
+                interface.methods[name] = Interface::Interface::Combination.overload(
+                  method.method_types.map {|type| method_type(type).subst(subst) }
+                )
+              end
+            end
+
+          when Literal
+            interface type.back_type, private: private, self_type: self_type
+
+          when Nil
+            interface Builtin::NilClass.instance_type, private: private, self_type: self_type
+
+          when Union
+            yield_self do
+              interfaces = type.types.map {|ty| interface(ty, private: private, self_type: self_type) }
+              interfaces.inject do |interface1, interface2|
+                Interface::Interface.new(type: self_type, private: private).tap do |interface|
+                  common_methods = Set.new(interface1.methods.keys) & Set.new(interface2.methods.keys)
+                  common_methods.each do |name|
+                    interface.methods[name] = Interface::Interface::Combination.union([interface1.methods[name], interface2.methods[name]])
+                  end
+                end
+              end
+            end
+
+          when Intersection
+            yield_self do
+              interfaces = type.types.map {|ty| interface(ty, private: private, self_type: self_type) }
+              interfaces.inject do |interface1, interface2|
+                Interface::Interface.new(type: self_type, private: private).tap do |interface|
+                  all_methods = Set.new(interface1.methods.keys) + Set.new(interface2.methods.keys)
+                  all_methods.each do |name|
+                    methods = [interface1.methods[name], interface2.methods[name]].compact
+                    interface.methods[name] = Interface::Interface::Combination.intersection(methods)
+                  end
+                end
+              end
+            end
+
+          when Tuple
+            yield_self do
+              element_type = Union.build(types: type.types, location: nil)
+              array_type = Builtin::Array.instance_type(element_type)
+              interface(array_type, private: private, self_type: self_type).tap do |array_interface|
+                array_interface.methods[:[]] = array_interface.methods[:[]].yield_self do |aref|
+                  Interface::Interface::Combination.overload(
+                    type.types.map.with_index {|elem_type, index|
+                      Interface::MethodType.new(
+                        type_params: [],
+                        params: Interface::Params.new(required: [AST::Types::Literal.new(value: index)],
+                                                      optional: [],
+                                                      rest: nil,
+                                                      required_keywords: {},
+                                                      optional_keywords: {},
+                                                      rest_keywords: nil),
+                        block: nil,
+                        return_type: elem_type,
+                        location: nil
+                      )
+                    } + aref.types
+                  )
+                end
+
+                array_interface.methods[:[]=] = array_interface.methods[:[]=].yield_self do |update|
+                  Interface::Interface::Combination.overload(
+                    type.types.map.with_index {|elem_type, index|
+                      Interface::MethodType.new(
+                        type_params: [],
+                        params: Interface::Params.new(required: [AST::Types::Literal.new(value: index), elem_type],
+                                                      optional: [],
+                                                      rest: nil,
+                                                      required_keywords: {},
+                                                      optional_keywords: {},
+                                                      rest_keywords: nil),
+                        block: nil,
+                        return_type: elem_type,
+                        location: nil
+                      )
+                    } + update.types
+                  )
+                end
+              end
+            end
+
+          when Record
+            yield_self do
+              key_type = type.elements.keys.map {|value| Literal.new(value: value, location: nil) }.yield_self do |types|
+                Union.build(types: types, location: nil)
+              end
+              value_type = Union.build(types: type.elements.values, location: nil)
+              hash_type = Builtin::Hash.instance_type(key_type, value_type)
+
+              interface(hash_type, private: private, self_type: self_type).tap do |hash_interface|
+                hash_interface.methods[:[]] = hash_interface.methods[:[]].yield_self do |ref|
+                  Interface::Interface::Combination.overload(
+                    type.elements.map {|key_value, value_type|
+                      key_type = Literal.new(value: key_value, location: nil)
+                      Interface::MethodType.new(
+                        type_params: [],
+                        params: Interface::Params.new(required: [key_type],
+                                                      optional: [],
+                                                      rest: nil,
+                                                      required_keywords: {},
+                                                      optional_keywords: {},
+                                                      rest_keywords: nil),
+                        block: nil,
+                        return_type: value_type,
+                        location: nil
+                      )
+                    } + ref.types
+                  )
+                end
+
+                hash_interface.methods[:[]=] = hash_interface.methods[:[]=].yield_self do |update|
+                  Interface::Interface::Combination.overload(
+                    type.elements.map {|key_value, value_type|
+                      key_type = Literal.new(value: key_value, location: nil)
+                      Interface::MethodType.new(
+                        type_params: [],
+                        params: Interface::Params.new(required: [key_type, value_type],
+                                                      optional: [],
+                                                      rest: nil,
+                                                      required_keywords: {},
+                                                      optional_keywords: {},
+                                                      rest_keywords: nil),
+                        block: nil,
+                        return_type: value_type,
+                        location: nil
+                      )
+                    } + update.types
+                  )
+                end
+              end
+            end
+
+          else
+            raise "Unexpected type for interface: #{type}"
+          end
         end
       end
     end
