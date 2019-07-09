@@ -492,3 +492,29 @@ module ShellHelper
     end
   end
 end
+
+module FactoryHelper
+  def with_factory(paths = {}, nostdlib: false)
+    Dir.mktmpdir do |dir|
+      root = Pathname(dir)
+      paths.each do |path, content|
+        absolute_path = root + path
+        absolute_path.parent.mkpath
+        absolute_path.write(content)
+      end
+
+      env = Ruby::Signature::Environment.new()
+
+      env_loader = Ruby::Signature::EnvironmentLoader.new(env: env)
+      if nostdlib
+        env_loader.stdlib_root = nil
+      end
+      env_loader.add path: root
+      env_loader.load
+
+      definition_builder = Ruby::Signature::DefinitionBuilder.new(env: env)
+
+      yield Steep::AST::Types::Factory.new(builder: definition_builder)
+    end
+  end
+end

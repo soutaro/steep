@@ -103,18 +103,29 @@ module Steep
         end
 
         def method_type(method_type)
-          Interface::MethodType.new(
-            type_params: method_type.type_params,
-            return_type: type(method_type.type.return_type),
-            params: params(method_type.type),
-            location: nil,
-            block: method_type.block&.yield_self do |block|
-              Interface::Block.new(
-                optional: !block.required,
-                type: Proc.new(params: params(block.type), return_type: type(block.type.return_type), location: nil)
-              )
+          case method_type
+          when Ruby::Signature::MethodType
+            type = Interface::MethodType.new(
+              type_params: method_type.type_params,
+              return_type: type(method_type.type.return_type),
+              params: params(method_type.type),
+              location: nil,
+              block: method_type.block&.yield_self do |block|
+                Interface::Block.new(
+                  optional: !block.required,
+                  type: Proc.new(params: params(block.type), return_type: type(block.type.return_type), location: nil)
+                )
+              end
+            )
+
+            if block_given?
+              yield type
+            else
+              type
             end
-          )
+          when :any
+            :any
+          end
         end
 
         class InterfaceCalculationError < StandardError
@@ -123,6 +134,13 @@ module Steep
           def initialize(type:, message:)
             @type = type
             super message
+          end
+        end
+
+        def unfold(type_name)
+          type_name_1(type_name).yield_self do |type_name|
+            decl = definition_builder.env.find_alias(type_name) or raise "Unknown type name: #{type_name}"
+            type(definition_builder.env.absolute_type(decl.type, namespace: type_name.namespace))
           end
         end
 
@@ -149,7 +167,9 @@ module Steep
                 next if method.private? && !private
 
                 interface.methods[name] = Interface::Interface::Combination.overload(
-                  method.method_types.map {|type| method_type(type).subst(subst) }
+                  method.method_types.map do |type|
+                    method_type(type) {|ty| ty.subst(subst) }
+                  end
                 )
               end
             end
@@ -168,12 +188,14 @@ module Steep
 
               definition.methods.each do |name, method|
                 interface.methods[name] = Interface::Interface::Combination.overload(
-                  method.method_types.map {|type| method_type(type).subst(subst) }
+                  method.method_types.map do |type|
+                    method_type(type) {|type| type.subst(subst) }
+                  end
                 )
               end
             end
 
-          when Name::Class
+          when Name::Class, Name::Module
             Interface::Interface.new(type: self_type, private: private).tap do |interface|
               definition = definition_builder.build_singleton(type_name_1(type.name))
 
@@ -191,7 +213,9 @@ module Steep
                 next if !private && method.private?
 
                 interface.methods[name] = Interface::Interface::Combination.overload(
-                  method.method_types.map {|type| method_type(type).subst(subst) }
+                  method.method_types.map do |type|
+                    method_type(type) {|type| type.subst(subst) }
+                  end
                 )
               end
             end

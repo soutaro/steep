@@ -1,11 +1,11 @@
 module Steep
   module Subtyping
     class Check
-      attr_reader :builder
+      attr_reader :factory
       attr_reader :cache
 
-      def initialize(builder:)
-        @builder = builder
+      def initialize(factory:)
+        @factory = factory
         @cache = {}
       end
 
@@ -56,117 +56,53 @@ module Steep
       end
 
       def check0(relation, assumption:, trace:, constraints:)
-        case
-        when same_type?(relation, assumption: assumption)
-          success(constraints: constraints)
+        trace.type(relation.sub_type, relation.super_type) do
+          case
+          when same_type?(relation, assumption: assumption)
+            success(constraints: constraints)
 
-        when relation.sub_type.is_a?(AST::Types::Any) || relation.super_type.is_a?(AST::Types::Any)
-          success(constraints: constraints)
+          when relation.sub_type.is_a?(AST::Types::Any) || relation.super_type.is_a?(AST::Types::Any)
+            success(constraints: constraints)
 
-        when relation.super_type.is_a?(AST::Types::Void)
-          success(constraints: constraints)
+          when relation.super_type.is_a?(AST::Types::Void)
+            success(constraints: constraints)
 
-        when relation.super_type.is_a?(AST::Types::Top)
-          success(constraints: constraints)
+          when relation.super_type.is_a?(AST::Types::Top)
+            success(constraints: constraints)
 
-        when relation.sub_type.is_a?(AST::Types::Bot)
-          success(constraints: constraints)
+          when relation.sub_type.is_a?(AST::Types::Bot)
+            success(constraints: constraints)
 
-        when relation.super_type.is_a?(AST::Types::Boolean)
-          success(constraints: constraints)
+          when relation.super_type.is_a?(AST::Types::Boolean)
+            success(constraints: constraints)
 
-        when alias?(relation.sub_type)
-          check0(
-            Relation.new(sub_type: expand_alias(relation.sub_type), super_type: relation.super_type),
-            assumption: assumption,
-            trace: trace,
-            constraints: constraints
-          )
+          when alias?(relation.sub_type)
+            check0(
+              Relation.new(sub_type: expand_alias(relation.sub_type), super_type: relation.super_type),
+              assumption: assumption,
+              trace: trace,
+              constraints: constraints
+            )
 
-        when alias?(relation.super_type)
-          check0(
-            Relation.new(super_type: expand_alias(relation.super_type), sub_type: relation.sub_type),
-            assumption: assumption,
-            trace: trace,
-            constraints: constraints
-          )
+          when alias?(relation.super_type)
+            check0(
+              Relation.new(super_type: expand_alias(relation.super_type), sub_type: relation.sub_type),
+              assumption: assumption,
+              trace: trace,
+              constraints: constraints
+            )
 
-        when relation.sub_type.is_a?(AST::Types::Literal)
-          check0(
-            Relation.new(sub_type: relation.sub_type.back_type, super_type: relation.super_type),
-            assumption: assumption,
-            trace: trace,
-            constraints: constraints
-          )
+          when relation.sub_type.is_a?(AST::Types::Literal)
+            check0(
+              Relation.new(sub_type: relation.sub_type.back_type, super_type: relation.super_type),
+              assumption: assumption,
+              trace: trace,
+              constraints: constraints
+            )
 
-        when relation.sub_type.is_a?(AST::Types::Union)
-          results = relation.sub_type.types.map do |sub_type|
-            check0(Relation.new(sub_type: sub_type, super_type: relation.super_type),
-                   assumption: assumption,
-                   trace: trace,
-                   constraints: constraints)
-          end
-
-          if results.all?(&:success?)
-            results.first
-          else
-            results.find(&:failure?)
-          end
-
-        when relation.super_type.is_a?(AST::Types::Union)
-          results = relation.super_type.types.map do |super_type|
-            check0(Relation.new(sub_type: relation.sub_type, super_type: super_type),
-                   assumption: assumption,
-                   trace: trace,
-                   constraints: constraints)
-          end
-
-          results.find(&:success?) || results.first
-
-        when relation.sub_type.is_a?(AST::Types::Intersection)
-          results = relation.sub_type.types.map do |sub_type|
-            check0(Relation.new(sub_type: sub_type, super_type: relation.super_type),
-                   assumption: assumption,
-                   trace: trace,
-                   constraints: constraints)
-          end
-
-          results.find(&:success?) || results.first
-
-        when relation.super_type.is_a?(AST::Types::Intersection)
-          results = relation.super_type.types.map do |super_type|
-            check0(Relation.new(sub_type: relation.sub_type, super_type: super_type),
-                   assumption: assumption,
-                   trace: trace,
-                   constraints: constraints)
-          end
-
-          if results.all?(&:success?)
-            results.first
-          else
-            results.find(&:failure?)
-          end
-
-        when relation.super_type.is_a?(AST::Types::Var) && constraints.unknown?(relation.super_type.name)
-          constraints.add(relation.super_type.name, sub_type: relation.sub_type)
-          success(constraints: constraints)
-
-        when relation.sub_type.is_a?(AST::Types::Var) && constraints.unknown?(relation.sub_type.name)
-          constraints.add(relation.sub_type.name, super_type: relation.super_type)
-          success(constraints: constraints)
-
-        when relation.super_type.is_a?(AST::Types::Var) || relation.sub_type.is_a?(AST::Types::Var)
-          failure(error: Result::Failure::UnknownPairError.new(relation: relation),
-                  trace: trace)
-
-        when relation.sub_type.is_a?(AST::Types::Name::Base) && relation.super_type.is_a?(AST::Types::Name::Base)
-          if (pairs = extract_nominal_pairs(relation))
-            results = pairs.flat_map do |(sub, sup)|
-              Relation.new(sub_type: sub, super_type: sup).yield_self do |rel|
-                [rel, rel.flip]
-              end
-            end.map do |relation|
-              check0(relation,
+          when relation.sub_type.is_a?(AST::Types::Union)
+            results = relation.sub_type.types.map do |sub_type|
+              check0(Relation.new(sub_type: sub_type, super_type: relation.super_type),
                      assumption: assumption,
                      trace: trace,
                      constraints: constraints)
@@ -177,76 +113,153 @@ module Steep
             else
               results.find(&:failure?)
             end
-          else
-            sub_interface = resolve(relation.sub_type)
-            super_interface = resolve(relation.super_type)
 
-            check_interface(sub_interface, super_interface, assumption: assumption, trace: trace, constraints: constraints)
-          end
+          when relation.super_type.is_a?(AST::Types::Union)
+            results = relation.super_type.types.map do |super_type|
+              check0(Relation.new(sub_type: relation.sub_type, super_type: super_type),
+                     assumption: assumption,
+                     trace: trace,
+                     constraints: constraints)
+            end
 
-        when relation.sub_type.is_a?(AST::Types::Proc) && relation.super_type.is_a?(AST::Types::Proc)
-          check_method_params(:__proc__,
-                              relation.sub_type.params, relation.super_type.params,
-                              assumption: assumption,
-                              trace: trace,
-                              constraints: constraints).then do
-            check0(Relation.new(sub_type: relation.sub_type.return_type, super_type: relation.super_type.return_type),
-                   assumption: assumption,
-                   trace: trace,
-                   constraints: constraints)
-          end
+            results.find(&:success?) || results.first
 
-        when relation.sub_type.is_a?(AST::Types::Tuple) && relation.super_type.is_a?(AST::Types::Tuple)
-          if relation.sub_type.types.size >= relation.super_type.types.size
-            pairs = relation.sub_type.types.take(relation.super_type.types.size).zip(relation.super_type.types)
-            results = pairs.flat_map do |t1, t2|
-              relation = Relation.new(sub_type: t1, super_type: t2)
-              [check0(relation, assumption: assumption, trace: trace, constraints: constraints),
-               check0(relation.flip, assumption: assumption, trace: trace, constraints: constraints)]
+          when relation.sub_type.is_a?(AST::Types::Intersection)
+            results = relation.sub_type.types.map do |sub_type|
+              check0(Relation.new(sub_type: sub_type, super_type: relation.super_type),
+                     assumption: assumption,
+                     trace: trace,
+                     constraints: constraints)
+            end
+
+            results.find(&:success?) || results.first
+
+          when relation.super_type.is_a?(AST::Types::Intersection)
+            results = relation.super_type.types.map do |super_type|
+              check0(Relation.new(sub_type: relation.sub_type, super_type: super_type),
+                     assumption: assumption,
+                     trace: trace,
+                     constraints: constraints)
             end
 
             if results.all?(&:success?)
-              success(constraints: constraints)
+              results.first
             else
               results.find(&:failure?)
             end
+
+          when relation.super_type.is_a?(AST::Types::Var) && constraints.unknown?(relation.super_type.name)
+            constraints.add(relation.super_type.name, sub_type: relation.sub_type)
+            success(constraints: constraints)
+
+          when relation.sub_type.is_a?(AST::Types::Var) && constraints.unknown?(relation.sub_type.name)
+            constraints.add(relation.sub_type.name, super_type: relation.super_type)
+            success(constraints: constraints)
+
+          when relation.super_type.is_a?(AST::Types::Var) || relation.sub_type.is_a?(AST::Types::Var)
+            failure(error: Result::Failure::UnknownPairError.new(relation: relation),
+                    trace: trace)
+
+          when relation.sub_type.is_a?(AST::Types::Name::Base) && relation.super_type.is_a?(AST::Types::Name::Base)
+            if (pairs = extract_nominal_pairs(relation))
+              results = pairs.flat_map do |(sub, sup)|
+                Relation.new(sub_type: sub, super_type: sup).yield_self do |rel|
+                  [rel, rel.flip]
+                end
+              end.map do |relation|
+                check0(relation,
+                       assumption: assumption,
+                       trace: trace,
+                       constraints: constraints)
+              end
+
+              if results.all?(&:success?)
+                results.first
+              else
+                results.find(&:failure?)
+              end
+            else
+              sub_interface = factory.interface(relation.sub_type, private: false)
+              super_interface = factory.interface(relation.super_type, private: false)
+
+              check_interface(sub_interface, super_interface, assumption: assumption, trace: trace, constraints: constraints)
+            end
+
+          when relation.sub_type.is_a?(AST::Types::Proc) && relation.super_type.is_a?(AST::Types::Proc)
+            check_method_params(:__proc__,
+                                relation.sub_type.params, relation.super_type.params,
+                                assumption: assumption,
+                                trace: trace,
+                                constraints: constraints).then do
+              check0(Relation.new(sub_type: relation.sub_type.return_type, super_type: relation.super_type.return_type),
+                     assumption: assumption,
+                     trace: trace,
+                     constraints: constraints)
+            end
+
+          when relation.sub_type.is_a?(AST::Types::Tuple) && relation.super_type.is_a?(AST::Types::Tuple)
+            if relation.sub_type.types.size >= relation.super_type.types.size
+              pairs = relation.sub_type.types.take(relation.super_type.types.size).zip(relation.super_type.types)
+              results = pairs.flat_map do |t1, t2|
+                relation = Relation.new(sub_type: t1, super_type: t2)
+                [check0(relation, assumption: assumption, trace: trace, constraints: constraints),
+                 check0(relation.flip, assumption: assumption, trace: trace, constraints: constraints)]
+              end
+
+              if results.all?(&:success?)
+                success(constraints: constraints)
+              else
+                results.find(&:failure?)
+              end
+            else
+              failure(error: Result::Failure::UnknownPairError.new(relation: relation),
+                      trace: trace)
+            end
+
+          when relation.sub_type.is_a?(AST::Types::Tuple) && relation.super_type.is_a?(AST::Types::Name::Base)
+            tuple_interface = factory.interface(relation.sub_type, private: false)
+            type_interface = factory.interface(relation.super_type, private: false)
+
+            check_interface(tuple_interface,
+                            type_interface,
+                            assumption: assumption,
+                            trace: trace,
+                            constraints: constraints)
+
+          when relation.sub_type.is_a?(AST::Types::Record) && relation.super_type.is_a?(AST::Types::Record)
+            if Set.new(relation.sub_type.elements.keys).superset?(Set.new(relation.super_type.elements.keys))
+              keys = relation.super_type.elements.keys
+              type_pairs = keys.map {|key| [relation.sub_type.elements[key], relation.super_type.elements[key]] }
+              results = type_pairs.flat_map do |t1, t2|
+                relation = Relation.new(sub_type: t1, super_type: t2)
+                [check0(relation, assumption: assumption, trace: trace, constraints: constraints),
+                 check0(relation.flip, assumption: assumption, trace: trace, constraints: constraints)]
+              end
+
+              if results.all?(&:success?)
+                success(constraints: constraints)
+              else
+                results.find(&:failure?)
+              end
+            else
+              failure(error: Result::Failure::UnknownPairError.new(relation: relation),
+                      trace: trace)
+            end
+
+          when relation.sub_type.is_a?(AST::Types::Record) && relation.super_type.is_a?(AST::Types::Name::Base)
+            record_interface = factory.interface(relation.sub_type, private: false)
+            type_interface = factory.interface(relation.super_type, private: false)
+
+            check_interface(record_interface,
+                            type_interface,
+                            assumption: assumption,
+                            trace: trace,
+                            constraints: constraints)
+
           else
             failure(error: Result::Failure::UnknownPairError.new(relation: relation),
                     trace: trace)
           end
-
-        when relation.sub_type.is_a?(AST::Types::Tuple)
-          sub_interface = resolve(relation.sub_type)
-          super_interface = resolve(relation.super_type)
-
-          check_interface(sub_interface,
-                          super_interface,
-                          assumption: assumption,
-                          trace: trace,
-                          constraints: constraints)
-
-        when relation.sub_type.is_a?(AST::Types::Record) && relation.super_type.is_a?(AST::Types::Record)
-          if Set.new(relation.sub_type.elements.keys).superset?(Set.new(relation.super_type.elements.keys))
-            keys = relation.super_type.elements.keys
-            type_pairs = keys.map {|key| [relation.sub_type.elements[key], relation.super_type.elements[key]] }
-            results = type_pairs.flat_map do |t1, t2|
-              relation = Relation.new(sub_type: t1, super_type: t2)
-              [check0(relation, assumption: assumption, trace: trace, constraints: constraints),
-               check0(relation.flip, assumption: assumption, trace: trace, constraints: constraints)]
-            end
-
-            if results.all?(&:success?)
-              success(constraints: constraints)
-            else
-              results.find(&:failure?)
-            end
-          else
-            failure(error: Result::Failure::UnknownPairError.new(relation: relation),
-                    trace: trace)
-          end
-        else
-          failure(error: Result::Failure::UnknownPairError.new(relation: relation),
-                  trace: trace)
         end
       end
       
@@ -299,29 +312,178 @@ module Steep
         end
       end
 
-      def check_interface(sub_type, super_type, assumption:, trace:, constraints:)
-        method_pairs = []
+      def check_interface(sub_interface, super_interface, assumption:, trace:, constraints:)
+        trace.interface sub_interface, super_interface do
+          method_triples = []
 
-        super_type.methods.each do |name, sup_method|
-          sub_method = sub_type.methods[name]
+          super_interface.methods.each do |name, sup_method|
+            sub_method = sub_interface.methods[name]
 
-          if sub_method
-            method_pairs << [sub_method, sup_method]
-          else
-            return failure(error: Result::Failure::MethodMissingError.new(name: name),
-                           trace: trace)
+            if sub_method
+              method_triples << [name, sub_method, sup_method]
+            else
+              return failure(error: Result::Failure::MethodMissingError.new(name: name),
+                             trace: trace)
+            end
           end
-        end
 
-        method_pairs.each do |(sub_method, sup_method)|
-          result = check_method(sub_method.name, sub_method, sup_method, assumption: assumption, trace: trace, constraints: constraints)
-          return result if result.failure?
-        end
+          method_triples.each do |(method_name, sub_method, sup_method)|
+            result = check_method(method_name,
+                                  sub_method,
+                                  sup_method,
+                                  assumption: assumption,
+                                  trace: trace,
+                                  constraints: constraints)
+            return result if result.failure?
+          end
 
-        success(constraints: constraints)
+          success(constraints: constraints)
+        end
       end
 
       def check_method(name, sub_method, super_method, assumption:, trace:, constraints:)
+        trace.method name, sub_method, super_method do
+          case
+          when sub_method.overload? && super_method.overload?
+            super_method.types.map do |super_type|
+              sub_method.types.map do |sub_type|
+                if super_type == :any || sub_type == :any
+                  success constraints: constraints
+                else
+                  check_generic_method_type name,
+                                            sub_type,
+                                            super_type,
+                                            assumption: assumption,
+                                            trace: trace,
+                                            constraints: constraints
+                end
+              end.yield_self do |results|
+                results.find(&:success?) || results[0]
+              end
+            end.yield_self do |results|
+              if results.all?(&:success?)
+                success constraints: constraints
+              else
+                results.select(&:failure?).last
+              end
+            end
+          else
+            raise "aaaaaaaaaaaaaa"
+          end
+        end
+      end
+
+      def check_generic_method_type(name, sub_type, super_type, assumption:, trace:, constraints:)
+        trace.method_type name, sub_type, super_type do
+          case
+          when sub_type.type_params.empty? && super_type.type_params.empty?
+            check_method_type name,
+                              sub_type,
+                              super_type,
+                              assumption: assumption,
+                              trace: trace,
+                              constraints: constraints
+
+          when !sub_type.type_params.empty? && super_type.type_params.empty?
+            # Check if super_type is an instance of sub_type.
+            yield_self do
+              sub_args = sub_type.type_params.map {|x| AST::Types::Var.fresh(x) }
+              sub_type = sub_type.instantiate(Interface::Substitution.build(sub_type.type_params, sub_args))
+
+              constraints.add_var(*sub_args)
+
+              match_method_type(name, sub_type, super_type, trace: trace).yield_self do |pairs|
+                case pairs
+                when Array
+                  subst = pairs.each.with_object(Interface::Substitution.empty) do |(sub, sup), subst|
+                    case
+                    when sub.is_a?(AST::Types::Var) && sub_args.include?(sub)
+                      if subst.key?(sub.name) && subst[sub.name] != sup
+                        return failure(error: Result::Failure::PolyMethodSubtyping.new(name: name),
+                                       trace: trace)
+                      else
+                        subst.add!(sub.name, sup)
+                      end
+                    when sup.is_a?(AST::Types::Var) && sub_args.include?(sup)
+                      if subst.key?(sup.name) && subst[sup.name] != sub
+                        return failure(error: Result::Failure::PolyMethodSubtyping.new(name: name),
+                                       trace: trace)
+                      else
+                        subst.add!(sup.name, sub)
+                      end
+                    end
+                  end
+
+                  check_method_type(name,
+                                    sub_type.subst(subst),
+                                    super_type,
+                                    assumption: assumption,
+                                    trace: trace,
+                                    constraints: constraints)
+                else
+                  pairs
+                end
+              end
+            end
+
+          when sub_type.type_params.empty? && !super_type.type_params.empty?
+            # Check if sub_type is an instance of super_type && no constraints on type variables (any).
+            yield_self do
+              sub_args = sub_type.type_params.map {|x| AST::Types::Var.fresh(x) }
+              sub_type = sub_type.instantiate(Interface::Substitution.build(sub_type.type_params, sub_args))
+
+              constraints.add_var(*sub_args)
+
+              match_method_type(name, sub_type, super_type, trace: trace).yield_self do |pairs|
+                case pairs
+                when Array
+                  result = check_method_type(name,
+                                             sub_type,
+                                             super_type,
+                                             assumption: assumption,
+                                             trace: trace,
+                                             constraints: constraints)
+
+                  if result.success? && sub_args.map(&:name).none? {|var| constraints.has_constraint?(var) }
+                    result
+                  else
+                    failure(error: Result::Failure::PolyMethodSubtyping.new(name: name),
+                            trace: trace)
+                  end
+
+                else
+                  pairs
+                end
+              end
+            end
+
+          when super_type.type_params.size == sub_type.type_params.size
+            # Check if they have the same shape
+            yield_self do
+              args = sub_type.type_params.map {|x| AST::Types::Var.fresh(x) }
+
+              sub_type_ = sub_type.instantiate(Interface::Substitution.build(sub_type.type_params, args))
+              super_type_ = super_type.instantiate(Interface::Substitution.build(super_type.type_params, args))
+
+              constraints.add_var(*args)
+
+              check_method_type(name,
+                                sub_type_,
+                                super_type_,
+                                assumption: assumption,
+                                trace: trace,
+                                constraints: constraints)
+            end
+
+          else
+            # Or error
+            failure(error: Result::Failure::PolyMethodSubtyping.new(name: name),
+                    trace: trace)
+          end
+        end
+      end
+
+      def check_method_(name, sub_method, super_method, assumption:, trace:, constraints:)
         trace.add(sub_method, super_method) do
           all_results = super_method.types.map do |super_type|
             sub_method.types.map do |sub_type|
@@ -949,31 +1111,14 @@ module Steep
       end
 
       def expand_alias(type)
-        expanded = case type
-                   when AST::Types::Union
-                     AST::Types::Union.build(
-                       types: type.types.map {|ty| expand_alias(ty) },
-                       location: type.location
-                     )
-                   when AST::Types::Intersection
-                     AST::Types::Intersection.build(
-                       types: type.types.map {|ty| expand_alias(ty) },
-                       location: type.location
-                     )
-                   when AST::Types::Name::Alias
-                     alias_sig = builder.signatures.find_alias(type.name, namespace: AST::Namespace.root)
-                     expanded_alias = builder.absolute_type(alias_sig.type, current: alias_sig.name.namespace)
-                     args = type.args.map {|ty| expand_alias(ty) }
-                     s = Interface::Substitution.build(alias_sig.params&.variables || [], args)
-                     expand_alias(expanded_alias.subst(s))
-                   else
-                     type
-                   end
-
-        if block_given?
-          yield expanded
-        else
-          expanded
+        case type
+        when AST::Types::Name::Alias
+          unfolded = factory.unfold(type.name)
+          if block_given?
+            yield unfolded
+          else
+            unfolded
+          end
         end
       end
     end

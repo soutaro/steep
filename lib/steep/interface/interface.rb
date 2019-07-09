@@ -10,6 +10,18 @@ module Steep
           @operator = operator
         end
 
+        def overload?
+          operator == :overload
+        end
+
+        def union?
+          operator == :union
+        end
+
+        def intersection?
+          operator == :intersection
+        end
+
         def self.overload(types)
           new(operator: :overload, types: types)
         end

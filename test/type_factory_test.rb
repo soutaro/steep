@@ -11,26 +11,7 @@ class TypeFactoryTest < Minitest::Test
 
   Types = Steep::AST::Types
 
-  def with_factory(paths = {})
-    Dir.mktmpdir do |dir|
-      root = Pathname(dir)
-      paths.each do |path, content|
-        absolute_path = root + path
-        absolute_path.parent.mkpath
-        absolute_path.write(content)
-      end
-
-      env = Ruby::Signature::Environment.new()
-
-      env_loader = Ruby::Signature::EnvironmentLoader.new(env: env)
-      env_loader.add path: root
-      env_loader.load
-
-      definition_builder = Ruby::Signature::DefinitionBuilder.new(env: env)
-
-      yield Steep::AST::Types::Factory.new(builder: definition_builder)
-    end
-  end
+  include FactoryHelper
 
   def test_type
     with_factory do |factory|
@@ -211,6 +192,7 @@ FOO
           assert_instance_of Steep::Interface::Interface, interface
           assert_equal type, interface.type
 
+          assert_equal "{ <'X> () -> ::People<'X> | any }", interface.methods[:new].to_s
           assert_equal "{ () -> ::Array<::People<::String>> }", interface.methods[:all].to_s
           assert_equal "{ () -> ::People<any> }", interface.methods[:instance].to_s
           assert_equal "{ () -> ::People.class }", interface.methods[:itself].to_s
@@ -319,6 +301,26 @@ FOO
             assert_equal "{ (*::String) -> bool }", combination.to_s
           end
         end
+      end
+    end
+  end
+
+  def test_unfold
+    with_factory "foo.rbi" => <<-EOF do |factory|
+type name = ::String
+type size = :S | :M | :L
+    EOF
+
+      factory.type(parse_type("::name")).tap do |type|
+        unfolded = factory.unfold(type.name)
+
+        assert_equal factory.type(parse_type("::String")), unfolded
+      end
+
+      factory.type(parse_type("::size")).tap do |type|
+        unfolded = factory.unfold(type.name)
+
+        assert_equal factory.type(parse_type(":S | :M | :L")), unfolded
       end
     end
   end
