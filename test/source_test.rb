@@ -7,13 +7,11 @@ class SourceTest < Minitest::Test
 
   include TestHelper
   include SubtypingHelper
-
-  def builder
-    @builder ||= new_subtyping_checker.builder
-  end
+  include FactoryHelper
 
   def test_foo
-    code = <<-EOF
+    with_factory do |factory|
+      code = <<-EOF
 # @type var x1: any
 
 module Foo
@@ -21,7 +19,7 @@ module Foo
 
   class Bar
     # @type instance: String
-    # @type module: String.class
+    # @type module: singleton(String)
 
     # @type var x3: any
     # @type method foo: -> any
@@ -41,64 +39,64 @@ module Foo
 end
 
 Foo::Bar.new
-    EOF
+      EOF
 
-    source = Steep::Source.parse(code, path: Pathname("foo.rb"))
+      source = Steep::Source.parse(code, path: Pathname("foo.rb"), factory: factory)
 
-    # toplevel
-    source.annotations(block: source.node, builder: builder, current_module: nil).yield_self do |annotations|
-      assert_any annotations do |a|
-        a.is_a?(A::VarType) && a.name == :x1 && a.type == T::Any.new
+      # toplevel
+      source.annotations(block: source.node,
+                         factory: factory,
+                         current_module: nil).yield_self do |annotations|
+        assert_any annotations do |a|
+          a.is_a?(A::VarType) && a.name == :x1 && a.type == T::Any.new
+        end
+      end
+
+      # module
+      source.annotations(block: dig(source.node, 0),
+                         factory: factory,
+                         current_module: Namespace.parse("::Foo")).yield_self do |annotations|
+        assert_any annotations do |a|
+          a == A::VarType.new(name: :x2, type: T::Any.new)
+        end
+        assert_nil annotations.instance_type
+        assert_nil annotations.module_type
+      end
+
+      # class
+
+      source.annotations(block: dig(source.node, 0, 1),
+                         factory: factory,
+                         current_module: Namespace.parse("::Foo::Bar")).yield_self do |annotations|
+        assert_equal 5, annotations.size
+        assert_equal parse_type("::String"), annotations.instance_type
+        assert_equal parse_type("singleton(::String)"), annotations.module_type
+        assert_equal parse_type("any"), annotations.var_type(lvar: :x3)
+      end
+
+      # def
+      source.annotations(block: dig(source.node, 0, 1, 2, 0),
+                         factory: factory,
+                         current_module: Namespace.parse("::Foo::Bar")).yield_self do |annotations|
+        assert_equal 2, annotations.size
+        assert_equal T::Any.new, annotations.var_type(lvar: :x4)
+        assert_equal T::Any.new, annotations.return_type
+      end
+
+      # block
+      source.annotations(block: dig(source.node, 0, 1, 2, 0, 2),
+                         factory: factory,
+                         current_module: Namespace.parse("::Foo::Bar")).yield_self do |annotations|
+        assert_equal 2, annotations.size
+        assert_equal T::Any.new, annotations.var_type(lvar: :x5)
+        assert_equal parse_type("::Integer"), annotations.block_type
       end
     end
-
-    # module
-    source.annotations(block: source.node.children[0], builder: builder, current_module: Namespace.parse("::Foo")).yield_self do |annotations|
-      assert_any annotations do |a|
-        a == A::VarType.new(name: :x2, type: T::Any.new)
-      end
-      assert_nil annotations.instance_type
-      assert_nil annotations.module_type
-    end
-
-    # class
-
-    source.annotations(block: source.node.children[0].children[1],
-                       builder: builder,
-                       current_module: Namespace.parse("::Foo::Bar")).yield_self do |annotations|
-      assert_equal 5, annotations.size
-      assert_equal parse_type("::String"), annotations.instance_type
-      assert_equal parse_type("::String.class"), annotations.module_type
-      assert_equal parse_type("any"), annotations.var_type(lvar: :x3)
-      assert_equal "-> any", annotations.method_type(:foo).location.source
-      assert_equal "() -> any", annotations.method_type(:bar).location.source
-    end
-
-    # def
-    source.annotations(block: source.node.children[0].children[1].children[2].children[0],
-                       builder: builder,
-                       current_module: Namespace.parse("::Foo::Bar")).yield_self do |annotations|
-      assert_equal 2, annotations.size
-      assert_equal T::Any.new, annotations.var_type(lvar: :x4)
-      assert_equal T::Any.new, annotations.return_type
-    end
-
-    # block
-    source.annotations(block: source.node.children[0].children[1].children[2].children[0].children[2],
-                       builder: builder,
-                       current_module: Namespace.parse("::Foo::Bar")).yield_self do |annotations|
-      assert_equal 2, annotations.size
-      assert_equal T::Any.new, annotations.var_type(lvar: :x5)
-      assert_equal parse_type("::Integer"), annotations.block_type
-    end
-  end
-
-  def parse_source(src)
-    Steep::Source.parse(src, path: Pathname("foo.rb"))
   end
 
   def test_if
-    source = parse_source(<<-EOF)
+    with_factory do |factory|
+      code = <<-EOF
 if foo
   # @type var x: String
   x + "foo"
@@ -106,29 +104,32 @@ else
   # @type var y: Integer
   y + "foo"
 end
-    EOF
+      EOF
+      source = Steep::Source.parse(code, path: Pathname("foo.rb"), factory: factory)
 
-    source.node.yield_self do |node|
-      annotations = source.annotations(block: node, builder: builder, current_module: Namespace.root)
-      assert_nil annotations.var_type(lvar: :x)
-      assert_nil annotations.var_type(lvar: :y)
-    end
+      source.node.yield_self do |node|
+        annotations = source.annotations(block: node, factory: factory, current_module: Namespace.root)
+        assert_nil annotations.var_type(lvar: :x)
+        assert_nil annotations.var_type(lvar: :y)
+      end
 
-    source.node.children[1].yield_self do |node|
-      annotations = source.annotations(block: node, builder: builder, current_module: Namespace.root)
-      refute_nil annotations.var_type(lvar: :x)
-      assert_nil annotations.var_type(lvar: :y)
-    end
+      source.node.children[1].yield_self do |node|
+        annotations = source.annotations(block: node, factory: factory, current_module: Namespace.root)
+        refute_nil annotations.var_type(lvar: :x)
+        assert_nil annotations.var_type(lvar: :y)
+      end
 
-    source.node.children[2].yield_self do |node|
-      annotations = source.annotations(block: node, builder: builder, current_module: Namespace.root)
-      assert_nil annotations.var_type(lvar: :x)
-      refute_nil annotations.var_type(lvar: :y)
+      source.node.children[2].yield_self do |node|
+        annotations = source.annotations(block: node, factory: factory, current_module: Namespace.root)
+        assert_nil annotations.var_type(lvar: :x)
+        refute_nil annotations.var_type(lvar: :y)
+      end
     end
   end
 
   def test_unless
-    source = parse_source(<<-EOF)
+    with_factory do |factory|
+      source = Steep::Source.parse(<<-EOF, path: Pathname("foo.rb"), factory: factory)
 unless foo then
   # @type var x: Integer
   x + 1
@@ -136,29 +137,31 @@ else
   # @type var y: String
   y + "foo"
 end
-    EOF
+      EOF
 
-    source.node.yield_self do |node|
-      annotations = source.annotations(block: node, builder: builder, current_module: Namespace.root)
-      assert_nil annotations.var_type(lvar: :x)
-      assert_nil annotations.var_type(lvar: :y)
-    end
+      source.node.yield_self do |node|
+        annotations = source.annotations(block: node, factory: factory, current_module: Namespace.root)
+        assert_nil annotations.var_type(lvar: :x)
+        assert_nil annotations.var_type(lvar: :y)
+      end
 
-    source.node.children[1].yield_self do |node|
-      annotations = source.annotations(block: node, builder: builder, current_module: Namespace.root)
-      assert_nil annotations.var_type(lvar: :x)
-      refute_nil annotations.var_type(lvar: :y)
-    end
+      source.node.children[1].yield_self do |node|
+        annotations = source.annotations(block: node, factory: factory, current_module: Namespace.root)
+        assert_nil annotations.var_type(lvar: :x)
+        refute_nil annotations.var_type(lvar: :y)
+      end
 
-    source.node.children[2].yield_self do |node|
-      annotations = source.annotations(block: node, builder: builder, current_module: Namespace.root)
-      refute_nil annotations.var_type(lvar: :x)
-      assert_nil annotations.var_type(lvar: :y)
+      source.node.children[2].yield_self do |node|
+        annotations = source.annotations(block: node, factory: factory, current_module: Namespace.root)
+        refute_nil annotations.var_type(lvar: :x)
+        assert_nil annotations.var_type(lvar: :y)
+      end
     end
   end
 
   def test_elsif
-    source = parse_source(<<-EOF)
+    with_factory do |factory|
+      source = Steep::Source.parse(<<-EOF, path: Pathname("foo.rb"), factory: factory)
 if foo
   # @type var x: String
   x + "foo"
@@ -166,125 +169,138 @@ elsif bar
   # @type var y: Integer
   y + "foo"
 end
-    EOF
+      EOF
 
-    source.node.yield_self do |node|
-      annotations = source.annotations(block: node, builder: builder, current_module: Namespace.root)
-      assert_nil annotations.var_type(lvar: :x)
-      assert_nil annotations.var_type(lvar: :y)
-    end
+      source.node.yield_self do |node|
+        annotations = source.annotations(block: node, factory: factory, current_module: Namespace.root)
+        assert_nil annotations.var_type(lvar: :x)
+        assert_nil annotations.var_type(lvar: :y)
+      end
 
-    source.node.children[1].yield_self do |node|
-      annotations = source.annotations(block: node, builder: builder, current_module: Namespace.root)
-      refute_nil annotations.var_type(lvar: :x)
-      assert_nil annotations.var_type(lvar: :y)
-    end
+      dig(source.node, 1).yield_self do |node|
+        annotations = source.annotations(block: node, factory: factory, current_module: Namespace.root)
+        refute_nil annotations.var_type(lvar: :x)
+        assert_nil annotations.var_type(lvar: :y)
+      end
 
-    source.node.children[2].children[1].yield_self do |node|
-      annotations = source.annotations(block: node, builder: builder, current_module: Namespace.root)
-      assert_nil annotations.var_type(lvar: :x)
-      refute_nil annotations.var_type(lvar: :y)
+      dig(source.node, 2, 1).yield_self do |node|
+        annotations = source.annotations(block: node, factory: factory, current_module: Namespace.root)
+        assert_nil annotations.var_type(lvar: :x)
+        refute_nil annotations.var_type(lvar: :y)
+      end
     end
   end
 
   def test_postfix_if
-    source = parse_source(<<-EOF)
+    with_factory do |factory|
+      source = Steep::Source.parse(<<-EOF, path: Pathname("foo.rb"), factory: factory)
 x + 1 if foo
 y + "foo" unless bar
-    EOF
+      EOF
 
-    source.annotations(block: source.node, builder: builder, current_module: Namespace.root)
+      source.annotations(block: source.node, factory: factory, current_module: Namespace.root)
+    end
   end
 
   def test_while
-    source = parse_source(<<-EOF)
+    with_factory do |factory|
+      source = Steep::Source.parse(<<-EOF, path: Pathname("foo.rb"), factory: factory)
 while foo
   # @type var x: Integer
   x.foo
 end
-    EOF
+      EOF
+      source.node.yield_self do |node|
+        annotations = source.annotations(block: node, factory: factory, current_module: Namespace.root)
+        assert_nil annotations.var_type(lvar: :x)
+      end
 
-    source.node.yield_self do |node|
-      annotations = source.annotations(block: node, builder: builder, current_module: Namespace.root)
-      assert_nil annotations.var_type(lvar: :x)
-    end
-
-    source.node.children[1].yield_self do |node|
-      annotations = source.annotations(block: node, builder: builder, current_module: Namespace.root)
-      refute_nil annotations.var_type(lvar: :x)
+      source.node.children[1].yield_self do |node|
+        annotations = source.annotations(block: node, factory: factory, current_module: Namespace.root)
+        refute_nil annotations.var_type(lvar: :x)
+      end
     end
   end
 
   def test_until
-    source = parse_source(<<-EOF)
+    with_factory do |factory|
+      source = Steep::Source.parse(<<-EOF, path: Pathname("foo.rb"), factory: factory)
 until foo
   # @type var x: Integer
   x.foo
 end
-    EOF
+      EOF
 
-    source.node.yield_self do |node|
-      annotations = source.annotations(block: node, builder: builder, current_module: Namespace.root)
-      assert_nil annotations.var_type(lvar: :x)
-    end
+      source.node.yield_self do |node|
+        annotations = source.annotations(block: node, factory: factory, current_module: Namespace.root)
+        assert_nil annotations.var_type(lvar: :x)
+      end
 
-    source.node.children[1].yield_self do |node|
-      annotations = source.annotations(block: node, builder: builder, current_module: Namespace.root)
-      refute_nil annotations.var_type(lvar: :x)
+      source.node.children[1].yield_self do |node|
+        annotations = source.annotations(block: node, factory: factory, current_module: Namespace.root)
+        refute_nil annotations.var_type(lvar: :x)
+      end
     end
   end
 
   def test_postfix_while_until
-    source = parse_source(<<-EOF)
+    with_factory do |factory|
+      source = Steep::Source.parse(<<-EOF, path: Pathname("foo.rb"), factory: factory)
 x + 1 while foo
 y + "foo" until bar
-    EOF
+      EOF
 
-    source.annotations(block: source.node, builder: builder, current_module: Namespace.root)
+      source.annotations(block: source.node, factory: factory, current_module: Namespace.root)
+    end
   end
 
   def test_post_while
-    source = parse_source(<<-EOF)
+    with_factory do |factory|
+      source = Steep::Source.parse(<<-EOF, path: Pathname("foo.rb"), factory: factory)
 begin
   # @type var x: Integer
   x.foo
 x.bar
 end while foo()
-    EOF
+      EOF
 
-    source.node.yield_self do |node|
-      annotations = source.annotations(block: node, builder: builder, current_module: Namespace.root)
-      assert_nil annotations.var_type(lvar: :x)
-    end
+      source.node.yield_self do |node|
+        annotations = source.annotations(block: node, factory: factory, current_module: Namespace.root)
+        assert_nil annotations.var_type(lvar: :x)
+      end
 
-    source.node.children[1].yield_self do |node|
-      annotations = source.annotations(block: node, builder: builder, current_module: Namespace.root)
-      refute_nil annotations.var_type(lvar: :x)
+      source.node.children[1].yield_self do |node|
+        annotations = source.annotations(block: node, factory: factory, current_module: Namespace.root)
+        refute_nil annotations.var_type(lvar: :x)
+      end
     end
   end
 
   def test_post_until
-    source = parse_source(<<-EOF)
+    with_factory do |factory|
+      source = Steep::Source.parse(<<-EOF, path: Pathname("foo.rb"), factory: factory)
 begin
   # @type var x: Integer
   x.foo
 x.bar
 end until foo()
-    EOF
+      EOF
 
-    source.node.yield_self do |node|
-      annotations = source.annotations(block: node, builder: builder, current_module: Namespace.root)
-      assert_nil annotations.var_type(lvar: :x)
-    end
+      source.node.yield_self do |node|
+        annotations = source.annotations(block: node, factory: factory, current_module: Namespace.root)
+        assert_nil annotations.var_type(lvar: :x)
+      end
 
-    source.node.children[1].yield_self do |node|
-      annotations = source.annotations(block: node, builder: builder, current_module: Namespace.root)
-      refute_nil annotations.var_type(lvar: :x)
+      source.node.children[1].yield_self do |node|
+        annotations = source.annotations(block: node, factory: factory, current_module: Namespace.root)
+        refute_nil annotations.var_type(lvar: :x)
+      end
     end
   end
 
   def test_case
-    source = parse_source(<<-EOF)
+    with_factory do |factory|
+      source = Steep::Source.parse(<<-EOF, path: Pathname("foo.rb"), factory: factory)
 case foo
 when bar
   # @type var x: String
@@ -293,29 +309,31 @@ else
   # @type var y: Integer
   y - 1
 end
-    EOF
+      EOF
 
-    source.node.yield_self do |node|
-      annotations = source.annotations(block: node, builder: builder, current_module: Namespace.root)
-      assert_nil annotations.var_type(lvar: :x)
-      assert_nil annotations.var_type(lvar: :y)
-    end
+      source.node.yield_self do |node|
+        annotations = source.annotations(block: node, factory: factory, current_module: Namespace.root)
+        assert_nil annotations.var_type(lvar: :x)
+        assert_nil annotations.var_type(lvar: :y)
+      end
 
-    source.node.children[1].children.last.yield_self do |node|
-      annotations = source.annotations(block: node, builder: builder, current_module: Namespace.root)
-      refute_nil annotations.var_type(lvar: :x)
-      assert_nil annotations.var_type(lvar: :y)
-    end
+      source.node.children[1].children.last.yield_self do |node|
+        annotations = source.annotations(block: node, factory: factory, current_module: Namespace.root)
+        refute_nil annotations.var_type(lvar: :x)
+        assert_nil annotations.var_type(lvar: :y)
+      end
 
-    source.node.children[2].yield_self do |node|
-      annotations = source.annotations(block: node, builder: builder, current_module: Namespace.root)
-      assert_nil annotations.var_type(lvar: :x)
-      refute_nil annotations.var_type(lvar: :y)
+      source.node.children[2].yield_self do |node|
+        annotations = source.annotations(block: node, factory: factory, current_module: Namespace.root)
+        assert_nil annotations.var_type(lvar: :x)
+        refute_nil annotations.var_type(lvar: :y)
+      end
     end
   end
 
   def test_rescue
-    source = parse_source(<<-EOF)
+    with_factory do |factory|
+      source = Steep::Source.parse(<<-EOF, path: Pathname("foo.rb"), factory: factory)
 begin
  foo
 rescue Z => x
@@ -325,79 +343,87 @@ else
   # @type var y: Integer
   y - 1
 end
-    EOF
+      EOF
 
-    source.node.yield_self do |node|
-      annotations = source.annotations(block: node, builder: builder, current_module: Namespace.root)
-      assert_nil annotations.var_type(lvar: :x)
-      assert_nil annotations.var_type(lvar: :y)
-    end
+      source.node.yield_self do |node|
+        annotations = source.annotations(block: node, factory: factory, current_module: Namespace.root)
+        assert_nil annotations.var_type(lvar: :x)
+        assert_nil annotations.var_type(lvar: :y)
+      end
 
-    source.node.children[0].children[1].yield_self do |node|
-      annotations = source.annotations(block: node, builder: builder, current_module: Namespace.root)
-      refute_nil annotations.var_type(lvar: :x)
-      assert_nil annotations.var_type(lvar: :y)
-    end
+      source.node.children[0].children[1].yield_self do |node|
+        annotations = source.annotations(block: node, factory: factory, current_module: Namespace.root)
+        refute_nil annotations.var_type(lvar: :x)
+        assert_nil annotations.var_type(lvar: :y)
+      end
 
-    source.node.children[0].children.last.yield_self do |node|
-      annotations = source.annotations(block: node, builder: builder, current_module: Namespace.root)
-      assert_nil annotations.var_type(lvar: :x)
-      refute_nil annotations.var_type(lvar: :y)
+      source.node.children[0].children.last.yield_self do |node|
+        annotations = source.annotations(block: node, factory: factory, current_module: Namespace.root)
+        assert_nil annotations.var_type(lvar: :x)
+        refute_nil annotations.var_type(lvar: :y)
+      end
     end
   end
 
   def test_postfix_rescue
-    source = parse_source(<<-EOF)
+    with_factory do |factory|
+      source = Steep::Source.parse(<<-EOF, path: Pathname("foo.rb"), factory: factory)
 x + 1 rescue foo
     EOF
 
-    source.annotations(block: source.node, builder: builder, current_module: Namespace.root)
+      source.annotations(block: source.node, factory: factory, current_module: Namespace.root)
+    end
   end
 
   def test_ternary_operator
-    source = parse_source(<<-EOF)
+    with_factory do |factory|
+      source = Steep::Source.parse(<<-EOF, path: Pathname("foo.rb"), factory: factory)
 a = test() ? foo : bar
-    EOF
+      EOF
 
-    assert_instance_of Steep::Source, source
-    source.annotations(block: source.node, builder: builder, current_module: Namespace.root)
+      source.annotations(block: source.node, factory: factory, current_module: Namespace.root)
+    end
   end
 
   def test_defs
-    source = parse_source(<<-EOF)
+    with_factory do |factory|
+      source = Steep::Source.parse(<<-EOF, path: Pathname("foo.rb"), factory: factory)
 class A
   def self.foo()
     # @type var x: Integer
     x = 123
   end
 end
-    EOF
+      EOF
+      def_node = dig(source.node, 2)
 
-    def_node = dig(source.node, 2)
-    annotations = source.annotations(block: def_node, builder: builder, current_module: Namespace.parse("::A"))
-    assert_equal parse_type("::Integer"), annotations.var_type(lvar: :x)
+      annotations = source.annotations(block: def_node, factory: factory, current_module: Namespace.parse("::A"))
+      assert_equal parse_type("::Integer"), annotations.var_type(lvar: :x)
+    end
   end
 
   def test_find_node
-    source = parse_source(<<-EOF)
+    with_factory do |factory|
+      source = Steep::Source.parse(<<-EOF, path: Pathname("foo.rb"), factory: factory)
 class A
   def self.foo(bar)
     # @type var x: Integer
     x = 123
   end
 end
-    EOF
+      EOF
 
-    assert_equal source.node, source.find_node(line: 1, column: 2)            # class
-    assert_equal dig(source.node, 0), source.find_node(line: 1, column: 6)    # A
-    assert_equal dig(source.node, 0), source.find_node(line: 1, column: 7)    # A
-    assert_equal dig(source.node, 2, 0), source.find_node(line: 2, column: 6) # self
-    assert_equal dig(source.node, 2), source.find_node(line: 2, column: 11)   # def
-    assert_equal dig(source.node, 2, 2, 0), source.find_node(line: 2, column: 15)   # bar
-    assert_equal dig(source.node, 2, 3), source.find_node(line: 4, column: 5)   # x
-    assert_equal dig(source.node, 2, 3, 1), source.find_node(line: 4, column: 8)   # 123
-    assert_equal dig(source.node, 2, 3, 1), source.find_node(line: 4, column: 9)   # 123
-    assert_equal dig(source.node, 2, 3, 1), source.find_node(line: 4, column: 10)   # 123
-    assert_equal dig(source.node, 2, 3, 1), source.find_node(line: 4, column: 11)   # 123
+      assert_equal source.node, source.find_node(line: 1, column: 2)            # class
+      assert_equal dig(source.node, 0), source.find_node(line: 1, column: 6)    # A
+      assert_equal dig(source.node, 0), source.find_node(line: 1, column: 7)    # A
+      assert_equal dig(source.node, 2, 0), source.find_node(line: 2, column: 6) # self
+      assert_equal dig(source.node, 2), source.find_node(line: 2, column: 11)   # def
+      assert_equal dig(source.node, 2, 2, 0), source.find_node(line: 2, column: 15)   # bar
+      assert_equal dig(source.node, 2, 3), source.find_node(line: 4, column: 5)   # x
+      assert_equal dig(source.node, 2, 3, 1), source.find_node(line: 4, column: 8)   # 123
+      assert_equal dig(source.node, 2, 3, 1), source.find_node(line: 4, column: 9)   # 123
+      assert_equal dig(source.node, 2, 3, 1), source.find_node(line: 4, column: 10)   # 123
+      assert_equal dig(source.node, 2, 3, 1), source.find_node(line: 4, column: 11)   # 123
+    end
   end
 end

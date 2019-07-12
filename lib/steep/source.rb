@@ -44,7 +44,7 @@ module Steep
       end
     end
 
-    def self.parse(source_code, path:, labeling: ASTUtils::Labeling.new)
+    def self.parse(source_code, path:, factory:, labeling: ASTUtils::Labeling.new)
       buffer = ::Parser::Source::Buffer.new(path.to_s, 1)
       buffer.source = source_code
       node = parser.parse(buffer).yield_self do |n|
@@ -68,10 +68,11 @@ module Steep
       buffer = AST::Buffer.new(name: path, content: source_code)
 
       comments.each do |comment|
-        src = comment.text.gsub(/\A#/, '')
-        annotation = Steep::Parser.parse_annotation_opt(src,
-                                                        buffer: buffer,
-                                                        offset: comment.location.expression.begin_pos+1)
+        src = comment.text.gsub(/\A#\s*/, '')
+        location = AST::Location.new(buffer: buffer,
+                                     start_pos: comment.location.expression.begin_pos + 1,
+                                     end_pos: comment.location.expression.end_pos)
+        annotation = AnnotationParser.new(factory: factory).parse(src, location: location)
         if annotation
           annotations << LocatedAnnotation.new(line: comment.location.line, source: src, annotation: annotation)
         end
@@ -274,8 +275,12 @@ module Steep
       end
     end
 
-    def annotations(block:, builder:, current_module:)
-      AST::Annotation::Collection.new(annotations: mapping[block.__id__] || [], builder: builder, current_module: current_module)
+    def annotations(block:, factory:, current_module:)
+      AST::Annotation::Collection.new(
+        annotations: mapping[block.__id__] || [],
+        factory: factory,
+        current_module: current_module
+      )
     end
 
     def each_annotation
