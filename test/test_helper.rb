@@ -306,12 +306,6 @@ module ASTAssertion
     assert_equal name, sig.name if name
     yield module_name: sig.module_name, name: sig.name, params: sig.params if block_given?
   end
-
-  def assert_method_type_annotation(annot, name: nil)
-    assert_instance_of Steep::AST::Annotation::MethodType, annot
-    assert_equal name, annot.name if name
-    yield name: annot.name, type: annot.type if block_given?
-  end
 end
 
 module SubtypingHelper
