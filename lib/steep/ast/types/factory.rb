@@ -438,16 +438,18 @@ module Steep
           end
         end
 
+        def env
+          @env ||= definition_builder.env
+        end
+
         def absolute_type(type, namespace:)
-          definition_builder.env.absolute_type(type_1(type), namespace: namespace_1(namespace)) do |type|
-            type.name.absolute!
-          end
+          type(env.absolute_type(type_1(type),
+                                 namespace: namespace_1(namespace)) {|type| type.name.absolute! })
         end
 
         def absolute_type_name(type_name, namespace:)
-          definition_builder.env.absolute_type_name(type_name_1(type_name), namespace: namespace_1(namespace)) do |name|
-            name.absolute!
-          end
+          type(env.absolute_type_name(type_name_1(type_name),
+                                      namespace: namespace_1(namespace)) {|name| name.absolute! })
         end
       end
     end

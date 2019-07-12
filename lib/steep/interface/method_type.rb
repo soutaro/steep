@@ -265,6 +265,13 @@ module Steep
       def to_s
         "#{optional? ? "?" : ""}{ #{type.params} -> #{type.return_type} }"
       end
+
+      def map_type(&block)
+        self.class.new(
+          type: type.map_type(&block),
+          optional: optional
+        )
+      end
     end
 
     class MethodType
@@ -348,6 +355,16 @@ module Steep
         block = self.block ? " #{self.block}" : ""
 
         "#{type_params}#{params}#{block} -> #{return_type}"
+      end
+
+      def map_type(&block)
+        self.class.new(
+          type_params: type_params,
+          params: params.map_type(&block),
+          block: self.block&.yield_self {|blk| blk.map_type(&block) },
+          return_type: yield(return_type),
+          location: location
+        )
       end
     end
   end

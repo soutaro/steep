@@ -8,6 +8,7 @@ require 'minitest/autorun'
 require "pp"
 require "open3"
 require "tmpdir"
+require 'minitest/hooks/test'
 
 module Steep::AST::Types::Name
   def self.new_module(location: nil, name:, args: [])
@@ -43,27 +44,6 @@ module TestHelper
 
   def assert_size(size, collection)
     assert_equal size, collection.size
-  end
-
-  def parse_signature(signature)
-    Steep::Parser.parse_signature(signature)
-  end
-
-  def parse_method_type(string)
-    Steep::Parser.parse_method(string)
-  end
-
-  def parse_type(string)
-    Steep::Parser.parse_type(string)
-  end
-
-  def parse_single_method(string, super_method: nil, attributes: [])
-    type = Steep::Parser.parse_method(string)
-    Steep::Interface::Method.new(types: [type], super_method: super_method, attributes: attributes)
-  end
-
-  def parse_ruby(string)
-    Steep::Source.parse(string, path: Pathname("test.rb"))
   end
 
   def dig(node, *indexes)
@@ -508,7 +488,29 @@ module FactoryHelper
 
       definition_builder = Ruby::Signature::DefinitionBuilder.new(env: env)
 
-      yield Steep::AST::Types::Factory.new(builder: definition_builder)
+      @factory = Steep::AST::Types::Factory.new(builder: definition_builder)
+
+      yield factory
+    ensure
+      @factory = nil
     end
+  end
+
+  def factory
+    @factory or raise "#factory should be called from inside with_factory"
+  end
+
+  def parse_type(string, factory: self.factory, variables: [])
+    type = Ruby::Signature::Parser.parse_type(string, variables: variables)
+    factory.type(type)
+  end
+
+  def parse_ruby(string, factory: self.factory)
+    Steep::Source.parse(string, path: Pathname("test.rb"), factory: factory)
+  end
+
+  def parse_method_type(string, factory: self.factory, variables: [])
+    type = Ruby::Signature::Parser.parse_method_type(string, variables: variables)
+    factory.method_type type
   end
 end
