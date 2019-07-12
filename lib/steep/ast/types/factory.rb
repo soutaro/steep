@@ -68,6 +68,77 @@ module Steep
           end
         end
 
+        def type_1(type)
+          case type
+          when Any
+            Ruby::Signature::Types::Bases::Any.new(location: nil)
+          when Class
+            Ruby::Signature::Types::Bases::Class.new(location: nil)
+          when Instance
+            Ruby::Signature::Types::Bases::Instance.new(location: nil)
+          when Self
+            Ruby::Signature::Types::Bases::Self.new(location: nil)
+          when Top
+            Ruby::Signature::Types::Bases::Top.new(location: nil)
+          when Bot
+            Ruby::Signature::Types::Bases::Bottom.new(location: nil)
+          when Boolean
+            Ruby::Signature::Types::Bases::Bool.new(location: nil)
+          when Void
+            Ruby::Signature::Types::Bases::Void.new(location: nil)
+          when Nil
+            Ruby::Signature::Types::Bases::Nil.new(location: nil)
+          when Var
+            Ruby::Signature::Types::Variable.new(name: type.name, location: nil)
+          when Name::Class
+            Ruby::Signature::Types::ClassSingleton.new(name: type_name_1(type.name), location: nil)
+          when Name::Instance
+            Ruby::Signature::Types::ClassInstance.new(
+              name: type_name_1(type.name),
+              args: type.args.map {|arg| type_1(arg) },
+              location: nil
+            )
+          when Name::Interface
+            Ruby::Signature::Types::Interface.new(
+              name: type_name_1(type.name),
+              args: type.args.map {|arg| type_1(arg) },
+              location: nil
+            )
+          when Name::Alias
+            type.args.empty? or raise "alias type with args is not supported"
+            Ruby::Signature::Types::Alias.new(name: type_name_1(type.name), location: nil)
+          when Union
+            Ruby::Signature::Types::Union.new(
+              types: type.types.map {|ty| type_1(ty) },
+              location: nil
+            )
+          when Intersection
+            Ruby::Signature::Types::Intersection.new(
+              types: type.types.map {|ty| type_1(ty) },
+              location: nil
+            )
+          when Literal
+            Ruby::Signature::Types::Literal.new(literal: type.value, location: nil)
+          when Tuple
+            Ruby::Signature::Types::Tuple.new(
+              types: type.types.map {|ty| type_1(ty) },
+              location: nil
+            )
+          when Record
+            fields = type.elements.each.with_object({}) do |(key, value), hash|
+              hash[key] = type_1(value)
+            end
+            Ruby::Signature::Types::Record.new(fields: fields, location: nil)
+          when Proc
+            Ruby::Signature::Types::Proc.new(
+              type: function_1(type.params, type.return_type),
+              location: nil
+            )
+          else
+            raise "Unexpected type given: #{type} (#{type.class})"
+          end
+        end
+
         def type_name(name)
           case
           when name.class?
@@ -89,6 +160,19 @@ module Steep
 
         def namespace_1(namespace)
           Ruby::Signature::Namespace.parse(namespace.to_s)
+        end
+
+        def function_1(params, return_type)
+          Ruby::Signature::Types::Function.new(
+            required_positionals: params.required.map {|type| Ruby::Signature::Types::Function::Param.new(name: nil, type: type_1(type)) },
+            optional_positionals: params.optional.map {|type| Ruby::Signature::Types::Function::Param.new(name: nil, type: type_1(type)) },
+            rest_positionals: params.rest&.yield_self {|type| Ruby::Signature::Types::Function::Param.new(name: nil, type: type_1(type)) },
+            trailing_positionals: [],
+            required_keywords: params.required_keywords.transform_values {|type| Ruby::Signature::Types::Function::Param.new(name: nil, type: type_1(type)) },
+            optional_keywords: params.optional_keywords.transform_values {|type| Ruby::Signature::Types::Function::Param.new(name: nil, type: type_1(type)) },
+            rest_keywords: params.rest_keywords&.yield_self {|type| Ruby::Signature::Types::Function::Param.new(name: nil, type: type_1(type)) },
+            return_type: type_1(return_type)
+          )
         end
 
         def params(type)
@@ -351,6 +435,18 @@ module Steep
 
           else
             raise "Unexpected type for interface: #{type}"
+          end
+        end
+
+        def absolute_type(type, namespace:)
+          definition_builder.env.absolute_type(type_1(type), namespace: namespace_1(namespace)) do |type|
+            type.name.absolute!
+          end
+        end
+
+        def absolute_type_name(type_name, namespace:)
+          definition_builder.env.absolute_type_name(type_name_1(type_name), namespace: namespace_1(namespace)) do |name|
+            name.absolute!
           end
         end
       end

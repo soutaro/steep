@@ -1,8 +1,8 @@
 require "test_helper"
 
 class TypeFactoryTest < Minitest::Test
-  def parse_type(str)
-    Ruby::Signature::Parser.parse_type(str)
+  def parse_type(str, variables: [])
+    Ruby::Signature::Parser.parse_type(str, variables: variables)
   end
 
   def parse_method_type(str)
@@ -108,6 +108,86 @@ class TypeFactoryTest < Minitest::Test
       factory.type(Ruby::Signature::Types::Variable.new(name: :T, location: nil)) do |type|
         assert_instance_of Types::Var, type
         assert_equal :T, type.name
+      end
+    end
+  end
+
+  def test_type_1
+    with_factory do |factory|
+      parse_type("void").yield_self do |type|
+        assert_equal type, factory.type_1(factory.type(type))
+      end
+
+      parse_type("class").yield_self do |type|
+        assert_equal type, factory.type_1(factory.type(type))
+      end
+
+      parse_type("instance").yield_self do |type|
+        assert_equal type, factory.type_1(factory.type(type))
+      end
+
+      parse_type("self").yield_self do |type|
+        assert_equal type, factory.type_1(factory.type(type))
+      end
+
+      parse_type("top").yield_self do |type|
+        assert_equal type, factory.type_1(factory.type(type))
+      end
+
+      parse_type("bot").yield_self do |type|
+        assert_equal type, factory.type_1(factory.type(type))
+      end
+
+      parse_type("bool").yield_self do |type|
+        assert_equal type, factory.type_1(factory.type(type))
+      end
+
+      parse_type("nil").yield_self do |type|
+        assert_equal type, factory.type_1(factory.type(type))
+      end
+
+      parse_type("A", variables: [:A]).yield_self do |type|
+        assert_equal type, factory.type_1(factory.type(type))
+      end
+
+      parse_type("singleton(::Object)").yield_self do |type|
+        assert_equal type, factory.type_1(factory.type(type))
+      end
+
+      parse_type("Array[Object]").yield_self do |type|
+        assert_equal type, factory.type_1(factory.type(type))
+      end
+
+      parse_type("_Each[self, void]").yield_self do |type|
+        assert_equal type, factory.type_1(factory.type(type))
+      end
+
+      parse_type("Super::duper").yield_self do |type|
+        assert_equal type, factory.type_1(factory.type(type))
+      end
+
+      factory.type(parse_type("Integer | nil")).yield_self do |type|
+        assert_equal type, factory.type(factory.type_1(type))
+      end
+
+      factory.type(parse_type("Integer & nil")).yield_self do |type|
+        assert_equal type, factory.type(factory.type_1(type))
+      end
+
+      factory.type(parse_type("30")).yield_self do |type|
+        assert_equal type, factory.type(factory.type_1(type))
+      end
+
+      factory.type(parse_type("[Integer, String]")).yield_self do |type|
+        assert_equal type, factory.type(factory.type_1(type))
+      end
+
+      factory.type(parse_type("{ foo: bar }")).yield_self do |type|
+        assert_equal type, factory.type(factory.type_1(type))
+      end
+
+      factory.type(parse_type("^(a, ?b, *c, d, x: e, ?y: f, **g) -> void")).yield_self do |type|
+        assert_equal type, factory.type(factory.type_1(type))
       end
     end
   end
@@ -321,6 +401,38 @@ type size = :S | :M | :L
         unfolded = factory.unfold(type.name)
 
         assert_equal factory.type(parse_type(":S | :M | :L")), unfolded
+      end
+    end
+  end
+
+  def test_absolute_type
+    with_factory "foo.rbi" => <<-EOF do |factory|
+module Foo
+end
+
+class Foo::Bar
+end
+
+class Bar
+end
+    EOF
+
+      factory.type(parse_type("Bar")).tap do |type|
+        factory.absolute_type(type, namespace: Steep::AST::Namespace.parse("::Foo")) do |absolute_type|
+          assert_equal factory.type(parse_type("::Foo::Bar")), absolute_type
+        end
+      end
+
+      factory.type(parse_type("Bar")).tap do |type|
+        factory.absolute_type(type, namespace: Steep::AST::Namespace.root) do |absolute_type|
+          assert_equal factory.type(parse_type("::Bar")), absolute_type
+        end
+      end
+
+      factory.type(parse_type("Baz")).tap do |type|
+        factory.absolute_type(type, namespace: Steep::AST::Namespace.parse("::Foo")) do |absolute_type|
+          assert_equal factory.type(parse_type("::Baz")), absolute_type
+        end
       end
     end
   end
