@@ -403,19 +403,28 @@ module Foo<'a>
 end
   EOS
 
-  def new_subtyping_checker(sigs = DEFAULT_SIGS)
-    signatures = Steep::AST::Signature::Env.new.tap do |env|
-      parse_signature(BUILTIN).each do |sig|
-        env.add sig
-      end
+  def checker
+    @checker or raise "#checker should be used within from #with_checker"
+  end
 
-      parse_signature(sigs).each do |sig|
-        env.add sig
+  def with_checker(*files, &block)
+    paths = {}
+
+    files.each.with_index do |content, index|
+      if content.is_a?(Hash)
+        paths.merge!(content)
+      else
+        paths["#{index}.rbi"] = content
       end
     end
 
-    builder = Steep::Interface::Builder.new(signatures: signatures)
-    Steep::Subtyping::Check.new(builder: builder)
+    paths["builtin.rbi"] = BUILTIN
+    with_factory(paths, nostdlib: true) do |factory|
+      @checker = Subtyping::Check.new(factory: factory)
+      yield @checker
+    ensure
+      @checker = nil
+    end
   end
 end
 

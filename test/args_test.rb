@@ -2,11 +2,20 @@ require_relative "test_helper"
 
 class ArgsTest < Minitest::Test
   include TestHelper
+  include FactoryHelper
 
   SendArgs = Steep::TypeInference::SendArgs
   Params = Steep::Interface::Params
   Types = Steep::AST::Types
   AST = Steep::AST
+
+  include Minitest::Hooks
+
+  def around
+    with_factory do
+      super
+    end
+  end
 
   def test_1
     nodes = parse_ruby("foo(1, 2, *rest, k1: foo(), k2: bar(), **k3, &proc)").node.children.drop(2)
@@ -209,7 +218,7 @@ class ArgsTest < Minitest::Test
                      [parse_ruby("1").node, parse_type("String")],
                      [parse_ruby("2").node, parse_type("Symbol")],
                      [parse_ruby("3").node, parse_type("Integer")],
-                     [args.args[3], parse_type("::Array<Integer>")]
+                     [args.args[3], parse_type("::Array[Integer]")]
                    ], pairs
 
     end
@@ -222,7 +231,7 @@ class ArgsTest < Minitest::Test
       assert_equal [
                      [parse_ruby("1").node, parse_type("String")],
                      [parse_ruby("2").node, parse_type("Symbol")],
-                     [args.args[2], parse_type("::Array<Integer>")]
+                     [args.args[2], parse_type("::Array[Integer]")]
                    ], pairs
 
     end
@@ -236,8 +245,8 @@ class ArgsTest < Minitest::Test
                      [parse_ruby("1").node, parse_type("String")],
                      [args.args[1],
                       AST::Types::Intersection.build(types: [
-                        parse_type("::Array<Symbol>"),
-                        parse_type("::Array<Integer>")
+                        parse_type("::Array[Symbol]"),
+                        parse_type("::Array[Integer]")
                       ])
                      ]
                    ], pairs
@@ -268,7 +277,7 @@ class ArgsTest < Minitest::Test
       assert_empty rest
 
       assert_equal [
-                     [args.args[0], parse_type("::Array<Integer>")],
+                     [args.args[0], parse_type("::Array[Integer]")],
                      args.args[1]
                    ], pairs
     end
@@ -297,12 +306,12 @@ class ArgsTest < Minitest::Test
       assert_empty rest
 
       assert_equal [
-                     [args.args[0], parse_type("::Array<Integer>")],
+                     [args.args[0], parse_type("::Array[Integer]")],
                      args.args[1]
                    ], pairs1
 
       assert_equal [
-                     [args.args[0], parse_type("::Array<Integer>")],
+                     [args.args[0], parse_type("::Array[Integer]")],
                      [args.args[1], parse_type("Integer")]
                    ], pairs2
     end
@@ -312,7 +321,7 @@ class ArgsTest < Minitest::Test
 
       assert_empty rest
       assert_equal [
-                     [args.args[0], parse_type("::Array<Integer>")]
+                     [args.args[0], parse_type("::Array[Integer]")]
                    ], pairs
     end
   end
