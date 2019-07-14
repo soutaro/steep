@@ -31,7 +31,7 @@ Gem::Specification.new do |spec|
 
   spec.add_runtime_dependency "parser", "~> 2.4"
   spec.add_runtime_dependency "ast_utils", "~> 0.3.0"
-  spec.add_runtime_dependency "activesupport", "~> 5.1"
+  spec.add_runtime_dependency "activesupport", ">= 5.1"
   spec.add_runtime_dependency "rainbow", ">= 2.2.2", "< 4.0"
   spec.add_runtime_dependency "listen", "~> 3.1"
   spec.add_runtime_dependency "pry", "~> 0.12.2"
