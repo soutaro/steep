@@ -4,6 +4,14 @@ class TypingTest < Minitest::Test
   Typing = Steep::Typing
 
   include TestHelper
+  include FactoryHelper
+  include Minitest::Hooks
+
+  def around
+    with_factory do
+      super
+    end
+  end
 
   def test_1
     typing = Steep::Typing.new
