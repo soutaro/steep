@@ -294,7 +294,7 @@ class BasicObject
 end
 
 class Object < BasicObject
-  def class: -> module
+  def class: -> class
   def tap: { (instance) -> any } -> instance
   def gets: -> String?
   def to_s: -> String
@@ -311,13 +311,13 @@ end
 
 class String
   def to_str: -> String
-  def +: (String) -> String
+  def `+`: (String) -> String
   def size: -> Integer
-  def -@: -> String
+  def `-@`: -> String
 end
 
 class Numeric
-  def +: (Numeric) -> Numeric
+  def `+`: (Numeric) -> Numeric
   def to_int: -> Integer
 end
 
@@ -328,48 +328,48 @@ class Symbol
   def id2name: -> String
 end
 
-class Range<'a>
-  def begin: -> 'a
-  def end: -> 'a
+class Range[A]
+  def begin: -> A
+  def end: -> A
 end
 
 class Regexp
 end
 
-class Array<'a>
+class Array[A]
   def initialize: () -> any
-                | (Integer, 'a) -> any
+                | (Integer, A) -> any
                 | (Integer) -> any
-  def []: (Integer) -> 'a
-  def []=: (Integer, 'a) -> 'a
-  def <<: ('a) -> self
-  def each: { ('a) -> any } -> self
-  def zip: <'b> (Array<'b>) -> Array<'a | 'b>
-  def each_with_object: <'b> ('b) { ('a, 'b) -> any } -> 'b
-  def map: <'x> { ('a) -> 'x } -> Array<'x>
+  def `[]`: (Integer) -> A
+  def `[]=`: (Integer, A) -> A
+  def `<<`: (A) -> self
+  def each: { (A) -> any } -> self
+  def zip: [B] (Array[B]) -> Array[A | B]
+  def each_with_object: [B] (B) { (A, B) -> any } -> B
+  def map: [X] { (A) -> X } -> Array[X]
 end
 
-class Hash<'a, 'b>
-  def []: ('a) -> 'b
-  def []=: ('a, 'b) -> 'b
-  def each: { (['a, 'b]) -> void } -> self
+class Hash[A, B]
+  def `[]`: (A) -> B
+  def `[]=`: (A, B) -> B
+  def each: { ([A, B]) -> void } -> self
 end
 
 class NilClass
 end
 
 class Proc
-  def []: (*any) -> any
-  def call: (*any) -> any
-  def ===: (*any) -> any
-  def yield: (*any) -> any
+  def `[]`: any
+  def call: any
+  def `===`: any
+  def yield: any
   def arity: -> Integer
 end
   EOS
 
   DEFAULT_SIGS = <<-EOS
 interface _A
-  def +: (_A) -> _A
+  def `+`: (_A) -> _A
 end
 
 interface _B
@@ -395,11 +395,11 @@ interface _Kernel
 end
 
 interface _PolyMethod
-  def snd: <'a>(any, 'a) -> 'a
-  def try: <'a> { (any) -> 'a } -> 'a
+  def snd: [A] (any, A) -> A
+  def try: [A] { (any) -> A } -> A
 end
 
-module Foo<'a>
+module Foo[A]
 end
   EOS
 
@@ -420,7 +420,7 @@ end
 
     paths["builtin.rbi"] = BUILTIN
     with_factory(paths, nostdlib: true) do |factory|
-      @checker = Subtyping::Check.new(factory: factory)
+      @checker = Steep::Subtyping::Check.new(factory: factory)
       yield @checker
     ensure
       @checker = nil
