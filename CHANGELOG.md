@@ -2,6 +2,10 @@
 
 ## master
 
+## 0.11.1 (2019-07-15)
+
+* Relax activesupport versnion requirement (#90)
+
 ## 0.11.0 (2019-05-18)
 
 * Skip `alias` nodes type checking (#85)
