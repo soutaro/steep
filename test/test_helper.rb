@@ -291,6 +291,7 @@ end
 module SubtypingHelper
   BUILTIN = <<-EOS
 class BasicObject
+  def initialize: () -> void 
 end
 
 class Object < BasicObject

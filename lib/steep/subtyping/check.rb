@@ -673,14 +673,17 @@ module Steep
       end
 
       def expand_alias(type)
-        case type
-        when AST::Types::Name::Alias
-          unfolded = factory.unfold(type.name)
-          if block_given?
-            yield unfolded
-          else
-            unfolded
-          end
+        unfolded = case type
+                   when AST::Types::Name::Alias
+                     unfolded = factory.unfold(type.name)
+                   else
+                     type
+                   end
+
+        if block_given?
+          yield unfolded
+        else
+          unfolded
         end
       end
     end
