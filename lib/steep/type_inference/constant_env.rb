@@ -1,20 +1,18 @@
 module Steep
   module TypeInference
     class ConstantEnv
-      attr_reader :builder
       attr_reader :context
       attr_reader :cache
+      attr_reader :factory
+      attr_reader :table
 
-      # ConstantEnv receives an optional Names::Module, not a Namespace, because this is a simulation of Ruby.
+      # ConstantEnv receives an Names::Module as a context, not a Namespace, because this is a simulation of Ruby.
       # Any namespace is a module or class.
-      def initialize(builder:, context:)
+      def initialize(factory:, context:)
         @cache = {}
-        @builder = builder
+        @factory = factory
         @context = context
-      end
-
-      def signatures
-        builder.signatures
+        @table = Ruby::Signature::ConstantTable.new(builder: factory.definition_builder)
       end
 
       def namespace
@@ -26,23 +24,14 @@ module Steep
       end
 
       def lookup(name)
-        cache[name] ||= lookup0(name, namespace: namespace)
-      end
+        cache[name] ||= begin
+          constant = table.resolve_constant_reference(
+            factory.type_name_1(name),
+            context: factory.namespace_1(namespace)
+          )
 
-      # @type method lookup0: (Names::Module, namespace: AST::Namespace) -> Type
-      def lookup0(name, namespace:)
-        full_name = name.in_namespace(namespace)
-        case
-        when signatures.module_name?(full_name)
-          AST::Types::Name::Module.new(name: full_name)
-        when signatures.class_name?(full_name)
-          AST::Types::Name::Class.new(name: full_name, constructor: true)
-        when signatures.const_name?(full_name)
-          builder.absolute_type(signatures.find_const(name, current_module: namespace).type,
-                                current: namespace)
-        else
-          unless namespace.empty?
-            lookup0(name, namespace: namespace.parent)
+          if constant
+            factory.type(constant.type)
           end
         end
       end
