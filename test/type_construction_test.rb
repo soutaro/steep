@@ -1418,6 +1418,59 @@ a, b = x
     end
   end
 
+  def test_union_send_error
+    with_checker do |checker|
+      source = parse_ruby(<<-RUBY)
+# @type var x: Integer | String
+x = (_ = nil)
+y = x + ""
+      RUBY
+
+      with_standard_construction(checker, source) do |construction, typing|
+        construction.synthesize(source.node)
+
+        assert_equal 1, typing.errors.size
+        assert_any typing.errors do |error|
+          error.is_a?(Steep::Errors::ArgumentTypeMismatch)
+        end
+      end
+    end
+  end
+
+  def test_intersection_send
+    with_checker do |checker|
+      source = parse_ruby(<<-RUBY)
+# @type var x: Integer & String
+x = (_ = nil)
+y = x + ""
+      RUBY
+
+      with_standard_construction(checker, source) do |construction, typing|
+        construction.synthesize(source.node)
+
+        assert_empty typing.errors
+        assert_equal parse_type("::String"), construction.type_env.lvar_types[:y]
+      end
+    end
+  end
+
+  def test_union_send
+    with_checker do |checker|
+      source = parse_ruby(<<-RUBY)
+# @type var x: Integer | String
+x = (_ = nil)
+y = x.itself
+      RUBY
+
+      with_standard_construction(checker, source) do |construction, typing|
+        construction.synthesize(source.node)
+
+        assert_empty typing.errors
+        assert_equal parse_type("::String | ::Integer"), construction.type_env.lvar_types[:y]
+      end
+    end
+  end
+
   def test_masgn_array_error
     with_checker do |checker|
       source = parse_ruby(<<-RUBY)
@@ -2230,7 +2283,6 @@ EOF
       with_standard_construction(checker, source) do |construction, typing|
         construction.synthesize(source.node)
 
-        skip "Need to implement method call on union type"
         assert_empty typing.errors
         assert_equal parse_type("::String | ::Integer | nil"), construction.type_env.lvar_types[:y]
         assert_equal parse_type("::Symbol"), construction.type_env.lvar_types[:z]
@@ -3206,7 +3258,8 @@ EOF
                                        node_type_hint: nil,
                                        block_params: block_params,
                                        block_body: block_body_node,
-                                       block_annotations: block_annotations)
+                                       block_annotations: block_annotations,
+                                       topdown_hint: true)
         assert_equal "^(any, any) -> any", type.to_s
       end
     end
@@ -3234,7 +3287,8 @@ EOF
                                        node_type_hint: nil,
                                        block_params: block_params,
                                        block_body: block_body_node,
-                                       block_annotations: block_annotations)
+                                       block_annotations: block_annotations,
+                                       topdown_hint: true)
         assert_equal parse_type("^(::String, ::Integer) -> :bar"), type
 
         refute_empty typing.errors
@@ -3265,7 +3319,8 @@ EOF
                                        node_type_hint: nil,
                                        block_params: block_params,
                                        block_body: block_body_node,
-                                       block_annotations: block_annotations)
+                                       block_annotations: block_annotations,
+                                       topdown_hint: true)
         assert_equal "^(::String, ::Integer) -> ::Symbol", type.to_s
       end
     end
@@ -3295,7 +3350,8 @@ EOF
                                        node_type_hint: nil,
                                        block_params: block_params,
                                        block_body: block_body_node,
-                                       block_annotations: block_annotations)
+                                       block_annotations: block_annotations,
+                                       topdown_hint: true)
         assert_equal parse_type("^(::String, ::Integer) -> ::Symbol"), type
 
         assert_equal 2, typing.errors.size

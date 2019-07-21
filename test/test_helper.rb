@@ -301,6 +301,7 @@ class Object < BasicObject
   def to_s: -> String
   def nil?: -> bool
   def !: -> bool
+  def itself: -> self
 end
 
 class Class

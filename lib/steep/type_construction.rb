@@ -597,30 +597,27 @@ module Steep
 
               if op_method
                 args = TypeInference::SendArgs.from_nodes([rhs])
-                return_type_or_error = type_method_call(node,
-                                                        receiver_type: lhs_type,
-                                                        method: op_method,
-                                                        args: args,
-                                                        block_params: nil,
-                                                        block_body: nil)
+                return_type, _ = type_method_call(node,
+                                                  receiver_type: lhs_type,
+                                                  method: op_method,
+                                                  args: args,
+                                                  block_params: nil,
+                                                  block_body: nil,
+                                                  topdown_hint: true)
 
-                if return_type_or_error.is_a?(Errors::Base)
-                  typing.add_error return_type_or_error
-                else
-                  result = checker.check(
-                    Subtyping::Relation.new(sub_type: return_type_or_error, super_type: lhs_type),
-                    constraints: Subtyping::Constraints.empty
-                  )
-                  if result.failure?
-                    typing.add_error(
-                      Errors::IncompatibleAssignment.new(
-                        node: node,
-                        lhs_type: lhs_type,
-                        rhs_type: return_type_or_error,
-                        result: result
-                      )
+                result = checker.check(
+                  Subtyping::Relation.new(sub_type: return_type, super_type: lhs_type),
+                  constraints: Subtyping::Constraints.empty
+                )
+                if result.failure?
+                  typing.add_error(
+                    Errors::IncompatibleAssignment.new(
+                      node: node,
+                      lhs_type: lhs_type,
+                      rhs_type: return_type,
+                      result: result
                     )
-                  end
+                  )
                 end
               else
                 typing.add_error Errors::NoMethod.new(node: node, method: op, type: lhs_type)
@@ -645,20 +642,15 @@ module Steep
                 )
                 args = TypeInference::SendArgs.from_nodes(node.children.dup)
 
-                return_type_or_error = type_method_call(node,
-                                                        receiver_type: self_type,
-                                                        method: super_method,
-                                                        args: args,
-                                                        block_params: nil,
-                                                        block_body: nil)
+                return_type, _ = type_method_call(node,
+                                                  receiver_type: self_type,
+                                                  method: super_method,
+                                                  args: args,
+                                                  block_params: nil,
+                                                  block_body: nil,
+                                                  topdown_hint: true)
 
-                if return_type_or_error.is_a?(Errors::Base)
-                  fallback_to_any node do
-                    return_type_or_error
-                  end
-                else
-                  typing.add_typing node, return_type_or_error
-                end
+                typing.add_typing node, return_type
               else
                 fallback_to_any node do
                   Errors::UnexpectedSuper.new(node: node, method: method_context.name)
@@ -1719,7 +1711,8 @@ module Steep
                               node_type_hint: nil,
                               block_params: params,
                               block_body: block_body,
-                              block_annotations: block_annotations)
+                              block_annotations: block_annotations,
+                              topdown_hint: true)
 
       typing.add_typing node, block_type
     end
@@ -1757,20 +1750,15 @@ module Steep
 
                         if method
                           args = TypeInference::SendArgs.from_nodes(arguments)
-                          return_type_or_error = type_method_call(node,
-                                                                  method: method,
-                                                                  args: args,
-                                                                  block_params: block_params,
-                                                                  block_body: block_body,
-                                                                  receiver_type: receiver_type)
+                          return_type, _ = type_method_call(node,
+                                                            method: method,
+                                                            args: args,
+                                                            block_params: block_params,
+                                                            block_body: block_body,
+                                                            receiver_type: receiver_type,
+                                                            topdown_hint: true)
 
-                          if return_type_or_error.is_a?(Errors::Base)
-                            fallback_to_any node do
-                              return_type_or_error
-                            end
-                          else
-                            typing.add_typing node, return_type_or_error
-                          end
+                          typing.add_typing node, return_type
                         else
                           fallback_to_any node do
                             Errors::NoMethod.new(node: node, method: method_name, type: receiver_type)
@@ -1867,73 +1855,140 @@ module Steep
       ), return_type]
     end
 
-    def type_method_call(node, receiver_type:, method:, args:, block_params:, block_body:)
+    def type_method_call(node, receiver_type:, method:, args:, block_params:, block_body:, topdown_hint:)
       case
       when method.union?
+        yield_self do
+          results = method.types.map do |method|
+            typing.new_child do |child_typing|
+              type, error = with_new_typing(child_typing).type_method_call(node,
+                                                                           receiver_type: receiver_type,
+                                                                           method: method,
+                                                                           args: args,
+                                                                           block_params: block_params,
+                                                                           block_body: block_body,
+                                                                           topdown_hint: false)
+              [
+                type,
+                child_typing,
+                error
+              ]
+            end
+          end
+
+          if (type, typing, error = results.find {|_, _, error| error })
+            typing.save!
+            [type, error]
+          else
+            _, typing, _ = results.first
+            typing.save!
+
+            [union_type(*results.map(&:first)), nil]
+          end
+        end
+
       when method.intersection?
+        yield_self do
+          results = method.types.map do |method|
+            typing.new_child do |child_typing|
+              type, error = with_new_typing(child_typing).type_method_call(node,
+                                                                           receiver_type: receiver_type,
+                                                                           method: method,
+                                                                           args: args,
+                                                                           block_params: block_params,
+                                                                           block_body: block_body,
+                                                                           topdown_hint: false)
+              [
+                type,
+                child_typing,
+                error
+              ]
+            end
+          end
+
+          successes = results.select {|_, _, error| !error }
+          unless successes.empty?
+            types = successes.map {|type, typing, _| type }
+            typing = successes[0][1]
+            typing.save!
+
+            [AST::Types::Intersection.build(types: types), nil]
+          else
+            type, typing, error = results.first
+            typing.save!
+
+            [type, error]
+          end
+        end
+
       when method.overload?
-        results = method.types.flat_map do |method_type|
-          Steep.logger.tagged method_type.to_s do
-            case method_type
-            when Interface::MethodType
-              zips = args.zips(method_type.params, method_type.block&.type)
+        yield_self do
+          results = method.types.flat_map do |method_type|
+            Steep.logger.tagged method_type.to_s do
+              case method_type
+              when Interface::MethodType
+                zips = args.zips(method_type.params, method_type.block&.type)
 
-              zips.map do |arg_pairs|
+                zips.map do |arg_pairs|
+                  typing.new_child do |child_typing|
+                    result = self.with_new_typing(child_typing).try_method_type(
+                      node,
+                      receiver_type: receiver_type,
+                      method_type: method_type,
+                      args: args,
+                      arg_pairs: arg_pairs,
+                      block_params: block_params,
+                      block_body: block_body,
+                      child_typing: child_typing,
+                      topdown_hint: topdown_hint
+                    )
+
+                    [result, child_typing, method_type]
+                  end
+                end
+              when :any
                 typing.new_child do |child_typing|
-                  result = self.with_new_typing(child_typing).try_method_type(
-                    node,
-                    receiver_type: receiver_type,
-                    method_type: method_type,
-                    args: args,
-                    arg_pairs: arg_pairs,
-                    block_params: block_params,
-                    block_body: block_body,
-                    child_typing: child_typing
-                  )
+                  this = self.with_new_typing(child_typing)
 
-                  [result, child_typing, method_type]
+                  args.args.each do |arg|
+                    this.synthesize(arg)
+                  end
+
+                  if block_body
+                    this.synthesize(block_body)
+                  end
+
+                  child_typing.add_typing node, AST::Builtin.any_type
+
+                  [[AST::Builtin.any_type, child_typing, :any]]
                 end
-              end
-            when :any
-              typing.new_child do |child_typing|
-                this = self.with_new_typing(child_typing)
-
-                args.args.each do |arg|
-                  this.synthesize(arg)
-                end
-
-                if block_body
-                  this.synthesize(block_body)
-                end
-
-                child_typing.add_typing node, AST::Builtin.any_type
-
-                [[AST::Builtin.any_type, child_typing, :any]]
               end
             end
           end
-        end
 
-        unless results.empty?
-          result, call_typing, method_type = results.find {|result, _, _| !result.is_a?(Errors::Base) } || results.last
-        else
-          method_type = method.types.last
-          result = Errors::IncompatibleArguments.new(node: node, receiver_type: receiver_type, method_type: method_type)
-          call_typing = typing.new_child
-        end
-        call_typing.save!
-
-        case result
-        when Errors::Base
-          typing.add_error result
-          case method_type.return_type
-          when AST::Types::Var
-            AST::Builtin.any_type
+          unless results.empty?
+            result, call_typing, method_type = results.find {|result, _, _| !result.is_a?(Errors::Base) } || results.last
           else
-            method_type.return_type
+            method_type = method.types.last
+            result = Errors::IncompatibleArguments.new(node: node, receiver_type: receiver_type, method_type: method_type)
+            call_typing = typing.new_child
           end
-        else  # Type
-          result
+          call_typing.save!
+
+          case result
+          when Errors::Base
+            typing.add_error result
+            type = case method_type.return_type
+                   when AST::Types::Var
+                     AST::Builtin.any_type
+                   else
+                     method_type.return_type
+                   end
+
+            [type, result]
+          else  # Type
+            [result, nil]
+          end
         end
       end
     end
@@ -2071,7 +2126,7 @@ module Steep
       nil
     end
 
-    def try_method_type(node, receiver_type:, method_type:, args:, arg_pairs:, block_params:, block_body:, child_typing:)
+    def try_method_type(node, receiver_type:, method_type:, args:, arg_pairs:, block_params:, block_body:, child_typing:, topdown_hint:)
       fresh_types = method_type.type_params.map {|x| AST::Types::Var.fresh(x)}
       fresh_vars = Set.new(fresh_types.map(&:name))
       instantiation = Interface::Substitution.build(method_type.type_params, fresh_types)
@@ -2105,7 +2160,7 @@ module Steep
                          type = construction.synthesize(arg_node.children[0])
                          child_typing.add_typing(arg_node, type)
                        else
-                         construction.synthesize(arg_node, hint: param_type)
+                         construction.synthesize(arg_node, hint: topdown_hint ? param_type : nil)
                        end
 
             relation = Subtyping::Relation.new(
@@ -2137,7 +2192,9 @@ module Steep
         if block_params && method_type.block
           block_annotations = source.annotations(block: node, factory: checker.factory, current_module: current_namespace)
           block_params_ = TypeInference::BlockParams.from_node(block_params, annotations: block_annotations)
-          block_param_hint = block_params_.params_type(hint: method_type.block.type.params)
+          block_param_hint = block_params_.params_type(
+            hint: topdown_hint ? method_type.block.type.params : nil
+          )
 
           relation = Subtyping::Relation.new(
             sub_type: AST::Types::Proc.new(params: block_param_hint, return_type: AST::Types::Any.new),
@@ -2164,7 +2221,8 @@ module Steep
                                                    node_type_hint: method_type.return_type,
                                                    block_params: block_params_,
                                                    block_body: block_body,
-                                                   block_annotations: block_annotations)
+                                                   block_annotations: block_annotations,
+                                                   topdown_hint: topdown_hint)
 
               relation = Subtyping::Relation.new(sub_type: block_type.return_type,
                                                  super_type: method_type.block.type.return_type)
@@ -2201,7 +2259,8 @@ module Steep
         when method_type.block && args.block_pass_arg
           begin
             method_type.subst(constraints.solution(checker, variance: variance, variables: occurence.params)).yield_self do |method_type|
-              block_type = synthesize(args.block_pass_arg, hint: method_type.block.type)
+              block_type = synthesize(args.block_pass_arg,
+                                      hint: topdown_hint ? method_type.block.type : nil)
               relation = Subtyping::Relation.new(sub_type: block_type,
                                                  super_type: method_type.block.yield_self do |expected_block|
                                                    if expected_block.optional?
@@ -2255,7 +2314,7 @@ module Steep
       end
     end
 
-    def type_block(block_param_hint:, block_type_hint:, node_type_hint:, block_params:, block_body:, block_annotations:)
+    def type_block(block_param_hint:, block_type_hint:, node_type_hint:, block_params:, block_body:, block_annotations:, topdown_hint:)
       block_param_pairs = block_param_hint && block_params.zip(block_param_hint)
 
       param_types_hash = {}
@@ -2321,7 +2380,7 @@ module Steep
                         end
                         body_type
                       else
-                        for_block_body.synthesize(block_body, hint: block_type_hint)
+                        for_block_body.synthesize(block_body, hint: topdown_hint ? block_type_hint : nil)
                       end
       else
         return_type = AST::Builtin.any_type
