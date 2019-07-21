@@ -385,6 +385,26 @@ FOO
     end
   end
 
+  def test_proc_type
+    with_factory do |factory|
+      factory.type(parse_type("^(String) -> Integer")).yield_self do |type|
+        factory.interface(type, private: false).yield_self do |interface|
+          assert_instance_of Steep::Interface::Interface, interface
+
+          interface.methods[:call].yield_self do |combination|
+            assert_equal :overload, combination.operator
+            assert_equal [parse_method_type("(String) -> Integer").to_s], combination.types.map(&:to_s)
+          end
+
+          interface.methods[:[]].yield_self do |combination|
+            assert_equal :overload, combination.operator
+            assert_equal [parse_method_type("(String) -> Integer").to_s], combination.types.map(&:to_s)
+          end
+        end
+      end
+    end
+  end
+
   def test_unfold
     with_factory "foo.rbi" => <<-EOF do |factory|
 type name = ::String

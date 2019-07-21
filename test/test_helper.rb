@@ -368,42 +368,6 @@ class Proc
 end
   EOS
 
-  DEFAULT_SIGS = <<-EOS
-interface _A
-  def `+`: (_A) -> _A
-end
-
-interface _B
-end
-
-interface _C
-  def f: () -> _A
-  def g: (_A, ?_B) -> _B
-  def h: (a: _A, ?b: _B) -> _C
-end
-
-interface _D
-  def foo: () -> any
-end
-
-interface _X
-  def f: () { (_A) -> _D } -> _C 
-end
-
-interface _Kernel
-  def foo: (_A) -> _B
-         | (_C) -> _D
-end
-
-interface _PolyMethod
-  def snd: [A] (any, A) -> A
-  def try: [A] { (any) -> A } -> A
-end
-
-module Foo[A]
-end
-  EOS
-
   def checker
     @checker or raise "#checker should be used within from #with_checker"
   end

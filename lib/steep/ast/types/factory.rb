@@ -261,7 +261,7 @@ module Steep
           when Name::Interface
             Interface::Interface.new(type: self_type, private: private).tap do |interface|
               type_name = type_name_1(type.name)
-              decl = definition_builder.env.find_class(type_name)
+              decl = definition_builder.env.find_class(type_name) or raise "Unknown class: #{type_name}"
               definition = definition_builder.build_interface(type_name, decl)
 
               subst = Interface::Substitution.build(
@@ -433,9 +433,33 @@ module Steep
               end
             end
 
+          when Proc
+            interface(Builtin::Proc.instance_type, private: private, self_type: self_type).tap do |interface|
+              method_type = Interface::MethodType.new(
+                type_params: [],
+                params: type.params,
+                return_type: type.return_type,
+                block: nil,
+                location: nil
+              )
+
+              interface.methods[:[]] = Interface::Interface::Combination.overload([method_type])
+              interface.methods[:call] = Interface::Interface::Combination.overload([method_type])
+            end
+
           else
             raise "Unexpected type for interface: #{type}"
           end
+        end
+
+        def module_name?(type_name)
+          name = type_name_1(type_name)
+          env.class?(name) && env.find_class(name).is_a?(Ruby::Signature::AST::Declarations::Module)
+        end
+
+        def class_name?(type_name)
+          name = type_name_1(type_name)
+          env.class?(name) && env.find_class(name).is_a?(Ruby::Signature::AST::Declarations::Class)
         end
 
         def env
