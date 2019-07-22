@@ -1,6 +1,6 @@
 require_relative "test_helper"
 
-class InterfaceBuilderTest < Minitest::Test
+class InterfaceTest < Minitest::Test
   include TestHelper
   include FactoryHelper
 
