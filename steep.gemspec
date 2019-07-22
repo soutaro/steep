@@ -23,7 +23,6 @@ Gem::Specification.new do |spec|
       .reject {|f| f.match(%r{^(test|spec|features)/}) }
       .map {|f| File.join("vendor/ruby-signature", f) }
   end
-  spec.files << "vendor/ruby-signature/lib/ruby/signature/parser.rb"
 
   spec.bindir        = "exe"
   spec.executables   = spec.files.grep(%r{^exe/}) { |f| File.basename(f) }
