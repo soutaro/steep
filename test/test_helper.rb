@@ -317,14 +317,15 @@ module FactoryHelper
         absolute_path.write(content)
       end
 
-      env = Ruby::Signature::Environment.new()
 
-      env_loader = Ruby::Signature::EnvironmentLoader.new(env: env)
+      env_loader = Ruby::Signature::EnvironmentLoader.new()
       if nostdlib
         env_loader.stdlib_root = nil
       end
       env_loader.add path: root
-      env_loader.load
+
+      env = Ruby::Signature::Environment.new()
+      env_loader.load(env: env)
 
       definition_builder = Ruby::Signature::DefinitionBuilder.new(env: env)
 
