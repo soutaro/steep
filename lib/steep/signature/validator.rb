@@ -40,7 +40,7 @@ module Steep
       end
 
       def validate
-        @errors.clear
+        @errors = []
 
         validate_decl
         validate_const

@@ -157,50 +157,6 @@ module Steep
       end
     end
 
-    def validate_signature(env:, builder:)
-      errors = []
-
-      begin
-        env.each_decl do |name, decl|
-          case decl
-          when Ruby::Signature::AST::Declarations::Class, Ruby::Signature::AST::Declarations::Module
-            Steep.logger.info { "#{Ruby::Signature::Location.to_string decl.location}:\tValidating class/module definition: `#{name}`..." }
-            builder.build_instance(decl.name.absolute!).each_type do |type|
-              env.validate type, namespace: Ruby::Signature::Namespace.root
-            end
-            builder.build_singleton(decl.name.absolute!).each_type do |type|
-              env.validate type, namespace: Ruby::Signature::Namespace.root
-            end
-          when Ruby::Signature::AST::Declarations::Interface
-            Steep.logger.info { "#{Ruby::Signature::Location.to_string decl.location}:\tValidating interface: `#{name}`..." }
-            builder.build_interface(decl.name.absolute!, decl).each_type do |type|
-              env.validate type, namespace: Ruby::Signature::Namespace.root
-            end
-          end
-        end
-
-        env.each_constant do |name, const|
-          Steep.logger.info { "#{Ruby::Signature::Location.to_string const.location}:\tValidating constant: `#{name}`..." }
-          env.validate const.type, namespace: name.namespace
-        end
-
-        env.each_global do |name, global|
-          Steep.logger.info { "#{Ruby::Signature::Location.to_string global.location}:\tValidating global: `#{name}`..." }
-          env.validate global.type, namespace: Namespace.root
-        end
-
-        env.each_alias do |name, decl|
-          Steep.logger.info { "#{Ruby::Signature::Location.to_string decl.location}:\tValidating alias: `#{name}`..." }
-          env.validate decl.type, namespace: name.namespace
-        end
-
-      rescue => exn
-        errors << exn
-      end
-
-      errors
-    end
-
     def type_of(path:, line:, column:)
       if source_file = source_files[path]
         case source = source_file.source

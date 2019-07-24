@@ -29,16 +29,14 @@ module Steep
         project = Project.new(environment: env)
         project.reload_signature
 
+        printer = SignatureErrorPrinter.new(stdout: stdout, stderr: stderr)
+
         case project.signature
         when Project::SignatureHasSyntaxError
-          project.signature.errors.each do |error|
-            stderr.puts error.message
-          end
+          printer.print_syntax_errors(project.signature.errors)
           1
         when Project::SignatureHasError
-          project.signature.errors.each do |error|
-            error.puts stderr
-          end
+          printer.print_semantic_errors(project.signature.errors)
           1
         else
           0

@@ -78,6 +78,8 @@ require "steep/drivers/scaffold"
 require "steep/drivers/print_interface"
 require "steep/drivers/watch"
 require "steep/drivers/langserver"
+require "steep/drivers/signature_error_printer"
+require "steep/drivers/trace_printer"
 
 if ENV["NO_COLOR"]
   Rainbow.enabled = false

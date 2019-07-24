@@ -61,17 +61,7 @@ module Steep
 
         def puts(io)
           io.puts "#{loc_to_s}\tNoSubtypingInheritanceError: expected subtyping relation: #{type} <: #{super_type}"
-          trace.each.with_index do |t, i|
-            prefix = " " * i
-            case t[0]
-            when :type
-              io.puts "#{prefix}#{t[1]} <: #{t[2]}"
-            when :method
-              io.puts "#{prefix}(#{t[3]}) #{t[1]} <: #{t[2]}"
-            when :method_type
-              io.puts "#{prefix}#{t[1]} <: #{t[2]}"
-            end
-          end
+          Drivers::TracePrinter.new(io).print(trace, level: 2)
         end
       end
     end

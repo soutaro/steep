@@ -19,18 +19,9 @@ module Steep
 
     module ResultPrinter
       def print_result_to(io, level: 2)
-        indent = " " * level
-        result.trace.each do |s, t|
-          case s
-          when Interface::Method
-            io.puts "#{indent}#{s.name}(#{s.type_name}) <: #{t.name}(#{t.type_name})"
-          when Interface::MethodType
-            io.puts "#{indent}#{s} <: #{t} (#{s.location.name}:#{s.location.start_line})"
-          else
-            io.puts "#{indent}#{s} <: #{t}"
-          end
-        end
-        io.puts "#{indent}  #{result.error.message}"
+        printer = Drivers::TracePrinter.new(io)
+        printer.print result.trace, level: level
+        io.puts "==> #{result.error.message}"
       end
 
       def print_to(io)
