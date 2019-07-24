@@ -2,62 +2,51 @@ module Steep
   module Drivers
     class PrintInterface
       attr_reader :type_name
-      attr_reader :signature_dirs
+      attr_reader :signature_options
       attr_reader :stdout
       attr_reader :stderr
 
       include Utils::EachSignature
 
-      def initialize(type_name:, signature_dirs:, stdout:, stderr:)
+      def initialize(type_name:, signature_options:, stdout:, stderr:)
         @type_name = type_name
-        @signature_dirs = signature_dirs
+        @signature_options = signature_options
         @stdout = stdout
         @stderr = stderr
       end
 
       def run
         if type_name
-          type = Parser.parse_type(type_name)
-          project = Project.new()
-
-          signature_dirs.each do |path|
-            each_file_in_path(".rbi", path) do |file_path|
-              file = Project::SignatureFile.new(path: file_path)
-              file.content = file_path.read
-              project.signature_files[file_path] = file
-            end
+          loader = Ruby::Signature::EnvironmentLoader.new()
+          loader.stdlib_root = nil if signature_options.no_builtin
+          signature_options.library_paths.each do |path|
+            loader.add(path: path)
+          end
+          signature_options.signature_paths.each do |path|
+            loader.add(path: path)
           end
 
+          env = Ruby::Signature::Environment.new()
+          loader.load(env: env)
+
+          project = Project.new(environment: env)
           project.reload_signature
+
+          type = Ruby::Signature::Parser.parse_type(type_name)
 
           case sig = project.signature
           when Project::SignatureLoaded
-            begin
-              check = sig.check
-              interface = check.resolve(type)
+            check = sig.check
+            factory = check.factory
 
-              stdout.puts "#{type}"
-              stdout.puts "- Instance variables:"
-              interface.ivars.each do |name, type|
-                puts "  - #{name}: #{type}"
-              end
-              stdout.puts "- Methods:"
-              interface.methods.each do |name, method|
-                puts "  - #{Rainbow(name).blue}:"
-                method.types.each do |method_type|
-                  loc = if method_type.location
-                          "#{method_type.location.buffer.name}:#{method_type.location.to_s}"
-                        else
-                          "no location"
-                        end
-                  puts "    - #{Rainbow(method_type.to_s).red} (#{loc})"
-                end
-              end
-              0
-            rescue Steep::Subtyping::Check::CannotResolveError
-              stderr.puts "🤔 #{Rainbow(type.to_s).red} cannot be resolved to interface"
-              1
+            interface = factory.interface(factory.type(type), private: false)
+
+            stdout.puts "#{type}"
+            stdout.puts "- Methods:"
+            interface.methods.each do |name, method|
+              puts "  - #{Rainbow(name).blue}: #{method}"
             end
+            0
 
           when Project::SignatureHasError
             sig.errors.each do |error|

@@ -44,7 +44,7 @@ class LangserverTest < Minitest::Test
 
   def test_did_open
     in_tmpdir do
-      Open3.popen3(langserver_command) do |stdin, stdout, stderr, wait_thr|
+      Open3.popen3(langserver_command, chdir: current_dir.to_s) do |stdin, stdout, stderr, wait_thr|
         stdin.puts jsonrpc(
           method: "textDocument/didOpen",
           params: {
@@ -69,7 +69,7 @@ class LangserverTest < Minitest::Test
                 end: { line: 0, character: 38 },
               },
               severity: 1,
-              message: "#{Pathname("/root/workdir/example.rb").relative_path_from(Pathname.pwd)}:1:0: NoMethodError: type=::String, method=map"
+              message: "/root/workdir/example.rb:1:0: NoMethodError: type=::String, method=map"
             }]
           },
           jsonrpc: "2.0",
@@ -80,7 +80,7 @@ class LangserverTest < Minitest::Test
 
   def test_did_change
     in_tmpdir do
-      Open3.popen3(langserver_command) do |stdin, stdout, stderr, wait_thr|
+      Open3.popen3(langserver_command, chdir: current_dir.to_s) do |stdin, stdout, stderr, wait_thr|
         stdin.puts jsonrpc(
                      method: "textDocument/didOpen",
                      params: {
@@ -125,7 +125,7 @@ class LangserverTest < Minitest::Test
                                              end: { line: 0, character: 38 },
                                            },
                                            severity: 1,
-                                           message: "#{Pathname("/root/workdir/example.rb").relative_path_from(Pathname.pwd)}:1:0: NoMethodError: type=::String, method=map"
+                                           message: "/root/workdir/example.rb:1:0: NoMethodError: type=::String, method=map"
                                          }]
                          },
                          jsonrpc: "2.0",

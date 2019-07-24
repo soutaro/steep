@@ -131,7 +131,7 @@ module Steep
           sigs.each do |sig|
             env << sig
           end
-        rescue Ruby::Signature::SyntaxError, Ruby::Signature::SemanticsError => exn
+        rescue Ruby::Signature::Parser::SyntaxError, Ruby::Signature::Parser::SemanticsError => exn
           Steep.logger.warn {"Syntax error on #{file.path}: #{exn.inspect}"}
           syntax_errors[file.path] = exn
         end
@@ -142,12 +142,13 @@ module Steep
             factory = AST::Types::Factory.new(builder: definition_builder)
             check = Subtyping::Check.new(factory: factory)
 
-            errors = validate_signature(env: env, builder: definition_builder)
+            validator = Signature::Validator.new(checker: check)
+            validator.validate()
 
-            @signature = if errors.empty?
+            @signature = if validator.no_error?
                            SignatureLoaded.new(check: check, loaded_at: Time.now, file_paths: signature_files.keys)
                          else
-                           SignatureHasError.new(errors: errors)
+                           SignatureHasError.new(errors: validator.each_error.to_a)
                          end
           end
         else

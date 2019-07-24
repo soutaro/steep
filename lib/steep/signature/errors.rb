@@ -2,102 +2,76 @@ module Steep
   module Signature
     module Errors
       class Base
-        # @implements Steep__Signature__Error
+        attr_reader :location
 
-        # @dynamic signature
-        attr_reader :signature
+        def loc_to_s
+          Ruby::Signature::Location.to_string location
+        end
 
-        def initialize(signature:)
-          @signature = signature
+        def to_s
+          StringIO.new.tap do |io|
+            puts io
+          end.string
         end
       end
 
-      class UnknownTypeName < Base
-        # @implements Steep__Signature__Errors__UnknownTypeName
+      class UnknownTypeNameError < Base
+        attr_reader :name
 
-        # @dynamic type
+        def initialize(name:, location:)
+          @name = name
+          @location = location
+        end
+
+        def puts(io)
+          io.puts "#{loc_to_s}\tUnknownTypeNameError: name=#{name}"
+        end
+      end
+
+      class InvalidTypeApplicationError < Base
+        attr_reader :name
+        attr_reader :args
+        attr_reader :params
+
+        def initialize(name:, args:, params:, location:)
+          @name = name
+          @args = args
+          @params = params
+          @location = location
+        end
+
+        def puts(io)
+          io.puts "#{loc_to_s}\tInvalidTypeApplicationError: name=#{name}, expected=[#{params.join(", ")}], actual=[#{args.join(", ")}]"
+        end
+      end
+
+      class NoSubtypingInheritanceError < Base
         attr_reader :type
+        attr_reader :super_type
+        attr_reader :error
+        attr_reader :trace
 
-        def initialize(signature:, type:)
-          super(signature: signature)
+        def initialize(type:, super_type:, error:, trace:, location:)
           @type = type
+          @super_type = super_type
+          @error = error
+          @trace = trace
+          @location = location
         end
 
         def puts(io)
-          io.puts "UnknownTypeName: signature=#{signature.name}, type=#{type}"
-        end
-      end
-
-      class IncompatibleOverride < Base
-        # @implements Steep__Signature__Errors__IncompatibleOverride
-
-        # @dynamic method_name
-        attr_reader :method_name
-        # @dynamic this_method
-        attr_reader :this_method
-        # @dynamic super_method
-        attr_reader :super_method
-
-        def initialize(signature:, method_name:, this_method:, super_method:)
-          super(signature: signature)
-          @method_name = method_name
-          @this_method = this_method
-          @super_method = super_method
-        end
-
-        def puts(io)
-          io.puts "IncompatibleOverride: signature=#{signature.name}, method=#{method_name}"
-        end
-      end
-
-      class InvalidTypeApplication < Base
-        attr_reader :type_name
-        attr_reader :type_args
-
-        def initialize(signature:, type_name:, type_args:)
-          super(signature: signature)
-          @type_name = type_name
-          @type_args = type_args
-        end
-
-        def puts(io)
-          io.puts "InvalidTypeApplication: signature=#{signature.name}, type_name=#{type_name}, type_args=#{type_args}"
-        end
-      end
-
-      class InvalidSelfType < Base
-        attr_reader :member
-
-        def initialize(signature:, member:)
-          super(signature: signature)
-          @member = member
-        end
-
-
-        def puts(io)
-          io.puts "InvalidSelfType: signature=#{signature.name}, module=#{member.name}"
-        end
-      end
-
-      class UnexpectedTypeNameKind < Base
-        attr_reader :type
-        attr_reader :expected_kind
-
-        def initialize(signature:, type:, expected_kind:)
-          super(signature: signature)
-          @type = type
-          @expected_kind = expected_kind
-        end
-
-
-        def puts(io)
-          io.puts "UnexpectedTypeNameKind: signature=#{signature.name}, type=#{type}, kind=#{expected_kind}"
-        end
-      end
-
-      class ConstructorNoCheck < Base
-        def puts(io)
-          io.puts "ConstructorNoCheck: signature=#{signature.name}"
+          io.puts "#{loc_to_s}\tNoSubtypingInheritanceError: expected subtyping relation: #{type} <: #{super_type}"
+          trace.each.with_index do |t, i|
+            prefix = " " * i
+            case t[0]
+            when :type
+              io.puts "#{prefix}#{t[1]} <: #{t[2]}"
+            when :method
+              io.puts "#{prefix}(#{t[3]}) #{t[1]} <: #{t[2]}"
+            when :method_type
+              io.puts "#{prefix}#{t[1]} <: #{t[2]}"
+            end
+          end
         end
       end
     end

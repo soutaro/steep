@@ -1,12 +1,12 @@
 module Steep
   module Drivers
     class Validate
-      attr_reader :signature_dirs
+      attr_reader :signature_options
       attr_reader :stdout
       attr_reader :stderr
 
-      def initialize(signature_dirs:, stdout:, stderr:)
-        @signature_dirs = signature_dirs
+      def initialize(signature_options:, stdout:, stderr:)
+        @signature_options = signature_options
         @stdout = stdout
         @stderr = stderr
       end
@@ -14,40 +14,30 @@ module Steep
       include Utils::EachSignature
 
       def run
-        project = Project.new
-
-        signature_dirs.each do |path|
-          each_file_in_path(".rbi", path) do |file_path|
-            file = Project::SignatureFile.new(path: file_path)
-            file.content = file_path.read
-            project.signature_files[file_path] = file
-          end
+        loader = Ruby::Signature::EnvironmentLoader.new()
+        loader.stdlib_root = nil if signature_options.no_builtin
+        signature_options.library_paths.each do |path|
+          loader.add(path: path)
+        end
+        signature_options.signature_paths.each do |path|
+          loader.add(path: path)
         end
 
-        project.type_check
+        env = Ruby::Signature::Environment.new()
+        loader.load(env: env)
+
+        project = Project.new(environment: env)
+        project.reload_signature
 
         case project.signature
+        when Project::SignatureHasSyntaxError
+          project.signature.errors.each do |error|
+            stderr.puts error.message
+          end
+          1
         when Project::SignatureHasError
           project.signature.errors.each do |error|
-            case error
-            when Interface::Instantiated::InvalidMethodOverrideError
-              stdout.puts "😱 #{error.message}"
-              error.result.trace.each do |s, t|
-                case s
-                when Interface::Method
-                  stdout.puts "  #{s.name}(#{s.type_name}) <: #{t.name}(#{t.type_name})"
-                when Interface::MethodType
-                  stdout.puts "  #{s} <: #{t} (#{s.location&.name||"?"}:#{s.location&.start_line||"?"})"
-                else
-                  stdout.puts "  #{s} <: #{t}"
-                end
-              end
-              stdout.puts "  🚨 #{error.result.error.message}"
-            when Interface::Instantiated::InvalidIvarOverrideError
-              stdout.puts "😱 #{error.message}"
-            else
-              stdout.puts "😱 #{error.inspect}"
-            end
+            error.puts stderr
           end
           1
         else

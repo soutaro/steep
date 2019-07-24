@@ -2,16 +2,16 @@ module Steep
   module Drivers
     class Langserver
       attr_reader :source_dirs
-      attr_reader :signature_dirs
+      attr_reader :signature_options
       attr_reader :options
       attr_reader :subscribers
       attr_reader :open_paths
 
       include Utils::EachSignature
 
-      def initialize(source_dirs:, signature_dirs:)
+      def initialize(source_dirs:, signature_options:)
         @source_dirs = source_dirs
-        @signature_dirs = signature_dirs
+        @signature_options = signature_options
         @options = Project::Options.new
         @subscribers = {}
         @open_paths = Set.new
@@ -88,20 +88,31 @@ module Steep
       end
 
       def project
-        @project ||= Project.new.tap do |project|
-          source_dirs.each do |path|
-            each_file_in_path(".rb", path) do |file_path|
-              file = Project::SourceFile.new(path: file_path, options: options)
-              file.content = file_path.read
-              project.source_files[file_path] = file
-            end
+        @project ||= begin
+          loader = Ruby::Signature::EnvironmentLoader.new()
+          loader.stdlib_root = nil if signature_options.no_builtin
+          signature_options.library_paths.each do |path|
+            loader.add(path: path)
           end
 
-          signature_dirs.each do |path|
-            each_file_in_path(".rbi", path) do |file_path|
-              file = Project::SignatureFile.new(path: file_path)
-              file.content = file_path.read
-              project.signature_files[file_path] = file
+          environment = Ruby::Signature::Environment.new()
+          loader.load(env: environment)
+
+          Project.new(environment: environment).tap do |project|
+            source_dirs.each do |path|
+              each_file_in_path(".rb", path) do |file_path|
+                file = Project::SourceFile.new(path: file_path, options: options)
+                file.content = file_path.read
+                project.source_files[file_path] = file
+              end
+            end
+
+            signature_options.signature_paths.each do |path|
+              each_file_in_path(".rbi", path) do |file_path|
+                file = Project::SignatureFile.new(path: file_path)
+                file.content = file_path.read
+                project.signature_files[file_path] = file
+              end
             end
           end
         end
@@ -141,7 +152,8 @@ module Steep
       end
 
       def synchronize_project(uri:, text:, notifier:)
-        path = Pathname(uri.path).relative_path_from(Pathname.pwd)
+        # path = Pathname(uri.path).relative_path_from(Pathname.pwd)
+        path = Pathname(uri.path)
 
         case path.extname
         when ".rb"
@@ -157,7 +169,8 @@ module Steep
         project.type_check
 
         open_paths.each do |uri|
-          Pathname(uri.path).relative_path_from(Pathname.pwd).yield_self do |path|
+          Pathname(uri.path).yield_self do |path|
+          # Pathname(uri.path).relative_path_from(Pathname.pwd).yield_self do |path|
             case path.extname
             when ".rb"
               file = project.source_files[path] || Project::SourceFile.new(path: path, options: options)

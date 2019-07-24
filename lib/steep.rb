@@ -54,6 +54,7 @@ require "steep/subtyping/variable_variance"
 require "steep/subtyping/variable_occurrence"
 
 require "steep/signature/errors"
+require "steep/signature/validator"
 require "steep/source"
 require "steep/annotation_parser"
 require "steep/typing"

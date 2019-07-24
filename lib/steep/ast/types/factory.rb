@@ -90,7 +90,7 @@ module Steep
             Ruby::Signature::Types::Bases::Nil.new(location: nil)
           when Var
             Ruby::Signature::Types::Variable.new(name: type.name, location: nil)
-          when Name::Class
+          when Name::Class, Name::Module
             Ruby::Signature::Types::ClassSingleton.new(name: type_name_1(type.name), location: nil)
           when Name::Instance
             Ruby::Signature::Types::ClassInstance.new(

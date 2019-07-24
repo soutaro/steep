@@ -88,33 +88,30 @@ module Steep
         end
       end
 
-      def paths
-        options = if @options.none? {|option| option.is_a?(Pathname) } && Pathname("sig").directory?
-                    @options + [Pathname("sig")]
-                  else
-                    @options
-                  end
+      def library_paths
+        options = @options.reject {|option| option.is_a?(Pathname) }
+
+        paths = []
 
         unless no_bundler
-          add_bundler_gems(options)
+          add_bundler_gems(paths)
         end
 
-        paths = options.flat_map do |option|
-          case option
-          when Pathname
-            # Dir
-            [option]
-          when String
-            # gem name
-            find_gem_dir(option)
-          end
-        end
-
-        unless no_builtin
-          paths.unshift BUILTIN_PATH
+        options.each do |option|
+          paths.push *find_gem_dir(option)
         end
 
         paths.reverse.uniq(&:realpath).reverse
+      end
+
+      def signature_paths
+        @options.select {|option| option.is_a?(Pathname) }.yield_self do |paths|
+          if paths.empty? && Pathname("sig").directory?
+            [Pathname("sig")]
+          else
+            paths
+          end
+        end
       end
     end
 
@@ -239,7 +236,7 @@ module Steep
           handle_dir_options opts, signature_options
         end.parse!(argv)
 
-        Drivers::Validate.new(signature_dirs: signature_options.paths, stdout: stdout, stderr: stderr).run
+        Drivers::Validate.new(signature_options: signature_options, stdout: stdout, stderr: stderr).run
       end
     end
 
@@ -268,7 +265,7 @@ module Steep
           handle_dir_options opts, signature_options
         end.parse!(argv)
 
-        Drivers::PrintInterface.new(type_name: argv.first, signature_dirs: signature_options.paths, stdout: stdout, stderr: stderr).run
+        Drivers::PrintInterface.new(type_name: argv.first, signature_options: signature_options, stdout: stdout, stderr: stderr).run
       end
     end
 
@@ -315,7 +312,7 @@ module Steep
           source_dirs << Pathname(".")
         end
 
-        Drivers::Langserver.new(source_dirs: source_dirs, signature_dirs: signature_options.paths).tap do |driver|
+        Drivers::Langserver.new(source_dirs: source_dirs, signature_options: signature_options).tap do |driver|
           driver.options.fallback_any_is_error = fallback_any_is_error || strict
           driver.options.allow_missing_definitions = false if strict
         end.run
@@ -336,8 +333,14 @@ module Steep
           handle_dir_options opts, signature_options
         end.parse!(argv)
 
-        signature_options.paths.each do |path|
-          stdout.puts path
+        stdout.puts "Signature paths:"
+        signature_options.signature_paths.each do |path|
+          stdout.puts "  #{path}"
+        end
+
+        stdout.puts "Library paths:"
+        signature_options.library_paths.each do |path|
+          stdout.puts "  #{path}"
         end
 
         0
