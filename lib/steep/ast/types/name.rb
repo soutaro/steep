@@ -48,7 +48,7 @@ module Steep
             if args.empty?
               "#{name}"
             else
-              "#{name}<#{args.join(", ")}>"
+              "#{name}[#{args.join(", ")}]"
             end
           end
 
@@ -105,7 +105,7 @@ module Steep
                 when nil
                   ""
                 end
-            "#{name.to_s}.class#{k}"
+            "singleton(#{name.to_s})"
           end
 
           def with_location(new_location)
@@ -140,7 +140,7 @@ module Steep
           end
 
           def to_s
-            "#{name.to_s}.module"
+            "singleton(#{name.to_s})"
           end
 
           def with_location(new_location)

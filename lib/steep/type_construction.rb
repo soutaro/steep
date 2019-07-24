@@ -1473,18 +1473,19 @@ module Steep
               if hint.one_arg?
                 # Assumes Symbol#to_proc implementation
                 param_type = hint.params.required[0]
-                interface = checker.resolve(param_type)
+                interface = checker.factory.interface(param_type, private: true)
                 method = interface.methods[value.children[0]]
-                if method
-                  return_types = method.types.flat_map do |method_type|
-                    if method_type.params.each_type.count == 0
-                      [method_type.return_type]
-                    end
-                  end
+                if method&.overload?
+                  return_types = method.types.select {|method_type|
+                    method_type.params.each_type.count == 0
+                  }.map(&:return_type)
 
-                  if return_types.any?
+                  unless return_types.empty?
                     type = AST::Types::Proc.new(params: Interface::Params.empty.update(required: [param_type]),
                                                 return_type: AST::Types::Union.build(types: return_types))
+                  else
+                    type = AST::Types::Proc.new(params:Interface::Params.empty.update(required: [param_type]),
+                                                return_type: AST::Types::Bot.new)
                   end
                 end
               else

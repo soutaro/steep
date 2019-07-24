@@ -155,7 +155,7 @@ module Steep
       end
 
       def to_s
-        "#{location_to_str}: UnexpectedBlockGiven: method_type=#{method_type.location&.source}"
+        "#{location_to_str}: UnexpectedBlockGiven: method_type=#{method_type}"
       end
     end
 
