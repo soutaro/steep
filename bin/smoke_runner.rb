@@ -6,6 +6,7 @@ $LOAD_PATH << Pathname(__dir__) + '../vendor/ruby-signature/lib'
 $LOAD_PATH << Pathname(__dir__) + "../lib"
 
 require "steep"
+require "steep/cli"
 require "rainbow"
 require "optparse"
 
@@ -70,8 +71,10 @@ ARGV.each do |arg|
 
   builtin = Pathname(__dir__) + "../stdlib"
   begin
+    options = Steep::CLI::SignatureOptions.new
+    options << dir
     driver = Steep::Drivers::Check.new(source_paths: rb_files,
-                                       signature_dirs: [builtin, dir],
+                                       signature_options: options,
                                        stdout: stdout,
                                        stderr: stderr)
 

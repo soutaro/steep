@@ -221,7 +221,7 @@ module Steep
           source_paths << Pathname(".")
         end
 
-        Drivers::Check.new(source_paths: source_paths, signature_dirs: signature_options.paths, stdout: stdout, stderr: stderr).tap do |check|
+        Drivers::Check.new(source_paths: source_paths, signature_options: signature_options, stdout: stdout, stderr: stderr).tap do |check|
           check.dump_all_types = dump_all_types
           check.fallback_any_is_error = fallback_any_is_error || strict
           check.allow_missing_definitions = false if strict
