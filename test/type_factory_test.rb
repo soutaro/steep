@@ -195,15 +195,15 @@ class TypeFactoryTest < Minitest::Test
   def test_method_type
     with_factory do |factory|
       factory.method_type(parse_method_type("[A] (A) { (A, B) -> nil } -> void")).yield_self do |type|
-        assert_equal "<'A> ('A) { ('A, B) -> nil } -> void", type.to_s
+        assert_equal "[A] (A) { (A, B) -> nil } -> void", type.to_s
       end
 
       factory.method_type(parse_method_type("[A] (A) -> void")).yield_self do |type|
-        assert_equal "<'A> ('A) -> void", type.to_s
+        assert_equal "[A] (A) -> void", type.to_s
       end
 
       factory.method_type(parse_method_type("[A] () ?{ () -> A } -> void")).yield_self do |type|
-        assert_equal "<'A> () ?{ () -> 'A } -> void", type.to_s
+        assert_equal "[A] () ?{ () -> A } -> void", type.to_s
       end
     end
   end
@@ -223,19 +223,19 @@ FOO
           assert_instance_of Steep::Interface::Interface, interface
           assert_equal type, interface.type
 
-          assert_equal "{ () -> ::Foo.module }", interface.methods[:klass].to_s
+          assert_equal "{ () -> singleton(::Foo) }", interface.methods[:klass].to_s
           assert_equal "{ () -> ::String }", interface.methods[:get].to_s
-          assert_equal "{ (::String) -> ::Foo<::String> }", interface.methods[:set].to_s
-          assert_equal "{ () -> ::Foo<any> }", interface.methods[:hoge].to_s
+          assert_equal "{ (::String) -> ::Foo[::String] }", interface.methods[:set].to_s
+          assert_equal "{ () -> ::Foo[any] }", interface.methods[:hoge].to_s
         end
 
         factory.interface(type, private: false).yield_self do |interface|
           assert_instance_of Steep::Interface::Interface, interface
           assert_equal type, interface.type
 
-          assert_equal "{ () -> ::Foo.module }", interface.methods[:klass].to_s
+          assert_equal "{ () -> singleton(::Foo) }", interface.methods[:klass].to_s
           assert_equal "{ () -> ::String }", interface.methods[:get].to_s
-          assert_equal "{ (::String) -> ::Foo<::String> }", interface.methods[:set].to_s
+          assert_equal "{ (::String) -> ::Foo[::String] }", interface.methods[:set].to_s
           refute_operator interface.methods, :key?, :hoge
         end
       end
@@ -253,7 +253,7 @@ FOO
           assert_instance_of Steep::Interface::Interface, interface
           assert_equal type, interface.type
 
-          assert_equal "{ () { (::String) -> void } -> ::Array<::String> }", interface.methods[:each].to_s
+          assert_equal "{ () { (::String) -> void } -> ::Array[::String] }", interface.methods[:each].to_s
         end
       end
     end
@@ -272,10 +272,10 @@ FOO
           assert_instance_of Steep::Interface::Interface, interface
           assert_equal type, interface.type
 
-          assert_equal "{ <'X> () -> ::People<'X> | any }", interface.methods[:new].to_s
-          assert_equal "{ () -> ::Array<::People<::String>> }", interface.methods[:all].to_s
-          assert_equal "{ () -> ::People<any> }", interface.methods[:instance].to_s
-          assert_equal "{ () -> ::People.class }", interface.methods[:itself].to_s
+          assert_equal "{ [X] () -> ::People[X] | any }", interface.methods[:new].to_s
+          assert_equal "{ () -> ::Array[::People[::String]] }", interface.methods[:all].to_s
+          assert_equal "{ () -> ::People[any] }", interface.methods[:instance].to_s
+          assert_equal "{ () -> singleton(::People) }", interface.methods[:itself].to_s
         end
       end
     end
@@ -289,7 +289,7 @@ FOO
           assert_equal type, interface.type
 
           assert_equal "{ (::Integer) -> ::Integer | (::Numeric) -> ::Numeric }", interface.methods[:+].to_s
-          assert_equal "{ <'X> () { (3) -> 'X } -> 'X }", interface.methods[:yield_self].to_s
+          assert_equal "{ [X] () { (3) -> X } -> X }", interface.methods[:yield_self].to_s
         end
       end
     end
