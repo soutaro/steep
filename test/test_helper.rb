@@ -3,7 +3,7 @@ $LOAD_PATH.unshift File.expand_path('../../lib', __FILE__)
 require 'steep'
 
 require "minitest/reporters"
-MiniTest::Reporters.use!
+Minitest::Reporters.use! [Minitest::Reporters::DefaultReporter.new]
 require 'minitest/autorun'
 require "pp"
 require "open3"
