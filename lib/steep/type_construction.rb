@@ -122,6 +122,7 @@ module Steep
                                  definition.methods[method_name]&.yield_self do |method|
                                    method.method_types
                                      .map {|method_type| checker.factory.method_type(method_type) }
+                                     .select {|method_type| method_type.is_a?(Interface::MethodType) }
                                      .inject {|t1, t2| t1 + t2}
                                  end
                                end
