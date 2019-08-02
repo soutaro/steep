@@ -4,7 +4,7 @@ extension Object (X)
 end
 
 extension Kernel (X)
-  def self.new_module_method: () -> void
+  def new_module_method: () -> void
 end
 
 class Foo

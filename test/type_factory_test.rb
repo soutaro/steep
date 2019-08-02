@@ -373,7 +373,7 @@ FOO
 
           interface.methods[:floor].yield_self do |combination|
             assert_equal :overload, combination.operator
-            assert_equal "{ (::Integer) -> ::Integer }", combination.to_s
+            assert_equal "{ (::Integer) -> ::Integer | () -> ::Integer }", combination.to_s
           end
 
           interface.methods[:end_with?].yield_self do |combination|

@@ -1506,9 +1506,6 @@ module Steep
                   unless return_types.empty?
                     type = AST::Types::Proc.new(params: Interface::Params.empty.update(required: [param_type]),
                                                 return_type: AST::Types::Union.build(types: return_types))
-                  else
-                    type = AST::Types::Proc.new(params:Interface::Params.empty.update(required: [param_type]),
-                                                return_type: AST::Types::Bot.new)
                   end
                 end
               else
@@ -1517,6 +1514,7 @@ module Steep
             end
 
             type ||= synthesize(node.children[0], hint: hint)
+
             typing.add_typing node, type
           end
 

@@ -4,4 +4,3 @@ class WithSingletonConstructor
   def initialize: (foo: String) -> any
   def self.create: -> instance
 end
-
