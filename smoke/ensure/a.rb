@@ -16,7 +16,7 @@ a = begin
 def foo(a)
   10
 ensure
-  # !expects ArgumentTypeMismatch: receiver=::Integer, expected=::Integer, actual=::String
+  # !expects* UnresolvedOverloading: receiver=::Integer, method_name=+,
   1 + '1'
   a
 end

@@ -1,8 +1,8 @@
-interface _Each<'a, 'b>
-  def each: { ('a) -> any } -> 'b
+interface _Each2[A, B]
+  def each: { (A) -> any } -> B
 end
 
-module A : _Each<Integer, A>
+module A : _Each2[Integer, A]
   def count: () -> Integer
 end
 
@@ -11,6 +11,6 @@ module X
 end
 
 module Palette
-  def self?.defacto_palette: -> Array<Array<Integer>>
-  def self.nestopia_palette: -> Array<Array<Integer>>
+  def self?.defacto_palette: -> Array[Array[Integer]]
+  def self.nestopia_palette: -> Array[Array[Integer]]
 end

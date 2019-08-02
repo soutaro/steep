@@ -3,7 +3,7 @@
 a = []
 a[1] = 3
 
-# !expects ArgumentTypeMismatch: receiver=::Array[::Integer], expected=::Integer, actual=::String
+# !expects* UnresolvedOverloading: receiver=::Array[::Integer], method_name=[]=,
 a[2] = "foo"
 
 # @type var i: Integer

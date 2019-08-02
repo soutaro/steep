@@ -54,6 +54,7 @@ module Steep
       end
 
       def check0(relation, assumption:, trace:, constraints:)
+        # puts relation
         trace.type(relation.sub_type, relation.super_type) do
           case
           when same_type?(relation, assumption: assumption)

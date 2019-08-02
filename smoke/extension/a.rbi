@@ -1,5 +1,5 @@
 extension Object (X)
-  def try: <'a> { (instance) -> 'a } -> 'a
+  def try: [A] { (instance) -> A } -> A
   def f: -> Object
 end
 

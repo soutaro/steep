@@ -600,6 +600,7 @@ module Steep
                 args = TypeInference::SendArgs.from_nodes([rhs])
                 return_type, _ = type_method_call(node,
                                                   receiver_type: lhs_type,
+                                                  method_name: op,
                                                   method: op_method,
                                                   args: args,
                                                   block_params: nil,
@@ -645,6 +646,7 @@ module Steep
 
                 return_type, _ = type_method_call(node,
                                                   receiver_type: self_type,
+                                                  method_name: method_context.name,
                                                   method: super_method,
                                                   args: args,
                                                   block_params: nil,
@@ -719,10 +721,20 @@ module Steep
 
         when :defs
           synthesize(node.children[0]).tap do |self_type|
+            definition = case self_type
+                         when AST::Types::Name::Instance
+                           name = checker.factory.type_name_1(self_type.name)
+                           checker.factory.definition_builder.build_singleton(name)
+                         when AST::Types::Name::Module, AST::Types::Name::Class
+                           name = checker.factory.type_name_1(self_type.name)
+                           checker.factory.definition_builder.build_singleton(name)
+                         end
+
             new = for_new_method(node.children[1],
                                  node,
                                  args: node.children[2].children,
-                                 self_type: self_type)
+                                 self_type: self_type,
+                                 definition: definition)
 
             each_child_node(node.children[2]) do |arg|
               new.synthesize(arg)
@@ -1081,7 +1093,12 @@ module Steep
             if method_context&.method
               if method_context.super_method
                 types = method_context.super_method.method_types.map {|method_type|
-                  checker.factory.method_type(method_type).return_type
+                  case method_type
+                  when Interface::MethodType
+                    checker.factory.method_type(method_type).return_type
+                  when :any
+                    AST::Builtin.any_type
+                  end
                 }
                 typing.add_typing(node, union_type(*types))
               else
@@ -1754,6 +1771,7 @@ module Steep
                           args = TypeInference::SendArgs.from_nodes(arguments)
                           return_type, _ = type_method_call(node,
                                                             method: method,
+                                                            method_name: method_name,
                                                             args: args,
                                                             block_params: block_params,
                                                             block_body: block_body,
@@ -1857,13 +1875,14 @@ module Steep
       ), return_type]
     end
 
-    def type_method_call(node, receiver_type:, method:, args:, block_params:, block_body:, topdown_hint:)
+    def type_method_call(node, method_name:, receiver_type:, method:, args:, block_params:, block_body:, topdown_hint:)
       case
       when method.union?
         yield_self do
           results = method.types.map do |method|
             typing.new_child do |child_typing|
               type, error = with_new_typing(child_typing).type_method_call(node,
+                                                                           method_name: method_name,
                                                                            receiver_type: receiver_type,
                                                                            method: method,
                                                                            args: args,
@@ -1894,6 +1913,7 @@ module Steep
           results = method.types.map do |method|
             typing.new_child do |child_typing|
               type, error = with_new_typing(child_typing).type_method_call(node,
+                                                                           method_name: method_name,
                                                                            receiver_type: receiver_type,
                                                                            method: method,
                                                                            args: args,
@@ -1979,13 +1999,21 @@ module Steep
 
           case result
           when Errors::Base
-            typing.add_error result
-            type = case method_type.return_type
-                   when AST::Types::Var
-                     AST::Builtin.any_type
-                   else
-                     method_type.return_type
-                   end
+            if method.types.size == 1
+              typing.add_error result
+              type = case method_type.return_type
+                     when AST::Types::Var
+                       AST::Builtin.any_type
+                     else
+                       method_type.return_type
+                     end
+            else
+              typing.add_error Errors::UnresolvedOverloading.new(node: node,
+                                                                 receiver_type: receiver_type,
+                                                                 method_name: method_name,
+                                                                 method_types: method.types)
+              type = AST::Builtin.any_type
+            end
 
             [type, result]
           else  # Type

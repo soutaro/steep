@@ -9,7 +9,7 @@ class B
 end
 
 class C
-  def (constructor) foo: -> instance
+  def foo: -> instance
   def bar: -> instance
 end
 

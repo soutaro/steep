@@ -1,7 +1,6 @@
 class A
   # @implements X
 
-  # !expects*@+2 MethodDefinitionWithOverloading: method=foo, types=
   # !expects MethodBodyTypeMismatch: method=foo, expected=(::Integer | ::String), actual=::Symbol
   def foo(x)
     :foobar
@@ -21,8 +20,6 @@ class C
   # @implements X
 
   # @type method foo: (Symbol) -> Symbol
-
-  # !expects IncompatibleMethodTypeAnnotation: interface_method=::X.foo, annotation_method=foo
   def foo(x)
     :foo
   end

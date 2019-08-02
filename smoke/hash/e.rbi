@@ -1,3 +1,3 @@
 class Foo
-  def get: <'a> ({ foo: 'a }) -> 'a
+  def get: [X] ({ foo: X }) -> X
 end

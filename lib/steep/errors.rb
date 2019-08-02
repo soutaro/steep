@@ -65,6 +65,24 @@ module Steep
       end
     end
 
+    class UnresolvedOverloading < Base
+      attr_reader :node
+      attr_reader :receiver_type
+      attr_reader :method_name
+      attr_reader :method_types
+
+      def initialize(node:, receiver_type:, method_name:, method_types:)
+        super node: node
+        @receiver_type = receiver_type
+        @method_name = method_name
+        @method_types = method_types
+      end
+
+      def to_s
+        "#{location_to_str}: UnresolvedOverloading: receiver=#{receiver_type}, method_name=#{method_name}, method_types=#{method_types.join(" | ")}"
+      end
+    end
+
     class ArgumentTypeMismatch < Base
       attr_reader :node
       attr_reader :expected

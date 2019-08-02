@@ -753,6 +753,32 @@ d = k.foo(c)
     end
   end
 
+  def test_overloaded_method2
+    with_checker <<-EOF do |checker|
+class Hello
+  def foo: (Integer) -> void
+         | (String) -> void
+end
+    EOF
+      source = parse_ruby(<<-EOF)
+Hello.new.foo([])
+      EOF
+
+      with_standard_construction(checker, source) do |construction, typing|
+        construction.synthesize(source.node)
+
+        assert_equal 1, typing.errors.size
+        typing.errors[0].tap do |error|
+          assert_instance_of Steep::Errors::UnresolvedOverloading, error
+          assert_equal parse_type("::Hello"), error.receiver_type
+          assert_equal :foo, error.method_name
+          assert_equal [parse_method_type("(::Integer) -> void"), parse_method_type("(::String) -> void")],
+                       error.method_types
+        end
+      end
+    end
+  end
+
   def test_ivar_types
     with_checker do |checker|
       source = parse_ruby(<<-EOF)

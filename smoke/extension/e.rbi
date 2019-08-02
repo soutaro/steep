@@ -3,6 +3,6 @@ class NumberLike
 end
 
 extension Integer (NumberLike)
-  def +: (NumberLike) -> NumberLike
-       | super
+  def `+`: (NumberLike) -> NumberLike
+         | super
 end

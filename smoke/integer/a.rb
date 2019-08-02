@@ -24,8 +24,8 @@ integer_5 = Integer("10", 2)
 # !expects NoMethodError: type=::Integer, method=foo
 integer_5.foo
 
-# !expects IncompatibleArguments: receiver=::Object, method_type=(::String, ::Integer) -> ::Integer
+# !expects* UnresolvedOverloading: receiver=::Object, method_name=Integer,
 Integer(Object.new)
 
-# !expects IncompatibleArguments: receiver=::Object, method_type=(::String, ::Integer) -> ::Integer
+# !expects* UnresolvedOverloading: receiver=::Object, method_name=Integer,
 Integer(nil)
