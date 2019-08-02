@@ -12,11 +12,11 @@
   match_ref_3.foo
 
   match_ref_4 = match[0, 1]
-  # !expects NoMethodError: type=::Array<::String>, method=foo
+  # !expects NoMethodError: type=::Array[::String], method=foo
   match_ref_4.foo
 
   match_ref_5 = match[0..1]
-  # !expects NoMethodError: type=::Array<::String>, method=foo
+  # !expects NoMethodError: type=::Array[::String], method=foo
   match_ref_5.foo
 
   begin_1 = match.begin(0)
@@ -32,7 +32,7 @@
   begin_3.foo
 
   captures_1 = match.captures
-  # !expects NoMethodError: type=::Array<::String>, method=foo
+  # !expects NoMethodError: type=::Array[::String], method=foo
   captures_1.foo
 
   end_1 = match.end(0)
@@ -52,11 +52,11 @@
   length_1.foo
 
   named_captures_1 = match.named_captures
-  # !expects NoMethodError: type=::Hash<::String, (::String | nil)>, method=foo
+  # !expects NoMethodError: type=::Hash[::String, (::String | nil)], method=foo
   named_captures_1.foo
 
   names_1 = match.names
-  # !expects NoMethodError: type=::Array<::String>, method=foo
+  # !expects NoMethodError: type=::Array[::String], method=foo
   names_1.foo
 
   offset_1 = match.offset(0)
@@ -92,14 +92,14 @@
   string_1.foo
 
   to_a_1 = match.to_a
-  # !expects NoMethodError: type=::Array<::String>, method=foo
+  # !expects NoMethodError: type=::Array[::String], method=foo
   to_a_1.foo
 
   values_at_1 = match.values_at
-  # !expects NoMethodError: type=::Array<(::String | nil)>, method=foo
+  # !expects NoMethodError: type=::Array[(::String | nil)], method=foo
   values_at_1.foo
 
   values_at_2 = match.values_at(0, "foo", :foo)
-  # !expects NoMethodError: type=::Array<(::String | nil)>, method=foo
+  # !expects NoMethodError: type=::Array[(::String | nil)], method=foo
   values_at_2.foo
 end

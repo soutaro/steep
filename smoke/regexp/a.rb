@@ -127,11 +127,11 @@ match_q_2 = /a/.match?("a", 0)
 match_q_2.foo
 
 named_captures_1 = /(?<foo>.)/.named_captures
-# !expects NoMethodError: type=::Hash<::String, ::Array<::Integer>>, method=foo
+# !expects NoMethodError: type=::Hash[::String, ::Array[::Integer]], method=foo
 named_captures_1.foo
 
 names_1 = /(?<foo>.)/.names
-# !expects NoMethodError: type=::Array<::String>, method=foo
+# !expects NoMethodError: type=::Array[::String], method=foo
 names_1.foo
 
 options_1 = /a/ix.options

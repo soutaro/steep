@@ -18,6 +18,6 @@ module A
   # ok
   block_given?
 
-  # !expects NoMethodError: type=(::A.module & ::Module), method=no_such_method_in_module
+  # !expects NoMethodError: type=(::Module & singleton(::A)), method=no_such_method_in_module
   no_such_method_in_module
 end

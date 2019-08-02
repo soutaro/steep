@@ -204,7 +204,7 @@ module Steep
         annotations: annots,
         type_env: type_env,
         block_context: nil,
-        self_type: self_type,
+        self_type: annots.self_type || self_type,
         method_context: method_context,
         typing: typing,
         module_context: module_context,
@@ -255,7 +255,10 @@ module Steep
           types: [
             AST::Types::Name::Instance.new(name: module_name, args: module_args),
             AST::Builtin::Object.instance_type,
-            module_decl.self_type&.yield_self {|ty| checker.factory.type(ty) }
+            module_decl.self_type&.yield_self {|ty|
+              absolute_type = checker.factory.env.absolute_type(ty, namespace: module_decl.name.absolute!.namespace)
+              checker.factory.type(absolute_type)
+            }
           ].compact
         )
 
@@ -1094,10 +1097,12 @@ module Steep
               if method_context.super_method
                 types = method_context.super_method.method_types.map {|method_type|
                   case method_type
-                  when Interface::MethodType
+                  when Ruby::Signature::MethodType
                     checker.factory.method_type(method_type).return_type
                   when :any
                     AST::Builtin.any_type
+                  else
+                    raise "Unexpected method_type: #{method_type.inspect}"
                   end
                 }
                 typing.add_typing(node, union_type(*types))

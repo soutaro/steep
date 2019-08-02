@@ -310,6 +310,11 @@ module Steep
           when Nil
             interface Builtin::NilClass.instance_type, private: private, self_type: self_type
 
+          when Boolean
+            interface(AST::Types::Union.build(types: [Builtin::TrueClass.instance_type, Builtin::FalseClass.instance_type]),
+                      private: private,
+                      self_type: self_type)
+
           when Union
             yield_self do
               interfaces = type.types.map {|ty| interface(ty, private: private, self_type: self_type) }
