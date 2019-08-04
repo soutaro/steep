@@ -2,6 +2,7 @@
 
 require 'pathname'
 
+$LOAD_PATH << Pathname(__dir__) + "../vendor/ruby-signature/lib"
 $LOAD_PATH << Pathname(__dir__) + "../lib"
 
 require 'steep'

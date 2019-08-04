@@ -7,9 +7,13 @@ class WithSingletonConstructor
   end
 
   def self.create()
-    new(foo: "hoge")
+    instance = new(foo: "hoge")
+
+    instance.foo
+
+    _ = instance
   end
 
   new(foo: "hoge")
-  create()
+  create().foo
 end

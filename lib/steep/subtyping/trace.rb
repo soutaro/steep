@@ -7,6 +7,29 @@ module Steep
         @array = array
       end
 
+      def interface(sub, sup, &block)
+        push :interface, sub, sup, &block
+      end
+
+      def method(name, sub, sup, &block)
+        push :method, sub, sup, name, &block
+      end
+
+      def method_type(name, sub, sup, &block)
+        push :method_type, sub, sup, name, &block
+      end
+
+      def type(sub, sup, &block)
+        push :type, sub, sup, &block
+      end
+
+      def push(*xs)
+        array << xs
+        yield
+      ensure
+        array.pop
+      end
+
       def add(sup, sub)
         array << [sup, sub]
         yield

@@ -37,9 +37,9 @@ module Steep
           annotations.const_types.each do |name, type|
             env.set(const: name, type: type)
           end
-          signatures.globals.each do |name, annot|
-            type = subtyping.builder.absolute_type(annot.type, current: AST::Namespace.root)
-            env.set(gvar: name, type: type)
+          signatures.name_to_global.each do |name, global|
+            type = signatures.absolute_type(global.type, namespace: Ruby::Signature::Namespace.root) {|ty| ty.name.absolute! }
+            env.set(gvar: name, type: subtyping.factory.type(type))
           end
         end
       end

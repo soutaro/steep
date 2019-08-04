@@ -18,6 +18,12 @@ Gem::Specification.new do |spec|
     f.match(%r{^(test|spec|features)/})
   end
   spec.files         << "lib/steep/parser.rb"
+  spec.files         = Dir.chdir "vendor/ruby-signature" do
+    `git ls-files -z`.split("\x0")
+      .reject {|f| f.match(%r{^(test|spec|features)/}) }
+      .map {|f| File.join("vendor/ruby-signature", f) }
+  end
+
   spec.bindir        = "exe"
   spec.executables   = spec.files.grep(%r{^exe/}) { |f| File.basename(f) }
   spec.require_paths = ["lib"]
@@ -28,6 +34,8 @@ Gem::Specification.new do |spec|
   spec.add_development_dependency "rake", "~> 10.0"
   spec.add_development_dependency "minitest", "~> 5.0"
   spec.add_development_dependency "racc", "~> 1.4"
+  spec.add_development_dependency "minitest-reporters", "~> 1.3.6"
+  spec.add_development_dependency "minitest-hooks", "~> 1.5.0"
 
   spec.add_runtime_dependency "parser", "~> 2.4"
   spec.add_runtime_dependency "ast_utils", "~> 0.3.0"

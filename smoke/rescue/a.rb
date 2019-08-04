@@ -34,7 +34,7 @@ d = begin
 
 # @type var e: Integer
 
-# !expects IncompatibleAssignment: lhs_type=::Integer, rhs_type=(::Array<::Integer> | ::Integer | ::String | ::Symbol)
+# !expects IncompatibleAssignment: lhs_type=::Integer, rhs_type=(::Array[::Integer] | ::Integer | ::String | ::Symbol)
 e = begin
       'foo'
     rescue RuntimeError

@@ -1,4 +1,4 @@
-# @type method commit: (Hash<Symbol, String?>) -> { repo: String, branch: String?, tag: String?, commit: String? }?
+# @type method commit: (Hash[Symbol, String?]) -> { repo: String, branch: String?, tag: String?, commit: String? }?
 def commit(hash)
   if repo = hash[:foo]
     {

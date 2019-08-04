@@ -5,5 +5,6 @@ end
 
 class IncompatibleChild < IncompatibleSuper
   def initialize: () -> any
-  def (incompatible) foo: (Object) -> String
+  def foo: (Object) -> String
+         | any
 end

@@ -1,10 +1,14 @@
+$LOAD_PATH.unshift File.expand_path('../../vendor/ruby-signature/lib', __FILE__)
 $LOAD_PATH.unshift File.expand_path('../../lib', __FILE__)
 require 'steep'
 
+require "minitest/reporters"
+Minitest::Reporters.use! [Minitest::Reporters::DefaultReporter.new]
 require 'minitest/autorun'
 require "pp"
 require "open3"
 require "tmpdir"
+require 'minitest/hooks/test'
 
 module Steep::AST::Types::Name
   def self.new_module(location: nil, name:, args: [])
@@ -40,27 +44,6 @@ module TestHelper
 
   def assert_size(size, collection)
     assert_equal size, collection.size
-  end
-
-  def parse_signature(signature)
-    Steep::Parser.parse_signature(signature)
-  end
-
-  def parse_method_type(string)
-    Steep::Parser.parse_method(string)
-  end
-
-  def parse_type(string)
-    Steep::Parser.parse_type(string)
-  end
-
-  def parse_single_method(string, super_method: nil, attributes: [])
-    type = Steep::Parser.parse_method(string)
-    Steep::Interface::Method.new(types: [type], super_method: super_method, attributes: attributes)
-  end
-
-  def parse_ruby(string)
-    Steep::Source.parse(string, path: Pathname("test.rb"))
   end
 
   def dig(node, *indexes)
@@ -160,78 +143,6 @@ module ASTAssertion
     yield type.args if block_given?
   end
 
-  def assert_required_param(params, index:, &block)
-    if index == 0
-      assert_instance_of Steep::AST::MethodType::Params::Required, params
-      yield params.type, params if block_given?
-    else
-      assert_required_param params.next_params, index: index - 1, &block
-    end
-  end
-
-  def assert_optional_param(params, index:, &block)
-    if index == 0
-      assert_instance_of Steep::AST::MethodType::Params::Optional, params
-      yield params.type, params if block_given?
-    else
-      assert_optional_param params.next_params, index: index - 1, &block
-    end
-  end
-
-  def assert_rest_param(params, index:, &block)
-    if index == 0
-      assert_instance_of Steep::AST::MethodType::Params::Rest, params
-      yield params.type, params if block_given?
-    else
-      assert_rest_param params.next_params, index: index - 1, &block
-    end
-  end
-
-  def assert_required_keyword(params, index:, name: nil, &block)
-    if index == 0
-      assert_instance_of Steep::AST::MethodType::Params::RequiredKeyword, params
-      assert_equal name, params.name if name
-      yield params.type, params if block_given?
-    else
-      assert_required_keyword params.next_params, index: index - 1, name: name, &block
-    end
-  end
-
-  def assert_optional_keyword(params, index:, name: nil, &block)
-    if index == 0
-      assert_instance_of Steep::AST::MethodType::Params::OptionalKeyword, params
-      assert_equal name, params.name if name
-      yield params.type, params if block_given?
-    else
-      assert_optional_keyword params.next_params, index: index - 1, name: name, &block
-    end
-  end
-
-  def assert_rest_keyword(params, index:, &block)
-    if index == 0
-      assert_instance_of Steep::AST::MethodType::Params::RestKeyword, params
-      yield params.type, params if block_given?
-    else
-      assert_rest_keyword params.next_params, index: index - 1, &block
-    end
-  end
-
-  def assert_params_length(params, size, acc: 0)
-    case params
-    when Steep::AST::MethodType::Params::RestKeyword
-      assert_equal size, acc+1
-    when nil
-      assert_equal size, acc
-    else
-      assert_params_length params.next_params, size, acc: acc+1
-    end
-  end
-
-  def assert_type_params(params, variables: nil)
-    assert_instance_of Steep::AST::TypeParams, params
-    assert_equal variables, params.variables if variables
-  end
-
   def assert_union_type(type)
     assert_instance_of Steep::AST::Types::Union, type
     yield type.types if block_given?
@@ -240,89 +151,22 @@ module ASTAssertion
   def assert_instance_type(type)
     assert_instance_of Steep::AST::Types::Instance, type
   end
-
-  def assert_class_signature(sig, name: nil, params: nil)
-    assert_instance_of Steep::AST::Signature::Class, sig
-    assert_equal name, sig.name if name
-    assert_equal params, sig.params.variables if params
-    yield members: sig.members if block_given?
-  end
-
-  def assert_super_class(super_class, name: nil)
-    assert_instance_of Steep::AST::Signature::SuperClass, super_class
-    assert_equal name, super_class.name if name
-    yield super_class.args, super_class if block_given?
-  end
-
-  def assert_module_signature(sig, name: nil, params: nil)
-    assert_instance_of Steep::AST::Signature::Module, sig
-    assert_equal name, sig.name if name
-    assert_equal params, sig.params.variables if params
-    yield sig if block_given?
-  end
-
-  def assert_interface_signature(sig, name: nil, params: nil)
-    assert_instance_of Steep::AST::Signature::Interface, sig
-    if name
-      name = Steep::Names::Interface.new(name: name, namespace: Steep::AST::Namespace.empty) if name.is_a?(Symbol)
-      assert_equal name, sig.name
-    end
-    assert_equal params, sig.params&.variables if params
-    yield name: sig.name, params: sig.params, methods: sig.methods if block_given?
-  end
-
-  def assert_interface_method(method, name: nil)
-    assert_instance_of Steep::AST::Signature::Interface::Method, method
-    assert_equal name, method.name if name
-    yield(*method.types) if block_given?
-  end
-
-  def assert_include_member(member, name: nil, args: nil)
-    assert_instance_of Steep::AST::Signature::Members::Include, member
-    assert_equal name, member.name if name
-    assert_equal args, member.args if args
-  end
-
-  def assert_extend_member(member, name: nil, args: nil)
-    assert_instance_of Steep::AST::Signature::Members::Extend, member
-    assert_equal name, member.name if name
-    assert_equal args, member.args if args
-  end
-
-  def assert_method_member(member, name: nil, kind: nil, attributes: nil)
-    assert_instance_of Steep::AST::Signature::Members::Method, member
-    assert_equal name, member.name if name
-    assert_equal kind, member.kind if kind
-    assert_equal attributes, member.attributes if attributes
-    yield name: member.name, kind: member.kind, types: member.types, attributes: attributes if block_given?
-  end
-
-  def assert_extension_signature(sig, module_name: nil, name: nil)
-    assert_instance_of Steep::AST::Signature::Extension, sig
-    assert_equal module_name, sig.module_name if module_name
-    assert_equal name, sig.name if name
-    yield module_name: sig.module_name, name: sig.name, params: sig.params if block_given?
-  end
-
-  def assert_method_type_annotation(annot, name: nil)
-    assert_instance_of Steep::AST::Annotation::MethodType, annot
-    assert_equal name, annot.name if name
-    yield name: annot.name, type: annot.type if block_given?
-  end
 end
 
 module SubtypingHelper
   BUILTIN = <<-EOS
 class BasicObject
+  def initialize: () -> void 
 end
 
 class Object < BasicObject
-  def class: -> module
+  def class: -> class
   def tap: { (instance) -> any } -> instance
   def gets: -> String?
   def to_s: -> String
   def nil?: -> bool
   def !: -> bool
+  def itself: -> self
 end
 
 class Class
@@ -334,13 +178,13 @@ end
 
 class String
   def to_str: -> String
-  def +: (String) -> String
+  def `+`: (String) -> String
   def size: -> Integer
-  def -@: -> String
+  def `-@`: -> String
 end
 
 class Numeric
-  def +: (Numeric) -> Numeric
+  def `+`: (Numeric) -> Numeric
   def to_int: -> Integer
 end
 
@@ -351,94 +195,67 @@ class Symbol
   def id2name: -> String
 end
 
-class Range<'a>
-  def begin: -> 'a
-  def end: -> 'a
+class Range[A]
+  def begin: -> A
+  def end: -> A
 end
 
 class Regexp
 end
 
-class Array<'a>
+class Array[A]
   def initialize: () -> any
-                | (Integer, 'a) -> any
+                | (Integer, A) -> any
                 | (Integer) -> any
-  def []: (Integer) -> 'a
-  def []=: (Integer, 'a) -> 'a
-  def <<: ('a) -> self
-  def each: { ('a) -> any } -> self
-  def zip: <'b> (Array<'b>) -> Array<'a | 'b>
-  def each_with_object: <'b> ('b) { ('a, 'b) -> any } -> 'b
-  def map: <'x> { ('a) -> 'x } -> Array<'x>
+  def `[]`: (Integer) -> A
+  def `[]=`: (Integer, A) -> A
+  def `<<`: (A) -> self
+  def each: { (A) -> any } -> self
+  def zip: [B] (Array[B]) -> Array[A | B]
+  def each_with_object: [B] (B) { (A, B) -> any } -> B
+  def map: [X] { (A) -> X } -> Array[X]
 end
 
-class Hash<'a, 'b>
-  def []: ('a) -> 'b
-  def []=: ('a, 'b) -> 'b
-  def each: { (['a, 'b]) -> void } -> self
+class Hash[A, B]
+  def `[]`: (A) -> B
+  def `[]=`: (A, B) -> B
+  def each: { ([A, B]) -> void } -> self
 end
 
 class NilClass
 end
 
 class Proc
-  def []: (*any) -> any
-  def call: (*any) -> any
-  def ===: (*any) -> any
-  def yield: (*any) -> any
+  def `[]`: any
+  def call: any
+  def `===`: any
+  def yield: any
   def arity: -> Integer
 end
   EOS
 
-  DEFAULT_SIGS = <<-EOS
-interface _A
-  def +: (_A) -> _A
-end
+  def checker
+    @checker or raise "#checker should be used within from #with_checker"
+  end
 
-interface _B
-end
+  def with_checker(*files, &block)
+    paths = {}
 
-interface _C
-  def f: () -> _A
-  def g: (_A, ?_B) -> _B
-  def h: (a: _A, ?b: _B) -> _C
-end
-
-interface _D
-  def foo: () -> any
-end
-
-interface _X
-  def f: () { (_A) -> _D } -> _C 
-end
-
-interface _Kernel
-  def foo: (_A) -> _B
-         | (_C) -> _D
-end
-
-interface _PolyMethod
-  def snd: <'a>(any, 'a) -> 'a
-  def try: <'a> { (any) -> 'a } -> 'a
-end
-
-module Foo<'a>
-end
-  EOS
-
-  def new_subtyping_checker(sigs = DEFAULT_SIGS)
-    signatures = Steep::AST::Signature::Env.new.tap do |env|
-      parse_signature(BUILTIN).each do |sig|
-        env.add sig
-      end
-
-      parse_signature(sigs).each do |sig|
-        env.add sig
+    files.each.with_index do |content, index|
+      if content.is_a?(Hash)
+        paths.merge!(content)
+      else
+        paths["#{index}.rbi"] = content
       end
     end
 
-    builder = Steep::Interface::Builder.new(signatures: signatures)
-    Steep::Subtyping::Check.new(builder: builder)
+    paths["builtin.rbi"] = BUILTIN
+    with_factory(paths, nostdlib: true) do |factory|
+      @checker = Steep::Subtyping::Check.new(factory: factory)
+      yield @checker
+    ensure
+      @checker = nil
+    end
   end
 end
 
@@ -487,5 +304,54 @@ module ShellHelper
     Dir.mktmpdir do |dir|
       chdir(Pathname(dir), &block)
     end
+  end
+end
+
+module FactoryHelper
+  def with_factory(paths = {}, nostdlib: false)
+    Dir.mktmpdir do |dir|
+      root = Pathname(dir)
+      paths.each do |path, content|
+        absolute_path = root + path
+        absolute_path.parent.mkpath
+        absolute_path.write(content)
+      end
+
+
+      env_loader = Ruby::Signature::EnvironmentLoader.new()
+      if nostdlib
+        env_loader.stdlib_root = nil
+      end
+      env_loader.add path: root
+
+      env = Ruby::Signature::Environment.new()
+      env_loader.load(env: env)
+
+      definition_builder = Ruby::Signature::DefinitionBuilder.new(env: env)
+
+      @factory = Steep::AST::Types::Factory.new(builder: definition_builder)
+
+      yield factory
+    ensure
+      @factory = nil
+    end
+  end
+
+  def factory
+    @factory or raise "#factory should be called from inside with_factory"
+  end
+
+  def parse_type(string, factory: self.factory, variables: [])
+    type = Ruby::Signature::Parser.parse_type(string, variables: variables)
+    factory.type(type)
+  end
+
+  def parse_ruby(string, factory: self.factory)
+    Steep::Source.parse(string, path: Pathname("test.rb"), factory: factory)
+  end
+
+  def parse_method_type(string, factory: self.factory, variables: [])
+    type = Ruby::Signature::Parser.parse_method_type(string, variables: variables)
+    factory.method_type type
   end
 end

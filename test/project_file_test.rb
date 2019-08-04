@@ -2,7 +2,8 @@ require_relative "test_helper"
 
 class ProjectFileTest < Minitest::Test
   include TestHelper
-  include SubtypingHelper
+  include FactoryHelper
+
   include Steep
 
   def test_signature_file_without_content
@@ -10,7 +11,7 @@ class ProjectFileTest < Minitest::Test
 
     assert_equal "", file.content
     refute_nil file.content_updated_at
-    assert_empty file.parse
+    assert_empty file.parse[0]
   end
 
   def test_signature_file_with_content
@@ -32,7 +33,7 @@ class ProjectFileTest < Minitest::Test
     file.content = "class Foo"
 
     refute_equal original_updated_at, file.content_updated_at
-    assert_raises(Racc::ParseError) { file.parse }
+    assert_raises(Ruby::Signature::Parser::SyntaxError) { file.parse }
   end
 
   def options
@@ -40,75 +41,89 @@ class ProjectFileTest < Minitest::Test
   end
 
   def test_source_file_without_content
-    file = Project::SourceFile.new(path: Pathname("foo.rb"), options: options)
+    with_factory do |factory|
+      file = Project::SourceFile.new(path: Pathname("foo.rb"), options: options)
 
-    assert_equal "", file.content
-    refute_nil file.content_updated_at
-    assert_nil file.source
-    assert_nil file.typing
-    assert_nil file.last_type_checked_at
-    assert file.requires_type_check?
+      assert_equal "", file.content
+      refute_nil file.content_updated_at
+      assert_nil file.source
+      assert_nil file.typing
+      assert_nil file.last_type_checked_at
+      assert file.requires_type_check?
+    end
   end
 
   def test_source_file_with_content
-    file = Project::SourceFile.new(path: Pathname("hoge.rb"), options: options)
-    original_updated_at = file.content_updated_at
-    sleep 0.1
+    with_factory do |factory|
+      file = Project::SourceFile.new(path: Pathname("hoge.rb"), options: options)
+      original_updated_at = file.content_updated_at
+      sleep 0.1
 
-    file.content = "class Foo end"
+      file.content = "class Foo end"
 
-    refute_equal original_updated_at, file.content_updated_at
+      refute_equal original_updated_at, file.content_updated_at
+    end
   end
 
   def test_source_file_parse
-    file = Project::SourceFile.new(path: Pathname("hoge.rb"), options: options)
-    file.content = "class Foo end"
+    with_factory do |factory|
+      file = Project::SourceFile.new(path: Pathname("hoge.rb"), options: options)
+      file.content = "class Foo end"
 
-    assert_instance_of Source, file.parse
-    assert_instance_of Source, file.source
+      assert_instance_of Source, file.parse(factory: factory)
+      assert_instance_of Source, file.source
+    end
   end
 
   def test_source_file_parse_error
-    file = Project::SourceFile.new(path: Pathname("hoge.rb"), options: options)
-    file.content = "class Foo"
+    with_factory do |factory|
+      file = Project::SourceFile.new(path: Pathname("hoge.rb"), options: options)
+      file.content = "class Foo"
 
-    file.parse
+      file.parse(factory: factory)
 
-    assert_instance_of ::Parser::SyntaxError, file.source
+      assert_instance_of ::Parser::SyntaxError, file.source
+    end
   end
 
   def test_source_file_errors
-    file = Project::SourceFile.new(path: Pathname("hoge.rb"), options: options)
-    file.content = "class Foo end"
+    with_factory do |factory|
+      file = Project::SourceFile.new(path: Pathname("hoge.rb"), options: options)
+      file.content = "class Foo end"
 
-    assert_nil file.errors
+      assert_nil file.errors
+    end
   end
 
   def test_type_check
-    file = Project::SourceFile.new(path: Pathname("hoge.rb"), options: options)
-    file.content = "@foo"
+    with_factory do |factory|
+      file = Project::SourceFile.new(path: Pathname("hoge.rb"), options: options)
+      file.content = "@foo"
 
-    check = new_subtyping_checker
+      check = Steep::Subtyping::Check.new(factory: factory)
 
-    file.parse
-    file.type_check(check)
+      file.parse(factory: factory)
+      file.type_check(check)
 
-    refute_nil file.typing
-    assert_empty file.errors
+      refute_nil file.typing
+      assert_empty file.errors
+    end
   end
 
   def test_type_check_with_option
-    file = Project::SourceFile.new(path: Pathname("hoge.rb"), options: options)
-    file.content = "@foo"
-    file.options.fallback_any_is_error = true
+    with_factory do |factory|
+      file = Project::SourceFile.new(path: Pathname("hoge.rb"), options: options)
+      file.content = "@foo"
+      file.options.fallback_any_is_error = true
 
-    check = new_subtyping_checker
+      check = Steep::Subtyping::Check.new(factory: factory)
 
-    file.parse
-    file.type_check(check)
+      file.parse(factory: factory)
+      file.type_check(check)
 
-    refute_nil file.typing
-    refute_empty file.errors
+      refute_nil file.typing
+      refute_empty file.errors
+    end
   end
 
   class AccumulateListener
@@ -135,10 +150,12 @@ class ProjectFileTest < Minitest::Test
   end
 
   def test_project_no_listener
-    project = Project.new()
-    project.signature_files[Pathname("builtin.rbi")] = Project::SignatureFile.new(path: Pathname("builtin.rbi")).tap do |file|
-      file.content = BUILTIN
+    env = Ruby::Signature::Environment.new().tap do |env|
+      Ruby::Signature::EnvironmentLoader.new().load(env: env)
     end
+
+    project = Project.new(environment: env)
+
     project.source_files[Pathname("foo.rb")] = Project::SourceFile.new(path: Pathname("foo.rb"), options: options).tap do |file|
       file.content = "1 + 2"
     end
@@ -151,10 +168,12 @@ class ProjectFileTest < Minitest::Test
   def test_project_listener
     listener = AccumulateListener.new
 
-    project = Project.new(listener)
-    project.signature_files[Pathname("builtin.rbi")] = Project::SignatureFile.new(path: Pathname("builtin.rbi")).tap do |file|
-      file.content = BUILTIN
+    env = Ruby::Signature::Environment.new().tap do |env|
+      Ruby::Signature::EnvironmentLoader.new().load(env: env)
     end
+
+    project = Project.new(listener: listener, environment: env)
+
     project.source_files[Pathname("foo.rb")] = Project::SourceFile.new(path: Pathname("foo.rb"), options: options).tap do |file|
       file.content = "1 + 2"
     end
@@ -166,7 +185,7 @@ class ProjectFileTest < Minitest::Test
       project.type_check
 
       assert_equal [:check,
-                    :load_signature, :parse_signature, :validate_signature,
+                    :load_signature, :validate_signature,
                     :parse_source, :type_check_source,
                     :parse_source, :type_check_source],
                    listener.trace.map(&:first)
@@ -197,7 +216,7 @@ class ProjectFileTest < Minitest::Test
       project.type_check
 
       assert_equal [:check,
-                    :load_signature, :parse_signature, :parse_signature,
+                    :load_signature, :parse_signature,
                     :validate_signature,
                     :parse_source, :type_check_source,
                     :parse_source, :type_check_source],
@@ -211,7 +230,7 @@ class ProjectFileTest < Minitest::Test
       project.type_check
 
       assert_equal [:check,
-                    :load_signature, :parse_signature,
+                    :load_signature,
                     :validate_signature,
                     :parse_source, :type_check_source,
                     :parse_source, :type_check_source],
@@ -226,7 +245,7 @@ class ProjectFileTest < Minitest::Test
 
       assert_equal [:clear_project,
                     :check,
-                    :load_signature, :parse_signature,
+                    :load_signature,
                     :validate_signature,
                     :parse_source, :type_check_source,
                     :parse_source, :type_check_source],

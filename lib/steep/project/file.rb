@@ -5,6 +5,7 @@ module Steep
       attr_reader :path
       attr_reader :content
       attr_reader :content_updated_at
+      attr_reader :factory
 
       attr_reader :source
       attr_reader :typing
@@ -35,10 +36,10 @@ module Steep
         @last_type_checked_at = nil
       end
 
-      def parse
+      def parse(factory:)
         _ = @source =
           begin
-            Source.parse(content, path: path.to_s, labeling: ASTUtils::Labeling.new)
+            Source.parse(content, path: path.to_s, factory: factory, labeling: ASTUtils::Labeling.new)
           rescue ::Parser::SyntaxError => exn
             Steep.logger.warn { "Syntax error on #{path}: #{exn.inspect}" }
             exn
@@ -64,13 +65,13 @@ module Steep
         when Source
           @typing = Typing.new
 
-          annotations = source.annotations(block: source.node, builder: check.builder, current_module: AST::Namespace.root)
+          annotations = source.annotations(block: source.node, factory: check.factory, current_module: AST::Namespace.root)
 
-          const_env = TypeInference::ConstantEnv.new(builder: check.builder, context: nil)
+          const_env = TypeInference::ConstantEnv.new(factory: check.factory, context: nil)
           type_env = TypeInference::TypeEnv.build(annotations: annotations,
                                                   subtyping: check,
                                                   const_env: const_env,
-                                                  signatures: check.builder.signatures)
+                                                  signatures: check.factory.env)
 
           construction = TypeConstruction.new(
             checker: check,
@@ -109,8 +110,9 @@ module Steep
         self.content = ""
       end
 
-      def parse
-        Parser.parse_signature(content, name: path)
+      def parse()
+        buffer = Ruby::Signature::Buffer.new(name: path, content: content)
+        [Ruby::Signature::Parser.parse_signature(buffer), buffer]
       end
 
       def content=(content)

@@ -2,7 +2,7 @@ module Steep
   module Drivers
     class Check
       attr_reader :source_paths
-      attr_reader :signature_dirs
+      attr_reader :signature_options
       attr_reader :stdout
       attr_reader :stderr
 
@@ -15,9 +15,9 @@ module Steep
 
       include Utils::EachSignature
 
-      def initialize(source_paths:, signature_dirs:, stdout:, stderr:)
+      def initialize(source_paths:, signature_options:, stdout:, stderr:)
         @source_paths = source_paths
-        @signature_dirs = signature_dirs
+        @signature_options = signature_options
         @stdout = stdout
         @stderr = stderr
 
@@ -35,7 +35,19 @@ module Steep
       end
 
       def run
-        project = Project.new(Project::SyntaxErrorRaisingListener.new)
+        loader = Ruby::Signature::EnvironmentLoader.new()
+        loader.stdlib_root = nil if signature_options.no_builtin
+        signature_options.library_paths.each do |path|
+          loader.add(path: path)
+        end
+        signature_options.signature_paths.each do |path|
+          loader.add(path: path)
+        end
+
+        env = Ruby::Signature::Environment.new()
+        loader.load(env: env)
+
+        project = Project.new(environment: env)
 
         source_paths.each do |path|
           each_file_in_path(".rb", path) do |file_path|
@@ -45,17 +57,9 @@ module Steep
           end
         end
 
-        signature_dirs.each do |path|
-          each_file_in_path(".rbi", path) do |file_path|
-            file = Project::SignatureFile.new(path: file_path)
-            file.content = file_path.read
-            project.signature_files[file_path] = file
-          end
-        end
-
         project.type_check
 
-        case signature = project.signature
+        case project.signature
         when Project::SignatureLoaded
           output_type_check_result(project)
           project.has_type_error? ? 1 : 0
@@ -98,27 +102,8 @@ module Steep
       end
 
       def output_signature_errors(project)
-        project.signature.errors.each do |error|
-          case error
-          when Interface::Instantiated::InvalidMethodOverrideError
-            stdout.puts "😱 #{error.message}"
-            error.result.trace.each do |s, t|
-              case s
-              when Interface::Method
-                stdout.puts "  #{s.name}(#{s.type_name}) <: #{t.name}(#{t.type_name})"
-              when Interface::MethodType
-                stdout.puts "  #{s} <: #{t} (#{s.location&.name||"?"}:#{s.location&.start_line||"?"})"
-              else
-                stdout.puts "  #{s} <: #{t}"
-              end
-            end
-            stdout.puts "  🚨 #{error.result.error.message}"
-          when Interface::Instantiated::InvalidIvarOverrideError
-            stdout.puts "😱 #{error.message}"
-          else
-            stdout.puts "😱 #{error.inspect}"
-          end
-        end
+        printer = SignatureErrorPrinter.new(stdout: stdout, stderr: stderr)
+        printer.print_semantic_errors(project.signature.errors)
       end
     end
   end

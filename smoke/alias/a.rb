@@ -1,10 +1,10 @@
 # @type var x: foo
 x = ""
 
-# !expects NoMethodError: type=::foo, method=+
+# !expects ArgumentTypeMismatch: receiver=(::Integer | ::String), expected=::String, actual=::Integer
 x + 123
 
-# @type var y: bar<Integer>
+# @type var y: bar
 y = x
 y = []
 

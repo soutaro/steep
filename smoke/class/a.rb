@@ -1,10 +1,7 @@
 class A
-  # @type instance: A
-  # @type module: A.class
-
   # A#foo is defined and the implementation is compatible.
   def foo(x)
-    x
+    x + ""
   end
 
   # A#bar is defined but the implementation is incompatible.

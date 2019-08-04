@@ -19,18 +19,9 @@ module Steep
 
     module ResultPrinter
       def print_result_to(io, level: 2)
-        indent = " " * level
-        result.trace.each do |s, t|
-          case s
-          when Interface::Method
-            io.puts "#{indent}#{s.name}(#{s.type_name}) <: #{t.name}(#{t.type_name})"
-          when Interface::MethodType
-            io.puts "#{indent}#{s} <: #{t} (#{s.location.name}:#{s.location.start_line})"
-          else
-            io.puts "#{indent}#{s} <: #{t}"
-          end
-        end
-        io.puts "#{indent}  #{result.error.message}"
+        printer = Drivers::TracePrinter.new(io)
+        printer.print result.trace, level: level
+        io.puts "==> #{result.error.message}"
       end
 
       def print_to(io)
@@ -71,6 +62,24 @@ module Steep
 
       def to_s
         "#{location_to_str}: IncompatibleArguments: receiver=#{receiver_type}, method_type=#{method_type}"
+      end
+    end
+
+    class UnresolvedOverloading < Base
+      attr_reader :node
+      attr_reader :receiver_type
+      attr_reader :method_name
+      attr_reader :method_types
+
+      def initialize(node:, receiver_type:, method_name:, method_types:)
+        super node: node
+        @receiver_type = receiver_type
+        @method_name = method_name
+        @method_types = method_types
+      end
+
+      def to_s
+        "#{location_to_str}: UnresolvedOverloading: receiver=#{receiver_type}, method_name=#{method_name}, method_types=#{method_types.join(" | ")}"
       end
     end
 
@@ -164,7 +173,7 @@ module Steep
       end
 
       def to_s
-        "#{location_to_str}: UnexpectedBlockGiven: method_type=#{method_type.location&.source}"
+        "#{location_to_str}: UnexpectedBlockGiven: method_type=#{method_type}"
       end
     end
 

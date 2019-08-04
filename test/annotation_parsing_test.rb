@@ -1,129 +1,162 @@
 require "test_helper"
 
 class AnnotationParsingTest < Minitest::Test
-  Parser = Steep::Parser
   include TestHelper
   include ASTAssertion
+  include FactoryHelper
+
   Names = Steep::Names
-  
-  def parse_annotation(source)
-    Parser.parse_annotation_opt(source, buffer: Steep::AST::Buffer.new(name: nil, content: source))
+  AnnotationParser = Steep::AnnotationParser
+  Annotation = Steep::AST::Annotation
+  Types = Steep::AST::Types
+
+  def parse_type(src, factory:)
+    factory.type(Ruby::Signature::Parser.parse_type(src))
+  end
+
+  def parse_annotation(source, factory:)
+    AnnotationParser.new(factory: factory).parse(source, location: nil)
   end
 
   def test_skip_annotation
-    annot = parse_annotation("This is not annotation")
-    assert_nil annot
+    with_factory do |factory|
+      annot = parse_annotation("This is not annotation", factory: factory)
+      assert_nil annot
+    end
   end
 
   def test_var_type_annotation
-    annot = parse_annotation("@type var foo: Bar")
-    assert_instance_of Steep::AST::Annotation::VarType, annot
-    assert_equal :foo, annot.name
-    assert_equal Steep::AST::Types::Name.new_instance(name: :Bar), annot.type
+    with_factory do |factory|
+      annot = parse_annotation("@type var foo: Bar", factory: factory)
+      assert_instance_of Annotation::VarType, annot
+      assert_equal :foo, annot.name
+      assert_equal Types::Name.new_instance(name: :Bar), annot.type
+    end
   end
 
   def test_method_annotation
-    annot = parse_annotation("@type method foo: Bar -> Baz")
+    with_factory do |factory|
+      annot = parse_annotation("@type method foo: (Bar) -> Baz", factory: factory)
 
-    assert_method_type_annotation annot, name: :foo do |type:, **|
-      assert_nil type.type_params
-
-      assert_params_length type.params, 1
-      assert_required_param type.params, index: 0 do |ty|
-        assert_equal Steep::AST::Types::Name.new_instance(name: :Bar), ty
-      end
-
-      assert_equal Steep::AST::Types::Name.new_instance(name: :Baz), type.return_type
-
-      assert_nil type.block
+      assert_instance_of Annotation::MethodType, annot
+      assert_equal :foo, annot.name
+      assert_equal factory.method_type(Ruby::Signature::Parser.parse_method_type("(Bar) -> Baz")),
+                   annot.type
     end
   end
 
   def test_return_type_annotation
-    annot = parse_annotation("@type return: Integer")
-    assert_instance_of Steep::AST::Annotation::ReturnType, annot
-    assert_equal Steep::AST::Types::Name.new_instance(name: :Integer), annot.type
+    with_factory do |factory|
+      annot = parse_annotation("@type return: Integer", factory: factory)
+
+      assert_instance_of Annotation::ReturnType, annot
+      assert_equal parse_type("Integer", factory: factory), annot.type
+    end
   end
 
   def test_block_type_annotation
-    annot = parse_annotation("@type block: String")
-    assert_instance_of Steep::AST::Annotation::BlockType, annot
-    assert_equal Steep::AST::Types::Name.new_instance(name: :String), annot.type
+    with_factory do |factory|
+      annot = parse_annotation("@type block: String", factory: factory)
+
+      assert_instance_of Annotation::BlockType, annot
+      assert_equal parse_type("String", factory: factory), annot.type
+    end
   end
 
   def test_self_type
-    annot = parse_annotation("@type self: String")
-    assert_instance_of Steep::AST::Annotation::SelfType, annot
-    assert_equal Steep::AST::Types::Name.new_instance(name: :String), annot.type
+    with_factory do |factory|
+      annot = parse_annotation("@type self: String", factory: factory)
+      assert_instance_of Annotation::SelfType, annot
+      assert_equal parse_type("String", factory: factory), annot.type
+    end
   end
 
   def test_const_type
-    annot = parse_annotation("@type const Foo::Bar::Baz: String")
-    assert_instance_of Steep::AST::Annotation::ConstType, annot
-    assert_equal Names::Module.parse("Foo::Bar::Baz"), annot.name
-    assert_equal Steep::AST::Types::Name.new_instance(name: :String), annot.type
+    with_factory do |factory|
+      annot = parse_annotation("@type const Foo::Bar::Baz: String", factory: factory)
+      assert_instance_of Annotation::ConstType, annot
+      assert_equal Names::Module.parse("Foo::Bar::Baz"), annot.name
+      assert_equal parse_type("String", factory: factory), annot.type
+    end
   end
 
   def test_const_type2
-    annot = parse_annotation("@type const Foo: String")
-    assert_instance_of Steep::AST::Annotation::ConstType, annot
-    assert_equal Names::Module.parse("Foo"), annot.name
-    assert_equal Steep::AST::Types::Name.new_instance(name: :String), annot.type
+    with_factory do |factory|
+      annot = parse_annotation("@type const Foo: String", factory: factory)
+      assert_instance_of Annotation::ConstType, annot
+      assert_equal Names::Module.parse("Foo"), annot.name
+      assert_equal parse_type("String", factory: factory), annot.type
+    end
   end
 
   def test_const_type3
-    annot = parse_annotation("@type const ::Foo: String")
-    assert_instance_of Steep::AST::Annotation::ConstType, annot
-    assert_equal Names::Module.parse("::Foo"), annot.name
-    assert_equal Steep::AST::Types::Name.new_instance(name: :String), annot.type
+    with_factory do |factory|
+      annot = parse_annotation("@type const ::Foo: String", factory: factory)
+      assert_instance_of Annotation::ConstType, annot
+      assert_equal Names::Module.parse("::Foo"), annot.name
+      assert_equal parse_type("String", factory: factory), annot.type
+    end
   end
 
   def test_instance_type
-    annot = parse_annotation("@type instance: String")
-    assert_instance_of Steep::AST::Annotation::InstanceType, annot
-    assert_equal Steep::AST::Types::Name.new_instance(name: :String), annot.type
+    with_factory do |factory|
+      annot = parse_annotation("@type instance: String", factory: factory)
+      assert_instance_of Annotation::InstanceType, annot
+      assert_equal Steep::AST::Types::Name.new_instance(name: :String), annot.type
+    end
   end
 
   def test_module_type
-    annot = parse_annotation("@type module: String.class")
-    assert_instance_of Steep::AST::Annotation::ModuleType, annot
-    assert_equal Steep::AST::Types::Name.new_class(name: :String, constructor: nil), annot.type
+    with_factory do |factory|
+      annot = parse_annotation("@type module: singleton(String)", factory: factory)
+      assert_instance_of Annotation::ModuleType, annot
+      assert_equal parse_type("singleton(String)", factory: factory), annot.type
+    end
   end
 
   def test_implements
-    annot = parse_annotation("@implements String")
-    assert_instance_of Steep::AST::Annotation::Implements, annot
-    assert_equal Names::Module.parse(:String), annot.name.name
-    assert_empty annot.name.args
+    with_factory do |factory|
+      annot = parse_annotation("@implements String", factory: factory)
+      assert_instance_of Annotation::Implements, annot
+      assert_equal Names::Module.parse("String"), annot.name.name
+      assert_empty annot.name.args
+    end
   end
 
   def test_implement2
-    annot = parse_annotation("@implements Array<'a>")
-    assert_instance_of Steep::AST::Annotation::Implements, annot
-    assert_equal Names::Module.parse(:Array), annot.name.name
-    assert_equal [:a], annot.name.args
+    with_factory do |factory|
+      annot = parse_annotation("@implements Array[A]", factory: factory)
+      assert_instance_of Annotation::Implements, annot
+      assert_equal Names::Module.parse('Array'), annot.name.name
+      assert_equal [:A], annot.name.args
+    end
   end
 
   def test_ivar_type
-    annot = parse_annotation("@type ivar @x: Integer")
-    assert_instance_of Steep::AST::Annotation::IvarType, annot
-    assert_equal :"@x", annot.name
-    assert_equal Steep::AST::Types::Name.new_instance(name: :Integer), annot.type
+    with_factory do |factory|
+      annot = parse_annotation("@type ivar @x: Integer", factory: factory)
+      assert_instance_of Annotation::IvarType, annot
+      assert_equal :"@x", annot.name
+      assert_equal parse_type("Integer", factory: factory), annot.type
+    end
   end
 
   def test_dynamic
-    parse_annotation("@dynamic foo, self.bar, self?.baz").yield_self do |annot|
-      assert_instance_of Steep::AST::Annotation::Dynamic, annot
+    with_factory do |factory|
+      annot = parse_annotation("@dynamic foo, self.bar, self?.baz", factory: factory)
+      assert_instance_of Annotation::Dynamic, annot
 
-      assert_equal Steep::AST::Annotation::Dynamic::Name.new(name: :foo, kind: :instance), annot.names[0]
-      assert_equal Steep::AST::Annotation::Dynamic::Name.new(name: :bar, kind: :module), annot.names[1]
-      assert_equal Steep::AST::Annotation::Dynamic::Name.new(name: :baz, kind: :module_instance), annot.names[2]
+      assert_equal Annotation::Dynamic::Name.new(name: :foo, kind: :instance), annot.names[0]
+      assert_equal Annotation::Dynamic::Name.new(name: :bar, kind: :module), annot.names[1]
+      assert_equal Annotation::Dynamic::Name.new(name: :baz, kind: :module_instance), annot.names[2]
     end
   end
 
   def test_break
-    annot = parse_annotation("@type break: Integer")
-    assert_instance_of Steep::AST::Annotation::BreakType, annot
-    assert_equal Steep::AST::Types::Name.new_instance(name: :Integer), annot.type
+    with_factory do |factory|
+      annot = parse_annotation("@type break: Integer", factory: factory)
+      assert_instance_of Annotation::BreakType, annot
+      assert_equal parse_type("Integer", factory: factory), annot.type
+    end
   end
 end

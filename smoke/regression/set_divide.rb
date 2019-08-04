@@ -1,5 +1,7 @@
+# ALLOW FAILURE
+
 d = Set.new([1,2,3], &:to_s)
-# !expects NoMethodError: type=::Set<::String>, method=ffffffff
+# !expects NoMethodError: type=::Set[::String], method=ffffffff
 d.ffffffff
 
 d.divide do |x, y|

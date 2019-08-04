@@ -1,10 +1,10 @@
 extension Object (X)
-  def try: <'a> { (instance) -> 'a } -> 'a
+  def try: [A] { (instance) -> A } -> A
   def f: -> Object
 end
 
 extension Kernel (X)
-  def self.new_module_method: () -> void
+  def new_module_method: () -> void
 end
 
 class Foo

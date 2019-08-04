@@ -13,7 +13,7 @@ module A
     # !expects IncompatibleAssignment: lhs_type=::String, rhs_type=::Integer
     s = n
 
-    # !expects NoMethodError: type=(::A & ::Object & ::_Each<::Integer, ::A>), method=foo
+    # !expects NoMethodError: type=(::A & ::Object & ::_Each2[::Integer, ::A]), method=foo
     foo()
 
     n
