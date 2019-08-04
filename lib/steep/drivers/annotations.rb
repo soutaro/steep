@@ -17,7 +17,8 @@ module Steep
       end
 
       def run
-        project = Project.new()
+        env = Ruby::Signature::Environment.new()
+        project = Project.new(environment: env)
 
         source_paths.each do |path|
           each_file_in_path(".rb", path) do |file_path|
@@ -27,18 +28,28 @@ module Steep
           end
         end
 
-        project.source_files.each_value do |file|
-          file.parse
-          file.source.each_annotation.sort_by {|node, _| [node.loc.expression.begin_pos, node.loc.expression.end_pos] }.each do |node, annotations|
-            loc = node.loc
-            stdout.puts "#{file.path}:#{loc.line}:#{loc.column}:#{node.type}:\t#{node.loc.expression.source.lines.first}"
-            annotations.each do |annotation|
-              stdout.puts "  #{annotation.location.source}"
+        project.reload_signature
+
+        case project.signature
+        when Project::SignatureLoaded
+          project.source_files.each_value do |file|
+            file.parse(factory: project.signature.check.factory)
+            file.source.each_annotation.sort_by {|node, _| [node.loc.expression.begin_pos, node.loc.expression.end_pos] }.each do |node, annotations|
+              loc = node.loc
+              stdout.puts "#{file.path}:#{loc.line}:#{loc.column}:#{node.type}:\t#{node.loc.expression.source.lines.first}"
+              annotations.each do |annotation|
+                stdout.puts "  #{annotation.location.source}"
+              end
             end
           end
+          0
+        when Project::SignatureHasSyntaxError
+          printer.print_syntax_errors(project.signature.errors)
+          1
+        when Project::SignatureHasError
+          printer.print_semantic_errors(project.signature.errors)
+          1
         end
-
-        0
       end
     end
   end
