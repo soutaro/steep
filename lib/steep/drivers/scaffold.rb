@@ -17,10 +17,10 @@ module Steep
       def run
         source_paths.each do |path|
           each_file_in_path(".rb", path) do |file_path|
-            file = Project::SourceFile.new(path: file_path, options: Project::Options.new)
-            file.content = file_path.read
-            file.parse
-            Generator.new(source: file.source, stderr: stderr).write(io: stdout)
+            buffer = ::Parser::Source::Buffer.new(file_path.to_s, 1)
+            buffer.source = file_path.read
+            node = Source.parser.parse(buffer)
+            Generator.new(node: node, stderr: stderr).write(io: stdout)
           end
         end
         0
@@ -57,20 +57,20 @@ module Steep
           end
         end
 
-        attr_reader :source
+        attr_reader :node
         attr_reader :modules
         attr_reader :constants
         attr_reader :stderr
 
-        def initialize(source:, stderr:)
-          @source = source
+        def initialize(node:, stderr:)
+          @node = node
           @stderr = stderr
           @modules = []
           @constants = {}
         end
 
         def write(io:)
-          generate(source.node, current_path: [])
+          generate(node, current_path: [])
 
           modules.each do |mod|
             unless mod.namespace_class?
@@ -233,11 +233,11 @@ module Steep
           when :regexp
             "Regexp"
           when :array
-            "Array<any>"
+            "Array[any]"
           when :hash
-            "Hash<any, any>"
+            "Hash[any, any]"
           when :irange, :erange
-            "Range<any>"
+            "Range[any]"
           when :lvasgn, :ivasgn, :cvasgn, :gvasgn, :casgn
             guess_type(node.children.last)
           when :send
@@ -254,7 +254,7 @@ module Steep
             if children.size == 1
               guess_type(node.children.last)
             else
-              "Array<any>" # or Tuple or any?
+              "Array[any]" # or Tuple or any?
             end
           when :if
             children = node.children
@@ -307,9 +307,9 @@ module Steep
             when :restarg
               "*any"
             when :kwarg
-              "#{arg.children.first.name}: any"
+              "#{arg.children.first}: any"
             when :kwoptarg
-              "?#{arg.children.first.name}: #{guess_type(arg.children[1])}"
+              "?#{arg.children.first}: #{guess_type(arg.children[1])}"
             when :kwrestarg
               "**any"
             end
