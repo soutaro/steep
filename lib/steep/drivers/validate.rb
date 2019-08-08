@@ -15,13 +15,7 @@ module Steep
 
       def run
         loader = Ruby::Signature::EnvironmentLoader.new()
-        loader.stdlib_root = nil if signature_options.no_builtin
-        signature_options.library_paths.each do |path|
-          loader.add(path: path)
-        end
-        signature_options.signature_paths.each do |path|
-          loader.add(path: path)
-        end
+        signature_options.setup(loader: loader)
 
         env = Ruby::Signature::Environment.new()
         loader.load(env: env)

@@ -90,10 +90,10 @@ module Steep
       def project
         @project ||= begin
           loader = Ruby::Signature::EnvironmentLoader.new()
-          loader.stdlib_root = nil if signature_options.no_builtin
-          signature_options.library_paths.each do |path|
-            loader.add(path: path)
+          signature_options.libraries.each do |lib|
+            loader.add(library: lib)
           end
+          loader.stdlib_root = nil if signature_options.no_builtin
 
           environment = Ruby::Signature::Environment.new()
           loader.load(env: environment)

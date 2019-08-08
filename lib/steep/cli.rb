@@ -5,31 +5,14 @@ module Steep
     BUILTIN_PATH = Pathname(__dir__).join("../../stdlib").realpath
 
     class SignatureOptions
-      class MissingGemError < StandardError
-        attr_reader :name
-        attr_reader :version
-
-        def initialize(name:, version:)
-          @name = name
-          @version = version
-          super "Requested gem not found: name=#{name}, version=#{version}"
-        end
-      end
-
-      class NoTypeDefinitionFromGemError < StandardError
-        attr_reader :gemspec
-
-        def initialize(gemspec:)
-          @gemspec = gemspec
-          super "Gem does not provide Steep type: gem=#{gemspec.name}"
-        end
-      end
-
       attr_reader :no_builtin
       attr_reader :no_bundler
+      attr_reader :libraries
+      attr_reader :paths
 
       def initialize
-        @options = []
+        @libraries = []
+        @paths = []
       end
 
       def no_builtin!
@@ -40,78 +23,33 @@ module Steep
         @no_bundler = true
       end
 
-      def <<(option)
-        @options << option
-      end
-
-      def find_gem_dir(gem)
-        name, version = gem.split(/:/)
-        spec =
-          begin
-            Gem::Specification.find_by_name(name, version)
-          rescue Gem::MissingSpecError
-            raise MissingGemError.new(name: name, version: version)
-          end
-
-        dirs_from_spec(spec).tap do |dirs|
-          if dirs.empty?
-            raise NoTypeDefinitionFromGemError.new(gemspec: spec)
-          end
+      def add(path: nil, library: nil)
+        case
+        when path
+          paths << path
+        when library
+          libraries << library
         end
-      end
-
-      def dirs_from_spec(spec)
-        type_dirs = spec.metadata["steep_types"].yield_self do |types|
-          case types
-          when nil
-            []
-          when String
-            types.split(/:/).map do |type|
-              Pathname(type)
-            end
-          end
-        end
-
-        base_dir = Pathname(spec.gem_dir)
-        type_dirs.map do |dir|
-          base_dir + dir
-        end.select(&:directory?)
-      end
-
-      def add_bundler_gems(options)
-        if defined?(Bundler)
-          Steep.logger.info "Bundler detected!"
-          Bundler.load.gems.each do |spec|
-            dirs = dirs_from_spec(spec)
-            options.unshift *dirs
-          end
-        end
-      end
-
-      def library_paths
-        options = @options.reject {|option| option.is_a?(Pathname) }
-
-        paths = []
-
-        unless no_bundler
-          add_bundler_gems(paths)
-        end
-
-        options.each do |option|
-          paths.push *find_gem_dir(option)
-        end
-
-        paths.reverse.uniq(&:realpath).reverse
       end
 
       def signature_paths
-        @options.select {|option| option.is_a?(Pathname) }.yield_self do |paths|
-          if paths.empty? && Pathname("sig").directory?
-            [Pathname("sig")]
-          else
-            paths
-          end
+        if paths.empty? && Pathname("sig").directory?
+          [Pathname("sig")]
+        else
+          paths
         end
+      end
+
+      def setup(loader:)
+        libraries.each do |lib|
+          loader.add library: lib
+        end
+
+        signature_paths.each do |path|
+          loader.add path: path
+        end
+
+        loader.stdlib_root = nil if no_builtin
       end
     end
 
@@ -186,20 +124,14 @@ module Steep
     end
 
     def handle_dir_options(opts, options)
-      opts.on("-I [PATH]") {|path| options << Pathname(path) }
-      opts.on("-G [GEM]") {|gem| options << gem }
+      opts.on("-I [PATH]") {|path| options.add path: Pathname(path) }
+      opts.on("-r [library]") {|lib| options.add(library: lib) }
       opts.on("--no-builtin") { options.no_builtin! }
       opts.on("--no-bundler") { options.no_bundler! }
     end
 
     def with_signature_options
       yield SignatureOptions.new
-    rescue SignatureOptions::MissingGemError => exn
-      stderr.puts Rainbow("Gem not found: name=#{exn.name}, version=#{exn.version}").red
-      1
-    rescue SignatureOptions::NoTypeDefinitionFromGemError => exn
-      stderr.puts Rainbow("Type definition directory not found: #{exn.gemspec.name} (#{exn.gemspec.version})").red
-      1
     end
 
     def process_check
@@ -333,14 +265,18 @@ module Steep
           handle_dir_options opts, signature_options
         end.parse!(argv)
 
-        stdout.puts "Signature paths:"
-        signature_options.signature_paths.each do |path|
-          stdout.puts "  #{path}"
-        end
+        loader = Ruby::Signature::EnvironmentLoader.new
+        signature_options.setup loader: loader
 
-        stdout.puts "Library paths:"
-        signature_options.library_paths.each do |path|
-          stdout.puts "  #{path}"
+        loader.paths.each do |path|
+          case path
+          when Pathname
+            stdout.puts "#{path}"
+          when Ruby::Signature::EnvironmentLoader::GemPath
+            stdout.puts "#{path.path} (gem, name=#{path.name}, version=#{path.version})"
+          when Ruby::Signature::EnvironmentLoader::LibraryPath
+            stdout.puts "#{path.path} (library, name=#{path.name})"
+          end
         end
 
         0
