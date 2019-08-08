@@ -16,6 +16,17 @@ module Steep
       @factory = factory
     end
 
+    class SyntaxError < StandardError
+      attr_reader :source
+      attr_reader :location
+
+      def initialize(source:, location:, exn: nil)
+        @source = source
+        @location = location
+        super "Syntax error on annotation: `#{source}`, cause=#{exn.inspect}"
+      end
+    end
+
     TYPE = /(?<type>.*)/
     COLON = /\s*:\s*/
 
@@ -148,6 +159,9 @@ module Steep
           AST::Annotation::Implements.new(name: name, location: location)
         end
       end
+
+    rescue Ruby::Signature::Parser::SyntaxError, Ruby::Signature::Parser::SemanticsError => exn
+      raise SyntaxError.new(source: src, location: location, exn: exn)
     end
   end
 end

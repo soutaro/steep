@@ -159,4 +159,15 @@ class AnnotationParsingTest < Minitest::Test
       assert_equal parse_type("Integer", factory: factory), annot.type
     end
   end
+
+  def test_annotation_syntax_error
+    with_factory do |factory|
+      exn = assert_raises AnnotationParser::SyntaxError do
+        parse_annotation("@type break: Array<Integer.class>", factory: factory)
+      end
+
+      assert_equal "@type break: Array<Integer.class>", exn.source
+      assert_instance_of Ruby::Signature::Parser::SyntaxError, exn.cause
+    end
+  end
 end
