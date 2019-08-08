@@ -72,7 +72,7 @@ ARGV.each do |arg|
   builtin = Pathname(__dir__) + "../stdlib"
   begin
     options = Steep::CLI::SignatureOptions.new
-    options << dir
+    options.add path: dir
     driver = Steep::Drivers::Check.new(source_paths: rb_files,
                                        signature_options: options,
                                        stdout: stdout,
