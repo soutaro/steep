@@ -228,7 +228,24 @@ module Steep
           end
         end
 
+        def expand_alias(type)
+          unfolded = case type
+                     when AST::Types::Name::Alias
+                       unfolded = unfold(type.name)
+                     else
+                       type
+                     end
+
+          if block_given?
+            yield unfolded
+          else
+            unfolded
+          end
+        end
+
         def interface(type, private:, self_type: type)
+          type = expand_alias(type)
+
           case type
           when Name::Instance
             Interface::Interface.new(type: self_type, private: private).tap do |interface|

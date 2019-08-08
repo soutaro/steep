@@ -2707,16 +2707,8 @@ module Steep
       end
     end
 
-    def expand_alias(type)
-      if type
-        expanded = checker.expand_alias(type)
-      end
-
-      if block_given?
-        yield expanded, type
-      else
-        expanded
-      end
+    def expand_alias(type, &block)
+      checker.factory.expand_alias(type, &block)
     end
 
     def test_literal_type(literal, hint)
