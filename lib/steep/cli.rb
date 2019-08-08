@@ -132,6 +132,9 @@ module Steep
 
     def with_signature_options
       yield SignatureOptions.new
+    rescue Ruby::Signature::EnvironmentLoader::UnknownLibraryNameError => exn
+      stderr.puts "UnknownLibraryNameError: library=#{exn.name}"
+      1
     end
 
     def process_check
