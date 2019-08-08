@@ -14,15 +14,14 @@ Gem::Specification.new do |spec|
   spec.homepage      = "https://github.com/soutaro/steep"
   spec.license       = 'MIT'
 
-  spec.files         = `git ls-files -z`.split("\x0").reject do |f|
+  spec.files         = `git ls-files -z`.split("\x0").reject {|f|
     f.match(%r{^(test|spec|features)/})
-  end
-  spec.files         << "lib/steep/parser.rb"
-  spec.files         = Dir.chdir "vendor/ruby-signature" do
+  } + Dir.chdir("vendor/ruby-signature") {
     `git ls-files -z`.split("\x0")
       .reject {|f| f.match(%r{^(test|spec|features)/}) }
       .map {|f| File.join("vendor/ruby-signature", f) }
-  end
+  }
+  spec.files         << "lib/steep/parser.rb"
 
   spec.bindir        = "exe"
   spec.executables   = spec.files.grep(%r{^exe/}) { |f| File.basename(f) }
