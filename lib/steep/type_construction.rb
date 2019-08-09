@@ -1025,11 +1025,7 @@ module Steep
           end
 
         when :self
-          if self_type
-            typing.add_typing(node, self_type)
-          else
-            fallback_to_any node
-          end
+          typing.add_typing node, AST::Types::Self.new
 
         when :const
           const_name = Names::Module.from_node(node)

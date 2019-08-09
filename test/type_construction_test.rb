@@ -1978,6 +1978,29 @@ a.gen(*b)
     end
   end
 
+  def test_self
+    with_checker <<-EOF do |checker|
+class Hoge
+  def foo: () -> self
+end
+    EOF
+
+      source = parse_ruby(<<-'EOF')
+class Hoge
+  def foo
+    self
+  end
+end
+      EOF
+
+      with_standard_construction(checker, source) do |construction, typing|
+        construction.synthesize(source.node)
+
+        assert_empty typing.errors
+      end
+    end
+  end
+
   def test_void
     with_checker <<-EOF do |checker|
 class Hoge
