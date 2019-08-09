@@ -2024,6 +2024,86 @@ end
     end
   end
 
+  def test_self_subtype
+    with_checker <<-EOF do |checker|
+class Hoge
+  def foo: () -> void
+end
+    EOF
+
+      source = parse_ruby(<<-'EOF')
+class Hoge
+  def foo
+    # @type var x: Hoge
+    x = self
+  end
+end
+      EOF
+
+      with_standard_construction(checker, source) do |construction, typing|
+        construction.synthesize(source.node)
+
+        assert_empty typing.errors
+      end
+    end
+  end
+
+  def test_self_subtype_poly
+    with_checker <<-EOF do |checker|
+class Hoge
+  def foo: () -> self
+end
+
+class Huga < Hoge
+  def bar: -> void
+end
+
+    EOF
+
+      source = parse_ruby(<<-'EOF')
+class Huga < Hoge
+  def bar
+    foo.bar
+  end
+end
+      EOF
+
+      with_standard_construction(checker, source) do |construction, typing|
+        construction.synthesize(source.node)
+
+        assert_empty typing.errors
+      end
+    end
+  end
+
+  def test_self_subtype_error
+    with_checker <<-EOF do |checker|
+class Hoge
+  def foo: () -> self
+end
+
+class Huga < Hoge
+  def bar: -> void
+end
+
+    EOF
+
+      source = parse_ruby(<<-'EOF')
+class Hoge
+  def foo
+    Hoge.new
+  end
+end
+      EOF
+
+      with_standard_construction(checker, source) do |construction, typing|
+        construction.synthesize(source.node)
+
+        refute_empty typing.errors
+      end
+    end
+  end
+
   def test_void
     with_checker <<-EOF do |checker|
 class Hoge

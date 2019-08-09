@@ -109,6 +109,17 @@ module Steep
       )
     end
 
+    def check_relation(sub_type:, super_type:, constraints: Subtyping::Constraints.empty)
+      if sub_type == super_type
+        return Subtyping::Result::Success.new(constraints: constraints)
+      end
+
+      sub_type = expand_self(sub_type)
+      super_type = super_type
+
+      checker.check(Subtyping::Relation.new(sub_type: sub_type, super_type: super_type), constraints: constraints)
+    end
+
     def for_new_method(method_name, node, args:, self_type:, definition:)
       annots = source.annotations(block: node, factory: checker.factory, current_module: current_namespace)
       type_env = TypeInference::TypeEnv.new(subtyping: checker,
@@ -131,9 +142,7 @@ module Steep
       method_type = annotation_method_type || definition_method_type
 
       if annots&.return_type && method_type&.return_type
-        return_type_relation = Subtyping::Relation.new(sub_type: annots.return_type,
-                                                       super_type: method_type.return_type)
-        checker.check(return_type_relation, constraints: Subtyping::Constraints.empty).else do |result|
+        check_relation(sub_type: annots.return_type, super_type: method_type.return_type).else do |result|
           typing.add_error Errors::MethodReturnTypeAnnotationMismatch.new(node: node,
                                                                           method_type: method_type.return_type,
                                                                           annotation_type: annots.return_type,
@@ -196,6 +205,7 @@ module Steep
         lvar_types: annots.lvar_types,
         ivar_types: annots.ivar_types,
         const_types: annots.const_types,
+        self_type: annots.self_type || self_type
       )
 
       self.class.new(
@@ -423,12 +433,12 @@ module Steep
           env[var] = type
         end
       end
-      type_env = type_env.with_annotations(lvar_types: lvar_types) do |var, relation, result|
+      type_env = type_env.with_annotations(lvar_types: lvar_types, self_type: self_type) do |var, relation, result|
         raise "Unexpected annotate failure: #{relation}"
       end
 
       if type_case_override
-        type_env = type_env.with_annotations(lvar_types: type_case_override) do |var, relation, result|
+        type_env = type_env.with_annotations(lvar_types: type_case_override, self_type: self_type) do |var, relation, result|
           typing.add_error(
             Errors::IncompatibleTypeCase.new(node: node,
                                              var_name: var,
@@ -442,7 +452,8 @@ module Steep
         lvar_types: annots.lvar_types,
         ivar_types: annots.ivar_types,
         const_types: annots.const_types,
-        gvar_types: {}
+        gvar_types: {},
+        self_type: self_type
       ) do |var, relation, result|
         typing.add_error(
           Errors::IncompatibleAnnotation.new(node: node,
@@ -610,10 +621,7 @@ module Steep
                                                   block_body: nil,
                                                   topdown_hint: true)
 
-                result = checker.check(
-                  Subtyping::Relation.new(sub_type: return_type, super_type: lhs_type),
-                  constraints: Subtyping::Constraints.empty
-                )
+                result = check_relation(sub_type: return_type, super_type: lhs_type)
                 if result.failure?
                   typing.add_error(
                     Errors::IncompatibleAssignment.new(
@@ -625,7 +633,7 @@ module Steep
                   )
                 end
               else
-                typing.add_error Errors::NoMethod.new(node: node, method: op, type: lhs_type)
+                typing.add_error Errors::NoMethod.new(node: node, method: op, type: expand_self(lhs_type))
               end
 
               typing.add_typing(node, lhs_type)
@@ -703,10 +711,7 @@ module Steep
           else
             return_type = expand_alias(new.method_context&.return_type)
             if return_type && !return_type.is_a?(AST::Types::Void)
-              result = checker.check(
-                Subtyping::Relation.new(sub_type: AST::Builtin.nil_type, super_type: return_type),
-                constraints: Subtyping::Constraints.empty
-              )
+              result = check_relation(sub_type: AST::Builtin.nil_type, super_type: return_type)
               if result.failure?
                 typing.add_error(Errors::MethodBodyTypeMismatch.new(node: node,
                                                                     expected: new.method_context&.return_type,
@@ -724,6 +729,7 @@ module Steep
 
         when :defs
           synthesize(node.children[0]).tap do |self_type|
+            self_type = expand_self(self_type)
             definition = case self_type
                          when AST::Types::Name::Instance
                            name = checker.factory.type_name_1(self_type.name)
@@ -781,11 +787,7 @@ module Steep
 
               if (ret_type = expand_alias(method_context&.return_type))
                 unless ret_type.is_a?(AST::Types::Void)
-                  result = checker.check(
-                    Subtyping::Relation.new(sub_type: value_type,
-                                            super_type: ret_type),
-                    constraints: Subtyping::Constraints.empty
-                  )
+                  result = check_relation(sub_type: value_type, super_type: ret_type)
 
                   if result.failure?
                     typing.add_error(Errors::ReturnTypeMismatch.new(node: node,
@@ -1043,7 +1045,7 @@ module Steep
             const_name = Names::Module.from_node(node)
             if const_name
               value_type = synthesize(node.children.last)
-              type = type_env.assign(const: const_name, type: value_type) do |error|
+              type = type_env.assign(const: const_name, type: value_type, self_type: self_type) do |error|
                 case error
                 when Subtyping::Result::Failure
                   const_type = type_env.get(const: const_name)
@@ -1117,11 +1119,8 @@ module Steep
               typing.add_error Errors::FallbackAny.new(node: node) unless hint
 
               array_type = if hint
-                             relation = Subtyping::Relation.new(
-                               sub_type: AST::Builtin::Array.instance_type(AST::Builtin.any_type),
-                               super_type: hint
-                             )
-                             if checker.check(relation, constraints: Subtyping::Constraints.empty).success?
+                             if check_relation(sub_type: AST::Builtin::Array.instance_type(AST::Builtin.any_type),
+                                               super_type: hint).success?
                                hint
                              end
                            end
@@ -1138,8 +1137,7 @@ module Steep
                   child_node = node.children[index]
                   [synthesize(child_node, hint: child_type), child_type]
                 end.all? do |node_type, hint_type|
-                  relation = Subtyping::Relation.new(sub_type: node_type, super_type: hint_type)
-                  result = checker.check(relation, constraints: Subtyping::Constraints.empty)
+                  result = check_relation(sub_type: node_type, super_type: hint_type)
                   result.success?
                 end
               end
@@ -1543,10 +1541,7 @@ module Steep
     def check(node, type, constraints: Subtyping::Constraints.empty)
       type_ = synthesize(node, hint: type)
 
-      result = checker.check(
-        Subtyping::Relation.new(sub_type: type_, super_type: type),
-        constraints: constraints
-      )
+      result = check_relation(sub_type: type_, super_type: type)
       if result.failure?
         yield(type, type_, result)
       end
@@ -1572,7 +1567,7 @@ module Steep
 
     def assign_type_to_variable(var, type, node)
       name = var.name
-      type_env.assign(lvar: name, type: type) do |result|
+      type_env.assign(lvar: name, type: type, self_type: self_type) do |result|
         var_type = type_env.get(lvar: name)
         typing.add_error(Errors::IncompatibleAssignment.new(node: node,
                                                             lhs_type: var_type,
@@ -1582,8 +1577,8 @@ module Steep
     end
 
     def type_ivasgn(name, rhs, node)
-      rhs_type = synthesize(rhs, hint: type_env.get(ivar: name) {fallback_to_any(node)})
-      ivar_type = type_env.assign(ivar: name, type: rhs_type) do |error|
+      rhs_type = synthesize(rhs, hint: type_env.get(ivar: name) { fallback_to_any(node) })
+      ivar_type = type_env.assign(ivar: name, type: rhs_type, self_type: self_type) do |error|
         case error
         when Subtyping::Result::Failure
           type = type_env.get(ivar: name)
@@ -1624,7 +1619,7 @@ module Steep
           case
           when asgn.type == :lvasgn && asgn.children[0].name != :_
             type ||= AST::Builtin.nil_type
-            type_env.assign(lvar: asgn.children[0].name, type: type) do |result|
+            type_env.assign(lvar: asgn.children[0].name, type: type, self_type: self_type) do |result|
               var_type = type_env.get(lvar: asgn.children[0].name)
               typing.add_error(Errors::IncompatibleAssignment.new(node: node,
                                                                   lhs_type: var_type,
@@ -1657,7 +1652,7 @@ module Steep
             assign_type_to_variable(assignment.children.first, element_type, assignment)
           when :ivasgn
             assignment.children.first.yield_self do |ivar|
-              type_env.assign(ivar: ivar, type: element_type) do |error|
+              type_env.assign(ivar: ivar, type: element_type, self_type: self_type) do |error|
                 case error
                 when Subtyping::Result::Failure
                   type = type_env.get(ivar: ivar)
@@ -1754,14 +1749,14 @@ module Steep
 
                     when AST::Types::Void, AST::Types::Bot, AST::Types::Top
                       fallback_to_any node do
-                        Errors::NoMethod.new(node: node, method: method_name, type: receiver_type)
+                        Errors::NoMethod.new(node: node, method: method_name, type: expand_self(receiver_type))
                       end
 
                     else
                       begin
                         interface = checker.factory.interface(receiver_type,
                                                               private: !receiver,
-                                                              self_type: receiver_type.is_a?(AST::Types::Self) ? self_type : receiver_type)
+                                                              self_type: expand_self(receiver_type))
 
                         method = interface.methods[method_name]
 
@@ -1779,7 +1774,7 @@ module Steep
                           typing.add_typing node, return_type
                         else
                           fallback_to_any node do
-                            Errors::NoMethod.new(node: node, method: method_name, type: receiver_type)
+                            Errors::NoMethod.new(node: node, method: method_name, type: expand_self(receiver_type))
                           end
                         end
                       rescue => exn
@@ -1789,7 +1784,7 @@ module Steep
                         end
 
                         fallback_to_any node do
-                          Errors::NoMethod.new(node: node, method: method_name, type: receiver_type)
+                          Errors::NoMethod.new(node: node, method: method_name, type: expand_self(receiver_type))
                         end
                       end
                     end
@@ -1871,6 +1866,14 @@ module Steep
         self_type: block_annotations.self_type || self_type,
         break_context: break_context
       ), return_type]
+    end
+
+    def expand_self(type)
+      if type.is_a?(AST::Types::Self) && self_type
+        self_type
+      else
+        type
+      end
     end
 
     def type_method_call(node, method_name:, receiver_type:, method:, args:, block_params:, block_body:, topdown_hint:)
@@ -2007,14 +2010,14 @@ module Steep
                      end
             else
               typing.add_error Errors::UnresolvedOverloading.new(node: node,
-                                                                 receiver_type: receiver_type,
+                                                                 receiver_type: expand_self(receiver_type),
                                                                  method_name: method_name,
                                                                  method_types: method.types)
               type = AST::Builtin.any_type
             end
 
             [type, result]
-          else  # Type
+          else # Type
             [result, nil]
           end
         end
@@ -2136,17 +2139,12 @@ module Steep
 
         node_type = synthesize(node, hint: hash_type)
 
-        relation = Subtyping::Relation.new(
-          sub_type: node_type,
-          super_type: hash_type
-        )
-
-        checker.check(relation, constraints: constraints).else do
+        check_relation(sub_type: node_type, super_type: hash_type).else do
           return Errors::ArgumentTypeMismatch.new(
             node: node,
             receiver_type: receiver_type,
-            expected: relation.super_type,
-            actual: relation.sub_type
+            expected: hash_type,
+            actual: node_type
           )
         end
       end
@@ -2191,17 +2189,12 @@ module Steep
                          construction.synthesize(arg_node, hint: topdown_hint ? param_type : nil)
                        end
 
-            relation = Subtyping::Relation.new(
-              sub_type: arg_type,
-              super_type: param_type
-            )
-
-            checker.check(relation, constraints: constraints).else do |result|
+            check_relation(sub_type: arg_type, super_type: param_type, constraints: constraints).else do |result|
               return Errors::ArgumentTypeMismatch.new(
                 node: arg_node,
                 receiver_type: receiver_type,
-                expected: relation.super_type,
-                actual: relation.sub_type
+                expected: param_type,
+                actual: arg_type
               )
             end
           else
@@ -2224,12 +2217,9 @@ module Steep
             hint: topdown_hint ? method_type.block.type.params : nil
           )
 
-          relation = Subtyping::Relation.new(
-            sub_type: AST::Types::Proc.new(params: block_param_hint, return_type: AST::Types::Any.new),
-            super_type: method_type.block.type
-          )
-
-          checker.check(relation, constraints: constraints).else do |result|
+          check_relation(sub_type: AST::Types::Proc.new(params: block_param_hint, return_type: AST::Types::Any.new),
+                         super_type: method_type.block.type,
+                         constraints: constraints).else do |result|
             return Errors::IncompatibleBlockParameters.new(
               node: node,
               method_type: method_type
@@ -2252,10 +2242,9 @@ module Steep
                                                    block_annotations: block_annotations,
                                                    topdown_hint: topdown_hint)
 
-              relation = Subtyping::Relation.new(sub_type: block_type.return_type,
-                                                 super_type: method_type.block.type.return_type)
-
-              result = checker.check(relation, constraints: constraints)
+              result = check_relation(sub_type: block_type.return_type,
+                                      super_type: method_type.block.type.return_type,
+                                      constraints: constraints)
 
               case result
               when Subtyping::Result::Success
@@ -2289,15 +2278,17 @@ module Steep
             method_type.subst(constraints.solution(checker, variance: variance, variables: occurence.params)).yield_self do |method_type|
               block_type = synthesize(args.block_pass_arg,
                                       hint: topdown_hint ? method_type.block.type : nil)
-              relation = Subtyping::Relation.new(sub_type: block_type,
-                                                 super_type: method_type.block.yield_self do |expected_block|
-                                                   if expected_block.optional?
-                                                     AST::Builtin.optional(expected_block.type)
-                                                   else
-                                                     expected_block.type
-                                                   end
-                                                 end)
-              result = checker.check(relation, constraints: constraints)
+              result = check_relation(
+                sub_type: block_type,
+                super_type: method_type.block.yield_self {|expected_block|
+                  if expected_block.optional?
+                    AST::Builtin.optional(expected_block.type)
+                  else
+                    expected_block.type
+                  end
+                },
+                constraints: constraints
+              )
 
               case result
               when Subtyping::Result::Success
@@ -2721,10 +2712,7 @@ module Steep
 
     def select_super_type(sub_type, super_type)
       if super_type
-        result = checker.check(
-          Subtyping::Relation.new(sub_type: sub_type, super_type: super_type),
-          constraints: Subtyping::Constraints.empty
-        )
+        result = check_relation(sub_type: sub_type, super_type: super_type)
 
         if result.success?
           super_type
@@ -2776,8 +2764,7 @@ module Steep
               value_type = new_construction.synthesize(value, hint: value_hint)
 
               if value_hint
-                relation = Subtyping::Relation.new(sub_type: value_type, super_type: value_hint)
-                if checker.check(relation, constraints: Subtyping::Constraints.empty).success?
+                if check_relation(sub_type: value_type, super_type: value_hint).success?
                   value_type = value_hint
                 end
               end
