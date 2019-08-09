@@ -1737,16 +1737,13 @@ module Steep
 
     def type_send(node, send_node:, block_params:, block_body:, unwrap: false)
       receiver, method_name, *arguments = send_node.children
-      receiver_type = receiver ? synthesize(receiver) : self_type
+      receiver_type = receiver ? synthesize(receiver) : AST::Types::Self.new
 
       if unwrap
         receiver_type = unwrap(receiver_type)
       end
 
       receiver_type = expand_alias(receiver_type)
-      if receiver_type.is_a?(AST::Types::Self)
-        receiver_type = self_type
-      end
 
       return_type = case receiver_type
                     when AST::Types::Any
@@ -1762,7 +1759,9 @@ module Steep
 
                     else
                       begin
-                        interface = checker.factory.interface(receiver_type, private: !receiver)
+                        interface = checker.factory.interface(receiver_type,
+                                                              private: !receiver,
+                                                              self_type: receiver_type.is_a?(AST::Types::Self) ? self_type : receiver_type)
 
                         method = interface.methods[method_name]
 
