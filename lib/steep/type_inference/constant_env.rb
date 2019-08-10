@@ -34,7 +34,7 @@ module Steep
             factory.type(constant.type)
           end
         rescue => exn
-          Steep.logger.warn "Looking up a constant failed: name=#{name}, context=#{context}, error=#{exn.inspect}"
+          Steep.logger.error "Looking up a constant failed: name=#{name}, context=#{context}, error=#{exn.inspect}"
           nil
         end
       end
