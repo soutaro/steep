@@ -195,15 +195,18 @@ class TypeFactoryTest < Minitest::Test
   def test_method_type
     with_factory do |factory|
       factory.method_type(parse_method_type("[A] (A) { (A, B) -> nil } -> void")).yield_self do |type|
-        assert_equal "[A] (A) { (A, B) -> nil } -> void", type.to_s
+        a = type.type_params[0]
+        assert_equal "[#{a}] (#{a}) { (#{a}, B) -> nil } -> void", type.to_s
       end
 
       factory.method_type(parse_method_type("[A] (A) -> void")).yield_self do |type|
-        assert_equal "[A] (A) -> void", type.to_s
+        a = type.type_params[0]
+        assert_equal "[#{a}] (#{a}) -> void", type.to_s
       end
 
       factory.method_type(parse_method_type("[A] () ?{ () -> A } -> void")).yield_self do |type|
-        assert_equal "[A] () ?{ () -> A } -> void", type.to_s
+        a = type.type_params[0]
+        assert_equal "[#{a}] () ?{ () -> #{a} } -> void", type.to_s
       end
     end
   end
@@ -272,7 +275,7 @@ FOO
           assert_instance_of Steep::Interface::Interface, interface
           assert_equal type, interface.type
 
-          assert_equal "{ [X] () -> ::People[X] | any }", interface.methods[:new].to_s
+          assert_match /\{ \[X\(\d+\)\] \(\) -> ::People\[X\(\d+\)\] \| any \}/, interface.methods[:new].to_s
           assert_equal "{ () -> ::Array[::People[::String]] }", interface.methods[:all].to_s
           assert_equal "{ () -> ::People[any] }", interface.methods[:instance].to_s
           assert_equal "{ () -> singleton(::People) }", interface.methods[:itself].to_s
@@ -289,7 +292,11 @@ FOO
           assert_equal type, interface.type
 
           assert_equal "{ (::Integer) -> ::Integer | (::Numeric) -> ::Numeric }", interface.methods[:+].to_s
-          assert_equal "{ [X] () { (3) -> X } -> X }", interface.methods[:yield_self].to_s
+          interface.methods[:yield_self].tap do |method|
+            assert_operator method, :overload?
+            x = method.types[0].type_params[0]
+            assert_equal "{ [#{x}] () { (3) -> #{x} } -> #{x} }", method.to_s
+          end
         end
       end
     end
@@ -452,6 +459,25 @@ end
       factory.type(parse_type("Baz")).tap do |type|
         factory.absolute_type(type, namespace: Steep::AST::Namespace.parse("::Foo")) do |absolute_type|
           assert_equal factory.type(parse_type("::Baz")), absolute_type
+        end
+      end
+    end
+  end
+
+  def test_variable_rename
+    with_factory "foo.rbi" => <<-EOF do |factory|
+class Hello[X]
+  def foo: [Y] (X, Y) -> void
+end
+    EOF
+
+      factory.type(parse_type("::Hello[::Array[Y]]", variables: [:Y])).tap do |type|
+        factory.interface(type, private: true).yield_self do |interface|
+          assert_instance_of Steep::Interface::Interface, interface
+          assert_equal type, interface.type
+
+          method = interface.methods[:foo]
+          assert_match /\{ \[Y\(\d+\)\] \(::Array\[Y\], Y\(\d+\)\) -> void \}/, method.to_s
         end
       end
     end

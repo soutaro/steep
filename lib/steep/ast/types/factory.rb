@@ -189,15 +189,19 @@ module Steep
         def method_type(method_type)
           case method_type
           when Ruby::Signature::MethodType
+            new_vars = method_type.type_params.map {|x| AST::Types::Var.fresh(x) }
+            subst = Interface::Substitution.build(method_type.type_params, new_vars)
+
             type = Interface::MethodType.new(
-              type_params: method_type.type_params,
-              return_type: type(method_type.type.return_type),
-              params: params(method_type.type),
+              type_params: new_vars.map(&:name),
+              return_type: type(method_type.type.return_type).subst(subst),
+              params: params(method_type.type).subst(subst),
               location: nil,
               block: method_type.block&.yield_self do |block|
                 Interface::Block.new(
                   optional: !block.required,
-                  type: Proc.new(params: params(block.type), return_type: type(block.type.return_type), location: nil)
+                  type: Proc.new(params: params(block.type).subst(subst),
+                                 return_type: type(block.type.return_type).subst(subst), location: nil)
                 )
               end
             )
@@ -275,7 +279,12 @@ module Steep
 
                 interface.methods[name] = Interface::Interface::Combination.overload(
                   method.method_types.map do |type|
-                    method_type(type) {|ty| ty.subst(subst) }
+                    case type
+                    when :any
+                      :any
+                    when Ruby::Signature::MethodType
+                      method_type(type) {|ty| ty.subst(subst) }
+                    end
                   end
                 )
               end

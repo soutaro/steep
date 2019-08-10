@@ -17,6 +17,20 @@ module Steep
         new(dictionary: {}, instance_type: AST::Types::Instance.new, module_type: AST::Types::Class.new, self_type: AST::Types::Self.new)
       end
 
+      def to_s
+        a = []
+
+        dictionary.each do |x, ty|
+          a << "#{x} -> #{ty}"
+        end
+
+        a << "[instance_type] -> #{instance_type}"
+        a << "[module_type] -> #{module_type}"
+        a << "[self_type] -> #{self_type}"
+
+        "{ #{a.join(", ")} }"
+      end
+
       def [](key)
         dictionary[key] or raise "Unknown variable: #{key}"
       end
@@ -55,6 +69,14 @@ module Steep
             raise "Duplicated key on merge!: #{key}, #{a}, #{b}"
           end
         end
+        self
+      end
+
+      def merge(s)
+        Substitution.new(dictionary: dictionary.dup,
+                         instance_type: instance_type,
+                         module_type: module_type,
+                         self_type: self_type).merge!(s)
       end
 
       def add!(v, ty)
