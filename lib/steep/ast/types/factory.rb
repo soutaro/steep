@@ -247,6 +247,12 @@ module Steep
           type = expand_alias(type)
 
           case type
+          when Self
+            if self_type != type
+              interface self_type, private: private, self_type: Self.new
+            else
+              raise "Unexpected `self` type interface"
+            end
           when Name::Instance
             Interface::Interface.new(type: self_type, private: private).tap do |interface|
               definition = definition_builder.build_instance(type_name_1(type.name))
