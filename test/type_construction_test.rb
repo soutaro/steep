@@ -2788,6 +2788,27 @@ EOF
     end
   end
 
+  def test_case_non_exhaustive2
+    with_checker do |checker|
+      source = parse_ruby(<<EOF)
+# @type var x: String | Integer
+x = ""
+
+y = case
+when 3.nil?
+  3
+end
+EOF
+
+      with_standard_construction(checker, source) do |construction, typing|
+        construction.synthesize(source.node)
+
+        assert_empty typing.errors
+        assert_equal parse_type("::Integer?"), construction.type_env.lvar_types[:y]
+      end
+    end
+  end
+
   def test_case_exhaustive
     with_checker do |checker|
       source = parse_ruby(<<EOF)

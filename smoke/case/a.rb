@@ -13,8 +13,9 @@ a = case 1
       "string"
     end
 
+# !expects IncompatibleAssignment: lhs_type=::Integer, rhs_type=(::Integer | nil)
 a = case
     # !expects* UnresolvedOverloading: receiver=::Integer, method_name=+,
     when 1+"a"
-      (_ = nil)
+      30
     end

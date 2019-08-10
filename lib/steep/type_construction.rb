@@ -1309,10 +1309,8 @@ module Steep
             types = pairs.map(&:first)
             envs = pairs.map(&:last)
 
-            if var_types
-              unless var_types.empty? || whens.last
-                types.push AST::Builtin.nil_type
-              end
+            unless var_types&.empty? || whens.last
+              types.push AST::Builtin.nil_type
             end
 
             type_env.join!(envs.compact)
