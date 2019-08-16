@@ -77,7 +77,7 @@ module Steep
                   relation = Subtyping::Relation.new(sub_type: instance_type, super_type: super_type)
                   constraints = Subtyping::Constraints.new(unknowns: [])
 
-                  result = checker.check(relation, constraints: constraints)
+                  result = checker.check(relation, self_type: AST::Types::Self.new, constraints: constraints)
 
                   if result.failure?
                     @errors << Errors::NoSubtypingInheritanceError.new(
@@ -103,7 +103,7 @@ module Steep
                   relation = Subtyping::Relation.new(sub_type: singleton_type, super_type: super_type)
                   constraints = Subtyping::Constraints.new(unknowns: [])
 
-                  result = checker.check(relation, constraints: constraints)
+                  result = checker.check(relation, self_type: AST::Types::Self.new, constraints: constraints)
 
                   if result.failure?
                     @errors << Errors::NoSubtypingInheritanceError.new(

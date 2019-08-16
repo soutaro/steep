@@ -110,14 +110,7 @@ module Steep
     end
 
     def check_relation(sub_type:, super_type:, constraints: Subtyping::Constraints.empty)
-      if sub_type == super_type
-        return Subtyping::Result::Success.new(constraints: constraints)
-      end
-
-      sub_type = expand_self(sub_type)
-      super_type = super_type
-
-      checker.check(Subtyping::Relation.new(sub_type: sub_type, super_type: super_type), constraints: constraints)
+      checker.check(Subtyping::Relation.new(sub_type: sub_type, super_type: super_type), self_type: self_type, constraints: constraints)
     end
 
     def for_new_method(method_name, node, args:, self_type:, definition:)
@@ -2231,7 +2224,7 @@ module Steep
           Steep.logger.debug "Constraints = #{constraints}"
 
           begin
-            method_type.subst(constraints.solution(checker, variance: variance, variables: occurence.params)).yield_self do |method_type|
+            method_type.subst(constraints.solution(checker, self_type: self_type, variance: variance, variables: occurence.params)).yield_self do |method_type|
               block_type = construction.type_block(block_param_hint: method_type.block.type.params,
                                                    block_type_hint: method_type.block.type.return_type,
                                                    node_type_hint: method_type.return_type,
@@ -2246,7 +2239,7 @@ module Steep
 
               case result
               when Subtyping::Result::Success
-                method_type.return_type.subst(constraints.solution(checker, variance: variance, variables: fresh_vars)).yield_self do |ret_type|
+                method_type.return_type.subst(constraints.solution(checker, self_type: self_type, variance: variance, variables: fresh_vars)).yield_self do |ret_type|
                   if block_annotations.break_type
                     AST::Types::Union.new(types: [block_annotations.break_type, ret_type])
                   else
@@ -2273,7 +2266,7 @@ module Steep
 
         when method_type.block && args.block_pass_arg
           begin
-            method_type.subst(constraints.solution(checker, variance: variance, variables: occurence.params)).yield_self do |method_type|
+            method_type.subst(constraints.solution(checker, self_type: self_type, variance: variance, variables: occurence.params)).yield_self do |method_type|
               block_type = synthesize(args.block_pass_arg,
                                       hint: topdown_hint ? method_type.block.type : nil)
               result = check_relation(
@@ -2290,7 +2283,7 @@ module Steep
 
               case result
               when Subtyping::Result::Success
-                method_type.return_type.subst(constraints.solution(checker, variance: variance, variables: fresh_vars))
+                method_type.return_type.subst(constraints.solution(checker, self_type: self_type, variance: variance, variables: fresh_vars))
 
               when Subtyping::Result::Failure
                 Errors::BlockTypeMismatch.new(node: node,
@@ -2311,7 +2304,7 @@ module Steep
 
         when (!method_type.block || method_type.block.optional?) && !block_params && !block_body && !args.block_pass_arg
           # OK, without block
-          method_type.subst(constraints.solution(checker, variance: variance, variables: fresh_vars)).return_type
+          method_type.subst(constraints.solution(checker, variance: variance, variables: fresh_vars, self_type: self_type)).return_type
 
         when !method_type.block && (block_params || args.block_pass_arg)
           Errors::UnexpectedBlockGiven.new(

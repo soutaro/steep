@@ -198,24 +198,16 @@ module Steep
         end
       end
 
-      def expand_self(type, self_type:)
-        if type.is_a?(AST::Types::Self)
-          self_type
-        else
-          type
-        end
-      end
-
       def assert_assign(var_type:, lhs_type:, self_type:)
         return var_type if var_type == lhs_type
 
         var_type = subtyping.expand_alias(var_type)
-        lhs_type = expand_self subtyping.expand_alias(lhs_type), self_type: self_type
+        lhs_type = subtyping.expand_alias(lhs_type)
 
         relation = Subtyping::Relation.new(sub_type: lhs_type, super_type: var_type)
         constraints = Subtyping::Constraints.new(unknowns: Set.new)
 
-        subtyping.check(relation, constraints: constraints).else do |result|
+        subtyping.check(relation, self_type: self_type, constraints: constraints).else do |result|
           yield result
         end
 
@@ -231,13 +223,13 @@ module Steep
       def assert_annotation(name, annotated_type:, original_type:, self_type:)
         return annotated_type if annotated_type == original_type
 
-        annotated_type = expand_self subtyping.expand_alias(annotated_type), self_type: self_type
+        annotated_type = subtyping.expand_alias(annotated_type)
         original_type = subtyping.expand_alias(original_type)
 
         relation = Subtyping::Relation.new(sub_type: annotated_type, super_type: original_type)
         constraints = Subtyping::Constraints.new(unknowns: Set.new)
 
-        subtyping.check(relation, constraints: constraints).else do |result|
+        subtyping.check(relation, constraints: constraints, self_type: self_type).else do |result|
           yield name, relation, result
         end
 

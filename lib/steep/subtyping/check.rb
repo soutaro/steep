@@ -9,10 +9,10 @@ module Steep
         @cache = {}
       end
 
-      def check(relation, constraints:, assumption: Set.new, trace: Trace.new)
+      def check(relation, constraints:, self_type:, assumption: Set.new, trace: Trace.new)
         Steep.logger.tagged "#{relation.sub_type} <: #{relation.super_type}" do
           prefix = trace.size
-          cached = cache[relation]
+          cached = cache[[relation, self_type]]
           if cached && constraints.empty?
             if cached.success?
               cached
@@ -23,14 +23,14 @@ module Steep
             if assumption.member?(relation)
               success(constraints: constraints)
             else
-              assumption = assumption + Set.new([relation])
-              check0(relation, assumption: assumption, trace: trace, constraints: constraints).tap do |result|
+              assumption = assumption + Set[relation]
+              check0(relation, self_type: self_type, assumption: assumption, trace: trace, constraints: constraints).tap do |result|
                 result = result.else do |failure|
                   failure.drop(prefix)
                 end
 
                 Steep.logger.debug "result=#{result.class}"
-                cache[relation] = result if cacheable?(relation)
+                cache[[relation, self_type]] = result if cacheable?(relation)
               end
             end
           end
@@ -53,7 +53,7 @@ module Steep
         Result::Failure.new(error: error, trace: trace)
       end
 
-      def check0(relation, assumption:, trace:, constraints:)
+      def check0(relation, self_type:, assumption:, trace:, constraints:)
         # puts relation
         trace.type(relation.sub_type, relation.super_type) do
           case
@@ -75,9 +75,19 @@ module Steep
           when relation.super_type.is_a?(AST::Types::Boolean)
             success(constraints: constraints)
 
+          when relation.sub_type.is_a?(AST::Types::Self) && !self_type.is_a?(AST::Types::Self)
+            check0(
+              Relation.new(sub_type: self_type, super_type: relation.super_type),
+              self_type: self_type,
+              assumption: assumption,
+              trace: trace,
+              constraints: constraints
+            )
+
           when alias?(relation.sub_type)
             check0(
               Relation.new(sub_type: expand_alias(relation.sub_type), super_type: relation.super_type),
+              self_type: self_type,
               assumption: assumption,
               trace: trace,
               constraints: constraints
@@ -86,6 +96,7 @@ module Steep
           when alias?(relation.super_type)
             check0(
               Relation.new(super_type: expand_alias(relation.super_type), sub_type: relation.sub_type),
+              self_type: self_type,
               assumption: assumption,
               trace: trace,
               constraints: constraints
@@ -94,6 +105,7 @@ module Steep
           when relation.sub_type.is_a?(AST::Types::Literal)
             check0(
               Relation.new(sub_type: relation.sub_type.back_type, super_type: relation.super_type),
+              self_type: self_type,
               assumption: assumption,
               trace: trace,
               constraints: constraints
@@ -102,6 +114,7 @@ module Steep
           when relation.sub_type.is_a?(AST::Types::Union)
             results = relation.sub_type.types.map do |sub_type|
               check0(Relation.new(sub_type: sub_type, super_type: relation.super_type),
+                     self_type: self_type,
                      assumption: assumption,
                      trace: trace,
                      constraints: constraints)
@@ -116,6 +129,7 @@ module Steep
           when relation.super_type.is_a?(AST::Types::Union)
             results = relation.super_type.types.map do |super_type|
               check0(Relation.new(sub_type: relation.sub_type, super_type: super_type),
+                     self_type: self_type,
                      assumption: assumption,
                      trace: trace,
                      constraints: constraints)
@@ -126,6 +140,7 @@ module Steep
           when relation.sub_type.is_a?(AST::Types::Intersection)
             results = relation.sub_type.types.map do |sub_type|
               check0(Relation.new(sub_type: sub_type, super_type: relation.super_type),
+                     self_type: self_type,
                      assumption: assumption,
                      trace: trace,
                      constraints: constraints)
@@ -136,6 +151,7 @@ module Steep
           when relation.super_type.is_a?(AST::Types::Intersection)
             results = relation.super_type.types.map do |super_type|
               check0(Relation.new(sub_type: relation.sub_type, super_type: super_type),
+                     self_type: self_type,
                      assumption: assumption,
                      trace: trace,
                      constraints: constraints)
@@ -167,6 +183,7 @@ module Steep
                 end
               end.map do |relation|
                 check0(relation,
+                       self_type: self_type,
                        assumption: assumption,
                        trace: trace,
                        constraints: constraints)
@@ -181,16 +198,18 @@ module Steep
               sub_interface = factory.interface(relation.sub_type, private: false)
               super_interface = factory.interface(relation.super_type, private: false)
 
-              check_interface(sub_interface, super_interface, assumption: assumption, trace: trace, constraints: constraints)
+              check_interface(sub_interface, super_interface, self_type: self_type, assumption: assumption, trace: trace, constraints: constraints)
             end
 
           when relation.sub_type.is_a?(AST::Types::Proc) && relation.super_type.is_a?(AST::Types::Proc)
             check_method_params(:__proc__,
                                 relation.sub_type.params, relation.super_type.params,
+                                self_type: self_type,
                                 assumption: assumption,
                                 trace: trace,
                                 constraints: constraints).then do
               check0(Relation.new(sub_type: relation.sub_type.return_type, super_type: relation.super_type.return_type),
+                     self_type: self_type,
                      assumption: assumption,
                      trace: trace,
                      constraints: constraints)
@@ -201,8 +220,8 @@ module Steep
               pairs = relation.sub_type.types.take(relation.super_type.types.size).zip(relation.super_type.types)
               results = pairs.flat_map do |t1, t2|
                 relation = Relation.new(sub_type: t1, super_type: t2)
-                [check0(relation, assumption: assumption, trace: trace, constraints: constraints),
-                 check0(relation.flip, assumption: assumption, trace: trace, constraints: constraints)]
+                [check0(relation, self_type: self_type, assumption: assumption, trace: trace, constraints: constraints),
+                 check0(relation.flip, self_type: self_type, assumption: assumption, trace: trace, constraints: constraints)]
               end
 
               if results.all?(&:success?)
@@ -221,6 +240,7 @@ module Steep
 
             check_interface(tuple_interface,
                             type_interface,
+                            self_type: self_type,
                             assumption: assumption,
                             trace: trace,
                             constraints: constraints)
@@ -231,8 +251,8 @@ module Steep
               type_pairs = keys.map {|key| [relation.sub_type.elements[key], relation.super_type.elements[key]] }
               results = type_pairs.flat_map do |t1, t2|
                 relation = Relation.new(sub_type: t1, super_type: t2)
-                [check0(relation, assumption: assumption, trace: trace, constraints: constraints),
-                 check0(relation.flip, assumption: assumption, trace: trace, constraints: constraints)]
+                [check0(relation, self_type: self_type, assumption: assumption, trace: trace, constraints: constraints),
+                 check0(relation.flip, self_type: self_type, assumption: assumption, trace: trace, constraints: constraints)]
               end
 
               if results.all?(&:success?)
@@ -251,6 +271,7 @@ module Steep
 
             check_interface(record_interface,
                             type_interface,
+                            self_type: self_type,
                             assumption: assumption,
                             trace: trace,
                             constraints: constraints)
@@ -311,7 +332,7 @@ module Steep
         end
       end
 
-      def check_interface(sub_interface, super_interface, assumption:, trace:, constraints:)
+      def check_interface(sub_interface, super_interface, self_type:, assumption:, trace:, constraints:)
         trace.interface sub_interface, super_interface do
           method_triples = []
 
@@ -330,6 +351,7 @@ module Steep
             result = check_method(method_name,
                                   sub_method,
                                   sup_method,
+                                  self_type: self_type,
                                   assumption: assumption,
                                   trace: trace,
                                   constraints: constraints)
@@ -340,7 +362,7 @@ module Steep
         end
       end
 
-      def check_method(name, sub_method, super_method, assumption:, trace:, constraints:)
+      def check_method(name, sub_method, super_method, self_type:, assumption:, trace:, constraints:)
         trace.method name, sub_method, super_method do
           case
           when sub_method.overload? && super_method.overload?
@@ -352,6 +374,7 @@ module Steep
                   check_generic_method_type name,
                                             sub_type,
                                             super_type,
+                                            self_type: self_type,
                                             assumption: assumption,
                                             trace: trace,
                                             constraints: constraints
@@ -372,13 +395,14 @@ module Steep
         end
       end
 
-      def check_generic_method_type(name, sub_type, super_type, assumption:, trace:, constraints:)
+      def check_generic_method_type(name, sub_type, super_type, self_type:, assumption:, trace:, constraints:)
         trace.method_type name, sub_type, super_type do
           case
           when sub_type.type_params.empty? && super_type.type_params.empty?
             check_method_type name,
                               sub_type,
                               super_type,
+                              self_type: self_type,
                               assumption: assumption,
                               trace: trace,
                               constraints: constraints
@@ -416,6 +440,7 @@ module Steep
                   check_method_type(name,
                                     sub_type.subst(subst),
                                     super_type,
+                                    self_type: self_type,
                                     assumption: assumption,
                                     trace: trace,
                                     constraints: constraints)
@@ -439,6 +464,7 @@ module Steep
                   result = check_method_type(name,
                                              sub_type,
                                              super_type,
+                                             self_type: self_type,
                                              assumption: assumption,
                                              trace: trace,
                                              constraints: constraints)
@@ -469,6 +495,7 @@ module Steep
               check_method_type(name,
                                 sub_type_,
                                 super_type_,
+                                self_type: self_type,
                                 assumption: assumption,
                                 trace: trace,
                                 constraints: constraints)
@@ -482,15 +509,15 @@ module Steep
         end
       end
 
-      def check_method_type(name, sub_type, super_type, assumption:, trace:, constraints:)
+      def check_method_type(name, sub_type, super_type, self_type:, assumption:, trace:, constraints:)
         Steep.logger.tagged("#{name}: #{sub_type} <: #{super_type}") do
-          check_method_params(name, sub_type.params, super_type.params, assumption: assumption, trace: trace, constraints: constraints).then do
+          check_method_params(name, sub_type.params, super_type.params, self_type: self_type, assumption: assumption, trace: trace, constraints: constraints).then do
             check_block_given(name, sub_type.block, super_type.block, trace: trace, constraints: constraints).then do
-              check_block_params(name, sub_type.block, super_type.block, assumption: assumption, trace: trace, constraints: constraints).then do
-                check_block_return(sub_type.block, super_type.block, assumption: assumption, trace: trace, constraints:constraints).then do
+              check_block_params(name, sub_type.block, super_type.block, self_type: self_type, assumption: assumption, trace: trace, constraints: constraints).then do
+                check_block_return(sub_type.block, super_type.block, self_type: self_type, assumption: assumption, trace: trace, constraints:constraints).then do
                   relation = Relation.new(super_type: super_type.return_type,
                                           sub_type: sub_type.return_type)
-                  check(relation, assumption: assumption, trace: trace, constraints: constraints)
+                  check(relation, self_type: self_type, assumption: assumption, trace: trace, constraints: constraints)
                 end
               end
             end
@@ -514,14 +541,14 @@ module Steep
         end
       end
 
-      def check_method_params(name, sub_params, super_params, assumption:, trace:, constraints:)
+      def check_method_params(name, sub_params, super_params, self_type:, assumption:, trace:, constraints:)
         match_params(name, sub_params, super_params, trace: trace).yield_self do |pairs|
           case pairs
           when Array
             pairs.each do |(sub_type, super_type)|
               relation = Relation.new(super_type: sub_type, sub_type: super_type)
 
-              result = check(relation, assumption: assumption, trace: trace, constraints: constraints)
+              result = check(relation, self_type: self_type, assumption: assumption, trace: trace, constraints: constraints)
               return result if result.failure?
             end
 
@@ -650,11 +677,12 @@ module Steep
         pairs
       end
 
-      def check_block_params(name, sub_block, super_block, assumption:, trace:, constraints:)
+      def check_block_params(name, sub_block, super_block, self_type:, assumption:, trace:, constraints:)
         if sub_block && super_block
           check_method_params(name,
                               super_block.type.params,
                               sub_block.type.params,
+                              self_type: self_type,
                               assumption: assumption,
                               trace: trace,
                               constraints: constraints)
@@ -663,11 +691,11 @@ module Steep
         end
       end
 
-      def check_block_return(sub_block, super_block, assumption:, trace:, constraints:)
+      def check_block_return(sub_block, super_block, self_type:, assumption:, trace:, constraints:)
         if sub_block && super_block
           relation = Relation.new(sub_type: super_block.type.return_type,
                                       super_type: sub_block.type.return_type)
-          check(relation, assumption: assumption, trace: trace, constraints: constraints)
+          check(relation, self_type: self_type, assumption: assumption, trace: trace, constraints: constraints)
         else
           success(constraints: constraints)
         end

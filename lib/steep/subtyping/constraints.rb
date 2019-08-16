@@ -199,7 +199,7 @@ module Steep
         end
       end
 
-      def solution(checker, variance:, variables:)
+      def solution(checker, variance:, variables:, self_type:)
         vars = []
         types = []
 
@@ -210,7 +210,7 @@ module Steep
               lower_bound = lower_bound(var)
               relation = Relation.new(sub_type: lower_bound, super_type: upper_bound)
 
-              checker.check(relation, constraints: self.class.empty).yield_self do |result|
+              checker.check(relation, self_type: self_type, constraints: self.class.empty).yield_self do |result|
                 if result.success?
                   vars << var
 
