@@ -65,6 +65,8 @@ require "steep/type_inference/block_params"
 require "steep/type_inference/constant_env"
 require "steep/type_inference/type_env"
 require "steep/ast/types"
+require "steep/dsl"
+require "steep/configuration"
 
 require "steep/project"
 require "steep/project/file"
