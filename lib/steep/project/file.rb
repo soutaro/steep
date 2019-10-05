@@ -1,102 +1,103 @@
 module Steep
   class Project
     class SourceFile
-      attr_reader :options
       attr_reader :path
       attr_reader :content
       attr_reader :content_updated_at
       attr_reader :factory
 
-      attr_reader :source
-      attr_reader :typing
-      attr_reader :last_type_checked_at
+      attr_accessor :status
 
-      def initialize(path:, options:)
+      ParseErrorStatus = Struct.new(:error, keyword_init: true)
+      TypeCheckStatus = Struct.new(:typing, :source, :timestamp, keyword_init: true)
+
+      def initialize(path:)
         @path = path
-        @options = options
         self.content = ""
       end
 
       def content=(content)
-        @content_updated_at = Time.now
-        @content = content
-      end
-
-      def requires_type_check?
-        if last = last_type_checked_at
-          last < content_updated_at
-        else
-          true
+        if @content != content
+          @content_updated_at = Time.now
+          @content = content
+          @status = nil
         end
-      end
-
-      def invalidate
-        @source = nil
-        @typing = nil
-        @last_type_checked_at = nil
-      end
-
-      def parse(factory:)
-        _ = @source =
-          begin
-            Source.parse(content, path: path.to_s, factory: factory, labeling: ASTUtils::Labeling.new)
-          rescue ::Parser::SyntaxError => exn
-            Steep.logger.warn { "Syntax error on #{path}: #{exn.inspect}" }
-            exn
-          rescue EncodingError => exn
-            Steep.logger.warn { "Encoding error on #{path}: #{exn.inspect}" }
-            exn
-          end
       end
 
       def errors
-        typing&.errors&.reject do |error|
-          case
-          when error.is_a?(Errors::FallbackAny)
-            !options.fallback_any_is_error
-          when error.is_a?(Errors::MethodDefinitionMissing)
-            options.allow_missing_definitions
-          end
+        case status
+        when TypeCheckStatus
+          status.typing.errors
+          # errors.reject do |error|
+          #   case
+          #   when error.is_a?(Errors::FallbackAny)
+          #     !options.fallback_any_is_error
+          #   when error.is_a?(Errors::MethodDefinitionMissing)
+          #     options.allow_missing_definitions
+          #   end
+          # end
+        else
+          []
         end
       end
 
-      def type_check(check)
-        case source = self.source
-        when Source
-          @typing = Typing.new
+      def type_check(subtyping, env_updated_at)
+        # skip type check
+        return false if status.is_a?(TypeCheckStatus) && env_updated_at <= status.timestamp
 
-          annotations = source.annotations(block: source.node, factory: check.factory, current_module: AST::Namespace.root)
+        parse(subtyping.factory) do |source|
+          typing = Typing.new
 
-          const_env = TypeInference::ConstantEnv.new(factory: check.factory, context: nil)
-          type_env = TypeInference::TypeEnv.build(annotations: annotations,
-                                                  subtyping: check,
-                                                  const_env: const_env,
-                                                  signatures: check.factory.env)
+          if source
+            annotations = source.annotations(block: source.node, factory: subtyping.factory, current_module: AST::Namespace.root)
+            const_env = TypeInference::ConstantEnv.new(factory: subtyping.factory, context: nil)
+            type_env = TypeInference::TypeEnv.build(annotations: annotations,
+                                                    subtyping: subtyping,
+                                                    const_env: const_env,
+                                                    signatures: subtyping.factory.env)
 
-          construction = TypeConstruction.new(
-            checker: check,
-            annotations: annotations,
-            source: source,
-            self_type: AST::Builtin::Object.instance_type,
-            block_context: nil,
-            module_context: TypeConstruction::ModuleContext.new(
-              instance_type: nil,
-              module_type: nil,
-              implement_name: nil,
-              current_namespace: AST::Namespace.root,
-              const_env: const_env,
-              class_name: nil
-            ),
-            method_context: nil,
+            construction = TypeConstruction.new(
+              checker: subtyping,
+              annotations: annotations,
+              source: source,
+              self_type: AST::Builtin::Object.instance_type,
+              block_context: nil,
+              module_context: TypeConstruction::ModuleContext.new(
+                instance_type: nil,
+                module_type: nil,
+                implement_name: nil,
+                current_namespace: AST::Namespace.root,
+                const_env: const_env,
+                class_name: nil
+              ),
+              method_context: nil,
+              typing: typing,
+              break_context: nil,
+              type_env: type_env
+            )
+
+            construction.synthesize(source.node)
+          end
+
+          @status = TypeCheckStatus.new(
             typing: typing,
-            break_context: nil,
-            type_env: type_env
+            source: source,
+            timestamp: Time.now
           )
-
-          construction.synthesize(source.node)
-
-          @last_type_checked_at = Time.now
         end
+
+        true
+      end
+
+      def parse(factory)
+        if status.is_a?(TypeCheckStatus)
+          yield status.source
+        else
+          yield Source.parse(content, path: path.to_s, factory: factory, labeling: ASTUtils::Labeling.new)
+        end
+      rescue ::Parser::SyntaxError, EncodingError => exn
+        Steep.logger.warn { "Source parsing error on #{path}: #{exn.inspect}" }
+        @status = ParseErrorStatus.new(error: exn)
       end
     end
 
@@ -105,19 +106,28 @@ module Steep
       attr_reader :content
       attr_reader :content_updated_at
 
+      attr_reader :status
+
+      ParseErrorStatus = Struct.new(:error, keyword_init: true)
+      DeclarationsStatus = Struct.new(:declarations, keyword_init: true)
+
       def initialize(path:)
         @path = path
         self.content = ""
       end
 
-      def parse()
-        buffer = Ruby::Signature::Buffer.new(name: path, content: content)
-        [Ruby::Signature::Parser.parse_signature(buffer), buffer]
-      end
-
       def content=(content)
         @content_updated_at = Time.now
         @content = content
+        @status = nil
+      end
+
+      def load!
+        buffer = Ruby::Signature::Buffer.new(name: path, content: content)
+        decls = Ruby::Signature::Parser.parse_signature(buffer)
+        @status = DeclarationsStatus.new(declarations: decls)
+      rescue Ruby::Signature::Parser::SyntaxError, Ruby::Signature::Parser::SemanticsError => exn
+        @status = ParseErrorStatus.new(error: exn)
       end
     end
   end
