@@ -6,7 +6,7 @@ module Steep
       attr_reader :stderr
       attr_reader :labeling
 
-      include Utils::EachSignature
+      include Utils::DriverHelper
 
       def initialize(source_paths:, stdout:, stderr:)
         @source_paths = source_paths
@@ -15,13 +15,11 @@ module Steep
       end
 
       def run
-        source_paths.each do |path|
-          each_file_in_path(".rb", path) do |file_path|
-            buffer = ::Parser::Source::Buffer.new(file_path.to_s, 1)
-            buffer.source = file_path.read
-            node = Source.parser.parse(buffer)
-            Generator.new(node: node, stderr: stderr).write(io: stdout)
-          end
+        each_source_path source_paths do |file_path|
+          buffer = ::Parser::Source::Buffer.new(file_path.to_s, 1)
+          buffer.source = file_path.read
+          node = Source.parser.parse(buffer)
+          Generator.new(node: node, stderr: stderr).write(io: stdout)
         end
         0
       end

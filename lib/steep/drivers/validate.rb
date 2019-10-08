@@ -1,40 +1,36 @@
 module Steep
   module Drivers
     class Validate
-      attr_reader :signature_options
       attr_reader :stdout
       attr_reader :stderr
 
-      def initialize(signature_options:, stdout:, stderr:)
-        @signature_options = signature_options
+      include Utils::DriverHelper
+
+      def initialize(stdout:, stderr:)
         @stdout = stdout
         @stderr = stderr
       end
 
-      include Utils::EachSignature
-
       def run
-        loader = Ruby::Signature::EnvironmentLoader.new()
-        signature_options.setup(loader: loader)
+        project = load_config()
 
-        env = Ruby::Signature::Environment.new()
-        loader.load(env: env)
+        load_signatures(project)
+        type_check(project)
 
-        project = Project.new(environment: env)
-        project.reload_signature
-
-        printer = SignatureErrorPrinter.new(stdout: stdout, stderr: stderr)
-
-        case project.signature
-        when Project::SignatureHasSyntaxError
-          printer.print_syntax_errors(project.signature.errors)
-          1
-        when Project::SignatureHasError
-          printer.print_semantic_errors(project.signature.errors)
-          1
-        else
-          0
+        project.targets.each do |target|
+          Steep.logger.tagged "target=#{target.name}" do
+            case (status = target.status)
+            when Project::Target::SignatureSyntaxErrorStatus
+              printer = SignatureErrorPrinter.new(stdout: stdout, stderr: stderr)
+              printer.print_syntax_errors(status.errors)
+            when Project::Target::SignatureValidationErrorStatus
+              printer = SignatureErrorPrinter.new(stdout: stdout, stderr: stderr)
+              printer.print_semantic_errors(status.errors)
+            end
+          end
         end
+
+        project.targets.all? {|target| target.status.is_a?(Project::Target::TypeCheckStatus) } ? 0 : 1
       end
     end
   end

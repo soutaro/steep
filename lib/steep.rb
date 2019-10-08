@@ -71,7 +71,7 @@ require "steep/project/file"
 require "steep/project/options"
 require "steep/project/target"
 require "steep/project/dsl"
-require "steep/drivers/utils/each_signature"
+require "steep/drivers/utils/driver_helper"
 require "steep/drivers/check"
 require "steep/drivers/validate"
 require "steep/drivers/annotations"
@@ -81,6 +81,7 @@ require "steep/drivers/watch"
 require "steep/drivers/langserver"
 require "steep/drivers/signature_error_printer"
 require "steep/drivers/trace_printer"
+require "steep/drivers/print_project"
 
 if ENV["NO_COLOR"]
   Rainbow.enabled = false
@@ -88,16 +89,25 @@ end
 
 module Steep
   def self.logger
-    self.log_output = STDERR unless @logger
-
     @logger
   end
 
-  def self.log_output=(output)
-    prev_level = @logger&.level
-
-    @logger = ActiveSupport::TaggedLogging.new(Logger.new(output))
-    @logger.push_tags "Steep #{VERSION}"
-    @logger.level = prev_level || Logger::WARN
+  def self.new_logger(output, prev_level)
+    ActiveSupport::TaggedLogging.new(Logger.new(output)).tap do |logger|
+      logger.push_tags "Steep #{VERSION}"
+      logger.level = prev_level || Logger::WARN
+    end
   end
+
+  def self.log_output
+    @log_output
+  end
+
+  def self.log_output=(output)
+    @log_output = output
+    prev_level = @logger&.level
+    @logger = new_logger(output, prev_level)
+  end
+
+  self.log_output = STDERR
 end

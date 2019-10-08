@@ -1,0 +1,6 @@
+class Conference
+  attr_reader title: String
+  attr_reader year: Integer
+
+  def initialize: (title: String, year: Integer) -> void
+end

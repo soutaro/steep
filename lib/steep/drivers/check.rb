@@ -1,103 +1,86 @@
 module Steep
   module Drivers
     class Check
-      attr_reader :source_paths
-      attr_reader :signature_options
       attr_reader :stdout
       attr_reader :stderr
+      attr_reader :command_line_patterns
 
-      attr_accessor :accept_implicit_any
       attr_accessor :dump_all_types
-      attr_accessor :fallback_any_is_error
-      attr_accessor :allow_missing_definitions
 
-      attr_reader :labeling
+      include Utils::DriverHelper
 
-      include Utils::EachSignature
-
-      def initialize(source_paths:, signature_options:, stdout:, stderr:)
-        @source_paths = source_paths
-        @signature_options = signature_options
+      def initialize(stdout:, stderr:)
         @stdout = stdout
         @stderr = stderr
+        @command_line_patterns = []
 
-        self.accept_implicit_any = false
         self.dump_all_types = false
-        self.fallback_any_is_error = false
-        self.allow_missing_definitions = true
-      end
-
-      def options
-        Project::Options.new.tap do |opt|
-          opt.allow_missing_definitions = allow_missing_definitions
-          opt.fallback_any_is_error = fallback_any_is_error
-        end
       end
 
       def run
-        loader = Ruby::Signature::EnvironmentLoader.new()
-        signature_options.setup loader: loader
+        project = load_config()
 
-        env = Ruby::Signature::Environment.new()
-        loader.load(env: env)
+        load_sources(project, command_line_patterns)
+        load_signatures(project)
+        type_check(project)
 
-        project = Project.new(environment: env)
-
-        source_paths.each do |path|
-          each_file_in_path(".rb", path) do |file_path|
-            file = Project::SourceFile.new(path: file_path, options: options)
-            file.content = file_path.read
-            project.source_files[file_path] = file
-          end
-        end
-
-        project.type_check
-
-        case project.signature
-        when Project::SignatureLoaded
-          output_type_check_result(project)
-          project.has_type_error? ? 1 : 0
-        when Project::SignatureHasError
-          output_signature_errors(project)
-          1
-        end
-      end
-
-      def output_type_check_result(project)
-        # @type var project: Project
-
-        if dump_all_types
-          project.source_files.each_value do |file|
-            lines = []
-
-            if typing = file.typing
-              typing.nodes.each_value do |node|
-                begin
-                  type = typing.type_of(node: node)
-                  lines << [node.loc.expression.source_buffer.name, [node.loc.last_line,node.loc.last_column], [node.loc.first_line, node.loc.column], node, type]
-                rescue
-                  lines << [node.loc.expression.source_buffer.name, [node.loc.last_line,node.loc.last_column], [node.loc.first_line, node.loc.column], node, nil]
+        if self.dump_all_types
+          project.targets.each do |target|
+            case (status = target.status)
+            when Project::Target::TypeCheckStatus
+              target.source_files.each_value do |file|
+                case (file_status = file.status)
+                when Project::SourceFile::TypeCheckStatus
+                  output_types(file_status.typing)
                 end
-              end
-
-              lines.sort {|x,y| y <=> x }.reverse_each do |line|
-                source = line[3].loc.expression.source
-                stdout.puts "#{line[0]}:(#{line[2].join(",")}):(#{line[1].join(",")}):\t#{line[3].type}:\t#{line[4]}\t(#{source.split(/\n/).first})"
               end
             end
           end
         end
 
-        project.source_files.each_value do |file|
-          file.errors&.each do |error|
-            error.print_to stdout
+        project.targets.each do |target|
+          Steep.logger.tagged "target=#{target.name}" do
+            case (status = target.status)
+            when Project::Target::SignatureSyntaxErrorStatus
+              printer = SignatureErrorPrinter.new(stdout: stdout, stderr: stderr)
+              printer.print_syntax_errors(status.errors)
+            when Project::Target::SignatureValidationErrorStatus
+              printer = SignatureErrorPrinter.new(stdout: stdout, stderr: stderr)
+              printer.print_semantic_errors(status.errors)
+            when Project::Target::TypeCheckStatus
+              status.type_check_sources.each do |source_file|
+                source_file.errors.each do |error|
+                  error.print_to stdout
+                end
+              end
+            end
           end
         end
+
+        if project.targets.all? {|target| target.status.is_a?(Project::Target::TypeCheckStatus) && target.errors.empty? }
+          Steep.logger.info "No type error found"
+          return 0
+        end
+
+        1
       end
 
-      def output_signature_errors(project)
-        printer = SignatureErrorPrinter.new(stdout: stdout, stderr: stderr)
-        printer.print_semantic_errors(project.signature.errors)
+      def output_types(typing)
+        lines = []
+
+        typing.nodes.each_value do |node|
+          begin
+            type = typing.type_of(node: node)
+            lines << [node.loc.expression.source_buffer.name, [node.loc.last_line,node.loc.last_column], [node.loc.first_line, node.loc.column], node, type]
+          rescue
+            lines << [node.loc.expression.source_buffer.name, [node.loc.last_line,node.loc.last_column], [node.loc.first_line, node.loc.column], node, nil]
+          end
+        end
+
+        lines.sort {|x,y| y <=> x }.reverse_each do |line|
+          source = line[3].loc.expression.source
+          stdout.puts "#{line[0]}:(#{line[2].join(",")}):(#{line[1].join(",")}):\t#{line[3].type}:\t#{line[4]}\t(#{source.split(/\n/).first})"
+        end
       end
     end
   end
