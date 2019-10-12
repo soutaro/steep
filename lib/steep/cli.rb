@@ -18,7 +18,7 @@ module Steep
     end
 
     def self.available_commands
-      [:check, :validate, :annotations, :scaffold, :interface, :version, :project, :watch, :langserver]
+      [:init, :check, :validate, :annotations, :scaffold, :interface, :version, :project, :watch, :langserver]
     end
 
     def process_global_options
@@ -53,16 +53,16 @@ module Steep
     end
 
     def handle_logging_options(opts)
-      opts.on("--verbose") do
-        Steep.logger.level = Logger::DEBUG
-      end
-
       opts.on("--log-level=[debug,info,warn,error,fatal]") do |level|
         Steep.logger.level = level
       end
 
       opts.on("--log-output=[PATH]") do |file|
         Steep.log_output = file
+      end
+
+      opts.on("--verbose") do
+        Steep.logger.level = Logger::DEBUG
       end
     end
 
@@ -80,14 +80,27 @@ module Steep
       1
     end
 
+    def process_init
+      Drivers::Init.new(stdout: stdout, stderr: stderr).tap do |command|
+        OptionParser.new do |opts|
+          opts.banner = "Usage: steep init [options]"
+
+          opts.on("--steepfile=PATH") {|path| command.steepfile = Pathname(path) }
+          opts.on("--force") { command.force_write = true }
+          
+          handle_logging_options opts
+        end.parse!(argv)
+      end.run()
+    end
+
     def process_check
       Drivers::Check.new(stdout: stdout, stderr: stderr).tap do |check|
         OptionParser.new do |opts|
           opts.banner = "Usage: steep check [options] [sources]"
 
-          handle_logging_options opts
           opts.on("--steepfile=PATH") {|path| check.steepfile = Pathname(path) }
           opts.on("--dump-all-types") { check.dump_all_types = true }
+          handle_logging_options opts
         end.parse!(argv)
 
         check.command_line_patterns.push *argv
