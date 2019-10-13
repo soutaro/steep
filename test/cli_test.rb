@@ -57,6 +57,12 @@ class Foo
 end
       RUBY
 
+      (current_dir + "Steepfile").write(<<-EOF)
+target :app do
+  check "foo.rb"
+end
+      EOF
+
       stdout, _ = sh! *steep, "annotations", "foo.rb"
 
       assert_equal <<-RBS, stdout
@@ -70,6 +76,10 @@ foo.rb:4:2:def:\tdef hello(x, y)
 
   def test_validate
     in_tmpdir do
+      (current_dir + "Steepfile").write(<<-EOF)
+target :app do
+end
+      EOF
       stdout, _ = sh! *steep, "validate"
 
       assert_equal "", stdout

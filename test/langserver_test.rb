@@ -8,7 +8,7 @@ class LangserverTest < Minitest::Test
   end
 
   def langserver_command
-    "#{__dir__}/../exe/steep langserver #{current_dir}"
+    "#{__dir__}/../exe/steep langserver --log-level=info"
   end
 
   def jsonrpc(hash)
@@ -18,6 +18,10 @@ class LangserverTest < Minitest::Test
 
   def test_initialize
     in_tmpdir do
+      (Pathname.pwd + "Steepfile").write <<EOF
+target :app do end
+EOF
+
       Open3.popen3(langserver_command) do |stdin, stdout, stderr, wait_thr|
         stdin.puts jsonrpc(
           id: 0,
@@ -32,45 +36,9 @@ class LangserverTest < Minitest::Test
           id: 0,
           result: {
             capabilities: {
-              textDocumentSync: { openClose: true, change: 1 },
-              hoverProvider:true
+              textDocumentSync: { change: 1 },
+              hoverProvider: true
             }
-          },
-          jsonrpc: "2.0",
-        ), stdout.read
-      end
-    end
-  end
-
-  def test_did_open
-    in_tmpdir do
-      Open3.popen3(langserver_command, chdir: current_dir.to_s) do |stdin, stdout, stderr, wait_thr|
-        stdin.puts jsonrpc(
-          method: "textDocument/didOpen",
-          params: {
-            textDocument: {
-              uri: "file:///root/workdir/example.rb",
-              languageId: "ruby",
-              version: 1,
-              text: "[\"foo\"].join(\",\").map {|str| puts str}",
-            }
-          }
-        )
-        stdin.close
-        wait_thr.join
-
-        assert_equal jsonrpc(
-          method: "textDocument/publishDiagnostics",
-          params: {
-            uri: "file:///root/workdir/example.rb",
-            diagnostics: [{
-              range: {
-                start: { line: 0, character: 0 },
-                end: { line: 0, character: 38 },
-              },
-              severity: 1,
-              message: "/root/workdir/example.rb:1:0: NoMethodError: type=::String, method=map"
-            }]
           },
           jsonrpc: "2.0",
         ), stdout.read
@@ -80,53 +48,74 @@ class LangserverTest < Minitest::Test
 
   def test_did_change
     in_tmpdir do
-      Open3.popen3(langserver_command, chdir: current_dir.to_s) do |stdin, stdout, stderr, wait_thr|
+      path = current_dir.realpath
+
+      (path + "Steepfile").write <<EOF
+target :app do
+  check "workdir/example.rb"
+end
+EOF
+      (path+"workdir").mkdir
+      (path+"workdir/example.rb").write ""
+
+      Open3.popen3(langserver_command, chdir: path.to_s) do |stdin, stdout, stderr, wait_thr|
         stdin.puts jsonrpc(
-                     method: "textDocument/didOpen",
+                     id: 0,
+                     method: "initialize",
+                     params: {},
+                     jsonrpc: "2.0",
+                     )
+        stdin.puts jsonrpc(
+                     id: 1,
+                     method: "textDocument/didChange",
                      params: {
                        textDocument: {
-                         uri: "file:///root/workdir/example.rb",
-                         languageId: "ruby",
-                         version: 1,
-                         text: "",
-                       }
+                         uri: "file://#{path}/workdir/example.rb",
+                         version: 2,
+                       },
+                       contentChanges: [
+                         { text: <<-EOF }
+1.map()
+                         EOF
+                       ]
                      }
                    )
-        stdin.puts jsonrpc(
-          method: "textDocument/didChange",
-          params: {
-            textDocument: {
-              uri: "file:///root/workdir/example.rb",
-              version: 2,
-            },
-            contentChanges: [
-              { text: "[\"foo\"].join(\",\").map {|str| puts str}" }
-            ]
-          }
-        )
         stdin.close
         wait_thr.join
 
         assert_equal [
                        jsonrpc(
-                         method: "textDocument/publishDiagnostics",
-                         params: {
-                           uri: "file:///root/workdir/example.rb",
-                           diagnostics: []
+                         id: 0,
+                         result: {
+                           "capabilities": {
+                             "textDocumentSync": { change: 1 },
+                             hoverProvider: true
+                           }
                          },
-                         jsonrpc: "2.0",),
+                         jsonrpc: "2.0",
+                         ),
                        jsonrpc(
                          method: "textDocument/publishDiagnostics",
                          params: {
-                           uri: "file:///root/workdir/example.rb",
-                           diagnostics: [{
-                                           range: {
-                                             start: { line: 0, character: 0 },
-                                             end: { line: 0, character: 38 },
-                                           },
-                                           severity: 1,
-                                           message: "/root/workdir/example.rb:1:0: NoMethodError: type=::String, method=map"
-                                         }]
+                           uri: "file://#{path}/workdir/example.rb",
+                           diagnostics: []
+                         },
+                         jsonrpc: "2.0",
+                         ),
+                       jsonrpc(
+                         method: "textDocument/publishDiagnostics",
+                         params: {
+                           uri: "file://#{path}/workdir/example.rb",
+                           diagnostics: [
+                             {
+                               range: {
+                                 start: { line: 0, character: 0 },
+                                 end: { line: 0, character: 7 },
+                               },
+                               severity: 1,
+                               message: "workdir/example.rb:1:0: NoMethodError: type=::Integer, method=map"
+                             }
+                           ]
                          },
                          jsonrpc: "2.0",
                          )
