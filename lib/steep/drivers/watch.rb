@@ -1,187 +1,124 @@
 module Steep
   module Drivers
     class Watch
-      class Options
-        attr_accessor :fallback_any_is_error
-        attr_accessor :allow_missing_definitions
-
-        def initialize
-          self.fallback_any_is_error = false
-          self.allow_missing_definitions = true
-        end
-      end
-
-      attr_reader :source_dirs
-      attr_reader :signature_dirs
+      attr_reader :dirs
       attr_reader :stdout
       attr_reader :stderr
-      attr_reader :options
       attr_reader :queue
 
-      include Utils::EachSignature
+      include Utils::DriverHelper
 
-      def initialize(source_dirs:, signature_dirs:, stdout:, stderr:)
-        @source_dirs = source_dirs
-        @signature_dirs = signature_dirs
+      def initialize(stdout:, stderr:)
+        @dirs = []
         @stdout = stdout
         @stderr = stderr
-        @options = Options.new
         @queue = Thread::Queue.new
       end
 
-      def project_options
-        Project::Options.new.tap do |opt|
-          opt.fallback_any_is_error = options.fallback_any_is_error
-          opt.allow_missing_definitions = options.allow_missing_definitions
-        end
-      end
-
-      def source_listener
-        @source_listener ||= yield_self do
-          Listen.to(*source_dirs.map(&:to_s), only: /\.rb$/) do |modified, added, removed|
-            queue << [:source, modified, added, removed]
+      def listener
+        @listener ||= begin
+          Steep.logger.info "Watching #{dirs.join(", ")}..."
+          Listen.to *dirs.map(&:to_s) do |modified, added, removed|
+            Steep.logger.tagged "watch" do
+              Steep.logger.info "Received file system updates: modified=[#{modified.join(",")}], added=[#{added.join(",")}], removed=[#{removed.join(",")}]"
+            end
+            queue << [modified, added, removed]
           end
         end
       end
 
-      def signature_listener
-        @signature_listener ||= yield_self do
-          Listen.to(*signature_dirs.map(&:to_s), only: /\.rbi$/) do |modified, added, removed|
-            queue << [:signature, modified, added, removed]
-          end
-        end
-      end
+      def type_check_loop(project)
+        until queue.closed?
+          stdout.puts "🚥 Waiting for updates..."
 
-      def type_check_thread(project)
-        Thread.new do
-          until queue.closed?
-            begin
-              events = []
-              events << queue.deq
-              until queue.empty?
-                events << queue.deq(nonblock: true)
+          events = []
+          events << queue.deq
+          until queue.empty?
+              events << queue.deq(nonblock: true)
+          end
+
+          events.compact.each do |modified, added, removed|
+            modified.each do |name|
+              path = Pathname(name).relative_path_from(Pathname.pwd)
+
+              project.targets.each do |target|
+                target.update_source path, path.read if target.source_file?(path)
+                target.update_signature path, path.read if target.signature_file?(path)
               end
+            end
 
-              events.compact.each do |name, modified, added, removed|
-                case name
-                when :source
-                  (modified + added).each do |name|
-                    path = Pathname(name).relative_path_from(Pathname.pwd)
-                    file = project.source_files[path] || Project::SourceFile.new(path: path, options: project_options)
-                    file.content = path.read
-                    project.source_files[path] = file
-                  end
+            added.each do |name|
+              path = Pathname(name).relative_path_from(Pathname.pwd)
 
-                  removed.each do |name|
-                    path = Pathname(name).relative_path_from(Pathname.pwd)
-                    project.source_files.delete(path)
-                  end
+              project.targets.each do |target|
+                target.add_source path, path.read if target.possible_source_file?(path)
+                target.add_signature path, path.read if target.possible_signature_file?(path)
+              end
+            end
 
-                when :signature
-                  (modified + added).each do |name|
-                    path = Pathname(name).relative_path_from(Pathname.pwd)
-                    file = project.signature_files[path] || Project::SignatureFile.new(path: path)
-                    file.content = path.read
-                    project.signature_files[path] = file
-                  end
+            removed.each do |name|
+              path = Pathname(name).relative_path_from(Pathname.pwd)
 
-                  removed.each do |name|
-                    path = Pathname(name).relative_path_from(Pathname.pwd)
-                    project.signature_files.delete(path)
-                  end
+              project.targets.each do |target|
+                target.remove_source path if target.source_file?(path)
+                target.remove_signature path if target.signature_file?(path)
+              end
+            end
+          end
+
+          stdout.puts "🔬 Type checking..."
+          type_check project
+          print_project_result project
+        end
+      rescue ClosedQueueError
+        # nop
+      end
+
+      def print_project_result(project)
+        project.targets.each do |target|
+          Steep.logger.tagged "target=#{target.name}" do
+            case (status = target.status)
+            when Project::Target::SignatureSyntaxErrorStatus
+              printer = SignatureErrorPrinter.new(stdout: stdout, stderr: stderr)
+              printer.print_syntax_errors(status.errors)
+            when Project::Target::SignatureValidationErrorStatus
+              printer = SignatureErrorPrinter.new(stdout: stdout, stderr: stderr)
+              printer.print_semantic_errors(status.errors)
+            when Project::Target::TypeCheckStatus
+              status.type_check_sources.each do |source_file|
+                source_file.errors.each do |error|
+                  error.print_to stdout
                 end
               end
-
-              begin
-                project.type_check
-              rescue Racc::ParseError => exn
-                stderr.puts exn.message
-                project.clear
-              end
-            end
-          end
-        rescue ClosedQueueError
-          # nop
-        end
-      end
-
-      class WatchListener < Project::NullListener
-        attr_reader :stdout
-        attr_reader :stderr
-
-        def initialize(stdout:, stderr:, verbose:)
-          @stdout = stdout
-          @stderr = stderr
-        end
-
-        def check(project:)
-          yield.tap do
-            if project.success?
-              if project.has_type_error?
-                stdout.puts "Detected #{project.errors.size} errors... 🔥"
-              else
-                stdout.puts "No error detected. 🎉"
-              end
-            else
-              stdout.puts "Type checking failed... 🔥"
-            end
-          end
-        end
-
-        def type_check_source(project:, file:)
-          yield.tap do
-            case
-            when file.source.is_a?(Source) && file.errors
-              file.errors.each do |error|
-                error.print_to stdout
-              end
-            end
-          end
-        end
-
-        def load_signature(project:)
-          # @type var project: Project
-          yield.tap do
-            case sig = project.signature
-            when Project::SignatureHasError
-            when Project::SignatureHasSyntaxError
-              sig.errors.each do |path, exn|
-                stdout.puts "#{path} has a syntax error: #{exn.inspect}"
-              end
             end
           end
         end
       end
 
-      def run(block: true)
-        project = Project.new(WatchListener.new(stdout: stdout, stderr: stderr, verbose: false))
-
-        source_dirs.each do |path|
-          each_file_in_path(".rb", path) do |file_path|
-            file = Project::SourceFile.new(path: file_path, options: options)
-            file.content = file_path.read
-            project.source_files[file_path] = file
-          end
+      def run()
+        if dirs.empty?
+          stdout.puts "Specify directories to watch"
+          return 1
         end
 
-        signature_dirs.each do |path|
-          each_file_in_path(".rbi", path) do |file_path|
-            file = Project::SignatureFile.new(path: file_path)
-            file.content = file_path.read
-            project.signature_files[file_path] = file
-          end
+        project = load_config()
+
+        load_sources project, []
+        load_signatures project
+
+        type_check project
+        print_project_result project
+
+        listener.start
+
+        stdout.puts "👀 Watching directories, Ctrl-C to stop."
+        begin
+          type_check_loop project
+        rescue Interrupt
+          # bye
         end
 
-        project.type_check
-
-        source_listener.start
-        signature_listener.start
-        t = type_check_thread(project)
-
-        binding.pry(quiet: true) if block
-
-        queue.close
-        t.join
+        0
       end
     end
   end

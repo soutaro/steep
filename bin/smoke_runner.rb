@@ -46,7 +46,7 @@ ARGV.each do |arg|
           message = src.gsub!(/\A!expects\*(@\+\d+)? +/, '')
           line = comment.location.line
 
-          expectations << Expectation.new(line+offset, message, file).tap {|e| e.prefix_test = true }
+          expectations << Expectation.new(line+offset, message, file.relative_path_from(dir)).tap {|e| e.prefix_test = true }
         end
 
         if src =~ /!expects(@(\+\d+))?/
@@ -54,11 +54,11 @@ ARGV.each do |arg|
           message = src.gsub!(/\A!expects(@\+\d+)? +/, '')
           line = comment.location.line
 
-          expectations << Expectation.new(line+offset, message, file)
+          expectations << Expectation.new(line+offset, message, file.relative_path_from(dir))
         end
 
         if src =~ /ALLOW FAILURE/
-          allowed_paths << file
+          allowed_paths << file.relative_path_from(dir)
         end
       end
 
@@ -69,20 +69,11 @@ ARGV.each do |arg|
   stderr = StringIO.new
   stdout = StringIO.new
 
-  builtin = Pathname(__dir__) + "../stdlib"
   begin
-    options = Steep::CLI::SignatureOptions.new
-    options.add path: dir
-    driver = Steep::Drivers::Check.new(source_paths: rb_files,
-                                       signature_options: options,
-                                       stdout: stdout,
-                                       stderr: stderr)
-
-    driver.fallback_any_is_error = false
-    driver.allow_missing_definitions = false
-
     Rainbow.enabled = false
-    driver.run
+    Dir.chdir(arg) do
+      Steep::Drivers::Check.new(stdout: stdout, stderr: stderr).run
+    end
   rescue => exn
     puts "ERROR: #{exn.inspect}"
     exn.backtrace.each do |loc|
@@ -104,7 +95,7 @@ ARGV.each do |arg|
     end
   end
 
-  lines = stdout.string.each_line.to_a.map(&:chomp)
+  lines = stdout.string.each_line.to_a.map(&:chomp).reject {|line| line =~ /\bFallbackAny\b/ }
 
   expectations.each do |expectation|
     deleted = lines.reject! do |string|

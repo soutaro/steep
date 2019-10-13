@@ -13,6 +13,10 @@ module Steep
             puts io
           end.string
         end
+
+        def path
+          location.buffer.name
+        end
       end
 
       class UnknownTypeNameError < Base

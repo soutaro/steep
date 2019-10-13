@@ -1,0 +1,5 @@
+target :test do
+  check "*.rb"
+  signature "*.rbs"
+  library "set"
+end
