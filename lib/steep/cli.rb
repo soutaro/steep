@@ -2,8 +2,6 @@ require 'optparse'
 
 module Steep
   class CLI
-    BUILTIN_PATH = Pathname(__dir__).join("../../stdlib").realpath
-
     attr_reader :argv
     attr_reader :stdout
     attr_reader :stdin
@@ -87,7 +85,7 @@ module Steep
 
           opts.on("--steepfile=PATH") {|path| command.steepfile = Pathname(path) }
           opts.on("--force") { command.force_write = true }
-          
+
           handle_logging_options opts
         end.parse!(argv)
       end.run()
