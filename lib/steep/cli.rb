@@ -64,20 +64,6 @@ module Steep
       end
     end
 
-    def handle_dir_options(opts, options)
-      opts.on("-I [PATH]") {|path| options.add path: Pathname(path) }
-      opts.on("-r [library]") {|lib| options.add(library: lib) }
-      opts.on("--no-builtin") { options.no_builtin! }
-      opts.on("--no-bundler") { options.no_bundler! }
-    end
-
-    def with_signature_options
-      yield SignatureOptions.new
-    rescue Ruby::Signature::EnvironmentLoader::UnknownLibraryNameError => exn
-      stderr.puts "UnknownLibraryNameError: library=#{exn.name}"
-      1
-    end
-
     def process_init
       Drivers::Init.new(stdout: stdout, stderr: stderr).tap do |command|
         OptionParser.new do |opts|
@@ -174,31 +160,6 @@ module Steep
     def process_version
       stdout.puts Steep::VERSION
       0
-    end
-
-    def process_paths
-      with_signature_options do |signature_options|
-        OptionParser.new do |opts|
-          handle_logging_options opts
-          handle_dir_options opts, signature_options
-        end.parse!(argv)
-
-        loader = Ruby::Signature::EnvironmentLoader.new
-        signature_options.setup loader: loader
-
-        loader.paths.each do |path|
-          case path
-          when Pathname
-            stdout.puts "#{path}"
-          when Ruby::Signature::EnvironmentLoader::GemPath
-            stdout.puts "#{path.path} (gem, name=#{path.name}, version=#{path.version})"
-          when Ruby::Signature::EnvironmentLoader::LibraryPath
-            stdout.puts "#{path.path} (library, name=#{path.name})"
-          end
-        end
-
-        0
-      end
     end
   end
 end
