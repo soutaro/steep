@@ -258,10 +258,10 @@ class NilClass
 end
 
 class Proc
-  def `[]`: any
-  def call: any
-  def `===`: any
-  def yield: any
+  def `[]`: (*any) -> any
+  def call: (*any) -> any
+  def `===`: (*any) -> any
+  def yield: (*any) -> any
   def arity: -> Integer
 end
   EOS
