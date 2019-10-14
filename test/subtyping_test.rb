@@ -85,11 +85,11 @@ end
       if content.is_a?(Hash)
         paths.merge!(content)
       else
-        paths["#{index}.rbi"] = content
+        paths["#{index}.rbs"] = content
       end
     end
 
-    paths["builtin.rbi"] = BUILTIN
+    paths["builtin.rbs"] = BUILTIN
     with_factory(paths, nostdlib: true) do |factory|
       yield Subtyping::Check.new(factory: factory)
     end

@@ -212,7 +212,7 @@ class TypeFactoryTest < Minitest::Test
   end
 
   def test_interface_instance
-    with_factory "foo.rbi" => <<FOO do |factory|
+    with_factory "foo.rbs" => <<FOO do |factory|
 class Foo[A]
   def klass: -> class
   def get: -> A
@@ -246,7 +246,7 @@ FOO
   end
 
   def test_interface_interface
-    with_factory "foo.rbi" => <<FOO do |factory|
+    with_factory "foo.rbs" => <<FOO do |factory|
 interface _Each2[A, B]
   def each: () { (A) -> void } -> B
 end
@@ -263,7 +263,7 @@ FOO
   end
 
   def test_interface_class
-    with_factory "foo.rbi" => <<FOO do |factory|
+    with_factory "foo.rbs" => <<FOO do |factory|
 class People[X]
   def self.all: -> Array[People[::String]]
   def self.instance: -> instance
@@ -413,7 +413,7 @@ FOO
   end
 
   def test_unfold
-    with_factory "foo.rbi" => <<-EOF do |factory|
+    with_factory "foo.rbs" => <<-EOF do |factory|
 type name = ::String
 type size = :S | :M | :L
     EOF
@@ -433,7 +433,7 @@ type size = :S | :M | :L
   end
 
   def test_absolute_type
-    with_factory "foo.rbi" => <<-EOF do |factory|
+    with_factory "foo.rbs" => <<-EOF do |factory|
 module Foo
 end
 
@@ -465,7 +465,7 @@ end
   end
 
   def test_variable_rename
-    with_factory "foo.rbi" => <<-EOF do |factory|
+    with_factory "foo.rbs" => <<-EOF do |factory|
 class Hello[X]
   def foo: [Y] (X, Y) -> void
 end
