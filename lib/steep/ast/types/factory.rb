@@ -279,13 +279,9 @@ module Steep
 
                 interface.methods[name] = Interface::Interface::Combination.overload(
                   method.method_types.map do |type|
-                    case type
-                    when :any
-                      :any
-                    when Ruby::Signature::MethodType
-                      method_type(type) {|ty| ty.subst(subst) }
-                    end
-                  end
+                    method_type(type) {|ty| ty.subst(subst) }
+                  end,
+                  incompatible: method.attributes.include?(:incompatible)
                 )
               end
             end
@@ -306,7 +302,8 @@ module Steep
                 interface.methods[name] = Interface::Interface::Combination.overload(
                   method.method_types.map do |type|
                     method_type(type) {|type| type.subst(subst) }
-                  end
+                  end,
+                  incompatible: method.attributes.include?(:incompatible)
                 )
               end
             end
@@ -331,7 +328,8 @@ module Steep
                 interface.methods[name] = Interface::Interface::Combination.overload(
                   method.method_types.map do |type|
                     method_type(type) {|type| type.subst(subst) }
-                  end
+                  end,
+                  incompatible: method.attributes.include?(:incompatible)
                 )
               end
             end

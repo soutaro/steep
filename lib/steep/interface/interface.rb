@@ -8,6 +8,7 @@ module Steep
         def initialize(operator:, types:)
           @types = types
           @operator = operator
+          @incompatible = false
         end
 
         def overload?
@@ -22,8 +23,17 @@ module Steep
           operator == :intersection
         end
 
-        def self.overload(types)
-          new(operator: :overload, types: types)
+        def self.overload(types, incompatible:)
+          new(operator: :overload, types: types).incompatible!(incompatible)
+        end
+
+        def incompatible?
+          @incompatible
+        end
+
+        def incompatible!(value)
+          @incompatible = value
+          self
         end
 
         def self.union(types)

@@ -390,9 +390,11 @@ end
     assert result.instance_of?(Subtyping::Result::Failure), message {
       str = ""
       str << "Expected subtyping check fail but succeeded: #{relation.sub_type} <: #{relation.super_type}\n"
-      str << "Trace:\n"
-      result.trace.each do |*xs|
-        str << "  #{xs.join(", ")}\n"
+      if result.respond_to? :trace
+        str << "Trace:\n"
+        result.trace.each do |*xs|
+          str << "  #{xs.join(", ")}\n"
+        end
       end
       str
     }
@@ -618,6 +620,22 @@ interface _ToS
 end
     EOF
       assert_success_check checker, "^(::_ToS) -> void", "^(self) -> any", self_type: parse_type("::Integer", checker: checker)
+    end
+  end
+
+  def test_incompatible_method
+    with_checker <<-EOF do |checker|
+class Test1
+  def foo: () -> Integer
+end
+
+class Test2
+  incompatible def foo: (Integer) -> void
+end
+    EOF
+
+      assert_fail_check checker, "::Test1", "::Test2"
+      assert_success_check checker, "::Test2", "::Test1"
     end
   end
 end

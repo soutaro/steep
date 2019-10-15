@@ -368,22 +368,18 @@ module Steep
           when sub_method.overload? && super_method.overload?
             super_method.types.map do |super_type|
               sub_method.types.map do |sub_type|
-                if super_type == :any || sub_type == :any
-                  success constraints: constraints
-                else
-                  check_generic_method_type name,
-                                            sub_type,
-                                            super_type,
-                                            self_type: self_type,
-                                            assumption: assumption,
-                                            trace: trace,
-                                            constraints: constraints
-                end
+                check_generic_method_type name,
+                                          sub_type,
+                                          super_type,
+                                          self_type: self_type,
+                                          assumption: assumption,
+                                          trace: trace,
+                                          constraints: constraints
               end.yield_self do |results|
                 results.find(&:success?) || results[0]
               end
             end.yield_self do |results|
-              if results.all?(&:success?)
+              if results.all?(&:success?) || sub_method.incompatible?
                 success constraints: constraints
               else
                 results.select(&:failure?).last
