@@ -13,14 +13,14 @@ end
 
 class Object < BasicObject
   def class: -> class
-  def tap: { (instance) -> any } -> instance
+  def tap: { (instance) -> untyped } -> instance
 end
 
 class Class
 end
 
 class Module
-  def block_given?: -> any
+  def block_given?: -> untyped
 end
 
 class String
