@@ -6,17 +6,17 @@ class InterfaceTest < Minitest::Test
 
   def test_method_type_params_union
     with_factory do |factory|
-      assert_equal parse_method_type("(String | Integer) -> any").params,
-                   parse_method_type("(String) -> any").params | parse_method_type("(Integer) -> any").params
+      assert_equal parse_method_type("(String | Integer) -> untyped").params,
+                   parse_method_type("(String) -> untyped").params | parse_method_type("(Integer) -> untyped").params
 
-      assert_equal parse_method_type("(?String | Integer) -> any").params,
-                   parse_method_type("(?String) -> any").params | parse_method_type("(Integer) -> any").params
+      assert_equal parse_method_type("(?String | Integer) -> untyped").params,
+                   parse_method_type("(?String) -> untyped").params | parse_method_type("(Integer) -> untyped").params
 
-      assert_equal parse_method_type("(?String) -> any").params,
-                   parse_method_type("(String) -> any").params | parse_method_type("() -> any").params
+      assert_equal parse_method_type("(?String) -> untyped").params,
+                   parse_method_type("(String) -> untyped").params | parse_method_type("() -> untyped").params
 
-      assert_equal parse_method_type("(?String | Symbol, *Symbol) -> any").params,
-                   parse_method_type("(String) -> any").params | parse_method_type("(*Symbol) -> any").params
+      assert_equal parse_method_type("(?String | Symbol, *Symbol) -> untyped").params,
+                   parse_method_type("(String) -> untyped").params | parse_method_type("(*Symbol) -> untyped").params
 
       assert_equal parse_method_type("(?String | Symbol, *Symbol) -> void").params,
                    parse_method_type("(String) -> params").params | parse_method_type("(*Symbol) -> void").params
@@ -31,26 +31,26 @@ class InterfaceTest < Minitest::Test
 
   def test_method_type_params_intersection
     with_factory do |factory|
-      assert_equal parse_method_type("(String & Integer) -> any").params,
-                   parse_method_type("(String) -> any").params & parse_method_type("(Integer) -> any").params
+      assert_equal parse_method_type("(String & Integer) -> untyped").params,
+                   parse_method_type("(String) -> untyped").params & parse_method_type("(Integer) -> untyped").params
 
-      assert_equal parse_method_type("(String & Integer) -> any").params,
-                   parse_method_type("(?String) -> any").params & parse_method_type("(Integer) -> any").params
+      assert_equal parse_method_type("(String & Integer) -> untyped").params,
+                   parse_method_type("(?String) -> untyped").params & parse_method_type("(Integer) -> untyped").params
 
-      assert_equal parse_method_type("(String & Integer) -> any").params,
-                   parse_method_type("(String) -> any").params & parse_method_type("(*Integer) -> any").params
+      assert_equal parse_method_type("(String & Integer) -> untyped").params,
+                   parse_method_type("(String) -> untyped").params & parse_method_type("(*Integer) -> untyped").params
 
-      assert_equal parse_method_type("(bot) -> any").params,
-                   (parse_method_type("(String) -> any").params & parse_method_type("() -> any").params)
+      assert_equal parse_method_type("(bot) -> untyped").params,
+                   (parse_method_type("(String) -> untyped").params & parse_method_type("() -> untyped").params)
 
-      assert_equal parse_method_type("() -> any").params,
-                   parse_method_type("(?String) -> any").params & parse_method_type("() -> any").params
+      assert_equal parse_method_type("() -> untyped").params,
+                   parse_method_type("(?String) -> untyped").params & parse_method_type("() -> untyped").params
 
-      assert_equal parse_method_type("(String & Symbol) -> any").params,
-                   parse_method_type("(String) -> any").params & parse_method_type("(*Symbol) -> any").params
+      assert_equal parse_method_type("(String & Symbol) -> untyped").params,
+                   parse_method_type("(String) -> untyped").params & parse_method_type("(*Symbol) -> untyped").params
 
-      assert_equal parse_method_type("(?String & Integer) -> any").params,
-                   parse_method_type("(?String) -> any").params & parse_method_type("(?Integer) -> any").params
+      assert_equal parse_method_type("(?String & Integer) -> untyped").params,
+                   parse_method_type("(?String) -> untyped").params & parse_method_type("(?Integer) -> untyped").params
 
       assert_equal parse_method_type("(String & Symbol) -> void").params,
                    parse_method_type("(String) -> params").params & parse_method_type("(*Symbol) -> void").params
@@ -62,17 +62,17 @@ class InterfaceTest < Minitest::Test
 
   def test_method_type_plus
     with_factory do |factory|
-      assert_equal parse_method_type("(String | Integer) -> any"),
-                   parse_method_type("(String) -> any") + parse_method_type("(Integer) -> any")
+      assert_equal parse_method_type("(String | Integer) -> untyped"),
+                   parse_method_type("(String) -> untyped") + parse_method_type("(Integer) -> untyped")
 
-      assert_equal parse_method_type("(?String | Integer) -> any"),
-                   parse_method_type("(?String) -> any") + parse_method_type("(Integer) -> any")
+      assert_equal parse_method_type("(?String | Integer) -> untyped"),
+                   parse_method_type("(?String) -> untyped") + parse_method_type("(Integer) -> untyped")
 
-      assert_equal parse_method_type("(?String) -> any"),
-                   parse_method_type("(String) -> any") + parse_method_type("() -> any")
+      assert_equal parse_method_type("(?String) -> untyped"),
+                   parse_method_type("(String) -> untyped") + parse_method_type("() -> untyped")
 
-      assert_equal parse_method_type("(?String | Symbol, *Symbol) -> any"),
-                   parse_method_type("(String) -> any") + parse_method_type("(*Symbol) -> any")
+      assert_equal parse_method_type("(?String | Symbol, *Symbol) -> untyped"),
+                   parse_method_type("(String) -> untyped") + parse_method_type("(*Symbol) -> untyped")
 
       assert_equal parse_method_type("(?String | Symbol, *Symbol) -> (Array | Hash)"),
                    parse_method_type("(String) -> Hash") + parse_method_type("(*Symbol) -> Array")
