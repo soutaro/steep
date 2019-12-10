@@ -12,27 +12,27 @@ class SourceTest < Minitest::Test
   def test_foo
     with_factory do |factory|
       code = <<-EOF
-# @type var x1: any
+# @type var x1: untyped
 
 module Foo
-  # @type var x2: any
+  # @type var x2: untyped
 
   class Bar
     # @type instance: String
     # @type module: singleton(String)
 
-    # @type var x3: any
-    # @type method foo: -> any
+    # @type var x3: untyped
+    # @type method foo: -> untyped
     def foo
-      # @type return: any
-      # @type var x4: any
+      # @type return: untyped
+      # @type var x4: untyped
       self.tap do
-        # @type var x5: any
+        # @type var x5: untyped
         # @type block: Integer
       end
     end
 
-    # @type method bar: () -> any
+    # @type method bar: () -> untyped
     def bar
     end
   end
@@ -71,7 +71,7 @@ Foo::Bar.new
         assert_equal 5, annotations.size
         assert_equal parse_type("::String"), annotations.instance_type
         assert_equal parse_type("singleton(::String)"), annotations.module_type
-        assert_equal parse_type("any"), annotations.var_type(lvar: :x3)
+        assert_equal parse_type("untyped"), annotations.var_type(lvar: :x3)
       end
 
       # def
