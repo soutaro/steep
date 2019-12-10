@@ -193,7 +193,7 @@ end
 
 class Object < BasicObject
   def class: -> class
-  def tap: { (instance) -> any } -> instance
+  def tap: { (instance) -> untyped } -> instance
   def gets: -> String?
   def to_s: -> String
   def nil?: -> bool
@@ -205,7 +205,7 @@ class Class
 end
 
 class Module
-  def block_given?: -> any
+  def block_given?: -> untyped
 end
 
 class String
@@ -236,15 +236,15 @@ class Regexp
 end
 
 class Array[A]
-  def initialize: () -> any
-                | (Integer, A) -> any
-                | (Integer) -> any
+  def initialize: () -> untyped
+                | (Integer, A) -> untyped
+                | (Integer) -> untyped
   def `[]`: (Integer) -> A
   def `[]=`: (Integer, A) -> A
   def `<<`: (A) -> self
-  def each: { (A) -> any } -> self
+  def each: { (A) -> untyped } -> self
   def zip: [B] (Array[B]) -> Array[A | B]
-  def each_with_object: [B] (B) { (A, B) -> any } -> B
+  def each_with_object: [B] (B) { (A, B) -> untyped } -> B
   def map: [X] { (A) -> X } -> Array[X]
 end
 
@@ -258,10 +258,10 @@ class NilClass
 end
 
 class Proc
-  def `[]`: (*any) -> any
-  def call: (*any) -> any
-  def `===`: (*any) -> any
-  def yield: (*any) -> any
+  def `[]`: (*untyped) -> untyped
+  def call: (*untyped) -> untyped
+  def `===`: (*untyped) -> untyped
+  def yield: (*untyped) -> untyped
   def arity: -> Integer
 end
   EOS
