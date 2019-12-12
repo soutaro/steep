@@ -400,8 +400,8 @@ module FactoryHelper
     Steep::Source.parse(string, path: Pathname("test.rb"), factory: factory)
   end
 
-  def parse_method_type(string, factory: self.factory, variables: [])
+  def parse_method_type(string, factory: self.factory, variables: [], self_type: Steep::AST::Types::Self.new)
     type = Ruby::Signature::Parser.parse_method_type(string, variables: variables)
-    factory.method_type type
+    factory.method_type type, self_type: self_type
   end
 end
