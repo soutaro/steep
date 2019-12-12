@@ -35,6 +35,24 @@ module TestHelper
     assert collection.any?(&block)
   end
 
+  def assert_any!(collection, &block)
+    errors = []
+    count = 0
+
+    collection.each do |c|
+      begin
+        block[c]
+        count += 1
+      rescue Minitest::Assertion => error
+        errors << error
+      end
+    end
+
+    if count == 0
+      raise Minitest::Assertion.new("Assertion should hold one of the collection members: #{collection.join(', ')}")
+    end
+  end
+
   def assert_all(collection, &block)
     assert collection.all?(&block)
   end
