@@ -125,7 +125,7 @@ module Steep
       definition_method_type = if definition
                                  definition.methods[method_name]&.yield_self do |method|
                                    method.method_types
-                                     .map {|method_type| checker.factory.method_type(method_type) }
+                                     .map {|method_type| checker.factory.method_type(method_type, self_type: self_type) }
                                      .select {|method_type| method_type.is_a?(Interface::MethodType) }
                                      .inject {|t1, t2| t1 + t2}
                                  end
@@ -239,7 +239,7 @@ module Steep
               absolute_name_ = checker.factory.type_name_1(absolute_name)
               decl = checker.factory.env.find_class(absolute_name_)
               AST::Annotation::Implements::Module.new(name: absolute_name,
-                                                      args: decl.type_params)
+                                                      args: decl.type_params.each.map(&:name))
             end
           end
         end
@@ -347,7 +347,7 @@ module Steep
             absolute_name_ = checker.factory.type_name_1(name)
             decl = checker.factory.env.find_class(absolute_name_)
             AST::Annotation::Implements::Module.new(name: name,
-                                                    args: decl.type_params)
+                                                    args: decl.type_params.each.map(&:name))
           end
         end
       end
@@ -643,8 +643,9 @@ module Steep
 
                 super_method = Interface::Interface::Combination.overload(
                   method_context.super_method.method_types.map {|method_type|
-                    checker.factory.method_type(method_type)
-                  }
+                    checker.factory.method_type(method_type, self_type: self_type)
+                  },
+                  incompatible: false
                 )
                 args = TypeInference::SendArgs.from_nodes(node.children.dup)
 
@@ -1089,7 +1090,7 @@ module Steep
                 types = method_context.super_method.method_types.map {|method_type|
                   case method_type
                   when Ruby::Signature::MethodType
-                    checker.factory.method_type(method_type).return_type
+                    checker.factory.method_type(method_type, self_type: self_type).return_type
                   when :any
                     AST::Builtin.any_type
                   else
@@ -2722,7 +2723,7 @@ module Steep
     def to_instance_type(type, args: nil)
       args = args || case type
                      when AST::Types::Name::Class, AST::Types::Name::Module
-                       checker.factory.env.find_class(checker.factory.type_name_1(type.name)).type_params.map { AST::Builtin.any_type }
+                       checker.factory.env.find_class(checker.factory.type_name_1(type.name)).type_params.each.map { AST::Builtin.any_type }
                      else
                        raise "unexpected type to to_instance_type: #{type}"
                      end
