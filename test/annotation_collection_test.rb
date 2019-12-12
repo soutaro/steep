@@ -35,7 +35,7 @@ class AnnotationCollectionTest < Minitest::Test
   end
 
   RBIS = {
-    "foo.rbi" => <<EOF
+    "foo.rbs" => <<EOF
 class Person
 end
 
