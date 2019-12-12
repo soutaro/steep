@@ -11,14 +11,14 @@ end
 
 class Object < BasicObject
   def class: () -> class
-  def tap: { (self) -> any } -> self
+  def tap: { (self) -> untyped } -> self
   def yield_self: [A] { (self) -> A } -> A
   def to_s: -> String
 end
 
 class Class
-  def new: (*any) -> any 
-  def allocate: -> any
+  def new: (*untyped) -> untyped 
+  def allocate: -> untyped
 end
 
 class Module
@@ -27,7 +27,7 @@ end
 
 class String
   def to_str: -> String
-  def self.try_convert: (any) -> String
+  def self.try_convert: (untyped) -> String
 end
 
 class Integer
@@ -51,7 +51,7 @@ class Symbol
 end
 
 module Kernel
-  def Integer: (any) -> Integer
+  def Integer: (untyped) -> Integer
 end
   EOB
 
@@ -126,7 +126,7 @@ class A
 end
 
 class B
-  def foo: -> any
+  def foo: -> untyped
 end
     EOS
 
@@ -139,11 +139,11 @@ end
     with_checker <<-EOS do |checker|
 class A
   def foo: -> Integer
-  def bar: -> any
+  def bar: -> untyped
 end
 
 class B
-  def foo: -> any
+  def foo: -> untyped
 end
     EOS
       assert_success_result checker.check(parse_relation("::A", "::B", checker: checker), self_type: parse_type("self", checker: checker), constraints: Constraints.empty)
@@ -179,7 +179,7 @@ class A
 end
 
 class B
-  def foo: (?Integer, ?foo: Symbol) -> any
+  def foo: (?Integer, ?foo: Symbol) -> untyped
 end
     EOS
 
@@ -261,7 +261,7 @@ interface _A
 end
 
 interface _B
-  def foo: () -> any
+  def foo: () -> untyped
 end
     EOS
       assert_success_check checker, "::_A", "::_B"
@@ -303,7 +303,7 @@ end
     with_checker <<-EOS do |checker|
 class A
   def foo: (Integer) -> Integer
-         | (any) -> any
+         | (untyped) -> untyped
 end
 
 class B
@@ -418,7 +418,7 @@ end
 
 interface _B
   def foo: () -> ::Integer
-  def baz: () -> ::Array[any]
+  def baz: () -> ::Array[untyped]
 end
 
 interface _X
@@ -569,8 +569,8 @@ end
     with_checker do |checker|
       assert_success_check checker, "[::Integer, ::String]", "::Array[::Integer | ::String]"
       assert_fail_check checker, "[1, 2, 3]", "::Array[::Integer]"
-      assert_success_check checker, "[::Integer, ::String]", "::String | ::Array[any]"
-      assert_success_check checker, "[::Integer, ::String]", "[any, any]"
+      assert_success_check checker, "[::Integer, ::String]", "::String | ::Array[untyped]"
+      assert_success_check checker, "[::Integer, ::String]", "[untyped, untyped]"
       assert_fail_check checker, "[1, 2, 3]", "[::Integer, ::Integer, ::Integer]"
     end
   end
@@ -619,7 +619,7 @@ interface _ToS
   def to_s: () -> String
 end
     EOF
-      assert_success_check checker, "^(::_ToS) -> void", "^(self) -> any", self_type: parse_type("::Integer", checker: checker)
+      assert_success_check checker, "^(::_ToS) -> void", "^(self) -> untyped", self_type: parse_type("::Integer", checker: checker)
     end
   end
 
