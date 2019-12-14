@@ -49,7 +49,7 @@ module TestHelper
     end
 
     if count == 0
-      raise Minitest::Assertion.new("Assertion should hold one of the collection members: #{collection.join(', ')}")
+      raise Minitest::Assertion.new("Assertion should hold one of the collection members: #{collection.to_a.join(', ')}")
     end
   end
 
@@ -288,7 +288,7 @@ end
     @checker or raise "#checker should be used within from #with_checker"
   end
 
-  def with_checker(*files, &block)
+  def with_checker(*files, with_stdlib: false, &block)
     paths = {}
 
     files.each.with_index do |content, index|
@@ -299,8 +299,11 @@ end
       end
     end
 
-    paths["builtin.rbs"] = BUILTIN
-    with_factory(paths, nostdlib: true) do |factory|
+    unless with_stdlib
+      paths["builtin.rbs"] = BUILTIN
+    end
+
+    with_factory(paths, nostdlib: !with_stdlib) do |factory|
       @checker = Steep::Subtyping::Check.new(factory: factory)
       yield @checker
     ensure

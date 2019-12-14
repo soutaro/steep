@@ -151,11 +151,11 @@ end
       validator.validate_decl
 
       assert_operator validator, :has_error?
-      assert_any validator.each_error do |error|
-        error.is_a?(Errors::InvalidTypeApplicationError) &&
-          error.name == parse_type("::Array").name &&
-          error.args == [] &&
-          error.params == [:A]
+      assert_any! validator.each_error do |error|
+        assert_instance_of Errors::InvalidTypeApplicationError, error
+        assert_equal parse_type("::Array").name, error.name
+        assert_empty error.args
+        assert_equal [:A], error.params
       end
     end
 
@@ -173,6 +173,20 @@ end
         error.is_a?(Errors::UnknownTypeNameError) &&
           error.name == parse_type("::Arryay").name
       end
+    end
+  end
+
+  def test_validate_stdlib
+    with_checker with_stdlib: true do |checker|
+      env = checker.factory.env
+      validator = Validator.new(checker: checker)
+
+      name, decl = env.each_decl.find {|(name, _)| name.to_s == "::Hash" }
+
+      validator.validate_one_decl name, decl
+      validator.each_error {|e| e.puts(STDOUT) }
+
+      refute validator.has_error?
     end
   end
 

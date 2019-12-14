@@ -1,5 +1,5 @@
 class A
-  def foo: { (String) -> any } -> String
+  def foo: { (String) -> untyped } -> String
          | -> Integer
 
   def bar: { (String) -> Integer } -> Symbol

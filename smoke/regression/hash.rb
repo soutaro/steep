@@ -1,7 +1,7 @@
 class Foo
-  # @type method foo: (Hash[String, any]) -> void
+  # @type method foo: (Hash[String, untyped]) -> void
   def foo(x)
-    # @type ivar @y: Hash[String, any]
+    # @type ivar @y: Hash[String, untyped]
     @y = x
   end
 end
