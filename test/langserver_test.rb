@@ -1,6 +1,7 @@
 require_relative "test_helper"
 
 class LangserverTest < Minitest::Test
+  include TestHelper
   include ShellHelper
 
   def dirs
@@ -8,12 +9,7 @@ class LangserverTest < Minitest::Test
   end
 
   def langserver_command
-    "#{__dir__}/../exe/steep langserver --log-level=info"
-  end
-
-  def jsonrpc(hash)
-    hash_str = hash.to_json
-    "Content-Length: #{hash_str.bytesize}\r\n" + "\r\n" + hash_str
+    "#{__dir__}/../exe/steep langserver --log-level=error"
   end
 
   def test_initialize
@@ -22,26 +18,29 @@ class LangserverTest < Minitest::Test
 target :app do end
 EOF
 
-      Open3.popen3(langserver_command) do |stdin, stdout, stderr, wait_thr|
-        stdin.puts jsonrpc(
-          id: 0,
-          method: "initialize",
-          params: {},
-          jsonrpc: "2.0",
-        )
-        stdin.close
-        wait_thr.join
+      Open3.popen2(langserver_command) do |stdin, stdout|
+        reader = LanguageServer::Protocol::Transport::Io::Reader.new(stdout)
+        writer = LanguageServer::Protocol::Transport::Io::Writer.new(stdin)
 
-        assert_equal jsonrpc(
-          id: 0,
-          result: {
-            capabilities: {
-              textDocumentSync: { change: 1 },
-              hoverProvider: true
-            }
-          },
-          jsonrpc: "2.0",
-        ), stdout.read
+        lsp = LSPDouble.new(reader: reader, writer: writer)
+
+        lsp.start do
+          lsp.send_request(method: "initialize") do |response|
+            assert_equal(
+              {
+                id: response[:id],
+                result: {
+                  capabilities: {
+                    textDocumentSync: { change: 1 },
+                    hoverProvider: true,
+                  }
+                },
+                jsonrpc: "2.0"
+              },
+              response
+            )
+          end
+        end
       end
     end
   end
@@ -58,68 +57,71 @@ EOF
       (path+"workdir").mkdir
       (path+"workdir/example.rb").write ""
 
-      Open3.popen3(langserver_command, chdir: path.to_s) do |stdin, stdout, stderr, wait_thr|
-        stdin.puts jsonrpc(
-                     id: 0,
-                     method: "initialize",
-                     params: {},
-                     jsonrpc: "2.0",
-                     )
-        stdin.puts jsonrpc(
-                     id: 1,
-                     method: "textDocument/didChange",
-                     params: {
-                       textDocument: {
-                         uri: "file://#{path}/workdir/example.rb",
-                         version: 2,
-                       },
-                       contentChanges: [
-                         { text: <<-EOF }
-1.map()
-                         EOF
-                       ]
-                     }
-                   )
-        stdin.close
-        wait_thr.join
+      Open3.popen2(langserver_command, chdir: path.to_s) do |stdin, stdout|
+        reader = LanguageServer::Protocol::Transport::Io::Reader.new(stdout)
+        writer = LanguageServer::Protocol::Transport::Io::Writer.new(stdin)
 
-        assert_equal [
-                       jsonrpc(
-                         id: 0,
-                         result: {
-                           "capabilities": {
-                             "textDocumentSync": { change: 1 },
-                             hoverProvider: true
-                           }
-                         },
-                         jsonrpc: "2.0",
-                         ),
-                       jsonrpc(
-                         method: "textDocument/publishDiagnostics",
-                         params: {
-                           uri: "file://#{path}/workdir/example.rb",
-                           diagnostics: []
-                         },
-                         jsonrpc: "2.0",
-                         ),
-                       jsonrpc(
-                         method: "textDocument/publishDiagnostics",
-                         params: {
-                           uri: "file://#{path}/workdir/example.rb",
-                           diagnostics: [
-                             {
-                               range: {
-                                 start: { line: 0, character: 0 },
-                                 end: { line: 0, character: 7 },
-                               },
-                               severity: 1,
-                               message: "workdir/example.rb:1:0: NoMethodError: type=::Integer, method=map"
-                             }
-                           ]
-                         },
-                         jsonrpc: "2.0",
-                         )
-                     ].join(""), stdout.read
+        lsp = LSPDouble.new(reader: reader, writer: writer)
+
+        lsp.start do
+          lsp.send_request(method: "initialize") do |response|
+            assert_equal(
+              {
+                id: response[:id],
+                result: {
+                  capabilities: {
+                    textDocumentSync: { change: 1 },
+                    hoverProvider: true,
+                  }
+                },
+                jsonrpc: "2.0"
+              },
+              response
+            )
+          end
+
+          finally_holds do
+            lsp.synchronize_ui do
+              assert_equal [], lsp.diagnostics["file://#{path}/workdir/example.rb"]
+            end
+          end
+
+          lsp.send_request(
+            method: "textDocument/didChange",
+            params: {
+              textDocument: {
+                uri: "file://#{path}/workdir/example.rb",
+                version: 2,
+              },
+              contentChanges: [{text: "1.map()" }]
+            }
+          )
+
+          assert_finally do
+            lsp.synchronize_ui do
+              lsp.diagnostics["file://#{path}/workdir/example.rb"].any? {|error|
+                error[:message] == "workdir/example.rb:1:0: NoMethodError: type=::Integer, method=map"
+              }
+            end
+          end
+
+          lsp.send_request(
+            method: "textDocument/didChange",
+            params: {
+              textDocument: {
+                uri: "file://#{path}/workdir/example.rb",
+                version: 2,
+              },
+              contentChanges: [{text: "1.to_s" }]
+            }
+          )
+
+          finally_holds do
+            lsp.synchronize_ui do
+              assert_equal [], lsp.diagnostics["file://#{path}/workdir/example.rb"]
+            end
+          end
+        end
       end
     end
   end
