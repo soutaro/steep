@@ -30,7 +30,7 @@ module Steep
           Steep.logger.tagged "lsp" do
             Steep.logger.debug { "Received a request: request=#{request.to_json}" }
             handle_request(project, request) do |id, result|
-              if id && result
+              if id
                 Steep.logger.debug { "Writing response to #{id}: #{result.to_json}" }
                 writer.write(id: id, result: result)
               end
@@ -111,6 +111,9 @@ module Steep
                      yield id, response_to_hover(project: project, path: path, line: line, column: column)
 
                    when :shutdown
+                     yield id, nil
+
+                   when :exit
                      exit
                    end
         end
