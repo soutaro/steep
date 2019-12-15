@@ -18,11 +18,11 @@ class LangserverTest < Minitest::Test
 
   def test_initialize
     in_tmpdir do
-      (Pathname.pwd + "Steepfile").write <<EOF
+      (current_dir + "Steepfile").write <<EOF
 target :app do end
 EOF
 
-      Open3.popen3(langserver_command) do |stdin, stdout, stderr, wait_thr|
+      Open3.popen3(langserver_command, chdir: current_dir) do |stdin, stdout, stderr, wait_thr|
         stdin.puts jsonrpc(
           id: 0,
           method: "initialize",
