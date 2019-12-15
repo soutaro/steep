@@ -9,6 +9,7 @@ require "pp"
 require "open3"
 require "tmpdir"
 require 'minitest/hooks/test'
+require "lsp_double"
 
 module Steep::AST::Types::Name
   def self.new_module(location: nil, name:, args: [])
@@ -44,6 +45,37 @@ module TestHelper
 
   def assert_size(size, collection)
     assert_equal size, collection.size
+  end
+
+  def finally(timeout: 5)
+    started_at = Time.now
+    while Time.now < started_at + timeout
+      yield
+      sleep 0.2
+    end
+  end
+
+  def finally_holds(timeout: 5)
+    finally(timeout: timeout) do
+      begin
+        yield
+        return
+      rescue Minitest::Assertion
+        # ignore
+      end
+    end
+
+    yield
+  end
+
+  def assert_finally(timeout: 5, &block)
+    finally(timeout: timeout) do
+      yield.tap do |result|
+        return result if result
+      end
+    end
+
+    assert yield
   end
 
   def dig(node, *indexes)
