@@ -174,40 +174,6 @@ end
           error.name == parse_type("::Arryay").name
       end
     end
-
-    with_checker <<-EOF do |checker|
-class Foo
-  def to_s: -> Integer
-end
-    EOF
-
-      validator = Validator.new(checker: checker)
-      validator.validate_decl
-
-      assert_operator validator, :has_error?
-      assert_any validator.each_error do |error|
-        error.is_a?(Errors::NoSubtypingInheritanceError) &&
-          error.type == parse_type("::Foo") &&
-          error.super_type == parse_type("::Object")
-      end
-    end
-
-    with_checker <<-EOF do |checker|
-class Foo
-  def self.to_s: -> Integer
-end
-    EOF
-
-      validator = Validator.new(checker: checker)
-      validator.validate_decl
-
-      assert_operator validator, :has_error?
-      assert_any validator.each_error do |error|
-        error.is_a?(Errors::NoSubtypingInheritanceError) &&
-          error.type == parse_type("singleton(::Foo)") &&
-          error.super_type == parse_type("singleton(::Object)")
-      end
-    end
   end
 
   def test_validate_module

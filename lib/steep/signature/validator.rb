@@ -59,63 +59,6 @@ module Steep
               builder.build_singleton(decl.name.absolute!).each_type do |type|
                 env.validate type, namespace: Ruby::Signature::Namespace.root
               end
-
-              unless name == Ruby::Signature::BuiltinNames::BasicObject.name
-                yield_self do
-                  args = decl.type_params.map {|var| AST::Types::Var.new(name: var) }
-                  instance_type = AST::Types::Name::Instance.new(name: factory.type_name(name).absolute!, args: args)
-
-                  super_type = if decl.super_class
-                                 AST::Types::Name::Instance.new(name: factory.type_name(decl.super_class.name),
-                                                                args: decl.super_class.args.map {|ty| factory.type(ty) })
-                               else
-                                 AST::Builtin::Object.instance_type
-                               end
-
-                  super_type = factory.absolute_type(super_type, namespace: factory.namespace(name.namespace))
-
-                  relation = Subtyping::Relation.new(sub_type: instance_type, super_type: super_type)
-                  constraints = Subtyping::Constraints.new(unknowns: [])
-
-                  result = checker.check(relation, self_type: AST::Types::Self.new, constraints: constraints)
-
-                  if result.failure?
-                    @errors << Errors::NoSubtypingInheritanceError.new(
-                      type: instance_type,
-                      super_type: super_type,
-                      error: result.error,
-                      trace: result.trace,
-                      location: decl.location
-                    )
-                  end
-                end
-
-                yield_self do
-                  singleton_type = AST::Types::Name::Class.new(name: factory.type_name(name).absolute!, constructor: nil)
-                  super_type = if decl.super_class
-                                 AST::Types::Name::Class.new(name: factory.type_name(decl.super_class.name),
-                                                             constructor: nil)
-                               else
-                                 AST::Builtin::Object.class_type(constructor: nil)
-                               end
-                  super_type = factory.absolute_type(super_type, namespace: factory.namespace(name.namespace))
-
-                  relation = Subtyping::Relation.new(sub_type: singleton_type, super_type: super_type)
-                  constraints = Subtyping::Constraints.new(unknowns: [])
-
-                  result = checker.check(relation, self_type: AST::Types::Self.new, constraints: constraints)
-
-                  if result.failure?
-                    @errors << Errors::NoSubtypingInheritanceError.new(
-                      type: singleton_type,
-                      super_type: super_type,
-                      error: result.error,
-                      trace: result.trace,
-                      location: decl.location
-                    )
-                  end
-                end
-              end
             end
           when Declarations::Interface
             rescue_validation_errors do
