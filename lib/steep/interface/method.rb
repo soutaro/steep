@@ -24,10 +24,6 @@ module Steep
           other.attributes == attributes
       end
 
-      def incompatible?
-        attributes.include?(:incompatible)
-      end
-
       def private?
         attributes.include?(:private)
       end
