@@ -80,7 +80,7 @@ EOF
             )
           end
 
-          finally_holds do
+          finally_holds timeout: 30 do
             lsp.synchronize_ui do
               assert_equal [], lsp.diagnostics["file://#{path}/workdir/example.rb"]
             end
