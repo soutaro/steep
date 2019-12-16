@@ -48,26 +48,6 @@ module Steep
           io.puts "#{loc_to_s}\tInvalidTypeApplicationError: name=#{name}, expected=[#{params.join(", ")}], actual=[#{args.join(", ")}]"
         end
       end
-
-      class NoSubtypingInheritanceError < Base
-        attr_reader :type
-        attr_reader :super_type
-        attr_reader :error
-        attr_reader :trace
-
-        def initialize(type:, super_type:, error:, trace:, location:)
-          @type = type
-          @super_type = super_type
-          @error = error
-          @trace = trace
-          @location = location
-        end
-
-        def puts(io)
-          io.puts "#{loc_to_s}\tNoSubtypingInheritanceError: expected subtyping relation: #{type} <: #{super_type}"
-          Drivers::TracePrinter.new(io).print(trace, level: 2)
-        end
-      end
     end
   end
 end
