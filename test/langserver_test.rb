@@ -14,11 +14,11 @@ class LangserverTest < Minitest::Test
 
   def test_initialize
     in_tmpdir do
-      (Pathname.pwd + "Steepfile").write <<EOF
+      (current_dir + "Steepfile").write <<EOF
 target :app do end
 EOF
 
-      Open3.popen2(langserver_command) do |stdin, stdout|
+      Open3.popen2(langserver_command, chdir: current_dir) do |stdin, stdout|
         reader = LanguageServer::Protocol::Transport::Io::Reader.new(stdout)
         writer = LanguageServer::Protocol::Transport::Io::Writer.new(stdin)
 
