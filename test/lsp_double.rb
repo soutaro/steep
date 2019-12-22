@@ -8,6 +8,8 @@ class LSPDouble
   attr_reader :responses
   attr_reader :mutex
 
+  attr_accessor :default_timeout
+
   def initialize(reader:, writer:)
     @reader = reader
     @writer = writer
@@ -18,6 +20,8 @@ class LSPDouble
     @diagnostics = {}
     @responses = {}
     @mutex = Mutex.new
+
+    @default_timeout = 3
   end
 
   def next_request_id
@@ -72,7 +76,7 @@ class LSPDouble
     responses[response[:id]] = response
   end
 
-  def send_request(id: nil, method:, params: nil, response_timeout: 3)
+  def send_request(id: nil, method:, params: nil, response_timeout: default_timeout)
     id ||= next_request_id
     writer.write(id: id, method: method, params: params)
 
@@ -83,7 +87,7 @@ class LSPDouble
     end
   end
 
-  def retrieve_response(request_id, timeout: 3)
+  def retrieve_response(request_id, timeout: default_timeout)
     finally(timeout: timeout) do
       if responses.key?(request_id)
         return responses[request_id]
@@ -93,7 +97,7 @@ class LSPDouble
     nil
   end
 
-  def finally(timeout: 3)
+  def finally(timeout: default_timeout)
     started_at = Time.now
     while Time.now < started_at + timeout
       yield

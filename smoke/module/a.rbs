@@ -1,5 +1,5 @@
 interface _Each2[A, B]
-  def each: { (A) -> any } -> B
+  def each: { (A) -> untyped } -> B
 end
 
 module A : _Each2[Integer, A]

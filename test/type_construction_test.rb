@@ -29,7 +29,7 @@ interface _C
 end
 
 interface _D
-  def foo: () -> any
+  def foo: () -> untyped
 end
 
 interface _X
@@ -42,8 +42,8 @@ interface _Kernel
 end
 
 interface _PolyMethod
-  def snd: [A] (any, A) -> A
-  def try: [A] { (any) -> A } -> A
+  def snd: [A] (untyped, A) -> A
+  def try: [A] { (untyped) -> A } -> A
 end
 
 module Foo[A]
@@ -224,7 +224,7 @@ x.no_such_method
       with_standard_construction(checker, source) do |construction, typing|
         construction.synthesize(source.node)
 
-        assert_equal parse_type("any"), typing.type_of(node: source.node)
+        assert_equal parse_type("untyped"), typing.type_of(node: source.node)
         assert_empty typing.errors
       end
     end
@@ -241,7 +241,7 @@ x.no_such_method
       with_standard_construction(checker, source) do |construction, typing|
         construction.synthesize(source.node)
 
-        assert_equal parse_type("any"), typing.type_of(node: source.node)
+        assert_equal parse_type("untyped"), typing.type_of(node: source.node)
 
         assert_equal 1, typing.errors.size
         assert_no_method_error typing.errors.first, method: :no_such_method, type: parse_type("::_C")
@@ -1138,7 +1138,7 @@ end
     EOS
       source = parse_ruby(<<-EOF)
 class A
-  # @type method foo: () ?{ () -> any } -> any
+  # @type method foo: () ?{ () -> untyped } -> untyped
   def foo()
   end
 end
@@ -1158,8 +1158,8 @@ end
 
         method_context = for_method.method_context
         assert_equal :foo, method_context.name
-        assert_equal parse_method_type("() ?{ () -> any } -> any"), method_context.method_type
-        assert_equal parse_type("any"), method_context.return_type
+        assert_equal parse_method_type("() ?{ () -> untyped } -> untyped"), method_context.method_type
+        assert_equal parse_type("untyped"), method_context.return_type
         refute method_context.constructor
 
         assert_equal parse_type("::A"), for_method.self_type
@@ -1252,7 +1252,7 @@ end
   def test_relative_type_name
     with_checker <<-EOF do |checker|
 class A::String
-  def aaaaa: -> any
+  def aaaaa: -> untyped
 end
     EOF
 
@@ -1293,11 +1293,11 @@ end
   def test_namespace_module
     with_checker <<-EOS do |checker|
 class A
-  def foobar: -> any
+  def foobar: -> untyped
 end
 
 class A::String
-  def aaaaa: -> any
+  def aaaaa: -> untyped
 end
     EOS
 
@@ -1326,7 +1326,7 @@ class A
 end
 
 class A::String
-  def foo: -> any
+  def foo: -> untyped
 end
     EOF
 
@@ -1353,7 +1353,7 @@ class A
 end
 
 class A::String
-  def foo: -> any
+  def foo: -> untyped
 end
     EOF
 
@@ -1768,7 +1768,7 @@ end
   def test_restargs2
     with_checker do |checker|
       source = parse_ruby(<<-'EOF')
-# @type method f: (*String) -> any
+# @type method f: (*String) -> untyped
 def f(*x)
   # @type var y: String
   y = x
@@ -1935,7 +1935,7 @@ b = [*a, *["foo"]]
   def test_splat_arg
     with_checker <<-EOF do |checker|
 class A
-  def initialize: () -> any
+  def initialize: () -> untyped
   def gen: (*Integer) -> String
 end
     EOF
@@ -1960,7 +1960,7 @@ a.gen(*["1"])
   def test_splat_arg2
     with_checker <<-EOF do |checker|
 class A
-  def initialize: () -> any
+  def initialize: () -> untyped
   def gen: (*Integer) -> String
 end
       EOF
@@ -2137,7 +2137,7 @@ end
   def test_void2
     with_checker <<-EOF do |checker|
 class Hoge
-  def foo: () { () -> void } -> any
+  def foo: () { () -> void } -> untyped
 end
     EOF
       source = parse_ruby(<<-'EOF')
@@ -2343,8 +2343,8 @@ EOF
   def test_rescue_typing
     with_checker do |checker|
       source = parse_ruby(<<EOF)
-# @type const E: any
-# @type const F: any
+# @type const E: untyped
+# @type const F: untyped
 
 begin
   1 + 2
@@ -2470,7 +2470,7 @@ EOF
   def test_initialize_typing
     with_checker <<-EOF do |checker|
 class ABC
-  def initialize: (String) -> any
+  def initialize: (String) -> untyped
 end
     EOF
       source = parse_ruby(<<EOF)
@@ -2513,7 +2513,7 @@ EOF
         construction.synthesize(source.node)
 
         assert_empty typing.errors
-        assert_equal parse_type("::Array[any]"), construction.type_env.lvar_types[:a]
+        assert_equal parse_type("::Array[untyped]"), construction.type_env.lvar_types[:a]
       end
     end
   end
@@ -2572,7 +2572,7 @@ EOF
     with_checker <<-EOF do |checker|
 class Container[A]
   @value: A
-  def initialize: () -> any
+  def initialize: () -> untyped
   def value: -> A
   def `value=`: (A) -> A
 end
@@ -2859,7 +2859,7 @@ EOF
   def test_def_with_splat_kwargs
     with_checker do |checker|
       source = parse_ruby(<<EOF)
-# @type method f: (**String) -> any
+# @type method f: (**String) -> untyped
 def f(**args)
   args[:foo] + "hoge"
 end
@@ -2901,7 +2901,7 @@ EOF
         assert_any typing.errors do |error|
           error.is_a?(Steep::Errors::IncompatibleAssignment) &&
             error.rhs_type == parse_type("::Integer") &&
-            error.lhs_type == parse_type("::Hash[::Symbol, any]")
+            error.lhs_type == parse_type("::Hash[::Symbol, untyped]")
         end
       end
     end
@@ -2944,7 +2944,7 @@ EOF
   def test_block_arg
     with_checker do |checker|
       source = parse_ruby(<<EOF)
-# @type method f: () { (any) -> any } -> any
+# @type method f: () { (untyped) -> untyped } -> untyped
 def f(&block)
 end
 EOF
@@ -3433,7 +3433,7 @@ EOF
                                        block_body: block_body_node,
                                        block_annotations: block_annotations,
                                        topdown_hint: true)
-        assert_equal "^(any, any) -> any", type.to_s
+        assert_equal "^(untyped, untyped) -> untyped", type.to_s
       end
     end
   end
@@ -3601,7 +3601,7 @@ EOF
         construction.synthesize(source.node)
 
         assert_empty typing.errors
-        assert_equal "^(::Integer, any) -> ::Numeric", construction.type_env.lvar_types[:l].to_s
+        assert_equal "^(::Integer, untyped) -> ::Numeric", construction.type_env.lvar_types[:l].to_s
       end
     end
   end
@@ -3754,7 +3754,7 @@ interface _Ref[X]
 end
 
 class Factory[X]
-  def initialize: (_Ref[X]) -> any
+  def initialize: (_Ref[X]) -> untyped
 end
 
 class WithPolyMethod
@@ -3922,7 +3922,7 @@ alias foo bar
         construction.synthesize(source.node)
 
         assert_empty typing.errors
-        assert_equal parse_type("any"), typing.type_of(node: source.node)
+        assert_equal parse_type("untyped"), typing.type_of(node: source.node)
       end
     end
   end

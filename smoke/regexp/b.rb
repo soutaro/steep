@@ -24,11 +24,11 @@
   begin_1.foo
 
   begin_2 = match.begin("foo")
-  # !expects NoMethodError: type=::Integer, method=foo
+  # !expects NoMethodError: type=(::Integer | nil), method=foo
   begin_2.foo
 
   begin_3 = match.begin(:foo)
-  # !expects NoMethodError: type=::Integer, method=foo
+  # !expects NoMethodError: type=(::Integer | nil), method=foo
   begin_3.foo
 
   captures_1 = match.captures
@@ -36,15 +36,15 @@
   captures_1.foo
 
   end_1 = match.end(0)
-  # !expects NoMethodError: type=::Integer, method=foo
+  # !expects NoMethodError: type=(::Integer | nil), method=foo
   end_1.foo
 
   end_2 = match.end("foo")
-  # !expects NoMethodError: type=::Integer, method=foo
+  # !expects NoMethodError: type=(::Integer | nil), method=foo
   end_2.foo
 
   end_3 = match.end(:foo)
-  # !expects NoMethodError: type=::Integer, method=foo
+  # !expects NoMethodError: type=(::Integer | nil), method=foo
   end_3.foo
 
   length_1 = match.length
@@ -60,15 +60,15 @@
   names_1.foo
 
   offset_1 = match.offset(0)
-  # !expects NoMethodError: type=[::Integer, ::Integer], method=foo
+  # !expects NoMethodError: type=([::Integer, ::Integer] | [nil, nil]), method=foo
   offset_1.foo
 
   offset_2 = match.offset("foo")
-  # !expects NoMethodError: type=[::Integer, ::Integer], method=foo
+  # !expects NoMethodError: type=([::Integer, ::Integer] | [nil, nil]), method=foo
   offset_2.foo
 
   offset_3 = match.offset(:foo)
-  # !expects NoMethodError: type=[::Integer, ::Integer], method=foo
+  # !expects NoMethodError: type=([::Integer, ::Integer] | [nil, nil]), method=foo
   offset_3.foo
 
   post_match_1 = match.post_match

@@ -35,6 +35,24 @@ module TestHelper
     assert collection.any?(&block)
   end
 
+  def assert_any!(collection, &block)
+    errors = []
+    count = 0
+
+    collection.each do |c|
+      begin
+        block[c]
+        count += 1
+      rescue Minitest::Assertion => error
+        errors << error
+      end
+    end
+
+    if count == 0
+      raise Minitest::Assertion.new("Assertion should hold one of the collection members: #{collection.to_a.join(', ')}")
+    end
+  end
+
   def assert_all(collection, &block)
     assert collection.all?(&block)
   end
@@ -193,7 +211,7 @@ end
 
 class Object < BasicObject
   def class: -> class
-  def tap: { (instance) -> any } -> instance
+  def tap: { (instance) -> untyped } -> instance
   def gets: -> String?
   def to_s: -> String
   def nil?: -> bool
@@ -205,7 +223,7 @@ class Class
 end
 
 class Module
-  def block_given?: -> any
+  def block_given?: -> untyped
 end
 
 class String
@@ -236,15 +254,15 @@ class Regexp
 end
 
 class Array[A]
-  def initialize: () -> any
-                | (Integer, A) -> any
-                | (Integer) -> any
+  def initialize: () -> untyped
+                | (Integer, A) -> untyped
+                | (Integer) -> untyped
   def `[]`: (Integer) -> A
   def `[]=`: (Integer, A) -> A
   def `<<`: (A) -> self
-  def each: { (A) -> any } -> self
+  def each: { (A) -> untyped } -> self
   def zip: [B] (Array[B]) -> Array[A | B]
-  def each_with_object: [B] (B) { (A, B) -> any } -> B
+  def each_with_object: [B] (B) { (A, B) -> untyped } -> B
   def map: [X] { (A) -> X } -> Array[X]
 end
 
@@ -258,10 +276,10 @@ class NilClass
 end
 
 class Proc
-  def `[]`: any
-  def call: any
-  def `===`: any
-  def yield: any
+  def `[]`: (*untyped) -> untyped
+  def call: (*untyped) -> untyped
+  def `===`: (*untyped) -> untyped
+  def yield: (*untyped) -> untyped
   def arity: -> Integer
 end
   EOS
@@ -270,19 +288,22 @@ end
     @checker or raise "#checker should be used within from #with_checker"
   end
 
-  def with_checker(*files, &block)
+  def with_checker(*files, with_stdlib: false, &block)
     paths = {}
 
     files.each.with_index do |content, index|
       if content.is_a?(Hash)
         paths.merge!(content)
       else
-        paths["#{index}.rbi"] = content
+        paths["#{index}.rbs"] = content
       end
     end
 
-    paths["builtin.rbi"] = BUILTIN
-    with_factory(paths, nostdlib: true) do |factory|
+    unless with_stdlib
+      paths["builtin.rbs"] = BUILTIN
+    end
+
+    with_factory(paths, nostdlib: !with_stdlib) do |factory|
       @checker = Steep::Subtyping::Check.new(factory: factory)
       yield @checker
     ensure
@@ -382,8 +403,8 @@ module FactoryHelper
     Steep::Source.parse(string, path: Pathname("test.rb"), factory: factory)
   end
 
-  def parse_method_type(string, factory: self.factory, variables: [])
+  def parse_method_type(string, factory: self.factory, variables: [], self_type: Steep::AST::Types::Self.new)
     type = Ruby::Signature::Parser.parse_method_type(string, variables: variables)
-    factory.method_type type
+    factory.method_type type, self_type: self_type
   end
 end

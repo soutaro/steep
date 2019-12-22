@@ -24,7 +24,7 @@ class Person
   @name: String
   @contacts: Array<Email | Phone>
 
-  def initialize: (name: String) -> any
+  def initialize: (name: String) -> untyped
   def name: -> String
   def contacts: -> Array<Email | Phone>
   def guess_country: -> (String | nil)
@@ -33,7 +33,7 @@ end
 class Email
   @address: String
 
-  def initialize: (address: String) -> any
+  def initialize: (address: String) -> untyped
   def address: -> String
 end
 
@@ -41,7 +41,7 @@ class Phone
   @country: String
   @number: String
 
-  def initialize: (country: String, number: String) -> any
+  def initialize: (country: String, number: String) -> untyped
   def country: -> String
   def number: -> String
 
@@ -95,7 +95,7 @@ class Email
   end
 
   def ==(other)
-    # `other` has type of `any`, which means type checking is skipped.
+    # `other` has type of `untyped`, which means type checking is skipped.
     # No type errors can be detected in this method.
     other.is_a?(self.class) && other.address == address
   end
@@ -114,7 +114,7 @@ class Phone
   end
 
   def ==(other)
-    # You cannot use `case` for type case because `other` has type of `any`, not a union type.
+    # You cannot use `case` for type case because `other` has type of `untyped`, not a union type.
     # You have to explicitly declare the type of `other` in `if` expression.
 
     if other.is_a?(Phone)
@@ -147,25 +147,25 @@ You can use `steep scaffold` command to generate a signature declaration.
 ```
 $ steep scaffold lib/*.rb
 class Person
-  @name: any
-  @contacts: Array<any>
-  def initialize: (name: any) -> Array<any>
-  def guess_country: () -> any
+  @name: untyped
+  @contacts: Array<untyped>
+  def initialize: (name: untyped) -> Array<untyped>
+  def guess_country: () -> untyped
 end
 
 class Email
-  @address: any
-  def initialize: (address: any) -> any
-  def ==: (any) -> any
-  def hash: () -> any
+  @address: untyped
+  def initialize: (address: untyped) -> untyped
+  def ==: (untyped) -> untyped
+  def hash: () -> untyped
 end
 
 class Phone
-  @country: any
-  @number: any
-  def initialize: (country: any, number: any) -> any
-  def ==: (any) -> void
-  def hash: () -> any
+  @country: untyped
+  @number: untyped
+  def initialize: (country: untyped, number: untyped) -> untyped
+  def ==: (untyped) -> void
+  def hash: () -> untyped
 end
 ```
 
@@ -193,8 +193,8 @@ If you don't specify `-I` option, it assumes `sig` directory.
 
 ### Detecting Fallback
 
-When Steep finds an expression which cannot be typed, it assumes the type of the node is *any*.
-*any* type does not raise any type error so that fallback to *any* may hide some type errors.
+When Steep finds an expression which cannot be typed, it assumes the type of the node is *untyped*.
+*untyped* type does not raise any type error so that fallback to *untyped* may hide some type errors.
 
 Using `--fallback-any-is-error` option prints the fallbacks.
 

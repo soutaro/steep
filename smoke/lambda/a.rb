@@ -7,5 +7,12 @@ a = -> (x, y) do
   x + y
 end["foo", "bar"]
 
-# !expects NoMethodError: type=::Object, method=lambda
-b = lambda {|x| x + 1 }
+# @type var b: ^(Integer) -> Integer
+# !expects IncompatibleAssignment: lhs_type=^(::Integer) -> ::Integer, rhs_type=::Proc
+b = lambda do |x|
+  # !expects NoMethodError: type=nil, method=+
+  x + 1 
+end
+
+# @type var c: ^(Integer) -> Integer
+c = -> (x) { x + 1 }

@@ -92,7 +92,7 @@ proc {|a, b=1, *c, d|
         zip = params.zip(type)
         assert_equal [params.params[0], parse_type("Integer")], zip[0]
         assert_equal [params.params[1], parse_type("nil")], zip[1]
-        assert_equal [params.params[2], parse_type("::Array[any]")], zip[2]
+        assert_equal [params.params[2], parse_type("::Array[untyped]")], zip[2]
       end
     end
   end
@@ -235,7 +235,7 @@ proc {|a, b=1, *c, d|
 
       param_type = params.params_type()
       assert_equal [parse_type("::String")], param_type.required
-      assert_equal [parse_type("any")], param_type.optional
+      assert_equal [parse_type("untyped")], param_type.optional
       assert_equal parse_type("::Symbol"), param_type.rest
       assert_equal({}, param_type.required_keywords)
       assert_equal({}, param_type.optional_keywords)

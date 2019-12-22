@@ -1,5 +1,5 @@
 interface _Puts
-  def puts: (*any) -> void
+  def puts: (*untyped) -> void
 end
 
 class A

@@ -8,7 +8,7 @@ when Integer, String
   x.foobar()
 end
 
-case x == 1
+case x == (_ = 1)
 when Integer
   # !expects NoMethodError: type=(::Integer | ::String | ::Symbol), method=foobar
   x.foobar

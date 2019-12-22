@@ -13,14 +13,14 @@ end
 
 class Object < BasicObject
   def class: -> class
-  def tap: { (instance) -> any } -> instance
+  def tap: { (instance) -> untyped } -> instance
 end
 
 class Class
 end
 
 class Module
-  def block_given?: -> any
+  def block_given?: -> untyped
 end
 
 class String
@@ -40,7 +40,7 @@ end
 
 
   def with_constant_env(sigs = {}, context:)
-    sigs["builtin.rbi"] = BUILTIN
+    sigs["builtin.rbs"] = BUILTIN
 
     with_factory(sigs, nostdlib: true) do |factory|
       env = ConstantEnv.new(factory: factory, context: context)
@@ -58,7 +58,7 @@ end
   end
 
   def test_from_module
-    with_constant_env("foo.rbi" => <<-EOS, context: Names::Module.parse("::A")) do |env|
+    with_constant_env("foo.rbs" => <<-EOS, context: Names::Module.parse("::A")) do |env|
 module A end
 module A::String end
     EOS

@@ -3,7 +3,7 @@
 
 a = [1]
 
-# !expects* UnsatisfiableConstraint:
+# !expects* UnresolvedOverloading:
 b = a.each.with_object([]) do |i, xs|
   # @type var xs: String
   xs << i.to_s
@@ -16,7 +16,7 @@ c = a.each.with_object([]) do |i, xs|
 end
 
 # @type var d: String
-# !expects IncompatibleAssignment: lhs_type=::String, rhs_type=::Array[any]
+# !expects IncompatibleAssignment: lhs_type=::String, rhs_type=::Array[untyped]
 d = a.each.with_object([]) do |i, xs|
   xs << i.to_s
 end

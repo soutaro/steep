@@ -16,7 +16,7 @@ class Object < BasicObject
 end
 
 class Class
-  def new: (*any) -> any
+  def new: (*untyped) -> untyped
 end
 
 class Module
@@ -24,7 +24,7 @@ end
 
 class String
   def to_str: -> String
-  def self.try_convert: (any) -> String
+  def self.try_convert: (untyped) -> String
 end
 
 class Integer

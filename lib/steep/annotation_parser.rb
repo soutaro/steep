@@ -68,7 +68,7 @@ module Steep
           name = match[:name]
           type = match[:type]
 
-          method_type = factory.method_type(Ruby::Signature::Parser.parse_method_type(type))
+          method_type = factory.method_type(Ruby::Signature::Parser.parse_method_type(type), self_type: AST::Types::Self.new)
 
           AST::Annotation::MethodType.new(name: name.to_sym,
                                           type: method_type,

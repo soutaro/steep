@@ -1,4 +1,6 @@
-integer_1 = Integer(1)
+# @type var x: Numeric
+x = _ = 1
+integer_1 = Integer(x)
 # !expects NoMethodError: type=::Integer, method=foo
 integer_1.foo
 

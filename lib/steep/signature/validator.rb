@@ -47,27 +47,31 @@ module Steep
         validate_global
       end
 
-      def validate_decl
-        env.each_decl do |name, decl|
-          case decl
-          when Declarations::Class
-            rescue_validation_errors do
-              Steep.logger.info "#{Location.to_string decl.location}:\tValidating class definition `#{name}`..."
-              builder.build_instance(decl.name.absolute!).each_type do |type|
-                env.validate type, namespace: Ruby::Signature::Namespace.root
-              end
-              builder.build_singleton(decl.name.absolute!).each_type do |type|
-                env.validate type, namespace: Ruby::Signature::Namespace.root
-              end
+      def validate_one_decl(name, decl)
+        case decl
+        when Declarations::Class
+          rescue_validation_errors do
+            Steep.logger.info "#{Location.to_string decl.location}:\tValidating class definition `#{name}`..."
+            builder.build_instance(decl.name.absolute!).each_type do |type|
+              env.validate type, namespace: Ruby::Signature::Namespace.root
             end
-          when Declarations::Interface
-            rescue_validation_errors do
-              Steep.logger.info "#{Location.to_string decl.location}:\tValidating interface `#{name}`..."
-              builder.build_interface(decl.name.absolute!, decl).each_type do |type|
-                env.validate type, namespace: Ruby::Signature::Namespace.root
-              end
+            builder.build_singleton(decl.name.absolute!).each_type do |type|
+              env.validate type, namespace: Ruby::Signature::Namespace.root
             end
           end
+        when Declarations::Interface
+          rescue_validation_errors do
+            Steep.logger.info "#{Location.to_string decl.location}:\tValidating interface `#{name}`..."
+            builder.build_interface(decl.name.absolute!, decl).each_type do |type|
+              env.validate type, namespace: Ruby::Signature::Namespace.root
+            end
+          end
+        end
+      end
+
+      def validate_decl
+        env.each_decl do |name, decl|
+          validate_one_decl name, decl
         end
       end
 
@@ -104,7 +108,7 @@ module Steep
         @errors << Errors::InvalidTypeApplicationError.new(
           name: factory.type_name(exn.type_name),
           args: exn.args.map {|ty| factory.type(ty) },
-          params: exn.params,
+          params: exn.params.each.map(&:name),
           location: exn.location
         )
       rescue Ruby::Signature::NoTypeFoundError => exn

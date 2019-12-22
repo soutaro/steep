@@ -1,10 +1,9 @@
 class IncompatibleSuper
   def foo: () -> Integer
-  def initialize: (name: String) -> any
+  def initialize: (name: String) -> untyped
 end
 
 class IncompatibleChild < IncompatibleSuper
-  def initialize: () -> any
+  def initialize: () -> untyped
   def foo: (Object) -> String
-         | any
 end

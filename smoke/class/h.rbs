@@ -1,6 +1,6 @@
 class WithSingletonConstructor
   attr_reader foo: String
 
-  def initialize: (foo: String) -> any
+  def initialize: (foo: String) -> void
   def self.create: -> instance
 end

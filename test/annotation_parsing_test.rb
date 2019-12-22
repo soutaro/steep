@@ -40,7 +40,7 @@ class AnnotationParsingTest < Minitest::Test
 
       assert_instance_of Annotation::MethodType, annot
       assert_equal :foo, annot.name
-      assert_equal factory.method_type(Ruby::Signature::Parser.parse_method_type("(Bar) -> Baz")),
+      assert_equal factory.method_type(Ruby::Signature::Parser.parse_method_type("(Bar) -> Baz"), self_type: Steep::AST::Types::Self.new),
                    annot.type
     end
   end

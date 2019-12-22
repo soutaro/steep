@@ -8,6 +8,7 @@ class IncompatibleChild
   end
 
   def initialize()
+    # !expects IncompatibleArguments: receiver=::IncompatibleChild, method_type=(name: ::String) -> untyped
     super()
 
     super

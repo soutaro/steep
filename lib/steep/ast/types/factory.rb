@@ -186,14 +186,29 @@ module Steep
           )
         end
 
-        def method_type(method_type)
+        def method_type(method_type, self_type:)
           case method_type
           when Ruby::Signature::MethodType
-            new_vars = method_type.type_params.map {|x| AST::Types::Var.fresh(x) }
-            subst = Interface::Substitution.build(method_type.type_params, new_vars)
+            fvs = self_type.free_variables()
+
+            type_params = []
+            alpha_vars = []
+            alpha_types = []
+
+            method_type.type_params.map do |name|
+              if fvs.include?(name)
+                type = Types::Var.fresh(name)
+                alpha_vars << name
+                alpha_types << type
+                type_params << type.name
+              else
+                type_params << name
+              end
+            end
+            subst = Interface::Substitution.build(alpha_vars, alpha_types)
 
             type = Interface::MethodType.new(
-              type_params: new_vars.map(&:name),
+              type_params: type_params,
               return_type: type(method_type.type.return_type).subst(subst),
               params: params(method_type.type).subst(subst),
               location: nil,
@@ -279,13 +294,9 @@ module Steep
 
                 interface.methods[name] = Interface::Interface::Combination.overload(
                   method.method_types.map do |type|
-                    case type
-                    when :any
-                      :any
-                    when Ruby::Signature::MethodType
-                      method_type(type) {|ty| ty.subst(subst) }
-                    end
-                  end
+                    method_type(type, self_type: self_type) {|ty| ty.subst(subst) }
+                  end,
+                  incompatible: method.attributes.include?(:incompatible)
                 )
               end
             end
@@ -305,8 +316,9 @@ module Steep
               definition.methods.each do |name, method|
                 interface.methods[name] = Interface::Interface::Combination.overload(
                   method.method_types.map do |type|
-                    method_type(type) {|type| type.subst(subst) }
-                  end
+                    method_type(type, self_type: self_type) {|type| type.subst(subst) }
+                  end,
+                  incompatible: method.attributes.include?(:incompatible)
                 )
               end
             end
@@ -316,7 +328,7 @@ module Steep
               definition = definition_builder.build_singleton(type_name_1(type.name))
 
               instance_type = Name::Instance.new(name: type.name,
-                                                 args: definition.declaration.type_params.map {Any.new(location: nil)},
+                                                 args: definition.declaration.type_params.each.map {Any.new(location: nil)},
                                                  location: nil)
               subst = Interface::Substitution.build(
                 [],
@@ -330,8 +342,9 @@ module Steep
 
                 interface.methods[name] = Interface::Interface::Combination.overload(
                   method.method_types.map do |type|
-                    method_type(type) {|type| type.subst(subst) }
-                  end
+                    method_type(type, self_type: self_type) {|type| type.subst(subst) }
+                  end,
+                  incompatible: method.attributes.include?(:incompatible)
                 )
               end
             end
@@ -394,7 +407,8 @@ module Steep
                         return_type: elem_type,
                         location: nil
                       )
-                    } + aref.types
+                    } + aref.types,
+                    incompatible: false
                   )
                 end
 
@@ -413,7 +427,8 @@ module Steep
                         return_type: elem_type,
                         location: nil
                       )
-                    } + update.types
+                    } + update.types,
+                    incompatible: false
                   )
                 end
               end
@@ -444,7 +459,8 @@ module Steep
                         return_type: value_type,
                         location: nil
                       )
-                    } + ref.types
+                    } + ref.types,
+                    incompatible: false
                   )
                 end
 
@@ -464,7 +480,8 @@ module Steep
                         return_type: value_type,
                         location: nil
                       )
-                    } + update.types
+                    } + update.types,
+                    incompatible: false
                   )
                 end
               end
@@ -480,8 +497,8 @@ module Steep
                 location: nil
               )
 
-              interface.methods[:[]] = Interface::Interface::Combination.overload([method_type])
-              interface.methods[:call] = Interface::Interface::Combination.overload([method_type])
+              interface.methods[:[]] = Interface::Interface::Combination.overload([method_type], incompatible: false)
+              interface.methods[:call] = Interface::Interface::Combination.overload([method_type], incompatible: false)
             end
 
           else
