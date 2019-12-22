@@ -326,7 +326,7 @@ FOO
           assert_overload_including interface.methods[:[]],
                                     "(0) -> ::Integer",
                                     "(1) -> ::String",
-                                    "((::Float | ::Integer)) -> (::Integer | ::String | nil)"
+                                    "((::Float | ::Integer)) -> (::Integer | ::String)"
 
           assert_overload_including interface.methods[:[]=],
                                     "(0, ::Integer) -> ::Integer",
