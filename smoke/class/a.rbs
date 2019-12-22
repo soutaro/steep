@@ -1,5 +1,5 @@
 class A
-  def foo: (String) -> any
+  def foo: (String) -> untyped
   def bar: () -> String
   def self.baz: -> Integer
 end
@@ -14,11 +14,11 @@ class C
 end
 
 class D
-  def initialize: (String) -> any
-  def foo: -> any
+  def initialize: (String) -> untyped
+  def foo: -> untyped
 end
 
 class E
-  def initialize: () -> any
-  def foo: -> any
+  def initialize: () -> untyped
+  def foo: -> untyped
 end

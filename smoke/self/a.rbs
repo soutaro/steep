@@ -1,4 +1,4 @@
 class A
-  def foo: -> any
-  def bar: -> any
+  def foo: -> untyped
+  def bar: -> untyped
 end

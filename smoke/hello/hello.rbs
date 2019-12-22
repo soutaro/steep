@@ -1,7 +1,7 @@
 interface _Foo
-  def foo: -> any
+  def foo: -> untyped
 end
 
 interface _Bar
-  def bar: -> any
+  def bar: -> untyped
 end

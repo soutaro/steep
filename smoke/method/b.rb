@@ -10,7 +10,7 @@ end
 class B
   # @implements X
 
-  # @type method foo: (::String | ::Integer) -> any
+  # @type method foo: (::String | ::Integer) -> untyped
   def foo(x)
     3
   end
