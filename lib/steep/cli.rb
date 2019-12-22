@@ -16,7 +16,7 @@ module Steep
     end
 
     def self.available_commands
-      [:init, :check, :validate, :annotations, :scaffold, :interface, :version, :project, :watch, :langserver]
+      [:init, :check, :validate, :annotations, :version, :project, :watch, :langserver]
     end
 
     def process_global_options
@@ -107,25 +107,6 @@ module Steep
         end.parse!(argv)
 
         command.command_line_patterns.push *argv
-      end.run
-    end
-
-    def process_scaffold
-      OptionParser.new do |opts|
-        opts.banner = "Usage: steep scaffold [options] [scripts]"
-        handle_logging_options opts
-      end.parse!(argv)
-
-      source_paths = argv.map {|file| Pathname(file) }
-      Drivers::Scaffold.new(source_paths: source_paths, stdout: stdout, stderr: stderr).run
-    end
-
-    def process_interface
-      Drivers::PrintInterface.new(type_name: argv.first, stdout: stdout, stderr: stderr).tap do |command|
-        opts.banner = "Usage: steep interface [options] [class_name]"
-        OptionParser.new do |opts|
-          handle_logging_options opts
-        end.parse!(argv)
       end.run
     end
 

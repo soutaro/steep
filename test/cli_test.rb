@@ -23,27 +23,6 @@ class CLITest < Minitest::Test
     end
   end
 
-  def test_scaffold
-    in_tmpdir do
-      (current_dir + "foo.rb").write(<<-RUBY)
-class Foo
-  def hello(x, y)
-    x + y
-  end
-end
-      RUBY
-
-      stdout, _ = sh! *steep, "scaffold", "foo.rb"
-
-      assert_equal <<-RBS, stdout
-class Foo
-  def hello: (any, any) -> any
-end
-
-      RBS
-    end
-  end
-
   def test_annotations
     in_tmpdir do
       (current_dir + "foo.rb").write(<<-RUBY)
