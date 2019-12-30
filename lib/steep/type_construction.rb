@@ -1770,9 +1770,9 @@ module Steep
                           end
                         end
                       rescue => exn
-                        p exn
+                        $stderr.puts exn.inspect
                         exn.backtrace.each do |t|
-                          puts t
+                          $stderr.puts t
                         end
 
                         fallback_to_any node do
