@@ -409,7 +409,7 @@ FOO
           end
 
           interface.methods[:floor].yield_self do |combination|
-            assert_overload_including combination, "(?::Integer) -> ::Numeric", "() -> ::Integer"
+            assert_overload_including combination, "(::int) -> (::Float | ::Integer)", "() -> ::Integer"
           end
 
           interface.methods[:end_with?].yield_self do |combination|
