@@ -91,7 +91,7 @@ module Steep
       def environment
         @environment ||= Ruby::Signature::Environment.new().tap do |env|
           loader = Ruby::Signature::EnvironmentLoader.new()
-          loader.stdlib_root = nil if options.no_builtin
+          loader.no_builtin! if options.no_builtin
           options.libraries.each do |lib|
             loader.add(library: lib)
           end
