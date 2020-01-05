@@ -25,7 +25,7 @@ class TypeFactoryTest < Minitest::Test
   include FactoryHelper
 
   def test_type
-    with_factory do |factory|
+    with_factory() do |factory|
       factory.type(parse_type("void")).yield_self do |type|
         assert_instance_of Types::Void, type
       end
@@ -124,7 +124,7 @@ class TypeFactoryTest < Minitest::Test
   end
 
   def test_type_1
-    with_factory do |factory|
+    with_factory() do |factory|
       parse_type("void").yield_self do |type|
         assert_equal type, factory.type_1(factory.type(type))
       end
@@ -204,7 +204,7 @@ class TypeFactoryTest < Minitest::Test
   end
 
   def test_method_type
-    with_factory do |factory|
+    with_factory() do |factory|
       self_type = factory.type(parse_type("::Array[X]", variables: [:X]))
 
       factory.method_type(parse_method_type("[A] (A) { (A, B) -> nil } -> void"), self_type: self_type).yield_self do |type|
@@ -226,7 +226,7 @@ class TypeFactoryTest < Minitest::Test
   end
 
   def test_interface_instance
-    with_factory "foo.rbs" => <<FOO do |factory|
+    with_factory({ "foo.rbs" => <<FOO}) do |factory|
 class Foo[A]
   def klass: -> class
   def get: -> A
@@ -260,7 +260,7 @@ FOO
   end
 
   def test_interface_interface
-    with_factory "foo.rbs" => <<FOO do |factory|
+    with_factory({ "foo.rbs" => <<FOO }) do |factory|
 interface _Each2[A, B]
   def each: () { (A) -> void } -> B
 end
@@ -277,7 +277,7 @@ FOO
   end
 
   def test_interface_class
-    with_factory "foo.rbs" => <<FOO do |factory|
+    with_factory({ "foo.rbs" => <<FOO }) do |factory|
 class People[X]
   def self.all: -> Array[People[::String]]
   def self.instance: -> instance
@@ -299,7 +299,7 @@ FOO
   end
 
   def test_literal_type
-    with_factory do |factory|
+    with_factory() do |factory|
       factory.type(parse_type("3")).yield_self do |type|
         factory.interface(type, private: false).yield_self do |interface|
           assert_instance_of Steep::Interface::Interface, interface
@@ -318,7 +318,7 @@ FOO
   end
 
   def test_tuple_type
-    with_factory do |factory|
+    with_factory() do |factory|
       factory.type(parse_type("[::Integer, ::String]")).yield_self do |type|
         factory.interface(type, private: false).yield_self do |interface|
           assert_instance_of Steep::Interface::Interface, interface
@@ -338,7 +338,7 @@ FOO
   end
 
   def test_record_type
-    with_factory do |factory|
+    with_factory() do |factory|
       factory.type(parse_type("{ 1 => ::Integer, :foo => ::String, \"baz\" => bool }")).yield_self do |type|
         factory.interface(type, private: false).yield_self do |interface|
           assert_instance_of Steep::Interface::Interface, interface
@@ -356,7 +356,7 @@ FOO
   end
 
   def test_union_type
-    with_factory do |factory|
+    with_factory() do |factory|
       factory.type(parse_type("::Integer | ::String")).yield_self do |type|
         factory.interface(type, private: false).yield_self do |interface|
           assert_instance_of Steep::Interface::Interface, interface
@@ -386,7 +386,7 @@ FOO
   end
 
   def test_intersection_type
-    with_factory do |factory|
+    with_factory() do |factory|
       factory.type(parse_type("::Integer & ::String")).yield_self do |type|
         factory.interface(type, private: false).yield_self do |interface|
           assert_instance_of Steep::Interface::Interface, interface
@@ -421,7 +421,7 @@ FOO
   end
 
   def test_proc_type
-    with_factory do |factory|
+    with_factory() do |factory|
       factory.type(parse_type("^(String) -> Integer")).yield_self do |type|
         factory.interface(type, private: false).yield_self do |interface|
           assert_instance_of Steep::Interface::Interface, interface
@@ -441,7 +441,7 @@ FOO
   end
 
   def test_unfold
-    with_factory "foo.rbs" => <<-EOF do |factory|
+    with_factory({ "foo.rbs" => <<-EOF }) do |factory|
 type name = ::String
 type size = :S | :M | :L
     EOF
@@ -461,7 +461,7 @@ type size = :S | :M | :L
   end
 
   def test_absolute_type
-    with_factory "foo.rbs" => <<-EOF do |factory|
+    with_factory({ "foo.rbs" => <<-EOF }) do |factory|
 module Foo
 end
 
@@ -493,7 +493,7 @@ end
   end
 
   def test_variable_rename
-    with_factory "foo.rbs" => <<-EOF do |factory|
+    with_factory({ "foo.rbs" => <<-EOF }) do |factory|
 class Hello[X]
   def foo: [Y] (X, Y) -> void
 end

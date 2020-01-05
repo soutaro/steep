@@ -58,7 +58,7 @@ end
   end
 
   def test_from_module
-    with_constant_env("foo.rbs" => <<-EOS, context: Names::Module.parse("::A")) do |env|
+    with_constant_env({ "foo.rbs" => <<-EOS }, context: Names::Module.parse("::A")) do |env|
 module A end
 module A::String end
     EOS
