@@ -12,10 +12,9 @@ class SteepfileDSLTest < Minitest::Test
 target :app do
   check "app"
   ignore "app/views"
+  vendor
 
   signature "sig", "sig-private"
-
-  no_builtin!
 
   library "set"
   library "strong_json"
@@ -31,6 +30,8 @@ EOF
       assert_equal ["app/views"], target.ignore_patterns
       assert_equal ["sig", "sig-private"], target.signature_patterns
       assert_equal ["set", "strong_json"], target.options.libraries
+      assert_equal Pathname("vendor/sigs/stdlib"), target.options.vendored_stdlib_path
+      assert_equal Pathname("vendor/sigs/gems"), target.options.vendored_gems_path
     end
 
     project.targets.find {|target| target.name == :Gemfile }.tap do |target|
@@ -39,6 +40,8 @@ EOF
       assert_equal [], target.ignore_patterns
       assert_equal [], target.signature_patterns
       assert_equal ["gemfile"], target.options.libraries
+      assert_nil target.options.vendored_stdlib_path
+      assert_nil target.options.vendored_gems_path
     end
   end
 
