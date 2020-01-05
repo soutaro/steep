@@ -18,7 +18,7 @@ module Steep
       def listener
         @listener ||= begin
           Steep.logger.info "Watching #{dirs.join(", ")}..."
-          Listen.to *dirs.map(&:to_s) do |modified, added, removed|
+          Listen.to(*dirs.map(&:to_s)) do |modified, added, removed|
             Steep.logger.tagged "watch" do
               Steep.logger.info "Received file system updates: modified=[#{modified.join(",")}], added=[#{added.join(",")}], removed=[#{removed.join(",")}]"
             end

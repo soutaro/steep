@@ -28,19 +28,19 @@ module Steep
         end
 
         def check(*args)
-          sources.push *args
+          sources.push(*args)
         end
 
         def ignore(*args)
-          ignored_sources.push *args
+          ignored_sources.push(*args)
         end
 
         def library(*args)
-          libraries.push *args
+          libraries.push(*args)
         end
 
         def signature(*args)
-          signatures.push *args
+          signatures.push(*args)
         end
 
         def update(name: self.name, sources: self.sources, libraries: self.libraries, ignored_sources: self.ignored_sources, signatures: self.signatures)
@@ -100,7 +100,7 @@ module Steep
           ignore_patterns: target.ignored_sources,
           signature_patterns: target.signatures,
           options: Options.new.tap do |options|
-            options.libraries.push *target.libraries
+            options.libraries.push(*target.libraries)
             options.no_builtin = true if target.no_builtin
           end
         ).tap do |target|

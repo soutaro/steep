@@ -686,9 +686,9 @@ module Steep
       def +(other)
         type_params = []
         s1 = Substitution.build(self.type_params)
-        type_params.push *s1.dictionary.values.map(&:name)
+        type_params.push(*s1.dictionary.values.map(&:name))
         s2 = Substitution.build(other.type_params)
-        type_params.push *s2.dictionary.values.map(&:name)
+        type_params.push(*s2.dictionary.values.map(&:name))
 
         block = case
                 when self.block && other.block

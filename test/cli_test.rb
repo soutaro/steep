@@ -17,7 +17,7 @@ class CLITest < Minitest::Test
 
   def test_version
     in_tmpdir do
-      stdout, _ = sh! *steep, "version"
+      stdout, _ = sh!(*steep, "version")
 
       assert_equal "#{Steep::VERSION}", stdout.chomp
     end
@@ -42,7 +42,7 @@ target :app do
 end
       EOF
 
-      stdout, _ = sh! *steep, "annotations", "foo.rb"
+      stdout, _ = sh!(*steep, "annotations", "foo.rb")
 
       assert_equal <<-RBS, stdout
 foo.rb:1:0:class:\tclass Foo
@@ -59,7 +59,7 @@ foo.rb:4:2:def:\tdef hello(x, y)
 target :app do
 end
       EOF
-      stdout, _ = sh! *steep, "validate"
+      stdout, _ = sh!(*steep, "validate")
 
       assert_equal "", stdout
     end

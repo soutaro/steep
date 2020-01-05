@@ -505,7 +505,7 @@ end
           assert_equal type, interface.type
 
           method = interface.methods[:foo]
-          assert_match /\{ \[Y\(\d+\)\] \(::Array\[Y\], Y\(\d+\)\) -> void \}/, method.to_s
+          assert_match(/\{ \[Y\(\d+\)\] \(::Array\[Y\], Y\(\d+\)\) -> void \}/, method.to_s)
         end
       end
     end
