@@ -16,7 +16,7 @@ module Steep
     end
 
     def self.available_commands
-      [:init, :check, :validate, :annotations, :version, :project, :watch, :langserver]
+      [:init, :check, :validate, :annotations, :version, :project, :watch, :langserver, :vendor]
     end
 
     def process_global_options
@@ -135,6 +135,21 @@ module Steep
         OptionParser.new do |opts|
           handle_logging_options opts
         end.parse!(argv)
+      end.run
+    end
+
+    def process_vendor
+      Drivers::Vendor.new(stdout: stdout, stderr: stderr, stdin: stdin).tap do |command|
+        OptionParser.new do |opts|
+          opts.banner = "Usage: steep vendor [options] [dir]"
+          handle_logging_options opts
+
+          opts.on("--[no-]clean") do |v|
+            command.clean_before = v
+          end
+        end.parse!(argv)
+
+        command.vendor_dir = Pathname(argv[0] || "vendor/sigs")
       end.run
     end
 

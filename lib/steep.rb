@@ -81,6 +81,7 @@ require "steep/drivers/signature_error_printer"
 require "steep/drivers/trace_printer"
 require "steep/drivers/print_project"
 require "steep/drivers/init"
+require "steep/drivers/vendor"
 
 if ENV["NO_COLOR"]
   Rainbow.enabled = false
