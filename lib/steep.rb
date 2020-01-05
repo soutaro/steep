@@ -108,5 +108,6 @@ module Steep
     @logger = new_logger(output, prev_level)
   end
 
+  @logger = nil
   self.log_output = STDERR
 end

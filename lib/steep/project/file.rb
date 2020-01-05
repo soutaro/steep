@@ -13,6 +13,7 @@ module Steep
 
       def initialize(path:)
         @path = path
+        @content = false
         self.content = ""
       end
 

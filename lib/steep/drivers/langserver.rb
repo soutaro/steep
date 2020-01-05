@@ -51,71 +51,71 @@ module Steep
         method = request[:method].to_sym
 
         Steep.logger.tagged "id=#{id}, method=#{method}" do
-          result = case method
-                   when :initialize
-                     yield id, LanguageServer::Protocol::Interface::InitializeResult.new(
-                       capabilities: LanguageServer::Protocol::Interface::ServerCapabilities.new(
-                         text_document_sync: LanguageServer::Protocol::Interface::TextDocumentSyncOptions.new(
-                           change: LanguageServer::Protocol::Constant::TextDocumentSyncKind::FULL
-                         ),
-                         hover_provider: true,
-                       )
-                     )
+          case method
+          when :initialize
+            yield id, LanguageServer::Protocol::Interface::InitializeResult.new(
+              capabilities: LanguageServer::Protocol::Interface::ServerCapabilities.new(
+                text_document_sync: LanguageServer::Protocol::Interface::TextDocumentSyncOptions.new(
+                  change: LanguageServer::Protocol::Constant::TextDocumentSyncKind::FULL
+                ),
+                hover_provider: true,
+                )
+            )
 
-                     run_type_check(project)
-                   when :"textDocument/didChange"
-                     uri = URI.parse(request[:params][:textDocument][:uri])
-                     path = Pathname(uri.path).relative_path_from(Pathname.pwd)
-                     text = request[:params][:contentChanges][0][:text]
+            run_type_check(project)
+          when :"textDocument/didChange"
+            uri = URI.parse(request[:params][:textDocument][:uri])
+            path = Pathname(uri.path).relative_path_from(Pathname.pwd)
+            text = request[:params][:contentChanges][0][:text]
 
-                     Steep.logger.debug { "path=#{path}, content=#{text.lines.first&.chomp}..." }
+            Steep.logger.debug { "path=#{path}, content=#{text.lines.first&.chomp}..." }
 
-                     project.targets.each do |target|
-                       Steep.logger.tagged "target=#{target.name}" do
-                         case
-                         when target.source_file?(path)
-                           if text.empty? && !path.file?
-                             Steep.logger.info { "Deleting source file: #{path}..." }
-                             target.remove_source(path)
-                             report_diagnostics path, []
-                           else
-                             Steep.logger.info { "Updating source file: #{path}..." }
-                             target.update_source(path, text)
-                           end
-                         when target.possible_source_file?(path)
-                           Steep.logger.info { "Adding source file: #{path}..." }
-                           target.add_source(path, text)
-                         when target.signature_file?(path)
-                           if text.empty? && !path.file?
-                             Steep.logger.info { "Deleting signature file: #{path}..." }
-                             target.remove_signature(path)
-                             report_diagnostics path, []
-                           else
-                             Steep.logger.info { "Updating signature file: #{path}..." }
-                             target.update_signature(path, text)
-                           end
-                         when target.possible_signature_file?(path)
-                           Steep.logger.info { "Adding signature file: #{path}..." }
-                           target.add_signature(path, text)
-                         end
-                       end
-                     end
+            project.targets.each do |target|
+              Steep.logger.tagged "target=#{target.name}" do
+                case
+                when target.source_file?(path)
+                  if text.empty? && !path.file?
+                    Steep.logger.info { "Deleting source file: #{path}..." }
+                    target.remove_source(path)
+                    report_diagnostics path, []
+                  else
+                    Steep.logger.info { "Updating source file: #{path}..." }
+                    target.update_source(path, text)
+                  end
+                when target.possible_source_file?(path)
+                  Steep.logger.info { "Adding source file: #{path}..." }
+                  target.add_source(path, text)
+                when target.signature_file?(path)
+                  if text.empty? && !path.file?
+                    Steep.logger.info { "Deleting signature file: #{path}..." }
+                    target.remove_signature(path)
+                    report_diagnostics path, []
+                  else
+                    Steep.logger.info { "Updating signature file: #{path}..." }
+                    target.update_signature(path, text)
+                  end
+                when target.possible_signature_file?(path)
+                  Steep.logger.info { "Adding signature file: #{path}..." }
+                  target.add_signature(path, text)
+                end
+              end
+            end
 
-                     run_type_check(project)
-                   when :"textDocument/hover"
-                     uri = URI.parse(request[:params][:textDocument][:uri])
-                     path = Pathname(uri.path).relative_path_from(Pathname.pwd)
-                     line = request[:params][:position][:line]
-                     column = request[:params][:position][:character]
+            run_type_check(project)
+          when :"textDocument/hover"
+            uri = URI.parse(request[:params][:textDocument][:uri])
+            path = Pathname(uri.path).relative_path_from(Pathname.pwd)
+            line = request[:params][:position][:line]
+            column = request[:params][:position][:character]
 
-                     yield id, response_to_hover(project: project, path: path, line: line, column: column)
+            yield id, response_to_hover(project: project, path: path, line: line, column: column)
 
-                   when :shutdown
-                     yield id, nil
+          when :shutdown
+            yield id, nil
 
-                   when :exit
-                     exit
-                   end
+          when :exit
+            exit
+          end
         end
       end
 

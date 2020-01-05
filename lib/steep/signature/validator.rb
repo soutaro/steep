@@ -21,7 +21,7 @@ module Steep
 
       def each_error(&block)
         if block_given?
-          @errors.each &block
+          @errors.each(&block)
         else
           enum_for :each_error
         end

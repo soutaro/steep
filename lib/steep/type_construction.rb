@@ -2750,9 +2750,7 @@ module Steep
                             return nil
                           end
 
-              key_hint = AST::Types::Literal.new(value: key_value)
               value_hint = hint.elements[key_value]
-
               value_type = new_construction.synthesize(value, hint: value_hint)
 
               if value_hint
