@@ -1235,11 +1235,11 @@ end
         type_name = checker.factory.type_name_1(parse_type("::A").name)
         instance_definition = checker.factory.definition_builder.build_instance(type_name)
 
-        for_method = construction.for_new_method(:foo,
-                                                 def_node,
-                                                 args: def_node.children[1].children,
-                                                 self_type: parse_type("::A"),
-                                                 definition: instance_definition)
+        construction.for_new_method(:foo,
+                                    def_node,
+                                    args: def_node.children[1].children,
+                                    self_type: parse_type("::A"),
+                                    definition: instance_definition)
 
         skip "Skip testing if method type annotation is compatible with interface"
 
