@@ -370,10 +370,9 @@ module FactoryHelper
         absolute_path.write(content)
       end
 
-
       env_loader = Ruby::Signature::EnvironmentLoader.new()
       if nostdlib
-        env_loader.stdlib_root = nil
+        env_loader.no_builtin!
       end
       env_loader.add path: root
 
