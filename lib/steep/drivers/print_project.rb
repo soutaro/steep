@@ -14,8 +14,9 @@ module Steep
       def run
         project = load_config()
 
-        load_sources project, []
-        load_signatures project
+        loader = Project::FileLoader.new(project: project)
+        loader.load_sources([])
+        loader.load_signatures()
 
         project.targets.each do |target|
           stdout.puts "Target:"
