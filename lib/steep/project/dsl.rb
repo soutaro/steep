@@ -58,8 +58,15 @@ module Steep
           Steep.logger.error "`no_builtin!` in Steepfile is deprecated and ignored. Use `vendor` instead."
         end
 
-        def vendor(dir = "vendor/sigs")
-          @vendor_dir = Pathname(dir)
+        def vendor(dir = "vendor/sigs", stdlib: nil, gems: nil)
+          if stdlib || gems
+            @vendor_dir = [
+              stdlib&.yield_self {|x| Pathname(x) },
+              gems&.yield_self {|x| Pathname(x) }
+            ]
+          else
+            @vendor_dir = Pathname(dir)
+          end
         end
       end
 
@@ -107,7 +114,11 @@ module Steep
           options: Options.new.tap do |options|
             options.libraries.push(*target.libraries)
 
-            if target.vendor_dir
+            case target.vendor_dir
+            when Array
+              options.vendored_stdlib_path = target.vendor_dir[0]
+              options.vendored_gems_path = target.vendor_dir[1]
+            when Pathname
               options.vendored_stdlib_path = target.vendor_dir + "stdlib"
               options.vendored_gems_path = target.vendor_dir + "gems"
             end

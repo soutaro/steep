@@ -20,8 +20,11 @@ target :app do
   library "strong_json"
 end
 
-target :Gemfile, template: :gemfile
+target :Gemfile, template: :gemfile do
+  vendor stdlib: nil, gems: "vendor/signatures/gems"
+end
 EOF
+
     assert_equal 2, project.targets.size
 
     project.targets.find {|target| target.name == :app }.tap do |target|
@@ -41,7 +44,7 @@ EOF
       assert_equal [], target.signature_patterns
       assert_equal ["gemfile"], target.options.libraries
       assert_nil target.options.vendored_stdlib_path
-      assert_nil target.options.vendored_gems_path
+      assert_equal Pathname("vendor/signatures/gems"), target.options.vendored_gems_path
     end
   end
 
