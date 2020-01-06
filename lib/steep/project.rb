@@ -1,9 +1,23 @@
 module Steep
   class Project
     attr_reader :targets
+    attr_reader :base_dir
 
-    def initialize()
+    def initialize(base_dir:)
       @targets = []
+      @base_dir = base_dir
+
+      unless base_dir.absolute?
+        raise "Project#initialize(base_dir:): base_dir should be absolute path"
+      end
+    end
+
+    def relative_path(path)
+      path.relative_path_from(base_dir)
+    end
+
+    def absolute_path(path)
+      (base_dir + path).cleanpath
     end
 
     def type_of_node(path:, line:, column:)

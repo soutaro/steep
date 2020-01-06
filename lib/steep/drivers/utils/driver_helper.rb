@@ -7,7 +7,8 @@ module Steep
         def load_config(path: steepfile || Pathname("Steepfile"))
           raise "Cannot find a configuration at #{path}: `steep init` to scaffold" unless path.file?
 
-          Project.new.tap do |project|
+          steep_file_path = path.absolute? ? path : Pathname.pwd + path
+          Project.new(base_dir: steep_file_path.parent).tap do |project|
             Project::DSL.parse(project, path.read, filename: path.to_s)
           end
         end
