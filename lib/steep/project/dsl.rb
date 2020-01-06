@@ -8,6 +8,7 @@ module Steep
         attr_reader :signatures
         attr_reader :ignored_sources
         attr_reader :no_builtin
+        attr_reader :vendor_dir
 
         def initialize(name, sources: [], libraries: [], signatures: [], ignored_sources: [])
           @name = name
@@ -15,7 +16,7 @@ module Steep
           @libraries = libraries
           @signatures = signatures
           @ignored_sources = ignored_sources
-          @no_builtin = false
+          @vendor_dir = nil
         end
 
         def initialize_copy(other)
@@ -24,7 +25,7 @@ module Steep
           @libraries = other.libraries.dup
           @signatures = other.signatures.dup
           @ignored_sources = other.ignored_sources.dup
-          @no_builtin = other.no_builtin
+          @vendor_dir = other.vendor_dir
         end
 
         def check(*args)
@@ -54,7 +55,18 @@ module Steep
         end
 
         def no_builtin!(value = true)
-          @no_builtin = no_builtin
+          Steep.logger.error "`no_builtin!` in Steepfile is deprecated and ignored. Use `vendor` instead."
+        end
+
+        def vendor(dir = "vendor/sigs", stdlib: nil, gems: nil)
+          if stdlib || gems
+            @vendor_dir = [
+              stdlib&.yield_self {|x| Pathname(x) },
+              gems&.yield_self {|x| Pathname(x) }
+            ]
+          else
+            @vendor_dir = Pathname(dir)
+          end
         end
       end
 
@@ -101,7 +113,15 @@ module Steep
           signature_patterns: target.signatures,
           options: Options.new.tap do |options|
             options.libraries.push(*target.libraries)
-            options.no_builtin = true if target.no_builtin
+
+            case target.vendor_dir
+            when Array
+              options.vendored_stdlib_path = target.vendor_dir[0]
+              options.vendored_gems_path = target.vendor_dir[1]
+            when Pathname
+              options.vendored_stdlib_path = target.vendor_dir + "stdlib"
+              options.vendored_gems_path = target.vendor_dir + "gems"
+            end
           end
         ).tap do |target|
           project.targets << target
