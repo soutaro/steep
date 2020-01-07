@@ -14,7 +14,9 @@ module Steep
       def run
         project = load_config()
 
-        load_signatures(project)
+        loader = Project::FileLoader.new(project: project)
+        loader.load_signatures()
+
         type_check(project)
 
         project.targets.each do |target|

@@ -103,8 +103,9 @@ module Steep
 
         project = load_config()
 
-        load_sources project, []
-        load_signatures project
+        loader = Project::FileLoader.new(project: project)
+        loader.load_sources([])
+        loader.load_signatures()
 
         type_check project
         print_project_result project

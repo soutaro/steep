@@ -112,8 +112,9 @@ module Steep
 
     def process_project
       Drivers::PrintProject.new(stdout: stdout, stderr: stderr).tap do |command|
-        opts.banner = "Usage: steep project [options]"
         OptionParser.new do |opts|
+          opts.banner = "Usage: steep project [options]"
+          opts.on("--steepfile=PATH") {|path| command.steepfile = Pathname(path) }
           handle_logging_options opts
         end.parse!(argv)
       end.run
@@ -133,6 +134,7 @@ module Steep
     def process_langserver
       Drivers::Langserver.new(stdout: stdout, stderr: stderr, stdin: stdin).tap do |command|
         OptionParser.new do |opts|
+          opts.on("--steepfile=PATH") {|path| command.steepfile = Pathname(path) }
           handle_logging_options opts
         end.parse!(argv)
       end.run

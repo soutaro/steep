@@ -8,8 +8,12 @@ class LangserverTest < Minitest::Test
     @dirs ||= []
   end
 
-  def langserver_command
-    "#{__dir__}/../exe/steep langserver --log-level=error"
+  def langserver_command(steepfile=nil)
+    "#{__dir__}/../exe/steep langserver --log-level=error".tap do |s|
+      if steepfile
+        s << " --steepfile=#{steepfile}"
+      end
+    end
   end
 
   def test_initialize
@@ -18,7 +22,7 @@ class LangserverTest < Minitest::Test
 target :app do end
 EOF
 
-      Open3.popen2(langserver_command, chdir: current_dir) do |stdin, stdout|
+      Open3.popen2(langserver_command(current_dir + "Steepfile")) do |stdin, stdout|
         reader = LanguageServer::Protocol::Transport::Io::Reader.new(stdout)
         writer = LanguageServer::Protocol::Transport::Io::Writer.new(stdin)
 
@@ -57,7 +61,7 @@ EOF
       (path+"workdir").mkdir
       (path+"workdir/example.rb").write ""
 
-      Open3.popen2(langserver_command, chdir: path.to_s) do |stdin, stdout|
+      Open3.popen2(langserver_command(path + "Steepfile")) do |stdin, stdout|
         reader = LanguageServer::Protocol::Transport::Io::Reader.new(stdout)
         writer = LanguageServer::Protocol::Transport::Io::Writer.new(stdin)
 

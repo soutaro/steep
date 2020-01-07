@@ -19,8 +19,9 @@ module Steep
       def run
         project = load_config()
 
-        load_sources(project, command_line_patterns)
-        load_signatures(project)
+        loader = Project::FileLoader.new(project: project)
+        loader.load_sources(command_line_patterns)
+        loader.load_signatures()
 
         project.targets.each do |target|
           Steep.logger.tagged "target=#{target.name}" do
