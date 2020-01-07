@@ -67,7 +67,7 @@ module Steep
             run_type_check(project)
           when :"textDocument/didChange"
             uri = URI.parse(request[:params][:textDocument][:uri])
-            path = Pathname(uri.path).relative_path_from(Pathname.pwd)
+            path = project.relative_path(Pathname(uri.path))
             text = request[:params][:contentChanges][0][:text]
 
             Steep.logger.debug { "path=#{path}, content=#{text.lines.first&.chomp}..." }
@@ -79,7 +79,7 @@ module Steep
                   if text.empty? && !path.file?
                     Steep.logger.info { "Deleting source file: #{path}..." }
                     target.remove_source(path)
-                    report_diagnostics path, []
+                    report_diagnostics project, path, []
                   else
                     Steep.logger.info { "Updating source file: #{path}..." }
                     target.update_source(path, text)
@@ -91,7 +91,7 @@ module Steep
                   if text.empty? && !path.file?
                     Steep.logger.info { "Deleting signature file: #{path}..." }
                     target.remove_signature(path)
-                    report_diagnostics path, []
+                    report_diagnostics project, path, []
                   else
                     Steep.logger.info { "Updating signature file: #{path}..." }
                     target.update_signature(path, text)
@@ -106,7 +106,7 @@ module Steep
             run_type_check(project)
           when :"textDocument/hover"
             uri = URI.parse(request[:params][:textDocument][:uri])
-            path = Pathname(uri.path).relative_path_from(Pathname.pwd)
+            path = project.relative_path(Pathname(uri.path))
             line = request[:params][:position][:line]
             column = request[:params][:position][:character]
 
@@ -131,7 +131,7 @@ module Steep
             Steep.logger.tagged "target=#{target.name}, status=#{target.status.class}" do
               Steep.logger.info { "Clearing signature diagnostics..." }
               target.signature_files.each_value do |file|
-                report_diagnostics file.path, []
+                report_diagnostics project, file.path, []
               end
 
               case (status = target.status)
@@ -139,13 +139,13 @@ module Steep
                 Steep.logger.info { "Signature validation error" }
                 status.errors.group_by(&:path).each do |path, errors|
                   diagnostics = errors.map {|error| diagnostic_for_validation_error(error) }
-                  report_diagnostics path, diagnostics
+                  report_diagnostics project, path, diagnostics
                 end
               when Project::Target::TypeCheckStatus
                 Steep.logger.info { "Type check" }
                 status.type_check_sources.each do |source|
                   diagnostics = source.errors.map {|error| diagnostic_for_type_error(error) }
-                  report_diagnostics source.path, diagnostics
+                  report_diagnostics project, source.path, diagnostics
                 end
               when Project::Target::SignatureSyntaxErrorStatus
                 Steep.logger.info { "Signature syntax error" }
@@ -155,12 +155,12 @@ module Steep
         end
       end
 
-      def report_diagnostics(path, diagnostics)
+      def report_diagnostics(project, path, diagnostics)
         Steep.logger.info { "Reporting #{diagnostics.size} diagnostics for #{path}..." }
         write(
           method: :"textDocument/publishDiagnostics",
           params: LanguageServer::Protocol::Interface::PublishDiagnosticsParams.new(
-            uri: URI.parse(Pathname.pwd.join(path).to_s).tap {|uri| uri.scheme = "file"},
+            uri: URI.parse(project.absolute_path(path).to_s).tap {|uri| uri.scheme = "file"},
             diagnostics: diagnostics,
           )
         )
