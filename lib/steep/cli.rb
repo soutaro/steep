@@ -133,6 +133,7 @@ module Steep
     def process_langserver
       Drivers::Langserver.new(stdout: stdout, stderr: stderr, stdin: stdin).tap do |command|
         OptionParser.new do |opts|
+          opts.on("--steepfile=PATH") {|path| command.steepfile = Pathname(path) }
           handle_logging_options opts
         end.parse!(argv)
       end.run
