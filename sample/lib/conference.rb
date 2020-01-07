@@ -8,3 +8,5 @@ class Conference
     @year = year
   end
 end
+
+Conference.new()
