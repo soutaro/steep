@@ -298,6 +298,35 @@ FOO
     end
   end
 
+  def test_interface_module
+    with_factory({ "foo.rbs" => <<FOO }) do |factory|
+module Subject[X]
+  def self.foo: () -> void
+  def bar: () -> X
+end
+FOO
+
+      factory.type(parse_type("::Subject[bool]")).yield_self do |type|
+        factory.interface(type, private: true).yield_self do |interface|
+          assert_instance_of Steep::Interface::Interface, interface
+          assert_equal type, interface.type
+
+          assert_overload_with interface.methods[:bar], "() -> bool"
+        end
+      end
+
+      factory.type(parse_type("singleton(::Subject)")).yield_self do |type|
+        factory.interface(type, private: true).yield_self do |interface|
+          assert_instance_of Steep::Interface::Interface, interface
+          assert_equal type, interface.type
+
+          assert_overload_with interface.methods[:foo], "() -> void"
+          assert_overload_with interface.methods[:attr_reader], "(*(::String | ::Symbol)) -> ::NilClass"
+        end
+      end
+    end
+  end
+
   def test_literal_type
     with_factory() do |factory|
       factory.type(parse_type("3")).yield_self do |type|
