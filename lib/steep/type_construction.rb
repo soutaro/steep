@@ -1739,42 +1739,50 @@ module Steep
 
                     when AST::Types::Void, AST::Types::Bot, AST::Types::Top
                       fallback_to_any node do
-                        Errors::NoMethod.new(node: node, method: method_name, type: expand_self(receiver_type))
+                        Errors::NoMethod.new(node: node, method: method_name, type: receiver_type)
                       end
 
                     else
-                      begin
-                        interface = checker.factory.interface(receiver_type,
-                                                              private: !receiver,
-                                                              self_type: expand_self(receiver_type))
-
-                        method = interface.methods[method_name]
-
-                        if method
-                          args = TypeInference::SendArgs.from_nodes(arguments)
-                          return_type, _ = type_method_call(node,
-                                                            method: method,
-                                                            method_name: method_name,
-                                                            args: args,
-                                                            block_params: block_params,
-                                                            block_body: block_body,
-                                                            receiver_type: receiver_type,
-                                                            topdown_hint: true)
-
-                          typing.add_typing node, return_type
-                        else
-                          fallback_to_any node do
-                            Errors::NoMethod.new(node: node, method: method_name, type: expand_self(receiver_type))
-                          end
-                        end
-                      rescue => exn
-                        $stderr.puts exn.inspect
-                        exn.backtrace.each do |t|
-                          $stderr.puts t
-                        end
-
+                      case expanded_receiver_type = expand_self(receiver_type)
+                      when AST::Types::Self
+                        Steep.logger.error "`self` type cannot be resolved to concrete type"
                         fallback_to_any node do
-                          Errors::NoMethod.new(node: node, method: method_name, type: expand_self(receiver_type))
+                          Errors::NoMethod.new(node: node, method: method_name, type: receiver_type)
+                        end
+                      else
+                        begin
+                          interface = checker.factory.interface(receiver_type,
+                                                                private: !receiver,
+                                                                self_type: expanded_receiver_type)
+
+                          method = interface.methods[method_name]
+
+                          if method
+                            args = TypeInference::SendArgs.from_nodes(arguments)
+                            return_type, _ = type_method_call(node,
+                                                              method: method,
+                                                              method_name: method_name,
+                                                              args: args,
+                                                              block_params: block_params,
+                                                              block_body: block_body,
+                                                              receiver_type: receiver_type,
+                                                              topdown_hint: true)
+
+                            typing.add_typing node, return_type
+                          else
+                            fallback_to_any node do
+                              Errors::NoMethod.new(node: node, method: method_name, type: expanded_receiver_type)
+                            end
+                          end
+                        rescue => exn
+                          $stderr.puts exn.inspect
+                          exn.backtrace.each do |t|
+                            $stderr.puts t
+                          end
+
+                          fallback_to_any node do
+                            Errors::NoMethod.new(node: node, method: method_name, type: expanded_receiver_type)
+                          end
                         end
                       end
                     end

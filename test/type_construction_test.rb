@@ -33,7 +33,7 @@ interface _D
 end
 
 interface _X
-  def f: () { (_A) -> _D } -> _C 
+  def f: () { (_A) -> _D } -> _C
 end
 
 interface _Kernel
@@ -785,9 +785,9 @@ Hello.new.foo([])
 def foo
   # @type ivar @x: _A
   # @type var y: _D
-  
+
   y = (_ = nil)
-  
+
   @x = y
   y = @x
 end
@@ -869,7 +869,7 @@ string = poly.try { "string" }
       source = parse_ruby(<<-EOF)
 module Foo
   # @implements Foo[A]
-  
+
   block_given?
 end
       EOF
@@ -2328,7 +2328,7 @@ x = (_ = nil)
 
 while 3
   # @type var x: Integer
-  x + 3 
+  x + 3
 end
 EOF
 
@@ -2667,7 +2667,7 @@ EOF
   def test_initialize_unbound_type_var_fallback_to_any
     with_checker do |checker|
       source = parse_ruby(<<EOF)
-# @type var x: Integer    
+# @type var x: Integer
 x = Array.new(3)[0]
 EOF
 
@@ -3962,6 +3962,29 @@ end
       with_standard_construction(checker, source) do |construction, typing|
         construction.synthesize(source.node)
         assert_empty typing.errors
+      end
+    end
+  end
+
+  def test_self_call
+    with_checker do |checker|
+      source = parse_ruby(<<-EOF)
+class C1
+  attr_reader :baz
+
+  def foo
+    to_s
+  end
+end
+      EOF
+
+      with_standard_construction(checker, source) do |construction, typing|
+        construction.synthesize(source.node)
+
+        assert_equal 2, typing.errors.size
+        assert_all typing.errors do |error|
+          error.is_a?(Steep::Errors::NoMethod)
+        end
       end
     end
   end
