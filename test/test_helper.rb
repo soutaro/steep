@@ -224,6 +224,7 @@ end
 
 class Module
   def block_given?: -> untyped
+  def attr_reader: (*Symbol) -> void
 end
 
 class String

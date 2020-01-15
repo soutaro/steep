@@ -986,7 +986,7 @@ module Steep end
           for_module.module_context.implement_name
         )
         assert_equal parse_type("::Steep & ::Object"), for_module.module_context.instance_type
-        assert_equal parse_type("::Module & singleton(::Steep)"), for_module.module_context.module_type
+        assert_equal parse_type("singleton(::Steep)"), for_module.module_context.module_type
       end
     end
   end
@@ -3923,6 +3923,45 @@ alias foo bar
 
         assert_empty typing.errors
         assert_equal parse_type("untyped"), typing.type_of(node: source.node)
+      end
+    end
+  end
+
+  def test_module_singleton_method_type
+    with_checker <<-EOF do |checker|
+module WithSingleton
+  def self.bar: (Integer) -> void
+end
+    EOF
+      source = parse_ruby(<<-EOF)
+module WithSingleton
+  def self.bar(x)
+    x + 1
+  end
+end
+      EOF
+
+      with_standard_construction(checker, source) do |construction, typing|
+        construction.synthesize(source.node)
+        assert_empty typing.errors
+      end
+    end
+  end
+
+  def test_module_self_call
+    with_checker <<-EOF do |checker|
+module Module1
+end
+    EOF
+      source = parse_ruby(<<-EOF)
+module Module1
+  attr_reader :foo
+end
+      EOF
+
+      with_standard_construction(checker, source) do |construction, typing|
+        construction.synthesize(source.node)
+        assert_empty typing.errors
       end
     end
   end

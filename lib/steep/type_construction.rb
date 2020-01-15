@@ -265,10 +265,7 @@ module Steep
           ].compact
         )
 
-        module_type = AST::Types::Intersection.build(types: [
-          AST::Builtin::Module.instance_type,
-          AST::Types::Name::Class.new(name: module_name, constructor: nil)
-        ])
+        module_type = AST::Types::Name::Class.new(name: module_name, constructor: nil)
       end
 
       if annots.instance_type
@@ -545,6 +542,7 @@ module Steep
                      else
                        module_type
                      end
+
               typing.add_typing(node, type)
             else
               type_send(node, send_node: node, block_params: nil, block_body: nil)
