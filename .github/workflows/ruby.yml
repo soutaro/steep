@@ -23,4 +23,5 @@ jobs:
         ruby -v
         gem install bundler
         bundle install --jobs 4 --retry 3
-        bundle exec rake reset parser build test smoke
+        bin/setup
+        bundle exec rake build test smoke
