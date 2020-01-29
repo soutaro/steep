@@ -4,13 +4,21 @@ module Steep
       attr_reader :stdout
       attr_reader :stderr
       attr_reader :stdin
+      attr_reader :latest_update_version
+      attr_reader :write_mutex
+      attr_reader :type_check_queue
+      attr_reader :type_check_thread
 
       include Utils::DriverHelper
+
+      TypeCheckRequest = Struct.new(:version, keyword_init: true)
 
       def initialize(stdout:, stderr:, stdin:)
         @stdout = stdout
         @stderr = stderr
         @stdin = stdin
+        @write_mutex = Mutex.new
+        @type_check_queue = Queue.new
       end
 
       def writer
@@ -21,20 +29,33 @@ module Steep
         @reader ||= LanguageServer::Protocol::Transport::Io::Reader.new(stdin)
       end
 
+      def project
+        @project or raise "Empty #project"
+      end
+
+      def enqueue_type_check(version)
+        @latest_update_version = version
+        type_check_queue << TypeCheckRequest.new(version: version)
+      end
+
       def run
-        project = load_config()
+        @project = load_config()
 
         loader = Project::FileLoader.new(project: project)
         loader.load_sources([])
         loader.load_signatures()
 
+        start_type_check()
+
         reader.read do |request|
           Steep.logger.tagged "lsp" do
             Steep.logger.debug { "Received a request: request=#{request.to_json}" }
-            handle_request(project, request) do |id, result|
+            handle_request(request) do |id, result|
               if id
-                Steep.logger.debug { "Writing response to #{id}: #{result.to_json}" }
-                writer.write(id: id, result: result)
+                write_mutex.synchronize do
+                  Steep.logger.debug { "Writing response to #{id}: #{result.to_json}" }
+                  writer.write(id: id, result: result)
+                end
               end
             end
           end
@@ -44,11 +65,13 @@ module Steep
       end
 
       def write(method:, params:)
-        Steep.logger.debug { "Sending request: method=#{method}, params=#{params.to_json}"}
-        writer.write(method: method, params: params)
+        write_mutex.synchronize do
+          Steep.logger.debug { "Sending request: method=#{method}, params=#{params.to_json}"}
+          writer.write(method: method, params: params)
+        end
       end
 
-      def handle_request(project, request)
+      def handle_request(request)
         id = request[:id]
         method = request[:method].to_sym
 
@@ -64,7 +87,7 @@ module Steep
                 )
             )
 
-            run_type_check(project)
+            enqueue_type_check nil
           when :"textDocument/didChange"
             uri = URI.parse(request[:params][:textDocument][:uri])
             path = project.relative_path(Pathname(uri.path))
@@ -79,7 +102,7 @@ module Steep
                   if text.empty? && !path.file?
                     Steep.logger.info { "Deleting source file: #{path}..." }
                     target.remove_source(path)
-                    report_diagnostics project, path, []
+                    report_diagnostics path, []
                   else
                     Steep.logger.info { "Updating source file: #{path}..." }
                     target.update_source(path, text)
@@ -91,7 +114,7 @@ module Steep
                   if text.empty? && !path.file?
                     Steep.logger.info { "Deleting signature file: #{path}..." }
                     target.remove_signature(path)
-                    report_diagnostics project, path, []
+                    report_diagnostics path, []
                   else
                     Steep.logger.info { "Updating signature file: #{path}..." }
                     target.update_signature(path, text)
@@ -103,25 +126,38 @@ module Steep
               end
             end
 
-            run_type_check(project)
+            version = request[:params][:textDocument][:version]
+            enqueue_type_check version
           when :"textDocument/hover"
             uri = URI.parse(request[:params][:textDocument][:uri])
             path = project.relative_path(Pathname(uri.path))
             line = request[:params][:position][:line]
             column = request[:params][:position][:character]
 
-            yield id, response_to_hover(project: project, path: path, line: line, column: column)
+            yield id, response_to_hover(path: path, line: line, column: column)
 
           when :shutdown
             yield id, nil
 
           when :exit
+            type_check_queue << nil
+            type_check_thread.join
             exit
           end
         end
       end
 
-      def run_type_check(project)
+      def start_type_check
+        @type_check_thread = Thread.start do
+          while request = type_check_queue.deq
+            if @latest_update_version == nil || @latest_update_version == request.version
+              run_type_check()
+            end
+          end
+        end
+      end
+
+      def run_type_check()
         Steep.logger.tagged "#run_type_check" do
           Steep.logger.info { "Running type check..." }
           type_check project
@@ -131,7 +167,7 @@ module Steep
             Steep.logger.tagged "target=#{target.name}, status=#{target.status.class}" do
               Steep.logger.info { "Clearing signature diagnostics..." }
               target.signature_files.each_value do |file|
-                report_diagnostics project, file.path, []
+                report_diagnostics file.path, []
               end
 
               case (status = target.status)
@@ -139,13 +175,13 @@ module Steep
                 Steep.logger.info { "Signature validation error" }
                 status.errors.group_by(&:path).each do |path, errors|
                   diagnostics = errors.map {|error| diagnostic_for_validation_error(error) }
-                  report_diagnostics project, path, diagnostics
+                  report_diagnostics path, diagnostics
                 end
               when Project::Target::TypeCheckStatus
                 Steep.logger.info { "Type check" }
                 status.type_check_sources.each do |source|
                   diagnostics = source.errors.map {|error| diagnostic_for_type_error(error) }
-                  report_diagnostics project, source.path, diagnostics
+                  report_diagnostics source.path, diagnostics
                 end
               when Project::Target::SignatureSyntaxErrorStatus
                 Steep.logger.info { "Signature syntax error" }
@@ -155,7 +191,7 @@ module Steep
         end
       end
 
-      def report_diagnostics(project, path, diagnostics)
+      def report_diagnostics(path, diagnostics)
         Steep.logger.info { "Reporting #{diagnostics.size} diagnostics for #{path}..." }
         write(
           method: :"textDocument/publishDiagnostics",
@@ -200,7 +236,7 @@ module Steep
         )
       end
 
-      def response_to_hover(project:, path:, line:, column:)
+      def response_to_hover(path:, line:, column:)
         Steep.logger.info { "path=#{path}, line=#{line}, column=#{column}" }
 
         # line in LSP is zero-origin
