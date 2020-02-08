@@ -114,7 +114,7 @@ EOF
             params: {
               textDocument: {
                 uri: "file://#{path}/workdir/example.rb",
-                version: 2,
+                version: 3,
               },
               contentChanges: [{text: "1.to_s" }]
             }
@@ -123,6 +123,29 @@ EOF
           finally_holds do
             lsp.synchronize_ui do
               assert_equal [], lsp.diagnostics["file://#{path}/workdir/example.rb"]
+            end
+          end
+
+          lsp.send_request(
+            method: "textDocument/didChange",
+            params: {
+              textDocument: {
+                uri: "file://#{path}/workdir/example.rb",
+                version: 4,
+              },
+              contentChanges: [{text: <<SRC }]
+def foo
+  # @type var string:
+end
+SRC
+            }
+          )
+
+          assert_finally do
+            lsp.synchronize_ui do
+              lsp.diagnostics["file://#{path}/workdir/example.rb"].any? {|error|
+                error[:message].start_with?("Syntax error on annotation: `@type var string:`,")
+              }
             end
           end
         end
