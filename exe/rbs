@@ -1,0 +1,3 @@
+#!/usr/bin/env ruby
+
+load File.join(__dir__, "../vendor/ruby-signature/exe/ruby-signature")
