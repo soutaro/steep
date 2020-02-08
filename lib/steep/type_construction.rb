@@ -1531,7 +1531,7 @@ module Steep
     def check(node, type, constraints: Subtyping::Constraints.empty)
       type_ = synthesize(node, hint: type)
 
-      result = check_relation(sub_type: type_, super_type: type)
+      result = check_relation(sub_type: type_, super_type: type, constraints: constraints)
       if result.failure?
         yield(type, type_, result)
       end
