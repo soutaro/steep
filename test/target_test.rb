@@ -112,5 +112,38 @@ end
 
       assert_equal Project::Target::SignatureValidationErrorStatus, target.status.class
     end
+
+    def test_annotation_syntax_error
+      target = Project::Target.new(
+        name: :foo,
+        options: Project::Options.new,
+        source_patterns: ["lib"],
+        ignore_patterns: [],
+        signature_patterns: ["sig"]
+      )
+
+      target.add_source Pathname("lib/foo.rb"), <<-EOF
+class Foo
+  def test
+    # @type var x:
+  end
+end
+      EOF
+
+      target.add_signature Pathname("sig/foo.rbs"), <<-EOF
+class Foo
+  def test: () -> void
+end
+      EOF
+
+      target.type_check
+
+      assert_equal Project::Target::TypeCheckStatus, target.status.class
+
+      target.source_files[Pathname("lib/foo.rb")].tap do |file|
+        assert_equal Project::SourceFile::AnnotationSyntaxErrorStatus, file.status.class
+        assert_equal "3:5...3:18", file.status.location.to_s
+      end
+    end
   end
 end

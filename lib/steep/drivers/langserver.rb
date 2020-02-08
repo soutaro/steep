@@ -180,7 +180,15 @@ module Steep
               when Project::Target::TypeCheckStatus
                 Steep.logger.info { "Type check" }
                 status.type_check_sources.each do |source|
-                  diagnostics = source.errors.map {|error| diagnostic_for_type_error(error) }
+                  diagnostics = case source.status
+                                when Project::SourceFile::TypeCheckStatus
+                                  source.errors.map {|error| diagnostic_for_type_error(error) }
+                                when Project::SourceFile::AnnotationSyntaxErrorStatus
+                                  [diagnostics_raw(source.status.error.message, source.status.location)]
+                                when Project::SourceFile::ParseErrorStatus
+                                  []
+                                end
+
                   report_diagnostics source.path, diagnostics
                 end
               when Project::Target::SignatureSyntaxErrorStatus
@@ -214,6 +222,23 @@ module Steep
             end: LanguageServer::Protocol::Interface::Position.new(
               line: error.location.end_line - 1,
               character: error.location.end_column,
+              ),
+            )
+        )
+      end
+
+      def diagnostics_raw(message, loc)
+        LanguageServer::Protocol::Interface::Diagnostic.new(
+          message: message,
+          severity: LanguageServer::Protocol::Constant::DiagnosticSeverity::ERROR,
+          range: LanguageServer::Protocol::Interface::Range.new(
+            start: LanguageServer::Protocol::Interface::Position.new(
+              line: loc.start_line - 1,
+              character: loc.start_column,
+              ),
+            end: LanguageServer::Protocol::Interface::Position.new(
+              line: loc.end_line - 1,
+              character: loc.end_column,
               ),
             )
         )

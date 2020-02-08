@@ -9,6 +9,7 @@ module Steep
       attr_accessor :status
 
       ParseErrorStatus = Struct.new(:error, keyword_init: true)
+      AnnotationSyntaxErrorStatus = Struct.new(:error, :location, keyword_init: true)
       TypeCheckStatus = Struct.new(:typing, :source, :timestamp, keyword_init: true)
 
       def initialize(path:)
@@ -96,6 +97,9 @@ module Steep
         else
           yield Source.parse(content, path: path.to_s, factory: factory, labeling: ASTUtils::Labeling.new)
         end
+      rescue AnnotationParser::SyntaxError => exn
+        Steep.logger.warn { "Annotation syntax error on #{path}: #{exn.inspect}" }
+        @status = AnnotationSyntaxErrorStatus.new(error: exn, location: exn.location)
       rescue ::Parser::SyntaxError, EncodingError => exn
         Steep.logger.warn { "Source parsing error on #{path}: #{exn.inspect}" }
         @status = ParseErrorStatus.new(error: exn)
