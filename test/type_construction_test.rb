@@ -3988,4 +3988,23 @@ end
       end
     end
   end
+
+  def test_poly_new
+    with_checker <<-EOF do |checker|
+class PolyNew[A]
+  def initialize: (foo: A) -> void
+  def get: -> A
+end
+    EOF
+      source = parse_ruby(<<-EOF)
+a = PolyNew.new(foo: "")
+b = PolyNew.new(foo: 3)
+      EOF
+
+      with_standard_construction(checker, source) do |construction, typing|
+        construction.synthesize(source.node)
+        assert_empty typing.errors
+      end
+    end
+  end
 end

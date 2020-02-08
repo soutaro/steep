@@ -1,0 +1,4 @@
+class PolyNew[A]
+  def initialize: (a: A) -> void
+  def foo: () -> A
+end
