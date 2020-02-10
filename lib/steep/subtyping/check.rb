@@ -76,7 +76,7 @@ module Steep
             success(constraints: constraints)
 
           when relation.sub_type.is_a?(AST::Types::Self) && !self_type.is_a?(AST::Types::Self)
-            check0(
+            check(
               Relation.new(sub_type: self_type, super_type: relation.super_type),
               self_type: self_type,
               assumption: assumption,
@@ -85,7 +85,7 @@ module Steep
             )
 
           when alias?(relation.sub_type)
-            check0(
+            check(
               Relation.new(sub_type: expand_alias(relation.sub_type), super_type: relation.super_type),
               self_type: self_type,
               assumption: assumption,
@@ -94,7 +94,7 @@ module Steep
             )
 
           when alias?(relation.super_type)
-            check0(
+            check(
               Relation.new(super_type: expand_alias(relation.super_type), sub_type: relation.sub_type),
               self_type: self_type,
               assumption: assumption,
@@ -103,7 +103,7 @@ module Steep
             )
 
           when relation.sub_type.is_a?(AST::Types::Literal)
-            check0(
+            check(
               Relation.new(sub_type: relation.sub_type.back_type, super_type: relation.super_type),
               self_type: self_type,
               assumption: assumption,
@@ -113,7 +113,7 @@ module Steep
 
           when relation.sub_type.is_a?(AST::Types::Union)
             results = relation.sub_type.types.map do |sub_type|
-              check0(Relation.new(sub_type: sub_type, super_type: relation.super_type),
+              check(Relation.new(sub_type: sub_type, super_type: relation.super_type),
                      self_type: self_type,
                      assumption: assumption,
                      trace: trace,
@@ -128,7 +128,7 @@ module Steep
 
           when relation.super_type.is_a?(AST::Types::Union)
             results = relation.super_type.types.map do |super_type|
-              check0(Relation.new(sub_type: relation.sub_type, super_type: super_type),
+              check(Relation.new(sub_type: relation.sub_type, super_type: super_type),
                      self_type: self_type,
                      assumption: assumption,
                      trace: trace,
@@ -139,7 +139,7 @@ module Steep
 
           when relation.sub_type.is_a?(AST::Types::Intersection)
             results = relation.sub_type.types.map do |sub_type|
-              check0(Relation.new(sub_type: sub_type, super_type: relation.super_type),
+              check(Relation.new(sub_type: sub_type, super_type: relation.super_type),
                      self_type: self_type,
                      assumption: assumption,
                      trace: trace,
@@ -150,7 +150,7 @@ module Steep
 
           when relation.super_type.is_a?(AST::Types::Intersection)
             results = relation.super_type.types.map do |super_type|
-              check0(Relation.new(sub_type: relation.sub_type, super_type: super_type),
+              check(Relation.new(sub_type: relation.sub_type, super_type: super_type),
                      self_type: self_type,
                      assumption: assumption,
                      trace: trace,
@@ -182,7 +182,7 @@ module Steep
                   [rel, rel.flip]
                 end
               end.map do |relation|
-                check0(relation,
+                check(relation,
                        self_type: self_type,
                        assumption: assumption,
                        trace: trace,
@@ -208,7 +208,7 @@ module Steep
                                 assumption: assumption,
                                 trace: trace,
                                 constraints: constraints).then do
-              check0(Relation.new(sub_type: relation.sub_type.return_type, super_type: relation.super_type.return_type),
+              check(Relation.new(sub_type: relation.sub_type.return_type, super_type: relation.super_type.return_type),
                      self_type: self_type,
                      assumption: assumption,
                      trace: trace,
@@ -220,8 +220,8 @@ module Steep
               pairs = relation.sub_type.types.take(relation.super_type.types.size).zip(relation.super_type.types)
               results = pairs.flat_map do |t1, t2|
                 relation = Relation.new(sub_type: t1, super_type: t2)
-                [check0(relation, self_type: self_type, assumption: assumption, trace: trace, constraints: constraints),
-                 check0(relation.flip, self_type: self_type, assumption: assumption, trace: trace, constraints: constraints)]
+                [check(relation, self_type: self_type, assumption: assumption, trace: trace, constraints: constraints),
+                 check(relation.flip, self_type: self_type, assumption: assumption, trace: trace, constraints: constraints)]
               end
 
               if results.all?(&:success?)
@@ -251,8 +251,8 @@ module Steep
               type_pairs = keys.map {|key| [relation.sub_type.elements[key], relation.super_type.elements[key]] }
               results = type_pairs.flat_map do |t1, t2|
                 relation = Relation.new(sub_type: t1, super_type: t2)
-                [check0(relation, self_type: self_type, assumption: assumption, trace: trace, constraints: constraints),
-                 check0(relation.flip, self_type: self_type, assumption: assumption, trace: trace, constraints: constraints)]
+                [check(relation, self_type: self_type, assumption: assumption, trace: trace, constraints: constraints),
+                 check(relation.flip, self_type: self_type, assumption: assumption, trace: trace, constraints: constraints)]
               end
 
               if results.all?(&:success?)
@@ -282,11 +282,11 @@ module Steep
           end
         end
       end
-      
+
       def extract_nominal_pairs(relation)
         sub_type = relation.sub_type
         super_type = relation.super_type
-        
+
         case
         when sub_type.is_a?(AST::Types::Name::Instance) && super_type.is_a?(AST::Types::Name::Instance)
           if sub_type.name == super_type.name && sub_type.args.size == super_type.args.size
