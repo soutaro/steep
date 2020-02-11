@@ -2,6 +2,11 @@
 
 ## master
 
+## 0.12.0 (2020-02-11)
+
+* Add `Steepfile` for configuration
+* Use the latest version of `ruby-signature`
+
 ## 0.11.1 (2019-07-15)
 
 * Relax activesupport versnion requirement (#90)
