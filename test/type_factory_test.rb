@@ -355,12 +355,12 @@ FOO
           assert_overload_including interface.methods[:[]],
                                     "(0) -> ::Integer",
                                     "(1) -> ::String",
-                                    "((::Float | ::Integer)) -> (::Integer | ::String)"
+                                    "(::int) -> (::Integer | ::String)"
 
           assert_overload_including interface.methods[:[]=],
                                     "(0, ::Integer) -> ::Integer",
                                     "(1, ::String) -> ::String",
-                                    "(::Integer, (::Integer | ::String)) -> (::Integer | ::String)"
+                                    "(::int, (::Integer | ::String)) -> (::Integer | ::String)"
         end
       end
     end

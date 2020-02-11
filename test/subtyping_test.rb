@@ -17,7 +17,7 @@ class Object < BasicObject
 end
 
 class Class
-  def new: (*untyped) -> untyped 
+  def new: (*untyped) -> untyped
   def allocate: -> untyped
 end
 
@@ -78,7 +78,7 @@ end
     )
   end
 
-  def with_checker(*files, &block)
+  def with_checker(*files, nostdlib: false, &block)
     paths = {}
 
     files.each.with_index do |content, index|
@@ -89,7 +89,7 @@ end
       end
     end
 
-    paths["builtin.rbs"] = BUILTIN
+    paths["builtin.rbs"] = BUILTIN unless nostdlib
     with_factory(paths, nostdlib: true) do |factory|
       yield Subtyping::Check.new(factory: factory)
     end
@@ -414,7 +414,7 @@ end
 interface _A
   def foo: () -> ::Integer
   def bar: () -> ::String
-end      
+end
 
 interface _B
   def foo: () -> ::Integer
@@ -636,6 +636,27 @@ end
 
       assert_fail_check checker, "::Test1", "::Test2"
       assert_success_check checker, "::Test2", "::Test1"
+    end
+  end
+
+  def test_integer_rational
+    with_checker <<-EOF, nostdlib: true do |checker|
+class BasicObject
+end
+
+class Object < BasicObject
+end
+
+class Int
+  def clamp: [A] () -> (self | A)
+end
+
+class Ratio
+  def clamp: [A] () -> (self | A)
+end
+    EOF
+
+      assert_success_check checker, "::Int", "::Ratio"
     end
   end
 end
