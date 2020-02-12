@@ -62,7 +62,6 @@ module Steep
               checker: subtyping,
               annotations: annotations,
               source: source,
-              self_type: AST::Builtin::Object.instance_type,
               context: TypeInference::Context.new(
                 block_context: nil,
                 module_context: TypeInference::Context::ModuleContext.new(
@@ -74,7 +73,8 @@ module Steep
                   class_name: nil
                 ),
                 method_context: nil,
-                break_context: nil
+                break_context: nil,
+                self_type: AST::Builtin::Object.instance_type,
               ),
               typing: typing,
               type_env: type_env

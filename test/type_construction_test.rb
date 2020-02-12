@@ -72,12 +72,12 @@ end
                                         source: source,
                                         annotations: annotations,
                                         type_env: type_env,
-                                        self_type: parse_type("::Object"),
                                         context: Context.new(
                                           block_context: nil,
                                           method_context: nil,
                                           module_context: nil,
-                                          break_context: nil
+                                          break_context: nil,
+                                          self_type: parse_type("::Object")
                                         ),
                                         typing: typing)
 
@@ -953,12 +953,12 @@ class Steep::Names::Module end
                                           source: source,
                                           annotations: annotations,
                                           type_env: type_env,
-                                          self_type: nil,
                                           context: Context.new(
                                             block_context: nil,
                                             method_context: nil,
                                             module_context: module_context,
-                                            break_context: nil
+                                            break_context: nil,
+                                            self_type: nil
                                           ),
                                           typing: typing)
 
@@ -1044,12 +1044,12 @@ module Steep::Printable end
                                           source: source,
                                           annotations: annotations,
                                           type_env: type_env,
-                                          self_type: nil,
                                           context: Context.new(
                                             block_context: nil,
                                             method_context: nil,
                                             module_context: module_context,
-                                            break_context: nil
+                                            break_context: nil,
+                                            self_type: nil
                                           ),
                                           typing: typing)
 

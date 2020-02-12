@@ -75,20 +75,27 @@ module Steep
       attr_reader :block_context
       attr_reader :break_context
       attr_reader :module_context
+      attr_reader :self_type
 
-      def initialize(method_context:, block_context:, break_context:, module_context:)
+      def initialize(method_context:, block_context:, break_context:, module_context:, self_type:)
         @method_context = method_context
         @block_context = block_context
         @break_context = break_context
         @module_context = module_context
+        @self_type = self_type
       end
 
-      def with(method_context: self.method_context, block_context: self.block_context, break_context: self.break_context, module_context: self.module_context)
+      def with(method_context: self.method_context,
+               block_context: self.block_context,
+               break_context: self.break_context,
+               module_context: self.module_context,
+               self_type: self.self_type)
         self.class.new(
           method_context: method_context,
           block_context: block_context,
           break_context: break_context,
-          module_context: module_context
+          module_context: module_context,
+          self_type: self_type
         )
       end
     end
