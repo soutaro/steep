@@ -1,75 +1,5 @@
 module Steep
   class TypeConstruction
-    class MethodContext
-      attr_reader :name
-      attr_reader :method
-      attr_reader :method_type
-      attr_reader :return_type
-      attr_reader :constructor
-      attr_reader :super_method
-
-      def initialize(name:, method:, method_type:, return_type:, constructor:, super_method:)
-        @name = name
-        @method = method
-        @return_type = return_type
-        @method_type = method_type
-        @constructor = constructor
-        @super_method = super_method
-      end
-
-      def block_type
-        method_type&.block
-      end
-    end
-
-    class BlockContext
-      attr_reader :body_type
-
-      def initialize(body_type:)
-        @body_type = body_type
-      end
-    end
-
-    class BreakContext
-      attr_reader :break_type
-      attr_reader :next_type
-
-      def initialize(break_type:, next_type:)
-        @break_type = break_type
-        @next_type = next_type
-      end
-    end
-
-    class ModuleContext
-      attr_reader :instance_type
-      attr_reader :module_type
-      attr_reader :defined_instance_methods
-      attr_reader :defined_module_methods
-      attr_reader :const_env
-      attr_reader :implement_name
-      attr_reader :current_namespace
-      attr_reader :class_name
-      attr_reader :instance_definition
-      attr_reader :module_definition
-
-      def initialize(instance_type:, module_type:, implement_name:, current_namespace:, const_env:, class_name:, instance_definition: nil, module_definition: nil)
-        @instance_type = instance_type
-        @module_type = module_type
-        @defined_instance_methods = Set.new
-        @defined_module_methods = Set.new
-        @implement_name = implement_name
-        @current_namespace = current_namespace
-        @const_env = const_env
-        @class_name = class_name
-        @instance_definition = instance_definition
-        @module_definition = module_definition
-      end
-
-      def const_context
-        const_env.context
-      end
-    end
-
     attr_reader :checker
     attr_reader :source
     attr_reader :annotations
@@ -173,7 +103,7 @@ module Steep
                        end
                      end
 
-      method_context = MethodContext.new(
+      method_context = TypeInference::Context::MethodContext.new(
         name: method_name,
         method: definition && definition.methods[method_name],
         method_type: method_type,
@@ -283,7 +213,7 @@ module Steep
                       end
       module_const_env = TypeInference::ConstantEnv.new(factory: checker.factory, context: const_context)
 
-      module_context_ = ModuleContext.new(
+      module_context_ = TypeInference::Context::ModuleContext.new(
         instance_type: instance_type,
         module_type: annots.self_type || module_type,
         implement_name: implement_module_name,
@@ -380,7 +310,7 @@ module Steep
                       end
       class_const_env = TypeInference::ConstantEnv.new(factory: checker.factory, context: const_context)
 
-      module_context = ModuleContext.new(
+      module_context = TypeInference::Context::ModuleContext.new(
         instance_type: annots.instance_type || instance_type,
         module_type: annots.self_type || annots.module_type || module_type,
         implement_name: implement_module_name,
@@ -1404,7 +1334,7 @@ module Steep
             truthy_vars = node.type == :while ? TypeConstruction.truthy_variables(cond) : Set.new
 
             if body
-              for_loop = for_branch(body, truthy_vars: truthy_vars).with(break_context: BreakContext.new(break_type: nil, next_type: nil))
+              for_loop = for_branch(body, truthy_vars: truthy_vars).with(break_context: TypeInference::Context::BreakContext.new(break_type: nil, next_type: nil))
               for_loop.synthesize(body)
               type_env.join!([for_loop.type_env])
             end
@@ -1843,10 +1773,10 @@ module Steep
                     end
       Steep.logger.debug("return_type = #{return_type}")
 
-      block_context = BlockContext.new(body_type: block_annotations.block_type)
+      block_context = TypeInference::Context::BlockContext.new(body_type: block_annotations.block_type)
       Steep.logger.debug("block_context { body_type: #{block_context.body_type} }")
 
-      break_context = BreakContext.new(
+      break_context = TypeInference::Context::BreakContext.new(
         break_type: block_annotations.break_type || method_return_type,
         next_type: block_annotations.block_type
       )
@@ -2364,10 +2294,10 @@ module Steep
                    end
       Steep.logger.debug("return_type = #{break_type}")
 
-      block_context = BlockContext.new(body_type: block_annotations.block_type)
+      block_context = TypeInference::Context::BlockContext.new(body_type: block_annotations.block_type)
       Steep.logger.debug("block_context { body_type: #{block_context.body_type} }")
 
-      break_context = BreakContext.new(
+      break_context = TypeInference::Context::BreakContext.new(
         break_type: break_type,
         next_type: block_context.body_type
       )

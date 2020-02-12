@@ -13,6 +13,7 @@ class TypeConstructionTest < Minitest::Test
   TypeConstruction = Steep::TypeConstruction
   Annotation = Steep::AST::Annotation
   Names = Steep::Names
+  Context = Steep::TypeInference::Context
 
   DEFAULT_SIGS = <<-EOS
 interface _A
@@ -935,7 +936,7 @@ class Steep::Names::Module end
                                const_env: const_env,
                                signatures: checker.factory.env)
 
-      module_context = TypeConstruction::ModuleContext.new(
+      module_context = Context::ModuleContext.new(
         instance_type: parse_type("::Steep"),
         module_type: parse_type("singleton(::Steep)"),
         implement_name: nil,
@@ -1024,7 +1025,7 @@ module Steep::Printable end
                                const_env: const_env,
                                signatures: checker.factory.env)
 
-      module_context = TypeConstruction::ModuleContext.new(
+      module_context = Context::ModuleContext.new(
         instance_type: parse_type("::Steep"),
         module_type: parse_type("singleton(::Steep)"),
         implement_name: nil,

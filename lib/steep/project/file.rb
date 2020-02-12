@@ -64,7 +64,7 @@ module Steep
               source: source,
               self_type: AST::Builtin::Object.instance_type,
               block_context: nil,
-              module_context: TypeConstruction::ModuleContext.new(
+              module_context: TypeInference::Context::ModuleContext.new(
                 instance_type: nil,
                 module_type: nil,
                 implement_name: nil,
