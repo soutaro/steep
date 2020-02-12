@@ -73,11 +73,13 @@ end
                                         annotations: annotations,
                                         type_env: type_env,
                                         self_type: parse_type("::Object"),
-                                        block_context: nil,
-                                        method_context: nil,
-                                        typing: typing,
-                                        module_context: nil,
-                                        break_context: nil)
+                                        context: Context.new(
+                                          block_context: nil,
+                                          method_context: nil,
+                                          module_context: nil,
+                                          break_context: nil
+                                        ),
+                                        typing: typing)
 
     yield construction, typing
   end
@@ -952,11 +954,13 @@ class Steep::Names::Module end
                                           annotations: annotations,
                                           type_env: type_env,
                                           self_type: nil,
-                                          block_context: nil,
-                                          method_context: nil,
-                                          typing: typing,
-                                          module_context: module_context,
-                                          break_context: nil)
+                                          context: Context.new(
+                                            block_context: nil,
+                                            method_context: nil,
+                                            module_context: module_context,
+                                            break_context: nil
+                                          ),
+                                          typing: typing)
 
       for_module = construction.for_class(module_name_class_node)
 
@@ -1041,11 +1045,13 @@ module Steep::Printable end
                                           annotations: annotations,
                                           type_env: type_env,
                                           self_type: nil,
-                                          block_context: nil,
-                                          method_context: nil,
-                                          typing: typing,
-                                          module_context: module_context,
-                                          break_context: nil)
+                                          context: Context.new(
+                                            block_context: nil,
+                                            method_context: nil,
+                                            module_context: module_context,
+                                            break_context: nil
+                                          ),
+                                          typing: typing)
 
       for_module = construction.for_module(module_node)
 

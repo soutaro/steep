@@ -70,6 +70,27 @@ module Steep
           const_env.context
         end
       end
+
+      attr_reader :method_context
+      attr_reader :block_context
+      attr_reader :break_context
+      attr_reader :module_context
+
+      def initialize(method_context:, block_context:, break_context:, module_context:)
+        @method_context = method_context
+        @block_context = block_context
+        @break_context = break_context
+        @module_context = module_context
+      end
+
+      def with(method_context: self.method_context, block_context: self.block_context, break_context: self.break_context, module_context: self.module_context)
+        self.class.new(
+          method_context: method_context,
+          block_context: block_context,
+          break_context: break_context,
+          module_context: module_context
+        )
+      end
     end
   end
 end

@@ -63,18 +63,20 @@ module Steep
               annotations: annotations,
               source: source,
               self_type: AST::Builtin::Object.instance_type,
-              block_context: nil,
-              module_context: TypeInference::Context::ModuleContext.new(
-                instance_type: nil,
-                module_type: nil,
-                implement_name: nil,
-                current_namespace: AST::Namespace.root,
-                const_env: const_env,
-                class_name: nil
+              context: TypeInference::Context.new(
+                block_context: nil,
+                module_context: TypeInference::Context::ModuleContext.new(
+                  instance_type: nil,
+                  module_type: nil,
+                  implement_name: nil,
+                  current_namespace: AST::Namespace.root,
+                  const_env: const_env,
+                  class_name: nil
+                ),
+                method_context: nil,
+                break_context: nil
               ),
-              method_context: nil,
               typing: typing,
-              break_context: nil,
               type_env: type_env
             )
 

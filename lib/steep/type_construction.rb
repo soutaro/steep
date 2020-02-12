@@ -4,23 +4,34 @@ module Steep
     attr_reader :source
     attr_reader :annotations
     attr_reader :typing
-    attr_reader :method_context
-    attr_reader :block_context
-    attr_reader :module_context
     attr_reader :self_type
-    attr_reader :break_context
     attr_reader :type_env
 
-    def initialize(checker:, source:, annotations:, type_env:, typing:, self_type:, method_context:, block_context:, module_context:, break_context:)
+    attr_reader :context
+
+    def module_context
+      context.module_context
+    end
+
+    def method_context
+      context.method_context
+    end
+
+    def block_context
+      context.block_context
+    end
+
+    def break_context
+      context.break_context
+    end
+
+    def initialize(checker:, source:, annotations:, type_env:, typing:, self_type:, context:)
       @checker = checker
       @source = source
       @annotations = annotations
       @typing = typing
       @self_type = self_type
-      @block_context = block_context
-      @method_context = method_context
-      @module_context = module_context
-      @break_context = break_context
+      @context = context
       @type_env = type_env
     end
 
@@ -32,10 +43,7 @@ module Steep
         type_env: type_env,
         typing: typing,
         self_type: self_type,
-        method_context: method_context,
-        block_context: block_context,
-        module_context: module_context,
-        break_context: break_context
+        context: context
       )
     end
 
@@ -136,12 +144,14 @@ module Steep
         source: source,
         annotations: annots,
         type_env: type_env,
-        block_context: nil,
         self_type: annots.self_type || self_type,
-        method_context: method_context,
+        context: TypeInference::Context.new(
+          method_context: method_context,
+          module_context: module_context,
+          block_context: nil,
+          break_context: nil
+        ),
         typing: typing,
-        module_context: module_context,
-        break_context: nil
       )
     end
 
@@ -235,11 +245,13 @@ module Steep
         annotations: annots,
         type_env: module_type_env,
         typing: typing,
-        method_context: nil,
-        block_context: nil,
-        module_context: module_context_,
+        context: TypeInference::Context.new(
+          method_context: nil,
+          block_context: nil,
+          break_context: nil,
+          module_context: module_context_
+        ),
         self_type: module_context_.module_type,
-        break_context: nil
       )
     end
 
@@ -333,11 +345,13 @@ module Steep
         annotations: annots,
         type_env: class_type_env,
         typing: typing,
-        method_context: nil,
-        block_context: nil,
-        module_context: module_context,
-        self_type: module_context.module_type,
-        break_context: nil
+        context: TypeInference::Context.new(
+          method_context: nil,
+          block_context: nil,
+          module_context: module_context,
+          break_context: nil
+        ),
+        self_type: module_context.module_type
       )
     end
 
@@ -388,18 +402,15 @@ module Steep
 
     NOTHING = ::Object.new
 
-    def with(annotations: NOTHING, type_env: NOTHING, method_context: NOTHING, block_context: NOTHING, module_context: NOTHING, self_type: NOTHING, break_context: NOTHING)
+    def with(annotations: NOTHING, type_env: NOTHING, context: NOTHING, self_type: NOTHING)
       self.class.new(
         checker: checker,
         source: source,
         annotations: annotations.equal?(NOTHING) ? self.annotations : annotations,
         type_env: type_env.equal?(NOTHING) ? self.type_env : type_env,
         typing: typing,
-        method_context: method_context.equal?(NOTHING) ? self.method_context : method_context,
-        block_context: block_context.equal?(NOTHING) ? self.block_context : block_context,
-        module_context: module_context.equal?(NOTHING) ? self.module_context : module_context,
-        self_type: self_type.equal?(NOTHING) ? self.self_type : self_type,
-        break_context: break_context.equal?(NOTHING) ? self.break_context : break_context
+        context: context.equal?(NOTHING) ? self.context : context,
+        self_type: self_type.equal?(NOTHING) ? self.self_type : self_type
       )
     end
 
@@ -1334,7 +1345,9 @@ module Steep
             truthy_vars = node.type == :while ? TypeConstruction.truthy_variables(cond) : Set.new
 
             if body
-              for_loop = for_branch(body, truthy_vars: truthy_vars).with(break_context: TypeInference::Context::BreakContext.new(break_type: nil, next_type: nil))
+              for_loop = for_branch(body, truthy_vars: truthy_vars).with(
+                context: context.with(break_context: TypeInference::Context::BreakContext.new(break_type: nil, next_type: nil))
+              )
               for_loop.synthesize(body)
               type_env.join!([for_loop.type_env])
             end
@@ -1787,12 +1800,14 @@ module Steep
         source: source,
         annotations: annotations.merge_block_annotations(block_annotations),
         type_env: block_type_env,
-        block_context: block_context,
         typing: typing,
-        method_context: method_context,
-        module_context: module_context,
-        self_type: block_annotations.self_type || self_type,
-        break_context: break_context
+        context: TypeInference::Context.new(
+          block_context: block_context,
+          method_context: method_context,
+          module_context: module_context,
+          break_context: break_context
+        ),
+        self_type: block_annotations.self_type || self_type
       ), return_type]
     end
 
@@ -2092,10 +2107,7 @@ module Steep
         type_env: type_env,
         typing: child_typing,
         self_type: self_type,
-        method_context: method_context,
-        block_context: block_context,
-        module_context: module_context,
-        break_context: break_context
+        context: context
       )
 
       method_type.instantiate(instantiation).yield_self do |method_type|
@@ -2308,12 +2320,14 @@ module Steep
         source: source,
         annotations: annotations.merge_block_annotations(block_annotations),
         type_env: block_type_env,
-        block_context: block_context,
         typing: typing,
-        method_context: method_context,
-        module_context: module_context,
-        self_type: block_annotations.self_type || self_type,
-        break_context: break_context
+        context: TypeInference::Context.new(
+          block_context: block_context,
+          method_context: method_context,
+          module_context: module_context,
+          break_context: break_context
+        ),
+        self_type: block_annotations.self_type || self_type
       )
 
       if block_body
