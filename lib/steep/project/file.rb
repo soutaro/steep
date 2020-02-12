@@ -75,9 +75,9 @@ module Steep
                 method_context: nil,
                 break_context: nil,
                 self_type: AST::Builtin::Object.instance_type,
+                type_env: type_env
               ),
-              typing: typing,
-              type_env: type_env
+              typing: typing
             )
 
             construction.synthesize(source.node)

@@ -71,13 +71,13 @@ end
     construction = TypeConstruction.new(checker: checker,
                                         source: source,
                                         annotations: annotations,
-                                        type_env: type_env,
                                         context: Context.new(
                                           block_context: nil,
                                           method_context: nil,
                                           module_context: nil,
                                           break_context: nil,
-                                          self_type: parse_type("::Object")
+                                          self_type: parse_type("::Object"),
+                                          type_env: type_env
                                         ),
                                         typing: typing)
 
@@ -952,13 +952,13 @@ class Steep::Names::Module end
       construction = TypeConstruction.new(checker: checker,
                                           source: source,
                                           annotations: annotations,
-                                          type_env: type_env,
                                           context: Context.new(
                                             block_context: nil,
                                             method_context: nil,
                                             module_context: module_context,
                                             break_context: nil,
-                                            self_type: nil
+                                            self_type: nil,
+                                            type_env: type_env
                                           ),
                                           typing: typing)
 
@@ -1043,13 +1043,13 @@ module Steep::Printable end
       construction = TypeConstruction.new(checker: checker,
                                           source: source,
                                           annotations: annotations,
-                                          type_env: type_env,
                                           context: Context.new(
                                             block_context: nil,
                                             method_context: nil,
                                             module_context: module_context,
                                             break_context: nil,
-                                            self_type: nil
+                                            self_type: nil,
+                                            type_env: type_env
                                           ),
                                           typing: typing)
 
