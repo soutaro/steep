@@ -2,7 +2,6 @@ module Steep
   class Typing
     attr_reader :errors
     attr_reader :typing
-    attr_reader :nodes
     attr_reader :parent
     attr_reader :parent_last_update
     attr_reader :last_update
@@ -15,8 +14,7 @@ module Steep
       @should_update = false
 
       @errors = []
-      @nodes = {}
-      @typing = {}
+      @typing = {}.compare_by_identity
     end
 
     def add_error(error)
@@ -24,8 +22,7 @@ module Steep
     end
 
     def add_typing(node, type)
-      typing[node.__id__] = type
-      nodes[node.__id__] = node
+      typing[node] = type
 
       if should_update
         @last_update += 1
@@ -36,11 +33,11 @@ module Steep
     end
 
     def has_type?(node)
-      typing.key?(node.__id__)
+      typing.key?(node)
     end
 
     def type_of(node:)
-      type = typing[node.__id__]
+      type = typing[node]
 
       if type
         type
@@ -84,10 +81,8 @@ module Steep
       end
     end
 
-    def each_typing
-      nodes.each do |id, node|
-        yield node, typing[id]
-      end
+    def each_typing(&block)
+      typing.each(&block)
     end
 
     def save!
