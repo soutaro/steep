@@ -3,7 +3,6 @@ module Steep
     attr_reader :errors
     attr_reader :typing
     attr_reader :nodes
-    attr_reader :var_typing
     attr_reader :parent
     attr_reader :parent_last_update
     attr_reader :last_update
@@ -17,7 +16,6 @@ module Steep
 
       @errors = []
       @nodes = {}
-      @var_typing = {}
       @typing = {}
     end
 
