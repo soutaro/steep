@@ -3,7 +3,7 @@ module Steep
     class HoverContent
       TypeContent = Struct.new(:node, :type, :location, keyword_init: true)
       VariableContent = Struct.new(:node, :name, :type, :location, keyword_init: true)
-      MethodCallContent = Struct.new(:node, :method_name, :type, :location, keyword_init: true)
+      MethodCallContent = Struct.new(:node, :method_name, :type, :definition, :location, keyword_init: true)
 
       InstanceMethodName = Struct.new(:class_name, :method_name)
       SingletonMethodName = Struct.new(:class_name, :method_name)
@@ -12,6 +12,23 @@ module Steep
 
       def initialize(project:)
         @project = project
+      end
+
+      def method_definition_for(factory, module_name, singleton_method: nil, instance_method: nil)
+        type_name = factory.type_name_1(module_name)
+
+        case
+        when instance_method
+          factory.definition_builder.build_instance(type_name).methods[instance_method]
+        when singleton_method
+          methods = factory.definition_builder.build_singleton(type_name).methods
+
+          if singleton_method == :new
+            methods[:new] || methods[:initialize]
+          else
+            methods[singleton_method]
+          end
+        end
       end
 
       def content_for(path:, line:, column:)
@@ -31,27 +48,53 @@ module Steep
 
                 VariableContent.new(node: node, name: var_name.name, type: var_type, location: node.location.name)
               when :send
-                receiver, name, *_ = node.children
+                receiver, method_name, *_ = node.children
+
+
+                result_node = if parents[0]&.type == :block
+                                parents[0]
+                              else
+                                node
+                              end
+
+                context = status.typing.context_of(node: result_node)
+
                 receiver_type = if receiver
                                   status.typing.type_of(node: receiver)
                                 else
-                                  status.typing.context_of(node: node).self_type
+                                  context.self_type
                                 end
 
-                method_name = case receiver_type
-                              when AST::Types::Name::Instance
-                                InstanceMethodName.new(receiver_type.name, name)
-                              when AST::Types::Name::Class
-                                SingletonMethodName.new(receiver_type.name, name)
-                              else
-                                nil
-                              end
+                factory = context.type_env.subtyping.factory
+                method_name, definition = case receiver_type
+                                          when AST::Types::Name::Instance
+                                            method_definition = method_definition_for(factory, receiver_type.name, instance_method: method_name)
+                                            if method_definition&.defined_in
+                                              owner_name = factory.type_name(method_definition.defined_in.name.absolute!)
+                                              [
+                                                InstanceMethodName.new(owner_name, method_name),
+                                                method_definition
+                                              ]
+                                            end
+                                          when AST::Types::Name::Class
+                                            method_definition = method_definition_for(factory, receiver_type.name, singleton_method: method_name)
+                                            if method_definition&.defined_in
+                                              owner_name = factory.type_name(method_definition.defined_in.name.absolute!)
+                                              [
+                                                SingletonMethodName.new(owner_name, method_name),
+                                                method_definition
+                                              ]
+                                            end
+                                          else
+                                            nil
+                                          end
 
                 MethodCallContent.new(
                   node: node,
                   method_name: method_name,
-                  type: status.typing.type_of(node: node),
-                  location: node.location.expression
+                  type: status.typing.type_of(node: result_node),
+                  definition: definition,
+                  location: result_node.location.expression
                 )
               else
                 type = status.typing.type_of(node: node)

@@ -285,13 +285,30 @@ module Steep
         when Project::HoverContent::VariableContent
           "`#{content.name}`: `#{content.type.to_s}`"
         when Project::HoverContent::MethodCallContent
-          case content.method_name
-          when Project::HoverContent::InstanceMethodName
-            "#{content.method_name.class_name}##{content.method_name.method_name}: `#{content.type}`"
-          when Project::HoverContent::SingletonMethodName
-            "#{content.method_name.class_name}.#{content.method_name.method_name}: `#{content.type}`"
+          method_name = case content.method_name
+                        when Project::HoverContent::InstanceMethodName
+                          "#{content.method_name.class_name}##{content.method_name.method_name}"
+                        when Project::HoverContent::SingletonMethodName
+                          "#{content.method_name.class_name}.#{content.method_name.method_name}"
+                        else
+                          nil
+                        end
+
+          if method_name
+            string = <<HOVER
+```
+#{method_name} ~> #{content.type}
+```
+HOVER
+            if content.definition
+              if content.definition.comment
+                string << "\n----\n\n#{content.definition.comment.string}"
+              end
+
+              string << "\n----\n\n#{content.definition.method_types.map {|x| "- `#{x}`\n" }.join()}"
+            end
           else
-            "`#{content.type}`: `#{content.type}`"
+            "`#{content.type}`"
           end
         when Project::HoverContent::TypeContent
           "`#{content.type}`"

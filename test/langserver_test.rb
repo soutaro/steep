@@ -253,7 +253,65 @@ RB
               }
             }
           ) do |response|
-            assert_equal "::Integer#to_s: `::String`", response[:result][:contents][:value]
+            assert_equal <<MSG, response[:result][:contents][:value]
+```
+::Integer#to_s ~> ::String
+```
+
+----
+
+Returns a string containing the place-value representation of `int` with radix
+`base` (between 2 and 36).
+
+    12345.to_s       #=> \"12345\"
+    12345.to_s(2)    #=> \"11000000111001\"
+    12345.to_s(8)    #=> \"30071\"
+    12345.to_s(10)   #=> \"12345\"
+    12345.to_s(16)   #=> \"3039\"
+    12345.to_s(36)   #=> \"9ix\"
+    78546939656932.to_s(36)  #=> \"rubyrules\"
+
+
+----
+
+- `() -> ::String`
+- `(2) -> ::String`
+- `(3) -> ::String`
+- `(4) -> ::String`
+- `(5) -> ::String`
+- `(6) -> ::String`
+- `(7) -> ::String`
+- `(8) -> ::String`
+- `(9) -> ::String`
+- `(10) -> ::String`
+- `(11) -> ::String`
+- `(12) -> ::String`
+- `(13) -> ::String`
+- `(14) -> ::String`
+- `(15) -> ::String`
+- `(16) -> ::String`
+- `(17) -> ::String`
+- `(18) -> ::String`
+- `(19) -> ::String`
+- `(20) -> ::String`
+- `(21) -> ::String`
+- `(22) -> ::String`
+- `(23) -> ::String`
+- `(24) -> ::String`
+- `(25) -> ::String`
+- `(26) -> ::String`
+- `(27) -> ::String`
+- `(28) -> ::String`
+- `(29) -> ::String`
+- `(30) -> ::String`
+- `(31) -> ::String`
+- `(32) -> ::String`
+- `(33) -> ::String`
+- `(34) -> ::String`
+- `(35) -> ::String`
+- `(36) -> ::String`
+- `(::int base) -> ::String`
+MSG
             assert_equal({ start: { line: 2, character: 4 }, end: { line: 2, character: 16 }}, response[:result][:range])
           end
         end
