@@ -204,6 +204,14 @@ Generally, these are by our design.
 
 You can find examples in `smoke` directory.
 
+## IDEs
+
+Steep implements some of the Language Server Protocol features. You can use Steep with VSCode and its plugin.
+
+- https://github.com/soutaro/steep-vscode
+
+Other LSP supporting tools may work with Steep where it starts the server as `steep langserver`.
+
 ## Development
 
 After checking out the repo, run `bin/setup` to install dependencies. Then, run `rake test` to run the tests. You can also run `bin/console` for an interactive prompt that will allow you to experiment.
