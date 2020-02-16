@@ -264,20 +264,37 @@ module Steep
       def response_to_hover(path:, line:, column:)
         Steep.logger.info { "path=#{path}, line=#{line}, column=#{column}" }
 
-        # line in LSP is zero-origin
-        project.type_of_node(path: path, line: line + 1, column: column) do |type, node|
-          Steep.logger.warn { "node = #{node.type}, type = #{type.to_s}" }
-
-          start_position = { line: node.location.line - 1, character: node.location.column }
-          end_position = { line: node.location.last_line - 1, character: node.location.last_column }
-          range = { start: start_position, end: end_position }
-
-          Steep.logger.warn { "range = #{range.inspect}" }
+        hover = Project::HoverContent.new(project: project)
+        content = hover.content_for(path: path, line: line+1, column: column+1)
+        if content
+          range = content.location.yield_self do |location|
+            start_position = { line: location.line - 1, character: location.column }
+            end_position = { line: location.last_line - 1, character: location.last_column }
+            { start: start_position, end: end_position }
+          end
 
           LanguageServer::Protocol::Interface::Hover.new(
-            contents: { kind: "markdown", value: "`#{type}`" },
+            contents: { kind: "markdown", value: format_hover(content) },
             range: range
           )
+        end
+      end
+
+      def format_hover(content)
+        case content
+        when Project::HoverContent::VariableContent
+          "`#{content.name}`: `#{content.type.to_s}`"
+        when Project::HoverContent::MethodCallContent
+          case content.method_name
+          when Project::HoverContent::InstanceMethodName
+            "#{content.method_name.class_name}##{content.method_name.method_name}: `#{content.type}`"
+          when Project::HoverContent::SingletonMethodName
+            "#{content.method_name.class_name}.#{content.method_name.method_name}: `#{content.type}`"
+          else
+            "`#{content.type}`: `#{content.type}`"
+          end
+        when Project::HoverContent::TypeContent
+          "`#{content.type}`"
         end
       end
     end
