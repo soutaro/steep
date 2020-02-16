@@ -146,4 +146,47 @@ EOF
       end
     end
   end
+
+  def test_hover_def
+    in_tmpdir do
+      project = Project.new(base_dir: current_dir)
+      Project::DSL.parse(project, <<EOF)
+target :lib do
+  check "hello.rb"
+  signature "hello.rbs"
+end
+EOF
+
+      target = project.targets[0]
+      target.add_source(Pathname("hello.rb"), <<-EOF)
+class Hello
+  def do_something(x)
+    String
+  end
+end
+      EOF
+
+      target.add_signature(Pathname("hello.rbs"), <<-EOF)
+class Hello
+  # Do something super for given argument `x`.
+  def do_something: (Integer x) -> String
+                  | (String x) -> String
+end
+      EOF
+
+      target.type_check
+
+      hover = Project::HoverContent.new(project: project)
+
+      hover.content_for(path: Pathname("hello.rb"), line: 2, column: 10).tap do |content|
+        assert_instance_of HoverContent::DefinitionContent, content
+        assert_equal [2,2]...[4, 5], [content.location.line,content.location.column]...[content.location.last_line, content.location.last_column]
+        assert_equal :do_something, content.method_name
+        assert_equal "((::Integer | ::String)) -> ::String", content.method_type.to_s
+        assert_equal ["(::Integer x) -> ::String", "(::String x) -> ::String"], content.definition.method_types.map(&:to_s)
+        assert_instance_of Ruby::Signature::Definition::Method, content.definition
+        assert_equal "Do something super for given argument `x`.\n", content.definition.comment.string
+      end
+    end
+  end
 end

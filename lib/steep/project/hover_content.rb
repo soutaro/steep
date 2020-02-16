@@ -4,6 +4,7 @@ module Steep
       TypeContent = Struct.new(:node, :type, :location, keyword_init: true)
       VariableContent = Struct.new(:node, :name, :type, :location, keyword_init: true)
       MethodCallContent = Struct.new(:node, :method_name, :type, :definition, :location, keyword_init: true)
+      DefinitionContent = Struct.new(:node, :method_name, :method_type, :definition, :location, keyword_init: true)
 
       InstanceMethodName = Struct.new(:class_name, :method_name)
       SingletonMethodName = Struct.new(:class_name, :method_name)
@@ -96,6 +97,19 @@ module Steep
                   definition: definition,
                   location: result_node.location.expression
                 )
+              when :def, :defs
+                context = status.typing.context_of(node: node)
+                method_context = context.method_context
+
+                if method_context
+                  DefinitionContent.new(
+                    node: node,
+                    method_name: method_context.name,
+                    method_type: method_context.method_type,
+                    definition: method_context.method,
+                    location: node.loc.expression
+                  )
+                end
               else
                 type = status.typing.type_of(node: node)
 

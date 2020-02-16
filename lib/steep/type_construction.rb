@@ -658,7 +658,7 @@ module Steep
             module_context.defined_instance_methods << node.children[0]
           end
 
-          typing.add_typing(node, AST::Builtin.any_type, context)
+          typing.add_typing(node, AST::Builtin.any_type, new.context)
 
         when :defs
           synthesize(node.children[0]).tap do |self_type|

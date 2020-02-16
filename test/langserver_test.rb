@@ -167,14 +167,16 @@ EOF
       (path+"sig").mkdir
       (path+"sig/example.rbs").write <<RBS
 class Hello
+  # foo method processes given argument.
   def foo: (Integer x) -> String
+         | (String x, Symbol y) -> String
 end
 RBS
       (path+"lib").mkdir
       (path+"lib/example.rb").write <<RB
 class Hello
-  def foo(x)
-    (x + 1).to_s
+  def foo(x, y = :y)
+    y.to_s + "hello world"
   end
 end
 RB
@@ -217,12 +219,12 @@ RB
               },
               position: {
                 line: 2,
-                character: 5
+                character: 4
               }
             }
           ) do |response|
-            assert_equal "`x`: `::Integer`", response[:result][:contents][:value]
-            assert_equal({ start: { line: 2, character: 5 }, end: { line: 2, character: 6 }}, response[:result][:range])
+            assert_equal "`y`: `::Symbol`", response[:result][:contents][:value]
+            assert_equal({ start: { line: 2, character: 4 }, end: { line: 2, character: 5 }}, response[:result][:range])
           end
 
           lsp.send_request(
@@ -233,12 +235,12 @@ RB
               },
               position: {
                 line: 2,
-                character: 9
+                character: 15
               }
             }
           ) do |response|
-            assert_equal "`::Integer`", response[:result][:contents][:value]
-            assert_equal({ start: { line: 2, character: 9 }, end: { line: 2, character: 10 }}, response[:result][:range])
+            assert_equal "`::String`", response[:result][:contents][:value]
+            assert_equal({ start: { line: 2, character: 13 }, end: { line: 2, character: 26 }}, response[:result][:range])
           end
 
           lsp.send_request(
@@ -249,70 +251,58 @@ RB
               },
               position: {
                 line: 2,
-                character: 12
+                character: 7
               }
             }
           ) do |response|
             assert_equal <<MSG, response[:result][:contents][:value]
 ```
-::Integer#to_s ~> ::String
+::Symbol#to_s ~> ::String
 ```
 
 ----
 
-Returns a string containing the place-value representation of `int` with radix
-`base` (between 2 and 36).
+Returns the name or string corresponding to *sym*.
 
-    12345.to_s       #=> \"12345\"
-    12345.to_s(2)    #=> \"11000000111001\"
-    12345.to_s(8)    #=> \"30071\"
-    12345.to_s(10)   #=> \"12345\"
-    12345.to_s(16)   #=> \"3039\"
-    12345.to_s(36)   #=> \"9ix\"
-    78546939656932.to_s(36)  #=> \"rubyrules\"
+    :fred.id2name   #=> \"fred\"
+    :ginger.to_s    #=> \"ginger\"
 
 
 ----
 
 - `() -> ::String`
-- `(2) -> ::String`
-- `(3) -> ::String`
-- `(4) -> ::String`
-- `(5) -> ::String`
-- `(6) -> ::String`
-- `(7) -> ::String`
-- `(8) -> ::String`
-- `(9) -> ::String`
-- `(10) -> ::String`
-- `(11) -> ::String`
-- `(12) -> ::String`
-- `(13) -> ::String`
-- `(14) -> ::String`
-- `(15) -> ::String`
-- `(16) -> ::String`
-- `(17) -> ::String`
-- `(18) -> ::String`
-- `(19) -> ::String`
-- `(20) -> ::String`
-- `(21) -> ::String`
-- `(22) -> ::String`
-- `(23) -> ::String`
-- `(24) -> ::String`
-- `(25) -> ::String`
-- `(26) -> ::String`
-- `(27) -> ::String`
-- `(28) -> ::String`
-- `(29) -> ::String`
-- `(30) -> ::String`
-- `(31) -> ::String`
-- `(32) -> ::String`
-- `(33) -> ::String`
-- `(34) -> ::String`
-- `(35) -> ::String`
-- `(36) -> ::String`
-- `(::int base) -> ::String`
 MSG
-            assert_equal({ start: { line: 2, character: 4 }, end: { line: 2, character: 16 }}, response[:result][:range])
+            assert_equal({ start: { line: 2, character: 4 }, end: { line: 2, character: 10 }}, response[:result][:range])
+          end
+
+          lsp.send_request(
+            method: "textDocument/hover",
+            params: {
+              textDocument: {
+                uri: "file://#{path}/lib/example.rb"
+              },
+              position: {
+                line: 1,
+                character: 3
+              }
+            }
+          ) do |response|
+            assert_equal <<EOF, response[:result][:contents][:value]
+```
+def foo: ((::Integer | ::String), ?::Symbol) -> ::String
+```
+
+----
+
+foo method processes given argument.
+
+
+----
+
+- `(::Integer x) -> ::String`
+- `(::String x, ::Symbol y) -> ::String`
+EOF
+            assert_equal({ start: { line: 1, character: 2 }, end: { line: 3, character: 5 }}, response[:result][:range])
           end
         end
       end

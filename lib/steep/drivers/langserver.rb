@@ -310,6 +310,21 @@ HOVER
           else
             "`#{content.type}`"
           end
+        when Project::HoverContent::DefinitionContent
+          string = <<HOVER
+```
+def #{content.method_name}: #{content.method_type}
+```
+HOVER
+          if (comment = content.definition.comment)
+            string << "\n----\n\n#{comment.string}\n"
+          end
+
+          if content.definition.method_types.size > 1
+            string << "\n----\n\n#{content.definition.method_types.map {|x| "- `#{x}`\n" }.join()}"
+          end
+
+          string
         when Project::HoverContent::TypeContent
           "`#{content.type}`"
         end
