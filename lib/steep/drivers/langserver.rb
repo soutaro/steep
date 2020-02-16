@@ -187,6 +187,8 @@ module Steep
                                   [diagnostics_raw(source.status.error.message, source.status.location)]
                                 when Project::SourceFile::ParseErrorStatus
                                   []
+                                when Project::SourceFile::TypeCheckErrorStatus
+                                  []
                                 end
 
                   report_diagnostics source.path, diagnostics

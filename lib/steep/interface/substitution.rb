@@ -1,6 +1,18 @@
 module Steep
   module Interface
     class Substitution
+      class InvalidSubstitutionError < StandardError
+        attr_reader :vars_size
+        attr_reader :types_size
+
+        def initialize(vars_size:, types_size:)
+          @var_size = vars_size
+          @types_size = types_size
+
+          super "Invalid substitution: vars.size=#{vars_size}, types.size=#{types_size}"
+        end
+      end
+
       attr_reader :dictionary
       attr_reader :instance_type
       attr_reader :module_type
@@ -42,7 +54,7 @@ module Steep
       def self.build(vars, types = nil, instance_type: AST::Types::Instance.new, module_type: AST::Types::Class.new, self_type: AST::Types::Self.new)
         types ||= vars.map {|var| AST::Types::Var.fresh(var) }
 
-        raise "Invalid substitution: vars.size=#{vars.size}, types.size=#{types.size}" unless vars.size == types.size
+        raise InvalidSubstitutionError.new(vars_size: vars.size, types_size: types.size) unless vars.size == types.size
 
         dic = vars.zip(types).each.with_object({}) do |(var, type), d|
           d[var] = type

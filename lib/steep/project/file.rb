@@ -11,6 +11,7 @@ module Steep
       ParseErrorStatus = Struct.new(:error, keyword_init: true)
       AnnotationSyntaxErrorStatus = Struct.new(:error, :location, keyword_init: true)
       TypeCheckStatus = Struct.new(:typing, :source, :timestamp, keyword_init: true)
+      TypeCheckErrorStatus = Struct.new(:error, keyword_init: true)
 
       def initialize(path:)
         @path = path
@@ -88,6 +89,8 @@ module Steep
             source: source,
             timestamp: Time.now
           )
+        rescue => exn
+          @status = TypeCheckErrorStatus.new(error: exn)
         end
 
         true
