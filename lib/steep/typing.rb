@@ -6,6 +6,7 @@ module Steep
     attr_reader :parent_last_update
     attr_reader :last_update
     attr_reader :should_update
+    attr_reader :contexts
 
     def initialize(parent: nil, parent_last_update: parent&.last_update)
       @parent = parent
@@ -15,14 +16,16 @@ module Steep
 
       @errors = []
       @typing = {}.compare_by_identity
+      @contexts = {}.compare_by_identity
     end
 
     def add_error(error)
       errors << error
     end
 
-    def add_typing(node, type)
+    def add_typing(node, type, context)
       typing[node] = type
+      contexts[node] = context
 
       if should_update
         @last_update += 1
@@ -46,6 +49,20 @@ module Steep
           parent.type_of(node: node)
         else
           raise "Unknown node for typing: #{node.inspect}"
+        end
+      end
+    end
+
+    def context_of(node:)
+      ctx = contexts[node]
+
+      if ctx
+        ctx
+      else
+        if parent
+          parent.context_of(node: node)
+        else
+          raise "Unknown node for context: #{node.inspect}"
         end
       end
     end
@@ -90,7 +107,7 @@ module Steep
       raise "Parent modified since new_child" unless parent.last_update == parent_last_update
 
       each_typing do |node, type|
-        parent.add_typing(node, type)
+        parent.add_typing(node, type, contexts[node])
       end
 
       errors.each do |error|
