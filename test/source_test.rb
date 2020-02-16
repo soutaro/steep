@@ -413,17 +413,20 @@ class A
 end
       EOF
 
-      assert_equal source.node, source.find_node(line: 1, column: 2)            # class
-      assert_equal dig(source.node, 0), source.find_node(line: 1, column: 6)    # A
-      assert_equal dig(source.node, 0), source.find_node(line: 1, column: 7)    # A
-      assert_equal dig(source.node, 2, 0), source.find_node(line: 2, column: 6) # self
-      assert_equal dig(source.node, 2), source.find_node(line: 2, column: 11)   # def
-      assert_equal dig(source.node, 2, 2, 0), source.find_node(line: 2, column: 15)   # bar
-      assert_equal dig(source.node, 2, 3), source.find_node(line: 4, column: 5)   # x
-      assert_equal dig(source.node, 2, 3, 1), source.find_node(line: 4, column: 8)   # 123
-      assert_equal dig(source.node, 2, 3, 1), source.find_node(line: 4, column: 9)   # 123
-      assert_equal dig(source.node, 2, 3, 1), source.find_node(line: 4, column: 10)   # 123
-      assert_equal dig(source.node, 2, 3, 1), source.find_node(line: 4, column: 11)   # 123
+      assert_equal [source.node],
+                   source.find_nodes(line: 1, column: 2)    # class
+      assert_equal [dig(source.node, 0), source.node],
+                   source.find_nodes(line: 1, column: 6)    # A
+      assert_equal [dig(source.node, 0), source.node],
+                   source.find_nodes(line: 1, column: 7)    # A
+      assert_equal [dig(source.node, 2, 0), dig(source.node, 2), source.node],
+                   source.find_nodes(line: 2, column: 6)    # self
+      assert_equal [dig(source.node, 2), source.node],
+                   source.find_nodes(line: 2, column: 11)   # def
+      assert_equal [dig(source.node, 2, 2, 0), dig(source.node, 2, 2), dig(source.node, 2), source.node],
+                   source.find_nodes(line: 2, column: 15)   # bar
+      assert_equal [dig(source.node, 2, 3), dig(source.node, 2), source.node],
+                   source.find_nodes(line: 4, column: 5)    # x
     end
   end
 end

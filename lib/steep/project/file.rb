@@ -11,6 +11,7 @@ module Steep
       ParseErrorStatus = Struct.new(:error, keyword_init: true)
       AnnotationSyntaxErrorStatus = Struct.new(:error, :location, keyword_init: true)
       TypeCheckStatus = Struct.new(:typing, :source, :timestamp, keyword_init: true)
+      TypeCheckErrorStatus = Struct.new(:error, keyword_init: true)
 
       def initialize(path:)
         @path = path
@@ -62,20 +63,22 @@ module Steep
               checker: subtyping,
               annotations: annotations,
               source: source,
-              self_type: AST::Builtin::Object.instance_type,
-              block_context: nil,
-              module_context: TypeConstruction::ModuleContext.new(
-                instance_type: nil,
-                module_type: nil,
-                implement_name: nil,
-                current_namespace: AST::Namespace.root,
-                const_env: const_env,
-                class_name: nil
+              context: TypeInference::Context.new(
+                block_context: nil,
+                module_context: TypeInference::Context::ModuleContext.new(
+                  instance_type: nil,
+                  module_type: nil,
+                  implement_name: nil,
+                  current_namespace: AST::Namespace.root,
+                  const_env: const_env,
+                  class_name: nil
+                ),
+                method_context: nil,
+                break_context: nil,
+                self_type: AST::Builtin::Object.instance_type,
+                type_env: type_env
               ),
-              method_context: nil,
-              typing: typing,
-              break_context: nil,
-              type_env: type_env
+              typing: typing
             )
 
             construction.synthesize(source.node)
@@ -86,6 +89,8 @@ module Steep
             source: source,
             timestamp: Time.now
           )
+        rescue => exn
+          @status = TypeCheckErrorStatus.new(error: exn)
         end
 
         true

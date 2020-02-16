@@ -294,8 +294,7 @@ module Steep
       end
     end
 
-    # @type method find_node: (line: Integer, column: Integer, ?node: any, ?position: Integer?) -> any
-    def find_node(line:, column:, node: self.node, position: nil)
+    def find_nodes(line:, column:, node: self.node, position: nil, parents: [])
       position ||= (line-1).times.sum do |i|
         node.location.expression.source_buffer.source_line(i+1).size + 1
       end + column
@@ -306,14 +305,13 @@ module Steep
 
       if range
         if range === position
+          parents.unshift node
+
           Source.each_child_node(node) do |child|
-            n = find_node(line: line, column: column, node: child, position: position)
-            if n
-              return n
-            end
+            ns = find_nodes(line: line, column: column, node: child, position: position, parents: parents) and return ns
           end
 
-          node
+          parents
         end
       end
     end

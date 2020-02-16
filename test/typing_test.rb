@@ -2,6 +2,8 @@ require "test_helper"
 
 class TypingTest < Minitest::Test
   Typing = Steep::Typing
+  TypeEnv = Steep::TypeInference::TypeEnv
+  Context = Steep::TypeInference::Context
 
   include TestHelper
   include FactoryHelper
@@ -13,15 +15,25 @@ class TypingTest < Minitest::Test
     end
   end
 
+  def context
+    @context ||= Context.new(method_context: nil,
+                             block_context: nil,
+                             break_context: nil,
+                             module_context: nil,
+                             self_type: parse_type("::Object"),
+                             type_env: nil)
+  end
+
   def test_1
     typing = Steep::Typing.new
 
     node = parse_ruby("123").node
     type = parse_method_type("() -> String").return_type
 
-    typing.add_typing(node, type)
+    typing.add_typing(node, type, context)
 
     assert_equal type, typing.type_of(node: node)
+    assert_equal context, typing.context_of(node: node)
   end
 
   def test_new_child_with_save
@@ -30,13 +42,13 @@ class TypingTest < Minitest::Test
     node = parse_ruby("123 + 456").node
     type = parse_method_type("() -> String").return_type
 
-    typing.add_typing(node, type)
+    typing.add_typing(node, type, context)
 
     typing.new_child do |typing_|
       assert_equal type, typing.type_of(node: node)
 
-      typing_.add_typing(node.children[0], type)
-      typing_.add_typing(node.children[1], type)
+      typing_.add_typing(node.children[0], type, context)
+      typing_.add_typing(node.children[1], type, context)
 
       typing_.save!
     end
@@ -52,13 +64,13 @@ class TypingTest < Minitest::Test
     node = parse_ruby("123 + 456").node
     type = parse_method_type("() -> String").return_type
 
-    typing.add_typing(node, type)
+    typing.add_typing(node, type, context)
 
     typing.new_child do |typing_|
       assert_equal type, typing.type_of(node: node)
 
-      typing_.add_typing(node.children[0], type)
-      typing_.add_typing(node.children[1], type)
+      typing_.add_typing(node.children[0], type, context)
+      typing_.add_typing(node.children[1], type, context)
     end
 
     assert_equal type, typing.type_of(node: node)
@@ -72,12 +84,12 @@ class TypingTest < Minitest::Test
     node = parse_ruby("123 + 456").node
     type = parse_method_type("() -> String").return_type
 
-    typing.add_typing(node, type)
+    typing.add_typing(node, type, context)
 
     child1 = typing.new_child()
-    child1.add_typing(node.children[0], type)
+    child1.add_typing(node.children[0], type, context)
 
-    typing.add_typing(node.children[1], type)
+    typing.add_typing(node.children[1], type, context)
 
     assert_raises do
       child1.save!
@@ -91,10 +103,10 @@ class TypingTest < Minitest::Test
     type = parse_method_type("() -> String").return_type
 
     child1 = typing.new_child()
-    child1.add_typing(node.children[0], type)
+    child1.add_typing(node.children[0], type, context)
 
     child2 = typing.new_child()
-    child2.add_typing(node.children[1], type)
+    child2.add_typing(node.children[1], type, context)
 
     child1.save!
 
