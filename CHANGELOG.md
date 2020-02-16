@@ -2,6 +2,10 @@
 
 ## master
 
+## 0.13.0 (2020-02-16)
+
+* Improve LSP _hover_ support. ([#117](https://github.com/soutaro/steep/pull/117))
+
 ## 0.12.0 (2020-02-11)
 
 * Add `Steepfile` for configuration
