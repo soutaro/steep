@@ -187,47 +187,82 @@ module Steep
         end
 
         def method_type(method_type, self_type:)
-          case method_type
-          when Ruby::Signature::MethodType
-            fvs = self_type.free_variables()
+          fvs = self_type.free_variables()
 
-            type_params = []
-            alpha_vars = []
-            alpha_types = []
+          type_params = []
+          alpha_vars = []
+          alpha_types = []
 
-            method_type.type_params.map do |name|
-              if fvs.include?(name)
-                type = Types::Var.fresh(name)
-                alpha_vars << name
-                alpha_types << type
-                type_params << type.name
-              else
-                type_params << name
-              end
-            end
-            subst = Interface::Substitution.build(alpha_vars, alpha_types)
-
-            type = Interface::MethodType.new(
-              type_params: type_params,
-              return_type: type(method_type.type.return_type).subst(subst),
-              params: params(method_type.type).subst(subst),
-              location: nil,
-              block: method_type.block&.yield_self do |block|
-                Interface::Block.new(
-                  optional: !block.required,
-                  type: Proc.new(params: params(block.type).subst(subst),
-                                 return_type: type(block.type.return_type).subst(subst), location: nil)
-                )
-              end
-            )
-
-            if block_given?
-              yield type
+          method_type.type_params.map do |name|
+            if fvs.include?(name)
+              type = Types::Var.fresh(name)
+              alpha_vars << name
+              alpha_types << type
+              type_params << type.name
             else
-              type
+              type_params << name
             end
-          when :any
-            :any
+          end
+          subst = Interface::Substitution.build(alpha_vars, alpha_types)
+
+          type = Interface::MethodType.new(
+            type_params: type_params,
+            return_type: type(method_type.type.return_type).subst(subst),
+            params: params(method_type.type).subst(subst),
+            location: nil,
+            block: method_type.block&.yield_self do |block|
+              Interface::Block.new(
+                optional: !block.required,
+                type: Proc.new(params: params(block.type).subst(subst),
+                               return_type: type(block.type.return_type).subst(subst), location: nil)
+              )
+            end
+          )
+
+          if block_given?
+            yield type
+          else
+            type
+          end
+        end
+
+        def method_type_1(method_type, self_type:)
+          fvs = self_type.free_variables()
+
+          type_params = []
+          alpha_vars = []
+          alpha_types = []
+
+          method_type.type_params.map do |name|
+            if fvs.include?(name)
+              type = Ruby::Signature::Types::Variable.new(name: name, location: nil),
+              alpha_vars << name
+              alpha_types << type
+              type_params << type.name
+            else
+              type_params << name
+            end
+          end
+          subst = Interface::Substitution.build(alpha_vars, alpha_types)
+
+          type = Ruby::Signature::MethodType.new(
+            type_params: type_params,
+            type: function_1(method_type.params.subst(subst), method_type.return_type.subst(subst)),
+            block: method_type.block&.yield_self do |block|
+              block_type = block.type.subst(subst)
+
+              Ruby::Signature::MethodType::Block.new(
+                type: function_1(block_type.params, block_type.return_type),
+                required: !block.optional
+              )
+            end,
+            location: nil
+          )
+
+          if block_given?
+            yield type
+          else
+            type
           end
         end
 
