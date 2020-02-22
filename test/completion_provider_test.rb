@@ -45,6 +45,10 @@ self.cl
         provider.run(line: 1, column: 7).tap do |items|
           assert_equal [:class], items.map(&:identifier)
         end
+
+        provider.run(line: 1, column: 5).tap do |items|
+          assert_equal [:class, :initialize, :itself, :nil?, :tap, :to_s], items.map(&:identifier).sort
+        end
       end
     end
   end

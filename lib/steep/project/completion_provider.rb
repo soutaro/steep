@@ -120,6 +120,23 @@ module Steep
                                          prefix: prefix,
                                          position: position,
                                          items: items)
+
+        when node.type == :send && at_end?(position, of: node.loc.dot)
+          # foo.← ba
+          context = typing.context_of(node: node)
+          receiver_type = case (type = typing.type_of(node: node.children[0]))
+                          when AST::Types::Self
+                            context.self_type
+                          else
+                            type
+                          end
+
+          method_items_for_receiver_type(receiver_type,
+                                         include_private: false,
+                                         prefix: "",
+                                         position: position,
+                                         items: items)
+
         when node.type == :ivar && at_end?(position, of: node.loc)
           # @fo ←
           context = typing.context_of(node: node)
