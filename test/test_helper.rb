@@ -212,14 +212,18 @@ end
 class Object < BasicObject
   def class: -> class
   def tap: { (instance) -> untyped } -> instance
-  def gets: -> String?
   def to_s: -> String
   def nil?: -> bool
   def !: -> bool
   def itself: -> self
+
+private
+  def require: (String) -> void
+  def puts: (*String) -> void
+  def gets: -> String?
 end
 
-class Class
+class Class < Module
 end
 
 class Module
