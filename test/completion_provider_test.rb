@@ -7,11 +7,7 @@ class CompletionProviderTest < Minitest::Test
   include SubtypingHelper
 
   def test_on_lower_identifier
-    with_checker <<EOF do
-extension Object (Pathname)
-  def Pathname: () -> void
-end
-EOF
+    with_checker do
       CompletionProvider.new(source_text: <<-EOR, path: Pathname("foo.rb"), subtyping: checker).tap do |provider|
 req
 
@@ -31,6 +27,23 @@ lvar1
 
         provider.run(line: 6, column: 5).tap do |items|
           assert_equal [:lvar1], items.map(&:identifier)
+        end
+      end
+    end
+  end
+
+  def test_on_upper_identifier
+    with_checker <<EOF do
+extension Object (Array)
+  def Array: (untyped) -> Array[untyped]
+end
+EOF
+      CompletionProvider.new(source_text: <<-EOR, path: Pathname("foo.rb"), subtyping: checker).tap do |provider|
+Arr
+      EOR
+
+        provider.run(line: 1, column: 3).tap do |items|
+          assert_equal [:Array], items.map(&:identifier)
         end
       end
     end

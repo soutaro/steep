@@ -121,6 +121,17 @@ module Steep
                                          position: position,
                                          items: items)
 
+        when node.type == :const && node.children[0] == nil && at_end?(position, of: node.loc)
+          # Foo ← (const)
+          context = typing.context_of(node: node)
+          prefix = node.children[1].to_s
+
+          method_items_for_receiver_type(context.self_type,
+                                         include_private: false,
+                                         prefix: prefix,
+                                         position: position,
+                                         items: items)
+
         when node.type == :send && at_end?(position, of: node.loc.dot)
           # foo.← ba
           context = typing.context_of(node: node)
