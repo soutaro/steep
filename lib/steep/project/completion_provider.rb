@@ -192,6 +192,8 @@ module Steep
                                          position: position,
                                          items: items)
           items
+        else
+          []
         end
       end
 
