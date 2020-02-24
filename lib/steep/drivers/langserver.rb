@@ -84,10 +84,50 @@ module Steep
                   change: LanguageServer::Protocol::Constant::TextDocumentSyncKind::FULL
                 ),
                 hover_provider: true,
+                completion_provider: LanguageServer::Protocol::Interface::CompletionOptions.new(
+                  trigger_characters: [".", "@"],
                 )
+              )
             )
 
             enqueue_type_check nil
+
+          when :"textDocument/completion"
+            Steep.logger.error request.inspect
+
+            params = request[:params]
+            uri = URI.parse(params[:textDocument][:uri])
+            path = project.relative_path(Pathname(uri.path))
+            target = project.targets.find {|target| target.source_file?(path) }
+            case (status = target&.status)
+            when Project::Target::TypeCheckStatus
+              subtyping = status.subtyping
+              source = target.source_files[path]
+
+              line, column = params[:position].yield_self {|hash| [hash[:line]+1, hash[:character]] }
+              trigger = params[:context][:triggerCharacter]
+
+              Steep.logger.error "line: #{line}, column: #{column}, trigger: #{trigger}"
+
+              provider = Project::CompletionProvider.new(source_text: source.content, path: path, subtyping: subtyping)
+              items = begin
+                        provider.run(line: line, column: column)
+                      rescue Parser::SyntaxError
+                        []
+                      end
+
+              completion_items = items.map do |item|
+                format_completion_item(item)
+              end
+
+              Steep.logger.debug "items = #{completion_items.inspect}"
+
+              yield id, LanguageServer::Protocol::Interface::CompletionList.new(
+                is_incomplete: false,
+                items: completion_items
+              )
+            end
+
           when :"textDocument/didChange"
             uri = URI.parse(request[:params][:textDocument][:uri])
             path = project.relative_path(Pathname(uri.path))
@@ -185,13 +225,11 @@ module Steep
                                   source.errors.map {|error| diagnostic_for_type_error(error) }
                                 when Project::SourceFile::AnnotationSyntaxErrorStatus
                                   [diagnostics_raw(source.status.error.message, source.status.location)]
-                                when Project::SourceFile::ParseErrorStatus
-                                  []
-                                when Project::SourceFile::TypeCheckErrorStatus
-                                  []
                                 end
 
-                  report_diagnostics source.path, diagnostics
+                  if diagnostics
+                    report_diagnostics source.path, diagnostics
+                  end
                 end
               when Project::Target::SignatureSyntaxErrorStatus
                 Steep.logger.info { "Signature syntax error" }
@@ -330,6 +368,126 @@ HOVER
         when Project::HoverContent::TypeContent
           "`#{content.type}`"
         end
+      end
+
+      def format_completion_item(item)
+        range = LanguageServer::Protocol::Interface::Range.new(
+          start: LanguageServer::Protocol::Interface::Position.new(
+            line: item.range.start.line-1,
+            character: item.range.start.column
+          ),
+          end: LanguageServer::Protocol::Interface::Position.new(
+            line: item.range.end.line-1,
+            character: item.range.end.column
+          )
+        )
+
+        case item
+        when Project::CompletionProvider::LocalVariableItem
+          LanguageServer::Protocol::Interface::CompletionItem.new(
+            label: item.identifier,
+            kind: LanguageServer::Protocol::Constant::CompletionItemKind::VARIABLE,
+            detail: "#{item.identifier}: #{item.type}",
+            text_edit: LanguageServer::Protocol::Interface::TextEdit.new(
+              range: range,
+              new_text: "#{item.identifier}"
+            )
+          )
+        when Project::CompletionProvider::MethodNameItem
+          label = "def #{item.identifier}: #{item.method_type}"
+          method_type_snippet = method_type_to_snippet(item.method_type)
+          LanguageServer::Protocol::Interface::CompletionItem.new(
+            label: label,
+            kind: LanguageServer::Protocol::Constant::CompletionItemKind::METHOD,
+            text_edit: LanguageServer::Protocol::Interface::TextEdit.new(
+              new_text: "#{item.identifier}#{method_type_snippet}",
+              range: range
+            ),
+            documentation: item.definition.comment&.string,
+            insert_text_format: LanguageServer::Protocol::Constant::InsertTextFormat::SNIPPET
+          )
+        when Project::CompletionProvider::InstanceVariableItem
+          label = "#{item.identifier}: #{item.type}"
+          LanguageServer::Protocol::Interface::CompletionItem.new(
+            label: label,
+            kind: LanguageServer::Protocol::Constant::CompletionItemKind::FIELD,
+            text_edit: LanguageServer::Protocol::Interface::TextEdit.new(
+              range: range,
+              new_text: item.identifier,
+            ),
+            insert_text_format: LanguageServer::Protocol::Constant::InsertTextFormat::SNIPPET
+          )
+        end
+      end
+
+      def method_type_to_snippet(method_type)
+        params = if method_type.type.each_param.count == 0
+                   ""
+                 else
+                   "(#{params_to_snippet(method_type.type)})"
+                 end
+
+
+        block = if method_type.block
+                  open, space, close = if method_type.block.type.return_type.is_a?(Ruby::Signature::Types::Bases::Void)
+                                  ["do", " ", "end"]
+                                else
+                                  ["{", "", "}"]
+                                end
+
+                    if method_type.block.type.each_param.count == 0
+                    " #{open} $0 #{close}"
+                  else
+                    " #{open}#{space}|#{params_to_snippet(method_type.block.type)}| $0 #{close}"
+                  end
+                else
+                  ""
+                end
+
+        "#{params}#{block}"
+      end
+
+      def params_to_snippet(fun)
+        params = []
+
+        index = 1
+
+        fun.required_positionals.each do |param|
+          if name = param.name
+            params << "${#{index}:#{param.type}}"
+          else
+            params << "${#{index}:#{param.type}}"
+          end
+
+          index += 1
+        end
+
+        if fun.rest_positionals
+          params << "${#{index}:*#{fun.rest_positionals.type}}"
+          index += 1
+        end
+
+        fun.trailing_positionals.each do |param|
+          if name = param.name
+            params << "${#{index}:#{param.type}}"
+          else
+            params << "${#{index}:#{param.type}}"
+          end
+
+          index += 1
+        end
+
+        fun.required_keywords.each do |keyword, param|
+          if name = param.name
+            params << "#{keyword}: ${#{index}:#{name}_}"
+          else
+            params << "#{keyword}: ${#{index}:#{param.type}_}"
+          end
+
+          index += 1
+        end
+
+        params.join(", ")
       end
     end
   end

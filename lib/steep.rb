@@ -74,6 +74,7 @@ require "steep/project/target"
 require "steep/project/dsl"
 require "steep/project/file_loader"
 require "steep/project/hover_content"
+require "steep/project/completion_provider"
 require "steep/drivers/utils/driver_helper"
 require "steep/drivers/check"
 require "steep/drivers/validate"
@@ -114,4 +115,12 @@ module Steep
 
   @logger = nil
   self.log_output = STDERR
+
+  def self.measure(message)
+    start = Time.now
+    yield.tap do
+      time = Time.now - start
+      self.logger.info "#{message} took #{time} seconds"
+    end
+  end
 end

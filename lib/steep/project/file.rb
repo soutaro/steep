@@ -44,45 +44,55 @@ module Steep
         end
       end
 
+      def self.parse(source_code, path:, factory:)
+        Source.parse(source_code, path: path.to_s, factory: factory, labeling: ASTUtils::Labeling.new)
+      end
+
+      def self.type_check(source, subtyping:)
+        typing = Typing.new
+
+        if source
+          annotations = source.annotations(block: source.node, factory: subtyping.factory, current_module: AST::Namespace.root)
+          const_env = TypeInference::ConstantEnv.new(factory: subtyping.factory, context: nil)
+          type_env = TypeInference::TypeEnv.build(annotations: annotations,
+                                                  subtyping: subtyping,
+                                                  const_env: const_env,
+                                                  signatures: subtyping.factory.env)
+
+          construction = TypeConstruction.new(
+            checker: subtyping,
+            annotations: annotations,
+            source: source,
+            context: TypeInference::Context.new(
+              block_context: nil,
+              module_context: TypeInference::Context::ModuleContext.new(
+                instance_type: nil,
+                module_type: nil,
+                implement_name: nil,
+                current_namespace: AST::Namespace.root,
+                const_env: const_env,
+                class_name: nil
+              ),
+              method_context: nil,
+              break_context: nil,
+              self_type: AST::Builtin::Object.instance_type,
+              type_env: type_env
+            ),
+            typing: typing
+          )
+
+          construction.synthesize(source.node)
+        end
+
+        typing
+      end
+
       def type_check(subtyping, env_updated_at)
         # skip type check
         return false if status.is_a?(TypeCheckStatus) && env_updated_at <= status.timestamp
 
         parse(subtyping.factory) do |source|
-          typing = Typing.new
-
-          if source
-            annotations = source.annotations(block: source.node, factory: subtyping.factory, current_module: AST::Namespace.root)
-            const_env = TypeInference::ConstantEnv.new(factory: subtyping.factory, context: nil)
-            type_env = TypeInference::TypeEnv.build(annotations: annotations,
-                                                    subtyping: subtyping,
-                                                    const_env: const_env,
-                                                    signatures: subtyping.factory.env)
-
-            construction = TypeConstruction.new(
-              checker: subtyping,
-              annotations: annotations,
-              source: source,
-              context: TypeInference::Context.new(
-                block_context: nil,
-                module_context: TypeInference::Context::ModuleContext.new(
-                  instance_type: nil,
-                  module_type: nil,
-                  implement_name: nil,
-                  current_namespace: AST::Namespace.root,
-                  const_env: const_env,
-                  class_name: nil
-                ),
-                method_context: nil,
-                break_context: nil,
-                self_type: AST::Builtin::Object.instance_type,
-                type_env: type_env
-              ),
-              typing: typing
-            )
-
-            construction.synthesize(source.node)
-          end
+          typing = self.class.type_check(source, subtyping: subtyping)
 
           @status = TypeCheckStatus.new(
             typing: typing,
@@ -100,7 +110,7 @@ module Steep
         if status.is_a?(TypeCheckStatus)
           yield status.source
         else
-          yield Source.parse(content, path: path.to_s, factory: factory, labeling: ASTUtils::Labeling.new)
+          yield self.class.parse(content, path: path, factory: factory)
         end
       rescue AnnotationParser::SyntaxError => exn
         Steep.logger.warn { "Annotation syntax error on #{path}: #{exn.inspect}" }

@@ -941,9 +941,9 @@ module Steep
               if constructor.module_context&.implement_name && !namespace_module?(node)
                 constructor.validate_method_definitions(node, constructor.module_context.implement_name)
               end
-            end
 
-            typing.add_typing(node, AST::Builtin.nil_type, context)
+              typing.add_typing(node, AST::Builtin.nil_type, constructor.context)
+            end
           end
 
         when :module
@@ -954,9 +954,9 @@ module Steep
               if constructor.module_context&.implement_name && !namespace_module?(node)
                 constructor.validate_method_definitions(node, constructor.module_context.implement_name)
               end
-            end
 
-            typing.add_typing(node, AST::Builtin.nil_type, context)
+              typing.add_typing(node, AST::Builtin.nil_type, constructor.context)
+            end
           end
 
         when :self

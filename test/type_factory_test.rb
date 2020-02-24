@@ -225,6 +225,30 @@ class TypeFactoryTest < Minitest::Test
     end
   end
 
+  def test_method_type_1
+    with_factory() do |factory|
+      self_type = factory.type(parse_type("::Array[X]", variables: [:X]))
+
+      parse_method_type("[A] (A) { (A, B) -> nil } -> void").tap do |original|
+        type = factory.method_type_1(factory.method_type(original, self_type: self_type),
+                                     self_type: self_type)
+        assert_equal original, type
+      end
+
+      parse_method_type("[A] (A) -> void").tap do |original|
+        type = factory.method_type_1(factory.method_type(original, self_type: self_type),
+                                     self_type: self_type)
+        assert_equal original, type
+      end
+
+      parse_method_type("[A] () ?{ () -> A } -> void").tap do |original|
+        type = factory.method_type_1(factory.method_type(original, self_type: self_type),
+                                     self_type: self_type)
+        assert_equal original, type
+      end
+    end
+  end
+
   def test_interface_instance
     with_factory({ "foo.rbs" => <<FOO}) do |factory|
 class Foo[A]

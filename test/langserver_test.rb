@@ -37,6 +37,7 @@ EOF
                   capabilities: {
                     textDocumentSync: { change: 1 },
                     hoverProvider: true,
+                    completionProvider: { triggerCharacters: [".", "@"] }
                   }
                 },
                 jsonrpc: "2.0"
@@ -76,6 +77,7 @@ EOF
                   capabilities: {
                     textDocumentSync: { change: 1 },
                     hoverProvider: true,
+                    completionProvider: { triggerCharacters: [".", "@"] }
                   }
                 },
                 jsonrpc: "2.0"
@@ -196,6 +198,7 @@ RB
                   capabilities: {
                     textDocumentSync: { change: 1 },
                     hoverProvider: true,
+                    completionProvider: { triggerCharacters: [".", "@"] }
                   }
                 },
                 jsonrpc: "2.0"
