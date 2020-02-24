@@ -1,5 +1,16 @@
 module Steep
   class Typing
+    class UnknownNodeError < StandardError
+      attr_reader :op
+      attr_reader :node
+
+      def initialize(op, node:)
+        @op = op
+        @node = node
+        super "Unknown node for #{op}: #{node.inspect}"
+      end
+    end
+
     attr_reader :errors
     attr_reader :typing
     attr_reader :parent
@@ -48,7 +59,7 @@ module Steep
         if parent
           parent.type_of(node: node)
         else
-          raise "Unknown node for typing: #{node.inspect}"
+          raise UnknownNodeError.new(:type, node: node)
         end
       end
     end
@@ -62,7 +73,7 @@ module Steep
         if parent
           parent.context_of(node: node)
         else
-          raise "Unknown node for context: #{node.inspect}"
+          raise UnknownNodeError.new(:context, node: node)
         end
       end
     end
