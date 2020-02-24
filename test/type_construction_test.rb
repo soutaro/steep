@@ -660,6 +660,23 @@ end
     end
   end
 
+  def test_return_hint
+    with_checker do |checker|
+      source = parse_ruby(<<-EOF)
+def foo()
+  # @type return: Array[Integer]
+  return []
+end
+      EOF
+
+      with_standard_construction(checker, source) do |construction, typing|
+        construction.synthesize(source.node)
+
+        assert_empty typing.errors
+      end
+    end
+  end
+
   def test_constant_annotation
     with_checker do |checker|
       source = parse_ruby(<<-EOF)
