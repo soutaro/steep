@@ -42,7 +42,7 @@ module Steep
         index = index_for(source_text, line:line, column: column)
         possible_trigger = source_text[index-1]
 
-        Steep.logger.error "possible_trigger: #{possible_trigger.inspect}"
+        Steep.logger.debug "possible_trigger: #{possible_trigger.inspect}"
 
         position = Position.new(line: line, column: column)
 
