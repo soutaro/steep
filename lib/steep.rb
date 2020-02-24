@@ -123,4 +123,11 @@ module Steep
       self.logger.info "#{message} took #{time} seconds"
     end
   end
+
+  def self.log_error(exn, message: "Unexpected error: #{exn.inspect}")
+    Steep.logger.error message
+    exn.backtrace.each do |loc|
+      Steep.logger.warn "  #{loc}"
+    end
+  end
 end

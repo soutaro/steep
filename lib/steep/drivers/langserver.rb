@@ -94,38 +94,43 @@ module Steep
 
           when :"textDocument/completion"
             Steep.logger.error request.inspect
+            begin
+              params = request[:params]
+              uri = URI.parse(params[:textDocument][:uri])
+              path = project.relative_path(Pathname(uri.path))
+              target = project.targets.find {|target| target.source_file?(path) }
+              case (status = target&.status)
+              when Project::Target::TypeCheckStatus
+                subtyping = status.subtyping
+                source = target.source_files[path]
 
-            params = request[:params]
-            uri = URI.parse(params[:textDocument][:uri])
-            path = project.relative_path(Pathname(uri.path))
-            target = project.targets.find {|target| target.source_file?(path) }
-            case (status = target&.status)
-            when Project::Target::TypeCheckStatus
-              subtyping = status.subtyping
-              source = target.source_files[path]
+                line, column = params[:position].yield_self {|hash| [hash[:line]+1, hash[:character]] }
+                trigger = params[:context][:triggerCharacter]
 
-              line, column = params[:position].yield_self {|hash| [hash[:line]+1, hash[:character]] }
-              trigger = params[:context][:triggerCharacter]
+                Steep.logger.error "line: #{line}, column: #{column}, trigger: #{trigger}"
 
-              Steep.logger.error "line: #{line}, column: #{column}, trigger: #{trigger}"
+                provider = Project::CompletionProvider.new(source_text: source.content, path: path, subtyping: subtyping)
+                items = begin
+                          provider.run(line: line, column: column)
+                        rescue Parser::SyntaxError
+                          []
+                        end
 
-              provider = Project::CompletionProvider.new(source_text: source.content, path: path, subtyping: subtyping)
-              items = begin
-                        provider.run(line: line, column: column)
-                      rescue Parser::SyntaxError
-                        []
-                      end
+                completion_items = items.map do |item|
+                  format_completion_item(item)
+                end
 
-              completion_items = items.map do |item|
-                format_completion_item(item)
+                Steep.logger.debug "items = #{completion_items.inspect}"
+
+                yield id, LanguageServer::Protocol::Interface::CompletionList.new(
+                  is_incomplete: false,
+                  items: completion_items
+                )
               end
 
-              Steep.logger.debug "items = #{completion_items.inspect}"
-
-              yield id, LanguageServer::Protocol::Interface::CompletionList.new(
-                is_incomplete: false,
-                items: completion_items
-              )
+            rescue Typing::UnknownNodeError => exn
+              Steep.log_error exn, message: "Failed to compute completion: #{exn.inspect}"
+              yield id, nil
             end
 
           when :"textDocument/didChange"
@@ -191,7 +196,11 @@ module Steep
         @type_check_thread = Thread.start do
           while request = type_check_queue.deq
             if @latest_update_version == nil || @latest_update_version == request.version
-              run_type_check()
+              begin
+                run_type_check()
+              rescue => exn
+                Steep.log_error exn
+              end
             end
           end
         end
@@ -318,6 +327,9 @@ module Steep
             range: range
           )
         end
+      rescue Typing::UnknownNodeError => exn
+        Steep.log_error exn, message: "Failed to compute hover: #{exn.inspect}"
+        nil
       end
 
       def format_hover(content)
