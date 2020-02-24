@@ -708,8 +708,15 @@ module Steep
         when :return
           yield_self do
             if node.children.size > 0
+              method_return_type = expand_alias(method_context&.return_type)
+
               return_types = node.children.map do |value|
-                synthesize(value)
+                synthesize(value,
+                           hint: if method_return_type.is_a?(AST::Types::Void)
+                                   nil
+                                 else
+                                   method_return_type
+                                 end)
               end
 
               value_type = if return_types.size == 1
@@ -718,9 +725,9 @@ module Steep
                              AST::Builtin::Array.instance_type(union_type(*return_types))
                            end
 
-              if (ret_type = expand_alias(method_context&.return_type))
-                unless ret_type.is_a?(AST::Types::Void)
-                  result = check_relation(sub_type: value_type, super_type: ret_type)
+              if method_return_type
+                unless method_return_type.is_a?(AST::Types::Void)
+                  result = check_relation(sub_type: value_type, super_type: method_return_type)
 
                   if result.failure?
                     typing.add_error(Errors::ReturnTypeMismatch.new(node: node,
