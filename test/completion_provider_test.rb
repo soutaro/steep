@@ -163,4 +163,25 @@ end
       end
     end
   end
+
+  def test_on_interface
+    with_checker <<EOF do
+interface _ToStr
+  def to_str: () -> String
+end
+EOF
+      CompletionProvider.new(source_text: <<-EOR, path: Pathname("foo.rb"), subtyping: checker).tap do |provider|
+# @type var x: _ToStr
+x = _ = nil
+
+x.
+      EOR
+
+        provider.run(line: 4, column: 2).tap do |items|
+          assert_equal [:to_str],
+                       items.map(&:identifier).sort
+        end
+      end
+    end
+  end
 end
