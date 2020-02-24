@@ -1,7 +1,7 @@
 # @type var x: foo
 x = ""
 
-# !expects ArgumentTypeMismatch: receiver=(::Integer | ::String), expected=::String, actual=::Integer
+# !expects ArgumentTypeMismatch: receiver=(::Integer | ::String), expected=::string, actual=::Integer
 x + 123
 
 # @type var y: bar
