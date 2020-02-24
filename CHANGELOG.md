@@ -2,6 +2,14 @@
 
 ## master
 
+## 0.14.0 (2020-02-24)
+
+* Implementat LSP _completion_. ([#119](https://github.com/soutaro/steep/pull/119))
+* Update ruby-signature. ([#120](https://github.com/soutaro/steep/pull/120))
+* Rescue errors during `langserver`. ([#121](https://github.com/soutaro/steep/pull/121))
+* Pass hint when type checking `return`. ([#122](https://github.com/soutaro/steep/pull/122))
+* Remove trailing spaces from Steepfile. ([#118](https://github.com/soutaro/steep/pull/118))
+
 ## 0.13.0 (2020-02-16)
 
 * Improve LSP _hover_ support. ([#117](https://github.com/soutaro/steep/pull/117))
