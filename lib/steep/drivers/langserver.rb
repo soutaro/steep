@@ -120,7 +120,7 @@ module Steep
                 format_completion_item(item)
               end
 
-              Steep.logger.error "items = #{completion_items.inspect}"
+              Steep.logger.debug "items = #{completion_items.inspect}"
 
               yield id, LanguageServer::Protocol::Interface::CompletionList.new(
                 is_incomplete: false,

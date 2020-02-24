@@ -115,4 +115,12 @@ module Steep
 
   @logger = nil
   self.log_output = STDERR
+
+  def self.measure(message)
+    start = Time.now
+    yield.tap do
+      time = Time.now - start
+      self.logger.info "#{message} took #{time} seconds"
+    end
+  end
 end

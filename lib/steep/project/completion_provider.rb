@@ -27,8 +27,14 @@ module Steep
 
       def type_check!(text)
         @modified_text = text
-        @source = SourceFile.parse(text, path: path, factory: subtyping.factory)
-        @typing = SourceFile.type_check(source, subtyping: subtyping)
+
+        Steep.measure "parsing" do
+          @source = SourceFile.parse(text, path: path, factory: subtyping.factory)
+        end
+
+        Steep.measure "typechecking" do
+          @typing = SourceFile.type_check(source, subtyping: subtyping)
+        end
       end
 
       def run(line:, column:)
@@ -36,14 +42,21 @@ module Steep
         index = index_for(source_text, line:line, column: column)
         possible_trigger = source_text[index-1]
 
-        Steep.logger.debug "possible_trigger: #{possible_trigger.inspect}"
+        Steep.logger.error "possible_trigger: #{possible_trigger.inspect}"
 
         position = Position.new(line: line, column: column)
 
         begin
-          type_check!(source_text)
-          items_for_trigger(position: position)
-        rescue Parser::SyntaxError
+          Steep.measure "type_check!" do
+            type_check!(source_text)
+          end
+
+          Steep.measure "completion item collection" do
+            items_for_trigger(position: position)
+          end
+
+        rescue Parser::SyntaxError => exn
+          Steep.logger.error "recovering syntax error: #{exn.inspect}"
           case possible_trigger
           when "."
             source_text[index-1] = " "
