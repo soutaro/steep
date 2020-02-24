@@ -427,7 +427,7 @@ FOO
               assert_overload_including c, "(::Integer) -> ::Integer", "(::Float) -> ::Float"
             end
             assert_any! combination.types do |c|
-              assert_overload_with c, "(::String) -> ::String"
+              assert_overload_with c, "(::string) -> ::String"
             end
           end
 
@@ -457,7 +457,7 @@ FOO
               assert_overload_including c, "(::Integer) -> ::Integer", "(::Float) -> ::Float"
             end
             assert_any! combination.types do |c|
-              assert_overload_including c, "(::String) -> ::String"
+              assert_overload_including c, "(::string) -> ::String"
             end
           end
 
@@ -466,7 +466,7 @@ FOO
           end
 
           interface.methods[:end_with?].yield_self do |combination|
-            assert_overload_including combination, "(*::String) -> bool"
+            assert_overload_including combination, "(*::string) -> bool"
           end
         end
       end
