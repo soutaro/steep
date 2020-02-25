@@ -2,7 +2,7 @@ module Steep
   class AnnotationParser
     VAR_NAME = /[a-z][A-Za-z0-9_]*/
     METHOD_NAME = Regexp.union(
-      /[A-Za-z][A-Za-z0-9_]*[?!]?/
+      /[^.:\s]+/
     )
     CONST_NAME = Regexp.union(
       /(::)?([A-Z][A-Za-z0-9_]*::)*[A-Z][A-Za-z0-9_]*/

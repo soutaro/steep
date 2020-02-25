@@ -143,12 +143,13 @@ class AnnotationParsingTest < Minitest::Test
 
   def test_dynamic
     with_factory do |factory|
-      annot = parse_annotation("@dynamic foo, self.bar, self?.baz", factory: factory)
+      annot = parse_annotation("@dynamic foo, self.bar, self?.baz, self.current=", factory: factory)
       assert_instance_of Annotation::Dynamic, annot
 
       assert_equal Annotation::Dynamic::Name.new(name: :foo, kind: :instance), annot.names[0]
       assert_equal Annotation::Dynamic::Name.new(name: :bar, kind: :module), annot.names[1]
       assert_equal Annotation::Dynamic::Name.new(name: :baz, kind: :module_instance), annot.names[2]
+      assert_equal Annotation::Dynamic::Name.new(name: :current=, kind: :module), annot.names[3]
     end
   end
 
