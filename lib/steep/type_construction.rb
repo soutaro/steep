@@ -744,7 +744,7 @@ module Steep
               end
             end
 
-            typing.add_typing(node, AST::Builtin.any_type, context)
+            typing.add_typing(node, AST::Builtin.bottom_type, context)
           end
 
         when :break
@@ -770,7 +770,7 @@ module Steep
             typing.add_error Errors::UnexpectedJump.new(node: node)
           end
 
-          typing.add_typing(node, AST::Builtin.any_type, context)
+          typing.add_typing(node, AST::Builtin.bottom_type, context)
 
         when :next
           value = node.children[0]
@@ -795,13 +795,13 @@ module Steep
             typing.add_error Errors::UnexpectedJump.new(node: node)
           end
 
-          typing.add_typing(node, AST::Builtin.any_type, context)
+          typing.add_typing(node, AST::Builtin.bottom_type, context)
 
         when :retry
           unless break_context
             typing.add_error Errors::UnexpectedJump.new(node: node)
           end
-          typing.add_typing(node, AST::Builtin.any_type, context)
+          typing.add_typing(node, AST::Builtin.bottom_type, context)
 
         when :arg, :kwarg, :procarg0
           yield_self do
