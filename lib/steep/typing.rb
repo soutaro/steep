@@ -46,7 +46,7 @@ module Steep
     end
 
     def add_typing(node, type, context)
-      add_pair(node, Pair.new(type: type, context: context)).type
+      add_pair(node, Pair.new(type: type, context: context))
     end
 
     def has_type?(node)
