@@ -1,5 +1,7 @@
 module Steep
   class Typing
+    Pair = Struct.new(:type, :context, keyword_init: true)
+
     class UnknownNodeError < StandardError
       attr_reader :op
       attr_reader :node
@@ -12,12 +14,11 @@ module Steep
     end
 
     attr_reader :errors
-    attr_reader :typing
     attr_reader :parent
     attr_reader :parent_last_update
     attr_reader :last_update
     attr_reader :should_update
-    attr_reader :contexts
+    attr_reader :pairs
 
     def initialize(parent: nil, parent_last_update: parent&.last_update)
       @parent = parent
@@ -26,32 +27,34 @@ module Steep
       @should_update = false
 
       @errors = []
-      @typing = {}.compare_by_identity
-      @contexts = {}.compare_by_identity
+      @pairs = {}.compare_by_identity
     end
 
     def add_error(error)
       errors << error
     end
 
-    def add_typing(node, type, context)
-      typing[node] = type
-      contexts[node] = context
+    def add_pair(node, pair)
+      pairs[node] = pair
 
       if should_update
         @last_update += 1
         @should_update = false
       end
 
-      type
+      pair
+    end
+
+    def add_typing(node, type, context)
+      add_pair(node, Pair.new(type: type, context: context)).type
     end
 
     def has_type?(node)
-      typing.key?(node)
+      pairs.key?(node)
     end
 
     def type_of(node:)
-      type = typing[node]
+      type = pairs[node]&.type
 
       if type
         type
@@ -65,7 +68,7 @@ module Steep
     end
 
     def context_of(node:)
-      ctx = contexts[node]
+      ctx = pairs[node]&.context
 
       if ctx
         ctx
@@ -80,7 +83,7 @@ module Steep
 
     def dump(io)
       io.puts "Typing: "
-      nodes.each_value do |node|
+      pairs.each_key do |node|
         io.puts "  #{Typing.summary(node)} => #{type_of(node: node).inspect}"
       end
 
@@ -109,16 +112,22 @@ module Steep
       end
     end
 
-    def each_typing(&block)
-      typing.each(&block)
+    def each_typing
+      pairs.each do |node, pair|
+        yield node, pair.type
+      end
+    end
+
+    def each_pair(&block)
+      pairs.each(&block)
     end
 
     def save!
       raise "Unexpected save!" unless parent
       raise "Parent modified since new_child" unless parent.last_update == parent_last_update
 
-      each_typing do |node, type|
-        parent.add_typing(node, type, contexts[node])
+      each_pair do |node, pair|
+        parent.add_pair(node, pair)
       end
 
       errors.each do |error|
