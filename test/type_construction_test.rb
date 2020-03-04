@@ -4089,4 +4089,19 @@ b = 123
       end
     end
   end
+
+  def test_return_type
+    with_checker do |checker|
+      source = parse_ruby(<<-EOF)
+return 3
+      EOF
+
+      with_standard_construction(checker, source) do |construction, typing|
+        construction.synthesize(source.node)
+        assert_empty typing.errors
+
+        assert_instance_of Steep::AST::Types::Bot, typing.type_of(node: source.node)
+      end
+    end
+  end
 end
