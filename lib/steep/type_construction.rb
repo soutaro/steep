@@ -422,11 +422,18 @@ module Steep
           yield_self do
             *mid_nodes, last_node = each_child_node(node).to_a
             if last_node
-              pairs = mid_nodes.map do |child|
-                synthesize(child)
+              pairs = []
+
+              constructor = self
+              mid_nodes.each do |child|
+                pair = constructor.synthesize(child)
+                if pair.context != constructor.context
+                  constructor = constructor.with(context: pair.context)
+                end
+                pairs << pair
               end
 
-              last_pair = synthesize(last_node, hint: hint)
+              last_pair = constructor.synthesize(last_node, hint: hint)
               pairs << last_pair
 
               type = if pairs.any? {|pair| pair.type.is_a?(AST::Types::Bot) }
@@ -435,7 +442,7 @@ module Steep
                        last_pair.type
                      end
 
-              typing.add_typing(node, type, context)
+              typing.add_typing(node, type, last_pair.context)
             else
               typing.add_typing(node, AST::Builtin.nil_type, context)
             end
@@ -1164,26 +1171,36 @@ module Steep
           end
 
         when :if
-          cond, true_clause, false_clause = node.children
-          synthesize(cond).type
+          yield_self do
+            cond, true_clause, false_clause = node.children
+            synthesize(cond)
 
-          truthy_vars = TypeConstruction.truthy_variables(cond)
+            truthy_vars = TypeConstruction.truthy_variables(cond)
 
-          if true_clause
-            true_type, true_env = for_branch(true_clause, truthy_vars: truthy_vars).yield_self do |constructor|
-              type = constructor.synthesize(true_clause, hint: hint).type
-              [type, constructor.type_env]
+            branch_pairs = []
+
+            if true_clause
+              branch_pairs << for_branch(true_clause, truthy_vars: truthy_vars).yield_self do |constructor|
+                constructor.synthesize(true_clause, hint: hint)
+              end
+            else
+              branch_pairs << Typing::Pair.new(type: AST::Builtin.nil_type, context: context)
             end
-          end
-          if false_clause
-            false_type, false_env = for_branch(false_clause).yield_self do |constructor|
-              type = constructor.synthesize(false_clause, hint: hint).type
-              [type, constructor.type_env]
-            end
-          end
 
-          type_env.join!([true_env, false_env].compact)
-          typing.add_typing(node, union_type(true_type, false_type), context)
+            if false_clause
+              branch_pairs << for_branch(false_clause).yield_self do |constructor|
+                constructor.synthesize(false_clause, hint: hint)
+              end
+            else
+              branch_pairs << Typing::Pair.new(type: AST::Builtin.nil_type, context: context)
+            end
+
+            live_branches = branch_pairs.reject {|pair| pair.type.is_a?(AST::Types::Bot) }
+
+            new_type_env = type_env.join(live_branches.map {|pair| pair.context.type_env })
+            new_context = context.with(type_env: new_type_env)
+            typing.add_typing(node, union_type(*live_branches.map(&:type)), new_context)
+          end
 
         when :case
           yield_self do

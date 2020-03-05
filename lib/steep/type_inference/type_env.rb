@@ -85,6 +85,12 @@ module Steep
             set(lvar: name, type: AST::Types::Union.build(types: types + [AST::Types::Nil.new]))
           end
         end
+
+        self
+      end
+
+      def join(envs)
+        self.dup.join!(envs)
       end
 
       # @type method assert: (const: Names::Module) { () -> void } -> AST::Type

@@ -4121,4 +4121,40 @@ x = 4
       end
     end
   end
+
+  def test_early_return_decl
+    with_checker do |checker|
+      source = parse_ruby(<<-EOF)
+if _ = 30
+  x = ""
+else
+  return
+end
+
+x + ""
+      EOF
+
+      with_standard_construction(checker, source) do |construction, typing|
+        construction.synthesize(source.node)
+        assert_empty typing.errors
+      end
+    end
+  end
+
+  def test_early_return_decl_error
+    with_checker do |checker|
+      source = parse_ruby(<<-EOF)
+if _ = 30
+  x = ""
+end
+
+x + ""        # x: String | nil
+      EOF
+
+      with_standard_construction(checker, source) do |construction, typing|
+        construction.synthesize(source.node)
+        refute_empty typing.errors
+      end
+    end
+  end
 end
