@@ -78,12 +78,12 @@ module Steep
         end
       end
 
-      mapping = {}
+      mapping = {}.compare_by_identity
       construct_mapping(node: node, annotations: annotations, mapping: mapping)
 
       annotations.each do |annot|
-        mapping[node.__id__] = [] unless mapping.key?(node.__id__)
-        mapping[node.__id__] << annot.annotation
+        mapping[node] = [] unless mapping.key?(node)
+        mapping[node] << annot.annotation
       end
 
       new(path: path, node: node, mapping: mapping)
@@ -261,8 +261,8 @@ module Steep
       end
 
       associated_annotations.each do |annot|
-        mapping[node.__id__] = [] unless mapping.key?(node.__id__)
-        mapping[node.__id__] << annot.annotation
+        mapping[node] = [] unless mapping.key?(node)
+        mapping[node] << annot.annotation
         annotations.delete annot
       end
     end
@@ -277,18 +277,15 @@ module Steep
 
     def annotations(block:, factory:, current_module:)
       AST::Annotation::Collection.new(
-        annotations: mapping[block.__id__] || [],
+        annotations: mapping[block] || [],
         factory: factory,
         current_module: current_module
       )
     end
 
-    def each_annotation
+    def each_annotation(&block)
       if block_given?
-        mapping.each_key do |id|
-          node = ObjectSpace._id2ref(id)
-          yield node, mapping[id]
-        end
+        mapping.each(&block)
       else
         enum_for :each_annotation
       end
