@@ -97,7 +97,10 @@ module TestHelper
   end
 
   def dig(node, *indexes)
-    if indexes.size == 1
+    case indexes.size
+    when 0
+      node
+    when 1
       node.children[indexes.first]
     else
       dig(node.children[indexes.first], *indexes.drop(1))

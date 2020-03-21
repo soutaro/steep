@@ -286,7 +286,7 @@ MSG
               },
               position: {
                 line: 1,
-                character: 3
+                character: 7
               }
             }
           ) do |response|

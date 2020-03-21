@@ -10,21 +10,25 @@ module Steep
         @name = name
         @content = content
 
-        @lines = content.lines
+        @lines = content.split(/\n/, -1)
 
         @ranges = []
         offset = 0
-        lines.each do |line|
-          size = line.bytesize
-          range = offset .. (offset+size)
-          ranges << range
-          offset += size
+        lines.each.with_index do |line, index|
+          if index == lines.size - 1
+            ranges << (offset..offset)
+          else
+            size = line.size
+            range = offset..(offset+size)
+            ranges << range
+            offset += size+1
+          end
         end
       end
 
       def pos_to_loc(pos)
         index = ranges.bsearch_index do |range|
-          pos < range.end
+          pos <= range.end
         end
 
         if index

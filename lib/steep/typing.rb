@@ -11,6 +11,7 @@ module Steep
       end
     end
 
+    attr_reader :source
     attr_reader :errors
     attr_reader :typing
     attr_reader :parent
@@ -18,8 +19,11 @@ module Steep
     attr_reader :last_update
     attr_reader :should_update
     attr_reader :contexts
+    attr_reader :root_context
 
-    def initialize(parent: nil, parent_last_update: parent&.last_update)
+    def initialize(source:, root_context:, parent: nil, parent_last_update: parent&.last_update, contexts: nil)
+      @source = source
+
       @parent = parent
       @parent_last_update = parent_last_update
       @last_update = parent&.last_update || 0
@@ -27,16 +31,16 @@ module Steep
 
       @errors = []
       @typing = {}.compare_by_identity
-      @contexts = {}.compare_by_identity
+      @root_context = root_context
+      @contexts = contexts || TypeInference::ContextArray.from_source(source: source)
     end
 
     def add_error(error)
       errors << error
     end
 
-    def add_typing(node, type, context)
+    def add_typing(node, type, _context)
       typing[node] = type
-      contexts[node] = context
 
       if should_update
         @last_update += 1
@@ -44,6 +48,15 @@ module Steep
       end
 
       type
+    end
+
+    def add_context(range, context:)
+      contexts.insert_context(range, context: context)
+
+      if should_update
+        @last_update += 1
+        @should_update = false
+      end
     end
 
     def has_type?(node)
@@ -64,18 +77,65 @@ module Steep
       end
     end
 
-    def context_of(node:)
-      ctx = contexts[node]
+    def add_context_for_node(node, context:)
+      begin_pos = node.loc.expression.begin_pos
+      end_pos = node.loc.expression.end_pos
 
-      if ctx
-        ctx
+      add_context(begin_pos..end_pos, context: context)
+    end
+
+    def add_context_for_body(node, context:)
+      case node.type
+      when :class
+        name_node, super_node, _ = node.children
+        begin_pos = if super_node
+                      super_node.loc.expression.end_pos
+                    else
+                      name_node.loc.expression.end_pos
+                    end
+        end_pos = node.loc.end.begin_pos
+
+        add_context(begin_pos..end_pos, context: context)
+
+      when :module
+        name_node = node.children[0]
+        begin_pos = name_node.loc.expression.end_pos
+        end_pos = node.loc.end.begin_pos
+        add_context(begin_pos..end_pos, context: context)
+
+      when :def, :defs
+        args_node = case node.type
+                    when :def
+                      node.children[1]
+                    when :defs
+                      node.children[2]
+                    end
+        body_begin_pos = if args_node.loc.expression
+                           args_node.loc.expression.end_pos
+                         else
+                           node.loc.name.end_pos
+                         end
+        body_end_pos = node.loc.end.begin_pos
+        add_context(body_begin_pos..body_end_pos, context: context)
+
+      when :block
+        send_node, args_node, _ = node.children
+        begin_pos = if send_node.type != :lambda && args_node.loc.expression
+                      args_node.loc.expression.end_pos
+                    else
+                      node.loc.begin.end_pos
+                    end
+        end_pos = node.loc.end.begin_pos
+        add_context(begin_pos..end_pos, context: context)
+
       else
-        if parent
-          parent.context_of(node: node)
-        else
-          raise UnknownNodeError.new(:context, node: node)
-        end
+        raise "Unexpected node for insert_context: #{node.type}"
       end
+    end
+
+    def context_at(line:, column:)
+      contexts.at(line: line, column: column) ||
+        (parent ? parent.context_at(line: line, column: column) : root_context)
     end
 
     def dump(io)
@@ -98,8 +158,11 @@ module Steep
       "#{line}:#{col}:#{src}"
     end
 
-    def new_child
-      child = self.class.new(parent: self)
+    def new_child(range)
+      child = self.class.new(source: source,
+                             parent: self,
+                             root_context: root_context,
+                             contexts: TypeInference::ContextArray.new(buffer: contexts.buffer, range: range))
       @should_update = true
 
       if block_given?
@@ -115,11 +178,13 @@ module Steep
 
     def save!
       raise "Unexpected save!" unless parent
-      raise "Parent modified since new_child" unless parent.last_update == parent_last_update
+      raise "Parent modified since #new_child" unless parent.last_update == parent_last_update
 
       each_typing do |node, type|
-        parent.add_typing(node, type, contexts[node])
+        parent.add_typing(node, type, nil)
       end
+
+      parent.contexts.merge(contexts)
 
       errors.each do |error|
         parent.add_error error

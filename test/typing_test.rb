@@ -25,26 +25,30 @@ class TypingTest < Minitest::Test
   end
 
   def test_1
-    typing = Steep::Typing.new
+    source = parse_ruby("123")
+    node = source.node
 
-    node = parse_ruby("123").node
+    typing = Steep::Typing.new(source: source, root_context: context)
+
     type = parse_method_type("() -> String").return_type
 
     typing.add_typing(node, type, context)
 
     assert_equal type, typing.type_of(node: node)
-    assert_equal context, typing.context_of(node: node)
+    assert_equal context, typing.context_at(line: 1, column: 2)
   end
 
   def test_new_child_with_save
-    typing = Steep::Typing.new
+    source = parse_ruby("123 + 456")
+    node = source.node
 
-    node = parse_ruby("123 + 456").node
+    typing = Steep::Typing.new(source: source, root_context: context)
+
     type = parse_method_type("() -> String").return_type
 
     typing.add_typing(node, type, context)
 
-    typing.new_child do |typing_|
+    typing.new_child(typing.contexts.range) do |typing_|
       assert_equal type, typing.type_of(node: node)
 
       typing_.add_typing(node.children[0], type, context)
@@ -59,14 +63,16 @@ class TypingTest < Minitest::Test
   end
 
   def test_new_child_without_save
-    typing = Steep::Typing.new
+    source = parse_ruby("123 + 456")
+    node = source.node
 
-    node = parse_ruby("123 + 456").node
+    typing = Steep::Typing.new(source: source, root_context: context)
+
     type = parse_method_type("() -> String").return_type
 
     typing.add_typing(node, type, context)
 
-    typing.new_child do |typing_|
+    typing.new_child(typing.contexts.range) do |typing_|
       assert_equal type, typing.type_of(node: node)
 
       typing_.add_typing(node.children[0], type, context)
@@ -79,14 +85,16 @@ class TypingTest < Minitest::Test
   end
 
   def test_new_child_check
-    typing = Steep::Typing.new
+    source = parse_ruby("123 + 456")
+    node = source.node
 
-    node = parse_ruby("123 + 456").node
+    typing = Steep::Typing.new(source: source, root_context: context)
+
     type = parse_method_type("() -> String").return_type
 
     typing.add_typing(node, type, context)
 
-    child1 = typing.new_child()
+    child1 = typing.new_child(typing.contexts.range)
     child1.add_typing(node.children[0], type, context)
 
     typing.add_typing(node.children[1], type, context)
@@ -97,15 +105,17 @@ class TypingTest < Minitest::Test
   end
 
   def test_new_child_check2
-    typing = Steep::Typing.new
+    source = parse_ruby("123 + 456")
+    node = source.node
 
-    node = parse_ruby("123 + 456").node
+    typing = Steep::Typing.new(source: source, root_context: context)
+
     type = parse_method_type("() -> String").return_type
 
-    child1 = typing.new_child()
+    child1 = typing.new_child(typing.contexts.range)
     child1.add_typing(node.children[0], type, context)
 
-    child2 = typing.new_child()
+    child2 = typing.new_child(typing.contexts.range)
     child2.add_typing(node.children[1], type, context)
 
     child1.save!

@@ -99,10 +99,11 @@ module Steep
 
         items = []
 
+        context = typing.context_at(line: position.line, column: position.column)
+
         case
         when node.type == :send && node.children[0] == nil && at_end?(position, of: node.loc.selector)
           # foo ←
-          context = typing.context_of(node: node)
           prefix = node.children[1].to_s
 
           method_items_for_receiver_type(context.self_type,
@@ -114,12 +115,10 @@ module Steep
 
         when node.type == :lvar && at_end?(position, of: node.loc)
           # foo ← (lvar)
-          context = typing.context_of(node: node)
           local_variable_items_for_context(context, position: position, prefix: node.children[0].name.to_s, items: items)
 
         when node.type == :send && node.children[0] && at_end?(position, of: node.loc.selector)
           # foo.ba ←
-          context = typing.context_of(node: node)
           receiver_type = case (type = typing.type_of(node: node.children[0]))
                           when AST::Types::Self
                             context.self_type
@@ -136,7 +135,6 @@ module Steep
 
         when node.type == :const && node.children[0] == nil && at_end?(position, of: node.loc)
           # Foo ← (const)
-          context = typing.context_of(node: node)
           prefix = node.children[1].to_s
 
           method_items_for_receiver_type(context.self_type,
@@ -147,7 +145,6 @@ module Steep
 
         when node.type == :send && at_end?(position, of: node.loc.dot)
           # foo.← ba
-          context = typing.context_of(node: node)
           receiver_type = case (type = typing.type_of(node: node.children[0]))
                           when AST::Types::Self
                             context.self_type
@@ -163,12 +160,9 @@ module Steep
 
         when node.type == :ivar && at_end?(position, of: node.loc)
           # @fo ←
-          context = typing.context_of(node: node)
           instance_variable_items_for_context(context, position: position, prefix: node.children[0].to_s, items: items)
 
         else
-          context = typing.context_of(node: node)
-
           method_items_for_receiver_type(context.self_type,
                                          include_private: true,
                                          prefix: "",
@@ -190,7 +184,7 @@ module Steep
         return [] unless node
 
         if at_end?(shift_pos, of: node.loc)
-          context = typing.context_of(node: node)
+          context = typing.context_at(line: position.line, column: position.column)
           receiver_type = case (type = typing.type_of(node: node))
                           when AST::Types::Self
                             context.self_type
@@ -218,7 +212,7 @@ module Steep
 
         return [] unless node
 
-        context = typing.context_of(node: node)
+        context = typing.context_at(line: position.line, column: position.column)
         items = []
         instance_variable_items_for_context(context, prefix: "", position: position, items: items)
         items
