@@ -88,6 +88,14 @@ module Steep
         AST::Types::Boolean.new
       end
 
+      def self.bottom_type
+        AST::Types::Bot.new
+      end
+
+      def self.top_type
+        AST::Types::Top.new
+      end
+
       def self.optional(type)
         AST::Types::Union.build(types: [type, nil_type])
       end

@@ -422,16 +422,24 @@ module Steep
         when :begin, :kwbegin
           yield_self do
             *mid_nodes, last_node = each_child_node(node).to_a
-            mid_nodes.each do |child|
-              synthesize(child)
-            end
             if last_node
-              type = synthesize(last_node, hint: hint)
-            else
-              type = AST::Builtin.nil_type
-            end
+              types = mid_nodes.map do |child|
+                synthesize(child)
+              end
 
-            typing.add_typing(node, type, context)
+              last_type = synthesize(last_node, hint: hint)
+              types << last_type
+
+              type = if types.any?(AST::Types::Bot)
+                       AST::Builtin.bottom_type
+                     else
+                       last_type
+                     end
+
+              typing.add_typing(node, type, context)
+            else
+              typing.add_typing(node, AST::Builtin.nil_type, context)
+            end
           end
 
         when :lvasgn
@@ -744,7 +752,7 @@ module Steep
               end
             end
 
-            typing.add_typing(node, AST::Builtin.any_type, context)
+            typing.add_typing(node, AST::Builtin.bottom_type, context)
           end
 
         when :break
@@ -770,7 +778,7 @@ module Steep
             typing.add_error Errors::UnexpectedJump.new(node: node)
           end
 
-          typing.add_typing(node, AST::Builtin.any_type, context)
+          typing.add_typing(node, AST::Builtin.bottom_type, context)
 
         when :next
           value = node.children[0]
@@ -795,13 +803,13 @@ module Steep
             typing.add_error Errors::UnexpectedJump.new(node: node)
           end
 
-          typing.add_typing(node, AST::Builtin.any_type, context)
+          typing.add_typing(node, AST::Builtin.bottom_type, context)
 
         when :retry
           unless break_context
             typing.add_error Errors::UnexpectedJump.new(node: node)
           end
-          typing.add_typing(node, AST::Builtin.any_type, context)
+          typing.add_typing(node, AST::Builtin.bottom_type, context)
 
         when :arg, :kwarg, :procarg0
           yield_self do
