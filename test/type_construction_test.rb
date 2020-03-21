@@ -60,25 +60,26 @@ end
   end
 
   def with_standard_construction(checker, source)
-    typing = Typing.new
     annotations = source.annotations(block: source.node, factory: checker.factory, current_module: Namespace.root)
     const_env = ConstantEnv.new(factory: factory, context: nil)
     type_env = TypeEnv.build(annotations: annotations,
                              subtyping: checker,
                              const_env: const_env,
                              signatures: checker.factory.env)
+    context = Context.new(
+      block_context: nil,
+      method_context: nil,
+      module_context: nil,
+      break_context: nil,
+      self_type: parse_type("::Object"),
+      type_env: type_env
+    )
+    typing = Typing.new(source: source, root_context: context)
 
     construction = TypeConstruction.new(checker: checker,
                                         source: source,
                                         annotations: annotations,
-                                        context: Context.new(
-                                          block_context: nil,
-                                          method_context: nil,
-                                          module_context: nil,
-                                          break_context: nil,
-                                          self_type: parse_type("::Object"),
-                                          type_env: type_env
-                                        ),
+                                        context: context,
                                         typing: typing)
 
     yield construction, typing
@@ -947,7 +948,6 @@ class Steep::Names::Module end
     EOF
       source = parse_ruby("module Steep; class Names::Module; end; end")
 
-      typing = Typing.new
       annotations = source.annotations(block: source.node, factory: checker.factory, current_module: Namespace.root)
       const_env = ConstantEnv.new(factory: factory, context: nil)
       type_env = TypeEnv.build(annotations: annotations,
@@ -964,19 +964,22 @@ class Steep::Names::Module end
         class_name: nil
       )
 
+      context = Context.new(
+        block_context: nil,
+        method_context: nil,
+        module_context: module_context,
+        break_context: nil,
+        self_type: nil,
+        type_env: type_env
+      )
+      typing = Typing.new(source: source, root_context: context)
+
       module_name_class_node = source.node.children[1]
 
       construction = TypeConstruction.new(checker: checker,
                                           source: source,
                                           annotations: annotations,
-                                          context: Context.new(
-                                            block_context: nil,
-                                            method_context: nil,
-                                            module_context: module_context,
-                                            break_context: nil,
-                                            self_type: nil,
-                                            type_env: type_env
-                                          ),
+                                          context: context,
                                           typing: typing)
 
       for_module = construction.for_class(module_name_class_node)
@@ -1038,7 +1041,6 @@ module Steep::Printable end
     EOS
       source = parse_ruby("class Steep; module Printable; end; end")
 
-      typing = Typing.new
       annotations = source.annotations(block: source.node, factory: checker.factory, current_module: Namespace.root)
       const_env = ConstantEnv.new(factory: factory, context: nil)
       type_env = TypeEnv.build(annotations: annotations,
@@ -1055,19 +1057,22 @@ module Steep::Printable end
         class_name: nil
       )
 
+      context = Context.new(
+        block_context: nil,
+        method_context: nil,
+        module_context: module_context,
+        break_context: nil,
+        self_type: nil,
+        type_env: type_env
+      )
+      typing = Typing.new(source: source, root_context: context)
+
       module_node = source.node.children.last
 
       construction = TypeConstruction.new(checker: checker,
                                           source: source,
                                           annotations: annotations,
-                                          context: Context.new(
-                                            block_context: nil,
-                                            method_context: nil,
-                                            module_context: module_context,
-                                            break_context: nil,
-                                            self_type: nil,
-                                            type_env: type_env
-                                          ),
+                                          context: context,
                                           typing: typing)
 
       for_module = construction.for_module(module_node)
@@ -3450,7 +3455,8 @@ EOF
         block_annotations = source.annotations(block: source.node, factory: checker.factory, current_module: Namespace.root)
         block_params = Steep::TypeInference::BlockParams.from_node(block_params_node, annotations: block_annotations)
 
-        type = construction.type_block(block_param_hint: nil,
+        type = construction.type_block(node: source.node,
+                                       block_param_hint: nil,
                                        block_type_hint: nil,
                                        node_type_hint: nil,
                                        block_params: block_params,
@@ -3479,7 +3485,8 @@ EOF
         block_annotations = source.annotations(block: source.node, factory: checker.factory, current_module: Namespace.root)
         block_params = Steep::TypeInference::BlockParams.from_node(block_params_node, annotations: block_annotations)
 
-        type = construction.type_block(block_param_hint: nil,
+        type = construction.type_block(node: source.node,
+                                       block_param_hint: nil,
                                        block_type_hint: nil,
                                        node_type_hint: nil,
                                        block_params: block_params,
@@ -3511,7 +3518,8 @@ EOF
         block_annotations = source.annotations(block: source.node, factory: checker.factory, current_module: Namespace.root)
         block_params = Steep::TypeInference::BlockParams.from_node(block_params_node, annotations: block_annotations)
 
-        type = construction.type_block(block_param_hint: hint.block.type.params,
+        type = construction.type_block(node: source.node,
+                                       block_param_hint: hint.block.type.params,
                                        block_type_hint: hint.block.type.return_type,
                                        node_type_hint: nil,
                                        block_params: block_params,
@@ -3542,7 +3550,8 @@ EOF
         block_annotations = source.annotations(block: source.node, factory: checker.factory, current_module: Namespace.root)
         block_params = Steep::TypeInference::BlockParams.from_node(block_params_node, annotations: block_annotations)
 
-        type = construction.type_block(block_param_hint: hint.block.type.params,
+        type = construction.type_block(node: source.node,
+                                       block_param_hint: hint.block.type.params,
                                        block_type_hint: hint.block.type.return_type,
                                        node_type_hint: nil,
                                        block_params: block_params,
@@ -4045,7 +4054,7 @@ b = 123
         assert_empty typing.errors
 
         # a = ...
-        typing.context_of(node: dig(source.node, 0)).tap do |ctx|
+        typing.context_at(line: 0, column: 0).tap do |ctx|
           assert_instance_of Context, ctx
           assert_nil ctx.module_context
           assert_nil ctx.method_context
@@ -4076,7 +4085,7 @@ b = 123
         assert_empty typing.errors
 
         # class Hello
-        typing.context_of(node: dig(source.node, 0, 2)).tap do |ctx|
+        typing.context_at(line: 2, column: 0).tap do |ctx|
           assert_instance_of Context, ctx
           assert_equal "::Hello", ctx.module_context.class_name.to_s
           assert_nil ctx.method_context

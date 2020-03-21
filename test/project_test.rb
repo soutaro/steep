@@ -72,6 +72,13 @@ puts array.join(", ")
         assert_equal "::Integer", content.type.to_s
       end
 
+      hover.content_for(path: Pathname("hello.rb"), line: 1, column: 0).tap do |content|
+        assert_instance_of Project::HoverContent::VariableContent, content
+        assert_equal [1,0]...[1, 6], [content.location.line,content.location.column]...[content.location.last_line, content.location.last_column]
+        assert_equal :number, content.name
+        assert_equal "::Integer", content.type.to_s
+      end
+
       hover.content_for(path: Pathname("hello.rb"), line: 3, column: 11).tap do |content|
         assert_instance_of Project::HoverContent::VariableContent, content
         assert_equal [3,9]...[3, 15], [content.location.line,content.location.column]...[content.location.last_line, content.location.last_column]
@@ -186,6 +193,46 @@ end
         assert_equal ["(::Integer x) -> ::String", "(::String x) -> ::String"], content.definition.method_types.map(&:to_s)
         assert_instance_of Ruby::Signature::Definition::Method, content.definition
         assert_equal "Do something super for given argument `x`.\n", content.definition.comment.string
+      end
+    end
+  end
+
+  def test_hover_def_var
+    in_tmpdir do
+      project = Project.new(base_dir: current_dir)
+      Project::DSL.parse(project, <<EOF)
+target :lib do
+  check "hello.rb"
+  signature "hello.rbs"
+end
+EOF
+
+      target = project.targets[0]
+      target.add_source(Pathname("hello.rb"), <<-EOF)
+class Hello
+  def foo(x, y = :y)
+    y.to_s + "hello world"
+  end
+end
+      EOF
+
+      target.add_signature(Pathname("hello.rbs"), <<-EOF)
+class Hello
+  # foo method processes given argument.
+  def foo: (Integer x) -> String
+         | (String x, Symbol y) -> String
+end
+      EOF
+
+      target.type_check
+
+      hover = Project::HoverContent.new(project: project)
+
+      hover.content_for(path: Pathname("hello.rb"), line: 3, column: 4).tap do |content|
+        assert_instance_of Project::HoverContent::VariableContent, content
+        assert_equal [3,4]...[3, 5], [content.location.line,content.location.column]...[content.location.last_line, content.location.last_column]
+        assert_equal :y, content.name
+        assert_equal "::Symbol", content.type.to_s
       end
     end
   end

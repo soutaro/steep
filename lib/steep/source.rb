@@ -51,7 +51,7 @@ module Steep
         if n
           labeling.translate(n, {})
         else
-          return
+          return new(path: path, node: nil, mapping: {})
         end
       end
 

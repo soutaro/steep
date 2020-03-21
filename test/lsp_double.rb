@@ -33,6 +33,8 @@ class LSPDouble
 
     @reader_thread = Thread.new do
       reader.read do |event|
+        Steep.logger.info "received event: event=#{event}"
+
         if event.key?(:method)
           process_request event
         else
@@ -78,6 +80,7 @@ class LSPDouble
 
   def send_request(id: nil, method:, params: nil, response_timeout: default_timeout)
     id ||= next_request_id
+    Steep.logger.info "sending_request: id=#{id}, method=#{method}, params=#{params}"
     writer.write(id: id, method: method, params: params)
 
     if block_given?

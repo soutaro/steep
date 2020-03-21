@@ -49,40 +49,40 @@ module Steep
       end
 
       def self.type_check(source, subtyping:)
-        typing = Typing.new
+        annotations = source.annotations(block: source.node, factory: subtyping.factory, current_module: AST::Namespace.root)
+        const_env = TypeInference::ConstantEnv.new(factory: subtyping.factory, context: nil)
+        type_env = TypeInference::TypeEnv.build(annotations: annotations,
+                                                subtyping: subtyping,
+                                                const_env: const_env,
+                                                signatures: subtyping.factory.env)
 
-        if source
-          annotations = source.annotations(block: source.node, factory: subtyping.factory, current_module: AST::Namespace.root)
-          const_env = TypeInference::ConstantEnv.new(factory: subtyping.factory, context: nil)
-          type_env = TypeInference::TypeEnv.build(annotations: annotations,
-                                                  subtyping: subtyping,
-                                                  const_env: const_env,
-                                                  signatures: subtyping.factory.env)
+        context = TypeInference::Context.new(
+          block_context: nil,
+          module_context: TypeInference::Context::ModuleContext.new(
+            instance_type: nil,
+            module_type: nil,
+            implement_name: nil,
+            current_namespace: AST::Namespace.root,
+            const_env: const_env,
+            class_name: nil
+          ),
+          method_context: nil,
+          break_context: nil,
+          self_type: AST::Builtin::Object.instance_type,
+          type_env: type_env
+        )
 
-          construction = TypeConstruction.new(
-            checker: subtyping,
-            annotations: annotations,
-            source: source,
-            context: TypeInference::Context.new(
-              block_context: nil,
-              module_context: TypeInference::Context::ModuleContext.new(
-                instance_type: nil,
-                module_type: nil,
-                implement_name: nil,
-                current_namespace: AST::Namespace.root,
-                const_env: const_env,
-                class_name: nil
-              ),
-              method_context: nil,
-              break_context: nil,
-              self_type: AST::Builtin::Object.instance_type,
-              type_env: type_env
-            ),
-            typing: typing
-          )
+        typing = Typing.new(source: source, root_context: context)
 
-          construction.synthesize(source.node)
-        end
+        construction = TypeConstruction.new(
+          checker: subtyping,
+          annotations: annotations,
+          source: source,
+          context: context,
+          typing: typing
+        )
+
+        construction.synthesize(source.node) if source.node
 
         typing
       end
@@ -93,7 +93,6 @@ module Steep
 
         parse(subtyping.factory) do |source|
           typing = self.class.type_check(source, subtyping: subtyping)
-
           @status = TypeCheckStatus.new(
             typing: typing,
             source: source,

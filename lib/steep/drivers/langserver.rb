@@ -234,6 +234,11 @@ module Steep
                                   source.errors.map {|error| diagnostic_for_type_error(error) }
                                 when Project::SourceFile::AnnotationSyntaxErrorStatus
                                   [diagnostics_raw(source.status.error.message, source.status.location)]
+                                when Project::SourceFile::ParseErrorStatus
+                                  []
+                                when Project::SourceFile::TypeCheckErrorStatus
+                                  Steep.log_error source.status.error
+                                  []
                                 end
 
                   if diagnostics
