@@ -77,14 +77,16 @@ module Steep
       attr_reader :module_context
       attr_reader :self_type
       attr_reader :type_env
+      attr_reader :lvar_env
 
-      def initialize(method_context:, block_context:, break_context:, module_context:, self_type:, type_env:)
+      def initialize(method_context:, block_context:, break_context:, module_context:, self_type:, type_env:, lvar_env:)
         @method_context = method_context
         @block_context = block_context
         @break_context = break_context
         @module_context = module_context
         @self_type = self_type
         @type_env = type_env
+        @lvar_env = lvar_env
       end
 
       def with(method_context: self.method_context,
@@ -92,14 +94,16 @@ module Steep
                break_context: self.break_context,
                module_context: self.module_context,
                self_type: self.self_type,
-               type_env: self.type_env)
+               type_env: self.type_env,
+               lvar_env: self.lvar_env)
         self.class.new(
           method_context: method_context,
           block_context: block_context,
           break_context: break_context,
           module_context: module_context,
           self_type: self_type,
-          type_env: type_env
+          type_env: type_env,
+          lvar_env: lvar_env
         )
       end
     end

@@ -152,6 +152,11 @@ module Steep
         self_type: annots.self_type || self_type
       )
 
+      lvar_env = TypeInference::LocalVariableTypeEnv.empty(
+        subtyping: checker,
+        self_type: annots.self_type || self_type
+      )
+
       self.class.new(
         checker: checker,
         source: source,
@@ -162,7 +167,8 @@ module Steep
           block_context: nil,
           break_context: nil,
           self_type: annots.self_type || self_type,
-          type_env: type_env
+          type_env: type_env,
+          lvar_env: lvar_env
         ),
         typing: typing,
       )
@@ -252,6 +258,11 @@ module Steep
                                                      const_env: module_const_env,
                                                      signatures: checker.factory.env)
 
+      lvar_env = TypeInference::LocalVariableTypeEnv.empty(
+        subtyping: checker,
+        self_type: module_context_.module_type
+      )
+
       self.class.new(
         checker: checker,
         source: source,
@@ -263,7 +274,8 @@ module Steep
           break_context: nil,
           module_context: module_context_,
           self_type: module_context_.module_type,
-          type_env: module_type_env
+          type_env: module_type_env,
+          lvar_env: lvar_env
         )
       )
     end
@@ -351,13 +363,19 @@ module Steep
                                                     const_env: class_const_env,
                                                     signatures: checker.factory.env)
 
+      lvar_env = TypeInference::LocalVariableTypeEnv.empty(
+        subtyping: checker,
+        self_type: module_context.module_type
+      )
+
       class_body_context = TypeInference::Context.new(
         method_context: nil,
         block_context: nil,
         module_context: module_context,
         break_context: nil,
         self_type: module_context.module_type,
-        type_env: class_type_env
+        type_env: class_type_env,
+        lvar_env: lvar_env
       )
 
       self.class.new(
@@ -1835,6 +1853,8 @@ module Steep
         )
       end
 
+      lvar_env = context.lvar_env.pin_assignments.annotate(block_annotations)
+
       return_type = if block_annotations.break_type
                       union_type(method_return_type, block_annotations.break_type)
                     else
@@ -1862,7 +1882,8 @@ module Steep
           module_context: module_context,
           break_context: break_context,
           self_type: block_annotations.self_type || self_type,
-          type_env: block_type_env
+          type_env: block_type_env,
+          lvar_env: lvar_env
         )
       ), return_type]
     end
@@ -2354,6 +2375,8 @@ module Steep
         end
       end
 
+      lvar_env = context.lvar_env.pin_assignments.annotate(block_annotations)
+
       break_type = if block_annotations.break_type
                      union_type(node_type_hint, block_annotations.break_type)
                    else
@@ -2381,7 +2404,8 @@ module Steep
           module_context: module_context,
           break_context: break_context,
           self_type: block_annotations.self_type || self_type,
-          type_env: block_type_env
+          type_env: block_type_env,
+          lvar_env: lvar_env
         )
       )
 

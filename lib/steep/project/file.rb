@@ -55,6 +55,10 @@ module Steep
                                                 subtyping: subtyping,
                                                 const_env: const_env,
                                                 signatures: subtyping.factory.env)
+        lvar_env = TypeInference::LocalVariableTypeEnv.empty(
+          subtyping: subtyping,
+          self_type: AST::Builtin::Object.instance_type
+        ).annotate(annotations)
 
         context = TypeInference::Context.new(
           block_context: nil,
@@ -69,7 +73,8 @@ module Steep
           method_context: nil,
           break_context: nil,
           self_type: AST::Builtin::Object.instance_type,
-          type_env: type_env
+          type_env: type_env,
+          lvar_env: lvar_env
         )
 
         typing = Typing.new(source: source, root_context: context)

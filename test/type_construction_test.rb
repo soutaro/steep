@@ -14,6 +14,7 @@ class TypeConstructionTest < Minitest::Test
   Annotation = Steep::AST::Annotation
   Names = Steep::Names
   Context = Steep::TypeInference::Context
+  LocalVariableTypeEnv = Steep::TypeInference::LocalVariableTypeEnv
 
   DEFAULT_SIGS = <<-EOS
 interface _A
@@ -72,7 +73,8 @@ end
       module_context: nil,
       break_context: nil,
       self_type: parse_type("::Object"),
-      type_env: type_env
+      type_env: type_env,
+      lvar_env: LocalVariableTypeEnv.empty(subtyping: checker, self_type: parse_type("::Object"))
     )
     typing = Typing.new(source: source, root_context: context)
 
@@ -954,6 +956,10 @@ class Steep::Names::Module end
                                subtyping: checker,
                                const_env: const_env,
                                signatures: checker.factory.env)
+      lvar_env = LocalVariableTypeEnv.empty(
+        subtyping: checker,
+        self_type: parse_type("singleton(::Steep::Names::Module)")
+      ).annotate(annotations)
 
       module_context = Context::ModuleContext.new(
         instance_type: parse_type("::Steep"),
@@ -970,7 +976,8 @@ class Steep::Names::Module end
         module_context: module_context,
         break_context: nil,
         self_type: nil,
-        type_env: type_env
+        type_env: type_env,
+        lvar_env: lvar_env
       )
       typing = Typing.new(source: source, root_context: context)
 
@@ -1047,6 +1054,10 @@ module Steep::Printable end
                                subtyping: checker,
                                const_env: const_env,
                                signatures: checker.factory.env)
+      lvar_env = LocalVariableTypeEnv.empty(
+        subtyping: checker,
+        self_type: parse_type("singleton(::Steep)")
+      )
 
       module_context = Context::ModuleContext.new(
         instance_type: parse_type("::Steep"),
@@ -1063,7 +1074,8 @@ module Steep::Printable end
         module_context: module_context,
         break_context: nil,
         self_type: nil,
-        type_env: type_env
+        type_env: type_env,
+        lvar_env: lvar_env
       )
       typing = Typing.new(source: source, root_context: context)
 

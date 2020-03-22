@@ -38,6 +38,10 @@ module Steep
       attr_reader :declared_types
       attr_reader :assigned_types
 
+      def self.empty(subtyping:, self_type:)
+        new(subtyping: subtyping, declared_types: {}, assigned_types: {}, self_type: self_type)
+      end
+
       def initialize(subtyping:, declared_types:, assigned_types:, self_type:)
         @subtyping = subtyping
         @self_type = self_type

@@ -4,6 +4,7 @@ class TypingTest < Minitest::Test
   Typing = Steep::Typing
   TypeEnv = Steep::TypeInference::TypeEnv
   Context = Steep::TypeInference::Context
+  LocalVariableTypeEnv = Steep::TypeInference::LocalVariableTypeEnv
 
   include TestHelper
   include FactoryHelper
@@ -21,7 +22,8 @@ class TypingTest < Minitest::Test
                              break_context: nil,
                              module_context: nil,
                              self_type: parse_type("::Object"),
-                             type_env: nil)
+                             type_env: nil,
+                             lvar_env: nil)
   end
 
   def test_1
