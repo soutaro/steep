@@ -15,6 +15,10 @@ module Steep
           @nodes = Set[].compare_by_identity.merge(nodes)
         end
 
+        def update(type: self.type, annotations: self.annotations, nodes: self.nodes)
+          Entry.new(type: type, annotations: annotations, nodes: nodes)
+        end
+
         def ==(other)
           other.is_a?(Entry) &&
             other.type == type &&
@@ -61,6 +65,22 @@ module Steep
           assigned_types: assigned_types,
           self_type: self_type
         )
+      end
+
+      def assign!(var, node:, type:)
+        declared_type = declared_types[var]&.type
+
+        if declared_type
+          relation = Subtyping::Relation.new(sub_type: type, super_type: declared_type)
+          constraints = Subtyping::Constraints.new(unknowns: Set.new)
+          subtyping.check(relation, constraints: constraints, self_type: self_type).else do |result|
+            yield declared_type, type, result
+          end
+        end
+
+        assignments = { var => Entry.new(type: type, nodes: [node]) }
+        update(assigned_types: assigned_types.merge(assignments),
+               declared_types: declared_types.reject {|k, _| k == var })
       end
 
       def assign(var, node:, type:)
@@ -177,6 +197,16 @@ module Steep
         else
           raise
         end
+      end
+
+      def to_s
+        ss = []
+
+        vars.each do |var|
+          ss << "#{var}: #{self[var].to_s}"
+        end
+
+        "{#{ss.join(", ")}}"
       end
     end
   end

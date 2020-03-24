@@ -26,7 +26,13 @@ module Steep
           raise "Unexpected pos: range=#{self.range}, inserted=#{range}"
         end
 
-        unless contexts[range].all? {|c| c == contexts[range.begin] || c == context }
+        # The first 1 element can be different
+        #
+        #  x = 1 \n
+        # ^ ^ ^ ^x       Position x would be associated two contexts twice,
+        #  y = 2 \n      first for the :lvasgn, next for the :begin.
+        # ^ ^ ^ ^
+        unless contexts[range].drop(1).yield_self {|sub| sub.all? {|c| c == sub[0] } }
           raise "Contexts for range on insert should be the same: range=#{range}"
         end
 
