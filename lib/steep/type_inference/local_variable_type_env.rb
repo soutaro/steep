@@ -144,6 +144,16 @@ module Steep
         )
       end
 
+      def each
+        if block_given?
+          vars.each do |var|
+            yield var, self[var]
+          end
+        else
+          enum_for :each
+        end
+      end
+
       def vars
         @vars ||= Set.new(declared_types.keys + assigned_types.keys)
       end

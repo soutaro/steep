@@ -257,7 +257,7 @@ module Steep
 
       def local_variable_items_for_context(context, position:, prefix:, items:)
         range = range_for(position, prefix: prefix)
-        context.type_env.lvar_types.each do |name, type|
+        context.lvar_env.each do |name, type|
           if name.to_s.start_with?(prefix)
             items << LocalVariableItem.new(identifier: name,
                                            range: range,
