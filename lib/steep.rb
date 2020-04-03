@@ -93,6 +93,8 @@ if ENV["NO_COLOR"]
   Rainbow.enabled = false
 end
 
+$stderr = STDERR
+
 module Steep
   def self.logger
     @logger

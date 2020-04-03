@@ -177,6 +177,12 @@ module Steep
         )
       end
 
+      def no_error?
+        source_files.all? do |_, file|
+          file.status.is_a?(Project::SourceFile::TypeCheckStatus)
+        end
+      end
+
       def errors
         case status
         when TypeCheckStatus

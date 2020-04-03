@@ -51,15 +51,20 @@ module Steep
               printer.print_semantic_errors(status.errors)
             when Project::Target::TypeCheckStatus
               status.type_check_sources.each do |source_file|
-                source_file.errors.each do |error|
-                  error.print_to stdout
+                case source_file.status
+                when Project::SourceFile::TypeCheckStatus
+                  source_file.errors.each do |error|
+                    error.print_to stdout
+                  end
+                when Project::SourceFile::TypeCheckErrorStatus
+                  Steep.log_error source_file.status.error
                 end
               end
             end
           end
         end
 
-        if project.targets.all? {|target| target.status.is_a?(Project::Target::TypeCheckStatus) && target.errors.empty? }
+        if project.targets.all? {|target| target.status.is_a?(Project::Target::TypeCheckStatus) && target.no_error? && target.errors.empty? }
           Steep.logger.info "No type error found"
           return 0
         end
@@ -70,7 +75,7 @@ module Steep
       def output_types(typing)
         lines = []
 
-        typing.nodes.each_value do |node|
+        typing.each_typing do |node, _|
           begin
             type = typing.type_of(node: node)
             lines << [node.loc.expression.source_buffer.name, [node.loc.last_line,node.loc.last_column], [node.loc.first_line, node.loc.column], node, type]
