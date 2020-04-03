@@ -2550,7 +2550,7 @@ EOF
 # @type const F: singleton(Integer)
 
 begin
-  1 + 2
+  1
 rescue E => exn
   exn + ""
 rescue F => exn
@@ -2562,7 +2562,7 @@ EOF
         pair = construction.synthesize(source.node)
 
         assert_no_error typing
-        assert_equal parse_type("::String | ::Numeric"), pair.type
+        assert_equal parse_type("::String | ::Numeric | ::Integer"), pair.type
       end
     end
   end
@@ -2963,6 +2963,34 @@ EOF
 
         assert_equal parse_type("::String?"), pair.context.lvar_env[:line]
         assert_equal parse_type("::String?"), pair.context.lvar_env[:x]
+      end
+    end
+  end
+
+  def test_case_incompatible_annotation
+    with_checker do |checker|
+      source = parse_ruby(<<EOF)
+# @type var x: String | Integer
+x = ""
+
+case x
+when String
+  # @type var x: Integer
+  3
+end
+EOF
+
+      with_standard_construction(checker, source) do |construction, typing|
+        pair = construction.synthesize(source.node)
+
+        assert_equal 1, typing.errors.size
+
+        typing.errors[0].tap do |error|
+          assert_instance_of Steep::Errors::IncompatibleAnnotation, error
+          assert_equal dig(source.node, 1, 1, 1), error.node
+        end
+
+        assert_equal parse_type("::Integer?"), pair.type
       end
     end
   end

@@ -108,7 +108,7 @@ module Steep
 
         decls.each do |var, annot|
           inner_type = annot.type
-          outer_type = declared_types[var]&.type
+          outer_type = self[var]
 
           if outer_type
             relation = Subtyping::Relation.new(sub_type: inner_type, super_type: outer_type)
@@ -119,7 +119,10 @@ module Steep
           end
         end
 
-        update(declared_types: declared_types.merge(decls))
+        new_decls = declared_types.merge(decls)
+        new_assigns = assigned_types.reject {|var, _| new_decls.key?(var) }
+
+        update(declared_types: new_decls, assigned_types: new_assigns)
       end
 
       def [](var)
