@@ -1,9 +1,7 @@
 x = ""
 y = 1
 
-# !expects IncompatibleAssignment: lhs_type=::String, rhs_type=::Integer
 x = y
-# !expects IncompatibleAssignment: lhs_type=::Integer, rhs_type=::String
 y = x
 
 # @type var a: Array[Integer]
