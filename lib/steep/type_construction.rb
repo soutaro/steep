@@ -654,58 +654,30 @@ module Steep
           yield_self do
             lhs, op, rhs = node.children
 
-            synthesize(rhs)
+            case lhs.type
+            when :lvasgn
+              var_node = lhs.updated(:lvar)
+              send_node = rhs.updated(:send, [var_node, op, rhs])
+              new_node = node.updated(:lvasgn, [lhs.children[0], send_node])
 
-            lhs_type = case lhs.type
-                       when :lvasgn
-                         type_env.get(lvar: lhs.children.first.name) do
-                           break
-                         end
-                       when :ivasgn
-                         type_env.get(ivar: lhs.children.first) do
-                           break
-                         end
-                       else
-                         Steep.logger.error("Unexpected op_asgn lhs: #{lhs.type}")
-                         nil
-                       end
+              type, constr = synthesize(new_node, hint: hint)
 
-            case
-            when lhs_type == AST::Builtin.any_type
-              add_typing(node, type: lhs_type)
-            when !lhs_type
-              fallback_to_any(node)
+              constr.add_typing(node, type: type)
+
+            when :ivasgn
+              var_node = lhs.updated(:ivar)
+              send_node = rhs.updated(:send, [var_node, op, rhs])
+              new_node = node.updated(:ivasgn, [lhs.children[0], send_node])
+
+              type, constr = synthesize(new_node, hint: hint)
+
+              constr.add_typing(node, type: type)
+
             else
-              lhs_interface = checker.factory.interface(lhs_type, private: false)
-              op_method = lhs_interface.methods[op]
+              Steep.logger.error("Unexpected op_asgn lhs: #{lhs.type}")
 
-              if op_method
-                args = TypeInference::SendArgs.from_nodes([rhs])
-                return_type, _ = type_method_call(node,
-                                                  receiver_type: lhs_type,
-                                                  method_name: op,
-                                                  method: op_method,
-                                                  args: args,
-                                                  block_params: nil,
-                                                  block_body: nil,
-                                                  topdown_hint: true)
-
-                result = check_relation(sub_type: return_type, super_type: lhs_type)
-                if result.failure?
-                  typing.add_error(
-                    Errors::IncompatibleAssignment.new(
-                      node: node,
-                      lhs_type: lhs_type,
-                      rhs_type: return_type,
-                      result: result
-                    )
-                  )
-                end
-              else
-                typing.add_error Errors::NoMethod.new(node: node, method: op, type: expand_self(lhs_type))
-              end
-
-              add_typing(node, type: lhs_type)
+              _, constr = synthesize(rhs)
+              constr.add_typing(node, type: AST::Builtin.any_type)
             end
           end
 
