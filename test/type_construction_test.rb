@@ -14,6 +14,7 @@ class TypeConstructionTest < Minitest::Test
   Annotation = Steep::AST::Annotation
   Names = Steep::Names
   Context = Steep::TypeInference::Context
+  LocalVariableTypeEnv = Steep::TypeInference::LocalVariableTypeEnv
 
   DEFAULT_SIGS = <<-EOS
 interface _A
@@ -60,19 +61,27 @@ end
   end
 
   def with_standard_construction(checker, source)
+    self_type = parse_type("::Object")
+
     annotations = source.annotations(block: source.node, factory: checker.factory, current_module: Namespace.root)
     const_env = ConstantEnv.new(factory: factory, context: nil)
     type_env = TypeEnv.build(annotations: annotations,
                              subtyping: checker,
                              const_env: const_env,
                              signatures: checker.factory.env)
+    lvar_env = LocalVariableTypeEnv.empty(
+      subtyping: checker,
+      self_type: self_type
+    ).annotate(annotations)
+
     context = Context.new(
       block_context: nil,
       method_context: nil,
       module_context: nil,
       break_context: nil,
-      self_type: parse_type("::Object"),
-      type_env: type_env
+      self_type: self_type,
+      type_env: type_env,
+      lvar_env: lvar_env
     )
     typing = Typing.new(source: source, root_context: context)
 
@@ -95,7 +104,7 @@ x = (_ = nil)
       with_standard_construction(checker, source) do |construction, typing|
         construction.synthesize(source.node)
 
-        assert_equal parse_type("::_A"), typing.type_of(node: source.node)
+        assert_equal parse_type("untyped"), typing.type_of(node: source.node)
         assert_empty typing.errors
       end
     end
@@ -113,7 +122,7 @@ z = x
       with_standard_construction(checker, source) do |construction, typing|
         construction.synthesize(source.node)
 
-        assert_equal parse_type("::_A"), typing.type_of(node: source.node)
+        assert_equal parse_type("::_B"), typing.type_of(node: source.node)
 
         assert_equal 1, typing.errors.size
         assert_incompatible_assignment typing.errors[0],
@@ -126,7 +135,7 @@ z = x
     end
   end
 
-  def test_lvar_without_annotation
+  def test_lvar_without_annotation_infer
     with_checker do |checker|
       source = parse_ruby(<<-EOF)
 x = 1
@@ -134,15 +143,46 @@ z = x
       EOF
 
       with_standard_construction(checker, source) do |construction, typing|
-        construction.synthesize source.node
+        pair = construction.synthesize(source.node)
 
         assert_equal parse_type("::Integer"), typing.type_of(node: source.node)
+
+        assert_nil typing.context_at(line: 1, column: 0).lvar_env[:x]
+        assert_nil typing.context_at(line: 1, column: 0).lvar_env[:z]
+
+        assert_equal parse_type("::Integer"), typing.context_at(line: 1, column: 5).lvar_env[:x]
+        assert_nil typing.context_at(line: 1, column: 5).lvar_env[:z]
+
+        assert_equal parse_type("::Integer"), pair.context.lvar_env[:x]
+        assert_equal parse_type("::Integer"), pair.context.lvar_env[:z]
+
         assert_empty typing.errors
       end
     end
   end
 
-  def test_lvar_without_annotation_inference
+  def test_lvar_without_annotation_redef
+    with_checker do |checker|
+      source = parse_ruby(<<-EOF)
+x = 1
+x = ""
+      EOF
+
+      with_standard_construction(checker, source) do |construction, typing|
+        pair = construction.synthesize(source.node)
+
+        assert_equal parse_type("::String"), typing.type_of(node: source.node)
+
+        assert_nil typing.context_at(line: 1, column: 0).lvar_env[:x]
+        assert_equal parse_type("::Integer"), typing.context_at(line: 1, column: 5).lvar_env[:x]
+        assert_equal parse_type("::String"), pair.context.lvar_env[:x]
+
+        assert_empty typing.errors
+      end
+    end
+  end
+
+  def test_lvar_with_annotation_inference
     with_checker do |checker|
       source = parse_ruby(<<-EOF)
 # @type var x: _A
@@ -396,14 +436,15 @@ x.h(a: y)
 def foo
   # @type var x: _A
   x = (_ = nil)
+
 end
       EOF
 
       with_standard_construction(checker, source) do |construction, typing|
         construction.synthesize(source.node)
 
-        def_body = source.node.children[2]
-        assert_equal parse_type("::_A"), typing.type_of(node: def_body)
+        assert_equal parse_type("untyped"), typing.type_of(node: dig(source.node, 2))
+        assert_equal parse_type("::_A"), typing.context_at(line: 4, column: 0).lvar_env[:x]
       end
     end
   end
@@ -536,13 +577,15 @@ end
       EOF
 
       with_standard_construction(checker, source) do |construction, typing|
-        construction.synthesize(source.node)
+        pair = construction.synthesize(source.node)
 
-        block_body = dig(source.node, 1, 2)
+        assert_equal parse_type("::_X"), pair.context.lvar_env[:a]
 
-        assert_equal parse_type("::_X"), typing.type_of(node: lvar_in(source.node, :a))
-        assert_equal parse_type("::_A"), typing.type_of(node: lvar_in(block_body, :a))
-        assert_equal parse_type("::_A"), typing.type_of(node: lvar_in(block_body, :b))
+        assert_equal parse_type("::_A"), typing.context_at(line: 6, column: 0).lvar_env[:a]
+        assert_nil typing.context_at(line: 6, column: 0).lvar_env[:b]
+
+        assert_equal parse_type("::_A"), typing.context_at(line: 7, column: 0).lvar_env[:a]
+        assert_equal parse_type("::_A"), typing.context_at(line: 7, column: 0).lvar_env[:b]
       end
     end
   end
@@ -561,12 +604,18 @@ end
       EOF
 
       with_standard_construction(checker, source) do |construction, typing|
-        construction.synthesize(source.node)
+        pair = construction.synthesize(source.node)
 
-        assert_equal parse_type("::_X"), typing.type_of(node: lvar_in(source.node, :x))
-        assert_equal parse_type("::_A"), typing.type_of(node: lvar_in(source.node, :a))
-        assert_equal parse_type("::_D"), typing.type_of(node: lvar_in(source.node, :d))
-        assert_empty typing.errors
+        assert_no_error typing
+
+        assert_equal parse_type("::_X"), pair.context.lvar_env[:x]
+        assert_nil pair.context.lvar_env[:a]
+        assert_nil pair.context.lvar_env[:d]
+
+        block_context = typing.context_at(line: 8, column: 0)
+        assert_equal parse_type("::_A"), block_context.lvar_env[:a]
+        assert_equal parse_type("::_X"), block_context.lvar_env[:x]
+        assert_equal parse_type("::_D"), block_context.lvar_env[:d]
       end
     end
   end
@@ -583,15 +632,14 @@ end
       EOF
 
       with_standard_construction(checker, source) do |construction, typing|
-        construction.synthesize(source.node)
+        pair = construction.synthesize(source.node)
 
         assert_equal 1, typing.errors.size
         assert_block_type_mismatch typing.errors[0],
                                    expected: "^(::_A) -> ::_D",
                                    actual: "^(::_A) -> ::_A"
 
-        assert_equal parse_type("::_X"), typing.type_of(node: lvar_in(source.node, :x))
-        assert_equal parse_type("::_A"), typing.type_of(node: lvar_in(source.node, :a))
+        assert_equal parse_type("::_X"), pair.context.lvar_env[:x]
       end
     end
   end
@@ -612,8 +660,9 @@ end
       with_standard_construction(checker, source) do |construction, typing|
         construction.synthesize(source.node)
 
-        assert_equal parse_type("::_X"), typing.type_of(node: lvar_in(source.node, :x))
-        assert_equal parse_type("::_A"), typing.type_of(node: lvar_in(source.node, :a))
+        # break a
+        #       ^
+        assert_equal parse_type("::_A"), typing.type_of(node: dig(source.node, 1, 2, 0, 0))
 
         assert_equal 1, typing.errors.size
         assert_break_type_mismatch typing.errors[0], expected: parse_type("::_C"), actual: parse_type("::_A")
@@ -621,7 +670,7 @@ end
     end
   end
 
-  def test_return_type
+  def test_return_type_annotation
     with_checker do |checker|
       source = parse_ruby(<<-EOF)
 def foo()
@@ -954,6 +1003,10 @@ class Steep::Names::Module end
                                subtyping: checker,
                                const_env: const_env,
                                signatures: checker.factory.env)
+      lvar_env = LocalVariableTypeEnv.empty(
+        subtyping: checker,
+        self_type: parse_type("singleton(::Steep::Names::Module)")
+      ).annotate(annotations)
 
       module_context = Context::ModuleContext.new(
         instance_type: parse_type("::Steep"),
@@ -970,7 +1023,8 @@ class Steep::Names::Module end
         module_context: module_context,
         break_context: nil,
         self_type: nil,
-        type_env: type_env
+        type_env: type_env,
+        lvar_env: lvar_env
       )
       typing = Typing.new(source: source, root_context: context)
 
@@ -1047,6 +1101,10 @@ module Steep::Printable end
                                subtyping: checker,
                                const_env: const_env,
                                signatures: checker.factory.env)
+      lvar_env = LocalVariableTypeEnv.empty(
+        subtyping: checker,
+        self_type: parse_type("singleton(::Steep)")
+      )
 
       module_context = Context::ModuleContext.new(
         instance_type: parse_type("::Steep"),
@@ -1063,7 +1121,8 @@ module Steep::Printable end
         module_context: module_context,
         break_context: nil,
         self_type: nil,
-        type_env: type_env
+        type_env: type_env,
+        lvar_env: lvar_env
       )
       typing = Typing.new(source: source, root_context: context)
 
@@ -1403,7 +1462,7 @@ end
     end
   end
 
-  def test_masgn
+  def test_masgn_1
     with_checker do |checker|
       source = parse_ruby(<<-EOF)
 # @type var a: String
@@ -1427,17 +1486,19 @@ a, @b = 1, 2
     end
   end
 
-  def test_masgn_array
+  def test_masgn_tuple
     with_checker do |checker|
       source = parse_ruby(<<-EOF)
+# @type var tuple: [Integer, Integer, Symbol]
+tuple = [1, 2, :foo]
+
 # @type var a: String
 # @type ivar @b: String
-x = [1, 2]
-a, @b = x
+a, @b, c = tuple
       EOF
 
       with_standard_construction(checker, source) do |construction, typing|
-        construction.synthesize(source.node)
+        pair = construction.synthesize(source.node)
 
         assert_equal 2, typing.errors.size
         assert_any typing.errors do |error|
@@ -1447,6 +1508,38 @@ a, @b = x
         assert_any typing.errors do |error|
           error.is_a?(Steep::Errors::IncompatibleAssignment) &&
             error.node.type == :ivasgn
+        end
+
+        assert_equal parse_type("::String"), pair.context.lvar_env[:a]
+        assert_equal parse_type("::Symbol"), pair.context.lvar_env[:c]
+      end
+    end
+  end
+
+  def test_masgn_array
+    with_checker do |checker|
+      source = parse_ruby(<<-EOF)
+# @type var a: String
+# @type ivar @b: String
+x = [1, 2]
+a, @b, c = x
+      EOF
+
+      with_standard_construction(checker, source) do |construction, typing|
+        pair = construction.synthesize(source.node)
+
+        assert_equal parse_type("::Integer?"), pair.context.lvar_env[:c]
+
+        assert_equal 2, typing.errors.size
+        assert_any typing.errors do |error|
+          error.is_a?(Steep::Errors::IncompatibleAssignment) &&
+            error.node.type == :lvasgn &&
+            error.rhs_type == parse_type("::Integer?")
+        end
+        assert_any typing.errors do |error|
+          error.is_a?(Steep::Errors::IncompatibleAssignment) &&
+            error.node.type == :ivasgn &&
+            error.rhs_type == parse_type("::Integer?")
         end
       end
     end
@@ -1464,11 +1557,12 @@ a, b = x
       with_standard_construction(checker, source) do |construction, typing|
         construction.synthesize(source.node)
 
-        assert_empty typing.errors
+        assert_equal 1, typing.errors.size
 
-        union = parse_type("::Integer | ::String")
-        assert_equal union, construction.type_env.lvar_types[:a]
-        assert_equal union, construction.type_env.lvar_types[:b]
+        typing.errors[0].tap do |error|
+          assert_instance_of Steep::Errors::FallbackAny, error
+          assert_equal dig(source.node, 1), error.node
+        end
       end
     end
   end
@@ -1501,10 +1595,10 @@ y = x + ""
       RUBY
 
       with_standard_construction(checker, source) do |construction, typing|
-        construction.synthesize(source.node)
+        pair = construction.synthesize(source.node)
 
         assert_empty typing.errors
-        assert_equal parse_type("::String"), construction.type_env.lvar_types[:y]
+        assert_equal parse_type("::String"), pair.context.lvar_env[:y]
       end
     end
   end
@@ -1518,10 +1612,10 @@ y = x.itself
       RUBY
 
       with_standard_construction(checker, source) do |construction, typing|
-        construction.synthesize(source.node)
+        pair = construction.synthesize(source.node)
 
         assert_empty typing.errors
-        assert_equal parse_type("::String | ::Integer"), construction.type_env.lvar_types[:y]
+        assert_equal parse_type("::String | ::Integer"), pair.constr.context.lvar_env[:y]
       end
     end
   end
@@ -1763,14 +1857,19 @@ end
 
   def test_method_arg_assign
     with_checker do |checker|
-      source = parse_ruby(<<-'EOF')
+      source = parse_ruby(<<-'RUBY')
+# @type method f: (Integer?) -> void
 def f(x)
-  x = "forever" if x == nil
+  if x
+    x = "forever"
+    x + ""
+  end 
 end
-      EOF
+      RUBY
 
       with_standard_construction(checker, source) do |construction, typing|
         construction.synthesize(source.node)
+        assert_no_error typing
       end
     end
   end
@@ -1788,8 +1887,14 @@ end
         construction.synthesize(source.node)
 
         assert_equal 2, typing.errors.size
-        assert_any typing.errors do |error| error.is_a?(Steep::Errors::FallbackAny) end
-        assert_any typing.errors do |error| error.is_a?(Steep::Errors::IncompatibleAssignment) end
+        assert_any typing.errors do |error|
+          error.is_a?(Steep::Errors::FallbackAny) &&
+            error.node == dig(source.node, 1, 0)
+        end
+        assert_any typing.errors do |error|
+          error.is_a?(Steep::Errors::FallbackAny) &&
+            error.node == dig(source.node, 2, 1)
+        end
       end
     end
   end
@@ -1953,10 +2058,10 @@ b = [*a, *["foo"]]
       EOF
 
       with_standard_construction(checker, source) do |construction, typing|
-        construction.synthesize(source.node)
+        pair = construction.synthesize(source.node)
 
         assert_empty typing.errors
-        assert_equal parse_type("::Array[::Integer|::Symbol|::String]"), construction.type_env.lvar_types[:b]
+        assert_equal parse_type("::Array[::Integer|::Symbol|::String]"), pair.context.lvar_env[:b]
       end
     end
   end
@@ -1974,14 +2079,14 @@ a.gen(*["1"])
       EOF
 
       with_standard_construction(checker, source) do |construction, typing|
-        construction.synthesize(source.node)
+        pair = construction.synthesize(source.node)
 
         assert_equal 1, typing.errors.size
         assert_any typing.errors do |error|
           error.is_a?(Steep::Errors::ArgumentTypeMismatch)
         end
 
-        assert_equal parse_type("::A"), construction.type_env.lvar_types[:a]
+        assert_equal parse_type("::A"), pair.context.lvar_env[:a]
       end
     end
   end
@@ -2163,6 +2268,11 @@ end
     end
   end
 
+  def assert_no_error(typing)
+    assert_instance_of Typing, typing
+    assert_operator typing.errors.map {|e| StringIO.new().tap {|io| e.print_to(io) }.string }, :empty?
+  end
+
   def test_void2
     with_checker <<-EOF do |checker|
 class Hoge
@@ -2239,6 +2349,7 @@ EOF
 if 3
   x = 1
   y = (x + 1).to_int
+  z = :foo
 else
   x = "foo"
   y = (x.to_str).size
@@ -2246,16 +2357,38 @@ end
 EOF
 
       with_standard_construction(checker, source) do |construction, typing|
-        construction.synthesize(source.node)
+        pair = construction.synthesize(source.node)
 
         assert_empty typing.errors
-        assert_equal parse_type("::String | ::Integer"), construction.type_env.lvar_types[:x]
-        assert_equal parse_type("::Integer"), construction.type_env.lvar_types[:y]
+
+        assert_equal parse_type("::String | ::Integer"), pair.constr.context.lvar_env[:x]
+        assert_equal parse_type("::Integer"), pair.constr.context.lvar_env[:y]
+        assert_equal parse_type("::Symbol?"), pair.constr.context.lvar_env[:z]
       end
     end
   end
 
-  def test_if_annotation
+  def test_if_return
+    with_checker do |checker|
+      source = parse_ruby(<<-RUBY)
+if 3
+  return
+else
+  x = :foo
+end
+      RUBY
+
+      with_standard_construction(checker, source) do |construction, typing|
+        pair = construction.synthesize(source.node)
+
+        assert_empty typing.errors
+
+        assert_equal parse_type("::Symbol"), pair.constr.context.lvar_env[:x]
+      end
+    end
+  end
+
+  def test_if_annotation_success
     with_checker do |checker|
       source = parse_ruby(<<EOF)
 # @type var x: String | Integer
@@ -2273,16 +2406,13 @@ EOF
       with_standard_construction(checker, source) do |construction, typing|
         construction.synthesize(source.node)
 
-        if_node = dig(source.node, 1)
+        assert_no_error typing
 
-        true_construction = construction.for_branch(if_node.children[1])
-        assert_equal parse_type("::String"), true_construction.type_env.lvar_types[:x]
+        true_context = typing.context_at(line: 6, column: 3)
+        assert_equal parse_type("::String"), true_context.lvar_env[:x]
 
-        false_construction = construction.for_branch(if_node.children[2])
-        assert_equal parse_type("::Integer"), false_construction.type_env.lvar_types[:x]
-
-        construction.synthesize(source.node)
-        assert_empty typing.errors
+        true_context = typing.context_at(line: 9, column: 3)
+        assert_equal parse_type("::Integer"), true_context.lvar_env[:x]
       end
     end
   end
@@ -2305,20 +2435,12 @@ EOF
       with_standard_construction(checker, source) do |construction, typing|
         construction.synthesize(source.node)
 
-        if_node = dig(source.node, 1)
-
-        true_construction = construction.for_branch(if_node.children[1])
-        assert_equal parse_type("::String"), true_construction.type_env.lvar_types[:x]
-
-        false_construction = construction.for_branch(if_node.children[2])
-        assert_equal parse_type("::Integer"), false_construction.type_env.lvar_types[:x]
-
-        typing.errors.find {|error| error.node == if_node.children[1] }.yield_self do |error|
+        typing.errors.find {|error| error.node == dig(source.node, 1, 1) }.tap do |error|
           assert_instance_of Steep::Errors::IncompatibleAnnotation, error
           assert_equal :x, error.var_name
         end
 
-        typing.errors.find {|error| error.node == if_node.children[2] }.yield_self do |error|
+        typing.errors.find {|error| error.node == dig(source.node, 1, 2) }.tap do |error|
           assert_instance_of Steep::Errors::IncompatibleAnnotation, error
           assert_equal :x, error.var_name
         end
@@ -2340,11 +2462,11 @@ end
 EOF
 
       with_standard_construction(checker, source) do |construction, typing|
-        construction.synthesize(source.node)
+        pair = construction.synthesize(source.node)
 
-        assert_empty typing.errors
-        assert_equal parse_type("::String | ::Integer"), construction.type_env.lvar_types[:x]
-        assert_equal parse_type("::Integer"), construction.type_env.lvar_types[:y]
+        assert_no_error typing
+        assert_equal parse_type("::String | ::Integer"), pair.context.lvar_env[:x]
+        assert_equal parse_type("::Integer"), pair.context.lvar_env[:y]
       end
     end
   end
@@ -2362,9 +2484,31 @@ end
 EOF
 
       with_standard_construction(checker, source) do |construction, typing|
-        construction.synthesize(source.node)
+        pair = construction.synthesize(source.node)
 
         assert_empty typing.errors
+
+        assert_equal parse_type("::Integer"), typing.context_at(line: 6, column: 2).lvar_env[:x]
+        assert_equal parse_type("::Integer | ::String"), pair.context.lvar_env[:x]
+      end
+    end
+  end
+
+  def test_while_type_error
+    with_checker do |checker|
+      source = parse_ruby(<<EOF)
+x = 3 ? 4 : ""
+
+while true
+  x = :foo
+end
+EOF
+
+      with_standard_construction(checker, source) do |construction, typing|
+        construction.synthesize(source.node)
+
+        assert_equal 1, typing.errors.size
+        assert_instance_of Steep::Errors::IncompatibleAssignment, typing.errors[0]
       end
     end
   end
@@ -2390,10 +2534,11 @@ end
 EOF
 
       with_standard_construction(checker, source) do |construction, typing|
-        construction.synthesize(source.node)
+        pair = construction.synthesize(source.node)
 
         assert_empty typing.errors
-        assert_equal parse_type("::String | ::Integer | ::Symbol"), construction.type_env.lvar_types[:x]
+        assert_equal parse_type("::Numeric | ::String | ::Symbol"), pair.type
+        assert_equal parse_type("::String | ::Integer | ::Symbol | nil"), pair.context.lvar_env[:x]
       end
     end
   end
@@ -2405,7 +2550,7 @@ EOF
 # @type const F: singleton(Integer)
 
 begin
-  1 + 2
+  1
 rescue E => exn
   exn + ""
 rescue F => exn
@@ -2414,10 +2559,10 @@ end
 EOF
 
       with_standard_construction(checker, source) do |construction, typing|
-        construction.synthesize(source.node)
+        pair = construction.synthesize(source.node)
 
-        assert_empty typing.errors
-        assert_equal parse_type("::String | ::Integer"), construction.type_env.lvar_types[:exn]
+        assert_no_error typing
+        assert_equal parse_type("::String | ::Numeric | ::Integer"), pair.type
       end
     end
   end
@@ -2439,14 +2584,16 @@ end
 EOF
 
       with_standard_construction(checker, source) do |construction, typing|
-        construction.synthesize(source.node)
+        pair = construction.synthesize(source.node)
 
-        assert_empty typing.errors
+        assert_no_error typing
+        assert_equal parse_type("::Integer | ::Numeric"), pair.type
+        assert_equal parse_type("::Integer | ::Numeric"), pair.constr.context.lvar_env[:y]
       end
     end
   end
 
-  def test_type_case_array
+  def test_type_case_array1
     with_checker do |checker|
       source = parse_ruby(<<EOF)
 # @type var x: Array[String] | Array[Integer] | Range[Symbol]
@@ -2462,11 +2609,11 @@ end
 EOF
 
       with_standard_construction(checker, source) do |construction, typing|
-        construction.synthesize(source.node)
+        pair = construction.synthesize(source.node)
 
-        assert_empty typing.errors
-        assert_equal parse_type("::String | ::Integer | nil"), construction.type_env.lvar_types[:y]
-        assert_equal parse_type("::Symbol"), construction.type_env.lvar_types[:z]
+        assert_no_error typing
+        assert_equal parse_type("::String | ::Integer | nil"), pair.context.lvar_env[:y]
+        assert_equal parse_type("::Symbol"), pair.context.lvar_env[:z]
       end
     end
   end
@@ -2486,12 +2633,16 @@ end
 EOF
 
       with_standard_construction(checker, source) do |construction, typing|
-        construction.synthesize(source.node)
+        pair = construction.synthesize(source.node)
 
         assert_equal 1, typing.errors.size
         typing.errors[0].yield_self do |error|
           assert_instance_of Steep::Errors::ElseOnExhaustiveCase, error
+          assert_equal error.node, dig(source.node, 1)
         end
+
+        assert_equal parse_type("untyped"), pair.type
+        assert_equal parse_type("untyped"), pair.context.lvar_env[:z]
       end
     end
   end
@@ -2539,10 +2690,10 @@ a = Array.new
 EOF
 
       with_standard_construction(checker, source) do |construction, typing|
-        construction.synthesize(source.node)
+        pair = construction.synthesize(source.node)
 
         assert_empty typing.errors
-        assert_equal parse_type("::Array[untyped]"), construction.type_env.lvar_types[:a]
+        assert_equal parse_type("::Array[untyped]"), pair.type
       end
     end
   end
@@ -2629,7 +2780,7 @@ EOF
       with_standard_construction(checker, source) do |construction, typing|
         construction.synthesize(source.node)
 
-        assert_empty typing.errors
+        assert_no_error typing
       end
     end
   end
@@ -2747,12 +2898,29 @@ z = (x && y1 = y = x + 1)
 EOF
 
       with_standard_construction(checker, source) do |construction, typing|
-        construction.synthesize(source.node)
+        pair = construction.synthesize(source.node)
 
-        assert_empty typing.errors
+        assert_no_error typing
 
-        assert_equal parse_type("::Numeric?"), construction.type_env.lvar_types[:y]
-        assert_equal parse_type("::Integer?"), construction.type_env.lvar_types[:z]
+        assert_equal parse_type("::Numeric?"), pair.constr.context.lvar_env[:y]
+        assert_equal parse_type("::Numeric?"), pair.constr.context.lvar_env[:z]
+      end
+    end
+  end
+
+  def test_and_assign
+    with_checker do |checker|
+      source = parse_ruby(<<EOF)
+(x = 1) && (y = 3)
+EOF
+
+      with_standard_construction(checker, source) do |construction, typing|
+        pair = construction.synthesize(source.node)
+
+        assert_no_error typing
+
+        assert_equal parse_type("::Integer"), pair.context.lvar_env[:x]
+        assert_equal parse_type("::Integer?"), pair.context.lvar_env[:y]
       end
     end
   end
@@ -2767,11 +2935,12 @@ z = x&.size()
 EOF
 
       with_standard_construction(checker, source) do |construction, typing|
-        construction.synthesize(source.node)
+        pair = construction.synthesize(source.node)
 
-        assert_empty typing.errors
+        assert_no_error typing
 
-        assert_equal parse_type("::Integer?"), construction.type_env.lvar_types[:z]
+        assert_equal parse_type("::Integer?"), pair.type
+        assert_equal parse_type("::Integer?"), pair.context.lvar_env[:z]
       end
     end
   end
@@ -2780,17 +2949,48 @@ EOF
     with_checker do |checker|
       source = parse_ruby(<<EOF)
 while line = gets
-  # @type var x: String
   x = line
+  x.to_str
 end
 EOF
 
       with_standard_construction(checker, source) do |construction, typing|
-        construction.synthesize(source.node)
+        pair = construction.synthesize(source.node)
 
         assert_empty typing.errors
 
-        assert_equal parse_type("::String?"), construction.type_env.lvar_types[:line]
+        assert_equal parse_type("::String"), typing.context_at(line: 2, column: 2).lvar_env[:line]
+
+        assert_equal parse_type("::String?"), pair.context.lvar_env[:line]
+        assert_equal parse_type("::String?"), pair.context.lvar_env[:x]
+      end
+    end
+  end
+
+  def test_case_incompatible_annotation
+    with_checker do |checker|
+      source = parse_ruby(<<EOF)
+# @type var x: String | Integer
+x = ""
+
+case x
+when String
+  # @type var x: Integer
+  3
+end
+EOF
+
+      with_standard_construction(checker, source) do |construction, typing|
+        pair = construction.synthesize(source.node)
+
+        assert_equal 1, typing.errors.size
+
+        typing.errors[0].tap do |error|
+          assert_instance_of Steep::Errors::IncompatibleAnnotation, error
+          assert_equal dig(source.node, 1, 1, 1), error.node
+        end
+
+        assert_equal parse_type("::Integer?"), pair.type
       end
     end
   end
@@ -2808,11 +3008,11 @@ end
 EOF
 
       with_standard_construction(checker, source) do |construction, typing|
-        construction.synthesize(source.node)
+        pair = construction.synthesize(source.node)
 
-        assert_empty typing.errors
+        assert_no_error typing
 
-        assert_equal parse_type("::Integer?"), construction.type_env.lvar_types[:y]
+        assert_equal parse_type("::Integer?"), pair.type
       end
     end
   end
@@ -2830,10 +3030,10 @@ end
 EOF
 
       with_standard_construction(checker, source) do |construction, typing|
-        construction.synthesize(source.node)
+        pair = construction.synthesize(source.node)
 
         assert_empty typing.errors
-        assert_equal parse_type("::Integer?"), construction.type_env.lvar_types[:y]
+        assert_equal parse_type("::Integer?"), pair.type
       end
     end
   end
@@ -2853,11 +3053,11 @@ end
 EOF
 
       with_standard_construction(checker, source) do |construction, typing|
-        construction.synthesize(source.node)
+        pair = construction.synthesize(source.node)
 
-        assert_empty typing.errors
+        assert_no_error typing
 
-        assert_equal parse_type("::Integer"), construction.type_env.lvar_types[:y]
+        assert_equal parse_type("::Integer"), pair.type
       end
     end
   end
@@ -2876,11 +3076,11 @@ end
 EOF
 
       with_standard_construction(checker, source) do |construction, typing|
-        construction.synthesize(source.node)
+        pair = construction.synthesize(source.node)
 
-        assert_empty typing.errors
+        assert_no_error typing
 
-        assert_equal parse_type("::Integer"), construction.type_env.lvar_types[:y]
+        assert_equal parse_type("::Integer"), pair.type
       end
     end
   end
@@ -2981,7 +3181,7 @@ EOF
       with_standard_construction(checker, source) do |construction, typing|
         construction.synthesize(source.node)
 
-        assert_empty typing.errors
+        assert_no_error typing
       end
     end
   end
@@ -2994,12 +3194,12 @@ b = false || true
 EOF
 
       with_standard_construction(checker, source) do |construction, typing|
-        construction.synthesize(source.node)
+        pair = construction.synthesize(source.node)
 
         assert_empty typing.errors
 
-        assert_equal parse_type("bool"), construction.type_env.lvar_types[:a]
-        assert_equal parse_type("bool"), construction.type_env.lvar_types[:b]
+        assert_equal parse_type("bool"), pair.context.lvar_env[:a]
+        assert_equal parse_type("bool"), pair.context.lvar_env[:b]
       end
     end
   end
@@ -3100,13 +3300,13 @@ EOF
 
 
       with_standard_construction(checker, source) do |construction, typing|
-        construction.synthesize(source.node)
+        pair = construction.synthesize(source.node)
 
         assert_empty typing.errors
 
-        assert_equal parse_type('"foo"'), construction.type_env.lvar_types[:a]
-        assert_equal parse_type('"foo"'), construction.type_env.lvar_types[:b]
-        assert_equal parse_type(':bar'), construction.type_env.lvar_types[:c]
+        assert_equal parse_type('"foo"'), pair.context.lvar_env[:a]
+        assert_equal parse_type('"foo"'), pair.context.lvar_env[:b]
+        assert_equal parse_type(':bar'), pair.context.lvar_env[:c]
       end
     end
   end
@@ -3143,13 +3343,13 @@ c = x[2]
 EOF
 
       with_standard_construction(checker, source) do |construction, typing|
-        construction.synthesize(source.node)
+        pair = construction.synthesize(source.node)
 
-        assert_equal parse_type('::Integer'), construction.type_env.lvar_types[:a]
-        assert_equal parse_type('::String'), construction.type_env.lvar_types[:b]
-        assert_equal parse_type('::Integer | ::String'), construction.type_env.lvar_types[:c]
+        assert_no_error typing
 
-        assert_empty typing.errors
+        assert_equal parse_type('::Integer'), pair.context.lvar_env[:a]
+        assert_equal parse_type('::String'), pair.context.lvar_env[:b]
+        assert_equal parse_type('::Integer | ::String'), pair.context.lvar_env[:c]
       end
     end
   end
@@ -3185,10 +3385,10 @@ x = TupleMethod.new.foo([1, "foo"])
 EOF
 
       with_standard_construction(checker, source) do |construction, typing|
-        construction.synthesize(source.node)
+        pair = construction.synthesize(source.node)
 
         assert_empty typing.errors
-        assert_equal parse_type('[::String, ::Integer]'), construction.type_env.lvar_types[:x]
+        assert_equal parse_type('[::String, ::Integer]'), pair.context.lvar_env[:x]
       end
     end
   end
@@ -3206,18 +3406,18 @@ _, _, _, c = TupleMethod.new.foo()
 EOF
 
       with_standard_construction(checker, source) do |construction, typing|
-        construction.synthesize(source.node)
+        pair = construction.synthesize(source.node)
 
-        assert_empty typing.errors
+        assert_no_error typing
 
-        assert_equal parse_type('::String'), construction.type_env.lvar_types[:x]
-        assert_equal parse_type('::Integer'), construction.type_env.lvar_types[:y]
-        assert_equal parse_type('bool'), construction.type_env.lvar_types[:z]
+        assert_equal parse_type('::String'), pair.context.lvar_env[:x]
+        assert_equal parse_type('::Integer'), pair.context.lvar_env[:y]
+        assert_equal parse_type('bool'), pair.context.lvar_env[:z]
 
-        assert_equal parse_type('::String'), construction.type_env.lvar_types[:a]
-        assert_equal parse_type('::Integer'), construction.type_env.lvar_types[:b]
+        assert_equal parse_type('::String'), pair.context.lvar_env[:a]
+        assert_equal parse_type('::Integer'), pair.context.lvar_env[:b]
 
-        assert_equal parse_type("nil"), construction.type_env.lvar_types[:c]
+        assert_equal parse_type("nil"), pair.context.lvar_env[:c]
       end
     end
   end
@@ -3278,7 +3478,7 @@ EOF
       with_standard_construction(checker, source) do |construction, typing|
         construction.synthesize(source.node)
 
-        assert_empty typing.errors
+        assert_no_error typing
       end
     end
   end
@@ -3382,11 +3582,11 @@ b = "foo" || x
 EOF
 
       with_standard_construction(checker, source) do |construction, typing|
-        construction.synthesize(source.node)
+        pair = construction.synthesize(source.node)
 
-        assert_empty typing.errors
-        assert_equal parse_type("::String"), construction.type_env.lvar_types[:a]
-        assert_equal parse_type("::String?"), construction.type_env.lvar_types[:b]
+        assert_no_error typing
+        assert_equal parse_type("::String"), pair.context.lvar_env[:a]
+        assert_equal parse_type("::String?"), pair.context.lvar_env[:b]
       end
     end
   end
@@ -3455,7 +3655,7 @@ EOF
         block_annotations = source.annotations(block: source.node, factory: checker.factory, current_module: Namespace.root)
         block_params = Steep::TypeInference::BlockParams.from_node(block_params_node, annotations: block_annotations)
 
-        type = construction.type_block(node: source.node,
+        pair = construction.type_block(node: source.node,
                                        block_param_hint: nil,
                                        block_type_hint: nil,
                                        node_type_hint: nil,
@@ -3463,7 +3663,8 @@ EOF
                                        block_body: block_body_node,
                                        block_annotations: block_annotations,
                                        topdown_hint: true)
-        assert_equal "^(untyped, untyped) -> untyped", type.to_s
+
+        assert_equal parse_type("^(untyped, untyped) -> untyped"), pair.type
       end
     end
   end
@@ -3485,7 +3686,7 @@ EOF
         block_annotations = source.annotations(block: source.node, factory: checker.factory, current_module: Namespace.root)
         block_params = Steep::TypeInference::BlockParams.from_node(block_params_node, annotations: block_annotations)
 
-        type = construction.type_block(node: source.node,
+        pair = construction.type_block(node: source.node,
                                        block_param_hint: nil,
                                        block_type_hint: nil,
                                        node_type_hint: nil,
@@ -3493,7 +3694,7 @@ EOF
                                        block_body: block_body_node,
                                        block_annotations: block_annotations,
                                        topdown_hint: true)
-        assert_equal parse_type("^(::String, ::Integer) -> :bar"), type
+        assert_equal parse_type("^(::String, ::Integer) -> :bar"), pair.type
 
         refute_empty typing.errors
       end
@@ -3518,7 +3719,7 @@ EOF
         block_annotations = source.annotations(block: source.node, factory: checker.factory, current_module: Namespace.root)
         block_params = Steep::TypeInference::BlockParams.from_node(block_params_node, annotations: block_annotations)
 
-        type = construction.type_block(node: source.node,
+        pair = construction.type_block(node: source.node,
                                        block_param_hint: hint.block.type.params,
                                        block_type_hint: hint.block.type.return_type,
                                        node_type_hint: nil,
@@ -3526,7 +3727,7 @@ EOF
                                        block_body: block_body_node,
                                        block_annotations: block_annotations,
                                        topdown_hint: true)
-        assert_equal "^(::String, ::Integer) -> ::Symbol", type.to_s
+        assert_equal "^(::String, ::Integer) -> ::Symbol", pair.type.to_s
       end
     end
   end
@@ -3550,7 +3751,7 @@ EOF
         block_annotations = source.annotations(block: source.node, factory: checker.factory, current_module: Namespace.root)
         block_params = Steep::TypeInference::BlockParams.from_node(block_params_node, annotations: block_annotations)
 
-        type = construction.type_block(node: source.node,
+        pair = construction.type_block(node: source.node,
                                        block_param_hint: hint.block.type.params,
                                        block_type_hint: hint.block.type.return_type,
                                        node_type_hint: nil,
@@ -3558,7 +3759,7 @@ EOF
                                        block_body: block_body_node,
                                        block_annotations: block_annotations,
                                        topdown_hint: true)
-        assert_equal parse_type("^(::String, ::Integer) -> ::Symbol"), type
+        assert_equal parse_type("^(::String, ::Integer) -> ::Symbol"), pair.type
 
         assert_equal 2, typing.errors.size
         assert_any typing.errors do |error|
@@ -3587,10 +3788,10 @@ a = MethodWithBlockArg.new.foo {|x| x.to_s }
 EOF
 
       with_standard_construction(checker, source) do |construction, typing|
-        construction.synthesize(source.node)
+        pair = construction.synthesize(source.node)
 
         assert_empty typing.errors
-        assert_equal parse_type("::Array[::String]"), construction.type_env.lvar_types[:a]
+        assert_equal parse_type("::Array[::String]"), pair.context.lvar_env[:a]
       end
     end
   end
@@ -3631,10 +3832,14 @@ end
 EOF
 
       with_standard_construction(checker, source) do |construction, typing|
-        construction.synthesize(source.node)
+        pair = construction.synthesize(source.node)
 
-        assert_empty typing.errors
-        assert_equal "^(::Integer, untyped) -> ::Numeric", construction.type_env.lvar_types[:l].to_s
+        assert_no_error typing
+        assert_equal "^(::Integer, untyped) -> ::Numeric", pair.context.lvar_env[:l].to_s
+
+        lambda_context = typing.context_at(line: 3, column: 3)
+        assert_equal parse_type("::Integer"), lambda_context.lvar_env[:x]
+        assert_equal parse_type("untyped"), lambda_context.lvar_env[:y]
       end
     end
   end
@@ -3666,10 +3871,11 @@ a = begin; end
 EOF
 
       with_standard_construction(checker, source) do |construction, typing|
-        construction.synthesize(source.node)
+        pair = construction.synthesize(source.node)
 
         assert_empty typing.errors
-        assert_equal parse_type("nil"), construction.type_env.lvar_types[:a]
+        assert_equal parse_type("nil"), pair.type
+        assert_equal parse_type("nil"), pair.context.lvar_env[:a]
       end
     end
   end
@@ -3686,12 +3892,12 @@ end
 EOF
 
       with_standard_construction(checker, source) do |construction, typing|
-        construction.synthesize(source.node)
+        pair = construction.synthesize(source.node)
 
         assert_empty typing.errors
-        assert_equal parse_type(":foo"), construction.type_env.lvar_types[:a]
-        assert_equal parse_type("::Symbol"), construction.type_env.lvar_types[:x]
-        assert_equal parse_type(":foo"), construction.type_env.lvar_types[:y]
+        assert_equal parse_type(":foo"), pair.context.lvar_env[:a]
+        assert_equal parse_type("::Symbol"), pair.context.lvar_env[:x]
+        assert_equal parse_type(":foo"), pair.context.lvar_env[:y]
       end
     end
   end
@@ -3937,10 +4143,11 @@ y = x || []
       EOF
 
       with_standard_construction(checker, source) do |construction, typing|
-        construction.synthesize(source.node)
+        pair = construction.synthesize(source.node)
 
         assert_empty typing.errors
-        assert_equal parse_type("::Array[::Integer]"), construction.type_env.lvar_types[:y]
+        assert_equal parse_type("::Array[::Integer]?"), pair.context.lvar_env[:x]
+        assert_equal parse_type("::Array[::Integer]"), pair.context.lvar_env[:y]
       end
     end
   end
@@ -4075,6 +4282,8 @@ end
 class Hello < Object
   a = "foo"
   b = :bar
+
+  puts
 end
 
 b = 123
@@ -4082,18 +4291,18 @@ b = 123
 
       with_standard_construction(checker, source) do |construction, typing|
         construction.synthesize(source.node)
-        assert_empty typing.errors
+        assert_no_error typing
 
         # class Hello
-        typing.context_at(line: 2, column: 0).tap do |ctx|
+        typing.context_at(line: 5, column: 2).tap do |ctx|
           assert_instance_of Context, ctx
           assert_equal "::Hello", ctx.module_context.class_name.to_s
           assert_nil ctx.method_context
           assert_nil ctx.block_context
           assert_nil ctx.break_context
           assert_equal parse_type("singleton(::Hello)"), ctx.self_type
-          assert_equal parse_type("::String"), ctx.type_env.get(lvar: :a)
-          assert_equal parse_type("::Symbol"), ctx.type_env.get(lvar: :b)
+          assert_equal parse_type("::String"), ctx.lvar_env[:a]
+          assert_equal parse_type("::Symbol"), ctx.lvar_env[:b]
         end
       end
     end

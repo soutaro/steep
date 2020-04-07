@@ -66,6 +66,7 @@ require "steep/type_inference/send_args"
 require "steep/type_inference/block_params"
 require "steep/type_inference/constant_env"
 require "steep/type_inference/type_env"
+require "steep/type_inference/local_variable_type_env"
 require "steep/ast/types"
 
 require "steep/project"
@@ -91,6 +92,8 @@ require "steep/drivers/vendor"
 if ENV["NO_COLOR"]
   Rainbow.enabled = false
 end
+
+$stderr = STDERR
 
 module Steep
   def self.logger

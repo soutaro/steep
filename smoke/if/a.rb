@@ -2,7 +2,7 @@
 
 x = y = z = (_ = nil)
 
-# !expects IncompatibleAssignment: lhs_type=::String, rhs_type=::Symbol
+# !expects IncompatibleAssignment: lhs_type=::String, rhs_type=(::Symbol | nil)
 a = if x
       :foo
     end

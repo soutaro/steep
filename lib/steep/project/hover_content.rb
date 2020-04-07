@@ -42,12 +42,18 @@ module Steep
 
             if node
               case node.type
-              when :lvar, :lvasgn
+              when :lvar
                 var_name = node.children[0]
                 context = status.typing.context_at(line: line, column: column)
-                var_type = context.type_env.get(lvar: var_name.name) { AST::Types::Any.new(location: nil) }
+                var_type = context.lvar_env[var_name.name] || AST::Types::Any.new(location: nil)
 
                 VariableContent.new(node: node, name: var_name.name, type: var_type, location: node.location.name)
+              when :lvasgn
+                var_name, rhs = node.children
+                context = status.typing.context_at(line: line, column: column)
+                type = context.lvar_env[var_name.name] || status.typing.type_of(node: rhs)
+
+                VariableContent.new(node: node, name: var_name.name, type: type, location: node.location.name)
               when :send
                 receiver, method_name, *_ = node.children
 

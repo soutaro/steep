@@ -5,5 +5,6 @@ class Foo
     # @type var string: String
     # !expects IncompatibleAssignment: lhs_type=::String, rhs_type=::Object
     string = super()
+    string
   end
 end
