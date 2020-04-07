@@ -967,7 +967,21 @@ module Steep
           yield_self do
             var = node.children[0]
             rhs = node.children[1]
-            type_assignment(var, rhs, node, hint: hint)
+
+            node_type, constr = synthesize(rhs, hint: hint)
+
+            constr_ = constr.update_lvar_env do |env|
+              env.assign(var.name, node: node, type: node_type) do |declared_type, type, result|
+                typing.add_error(
+                  Errors::IncompatibleAssignment.new(node: node,
+                                                     lhs_type: declared_type,
+                                                     rhs_type: type,
+                                                     result: result)
+                )
+              end
+            end
+
+            add_typing(node, type: constr_.context.lvar_env[var.name], constr: constr_)
           end
 
         when :restarg
