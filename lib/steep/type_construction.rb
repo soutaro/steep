@@ -1694,36 +1694,6 @@ module Steep
       end
     end
 
-    def type_assignment(var, rhs, node, hint: nil)
-      if rhs
-        result = synthesize(rhs, hint: type_env.lvar_types[var.name] || hint)
-        expand_alias(result.type) do |rhs_type|
-          node_type = assign_type_to_variable(var, rhs_type, node)
-          add_typing(node, type: node_type)
-        end
-      else
-        raise
-        lhs_type = variable_type(var)
-
-        if lhs_type
-          add_typing(node, type: lhs_type)
-        else
-          fallback_to_any node
-        end
-      end
-    end
-
-    def assign_type_to_variable(var, type, node)
-      name = var.name
-      type_env.assign(lvar: name, type: type, self_type: self_type) do |result|
-        var_type = type_env.get(lvar: name)
-        typing.add_error(Errors::IncompatibleAssignment.new(node: node,
-                                                            lhs_type: var_type,
-                                                            rhs_type: type,
-                                                            result: result))
-      end
-    end
-
     def type_ivasgn(name, rhs, node)
       rhs_type = synthesize(rhs, hint: type_env.get(ivar: name) { fallback_to_any(node) }).type
       ivar_type = type_env.assign(ivar: name, type: rhs_type, self_type: self_type) do |error|
