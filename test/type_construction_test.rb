@@ -1174,9 +1174,8 @@ end
 
         assert_equal parse_type("::A"), for_method.self_type
         assert_nil for_method.block_context
-        assert_equal [:x], for_method.type_env.lvar_types.keys
-        assert_equal parse_type("::String"),
-                     for_method.type_env.lvar_types[:x]
+        assert_equal Set[:x], for_method.context.lvar_env.vars
+        assert_equal parse_type("::String"), for_method.context.lvar_env[:x]
       end
     end
   end
@@ -1210,7 +1209,7 @@ EOS
 
         assert_equal parse_type("::A"), for_method.self_type
         assert_nil for_method.block_context
-        assert_equal parse_type("::Object | ::String"), for_method.type_env.lvar_types[:x]
+        assert_equal parse_type("::Object | ::String"), for_method.context.lvar_env[:x]
 
         assert_empty typing.errors
       end
@@ -1252,7 +1251,7 @@ end
 
         assert_equal parse_type("::A"), for_method.self_type
         assert_nil for_method.block_context
-        assert_empty for_method.type_env.lvar_types
+        assert_empty for_method.context.lvar_env.vars
 
         assert_empty typing.errors
       end
@@ -1293,8 +1292,8 @@ end
 
         assert_equal parse_type("::A"), for_method.self_type
         assert_nil for_method.block_context
-        assert_equal [:x], for_method.type_env.lvar_types.keys
-        assert_equal parse_type("::String"), for_method.type_env.lvar_types[:x]
+        assert_equal Set[:x], for_method.context.lvar_env.vars
+        assert_equal parse_type("::String"), for_method.context.lvar_env[:x]
 
         assert_equal 1, typing.errors.size
         assert_instance_of Steep::Errors::MethodReturnTypeAnnotationMismatch, typing.errors.first
@@ -1644,19 +1643,24 @@ a, @b = 3
 a = ""
 a += ""
 a += 3
+
+b = _ = nil
+b += 3
       EOF
 
       with_standard_construction(checker, source) do |construction, typing|
-        construction.synthesize(source.node)
+        _, _, context = construction.synthesize(source.node)
 
         assert_equal 1, typing.errors.size
-        assert_any typing.errors do |error|
-          error.is_a?(Steep::Errors::ArgumentTypeMismatch)
+        typing.errors[0].tap do |error|
+          assert_instance_of Steep::Errors::ArgumentTypeMismatch, error
+          assert_equal dig(source.node, 2, 2), error.node
         end
+
+        assert_equal parse_type("untyped"), context.lvar_env[:b]
       end
     end
   end
-
 
   def test_while0
     with_checker do |checker|

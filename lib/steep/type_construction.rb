@@ -186,12 +186,6 @@ module Steep
         super_method: super_method
       )
 
-      if var_types
-        var_types.each do |name, type|
-          type_env.set(lvar: name, type: type)
-        end
-      end
-
       if definition
         definition.instance_variables.each do |name, decl|
           type_env.set(ivar: name, type: checker.factory.type(decl.type))
@@ -199,7 +193,6 @@ module Steep
       end
 
       type_env = type_env.with_annotations(
-        lvar_types: annots.lvar_types,
         ivar_types: annots.ivar_types,
         const_types: annots.const_types,
         self_type: annots.self_type || self_type
@@ -507,18 +500,10 @@ module Steep
       type_env = context.type_env
 
       if type_case_override
-        type_env = type_env.with_annotations(lvar_types: type_case_override, self_type: self_type) do |var, relation, result|
-          typing.add_error(
-            Errors::IncompatibleTypeCase.new(node: node,
-                                             var_name: var,
-                                             relation: relation,
-                                             result: result)
-          )
-        end
+        type_env = type_env.with_annotations(self_type: self_type)
       end
 
       type_env = type_env.with_annotations(
-        # lvar_types: annots.lvar_types,
         ivar_types: annots.ivar_types,
         const_types: annots.const_types,
         gvar_types: {},
@@ -669,58 +654,30 @@ module Steep
           yield_self do
             lhs, op, rhs = node.children
 
-            synthesize(rhs)
+            case lhs.type
+            when :lvasgn
+              var_node = lhs.updated(:lvar)
+              send_node = rhs.updated(:send, [var_node, op, rhs])
+              new_node = node.updated(:lvasgn, [lhs.children[0], send_node])
 
-            lhs_type = case lhs.type
-                       when :lvasgn
-                         type_env.get(lvar: lhs.children.first.name) do
-                           break
-                         end
-                       when :ivasgn
-                         type_env.get(ivar: lhs.children.first) do
-                           break
-                         end
-                       else
-                         Steep.logger.error("Unexpected op_asgn lhs: #{lhs.type}")
-                         nil
-                       end
+              type, constr = synthesize(new_node, hint: hint)
 
-            case
-            when lhs_type == AST::Builtin.any_type
-              add_typing(node, type: lhs_type)
-            when !lhs_type
-              fallback_to_any(node)
+              constr.add_typing(node, type: type)
+
+            when :ivasgn
+              var_node = lhs.updated(:ivar)
+              send_node = rhs.updated(:send, [var_node, op, rhs])
+              new_node = node.updated(:ivasgn, [lhs.children[0], send_node])
+
+              type, constr = synthesize(new_node, hint: hint)
+
+              constr.add_typing(node, type: type)
+
             else
-              lhs_interface = checker.factory.interface(lhs_type, private: false)
-              op_method = lhs_interface.methods[op]
+              Steep.logger.error("Unexpected op_asgn lhs: #{lhs.type}")
 
-              if op_method
-                args = TypeInference::SendArgs.from_nodes([rhs])
-                return_type, _ = type_method_call(node,
-                                                  receiver_type: lhs_type,
-                                                  method_name: op,
-                                                  method: op_method,
-                                                  args: args,
-                                                  block_params: nil,
-                                                  block_body: nil,
-                                                  topdown_hint: true)
-
-                result = check_relation(sub_type: return_type, super_type: lhs_type)
-                if result.failure?
-                  typing.add_error(
-                    Errors::IncompatibleAssignment.new(
-                      node: node,
-                      lhs_type: lhs_type,
-                      rhs_type: return_type,
-                      result: result
-                    )
-                  )
-                end
-              else
-                typing.add_error Errors::NoMethod.new(node: node, method: op, type: expand_self(lhs_type))
-              end
-
-              add_typing(node, type: lhs_type)
+              _, constr = synthesize(rhs)
+              constr.add_typing(node, type: AST::Builtin.any_type)
             end
           end
 
@@ -970,8 +927,10 @@ module Steep
         when :arg, :kwarg, :procarg0
           yield_self do
             var = node.children[0]
-            type = type_env.get(lvar: var.name) do
-              fallback_to_any(node).type
+            type = context.lvar_env[var.name]
+            unless type
+              type = AST::Builtin.any_type
+              Steep.logger.error { "Unknown arg type: #{node}" }
             end
             add_typing(node, type: type)
           end
@@ -980,15 +939,31 @@ module Steep
           yield_self do
             var = node.children[0]
             rhs = node.children[1]
-            type_assignment(var, rhs, node, hint: hint)
+
+            node_type, constr = synthesize(rhs, hint: hint)
+
+            constr_ = constr.update_lvar_env do |env|
+              env.assign(var.name, node: node, type: node_type) do |declared_type, type, result|
+                typing.add_error(
+                  Errors::IncompatibleAssignment.new(node: node,
+                                                     lhs_type: declared_type,
+                                                     rhs_type: type,
+                                                     result: result)
+                )
+              end
+            end
+
+            add_typing(node, type: constr_.context.lvar_env[var.name], constr: constr_)
           end
 
         when :restarg
           yield_self do
             var = node.children[0]
-            type = type_env.get(lvar: var.name) do
+            type = context.lvar_env[var.name]
+            unless type
+              Steep.logger.error { "Unknown variable: #{node}" }
               typing.add_error Errors::FallbackAny.new(node: node)
-              AST::Builtin::Array.instance_type(AST::Builtin.any_type)
+              type = AST::Builtin::Array.instance_type(AST::Builtin.any_type)
             end
 
             add_typing(node, type: type)
@@ -997,9 +972,11 @@ module Steep
         when :kwrestarg
           yield_self do
             var = node.children[0]
-            type = type_env.get(lvar: var.name) do
+            type = context.lvar_env[var.name]
+            unless type
+              Steep.logger.error { "Unknown variable: #{node}" }
               typing.add_error Errors::FallbackAny.new(node: node)
-              AST::Builtin::Hash.instance_type(AST::Builtin::Symbol.instance_type, AST::Builtin.any_type)
+              type = AST::Builtin::Hash.instance_type(AST::Builtin::Symbol.instance_type, AST::Builtin.any_type)
             end
 
             add_typing(node, type: type)
@@ -1714,36 +1691,6 @@ module Steep
         pair.with(type: type)
       else
         pair
-      end
-    end
-
-    def type_assignment(var, rhs, node, hint: nil)
-      if rhs
-        result = synthesize(rhs, hint: type_env.lvar_types[var.name] || hint)
-        expand_alias(result.type) do |rhs_type|
-          node_type = assign_type_to_variable(var, rhs_type, node)
-          add_typing(node, type: node_type)
-        end
-      else
-        raise
-        lhs_type = variable_type(var)
-
-        if lhs_type
-          add_typing(node, type: lhs_type)
-        else
-          fallback_to_any node
-        end
-      end
-    end
-
-    def assign_type_to_variable(var, type, node)
-      name = var.name
-      type_env.assign(lvar: name, type: type, self_type: self_type) do |result|
-        var_type = type_env.get(lvar: name)
-        typing.add_error(Errors::IncompatibleAssignment.new(node: node,
-                                                            lhs_type: var_type,
-                                                            rhs_type: type,
-                                                            result: result))
       end
     end
 
@@ -2549,16 +2496,6 @@ module Steep
         end
       end
 
-      block_type_env = type_env.dup.tap do |env|
-        param_types_hash.each do |name, type|
-          env.set(lvar: name, type: type)
-        end
-
-        block_annotations.lvar_types.each do |name, type|
-          env.set(lvar: name, type: type)
-        end
-      end
-
       lvar_env = context.lvar_env.pin_assignments.yield_self do |env|
         decls = param_types_hash.each.with_object({}) do |(name, type), hash|
           hash[name] = TypeInference::LocalVariableTypeEnv::Entry.new(type: type)
@@ -2593,7 +2530,7 @@ module Steep
           module_context: module_context,
           break_context: break_context,
           self_type: block_annotations.self_type || self_type,
-          type_env: block_type_env,
+          type_env: type_env.dup,
           lvar_env: lvar_env
         )
       )

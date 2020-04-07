@@ -203,113 +203,6 @@ class TypeEnvTest < Minitest::Test
     end
   end
 
-  def test_lvar_get_without_assign
-    with_checker do |checker|
-      const_env = ConstantEnv.new(factory: checker.factory, context: nil)
-      type_env = TypeEnv.new(subtyping: checker, const_env: const_env)
-
-
-      type = type_env.get(lvar: :x) { AST::Types::Name.new_instance(name: "::String") }
-      # Returns a type which obtained from given block
-      assert_equal AST::Types::Name.new_instance(name: "::String"), type
-
-      # And update environment
-      assert_equal AST::Types::Name.new_instance(name: "::String"), type_env.lvar_types[:x]
-    end
-  end
-
-  def test_lvar_without_annotation
-    with_checker do |checker|
-      const_env = ConstantEnv.new(factory: checker.factory, context: nil)
-      type_env = TypeEnv.new(subtyping: checker, const_env: const_env)
-
-
-      yield_self do
-        type = type_env.assign(lvar: :x,
-                               type: AST::Types::Name.new_instance(name: "::String"),
-                               self_type: parse_type("self")) { |_| raise }
-        assert_equal AST::Types::Name.new_instance(name: "::String"), type
-      end
-
-      yield_self do
-        type = type_env.assign(lvar: :x,
-                               type: AST::Types::Name.new_instance(name: "::Numeric"),
-                               self_type: parse_type("self")) do |error|
-          assert_instance_of Subtyping::Result::Failure, error
-        end
-
-        assert_equal AST::Types::Name.new_instance(name: "::String"), type
-      end
-    end
-  end
-
-  def test_lvar_with_annotation
-    with_checker do |checker|
-      const_env = ConstantEnv.new(factory: checker.factory, context: nil)
-      type_env = TypeEnv.new(subtyping: checker, const_env: const_env)
-
-      type_env.set(lvar: :x, type: AST::Types::Name.new_instance(name: "::Numeric"))
-
-      yield_self do
-        type = type_env.assign(lvar: :x,
-                               type: AST::Types::Name.new_instance(name: "::Integer"),
-                               self_type: parse_type("self")) { |_| raise }
-        assert_equal AST::Types::Name.new_instance(name: "::Numeric"), type
-      end
-    end
-  end
-
-  def test_with_annotation_lvar
-    with_checker do |checker|
-      const_env = ConstantEnv.new(factory: checker.factory, context: nil)
-      original_env = TypeEnv.new(subtyping: checker, const_env: const_env)
-
-      union_type = AST::Types::Union.build(types: [
-        AST::Types::Name.new_instance(name: "::Integer"),
-        AST::Types::Name.new_instance(name: "::String")
-      ])
-
-      original_env.set(lvar: :x, type: union_type)
-
-      yield_self do
-        type_env = original_env.with_annotations(lvar_types:
-                                                   {
-                                                     x: AST::Types::Name.new_instance(name: "::String")
-                                                   },
-                                                 self_type: parse_type("self")) do |_, _|
-          raise
-        end
-
-        assert_equal AST::Types::Name.new_instance(name: "::String"), type_env.get(lvar: :x) { raise }
-      end
-
-      yield_self do
-        type_env = original_env.with_annotations(lvar_types:
-                                                   {
-                                                     x: AST::Types::Name.new_instance(name: "::Regexp")
-                                                   },
-                                                 self_type: parse_type("self")) do |name, relation, error|
-          assert_equal name, :x
-          assert_instance_of Subtyping::Result::Failure, error
-        end
-
-        assert_equal AST::Types::Name.new_instance(name: "::Regexp"), type_env.get(lvar: :x) { raise }
-      end
-
-      yield_self do
-        type_env = original_env.with_annotations(lvar_types:
-                                                   {
-                                                     y: AST::Types::Name.new_instance(name: "::String")
-                                                   },
-                                                 self_type: parse_type("self")) do |_, _, _|
-          raise
-        end
-
-        assert_equal AST::Types::Name.new_instance(name: "::String"), type_env.get(lvar: :y) { raise }
-      end
-    end
-  end
-
   def test_with_annotation_ivar
     with_checker do |checker|
       const_env = ConstantEnv.new(factory: checker.factory, context: nil)
@@ -479,42 +372,6 @@ class TypeEnvTest < Minitest::Test
     end
   end
 
-  def test_join
-    with_checker do |checker|
-      const_env = ConstantEnv.new(factory: checker.factory, context: nil)
-      original_env = TypeEnv.new(subtyping: checker, const_env: const_env)
-
-      original_env.set(lvar: :z, type: AST::Types::Any.new)
-
-      envs = [
-        original_env.with_annotations(lvar_types:
-                                        {
-                                          x: AST::Types::Name.new_instance(name: "::String"),
-                                          y: AST::Types::Name.new_instance(name: "::Integer")
-                                        },
-                                      self_type: parse_type("self")),
-        original_env.with_annotations(lvar_types:
-                                        {
-                                          x: AST::Types::Name.new_instance(name: "::Integer"),
-                                          z: AST::Types::Name.new_instance(name: "::Regexp")
-                                        },
-                                      self_type: parse_type("self"))
-      ]
-
-      original_env.join!(envs)
-
-      assert_equal AST::Types::Union.build(types: [
-        AST::Types::Name.new_instance(name: "::String"),
-        AST::Types::Name.new_instance(name: "::Integer"),
-      ]), original_env.get(lvar: :x)
-
-      assert_equal AST::Types::Union.build(types: [AST::Types::Name.new_instance(name: "::Integer"),
-                                                   AST::Types::Nil.new]),
-                   original_env.get(lvar: :y)
-      assert_instance_of AST::Types::Any, original_env.get(lvar: :z)
-    end
-  end
-
   def test_build
     with_checker <<-EOS do |checker|
 class X end
@@ -539,7 +396,6 @@ $foo: String
                                          subtyping: checker,
                                          const_env: const_env)
 
-      assert_equal AST::Types::Name.new_instance(name: "::X"), env.get(lvar: :x)
       assert_equal AST::Types::Name.new_instance(name: "::Y"), env.get(ivar: :"@y")
       assert_equal AST::Types::Name.new_instance(name: "::Integer"), env.get(const: Names::Module.parse("Foo"))
       assert_equal AST::Types::Name.new_instance(name: "::String"), env.get(gvar: :"$foo")
