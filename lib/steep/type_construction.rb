@@ -1186,14 +1186,7 @@ module Steep
             if method_context&.method
               if method_context.super_method
                 types = method_context.super_method.method_types.map {|method_type|
-                  case method_type
-                  when Ruby::Signature::MethodType
-                    checker.factory.method_type(method_type, self_type: self_type).return_type
-                  when :any
-                    AST::Builtin.any_type
-                  else
-                    raise "Unexpected method_type: #{method_type.inspect}"
-                  end
+                  checker.factory.method_type(method_type, self_type: self_type).return_type
                 }
                 add_typing(node, type: union_type(*types))
               else
@@ -2099,42 +2092,23 @@ module Steep
         yield_self do
           results = method.types.flat_map do |method_type|
             Steep.logger.tagged method_type.to_s do
-              case method_type
-              when Interface::MethodType
-                zips = args.zips(method_type.params, method_type.block&.type)
+              zips = args.zips(method_type.params, method_type.block&.type)
 
-                zips.map do |arg_pairs|
-                  typing.new_child(node.loc.expression.yield_self {|l| l.begin_pos..l.end_pos }) do |child_typing|
-                    result = self.with_new_typing(child_typing).try_method_type(
-                      node,
-                      receiver_type: receiver_type,
-                      method_type: method_type,
-                      args: args,
-                      arg_pairs: arg_pairs,
-                      block_params: block_params,
-                      block_body: block_body,
-                      child_typing: child_typing,
-                      topdown_hint: topdown_hint
-                    )
-
-                    [result, child_typing, method_type]
-                  end
-                end
-              when :any
+              zips.map do |arg_pairs|
                 typing.new_child(node.loc.expression.yield_self {|l| l.begin_pos..l.end_pos }) do |child_typing|
-                  this = self.with_new_typing(child_typing)
+                  result = self.with_new_typing(child_typing).try_method_type(
+                    node,
+                    receiver_type: receiver_type,
+                    method_type: method_type,
+                    args: args,
+                    arg_pairs: arg_pairs,
+                    block_params: block_params,
+                    block_body: block_body,
+                    child_typing: child_typing,
+                    topdown_hint: topdown_hint
+                  )
 
-                  args.args.each do |arg|
-                    this.synthesize(arg)
-                  end
-
-                  if block_body
-                    this.synthesize(block_body)
-                  end
-
-                  this.add_typing node, type: AST::Builtin.any_type
-
-                  [[AST::Builtin.any_type, child_typing, :any]]
+                  [result, child_typing, method_type]
                 end
               end
             end
