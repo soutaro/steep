@@ -41,22 +41,14 @@ module Steep
 
     def add_typing(node, type, _context)
       typing[node] = type
-
-      if should_update
-        @last_update += 1
-        @should_update = false
-      end
+      @last_update += 1
 
       type
     end
 
     def add_context(range, context:)
       contexts.insert_context(range, context: context)
-
-      if should_update
-        @last_update += 1
-        @should_update = false
-      end
+      @last_update += 1
     end
 
     def has_type?(node)
@@ -178,7 +170,7 @@ module Steep
 
     def save!
       raise "Unexpected save!" unless parent
-      raise "Parent modified since #new_child" unless parent.last_update == parent_last_update
+      raise "Parent modified since #new_child: parent.last_update=#{parent.last_update}, parent_last_update=#{parent_last_update}" unless parent.last_update == parent_last_update
 
       each_typing do |node, type|
         parent.add_typing(node, type, nil)
