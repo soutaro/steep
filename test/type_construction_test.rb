@@ -210,8 +210,8 @@ x.f
       with_standard_construction(checker, source) do |construction, typing|
         construction.synthesize(source.node)
 
+        assert_no_error typing
         assert_equal parse_type("::_A"), typing.type_of(node: source.node)
-        assert_empty typing.errors
       end
     end
   end
@@ -4340,6 +4340,50 @@ x = 4
         assert_empty typing.errors
 
         assert_instance_of Steep::AST::Types::Bot, typing.type_of(node: source.node)
+      end
+    end
+  end
+
+  def test_assign_send_arg
+    with_checker <<-EOF do |checker|
+class AssignTest
+  def foo: (*untyped) -> void
+end
+    EOF
+      source = parse_ruby(<<-RUBY)
+AssignTest.new.foo(a = 1, b = a+1)
+      RUBY
+
+      with_standard_construction(checker, source) do |construction, typing|
+        _, _, context = construction.synthesize(source.node)
+
+        assert_no_error typing
+
+        assert_equal parse_type("::Integer"), context.lvar_env[:a]
+        assert_equal parse_type("::Numeric"), context.lvar_env[:b]
+      end
+    end
+  end
+
+  def test_assign_csend_arg
+    with_checker <<-EOF do |checker|
+class AssignTest
+  def foo: (*untyped) -> void
+end
+    EOF
+      source = parse_ruby(<<-RUBY)
+# @type var test: AssignTest?
+test = nil
+test&.foo(x = "", y = x + "")
+      RUBY
+
+      with_standard_construction(checker, source) do |construction, typing|
+        _, _, context = construction.synthesize(source.node)
+
+        assert_no_error typing
+
+        assert_equal parse_type("::String?"), context.lvar_env[:x]
+        assert_equal parse_type("::String?"), context.lvar_env[:y]
       end
     end
   end
