@@ -9,6 +9,7 @@ module Steep
         attr_reader :ignored_sources
         attr_reader :no_builtin
         attr_reader :vendor_dir
+        attr_reader :strictness_level
 
         def initialize(name, sources: [], libraries: [], signatures: [], ignored_sources: [])
           @name = name
@@ -17,6 +18,7 @@ module Steep
           @signatures = signatures
           @ignored_sources = ignored_sources
           @vendor_dir = nil
+          @strictness_level = :default
         end
 
         def initialize_copy(other)
@@ -26,6 +28,7 @@ module Steep
           @signatures = other.signatures.dup
           @ignored_sources = other.ignored_sources.dup
           @vendor_dir = other.vendor_dir
+          @strictness_level = other.strictness_level
         end
 
         def check(*args)
@@ -38,6 +41,10 @@ module Steep
 
         def library(*args)
           libraries.push(*args)
+        end
+
+        def typing_options(level)
+          @strictness_level = level
         end
 
         def signature(*args)
@@ -113,6 +120,13 @@ module Steep
           signature_patterns: target.signatures,
           options: Options.new.tap do |options|
             options.libraries.push(*target.libraries)
+
+            case target.strictness_level
+            when :strict
+              options.apply_strict_typing_options!
+            when :lenient
+              options.apply_lenient_typing_options!
+            end
 
             case target.vendor_dir
             when Array

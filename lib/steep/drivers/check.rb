@@ -56,9 +56,13 @@ module Steep
                   source_file.errors.reject do |error|
                     case
                     when error.is_a?(Errors::FallbackAny)
-                      !target.options.fallback_any_is_error
+                      target.options.allow_fallback_any
                     when error.is_a?(Errors::MethodDefinitionMissing)
                       target.options.allow_missing_definitions
+                    when error.is_a?(Errors::NoMethod)
+                      target.options.allow_unknown_method_calls
+                    when error.is_a?(Errors::UnknownConstantAssigned)
+                      target.options.allow_unknown_constant_assignment
                     end
                   end.each do |error|
                     error.print_to stdout

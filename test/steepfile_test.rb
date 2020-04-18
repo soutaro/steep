@@ -15,6 +15,7 @@ class SteepfileDSLTest < Minitest::Test
 
       Project::DSL.parse(project, <<EOF)
 target :app do
+  typing_options :strict
   check "app"
   ignore "app/views"
   vendor
@@ -40,6 +41,7 @@ EOF
         assert_equal ["set", "strong_json"], target.options.libraries
         assert_equal Pathname("vendor/sigs/stdlib"), target.options.vendored_stdlib_path
         assert_equal Pathname("vendor/sigs/gems"), target.options.vendored_gems_path
+        assert_equal false, target.options.allow_missing_definitions
       end
 
       project.targets.find {|target| target.name == :Gemfile }.tap do |target|
@@ -50,6 +52,7 @@ EOF
         assert_equal ["gemfile"], target.options.libraries
         assert_nil target.options.vendored_stdlib_path
         assert_equal Pathname("vendor/signatures/gems"), target.options.vendored_gems_path
+        assert_equal true, target.options.allow_missing_definitions
       end
     end
   end
