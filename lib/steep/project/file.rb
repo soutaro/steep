@@ -31,14 +31,6 @@ module Steep
         case status
         when TypeCheckStatus
           status.typing.errors
-          # errors.reject do |error|
-          #   case
-          #   when error.is_a?(Errors::FallbackAny)
-          #     !options.fallback_any_is_error
-          #   when error.is_a?(Errors::MethodDefinitionMissing)
-          #     options.allow_missing_definitions
-          #   end
-          # end
         else
           []
         end

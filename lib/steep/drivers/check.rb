@@ -53,7 +53,14 @@ module Steep
               status.type_check_sources.each do |source_file|
                 case source_file.status
                 when Project::SourceFile::TypeCheckStatus
-                  source_file.errors.each do |error|
+                  source_file.errors.reject do |error|
+                    case
+                    when error.is_a?(Errors::FallbackAny)
+                      !target.options.fallback_any_is_error
+                    when error.is_a?(Errors::MethodDefinitionMissing)
+                      target.options.allow_missing_definitions
+                    end
+                  end.each do |error|
                     error.print_to stdout
                   end
                 when Project::SourceFile::TypeCheckErrorStatus
