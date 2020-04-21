@@ -4387,4 +4387,42 @@ test&.foo(x = "", y = x + "")
       end
     end
   end
+
+  def test_and_occurence
+    with_checker do |checker|
+      source = parse_ruby(<<EOF)
+(x = [1,nil][0]) && x + 1
+
+y = x and return
+EOF
+
+      with_standard_construction(checker, source) do |construction, typing|
+        _, _, context = construction.synthesize(source.node)
+
+        assert_no_error typing
+
+        assert_equal parse_type("nil"), context.lvar_env[:x]
+        assert_equal parse_type("nil"), context.lvar_env[:y]
+      end
+    end
+  end
+
+  def test_or_occurence
+    with_checker do |checker|
+      source = parse_ruby(<<EOF)
+x = [1,nil][0]
+y = x
+y or return
+EOF
+
+      with_standard_construction(checker, source) do |construction, typing|
+        _, _, context = construction.synthesize(source.node)
+
+        assert_no_error typing
+
+        assert_equal parse_type("::Integer?"), context.lvar_env[:x]
+        assert_equal parse_type("::Integer"), context.lvar_env[:y]
+      end
+    end
+  end
 end

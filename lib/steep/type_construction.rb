@@ -1273,31 +1273,58 @@ module Steep
         when :and
           yield_self do
             left, right = node.children
-            truthy_vars = TypeConstruction.truthy_variables(left)
+            logic = TypeInference::Logic.new(subtyping: checker)
+            truthy, falsey = logic.nodes(node: left)
 
-            left_pair = synthesize(left)
-            right_pair = left_pair.constr.for_branch(right, truthy_vars: truthy_vars).synthesize(right)
+            left_type, constr = synthesize(left)
+            truthy_env, falsey_env = logic.environments(truthy_vars: truthy.vars,
+                                                        falsey_vars: falsey.vars,
+                                                        lvar_env: constr.context.lvar_env)
 
-            type = if left_pair.type.is_a?(AST::Types::Boolean)
-                     union_type(left_pair.type, right_pair.type)
+            right_type, constr = constr.update_lvar_env { truthy_env }.for_branch(right).synthesize(right)
+
+            type = if left_type.is_a?(AST::Types::Boolean)
+                     union_type(left_type, right_type)
                    else
-                     union_type(right_pair.type, AST::Builtin.nil_type)
+                     union_type(right_type, AST::Builtin.nil_type)
                    end
 
             add_typing(node,
                        type: type,
-                       constr: right_pair.constr.update_lvar_env {
-                         context.lvar_env.join(left_pair.context.lvar_env, right_pair.context.lvar_env)
-                       })
+                       constr: constr.update_lvar_env do
+                         if right_type.is_a?(AST::Types::Bot)
+                           falsey_env
+                         else
+                           context.lvar_env.join(falsey_env, constr.context.lvar_env)
+                         end
+                       end)
           end
 
         when :or
           yield_self do
-            c1, c2 = node.children
-            t1 = synthesize(c1, hint: hint).type
-            t2 = synthesize(c2, hint: unwrap(t1)).type
-            type = union_type(unwrap(t1), t2)
-            add_typing(node, type: type)
+            left, right = node.children
+            logic = TypeInference::Logic.new(subtyping: checker)
+            truthy, falsey = logic.nodes(node: left)
+
+            left_type, constr = synthesize(left, hint: hint)
+            truthy_env, falsey_env = logic.environments(truthy_vars: truthy.vars,
+                                                        falsey_vars: falsey.vars,
+                                                        lvar_env: constr.context.lvar_env)
+            left_type_t, _ = logic.partition_union(left_type)
+
+            right_type, constr = constr.update_lvar_env { falsey_env }.for_branch(right).synthesize(right, hint: left_type_t)
+
+            type = union_type(left_type_t, right_type)
+
+            add_typing(node,
+                       type: type,
+                       constr: constr.update_lvar_env do
+                         if right_type.is_a?(AST::Types::Bot)
+                           truthy_env
+                         else
+                           context.lvar_env.join(truthy_env, constr.context.lvar_env)
+                         end
+                       end)
           end
 
         when :if
