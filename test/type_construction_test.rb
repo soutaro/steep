@@ -4149,7 +4149,7 @@ y = x || []
       with_standard_construction(checker, source) do |construction, typing|
         pair = construction.synthesize(source.node)
 
-        assert_empty typing.errors
+        assert_no_error typing
         assert_equal parse_type("::Array[::Integer]?"), pair.context.lvar_env[:x]
         assert_equal parse_type("::Array[::Integer]"), pair.context.lvar_env[:y]
       end
@@ -4384,6 +4384,42 @@ test&.foo(x = "", y = x + "")
 
         assert_equal parse_type("::String?"), context.lvar_env[:x]
         assert_equal parse_type("::String?"), context.lvar_env[:y]
+      end
+    end
+  end
+
+  def test_if_return_2
+    with_checker do |checker|
+      source = parse_ruby(<<-EOF)
+a = [3, nil][0]
+if a
+  puts
+else
+  return
+end
+
+a + 1
+      EOF
+
+      with_standard_construction(checker, source) do |construction, typing|
+        construction.synthesize(source.node)
+        assert_no_error typing
+      end
+    end
+  end
+
+  def test_unless_return
+    with_checker do |checker|
+      source = parse_ruby(<<-EOF)
+a = [3, nil][0]
+return unless a
+
+a + 1
+      EOF
+
+      with_standard_construction(checker, source) do |construction, typing|
+        construction.synthesize(source.node)
+        assert_no_error typing
       end
     end
   end

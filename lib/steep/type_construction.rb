@@ -1330,26 +1330,48 @@ module Steep
         when :if
           cond, true_clause, false_clause = node.children
 
-          cond_pair = synthesize(cond)
+          cond_type, constr = synthesize(cond)
+          logic = TypeInference::Logic.new(subtyping: checker)
 
-          truthy_vars = TypeConstruction.truthy_variables(cond)
+          truthys, falseys = logic.nodes(node: cond)
+          truthy_env, falsey_env = logic.environments(truthy_vars: truthys.vars,
+                                                      falsey_vars: falseys.vars,
+                                                      lvar_env: constr.context.lvar_env)
 
           if true_clause
-            true_constr = cond_pair.constr.for_branch(true_clause, truthy_vars: truthy_vars)
-            typing.add_context_for_node(true_clause, context: true_constr.context)
-            true_pair = true_constr.synthesize(true_clause, hint: hint)
-          end
-          if false_clause
-            false_constr = cond_pair.constr.for_branch(false_clause)
-            typing.add_context_for_node(false_clause, context: false_constr.context)
-            false_pair = false_constr.synthesize(false_clause, hint: hint)
+            true_pair = constr
+                          .update_lvar_env { truthy_env }
+                          .for_branch(true_clause)
+                          .tap {|constr| typing.add_context_for_node(true_clause, context: constr.context) }
+                          .synthesize(true_clause, hint: hint)
           end
 
-          constr = cond_pair.constr.update_lvar_env do |env|
+          if false_clause
+            false_pair = constr
+                           .update_lvar_env { falsey_env }
+                           .for_branch(false_clause)
+                           .tap {|constr| typing.add_context_for_node(false_clause, context: constr.context) }
+                           .synthesize(false_clause, hint: hint)
+          end
+
+          constr = constr.update_lvar_env do |env|
             envs = []
 
-            envs << true_pair.context.lvar_env if true_pair && !true_pair.type.is_a?(AST::Types::Bot)
-            envs << false_pair.context.lvar_env if false_pair && !false_pair.type.is_a?(AST::Types::Bot)
+            if true_pair
+              unless true_pair.type.is_a?(AST::Types::Bot)
+                envs << true_pair.context.lvar_env
+              end
+            else
+              envs << truthy_env
+            end
+
+            if false_pair
+              unless false_pair.type.is_a?(AST::Types::Bot)
+                envs << false_pair.context.lvar_env
+              end
+            else
+              envs << falsey_env
+            end
 
             env.join(*envs)
           end
