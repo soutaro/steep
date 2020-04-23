@@ -1733,6 +1733,66 @@ end while true
     end
   end
 
+  def test_while_gets
+    with_checker do |checker|
+      source = parse_ruby(<<-EOF)
+while line = gets
+  line + ""
+end
+      EOF
+
+      with_standard_construction(checker, source) do |construction, typing|
+        construction.synthesize(source.node)
+
+        assert_no_error typing
+      end
+    end
+  end
+
+  def test_until_gets
+    with_checker do |checker|
+      source = parse_ruby(<<-EOF)
+until line = gets
+  line + ""
+end
+      EOF
+
+      with_standard_construction(checker, source) do |construction, typing|
+        construction.synthesize(source.node)
+
+        assert_equal 1, typing.errors.size
+        typing.errors[0].tap do |error|
+          assert_instance_of Steep::Errors::NoMethod, error
+          assert_equal parse_type("nil"), error.type
+          assert_equal :+, error.method
+        end
+      end
+    end
+  end
+
+  def test_post_loop
+    with_checker do |checker|
+      source = parse_ruby(<<-EOF)
+line = gets
+
+begin
+  line + ""
+end while line = gets
+      EOF
+
+      with_standard_construction(checker, source) do |construction, typing|
+        construction.synthesize(source.node)
+
+        assert_equal 1, typing.errors.size
+        typing.errors[0].tap do |error|
+          assert_instance_of Steep::Errors::NoMethod, error
+          assert_equal parse_type("::String?"), error.type
+          assert_equal :+, error.method
+        end
+      end
+    end
+  end
+
   def test_range
     with_checker do |checker|
       source = parse_ruby(<<-EOF)

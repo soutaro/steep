@@ -1575,18 +1575,50 @@ module Steep
         when :masgn
           type_masgn(node)
 
-        when :while, :while_post, :until, :until_post
+        when :while, :until
+          yield_self do
+            cond, body = node.children
+            _, constr = synthesize(cond)
+
+            logic = TypeInference::Logic.new(subtyping: checker)
+            truthy, falsey = logic.nodes(node: cond)
+
+            case node.type
+            when :while
+              body_env, exit_env = logic.environments(truthy_vars: truthy.vars, falsey_vars: falsey.vars, lvar_env: constr.context.lvar_env)
+            when :until
+              exit_env, body_env = logic.environments(truthy_vars: truthy.vars, falsey_vars: falsey.vars, lvar_env: constr.context.lvar_env)
+            end
+
+            if body
+              _, body_constr = constr
+                                 .update_lvar_env { body_env.pin_assignments }
+                                 .for_branch(body,
+                                             break_context: TypeInference::Context::BreakContext.new(
+                                               break_type: nil,
+                                               next_type: nil
+                                             ))
+                                 .tap {|constr| typing.add_context_for_node(body, context: constr.context) }
+                                 .synthesize(body)
+
+              constr = constr.update_lvar_env {|env| env.join(exit_env, body_constr.context.lvar_env) }
+            else
+              constr = constr.update_lvar_env { exit_env }
+            end
+
+            add_typing(node, type: AST::Builtin.nil_type, constr: constr)
+          end
+
+        when :while_post, :until_post
           yield_self do
             cond, body = node.children
 
             cond_pair = synthesize(cond)
-            truthy_vars = node.type == :while ? TypeConstruction.truthy_variables(cond) : Set.new
 
             if body
               for_loop = cond_pair.constr
                            .update_lvar_env {|env| env.pin_assignments }
                            .for_branch(body,
-                                       truthy_vars: truthy_vars,
                                        break_context: TypeInference::Context::BreakContext.new(
                                          break_type: nil,
                                          next_type: nil
@@ -1597,9 +1629,7 @@ module Steep
 
               constr = cond_pair.constr.update_lvar_env {|env| env.join(env, body_pair.context.lvar_env) }
 
-              add_typing(node,
-                         type: AST::Builtin.nil_type,
-                         constr: constr)
+              add_typing(node, type: AST::Builtin.nil_type, constr: constr)
             else
               add_typing(node, type: AST::Builtin.nil_type, constr: cond_pair.constr)
             end
