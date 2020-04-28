@@ -1273,56 +1273,105 @@ module Steep
         when :and
           yield_self do
             left, right = node.children
-            truthy_vars = TypeConstruction.truthy_variables(left)
+            logic = TypeInference::Logic.new(subtyping: checker)
+            truthy, falsey = logic.nodes(node: left)
 
-            left_pair = synthesize(left)
-            right_pair = left_pair.constr.for_branch(right, truthy_vars: truthy_vars).synthesize(right)
+            left_type, constr = synthesize(left)
+            truthy_env, falsey_env = logic.environments(truthy_vars: truthy.vars,
+                                                        falsey_vars: falsey.vars,
+                                                        lvar_env: constr.context.lvar_env)
 
-            type = if left_pair.type.is_a?(AST::Types::Boolean)
-                     union_type(left_pair.type, right_pair.type)
+            right_type, constr = constr.update_lvar_env { truthy_env }.for_branch(right).synthesize(right)
+
+            type = if left_type.is_a?(AST::Types::Boolean)
+                     union_type(left_type, right_type)
                    else
-                     union_type(right_pair.type, AST::Builtin.nil_type)
+                     union_type(right_type, AST::Builtin.nil_type)
                    end
 
             add_typing(node,
                        type: type,
-                       constr: right_pair.constr.update_lvar_env {
-                         context.lvar_env.join(left_pair.context.lvar_env, right_pair.context.lvar_env)
-                       })
+                       constr: constr.update_lvar_env do
+                         if right_type.is_a?(AST::Types::Bot)
+                           falsey_env
+                         else
+                           context.lvar_env.join(falsey_env, constr.context.lvar_env)
+                         end
+                       end)
           end
 
         when :or
           yield_self do
-            c1, c2 = node.children
-            t1 = synthesize(c1, hint: hint).type
-            t2 = synthesize(c2, hint: unwrap(t1)).type
-            type = union_type(unwrap(t1), t2)
-            add_typing(node, type: type)
+            left, right = node.children
+            logic = TypeInference::Logic.new(subtyping: checker)
+            truthy, falsey = logic.nodes(node: left)
+
+            left_type, constr = synthesize(left, hint: hint)
+            truthy_env, falsey_env = logic.environments(truthy_vars: truthy.vars,
+                                                        falsey_vars: falsey.vars,
+                                                        lvar_env: constr.context.lvar_env)
+            left_type_t, _ = logic.partition_union(left_type)
+
+            right_type, constr = constr.update_lvar_env { falsey_env }.for_branch(right).synthesize(right, hint: left_type_t)
+
+            type = union_type(left_type_t, right_type)
+
+            add_typing(node,
+                       type: type,
+                       constr: constr.update_lvar_env do
+                         if right_type.is_a?(AST::Types::Bot)
+                           truthy_env
+                         else
+                           context.lvar_env.join(truthy_env, constr.context.lvar_env)
+                         end
+                       end)
           end
 
         when :if
           cond, true_clause, false_clause = node.children
 
-          cond_pair = synthesize(cond)
+          cond_type, constr = synthesize(cond)
+          logic = TypeInference::Logic.new(subtyping: checker)
 
-          truthy_vars = TypeConstruction.truthy_variables(cond)
+          truthys, falseys = logic.nodes(node: cond)
+          truthy_env, falsey_env = logic.environments(truthy_vars: truthys.vars,
+                                                      falsey_vars: falseys.vars,
+                                                      lvar_env: constr.context.lvar_env)
 
           if true_clause
-            true_constr = cond_pair.constr.for_branch(true_clause, truthy_vars: truthy_vars)
-            typing.add_context_for_node(true_clause, context: true_constr.context)
-            true_pair = true_constr.synthesize(true_clause, hint: hint)
-          end
-          if false_clause
-            false_constr = cond_pair.constr.for_branch(false_clause)
-            typing.add_context_for_node(false_clause, context: false_constr.context)
-            false_pair = false_constr.synthesize(false_clause, hint: hint)
+            true_pair = constr
+                          .update_lvar_env { truthy_env }
+                          .for_branch(true_clause)
+                          .tap {|constr| typing.add_context_for_node(true_clause, context: constr.context) }
+                          .synthesize(true_clause, hint: hint)
           end
 
-          constr = cond_pair.constr.update_lvar_env do |env|
+          if false_clause
+            false_pair = constr
+                           .update_lvar_env { falsey_env }
+                           .for_branch(false_clause)
+                           .tap {|constr| typing.add_context_for_node(false_clause, context: constr.context) }
+                           .synthesize(false_clause, hint: hint)
+          end
+
+          constr = constr.update_lvar_env do |env|
             envs = []
 
-            envs << true_pair.context.lvar_env if true_pair && !true_pair.type.is_a?(AST::Types::Bot)
-            envs << false_pair.context.lvar_env if false_pair && !false_pair.type.is_a?(AST::Types::Bot)
+            if true_pair
+              unless true_pair.type.is_a?(AST::Types::Bot)
+                envs << true_pair.context.lvar_env
+              end
+            else
+              envs << truthy_env
+            end
+
+            if false_pair
+              unless false_pair.type.is_a?(AST::Types::Bot)
+                envs << false_pair.context.lvar_env
+              end
+            else
+              envs << falsey_env
+            end
 
             env.join(*envs)
           end
@@ -1526,18 +1575,50 @@ module Steep
         when :masgn
           type_masgn(node)
 
-        when :while, :while_post, :until, :until_post
+        when :while, :until
+          yield_self do
+            cond, body = node.children
+            _, constr = synthesize(cond)
+
+            logic = TypeInference::Logic.new(subtyping: checker)
+            truthy, falsey = logic.nodes(node: cond)
+
+            case node.type
+            when :while
+              body_env, exit_env = logic.environments(truthy_vars: truthy.vars, falsey_vars: falsey.vars, lvar_env: constr.context.lvar_env)
+            when :until
+              exit_env, body_env = logic.environments(truthy_vars: truthy.vars, falsey_vars: falsey.vars, lvar_env: constr.context.lvar_env)
+            end
+
+            if body
+              _, body_constr = constr
+                                 .update_lvar_env { body_env.pin_assignments }
+                                 .for_branch(body,
+                                             break_context: TypeInference::Context::BreakContext.new(
+                                               break_type: nil,
+                                               next_type: nil
+                                             ))
+                                 .tap {|constr| typing.add_context_for_node(body, context: constr.context) }
+                                 .synthesize(body)
+
+              constr = constr.update_lvar_env {|env| env.join(exit_env, body_constr.context.lvar_env) }
+            else
+              constr = constr.update_lvar_env { exit_env }
+            end
+
+            add_typing(node, type: AST::Builtin.nil_type, constr: constr)
+          end
+
+        when :while_post, :until_post
           yield_self do
             cond, body = node.children
 
             cond_pair = synthesize(cond)
-            truthy_vars = node.type == :while ? TypeConstruction.truthy_variables(cond) : Set.new
 
             if body
               for_loop = cond_pair.constr
                            .update_lvar_env {|env| env.pin_assignments }
                            .for_branch(body,
-                                       truthy_vars: truthy_vars,
                                        break_context: TypeInference::Context::BreakContext.new(
                                          break_type: nil,
                                          next_type: nil
@@ -1548,9 +1629,7 @@ module Steep
 
               constr = cond_pair.constr.update_lvar_env {|env| env.join(env, body_pair.context.lvar_env) }
 
-              add_typing(node,
-                         type: AST::Builtin.nil_type,
-                         constr: constr)
+              add_typing(node, type: AST::Builtin.nil_type, constr: constr)
             else
               add_typing(node, type: AST::Builtin.nil_type, constr: cond_pair.constr)
             end
@@ -2802,21 +2881,6 @@ module Steep
         else
           type
         end
-      end
-    end
-
-    def self.truthy_variables(node)
-      case node&.type
-      when :lvar
-        Set.new([node.children.first.name])
-      when :lvasgn
-        Set.new([node.children.first.name]) + truthy_variables(node.children[1])
-      when :and
-        truthy_variables(node.children[0]) + truthy_variables(node.children[1])
-      when :begin
-        truthy_variables(node.children.last)
-      else
-        Set.new()
       end
     end
 

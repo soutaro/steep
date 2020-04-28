@@ -1733,6 +1733,66 @@ end while true
     end
   end
 
+  def test_while_gets
+    with_checker do |checker|
+      source = parse_ruby(<<-EOF)
+while line = gets
+  line + ""
+end
+      EOF
+
+      with_standard_construction(checker, source) do |construction, typing|
+        construction.synthesize(source.node)
+
+        assert_no_error typing
+      end
+    end
+  end
+
+  def test_until_gets
+    with_checker do |checker|
+      source = parse_ruby(<<-EOF)
+until line = gets
+  line + ""
+end
+      EOF
+
+      with_standard_construction(checker, source) do |construction, typing|
+        construction.synthesize(source.node)
+
+        assert_equal 1, typing.errors.size
+        typing.errors[0].tap do |error|
+          assert_instance_of Steep::Errors::NoMethod, error
+          assert_equal parse_type("nil"), error.type
+          assert_equal :+, error.method
+        end
+      end
+    end
+  end
+
+  def test_post_loop
+    with_checker do |checker|
+      source = parse_ruby(<<-EOF)
+line = gets
+
+begin
+  line + ""
+end while line = gets
+      EOF
+
+      with_standard_construction(checker, source) do |construction, typing|
+        construction.synthesize(source.node)
+
+        assert_equal 1, typing.errors.size
+        typing.errors[0].tap do |error|
+          assert_instance_of Steep::Errors::NoMethod, error
+          assert_equal parse_type("::String?"), error.type
+          assert_equal :+, error.method
+        end
+      end
+    end
+  end
+
   def test_range
     with_checker do |checker|
       source = parse_ruby(<<-EOF)
@@ -2860,14 +2920,6 @@ EOF
 
         assert_empty typing.errors
       end
-    end
-  end
-
-  def test_truthy_variables
-    with_checker do
-      assert_equal Set.new([:x]), TypeConstruction.truthy_variables(parse_ruby("x = 1").node)
-      assert_equal Set.new([:x, :y]), TypeConstruction.truthy_variables(parse_ruby("x = y = 1").node)
-      assert_equal Set.new([:x]), TypeConstruction.truthy_variables(parse_ruby("(x = 1) && f()").node)
     end
   end
 
@@ -4149,7 +4201,7 @@ y = x || []
       with_standard_construction(checker, source) do |construction, typing|
         pair = construction.synthesize(source.node)
 
-        assert_empty typing.errors
+        assert_no_error typing
         assert_equal parse_type("::Array[::Integer]?"), pair.context.lvar_env[:x]
         assert_equal parse_type("::Array[::Integer]"), pair.context.lvar_env[:y]
       end
@@ -4384,6 +4436,80 @@ test&.foo(x = "", y = x + "")
 
         assert_equal parse_type("::String?"), context.lvar_env[:x]
         assert_equal parse_type("::String?"), context.lvar_env[:y]
+      end
+    end
+  end
+
+  def test_if_return_2
+    with_checker do |checker|
+      source = parse_ruby(<<-EOF)
+a = [3, nil][0]
+if a
+  puts
+else
+  return
+end
+
+a + 1
+      EOF
+
+      with_standard_construction(checker, source) do |construction, typing|
+        construction.synthesize(source.node)
+        assert_no_error typing
+      end
+    end
+  end
+
+  def test_unless_return
+    with_checker do |checker|
+      source = parse_ruby(<<-EOF)
+a = [3, nil][0]
+return unless a
+
+a + 1
+      EOF
+
+      with_standard_construction(checker, source) do |construction, typing|
+        construction.synthesize(source.node)
+        assert_no_error typing
+      end
+    end
+  end
+
+  def test_and_occurence
+    with_checker do |checker|
+      source = parse_ruby(<<EOF)
+(x = [1,nil][0]) && x + 1
+
+y = x and return
+EOF
+
+      with_standard_construction(checker, source) do |construction, typing|
+        _, _, context = construction.synthesize(source.node)
+
+        assert_no_error typing
+
+        assert_equal parse_type("nil"), context.lvar_env[:x]
+        assert_equal parse_type("nil"), context.lvar_env[:y]
+      end
+    end
+  end
+
+  def test_or_occurence
+    with_checker do |checker|
+      source = parse_ruby(<<EOF)
+x = [1,nil][0]
+y = x
+y or return
+EOF
+
+      with_standard_construction(checker, source) do |construction, typing|
+        _, _, context = construction.synthesize(source.node)
+
+        assert_no_error typing
+
+        assert_equal parse_type("::Integer?"), context.lvar_env[:x]
+        assert_equal parse_type("::Integer"), context.lvar_env[:y]
       end
     end
   end
