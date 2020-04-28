@@ -2884,21 +2884,6 @@ module Steep
       end
     end
 
-    def self.truthy_variables(node)
-      case node&.type
-      when :lvar
-        Set.new([node.children.first.name])
-      when :lvasgn
-        Set.new([node.children.first.name]) + truthy_variables(node.children[1])
-      when :and
-        truthy_variables(node.children[0]) + truthy_variables(node.children[1])
-      when :begin
-        truthy_variables(node.children.last)
-      else
-        Set.new()
-      end
-    end
-
     def self.value_variables(node)
       case node&.type
       when :lvar

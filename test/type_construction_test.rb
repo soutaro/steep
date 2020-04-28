@@ -2923,14 +2923,6 @@ EOF
     end
   end
 
-  def test_truthy_variables
-    with_checker do
-      assert_equal Set.new([:x]), TypeConstruction.truthy_variables(parse_ruby("x = 1").node)
-      assert_equal Set.new([:x, :y]), TypeConstruction.truthy_variables(parse_ruby("x = y = 1").node)
-      assert_equal Set.new([:x]), TypeConstruction.truthy_variables(parse_ruby("(x = 1) && f()").node)
-    end
-  end
-
   def test_if_unwrap
     with_checker do |checker|
       source = parse_ruby(<<EOF)
