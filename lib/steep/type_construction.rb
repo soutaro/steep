@@ -943,7 +943,9 @@ module Steep
             var = node.children[0]
             rhs = node.children[1]
 
-            node_type, constr = synthesize(rhs, hint: hint)
+            type = context.lvar_env[var.name]
+
+            node_type, constr = synthesize(rhs, hint: type)
 
             constr_ = constr.update_lvar_env do |env|
               env.assign(var.name, node: node, type: node_type) do |declared_type, type, result|

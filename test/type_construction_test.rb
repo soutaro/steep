@@ -530,6 +530,26 @@ end
     end
   end
 
+  def test_def_optional_param
+    with_checker <<RBS do |checker|
+class TestDefOptional
+  def foo: (?Array[String], ?b: Hash[Symbol, Integer]) -> void
+end
+RBS
+      source = parse_ruby(<<-RUBY)
+class TestDefOptional
+  def foo(a = [], b: {})
+  end
+end
+      RUBY
+
+      with_standard_construction(checker, source) do |construction, typing|
+        construction.synthesize(source.node)
+        assert_no_error typing
+      end
+    end
+  end
+
   def test_block
     with_checker do |checker|
       source = parse_ruby(<<-EOF)
