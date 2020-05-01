@@ -77,7 +77,14 @@ end
     context = Context.new(
       block_context: nil,
       method_context: nil,
-      module_context: nil,
+      module_context: Context::ModuleContext.new(
+        instance_type: nil,
+        module_type: nil,
+        implement_name: nil,
+        current_namespace: Namespace.root,
+        const_env: const_env,
+        class_name: nil
+      ),
       break_context: nil,
       self_type: self_type,
       type_env: type_env,
@@ -1947,7 +1954,7 @@ def f(x)
   if x
     x = "forever"
     x + ""
-  end 
+  end
 end
       RUBY
 
@@ -4339,7 +4346,7 @@ b = 123
         # a = ...
         typing.context_at(line: 0, column: 0).tap do |ctx|
           assert_instance_of Context, ctx
-          assert_nil ctx.module_context
+          assert_equal construction.module_context, ctx.module_context
           assert_nil ctx.method_context
           assert_nil ctx.block_context
           assert_nil ctx.break_context
@@ -4530,6 +4537,23 @@ EOF
 
         assert_equal parse_type("::Integer?"), context.lvar_env[:x]
         assert_equal parse_type("::Integer"), context.lvar_env[:y]
+      end
+    end
+  end
+
+  def test_heredoc
+    with_checker do |checker|
+      source = parse_ruby(<<'EOF')
+q = <<-QUERY
+  #{[1].map { "" }}
+QUERY
+q
+EOF
+
+      with_standard_construction(checker, source) do |construction, typing|
+        _, _, context = construction.synthesize(source.node)
+
+        assert_no_error typing
       end
     end
   end

@@ -1,52 +1,97 @@
 module Steep
   module TypeInference
     class ContextArray
-      attr_reader :buffer
-      attr_reader :contexts
-      attr_reader :range
+      class Entry
+        attr_reader :range, :context, :sub_entries
 
-      def initialize(buffer:, range: 0..buffer.content.size)
-        @contexts = Array.new(buffer.content.size + 1)
-        @range = range
-        @buffer = buffer
+        def initialize(range:, context:)
+          @range = range
+          @context = context
+          @sub_entries = Set[].compare_by_identity
+        end
       end
 
-      def self.from_source(source:, range: nil)
+      attr_reader :buffer
+      attr_reader :root
+
+      def initialize(buffer:, context:, range: 0..buffer.content.size)
+        @buffer = buffer
+        @root = Entry.new(range: range, context: context)
+      end
+
+      def range
+        root.range
+      end
+
+      def self.from_source(source:, range: nil, context: nil)
         content = if source.node
                     source.node.location.expression.source_buffer.source
                   else
                     ""
                   end
         buffer = AST::Buffer.new(name: source.path, content: content)
-        new(buffer: buffer, range: range || 0..buffer.content.size)
+        new(buffer: buffer, context: context, range: range || 0..buffer.content.size)
       end
 
-      def insert_context(range, context:)
-        unless self.range === range.begin && self.range === range.end
-          raise "Unexpected pos: range=#{self.range}, inserted=#{range}"
+      def insert_context(range, context:, entry: self.root)
+        entry.sub_entries.each do |sub|
+          next if sub.range.begin < range.begin && range.end <= sub.range.end
+          next if range.begin < sub.range.begin && sub.range.end <= range.end
+          next if range.end <= sub.range.begin
+          next if sub.range.end <= range.begin
+
+          raise "Range crossing: sub range=#{sub.range}, new range=#{range}"
         end
 
-        # The first 1 element can be different
-        #
-        #  x = 1 \n
-        # ^ ^ ^ ^x       Position x would be associated two contexts twice,
-        #  y = 2 \n      first for the :lvasgn, next for the :begin.
-        # ^ ^ ^ ^
-        unless contexts[range].drop(1).yield_self {|sub| sub.all? {|c| c == sub[0] } }
-          raise "Contexts for range on insert should be the same: range=#{range}"
+        sup = entry.sub_entries.find do |sub|
+          sub.range.begin < range.begin && range.end <= sub.range.end
         end
 
-        contexts.fill(context, range)
+        if sup
+          insert_context(range, context: context, entry: sup)
+        else
+          subs = entry.sub_entries.select do |sub|
+            range.begin < sub.range.begin && sub.range.end <= range.end
+          end
 
-        self
+          new_entry = Entry.new(range: range, context: context)
+          entry.sub_entries.subtract(subs)
+          new_entry.sub_entries.merge(subs)
+          entry.sub_entries << new_entry
+        end
+      end
+
+      def each_entry
+        if block_given?
+          es = [root]
+
+          until es.empty?
+            e = es.pop
+            es.push(*e.sub_entries.to_a)
+
+            yield e
+          end
+        else
+          enum_for :each_entry
+        end
+      end
+
+      def context_at(index, entry: self.root)
+        return nil if index < entry.range.begin || entry.range.end < index
+
+        sub = entry.sub_entries.find do |sub|
+          sub.range.begin <= index && index <= sub.range.end
+        end
+
+        if sub
+          context_at(index, entry: sub)
+        else
+          entry.context
+        end
       end
 
       def [](index)
-        unless range === index
-          raise "Index out of range: range=#{range}, index=#{index}"
-        end
-
-        contexts[index]
+        context_at(index)
       end
 
       def at(line:, column:)
@@ -55,9 +100,10 @@ module Steep
       end
 
       def merge(subtree)
-        offset = subtree.range.begin
-        contexts[subtree.range] = subtree.contexts[subtree.range].map!.with_index do |c, i|
-          c || contexts[offset + i]
+        subtree.each_entry do |entry|
+          if entry.context
+            insert_context entry.range, context: entry.context
+          end
         end
       end
     end

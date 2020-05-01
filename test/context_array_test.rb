@@ -6,44 +6,47 @@ class ContextArrayTest < Minitest::Test
   include FactoryHelper
 
   ContextArray = Steep::TypeInference::ContextArray
+  AST = Steep::AST
 
-  def test_array
+  def dump(array, entry = array.root, prefix: "")
+    puts "#{prefix}#{entry.range} => #{entry.context}"
+    entry.sub_entries.each do |sub|
+      dump array, sub, prefix: "#{prefix}  "
+    end
+  end
+
+  def test_array_1
     with_factory do
-      source = parse_ruby(<<EOF)
-foo { }
-bar do |x|
-  foo
-end
+      buffer = AST::Buffer.new(name: :buf, content: <<EOF)
+01234567890123456789
 EOF
 
-      array = ContextArray.from_source(source: source)
+      array = ContextArray.new(buffer: buffer, context: :root)
+      array.insert_context 1..10, context: :context1
+      array.insert_context 5..8, context: :context2
+      array.insert_context 3..8, context: :context3
 
-      assert_nil array[0]
+      assert_equal :root, array[0]
+      assert_equal :root, array[11]
+      assert_equal :context1, array[1]
+      assert_equal :context1, array[10]
+      assert_equal :context2, array[5]
+      assert_equal :context2, array[8]
+      assert_equal :context3, array[3]
+    end
+  end
 
-      array.insert_context(5..6, context: :context1)
+  def test_array_2
+    with_factory do
+      buffer = AST::Buffer.new(name: :buf, content: <<EOF)
+01234567890123456789
+EOF
 
-      array.insert_context(
-        dig(source.node, 1, 1).loc.end.end_pos..dig(source.node, 1).loc.end.begin_pos,
-        context: :context2
-      )
+      array = ContextArray.new(buffer: buffer, context: :root)
+      array.insert_context 1..5, context: :context1
+      array.insert_context 5..8, context: :context2
 
-      assert_nil array[4]
       assert_equal :context1, array[5]
-      assert_equal :context1, array[6]
-      assert_nil array[7]
-
-      assert_nil array.at(line: 1, column: 4)
-      assert_equal :context1, array.at(line: 1, column: 5)
-      assert_equal :context1, array.at(line: 1, column: 6)
-      assert_nil array.at(line: 1, column: 7)
-
-      assert_nil array.at(line: 2, column: 9)
-      assert_equal :context2, array.at(line: 2, column: 10)
-      assert_equal :context2, array.at(line: 3, column: 3)
-      assert_equal :context2, array.at(line: 4, column: 0)
-      assert_nil array.at(line: 4, column: 1)
-
-      assert_nil array.at(line: 4, column: 3)
     end
   end
 
@@ -68,7 +71,7 @@ EOF
       assert_equal :context2, array[range3.begin]
       assert_equal :context2, array[range3.end]
 
-      ContextArray.new(buffer: array.buffer, range: range2).tap do |sub|
+      ContextArray.new(buffer: array.buffer, range: range2, context: nil).tap do |sub|
         sub.insert_context(range3, context: :context3)
 
         assert_nil sub[range2.begin]

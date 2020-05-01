@@ -154,7 +154,7 @@ module Steep
       child = self.class.new(source: source,
                              parent: self,
                              root_context: root_context,
-                             contexts: TypeInference::ContextArray.new(buffer: contexts.buffer, range: range))
+                             contexts: TypeInference::ContextArray.new(buffer: contexts.buffer, range: range, context: nil))
       @should_update = true
 
       if block_given?
