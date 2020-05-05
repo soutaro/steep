@@ -2,6 +2,11 @@
 
 ## master
 
+## 0.15.0 (2020-05-05)
+
+* Add type checking configuration to dsl ([#132](https://github.com/soutaro/steep/pull/132))
+* More flow sensitive type checking
+
 ## 0.14.0 (2020-02-24)
 
 * Implementat LSP _completion_. ([#119](https://github.com/soutaro/steep/pull/119))
