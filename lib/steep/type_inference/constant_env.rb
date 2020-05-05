@@ -12,7 +12,7 @@ module Steep
         @cache = {}
         @factory = factory
         @context = context
-        @table = Ruby::Signature::ConstantTable.new(builder: factory.definition_builder)
+        @table = RBS::ConstantTable.new(builder: factory.definition_builder)
       end
 
       def namespace

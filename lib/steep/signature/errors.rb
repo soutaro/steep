@@ -5,7 +5,7 @@ module Steep
         attr_reader :location
 
         def loc_to_s
-          Ruby::Signature::Location.to_string location
+          RBS::Location.to_string location
         end
 
         def to_s

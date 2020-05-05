@@ -2,11 +2,11 @@ require "test_helper"
 
 class TypeFactoryTest < Minitest::Test
   def parse_type(str, variables: [])
-    Ruby::Signature::Parser.parse_type(str, variables: variables)
+    RBS::Parser.parse_type(str, variables: variables)
   end
 
   def parse_method_type(str)
-    Ruby::Signature::Parser.parse_method_type(str)
+    RBS::Parser.parse_method_type(str)
   end
 
   def assert_overload_with(c, *types)
@@ -116,7 +116,7 @@ class TypeFactoryTest < Minitest::Test
         assert_instance_of Types::Void, type.return_type
       end
 
-      factory.type(Ruby::Signature::Types::Variable.new(name: :T, location: nil)) do |type|
+      factory.type(RBS::Types::Variable.new(name: :T, location: nil)) do |type|
         assert_instance_of Types::Var, type
         assert_equal :T, type.name
       end

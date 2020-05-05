@@ -32,7 +32,7 @@ module Steep
             env.set(const: name, type: type)
           end
           signatures.name_to_global.each do |name, global|
-            type = signatures.absolute_type(global.type, namespace: Ruby::Signature::Namespace.root) {|ty| ty.name.absolute! }
+            type = signatures.absolute_type(global.type, namespace: RBS::Namespace.root) {|ty| ty.name.absolute! }
             env.set(gvar: name, type: subtyping.factory.type(type))
           end
         end

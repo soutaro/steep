@@ -62,12 +62,12 @@ end
   Failure = Subtyping::Result::Failure
 
   def parse_type(string, checker:, variables: [])
-    type = Ruby::Signature::Parser.parse_type(string, variables: variables)
+    type = RBS::Parser.parse_type(string, variables: variables)
     checker.factory.type(type)
   end
 
   def parse_method_type(string, checker:, variables: [])
-    type = Ruby::Signature::Parser.parse_method_type(string, variables: variables)
+    type = RBS::Parser.parse_method_type(string, variables: variables)
     checker.factory.method_type type
   end
 

@@ -378,16 +378,16 @@ module FactoryHelper
         absolute_path.write(content)
       end
 
-      env_loader = Ruby::Signature::EnvironmentLoader.new()
+      env_loader = RBS::EnvironmentLoader.new()
       if nostdlib
         env_loader.no_builtin!
       end
       env_loader.add path: root
 
-      env = Ruby::Signature::Environment.new()
+      env = RBS::Environment.new()
       env_loader.load(env: env)
 
-      definition_builder = Ruby::Signature::DefinitionBuilder.new(env: env)
+      definition_builder = RBS::DefinitionBuilder.new(env: env)
 
       @factory = Steep::AST::Types::Factory.new(builder: definition_builder)
 
@@ -402,7 +402,7 @@ module FactoryHelper
   end
 
   def parse_type(string, factory: self.factory, variables: [])
-    type = Ruby::Signature::Parser.parse_type(string, variables: variables)
+    type = RBS::Parser.parse_type(string, variables: variables)
     factory.type(type)
   end
 
@@ -411,7 +411,7 @@ module FactoryHelper
   end
 
   def parse_method_type(string, factory: self.factory, variables: [], self_type: Steep::AST::Types::Self.new)
-    type = Ruby::Signature::Parser.parse_method_type(string, variables: variables)
+    type = RBS::Parser.parse_method_type(string, variables: variables)
     factory.method_type type, self_type: self_type
   end
 end

@@ -1,8 +1,8 @@
 module Steep
   module Signature
     class Validator
-      Location = Ruby::Signature::Location
-      Declarations = Ruby::Signature::AST::Declarations
+      Location = RBS::Location
+      Declarations = RBS::AST::Declarations
 
       attr_reader :checker
 
@@ -53,17 +53,17 @@ module Steep
           rescue_validation_errors do
             Steep.logger.info "#{Location.to_string decl.location}:\tValidating class definition `#{name}`..."
             builder.build_instance(decl.name.absolute!).each_type do |type|
-              env.validate type, namespace: Ruby::Signature::Namespace.root
+              env.validate type, namespace: RBS::Namespace.root
             end
             builder.build_singleton(decl.name.absolute!).each_type do |type|
-              env.validate type, namespace: Ruby::Signature::Namespace.root
+              env.validate type, namespace: RBS::Namespace.root
             end
           end
         when Declarations::Interface
           rescue_validation_errors do
             Steep.logger.info "#{Location.to_string decl.location}:\tValidating interface `#{name}`..."
             builder.build_interface(decl.name.absolute!, decl).each_type do |type|
-              env.validate type, namespace: Ruby::Signature::Namespace.root
+              env.validate type, namespace: RBS::Namespace.root
             end
           end
         end
@@ -88,7 +88,7 @@ module Steep
         env.each_global do |name, decl|
           rescue_validation_errors do
             Steep.logger.info "#{Location.to_string decl.location}:\tValidating global `#{name}`..."
-            env.validate(decl.type, namespace: Ruby::Signature::Namespace.root)
+            env.validate(decl.type, namespace: RBS::Namespace.root)
           end
         end
       end
@@ -104,14 +104,14 @@ module Steep
 
       def rescue_validation_errors
         yield
-      rescue Ruby::Signature::InvalidTypeApplicationError => exn
+      rescue RBS::InvalidTypeApplicationError => exn
         @errors << Errors::InvalidTypeApplicationError.new(
           name: factory.type_name(exn.type_name),
           args: exn.args.map {|ty| factory.type(ty) },
           params: exn.params.each.map(&:name),
           location: exn.location
         )
-      rescue Ruby::Signature::NoTypeFoundError => exn
+      rescue RBS::NoTypeFoundError => exn
         @errors << Errors::UnknownTypeNameError.new(
           name: factory.type_name(exn.type_name),
           location: exn.location

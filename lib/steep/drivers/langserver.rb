@@ -446,7 +446,7 @@ HOVER
 
 
         block = if method_type.block
-                  open, space, close = if method_type.block.type.return_type.is_a?(Ruby::Signature::Types::Bases::Void)
+                  open, space, close = if method_type.block.type.return_type.is_a?(RBS::Types::Bases::Void)
                                   ["do", " ", "end"]
                                 else
                                   ["{", "", "}"]

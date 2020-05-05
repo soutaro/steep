@@ -11,7 +11,7 @@ require "listen"
 require 'pry'
 require 'language_server-protocol'
 
-require "ruby/signature"
+require "rbs"
 
 require "steep/ast/namespace"
 require "steep/names"

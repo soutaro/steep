@@ -10,56 +10,56 @@ module Steep
 
         def type(type)
           case type
-          when Ruby::Signature::Types::Bases::Any
+          when RBS::Types::Bases::Any
             Any.new(location: nil)
-          when Ruby::Signature::Types::Bases::Class
+          when RBS::Types::Bases::Class
             Class.new(location: nil)
-          when Ruby::Signature::Types::Bases::Instance
+          when RBS::Types::Bases::Instance
             Instance.new(location: nil)
-          when Ruby::Signature::Types::Bases::Self
+          when RBS::Types::Bases::Self
             Self.new(location: nil)
-          when Ruby::Signature::Types::Bases::Top
+          when RBS::Types::Bases::Top
             Top.new(location: nil)
-          when Ruby::Signature::Types::Bases::Bottom
+          when RBS::Types::Bases::Bottom
             Bot.new(location: nil)
-          when Ruby::Signature::Types::Bases::Bool
+          when RBS::Types::Bases::Bool
             Boolean.new(location: nil)
-          when Ruby::Signature::Types::Bases::Void
+          when RBS::Types::Bases::Void
             Void.new(location: nil)
-          when Ruby::Signature::Types::Bases::Nil
+          when RBS::Types::Bases::Nil
             Nil.new(location: nil)
-          when Ruby::Signature::Types::Variable
+          when RBS::Types::Variable
             Var.new(name: type.name, location: nil)
-          when Ruby::Signature::Types::ClassSingleton
+          when RBS::Types::ClassSingleton
             type_name = type_name(type.name)
             Name::Class.new(name: type_name, location: nil, constructor: nil)
-          when Ruby::Signature::Types::ClassInstance
+          when RBS::Types::ClassInstance
             type_name = type_name(type.name)
             args = type.args.map {|arg| type(arg) }
             Name::Instance.new(name: type_name, args: args, location: nil)
-          when Ruby::Signature::Types::Interface
+          when RBS::Types::Interface
             type_name = type_name(type.name)
             args = type.args.map {|arg| type(arg) }
             Name::Interface.new(name: type_name, args: args, location: nil)
-          when Ruby::Signature::Types::Alias
+          when RBS::Types::Alias
             type_name = type_name(type.name)
             Name::Alias.new(name: type_name, args: [], location: nil)
-          when Ruby::Signature::Types::Union
+          when RBS::Types::Union
             Union.build(types: type.types.map {|ty| type(ty) }, location: nil)
-          when Ruby::Signature::Types::Intersection
+          when RBS::Types::Intersection
             Intersection.build(types: type.types.map {|ty| type(ty) }, location: nil)
-          when Ruby::Signature::Types::Optional
+          when RBS::Types::Optional
             Union.build(types: [type(type.type), Nil.new(location: nil)], location: nil)
-          when Ruby::Signature::Types::Literal
+          when RBS::Types::Literal
             Literal.new(value: type.literal, location: nil)
-          when Ruby::Signature::Types::Tuple
+          when RBS::Types::Tuple
             Tuple.new(types: type.types.map {|ty| type(ty) }, location: nil)
-          when Ruby::Signature::Types::Record
+          when RBS::Types::Record
             elements = type.fields.each.with_object({}) do |(key, value), hash|
               hash[key] = type(value)
             end
             Record.new(elements: elements, location: nil)
-          when Ruby::Signature::Types::Proc
+          when RBS::Types::Proc
             params = params(type.type)
             return_type = type(type.type.return_type)
             Proc.new(params: params, return_type: return_type, location: nil)
@@ -71,56 +71,56 @@ module Steep
         def type_1(type)
           case type
           when Any
-            Ruby::Signature::Types::Bases::Any.new(location: nil)
+            RBS::Types::Bases::Any.new(location: nil)
           when Class
-            Ruby::Signature::Types::Bases::Class.new(location: nil)
+            RBS::Types::Bases::Class.new(location: nil)
           when Instance
-            Ruby::Signature::Types::Bases::Instance.new(location: nil)
+            RBS::Types::Bases::Instance.new(location: nil)
           when Self
-            Ruby::Signature::Types::Bases::Self.new(location: nil)
+            RBS::Types::Bases::Self.new(location: nil)
           when Top
-            Ruby::Signature::Types::Bases::Top.new(location: nil)
+            RBS::Types::Bases::Top.new(location: nil)
           when Bot
-            Ruby::Signature::Types::Bases::Bottom.new(location: nil)
+            RBS::Types::Bases::Bottom.new(location: nil)
           when Boolean
-            Ruby::Signature::Types::Bases::Bool.new(location: nil)
+            RBS::Types::Bases::Bool.new(location: nil)
           when Void
-            Ruby::Signature::Types::Bases::Void.new(location: nil)
+            RBS::Types::Bases::Void.new(location: nil)
           when Nil
-            Ruby::Signature::Types::Bases::Nil.new(location: nil)
+            RBS::Types::Bases::Nil.new(location: nil)
           when Var
-            Ruby::Signature::Types::Variable.new(name: type.name, location: nil)
+            RBS::Types::Variable.new(name: type.name, location: nil)
           when Name::Class, Name::Module
-            Ruby::Signature::Types::ClassSingleton.new(name: type_name_1(type.name), location: nil)
+            RBS::Types::ClassSingleton.new(name: type_name_1(type.name), location: nil)
           when Name::Instance
-            Ruby::Signature::Types::ClassInstance.new(
+            RBS::Types::ClassInstance.new(
               name: type_name_1(type.name),
               args: type.args.map {|arg| type_1(arg) },
               location: nil
             )
           when Name::Interface
-            Ruby::Signature::Types::Interface.new(
+            RBS::Types::Interface.new(
               name: type_name_1(type.name),
               args: type.args.map {|arg| type_1(arg) },
               location: nil
             )
           when Name::Alias
             type.args.empty? or raise "alias type with args is not supported"
-            Ruby::Signature::Types::Alias.new(name: type_name_1(type.name), location: nil)
+            RBS::Types::Alias.new(name: type_name_1(type.name), location: nil)
           when Union
-            Ruby::Signature::Types::Union.new(
+            RBS::Types::Union.new(
               types: type.types.map {|ty| type_1(ty) },
               location: nil
             )
           when Intersection
-            Ruby::Signature::Types::Intersection.new(
+            RBS::Types::Intersection.new(
               types: type.types.map {|ty| type_1(ty) },
               location: nil
             )
           when Literal
-            Ruby::Signature::Types::Literal.new(literal: type.value, location: nil)
+            RBS::Types::Literal.new(literal: type.value, location: nil)
           when Tuple
-            Ruby::Signature::Types::Tuple.new(
+            RBS::Types::Tuple.new(
               types: type.types.map {|ty| type_1(ty) },
               location: nil
             )
@@ -128,9 +128,9 @@ module Steep
             fields = type.elements.each.with_object({}) do |(key, value), hash|
               hash[key] = type_1(value)
             end
-            Ruby::Signature::Types::Record.new(fields: fields, location: nil)
+            RBS::Types::Record.new(fields: fields, location: nil)
           when Proc
-            Ruby::Signature::Types::Proc.new(
+            RBS::Types::Proc.new(
               type: function_1(type.params, type.return_type),
               location: nil
             )
@@ -151,7 +151,7 @@ module Steep
         end
 
         def type_name_1(name)
-          Ruby::Signature::TypeName.new(name: name.name, namespace: namespace_1(name.namespace))
+          RBS::TypeName.new(name: name.name, namespace: namespace_1(name.namespace))
         end
 
         def namespace(namespace)
@@ -159,18 +159,18 @@ module Steep
         end
 
         def namespace_1(namespace)
-          Ruby::Signature::Namespace.parse(namespace.to_s)
+          RBS::Namespace.parse(namespace.to_s)
         end
 
         def function_1(params, return_type)
-          Ruby::Signature::Types::Function.new(
-            required_positionals: params.required.map {|type| Ruby::Signature::Types::Function::Param.new(name: nil, type: type_1(type)) },
-            optional_positionals: params.optional.map {|type| Ruby::Signature::Types::Function::Param.new(name: nil, type: type_1(type)) },
-            rest_positionals: params.rest&.yield_self {|type| Ruby::Signature::Types::Function::Param.new(name: nil, type: type_1(type)) },
+          RBS::Types::Function.new(
+            required_positionals: params.required.map {|type| RBS::Types::Function::Param.new(name: nil, type: type_1(type)) },
+            optional_positionals: params.optional.map {|type| RBS::Types::Function::Param.new(name: nil, type: type_1(type)) },
+            rest_positionals: params.rest&.yield_self {|type| RBS::Types::Function::Param.new(name: nil, type: type_1(type)) },
             trailing_positionals: [],
-            required_keywords: params.required_keywords.transform_values {|type| Ruby::Signature::Types::Function::Param.new(name: nil, type: type_1(type)) },
-            optional_keywords: params.optional_keywords.transform_values {|type| Ruby::Signature::Types::Function::Param.new(name: nil, type: type_1(type)) },
-            rest_keywords: params.rest_keywords&.yield_self {|type| Ruby::Signature::Types::Function::Param.new(name: nil, type: type_1(type)) },
+            required_keywords: params.required_keywords.transform_values {|type| RBS::Types::Function::Param.new(name: nil, type: type_1(type)) },
+            optional_keywords: params.optional_keywords.transform_values {|type| RBS::Types::Function::Param.new(name: nil, type: type_1(type)) },
+            rest_keywords: params.rest_keywords&.yield_self {|type| RBS::Types::Function::Param.new(name: nil, type: type_1(type)) },
             return_type: type_1(return_type)
           )
         end
@@ -235,7 +235,7 @@ module Steep
 
           method_type.type_params.map do |name|
             if fvs.include?(name)
-              type = Ruby::Signature::Types::Variable.new(name: name, location: nil),
+              type = RBS::Types::Variable.new(name: name, location: nil),
               alpha_vars << name
               alpha_types << type
               type_params << type.name
@@ -245,13 +245,13 @@ module Steep
           end
           subst = Interface::Substitution.build(alpha_vars, alpha_types)
 
-          type = Ruby::Signature::MethodType.new(
+          type = RBS::MethodType.new(
             type_params: type_params,
             type: function_1(method_type.params.subst(subst), method_type.return_type.subst(subst)),
             block: method_type.block&.yield_self do |block|
               block_type = block.type.subst(subst)
 
-              Ruby::Signature::MethodType::Block.new(
+              RBS::MethodType::Block.new(
                 type: function_1(block_type.params, block_type.return_type),
                 required: !block.optional
               )
@@ -543,12 +543,12 @@ module Steep
 
         def module_name?(type_name)
           name = type_name_1(type_name)
-          env.class?(name) && env.find_class(name).is_a?(Ruby::Signature::AST::Declarations::Module)
+          env.class?(name) && env.find_class(name).is_a?(RBS::AST::Declarations::Module)
         end
 
         def class_name?(type_name)
           name = type_name_1(type_name)
-          env.class?(name) && env.find_class(name).is_a?(Ruby::Signature::AST::Declarations::Class)
+          env.class?(name) && env.find_class(name).is_a?(RBS::AST::Declarations::Class)
         end
 
         def env

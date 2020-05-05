@@ -121,7 +121,7 @@ puts array.join(", ")
         assert_equal [5,5]...[5, 21], [content.location.line,content.location.column]...[content.location.last_line, content.location.last_column]
         assert_equal HoverContent::InstanceMethodName.new(Names::Module.parse("::Array"), :join), content.method_name
         assert_equal "::String", content.type.to_s
-        assert_instance_of Ruby::Signature::Definition::Method, content.definition
+        assert_instance_of RBS::Definition::Method, content.definition
       end
     end
   end
@@ -149,7 +149,7 @@ EOF
         assert_equal [1,0]...[1, 25], [content.location.line,content.location.column]...[content.location.last_line, content.location.last_column]
         assert_equal HoverContent::InstanceMethodName.new(Names::Module.parse("::Array"), :map), content.method_name
         assert_equal "::Array[::String]", content.type.to_s
-        assert_instance_of Ruby::Signature::Definition::Method, content.definition
+        assert_instance_of RBS::Definition::Method, content.definition
       end
     end
   end
@@ -191,7 +191,7 @@ end
         assert_equal :do_something, content.method_name
         assert_equal "((::Integer | ::String)) -> ::String", content.method_type.to_s
         assert_equal ["(::Integer x) -> ::String", "(::String x) -> ::String"], content.definition.method_types.map(&:to_s)
-        assert_instance_of Ruby::Signature::Definition::Method, content.definition
+        assert_instance_of RBS::Definition::Method, content.definition
         assert_equal "Do something super for given argument `x`.\n", content.definition.comment.string
       end
     end
