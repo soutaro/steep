@@ -34,7 +34,7 @@ module Steep
     TYPE_PARAMS = /(\[(?<params>#{PARAM}(,\s*#{PARAM})*)\])?/
 
     def parse_type(string)
-      factory.type(Ruby::Signature::Parser.parse_type(string))
+      factory.type(RBS::Parser.parse_type(string))
     end
 
     # @type ${keyword} ${name}: ${type}
@@ -68,7 +68,7 @@ module Steep
           name = match[:name]
           type = match[:type]
 
-          method_type = factory.method_type(Ruby::Signature::Parser.parse_method_type(type), self_type: AST::Types::Self.new)
+          method_type = factory.method_type(RBS::Parser.parse_method_type(type), self_type: AST::Types::Self.new)
 
           AST::Annotation::MethodType.new(name: name.to_sym,
                                           type: method_type,
@@ -160,7 +160,7 @@ module Steep
         end
       end
 
-    rescue Ruby::Signature::Parser::SyntaxError, Ruby::Signature::Parser::SemanticsError => exn
+    rescue RBS::Parser::SyntaxError, RBS::Parser::SemanticsError => exn
       raise SyntaxError.new(source: src, location: location, exn: exn)
     end
   end

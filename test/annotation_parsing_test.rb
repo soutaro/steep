@@ -11,7 +11,7 @@ class AnnotationParsingTest < Minitest::Test
   Types = Steep::AST::Types
 
   def parse_type(src, factory:)
-    factory.type(Ruby::Signature::Parser.parse_type(src))
+    factory.type(RBS::Parser.parse_type(src))
   end
 
   def parse_annotation(source, factory:)
@@ -40,7 +40,7 @@ class AnnotationParsingTest < Minitest::Test
 
       assert_instance_of Annotation::MethodType, annot
       assert_equal :foo, annot.name
-      assert_equal factory.method_type(Ruby::Signature::Parser.parse_method_type("(Bar) -> Baz"), self_type: Steep::AST::Types::Self.new),
+      assert_equal factory.method_type(RBS::Parser.parse_method_type("(Bar) -> Baz"), self_type: Steep::AST::Types::Self.new),
                    annot.type
     end
   end
@@ -168,7 +168,7 @@ class AnnotationParsingTest < Minitest::Test
       end
 
       assert_equal "@type break: Array<Integer.class>", exn.source
-      assert_instance_of Ruby::Signature::Parser::SyntaxError, exn.cause
+      assert_instance_of RBS::Parser::SyntaxError, exn.cause
     end
   end
 end

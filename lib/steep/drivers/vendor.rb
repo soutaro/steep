@@ -20,7 +20,7 @@ module Steep
       def run
         stdout.puts "Vendoring into #{vendor_dir}..."
 
-        vendorer = Ruby::Signature::Vendorer.new(vendor_dir: vendor_dir)
+        vendorer = RBS::Vendorer.new(vendor_dir: vendor_dir)
 
         if clean_before
           stdout.puts "  Cleaning directory..."
@@ -32,7 +32,7 @@ module Steep
 
         if defined?(Bundler)
           Bundler.locked_gems.specs.each do |spec|
-            if Ruby::Signature::EnvironmentLoader.gem_sig_path(spec.name, spec.version.to_s).directory?
+            if RBS::EnvironmentLoader.gem_sig_path(spec.name, spec.version.to_s).directory?
               stdout.puts "  Vendoring rubygem: #{spec.full_name}..."
               vendorer.gem! spec.name, spec.version.to_s
             end

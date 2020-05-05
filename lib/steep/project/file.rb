@@ -139,10 +139,10 @@ module Steep
       end
 
       def load!
-        buffer = Ruby::Signature::Buffer.new(name: path, content: content)
-        decls = Ruby::Signature::Parser.parse_signature(buffer)
+        buffer = RBS::Buffer.new(name: path, content: content)
+        decls = RBS::Parser.parse_signature(buffer)
         @status = DeclarationsStatus.new(declarations: decls)
-      rescue Ruby::Signature::Parser::SyntaxError, Ruby::Signature::Parser::SemanticsError => exn
+      rescue RBS::Parser::SyntaxError, RBS::Parser::SemanticsError => exn
         @status = ParseErrorStatus.new(error: exn)
       end
     end

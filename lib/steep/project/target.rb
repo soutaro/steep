@@ -89,10 +89,10 @@ module Steep
       end
 
       def environment
-        @environment ||= Ruby::Signature::Environment.new().tap do |env|
-          stdlib_root = options.vendored_stdlib_path || Ruby::Signature::EnvironmentLoader::STDLIB_ROOT
+        @environment ||= RBS::Environment.new().tap do |env|
+          stdlib_root = options.vendored_stdlib_path || RBS::EnvironmentLoader::STDLIB_ROOT
           gem_vendor_path = options.vendored_gems_path
-          loader = Ruby::Signature::EnvironmentLoader.new(stdlib_root: stdlib_root, gem_vendor_path: gem_vendor_path)
+          loader = RBS::EnvironmentLoader.new(stdlib_root: stdlib_root, gem_vendor_path: gem_vendor_path)
           options.libraries.each do |lib|
             loader.add(library: lib)
           end
@@ -129,7 +129,7 @@ module Steep
               end
             end
 
-            definition_builder = Ruby::Signature::DefinitionBuilder.new(env: env)
+            definition_builder = RBS::DefinitionBuilder.new(env: env)
             factory = AST::Types::Factory.new(builder: definition_builder)
             check = Subtyping::Check.new(factory: factory)
 
