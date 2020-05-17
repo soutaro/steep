@@ -420,4 +420,33 @@ module FactoryHelper
   end
 end
 
+module LSPTestHelper
+  LSP = LanguageServer::Protocol
+
+  def reader_pipe
+    @reader_pipe ||= IO.pipe
+  end
+
+  def writer_pipe
+    @writer_pipe ||= IO.pipe
+  end
+
+  def worker_reader
+    @worker_reader ||= LSP::Transport::Io::Reader.new(reader_pipe[0])
+  end
+
+  def worker_writer
+    @worker_writer ||= LSP::Transport::Io::Writer.new(writer_pipe[1])
+  end
+
+  def master_writer
+    @master_writer ||= LSP::Transport::Io::Writer.new(reader_pipe[1])
+  end
+
+  def master_reader
+    @master_reader ||= LSP::Transport::Io::Reader.new(writer_pipe[0])
+  end
+end
+
+
 TestHelper.timeout = ENV["CI"] ? 30 : 10

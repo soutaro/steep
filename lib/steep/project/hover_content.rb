@@ -33,9 +33,12 @@ module Steep
       end
 
       def content_for(path:, line:, column:)
-        source_file = project.targets.map {|target| target.source_files[path] }.compact[0]
+        target = project.targets.find {|target| target.source_file?(path) }
 
-        if source_file
+        if target
+          source_file = target.source_files[path]
+          target.type_check(target_sources: [source_file], validate_signatures: false)
+
           case (status = source_file.status)
           when SourceFile::TypeCheckStatus
             node, *parents = status.source.find_nodes(line: line, column: column)

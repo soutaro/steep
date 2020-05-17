@@ -34,7 +34,7 @@ module Steep
 
     def setup_command
       @command = argv.shift&.to_sym
-      if CLI.available_commands.include?(@command)
+      if CLI.available_commands.include?(@command) || @command == :worker
         true
       else
         stderr.puts "Unknown command: #{command}"
@@ -158,6 +158,21 @@ module Steep
     def process_version
       stdout.puts Steep::VERSION
       0
+    end
+
+    def process_worker
+      Drivers::Worker.new(stdout: stdout, stderr: stderr, stdin: stdin).tap do |command|
+        OptionParser.new do |opts|
+          opts.banner = "Usage: steep worker [options] [dir]"
+          handle_logging_options opts
+
+          opts.on("--interaction") { command.worker_type = :interaction }
+          opts.on("--code") { command.worker_type = :code }
+          opts.on("--signature") { command.worker_type = :signature }
+          opts.on("--steepfile=PATH") {|path| command.steepfile = Pathname(path) }
+          opts.on("--name=NAME") {|name| command.worker_name = name }
+        end.parse!(argv)
+      end.run
     end
   end
 end

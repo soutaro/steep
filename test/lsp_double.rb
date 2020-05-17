@@ -43,6 +43,8 @@ class LSPDouble
       end
     end
 
+    send_request(id: next_request_id, method: "initialize") { }
+
     if block_given?
       begin
         yield
@@ -56,7 +58,7 @@ class LSPDouble
 
   def stop
     send_request(method: "shutdown") {}
-    send_request(method: "exit")
+    send_notification(method: "exit")
     reader_thread.join
   end
 
@@ -90,6 +92,11 @@ class LSPDouble
     end
   end
 
+  def send_notification(method:, params: nil)
+    Steep.logger.info "sending_notification: method=#{method}, params=#{params}"
+    writer.write(method: method, params: params)
+  end
+
   def retrieve_response(request_id, timeout: default_timeout)
     finally(timeout: timeout) do
       if responses.key?(request_id)
@@ -106,5 +113,71 @@ class LSPDouble
       yield
       sleep 0.2
     end
+  end
+
+  def open_file(path)
+    send_notification(method: "textDocument/didOpen",
+                      params: {
+                        textDocument: {
+                          uri: "file://#{path}"
+                        }
+                      })
+  end
+
+  def close_file(path)
+    send_notification(method: "textDocument/didClose",
+                      params: {
+                        textDocument: {
+                          uri: "file://#{path}"
+                        }
+                      })
+  end
+
+  def edit_file(path, content: nil, version:)
+    send_notification(
+      method: "textDocument/didChange",
+      params: {
+        textDocument: {
+          uri: "file://#{path}",
+          version: version
+        },
+        contentChanges: [
+          {
+            text: content
+          }
+        ]
+      }
+    )
+  end
+
+  def hover_on(path:, line:, character:)
+    send_request(
+      id: next_request_id,
+      method: "textDocument/hover",
+      params: {
+        textDocument: { uri: "file://#{path}" },
+        position: { line: line, character: character }
+      }
+    ) do |response|
+      response[:result]
+    end
+  end
+
+  def complete_on(path:, line:, character:, kind: LanguageServer::Protocol::Constant::CompletionTriggerKind::INVOKED, trigger_character: nil)
+    send_request(
+      id: next_request_id,
+      method: "textDocument/completion",
+      params: {
+        textDocument: { uri: "file://#{path}" },
+        position: { line: line, character: character },
+        context: { triggerKind: kind, triggerCharacter: trigger_character }
+      }
+    ) do |response|
+      response[:result]
+    end
+  end
+
+  def diagnostics_for(path)
+    diagnostics["file://#{path}"]
   end
 end
