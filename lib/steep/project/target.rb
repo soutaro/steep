@@ -67,24 +67,30 @@ module Steep
       end
 
       def possible_source_file?(path)
-        self.class.test_pattern(source_patterns, path) &&
-          !self.class.test_pattern(ignore_patterns, path)
+        self.class.test_pattern(source_patterns, path, ext: ".rb") &&
+          !self.class.test_pattern(ignore_patterns, path, ext: ".rb")
       end
 
       def possible_signature_file?(path)
-        self.class.test_pattern(signature_patterns, path)
+        self.class.test_pattern(signature_patterns, path, ext: ".rbs")
       end
 
-      def self.test_pattern(patterns, path)
+      def self.test_pattern(patterns, path, ext:)
         patterns.any? do |pattern|
           p = pattern.end_with?(File::Separator) ? pattern : pattern + File::Separator
-          path.to_s.start_with?(p) || File.fnmatch(pattern, path.to_s)
+          (path.to_s.start_with?(p) && path.extname == ext) || File.fnmatch(pattern, path.to_s)
         end
       end
 
-      def type_check
-        load_signatures do |env, check, timestamp|
-          run_type_check(env, check, timestamp)
+      def type_check(target_sources: source_files.values, validate_signatures: true)
+        Steep.logger.tagged "target#type_check(target_sources: [#{target_sources.map(&:path).join(", ")}], validate_signatures: #{validate_signatures})" do
+          Steep.measure "load signature and type check" do
+            load_signatures(validate: validate_signatures) do |env, check, timestamp|
+              Steep.measure "type checking #{target_sources.size} files" do
+                run_type_check(env, check, timestamp, target_sources: target_sources)
+              end
+            end
+          end
         end
       end
 
@@ -100,7 +106,7 @@ module Steep
         end
       end
 
-      def load_signatures
+      def load_signatures(validate:)
         timestamp = case status
                     when TypeCheckStatus
                       status.timestamp
@@ -133,16 +139,20 @@ module Steep
             factory = AST::Types::Factory.new(builder: definition_builder)
             check = Subtyping::Check.new(factory: factory)
 
-            validator = Signature::Validator.new(checker: check)
-            validator.validate()
+            if validate
+              validator = Signature::Validator.new(checker: check)
+              validator.validate()
 
-            if validator.no_error?
-              yield env, check, Time.now
+              if validator.no_error?
+                yield env, check, Time.now
+              else
+                @status = SignatureValidationErrorStatus.new(
+                  errors: validator.each_error.to_a,
+                  timestamp: Time.now
+                )
+              end
             else
-              @status = SignatureValidationErrorStatus.new(
-                errors: validator.each_error.to_a,
-                timestamp: Time.now
-              )
+              yield env, check, Time.now
             end
           end
 
@@ -160,10 +170,10 @@ module Steep
         end
       end
 
-      def run_type_check(env, check, timestamp)
+      def run_type_check(env, check, timestamp, target_sources: source_files.values)
         type_check_sources = []
 
-        source_files.each_value do |file|
+        target_sources.each do |file|
           if file.type_check(check, timestamp)
             type_check_sources << file
           end

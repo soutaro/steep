@@ -10,6 +10,8 @@ require "rainbow"
 require "listen"
 require 'pry'
 require 'language_server-protocol'
+require "etc"
+require "open3"
 
 require "rbs"
 
@@ -70,6 +72,14 @@ require "steep/type_inference/local_variable_type_env"
 require "steep/type_inference/logic"
 require "steep/ast/types"
 
+require "steep/server/utils"
+require "steep/server/base_worker"
+require "steep/server/code_worker"
+require "steep/server/signature_worker"
+require "steep/server/worker_process"
+require "steep/server/interaction_worker"
+require "steep/server/master"
+
 require "steep/project"
 require "steep/project/file"
 require "steep/project/options"
@@ -89,6 +99,7 @@ require "steep/drivers/trace_printer"
 require "steep/drivers/print_project"
 require "steep/drivers/init"
 require "steep/drivers/vendor"
+require "steep/drivers/worker"
 
 if ENV["NO_COLOR"]
   Rainbow.enabled = false

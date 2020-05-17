@@ -51,7 +51,7 @@ module Steep
         case decl
         when Declarations::Class
           rescue_validation_errors do
-            Steep.logger.info "#{Location.to_string decl.location}:\tValidating class definition `#{name}`..."
+            Steep.logger.debug "#{Location.to_string decl.location}:\tValidating class definition `#{name}`..."
             builder.build_instance(decl.name.absolute!).each_type do |type|
               env.validate type, namespace: RBS::Namespace.root
             end
@@ -61,7 +61,7 @@ module Steep
           end
         when Declarations::Interface
           rescue_validation_errors do
-            Steep.logger.info "#{Location.to_string decl.location}:\tValidating interface `#{name}`..."
+            Steep.logger.debug "#{Location.to_string decl.location}:\tValidating interface `#{name}`..."
             builder.build_interface(decl.name.absolute!, decl).each_type do |type|
               env.validate type, namespace: RBS::Namespace.root
             end
@@ -78,7 +78,7 @@ module Steep
       def validate_const
         env.each_constant do |name, decl|
           rescue_validation_errors do
-            Steep.logger.info "#{Location.to_string decl.location}:\tValidating constant `#{name}`..."
+            Steep.logger.debug "#{Location.to_string decl.location}:\tValidating constant `#{name}`..."
             env.validate(decl.type, namespace: name.namespace)
           end
         end
@@ -87,7 +87,7 @@ module Steep
       def validate_global
         env.each_global do |name, decl|
           rescue_validation_errors do
-            Steep.logger.info "#{Location.to_string decl.location}:\tValidating global `#{name}`..."
+            Steep.logger.debug "#{Location.to_string decl.location}:\tValidating global `#{name}`..."
             env.validate(decl.type, namespace: RBS::Namespace.root)
           end
         end
@@ -96,7 +96,7 @@ module Steep
       def validate_alias
         env.each_alias do |name, decl|
           rescue_validation_errors do
-            Steep.logger.info "#{Location.to_string decl.location}:\tValidating alias `#{name}`..."
+            Steep.logger.debug "#{Location.to_string decl.location}:\tValidating alias `#{name}`..."
             env.validate(decl.type, namespace: name.namespace)
           end
         end

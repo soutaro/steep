@@ -47,8 +47,10 @@ module Steep
         position = Position.new(line: line, column: column)
 
         begin
-          Steep.measure "type_check!" do
-            type_check!(source_text)
+          Steep.logger.tagged "completion_provider#run(line: #{line}, column: #{column})" do
+            Steep.measure "type_check!" do
+              type_check!(source_text)
+            end
           end
 
           Steep.measure "completion item collection" do

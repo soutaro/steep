@@ -11,7 +11,7 @@ class SteepfileDSLTest < Minitest::Test
 
   def test_config
     in_tmpdir do
-      project = Project.new(base_dir: current_dir)
+      project = Project.new(steepfile_path: current_dir + "Steepfile")
 
       Project::DSL.parse(project, <<EOF)
 target :app do
@@ -59,7 +59,7 @@ EOF
 
   def test_invalid_template
     in_tmpdir do
-      project = Project.new(base_dir: current_dir)
+      project = Project.new(steepfile_path: current_dir + "Steepfile")
 
       assert_raises RuntimeError do
         Project::DSL.parse(project, <<EOF)

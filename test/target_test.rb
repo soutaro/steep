@@ -5,9 +5,9 @@ module Steep
     include TestHelper
 
     def test_test_pattern
-      assert Project::Target.test_pattern(["lib/*"], Pathname("lib/foo.rb"))
-      assert Project::Target.test_pattern(["lib"], Pathname("lib/foo.rb"))
-      refute Project::Target.test_pattern(["lib"], Pathname("test/foo_test.rb"))
+      assert Project::Target.test_pattern(["lib/*"], Pathname("lib/foo.rb"), ext: ".rb")
+      assert Project::Target.test_pattern(["lib"], Pathname("lib/foo.rb"), ext: ".rb")
+      refute Project::Target.test_pattern(["lib"], Pathname("test/foo_test.rb"), ext: ".rb")
     end
 
     def test_success_type_check
@@ -63,6 +63,42 @@ x = ""
 
       target.source_files[Pathname("lib/foo.rb")].tap do |file|
         assert_equal Project::SourceFile::ParseErrorStatus, file.status.class
+      end
+    end
+
+    def test_success_type_check_partial
+      target = Project::Target.new(
+        name: :foo,
+        options: Project::Options.new,
+        source_patterns: ["lib"],
+        ignore_patterns: [],
+        signature_patterns: ["sig"]
+      )
+
+      target.add_source Pathname("lib/foo.rb"), <<-EOF
+class Foo
+end
+      EOF
+
+      target.add_source Pathname("lib/bar.rb"), <<-EOF
+class Bar
+end
+      EOF
+
+      target.add_signature Pathname("sig/foo.rbs"), <<-EOF
+class Foo
+end
+      EOF
+
+      target_sources = [target.source_files[Pathname("lib/foo.rb")]]
+
+      target.type_check(target_sources: target_sources, validate_signatures: false)
+
+      assert_equal Project::Target::TypeCheckStatus, target.status.class
+      assert_equal target_sources.map(&:path), target.status.type_check_sources.map(&:path)
+      target.source_files[Pathname("lib/foo.rb")].tap do |file|
+        assert_equal Project::SourceFile::TypeCheckStatus, file.status.class
+        assert_empty file.status.typing.errors
       end
     end
 

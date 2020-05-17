@@ -96,6 +96,7 @@ module Steep
             timestamp: Time.now
           )
         rescue => exn
+          Steep.log_error(exn)
           @status = TypeCheckErrorStatus.new(error: exn)
         end
 

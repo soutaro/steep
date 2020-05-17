@@ -1,15 +1,19 @@
 module Steep
   class Project
     attr_reader :targets
-    attr_reader :base_dir
+    attr_reader :steepfile_path
 
-    def initialize(base_dir:)
+    def initialize(steepfile_path:)
       @targets = []
-      @base_dir = base_dir
+      @steepfile_path = steepfile_path
 
-      unless base_dir.absolute?
-        raise "Project#initialize(base_dir:): base_dir should be absolute path"
+      unless steepfile_path.absolute?
+        raise "Project#initialize(steepfile_path:): steepfile_path should be absolute path"
       end
+    end
+
+    def base_dir
+      steepfile_path.parent
     end
 
     def relative_path(path)

@@ -15,86 +15,6 @@ module Steep
         @queue = Thread::Queue.new
       end
 
-      def listener
-        @listener ||= begin
-          Steep.logger.info "Watching #{dirs.join(", ")}..."
-          Listen.to(*dirs.map(&:to_s)) do |modified, added, removed|
-            Steep.logger.tagged "watch" do
-              Steep.logger.info "Received file system updates: modified=[#{modified.join(",")}], added=[#{added.join(",")}], removed=[#{removed.join(",")}]"
-            end
-            queue << [modified, added, removed]
-          end
-        end
-      end
-
-      def type_check_loop(project)
-        until queue.closed?
-          stdout.puts "🚥 Waiting for updates..."
-
-          events = []
-          events << queue.deq
-          until queue.empty?
-              events << queue.deq(nonblock: true)
-          end
-
-          events.compact.each do |modified, added, removed|
-            modified.each do |name|
-              path = Pathname(name).relative_path_from(Pathname.pwd)
-
-              project.targets.each do |target|
-                target.update_source path, path.read if target.source_file?(path)
-                target.update_signature path, path.read if target.signature_file?(path)
-              end
-            end
-
-            added.each do |name|
-              path = Pathname(name).relative_path_from(Pathname.pwd)
-
-              project.targets.each do |target|
-                target.add_source path, path.read if target.possible_source_file?(path)
-                target.add_signature path, path.read if target.possible_signature_file?(path)
-              end
-            end
-
-            removed.each do |name|
-              path = Pathname(name).relative_path_from(Pathname.pwd)
-
-              project.targets.each do |target|
-                target.remove_source path if target.source_file?(path)
-                target.remove_signature path if target.signature_file?(path)
-              end
-            end
-          end
-
-          stdout.puts "🔬 Type checking..."
-          type_check project
-          print_project_result project
-        end
-      rescue ClosedQueueError
-        # nop
-      end
-
-      def print_project_result(project)
-        project.targets.each do |target|
-          Steep.logger.tagged "target=#{target.name}" do
-            case (status = target.status)
-            when Project::Target::SignatureSyntaxErrorStatus
-              printer = SignatureErrorPrinter.new(stdout: stdout, stderr: stderr)
-              printer.print_syntax_errors(status.errors)
-            when Project::Target::SignatureValidationErrorStatus
-              printer = SignatureErrorPrinter.new(stdout: stdout, stderr: stderr)
-              printer.print_semantic_errors(status.errors)
-            when Project::Target::TypeCheckStatus
-              status.type_check_sources.each do |source_file|
-                source_file.errors.each do |error|
-                  error.print_to stdout
-                end
-              end
-            end
-          end
-        end
-      end
-
       def run()
         if dirs.empty?
           stdout.puts "Specify directories to watch"
@@ -107,17 +27,109 @@ module Steep
         loader.load_sources([])
         loader.load_signatures()
 
-        type_check project
-        print_project_result project
+        client_read, server_write = IO.pipe
+        server_read, client_write = IO.pipe
 
-        listener.start
+        client_reader = LanguageServer::Protocol::Transport::Io::Reader.new(client_read)
+        client_writer = LanguageServer::Protocol::Transport::Io::Writer.new(client_write)
 
-        stdout.puts "👀 Watching directories, Ctrl-C to stop."
-        begin
-          type_check_loop project
-        rescue Interrupt
-          # bye
+        server_reader = LanguageServer::Protocol::Transport::Io::Reader.new(server_read)
+        server_writer = LanguageServer::Protocol::Transport::Io::Writer.new(server_write)
+
+        interaction_worker = Server::InteractionWorker.spawn_worker(:interaction, name: "interaction", steepfile: project.steepfile_path)
+        signature_worker = Server::WorkerProcess.spawn_worker(:signature, name: "signature", steepfile: project.steepfile_path)
+        code_workers = Server::WorkerProcess.spawn_code_workers(steepfile: project.steepfile_path)
+
+        master = Server::Master.new(
+          project: project,
+          reader: server_reader,
+          writer: server_writer,
+          interaction_worker: interaction_worker,
+          signature_worker: signature_worker,
+          code_workers: code_workers
+        )
+
+        main_thread = Thread.start do
+          master.start()
         end
+        main_thread.abort_on_exception = true
+
+        client_writer.write(method: "initialize", id: 0)
+
+        Steep.logger.info "Watching #{dirs.join(", ")}..."
+        listener = Listen.to(*dirs.map(&:to_s)) do |modified, added, removed|
+          stdout.puts "🔬 Type checking updated files..."
+
+          version = Time.now.to_i
+          Steep.logger.tagged "watch" do
+            Steep.logger.info "Received file system updates: modified=[#{modified.join(",")}], added=[#{added.join(",")}], removed=[#{removed.join(",")}]"
+
+            (modified + added).each do |path|
+              client_writer.write(
+                method: "textDocument/didChange",
+                params: {
+                  textDocument: {
+                    uri: "file://#{path}",
+                    version: version
+                  },
+                  contentChanges: [
+                    {
+                      text: Pathname(path).read
+                    }
+                  ]
+                }
+              )
+            end
+
+            removed.each do |path|
+              client_writer.write(
+                method: "textDocument/didChange",
+                params: {
+                  textDocument: {
+                    uri: "file://#{path}",
+                    version: version
+                  },
+                  contentChanges: [
+                    {
+                      text: ""
+                    }
+                  ]
+                }
+              )
+            end
+          end
+        end.tap(&:start)
+
+        begin
+          stdout.puts "👀 Watching directories, Ctrl-C to stop."
+          client_reader.read do |response|
+            case response[:method]
+            when "textDocument/publishDiagnostics"
+              uri = URI.parse(response[:params][:uri])
+              path = project.relative_path(Pathname(uri.path))
+
+              diagnostics = response[:params][:diagnostics]
+
+              unless diagnostics.empty?
+                diagnostics.each do |diagnostic|
+                  start = diagnostic[:range][:start]
+                  loc = "#{start[:line]+1}:#{start[:character]}"
+                  message = diagnostic[:message].chomp.lines.join("  ")
+
+                  stdout.puts "#{path}:#{loc}: #{message}"
+                end
+              end
+            end
+          end
+        rescue Interrupt
+          stdout.puts "Shutting down workers..."
+          client_writer.write({ method: :shutdown, id: 10000 })
+          client_writer.write({ method: :exit })
+          client_writer.io.close()
+        end
+
+        listener.stop
+        main_thread.join
 
         0
       end
