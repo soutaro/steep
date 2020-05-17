@@ -25,7 +25,7 @@ module Steep
 
         project.targets.each do |target|
           Steep.logger.tagged "target=#{target.name}" do
-            target.load_signatures do |_, subtyping, _|
+            target.load_signatures(validate: false) do |_, subtyping, _|
               case (status = target.status)
               when nil     # status set on error cases
                 target.source_files.each_value do |file|
