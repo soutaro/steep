@@ -5,9 +5,9 @@ module Steep
     include TestHelper
 
     def test_test_pattern
-      assert Project::Target.test_pattern(["lib/*"], Pathname("lib/foo.rb"))
-      assert Project::Target.test_pattern(["lib"], Pathname("lib/foo.rb"))
-      refute Project::Target.test_pattern(["lib"], Pathname("test/foo_test.rb"))
+      assert Project::Target.test_pattern(["lib/*"], Pathname("lib/foo.rb"), ext: ".rb")
+      assert Project::Target.test_pattern(["lib"], Pathname("lib/foo.rb"), ext: ".rb")
+      refute Project::Target.test_pattern(["lib"], Pathname("test/foo_test.rb"), ext: ".rb")
     end
 
     def test_success_type_check

@@ -67,18 +67,18 @@ module Steep
       end
 
       def possible_source_file?(path)
-        self.class.test_pattern(source_patterns, path) &&
-          !self.class.test_pattern(ignore_patterns, path)
+        self.class.test_pattern(source_patterns, path, ext: ".rb") &&
+          !self.class.test_pattern(ignore_patterns, path, ext: ".rb")
       end
 
       def possible_signature_file?(path)
-        self.class.test_pattern(signature_patterns, path)
+        self.class.test_pattern(signature_patterns, path, ext: ".rbs")
       end
 
-      def self.test_pattern(patterns, path)
+      def self.test_pattern(patterns, path, ext:)
         patterns.any? do |pattern|
           p = pattern.end_with?(File::Separator) ? pattern : pattern + File::Separator
-          path.to_s.start_with?(p) || File.fnmatch(pattern, path.to_s)
+          (path.to_s.start_with?(p) && path.extname == ext) || File.fnmatch(pattern, path.to_s)
         end
       end
 
