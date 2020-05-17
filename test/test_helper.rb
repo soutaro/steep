@@ -31,6 +31,10 @@ module Steep::AST::Types::Name
 end
 
 module TestHelper
+  class <<self
+    attr_accessor :timeout
+  end
+
   def assert_any(collection, &block)
     assert collection.any?(&block)
   end
@@ -65,7 +69,7 @@ module TestHelper
     assert_equal size, collection.size
   end
 
-  def finally(timeout: 5)
+  def finally(timeout: TestHelper.timeout)
     started_at = Time.now
     while Time.now < started_at + timeout
       yield
@@ -73,7 +77,7 @@ module TestHelper
     end
   end
 
-  def finally_holds(timeout: 5)
+  def finally_holds(timeout: TestHelper.timeout)
     finally(timeout: timeout) do
       begin
         yield
@@ -86,7 +90,7 @@ module TestHelper
     yield
   end
 
-  def assert_finally(timeout: 5, &block)
+  def assert_finally(timeout: TestHelper.timeout, &block)
     finally(timeout: timeout) do
       yield.tap do |result|
         return result if result
@@ -415,3 +419,5 @@ module FactoryHelper
     factory.method_type type, self_type: self_type
   end
 end
+
+TestHelper.timeout = ENV["CI"] ? 30 : 10

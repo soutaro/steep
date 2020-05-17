@@ -21,7 +21,7 @@ class LSPDouble
     @responses = {}
     @mutex = Mutex.new
 
-    @default_timeout = 3
+    @default_timeout = TestHelper.timeout
   end
 
   def next_request_id
