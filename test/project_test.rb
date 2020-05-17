@@ -25,7 +25,7 @@ class Foo
 end
 CONTENT
 
-      project = Project.new(base_dir: current_dir)
+      project = Project.new(steepfile_path: current_dir + "Steepfile")
       Project::DSL.parse(project, <<EOF)
 target :lib do
   check "lib"
@@ -45,7 +45,7 @@ EOF
 
   def test_hover_content
     in_tmpdir do
-      project = Project.new(base_dir: current_dir)
+      project = Project.new(steepfile_path: current_dir + "Steepfile")
       Project::DSL.parse(project, <<EOF)
 target :lib do
   check "hello.rb"
@@ -96,7 +96,7 @@ puts array.join(", ")
 
   def test_method_hover
     in_tmpdir do
-      project = Project.new(base_dir: current_dir)
+      project = Project.new(steepfile_path: current_dir + "Steepfile")
       Project::DSL.parse(project, <<EOF)
 target :lib do
   check "hello.rb"
@@ -128,7 +128,7 @@ puts array.join(", ")
 
   def test_hover_block
     in_tmpdir do
-      project = Project.new(base_dir: current_dir)
+      project = Project.new(steepfile_path: current_dir + "Steepfile")
       Project::DSL.parse(project, <<EOF)
 target :lib do
   check "hello.rb"
@@ -156,7 +156,7 @@ EOF
 
   def test_hover_def
     in_tmpdir do
-      project = Project.new(base_dir: current_dir)
+      project = Project.new(steepfile_path: current_dir + "Steepfile")
       Project::DSL.parse(project, <<EOF)
 target :lib do
   check "hello.rb"
@@ -199,7 +199,7 @@ end
 
   def test_hover_def_var
     in_tmpdir do
-      project = Project.new(base_dir: current_dir)
+      project = Project.new(steepfile_path: current_dir + "Steepfile")
       Project::DSL.parse(project, <<EOF)
 target :lib do
   check "hello.rb"
