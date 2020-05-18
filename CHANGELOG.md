@@ -2,6 +2,11 @@
 
 ## master
 
+## 0.16.0 (2020-05-19)
+
+* Spawn workers for type check performance ([#137](https://github.com/soutaro/steep/pull/137))
+* Fix `check` and `signature` methods in Steepfile ([8f3e4c7](https://github.com/soutaro/steep/pull/137/commits/8f3e4c75b29ac26920f02294be06d6c68dbd4dca))
+
 ## 0.15.0 (2020-05-05)
 
 * Add type checking configuration to dsl ([#132](https://github.com/soutaro/steep/pull/132))
