@@ -61,7 +61,7 @@ array = [number, string]
 puts array.join(", ")
       EOF
 
-      target.type_check
+      target.type_check(validate_signatures: false)
 
       hover = Project::HoverContent.new(project: project)
 
@@ -112,7 +112,7 @@ array = [number, string]
 puts array.join(", ")
       EOF
 
-      target.type_check
+      target.type_check(validate_signatures: false)
 
       hover = Project::HoverContent.new(project: project)
 
@@ -140,7 +140,7 @@ EOF
 [1,2,3].map {|x| x.to_s }
       EOF
 
-      target.type_check
+      target.type_check(validate_signatures: false)
 
       hover = Project::HoverContent.new(project: project)
 
@@ -181,7 +181,7 @@ class Hello
 end
       EOF
 
-      target.type_check
+      target.type_check(validate_signatures: false)
 
       hover = Project::HoverContent.new(project: project)
 
@@ -193,6 +193,35 @@ end
         assert_equal ["(::Integer x) -> ::String", "(::String x) -> ::String"], content.definition.method_types.map(&:to_s)
         assert_instance_of RBS::Definition::Method, content.definition
         assert_equal "Do something super for given argument `x`.\n", content.definition.comment.string
+      end
+    end
+  end
+
+  def test_hover_def_no_signature
+    in_tmpdir do
+      project = Project.new(steepfile_path: current_dir + "Steepfile")
+      Project::DSL.parse(project, <<EOF)
+target :lib do
+  check "hello.rb"
+  signature "hello.rbs"
+end
+EOF
+
+      target = project.targets[0]
+      target.add_source(Pathname("hello.rb"), <<-EOF)
+class Hello
+  def do_something(x)
+    String
+  end
+end
+      EOF
+
+      target.type_check(validate_signatures: false)
+
+      hover = Project::HoverContent.new(project: project)
+
+      hover.content_for(path: Pathname("hello.rb"), line: 2, column: 10).tap do |content|
+        assert_nil content
       end
     end
   end
@@ -224,7 +253,7 @@ class Hello
 end
       EOF
 
-      target.type_check
+      target.type_check(validate_signatures: false)
 
       hover = Project::HoverContent.new(project: project)
 
