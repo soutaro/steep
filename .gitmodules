@@ -1,3 +1,0 @@
-[submodule "vendor/ruby-signature"]
-	path = vendor/ruby-signature
-	url = https://github.com/ruby/rbs.git
