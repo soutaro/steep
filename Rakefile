@@ -8,19 +8,6 @@ Rake::TestTask.new(:test) do |t|
 end
 
 task :default => :test
-task :build => :parser
-task :test => :parser
-task :install => [:reset, :parser]
-
-task :parser do
-  Dir.chdir "vendor/ruby-signature" do
-    sh "bundle exec rake parser"
-  end
-end
-
-task :reset do
-  sh "git submodule update -f --init"
-end
 
 task :smoke do
   sh "bundle", "exec", "bin/smoke_runner.rb", *Dir.glob("smoke/*")
