@@ -72,11 +72,11 @@ module Steep
                                   severity: LSP::Constant::DiagnosticSeverity::ERROR,
                                   range: LSP::Interface::Range.new(
                                     start: LSP::Interface::Position.new(
-                                      line: location.start_line,
+                                      line: location.start_line - 1,
                                       character: location.start_column,
                                     ),
                                     end: LSP::Interface::Position.new(
-                                      line: location.end_line,
+                                      line: location.end_line - 1,
                                       character: location.end_column
                                     )
                                   )
@@ -97,11 +97,11 @@ module Steep
                               severity: LSP::Constant::DiagnosticSeverity::ERROR,
                               range: LSP::Interface::Range.new(
                                 start: LSP::Interface::Position.new(
-                                  line: error.location.start_line,
+                                  line: error.location.start_line - 1,
                                   character: error.location.start_column,
                                   ),
                                 end: LSP::Interface::Position.new(
-                                  line: error.location.end_line,
+                                  line: error.location.end_line - 1,
                                   character: error.location.end_column
                                 )
                               )
