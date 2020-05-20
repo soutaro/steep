@@ -192,8 +192,8 @@ class Foo
 
         req[:params][:diagnostics][0].tap do |diagnostic|
           assert_equal({
-                         start: { line: 2, character: 0 },
-                         end: { line: 2, character: 0 }
+                         start: { line: 1, character: 0 },
+                         end: { line: 1, character: 0 }
                        }, diagnostic[:range])
           assert_match(/parse error on value:/, diagnostic[:message])
         end
@@ -234,8 +234,8 @@ Name: Array[Integer, String]
 
         req[:params][:diagnostics][0].tap do |diagnostic|
           assert_equal({
-                         start: { line: 1, character: 6 },
-                         end: { line: 1, character: 28 }
+                         start: { line: 0, character: 6 },
+                         end: { line: 0, character: 28 }
                        }, diagnostic[:range])
           assert_match(/InvalidTypeApplicationError:/, diagnostic[:message])
         end
