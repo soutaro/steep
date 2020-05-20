@@ -197,6 +197,35 @@ end
     end
   end
 
+  def test_hover_def_no_signature
+    in_tmpdir do
+      project = Project.new(steepfile_path: current_dir + "Steepfile")
+      Project::DSL.parse(project, <<EOF)
+target :lib do
+  check "hello.rb"
+  signature "hello.rbs"
+end
+EOF
+
+      target = project.targets[0]
+      target.add_source(Pathname("hello.rb"), <<-EOF)
+class Hello
+  def do_something(x)
+    String
+  end
+end
+      EOF
+
+      target.type_check(validate_signatures: false)
+
+      hover = Project::HoverContent.new(project: project)
+
+      hover.content_for(path: Pathname("hello.rb"), line: 2, column: 10).tap do |content|
+        assert_nil content
+      end
+    end
+  end
+
   def test_hover_def_var
     in_tmpdir do
       project = Project.new(steepfile_path: current_dir + "Steepfile")

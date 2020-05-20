@@ -110,7 +110,7 @@ module Steep
                 context = status.typing.context_at(line: line, column: column)
                 method_context = context.method_context
 
-                if method_context
+                if method_context && method_context.method
                   DefinitionContent.new(
                     node: node,
                     method_name: method_context.name,
