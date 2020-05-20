@@ -61,7 +61,7 @@ array = [number, string]
 puts array.join(", ")
       EOF
 
-      target.type_check
+      target.type_check(validate_signatures: false)
 
       hover = Project::HoverContent.new(project: project)
 
@@ -112,7 +112,7 @@ array = [number, string]
 puts array.join(", ")
       EOF
 
-      target.type_check
+      target.type_check(validate_signatures: false)
 
       hover = Project::HoverContent.new(project: project)
 
@@ -140,7 +140,7 @@ EOF
 [1,2,3].map {|x| x.to_s }
       EOF
 
-      target.type_check
+      target.type_check(validate_signatures: false)
 
       hover = Project::HoverContent.new(project: project)
 
@@ -181,7 +181,7 @@ class Hello
 end
       EOF
 
-      target.type_check
+      target.type_check(validate_signatures: false)
 
       hover = Project::HoverContent.new(project: project)
 
@@ -224,7 +224,7 @@ class Hello
 end
       EOF
 
-      target.type_check
+      target.type_check(validate_signatures: false)
 
       hover = Project::HoverContent.new(project: project)
 
