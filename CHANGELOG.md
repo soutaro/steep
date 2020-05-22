@@ -2,6 +2,12 @@
 
 ## master
 
+## 0.16.1 (2020-05-22)
+
+* Fix constant resolution ([#143](https://github.com/soutaro/steep/pull/143))
+* Fix RBS diagnostics line number in LSP ([142](https://github.com/soutaro/steep/pull/142))
+* Fix crash caused by hover on `def` in LSP ([140](https://github.com/soutaro/steep/pull/140)) 
+
 ## 0.16.0 (2020-05-19)
 
 * Spawn workers for type check performance ([#137](https://github.com/soutaro/steep/pull/137))
