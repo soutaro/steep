@@ -38,5 +38,5 @@ Gem::Specification.new do |spec|
   spec.add_runtime_dependency "listen", "~> 3.1"
   spec.add_runtime_dependency "pry", "~> 0.12.2"
   spec.add_runtime_dependency "language_server-protocol", "~> 3.14.0.2"
-  spec.add_runtime_dependency "rbs", "~> 0.2.0"
+  spec.add_runtime_dependency "rbs", "~> 0.3.1"
 end
