@@ -235,6 +235,9 @@ module Steep
       new_module_name = Names::Module.from_node(node.children.first) or raise "Unexpected module name: #{node.children.first}"
       new_namespace = nested_namespace_for_module(new_module_name)
 
+      const_context = [new_namespace] + self.module_context.const_env.context
+      module_const_env = TypeInference::ConstantEnv.new(factory: checker.factory, context: const_context)
+
       annots = source.annotations(block: node, factory: checker.factory, current_module: new_namespace)
       module_type = AST::Builtin::Module.instance_type
 
@@ -291,13 +294,6 @@ module Steep
       if annots.module_type
         module_type = annots.module_type
       end
-
-      const_context = if new_namespace.empty?
-                        nil
-                      else
-                        Names::Module.new(name: new_namespace.path.last, namespace: new_namespace.parent)
-                      end
-      module_const_env = TypeInference::ConstantEnv.new(factory: checker.factory, context: const_context)
 
       module_context_ = TypeInference::Context::ModuleContext.new(
         instance_type: instance_type,
@@ -397,11 +393,7 @@ module Steep
         module_type = annots.module_type
       end
 
-      const_context = if new_namespace.empty?
-                        nil
-                      else
-                        Names::Module.new(name: new_namespace.path.last, namespace: new_namespace.parent)
-                      end
+      const_context = [new_namespace] + self.module_context.const_env.context
       class_const_env = TypeInference::ConstantEnv.new(factory: checker.factory, context: const_context)
 
       module_context = TypeInference::Context::ModuleContext.new(
@@ -1128,6 +1120,7 @@ module Steep
 
         when :const
           const_name = Names::Module.from_node(node)
+
           if const_name
             type = type_env.get(const: const_name) do
               fallback_to_any node
@@ -1141,7 +1134,8 @@ module Steep
           yield_self do
             const_name = Names::Module.from_node(node)
             if const_name
-              value_type = synthesize(node.children.last).type
+              const_type = type_env.get(const: const_name) {}
+              value_type = synthesize(node.children.last, hint: const_type).type
               type = type_env.assign(const: const_name, type: value_type, self_type: self_type) do |error|
                 case error
                 when Subtyping::Result::Failure
@@ -2729,10 +2723,10 @@ module Steep
     end
 
     def nested_namespace_for_module(module_name)
-      if module_name.relative? && module_name.namespace.empty?
-        current_namespace.append(module_name.name)
+      if module_name.relative?
+        (current_namespace + module_name.namespace).append(module_name.name)
       else
-        current_namespace
+        module_name
       end
     end
 

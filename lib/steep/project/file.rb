@@ -42,7 +42,7 @@ module Steep
 
       def self.type_check(source, subtyping:)
         annotations = source.annotations(block: source.node, factory: subtyping.factory, current_module: AST::Namespace.root)
-        const_env = TypeInference::ConstantEnv.new(factory: subtyping.factory, context: nil)
+        const_env = TypeInference::ConstantEnv.new(factory: subtyping.factory, context: [AST::Namespace.root])
         type_env = TypeInference::TypeEnv.build(annotations: annotations,
                                                 subtyping: subtyping,
                                                 const_env: const_env,

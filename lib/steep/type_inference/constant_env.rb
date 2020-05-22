@@ -15,26 +15,18 @@ module Steep
         @table = RBS::ConstantTable.new(builder: factory.definition_builder)
       end
 
-      def namespace
-        @namespace ||= if context
-                         context.namespace.append(context.name)
-                       else
-                         AST::Namespace.root
-                       end
-      end
-
       def lookup(name)
         cache[name] ||= begin
           constant = table.resolve_constant_reference(
             factory.type_name_1(name),
-            context: factory.namespace_1(namespace)
+            context: context.map {|namespace| factory.namespace_1(namespace) }
           )
 
           if constant
             factory.type(constant.type)
           end
         rescue => exn
-          Steep.logger.error "Looking up a constant failed: name=#{name}, context=#{context}, error=#{exn.inspect}"
+          Steep.logger.error "Looking up a constant failed: name=#{name}, context=[#{context.join(", ")}], error=#{exn.inspect}"
           nil
         end
       end

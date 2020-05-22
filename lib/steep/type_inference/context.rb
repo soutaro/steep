@@ -48,6 +48,7 @@ module Steep
         attr_reader :defined_module_methods
         attr_reader :const_env
         attr_reader :implement_name
+        attr_reader :namespaces
         attr_reader :current_namespace
         attr_reader :class_name
         attr_reader :instance_definition

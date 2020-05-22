@@ -10,6 +10,8 @@ require "tmpdir"
 require 'minitest/hooks/test'
 require "lsp_double"
 
+Rainbow.enabled = false
+
 module Steep::AST::Types::Name
   def self.new_module(location: nil, name:, args: [])
     name = Steep::Names::Module.parse(name.to_s) unless name.is_a?(Steep::Names::Module)

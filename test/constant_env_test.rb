@@ -49,7 +49,7 @@ end
   end
 
   def test_from_toplevel
-    with_constant_env(context: nil) do |env|
+    with_constant_env(context: [Steep::AST::Namespace.root]) do |env|
       assert_equal parse_type("singleton(::BasicObject)"),
                    env.lookup(Names::Module.parse("BasicObject"))
       assert_equal parse_type("singleton(::Kernel)"),
@@ -58,7 +58,7 @@ end
   end
 
   def test_from_module
-    with_constant_env({ "foo.rbs" => <<-EOS }, context: Names::Module.parse("::A")) do |env|
+    with_constant_env({ "foo.rbs" => <<-EOS }, context: [Names::Module.parse("::A")]) do |env|
 module A end
 module A::String end
     EOS
