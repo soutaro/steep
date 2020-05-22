@@ -124,7 +124,7 @@ class TypeEnvTest < Minitest::Test
 
   def test_const_without_annotation
     with_checker do |checker|
-      const_env = ConstantEnv.new(factory: checker.factory, context: nil)
+      const_env = ConstantEnv.new(factory: checker.factory, context: [AST::Namespace.root])
       type_env = TypeEnv.new(subtyping: checker, const_env: const_env)
 
       # When constant type is known from const env
@@ -307,7 +307,7 @@ class TypeEnvTest < Minitest::Test
 
   def test_with_annotation_const
     with_checker do |checker|
-      const_env = ConstantEnv.new(factory: checker.factory, context: nil)
+      const_env = ConstantEnv.new(factory: checker.factory, context: [AST::Namespace.root])
       original_env = TypeEnv.new(subtyping: checker, const_env: const_env)
 
       union_type = AST::Types::Union.build(types: [

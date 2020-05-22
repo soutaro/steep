@@ -64,7 +64,8 @@ end
     self_type = parse_type("::Object")
 
     annotations = source.annotations(block: source.node, factory: checker.factory, current_module: Namespace.root)
-    const_env = ConstantEnv.new(factory: factory, context: nil)
+    const_env = ConstantEnv.new(factory: factory,
+                                context: [Namespace.root])
     type_env = TypeEnv.build(annotations: annotations,
                              subtyping: checker,
                              const_env: const_env,
@@ -1025,7 +1026,7 @@ class Steep::Names::Module end
       source = parse_ruby("module Steep; class Names::Module; end; end")
 
       annotations = source.annotations(block: source.node, factory: checker.factory, current_module: Namespace.root)
-      const_env = ConstantEnv.new(factory: factory, context: nil)
+      const_env = ConstantEnv.new(factory: factory, context: [Namespace.root])
       type_env = TypeEnv.build(annotations: annotations,
                                subtyping: checker,
                                const_env: const_env,
@@ -1123,7 +1124,7 @@ module Steep::Printable end
       source = parse_ruby("class Steep; module Printable; end; end")
 
       annotations = source.annotations(block: source.node, factory: checker.factory, current_module: Namespace.root)
-      const_env = ConstantEnv.new(factory: factory, context: nil)
+      const_env = ConstantEnv.new(factory: factory, context: [Namespace.root])
       type_env = TypeEnv.build(annotations: annotations,
                                subtyping: checker,
                                const_env: const_env,
@@ -1448,7 +1449,11 @@ end
 class A::String < Object
   def foo
     # @type var x: String
-    x = ""
+    x = ::A::String.new
+    x = String.new
+
+    # @type var y: ::String
+    y = ""
   end
 end
       RUBY
@@ -1456,34 +1461,7 @@ end
       with_standard_construction(checker, source) do |construction, typing|
         construction.synthesize(source.node)
 
-        assert_empty typing.errors
-      end
-    end
-  end
-
-  def test_namespace_module_nested2
-    with_checker <<-EOF do |checker|
-class A
-end
-
-class A::String
-  def foo: -> untyped
-end
-    EOF
-
-      source = parse_ruby(<<-RUBY)
-class ::A::String < Object
-  def foo
-    # @type var x: String
-    x = ""
-  end
-end
-      RUBY
-
-      with_standard_construction(checker, source) do |construction, typing|
-        construction.synthesize(source.node)
-
-        assert_empty typing.errors
+        assert_no_error typing
       end
     end
   end
@@ -4549,6 +4527,44 @@ q = <<-QUERY
 QUERY
 q
 EOF
+
+      with_standard_construction(checker, source) do |construction, typing|
+        _, _, context = construction.synthesize(source.node)
+
+        assert_no_error typing
+      end
+    end
+  end
+
+  def test_casgn_in_nested_class
+    with_checker <<EOF do |checker|
+class A
+end
+
+class A::B
+end
+
+A::B::C: Array[String]
+EOF
+      source = parse_ruby(<<RUBY)
+class A::B
+  C = []
+  # @type var x: Array[String]
+  x = C
+end
+
+class A
+  class B
+    C = []
+    # @type var x: Array[String]
+    x = C
+  end
+end
+
+A::B::C = []
+# @type var x: Array[String]
+x = A::B::C
+RUBY
 
       with_standard_construction(checker, source) do |construction, typing|
         _, _, context = construction.synthesize(source.node)

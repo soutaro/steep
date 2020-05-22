@@ -316,13 +316,13 @@ class Hello
   1 + ""
 end
 RUBY
-      target.add_source Pathname("lib/ruby_syntax_error.rb"), <<RUBY
-class Hello
-RUBY
 
       worker = Server::CodeWorker.new(project: project, reader: worker_reader, writer: worker_writer)
 
-      worker.typecheck_file Pathname("lib/success.rb"), project.targets[0]
+      Thread.start do
+        worker.typecheck_file Pathname("lib/success.rb"), project.targets[0]
+      end
+
       master_reader.read do |response|
         uri = response[:params][:uri]
         diagnostics = response[:params][:diagnostics]
