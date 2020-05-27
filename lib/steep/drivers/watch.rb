@@ -24,7 +24,7 @@ module Steep
         project = load_config()
 
         loader = Project::FileLoader.new(project: project)
-        loader.load_sources([])
+        loader.load_sources(dirs)
         loader.load_signatures()
 
         client_read, server_write = IO.pipe
@@ -36,7 +36,7 @@ module Steep
         server_reader = LanguageServer::Protocol::Transport::Io::Reader.new(server_read)
         server_writer = LanguageServer::Protocol::Transport::Io::Writer.new(server_write)
 
-        interaction_worker = Server::InteractionWorker.spawn_worker(:interaction, name: "interaction", steepfile: project.steepfile_path)
+        interaction_worker = Server::WorkerProcess.spawn_worker(:interaction, name: "interaction", steepfile: project.steepfile_path)
         signature_worker = Server::WorkerProcess.spawn_worker(:signature, name: "signature", steepfile: project.steepfile_path)
         code_workers = Server::WorkerProcess.spawn_code_workers(steepfile: project.steepfile_path)
 
