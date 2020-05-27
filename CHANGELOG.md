@@ -2,15 +2,17 @@
 
 ## master
 
+* Fix `steep watch` ([#147](https://github.com/soutaro/steep/pull/147))
+
 ## 0.16.2 (2020-05-27)
 
-* Update gems ([144](https://github.com/soutaro/steep/pull/144), [145](https://github.com/soutaro/steep/pull/145))
+* Update gems ([#144](https://github.com/soutaro/steep/pull/144), [#145](https://github.com/soutaro/steep/pull/145))
 
 ## 0.16.1 (2020-05-22)
 
 * Fix constant resolution ([#143](https://github.com/soutaro/steep/pull/143))
-* Fix RBS diagnostics line number in LSP ([142](https://github.com/soutaro/steep/pull/142))
-* Fix crash caused by hover on `def` in LSP ([140](https://github.com/soutaro/steep/pull/140)) 
+* Fix RBS diagnostics line number in LSP ([#142](https://github.com/soutaro/steep/pull/142))
+* Fix crash caused by hover on `def` in LSP ([#140](https://github.com/soutaro/steep/pull/140)) 
 
 ## 0.16.0 (2020-05-19)
 

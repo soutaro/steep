@@ -450,4 +450,4 @@ module LSPTestHelper
 end
 
 
-TestHelper.timeout = ENV["CI"] ? 30 : 10
+TestHelper.timeout = ENV["CI"] ? 50 : 10
