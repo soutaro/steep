@@ -14,6 +14,10 @@ Gem::Specification.new do |spec|
   spec.homepage      = "https://github.com/soutaro/steep"
   spec.license       = 'MIT'
 
+  spec.metadata["homepage_uri"] = spec.homepage
+  spec.metadata["source_code_uri"] = "https://github.com/soutaro/steep"
+  spec.metadata["changelog_uri"] = "https://github.com/soutaro/steep/blob/master/CHANGELOG.md"
+
   spec.files         = `git ls-files -z`.split("\x0").reject {|f|
     f.match(%r{^(test|spec|features)/})
   }

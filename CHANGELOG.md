@@ -2,6 +2,10 @@
 
 ## master
 
+## 0.16.2 (2020-05-27)
+
+* Update gems ([144](https://github.com/soutaro/steep/pull/144), [145](https://github.com/soutaro/steep/pull/145))
+
 ## 0.16.1 (2020-05-22)
 
 * Fix constant resolution ([#143](https://github.com/soutaro/steep/pull/143))
