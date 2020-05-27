@@ -2,7 +2,10 @@
 
 ## master
 
+## 0.16.3
+
 * Fix `steep watch` ([#147](https://github.com/soutaro/steep/pull/147))
+* Stop using pry ([#148](https://github.com/soutaro/steep/pull/148))
 
 ## 0.16.2 (2020-05-27)
 
