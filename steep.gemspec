@@ -28,7 +28,7 @@ Gem::Specification.new do |spec|
   spec.add_development_dependency "rake", "~> 13.0"
   spec.add_development_dependency "minitest", "~> 5.0"
   spec.add_development_dependency "racc", "~> 1.4"
-  spec.add_development_dependency "minitest-reporters", "~> 1.3.6"
+  spec.add_development_dependency "minitest-reporters", "~> 1.4.2"
   spec.add_development_dependency "minitest-hooks", "~> 1.5.0"
 
   spec.add_runtime_dependency "parser", "~> 2.7.0"
