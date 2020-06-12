@@ -1256,7 +1256,7 @@ module Steep
                       end
                     end
                   else
-                    [select_super_type(synthesize(e).type, element_hint)]
+                    [select_super_type(synthesize(e, hint: element_hint).type, element_hint)]
                   end
                 end
                 array_type = AST::Builtin::Array.instance_type(AST::Types::Union.build(types: element_types))

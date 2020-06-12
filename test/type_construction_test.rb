@@ -3682,6 +3682,27 @@ EOF
     end
   end
 
+  def test_array_union
+    with_checker <<EOF do |checker|
+class Animal
+end
+
+type animal = :dog | :cat
+Animal::ALL: Array[animal]
+EOF
+
+      source = parse_ruby(<<EOF)
+Animal::ALL = [:dog, :cat]
+EOF
+
+      with_standard_construction(checker, source) do |construction, typing|
+        construction.synthesize(source.node)
+
+        assert_no_error typing
+      end
+    end
+  end
+
   def test_passing_empty_block
     with_checker do |checker|
       source = parse_ruby(<<EOF)
