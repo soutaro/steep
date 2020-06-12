@@ -4068,6 +4068,27 @@ EOF
     end
   end
 
+  def test_hash_union
+    with_checker <<EOF do |checker|
+class Animal
+end
+
+type animal = :dog | :cat
+Animal::ALL: Hash[Symbol, animal]
+EOF
+
+      source = parse_ruby(<<EOF)
+Animal::ALL = { :dog => :dog, :cat => :cat }
+EOF
+
+      with_standard_construction(checker, source) do |construction, typing|
+        construction.synthesize(source.node)
+
+        assert_no_error typing
+      end
+    end
+  end
+
   def test_polymorphic_method
     with_checker <<-EOF do |checker|
 interface _Ref[X]
