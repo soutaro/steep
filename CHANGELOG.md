@@ -2,6 +2,11 @@
 
 ## master
 
+## 0.17.0 (2020-06-13)
+
+* Fix `steep watch` and `steep langserver` to correctly handle error message filterings based on options ([#152](https://github.com/soutaro/steep/pull/152))
+* Fix typing of collections ([#151](https://github.com/soutaro/steep/pull/151))
+
 ## 0.16.3
 
 * Fix `steep watch` ([#147](https://github.com/soutaro/steep/pull/147))
