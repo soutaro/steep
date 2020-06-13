@@ -307,6 +307,7 @@ end
 target :lib do
   check "lib"
   signature "sig"
+  typing_options :lenient
 end
 EOF
 
@@ -314,6 +315,7 @@ EOF
       target.add_source Pathname("lib/success.rb"), <<RUBY
 class Hello
   1 + ""
+  1.hello_world
 end
 RUBY
 

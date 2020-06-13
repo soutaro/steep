@@ -47,7 +47,7 @@ module Steep
 
         Steep.logger.info "Finished type checking: #{path}@#{target.name}"
 
-        diagnostics = source_diagnostics(source)
+        diagnostics = source_diagnostics(source, target.options)
 
         writer.write(
           method: :"textDocument/publishDiagnostics",
@@ -58,7 +58,7 @@ module Steep
         )
       end
 
-      def source_diagnostics(source)
+      def source_diagnostics(source, options)
         case status = source.status
         when Project::SourceFile::ParseErrorStatus
           []
@@ -80,7 +80,7 @@ module Steep
             )
           ]
         when Project::SourceFile::TypeCheckStatus
-          status.typing.errors.map do |error|
+          status.typing.errors.select {|error| options.error_to_report?(error) }.map do |error|
             loc = error.location_to_str
 
             LSP::Interface::Diagnostic.new(
