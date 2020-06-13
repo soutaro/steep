@@ -1037,10 +1037,10 @@ module Steep
               case child.type
               when :pair
                 key, value = child.children
-                key_types << synthesize(key).type.yield_self do |type|
+                key_types << synthesize(key, hint: key_hint).type.yield_self do |type|
                   select_super_type(type, key_hint)
                 end
-                value_types << synthesize(value).type.yield_self do |type|
+                value_types << synthesize(value, hint: value_hint).type.yield_self do |type|
                   select_super_type(type, value_hint)
                 end
               when :kwsplat
@@ -1256,7 +1256,7 @@ module Steep
                       end
                     end
                   else
-                    [select_super_type(synthesize(e).type, element_hint)]
+                    [select_super_type(synthesize(e, hint: element_hint).type, element_hint)]
                   end
                 end
                 array_type = AST::Builtin::Array.instance_type(AST::Types::Union.build(types: element_types))
