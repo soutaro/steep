@@ -2,6 +2,10 @@
 
 ## master
 
+## 0.17.1 (2020-06-15)
+
+* Allow RBS gem to be 0.4 ([#153](https://github.com/soutaro/steep/pull/153))
+
 ## 0.17.0 (2020-06-13)
 
 * Fix `steep watch` and `steep langserver` to correctly handle error message filterings based on options ([#152](https://github.com/soutaro/steep/pull/152))
