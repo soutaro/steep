@@ -12,6 +12,7 @@ require 'language_server-protocol'
 require "etc"
 require "open3"
 require "stringio"
+require 'uri'
 
 require "rbs"
 
