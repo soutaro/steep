@@ -35,6 +35,14 @@ module Steep
         checker.factory.definition_builder
       end
 
+      def type_name_resolver
+        @type_name_resolver ||= RBS::TypeNameResolver.from_env(env)
+      end
+
+      def validator
+        @validator ||= RBS::Validator.new(env: env, resolver: type_name_resolver)
+      end
+
       def factory
         checker.factory
       end
@@ -47,57 +55,69 @@ module Steep
         validate_global
       end
 
-      def validate_one_decl(name, decl)
-        case decl
-        when Declarations::Class
-          rescue_validation_errors do
-            Steep.logger.debug "#{Location.to_string decl.location}:\tValidating class definition `#{name}`..."
-            builder.build_instance(decl.name.absolute!).each_type do |type|
-              env.validate type, namespace: RBS::Namespace.root
+      def validate_type(type)
+        Steep.logger.debug "#{Location.to_string type.location}: Validating #{type}..."
+        validator.validate_type type, context: [RBS::Namespace.root]
+      end
+
+      def validate_one_class(name)
+        rescue_validation_errors do
+          Steep.logger.debug "Validating class definition `#{name}`..."
+          Steep.logger.tagged "#{name}" do
+            builder.build_instance(name).each_type do |type|
+              validate_type type
             end
-            builder.build_singleton(decl.name.absolute!).each_type do |type|
-              env.validate type, namespace: RBS::Namespace.root
+            builder.build_singleton(name).each_type do |type|
+              validate_type type
             end
           end
-        when Declarations::Interface
-          rescue_validation_errors do
-            Steep.logger.debug "#{Location.to_string decl.location}:\tValidating interface `#{name}`..."
-            builder.build_interface(decl.name.absolute!, decl).each_type do |type|
-              env.validate type, namespace: RBS::Namespace.root
+        end
+      end
+
+      def validate_one_interface(name)
+        rescue_validation_errors do
+          Steep.logger.debug "Validating interface `#{name}`..."
+          Steep.logger.tagged "#{name}" do
+            builder.build_interface(name).each_type do |type|
+              validate_type type
             end
           end
         end
       end
 
       def validate_decl
-        env.each_decl do |name, decl|
-          validate_one_decl name, decl
+        env.class_decls.each_key do |name|
+          validate_one_class(name)
+        end
+
+        env.interface_decls.each_key do |name|
+          validate_one_interface(name)
         end
       end
 
       def validate_const
-        env.each_constant do |name, decl|
+        env.constant_decls.each do |name, entry|
           rescue_validation_errors do
-            Steep.logger.debug "#{Location.to_string decl.location}:\tValidating constant `#{name}`..."
-            env.validate(decl.type, namespace: name.namespace)
+            Steep.logger.debug "Validating constant `#{name}`..."
+            validate_type entry.decl.type
           end
         end
       end
 
       def validate_global
-        env.each_global do |name, decl|
+        env.global_decls.each do |name, entry|
           rescue_validation_errors do
-            Steep.logger.debug "#{Location.to_string decl.location}:\tValidating global `#{name}`..."
-            env.validate(decl.type, namespace: RBS::Namespace.root)
+            Steep.logger.debug "Validating global `#{name}`..."
+            validate_type entry.decl.type
           end
         end
       end
 
       def validate_alias
-        env.each_alias do |name, decl|
+        env.alias_decls.each do |name, entry|
           rescue_validation_errors do
-            Steep.logger.debug "#{Location.to_string decl.location}:\tValidating alias `#{name}`..."
-            env.validate(decl.type, namespace: name.namespace)
+            Steep.logger.debug "Validating alias `#{name}`..."
+            validate_type(entry.decl.type)
           end
         end
       end
@@ -108,7 +128,7 @@ module Steep
         @errors << Errors::InvalidTypeApplicationError.new(
           name: factory.type_name(exn.type_name),
           args: exn.args.map {|ty| factory.type(ty) },
-          params: exn.params.each.map(&:name),
+          params: exn.params,
           location: exn.location
         )
       rescue RBS::NoTypeFoundError => exn

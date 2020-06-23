@@ -95,7 +95,7 @@ module Steep
       end
 
       def environment
-        @environment ||= RBS::Environment.new().tap do |env|
+        @environment ||= RBS::Environment.new().yield_self do |env|
           stdlib_root = options.vendored_stdlib_path || RBS::EnvironmentLoader::STDLIB_ROOT
           gem_vendor_path = options.vendored_gems_path
           loader = RBS::EnvironmentLoader.new(stdlib_root: stdlib_root, gem_vendor_path: gem_vendor_path)
@@ -103,6 +103,8 @@ module Steep
             loader.add(library: lib)
           end
           loader.load(env: env)
+
+          env.resolve_type_names
         end
       end
 
@@ -134,6 +136,8 @@ module Steep
                 end
               end
             end
+
+            env = env.resolve_type_names
 
             definition_builder = RBS::DefinitionBuilder.new(env: env)
             factory = AST::Types::Factory.new(builder: definition_builder)

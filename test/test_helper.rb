@@ -1,4 +1,6 @@
 $LOAD_PATH.unshift File.expand_path('../../lib', __FILE__)
+
+require "bundler/setup"
 require 'steep'
 
 require "minitest/reporters"
@@ -214,7 +216,7 @@ end
 module SubtypingHelper
   BUILTIN = <<-EOS
 class BasicObject
-  def initialize: () -> void 
+  def initialize: () -> void
 end
 
 class Object < BasicObject
@@ -391,6 +393,7 @@ module FactoryHelper
 
       env = RBS::Environment.new()
       env_loader.load(env: env)
+      env = env.resolve_type_names
 
       definition_builder = RBS::DefinitionBuilder.new(env: env)
 

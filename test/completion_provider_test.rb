@@ -34,7 +34,7 @@ lvar1
 
   def test_on_upper_identifier
     with_checker <<EOF do
-extension Object (Array)
+class Object
   def Array: (untyped) -> Array[untyped]
 end
 EOF

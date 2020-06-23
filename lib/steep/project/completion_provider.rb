@@ -10,7 +10,13 @@ module Steep
 
       InstanceVariableItem = Struct.new(:identifier, :range, :type, keyword_init: true)
       LocalVariableItem = Struct.new(:identifier, :range, :type, keyword_init: true)
-      MethodNameItem = Struct.new(:identifier, :range, :definition, :method_type, :inherited_method, keyword_init: true)
+      MethodNameItem = Struct.new(:identifier, :range, :definition, :method_type, :inherited_method, keyword_init: true) do
+        def comment_string
+          if comments = definition&.comments
+            comments.map(&:string).join("\n----\n")
+          end
+        end
+      end
 
       attr_reader :source_text
       attr_reader :path
@@ -231,8 +237,7 @@ module Steep
                        subtyping.factory.definition_builder.build_singleton(type_name)
                      when AST::Types::Name::Interface
                        type_name = subtyping.factory.type_name_1(type.name)
-                       interface = subtyping.factory.env.find_class(type_name)
-                       subtyping.factory.definition_builder.build_interface(type_name, interface)
+                       subtyping.factory.definition_builder.build_interface(type_name)
                      end
 
         if definition

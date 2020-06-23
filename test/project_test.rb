@@ -192,7 +192,7 @@ end
         assert_equal "((::Integer | ::String)) -> ::String", content.method_type.to_s
         assert_equal ["(::Integer x) -> ::String", "(::String x) -> ::String"], content.definition.method_types.map(&:to_s)
         assert_instance_of RBS::Definition::Method, content.definition
-        assert_equal "Do something super for given argument `x`.\n", content.definition.comment.string
+        assert_equal "Do something super for given argument `x`.\n", content.comment_string
       end
     end
   end

@@ -169,21 +169,19 @@ end
       validator.validate_decl
 
       assert_operator validator, :has_error?
+
       assert_any validator.each_error do |error|
         error.is_a?(Errors::UnknownTypeNameError) &&
-          error.name == parse_type("::Arryay").name
+          error.name == parse_type("Arryay").name
       end
     end
   end
 
   def test_validate_stdlib
     with_checker with_stdlib: true do |checker|
-      env = checker.factory.env
       validator = Validator.new(checker: checker)
 
-      name, decl = env.each_decl.find {|(name, _)| name.to_s == "::Hash" }
-
-      validator.validate_one_decl name, decl
+      validator.validate_one_class(RBS::TypeName.new(name: :Hash, namespace: RBS::Namespace.root))
       validator.each_error {|e| e.puts(STDOUT) }
 
       refute validator.has_error?

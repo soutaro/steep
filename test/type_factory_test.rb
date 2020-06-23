@@ -313,7 +313,7 @@ FOO
           assert_instance_of Steep::Interface::Interface, interface
           assert_equal type, interface.type
 
-          assert_overload_with interface.methods[:new], "[X] () -> ::People[X]"
+          assert_overload_with interface.methods[:new], "() -> ::People[untyped]"
           assert_overload_with interface.methods[:all], "() -> ::Array[::People[::String]]"
           assert_overload_with interface.methods[:instance], "() -> ::People[untyped]"
           assert_overload_with interface.methods[:itself], "() -> singleton(::People)"

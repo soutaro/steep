@@ -37,7 +37,6 @@ module Steep
     attr_reader :source
     attr_reader :annotations
     attr_reader :typing
-    attr_reader :type_env
 
     attr_reader :context
 
@@ -169,7 +168,7 @@ module Steep
 
       super_method = if definition
                        if (this_method = definition.methods[method_name])
-                         if module_context&.class_name == checker.factory.type_name(this_method.defined_in.name.absolute!)
+                         if module_context&.class_name == checker.factory.type_name(this_method.defined_in)
                            this_method.super_method
                          else
                            this_method
@@ -256,9 +255,9 @@ module Steep
           absolute_name(new_module_name).yield_self do |absolute_name|
             if checker.factory.module_name?(absolute_name)
               absolute_name_ = checker.factory.type_name_1(absolute_name)
-              decl = checker.factory.env.find_class(absolute_name_)
+              entry = checker.factory.env.class_decls[absolute_name_]
               AST::Annotation::Implements::Module.new(name: absolute_name,
-                                                      args: decl.type_params.each.map(&:name))
+                                                      args: entry.type_params.each.map(&:name))
             end
           end
         end
@@ -269,7 +268,7 @@ module Steep
         module_args = implement_module_name.args.map {|x| AST::Types::Var.new(name: x)}
 
         type_name_ = checker.factory.type_name_1(implement_module_name.name)
-        module_decl = checker.factory.definition_builder.env.find_class(type_name_)
+        module_entry = checker.factory.definition_builder.env.class_decls[type_name_]
         instance_def = checker.factory.definition_builder.build_instance(type_name_)
         module_def = checker.factory.definition_builder.build_singleton(type_name_)
 
@@ -277,10 +276,7 @@ module Steep
           types: [
             AST::Types::Name::Instance.new(name: module_name, args: module_args),
             AST::Builtin::Object.instance_type,
-            module_decl.self_type&.yield_self {|ty|
-              absolute_type = checker.factory.env.absolute_type(ty, namespace: module_decl.name.absolute!.namespace)
-              checker.factory.type(absolute_type)
-            }
+            module_entry.self_type&.yield_self {|ty| checker.factory.type(ty) }
           ].compact
         )
 
@@ -362,9 +358,11 @@ module Steep
 
           if name
             absolute_name_ = checker.factory.type_name_1(name)
-            decl = checker.factory.env.find_class(absolute_name_)
-            AST::Annotation::Implements::Module.new(name: name,
-                                                    args: decl.type_params.each.map(&:name))
+            entry = checker.factory.env.class_decls[absolute_name_]
+            AST::Annotation::Implements::Module.new(
+              name: name,
+              args: entry.type_params.each.map(&:name)
+            )
           end
         end
       end
@@ -565,6 +563,7 @@ module Steep
               add_typing(node, type: AST::Builtin.any_type)
             else
               rhs_result = synthesize(rhs, hint: hint || context.lvar_env.declared_types[name]&.type)
+
               constr = rhs_result.constr.update_lvar_env do |lvar_env|
                 lvar_env.assign(name, node: node, type: rhs_result.type) do |declared_type, actual_type, result|
                   typing.add_error(Errors::IncompatibleAssignment.new(node: node,
@@ -2751,12 +2750,12 @@ module Steep
 
     def validate_method_definitions(node, module_name)
       expected_instance_method_names = (module_context.instance_definition&.methods || {}).each.with_object(Set[]) do |(name, method), set|
-        if method.implemented_in == module_context.instance_definition.declaration
+        if method.implemented_in == module_context.instance_definition.type_name
           set << name
         end
       end
       expected_module_method_names = (module_context.module_definition&.methods || {}).each.with_object(Set[]) do |(name, method), set|
-        if method.implemented_in == module_context.module_definition.declaration
+        if method.implemented_in == module_context.module_definition.type_name
           set << name
         end
       end
@@ -2948,7 +2947,7 @@ module Steep
     def to_instance_type(type, args: nil)
       args = args || case type
                      when AST::Types::Name::Class, AST::Types::Name::Module
-                       checker.factory.env.find_class(checker.factory.type_name_1(type.name)).type_params.each.map { AST::Builtin.any_type }
+                       checker.factory.env.class_decls[checker.factory.type_name_1(type.name)].type_params.each.map { AST::Builtin.any_type }
                      else
                        raise "unexpected type to to_instance_type: #{type}"
                      end
