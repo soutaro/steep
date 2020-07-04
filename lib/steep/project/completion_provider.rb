@@ -10,7 +10,7 @@ module Steep
 
       InstanceVariableItem = Struct.new(:identifier, :range, :type, keyword_init: true)
       LocalVariableItem = Struct.new(:identifier, :range, :type, keyword_init: true)
-      MethodNameItem = Struct.new(:identifier, :range, :definition, :method_type, keyword_init: true)
+      MethodNameItem = Struct.new(:identifier, :range, :definition, :method_type, :inherited_method, keyword_init: true)
 
       attr_reader :source_text
       attr_reader :path
@@ -244,7 +244,8 @@ module Steep
                     items << MethodNameItem.new(identifier: name,
                                                 range: range,
                                                 definition: method,
-                                                method_type: method_type)
+                                                method_type: method_type,
+                                                inherited_method: inherited_method?(method, type))
                   end
                 end
               end
@@ -292,6 +293,10 @@ module Steep
         end
 
         index
+      end
+
+      def inherited_method?(method, type)
+        method.implemented_in&.name&.name != type.name&.name
       end
     end
   end
