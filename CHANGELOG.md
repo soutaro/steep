@@ -2,6 +2,11 @@
 
 ## master
 
+## 0.18.0 (2020-07-06)
+
+* Sort result of `Pathname#glob` ([#154](https://github.com/soutaro/steep/pull/154))
+* Sort methods in LanguageServer to return non-inherited methods first ([#159](https://github.com/soutaro/steep/pull/159))
+
 ## 0.17.1 (2020-06-15)
 
 * Allow RBS gem to be 0.4 ([#153](https://github.com/soutaro/steep/pull/153))
