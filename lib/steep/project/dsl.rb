@@ -10,6 +10,7 @@ module Steep
         attr_reader :no_builtin
         attr_reader :vendor_dir
         attr_reader :strictness_level
+        attr_reader :typing_option_hash
 
         def initialize(name, sources: [], libraries: [], signatures: [], ignored_sources: [])
           @name = name
@@ -19,6 +20,7 @@ module Steep
           @ignored_sources = ignored_sources
           @vendor_dir = nil
           @strictness_level = :default
+          @typing_option_hash = {}
         end
 
         def initialize_copy(other)
@@ -29,6 +31,7 @@ module Steep
           @ignored_sources = other.ignored_sources.dup
           @vendor_dir = other.vendor_dir
           @strictness_level = other.strictness_level
+          @typing_option_hash = other.typing_option_hash
         end
 
         def check(*args)
@@ -43,8 +46,9 @@ module Steep
           libraries.push(*args)
         end
 
-        def typing_options(level)
+        def typing_options(level = @strictness_level, **hash)
           @strictness_level = level
+          @typing_option_hash = hash
         end
 
         def signature(*args)
@@ -127,6 +131,8 @@ module Steep
             when :lenient
               options.apply_lenient_typing_options!
             end
+
+            options.merge!(target.typing_option_hash)
 
             case target.vendor_dir
             when Array

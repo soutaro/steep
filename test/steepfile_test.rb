@@ -57,6 +57,33 @@ EOF
     end
   end
 
+  def test_config_typing_options
+    in_tmpdir do
+      project = Project.new(steepfile_path: current_dir + "Steepfile")
+
+      Project::DSL.parse(project, <<RUBY)
+target :app do
+  check "app"
+  ignore "app/views"
+  vendor
+
+  typing_options :strict,
+                 allow_missing_definitions: true,
+                 allow_fallback_any: true
+end
+RUBY
+
+      assert_equal 1, project.targets.size
+
+      target = project.targets[0]
+
+      assert_operator target.options, :allow_missing_definitions
+      assert_operator target.options, :allow_fallback_any
+      refute_operator target.options, :allow_unknown_constant_assignment
+      refute_operator target.options, :allow_unknown_method_calls
+    end
+  end
+
   def test_invalid_template
     in_tmpdir do
       project = Project.new(steepfile_path: current_dir + "Steepfile")

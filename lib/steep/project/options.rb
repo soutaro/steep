@@ -52,6 +52,13 @@ module Steep
           true
         end
       end
+
+      def merge!(hash)
+        self.allow_fallback_any = hash[:allow_fallback_any] if hash.key?(:allow_fallback_any)
+        self.allow_missing_definitions = hash[:allow_missing_definitions] if hash.key?(:allow_missing_definitions)
+        self.allow_unknown_constant_assignment = hash[:allow_unknown_constant_assignment] if hash.key?(:allow_unknown_constant_assignment)
+        self.allow_unknown_method_calls = hash[:allow_unknown_method_calls] if hash.key?(:allow_unknown_method_calls)
+      end
     end
   end
 end
