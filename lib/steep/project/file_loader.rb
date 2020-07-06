@@ -20,7 +20,7 @@ module Steep
                       Pathname.glob(absolute_path)
                     end
 
-            files.each do |source_path|
+            files.sort.each do |source_path|
               yield project.relative_path(source_path)
             end
           end
