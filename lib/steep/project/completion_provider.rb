@@ -241,6 +241,7 @@ module Steep
               if name.to_s.start_with?(prefix)
                 if word_name?(name.to_s)
                   method.method_types.each do |method_type|
+                    next if disallowed_method?(name)
                     items << MethodNameItem.new(identifier: name,
                                                 range: range,
                                                 definition: method,
@@ -297,6 +298,13 @@ module Steep
 
       def inherited_method?(method, type)
         method.implemented_in&.name&.name != type.name&.name
+      end
+
+      def disallowed_method?(name)
+        # initialize isn't invoked by developers when creating
+        # instances of new classes, so don't show it as
+        # an LSP option
+        name == :initialize
       end
     end
   end
