@@ -14,6 +14,10 @@ jobs:
         container_tag:
         - 2.6.5-bionic
         - 2.7.0-bionic
+        task:
+        - test
+        - smoke
+        - build
     container:
       image: rubylang/ruby:${{ matrix.container_tag }}
     steps:
@@ -24,4 +28,4 @@ jobs:
         gem install bundler
         bundle install --jobs 4 --retry 3
         bin/setup
-        bundle exec rake build test smoke
+        bundle exec rake ${{matrix.task}}
