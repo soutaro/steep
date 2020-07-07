@@ -190,7 +190,7 @@ HOVER
               new_text: "#{item.identifier}#{method_type_snippet}",
               range: range
             ),
-            documentation: item.definition.comment_string,
+            documentation: item.comment&.string,
             insert_text_format: LanguageServer::Protocol::Constant::InsertTextFormat::SNIPPET,
             sort_text: item.inherited_method ? 'z' : 'a' # Ensure language server puts non-inherited methods before inherited methods
           )

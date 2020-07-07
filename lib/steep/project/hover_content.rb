@@ -7,7 +7,7 @@ module Steep
       DefinitionContent = Struct.new(:node, :method_name, :method_type, :definition, :location, keyword_init: true) do
         def comment_string
           if comments = definition&.comments
-            comments.map(&:string).join("\n----\n")
+            comments.map {|c| c.string.chomp }.uniq.join("\n----\n")
           end
         end
       end

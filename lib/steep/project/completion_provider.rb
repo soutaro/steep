@@ -10,11 +10,13 @@ module Steep
 
       InstanceVariableItem = Struct.new(:identifier, :range, :type, keyword_init: true)
       LocalVariableItem = Struct.new(:identifier, :range, :type, keyword_init: true)
-      MethodNameItem = Struct.new(:identifier, :range, :definition, :method_type, :inherited_method, keyword_init: true) do
-        def comment_string
-          if comments = definition&.comments
-            comments.map(&:string).join("\n----\n")
-          end
+      MethodNameItem = Struct.new(:identifier, :range, :definition, :def_type, :inherited_method, keyword_init: true) do
+        def method_type
+          def_type.type
+        end
+
+        def comment
+          def_type.comment
         end
       end
 
@@ -242,15 +244,16 @@ module Steep
 
         if definition
           definition.methods.each do |name, method|
+            next if disallowed_method?(name)
+
             if include_private || method.public?
               if name.to_s.start_with?(prefix)
                 if word_name?(name.to_s)
-                  method.method_types.each do |method_type|
-                    next if disallowed_method?(name)
+                  method.defs.each do |def_type|
                     items << MethodNameItem.new(identifier: name,
                                                 range: range,
                                                 definition: method,
-                                                method_type: method_type,
+                                                def_type: def_type,
                                                 inherited_method: inherited_method?(method, definition))
                   end
                 end
