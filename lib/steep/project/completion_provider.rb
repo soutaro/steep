@@ -251,7 +251,7 @@ module Steep
                                                 range: range,
                                                 definition: method,
                                                 method_type: method_type,
-                                                inherited_method: inherited_method?(method, type))
+                                                inherited_method: inherited_method?(method, definition))
                   end
                 end
               end
@@ -301,8 +301,8 @@ module Steep
         index
       end
 
-      def inherited_method?(method, type)
-        method.implemented_in&.name&.name != type.name&.name
+      def inherited_method?(method, definition)
+        method.implemented_in != definition.type_name
       end
 
       def disallowed_method?(name)
