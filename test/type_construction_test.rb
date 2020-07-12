@@ -1411,26 +1411,46 @@ class A
   def foobar: -> untyped
 end
 
-class A::String
-  def aaaaa: -> untyped
+class B
+  def hello: () -> void
+end
+
+class B
+  class C
+  end
+end
+
+class C
+  def hello: () -> void
+end
+
+class C
+  def hello: () -> void
 end
     EOS
 
       source = parse_ruby(<<-RUBY)
-class A < Object
-  class String
-  end
+class A
+end
 
-  class XYZ
-  end
+class B
 end
       RUBY
 
       with_standard_construction(checker, source) do |construction, typing|
         construction.synthesize(source.node)
 
-        assert_equal 1, typing.errors.size
-        assert_instance_of Steep::Errors::MethodDefinitionMissing, typing.errors[0]
+        assert_equal 2, typing.errors.size
+
+        typing.errors[0].tap do |error|
+          assert_instance_of Steep::Errors::MethodDefinitionMissing, error
+          assert_equal "::A", error.module_name.to_s
+        end
+
+        typing.errors[1].tap do |error|
+          assert_instance_of Steep::Errors::MethodDefinitionMissing, error
+          assert_equal "::B", error.module_name.to_s
+        end
       end
     end
   end

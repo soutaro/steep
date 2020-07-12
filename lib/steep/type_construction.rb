@@ -2767,6 +2767,11 @@ module Steep
     end
 
     def validate_method_definitions(node, module_name)
+      module_name_1 = checker.factory.type_name_1(module_name.name)
+      member_decl_count = checker.factory.env.class_decls[module_name_1].decls.count {|d| d.decl.each_member.count > 0 }
+
+      return unless member_decl_count == 1
+
       expected_instance_method_names = (module_context.instance_definition&.methods || {}).each.with_object(Set[]) do |(name, method), set|
         if method.implemented_in == module_context.instance_definition.type_name
           set << name
