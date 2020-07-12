@@ -8,6 +8,10 @@ module Steep
           @definition_builder = builder
         end
 
+        def type_name_resolver
+          @type_name_resolver ||= RBS::TypeNameResolver.from_env(definition_builder.env)
+        end
+
         def type(type)
           case type
           when RBS::Types::Bases::Any
@@ -277,8 +281,7 @@ module Steep
 
         def unfold(type_name)
           type_name_1(type_name).yield_self do |type_name|
-            decl = definition_builder.env.find_alias(type_name) or raise "Unknown type name: #{type_name}"
-            type(definition_builder.env.absolute_type(decl.type, namespace: type_name.namespace))
+            type(definition_builder.expand_alias(type_name))
           end
         end
 
@@ -331,7 +334,7 @@ module Steep
                   method.method_types.map do |type|
                     method_type(type, self_type: self_type) {|ty| ty.subst(subst) }
                   end,
-                  incompatible: method.attributes.include?(:incompatible)
+                  incompatible: name == :initialize || name == :new
                 )
               end
             end
@@ -339,8 +342,7 @@ module Steep
           when Name::Interface
             Interface::Interface.new(type: self_type, private: private).tap do |interface|
               type_name = type_name_1(type.name)
-              decl = definition_builder.env.find_class(type_name) or raise "Unknown class: #{type_name}"
-              definition = definition_builder.build_interface(type_name, decl)
+              definition = definition_builder.build_interface(type_name)
 
               subst = Interface::Substitution.build(
                 definition.type_params,
@@ -363,7 +365,7 @@ module Steep
               definition = definition_builder.build_singleton(type_name_1(type.name))
 
               instance_type = Name::Instance.new(name: type.name,
-                                                 args: definition.declaration.type_params.each.map {Any.new(location: nil)},
+                                                 args: definition.type_params.map {Any.new(location: nil)},
                                                  location: nil)
               subst = Interface::Substitution.build(
                 [],
@@ -543,12 +545,12 @@ module Steep
 
         def module_name?(type_name)
           name = type_name_1(type_name)
-          env.class?(name) && env.find_class(name).is_a?(RBS::AST::Declarations::Module)
+          entry = env.class_decls[name] and entry.is_a?(RBS::Environment::ModuleEntry)
         end
 
         def class_name?(type_name)
           name = type_name_1(type_name)
-          env.class?(name) && env.find_class(name).is_a?(RBS::AST::Declarations::Class)
+          entry = env.class_decls[name] and entry.is_a?(RBS::Environment::ClassEntry)
         end
 
         def env
@@ -556,13 +558,14 @@ module Steep
         end
 
         def absolute_type(type, namespace:)
-          type(env.absolute_type(type_1(type),
-                                 namespace: namespace_1(namespace)) {|type| type.name.absolute! })
+          absolute_type = type_1(type).map_type_name do |name|
+            absolute_type_name(name, namespace: namespace) || name.absolute!
+          end
+          type(absolute_type)
         end
 
         def absolute_type_name(type_name, namespace:)
-          type(env.absolute_type_name(type_name_1(type_name),
-                                      namespace: namespace_1(namespace)) {|name| name.absolute! })
+          type_name_resolver.resolve(type_name, context: namespace_1(namespace).ascend)
         end
       end
     end

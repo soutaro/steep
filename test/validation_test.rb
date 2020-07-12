@@ -169,24 +169,57 @@ end
       validator.validate_decl
 
       assert_operator validator, :has_error?
+
       assert_any validator.each_error do |error|
         error.is_a?(Errors::UnknownTypeNameError) &&
-          error.name == parse_type("::Arryay").name
+          error.name == parse_type("Arryay").name
       end
     end
   end
 
   def test_validate_stdlib
     with_checker with_stdlib: true do |checker|
-      env = checker.factory.env
       validator = Validator.new(checker: checker)
 
-      name, decl = env.each_decl.find {|(name, _)| name.to_s == "::Hash" }
-
-      validator.validate_one_decl name, decl
+      validator.validate_one_class(RBS::TypeName.new(name: :Hash, namespace: RBS::Namespace.root))
       validator.each_error {|e| e.puts(STDOUT) }
 
       refute validator.has_error?
+    end
+  end
+
+  def test_validate_super
+    with_checker <<-EOF do |checker|
+class Foo < Bar
+end
+    EOF
+
+      validator = Validator.new(checker: checker)
+      validator.validate_decl
+
+      assert_operator validator, :has_error?
+      assert_any! validator.each_error do |error|
+        assert_instance_of Errors::UnknownTypeNameError, error
+        assert_equal parse_type("Bar").name, error.name
+      end
+    end
+  end
+
+  def test_validate_mixin
+    with_checker <<-EOF do |checker|
+class Foo
+  include Bar
+end
+    EOF
+
+      validator = Validator.new(checker: checker)
+      validator.validate_decl
+
+      assert_operator validator, :has_error?
+      assert_any! validator.each_error do |error|
+        assert_instance_of Errors::UnknownTypeNameError, error
+        assert_equal parse_type("Bar").name, error.name
+      end
     end
   end
 

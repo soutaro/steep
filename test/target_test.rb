@@ -149,6 +149,33 @@ end
       assert_equal Project::Target::SignatureValidationErrorStatus, target.status.class
     end
 
+    def test_signature_mixed_module_class_error
+      target = Project::Target.new(
+        name: :foo,
+        options: Project::Options.new,
+        source_patterns: ["lib"],
+        ignore_patterns: [],
+        signature_patterns: ["sig"]
+      )
+
+      target.add_signature "sig/foo.rbs", <<-EOF
+class Foo
+end
+
+module Foo
+end
+      EOF
+
+      target.type_check
+
+      assert_equal Project::Target::SignatureOtherErrorStatus, target.status.class
+
+      exn = target.status.error
+
+      assert_instance_of RBS::DuplicatedDeclarationError, exn
+      assert_equal "::Foo", exn.name.to_s
+    end
+
     def test_annotation_syntax_error
       target = Project::Target.new(
         name: :foo,

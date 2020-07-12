@@ -2,7 +2,6 @@ class NumberLike
   def to_number: -> Integer
 end
 
-extension Integer (NumberLike)
-  def `+`: (NumberLike) -> NumberLike
-         | super
+class Integer
+  overload def `+`: (NumberLike) -> NumberLike
 end

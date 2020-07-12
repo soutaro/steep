@@ -1,9 +1,10 @@
-extension Object (X)
+
+class Object
   def try: [A] { (instance) -> A } -> A
   def f: -> Object
 end
 
-extension Kernel (X)
+module Kernel
   def new_module_method: () -> void
 end
 

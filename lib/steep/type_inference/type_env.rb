@@ -31,8 +31,8 @@ module Steep
           annotations.const_types.each do |name, type|
             env.set(const: name, type: type)
           end
-          signatures.name_to_global.each do |name, global|
-            type = signatures.absolute_type(global.type, namespace: RBS::Namespace.root) {|ty| ty.name.absolute! }
+          signatures.global_decls.each do |name, entry|
+            type = entry.decl.type
             env.set(gvar: name, type: subtyping.factory.type(type))
           end
         end

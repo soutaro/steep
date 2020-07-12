@@ -10,7 +10,15 @@ module Steep
 
       InstanceVariableItem = Struct.new(:identifier, :range, :type, keyword_init: true)
       LocalVariableItem = Struct.new(:identifier, :range, :type, keyword_init: true)
-      MethodNameItem = Struct.new(:identifier, :range, :definition, :method_type, :inherited_method, keyword_init: true)
+      MethodNameItem = Struct.new(:identifier, :range, :definition, :def_type, :inherited_method, keyword_init: true) do
+        def method_type
+          def_type.type
+        end
+
+        def comment
+          def_type.comment
+        end
+      end
 
       attr_reader :source_text
       attr_reader :path
@@ -231,22 +239,22 @@ module Steep
                        subtyping.factory.definition_builder.build_singleton(type_name)
                      when AST::Types::Name::Interface
                        type_name = subtyping.factory.type_name_1(type.name)
-                       interface = subtyping.factory.env.find_class(type_name)
-                       subtyping.factory.definition_builder.build_interface(type_name, interface)
+                       subtyping.factory.definition_builder.build_interface(type_name)
                      end
 
         if definition
           definition.methods.each do |name, method|
+            next if disallowed_method?(name)
+
             if include_private || method.public?
               if name.to_s.start_with?(prefix)
                 if word_name?(name.to_s)
-                  method.method_types.each do |method_type|
-                    next if disallowed_method?(name)
+                  method.defs.each do |def_type|
                     items << MethodNameItem.new(identifier: name,
                                                 range: range,
                                                 definition: method,
-                                                method_type: method_type,
-                                                inherited_method: inherited_method?(method, type))
+                                                def_type: def_type,
+                                                inherited_method: inherited_method?(method, definition))
                   end
                 end
               end
@@ -296,8 +304,8 @@ module Steep
         index
       end
 
-      def inherited_method?(method, type)
-        method.implemented_in&.name&.name != type.name&.name
+      def inherited_method?(method, definition)
+        method.implemented_in != definition.type_name
       end
 
       def disallowed_method?(name)

@@ -110,7 +110,7 @@ HOVER
 def #{content.method_name}: #{content.method_type}
 ```
 HOVER
-          if (comment = content.definition.comment)
+          if (comment = content.comment_string)
             string << "\n----\n\n#{comment.string}\n"
           end
 
@@ -190,7 +190,7 @@ HOVER
               new_text: "#{item.identifier}#{method_type_snippet}",
               range: range
             ),
-            documentation: item.definition.comment&.string,
+            documentation: item.comment&.string,
             insert_text_format: LanguageServer::Protocol::Constant::InsertTextFormat::SNIPPET,
             sort_text: item.inherited_method ? 'z' : 'a' # Ensure language server puts non-inherited methods before inherited methods
           )

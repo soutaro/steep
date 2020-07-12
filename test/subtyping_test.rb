@@ -623,22 +623,6 @@ end
     end
   end
 
-  def test_incompatible_method
-    with_checker <<-EOF do |checker|
-class Test1
-  def foo: () -> Integer
-end
-
-class Test2
-  incompatible def foo: (Integer) -> void
-end
-    EOF
-
-      assert_fail_check checker, "::Test1", "::Test2"
-      assert_success_check checker, "::Test2", "::Test1"
-    end
-  end
-
   def test_integer_rational
     with_checker <<-EOF, nostdlib: true do |checker|
 class BasicObject

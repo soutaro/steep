@@ -59,4 +59,18 @@ class ProjectFileTest < Minitest::Test
       assert_instance_of Project::SourceFile::ParseErrorStatus, file.status
     end
   end
+
+  def test_source_file_signature_invalid
+    with_checker <<RBS do |checker|
+class Foo < Bar
+end
+RBS
+      file = Project::SourceFile.new(path: Pathname("lib/foo.rb"))
+      file.content = "class Foo end"
+
+      assert file.type_check(checker, Time.now), "returns true if contains some update"
+
+      assert_instance_of Project::SourceFile::TypeCheckErrorStatus, file.status
+    end
+  end
 end

@@ -15,6 +15,7 @@ module Steep
 
       SignatureSyntaxErrorStatus = Struct.new(:timestamp, :errors, keyword_init: true)
       SignatureValidationErrorStatus = Struct.new(:timestamp, :errors, keyword_init: true)
+      SignatureOtherErrorStatus = Struct.new(:timestamp, :error, keyword_init: true)
       TypeCheckStatus = Struct.new(:environment, :subtyping, :type_check_sources, :timestamp, keyword_init: true)
 
       def initialize(name:, options:, source_patterns:, ignore_patterns:, signature_patterns:)
@@ -95,7 +96,7 @@ module Steep
       end
 
       def environment
-        @environment ||= RBS::Environment.new().tap do |env|
+        @environment ||= RBS::Environment.new().yield_self do |env|
           stdlib_root = options.vendored_stdlib_path || RBS::EnvironmentLoader::STDLIB_ROOT
           gem_vendor_path = options.vendored_gems_path
           loader = RBS::EnvironmentLoader.new(stdlib_root: stdlib_root, gem_vendor_path: gem_vendor_path)
@@ -103,6 +104,8 @@ module Steep
             loader.add(library: lib)
           end
           loader.load(env: env)
+
+          env.resolve_type_names
         end
       end
 
@@ -125,34 +128,40 @@ module Steep
           if status.is_a?(TypeCheckStatus) && updated_files.empty?
             yield status.environment, status.subtyping, status.timestamp
           else
-            env = environment.dup
+            begin
+              env = environment.dup
 
-            signature_files.each_value do |file|
-              if file.status.is_a?(SignatureFile::DeclarationsStatus)
-                file.status.declarations.each do |decl|
-                  env << decl
+              signature_files.each_value do |file|
+                if file.status.is_a?(SignatureFile::DeclarationsStatus)
+                  file.status.declarations.each do |decl|
+                    env << decl
+                  end
                 end
               end
-            end
 
-            definition_builder = RBS::DefinitionBuilder.new(env: env)
-            factory = AST::Types::Factory.new(builder: definition_builder)
-            check = Subtyping::Check.new(factory: factory)
+              env = env.resolve_type_names
 
-            if validate
-              validator = Signature::Validator.new(checker: check)
-              validator.validate()
+              definition_builder = RBS::DefinitionBuilder.new(env: env)
+              factory = AST::Types::Factory.new(builder: definition_builder)
+              check = Subtyping::Check.new(factory: factory)
 
-              if validator.no_error?
-                yield env, check, Time.now
+              if validate
+                validator = Signature::Validator.new(checker: check)
+                validator.validate()
+
+                if validator.no_error?
+                  yield env, check, Time.now
+                else
+                  @status = SignatureValidationErrorStatus.new(
+                    errors: validator.each_error.to_a,
+                    timestamp: Time.now
+                  )
+                end
               else
-                @status = SignatureValidationErrorStatus.new(
-                  errors: validator.each_error.to_a,
-                  timestamp: Time.now
-                )
+                yield env, check, Time.now
               end
-            else
-              yield env, check, Time.now
+            rescue => exn
+              @status = SignatureOtherErrorStatus.new(error: exn, timestamp: Time.now)
             end
           end
 
