@@ -114,6 +114,7 @@ module Steep
                         end
                       else
                         Steep.logger.info "Unexpected target status: #{status.class}"
+                        {}
                       end
 
         diagnostics.each do |path, diags|
