@@ -188,6 +188,41 @@ end
     end
   end
 
+  def test_validate_super
+    with_checker <<-EOF do |checker|
+class Foo < Bar
+end
+    EOF
+
+      validator = Validator.new(checker: checker)
+      validator.validate_decl
+
+      assert_operator validator, :has_error?
+      assert_any! validator.each_error do |error|
+        assert_instance_of Errors::UnknownTypeNameError, error
+        assert_equal parse_type("Bar").name, error.name
+      end
+    end
+  end
+
+  def test_validate_mixin
+    with_checker <<-EOF do |checker|
+class Foo
+  include Bar
+end
+    EOF
+
+      validator = Validator.new(checker: checker)
+      validator.validate_decl
+
+      assert_operator validator, :has_error?
+      assert_any! validator.each_error do |error|
+        assert_instance_of Errors::UnknownTypeNameError, error
+        assert_equal parse_type("Bar").name, error.name
+      end
+    end
+  end
+
   def test_validate_module
     skip "Not implemented yet"
   end

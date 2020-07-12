@@ -131,7 +131,7 @@ module Steep
           params: exn.params,
           location: exn.location
         )
-      rescue RBS::NoTypeFoundError => exn
+      rescue RBS::NoTypeFoundError, RBS::NoSuperclassFoundError, RBS::NoMixinFoundError => exn
         @errors << Errors::UnknownTypeNameError.new(
           name: factory.type_name(exn.type_name),
           location: exn.location
