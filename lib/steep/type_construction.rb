@@ -276,7 +276,23 @@ module Steep
           types: [
             AST::Types::Name::Instance.new(name: module_name, args: module_args),
             AST::Builtin::Object.instance_type,
-            module_entry.self_type&.yield_self {|ty| checker.factory.type(ty) }
+            *module_entry.self_types.map {|module_self|
+              type = case
+                     when module_self.name.interface?
+                       RBS::Types::Interface.new(
+                         name: module_self.name,
+                         args: module_self.args,
+                         location: module_self.location
+                       )
+                     when module_self.name.class?
+                       RBS::Types::ClassInstance.new(
+                         name: module_self.name,
+                         args: module_self.args,
+                         location: module_self.location
+                       )
+                     end
+              checker.factory.type(type)
+            }
           ].compact
         )
 
