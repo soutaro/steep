@@ -95,6 +95,13 @@ module Steep
             source: source,
             timestamp: Time.now
           )
+        rescue RBS::NoTypeFoundError,
+          RBS::NoMixinFoundError,
+          RBS::NoSuperclassFoundError,
+          RBS::DuplicatedMethodDefinitionError,
+          RBS::InvalidTypeApplicationError => exn
+          # Skip logging known signature errors (they are handled with load_signatures(validate: true))
+          @status = TypeCheckErrorStatus.new(error: exn)
         rescue => exn
           Steep.log_error(exn)
           @status = TypeCheckErrorStatus.new(error: exn)
