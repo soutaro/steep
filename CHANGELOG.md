@@ -2,6 +2,12 @@
 
 ## master
 
+## 0.19.0 (2020-07-12)
+
+* Update RBS. ([#157](https://github.com/soutaro/steep/pull/157))
+* No `initialize` in completion. ([#164](https://github.com/soutaro/steep/pull/164))
+* Granular typing option setup. ([#163](https://github.com/soutaro/steep/pull/163))
+
 ## 0.18.0 (2020-07-06)
 
 * Sort result of `Pathname#glob` ([#154](https://github.com/soutaro/steep/pull/154))
