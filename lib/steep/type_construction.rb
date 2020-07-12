@@ -2007,9 +2007,11 @@ module Steep
                      end
                    end
                  rescue => exn
-                   $stderr.puts exn.inspect
-                   exn.backtrace.each do |t|
-                     $stderr.puts t
+                   case exn
+                   when RBS::NoTypeFoundError, RBS::NoMixinFoundError, RBS::NoSuperclassFoundError, RBS::InvalidTypeApplicationError
+                     # ignore known RBS errors.
+                   else
+                     Steep.log_error(exn, message: "Unexpected error in #type_send: #{exn.message} (#{exn.class})")
                    end
 
                    fallback_to_any node do
