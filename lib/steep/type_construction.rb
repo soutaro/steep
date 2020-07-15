@@ -230,6 +230,39 @@ module Steep
       )
     end
 
+    def implement_module(module_name:, super_name: nil, annotations:)
+      if (annotation = annotations.implement_module_annotation)
+        absolute_name(annotation.name.name).yield_self do |absolute_name|
+          if checker.factory.class_name?(absolute_name) || checker.factory.module_name?(absolute_name)
+            AST::Annotation::Implements::Module.new(
+              name: absolute_name,
+              args: annotation.name.args
+            )
+          else
+            Steep.logger.error "Unknown class name given to @implements: #{annotation.name.name}"
+            nil
+          end
+        end
+      else
+        name = nil
+        name ||= absolute_name(module_name).yield_self do |absolute_name|
+          absolute_name if checker.factory.class_name?(absolute_name) || checker.factory.module_name?(absolute_name)
+        end
+        name ||= super_name && absolute_name(super_name).yield_self do |absolute_name|
+          absolute_name if checker.factory.class_name?(absolute_name) || checker.factory.module_name?(absolute_name)
+        end
+
+        if name
+          absolute_name_ = checker.factory.type_name_1(name)
+          entry = checker.factory.env.class_decls[absolute_name_]
+          AST::Annotation::Implements::Module.new(
+            name: name,
+            args: entry.type_params.each.map(&:name)
+          )
+        end
+      end
+    end
+
     def for_module(node)
       new_module_name = Names::Module.from_node(node.children.first) or raise "Unexpected module name: #{node.children.first}"
       new_namespace = nested_namespace_for_module(new_module_name)
@@ -240,28 +273,7 @@ module Steep
       annots = source.annotations(block: node, factory: checker.factory, current_module: new_namespace)
       module_type = AST::Builtin::Module.instance_type
 
-      implement_module_name = yield_self do
-        if (annotation = annots.implement_module_annotation)
-          absolute_name(annotation.name.name).yield_self do |absolute_name|
-            if checker.factory.module_name?(absolute_name)
-              AST::Annotation::Implements::Module.new(name: absolute_name,
-                                                      args: annotation.name.args)
-            else
-              Steep.logger.error "Unknown module name given to @implements: #{annotation.name.name}"
-              nil
-            end
-          end
-        else
-          absolute_name(new_module_name).yield_self do |absolute_name|
-            if checker.factory.module_name?(absolute_name)
-              absolute_name_ = checker.factory.type_name_1(absolute_name)
-              entry = checker.factory.env.class_decls[absolute_name_]
-              AST::Annotation::Implements::Module.new(name: absolute_name,
-                                                      args: entry.type_params.each.map(&:name))
-            end
-          end
-        end
-      end
+      implement_module_name = implement_module(module_name: new_module_name, annotations: annots)
 
       if implement_module_name
         module_name = implement_module_name.name
@@ -352,36 +364,7 @@ module Steep
 
       annots = source.annotations(block: node, factory: checker.factory, current_module: new_namespace)
 
-      implement_module_name = yield_self do
-        if (annotation = annots.implement_module_annotation)
-          absolute_name(annotation.name.name).yield_self do |absolute_name|
-            if checker.factory.class_name?(absolute_name)
-              AST::Annotation::Implements::Module.new(name: absolute_name,
-                                                      args: annotation.name.args)
-            else
-              Steep.logger.error "Unknown class name given to @implements: #{annotation.name.name}"
-              nil
-            end
-          end
-        else
-          name = nil
-          name ||= absolute_name(new_class_name).yield_self do |absolute_name|
-            absolute_name if checker.factory.class_name?(absolute_name)
-          end
-          name ||= super_class_name && absolute_name(super_class_name).yield_self do |absolute_name|
-            absolute_name if checker.factory.class_name?(absolute_name)
-          end
-
-          if name
-            absolute_name_ = checker.factory.type_name_1(name)
-            entry = checker.factory.env.class_decls[absolute_name_]
-            AST::Annotation::Implements::Module.new(
-              name: name,
-              args: entry.type_params.each.map(&:name)
-            )
-          end
-        end
-      end
+      implement_module_name = implement_module(module_name: new_class_name, super_name: super_class_name, annotations: annots)
 
       if annots.implement_module_annotation
         new_class_name = implement_module_name.name
