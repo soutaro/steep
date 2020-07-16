@@ -95,6 +95,12 @@ module Steep
         end_pos = node.loc.end.begin_pos
         add_context(begin_pos..end_pos, context: context)
 
+      when :sclass
+        name_node = node.children[0]
+        begin_pos = name_node.loc.expression.end_pos
+        end_pos = node.loc.end.begin_pos
+        add_context(begin_pos..end_pos, context: context)
+
       when :def, :defs
         args_node = case node.type
                     when :def

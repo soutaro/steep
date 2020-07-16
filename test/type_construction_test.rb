@@ -4635,4 +4635,41 @@ RUBY
       end
     end
   end
+
+  def test_singleton_class
+    with_checker <<-RBS do |checker|
+class WithSingleton
+  def self.open: [A] { () -> A } -> A
+end
+    RBS
+      source = parse_ruby(<<'EOF')
+class WithSingleton
+  class <<self
+    def open
+      yield new()
+    end
+  end
+end
+EOF
+
+      with_standard_construction(checker, source) do |construction, typing|
+        class_constr = construction.for_class(source.node)
+        type, _ = class_constr.synthesize(dig(source.node, 2, 0))
+        sclass_constr = class_constr.for_sclass(dig(source.node, 2), type)
+
+        module_context = sclass_constr.context.module_context
+
+        assert_equal parse_type("singleton(::WithSingleton)"), module_context.instance_type
+        assert_equal parse_type("::Class"), module_context.module_type
+        assert_equal "::WithSingleton", module_context.class_name.to_s
+        assert_nil module_context.implement_name
+        assert_nil module_context.module_definition
+        assert_equal "::WithSingleton", module_context.instance_definition.type_name.to_s
+
+        construction.synthesize(source.node)
+
+        assert_no_error typing
+      end
+    end
+  end
 end

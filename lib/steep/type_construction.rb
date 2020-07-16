@@ -433,6 +433,60 @@ module Steep
       )
     end
 
+    def for_sclass(node, type)
+      annots = source.annotations(block: node, factory: checker.factory, current_module: current_namespace)
+
+      type = module_context.instance_type if type.is_a?(AST::Types::Self)
+
+      instance_type, module_type = case
+                                   when checker.factory.class_name?(type.name)
+                                     [type.to_class(constructor: nil), AST::Builtin::Class.instance_type]
+                                   when checker.factory.module_name?(type.name)
+                                     [type.to_module, AST::Builtin::Module.instance_type]
+                                   else
+                                     raise "Is #{type.name} a class or module???"
+                                   end
+
+      module_context = TypeInference::Context::ModuleContext.new(
+        instance_type: annots.instance_type || instance_type,
+        module_type: annots.self_type || annots.module_type || module_type,
+        implement_name: nil,
+        current_namespace: current_namespace,
+        const_env: self.module_context.const_env,
+        class_name: self.module_context.class_name,
+        module_definition: nil,
+        instance_definition: self.module_context.module_definition
+      )
+
+      type_env = TypeInference::TypeEnv.build(annotations: annots,
+                                              subtyping: checker,
+                                              const_env: self.module_context.const_env,
+                                              signatures: checker.factory.env)
+
+      lvar_env = TypeInference::LocalVariableTypeEnv.empty(
+        subtyping: checker,
+        self_type: module_context.module_type
+      ).annotate(annots)
+
+      body_context = TypeInference::Context.new(
+        method_context: nil,
+        block_context: nil,
+        module_context: module_context,
+        break_context: nil,
+        self_type: module_context.module_type,
+        type_env: type_env,
+        lvar_env: lvar_env
+      )
+
+      self.class.new(
+        checker: checker,
+        source: source,
+        annotations: annots,
+        typing: typing,
+        context: body_context
+      )
+    end
+
     def for_branch(node, truthy_vars: Set.new, type_case_override: nil, break_context: context.break_context)
       annots = source.annotations(block: node, factory: checker.factory, current_module: current_namespace)
 
@@ -1108,6 +1162,23 @@ module Steep
               if constructor.module_context&.implement_name && !namespace_module?(node)
                 constructor.validate_method_definitions(node, constructor.module_context.implement_name)
               end
+            end
+
+            add_typing(node, type: AST::Builtin.nil_type)
+          end
+
+        when :sclass
+          yield_self do
+            type, constr = synthesize(node.children[0])
+            constructor = constr.for_sclass(node, type)
+
+            constructor.typing.add_context_for_node(node, context: constructor.context)
+            constructor.typing.add_context_for_body(node, context: constructor.context)
+
+            constructor.synthesize(node.children[1]) if node.children[1]
+
+            if constructor.module_context.instance_definition.type_name == self.module_context.module_definition.type_name
+              module_context.defined_module_methods.merge(constructor.module_context.defined_instance_methods)
             end
 
             add_typing(node, type: AST::Builtin.nil_type)
