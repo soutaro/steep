@@ -436,16 +436,39 @@ module Steep
     def for_sclass(node, type)
       annots = source.annotations(block: node, factory: checker.factory, current_module: current_namespace)
 
-      type = module_context.instance_type if type.is_a?(AST::Types::Self)
+      instance_type = if type.is_a?(AST::Types::Self)
+                        context.self_type
+                      else
+                        type
+                      end
 
-      instance_type, module_type = case
-                                   when checker.factory.class_name?(type.name)
-                                     [type.to_class(constructor: nil), AST::Builtin::Class.instance_type]
-                                   when checker.factory.module_name?(type.name)
-                                     [type.to_module, AST::Builtin::Module.instance_type]
-                                   else
-                                     raise "Is #{type.name} a class or module???"
-                                   end
+      module_type = case instance_type
+                    when AST::Types::Name::Class
+                      AST::Builtin::Class.instance_type
+                    when AST::Types::Name::Module
+                      AST::Builtin::Module.instance_type
+                    when AST::Types::Name::Instance
+                      instance_type.to_class(constructor: nil)
+                    else
+                      raise "Unexpected type for sclass node: #{type}"
+                    end
+
+      instance_definition = case instance_type
+                            when AST::Types::Name::Class, AST::Types::Name::Module
+                              type_name = checker.factory.type_name_1(instance_type.name)
+                              checker.factory.definition_builder.build_singleton(type_name)
+                            when AST::Types::Name::Instance
+                              type_name = checker.factory.type_name_1(instance_type.name)
+                              checker.factory.definition_builder.build_instance(type_name)
+                            end
+
+      module_definition = case module_type
+                          when AST::Types::Name::Class, AST::Types::Name::Module
+                            type_name = checker.factory.type_name_1(instance_type.name)
+                            checker.factory.definition_builder.build_singleton(type_name)
+                          else
+                            nil
+                          end
 
       module_context = TypeInference::Context::ModuleContext.new(
         instance_type: annots.instance_type || instance_type,
@@ -454,8 +477,8 @@ module Steep
         current_namespace: current_namespace,
         const_env: self.module_context.const_env,
         class_name: self.module_context.class_name,
-        module_definition: nil,
-        instance_definition: self.module_context.module_definition
+        module_definition: module_definition,
+        instance_definition: instance_definition
       )
 
       type_env = TypeInference::TypeEnv.build(annotations: annots,
@@ -1177,8 +1200,10 @@ module Steep
 
             constructor.synthesize(node.children[1]) if node.children[1]
 
-            if constructor.module_context.instance_definition.type_name == self.module_context.module_definition.type_name
-              module_context.defined_module_methods.merge(constructor.module_context.defined_instance_methods)
+            if constructor.module_context.instance_definition && module_context.module_definition
+              if constructor.module_context.instance_definition.type_name == module_context.module_definition.type_name
+                module_context.defined_module_methods.merge(constructor.module_context.defined_instance_methods)
+              end
             end
 
             add_typing(node, type: AST::Builtin.nil_type)
