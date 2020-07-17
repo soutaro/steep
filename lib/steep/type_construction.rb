@@ -230,6 +230,39 @@ module Steep
       )
     end
 
+    def implement_module(module_name:, super_name: nil, annotations:)
+      if (annotation = annotations.implement_module_annotation)
+        absolute_name(annotation.name.name).yield_self do |absolute_name|
+          if checker.factory.class_name?(absolute_name) || checker.factory.module_name?(absolute_name)
+            AST::Annotation::Implements::Module.new(
+              name: absolute_name,
+              args: annotation.name.args
+            )
+          else
+            Steep.logger.error "Unknown class name given to @implements: #{annotation.name.name}"
+            nil
+          end
+        end
+      else
+        name = nil
+        name ||= absolute_name(module_name).yield_self do |absolute_name|
+          absolute_name if checker.factory.class_name?(absolute_name) || checker.factory.module_name?(absolute_name)
+        end
+        name ||= super_name && absolute_name(super_name).yield_self do |absolute_name|
+          absolute_name if checker.factory.class_name?(absolute_name) || checker.factory.module_name?(absolute_name)
+        end
+
+        if name
+          absolute_name_ = checker.factory.type_name_1(name)
+          entry = checker.factory.env.class_decls[absolute_name_]
+          AST::Annotation::Implements::Module.new(
+            name: name,
+            args: entry.type_params.each.map(&:name)
+          )
+        end
+      end
+    end
+
     def for_module(node)
       new_module_name = Names::Module.from_node(node.children.first) or raise "Unexpected module name: #{node.children.first}"
       new_namespace = nested_namespace_for_module(new_module_name)
@@ -240,28 +273,7 @@ module Steep
       annots = source.annotations(block: node, factory: checker.factory, current_module: new_namespace)
       module_type = AST::Builtin::Module.instance_type
 
-      implement_module_name = yield_self do
-        if (annotation = annots.implement_module_annotation)
-          absolute_name(annotation.name.name).yield_self do |absolute_name|
-            if checker.factory.module_name?(absolute_name)
-              AST::Annotation::Implements::Module.new(name: absolute_name,
-                                                      args: annotation.name.args)
-            else
-              Steep.logger.error "Unknown module name given to @implements: #{annotation.name.name}"
-              nil
-            end
-          end
-        else
-          absolute_name(new_module_name).yield_self do |absolute_name|
-            if checker.factory.module_name?(absolute_name)
-              absolute_name_ = checker.factory.type_name_1(absolute_name)
-              entry = checker.factory.env.class_decls[absolute_name_]
-              AST::Annotation::Implements::Module.new(name: absolute_name,
-                                                      args: entry.type_params.each.map(&:name))
-            end
-          end
-        end
-      end
+      implement_module_name = implement_module(module_name: new_module_name, annotations: annots)
 
       if implement_module_name
         module_name = implement_module_name.name
@@ -352,36 +364,7 @@ module Steep
 
       annots = source.annotations(block: node, factory: checker.factory, current_module: new_namespace)
 
-      implement_module_name = yield_self do
-        if (annotation = annots.implement_module_annotation)
-          absolute_name(annotation.name.name).yield_self do |absolute_name|
-            if checker.factory.class_name?(absolute_name)
-              AST::Annotation::Implements::Module.new(name: absolute_name,
-                                                      args: annotation.name.args)
-            else
-              Steep.logger.error "Unknown class name given to @implements: #{annotation.name.name}"
-              nil
-            end
-          end
-        else
-          name = nil
-          name ||= absolute_name(new_class_name).yield_self do |absolute_name|
-            absolute_name if checker.factory.class_name?(absolute_name)
-          end
-          name ||= super_class_name && absolute_name(super_class_name).yield_self do |absolute_name|
-            absolute_name if checker.factory.class_name?(absolute_name)
-          end
-
-          if name
-            absolute_name_ = checker.factory.type_name_1(name)
-            entry = checker.factory.env.class_decls[absolute_name_]
-            AST::Annotation::Implements::Module.new(
-              name: name,
-              args: entry.type_params.each.map(&:name)
-            )
-          end
-        end
-      end
+      implement_module_name = implement_module(module_name: new_class_name, super_name: super_class_name, annotations: annots)
 
       if annots.implement_module_annotation
         new_class_name = implement_module_name.name
@@ -447,6 +430,83 @@ module Steep
         annotations: annots,
         typing: typing,
         context: class_body_context
+      )
+    end
+
+    def for_sclass(node, type)
+      annots = source.annotations(block: node, factory: checker.factory, current_module: current_namespace)
+
+      instance_type = if type.is_a?(AST::Types::Self)
+                        context.self_type
+                      else
+                        type
+                      end
+
+      module_type = case instance_type
+                    when AST::Types::Name::Class
+                      AST::Builtin::Class.instance_type
+                    when AST::Types::Name::Module
+                      AST::Builtin::Module.instance_type
+                    when AST::Types::Name::Instance
+                      instance_type.to_class(constructor: nil)
+                    else
+                      raise "Unexpected type for sclass node: #{type}"
+                    end
+
+      instance_definition = case instance_type
+                            when AST::Types::Name::Class, AST::Types::Name::Module
+                              type_name = checker.factory.type_name_1(instance_type.name)
+                              checker.factory.definition_builder.build_singleton(type_name)
+                            when AST::Types::Name::Instance
+                              type_name = checker.factory.type_name_1(instance_type.name)
+                              checker.factory.definition_builder.build_instance(type_name)
+                            end
+
+      module_definition = case module_type
+                          when AST::Types::Name::Class, AST::Types::Name::Module
+                            type_name = checker.factory.type_name_1(instance_type.name)
+                            checker.factory.definition_builder.build_singleton(type_name)
+                          else
+                            nil
+                          end
+
+      module_context = TypeInference::Context::ModuleContext.new(
+        instance_type: annots.instance_type || instance_type,
+        module_type: annots.self_type || annots.module_type || module_type,
+        implement_name: nil,
+        current_namespace: current_namespace,
+        const_env: self.module_context.const_env,
+        class_name: self.module_context.class_name,
+        module_definition: module_definition,
+        instance_definition: instance_definition
+      )
+
+      type_env = TypeInference::TypeEnv.build(annotations: annots,
+                                              subtyping: checker,
+                                              const_env: self.module_context.const_env,
+                                              signatures: checker.factory.env)
+
+      lvar_env = TypeInference::LocalVariableTypeEnv.empty(
+        subtyping: checker,
+        self_type: module_context.module_type
+      ).annotate(annots)
+
+      body_context = TypeInference::Context.new(
+        method_context: nil,
+        block_context: nil,
+        module_context: module_context,
+        break_context: nil,
+        self_type: module_context.module_type,
+        type_env: type_env,
+        lvar_env: lvar_env
+      )
+
+      self.class.new(
+        checker: checker,
+        source: source,
+        annotations: annots,
+        typing: typing,
+        context: body_context
       )
     end
 
@@ -1124,6 +1184,25 @@ module Steep
 
               if constructor.module_context&.implement_name && !namespace_module?(node)
                 constructor.validate_method_definitions(node, constructor.module_context.implement_name)
+              end
+            end
+
+            add_typing(node, type: AST::Builtin.nil_type)
+          end
+
+        when :sclass
+          yield_self do
+            type, constr = synthesize(node.children[0])
+            constructor = constr.for_sclass(node, type)
+
+            constructor.typing.add_context_for_node(node, context: constructor.context)
+            constructor.typing.add_context_for_body(node, context: constructor.context)
+
+            constructor.synthesize(node.children[1]) if node.children[1]
+
+            if constructor.module_context.instance_definition && module_context.module_definition
+              if constructor.module_context.instance_definition.type_name == module_context.module_definition.type_name
+                module_context.defined_module_methods.merge(constructor.module_context.defined_instance_methods)
               end
             end
 
