@@ -2,6 +2,10 @@
 
 ## master
 
+## 0.20.0 (2020-07-17)
+
+* Support singleton class definitions ([#166](https://github.com/soutaro/steep/pull/166))
+
 ## 0.19.0 (2020-07-12)
 
 * Update RBS. ([#157](https://github.com/soutaro/steep/pull/157))
