@@ -62,7 +62,12 @@ EOF
               {
                 text: <<-RUBY
 foo = 100
-foo + "bar"
+foo.to_s(8)
+
+class String
+  def to_s
+  end
+end
                 RUBY
               }
             ]
@@ -83,6 +88,39 @@ foo + "bar"
       )
 
       assert_equal 1, worker.queue.size
+
+      response = worker.queue.pop
+      assert_equal "`foo`: `::Integer`", response[:result].contents[:value]
+
+      worker.handle_request(
+        {
+          method: "textDocument/hover",
+          params: {
+            textDocument: { uri: "file://#{current_dir}/lib/hello.rb" },
+            position: { line: 1, character: 6 }
+          }
+        }
+      )
+
+      assert_equal 1, worker.queue.size
+
+      response = worker.queue.pop
+      assert_match(/Returns a string containing the place-value representation of `int` with radix/, response[:result].contents[:value])
+
+      worker.handle_request(
+        {
+          method: "textDocument/hover",
+          params: {
+            textDocument: { uri: "file://#{current_dir}/lib/hello.rb" },
+            position: { line: 4, character: 6 }
+          }
+        }
+      )
+
+      assert_equal 1, worker.queue.size
+
+      response = worker.queue.pop
+      assert_match(/Returns `self`/, response[:result].contents[:value])
     end
   end
 
