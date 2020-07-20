@@ -254,6 +254,8 @@ class Numeric
 end
 
 class Integer < Numeric
+  def +: (Integer) -> Integer
+       | (Numeric) -> Numeric
 end
 
 class Symbol

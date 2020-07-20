@@ -1604,7 +1604,7 @@ y = x + ""
 
         assert_equal 1, typing.errors.size
         assert_any typing.errors do |error|
-          error.is_a?(Steep::Errors::ArgumentTypeMismatch)
+          error.is_a?(Steep::Errors::UnresolvedOverloading)
         end
       end
     end
@@ -1887,7 +1887,7 @@ a ||= a + "foo"
 
         assert_equal 1, typing.errors.size
         assert_any typing.errors do |error|
-          error.is_a?(Steep::Errors::ArgumentTypeMismatch)
+          error.is_a?(Steep::Errors::UnresolvedOverloading)
         end
       end
     end
@@ -2625,8 +2625,8 @@ EOF
       with_standard_construction(checker, source) do |construction, typing|
         pair = construction.synthesize(source.node)
 
-        assert_empty typing.errors
-        assert_equal parse_type("::Numeric | ::String | ::Symbol"), pair.type
+        assert_no_error typing
+        assert_equal parse_type("::Integer | ::String | ::Symbol"), pair.type
         assert_equal parse_type("::String | ::Integer | ::Symbol | nil"), pair.context.lvar_env[:x]
       end
     end
@@ -2651,7 +2651,7 @@ EOF
         pair = construction.synthesize(source.node)
 
         assert_no_error typing
-        assert_equal parse_type("::String | ::Numeric | ::Integer"), pair.type
+        assert_equal parse_type("::String | ::Integer"), pair.type
       end
     end
   end
@@ -2676,8 +2676,8 @@ EOF
         pair = construction.synthesize(source.node)
 
         assert_no_error typing
-        assert_equal parse_type("::Integer | ::Numeric"), pair.type
-        assert_equal parse_type("::Integer | ::Numeric"), pair.constr.context.lvar_env[:y]
+        assert_equal parse_type("::Integer"), pair.type
+        assert_equal parse_type("::Integer"), pair.constr.context.lvar_env[:y]
       end
     end
   end
@@ -2983,8 +2983,8 @@ EOF
 
         assert_no_error typing
 
-        assert_equal parse_type("::Numeric?"), pair.constr.context.lvar_env[:y]
-        assert_equal parse_type("::Numeric?"), pair.constr.context.lvar_env[:z]
+        assert_equal parse_type("::Integer?"), pair.constr.context.lvar_env[:y]
+        assert_equal parse_type("::Integer?"), pair.constr.context.lvar_env[:z]
       end
     end
   end
@@ -3937,7 +3937,7 @@ EOF
         pair = construction.synthesize(source.node)
 
         assert_no_error typing
-        assert_equal "^(::Integer, untyped) -> ::Numeric", pair.context.lvar_env[:l].to_s
+        assert_equal "^(::Integer, untyped) -> ::Integer", pair.context.lvar_env[:l].to_s
 
         lambda_context = typing.context_at(line: 3, column: 3)
         assert_equal parse_type("::Integer"), lambda_context.lvar_env[:x]
@@ -4251,7 +4251,7 @@ end
 
         assert_equal 1, typing.errors.size
         assert_any typing.errors do |error|
-          error.is_a?(Steep::Errors::ArgumentTypeMismatch)
+          error.is_a?(Steep::Errors::UnresolvedOverloading)
         end
       end
     end
@@ -4479,7 +4479,7 @@ AssignTest.new.foo(a = 1, b = a+1)
         assert_no_error typing
 
         assert_equal parse_type("::Integer"), context.lvar_env[:a]
-        assert_equal parse_type("::Numeric"), context.lvar_env[:b]
+        assert_equal parse_type("::Integer"), context.lvar_env[:b]
       end
     end
   end
