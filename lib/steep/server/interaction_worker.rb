@@ -95,8 +95,8 @@ module Steep
 ```
 HOVER
             if content.definition
-              if content.definition.comment
-                string << "\n----\n\n#{content.definition.comment.string}"
+              if content.definition.comments
+                string << "\n----\n\n#{content.definition.comments.map(&:string).join("\n\n")}"
               end
 
               string << "\n----\n\n#{content.definition.method_types.map {|x| "- `#{x}`\n" }.join()}"
@@ -111,7 +111,7 @@ def #{content.method_name}: #{content.method_type}
 ```
 HOVER
           if (comment = content.comment_string)
-            string << "\n----\n\n#{comment.string}\n"
+            string << "\n----\n\n#{comment}\n"
           end
 
           if content.definition.method_types.size > 1
