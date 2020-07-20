@@ -9,6 +9,84 @@ module Steep
         @cache = {}
       end
 
+      def instance_super_types(type_name, args:)
+        type_name_1 = factory.type_name_1(type_name)
+        ancestors = factory.definition_builder.one_instance_ancestors(type_name_1)
+
+        subst = unless args.empty?
+                  args_ = args.map {|type| factory.type_1(type) }
+                  RBS::Substitution.build(ancestors.params, args_)
+                end
+
+        ancestors.each_ancestor.map do |ancestor|
+          name = factory.type_name(ancestor.name)
+
+          case ancestor
+          when RBS::Definition::Ancestor::Instance
+            args = ancestor.args.map do |type|
+              type = type.sub(subst) if subst
+              factory.type(type)
+            end
+
+            if ancestor.name.class?
+              AST::Types::Name::Instance.new(
+                name: name,
+                args: args,
+                location: nil
+              )
+            else
+              AST::Types::Name::Interface.new(
+                name: name,
+                args: args,
+                location: nil
+              )
+            end
+          when RBS::Definition::Ancestor::Singleton
+            AST::Types::Name::Class.new(
+              name: name,
+              constructor: nil,
+              location: nil
+            )
+          end
+        end
+      end
+
+      def singleton_super_types(type_name)
+        type_name_1 = factory.type_name_1(type_name)
+        ancestors = factory.definition_builder.one_singleton_ancestors(type_name_1)
+
+        ancestors.each_ancestor.map do |ancestor|
+          name = factory.type_name(ancestor.name)
+
+          case ancestor
+          when RBS::Definition::Ancestor::Instance
+            args = ancestor.args.map do |type|
+              factory.type(type)
+            end
+
+            if ancestor.name.class?
+              AST::Types::Name::Instance.new(
+                name: name,
+                args: args,
+                location: nil
+              )
+            else
+              AST::Types::Name::Interface.new(
+                name: name,
+                args: args,
+                location: nil
+              )
+            end
+          when RBS::Definition::Ancestor::Singleton
+            AST::Types::Name::Class.new(
+              name: name,
+              constructor: nil,
+              location: nil
+            )
+          end
+        end
+      end
+
       def check(relation, constraints:, self_type:, assumption: Set.new, trace: Trace.new)
         Steep.logger.tagged "#{relation.sub_type} <: #{relation.super_type}" do
           prefix = trace.size
@@ -175,30 +253,45 @@ module Steep
             failure(error: Result::Failure::UnknownPairError.new(relation: relation),
                     trace: trace)
 
-          when relation.sub_type.is_a?(AST::Types::Name::Base) && relation.super_type.is_a?(AST::Types::Name::Base)
-            if (pairs = extract_nominal_pairs(relation))
-              results = pairs.flat_map do |(sub, sup)|
-                Relation.new(sub_type: sub, super_type: sup).yield_self do |rel|
-                  [rel, rel.flip]
-                end
-              end.map do |relation|
-                check(relation,
-                       self_type: self_type,
-                       assumption: assumption,
-                       trace: trace,
-                       constraints: constraints)
-              end
+          when relation.super_type.is_a?(AST::Types::Name::Interface)
+            sub_interface = factory.interface(relation.sub_type, private: false)
+            super_interface = factory.interface(relation.super_type, private: false)
 
-              if results.all?(&:success?)
-                results.first
+            check_interface(sub_interface,
+                            super_interface,
+                            self_type: self_type,
+                            assumption: assumption,
+                            trace: trace,
+                            constraints: constraints)
+
+          when relation.sub_type.is_a?(AST::Types::Name::Base) && relation.super_type.is_a?(AST::Types::Name::Base)
+            if relation.sub_type.name == relation.super_type.name && relation.sub_type.class == relation.super_type.class
+              if arg_type?(relation.sub_type) && arg_type?(relation.super_type)
+                check_type_arg(relation, self_type: self_type, assumption: assumption, trace: trace, constraints: constraints)
               else
-                results.find(&:failure?)
+                success(constraints: constraints)
               end
             else
-              sub_interface = factory.interface(relation.sub_type, private: false)
-              super_interface = factory.interface(relation.super_type, private: false)
+              possible_sub_types = case relation.sub_type
+                                   when AST::Types::Name::Instance
+                                     instance_super_types(relation.sub_type.name, args: relation.sub_type.args)
+                                   when AST::Types::Name::Class
+                                     singleton_super_types(relation.sub_type.name)
+                                   else
+                                     []
+                                   end
 
-              check_interface(sub_interface, super_interface, self_type: self_type, assumption: assumption, trace: trace, constraints: constraints)
+              unless possible_sub_types.empty?
+                success_any?(possible_sub_types) do |sub_type|
+                  check(Relation.new(sub_type: sub_type, super_type: relation.super_type),
+                        self_type: self_type,
+                        assumption: assumption,
+                        trace: trace,
+                        constraints: constraints)
+                end
+              else
+                failure(error: Result::Failure::UnknownPairError.new(relation: relation), trace: trace)
+              end
             end
 
           when relation.sub_type.is_a?(AST::Types::Proc) && relation.super_type.is_a?(AST::Types::Proc)
@@ -283,6 +376,80 @@ module Steep
         end
       end
 
+      def definition_for_type(type)
+        type_name = factory.type_name_1(type.name)
+
+        case type
+        when AST::Types::Name::Instance
+          factory.definition_builder.build_instance(type_name)
+        when AST::Types::Name::Class
+          factory.definition_builder.build_singleton(type_name)
+        when AST::Types::Name::Interface
+          factory.definition_builder.build_interface(type_name)
+        else
+          raise
+        end
+      end
+
+      def arg_type?(type)
+        case type
+        when AST::Types::Name::Instance, AST::Types::Name::Interface
+          type.args.size > 0
+        else
+          false
+        end
+      end
+
+      def check_type_arg(relation, self_type:, assumption:, trace:, constraints:)
+        sub_args = relation.sub_type.args
+        sup_args = relation.super_type.args
+
+        sup_def = definition_for_type(relation.super_type)
+        sup_params = sup_def.type_params_decl
+
+        success_all?(sub_args.zip(sup_args, sup_params.each)) do |sub_arg, sup_arg, sup_param|
+          case sup_param.variance
+          when :covariant
+            check(Relation.new(sub_type: sub_arg, super_type: sup_arg), self_type: self_type, assumption: assumption, trace: trace, constraints: constraints)
+          when :contravariant
+            check(Relation.new(sub_type: sup_arg, super_type: sub_arg), self_type: self_type, assumption: assumption, trace: trace, constraints: constraints)
+          when :invariant
+            rel = Relation.new(sub_type: sub_arg, super_type: sup_arg)
+            success_all?([rel, rel.flip]) do |r|
+              check(r, self_type: self_type, assumption: assumption, trace: trace, constraints: constraints)
+            end
+          end
+        end
+      end
+
+      def success_all?(collection, &block)
+        results = collection.map do |obj|
+          result = yield(obj)
+
+          if result.failure?
+            return result
+          end
+
+          result
+        end
+
+        results[0]
+      end
+
+      def success_any?(collection, &block)
+        results = collection.map do |obj|
+          result = yield(obj)
+
+          if result.success?
+            return result
+          end
+
+          result
+        end
+
+        results[0]
+      end
+
       def extract_nominal_pairs(relation)
         sub_type = relation.sub_type
         super_type = relation.super_type
@@ -316,20 +483,7 @@ module Steep
           return true
         end
 
-        case
-        when relation.sub_type == relation.super_type
-          true
-        when relation.sub_type.is_a?(AST::Types::Name::Base) && relation.super_type.is_a?(AST::Types::Name::Base)
-          if (pairs = extract_nominal_pairs(relation))
-            pairs.all? do |(s, t)|
-              same_type?(Relation.new(sub_type: s, super_type: t), assumption: assumption)
-            end
-          else
-            false
-          end
-        else
-          false
-        end
+        relation.sub_type == relation.super_type
       end
 
       def check_interface(sub_interface, super_interface, self_type:, assumption:, trace:, constraints:)
