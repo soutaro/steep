@@ -2,6 +2,11 @@
 
 ## master
 
+## 0.21.0 (2020-07-20)
+
+* Fix LSP hover ([#168](https://github.com/soutaro/steep/pull/168))
+* Nominal subtyping ([#167](https://github.com/soutaro/steep/pull/167))
+
 ## 0.20.0 (2020-07-17)
 
 * Support singleton class definitions ([#166](https://github.com/soutaro/steep/pull/166))
