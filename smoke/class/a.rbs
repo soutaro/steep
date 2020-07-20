@@ -18,7 +18,6 @@ class D
   def foo: -> untyped
 end
 
-class E
-  def initialize: () -> untyped
+interface _E
   def foo: -> untyped
 end
