@@ -205,7 +205,7 @@ module Steep
       def errors
         case status
         when TypeCheckStatus
-          source_files.each_value.flat_map(&:errors)
+          source_files.each_value.flat_map(&:errors).select { |error | options.error_to_report?(error) }
         else
           []
         end
