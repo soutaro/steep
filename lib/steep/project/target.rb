@@ -79,6 +79,7 @@ module Steep
       def self.test_pattern(patterns, path, ext:)
         patterns.any? do |pattern|
           p = pattern.end_with?(File::Separator) ? pattern : pattern + File::Separator
+          p.delete_prefix!('./')
           (path.to_s.start_with?(p) && path.extname == ext) || File.fnmatch(pattern, path.to_s)
         end
       end
