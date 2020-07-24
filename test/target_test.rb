@@ -102,6 +102,29 @@ end
       end
     end
 
+    def test_success_type_check_with_unreported_errors
+      target = Project::Target.new(
+        name: :foo,
+        options: Project::Options.new.tap { |o| o.apply_lenient_typing_options! },
+        source_patterns: ["lib"],
+        ignore_patterns: [],
+        signature_patterns: ["sig"]
+      )
+
+      target.add_source Pathname("lib/foo.rb"), <<-EOF
+Foo = 1
+      EOF
+
+      target.type_check
+
+      assert_equal Project::Target::TypeCheckStatus, target.status.class
+      assert_empty target.errors
+      target.source_files[Pathname("lib/foo.rb")].tap do |file|
+        assert_equal Project::SourceFile::TypeCheckStatus, file.status.class
+        refute_empty file.status.typing.errors
+      end
+    end
+
     def test_signature_syntax_error
       target = Project::Target.new(
         name: :foo,
