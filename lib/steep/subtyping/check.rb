@@ -369,6 +369,23 @@ module Steep
                             trace: trace,
                             constraints: constraints)
 
+          when relation.super_type.is_a?(AST::Types::Literal)
+            case
+            when relation.super_type.value == true && AST::Builtin::TrueClass.instance_type?(relation.sub_type)
+              success(constraints: constraints)
+            when relation.super_type.value == false && AST::Builtin::FalseClass.instance_type?(relation.sub_type)
+              success(constraints: constraints)
+            else
+              failure(error: Result::Failure::UnknownPairError.new(relation: relation),
+                      trace: trace)
+            end
+
+          when relation.super_type.is_a?(AST::Types::Nil) && AST::Builtin::NilClass.instance_type?(relation.sub_type)
+            success(constraints: constraints)
+
+          when relation.sub_type.is_a?(AST::Types::Nil) && AST::Builtin::NilClass.instance_type?(relation.super_type)
+            success(constraints: constraints)
+
           else
             failure(error: Result::Failure::UnknownPairError.new(relation: relation),
                     trace: trace)
