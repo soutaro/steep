@@ -1094,7 +1094,13 @@ module Steep
           end
 
         when :true, :false
-          add_typing(node, type: AST::Types::Boolean.new)
+          ty = node.type == :true ? AST::Types::Literal.new(value: true) : AST::Types::Literal.new(value: false)
+
+          if hint && check_relation(sub_type: ty, super_type: hint).success?
+            add_typing(node, type: hint)
+          else
+            add_typing(node, type: AST::Types::Boolean.new)
+          end
 
         when :hash
           yield_self do
