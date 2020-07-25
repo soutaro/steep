@@ -2656,6 +2656,26 @@ EOF
     end
   end
 
+  def test_string_or_true_false
+    with_checker do |checker|
+      source = parse_ruby(<<EOF)
+# @type var x: String | FalseClass
+x = false
+
+# @type var y: String | true
+y = true
+EOF
+
+      with_standard_construction(checker, source) do |construction, typing|
+        _, _, context = construction.synthesize(source.node)
+
+        assert_no_error typing
+        assert_equal parse_type("::String | ::FalseClass"), context.lvar_env[:x]
+        assert_equal parse_type("::String | true"), context.lvar_env[:y]
+      end
+    end
+  end
+
   def test_type_case_case_when
     with_checker do |checker|
       source = parse_ruby(<<EOF)

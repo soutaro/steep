@@ -49,6 +49,10 @@ module Steep
                     Builtin::String
                   when Symbol
                     Builtin::Symbol
+                  when true
+                    Builtin::TrueClass
+                  when false
+                    Builtin::FalseClass
                   else
                     raise "Unexpected literal type: #{value.inspect}"
                   end

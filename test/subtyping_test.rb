@@ -336,7 +336,7 @@ end
     end
   end
 
-  def test_literal0
+  def test_literal
     with_checker do |checker|
       assert_success_result checker.check(parse_relation("123", "::Integer", checker: checker), self_type: parse_type("self", checker: checker), constraints: Constraints.empty)
 
@@ -347,6 +347,23 @@ end
       assert_fail_result checker.check(parse_relation(":foo", "::Integer", checker: checker), self_type: parse_type("self", checker: checker), constraints: Constraints.empty) do |result|
         assert_instance_of Failure::UnknownPairError, result.error
       end
+    end
+  end
+
+  def test_literal_bidirectional
+    with_checker do |checker|
+      assert_success_result checker.check(parse_relation("true", "::TrueClass", checker: checker), self_type: parse_type("self", checker: checker), constraints: Constraints.empty)
+      assert_success_result checker.check(parse_relation("::TrueClass", "true", checker: checker), self_type: parse_type("self", checker: checker), constraints: Constraints.empty)
+
+      assert_success_result checker.check(parse_relation("false", "::FalseClass", checker: checker), self_type: parse_type("self", checker: checker), constraints: Constraints.empty)
+      assert_success_result checker.check(parse_relation("::FalseClass", "false", checker: checker), self_type: parse_type("self", checker: checker), constraints: Constraints.empty)
+    end
+  end
+
+  def test_nil_type
+    with_checker do |checker|
+      assert_success_result checker.check(parse_relation("nil", "::NilClass", checker: checker), self_type: parse_type("self", checker: checker), constraints: Constraints.empty)
+      assert_success_result checker.check(parse_relation("::NilClass", "nil", checker: checker), self_type: parse_type("self", checker: checker), constraints: Constraints.empty)
     end
   end
 

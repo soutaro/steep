@@ -299,6 +299,12 @@ class Proc
   def yield: (*untyped) -> untyped
   def arity: -> Integer
 end
+
+class TrueClass
+end
+class FalseClass
+end	
+
   EOS
 
   def checker
