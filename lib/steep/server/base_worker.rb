@@ -12,6 +12,7 @@ module Steep
         @project = project
         @reader = reader
         @writer = writer
+        @shutdown = false
       end
 
       def handle_request(request)
@@ -28,7 +29,7 @@ module Steep
           Steep.logger.formatter.push_tags(*tags)
           Steep.logger.tagged "background" do
             while job = queue.pop
-              handle_job(job)
+              handle_job(job) unless @shutdown
             end
           end
         end
@@ -38,11 +39,11 @@ module Steep
             reader.read do |request|
               case request[:method]
               when "shutdown"
-                # nop
+                @shutdown = true
               when "exit"
                 break
               else
-                handle_request(request)
+                handle_request(request) unless @shutdown
               end
             end
           ensure
