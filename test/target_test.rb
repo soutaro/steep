@@ -192,12 +192,11 @@ end
 
       target.type_check
 
-      assert_equal Project::Target::SignatureOtherErrorStatus, target.status.class
+      assert_equal Project::Target::SignatureValidationErrorStatus, target.status.class
 
-      exn = target.status.error
-
-      assert_instance_of RBS::DuplicatedDeclarationError, exn
-      assert_equal "::Foo", exn.name.to_s
+      assert_any! target.status.errors do |error|
+        assert_instance_of Signature::Errors::DuplicatedDefinitionError, error
+      end
     end
 
     def test_annotation_syntax_error
