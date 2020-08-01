@@ -77,6 +77,7 @@ end
 EOF
 
       worker = Server::SignatureWorker.new(project: project, reader: worker_reader, writer: worker_writer, queue: [])
+      worker.queue_delay = 0
 
       lib_target = project.targets[0]
       test_target = project.targets[1]

@@ -5,6 +5,8 @@ module Steep
 
       include Utils
 
+      attr_accessor :queue_delay
+
       attr_reader :project
       attr_reader :reader, :writer
 
@@ -12,6 +14,8 @@ module Steep
         @project = project
         @reader = reader
         @writer = writer
+
+        self.queue_delay = 0.3
       end
 
       def handle_request(request)
@@ -48,6 +52,19 @@ module Steep
           ensure
             queue << nil
             thread.join
+          end
+        end
+      end
+
+      def enqueue(object)
+        if queue_delay == 0
+          Steep.logger.debug { "Queueing immediately: #{object.inspect}..." }
+          queue << object
+        else
+          Steep.logger.debug { "Scheduling enqueue: delay=#{delay}, #{object.inspect}..." }
+          Concurrent::ScheduledTask.execute(queue_delay) do
+            Steep.logger.debug { "Queueing: #{object.inspect}..." }
+            queue << object
           end
         end
       end

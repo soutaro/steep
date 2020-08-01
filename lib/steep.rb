@@ -13,6 +13,7 @@ require "etc"
 require "open3"
 require "stringio"
 require 'uri'
+require "concurrent"
 
 require "rbs"
 

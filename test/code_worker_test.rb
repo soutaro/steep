@@ -109,6 +109,7 @@ EOF
                                       reader: worker_reader,
                                       writer: worker_writer,
                                       queue: [])
+      worker.queue_delay = 0
 
       assert_empty worker.target_files.keys
 
@@ -236,6 +237,7 @@ EOF
                                       reader: worker_reader,
                                       writer: worker_writer,
                                       queue: [])
+      worker.queue_delay = 0
 
       assert_empty worker.target_files.keys
 

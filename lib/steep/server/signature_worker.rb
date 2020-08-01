@@ -22,9 +22,9 @@ module Steep
       end
 
       def enqueue_target(target:, timestamp:)
-        Steep.logger.debug "queueing target #{target.name}@#{timestamp}"
+        Steep.logger.info "Queueing target #{target.name}@#{timestamp}"
         last_target_validated_at[target] = timestamp
-        queue << [target, timestamp]
+        enqueue [target, timestamp]
       end
 
       def handle_request(request)
@@ -108,6 +108,9 @@ module Steep
                             )
                           end
                         end
+                      when Project::Target::SignatureOtherErrorStatus
+                        Steep.log_error(status.error)
+                        {}
                       when Project::Target::TypeCheckStatus
                         target.signature_files.each_key.with_object({}) do |path, hash|
                           hash[path] = []

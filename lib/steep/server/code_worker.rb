@@ -18,7 +18,7 @@ module Steep
       def enqueue_type_check(target:, path:, version: target_files[path])
         Steep.logger.info "Enqueueing type check: #{path}(#{version})@#{target.name}..."
         target_files[path] = version
-        queue << [path, version, target]
+        enqueue [path, version, target]
       end
 
       def each_type_check_subject(path:, version:)
