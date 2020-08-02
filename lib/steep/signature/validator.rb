@@ -53,6 +53,7 @@ module Steep
         validate_decl
         validate_const
         validate_global
+        validate_alias
       end
 
       def validate_type(type)
@@ -99,6 +100,7 @@ module Steep
         env.constant_decls.each do |name, entry|
           rescue_validation_errors do
             Steep.logger.debug "Validating constant `#{name}`..."
+            builder.ensure_namespace!(name.namespace, location: entry.decl.location)
             validate_type entry.decl.type
           end
         end
@@ -117,7 +119,9 @@ module Steep
         env.alias_decls.each do |name, entry|
           rescue_validation_errors do
             Steep.logger.debug "Validating alias `#{name}`..."
-            validate_type(entry.decl.type)
+            builder.expand_alias(name).tap do |type|
+              validate_type(type)
+            end
           end
         end
       end

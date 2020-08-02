@@ -1022,6 +1022,10 @@ end
   def test_class_constructor_nested
     with_checker <<-EOF do |checker|
 class Steep::Names::Module end
+module Steep
+  class Names
+  end
+end
     EOF
       source = parse_ruby("module Steep; class Names::Module; end; end")
 
@@ -1120,6 +1124,8 @@ module Rails end
   def test_module_constructor_nested
     with_checker <<-EOS do |checker|
 module Steep::Printable end
+
+class Steep end
     EOS
       source = parse_ruby("class Steep; module Printable; end; end")
 
