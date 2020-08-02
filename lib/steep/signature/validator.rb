@@ -136,6 +136,12 @@ module Steep
           name: factory.type_name(exn.type_name),
           location: exn.location
         )
+      rescue RBS::InvalidOverloadMethodError => exn
+        @errors << Errors::InvalidMethodOverloadError.new(
+          class_name: factory.type_name(exn.type_name),
+          method_name: exn.method_name,
+          location: exn.members[0].location
+        )
       end
     end
   end

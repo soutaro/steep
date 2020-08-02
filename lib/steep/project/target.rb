@@ -161,6 +161,16 @@ module Steep
               else
                 yield env, check, Time.now
               end
+            rescue RBS::DuplicatedDeclarationError => exn
+              @status = SignatureValidationErrorStatus.new(
+                errors: [
+                  Signature::Errors::DuplicatedDefinitionError.new(
+                    name: exn.name,
+                    location: exn.decls[0].location
+                  )
+                ],
+                timestamp: Time.now
+              )
             rescue => exn
               @status = SignatureOtherErrorStatus.new(error: exn, timestamp: Time.now)
             end
