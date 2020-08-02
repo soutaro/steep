@@ -223,6 +223,51 @@ end
     end
   end
 
+  def test_outer_namespace
+    with_checker <<-EOF do |checker|
+class Foo::Bar
+end
+    EOF
+
+      validator = Validator.new(checker: checker)
+      validator.validate
+
+      assert_operator validator, :has_error?
+      assert_any! validator.each_error do |error|
+        assert_instance_of Errors::UnknownTypeNameError, error
+        assert_equal parse_type("::Foo").name, error.name
+      end
+    end
+
+    with_checker <<-EOF do |checker|
+type Foo::bar = Integer
+    EOF
+
+      validator = Validator.new(checker: checker)
+      validator.validate
+
+      assert_operator validator, :has_error?
+      assert_any! validator.each_error do |error|
+        assert_instance_of Errors::UnknownTypeNameError, error
+        assert_equal parse_type("::Foo").name, error.name
+      end
+    end
+
+    with_checker <<-EOF do |checker|
+Foo::Bar: Integer
+    EOF
+
+      validator = Validator.new(checker: checker)
+      validator.validate
+
+      assert_operator validator, :has_error?
+      assert_any! validator.each_error do |error|
+        assert_instance_of Errors::UnknownTypeNameError, error
+        assert_equal parse_type("::Foo").name, error.name
+      end
+    end
+  end
+
   def test_validate_module
     skip "Not implemented yet"
   end
