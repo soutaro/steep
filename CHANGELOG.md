@@ -2,6 +2,13 @@
 
 ## master
 
+## 0.22.0 (2020-08-03)
+
+* Improve signature validation ([#175](https://github.com/soutaro/steep/pull/175), [#177](https://github.com/soutaro/steep/pull/177))
+* Fix boolean literal typing ([#172](https://github.com/soutaro/steep/pull/172))
+* Make exit code success when Steep has unreported type errors ([#171](https://github.com/soutaro/steep/pull/171))
+* Allow `./` prefix for signature pattern ([#170](https://github.com/soutaro/steep/pull/170))
+
 ## 0.21.0 (2020-07-20)
 
 * Fix LSP hover ([#168](https://github.com/soutaro/steep/pull/168))
