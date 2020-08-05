@@ -786,4 +786,19 @@ end
       assert_success_check checker, "::SuperCollection[::String]", "::Collection[::Object]"
     end
   end
+
+  def test_literal_alias_union
+    with_checker <<-EOF do |checker|
+type a = 1 | 2 | 3
+type b = "x" | "y" | "z"
+
+type c = a | b
+    EOF
+      assert_success_check checker, "1", "::a"
+      assert_success_check checker, '"x"', "::b"
+
+      assert_success_check checker, "1", "::c"
+      assert_success_check checker, '"z"', "::c"
+    end
+  end
 end

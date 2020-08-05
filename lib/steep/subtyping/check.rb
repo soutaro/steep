@@ -180,15 +180,6 @@ module Steep
               constraints: constraints
             )
 
-          when relation.sub_type.is_a?(AST::Types::Literal)
-            check(
-              Relation.new(sub_type: relation.sub_type.back_type, super_type: relation.super_type),
-              self_type: self_type,
-              assumption: assumption,
-              trace: trace,
-              constraints: constraints
-            )
-
           when relation.sub_type.is_a?(AST::Types::Union)
             results = relation.sub_type.types.map do |sub_type|
               check(Relation.new(sub_type: sub_type, super_type: relation.super_type),
@@ -385,6 +376,15 @@ module Steep
 
           when relation.sub_type.is_a?(AST::Types::Nil) && AST::Builtin::NilClass.instance_type?(relation.super_type)
             success(constraints: constraints)
+
+          when relation.sub_type.is_a?(AST::Types::Literal)
+            check(
+              Relation.new(sub_type: relation.sub_type.back_type, super_type: relation.super_type),
+              self_type: self_type,
+              assumption: assumption,
+              trace: trace,
+              constraints: constraints
+            )
 
           else
             failure(error: Result::Failure::UnknownPairError.new(relation: relation),
