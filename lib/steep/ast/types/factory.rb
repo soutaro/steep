@@ -288,7 +288,7 @@ module Steep
         def expand_alias(type)
           unfolded = case type
                      when AST::Types::Name::Alias
-                       unfolded = unfold(type.name)
+                       unfold(type.name)
                      else
                        type
                      end

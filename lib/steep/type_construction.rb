@@ -638,7 +638,8 @@ module Steep
             when :__skip__
               add_typing(node, type: AST::Builtin.any_type)
             else
-              rhs_result = synthesize(rhs, hint: hint || context.lvar_env.declared_types[name]&.type)
+              hint ||= context.lvar_env.declared_types[name]&.type
+              rhs_result = synthesize(rhs, hint: hint)
 
               constr = rhs_result.constr.update_lvar_env do |lvar_env|
                 lvar_env.assign(name, node: node, type: rhs_result.type) do |declared_type, actual_type, result|
@@ -1062,7 +1063,7 @@ module Steep
 
         when :int
           yield_self do
-            literal_type = expand_alias(hint) {|hint_| test_literal_type(node.children[0], hint_) }
+            literal_type = test_literal_type(node.children[0], hint)
 
             if literal_type
               add_typing(node, type: literal_type)
@@ -1073,7 +1074,7 @@ module Steep
 
         when :sym
           yield_self do
-            literal_type = expand_alias(hint) {|hint| test_literal_type(node.children[0], hint) }
+            literal_type = test_literal_type(node.children[0], hint)
 
             if literal_type
               add_typing(node, type: literal_type)
@@ -1084,7 +1085,7 @@ module Steep
 
         when :str
           yield_self do
-            literal_type = expand_alias(hint) {|hint_| test_literal_type(node.children[0], hint_)}
+            literal_type = test_literal_type(node.children[0], hint)
 
             if literal_type
               add_typing(node, type: literal_type)
@@ -3022,14 +3023,15 @@ module Steep
     end
 
     def test_literal_type(literal, hint)
-      case hint
-      when AST::Types::Literal
-        if hint.value == literal
-          hint
-        end
-      when AST::Types::Union
-        if hint.types.any? {|ty| ty.is_a?(AST::Types::Literal) && ty.value == literal}
-          hint
+      if hint
+        case hint
+        when AST::Types::Any
+          nil
+        else
+          literal_type = AST::Types::Literal.new(value: literal, location: nil)
+          if check_relation(sub_type: literal_type, super_type: hint).success?
+            hint
+          end
         end
       end
     end

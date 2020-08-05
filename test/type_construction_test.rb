@@ -4781,4 +4781,26 @@ end
       end
     end
   end
+
+  def test_singleton_class_for_object_type_check
+    with_checker <<-'RBS' do |checker|
+type a = 1 | 2 | 3
+type b = "x" | "y" | "z"
+
+type c = a | b
+    RBS
+      source = parse_ruby(<<-'RUBY')
+# @type var c: c
+
+c = 1
+c = "x"
+      RUBY
+
+      with_standard_construction(checker, source) do |construction, typing|
+        construction.synthesize(source.node)
+
+        assert_no_error typing
+      end
+    end
+  end
 end
