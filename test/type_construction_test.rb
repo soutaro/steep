@@ -4782,7 +4782,7 @@ end
     end
   end
 
-  def test_singleton_class_for_object_type_check
+  def test_literal_typing_with_hint
     with_checker <<-'RBS' do |checker|
 type a = 1 | 2 | 3
 type b = "x" | "y" | "z"
