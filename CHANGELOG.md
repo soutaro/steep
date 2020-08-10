@@ -2,6 +2,10 @@
 
 ## master
 
+## 0.24.0 (2020-08-11)
+
+* Update RBS to 0.10 ([#180](https://github.com/soutaro/steep/pull/180))
+
 ## 0.23.0 (2020-08-06)
 
 * Fix literal typing with hint ([#179](https://github.com/soutaro/steep/pull/179))
