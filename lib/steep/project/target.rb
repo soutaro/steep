@@ -194,8 +194,10 @@ module Steep
         type_check_sources = []
 
         target_sources.each do |file|
-          if file.type_check(check, timestamp)
-            type_check_sources << file
+          Steep.logger.tagged("path=#{file.path}") do
+            if file.type_check(check, timestamp)
+              type_check_sources << file
+            end
           end
         end
 
