@@ -1001,7 +1001,9 @@ module Steep
             type = context.lvar_env[var.name]
             unless type
               type = AST::Builtin.any_type
-              Steep.logger.error { "Unknown arg type: #{node}" }
+              if context&.method_context&.method_type
+                Steep.logger.error { "Unknown arg type: #{node}" }
+              end
             end
             add_typing(node, type: type)
           end
@@ -1034,7 +1036,9 @@ module Steep
             var = node.children[0]
             type = context.lvar_env[var.name]
             unless type
-              Steep.logger.error { "Unknown variable: #{node}" }
+              if context&.method_context&.method_type
+                Steep.logger.error { "Unknown variable: #{node}" }
+              end
               typing.add_error Errors::FallbackAny.new(node: node)
               type = AST::Builtin::Array.instance_type(AST::Builtin.any_type)
             end
@@ -1047,7 +1051,9 @@ module Steep
             var = node.children[0]
             type = context.lvar_env[var.name]
             unless type
-              Steep.logger.error { "Unknown variable: #{node}" }
+              if context&.method_context&.method_type
+                Steep.logger.error { "Unknown variable: #{node}" }
+              end
               typing.add_error Errors::FallbackAny.new(node: node)
               type = AST::Builtin::Hash.instance_type(AST::Builtin::Symbol.instance_type, AST::Builtin.any_type)
             end
