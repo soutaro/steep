@@ -1891,7 +1891,7 @@ module Steep
               end
               add_typing(lhs,
                          type: type,
-                         constr: ctr.with_updated_context(lvar_env: env))
+                         constr: ctr.with_updated_context(lvar_env: env)).constr
             when :ivasgn
               type_ivasgn(lhs.children.first, rhs, lhs)
               constr
