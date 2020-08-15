@@ -4830,4 +4830,90 @@ d = [1]
       end
     end
   end
+
+  def test_class_variables
+    with_checker <<-'RBS' do |checker|
+class Object
+  def ==: (untyped) -> bool
+end
+
+class TypeVariable
+  @@index: Integer
+  attr_reader name: String
+
+  def initialize: (String name) -> void
+
+  def self.fresh: () -> instance
+
+  def last?: () -> bool
+end
+    RBS
+      source = parse_ruby(<<-'RUBY')
+class TypeVariable
+  @@index = 0
+
+  def name
+    @name
+  end
+
+  def initialize(name)
+    @name = name
+  end
+
+  def last?
+    name == "#{@@index}"
+  end
+
+  def self.fresh
+    @@index += 1
+
+    new("#{@@index}")
+  end
+end
+      RUBY
+
+      with_standard_construction(checker, source) do |construction, typing|
+        construction.synthesize(source.node)
+
+        assert_no_error typing
+      end
+    end
+  end
+
+  def test_class_variables_error
+    with_checker <<-'RBS' do |checker|
+class TypeVariable
+  @@index: Integer
+end
+    RBS
+      source = parse_ruby(<<-'RUBY')
+class TypeVariable
+  @@no_error = @@unknown_error2
+  
+  @@index = ""
+end
+      RUBY
+
+      with_standard_construction(checker, source) do |construction, typing|
+        construction.synthesize(source.node)
+
+        assert_equal 3, typing.errors.size
+
+        assert_any!(typing.errors) do |error|
+          assert_instance_of Steep::Errors::FallbackAny, error
+          assert_equal :cvasgn, error.node.type
+        end
+
+        assert_any!(typing.errors) do |error|
+          assert_instance_of Steep::Errors::FallbackAny, error
+          assert_equal :cvar, error.node.type
+        end
+
+        assert_any!(typing.errors) do |error|
+          assert_instance_of Steep::Errors::IncompatibleAssignment, error
+          assert_equal :cvasgn, error.node.type
+        end
+      end
+    end
+  end
 end

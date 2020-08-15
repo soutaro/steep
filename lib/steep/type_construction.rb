@@ -744,6 +744,15 @@ module Steep
 
               constr.add_typing(node, type: type)
 
+            when :cvasgn
+              var_node = lhs.updated(:cvar)
+              send_node = rhs.updated(:send, [var_node, op, rhs])
+              new_node = node.updated(:cvasgn, [lhs.children[0], send_node])
+
+              type, constr = synthesize(new_node, hint: hint)
+
+              constr.add_typing(node, type: type)
+
             else
               Steep.logger.error("Unexpected op_asgn lhs: #{lhs.type}")
 
@@ -1810,6 +1819,44 @@ module Steep
             end
 
             add_typing node, type: AST::Builtin.any_type
+          end
+
+        when :cvasgn
+          name, rhs = node.children
+
+          type, constr = synthesize(rhs, hint: hint)
+
+          var_type = if module_context&.class_variables
+                       module_context.class_variables[name]&.yield_self {|ty| checker.factory.type(ty) }
+                     end
+
+          if var_type
+            result = constr.check_relation(sub_type: type, super_type: var_type)
+
+            if result.success?
+              add_typing node, type: type, constr: constr
+            else
+              fallback_to_any node do
+                Errors::IncompatibleAssignment.new(node: node,
+                                                   lhs_type: var_type,
+                                                   rhs_type: type,
+                                                   result: result)
+              end
+            end
+          else
+            fallback_to_any(node)
+          end
+
+        when :cvar
+          name = node.children[0]
+          var_type = if module_context&.class_variables
+                       module_context.class_variables[name]&.yield_self {|ty| checker.factory.type(ty) }
+                     end
+
+          if var_type
+            add_typing node, type: var_type
+          else
+            fallback_to_any node
           end
 
         when :splat, :sclass, :alias

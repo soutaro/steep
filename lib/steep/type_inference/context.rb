@@ -70,6 +70,14 @@ module Steep
         def const_context
           const_env.context
         end
+
+        def class_variables
+          if module_definition
+            @class_variables ||= module_definition.class_variables.transform_values do |var_def|
+              var_def.type
+            end
+          end
+        end
       end
 
       attr_reader :method_context
