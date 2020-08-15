@@ -1824,6 +1824,63 @@ end while line = gets
     end
   end
 
+  def test_for_0
+    with_checker <<-'RBS' do |checker|
+    RBS
+      source = parse_ruby(<<-'RUBY')
+for x in [1,2,3]
+  y = x + 1
+end
+
+puts y.to_s
+      RUBY
+
+      with_standard_construction(checker, source) do |construction, typing|
+        _, _, context = construction.synthesize(source.node)
+
+        assert_no_error typing
+
+        assert_equal parse_type("::Integer?"), context.lvar_env[:y]
+      end
+    end
+  end
+
+  def test_for_1
+    with_checker <<-'RBS' do |checker|
+    RBS
+      source = parse_ruby(<<-'RUBY')
+for x in [1]
+end
+      RUBY
+
+      with_standard_construction(checker, source) do |construction, typing|
+        _, _, context = construction.synthesize(source.node)
+
+        assert_no_error typing
+      end
+    end
+  end
+
+  def test_for_2
+    with_checker <<-'RBS' do |checker|
+    RBS
+      source = parse_ruby(<<-'RUBY')
+for x in self
+end
+      RUBY
+
+      with_standard_construction(checker, source) do |construction, typing|
+        _, _, context = construction.synthesize(source.node)
+
+        assert_equal 1, typing.errors.size
+
+        assert_any!(typing.errors) do |error|
+          assert_instance_of Steep::Errors::NoMethod, error
+        end
+      end
+    end
+  end
+
   def test_range
     with_checker do |checker|
       source = parse_ruby(<<-EOF)
@@ -4827,6 +4884,92 @@ d = [1]
         construction.synthesize(source.node)
 
         assert_no_error typing
+      end
+    end
+  end
+
+  def test_class_variables
+    with_checker <<-'RBS' do |checker|
+class Object
+  def ==: (untyped) -> bool
+end
+
+class TypeVariable
+  @@index: Integer
+  attr_reader name: String
+
+  def initialize: (String name) -> void
+
+  def self.fresh: () -> instance
+
+  def last?: () -> bool
+end
+    RBS
+      source = parse_ruby(<<-'RUBY')
+class TypeVariable
+  @@index = 0
+
+  def name
+    @name
+  end
+
+  def initialize(name)
+    @name = name
+  end
+
+  def last?
+    name == "#{@@index}"
+  end
+
+  def self.fresh
+    @@index += 1
+
+    new("#{@@index}")
+  end
+end
+      RUBY
+
+      with_standard_construction(checker, source) do |construction, typing|
+        construction.synthesize(source.node)
+
+        assert_no_error typing
+      end
+    end
+  end
+
+  def test_class_variables_error
+    with_checker <<-'RBS' do |checker|
+class TypeVariable
+  @@index: Integer
+end
+    RBS
+      source = parse_ruby(<<-'RUBY')
+class TypeVariable
+  @@no_error = @@unknown_error2
+  
+  @@index = ""
+end
+      RUBY
+
+      with_standard_construction(checker, source) do |construction, typing|
+        construction.synthesize(source.node)
+
+        assert_equal 3, typing.errors.size
+
+        assert_any!(typing.errors) do |error|
+          assert_instance_of Steep::Errors::FallbackAny, error
+          assert_equal :cvasgn, error.node.type
+        end
+
+        assert_any!(typing.errors) do |error|
+          assert_instance_of Steep::Errors::FallbackAny, error
+          assert_equal :cvar, error.node.type
+        end
+
+        assert_any!(typing.errors) do |error|
+          assert_instance_of Steep::Errors::IncompatibleAssignment, error
+          assert_equal :cvasgn, error.node.type
+        end
       end
     end
   end

@@ -744,6 +744,15 @@ module Steep
 
               constr.add_typing(node, type: type)
 
+            when :cvasgn
+              var_node = lhs.updated(:cvar)
+              send_node = rhs.updated(:send, [var_node, op, rhs])
+              new_node = node.updated(:cvasgn, [lhs.children[0], send_node])
+
+              type, constr = synthesize(new_node, hint: hint)
+
+              constr.add_typing(node, type: type)
+
             else
               Steep.logger.error("Unexpected op_asgn lhs: #{lhs.type}")
 
@@ -1001,7 +1010,9 @@ module Steep
             type = context.lvar_env[var.name]
             unless type
               type = AST::Builtin.any_type
-              Steep.logger.error { "Unknown arg type: #{node}" }
+              if context&.method_context&.method_type
+                Steep.logger.error { "Unknown arg type: #{node}" }
+              end
             end
             add_typing(node, type: type)
           end
@@ -1034,7 +1045,9 @@ module Steep
             var = node.children[0]
             type = context.lvar_env[var.name]
             unless type
-              Steep.logger.error { "Unknown variable: #{node}" }
+              if context&.method_context&.method_type
+                Steep.logger.error { "Unknown variable: #{node}" }
+              end
               typing.add_error Errors::FallbackAny.new(node: node)
               type = AST::Builtin::Array.instance_type(AST::Builtin.any_type)
             end
@@ -1047,7 +1060,9 @@ module Steep
             var = node.children[0]
             type = context.lvar_env[var.name]
             unless type
-              Steep.logger.error { "Unknown variable: #{node}" }
+              if context&.method_context&.method_type
+                Steep.logger.error { "Unknown variable: #{node}" }
+              end
               typing.add_error Errors::FallbackAny.new(node: node)
               type = AST::Builtin::Hash.instance_type(AST::Builtin::Symbol.instance_type, AST::Builtin.any_type)
             end
@@ -1647,6 +1662,49 @@ module Steep
         when :masgn
           type_masgn(node)
 
+        when :for
+          yield_self do
+            asgn, collection, body = node.children
+
+            collection_type, constr = synthesize(collection)
+            collection_type = expand_self(collection_type)
+
+            var_type = case collection_type
+                       when AST::Types::Any
+                         AST::Types::Any.new
+                       else
+                         each = checker.factory.interface(collection_type, private: true).methods[:each]
+                         method_type = (each&.types || []).find {|type| type.block && type.block.type.params.first_param }
+                         method_type&.yield_self do |method_type|
+                           method_type.block.type.params.first_param&.type
+                         end
+                       end
+
+            if var_type
+              if body
+                body_constr = constr.with_updated_context(
+                  lvar_env: constr.context.lvar_env.assign(asgn.children[0].name, node: asgn, type: var_type)
+                )
+
+                typing.add_context_for_body(node, context: body_constr.context)
+                _, _, body_context = body_constr.synthesize(body)
+
+                constr = constr.update_lvar_env {|env| env.join(constr.context.lvar_env, body_context.lvar_env) }
+              else
+                constr = self
+              end
+
+              add_typing(node, type: collection_type, constr: constr)
+            else
+              fallback_to_any(node) do
+                Errors::NoMethod.new(
+                  node: node,
+                  method: :each,
+                  type: collection_type
+                )
+              end
+            end
+          end
         when :while, :until
           yield_self do
             cond, body = node.children
@@ -1806,9 +1864,47 @@ module Steep
             add_typing node, type: AST::Builtin.any_type
           end
 
+        when :cvasgn
+          name, rhs = node.children
+
+          type, constr = synthesize(rhs, hint: hint)
+
+          var_type = if module_context&.class_variables
+                       module_context.class_variables[name]&.yield_self {|ty| checker.factory.type(ty) }
+                     end
+
+          if var_type
+            result = constr.check_relation(sub_type: type, super_type: var_type)
+
+            if result.success?
+              add_typing node, type: type, constr: constr
+            else
+              fallback_to_any node do
+                Errors::IncompatibleAssignment.new(node: node,
+                                                   lhs_type: var_type,
+                                                   rhs_type: type,
+                                                   result: result)
+              end
+            end
+          else
+            fallback_to_any(node)
+          end
+
+        when :cvar
+          name = node.children[0]
+          var_type = if module_context&.class_variables
+                       module_context.class_variables[name]&.yield_self {|ty| checker.factory.type(ty) }
+                     end
+
+          if var_type
+            add_typing node, type: var_type
+          else
+            fallback_to_any node
+          end
+
         when :splat, :sclass, :alias
           yield_self do
-            Steep.logger.error "Unsupported node #{node.type} (#{node.location.expression.source_buffer.name}:#{node.location.expression.line})"
+            Steep.logger.warn { "Unsupported node #{node.type} (#{node.location.expression.source_buffer.name}:#{node.location.expression.line})" }
 
             each_child_node node do |child|
               synthesize(child)
@@ -1885,7 +1981,7 @@ module Steep
               end
               add_typing(lhs,
                          type: type,
-                         constr: ctr.with_updated_context(lvar_env: env))
+                         constr: ctr.with_updated_context(lvar_env: env)).constr
             when :ivasgn
               type_ivasgn(lhs.children.first, rhs, lhs)
               constr
@@ -2038,7 +2134,7 @@ module Steep
              else
                case expanded_receiver_type = expand_self(receiver_type)
                when AST::Types::Self
-                 Steep.logger.error "`self` type cannot be resolved to concrete type"
+                 Steep.logger.debug { "`self` type cannot be resolved to concrete type" }
                  fallback_to_any node do
                    Errors::NoMethod.new(node: node, method: method_name, type: receiver_type)
                  end

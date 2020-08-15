@@ -35,12 +35,13 @@ module Steep
 
       def insert_context(range, context:, entry: self.root)
         entry.sub_entries.each do |sub|
-          next if sub.range.begin < range.begin && range.end <= sub.range.end
-          next if range.begin < sub.range.begin && sub.range.end <= range.end
+          next if sub.range.begin <= range.begin && range.end <= sub.range.end
+          next if range.begin <= sub.range.begin && sub.range.end <= range.end
           next if range.end <= sub.range.begin
           next if sub.range.end <= range.begin
 
-          raise "Range crossing: sub range=#{sub.range}, new range=#{range}"
+          Steep.logger.error { "Range crossing: sub range=#{sub.range}, new range=#{range}" }
+          raise
         end
 
         sup = entry.sub_entries.find do |sub|
