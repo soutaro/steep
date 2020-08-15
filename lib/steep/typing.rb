@@ -126,6 +126,13 @@ module Steep
         end_pos = node.loc.end.begin_pos
         add_context(begin_pos..end_pos, context: context)
 
+      when :for
+        _, collection, _ = node.children
+
+        begin_pos = collection.loc.expression.end_pos
+        end_pos = node.loc.end.begin_pos
+
+        add_context(begin_pos..end_pos, context: context)
       else
         raise "Unexpected node for insert_context: #{node.type}"
       end

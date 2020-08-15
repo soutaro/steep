@@ -1662,6 +1662,49 @@ module Steep
         when :masgn
           type_masgn(node)
 
+        when :for
+          yield_self do
+            asgn, collection, body = node.children
+
+            collection_type, constr = synthesize(collection)
+            collection_type = expand_self(collection_type)
+
+            var_type = case collection_type
+                       when AST::Types::Any
+                         AST::Types::Any.new
+                       else
+                         each = checker.factory.interface(collection_type, private: true).methods[:each]
+                         method_type = (each&.types || []).find {|type| type.block && type.block.type.params.first_param }
+                         method_type&.yield_self do |method_type|
+                           method_type.block.type.params.first_param&.type
+                         end
+                       end
+
+            if var_type
+              if body
+                body_constr = constr.with_updated_context(
+                  lvar_env: constr.context.lvar_env.assign(asgn.children[0].name, node: asgn, type: var_type)
+                )
+
+                typing.add_context_for_body(node, context: body_constr.context)
+                _, _, body_context = body_constr.synthesize(body)
+
+                constr = constr.update_lvar_env {|env| env.join(constr.context.lvar_env, body_context.lvar_env) }
+              else
+                constr = self
+              end
+
+              add_typing(node, type: collection_type, constr: constr)
+            else
+              fallback_to_any(node) do
+                Errors::NoMethod.new(
+                  node: node,
+                  method: :each,
+                  type: collection_type
+                )
+              end
+            end
+          end
         when :while, :until
           yield_self do
             cond, body = node.children
@@ -2091,7 +2134,7 @@ module Steep
              else
                case expanded_receiver_type = expand_self(receiver_type)
                when AST::Types::Self
-                 Steep.logger.error "`self` type cannot be resolved to concrete type"
+                 Steep.logger.debug { "`self` type cannot be resolved to concrete type" }
                  fallback_to_any node do
                    Errors::NoMethod.new(node: node, method: method_name, type: receiver_type)
                  end

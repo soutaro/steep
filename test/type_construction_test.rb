@@ -1824,6 +1824,63 @@ end while line = gets
     end
   end
 
+  def test_for_0
+    with_checker <<-'RBS' do |checker|
+    RBS
+      source = parse_ruby(<<-'RUBY')
+for x in [1,2,3]
+  y = x + 1
+end
+
+puts y.to_s
+      RUBY
+
+      with_standard_construction(checker, source) do |construction, typing|
+        _, _, context = construction.synthesize(source.node)
+
+        assert_no_error typing
+
+        assert_equal parse_type("::Integer?"), context.lvar_env[:y]
+      end
+    end
+  end
+
+  def test_for_1
+    with_checker <<-'RBS' do |checker|
+    RBS
+      source = parse_ruby(<<-'RUBY')
+for x in [1]
+end
+      RUBY
+
+      with_standard_construction(checker, source) do |construction, typing|
+        _, _, context = construction.synthesize(source.node)
+
+        assert_no_error typing
+      end
+    end
+  end
+
+  def test_for_2
+    with_checker <<-'RBS' do |checker|
+    RBS
+      source = parse_ruby(<<-'RUBY')
+for x in self
+end
+      RUBY
+
+      with_standard_construction(checker, source) do |construction, typing|
+        _, _, context = construction.synthesize(source.node)
+
+        assert_equal 1, typing.errors.size
+
+        assert_any!(typing.errors) do |error|
+          assert_instance_of Steep::Errors::NoMethod, error
+        end
+      end
+    end
+  end
+
   def test_range
     with_checker do |checker|
       source = parse_ruby(<<-EOF)
