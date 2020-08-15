@@ -580,7 +580,7 @@ end
   def test_tuple_subtyping
     with_checker do |checker|
       assert_success_check checker, "[::Integer, ::String]", "::Array[::Integer | ::String]"
-      assert_fail_check checker, "[1, 2, 3]", "::Array[::Integer]"
+      assert_success_check checker, "[1, 2, 3]", "::Array[::Integer]"
       assert_success_check checker, "[::Integer, ::String]", "::String | ::Array[untyped]"
       assert_success_check checker, "[::Integer, ::String]", "[untyped, untyped]"
       assert_fail_check checker, "[1, 2, 3]", "[::Integer, ::Integer, ::Integer]"
