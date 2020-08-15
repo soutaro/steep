@@ -2155,7 +2155,7 @@ b = [*a, *["foo"]]
       with_standard_construction(checker, source) do |construction, typing|
         pair = construction.synthesize(source.node)
 
-        assert_empty typing.errors
+        assert_no_error typing
         assert_equal parse_type("::Array[::Integer|::Symbol|::String]"), pair.context.lvar_env[:b]
       end
     end
@@ -3723,7 +3723,7 @@ EOF
       with_standard_construction(checker, source) do |construction, typing|
         construction.synthesize(source.node)
 
-        assert_empty typing.errors
+        assert_no_error typing
       end
     end
   end
@@ -4794,6 +4794,33 @@ type c = a | b
 
 c = 1
 c = "x"
+      RUBY
+
+      with_standard_construction(checker, source) do |construction, typing|
+        construction.synthesize(source.node)
+
+        assert_no_error typing
+      end
+    end
+  end
+
+  def test_tuple_typing
+    with_checker <<-'RBS' do |checker|
+type t = [String]
+    RBS
+      source = parse_ruby(<<-'RUBY')
+# @type var a: [Integer]?
+a = [1]
+
+# @type var b: t
+b = ["a"]
+
+# @type var c: t?
+c = ["b"]
+
+# @type var d: [Integer] | t
+d = ["a"]
+d = [1]
       RUBY
 
       with_standard_construction(checker, source) do |construction, typing|

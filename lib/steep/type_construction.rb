@@ -1301,69 +1301,44 @@ module Steep
         when :array
           yield_self do
             if node.children.empty?
-              typing.add_error Errors::FallbackAny.new(node: node) unless hint
-
-              array_type = if hint
-                             if check_relation(sub_type: AST::Builtin::Array.instance_type(AST::Builtin.any_type),
-                                               super_type: hint).success?
-                               hint
-                             end
-                           end
-
-              add_typing(node, type: array_type || AST::Builtin::Array.instance_type(AST::Builtin.any_type))
-            else
-              is_tuple = nil
-
-              expand_alias(hint) do |hint|
-                is_tuple = hint.is_a?(AST::Types::Tuple)
-                is_tuple &&= node.children.all? {|child| child.type != :splat}
-                is_tuple &&= node.children.size >= hint.types.size
-                is_tuple &&= hint.types.map.with_index do |child_type, index|
-                  child_node = node.children[index]
-                  [synthesize(child_node, hint: child_type).type, child_type]
-                end.all? do |node_type, hint_type|
-                  result = check_relation(sub_type: node_type, super_type: hint_type)
-                  result.success?
+              if hint
+                array = AST::Builtin::Array.instance_type(AST::Builtin.any_type)
+                if check_relation(sub_type: array, super_type: hint).success?
+                  add_typing node, type: hint
+                else
+                  add_typing node, type: array
                 end
-              end
-
-              if is_tuple
-                array_type = hint
               else
-                element_hint = expand_alias(hint) do |hint|
-                  AST::Builtin::Array.instance_type?(hint) && hint.args[0]
-                end
+                fallback_to_any node
+              end
+            else
+              node_range = node.loc.expression.yield_self {|l| l.begin_pos..l.end_pos }
 
-                element_types = node.children.flat_map do |e|
-                  if e.type == :splat
-                    Steep.logger.info "Typing of splat in array is incompatible with Ruby; it does not use #to_a method"
-                    synthesize(e.children.first).type.yield_self do |type|
-                      expand_alias(type) do |ty|
-                        case ty
-                        when AST::Types::Union
-                          ty.types
-                        else
-                          [ty]
-                        end
-                      end
-                    end.map do |type|
-                      case
-                      when AST::Builtin::Array.instance_type?(type)
-                        type.args.first
-                      when AST::Builtin::Range.instance_type?(type)
-                        type.args.first
-                      else
-                        type
-                      end
+              if hint && !(tuples = select_flatten_types(hint) {|type| type.is_a?(AST::Types::Tuple) }).empty?
+                tuples.each do |tuple|
+                  typing.new_child(node_range) do |child_typing|
+                    pair = with_new_typing(child_typing).try_tuple_type(node, tuple)
+                    if pair && pair.constr.check_relation(sub_type: pair.type, super_type: hint).success?
+                      child_typing.save!
+                      return pair.with(constr: pair.constr.with_new_typing(typing))
                     end
-                  else
-                    [select_super_type(synthesize(e, hint: element_hint).type, element_hint)]
                   end
                 end
-                array_type = AST::Builtin::Array.instance_type(AST::Types::Union.build(types: element_types))
               end
 
-              add_typing(node, type: array_type)
+              if hint && !(arrays = select_flatten_types(hint) {|type| AST::Builtin::Array.instance_type?(type) }).empty?
+                arrays.each do |array|
+                  typing.new_child(node_range) do |child_typing|
+                    pair = with_new_typing(child_typing).try_array_type(node, array)
+                    if pair.constr.check_relation(sub_type: pair.type, super_type: hint).success?
+                      child_typing.save!
+                      return pair.with(constr: pair.constr.with_new_typing(typing))
+                    end
+                  end
+                end
+              end
+
+              try_array_type(node, nil)
             end
           end
 
@@ -3006,7 +2981,12 @@ module Steep
 
       ty = case type
            when AST::Types::Name::Alias
-             deep_expand_alias(expand_alias(type), recursive: recursive << type)
+             deep_expand_alias(expand_alias(type), recursive: recursive.union([type]))
+           when AST::Types::Union
+             AST::Types::Union.build(
+               types: type.types.map {|ty| deep_expand_alias(ty, recursive: recursive, &block) },
+               location: type.location
+             )
            else
              type
            end
@@ -3015,6 +2995,32 @@ module Steep
         yield ty
       else
         ty
+      end
+    end
+
+    def flatten_union(type, acc = [])
+      case type
+      when AST::Types::Union
+        type.types.each {|ty| flatten_union(ty, acc) }
+      else
+        acc << type
+      end
+
+      acc
+    end
+
+    def select_flatten_types(type, &block)
+      types = flatten_union(deep_expand_alias(type))
+      types.select(&block)
+    end
+
+    def flatten_array_elements(type)
+      flatten_union(deep_expand_alias(type)).flat_map do |type|
+        if AST::Builtin::Array.instance_type?(type)
+          type.args
+        else
+          [type]
+        end
       end
     end
 
@@ -3063,6 +3069,47 @@ module Steep
                      end
 
       AST::Types::Name::Instance.new(name: type.name, args: args)
+    end
+
+    def try_tuple_type(node, hint)
+      if node.children.size != hint.types.size
+        return
+      end
+
+      constr = self
+      element_types = []
+
+      each_child_node(node).with_index do |child, index|
+        type, constr = constr.synthesize(child, hint: hint.types[index])
+        element_types << type
+      end
+
+      constr.add_typing(node, type: AST::Types::Tuple.new(types: element_types))
+    end
+
+    def try_array_type(node, hint)
+      element_hint = hint ? hint.args[0] : nil
+
+      constr = self
+      element_types = []
+
+      each_child_node(node) do |child|
+        case child.type
+        when :splat
+          type, constr = constr.synthesize(child.children[0], hint: hint)
+          if AST::Builtin::Array.instance_type?(type)
+            element_types << type.args[0]
+          else
+            element_types.push(*flatten_array_elements(type))
+          end
+        else
+          type, constr = constr.synthesize(child, hint: element_hint)
+          element_types << type
+        end
+      end
+
+      element_type = AST::Types::Union.build(types: element_types)
+      constr.add_typing(node, type: AST::Builtin::Array.instance_type(element_type))
     end
 
     def try_hash_type(node, hint)
