@@ -318,16 +318,17 @@ module Steep
                       trace: trace)
             end
 
-          when relation.sub_type.is_a?(AST::Types::Tuple) && relation.super_type.is_a?(AST::Types::Name::Base)
-            tuple_interface = factory.interface(relation.sub_type, private: false)
-            type_interface = factory.interface(relation.super_type, private: false)
+          when relation.sub_type.is_a?(AST::Types::Tuple) && AST::Builtin::Array.instance_type?(relation.super_type)
+            tuple_element_type = AST::Types::Union.build(
+              types: relation.sub_type.types,
+              location: relation.sub_type.location
+            )
 
-            check_interface(tuple_interface,
-                            type_interface,
-                            self_type: self_type,
-                            assumption: assumption,
-                            trace: trace,
-                            constraints: constraints)
+            check(Relation.new(sub_type: tuple_element_type, super_type: relation.super_type.args[0]),
+                  self_type: self_type,
+                  assumption: assumption,
+                  trace: trace,
+                  constraints: constraints)
 
           when relation.sub_type.is_a?(AST::Types::Record) && relation.super_type.is_a?(AST::Types::Record)
             if Set.new(relation.sub_type.elements.keys).superset?(Set.new(relation.super_type.elements.keys))
