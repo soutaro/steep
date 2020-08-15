@@ -1814,7 +1814,7 @@ module Steep
 
         when :splat, :sclass, :alias
           yield_self do
-            Steep.logger.error "Unsupported node #{node.type} (#{node.location.expression.source_buffer.name}:#{node.location.expression.line})"
+            Steep.logger.warn { "Unsupported node #{node.type} (#{node.location.expression.source_buffer.name}:#{node.location.expression.line})" }
 
             each_child_node node do |child|
               synthesize(child)
