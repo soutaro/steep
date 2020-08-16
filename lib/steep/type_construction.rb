@@ -1798,9 +1798,15 @@ module Steep
 
         when :or_asgn, :and_asgn
           yield_self do
-            _, rhs = node.children
-            rhs_type = synthesize(rhs).type
-            add_typing(node, type: rhs_type)
+            asgn, rhs = node.children
+            type, constr = synthesize(rhs, hint: hint)
+
+            case asgn.type
+            when :lvasgn
+              constr.lvasgn(asgn, type)
+            when :ivasgn
+              constr.ivasgn(asgn, type)
+            end
           end
 
         when :defined?
@@ -2009,6 +2015,8 @@ module Steep
           fallback_to_any node
         end
       end
+
+      add_typing(node, type: type)
     end
 
     def type_masgn(node)
@@ -2077,7 +2085,7 @@ module Steep
           when :lvasgn
             _, constr = constr.lvasgn(asgn, type)
           when :ivasgn
-            constr.ivasgn(asgn, type)
+            _, constr = constr.ivasgn(asgn, type)
           end
         end
 
@@ -2094,7 +2102,7 @@ module Steep
           when :lvasgn
             _, constr = constr.lvasgn(asgn, type)
           when :ivasgn
-            constr.ivasgn(asgn, type)
+            _, constr = constr.ivasgn(asgn, type)
           end
         end
 
@@ -2112,12 +2120,12 @@ module Steep
             when :lvasgn
               _, constr = constr.lvasgn(asgn.children[0], array_type)
             when :ivasgn
-              constr.ivasgn(asgn.children[0], array_type)
+              _, constr = constr.ivasgn(asgn.children[0], array_type)
             end
           when :lvasgn
             _, constr = constr.lvasgn(asgn, element_type)
           when :ivasgn
-            constr.ivasgn(asgn, element_type)
+            _,constr = constr.ivasgn(asgn, element_type)
           end
         end
 
@@ -2137,13 +2145,13 @@ module Steep
             _, constr = constr.lvasgn(assignment, element_type)
 
           when :ivasgn
-            constr.ivasgn(assignment, element_type)
+            _, constr = constr.ivasgn(assignment, element_type)
           when :splat
             case assignment.children[0].type
             when :lvasgn
               _, constr = constr.lvasgn(assignment.children[0], unwrap_rhs_type)
             when :ivasgn
-              constr.ivasgn(assignment.children[0], unwrap_rhs_type)
+              _, constr = constr.ivasgn(assignment.children[0], unwrap_rhs_type)
             else
               raise
             end
