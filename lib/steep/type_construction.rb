@@ -1914,7 +1914,10 @@ module Steep
             fallback_to_any node
           end
 
-        when :splat, :sclass, :alias
+        when :alias
+          add_typing node, type: AST::Builtin.nil_type
+
+        when :splat
           yield_self do
             Steep.logger.warn { "Unsupported node #{node.type} (#{node.location.expression.source_buffer.name}:#{node.location.expression.line})" }
 

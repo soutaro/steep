@@ -1101,7 +1101,7 @@ module Steep end
       end
     end
   end
-
+  1
   def test_module_constructor_without_signature
     with_checker <<-EOF do |checker|
 module Rails end
@@ -4476,7 +4476,7 @@ y = x || []
     end
   end
 
-  def test_skip_alias
+  def test_alias
     with_checker do |checker|
       source = parse_ruby(<<-EOF)
 alias foo bar
@@ -4486,7 +4486,7 @@ alias foo bar
         construction.synthesize(source.node)
 
         assert_empty typing.errors
-        assert_equal parse_type("untyped"), typing.type_of(node: source.node)
+        assert_equal parse_type("nil"), typing.type_of(node: source.node)
       end
     end
   end
