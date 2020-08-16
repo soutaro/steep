@@ -57,6 +57,40 @@ class LogicTest < Minitest::Test
     end
   end
 
+  def test_node_masgn
+    with_checker do |checker|
+      source = parse_ruby("x,y,*z = foo && bar")
+      logic = Logic.new(subtyping: checker)
+
+      t, f = logic.nodes(node: dig(source.node))
+
+      assert_equal(Set[].compare_by_identity.merge(
+        [
+          dig(source.node),
+          dig(source.node, 0),
+          dig(source.node, 0, 0),
+          dig(source.node, 0, 1),
+          dig(source.node, 0, 2),
+          dig(source.node, 0, 2, 0),
+          dig(source.node, 1),
+          dig(source.node, 1, 0),
+          dig(source.node, 1, 1)
+        ]
+      ), t.nodes)
+      assert_equal(Set[].compare_by_identity.merge(
+        [
+          dig(source.node),
+          dig(source.node, 0),
+          dig(source.node, 0, 0),
+          dig(source.node, 0, 1),
+          dig(source.node, 0, 2),
+          dig(source.node, 0, 2, 0),
+          dig(source.node, 1)
+        ]
+      ), f.nodes)
+    end
+  end
+
   def test_node_and
     with_checker do |checker|
       source = parse_ruby("x = 1; y = 1; z = 2; x && y && z")
