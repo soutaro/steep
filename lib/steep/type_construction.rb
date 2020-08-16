@@ -753,6 +753,14 @@ module Steep
 
               constr.add_typing(node, type: type)
 
+            when :send
+              new_rhs = rhs.updated(:send, [lhs, node.children[1], node.children[2]])
+              new_node = lhs.updated(:send, [lhs.children[0], :"#{lhs.children[1]}=", *lhs.children.drop(2), new_rhs])
+
+              type, constr = synthesize(new_node, hint: hint)
+
+              constr.add_typing(node, type: type)
+
             else
               Steep.logger.error("Unexpected op_asgn lhs: #{lhs.type}")
 

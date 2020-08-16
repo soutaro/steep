@@ -1773,6 +1773,25 @@ b += 3
     end
   end
 
+  def test_op_asgn_send
+    with_checker <<-RBS do |checker|
+class WithAttribute
+  attr_accessor foo: String
+end
+    RBS
+      source = parse_ruby(<<-EOF)
+a = WithAttribute.new
+a.foo += "!!"
+      EOF
+
+      with_standard_construction(checker, source) do |construction, typing|
+        construction.synthesize(source.node)
+
+        assert_no_error typing
+      end
+    end
+  end
+
   def test_while0
     with_checker do |checker|
       source = parse_ruby(<<-RUBY)
