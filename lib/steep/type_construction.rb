@@ -828,7 +828,7 @@ module Steep
             new.typing.add_context_for_body(node, context: new.context)
 
             each_child_node(args_node) do |arg|
-              new.synthesize(arg)
+              _, new = new.synthesize(arg)
             end
 
             body_pair = if body_node
@@ -1016,13 +1016,17 @@ module Steep
           yield_self do
             var = node.children[0]
             type = context.lvar_env[var.name]
-            unless type
+
+            if type
+              add_typing(node, type: type)
+            else
               type = AST::Builtin.any_type
               if context&.method_context&.method_type
                 Steep.logger.error { "Unknown arg type: #{node}" }
               end
+
+              lvasgn(node, type)
             end
-            add_typing(node, type: type)
           end
 
         when :optarg, :kwoptarg
