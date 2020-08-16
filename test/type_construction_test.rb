@@ -1677,6 +1677,25 @@ end
     end
   end
 
+  def test_masgn_untyped
+    with_checker do |checker|
+      source = parse_ruby(<<-EOF)
+a, @b = _ = nil
+      EOF
+
+      with_standard_construction(checker, source) do |construction, typing|
+        construction.synthesize(source.node)
+
+        assert_equal 1, typing.errors.size
+
+        assert_all!(typing.errors) do |error|
+          assert_instance_of Steep::Errors::FallbackAny, error
+        end
+      end
+    end
+  end
+
+
   def test_union_send_error
     with_checker do |checker|
       source = parse_ruby(<<-RUBY)

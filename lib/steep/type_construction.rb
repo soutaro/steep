@@ -2143,7 +2143,9 @@ module Steep
 
         add_typing(node, type: rhs_type, constr: constr)
       else
-        Steep.logger.error("Unsupported masgn rhs type: array or tuple is supported (#{rhs_type})")
+        unless rhs_type.is_a?(AST::Types::Any)
+          Steep.logger.error("Unsupported masgn rhs type: array or tuple is supported (#{rhs_type})")
+        end
         _, constr = constr.fallback_to_any(lhs)
         add_typing(node, type: rhs_type, constr: constr)
       end
