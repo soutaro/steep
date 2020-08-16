@@ -331,6 +331,26 @@ end
     end
   end
 
+  def test_empty_clauses
+    with_factory do |factory|
+      source = Steep::Source.parse(<<-EOF, path: Pathname("foo.rb"), factory: factory)
+case
+when bar
+else
+end
+
+if foo
+else
+end
+
+begin
+rescue
+else
+end
+      EOF
+    end
+  end
+
   def test_rescue
     with_factory do |factory|
       source = Steep::Source.parse(<<-EOF, path: Pathname("foo.rb"), factory: factory)
