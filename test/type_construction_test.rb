@@ -4950,9 +4950,8 @@ end
       with_standard_construction(checker, source) do |construction, typing|
         construction.synthesize(source.node)
 
-        assert_equal 2, typing.errors.size
+        assert_equal 1, typing.errors.size
         assert_instance_of Steep::Errors::MethodArityMismatch, typing.errors[0]
-        assert_instance_of Steep::Errors::FallbackAny, typing.errors[1]
       end
     end
   end
@@ -5087,6 +5086,26 @@ end
         assert_any!(typing.errors) do |error|
           assert_instance_of Steep::Errors::IncompatibleAssignment, error
           assert_equal :cvasgn, error.node.type
+        end
+      end
+    end
+  end
+
+  def test_flown_sensitive_untyped
+    with_checker do |checker|
+      source = parse_ruby(<<-RUBY)
+def preserve_empty_line(prev, decl)
+  decl = 1 unless prev
+
+  prev.foo
+end
+      RUBY
+
+      with_standard_construction(checker, source) do |construction, typing|
+        construction.synthesize(source.node)
+
+        assert_all!(typing.errors) do |error|
+          assert_instance_of Steep::Errors::FallbackAny, error
         end
       end
     end

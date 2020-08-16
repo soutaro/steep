@@ -29,7 +29,10 @@ module Steep
               type
             end
           end.compact.uniq.yield_self do |tys|
-            if tys.length == 1
+            case tys.length
+            when 0
+              AST::Types::Bot.new
+            when 1
               tys.first
             else
               new(types: tys.sort_by(&:hash), location: location)
