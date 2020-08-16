@@ -1652,6 +1652,31 @@ a, b = x = tuple
     end
   end
 
+  def test_masgn_optional_conditional
+    with_checker do |checker|
+      source = parse_ruby(<<-RUBY)
+# @type var tuple: [Integer, String]?
+tuple = nil
+if (a, b = x = tuple)
+  a + 1
+  b + "a"
+else
+  return
+end
+      RUBY
+
+      with_standard_construction(checker, source) do |construction, typing|
+        _, _, context = construction.synthesize(source.node)
+
+        assert_no_error typing
+
+        assert_equal parse_type("::Integer"), context.lvar_env[:a]
+        assert_equal parse_type("::String"), context.lvar_env[:b]
+        assert_equal parse_type("[::Integer, ::String]"), context.lvar_env[:x]
+      end
+    end
+  end
+
   def test_union_send_error
     with_checker do |checker|
       source = parse_ruby(<<-RUBY)

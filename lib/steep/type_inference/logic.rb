@@ -47,6 +47,37 @@ module Steep
             f.merge([node])
           ]
 
+        when :masgn
+          lhs, rhs = node.children
+
+          lt, lf = nodes(node: lhs)
+          rt, rf = nodes(node: rhs)
+
+          [
+            (lt + rt).merge([node]),
+            (lf + rf).merge([node])
+          ]
+
+        when :mlhs
+          nodes = [node]
+
+          node.children.each do |child|
+            case child.type
+            when :lvasgn
+              nodes << child
+            when :splat
+              if node.children[0].type == :lvasgn
+                nodes << child
+                nodes << child.children[0]
+              end
+            end
+          end
+
+          [
+            Result.new(nodes),
+            Result.new(nodes)
+          ]
+
         when :and
           lhs, rhs = node.children
 
