@@ -172,6 +172,7 @@ module Steep
                 timestamp: Time.now
               )
             rescue => exn
+              Steep.log_error exn
               @status = SignatureOtherErrorStatus.new(error: exn, timestamp: Time.now)
             end
           end

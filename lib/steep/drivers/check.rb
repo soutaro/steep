@@ -60,6 +60,10 @@ module Steep
                   Steep.log_error source_file.status.error
                 end
               end
+            when Project::Target::SignatureOtherErrorStatus
+              Steep.log_error status.error
+            else
+              Steep.logger.error { "Unexpected status: #{status.class}" }
             end
           end
         end

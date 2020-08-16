@@ -79,6 +79,7 @@ module Steep
       end
 
       mapping = {}
+
       construct_mapping(node: node, annotations: annotations, mapping: mapping)
 
       annotations.each do |annot|
@@ -185,7 +186,7 @@ module Steep
           construct_mapping(node: node.children[0], annotations: annotations, mapping: mapping, line_range: nil)
         end
 
-        if node.loc.else
+        if node.children.last
           else_node = node.children.last
           else_start = node.loc.else.last_line
           else_end = node.loc.end.line
