@@ -64,6 +64,12 @@ module TestHelper
     assert collection.all?(&block)
   end
 
+  def assert_all!(collection)
+    collection.each do |c|
+      yield c
+    end
+  end
+
   def refute_any(collection, &block)
     refute collection.any?(&block)
   end
