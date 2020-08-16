@@ -1954,136 +1954,184 @@ module Steep
       add_typing(node, type: ivar_type)
     end
 
+    def masgn_lhs?(lhs)
+      lhs.children.all? do |a|
+        asgn_type = if a.type == :splat
+                      a.children[0].type
+                    else
+                      a.type
+                    end
+        asgn_type == :lvasgn || asgn_type == :ivasgn
+      end
+    end
+
+    def lvasgn(node, type)
+      name = node.children[0].name
+      env = context.lvar_env.assign(name, node: node, type: type) do |declared_type, type, result|
+        typing.add_error(
+          Errors::IncompatibleAssignment.new(node: node,
+                                             lhs_type: declared_type,
+                                             rhs_type: type,
+                                             result: result)
+        )
+      end
+
+      add_typing(node, type: type, constr: with_updated_context(lvar_env: env))
+    end
+
+    def ivasgn(node, type)
+      ivar = node.children[0]
+
+      type_env.assign(ivar: ivar, type: type, self_type: self_type) do |error|
+        case error
+        when Subtyping::Result::Failure
+          var_type = type_env.get(ivar: ivar)
+          typing.add_error(Errors::IncompatibleAssignment.new(node: node,
+                                                              lhs_type: var_type,
+                                                              rhs_type: type,
+                                                              result: error))
+        when nil
+          fallback_to_any node
+        end
+      end
+    end
+
     def type_masgn(node)
       lhs, rhs = node.children
       rhs_pair = synthesize(rhs)
-      rhs_type = expand_alias(rhs_pair.type)
+      rhs_type = deep_expand_alias(rhs_pair.type)
 
       constr = rhs_pair.constr
 
-      if lhs.children.all? {|a| a.type == :lvasgn || a.type == :ivasgn}
-        case
-        when rhs.type == :array && lhs.children.size == rhs.children.size
-          # a, @b = x, y
+      unless masgn_lhs?(lhs)
+        Steep.logger.error("Unsupported masgn lhs node: only lvasgn, ivasgn, and splat are supported")
+        _, constr = constr.fallback_to_any(lhs)
+        return add_typing(node, type: rhs_type, constr: constr)
+      end
 
-          constr = lhs.children.zip(rhs.children).inject(constr) do |ctr, (lhs, rhs)|
-            case lhs.type
-            when :lvasgn
-              name = lhs.children[0].name
-              type = typing.type_of(node: rhs)
-              env = ctr.context.lvar_env.assign(name, node: node, type: type) do |declared_type, type, result|
-                typing.add_error(
-                  Errors::IncompatibleAssignment.new(node: lhs,
-                                                     lhs_type: declared_type,
-                                                     rhs_type: type,
-                                                     result: result)
-                )
-              end
-              add_typing(lhs,
-                         type: type,
-                         constr: ctr.with_updated_context(lvar_env: env)).constr
-            when :ivasgn
-              type_ivasgn(lhs.children.first, rhs, lhs)
-              constr
-            end
+      case
+      when rhs_type.is_a?(AST::Types::Tuple) || (rhs.type == :array && rhs.children.none? {|n| n.type == :splat })
+        tuple_types = if rhs_type.is_a?(AST::Types::Tuple)
+                        rhs_type.types.dup
+                      else
+                        rhs.children.map do |node|
+                          typing.type_of(node: node)
+                        end
+                      end
+
+        assignment_nodes = lhs.children.dup
+        leading_assignments = []
+        trailing_assignments = []
+
+        until assignment_nodes.empty?
+          cursor = assignment_nodes.first
+
+          if cursor.type == :splat
+            break
+          else
+            leading_assignments << assignment_nodes.shift
           end
-
-          add_typing(node, type: rhs_type, constr: constr)
-
-        when rhs_type.is_a?(AST::Types::Tuple)
-          # a, @b = tuple
-
-          constr = lhs.children.zip(rhs_type.types).inject(constr) do |ctr, (lhs, type)|
-            ty = type || AST::Builtin.nil_type
-
-            case lhs.type
-            when :lvasgn
-              name = lhs.children[0].name
-              env = ctr.context.lvar_env.assign(name, node: node, type: ty) do |declared_type, type, result|
-                typing.add_error(
-                  Errors::IncompatibleAssignment.new(node: lhs,
-                                                     lhs_type: declared_type,
-                                                     rhs_type: type,
-                                                     result: result)
-                )
-              end
-              add_typing(lhs,
-                         type: ty,
-                         constr: ctr.with_updated_context(lvar_env: env)).constr
-            when :ivasgn
-              ivar = lhs.children[0]
-
-              type_env.assign(ivar: ivar, type: ty, self_type: self_type) do |error|
-                case error
-                when Subtyping::Result::Failure
-                  ivar_type = type_env.get(ivar: ivar)
-                  typing.add_error(Errors::IncompatibleAssignment.new(node: lhs,
-                                                                      lhs_type: ivar_type,
-                                                                      rhs_type: ty,
-                                                                      result: error))
-                when nil
-                  fallback_to_any node
-                end
-              end
-
-              ctr
-            end
-          end
-
-          add_typing(node, type: rhs_type, constr: constr)
-
-        when AST::Builtin::Array.instance_type?(rhs_type)
-          element_type = AST::Types::Union.build(types: [rhs_type.args.first, AST::Builtin.nil_type])
-
-          constr = lhs.children.inject(constr) do |ctr, assignment|
-            case assignment.type
-            when :lvasgn
-              name = assignment.children[0].name
-              env = ctr.context.lvar_env.assign(name, node: node, type: element_type) do |declared_type, type, result|
-                typing.add_error(
-                  Errors::IncompatibleAssignment.new(node: assignment,
-                                                     lhs_type: declared_type,
-                                                     rhs_type: type,
-                                                     result: result)
-                )
-              end
-
-              add_typing(assignment,
-                         type: element_type,
-                         constr: ctr.with_updated_context(lvar_env: env)).constr
-
-            when :ivasgn
-              ivar = assignment.children[0]
-
-              type_env.assign(ivar: ivar, type: element_type, self_type: self_type) do |error|
-                case error
-                when Subtyping::Result::Failure
-                  type = type_env.get(ivar: ivar)
-                  typing.add_error(Errors::IncompatibleAssignment.new(node: assignment,
-                                                                      lhs_type: type,
-                                                                      rhs_type: element_type,
-                                                                      result: error))
-                when nil
-                  fallback_to_any node
-                end
-              end
-
-              ctr
-            end
-          end
-
-          add_typing node, type: rhs_type, constr: constr
-
-        when rhs_type.is_a?(AST::Types::Any)
-          fallback_to_any(node)
-
-        else
-          Steep.logger.error("Unsupported masgn: #{rhs.type} (#{rhs_type})")
-          fallback_to_any(node)
         end
+
+        until assignment_nodes.empty?
+          cursor = assignment_nodes.last
+
+          if cursor.type == :splat
+            break
+          else
+            trailing_assignments.unshift assignment_nodes.pop
+          end
+        end
+
+        leading_assignments.each do |asgn|
+          type = tuple_types.first
+
+          if type
+            tuple_types.shift
+          else
+            type = AST::Builtin.nil_type
+          end
+
+          case asgn.type
+          when :lvasgn
+            _, constr = constr.lvasgn(asgn, type)
+          when :ivasgn
+            constr.ivasgn(asgn, type)
+          end
+        end
+
+        trailing_assignments.reverse_each do |asgn|
+          type = tuple_types.last
+
+          if type
+            tuple_types.pop
+          else
+            type = AST::Builtin.nil_type
+          end
+
+          case asgn.type
+          when :lvasgn
+            _, constr = constr.lvasgn(asgn, type)
+          when :ivasgn
+            constr.ivasgn(asgn, type)
+          end
+        end
+
+        element_type = if tuple_types.empty?
+                         AST::Builtin.nil_type
+                       else
+                         AST::Types::Union.build(types: tuple_types)
+                       end
+        array_type = AST::Builtin::Array.instance_type(element_type)
+
+        assignment_nodes.each do |asgn|
+          case asgn.type
+          when :splat
+            case asgn.children[0].type
+            when :lvasgn
+              _, constr = constr.lvasgn(asgn.children[0], array_type)
+            when :ivasgn
+              constr.ivasgn(asgn.children[0], array_type)
+            end
+          when :lvasgn
+            _, constr = constr.lvasgn(asgn, element_type)
+          when :ivasgn
+            constr.ivasgn(asgn, element_type)
+          end
+        end
+
+        add_typing(node, type: rhs_type, constr: constr)
+
+      when flatten_union(rhs_type).all? {|type| AST::Builtin::Array.instance_type?(type) }
+        array_elements = flatten_union(rhs_type).map {|type| type.args[0] }
+        element_type = AST::Types::Union.build(types: array_elements + [AST::Builtin.nil_type])
+
+        constr = lhs.children.inject(constr) do |constr, assignment|
+          case assignment.type
+          when :lvasgn
+            _, constr = constr.lvasgn(assignment, element_type)
+
+          when :ivasgn
+            constr.ivasgn(assignment, element_type)
+          when :splat
+            case assignment.children[0].type
+            when :lvasgn
+              _, constr = constr.lvasgn(assignment.children[0], rhs_type)
+            when :ivasgn
+              constr.ivasgn(assignment.children[0], rhs_type)
+            else
+              raise
+            end
+          end
+
+          constr
+        end
+
+        add_typing(node, type: rhs_type, constr: constr)
       else
-        Steep.logger.error("Unsupported masgn left hand side")
-        fallback_to_any(node)
+        Steep.logger.error("Unsupported masgn rhs type: array or tuple is supported (#{rhs_type})")
+        _, constr = constr.fallback_to_any(lhs)
+        add_typing(node, type: rhs_type, constr: constr)
       end
     end
 

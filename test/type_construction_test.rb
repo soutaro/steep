@@ -1546,6 +1546,24 @@ a, @b, c = tuple
     end
   end
 
+  def test_masgn_tuple_array
+    with_checker do |checker|
+      source = parse_ruby(<<-EOF)
+a, *b, c = [1, 2, "x", :foo]
+      EOF
+
+      with_standard_construction(checker, source) do |construction, typing|
+        _, _, context = construction.synthesize(source.node)
+
+        assert_no_error typing
+
+        assert_equal parse_type("::Integer"), context.lvar_env[:a]
+        assert_equal parse_type("::Array[::Integer | ::String]"), context.lvar_env[:b]
+        assert_equal parse_type("::Symbol"), context.lvar_env[:c]
+      end
+    end
+  end
+
   def test_masgn_array
     with_checker do |checker|
       source = parse_ruby(<<-EOF)
@@ -1586,13 +1604,30 @@ a, b = x
 
       with_standard_construction(checker, source) do |construction, typing|
         construction.synthesize(source.node)
+        
+        assert_no_error typing
+      end
+    end
+  end
 
-        assert_equal 1, typing.errors.size
+  def test_masgn_splat
+    with_checker do |checker|
+      source = parse_ruby(<<-RUBY)
+# @type var x: Array[Integer]
+x = []
+a, *b, c = x
+      RUBY
 
-        typing.errors[0].tap do |error|
-          assert_instance_of Steep::Errors::FallbackAny, error
-          assert_equal dig(source.node, 1), error.node
-        end
+
+      with_standard_construction(checker, source) do |construction, typing|
+        type, _, context = construction.synthesize(source.node)
+
+        assert_no_error typing
+
+        assert_equal parse_type("::Array[::Integer]"), type
+        assert_equal parse_type("::Integer?"), context.lvar_env[:a]
+        assert_equal parse_type("::Array[::Integer]"), context.lvar_env[:b]
+        assert_equal parse_type("::Integer?"), context.lvar_env[:c]
       end
     end
   end
