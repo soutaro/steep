@@ -2009,10 +2009,16 @@ module Steep
         return add_typing(node, type: rhs_type, constr: constr)
       end
 
+      falseys, truthys = partition_flatten_types(rhs_type) do |type|
+        type.is_a?(AST::Types::Nil) || (type.is_a?(AST::Types::Literal) && type.value == false)
+      end
+
+      unwrap_rhs_type = AST::Types::Union.build(types: truthys)
+
       case
-      when rhs_type.is_a?(AST::Types::Tuple) || (rhs.type == :array && rhs.children.none? {|n| n.type == :splat })
-        tuple_types = if rhs_type.is_a?(AST::Types::Tuple)
-                        rhs_type.types.dup
+      when unwrap_rhs_type.is_a?(AST::Types::Tuple) || (rhs.type == :array && rhs.children.none? {|n| n.type == :splat })
+        tuple_types = if unwrap_rhs_type.is_a?(AST::Types::Tuple)
+                        unwrap_rhs_type.types.dup
                       else
                         rhs.children.map do |node|
                           typing.type_of(node: node)
@@ -2100,10 +2106,14 @@ module Steep
           end
         end
 
+        unless falseys.empty?
+          constr = constr.update_lvar_env {|lvar_env| self.context.lvar_env.join(lvar_env, self.context.lvar_env)}
+        end
+
         add_typing(node, type: rhs_type, constr: constr)
 
-      when flatten_union(rhs_type).all? {|type| AST::Builtin::Array.instance_type?(type) }
-        array_elements = flatten_union(rhs_type).map {|type| type.args[0] }
+      when flatten_union(unwrap_rhs_type).all? {|type| AST::Builtin::Array.instance_type?(type) }
+        array_elements = flatten_union(unwrap_rhs_type).map {|type| type.args[0] }
         element_type = AST::Types::Union.build(types: array_elements + [AST::Builtin.nil_type])
 
         constr = lhs.children.inject(constr) do |constr, assignment|
@@ -2116,15 +2126,19 @@ module Steep
           when :splat
             case assignment.children[0].type
             when :lvasgn
-              _, constr = constr.lvasgn(assignment.children[0], rhs_type)
+              _, constr = constr.lvasgn(assignment.children[0], unwrap_rhs_type)
             when :ivasgn
-              constr.ivasgn(assignment.children[0], rhs_type)
+              constr.ivasgn(assignment.children[0], unwrap_rhs_type)
             else
               raise
             end
           end
 
           constr
+        end
+
+        unless falseys.empty?
+          constr = constr.update_lvar_env {|lvar_env| self.context.lvar_env.join(lvar_env, self.context.lvar_env)}
         end
 
         add_typing(node, type: rhs_type, constr: constr)
@@ -3156,6 +3170,11 @@ module Steep
     def select_flatten_types(type, &block)
       types = flatten_union(deep_expand_alias(type))
       types.select(&block)
+    end
+
+    def partition_flatten_types(type, &block)
+      types = flatten_union(deep_expand_alias(type))
+      types.partition(&block)
     end
 
     def flatten_array_elements(type)

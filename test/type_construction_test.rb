@@ -1604,7 +1604,7 @@ a, b = x
 
       with_standard_construction(checker, source) do |construction, typing|
         construction.synthesize(source.node)
-        
+
         assert_no_error typing
       end
     end
@@ -1628,6 +1628,26 @@ a, *b, c = x
         assert_equal parse_type("::Integer?"), context.lvar_env[:a]
         assert_equal parse_type("::Array[::Integer]"), context.lvar_env[:b]
         assert_equal parse_type("::Integer?"), context.lvar_env[:c]
+      end
+    end
+  end
+
+  def test_masgn_optional
+    with_checker do |checker|
+      source = parse_ruby(<<-EOF)
+# @type var tuple: [Integer, String]?
+tuple = nil
+a, b = x = tuple
+      EOF
+
+      with_standard_construction(checker, source) do |construction, typing|
+        _, _, context = construction.synthesize(source.node)
+
+        assert_no_error typing
+
+        assert_equal parse_type("::Integer?"), context.lvar_env[:a]
+        assert_equal parse_type("::String?"), context.lvar_env[:b]
+        assert_equal parse_type("[::Integer, ::String]?"), context.lvar_env[:x]
       end
     end
   end
