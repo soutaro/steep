@@ -4950,9 +4950,8 @@ end
       with_standard_construction(checker, source) do |construction, typing|
         construction.synthesize(source.node)
 
-        assert_equal 2, typing.errors.size
+        assert_equal 1, typing.errors.size
         assert_instance_of Steep::Errors::MethodArityMismatch, typing.errors[0]
-        assert_instance_of Steep::Errors::FallbackAny, typing.errors[1]
       end
     end
   end
