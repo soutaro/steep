@@ -2,6 +2,14 @@
 
 ## master
 
+## 0.25.0 (2020-08-18)
+
+* Improve `op_send` typing ([#186](https://github.com/soutaro/steep/pull/186))
+* Improve `op_asgn` typing ([#189](https://github.com/soutaro/steep/pull/189))
+* Better multi-assignment support ([#183](https://github.com/soutaro/steep/pull/183), [#184](https://github.com/soutaro/steep/pull/184))
+* Support for loop and class variables ([#182](https://github.com/soutaro/steep/pull/182))
+* Fix tuple typing ([#181](https://github.com/soutaro/steep/pull/181))
+
 ## 0.24.0 (2020-08-11)
 
 * Update RBS to 0.10 ([#180](https://github.com/soutaro/steep/pull/180))
