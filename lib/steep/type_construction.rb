@@ -1336,7 +1336,8 @@ module Steep
                   add_typing node, type: array
                 end
               else
-                fallback_to_any node
+                typing.add_error Errors::FallbackAny.new(node: node)
+                add_typing node, type: AST::Builtin::Array.instance_type(AST::Builtin.any_type)
               end
             else
               node_range = node.loc.expression.yield_self {|l| l.begin_pos..l.end_pos }
