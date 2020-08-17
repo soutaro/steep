@@ -5110,4 +5110,46 @@ end
       end
     end
   end
+
+  def test_orasign_lvar
+    with_checker do |checker|
+      source = parse_ruby(<<-RUBY)
+# @type var y: String
+
+x = 1 ? "" : nil
+x ||= ""
+y = x
+      RUBY
+
+      with_standard_construction(checker, source) do |construction, typing|
+        construction.synthesize(source.node)
+
+        assert_no_error typing
+      end
+    end
+  end
+
+  def test_orasign_ivar
+    with_checker <<-RBS do |checker|
+class IVar
+  @ivar: String?
+
+  def set: () -> String
+end
+    RBS
+      source = parse_ruby(<<-RUBY)
+class IVar
+  def set
+    @ivar ||= "foo"
+  end
+end
+      RUBY
+
+      with_standard_construction(checker, source) do |construction, typing|
+        construction.synthesize(source.node)
+
+        assert_no_error typing
+      end
+    end
+  end
 end
