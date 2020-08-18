@@ -11,6 +11,9 @@ module Steep
         end
 
         def self.build(types:, location: nil)
+          return AST::Types::Bot.new if types.empty?
+          return types.first if types.size == 1
+
           types.flat_map do |type|
             if type.is_a?(Union)
               type.types
@@ -29,7 +32,7 @@ module Steep
               type
             end
           end.compact.uniq.yield_self do |tys|
-            case tys.length
+            case tys.size
             when 0
               AST::Types::Bot.new
             when 1
