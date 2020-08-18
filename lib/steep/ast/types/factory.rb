@@ -4,8 +4,14 @@ module Steep
       class Factory
         attr_reader :definition_builder
 
+        attr_reader :type_name_cache
+        attr_reader :type_cache
+
         def initialize(builder:)
           @definition_builder = builder
+
+          @type_name_cache = {}
+          @type_cache = {}
         end
 
         def type_name_resolver
@@ -13,7 +19,9 @@ module Steep
         end
 
         def type(type)
-          case type
+          ty = type_cache[type] and return ty
+
+          type_cache[type] = case type
           when RBS::Types::Bases::Any
             Any.new(location: nil)
           when RBS::Types::Bases::Class
@@ -144,14 +152,17 @@ module Steep
         end
 
         def type_name(name)
-          case
-          when name.class?
-            Names::Module.new(name: name.name, namespace: namespace(name.namespace), location: nil)
-          when name.interface?
-            Names::Interface.new(name: name.name, namespace: namespace(name.namespace), location: nil)
-          when name.alias?
-            Names::Alias.new(name: name.name, namespace: namespace(name.namespace), location: nil)
-          end
+          n = type_name_cache[name] and return n
+
+          type_name_cache[name] =
+            (case
+             when name.class?
+               Names::Module.new(name: name.name, namespace: namespace(name.namespace), location: nil)
+             when name.interface?
+               Names::Interface.new(name: name.name, namespace: namespace(name.namespace), location: nil)
+             when name.alias?
+               Names::Alias.new(name: name.name, namespace: namespace(name.namespace), location: nil)
+             end)
         end
 
         def type_name_1(name)
