@@ -3741,6 +3741,27 @@ EOF
     end
   end
 
+  def test_tuple_first_last
+    with_checker do |checker|
+      source = parse_ruby(<<EOF)
+# @type var x: [Integer, String]
+x = (_=[])
+
+a = x.first
+b = x.last
+EOF
+
+      with_standard_construction(checker, source) do |construction, typing|
+        _, _, context = construction.synthesize(source.node)
+
+        assert_no_error typing
+
+        assert_equal parse_type('::Integer'), context.lvar_env[:a]
+        assert_equal parse_type('::String'), context.lvar_env[:b]
+      end
+    end
+  end
+
   def test_hash_tuple
     with_checker do |checker|
       source = parse_ruby(<<EOF)
