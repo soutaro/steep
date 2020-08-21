@@ -468,6 +468,36 @@ module Steep
                     incompatible: false
                   )
                 end
+
+                array_interface.methods[:first] = array_interface.methods[:first].yield_self do |first|
+                  Interface::Interface::Combination.overload(
+                    [
+                      Interface::MethodType.new(
+                        type_params: [],
+                        params: Interface::Params.empty,
+                        block: nil,
+                        return_type: type.types[0] || AST::Builtin.nil_type,
+                        location: nil
+                      )
+                    ],
+                    incompatible: false
+                  )
+                end
+
+                array_interface.methods[:last] = array_interface.methods[:last].yield_self do |last|
+                  Interface::Interface::Combination.overload(
+                    [
+                      Interface::MethodType.new(
+                        type_params: [],
+                        params: Interface::Params.empty,
+                        block: nil,
+                        return_type: type.types.last || AST::Builtin.nil_type,
+                        location: nil
+                      )
+                    ],
+                    incompatible: false
+                  )
+                end
               end
             end
 

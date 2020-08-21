@@ -287,6 +287,9 @@ class Array[A]
   def zip: [B] (Array[B]) -> Array[A | B]
   def each_with_object: [B] (B) { (A, B) -> untyped } -> B
   def map: [X] { (A) -> X } -> Array[X]
+
+  def first: () -> A?
+  def last: () -> A?
 end
 
 class Hash[A, B]
