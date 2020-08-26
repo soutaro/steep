@@ -26,7 +26,10 @@ module Steep
         end
 
         def to_s
-          "{ #{elements.map {|key, value| "#{key.inspect} => #{value}" }.join(", ")} }"
+          strings = elements.keys.sort.map do |key|
+            "#{key.inspect} => #{elements[key]}"
+          end
+          "{ #{strings.join(", ")} }"
         end
 
         def free_variables()
