@@ -44,8 +44,8 @@ module Steep
           end
         end
 
-        def free_variables
-          Set.new([name])
+        def free_variables()
+          @fvs ||= Set.new([name])
         end
 
         def level

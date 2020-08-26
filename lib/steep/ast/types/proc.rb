@@ -36,8 +36,11 @@ module Steep
           "^#{params} -> #{return_type}"
         end
 
-        def free_variables
-          params.free_variables + return_type.free_variables
+        def free_variables()
+          @fvs ||= Set.new.tap do |set|
+            set.merge(params.free_variables)
+            set.merge(return_type.free_variables)
+          end
         end
 
         def level

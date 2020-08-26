@@ -30,9 +30,11 @@ module Steep
           "[#{types.join(", ")}]"
         end
 
-        def free_variables
-          types.each.with_object(Set.new) do |type, set|
-            set.merge(type.free_variables)
+        def free_variables()
+          @fvs ||= Set.new.tap do |set|
+            types.each do |type|
+              set.merge(type.free_variables)
+            end
           end
         end
 

@@ -35,9 +35,11 @@ module Steep
           "masked(#{type}|#{mask})"
         end
 
-        def free_variables(set = Set.new)
-          type.free_variables(set)
-          mask.free_variables(set)
+        def free_variables
+          @fvs ||= Set.new.tap do |set|
+            set.merge(type.free_variables)
+            set.merge(mask.free_variables)
+          end
         end
 
         def each_type(&block)

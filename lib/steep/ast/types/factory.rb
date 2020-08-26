@@ -4,8 +4,14 @@ module Steep
       class Factory
         attr_reader :definition_builder
 
+        attr_reader :type_name_cache
+        attr_reader :type_cache
+
         def initialize(builder:)
           @definition_builder = builder
+
+          @type_name_cache = {}
+          @type_cache = {}
         end
 
         def type_name_resolver
@@ -13,7 +19,9 @@ module Steep
         end
 
         def type(type)
-          case type
+          ty = type_cache[type] and return ty
+
+          type_cache[type] = case type
           when RBS::Types::Bases::Any
             Any.new(location: nil)
           when RBS::Types::Bases::Class
@@ -144,14 +152,17 @@ module Steep
         end
 
         def type_name(name)
-          case
-          when name.class?
-            Names::Module.new(name: name.name, namespace: namespace(name.namespace), location: nil)
-          when name.interface?
-            Names::Interface.new(name: name.name, namespace: namespace(name.namespace), location: nil)
-          when name.alias?
-            Names::Alias.new(name: name.name, namespace: namespace(name.namespace), location: nil)
-          end
+          n = type_name_cache[name] and return n
+
+          type_name_cache[name] =
+            (case
+             when name.class?
+               Names::Module.new(name: name.name, namespace: namespace(name.namespace), location: nil)
+             when name.interface?
+               Names::Interface.new(name: name.name, namespace: namespace(name.namespace), location: nil)
+             when name.alias?
+               Names::Alias.new(name: name.name, namespace: namespace(name.namespace), location: nil)
+             end)
         end
 
         def type_name_1(name)
@@ -190,7 +201,7 @@ module Steep
           )
         end
 
-        def method_type(method_type, self_type:)
+        def method_type(method_type, self_type:, subst2: nil)
           fvs = self_type.free_variables()
 
           type_params = []
@@ -208,6 +219,7 @@ module Steep
             end
           end
           subst = Interface::Substitution.build(alpha_vars, alpha_types)
+          subst.merge!(subst2) if subst2
 
           type = Interface::MethodType.new(
             type_params: type_params,
@@ -332,7 +344,7 @@ module Steep
 
                 interface.methods[name] = Interface::Interface::Combination.overload(
                   method.method_types.map do |type|
-                    method_type(type, self_type: self_type) {|ty| ty.subst(subst) }
+                    method_type(type, self_type: self_type, subst2: subst)
                   end,
                   incompatible: name == :initialize || name == :new
                 )
@@ -353,7 +365,7 @@ module Steep
               definition.methods.each do |name, method|
                 interface.methods[name] = Interface::Interface::Combination.overload(
                   method.method_types.map do |type|
-                    method_type(type, self_type: self_type) {|type| type.subst(subst) }
+                    method_type(type, self_type: self_type, subst2: subst)
                   end,
                   incompatible: method.attributes.include?(:incompatible)
                 )
@@ -379,7 +391,7 @@ module Steep
 
                 interface.methods[name] = Interface::Interface::Combination.overload(
                   method.method_types.map do |type|
-                    method_type(type, self_type: self_type) {|type| type.subst(subst) }
+                    method_type(type, self_type: self_type, subst2: subst)
                   end,
                   incompatible: method.attributes.include?(:incompatible)
                 )

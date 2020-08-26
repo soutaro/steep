@@ -11,9 +11,7 @@ module Steep
             @name = name
           end
 
-          def free_variables
-            Set.new
-          end
+          include Helper::NoFreeVariables
 
           def subst(s)
             self
@@ -41,7 +39,7 @@ module Steep
           alias eql? ==
 
           def hash
-            self.class.hash ^ name.hash ^ args.hash
+            @hash ||= self.class.hash ^ name.hash ^ args.hash
           end
 
           def to_s
@@ -57,14 +55,20 @@ module Steep
           end
 
           def subst(s)
-            self.class.new(location: location,
-                           name: name,
-                           args: args.map {|a| a.subst(s) })
+            if free_variables.intersect?(s.domain)
+              self.class.new(location: location,
+                             name: name,
+                             args: args.map {|a| a.subst(s) })
+            else
+              self
+            end
           end
 
           def free_variables
-            args.each.with_object(Set.new) do |type, vars|
-              vars.merge(type.free_variables)
+            @fvs ||= Set.new().tap do |set|
+              args.each do |type|
+                set.merge(type.free_variables)
+              end
             end
           end
 

@@ -11,6 +11,9 @@ module Steep
         end
 
         def self.build(types:, location: nil)
+          return AST::Types::Bot.new if types.empty?
+          return types.first if types.size == 1
+
           types.flat_map do |type|
             if type.is_a?(Union)
               type.types
@@ -29,7 +32,7 @@ module Steep
               type
             end
           end.compact.uniq.yield_self do |tys|
-            case tys.length
+            case tys.size
             when 0
               AST::Types::Bot.new
             when 1
@@ -61,8 +64,10 @@ module Steep
         end
 
         def free_variables
-          types.each.with_object(Set.new) do |type, set|
-            set.merge(type.free_variables)
+          @fvs ||= Set.new.tap do |set|
+            types.each do |type|
+              set.merge(type.free_variables)
+            end
           end
         end
 
