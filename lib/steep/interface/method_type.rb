@@ -224,14 +224,29 @@ module Steep
       end
 
       def subst(s)
-        self.class.new(
-          required: required.map {|t| t.subst(s) },
-          optional: optional.map {|t| t.subst(s) },
-          rest: rest&.subst(s),
-          required_keywords: required_keywords.transform_values {|t| t.subst(s) },
-          optional_keywords: optional_keywords.transform_values {|t| t.subst(s) },
-          rest_keywords: rest_keywords&.subst(s)
-        )
+        return self if s.empty?
+        return self if empty?
+        return self if free_variables.disjoint?(s.domain)
+
+        rs = required.map {|t| t.subst(s) }
+        os = optional.map {|t| t.subst(s) }
+        r = rest&.subst(s)
+        rk = required_keywords.transform_values {|t| t.subst(s) }
+        ok = optional_keywords.transform_values {|t| t.subst(s) }
+        k = rest_keywords&.subst(s)
+
+        if rs == required && os == optional && r == rest && rk == required_keywords && ok == optional_keywords && k == rest_keywords
+          self
+        else
+          self.class.new(
+            required: required.map {|t| t.subst(s) },
+            optional: optional.map {|t| t.subst(s) },
+            rest: rest&.subst(s),
+            required_keywords: required_keywords.transform_values {|t| t.subst(s) },
+            optional_keywords: optional_keywords.transform_values {|t| t.subst(s) },
+            rest_keywords: rest_keywords&.subst(s)
+          )
+        end
       end
 
       def size
@@ -557,10 +572,15 @@ module Steep
       end
 
       def subst(s)
-        self.class.new(
-          type: type.subst(s),
-          optional: optional
-        )
+        ty = type.subst(s)
+        if ty == type
+          self
+        else
+          self.class.new(
+            type: ty,
+            optional: optional
+          )
+        end
       end
 
       def free_variables()
@@ -628,6 +648,9 @@ module Steep
       end
 
       def subst(s)
+        return self if s.empty?
+        return self if free_variables.disjoint?(s.domain)
+
         s_ = s.except(type_params)
 
         self.class.new(

@@ -201,7 +201,7 @@ module Steep
           )
         end
 
-        def method_type(method_type, self_type:)
+        def method_type(method_type, self_type:, subst2: nil)
           fvs = self_type.free_variables()
 
           type_params = []
@@ -219,6 +219,7 @@ module Steep
             end
           end
           subst = Interface::Substitution.build(alpha_vars, alpha_types)
+          subst.merge!(subst2) if subst2
 
           type = Interface::MethodType.new(
             type_params: type_params,
@@ -343,7 +344,7 @@ module Steep
 
                 interface.methods[name] = Interface::Interface::Combination.overload(
                   method.method_types.map do |type|
-                    method_type(type, self_type: self_type) {|ty| ty.subst(subst) }
+                    method_type(type, self_type: self_type, subst2: subst)
                   end,
                   incompatible: name == :initialize || name == :new
                 )
@@ -364,7 +365,7 @@ module Steep
               definition.methods.each do |name, method|
                 interface.methods[name] = Interface::Interface::Combination.overload(
                   method.method_types.map do |type|
-                    method_type(type, self_type: self_type) {|type| type.subst(subst) }
+                    method_type(type, self_type: self_type, subst2: subst)
                   end,
                   incompatible: method.attributes.include?(:incompatible)
                 )
@@ -390,7 +391,7 @@ module Steep
 
                 interface.methods[name] = Interface::Interface::Combination.overload(
                   method.method_types.map do |type|
-                    method_type(type, self_type: self_type) {|type| type.subst(subst) }
+                    method_type(type, self_type: self_type, subst2: subst)
                   end,
                   incompatible: method.attributes.include?(:incompatible)
                 )

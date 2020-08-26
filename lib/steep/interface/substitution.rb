@@ -26,7 +26,32 @@ module Steep
       end
 
       def self.empty
-        new(dictionary: {}, instance_type: AST::Types::Instance.new, module_type: AST::Types::Class.new, self_type: AST::Types::Self.new)
+        new(dictionary: {},
+            instance_type: INSTANCE_TYPE,
+            module_type: CLASS_TYPE,
+            self_type: SELF_TYPE)
+      end
+
+      def empty?
+        dictionary.empty? &&
+          instance_type.is_a?(AST::Types::Instance) &&
+          module_type.is_a?(AST::Types::Class) &&
+          self_type.is_a?(AST::Types::Self)
+      end
+
+      INSTANCE_TYPE = AST::Types::Instance.new
+      CLASS_TYPE = AST::Types::Class.new
+      SELF_TYPE = AST::Types::Self.new
+
+      def domain
+        set = Set.new
+
+        set.merge(dictionary.keys)
+        set << INSTANCE_TYPE unless instance_type.is_a?(AST::Types::Instance)
+        set << CLASS_TYPE unless instance_type.is_a?(AST::Types::Class)
+        set << SELF_TYPE unless instance_type.is_a?(AST::Types::Self)
+
+        set
       end
 
       def to_s
@@ -81,6 +106,11 @@ module Steep
             raise "Duplicated key on merge!: #{key}, #{a}, #{b}"
           end
         end
+
+        @instance_type = instance_type.subst(s)
+        @module_type = module_type.subst(s)
+        @self_type = self_type.subst(s)
+
         self
       end
 
@@ -92,7 +122,7 @@ module Steep
       end
 
       def add!(v, ty)
-        merge!(Substitution.new(dictionary: { v => ty }, instance_type: nil, module_type: nil, self_type: nil))
+        merge!(Substitution.new(dictionary: { v => ty }, instance_type: instance_type, module_type: module_type, self_type: self_type))
       end
     end
   end
