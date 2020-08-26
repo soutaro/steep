@@ -11,9 +11,7 @@ module Steep
             @name = name
           end
 
-          def free_variables
-            Set.new
-          end
+          include Helper::NoFreeVariables
 
           def subst(s)
             self
@@ -63,8 +61,10 @@ module Steep
           end
 
           def free_variables
-            args.each.with_object(Set.new) do |type, vars|
-              vars.merge(type.free_variables)
+            @fvs ||= Set.new().tap do |set|
+              args.each do |type|
+                set.merge(type.free_variables)
+              end
             end
           end
 

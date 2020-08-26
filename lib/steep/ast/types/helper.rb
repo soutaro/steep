@@ -15,6 +15,12 @@ module Steep
             end || []
           end
         end
+
+        module NoFreeVariables
+          def free_variables()
+            @fvs ||= Set.new
+          end
+        end
       end
     end
   end

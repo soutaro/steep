@@ -57,10 +57,14 @@ module Steep
           "(#{types.map(&:to_s).sort.join(" & ")})"
         end
 
-        def free_variables
-          types.each.with_object(Set.new) do |type, set|
-            set.merge(type.free_variables)
-          end
+        def free_variables()
+          @fvs ||= begin
+                     set = Set.new
+                     types.each do |type|
+                       set.merge(type.free_variables)
+                     end
+                     set
+                   end
         end
 
         include Helper::ChildrenLevel

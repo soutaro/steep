@@ -29,9 +29,11 @@ module Steep
           "{ #{elements.map {|key, value| "#{key.inspect} => #{value}" }.join(", ")} }"
         end
 
-        def free_variables
-          elements.each_value.with_object(Set.new) do |type, set|
-            set.merge(type.free_variables)
+        def free_variables()
+          @fvs ||= Set.new.tap do |set|
+            elements.each_value do |type|
+              set.merge(type.free_variables)
+            end
           end
         end
 

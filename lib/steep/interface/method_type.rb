@@ -211,10 +211,10 @@ module Steep
         end
       end
 
-      def free_variables
-        Set.new.tap do |fvs|
+      def free_variables()
+        @fvs ||= Set.new.tap do |set|
           each_type do |type|
-            fvs.merge type.free_variables
+            set.merge(type.free_variables)
           end
         end
       end
@@ -563,8 +563,8 @@ module Steep
         )
       end
 
-      def free_variables
-        type.free_variables
+      def free_variables()
+        @fvs ||= type.free_variables
       end
 
       def to_s
@@ -617,7 +617,14 @@ module Steep
       end
 
       def free_variables
-        (params.free_variables + (block&.free_variables || Set.new) + return_type.free_variables) - Set.new(type_params)
+        @fvs ||= Set.new.tap do |set|
+          set.merge(params.free_variables)
+          if block
+            set.merge(block.free_variables)
+          end
+          set.merge(return_type.free_variables)
+          set.subtract(type_params)
+        end
       end
 
       def subst(s)

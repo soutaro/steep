@@ -26,9 +26,7 @@ module Steep
           "⟙"
         end
 
-        def free_variables
-          Set.new
-        end
+        include Helper::NoFreeVariables
 
         def level
           [2]
