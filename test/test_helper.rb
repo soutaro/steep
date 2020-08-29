@@ -264,6 +264,12 @@ class Integer < Numeric
        | (Numeric) -> Numeric
 end
 
+class Float < Numeric
+  def +: (Float) -> Float
+       | (Integer) -> Float
+       | (Numeric) -> Numeric
+end
+
 class Symbol
   def id2name: -> String
 end
