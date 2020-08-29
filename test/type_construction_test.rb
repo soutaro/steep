@@ -5190,4 +5190,20 @@ a[1] &&= 4
       end
     end
   end
+
+  def test_numbers_numeric
+    with_checker do |checker|
+      source = parse_ruby(<<-RUBY)
+# @type var x: [Numeric]
+x = [1]
+x = [1.0]
+      RUBY
+
+      with_standard_construction(checker, source) do |construction, typing|
+        construction.synthesize(source.node)
+
+        assert_no_error typing
+      end
+    end
+  end
 end

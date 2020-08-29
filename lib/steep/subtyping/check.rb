@@ -302,10 +302,9 @@ module Steep
           when relation.sub_type.is_a?(AST::Types::Tuple) && relation.super_type.is_a?(AST::Types::Tuple)
             if relation.sub_type.types.size >= relation.super_type.types.size
               pairs = relation.sub_type.types.take(relation.super_type.types.size).zip(relation.super_type.types)
-              results = pairs.flat_map do |t1, t2|
+              results = pairs.map do |t1, t2|
                 relation = Relation.new(sub_type: t1, super_type: t2)
-                [check(relation, self_type: self_type, assumption: assumption, trace: trace, constraints: constraints),
-                 check(relation.flip, self_type: self_type, assumption: assumption, trace: trace, constraints: constraints)]
+                check(relation, self_type: self_type, assumption: assumption, trace: trace, constraints: constraints)
               end
 
               if results.all?(&:success?)
