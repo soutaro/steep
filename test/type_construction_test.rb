@@ -5173,4 +5173,21 @@ end
       end
     end
   end
+
+  def test_orasgn_call
+    with_checker do |checker|
+      source = parse_ruby(<<-RUBY)
+a = [1,2,3]
+
+a[0] ||= 3
+a[1] &&= 4
+        RUBY
+
+      with_standard_construction(checker, source) do |construction, typing|
+        construction.synthesize(source.node)
+
+        assert_no_error typing
+      end
+    end
+  end
 end

@@ -1800,13 +1800,34 @@ module Steep
         when :or_asgn, :and_asgn
           yield_self do
             asgn, rhs = node.children
-            type, constr = synthesize(rhs, hint: hint)
 
             case asgn.type
             when :lvasgn
+              type, constr = synthesize(rhs, hint: hint)
               constr.lvasgn(asgn, type)
             when :ivasgn
+              type, constr = synthesize(rhs, hint: hint)
               constr.ivasgn(asgn, type)
+            when :send
+              rhs_ = node.updated(:send,
+                                  [
+                                    asgn.children[0],
+                                    :"#{asgn.children[1]}=",
+                                    asgn.children[2],
+                                    rhs
+                                  ])
+              node_type = case node.type
+                          when :or_asgn
+                            :or
+                          when :and_asgn
+                            :and
+                          end
+              node_ = node.updated(node_type, [asgn, rhs_])
+
+              synthesize(node_, hint: hint)
+            else
+              Steep.logger.error { "#{node.type} with #{asgn.type} lhs is not supported"}
+              fallback_to_any(node)
             end
           end
 
