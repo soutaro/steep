@@ -2,6 +2,15 @@
 
 ## master
 
+## 0.26.0 (2020-08-31)
+
+* Make tuple types _covariant_ ([#195](https://github.com/soutaro/steep/pull/195))
+* Support `or_asgn`/`and_asgn` with `send` node lhs ([#194](https://github.com/soutaro/steep/pull/194))
+* Performance improvement ([#193](https://github.com/soutaro/steep/pull/193))
+* Add specialized versions of `#first` and `#last` on tuples ([#191](https://github.com/soutaro/steep/pull/191))
+* Typing bug fix on `[]` (empty array) ([#190](https://github.com/soutaro/steep/pull/190))
+* Earlier shutdown with interruption while `steep watch` ([#173](https://github.com/soutaro/steep/pull/173))
+
 ## 0.25.0 (2020-08-18)
 
 * Improve `op_send` typing ([#186](https://github.com/soutaro/steep/pull/186))
