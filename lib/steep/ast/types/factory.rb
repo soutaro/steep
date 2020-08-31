@@ -367,7 +367,7 @@ module Steep
                   method.method_types.map do |type|
                     method_type(type, self_type: self_type, subst2: subst)
                   end,
-                  incompatible: method.attributes.include?(:incompatible)
+                  incompatible: false
                 )
               end
             end
@@ -393,7 +393,7 @@ module Steep
                   method.method_types.map do |type|
                     method_type(type, self_type: self_type, subst2: subst)
                   end,
-                  incompatible: method.attributes.include?(:incompatible)
+                  incompatible: false
                 )
               end
             end
