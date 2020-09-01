@@ -57,7 +57,7 @@ class LSPDouble
   end
 
   def stop
-    send_request(method: "shutdown") {}
+    send_request(method: "shutdown")
     send_notification(method: "exit")
     reader_thread.join
   end
