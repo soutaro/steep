@@ -40,6 +40,7 @@ module Steep
               case request[:method]
               when "shutdown"
                 @shutdown = true
+                writer.write(id: request[:id], result: nil)
               when "exit"
                 break
               else
