@@ -258,7 +258,7 @@ end
 EOF
 
       requests = []
-      t = Thread.new do
+      Thread.new do
         master_reader.read do |request|
           requests << request
         end
@@ -285,16 +285,16 @@ end
           }
         )
 
+        finally_holds do
+          assert requests.all? {|req|
+            req[:method] == "textDocument/publishDiagnostics" &&
+              req[:params][:uri].end_with?("sig/hello.rbs") &&
+              req[:params][:diagnostics] == []
+          }
+        end
+
         shutdown!
       end
-
-      t.join
-
-      assert requests.all? {|req|
-        req[:method] == "textDocument/publishDiagnostics" &&
-          req[:params][:uri].end_with?("sig/hello.rbs") &&
-          req[:params][:diagnostics] == []
-      }
     end
   end
 end
