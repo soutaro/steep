@@ -1537,7 +1537,18 @@ module Steep
                                     .for_branch(body, type_case_override: type_case_override)
                                     .synthesize(body, hint: hint)
                 else
-                  branch_pairs << clause_constr.synthesize(body, hint: hint)
+                  logic = TypeInference::Logic.new(subtyping: checker)
+
+                  truthys, falseys = logic.nodes(node: ::AST::Node.new(:begin, tests))
+                  truthy_env, _ = logic.environments(truthy_vars: truthys.vars,
+                                                     falsey_vars: falseys.vars,
+                                                     lvar_env: clause_constr.context.lvar_env)
+
+                  branch_pairs << constr
+                                    .update_lvar_env { truthy_env }
+                                    .for_branch(body)
+                                    .tap {|constr| typing.add_context_for_node(body, context: constr.context) }
+                                    .synthesize(body, hint: hint)
                 end
               else
                 branch_pairs << Pair.new(type: AST::Builtin.nil_type, constr: clause_constr)
