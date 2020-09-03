@@ -139,6 +139,8 @@ module Steep
       end
 
       def handle_job(job)
+        sleep 0.1
+
         path, version, target = job
         if !version || target_files[path] == version
           typecheck_file(path, target)

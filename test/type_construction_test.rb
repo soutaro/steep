@@ -2883,6 +2883,30 @@ EOF
     end
   end
 
+  def test_type_case_case_when_no_body
+    with_checker(<<RBS) do |checker|
+type ty = String | Array[String] | Integer
+RBS
+      source = parse_ruby(<<EOF)
+# @type var x: ty
+x = ""
+
+case x
+when String, Array
+  # nop
+else
+  x + 1
+end
+EOF
+
+      with_standard_construction(checker, source) do |construction, typing|
+        pair = construction.synthesize(source.node)
+
+        assert_no_error typing
+      end
+    end
+  end
+
   def test_type_case_array1
     with_checker do |checker|
       source = parse_ruby(<<EOF)
@@ -5112,7 +5136,7 @@ end
     end
   end
 
-  def test_flown_sensitive_untyped
+  def test_flow_sensitive_untyped
     with_checker do |checker|
       source = parse_ruby(<<-RUBY)
 def preserve_empty_line(prev, decl)
@@ -5128,6 +5152,24 @@ end
         assert_all!(typing.errors) do |error|
           assert_instance_of Steep::Errors::FallbackAny, error
         end
+      end
+    end
+  end
+
+  def test_flow_sensitive_when
+    with_checker do |checker|
+      source = parse_ruby(<<-RUBY)
+array = [1,2,3]
+case
+when number = array.first
+  number + 2
+end
+      RUBY
+
+      with_standard_construction(checker, source) do |construction, typing|
+        construction.synthesize(source.node)
+
+        assert_no_error typing
       end
     end
   end
@@ -5203,6 +5245,76 @@ x = [1.0]
         construction.synthesize(source.node)
 
         assert_no_error typing
+      end
+    end
+  end
+
+  def test_void_hint
+    with_checker(<<-RBS) do |checker|
+class VoidHint
+  def foo: { () -> void } -> void
+  def bar: () -> void
+end
+    RBS
+      source = parse_ruby(<<-RUBY)
+class VoidHint
+  def bar
+    foo {
+      # @type var x: :foo
+      x = :foo
+    }
+  end
+
+  def foo
+  end
+end
+      RUBY
+
+      with_standard_construction(checker, source) do |construction, typing|
+        construction.synthesize(source.node)
+
+        assert_no_error typing
+      end
+    end
+  end
+
+  def test_case_when_union
+    with_checker(<<-RBS) do |checker|
+class WhenUnion
+  def map: [A] (A) -> A
+end
+    RBS
+      source = parse_ruby(<<-RUBY)
+x = WhenUnion.new.map(case 1
+  when String
+    "foo"
+  else
+    3
+  end
+)
+      RUBY
+
+      with_standard_construction(checker, source) do |construction, typing|
+        _, _, context = construction.synthesize(source.node)
+
+        assert_no_error typing
+        assert_equal parse_type("::Integer | ::String"), context.lvar_env[:x]
+      end
+    end
+  end
+
+  def test_endless_range
+    with_checker(<<-RBS) do |checker|
+    RBS
+      source = parse_ruby(<<-RUBY)
+a = 1..
+      RUBY
+
+      with_standard_construction(checker, source) do |construction, typing|
+        _, _, context = construction.synthesize(source.node)
+
+        assert_no_error typing
+        assert_equal parse_type("::Range[::Integer?]"), context.lvar_env[:a]
       end
     end
   end

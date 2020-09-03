@@ -34,7 +34,7 @@ ARGV.each do |arg|
     if file.extname == ".rb"
       buffer = ::Parser::Source::Buffer.new(file.to_s)
       buffer.source = file.read
-      parser = ::Parser::Ruby25.new
+      parser = ::Parser::Ruby27.new
 
       _, comments, _ = parser.tokenize(buffer)
       comments.each do |comment|
