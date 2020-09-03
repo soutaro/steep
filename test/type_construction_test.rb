@@ -2883,6 +2883,30 @@ EOF
     end
   end
 
+  def test_type_case_case_when_no_body
+    with_checker(<<RBS) do |checker|
+type ty = String | Array[String] | Integer
+RBS
+      source = parse_ruby(<<EOF)
+# @type var x: ty
+x = ""
+
+case x
+when String, Array
+  # nop
+else
+  x + 1
+end
+EOF
+
+      with_standard_construction(checker, source) do |construction, typing|
+        pair = construction.synthesize(source.node)
+
+        assert_no_error typing
+      end
+    end
+  end
+
   def test_type_case_array1
     with_checker do |checker|
       source = parse_ruby(<<EOF)

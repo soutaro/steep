@@ -1509,49 +1509,53 @@ module Steep
                 test_types << expand_alias(type)
               end
 
-              if body
-                if var_names && var_types && test_types.all? {|ty| ty.is_a?(AST::Types::Name::Class) }
-                  var_types_in_body = test_types.flat_map do |test_type|
-                    filtered_types = var_types.select do |var_type|
-                      var_type.is_a?(AST::Types::Name::Base) && var_type.name == test_type.name
-                    end
-                    if filtered_types.empty?
-                      to_instance_type(test_type)
-                    else
-                      filtered_types
-                    end
+              if var_names && var_types && test_types.all? {|ty| ty.is_a?(AST::Types::Name::Class) }
+                var_types_in_body = test_types.flat_map do |test_type|
+                  filtered_types = var_types.select do |var_type|
+                    var_type.is_a?(AST::Types::Name::Base) && var_type.name == test_type.name
                   end
-
-                  var_types.reject! do |type|
-                    var_types_in_body.any? do |test_type|
-                      type.is_a?(AST::Types::Name::Base) && test_type.name == type.name
-                    end
+                  if filtered_types.empty?
+                    to_instance_type(test_type)
+                  else
+                    filtered_types
                   end
+                end
 
-                  var_type_in_body = union_type(*var_types_in_body)
-                  type_case_override = var_names.each.with_object({}) do |var_name, hash|
-                    hash[var_name] = var_type_in_body
+                var_types.reject! do |type|
+                  var_types_in_body.any? do |test_type|
+                    type.is_a?(AST::Types::Name::Base) && test_type.name == type.name
                   end
+                end
 
+                var_type_in_body = union_type(*var_types_in_body)
+                type_case_override = var_names.each.with_object({}) do |var_name, hash|
+                  hash[var_name] = var_type_in_body
+                end
+
+                if body
                   branch_pairs << clause_constr
                                     .for_branch(body, type_case_override: type_case_override)
                                     .synthesize(body, hint: hint)
                 else
-                  logic = TypeInference::Logic.new(subtyping: checker)
+                  branch_pairs << Pair.new(type: AST::Builtin.nil_type, constr: clause_constr)
+                end
+              else
+                logic = TypeInference::Logic.new(subtyping: checker)
 
-                  truthys, falseys = logic.nodes(node: ::AST::Node.new(:begin, tests))
-                  truthy_env, _ = logic.environments(truthy_vars: truthys.vars,
-                                                     falsey_vars: falseys.vars,
-                                                     lvar_env: clause_constr.context.lvar_env)
+                truthys, falseys = logic.nodes(node: ::AST::Node.new(:begin, tests))
+                truthy_env, _ = logic.environments(truthy_vars: truthys.vars,
+                                                   falsey_vars: falseys.vars,
+                                                   lvar_env: clause_constr.context.lvar_env)
 
+                if body
                   branch_pairs << constr
                                     .update_lvar_env { truthy_env }
                                     .for_branch(body)
                                     .tap {|constr| typing.add_context_for_node(body, context: constr.context) }
                                     .synthesize(body, hint: hint)
+                else
+                  branch_pairs << Pair.new(type: AST::Builtin.nil_type, constr: clause_constr)
                 end
-              else
-                branch_pairs << Pair.new(type: AST::Builtin.nil_type, constr: clause_constr)
               end
             end
 
