@@ -5302,4 +5302,20 @@ x = WhenUnion.new.map(case 1
       end
     end
   end
+
+  def test_endless_range
+    with_checker(<<-RBS) do |checker|
+    RBS
+      source = parse_ruby(<<-RUBY)
+a = 1..
+      RUBY
+
+      with_standard_construction(checker, source) do |construction, typing|
+        _, _, context = construction.synthesize(source.node)
+
+        assert_no_error typing
+        assert_equal parse_type("::Range[::Integer?]"), context.lvar_env[:a]
+      end
+    end
+  end
 end

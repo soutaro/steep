@@ -1797,9 +1797,22 @@ module Steep
           end
 
         when :irange, :erange
-          types = node.children.map {|n| synthesize(n).type }
-          type = AST::Builtin::Range.instance_type(union_type(*types))
-          add_typing(node, type: type)
+          begin_node, end_node = node.children
+
+          constr = self
+          begin_type, constr = if begin_node
+                                 constr.synthesize(begin_node)
+                               else
+                                 [AST::Builtin.nil_type, constr]
+                               end
+          end_type, constr = if end_node
+                               constr.synthesize(end_node)
+                             else
+                               [AST::Builtin.nil_type, constr]
+                             end
+
+          type = AST::Builtin::Range.instance_type(union_type(begin_type, end_type))
+          add_typing(node, type: type, constr: constr)
 
         when :regexp
           each_child_node(node) do |child|
