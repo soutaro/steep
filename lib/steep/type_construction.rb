@@ -638,7 +638,10 @@ module Steep
             when :__skip__
               add_typing(node, type: AST::Builtin.any_type)
             else
-              hint ||= context.lvar_env.declared_types[name]&.type
+              if !hint || hint.is_a?(AST::Types::Void)
+                hint = context.lvar_env.declared_types[name]&.type
+              end
+
               rhs_result = synthesize(rhs, hint: hint)
 
               constr = rhs_result.constr.update_lvar_env do |lvar_env|

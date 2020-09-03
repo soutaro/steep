@@ -5248,4 +5248,33 @@ x = [1.0]
       end
     end
   end
+
+  def test_void_hint
+    with_checker(<<-RBS) do |checker|
+class VoidHint
+  def foo: { () -> void } -> void
+  def bar: () -> void
+end
+    RBS
+      source = parse_ruby(<<-RUBY)
+class VoidHint
+  def bar
+    foo {
+      # @type var x: :foo
+      x = :foo
+    }
+  end
+
+  def foo
+  end
+end
+      RUBY
+
+      with_standard_construction(checker, source) do |construction, typing|
+        construction.synthesize(source.node)
+
+        assert_no_error typing
+      end
+    end
+  end
 end
