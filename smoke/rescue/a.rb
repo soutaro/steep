@@ -23,15 +23,6 @@ c = begin
       1
     end
 
-# @type var d: Integer
-
-# !expects IncompatibleAssignment: lhs_type=::Integer, rhs_type=::String
-d = begin
-      1
-    else
-      'foo'
-    end
-
 # @type var e: Integer
 
 # !expects IncompatibleAssignment: lhs_type=::Integer, rhs_type=(::Array[::Integer] | ::Integer | ::Symbol)
