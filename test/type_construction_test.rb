@@ -5277,4 +5277,29 @@ end
       end
     end
   end
+
+  def test_case_when_union
+    with_checker(<<-RBS) do |checker|
+class WhenUnion
+  def map: [A] (A) -> A
+end
+    RBS
+      source = parse_ruby(<<-RUBY)
+x = WhenUnion.new.map(case 1
+  when String
+    "foo"
+  else
+    3
+  end
+)
+      RUBY
+
+      with_standard_construction(checker, source) do |construction, typing|
+        _, _, context = construction.synthesize(source.node)
+
+        assert_no_error typing
+        assert_equal parse_type("::Integer | ::String"), context.lvar_env[:x]
+      end
+    end
+  end
 end
