@@ -17,15 +17,14 @@ module Steep
         @rest_keywords = rest_keywords
       end
 
-      NONE = Object.new
-      def update(required: NONE, optional: NONE, rest: NONE, required_keywords: NONE, optional_keywords: NONE, rest_keywords: NONE)
+      def update(required: self.required, optional: self.optional, rest: self.rest, required_keywords: self.required_keywords, optional_keywords: self.optional_keywords, rest_keywords: self.rest_keywords)
         self.class.new(
-          required: required.equal?(NONE) ? self.required : required,
-          optional: optional.equal?(NONE) ? self.optional : optional,
-          rest: rest.equal?(NONE) ? self.rest : rest,
-          required_keywords: required_keywords.equal?(NONE) ? self.required_keywords : required_keywords,
-          optional_keywords: optional_keywords.equal?(NONE) ? self.optional_keywords : optional_keywords,
-          rest_keywords: rest_keywords.equal?(NONE) ? self.rest_keywords : rest_keywords
+          required: required,
+          optional: optional,
+          rest: rest,
+          required_keywords: required_keywords,
+          optional_keywords: optional_keywords,
+          rest_keywords: rest_keywords,
         )
       end
 
@@ -278,59 +277,61 @@ module Steep
         !has_positional? && !has_keywords?
       end
 
-      def |(other)
+      # self + params returns a new params for overloading.
+      #
+      def +(other)
         a = first_param
         b = other.first_param
 
         case
         when a.is_a?(RequiredPositional) && b.is_a?(RequiredPositional)
           AST::Types::Union.build(types: [a.type, b.type]).yield_self do |type|
-            (self.drop_first | other.drop_first).with_first_param(RequiredPositional.new(type))
+            (self.drop_first + other.drop_first).with_first_param(RequiredPositional.new(type))
           end
         when a.is_a?(RequiredPositional) && b.is_a?(OptionalPositional)
           AST::Types::Union.build(types: [a.type, b.type]).yield_self do |type|
-            (self.drop_first | other.drop_first).with_first_param(OptionalPositional.new(type))
+            (self.drop_first + other.drop_first).with_first_param(OptionalPositional.new(type))
           end
         when a.is_a?(RequiredPositional) && b.is_a?(RestPositional)
           AST::Types::Union.build(types: [a.type, b.type]).yield_self do |type|
-            (self.drop_first | other).with_first_param(OptionalPositional.new(type))
+            (self.drop_first + other).with_first_param(OptionalPositional.new(type))
           end
         when a.is_a?(RequiredPositional) && b.nil?
-          (self.drop_first | other).with_first_param(OptionalPositional.new(a.type))
+          (self.drop_first + other).with_first_param(OptionalPositional.new(a.type))
         when a.is_a?(OptionalPositional) && b.is_a?(RequiredPositional)
           AST::Types::Union.build(types: [a.type, b.type]).yield_self do |type|
-            (self.drop_first | other.drop_first).with_first_param(OptionalPositional.new(type))
+            (self.drop_first + other.drop_first).with_first_param(OptionalPositional.new(type))
           end
         when a.is_a?(OptionalPositional) && b.is_a?(OptionalPositional)
           AST::Types::Union.build(types: [a.type, b.type]).yield_self do |type|
-            (self.drop_first | other.drop_first).with_first_param(OptionalPositional.new(type))
+            (self.drop_first + other.drop_first).with_first_param(OptionalPositional.new(type))
           end
         when a.is_a?(OptionalPositional) && b.is_a?(RestPositional)
           AST::Types::Union.build(types: [a.type, b.type]).yield_self do |type|
-            (self.drop_first | other).with_first_param(OptionalPositional.new(type))
+            (self.drop_first + other).with_first_param(OptionalPositional.new(type))
           end
         when a.is_a?(OptionalPositional) && b.nil?
-          (self.drop_first | other).with_first_param(OptionalPositional.new(a.type))
+          (self.drop_first + other).with_first_param(OptionalPositional.new(a.type))
         when a.is_a?(RestPositional) && b.is_a?(RequiredPositional)
           AST::Types::Union.build(types: [a.type, b.type]).yield_self do |type|
-            (self | other.drop_first).with_first_param(OptionalPositional.new(type))
+            (self + other.drop_first).with_first_param(OptionalPositional.new(type))
           end
         when a.is_a?(RestPositional) && b.is_a?(OptionalPositional)
           AST::Types::Union.build(types: [a.type, b.type]).yield_self do |type|
-            (self | other.drop_first).with_first_param(OptionalPositional.new(type))
+            (self + other.drop_first).with_first_param(OptionalPositional.new(type))
           end
         when a.is_a?(RestPositional) && b.is_a?(RestPositional)
           AST::Types::Union.build(types: [a.type, b.type]).yield_self do |type|
-            (self.drop_first | other.drop_first).with_first_param(RestPositional.new(type))
+            (self.drop_first + other.drop_first).with_first_param(RestPositional.new(type))
           end
         when a.is_a?(RestPositional) && b.nil?
-          (self.drop_first | other).with_first_param(RestPositional.new(a.type))
+          (self.drop_first + other).with_first_param(RestPositional.new(a.type))
         when a.nil? && b.is_a?(RequiredPositional)
-          (self | other.drop_first).with_first_param(OptionalPositional.new(b.type))
+          (self + other.drop_first).with_first_param(OptionalPositional.new(b.type))
         when a.nil? && b.is_a?(OptionalPositional)
-          (self | other.drop_first).with_first_param(OptionalPositional.new(b.type))
+          (self + other.drop_first).with_first_param(OptionalPositional.new(b.type))
         when a.nil? && b.is_a?(RestPositional)
-          (self | other.drop_first).with_first_param(RestPositional.new(b.type))
+          (self + other.drop_first).with_first_param(RestPositional.new(b.type))
         when a.nil? && b.nil?
           required_keywords = {}
 
@@ -410,6 +411,9 @@ module Steep
         end
       end
 
+      # Returns the intersection between self and other.
+      # Returns nil if the intersection cannot be computed.
+      #
       def &(other)
         a = first_param
         b = other.first_param
@@ -417,48 +421,48 @@ module Steep
         case
         when a.is_a?(RequiredPositional) && b.is_a?(RequiredPositional)
           AST::Types::Intersection.build(types: [a.type, b.type]).yield_self do |type|
-            (self.drop_first & other.drop_first).with_first_param(RequiredPositional.new(type))
+            (self.drop_first & other.drop_first)&.with_first_param(RequiredPositional.new(type))
           end
         when a.is_a?(RequiredPositional) && b.is_a?(OptionalPositional)
           AST::Types::Intersection.build(types: [a.type, b.type]).yield_self do |type|
-            (self.drop_first & other.drop_first).with_first_param(RequiredPositional.new(type))
+            (self.drop_first & other.drop_first)&.with_first_param(RequiredPositional.new(type))
           end
         when a.is_a?(RequiredPositional) && b.is_a?(RestPositional)
           AST::Types::Intersection.build(types: [a.type, b.type]).yield_self do |type|
-            (self.drop_first & other).with_first_param(RequiredPositional.new(type))
+            (self.drop_first & other)&.with_first_param(RequiredPositional.new(type))
           end
         when a.is_a?(RequiredPositional) && b.nil?
-          (self.drop_first & other).with_first_param(RequiredPositional.new(AST::Types::Bot.new))
+          nil
         when a.is_a?(OptionalPositional) && b.is_a?(RequiredPositional)
           AST::Types::Intersection.build(types: [a.type, b.type]).yield_self do |type|
-            (self.drop_first & other.drop_first).with_first_param(RequiredPositional.new(type))
+            (self.drop_first & other.drop_first)&.with_first_param(RequiredPositional.new(type))
           end
         when a.is_a?(OptionalPositional) && b.is_a?(OptionalPositional)
           AST::Types::Intersection.build(types: [a.type, b.type]).yield_self do |type|
-            (self.drop_first & other.drop_first).with_first_param(OptionalPositional.new(type))
+            (self.drop_first & other.drop_first)&.with_first_param(OptionalPositional.new(type))
           end
         when a.is_a?(OptionalPositional) && b.is_a?(RestPositional)
           AST::Types::Intersection.build(types: [a.type, b.type]).yield_self do |type|
-            (self.drop_first & other).with_first_param(OptionalPositional.new(type))
+            (self.drop_first & other)&.with_first_param(OptionalPositional.new(type))
           end
         when a.is_a?(OptionalPositional) && b.nil?
           self.drop_first & other
         when a.is_a?(RestPositional) && b.is_a?(RequiredPositional)
           AST::Types::Intersection.build(types: [a.type, b.type]).yield_self do |type|
-            (self & other.drop_first).with_first_param(RequiredPositional.new(type))
+            (self & other.drop_first)&.with_first_param(RequiredPositional.new(type))
           end
         when a.is_a?(RestPositional) && b.is_a?(OptionalPositional)
           AST::Types::Intersection.build(types: [a.type, b.type]).yield_self do |type|
-            (self & other.drop_first).with_first_param(OptionalPositional.new(type))
+            (self & other.drop_first)&.with_first_param(OptionalPositional.new(type))
           end
         when a.is_a?(RestPositional) && b.is_a?(RestPositional)
           AST::Types::Intersection.build(types: [a.type, b.type]).yield_self do |type|
-            (self.drop_first & other.drop_first).with_first_param(RestPositional.new(type))
+            (self.drop_first & other.drop_first)&.with_first_param(RestPositional.new(type))
           end
         when a.is_a?(RestPositional) && b.nil?
           self.drop_first & other
         when a.nil? && b.is_a?(RequiredPositional)
-          (self & other.drop_first).with_first_param(RequiredPositional.new(AST::Types::Bot.new))
+          nil
         when a.nil? && b.is_a?(OptionalPositional)
           self & other.drop_first
         when a.nil? && b.is_a?(RestPositional)
@@ -467,7 +471,7 @@ module Steep
           optional_keywords = {}
 
           (Set.new(self.optional_keywords.keys) & Set.new(other.optional_keywords.keys)).each do |keyword|
-            self.optional_keywords[keyword] = AST::Types::Intersection.build(
+            optional_keywords[keyword] = AST::Types::Intersection.build(
               types: [
                 self.optional_keywords[keyword],
                 other.optional_keywords[keyword]
@@ -482,9 +486,7 @@ module Steep
               when other.required_keywords.key?(keyword)
                 required_keywords[keyword] = AST::Types::Intersection.build(types: [t, other.required_keywords[keyword]])
               when other.rest_keywords
-                required_keywords[keyword] = AST::Types::Intersection.build(types: [t, other.rest_keywords])
-              else
-                required_keywords[keyword] = t
+                optional_keywords[keyword] = AST::Types::Intersection.build(types: [t, other.rest_keywords])
               end
             end
           end
@@ -494,9 +496,7 @@ module Steep
               when self.required_keywords.key?(keyword)
                 required_keywords[keyword] = AST::Types::Intersection.build(types: [t, self.required_keywords[keyword]])
               when self.rest_keywords
-                required_keywords[keyword] = AST::Types::Intersection.build(types: [t, self.rest_keywords])
-              else
-                required_keywords[keyword] = t
+                optional_keywords[keyword] = AST::Types::Intersection.build(types: [t, self.rest_keywords])
               end
             end
           end
@@ -508,7 +508,7 @@ module Steep
               when other.rest_keywords
                 required_keywords[keyword] = AST::Types::Intersection.build(types: [t, other.rest_keywords])
               else
-                required_keywords[keyword] = t
+                return
               end
             end
           end
@@ -520,7 +520,7 @@ module Steep
               when self.rest_keywords
                 required_keywords[keyword] = AST::Types::Intersection.build(types: [t, self.rest_keywords])
               else
-                required_keywords[keyword] = t
+                return
               end
             end
           end
@@ -529,7 +529,153 @@ module Steep
                  when self.rest_keywords && other.rest_keywords
                    AST::Types::Intersection.build(types: [self.rest_keywords, other.rest_keywords])
                  else
-                   self.rest_keywords || other.rest_keywords
+                   nil
+                 end
+
+          Params.new(
+            required: [],
+            optional: [],
+            rest: nil,
+            required_keywords: required_keywords,
+            optional_keywords: optional_keywords,
+            rest_keywords: rest)
+        end
+      end
+
+      # Returns the union between self and other.
+      #
+      def |(other)
+        a = first_param
+        b = other.first_param
+
+        case
+        when a.is_a?(RequiredPositional) && b.is_a?(RequiredPositional)
+          AST::Types::Union.build(types: [a.type, b.type]).yield_self do |type|
+            (self.drop_first | other.drop_first)&.with_first_param(RequiredPositional.new(type))
+          end
+        when a.is_a?(RequiredPositional) && b.is_a?(OptionalPositional)
+          AST::Types::Union.build(types: [a.type, b.type]).yield_self do |type|
+            (self.drop_first | other.drop_first)&.with_first_param(OptionalPositional.new(type))
+          end
+        when a.is_a?(RequiredPositional) && b.is_a?(RestPositional)
+          AST::Types::Union.build(types: [a.type, b.type]).yield_self do |type|
+            (self.drop_first | other.drop_first)&.with_first_param(OptionalPositional.new(type))
+          end
+        when a.is_a?(RequiredPositional) && b.nil?
+          self.drop_first&.with_first_param(OptionalPositional.new(a.type))
+        when a.is_a?(OptionalPositional) && b.is_a?(RequiredPositional)
+          AST::Types::Union.build(types: [a.type, b.type]).yield_self do |type|
+            (self.drop_first | other.drop_first)&.with_first_param(OptionalPositional.new(type))
+          end
+        when a.is_a?(OptionalPositional) && b.is_a?(OptionalPositional)
+          AST::Types::Union.build(types: [a.type, b.type]).yield_self do |type|
+            (self.drop_first | other.drop_first)&.with_first_param(OptionalPositional.new(type))
+          end
+        when a.is_a?(OptionalPositional) && b.is_a?(RestPositional)
+          AST::Types::Union.build(types: [a.type, b.type]).yield_self do |type|
+            (self.drop_first | other.drop_first)&.with_first_param(OptionalPositional.new(type))
+          end
+        when a.is_a?(OptionalPositional) && b.nil?
+          (self.drop_first | other)&.with_first_param(a)
+        when a.is_a?(RestPositional) && b.is_a?(RequiredPositional)
+          AST::Types::Union.build(types: [a.type, b.type]).yield_self do |type|
+            (self.drop_first | other.drop_first)&.with_first_param(OptionalPositional.new(type))
+          end
+        when a.is_a?(RestPositional) && b.is_a?(OptionalPositional)
+          AST::Types::Union.build(types: [a.type, b.type]).yield_self do |type|
+            (self | other.drop_first)&.with_first_param(OptionalPositional.new(type))
+          end
+        when a.is_a?(RestPositional) && b.is_a?(RestPositional)
+          AST::Types::Union.build(types: [a.type, b.type]).yield_self do |type|
+            (self.drop_first | other.drop_first)&.with_first_param(RestPositional.new(type))
+          end
+        when a.is_a?(RestPositional) && b.nil?
+          (self.drop_first | other)&.with_first_param(a)
+        when a.nil? && b.is_a?(RequiredPositional)
+          other.drop_first&.with_first_param(OptionalPositional.new(b.type))
+        when a.nil? && b.is_a?(OptionalPositional)
+          (self | other.drop_first)&.with_first_param(b)
+        when a.nil? && b.is_a?(RestPositional)
+          (self | other.drop_first)&.with_first_param(b)
+        when a.nil? && b.nil?
+          required_keywords = {}
+          optional_keywords = {}
+
+          (Set.new(self.required_keywords.keys) & Set.new(other.required_keywords.keys)).each do |keyword|
+            required_keywords[keyword] = AST::Types::Union.build(
+              types: [
+                self.required_keywords[keyword],
+                other.required_keywords[keyword]
+              ]
+            )
+          end
+
+          self.optional_keywords.each do |keyword, t|
+            unless optional_keywords.key?(keyword) || required_keywords.key?(keyword)
+              case
+              when s = other.required_keywords[keyword]
+                optional_keywords[keyword] = AST::Types::Union.build(types: [t, s])
+              when s = other.optional_keywords[keyword]
+                optional_keywords[keyword] = AST::Types::Union.build(types: [t, s])
+              when r = other.rest_keywords
+                optional_keywords[keyword] = AST::Types::Union.build(types: [t, r])
+              else
+                optional_keywords[keyword] = t
+              end
+            end
+          end
+          other.optional_keywords.each do |keyword, t|
+            unless optional_keywords.key?(keyword) || required_keywords.key?(keyword)
+              case
+              when s = self.required_keywords[keyword]
+                optional_keywords[keyword] = AST::Types::Union.build(types: [t, s])
+              when s = self.optional_keywords[keyword]
+                optional_keywords[keyword] = AST::Types::Union.build(types: [t, s])
+              when r = self.rest_keywords
+                optional_keywords[keyword] = AST::Types::Union.build(types: [t, r])
+              else
+                optional_keywords[keyword] = t
+              end
+            end
+          end
+          self.required_keywords.each do |keyword, t|
+            unless optional_keywords.key?(keyword) || required_keywords.key?(keyword)
+              case
+              when s = other.optional_keywords[keyword]
+                optional_keywords[keyword] = AST::Types::Union.build(types: [t, s])
+              when r = other.rest_keywords
+                optional_keywords[keyword] = AST::Types::Union.build(types: [t, r])
+              else
+                optional_keywords[keyword] = t
+              end
+            end
+          end
+          other.required_keywords.each do |keyword, t|
+            unless optional_keywords.key?(keyword) || required_keywords.key?(keyword)
+              case
+              when s = self.optional_keywords[keyword]
+                optional_keywords[keyword] = AST::Types::Union.build(types: [t, s])
+              when r = self.rest_keywords
+                optional_keywords[keyword] = AST::Types::Union.build(types: [t, r])
+              else
+                optional_keywords[keyword] = t
+              end
+            end
+          end
+
+          rest = case
+                 when self.rest_keywords && other.rest_keywords
+                   AST::Types::Union.build(types: [self.rest_keywords, other.rest_keywords])
+                 when self.rest_keywords
+                   if required_keywords.empty? && optional_keywords.empty?
+                     self.rest_keywords
+                   end
+                 when other.rest_keywords
+                   if required_keywords.empty? && optional_keywords.empty?
+                     other.rest_keywords
+                   end
+                 else
+                   nil
                  end
 
           Params.new(
@@ -600,9 +746,10 @@ module Steep
 
       def +(other)
         optional = self.optional? || other.optional?
-        type = AST::Types::Proc.new(params: self.type.params | other.type.params,
-                                    return_type: AST::Types::Union.build(types: [self.type.return_type,
-                                                                                 other.type.return_type]))
+        type = AST::Types::Proc.new(
+          params: self.type.params + other.type.params,
+          return_type: AST::Types::Union.build(types: [self.type.return_type, other.type.return_type])
+        )
         self.class.new(
           type: type,
           optional: optional
@@ -616,8 +763,6 @@ module Steep
       attr_reader :block
       attr_reader :return_type
       attr_reader :location
-
-      NONE = Object.new
 
       def initialize(type_params:, params:, block:, return_type:, location:)
         @type_params = type_params
@@ -676,23 +821,19 @@ module Steep
       end
 
       def instantiate(s)
-        self.class.new(
-          type_params: [],
-          params: params.subst(s),
-          block: block&.subst(s),
-          return_type: return_type.subst(s),
-          location: location,
-          )
+        self.class.new(type_params: [],
+                       params: params.subst(s),
+                       block: block&.subst(s),
+                       return_type: return_type.subst(s),
+                       location: location)
       end
 
-      def with(type_params: NONE, params: NONE, block: NONE, return_type: NONE, location: NONE)
-        self.class.new(
-          type_params: type_params.equal?(NONE) ? self.type_params : type_params,
-          params: params.equal?(NONE) ? self.params : params,
-          block: block.equal?(NONE) ? self.block : block,
-          return_type: return_type.equal?(NONE) ? self.return_type : return_type,
-          location: location.equal?(NONE) ? self.location : location
-        )
+      def with(type_params: self.type_params, params: self.params, block: self.block, return_type: self.return_type, location: self.location)
+        self.class.new(type_params: type_params,
+                       params: params,
+                       block: block,
+                       return_type: return_type,
+                       location: location)
       end
 
       def to_s
@@ -704,16 +845,16 @@ module Steep
       end
 
       def map_type(&block)
-        self.class.new(
-          type_params: type_params,
-          params: params.map_type(&block),
-          block: self.block&.yield_self {|blk| blk.map_type(&block) },
-          return_type: yield(return_type),
-          location: location
-        )
+        self.class.new(type_params: type_params,
+                       params: params.map_type(&block),
+                       block: self.block&.yield_self {|blk| blk.map_type(&block) },
+                       return_type: yield(return_type),
+                       location: location)
       end
 
-      def +(other)
+      # Returns a new method type which can be used for the method implementation type of both `self` and `other`.
+      #
+      def unify_overload(other)
         type_params = []
         s1 = Substitution.build(self.type_params)
         type_params.push(*s1.dictionary.values.map(&:name))
@@ -731,11 +872,113 @@ module Steep
 
         self.class.new(
           type_params: type_params,
-          params: params.subst(s1) | other.params.subst(s2),
+          params: params.subst(s1) + other.params.subst(s2),
           block: block,
           return_type: AST::Types::Union.build(
             types: [return_type.subst(s1),other.return_type.subst(s2)]
           ),
+          location: nil
+        )
+      end
+
+      def +(other)
+        unify_overload(other)
+      end
+
+      # Returns a method type which is a super-type of both self and other.
+      #   self <: (self | other) && other <: (self | other)
+      #
+      # Returns nil if self and other are incompatible.
+      #
+      def |(other)
+        self_type_params = Set.new(self.type_params)
+        other_type_params = Set.new(other.type_params)
+
+        unless (common_type_params = (self_type_params & other_type_params).to_a).empty?
+          fresh_types = common_type_params.map {|name| AST::Types::Var.fresh(name) }
+          fresh_names = fresh_types.map(&:name)
+          subst = Substitution.build(common_type_params, fresh_types)
+          other = other.instantiate(subst)
+          type_params = (self_type_params + (other_type_params - common_type_params + Set.new(fresh_names))).to_a
+        else
+          type_params = (self_type_params + other_type_params).to_a
+        end
+
+        params = self.params & other.params or return
+        block = case
+                when self.block && other.block
+                  block_params = self.block.type.params | other.block.type.params
+                  block_return_type = AST::Types::Intersection.build(types: [self.block.type.return_type, other.block.type.return_type])
+                  block_type = AST::Types::Proc.new(params: block_params,
+                                                    return_type: block_return_type,
+                                                    location: nil)
+                  Block.new(
+                    type: block_type,
+                    optional: self.block.optional && other.block.optional
+                  )
+                when self.block && self.block.optional?
+                  self.block
+                when other.block && other.block.optional?
+                  other.block
+                when !self.block && !other.block
+                  nil
+                else
+                  return
+                end
+        return_type = AST::Types::Union.build(types: [self.return_type, other.return_type])
+
+        MethodType.new(
+          params: params,
+          block: block,
+          return_type: return_type,
+          type_params: type_params,
+          location: nil
+        )
+      end
+
+      # Returns a method type which is a sub-type of both self and other.
+      #   (self & other) <: self && (self & other) <: other
+      #
+      # Returns nil if self and other are incompatible.
+      #
+      def &(other)
+        self_type_params = Set.new(self.type_params)
+        other_type_params = Set.new(other.type_params)
+
+        unless (common_type_params = (self_type_params & other_type_params).to_a).empty?
+          fresh_types = common_type_params.map {|name| AST::Types::Var.fresh(name) }
+          fresh_names = fresh_types.map(&:name)
+          subst = Substitution.build(common_type_params, fresh_types)
+          other = other.subst(subst)
+          type_params = (self_type_params + (other_type_params - common_type_params + Set.new(fresh_names))).to_a
+        else
+          type_params = (self_type_params + other_type_params).to_a
+        end
+
+        params = self.params | other.params
+        block = case
+                when self.block && other.block
+                  block_params = self.block.type.params & other.block.type.params or return
+                  block_return_type = AST::Types::Union.build(types: [self.block.type.return_type, other.block.type.return_type])
+                  block_type = AST::Types::Proc.new(params: block_params,
+                                                    return_type: block_return_type,
+                                                    location: nil)
+                  Block.new(
+                    type: block_type,
+                    optional: self.block.optional || other.block.optional
+                  )
+
+                else
+                  self.block || other.block
+                end
+
+        return_type = AST::Types::Intersection.build(types: [self.return_type, other.return_type])
+
+        MethodType.new(
+          params: params,
+          block: block,
+          return_type: return_type,
+          type_params: type_params,
           location: nil
         )
       end
