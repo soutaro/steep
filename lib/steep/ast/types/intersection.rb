@@ -28,33 +28,36 @@ module Steep
             else
               type
             end
-          end.compact.uniq.yield_self do |tys|
-            if tys.size == 1
+          end.compact.yield_self do |tys|
+            dups = Set.new(tys)
+
+            case dups.size
+            when 0
+              AST::Types::Top.new(location: location)
+            when 1
               tys.first
             else
-              new(types: tys.sort_by(&:hash), location: location)
+              new(types: dups.to_a, location: location)
             end
           end
         end
 
         def ==(other)
-          other.is_a?(Intersection) &&
-            other.types == types
+          other.is_a?(Intersection) && other.types == types
         end
 
         def hash
-          self.class.hash ^ types.hash
+          @hash ||= self.class.hash ^ types.hash
         end
 
         alias eql? ==
 
         def subst(s)
-          self.class.build(location: location,
-                           types: types.map {|ty| ty.subst(s) })
+          self.class.build(location: location, types: types.map {|ty| ty.subst(s) })
         end
 
         def to_s
-          "(#{types.map(&:to_s).sort.join(" & ")})"
+          "(#{types.map(&:to_s).join(" & ")})"
         end
 
         def free_variables()

@@ -10,13 +10,21 @@ class TypeFactoryTest < Minitest::Test
   end
 
   def assert_overload_with(c, *types)
-    assert_operator c, :overload?
-    assert_equal Set.new(types.map(&:to_s)), Set.new(c.types.map(&:to_s)), "Expected: { #{types.join(" | ")} }, Actual: { #{c.types.join(" | ")} }"
+    types = types.map do |s|
+      factory.method_type(parse_method_type(s), self_type: Steep::AST::Types::Self.new, subst2: nil)
+    end
+
+    assert_equal Set.new(types), Set.new(c.method_types), "Expected: { #{types.join(" | ")} }, Actual: #{c.to_s}"
   end
 
   def assert_overload_including(c, *types)
-    assert_operator c, :overload?
-    assert_operator Set.new(types.map(&:to_s)), :subset?, Set.new(c.types.map(&:to_s)), "Expected: { #{types.join(" | ")} } is a subset of { #{c.types.join(" | ")} }"
+    types = types.map do |s|
+      factory.method_type(parse_method_type(s), self_type: Steep::AST::Types::Self.new, subst2: nil)
+    end
+
+    assert_operator Set.new(types),
+                    :subset?, Set.new(c.method_types),
+                    "Expected: { #{types.join(" | ")} } is a subset of { #{c.method_types.join(" | ")} }"
   end
 
   Types = Steep::AST::Types
@@ -361,8 +369,7 @@ FOO
           assert_overload_including interface.methods[:+], "(::Integer) -> ::Integer", "(::Float) -> ::Float"
 
           interface.methods[:yield_self].tap do |method|
-            assert_operator method, :overload?
-            x = method.types[0].type_params[0]
+            x = method.method_types[0].type_params[0]
             assert_includes method.to_s, " [#{x}] () { (3) -> #{x} } -> #{x} "
           end
         end
@@ -396,13 +403,14 @@ FOO
         factory.interface(type, private: false).yield_self do |interface|
           assert_instance_of Steep::Interface::Interface, interface
 
-          assert_operator interface.methods[:[]].to_s,
-                          :start_with?,
-                          "{ (1) -> ::Integer | (:foo) -> ::String | (\"baz\") -> bool"
-          assert_operator interface.methods[:[]=].to_s,
-                          :start_with?,
-                          "{ (1, ::Integer) -> ::Integer | (:foo, ::String) -> ::String | (\"baz\", bool) -> bool"
-
+          assert_overload_including interface.methods[:[]],
+                                    "(1) -> ::Integer",
+                                    "(:foo) -> ::String",
+                                    "(\"baz\") -> bool"
+          assert_overload_including interface.methods[:[]=],
+                                    "(1, ::Integer) -> ::Integer",
+                                    "(:foo, ::String) -> ::String",
+                                    "(\"baz\", bool) -> bool"
         end
       end
     end
@@ -414,21 +422,14 @@ FOO
         factory.interface(type, private: false).yield_self do |interface|
           assert_instance_of Steep::Interface::Interface, interface
 
-          interface.methods[:to_s].yield_self do |combination|
-            assert_equal :union, combination.operator
-            assert_any! combination.types do |c|
-              assert_overload_with c, "() -> ::String"
-            end
+          interface.methods[:to_s].yield_self do |entry|
+            assert_overload_with entry, "() -> ::String"
           end
 
-          interface.methods[:+].yield_self do |combination|
-            assert_equal :union, combination.operator
-            assert_any! combination.types do |c|
-              assert_overload_including c, "(::Integer) -> ::Integer", "(::Float) -> ::Float"
-            end
-            assert_any! combination.types do |c|
-              assert_overload_with c, "(::string) -> ::String"
-            end
+          interface.methods[:+].yield_self do |entry|
+            assert_overload_including entry,
+                                      "((::Integer & ::string)) -> (::Integer | ::String)",
+                                      "((::Float & ::string)) -> (::Float | ::String)"
           end
 
           assert_nil interface.methods[:floor]
@@ -438,36 +439,58 @@ FOO
     end
   end
 
-  def test_intersection_type
-    with_factory() do |factory|
-      factory.type(parse_type("::Integer & ::String")).yield_self do |type|
-        factory.interface(type, private: false).yield_self do |interface|
+  def test_union_type_methods
+    with_factory("foo.rbs" => <<-RBS) do |factory|
+interface _I1
+  def f: () -> void
+  def g: () -> void
+
+  def foo: (String) -> void
+         | (Symbol) -> String
+end
+
+interface _I2
+  def g: () -> void
+  def h: () -> void
+
+  def foo: () -> void
+         | (Integer) -> Float
+end
+    RBS
+      factory.type(parse_type("::_I1 | ::_I2")).tap do |type|
+        factory.interface(type, private: false).tap do |interface|
           assert_instance_of Steep::Interface::Interface, interface
 
-          interface.methods[:to_s].yield_self do |combination|
-            assert_equal :intersection, combination.operator
-            assert_any! combination.types do |c|
-              assert_overload_including c, "() -> ::String"
-            end
-          end
+          assert_equal Set[:g, :foo], Set.new(interface.methods.keys)
+          assert_overload_with interface.methods[:g], "() -> void"
+          assert_overload_with interface.methods[:foo],
+                               "((::String & ::Integer)) -> (::Float | void)",
+                               "((::Symbol & ::Integer)) -> (::Float | ::String)"
+        end
+      end
+    end
+  end
 
-          interface.methods[:+].yield_self do |combination|
-            assert_equal :intersection, combination.operator
-            assert_any! combination.types do |c|
-              assert_overload_including c, "(::Integer) -> ::Integer", "(::Float) -> ::Float"
-            end
-            assert_any! combination.types do |c|
-              assert_overload_including c, "(::string) -> ::String"
-            end
-          end
+  def test_intersection_type
+    with_factory("foo.rbs" => <<-RBS) do |factory|
+interface _I1
+  def f: () -> void
+  def g: () -> void
+end
 
-          interface.methods[:floor].yield_self do |combination|
-            assert_overload_including combination, "(::int) -> (::Float | ::Integer)", "() -> ::Integer"
-          end
+interface _I2
+  def g: (String) -> Integer
+  def h: () -> void
+end
+    RBS
+      factory.type(parse_type("::_I1 & ::_I2")).tap do |type|
+        factory.interface(type, private: false).tap do |interface|
+          assert_instance_of Steep::Interface::Interface, interface
 
-          interface.methods[:end_with?].yield_self do |combination|
-            assert_overload_including combination, "(*::string) -> bool"
-          end
+          assert_equal Set[:f, :g, :h], Set.new(interface.methods.keys)
+          assert_overload_with interface.methods[:f], "() -> void"
+          assert_overload_with interface.methods[:g], "(::String) -> ::Integer"
+          assert_overload_with interface.methods[:h], "() -> void"
         end
       end
     end
@@ -479,14 +502,12 @@ FOO
         factory.interface(type, private: false).yield_self do |interface|
           assert_instance_of Steep::Interface::Interface, interface
 
-          interface.methods[:call].yield_self do |combination|
-            assert_equal :overload, combination.operator
-            assert_equal [parse_method_type("(String) -> Integer").to_s], combination.types.map(&:to_s)
+          interface.methods[:call].yield_self do |entry|
+            assert_overload_with entry, "(String) -> Integer"
           end
 
-          interface.methods[:[]].yield_self do |combination|
-            assert_equal :overload, combination.operator
-            assert_equal [parse_method_type("(String) -> Integer").to_s], combination.types.map(&:to_s)
+          interface.methods[:[]].yield_self do |entry|
+            assert_overload_with entry, "(String) -> Integer"
           end
         end
       end

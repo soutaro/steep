@@ -1,72 +1,15 @@
 module Steep
   module Interface
     class Interface
-      class Combination
-        attr_reader :operator
-        attr_reader :types
+      class Entry
+        attr_reader :method_types
 
-        def initialize(operator:, types:)
-          @types = types
-          @operator = operator
-          @incompatible = false
-        end
-
-        def overload?
-          operator == :overload
-        end
-
-        def union?
-          operator == :union
-        end
-
-        def intersection?
-          operator == :intersection
-        end
-
-        def self.overload(types, incompatible:)
-          new(operator: :overload, types: types).incompatible!(incompatible)
-        end
-
-        def incompatible?
-          @incompatible
-        end
-
-        def incompatible!(value)
-          @incompatible = value
-          self
-        end
-
-        def self.union(types)
-          case types.size
-          when 0
-            raise "Combination.union called with zero types"
-          when 1
-            types.first
-          else
-            new(operator: :union, types: types)
-          end
-        end
-
-        def self.intersection(types)
-          case types.size
-          when 0
-            raise "Combination.intersection called with zero types"
-          when 1
-            types.first
-          else
-            new(operator: :intersection, types: types)
-          end
+        def initialize(method_types:)
+          @method_types = method_types
         end
 
         def to_s
-          case operator
-          when :overload
-            "{ #{types.map(&:to_s).join(" | ")} }"
-          when :union
-            "[#{types.map(&:to_s).join(" | ")}]"
-          when :intersection
-            "[#{types.map(&:to_s).join(" & ")}]"
-          end
+          "{ #{method_types.join(" || ")} }"
         end
       end
 

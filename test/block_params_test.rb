@@ -158,6 +158,46 @@ proc {|a, b=1, *c, d|
     end
   end
 
+  def test_zip_missing_required_params
+    with_factory do
+      type = Params.new(
+        required: [parse_type("::Integer"), parse_type("::Object")],
+        optional: [],
+        rest: nil,
+        required_keywords: {},
+        optional_keywords: {},
+        rest_keywords: nil
+      )
+
+      block_params("proc { }") do |params|
+        zip = params.zip(type)
+
+        assert_empty zip
+      end
+    end
+  end
+
+  def test_zip_with_extra_params
+    with_factory do
+      type = Params.new(
+        required: [parse_type("::Object")],
+        optional: [],
+        rest: nil,
+        required_keywords: {},
+        optional_keywords: {},
+        rest_keywords: nil
+      )
+
+      block_params("proc {|x, y| }") do |params|
+        zip = params.zip(type)
+
+        assert_equal 2, zip.size
+        assert_equal [params.params[0], parse_type("::Object")], zip[0]
+        assert_equal [params.params[1], parse_type("nil")], zip[1]
+      end
+    end
+  end
+
   def test_zip_expand_array
     with_factory do
       type = Params.new(

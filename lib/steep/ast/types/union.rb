@@ -38,29 +38,28 @@ module Steep
             when 1
               tys.first
             else
-              new(types: tys.sort_by(&:hash), location: location)
+              new(types: tys, location: location)
             end
           end
         end
 
         def ==(other)
           other.is_a?(Union) &&
-            other.types == types
+            Set.new(other.types) == Set.new(types)
         end
 
         def hash
-          self.class.hash ^ types.hash
+          @hash ||= self.class.hash ^ types.sort_by(&:to_s).hash
         end
 
         alias eql? ==
 
         def subst(s)
-          self.class.build(location: location,
-                           types: types.map {|ty| ty.subst(s) })
+          self.class.build(location: location, types: types.map {|ty| ty.subst(s) })
         end
 
         def to_s
-          "(#{types.map(&:to_s).sort.join(" | ")})"
+          "(#{types.map(&:to_s).join(" | ")})"
         end
 
         def free_variables
