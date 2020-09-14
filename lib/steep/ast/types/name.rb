@@ -79,58 +79,6 @@ module Steep
           end
         end
 
-        class Class < Base
-          attr_reader :constructor
-
-          def initialize(name:, constructor:, location: nil)
-            raise "Name should be a module name: #{name.inspect}" unless name.is_a?(Names::Module)
-            super(name: name, location: location)
-            @constructor = constructor
-          end
-
-          def ==(other)
-            other.class == self.class &&
-              other.name == name &&
-              other.constructor == constructor
-          end
-
-          alias eql? ==
-
-          def hash
-            self.class.hash ^ name.hash ^ constructor.hash
-          end
-
-          def to_s
-            k = case constructor
-                when true
-                  " constructor"
-                when false
-                  " noconstructor"
-                when nil
-                  ""
-                end
-            "singleton(#{name.to_s})"
-          end
-
-          def with_location(new_location)
-            self.class.new(name: name, constructor: constructor, location: new_location)
-          end
-
-          def to_instance(*args)
-            Instance.new(name: name, args: args)
-          end
-
-          NOTHING = ::Object.new
-
-          def updated(constructor: NOTHING)
-            if NOTHING == constructor
-              constructor = self.constructor
-            end
-
-            self.class.new(name: name, constructor: constructor, location: location)
-          end
-        end
-
         class Module < Base
           def ==(other)
             other.class == self.class &&
@@ -153,10 +101,6 @@ module Steep
         end
 
         class Instance < Applying
-          def to_class(constructor:)
-            Class.new(name: name, location: location, constructor: constructor)
-          end
-
           def to_module
             Module.new(name: name, location: location)
           end

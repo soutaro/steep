@@ -308,7 +308,7 @@ module Steep
           ].compact
         )
 
-        module_type = AST::Types::Name::Class.new(name: module_name, constructor: nil)
+        module_type = AST::Types::Name::Module.new(name: module_name)
       end
 
       if annots.instance_type
@@ -379,7 +379,7 @@ module Steep
         module_def = checker.factory.definition_builder.build_singleton(type_name_)
 
         instance_type = AST::Types::Name::Instance.new(name: class_name, args: class_args)
-        module_type = AST::Types::Name::Class.new(name: class_name, constructor: nil)
+        module_type = AST::Types::Name::Module.new(name: class_name)
       end
 
       if annots.instance_type
@@ -443,18 +443,26 @@ module Steep
                       end
 
       module_type = case instance_type
-                    when AST::Types::Name::Class
-                      AST::Builtin::Class.instance_type
                     when AST::Types::Name::Module
-                      AST::Builtin::Module.instance_type
+                      type_name = checker.factory.type_name_1(instance_type.name)
+
+                      case checker.factory.env.class_decls[type_name]
+                      when RBS::Environment::ModuleEntry
+                        AST::Builtin::Module.instance_type
+                      when RBS::Environment::ClassEntry
+                        AST::Builtin::Class.instance_type
+                      else
+                        raise
+                      end
+
                     when AST::Types::Name::Instance
-                      instance_type.to_class(constructor: nil)
+                      instance_type.to_module
                     else
                       raise "Unexpected type for sclass node: #{type}"
                     end
 
       instance_definition = case instance_type
-                            when AST::Types::Name::Class, AST::Types::Name::Module
+                            when AST::Types::Name::Module
                               type_name = checker.factory.type_name_1(instance_type.name)
                               checker.factory.definition_builder.build_singleton(type_name)
                             when AST::Types::Name::Instance
@@ -463,7 +471,7 @@ module Steep
                             end
 
       module_definition = case module_type
-                          when AST::Types::Name::Class, AST::Types::Name::Module
+                          when AST::Types::Name::Module
                             type_name = checker.factory.type_name_1(instance_type.name)
                             checker.factory.definition_builder.build_singleton(type_name)
                           else
@@ -686,8 +694,8 @@ module Steep
           yield_self do
             if self_class?(node)
               module_type = expand_alias(module_context.module_type)
-              type = if module_type.is_a?(AST::Types::Name::Class)
-                       AST::Types::Name::Class.new(name: module_type.name, constructor: method_context.constructor)
+              type = if module_type.is_a?(AST::Types::Name::Module)
+                       AST::Types::Name::Module.new(name: module_type.name)
                      else
                        module_type
                      end
@@ -702,8 +710,8 @@ module Steep
           yield_self do
             pair = if self_class?(node)
                      module_type = expand_alias(module_context.module_type)
-                     type = if module_type.is_a?(AST::Types::Name::Class)
-                              AST::Types::Name::Class.new(name: module_type.name, constructor: method_context.constructor)
+                     type = if module_type.is_a?(AST::Types::Name::Module)
+                              AST::Types::Name::Module.new(name: module_type.name)
                             else
                               module_type
                             end
@@ -882,7 +890,7 @@ module Steep
                          when AST::Types::Name::Instance
                            name = checker.factory.type_name_1(self_type.name)
                            checker.factory.definition_builder.build_singleton(name)
-                         when AST::Types::Name::Module, AST::Types::Name::Class
+                         when AST::Types::Name::Module
                            name = checker.factory.type_name_1(self_type.name)
                            checker.factory.definition_builder.build_singleton(name)
                          end
@@ -1513,7 +1521,7 @@ module Steep
                 test_types << expand_alias(type)
               end
 
-              if var_names && var_types && test_types.all? {|ty| ty.is_a?(AST::Types::Name::Class) }
+              if var_names && var_types && test_types.all? {|ty| ty.is_a?(AST::Types::Name::Module) }
                 var_types_in_body = test_types.flat_map do |test_type|
                   filtered_types = var_types.select do |var_type|
                     var_type.is_a?(AST::Types::Name::Base) && var_type.name == test_type.name
@@ -1639,7 +1647,7 @@ module Steep
                 instance_types = exn_types.map do |type|
                   type = expand_alias(type)
                   case
-                  when type.is_a?(AST::Types::Name::Class)
+                  when type.is_a?(AST::Types::Name::Module)
                     to_instance_type(type)
                   else
                     AST::Builtin.any_type
@@ -3304,7 +3312,7 @@ module Steep
 
     def to_instance_type(type, args: nil)
       args = args || case type
-                     when AST::Types::Name::Class, AST::Types::Name::Module
+                     when AST::Types::Name::Module
                        checker.factory.env.class_decls[checker.factory.type_name_1(type.name)].type_params.each.map { AST::Builtin.any_type }
                      else
                        raise "unexpected type to to_instance_type: #{type}"

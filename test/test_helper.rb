@@ -22,9 +22,8 @@ module Steep::AST::Types::Name
 
   def self.new_class(location: nil, name:, constructor:, args: [])
     name = Steep::Names::Module.parse(name.to_s) unless name.is_a?(Steep::Names::Module)
-    Steep::AST::Types::Name::Class.new(location: location,
-                                       name: name,
-                                       constructor: constructor)
+    Steep::AST::Types::Name::Module.new(location: location,
+                                       name: name)
   end
 
   def self.new_instance(location: nil, name:, args: [])
