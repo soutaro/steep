@@ -1037,12 +1037,13 @@ module Steep
             var = node.children[0]
             rhs = node.children[1]
 
-            type = context.lvar_env[var.name]
+            var_type = context.lvar_env[var.name]
+            node_type, constr = synthesize(rhs, hint: var_type)
 
-            node_type, constr = synthesize(rhs, hint: type)
+            type = AST::Types::Union.build(types: [var_type, node_type])
 
             constr_ = constr.update_lvar_env do |env|
-              env.assign(var.name, node: node, type: node_type) do |declared_type, type, result|
+              env.assign(var.name, node: node, type: type) do |declared_type, type, result|
                 typing.add_error(
                   Errors::IncompatibleAssignment.new(node: node,
                                                      lhs_type: declared_type,
@@ -1052,7 +1053,7 @@ module Steep
               end
             end
 
-            add_typing(node, type: constr_.context.lvar_env[var.name], constr: constr_)
+            add_typing(node, type: type, constr: constr_)
           end
 
         when :restarg

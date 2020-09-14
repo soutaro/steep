@@ -493,7 +493,7 @@ end
         refute_empty typing.errors
         assert_incompatible_assignment typing.errors[0],
                                        lhs_type: parse_type("::_C"),
-                                       rhs_type: parse_type("::_A") do |error|
+                                       rhs_type: parse_type("::_A | ::_C") do |error|
           assert_equal :optarg, error.node.type
           assert_equal :y, error.node.children[0].name
         end
@@ -524,7 +524,7 @@ end
         refute_empty typing.errors
         assert_incompatible_assignment typing.errors[0],
                                        lhs_type: parse_type("::_C"),
-                                       rhs_type: parse_type("::_A") do |error|
+                                       rhs_type: parse_type("::_A | ::_C") do |error|
           assert_equal :kwoptarg, error.node.type
           assert_equal :y, error.node.children[0].name
         end
@@ -5108,7 +5108,7 @@ end
       source = parse_ruby(<<-'RUBY')
 class TypeVariable
   @@no_error = @@unknown_error2
-  
+
   @@index = ""
 end
       RUBY
@@ -5152,6 +5152,35 @@ end
         assert_all!(typing.errors) do |error|
           assert_instance_of Steep::Errors::FallbackAny, error
         end
+      end
+    end
+  end
+
+  def test_flow_sensitive_when_optional
+    with_checker(<<-RBS) do |checker|
+class FlowSensitiveOptional
+  def foo: (bar: String) -> void
+         | (baz: Integer) -> void
+end
+    RBS
+      source = parse_ruby(<<-RUBY)
+class FlowSensitiveOptional
+  def foo(bar: nil, baz: nil)
+    case
+    when bar
+      bar + ""
+    when baz
+      baz + 3
+    end
+  end
+end
+
+      RUBY
+
+      with_standard_construction(checker, source) do |construction, typing|
+        construction.synthesize(source.node)
+
+        assert_no_error typing
       end
     end
   end
