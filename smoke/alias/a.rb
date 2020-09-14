@@ -1,7 +1,7 @@
 # @type var x: foo
 x = ""
 
-# !expects ArgumentTypeMismatch: receiver=(::Integer | ::String), expected=::string, actual=::Integer
+# !expects* UnresolvedOverloading: receiver=(::String | ::Integer), method_name=+,
 x + 123
 
 # @type var y: bar

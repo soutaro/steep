@@ -98,7 +98,7 @@ class InterfaceTest < Minitest::Test
                    parse_method_type("(foo: String) -> untyped").params & parse_method_type("(foo: Integer) -> untyped").params
 
       # req:opt
-      assert_equal parse_method_type("(foo: String & Integer) -> untyped").params,
+      assert_equal parse_method_type("(foo: Integer & String) -> untyped").params,
                    parse_method_type("(foo: String) -> untyped").params & parse_method_type("(?foo: Integer) -> untyped").params
 
       # req:none
@@ -136,11 +136,11 @@ class InterfaceTest < Minitest::Test
                    parse_method_type("() -> untyped").params & parse_method_type("(**Integer) -> untyped").params
 
       # rest:req
-      assert_equal parse_method_type("(foo: String & Integer) -> untyped").params,
+      assert_equal parse_method_type("(foo: Integer & String) -> untyped").params,
                    parse_method_type("(**String) -> untyped").params & parse_method_type("(foo: Integer) -> untyped").params
 
       # rest:opt
-      assert_equal parse_method_type("(?foo: String & Integer) -> untyped").params,
+      assert_equal parse_method_type("(?foo: Integer & String) -> untyped").params,
                    parse_method_type("(**String) -> untyped").params & parse_method_type("(?foo: Integer) -> untyped").params
 
       # rest:none
