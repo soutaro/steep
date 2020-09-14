@@ -16,7 +16,7 @@ module Steep
         end
 
         def module_type
-          Types::Name::Module.new(name: module_name)
+          Types::Name::Singleton.new(name: module_name)
         end
 
         def instance_type?(type, args: nil)
@@ -33,7 +33,7 @@ module Steep
         end
 
         def module_type?(type)
-          if type.is_a?(Types::Name::Module)
+          if type.is_a?(Types::Name::Singleton)
             type.name == module_name
           else
             false

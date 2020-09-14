@@ -234,7 +234,7 @@ module Steep
                      when AST::Types::Name::Instance
                        type_name = subtyping.factory.type_name_1(type.name)
                        subtyping.factory.definition_builder.build_instance(type_name)
-                     when AST::Types::Name::Module
+                     when AST::Types::Name::Singleton
                        type_name = subtyping.factory.type_name_1(type.name)
                        subtyping.factory.definition_builder.build_singleton(type_name)
                      when AST::Types::Name::Interface

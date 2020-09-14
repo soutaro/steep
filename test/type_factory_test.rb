@@ -59,7 +59,7 @@ class TypeFactoryTest < Minitest::Test
       end
 
       factory.type(parse_type("singleton(::Object)")).yield_self do |type|
-        assert_instance_of Types::Name::Module, type
+        assert_instance_of Types::Name::Singleton, type
         assert_equal "::Object", type.name.to_s
       end
 

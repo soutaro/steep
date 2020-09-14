@@ -79,7 +79,7 @@ module Steep
           end
         end
 
-        class Module < Base
+        class Singleton < Base
           def ==(other)
             other.class == self.class &&
               other.name == name
@@ -102,7 +102,7 @@ module Steep
 
         class Instance < Applying
           def to_module
-            Module.new(name: name, location: location)
+            Singleton.new(name: name, location: location)
           end
         end
 
