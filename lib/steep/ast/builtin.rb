@@ -15,12 +15,8 @@ module Steep
           Types::Name::Instance.new(name: module_name, args: args)
         end
 
-        def class_type(constructor: nil)
-          Types::Name::Class.new(name: module_name, constructor: constructor)
-        end
-
         def module_type
-          Types::Name::Module.new(name: module_name)
+          Types::Name::Singleton.new(name: module_name)
         end
 
         def instance_type?(type, args: nil)
@@ -36,22 +32,8 @@ module Steep
           end
         end
 
-        NONE = ::Object.new
-
-        def class_type?(type, constructor: NONE)
-          if type.is_a?(Types::Name::Class)
-            unless constructor.equal?(NONE)
-              type.name == module_name && type.name.constructor == constructor
-            else
-              type.name == module_name
-            end
-          else
-            false
-          end
-        end
-
         def module_type?(type)
-          if type.is_a?(Types::Name::Module)
+          if type.is_a?(Types::Name::Singleton)
             type.name == module_name
           else
             false

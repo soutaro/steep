@@ -42,9 +42,8 @@ module Steep
               )
             end
           when RBS::Definition::Ancestor::Singleton
-            AST::Types::Name::Class.new(
+            AST::Types::Name::Singleton.new(
               name: name,
-              constructor: nil,
               location: nil
             )
           end
@@ -78,9 +77,8 @@ module Steep
               )
             end
           when RBS::Definition::Ancestor::Singleton
-            AST::Types::Name::Class.new(
+            AST::Types::Name::Singleton.new(
               name: name,
-              constructor: nil,
               location: nil
             )
           end
@@ -266,7 +264,7 @@ module Steep
               possible_sub_types = case relation.sub_type
                                    when AST::Types::Name::Instance
                                      instance_super_types(relation.sub_type.name, args: relation.sub_type.args)
-                                   when AST::Types::Name::Class
+                                   when AST::Types::Name::Singleton
                                      singleton_super_types(relation.sub_type.name)
                                    else
                                      []
@@ -399,7 +397,7 @@ module Steep
         case type
         when AST::Types::Name::Instance
           factory.definition_builder.build_instance(type_name)
-        when AST::Types::Name::Class
+        when AST::Types::Name::Singleton
           factory.definition_builder.build_singleton(type_name)
         when AST::Types::Name::Interface
           factory.definition_builder.build_interface(type_name)
@@ -484,11 +482,7 @@ module Steep
           if sub_type.name == super_type.name && sub_type.args.size == super_type.args.size
             sub_type.args.zip(super_type.args)
           end
-        when sub_type.is_a?(AST::Types::Name::Class) && super_type.is_a?(AST::Types::Name::Class)
-          if sub_type.name == super_type.name
-            []
-          end
-        when sub_type.is_a?(AST::Types::Name::Module) && super_type.is_a?(AST::Types::Name::Module)
+        when sub_type.is_a?(AST::Types::Name::Singleton) && super_type.is_a?(AST::Types::Name::Singleton)
           if sub_type.name == super_type.name
             []
           end

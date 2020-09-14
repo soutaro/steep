@@ -92,7 +92,7 @@ module Steep
                                                 method_definition
                                               ]
                                             end
-                                          when AST::Types::Name::Class
+                                          when AST::Types::Name::Singleton
                                             method_definition = method_definition_for(factory, receiver_type.name, singleton_method: method_name)
                                             if method_definition&.defined_in
                                               owner_name = factory.type_name(method_definition.defined_in)

@@ -17,14 +17,13 @@ Rainbow.enabled = false
 module Steep::AST::Types::Name
   def self.new_module(location: nil, name:, args: [])
     name = Steep::Names::Module.parse(name.to_s) unless name.is_a?(Steep::Names::Module)
-    Steep::AST::Types::Name::Module.new(name: name, location: location)
+    Steep::AST::Types::Name::Singleton.new(name: name, location: location)
   end
 
   def self.new_class(location: nil, name:, constructor:, args: [])
     name = Steep::Names::Module.parse(name.to_s) unless name.is_a?(Steep::Names::Module)
-    Steep::AST::Types::Name::Class.new(location: location,
-                                       name: name,
-                                       constructor: constructor)
+    Steep::AST::Types::Name::Singleton.new(location: location,
+                                           name: name)
   end
 
   def self.new_instance(location: nil, name:, args: [])

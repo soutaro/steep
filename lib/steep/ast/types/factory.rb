@@ -44,7 +44,7 @@ module Steep
             Var.new(name: type.name, location: nil)
           when RBS::Types::ClassSingleton
             type_name = type_name(type.name)
-            Name::Class.new(name: type_name, location: nil, constructor: nil)
+            Name::Singleton.new(name: type_name, location: nil)
           when RBS::Types::ClassInstance
             type_name = type_name(type.name)
             args = type.args.map {|arg| type(arg) }
@@ -102,7 +102,7 @@ module Steep
             RBS::Types::Bases::Nil.new(location: nil)
           when Var
             RBS::Types::Variable.new(name: type.name, location: nil)
-          when Name::Class, Name::Module
+          when Name::Singleton
             RBS::Types::ClassSingleton.new(name: type_name_1(type.name), location: nil)
           when Name::Instance
             RBS::Types::ClassInstance.new(
@@ -372,7 +372,7 @@ module Steep
               end
             end
 
-          when Name::Class, Name::Module
+          when Name::Singleton
             Interface::Interface.new(type: self_type, private: private).tap do |interface|
               definition = definition_builder.build_singleton(type_name_1(type.name))
 
