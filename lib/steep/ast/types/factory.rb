@@ -342,11 +342,10 @@ module Steep
               definition.methods.each do |name, method|
                 next if method.private? && !private
 
-                interface.methods[name] = Interface::Interface::Combination.overload(
-                  method.method_types.map do |type|
+                interface.methods[name] = Interface::Interface::Entry.new(
+                  method_types: method.method_types.map do |type|
                     method_type(type, self_type: self_type, subst2: subst)
-                  end,
-                  incompatible: name == :initialize || name == :new
+                  end
                 )
               end
             end
@@ -363,11 +362,10 @@ module Steep
               )
 
               definition.methods.each do |name, method|
-                interface.methods[name] = Interface::Interface::Combination.overload(
-                  method.method_types.map do |type|
+                interface.methods[name] = Interface::Interface::Entry.new(
+                  method_types: method.method_types.map do |type|
                     method_type(type, self_type: self_type, subst2: subst)
-                  end,
-                  incompatible: false
+                  end
                 )
               end
             end
@@ -389,11 +387,10 @@ module Steep
               definition.methods.each do |name, method|
                 next if !private && method.private?
 
-                interface.methods[name] = Interface::Interface::Combination.overload(
-                  method.method_types.map do |type|
+                interface.methods[name] = Interface::Interface::Entry.new(
+                  method_types: method.method_types.map do |type|
                     method_type(type, self_type: self_type, subst2: subst)
-                  end,
-                  incompatible: false
+                  end
                 )
               end
             end
@@ -416,7 +413,25 @@ module Steep
                 Interface::Interface.new(type: self_type, private: private).tap do |interface|
                   common_methods = Set.new(interface1.methods.keys) & Set.new(interface2.methods.keys)
                   common_methods.each do |name|
-                    interface.methods[name] = Interface::Interface::Combination.union([interface1.methods[name], interface2.methods[name]])
+                    types1 = interface1.methods[name].method_types
+                    types2 = interface2.methods[name].method_types
+
+                    if types1 == types2
+                      interface.methods[name] = interface1.methods[name]
+                    else
+                      method_types = {}
+
+                      types1.each do |type1|
+                        types2.each do |type2|
+                          type = type1 | type2 or next
+                          method_types[type] = true
+                        end
+                      end
+
+                      unless method_types.empty?
+                        interface.methods[name] = Interface::Interface::Entry.new(method_types: method_types.keys)
+                      end
+                    end
                   end
                 end
               end
@@ -427,11 +442,8 @@ module Steep
               interfaces = type.types.map {|ty| interface(ty, private: private, self_type: self_type) }
               interfaces.inject do |interface1, interface2|
                 Interface::Interface.new(type: self_type, private: private).tap do |interface|
-                  all_methods = Set.new(interface1.methods.keys) + Set.new(interface2.methods.keys)
-                  all_methods.each do |name|
-                    methods = [interface1.methods[name], interface2.methods[name]].compact
-                    interface.methods[name] = Interface::Interface::Combination.intersection(methods)
-                  end
+                  interface.methods.merge!(interface1.methods)
+                  interface.methods.merge!(interface2.methods)
                 end
               end
             end
@@ -442,8 +454,8 @@ module Steep
               array_type = Builtin::Array.instance_type(element_type)
               interface(array_type, private: private, self_type: self_type).tap do |array_interface|
                 array_interface.methods[:[]] = array_interface.methods[:[]].yield_self do |aref|
-                  Interface::Interface::Combination.overload(
-                    type.types.map.with_index {|elem_type, index|
+                  Interface::Interface::Entry.new(
+                    method_types: type.types.map.with_index {|elem_type, index|
                       Interface::MethodType.new(
                         type_params: [],
                         params: Interface::Params.new(required: [AST::Types::Literal.new(value: index)],
@@ -456,14 +468,13 @@ module Steep
                         return_type: elem_type,
                         location: nil
                       )
-                    } + aref.types,
-                    incompatible: false
+                    } + aref.method_types
                   )
                 end
 
                 array_interface.methods[:[]=] = array_interface.methods[:[]=].yield_self do |update|
-                  Interface::Interface::Combination.overload(
-                    type.types.map.with_index {|elem_type, index|
+                  Interface::Interface::Entry.new(
+                    method_types: type.types.map.with_index {|elem_type, index|
                       Interface::MethodType.new(
                         type_params: [],
                         params: Interface::Params.new(required: [AST::Types::Literal.new(value: index), elem_type],
@@ -476,14 +487,13 @@ module Steep
                         return_type: elem_type,
                         location: nil
                       )
-                    } + update.types,
-                    incompatible: false
+                    } + update.method_types
                   )
                 end
 
                 array_interface.methods[:first] = array_interface.methods[:first].yield_self do |first|
-                  Interface::Interface::Combination.overload(
-                    [
+                  Interface::Interface::Entry.new(
+                    method_types: [
                       Interface::MethodType.new(
                         type_params: [],
                         params: Interface::Params.empty,
@@ -491,14 +501,13 @@ module Steep
                         return_type: type.types[0] || AST::Builtin.nil_type,
                         location: nil
                       )
-                    ],
-                    incompatible: false
+                    ]
                   )
                 end
 
                 array_interface.methods[:last] = array_interface.methods[:last].yield_self do |last|
-                  Interface::Interface::Combination.overload(
-                    [
+                  Interface::Interface::Entry.new(
+                    method_types: [
                       Interface::MethodType.new(
                         type_params: [],
                         params: Interface::Params.empty,
@@ -506,8 +515,7 @@ module Steep
                         return_type: type.types.last || AST::Builtin.nil_type,
                         location: nil
                       )
-                    ],
-                    incompatible: false
+                    ]
                   )
                 end
               end
@@ -523,8 +531,8 @@ module Steep
 
               interface(hash_type, private: private, self_type: self_type).tap do |hash_interface|
                 hash_interface.methods[:[]] = hash_interface.methods[:[]].yield_self do |ref|
-                  Interface::Interface::Combination.overload(
-                    type.elements.map {|key_value, value_type|
+                  Interface::Interface::Entry.new(
+                    method_types: type.elements.map {|key_value, value_type|
                       key_type = Literal.new(value: key_value, location: nil)
                       Interface::MethodType.new(
                         type_params: [],
@@ -538,14 +546,13 @@ module Steep
                         return_type: value_type,
                         location: nil
                       )
-                    } + ref.types,
-                    incompatible: false
+                    } + ref.method_types
                   )
                 end
 
                 hash_interface.methods[:[]=] = hash_interface.methods[:[]=].yield_self do |update|
-                  Interface::Interface::Combination.overload(
-                    type.elements.map {|key_value, value_type|
+                  Interface::Interface::Entry.new(
+                    method_types: type.elements.map {|key_value, value_type|
                       key_type = Literal.new(value: key_value, location: nil)
                       Interface::MethodType.new(
                         type_params: [],
@@ -559,8 +566,7 @@ module Steep
                         return_type: value_type,
                         location: nil
                       )
-                    } + update.types,
-                    incompatible: false
+                    } + update.method_types
                   )
                 end
               end
@@ -576,8 +582,8 @@ module Steep
                 location: nil
               )
 
-              interface.methods[:[]] = Interface::Interface::Combination.overload([method_type], incompatible: false)
-              interface.methods[:call] = Interface::Interface::Combination.overload([method_type], incompatible: false)
+              interface.methods[:[]] = Interface::Interface::Entry.new(method_types: [method_type])
+              interface.methods[:call] = Interface::Interface::Entry.new(method_types: [method_type])
             end
 
           else

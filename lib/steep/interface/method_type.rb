@@ -83,6 +83,12 @@ module Steep
           other.rest_keywords == rest_keywords
       end
 
+      alias eql? ==
+
+      def hash
+        required.hash ^ optional.hash ^ rest.hash ^ required_keywords.hash ^ optional_keywords.hash ^ rest_keywords.hash
+      end
+
       def flat_unnamed_params
         required.map {|p| [:required, p] } + optional.map {|p| [:optional, p] }
       end
@@ -713,6 +719,12 @@ module Steep
         other.is_a?(self.class) && other.type == type && other.optional == optional
       end
 
+      alias eql? ==
+
+      def hash
+        type.hash ^ optional.hash
+      end
+
       def closed?
         type.closed?
       end
@@ -779,6 +791,12 @@ module Steep
           other.block == block &&
           other.return_type == return_type &&
           (!other.location || !location || other.location == location)
+      end
+
+      alias eql? ==
+
+      def hash
+        type_params.hash ^ params.hash ^ block.hash ^ return_type.hash
       end
 
       def free_variables

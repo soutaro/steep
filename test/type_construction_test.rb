@@ -648,6 +648,36 @@ end
     end
   end
 
+  def test_block_extra_missing_params
+    with_checker(<<-RBS) do |checker|
+class M1
+  def foo: () { (Integer, String, bool) -> void } -> void
+end
+
+class M2
+  def foo: () { (String, Integer) -> void } -> void
+end
+    RBS
+
+      source = parse_ruby(<<-EOF)
+x = [M1.new, M2.new][0]
+
+x.foo do |a| 
+  nil
+end
+
+x.foo do |a, b, c|
+  nil
+end
+      EOF
+
+      with_standard_construction(checker, source) do |construction, typing|
+        construction.synthesize(source.node)
+        assert_no_error typing
+      end
+    end
+  end
+
   def test_block_value_type
     with_checker do |checker|
       source = parse_ruby(<<-EOF)
@@ -1720,14 +1750,16 @@ y = x + ""
       source = parse_ruby(<<-RUBY)
 # @type var x: Integer & String
 x = (_ = nil)
-y = x + ""
+y = x.to_str
+z = x.to_int
       RUBY
 
       with_standard_construction(checker, source) do |construction, typing|
         pair = construction.synthesize(source.node)
 
-        assert_empty typing.errors
+        assert_no_error typing
         assert_equal parse_type("::String"), pair.context.lvar_env[:y]
+        assert_equal parse_type("::Integer"), pair.context.lvar_env[:z]
       end
     end
   end

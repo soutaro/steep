@@ -529,29 +529,24 @@ module Steep
 
       def check_method(name, sub_method, super_method, self_type:, assumption:, trace:, constraints:)
         trace.method name, sub_method, super_method do
-          case
-          when sub_method.overload? && super_method.overload?
-            super_method.types.map do |super_type|
-              sub_method.types.map do |sub_type|
-                check_generic_method_type name,
-                                          sub_type,
-                                          super_type,
-                                          self_type: self_type,
-                                          assumption: assumption,
-                                          trace: trace,
-                                          constraints: constraints
-              end.yield_self do |results|
-                results.find(&:success?) || results[0]
-              end
+          super_method.method_types.map do |super_type|
+            sub_method.method_types.map do |sub_type|
+              check_generic_method_type name,
+                                        sub_type,
+                                        super_type,
+                                        self_type: self_type,
+                                        assumption: assumption,
+                                        trace: trace,
+                                        constraints: constraints
             end.yield_self do |results|
-              if results.all?(&:success?) || sub_method.incompatible?
-                success constraints: constraints
-              else
-                results.select(&:failure?).last
-              end
+              results.find(&:success?) || results[0]
             end
-          else
-            raise "aaaaaaaaaaaaaa"
+          end.yield_self do |results|
+            if results.all?(&:success?)
+              success constraints: constraints
+            else
+              results.select(&:failure?).last
+            end
           end
         end
       end
