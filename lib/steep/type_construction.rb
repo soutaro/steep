@@ -113,6 +113,7 @@ module Steep
     end
 
     def check_relation(sub_type:, super_type:, constraints: Subtyping::Constraints.empty)
+      Steep.logger.debug { "check_relation: self:#{self_type} |- #{sub_type} <: #{super_type}" }
       checker.check(Subtyping::Relation.new(sub_type: sub_type, super_type: super_type), self_type: self_type, constraints: constraints)
     end
 

@@ -219,7 +219,7 @@ module Steep
             end
           end
           subst = Interface::Substitution.build(alpha_vars, alpha_types)
-          subst.merge!(subst2) if subst2
+          subst.merge!(subst2, overwrite: true) if subst2
 
           type = Interface::MethodType.new(
             type_params: type_params,
@@ -313,6 +313,7 @@ module Steep
         end
 
         def interface(type, private:, self_type: type)
+          Steep.logger.debug { "Factory#interface: #{type}, private=#{private}, self_type=#{self_type}" }
           type = expand_alias(type)
 
           case type
@@ -340,13 +341,15 @@ module Steep
               )
 
               definition.methods.each do |name, method|
-                next if method.private? && !private
+                Steep.logger.tagged "method = #{name}" do
+                  next if method.private? && !private
 
-                interface.methods[name] = Interface::Interface::Entry.new(
-                  method_types: method.method_types.map do |type|
-                    method_type(type, self_type: self_type, subst2: subst)
-                  end
-                )
+                  interface.methods[name] = Interface::Interface::Entry.new(
+                    method_types: method.method_types.map do |type|
+                      method_type(type, self_type: self_type, subst2: subst)
+                    end
+                  )
+                end
               end
             end
 
