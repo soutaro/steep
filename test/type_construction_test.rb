@@ -1126,7 +1126,7 @@ module Steep end
           ),
           for_module.module_context.implement_name
         )
-        assert_equal parse_type("::Steep & ::Object"), for_module.module_context.instance_type
+        assert_equal parse_type("::Object & ::Steep"), for_module.module_context.instance_type
         assert_equal parse_type("singleton(::Steep)"), for_module.module_context.module_type
       end
     end
@@ -5394,6 +5394,36 @@ end
 class TestTest
   def foo(x)
    x.get()
+  end
+end
+      RUBY
+
+      with_standard_construction(checker, source) do |construction, typing|
+        construction.synthesize(source.node)
+        assert_no_error typing
+      end
+    end
+  end
+
+  def test_module_method_call
+    with_checker(<<-RBS) do |checker|
+module Types
+  def foo: () -> String
+  def hash: () -> String
+end
+
+class Object
+  def hash: () -> Integer
+end
+    RBS
+      source = parse_ruby(<<-RUBY)
+module Types
+  def foo
+    hash + "a"
+  end
+
+  def hash
+    "foo"
   end
 end
       RUBY
