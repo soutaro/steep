@@ -90,20 +90,32 @@ module Steep
 
       def except(vars)
         self.class.new(
-          dictionary: dictionary.reject {|k, _| vars.include?(k) },
+          dictionary: dictionary,
           instance_type: instance_type,
           module_type: module_type,
           self_type: self_type
-        )
+        ).except!(vars)
       end
 
-      def merge!(s)
+      def except!(vars)
+        vars.each do |var|
+          dictionary.delete(var)
+        end
+
+        self
+      end
+
+      def merge!(s, overwrite: false)
         dictionary.transform_values! {|ty| ty.subst(s) }
         dictionary.merge!(s.dictionary) do |key, a, b|
           if a == b
             a
           else
-            raise "Duplicated key on merge!: #{key}, #{a}, #{b}"
+            if overwrite
+              b
+            else
+              raise "Duplicated key on merge!: #{key}, #{a}, #{b} (#{self})"
+            end
           end
         end
 

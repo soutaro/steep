@@ -5379,4 +5379,29 @@ a = 1..
       end
     end
   end
+
+  def test_generic_param_rename
+    with_checker(<<-RBS) do |checker|
+interface _Hello[A]
+  def get: [A] () -> A
+end
+
+class TestTest[A]
+  def foo: (_Hello[A]) -> void
+end
+    RBS
+      source = parse_ruby(<<-RUBY)
+class TestTest
+  def foo(x)
+   x.get()
+  end
+end
+      RUBY
+
+      with_standard_construction(checker, source) do |construction, typing|
+        construction.synthesize(source.node)
+        assert_no_error typing
+      end
+    end
+  end
 end
