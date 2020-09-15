@@ -287,7 +287,6 @@ module Steep
 
         instance_type = AST::Types::Intersection.build(
           types: [
-            AST::Types::Name::Instance.new(name: module_name, args: module_args),
             AST::Builtin::Object.instance_type,
             *module_entry.self_types.map {|module_self|
               type = case
@@ -305,7 +304,8 @@ module Steep
                        )
                      end
               checker.factory.type(type)
-            }
+            },
+            AST::Types::Name::Instance.new(name: module_name, args: module_args)
           ].compact
         )
 
