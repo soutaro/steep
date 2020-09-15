@@ -19,8 +19,6 @@ Expectation = Struct.new(:line, :message, :path, :starts) do
   attr_accessor :prefix_test
 end
 
-allowed_paths = []
-
 failed = false
 
 ARGV.each do |arg|
@@ -29,7 +27,8 @@ ARGV.each do |arg|
 
   rb_files = []
   expectations = []
-
+  allowed_paths = []
+  
   dir.children.each do |file|
     if file.extname == ".rb"
       buffer = ::Parser::Source::Buffer.new(file.to_s)
