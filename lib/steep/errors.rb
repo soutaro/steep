@@ -543,5 +543,19 @@ module Steep
         "#{location_to_str}: MissingKeyword: #{missing_keywords.to_a.join(", ")}"
       end
     end
+
+    class UnsupportedSyntax < Base
+      attr_reader :message
+
+      def initialize(node:, message: nil)
+        super(node: node)
+        @message = message
+      end
+
+      def to_s
+        msg = message || "#{node.type} is not supported"
+        "#{location_to_str}: UnsupportedSyntax: #{msg}"
+      end
+    end
   end
 end
