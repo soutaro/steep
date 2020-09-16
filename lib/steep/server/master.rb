@@ -23,7 +23,7 @@ module Steep
         @signature_worker = signature_worker
         @code_workers = code_workers
         @worker_to_paths = {}
-        @shutdown = false
+        @shutdown_request_id = nil
       end
 
       def start
@@ -60,7 +60,14 @@ module Steep
         end
 
         while job = queue.pop
-          writer.write(job) unless @shutdown
+          if @shutdown_request_id
+            if job[:id] == @shutdown_request_id
+              writer.write(job)
+              break
+            end
+          else
+            writer.write(job)
+          end
         end
 
         writer.io.close
@@ -155,7 +162,7 @@ module Steep
 
         when "shutdown"
           queue << { id: id, result: nil }
-          @shutdown = true
+          @shutdown_request_id = id
 
         when "exit"
           queue << nil
