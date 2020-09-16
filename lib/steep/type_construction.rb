@@ -459,7 +459,7 @@ module Steep
                     when AST::Types::Name::Instance
                       instance_type.to_module
                     else
-                      raise "Unexpected type for sclass node: #{type}"
+                      return
                     end
 
       instance_definition = case instance_type
@@ -1241,6 +1241,17 @@ module Steep
             type, constr = synthesize(node.children[0])
             constructor = constr.for_sclass(node, type)
 
+            unless constructor
+              typing.add_error(
+                Errors::UnsupportedSyntax.new(
+                  node: node,
+                  message: "sclass receiver must be instance type or singleton type, but type given `#{type}`"
+                )
+              )
+              constr.add_typing(node, type: AST::Builtin.nil_type)
+              return
+            end
+
             constructor.typing.add_context_for_node(node, context: constructor.context)
             constructor.typing.add_context_for_body(node, context: constructor.context)
 
@@ -1252,7 +1263,7 @@ module Steep
               end
             end
 
-            add_typing(node, type: AST::Builtin.nil_type)
+            constr.add_typing(node, type: AST::Builtin.nil_type)
           end
 
         when :self

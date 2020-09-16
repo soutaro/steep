@@ -5434,4 +5434,23 @@ end
       end
     end
   end
+
+  def test_sclass_no_sig
+    with_checker(<<-RBS) do |checker|
+    RBS
+      source = parse_ruby(<<-RUBY)
+class SClassNoSig
+  class << self
+  end
+end
+      RUBY
+
+      with_standard_construction(checker, source) do |construction, typing|
+        construction.synthesize(source.node)
+
+        assert_equal 1, typing.errors.size
+        assert_instance_of Steep::Errors::UnsupportedSyntax, typing.errors[0]
+      end
+    end
+  end
 end
