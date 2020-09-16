@@ -2683,6 +2683,17 @@ module Steep
         if block_params && method_type.block
           block_annotations = source.annotations(block: node, factory: checker.factory, current_module: current_namespace)
           block_params_ = TypeInference::BlockParams.from_node(block_params, annotations: block_annotations)
+
+          unless block_params_
+            return [
+              Errors::UnsupportedSyntax.new(
+                node: block_params,
+                message: "Unsupported block params pattern, probably masgn?"
+              ),
+              constr
+            ]
+          end
+
           pairs = block_params_.zip(method_type.block.type.params)
 
           unless pairs

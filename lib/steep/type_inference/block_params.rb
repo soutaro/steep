@@ -56,6 +56,11 @@ module Steep
 
         node.children.each do |arg|
           var = arg.children.first
+
+          if var.is_a?(::AST::Node)
+            return
+          end
+
           type = annotations.var_type(lvar: var.name)
 
           case arg.type

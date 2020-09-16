@@ -5453,4 +5453,24 @@ end
       end
     end
   end
+
+  def test_block_param_masgn
+    with_checker(<<-RBS) do |checker|
+class BlockParamTuple
+  def foo: () { ([Integer, String]) -> void } -> void
+end
+    RBS
+      source = parse_ruby(<<-RUBY)
+BlockParamTuple.new.foo do |(x, y)|
+end
+      RUBY
+
+      with_standard_construction(checker, source) do |construction, typing|
+        construction.synthesize(source.node)
+
+        assert_equal 1, typing.errors.size
+        assert_instance_of Steep::Errors::UnsupportedSyntax, typing.errors[0]
+      end
+    end
+  end
 end
