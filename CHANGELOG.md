@@ -2,6 +2,21 @@
 
 ## master
 
+## 0.28.0 (2020-09-17)
+
+* Fix typing case-when with empty body ([#200](https://github.com/soutaro/steep/pull/200))
+* Fix lvasgn typing with `void` type hint ([#200](https://github.com/soutaro/steep/pull/200))
+* Fix subtype checking between type variables and union types ([#200](https://github.com/soutaro/steep/pull/200))
+* Support endless range ([#200](https://github.com/soutaro/steep/pull/200))
+* Fix optarg, kwoptarg typing ([#202](https://github.com/soutaro/steep/pull/202))
+* Better union/intersection types ([#204](https://github.com/soutaro/steep/pull/204))
+* Fix generic method instantiation ([#205](https://github.com/soutaro/steep/pull/205))
+* Fix module typing ([#206](https://github.com/soutaro/steep/pull/206))
+* Fix shutdown problem ([#209](https://github.com/soutaro/steep/pull/209))
+* Update RBS to 0.12.0 ([#210](https://github.com/soutaro/steep/pull/210))
+* Improve processing singleton class decls without RBS ([#211](https://github.com/soutaro/steep/pull/211))
+* Improve processing block parameter with masgn ([#212](https://github.com/soutaro/steep/pull/212))
+
 ## 0.27.0 (2020-08-31)
 
 * Make tuple types _covariant_ ([#195](https://github.com/soutaro/steep/pull/195))
