@@ -6,7 +6,7 @@ module Steep
       attr_reader :factory
       attr_reader :table
 
-      # ConstantEnv receives an Names::Module as a context, not a Namespace, because this is a simulation of Ruby.
+      # ConstantEnv receives an TypeName as a context, not a Namespace, because this is a simulation of Ruby.
       # Any namespace is a module or class.
       def initialize(factory:, context:)
         @cache = {}
@@ -17,10 +17,7 @@ module Steep
 
       def lookup(name)
         cache[name] ||= begin
-          constant = table.resolve_constant_reference(
-            factory.type_name_1(name),
-            context: context.map {|namespace| factory.namespace_1(namespace) }
-          )
+          constant = table.resolve_constant_reference(name, context: context)
 
           if constant
             factory.type(constant.type)

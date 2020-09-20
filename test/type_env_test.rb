@@ -124,44 +124,44 @@ class TypeEnvTest < Minitest::Test
 
   def test_const_without_annotation
     with_checker do |checker|
-      const_env = ConstantEnv.new(factory: checker.factory, context: [AST::Namespace.root])
+      const_env = ConstantEnv.new(factory: checker.factory, context: [RBS::Namespace.root])
       type_env = TypeEnv.new(subtyping: checker, const_env: const_env)
 
       # When constant type is known from const env
 
       yield_self do
-        type = type_env.get(const: Names::Module.parse("Regexp"))
-        assert_equal AST::Types::Name.new_class(name: "::Regexp", constructor: nil), type
+        type = type_env.get(const: TypeName("Regexp"))
+        assert_equal AST::Types::Name.new_singleton(name: "::Regexp"), type
       end
 
       yield_self do
-        type = type_env.assign(const: Names::Module.parse("Regexp"),
+        type = type_env.assign(const: TypeName("Regexp"),
                                type: AST::Types::Name.new_instance(name: "::String"),
                                self_type: parse_type("self")) do |error|
           assert_instance_of Subtyping::Result::Failure, error
         end
-        assert_equal AST::Types::Name.new_class(name: "::Regexp", constructor: nil), type
+        assert_equal AST::Types::Name.new_singleton(name: "::Regexp"), type
       end
 
       yield_self do
-        type = type_env.assign(const: Names::Module.parse("Regexp"),
+        type = type_env.assign(const: TypeName("Regexp"),
                                type: AST::Types::Any.new,
                                self_type: parse_type("self")) do |_|
           raise
         end
-        assert_equal AST::Types::Name.new_class(name: "::Regexp", constructor: nil), type
+        assert_equal AST::Types::Name.new_singleton(name: "::Regexp"), type
       end
 
       # When constant type is unknown
 
       yield_self do
-        type = type_env.get(const: Names::Module.parse("HOGE")) do
+        type = type_env.get(const: TypeName("HOGE")) do
         end
         assert_instance_of AST::Types::Any, type
       end
 
       yield_self do
-        type = type_env.assign(const: Names::Module.parse("HOGE"),
+        type = type_env.assign(const: TypeName("HOGE"),
                                type: AST::Types::Name.new_instance(name: "::String"),
                                self_type: parse_type("self")) do |error|
           assert_nil error
@@ -176,15 +176,15 @@ class TypeEnvTest < Minitest::Test
       const_env = ConstantEnv.new(factory: checker.factory, context: nil)
       type_env = TypeEnv.new(subtyping: checker, const_env: const_env)
 
-      type_env.set(const: Names::Module.parse("Regexp"), type: AST::Types::Name.new_instance(name: "::String"))
+      type_env.set(const: TypeName("Regexp"), type: AST::Types::Name.new_instance(name: "::String"))
 
       yield_self do
-        type = type_env.get(const: Names::Module.parse("Regexp"))
+        type = type_env.get(const: TypeName("Regexp"))
         assert_equal AST::Types::Name.new_instance(name: "::String"), type
       end
 
       yield_self do
-        type = type_env.assign(const: Names::Module.parse("Regexp"),
+        type = type_env.assign(const: TypeName("Regexp"),
                                type: AST::Types::Name.new_instance(name: "::Integer"),
                                self_type: parse_type("self")) do |error|
           assert_instance_of Subtyping::Result::Failure, error
@@ -193,7 +193,7 @@ class TypeEnvTest < Minitest::Test
       end
 
       yield_self do
-        type = type_env.assign(const: Names::Module.parse("Regexp"),
+        type = type_env.assign(const: TypeName("Regexp"),
                                type: AST::Types::Name.new_instance(name: "::String"),
                                self_type: parse_type("self")) do |_|
           raise
@@ -307,7 +307,7 @@ class TypeEnvTest < Minitest::Test
 
   def test_with_annotation_const
     with_checker do |checker|
-      const_env = ConstantEnv.new(factory: checker.factory, context: [AST::Namespace.root])
+      const_env = ConstantEnv.new(factory: checker.factory, context: [RBS::Namespace.root])
       original_env = TypeEnv.new(subtyping: checker, const_env: const_env)
 
       union_type = AST::Types::Union.build(types: [
@@ -315,59 +315,59 @@ class TypeEnvTest < Minitest::Test
         AST::Types::Name.new_instance(name: "::String")
       ])
 
-      original_env.set(const: Names::Module.parse("FOO"), type: union_type)
+      original_env.set(const: TypeName("FOO"), type: union_type)
 
       yield_self do
         type_env = original_env.with_annotations(const_types:
                                                    {
-                                                     Names::Module.parse("FOO") => AST::Types::Name.new_instance(name: "::String")
+                                                     TypeName("FOO") => AST::Types::Name.new_instance(name: "::String")
                                                    },
                                                  self_type: parse_type("self")) do |_, _|
           raise
         end
 
         assert_equal AST::Types::Name.new_instance(name: "::String"),
-                     type_env.get(const: Names::Module.parse("FOO")) { raise }
+                     type_env.get(const: TypeName("FOO")) { raise }
       end
 
       yield_self do
         type_env = original_env.with_annotations(const_types:
                                                    {
-                                                     Names::Module.parse("FOO") => AST::Types::Name.new_instance(name: "::Regexp")
+                                                     TypeName("FOO") => AST::Types::Name.new_instance(name: "::Regexp")
                                                    },
                                                  self_type: parse_type("self")) do |name, relation, error|
-          assert_equal name, Names::Module.parse("FOO")
+          assert_equal name, TypeName("FOO")
           assert_instance_of Subtyping::Result::Failure, error
         end
 
         assert_equal AST::Types::Name.new_instance(name: "::Regexp"),
-                     type_env.get(const: Names::Module.parse("FOO")) { raise }
+                     type_env.get(const: TypeName("FOO")) { raise }
       end
 
       yield_self do
         type_env = original_env.with_annotations(const_types:
                                                    {
-                                                     Names::Module.parse("String") => AST::Types::Name.new_instance(name: "::Regexp")
+                                                     TypeName("String") => AST::Types::Name.new_instance(name: "::Regexp")
                                                    },
                                                  self_type: parse_type("self")) do |name, relation, error|
-          assert_equal name, Names::Module.parse("String")
+          assert_equal name, TypeName("String")
           assert_instance_of Subtyping::Result::Failure, error
         end
 
         assert_equal AST::Types::Name.new_instance(name: "::Regexp"),
-                     type_env.get(const: Names::Module.parse("String")) { raise }
+                     type_env.get(const: TypeName("String")) { raise }
       end
 
       yield_self do
         type_env = original_env.with_annotations(const_types:
                                                    {
-                                                     Names::Module.parse("BAR") => AST::Types::Name.new_instance(name: "::String")
+                                                     TypeName("BAR") => AST::Types::Name.new_instance(name: "::String")
                                                    },
                                                  self_type: parse_type("self")) do |_, _, _|
           raise
         end
 
-        assert_equal AST::Types::Name.new_instance(name: "::String"), type_env.get(const: Names::Module.parse("BAR")) { raise }
+        assert_equal AST::Types::Name.new_instance(name: "::String"), type_env.get(const: TypeName("BAR")) { raise }
       end
     end
   end
@@ -383,13 +383,13 @@ $foo: String
       annotations = AST::Annotation::Collection.new(annotations: [
         AST::Annotation::VarType.new(name: :x, type: AST::Types::Name.new_instance(name: :X)),
         AST::Annotation::IvarType.new(name: :"@y", type: AST::Types::Name.new_instance(name: :Y)),
-        AST::Annotation::ConstType.new(name: Names::Module.parse("Foo"), type: AST::Types::Name.new_instance(name: "::Integer")),
+        AST::Annotation::ConstType.new(name: TypeName("Foo"), type: AST::Types::Name.new_instance(name: "::Integer")),
         AST::Annotation::ReturnType.new(type: AST::Types::Name.new_instance(name: :Z)),
         AST::Annotation::BlockType.new(type: AST::Types::Name.new_instance(name: :A)),
         AST::Annotation::Dynamic.new(names: [
           AST::Annotation::Dynamic::Name.new(name: :path, kind: :instance)
         ])
-      ], factory: checker.factory, current_module: AST::Namespace.root)
+      ], factory: checker.factory, current_module: RBS::Namespace.root)
 
       env = TypeInference::TypeEnv.build(annotations: annotations,
                                          signatures: factory.env,
@@ -397,7 +397,7 @@ $foo: String
                                          const_env: const_env)
 
       assert_equal AST::Types::Name.new_instance(name: "::Y"), env.get(ivar: :"@y")
-      assert_equal AST::Types::Name.new_instance(name: "::Integer"), env.get(const: Names::Module.parse("Foo"))
+      assert_equal AST::Types::Name.new_instance(name: "::Integer"), env.get(const: TypeName("Foo"))
       assert_equal AST::Types::Name.new_instance(name: "::String"), env.get(gvar: :"$foo")
     end
   end

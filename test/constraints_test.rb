@@ -131,8 +131,8 @@ end
                  constraints.eliminate_variable(AST::Types::Intersection.build(types: [AST::Types::Var.new(name: :a),
                                                                                        AST::Types::Var.new(name: :b)]),
                                                 to: AST::Types::Bot.new)
-    assert_equal AST::Types::Name::Instance.new(name: Names::Module.parse("::String"), args: [AST::Types::Any.new]),
-                 constraints.eliminate_variable(AST::Types::Name::Instance.new(name: Names::Module.parse("::String"),
+    assert_equal AST::Types::Name::Instance.new(name: TypeName("::String"), args: [AST::Types::Any.new]),
+                 constraints.eliminate_variable(AST::Types::Name::Instance.new(name: TypeName("::String"),
                                                                                args: [AST::Types::Var.new(name: :a)]),
                                                 to: AST::Types::Top.new)
   end

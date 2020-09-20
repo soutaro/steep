@@ -109,7 +109,7 @@ EOF
 
       annotations = source.annotations(block: dig(source.node, 1, 1),
                                        factory: checker.factory,
-                                       current_module: AST::Namespace.root)
+                                       current_module: RBS::Namespace.root)
 
       type_env.annotate(annotations).tap do |env|
         assert_equal parse_type("::Integer"), env[:x]
@@ -138,7 +138,7 @@ EOF
 
       annotations = source.annotations(block: dig(source.node, 1, 1),
                                        factory: checker.factory,
-                                       current_module: AST::Namespace.root)
+                                       current_module: RBS::Namespace.root)
 
       type_env.annotate(annotations) do |name, outer_type, inner_type, result|
         assert_equal :x, name
@@ -169,14 +169,14 @@ EOF
 
       top_annots = source.annotations(block: dig(source.node),
                                       factory: checker.factory,
-                                      current_module: AST::Namespace.root)
+                                      current_module: RBS::Namespace.root)
       top_level_env = type_env.annotate(top_annots)
 
       assert_equal parse_type("::Integer | ::String"), top_level_env[:x]
 
       block_annots = source.annotations(block: dig(source.node, 1),
                                         factory: checker.factory,
-                                        current_module: AST::Namespace.root)
+                                        current_module: RBS::Namespace.root)
       block_env = top_level_env.except(Set[:x]).annotate(block_annots)
 
       assert_equal parse_type("::Array[::String]"), block_env[:x]
@@ -264,7 +264,7 @@ EOF
 
       annots = source.annotations(block: dig(source.node, 1),
                                   factory: checker.factory,
-                                  current_module: AST::Namespace.root)
+                                  current_module: RBS::Namespace.root)
 
       type_env.assign(:x, node: dig(source.node, 0), type: parse_type("::Integer"))
         .pin_assignments
@@ -302,7 +302,7 @@ EOF
         .tap do |loop_env|
         loop_annots = source.annotations(block: dig(source.node, 1),
                                          factory: checker.factory,
-                                         current_module: AST::Namespace.root)
+                                         current_module: RBS::Namespace.root)
         # Annotate with more precise type is okay.
         loop_env.annotate(loop_annots)
       end

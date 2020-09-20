@@ -3,7 +3,7 @@ require "test_helper"
 class SourceTest < Minitest::Test
   A = Steep::AST::Annotation
   T = Steep::AST::Types
-  Namespace = Steep::AST::Namespace
+  Namespace = RBS::Namespace
 
   include TestHelper
   include SubtypingHelper

@@ -5,7 +5,6 @@ class AnnotationCollectionTest < Minitest::Test
   include TestHelper
   include FactoryHelper
 
-  Names = Steep::Names
   Annotation = Steep::AST::Annotation
   Types = Steep::AST::Types
   AST = Steep::AST
@@ -15,7 +14,7 @@ class AnnotationCollectionTest < Minitest::Test
       annotations: [
         Annotation::VarType.new(name: :x, type: parse_type("Object")),
         Annotation::IvarType.new(name: :@y, type: parse_type("Object")),
-        Annotation::ConstType.new(name: Names::Module.parse("Object"), type: parse_type("singleton(Object)")),
+        Annotation::ConstType.new(name: TypeName("Object"), type: parse_type("singleton(Object)")),
         Annotation::MethodType.new(name: :foo, type: parse_method_type("() -> Object")),
         Annotation::BlockType.new(type: parse_type("Object")),
         Annotation::ReturnType.new(type: parse_type("Object")),
@@ -23,7 +22,7 @@ class AnnotationCollectionTest < Minitest::Test
         Annotation::InstanceType.new(type: parse_type("String")),
         Annotation::ModuleType.new(type: parse_type("String")),
         Annotation::BreakType.new(type: parse_type("::Object")),
-        Annotation::Implements.new(name: Annotation::Implements::Module.new(name: Names::Module.parse("Object"), args: [])),
+        Annotation::Implements.new(name: Annotation::Implements::Module.new(name: TypeName("Object"), args: [])),
         Annotation::Dynamic.new(names: [
           Annotation::Dynamic::Name.new(name: :foo, kind: :instance),
           Annotation::Dynamic::Name.new(name: :bar, kind: :module),
@@ -46,7 +45,7 @@ EOF
 
   def test_types
     with_factory RBIS do |factory|
-      annotations = new_collection(current_module: AST::Namespace.parse("::Person"), factory: factory)
+      annotations = new_collection(current_module: Namespace("::Person"), factory: factory)
 
       assert_equal parse_type("::Person::Object"), annotations.var_type(lvar: :x)
       assert_nil annotations.var_type(lvar: :y)
@@ -54,8 +53,8 @@ EOF
       assert_equal parse_type("::Person::Object"), annotations.var_type(ivar: :@y)
       assert_nil annotations.var_type(ivar: :@x)
 
-      assert_equal parse_type("singleton(::Person::Object)"), annotations.var_type(const: Names::Module.parse("Object"))
-      assert_nil annotations.var_type(const: Names::Module.parse("::Object"))
+      assert_equal parse_type("singleton(::Person::Object)"), annotations.var_type(const: TypeName("Object"))
+      assert_nil annotations.var_type(const: TypeName("::Object"))
 
       assert_equal "() -> ::Person::Object", annotations.method_type(:foo).to_s
 
@@ -70,7 +69,7 @@ EOF
 
   def test_dynamics
     with_factory do |factory|
-      annotations = new_collection(current_module: AST::Namespace.parse("::Person"), factory: factory)
+      annotations = new_collection(current_module: Namespace("::Person"), factory: factory)
 
       assert_equal [:foo, :baz], annotations.instance_dynamics
       assert_equal [:bar, :baz], annotations.module_dynamics
@@ -79,7 +78,7 @@ EOF
 
   def test_merge_block_annotations
     with_factory RBIS do |factory|
-      namespace = AST::Namespace.parse("::Person")
+      namespace = Namespace("::Person")
       current_annotations = new_collection(current_module: namespace, factory: factory)
 
       block_annotations = Annotation::Collection.new(

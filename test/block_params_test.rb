@@ -9,7 +9,7 @@ class BlockParamsTest < Minitest::Test
   LabeledName = ASTUtils::Labeling::LabeledName
   Params = Steep::Interface::Params
   Types = Steep::AST::Types
-  Namespace = Steep::AST::Namespace
+  Namespace = RBS::Namespace
 
   def block_params(src)
     source = parse_ruby(src)

@@ -15,18 +15,13 @@ require "lsp_double"
 Rainbow.enabled = false
 
 module Steep::AST::Types::Name
-  def self.new_module(location: nil, name:, args: [])
-    name = Steep::Names::Module.parse(name.to_s) unless name.is_a?(Steep::Names::Module)
+  def self.new_singleton(name:, location: nil)
+    name = TypeName(name.to_s) unless name.is_a?(RBS::TypeName)
     Steep::AST::Types::Name::Singleton.new(name: name, location: location)
   end
 
-  def self.new_class(location: nil, name:, constructor:, args: [])
-    name = Steep::Names::Module.parse(name.to_s) unless name.is_a?(Steep::Names::Module)
-    Steep::AST::Types::Name::Singleton.new(location: location, name: name)
-  end
-
   def self.new_instance(location: nil, name:, args: [])
-    name = Steep::Names::Module.parse(name.to_s) unless name.is_a?(Steep::Names::Module)
+    name = TypeName(name.to_s) unless name.is_a?(RBS::TypeName)
     Steep::AST::Types::Name::Instance.new(location: location, name: name, args: args)
   end
 end

@@ -440,7 +440,7 @@ FOO
   end
 
   def test_union_type_methods
-    with_factory("foo.rbs" => <<-RBS) do |factory|
+    with_factory({ "foo.rbs" => <<-RBS }) do |factory|
 interface _I1
   def f: () -> void
   def g: () -> void
@@ -472,7 +472,7 @@ end
   end
 
   def test_intersection_type
-    with_factory("foo.rbs" => <<-RBS) do |factory|
+    with_factory({ "foo.rbs" => <<-RBS }) do |factory|
 interface _I1
   def f: () -> void
   def g: () -> void
@@ -547,19 +547,19 @@ end
     EOF
 
       factory.type(parse_type("Bar")).tap do |type|
-        factory.absolute_type(type, namespace: Steep::AST::Namespace.parse("::Foo")) do |absolute_type|
+        factory.absolute_type(type, namespace: RBS::Namespace.parse("::Foo")) do |absolute_type|
           assert_equal factory.type(parse_type("::Foo::Bar")), absolute_type
         end
       end
 
       factory.type(parse_type("Bar")).tap do |type|
-        factory.absolute_type(type, namespace: Steep::AST::Namespace.root) do |absolute_type|
+        factory.absolute_type(type, namespace: RBS::Namespace.root) do |absolute_type|
           assert_equal factory.type(parse_type("::Bar")), absolute_type
         end
       end
 
       factory.type(parse_type("Baz")).tap do |type|
-        factory.absolute_type(type, namespace: Steep::AST::Namespace.parse("::Foo")) do |absolute_type|
+        factory.absolute_type(type, namespace: Namespace("::Foo")) do |absolute_type|
           assert_equal factory.type(parse_type("::Baz")), absolute_type
         end
       end

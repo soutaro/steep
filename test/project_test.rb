@@ -119,7 +119,7 @@ puts array.join(", ")
       hover.content_for(path: Pathname("hello.rb"), line: 5, column: 12).tap do |content|
         assert_instance_of HoverContent::MethodCallContent, content
         assert_equal [5,5]...[5, 21], [content.location.line,content.location.column]...[content.location.last_line, content.location.last_column]
-        assert_equal HoverContent::InstanceMethodName.new(Names::Module.parse("::Array"), :join), content.method_name
+        assert_equal HoverContent::InstanceMethodName.new(TypeName("::Array"), :join), content.method_name
         assert_equal "::String", content.type.to_s
         assert_instance_of RBS::Definition::Method, content.definition
       end
@@ -147,7 +147,7 @@ EOF
       hover.content_for(path: Pathname("hello.rb"), line: 1, column: 9).tap do |content|
         assert_instance_of HoverContent::MethodCallContent, content
         assert_equal [1,0]...[1, 25], [content.location.line,content.location.column]...[content.location.last_line, content.location.last_column]
-        assert_equal HoverContent::InstanceMethodName.new(Names::Module.parse("::Array"), :map), content.method_name
+        assert_equal HoverContent::InstanceMethodName.new(TypeName("::Array"), :map), content.method_name
         assert_equal "::Array[::String]", content.type.to_s
         assert_instance_of RBS::Definition::Method, content.definition
       end

@@ -33,6 +33,8 @@ module Steep
       end
     end
 
+    include ModuleHelper
+
     attr_reader :checker
     attr_reader :source
     attr_reader :annotations
@@ -169,7 +171,7 @@ module Steep
 
       super_method = if definition
                        if (this_method = definition.methods[method_name])
-                         if module_context&.class_name == checker.factory.type_name(this_method.defined_in)
+                         if module_context&.class_name == this_method.defined_in
                            this_method.super_method
                          else
                            this_method
@@ -254,7 +256,7 @@ module Steep
         end
 
         if name
-          absolute_name_ = checker.factory.type_name_1(name)
+          absolute_name_ = name
           entry = checker.factory.env.class_decls[absolute_name_]
           AST::Annotation::Implements::Module.new(
             name: name,
@@ -265,7 +267,7 @@ module Steep
     end
 
     def for_module(node)
-      new_module_name = Names::Module.from_node(node.children.first) or raise "Unexpected module name: #{node.children.first}"
+      new_module_name = module_name_from_node(node.children.first) or raise "Unexpected module name: #{node.children.first}"
       new_namespace = nested_namespace_for_module(new_module_name)
 
       const_context = [new_namespace] + self.module_context.const_env.context
@@ -280,7 +282,7 @@ module Steep
         module_name = implement_module_name.name
         module_args = implement_module_name.args.map {|x| AST::Types::Var.new(name: x)}
 
-        type_name_ = checker.factory.type_name_1(implement_module_name.name)
+        type_name_ = implement_module_name.name
         module_entry = checker.factory.definition_builder.env.class_decls[type_name_]
         instance_def = checker.factory.definition_builder.build_instance(type_name_)
         module_def = checker.factory.definition_builder.build_singleton(type_name_)
@@ -359,8 +361,8 @@ module Steep
     end
 
     def for_class(node)
-      new_class_name = Names::Module.from_node(node.children.first) or raise "Unexpected class name: #{node.children.first}"
-      super_class_name = node.children[1] && Names::Module.from_node(node.children[1])
+      new_class_name = module_name_from_node(node.children.first) or raise "Unexpected class name: #{node.children.first}"
+      super_class_name = node.children[1] && module_name_from_node(node.children[1])
       new_namespace = nested_namespace_for_module(new_class_name)
 
       annots = source.annotations(block: node, factory: checker.factory, current_module: new_namespace)
@@ -375,7 +377,7 @@ module Steep
         class_name = implement_module_name.name
         class_args = implement_module_name.args.map {|x| AST::Types::Var.new(name: x)}
 
-        type_name_ = checker.factory.type_name_1(implement_module_name.name)
+        type_name_ = implement_module_name.name
         instance_def = checker.factory.definition_builder.build_instance(type_name_)
         module_def = checker.factory.definition_builder.build_singleton(type_name_)
 
@@ -445,7 +447,7 @@ module Steep
 
       module_type = case instance_type
                     when AST::Types::Name::Singleton
-                      type_name = checker.factory.type_name_1(instance_type.name)
+                      type_name = instance_type.name
 
                       case checker.factory.env.class_decls[type_name]
                       when RBS::Environment::ModuleEntry
@@ -464,16 +466,16 @@ module Steep
 
       instance_definition = case instance_type
                             when AST::Types::Name::Singleton
-                              type_name = checker.factory.type_name_1(instance_type.name)
+                              type_name = instance_type.name
                               checker.factory.definition_builder.build_singleton(type_name)
                             when AST::Types::Name::Instance
-                              type_name = checker.factory.type_name_1(instance_type.name)
+                              type_name = instance_type.name
                               checker.factory.definition_builder.build_instance(type_name)
                             end
 
       module_definition = case module_type
                           when AST::Types::Name::Singleton
-                            type_name = checker.factory.type_name_1(instance_type.name)
+                            type_name = instance_type.name
                             checker.factory.definition_builder.build_singleton(type_name)
                           else
                             nil
@@ -888,10 +890,10 @@ module Steep
             self_type = expand_self(self_type)
             definition = case self_type
                          when AST::Types::Name::Instance
-                           name = checker.factory.type_name_1(self_type.name)
+                           name = self_type.name
                            checker.factory.definition_builder.build_singleton(name)
                          when AST::Types::Name::Singleton
-                           name = checker.factory.type_name_1(self_type.name)
+                           name = self_type.name
                            checker.factory.definition_builder.build_singleton(name)
                          end
 
@@ -1270,7 +1272,7 @@ module Steep
           add_typing node, type: AST::Types::Self.new
 
         when :const
-          const_name = Names::Module.from_node(node)
+          const_name = module_name_from_node(node)
 
           if const_name
             type = type_env.get(const: const_name) do
@@ -1283,7 +1285,7 @@ module Steep
 
         when :casgn
           yield_self do
-            const_name = Names::Module.from_node(node)
+            const_name = module_name_from_node(node)
             if const_name
               const_type = type_env.get(const: const_name) {}
               value_type = synthesize(node.children.last, hint: const_type).type
@@ -3010,7 +3012,7 @@ module Steep
     end
 
     def nested_namespace_for_module(module_name)
-      if module_name.relative?
+      if module_name.namespace.relative?
         (current_namespace + module_name.namespace).append(module_name.name)
       else
         module_name
@@ -3019,7 +3021,7 @@ module Steep
 
     def absolute_name(module_name)
       if current_namespace
-        module_name.in_namespace(current_namespace)
+        module_name.with_prefix(current_namespace)
       else
         module_name.absolute!
       end
@@ -3037,7 +3039,7 @@ module Steep
     end
 
     def validate_method_definitions(node, module_name)
-      module_name_1 = checker.factory.type_name_1(module_name.name)
+      module_name_1 = module_name.name
       member_decl_count = checker.factory.env.class_decls[module_name_1].decls.count {|d| d.decl.each_member.count > 0 }
 
       return unless member_decl_count == 1
@@ -3277,7 +3279,7 @@ module Steep
     def to_instance_type(type, args: nil)
       args = args || case type
                      when AST::Types::Name::Singleton
-                       checker.factory.env.class_decls[checker.factory.type_name_1(type.name)].type_params.each.map { AST::Builtin.any_type }
+                       checker.factory.env.class_decls[type.name].type_params.each.map { AST::Builtin.any_type }
                      else
                        raise "unexpected type to to_instance_type: #{type}"
                      end

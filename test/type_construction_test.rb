@@ -6,13 +6,13 @@ class TypeConstructionTest < Minitest::Test
   include FactoryHelper
   include SubtypingHelper
 
+  Namespace = RBS::Namespace
+
   Typing = Steep::Typing
-  Namespace = Steep::AST::Namespace
   ConstantEnv = Steep::TypeInference::ConstantEnv
   TypeEnv = Steep::TypeInference::TypeEnv
   TypeConstruction = Steep::TypeConstruction
   Annotation = Steep::AST::Annotation
-  Names = Steep::Names
   Context = Steep::TypeInference::Context
   LocalVariableTypeEnv = Steep::TypeInference::LocalVariableTypeEnv
 
@@ -1020,10 +1020,7 @@ class Person end
         for_class = construction.for_class(source.node)
 
         assert_equal(
-          Annotation::Implements::Module.new(
-            name: Names::Module.parse("::Person"),
-            args: []
-          ),
+          Annotation::Implements::Module.new(name: TypeName("::Person"), args: []),
           for_class.module_context.implement_name
         )
         assert_equal parse_type("::Person"), for_class.module_context.instance_type
@@ -1102,7 +1099,7 @@ end
 
       assert_equal(
         Annotation::Implements::Module.new(
-          name: Names::Module.parse("::Steep::Names::Module"),
+          name: TypeName("::Steep::Names::Module"),
           args: []
         ),
         for_module.module_context.implement_name)
@@ -1120,10 +1117,7 @@ module Steep end
         for_module = construction.for_module(source.node)
 
         assert_equal(
-          Annotation::Implements::Module.new(
-            name: Names::Module.parse("::Steep"),
-            args: []
-          ),
+          Annotation::Implements::Module.new(name: TypeName("::Steep"), args: []),
           for_module.module_context.implement_name
         )
         assert_equal parse_type("::Object & ::Steep"), for_module.module_context.instance_type
@@ -1131,7 +1125,7 @@ module Steep end
       end
     end
   end
-  1
+
   def test_module_constructor_without_signature
     with_checker <<-EOF do |checker|
 module Rails end
@@ -1201,10 +1195,7 @@ class Steep end
       for_module = construction.for_module(module_node)
 
       assert_equal(
-        Annotation::Implements::Module.new(
-          name: Names::Module.parse("::Steep::Printable"),
-          args: []
-        ),
+        Annotation::Implements::Module.new(name: TypeName("::Steep::Printable"), args: []),
         for_module.module_context.implement_name)
     end
   end
@@ -1219,7 +1210,7 @@ end
       source = parse_ruby("class A; def foo(x); end; end")
 
       with_standard_construction(checker, source) do |construction, typing|
-        type_name = checker.factory.type_name_1(parse_type("::A").name)
+        type_name = parse_type("::A").name
         instance_definition = checker.factory.definition_builder.build_instance(type_name)
 
         def_node = source.node.children[2]
@@ -1255,7 +1246,7 @@ EOS
       source = parse_ruby("class A; def foo(x); end; end")
 
       with_standard_construction(checker, source) do |construction, typing|
-        type_name = checker.factory.type_name_1(parse_type("::A").name)
+        type_name = parse_type("::A").name
         instance_definition = checker.factory.definition_builder.build_instance(type_name)
 
         def_node = source.node.children[2]
@@ -1296,7 +1287,7 @@ end
       EOF
 
       with_standard_construction(checker, source) do |construction, typing|
-        type_name = checker.factory.type_name_1(parse_type("::A").name)
+        type_name = parse_type("::A").name
         instance_definition = checker.factory.definition_builder.build_instance(type_name)
 
         def_node = source.node.children[2]
@@ -1338,7 +1329,7 @@ end
       RUBY
 
       with_standard_construction(checker, source) do |construction, typing|
-        type_name = checker.factory.type_name_1(parse_type("::A").name)
+        type_name = parse_type("::A").name
         instance_definition = checker.factory.definition_builder.build_instance(type_name)
         def_node = source.node.children[2]
 
@@ -1383,7 +1374,7 @@ end
 
       with_standard_construction(checker, source) do |construction, typing|
         def_node = source.node.children[2]
-        type_name = checker.factory.type_name_1(parse_type("::A").name)
+        type_name = parse_type("::A").name
         instance_definition = checker.factory.definition_builder.build_instance(type_name)
 
         construction.for_new_method(:foo,

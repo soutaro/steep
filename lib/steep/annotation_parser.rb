@@ -80,9 +80,7 @@ module Steep
           name = match[:name]
           type = parse_type(match[:type])
 
-          AST::Annotation::ConstType.new(name: Names::Module.parse(name),
-                                         type: type,
-                                         location: location)
+          AST::Annotation::ConstType.new(name: TypeName(name), type: type, location: location)
         end
 
       when keyword_subject_type("ivar", IVAR_NAME)
@@ -152,7 +150,7 @@ module Steep
 
       when /@implements\s+(?<name>#{CONST_NAME})#{TYPE_PARAMS}$/
         Regexp.last_match.yield_self do |match|
-          type_name = Names::Module.parse(match[:name])
+          type_name = TypeName(match[:name])
           params = match[:params]&.yield_self {|params| params.split(/,/).map {|param| param.strip.to_sym } } || []
 
           name = AST::Annotation::Implements::Module.new(name: type_name, args: params)
