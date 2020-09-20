@@ -175,7 +175,7 @@ module Steep
           )
         end
 
-        def method_type(method_type, self_type:, subst2: nil)
+        def method_type(method_type, self_type:, subst2: nil, method_def: nil)
           fvs = self_type.free_variables()
 
           type_params = []
@@ -199,14 +199,15 @@ module Steep
             type_params: type_params,
             return_type: type(method_type.type.return_type).subst(subst),
             params: params(method_type.type).subst(subst),
-            location: nil,
             block: method_type.block&.yield_self do |block|
               Interface::Block.new(
                 optional: !block.required,
                 type: Proc.new(params: params(block.type).subst(subst),
                                return_type: type(block.type.return_type).subst(subst), location: nil)
               )
-            end
+            end,
+            method_def: method_def,
+            location: method_def&.member&.location
           )
 
           if block_given?
@@ -319,8 +320,8 @@ module Steep
                   next if method.private? && !private
 
                   interface.methods[name] = Interface::Interface::Entry.new(
-                    method_types: method.method_types.map do |type|
-                      method_type(type, self_type: self_type, subst2: subst)
+                    method_types: method.defs.map do |type_def|
+                      method_type(type_def.type, method_def: type_def, self_type: self_type, subst2: subst)
                     end
                   )
                 end
@@ -340,8 +341,8 @@ module Steep
 
               definition.methods.each do |name, method|
                 interface.methods[name] = Interface::Interface::Entry.new(
-                  method_types: method.method_types.map do |type|
-                    method_type(type, self_type: self_type, subst2: subst)
+                  method_types: method.defs.map do |type_def|
+                    method_type(type_def.type, method_def: type_def, self_type: self_type, subst2: subst)
                   end
                 )
               end
@@ -365,8 +366,8 @@ module Steep
                 next if !private && method.private?
 
                 interface.methods[name] = Interface::Interface::Entry.new(
-                  method_types: method.method_types.map do |type|
-                    method_type(type, self_type: self_type, subst2: subst)
+                  method_types: method.defs.map do |type_def|
+                    method_type(type_def.type, method_def: type_def, self_type: self_type, subst2: subst)
                   end
                 )
               end
@@ -443,6 +444,7 @@ module Steep
                                                       rest_keywords: nil),
                         block: nil,
                         return_type: elem_type,
+                        method_def: nil,
                         location: nil
                       )
                     } + aref.method_types
@@ -462,6 +464,7 @@ module Steep
                                                       rest_keywords: nil),
                         block: nil,
                         return_type: elem_type,
+                        method_def: nil,
                         location: nil
                       )
                     } + update.method_types
@@ -476,6 +479,7 @@ module Steep
                         params: Interface::Params.empty,
                         block: nil,
                         return_type: type.types[0] || AST::Builtin.nil_type,
+                        method_def: nil,
                         location: nil
                       )
                     ]
@@ -490,6 +494,7 @@ module Steep
                         params: Interface::Params.empty,
                         block: nil,
                         return_type: type.types.last || AST::Builtin.nil_type,
+                        method_def: nil,
                         location: nil
                       )
                     ]
@@ -521,6 +526,7 @@ module Steep
                                                       rest_keywords: nil),
                         block: nil,
                         return_type: value_type,
+                        method_def: nil,
                         location: nil
                       )
                     } + ref.method_types
@@ -541,6 +547,7 @@ module Steep
                                                       rest_keywords: nil),
                         block: nil,
                         return_type: value_type,
+                        method_def: nil,
                         location: nil
                       )
                     } + update.method_types
@@ -556,6 +563,7 @@ module Steep
                 params: type.params,
                 return_type: type.return_type,
                 block: nil,
+                method_def: nil,
                 location: nil
               )
 

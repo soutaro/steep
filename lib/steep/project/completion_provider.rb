@@ -10,13 +10,9 @@ module Steep
 
       InstanceVariableItem = Struct.new(:identifier, :range, :type, keyword_init: true)
       LocalVariableItem = Struct.new(:identifier, :range, :type, keyword_init: true)
-      MethodNameItem = Struct.new(:identifier, :range, :definition, :def_type, :inherited_method, keyword_init: true) do
-        def method_type
-          def_type.type
-        end
-
+      MethodNameItem = Struct.new(:identifier, :range, :method_def, :method_type, :inherited_method, keyword_init: true) do
         def comment
-          def_type.comment
+          method_def&.comment
         end
       end
 
@@ -90,7 +86,9 @@ module Steep
       end
 
       def at_end?(pos, of:)
-        of.last_line == pos.line && of.last_column == pos.column
+        if of
+          of.last_line == pos.line && of.last_column == pos.column
+        end
       end
 
       def range_for(position, prefix: "")
@@ -230,33 +228,21 @@ module Steep
 
       def method_items_for_receiver_type(type, include_private:, prefix:, position:, items:)
         range = range_for(position, prefix: prefix)
-        definition = case type
-                     when AST::Types::Name::Instance
-                       type_name = type.name
-                       subtyping.factory.definition_builder.build_instance(type_name)
-                     when AST::Types::Name::Singleton
-                       type_name = type.name
-                       subtyping.factory.definition_builder.build_singleton(type_name)
-                     when AST::Types::Name::Interface
-                       type_name = type.name
-                       subtyping.factory.definition_builder.build_interface(type_name)
-                     end
+        interface = subtyping.factory.interface(type, self_type: type, private: include_private)
 
-        if definition
-          definition.methods.each do |name, method|
-            next if disallowed_method?(name)
+        interface.methods.each do |name, method_entry|
+          next if disallowed_method?(name)
 
-            if include_private || method.public?
-              if name.to_s.start_with?(prefix)
-                if word_name?(name.to_s)
-                  method.defs.each do |def_type|
-                    items << MethodNameItem.new(identifier: name,
-                                                range: range,
-                                                definition: method,
-                                                def_type: def_type,
-                                                inherited_method: inherited_method?(method, definition))
-                  end
-                end
+          if name.to_s.start_with?(prefix)
+            if word_name?(name.to_s)
+              method_entry.method_types.each do |method_type|
+                items << MethodNameItem.new(
+                  identifier: name,
+                  range: range,
+                  method_def: method_type.method_def,
+                  method_type: method_type.method_def&.type || subtyping.factory.method_type_1(method_type, self_type: type),
+                  inherited_method: inherited_method?(method_type.method_def, type)
+                )
               end
             end
           end
@@ -304,8 +290,13 @@ module Steep
         index
       end
 
-      def inherited_method?(method, definition)
-        method.implemented_in != definition.type_name
+      def inherited_method?(method_def, type)
+        case type
+        when AST::Types::Name::Instance, AST::Types::Name::Singleton, AST::Types::Name::Interface
+          method_def.implemented_in != type.name
+        else
+          false
+        end
       end
 
       def disallowed_method?(name)
