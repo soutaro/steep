@@ -192,4 +192,44 @@ x.
       end
     end
   end
+
+  def test_on_module_public
+    with_checker <<EOF do
+interface _Named
+  def name: () -> String
+end
+
+module TestModule : _Named
+  def foo: () -> String
+
+  def bar: () -> Integer
+end
+EOF
+      CompletionProvider.new(source_text: <<-EOR, path: Pathname("foo.rb"), subtyping: checker).tap do |provider|
+module TestModule
+  def foo
+    self.
+  end
+end
+      EOR
+
+        provider.run(line: 3, column: 9).tap do |items|
+          assert_equal [:bar, :class, :foo, :itself, :name, :nil?, :tap, :to_s],
+                       items.map(&:identifier).sort
+        end
+      end
+    end
+  end
+
+  def test_on_paren
+    with_checker <<EOF do
+EOF
+      CompletionProvider.new(source_text: <<-EOR, path: Pathname("foo.rb"), subtyping: checker).tap do |provider|
+require()
+      EOR
+
+        provider.run(line: 1, column: 8)
+      end
+    end
+  end
 end
