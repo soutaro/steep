@@ -16,8 +16,6 @@ require 'uri'
 
 require "rbs"
 
-require "steep/ast/namespace"
-require "steep/names"
 require "steep/ast/location"
 require "steep/ast/types/helper"
 require "steep/ast/types/any"
@@ -62,6 +60,7 @@ require "steep/source"
 require "steep/annotation_parser"
 require "steep/typing"
 require "steep/errors"
+require "steep/module_helper"
 require "steep/type_construction"
 require "steep/type_inference/context"
 require "steep/type_inference/context_array"

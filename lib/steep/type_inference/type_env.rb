@@ -57,7 +57,7 @@ module Steep
         end
       end
 
-      # @type method assert: (const: Names::Module) { () -> void } -> AST::Type
+      # @type method assert: (const: TypeName) { () -> void } -> AST::Type
       #                    | (gvar: Symbol) { () -> void } -> AST::Type
       #                    | (ivar: Symbol) { () -> void } -> AST::Type
       def get(const: nil, gvar: nil, ivar: nil)
@@ -98,7 +98,7 @@ module Steep
         end
       end
 
-      # @type method assign: (const: Names::Module, type: AST::Type) { (Subtyping::Result::Failure | nil) -> void } -> AST::Type
+      # @type method assign: (const: TypeName, type: AST::Type) { (Subtyping::Result::Failure | nil) -> void } -> AST::Type
       #                    | (gvar: Symbol, type: AST::Type) { (Subtyping::Result::Failure | nil) -> void } -> AST::Type
       #                    | (ivar: Symbol, type: AST::Type) { (Subtyping::Result::Failure | nil) -> void } -> AST::Type
       def assign(const: nil, gvar: nil, ivar: nil, type:, self_type:, &block)

@@ -43,18 +43,18 @@ module Steep
           when RBS::Types::Variable
             Var.new(name: type.name, location: nil)
           when RBS::Types::ClassSingleton
-            type_name = type_name(type.name)
+            type_name = type.name
             Name::Singleton.new(name: type_name, location: nil)
           when RBS::Types::ClassInstance
-            type_name = type_name(type.name)
+            type_name = type.name
             args = type.args.map {|arg| type(arg) }
             Name::Instance.new(name: type_name, args: args, location: nil)
           when RBS::Types::Interface
-            type_name = type_name(type.name)
+            type_name = type.name
             args = type.args.map {|arg| type(arg) }
             Name::Interface.new(name: type_name, args: args, location: nil)
           when RBS::Types::Alias
-            type_name = type_name(type.name)
+            type_name = type.name
             Name::Alias.new(name: type_name, args: [], location: nil)
           when RBS::Types::Union
             Union.build(types: type.types.map {|ty| type(ty) }, location: nil)
@@ -103,22 +103,22 @@ module Steep
           when Var
             RBS::Types::Variable.new(name: type.name, location: nil)
           when Name::Singleton
-            RBS::Types::ClassSingleton.new(name: type_name_1(type.name), location: nil)
+            RBS::Types::ClassSingleton.new(name: type.name, location: nil)
           when Name::Instance
             RBS::Types::ClassInstance.new(
-              name: type_name_1(type.name),
+              name: type.name,
               args: type.args.map {|arg| type_1(arg) },
               location: nil
             )
           when Name::Interface
             RBS::Types::Interface.new(
-              name: type_name_1(type.name),
+              name: type.name,
               args: type.args.map {|arg| type_1(arg) },
               location: nil
             )
           when Name::Alias
             type.args.empty? or raise "alias type with args is not supported"
-            RBS::Types::Alias.new(name: type_name_1(type.name), location: nil)
+            RBS::Types::Alias.new(name: type.name, location: nil)
           when Union
             RBS::Types::Union.new(
               types: type.types.map {|ty| type_1(ty) },
@@ -149,32 +149,6 @@ module Steep
           else
             raise "Unexpected type given: #{type} (#{type.class})"
           end
-        end
-
-        def type_name(name)
-          n = type_name_cache[name] and return n
-
-          type_name_cache[name] =
-            (case
-             when name.class?
-               Names::Module.new(name: name.name, namespace: namespace(name.namespace), location: nil)
-             when name.interface?
-               Names::Interface.new(name: name.name, namespace: namespace(name.namespace), location: nil)
-             when name.alias?
-               Names::Alias.new(name: name.name, namespace: namespace(name.namespace), location: nil)
-             end)
-        end
-
-        def type_name_1(name)
-          RBS::TypeName.new(name: name.name, namespace: namespace_1(name.namespace))
-        end
-
-        def namespace(namespace)
-          Namespace.parse(namespace.to_s)
-        end
-
-        def namespace_1(namespace)
-          RBS::Namespace.parse(namespace.to_s)
         end
 
         def function_1(params, return_type)
@@ -292,7 +266,7 @@ module Steep
         end
 
         def unfold(type_name)
-          type_name_1(type_name).yield_self do |type_name|
+          type_name.yield_self do |type_name|
             type(definition_builder.expand_alias(type_name))
           end
         end
@@ -325,7 +299,7 @@ module Steep
             end
           when Name::Instance
             Interface::Interface.new(type: self_type, private: private).tap do |interface|
-              definition = definition_builder.build_instance(type_name_1(type.name))
+              definition = definition_builder.build_instance(type.name)
 
               instance_type = Name::Instance.new(name: type.name,
                                                  args: type.args.map { Any.new(location: nil) },
@@ -355,7 +329,7 @@ module Steep
 
           when Name::Interface
             Interface::Interface.new(type: self_type, private: private).tap do |interface|
-              type_name = type_name_1(type.name)
+              type_name = type.name
               definition = definition_builder.build_interface(type_name)
 
               subst = Interface::Substitution.build(
@@ -375,7 +349,7 @@ module Steep
 
           when Name::Singleton
             Interface::Interface.new(type: self_type, private: private).tap do |interface|
-              definition = definition_builder.build_singleton(type_name_1(type.name))
+              definition = definition_builder.build_singleton(type.name)
 
               instance_type = Name::Instance.new(name: type.name,
                                                  args: definition.type_params.map {Any.new(location: nil)},
@@ -595,13 +569,11 @@ module Steep
         end
 
         def module_name?(type_name)
-          name = type_name_1(type_name)
-          entry = env.class_decls[name] and entry.is_a?(RBS::Environment::ModuleEntry)
+          entry = env.class_decls[type_name] and entry.is_a?(RBS::Environment::ModuleEntry)
         end
 
         def class_name?(type_name)
-          name = type_name_1(type_name)
-          entry = env.class_decls[name] and entry.is_a?(RBS::Environment::ClassEntry)
+          entry = env.class_decls[type_name] and entry.is_a?(RBS::Environment::ClassEntry)
         end
 
         def env
@@ -616,7 +588,7 @@ module Steep
         end
 
         def absolute_type_name(type_name, namespace:)
-          type_name_resolver.resolve(type_name, context: namespace_1(namespace).ascend)
+          type_name_resolver.resolve(type_name, context: namespace.ascend)
         end
       end
     end

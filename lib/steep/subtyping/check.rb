@@ -10,8 +10,7 @@ module Steep
       end
 
       def instance_super_types(type_name, args:)
-        type_name_1 = factory.type_name_1(type_name)
-        ancestors = factory.definition_builder.one_instance_ancestors(type_name_1)
+        ancestors = factory.definition_builder.one_instance_ancestors(type_name)
 
         subst = unless args.empty?
                   args_ = args.map {|type| factory.type_1(type) }
@@ -19,7 +18,7 @@ module Steep
                 end
 
         ancestors.each_ancestor.map do |ancestor|
-          name = factory.type_name(ancestor.name)
+          name = ancestor.name
 
           case ancestor
           when RBS::Definition::Ancestor::Instance
@@ -51,11 +50,10 @@ module Steep
       end
 
       def singleton_super_types(type_name)
-        type_name_1 = factory.type_name_1(type_name)
-        ancestors = factory.definition_builder.one_singleton_ancestors(type_name_1)
+        ancestors = factory.definition_builder.one_singleton_ancestors(type_name)
 
         ancestors.each_ancestor.map do |ancestor|
-          name = factory.type_name(ancestor.name)
+          name = ancestor.name
 
           case ancestor
           when RBS::Definition::Ancestor::Instance
@@ -392,7 +390,7 @@ module Steep
       end
 
       def definition_for_type(type)
-        type_name = factory.type_name_1(type.name)
+        type_name = type.name
 
         case type
         when AST::Types::Name::Instance

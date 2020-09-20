@@ -21,9 +21,7 @@ module Steep
         @project = project
       end
 
-      def method_definition_for(factory, module_name, singleton_method: nil, instance_method: nil)
-        type_name = factory.type_name_1(module_name)
-
+      def method_definition_for(factory, type_name, singleton_method: nil, instance_method: nil)
         case
         when instance_method
           factory.definition_builder.build_instance(type_name).methods[instance_method]
@@ -86,7 +84,7 @@ module Steep
                                           when AST::Types::Name::Instance
                                             method_definition = method_definition_for(factory, receiver_type.name, instance_method: method_name)
                                             if method_definition&.defined_in
-                                              owner_name = factory.type_name(method_definition.defined_in)
+                                              owner_name = method_definition.defined_in
                                               [
                                                 InstanceMethodName.new(owner_name, method_name),
                                                 method_definition
@@ -95,7 +93,7 @@ module Steep
                                           when AST::Types::Name::Singleton
                                             method_definition = method_definition_for(factory, receiver_type.name, singleton_method: method_name)
                                             if method_definition&.defined_in
-                                              owner_name = factory.type_name(method_definition.defined_in)
+                                              owner_name = method_definition.defined_in
                                               [
                                                 SingletonMethodName.new(owner_name, method_name),
                                                 method_definition

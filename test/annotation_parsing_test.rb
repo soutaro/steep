@@ -5,7 +5,6 @@ class AnnotationParsingTest < Minitest::Test
   include ASTAssertion
   include FactoryHelper
 
-  Names = Steep::Names
   AnnotationParser = Steep::AnnotationParser
   Annotation = Steep::AST::Annotation
   Types = Steep::AST::Types
@@ -75,7 +74,7 @@ class AnnotationParsingTest < Minitest::Test
     with_factory do |factory|
       annot = parse_annotation("@type const Foo::Bar::Baz: String", factory: factory)
       assert_instance_of Annotation::ConstType, annot
-      assert_equal Names::Module.parse("Foo::Bar::Baz"), annot.name
+      assert_equal TypeName("Foo::Bar::Baz"), annot.name
       assert_equal parse_type("String", factory: factory), annot.type
     end
   end
@@ -84,7 +83,7 @@ class AnnotationParsingTest < Minitest::Test
     with_factory do |factory|
       annot = parse_annotation("@type const Foo: String", factory: factory)
       assert_instance_of Annotation::ConstType, annot
-      assert_equal Names::Module.parse("Foo"), annot.name
+      assert_equal TypeName("Foo"), annot.name
       assert_equal parse_type("String", factory: factory), annot.type
     end
   end
@@ -93,7 +92,7 @@ class AnnotationParsingTest < Minitest::Test
     with_factory do |factory|
       annot = parse_annotation("@type const ::Foo: String", factory: factory)
       assert_instance_of Annotation::ConstType, annot
-      assert_equal Names::Module.parse("::Foo"), annot.name
+      assert_equal TypeName("::Foo"), annot.name
       assert_equal parse_type("String", factory: factory), annot.type
     end
   end
@@ -118,7 +117,7 @@ class AnnotationParsingTest < Minitest::Test
     with_factory do |factory|
       annot = parse_annotation("@implements String", factory: factory)
       assert_instance_of Annotation::Implements, annot
-      assert_equal Names::Module.parse("String"), annot.name.name
+      assert_equal TypeName("String"), annot.name.name
       assert_empty annot.name.args
     end
   end
@@ -127,7 +126,7 @@ class AnnotationParsingTest < Minitest::Test
     with_factory do |factory|
       annot = parse_annotation("@implements Array[A]", factory: factory)
       assert_instance_of Annotation::Implements, annot
-      assert_equal Names::Module.parse('Array'), annot.name.name
+      assert_equal TypeName('Array'), annot.name.name
       assert_equal [:A], annot.name.args
     end
   end

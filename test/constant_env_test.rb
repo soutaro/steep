@@ -4,7 +4,6 @@ class ConstantEnvTest < Minitest::Test
   include TestHelper
   include FactoryHelper
 
-  Names = Steep::Names
   ConstantEnv = Steep::TypeInference::ConstantEnv
 
   BUILTIN = <<-EOS
@@ -49,23 +48,21 @@ end
   end
 
   def test_from_toplevel
-    with_constant_env(context: [Steep::AST::Namespace.root]) do |env|
+    with_constant_env(context: [RBS::Namespace.root]) do |env|
       assert_equal parse_type("singleton(::BasicObject)"),
-                   env.lookup(Names::Module.parse("BasicObject"))
+                   env.lookup(TypeName("BasicObject"))
       assert_equal parse_type("singleton(::Kernel)"),
-                   env.lookup(Names::Module.parse("Kernel"))
+                   env.lookup(TypeName("Kernel"))
     end
   end
 
   def test_from_module
-    with_constant_env({ "foo.rbs" => <<-EOS }, context: [Names::Module.parse("::A")]) do |env|
+    with_constant_env({ "foo.rbs" => <<-EOS }, context: [Namespace("::A")]) do |env|
 module A end
 module A::String end
     EOS
-      assert_equal parse_type("singleton(::A::String)"),
-                   env.lookup(Names::Module.parse("String"))
-      assert_equal parse_type("singleton(::String)"),
-                   env.lookup(Names::Module.parse("::String"))
+      assert_equal parse_type("singleton(::A::String)"), env.lookup(TypeName("String"))
+      assert_equal parse_type("singleton(::String)"), env.lookup(TypeName("::String"))
     end
   end
 end

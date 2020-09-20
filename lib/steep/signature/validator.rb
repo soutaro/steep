@@ -130,19 +130,19 @@ module Steep
         yield
       rescue RBS::InvalidTypeApplicationError => exn
         @errors << Errors::InvalidTypeApplicationError.new(
-          name: factory.type_name(exn.type_name),
+          name: exn.type_name,
           args: exn.args.map {|ty| factory.type(ty) },
           params: exn.params,
           location: exn.location
         )
       rescue RBS::NoTypeFoundError, RBS::NoSuperclassFoundError, RBS::NoMixinFoundError => exn
         @errors << Errors::UnknownTypeNameError.new(
-          name: factory.type_name(exn.type_name),
+          name: exn.type_name,
           location: exn.location
         )
       rescue RBS::InvalidOverloadMethodError => exn
         @errors << Errors::InvalidMethodOverloadError.new(
-          class_name: factory.type_name(exn.type_name),
+          class_name: exn.type_name,
           method_name: exn.method_name,
           location: exn.members[0].location
         )
