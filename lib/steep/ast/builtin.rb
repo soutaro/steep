@@ -81,6 +81,14 @@ module Steep
       def self.optional(type)
         AST::Types::Union.build(types: [type, nil_type])
       end
+
+      def self.true_type
+        AST::Types::Literal.new(value: true)
+      end
+
+      def self.false_type
+        AST::Types::Literal.new(value: false)
+      end
     end
   end
 end

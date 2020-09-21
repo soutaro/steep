@@ -5464,4 +5464,172 @@ end
       end
     end
   end
+
+  def test_logic_receiver_is_nil
+    with_checker(<<-RBS) do |checker|
+    RBS
+      source = parse_ruby(<<-RUBY)
+a = [1].first
+return if a.nil?
+a + 1
+
+b = [1].first
+return if (x = b).nil?
+x + 1
+
+c = [1].first
+return if (y = c.nil?)
+c + 1
+      RUBY
+
+      with_standard_construction(checker, source) do |construction, typing|
+        construction.synthesize(source.node)
+        assert_no_error typing
+      end
+    end
+  end
+
+  def test_logic_receiver_is_arg
+    with_checker(<<-RBS) do |checker|
+    RBS
+      source = parse_ruby(<<-RUBY)
+a = [1, ""].first
+
+return if a.nil?
+
+if a.is_a?(String)
+  a + "!"
+else
+  a + 1
+end
+      RUBY
+
+      with_standard_construction(checker, source) do |construction, typing|
+        construction.synthesize(source.node)
+        assert_no_error typing
+      end
+    end
+  end
+
+  def test_logic_arg_is_receiver
+    with_checker(<<-RBS) do |checker|
+    RBS
+      source = parse_ruby(<<-RUBY)
+a = [1, ""].first
+
+return if a.nil?
+
+if String === a
+  a + "!"
+else
+  a + 1
+end
+      RUBY
+
+      with_standard_construction(checker, source) do |construction, typing|
+        construction.synthesize(source.node)
+        assert_no_error typing
+      end
+    end
+  end
+
+  def test_logic_value
+    with_checker(<<-RBS) do |checker|
+    RBS
+      source = parse_ruby(<<-RUBY)
+a = [1].first
+return unless a
+a+1
+      RUBY
+
+      with_standard_construction(checker, source) do |construction, typing|
+        construction.synthesize(source.node)
+        assert_no_error typing
+      end
+    end
+  end
+
+  def test_logic_not
+    with_checker(<<-RBS) do |checker|
+    RBS
+      source = parse_ruby(<<-RUBY)
+a = [1].first
+return if !a
+a+1
+      RUBY
+
+      with_standard_construction(checker, source) do |construction, typing|
+        construction.synthesize(source.node)
+        assert_no_error typing
+      end
+    end
+  end
+
+  def test_logic_and
+    with_checker(<<-RBS) do |checker|
+    RBS
+      source = parse_ruby(<<-RUBY)
+a = [1].first
+a.nil? and return
+a + 1
+      RUBY
+
+      with_standard_construction(checker, source) do |construction, typing|
+        construction.synthesize(source.node)
+        assert_no_error typing
+      end
+    end
+  end
+
+  def test_logic_or
+    with_checker(<<-RBS) do |checker|
+    RBS
+      source = parse_ruby(<<-RUBY)
+a = [1].first
+!a.nil? or return
+a + 1
+      RUBY
+
+      with_standard_construction(checker, source) do |construction, typing|
+        construction.synthesize(source.node)
+        assert_no_error typing
+      end
+    end
+  end
+
+  def test_logic_type_no_escape
+    with_checker(<<-RBS) do |checker|
+    RBS
+      source = parse_ruby(<<-RUBY)
+a = [1].first
+x = a.nil?
+return if x
+a + 1
+      RUBY
+
+      with_standard_construction(checker, source) do |construction, typing|
+        construction.synthesize(source.node)
+        assert_equal 1, typing.errors.size
+      end
+    end
+  end
+
+  def test_logic_type_no_escape
+    with_checker(<<-RBS) do |checker|
+class Object
+  def yield_self: [A] () { () -> A } -> A
+end
+    RBS
+      source = parse_ruby(<<-RUBY)
+a = [1].first
+return unless a.yield_self { !a.nil? }
+a + 1
+      RUBY
+
+      with_standard_construction(checker, source) do |construction, typing|
+        construction.synthesize(source.node)
+        assert_equal 1, typing.errors.size
+      end
+    end
+  end
 end

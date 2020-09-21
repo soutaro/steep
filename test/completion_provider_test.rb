@@ -60,7 +60,7 @@ self.cl
         end
 
         provider.run(line: 1, column: 5).tap do |items|
-          assert_equal [:class, :itself, :nil?, :tap, :to_s], items.map(&:identifier).sort
+          assert_equal [:class, :is_a?, :itself, :nil?, :tap, :to_s], items.map(&:identifier).sort
         end
       end
     end
@@ -104,6 +104,7 @@ end
         provider.run(line: 1, column: 4).tap do |items|
           assert_equal [
             { :identifier=>:class, :inherited_method=>true },
+            { :identifier=>:is_a?, :inherited_method=>true },
             { :identifier=>:itself, :inherited_method=>true },
             { :identifier=>:nil?, :inherited_method=>true },
             { :identifier=>:size, :inherited_method=>false },
@@ -160,12 +161,12 @@ end
       EOR
 
         provider.run(line: 3, column: 0).tap do |items|
-          assert_equal [:@foo1, :@foo2, :class, :gets, :itself, :nil?, :puts, :require, :tap, :to_s, :world],
+          assert_equal [:@foo1, :@foo2, :class, :gets, :is_a?, :itself, :nil?, :puts, :require, :tap, :to_s, :world],
                        items.map(&:identifier).sort
         end
 
         provider.run(line: 5, column: 0).tap do |items|
-          assert_equal [:attr_reader, :block_given?, :class, :gets, :itself, :new, :nil?, :puts, :require, :tap, :to_s],
+          assert_equal [:attr_reader, :block_given?, :class, :gets, :is_a?, :itself, :new, :nil?, :puts, :require, :tap, :to_s],
                        items.map(&:identifier).sort
         end
       end
@@ -214,7 +215,7 @@ end
       EOR
 
         provider.run(line: 3, column: 9).tap do |items|
-          assert_equal [:bar, :class, :foo, :itself, :name, :nil?, :tap, :to_s],
+          assert_equal [:bar, :class, :foo, :is_a?, :itself, :name, :nil?, :tap, :to_s],
                        items.map(&:identifier).sort
         end
       end

@@ -216,6 +216,7 @@ module SubtypingHelper
   BUILTIN = <<-EOS
 class BasicObject
   def initialize: () -> void
+  def !: -> bool
 end
 
 class Object < BasicObject
@@ -223,8 +224,8 @@ class Object < BasicObject
   def tap: { (instance) -> untyped } -> instance
   def to_s: -> String
   def nil?: -> bool
-  def !: -> bool
   def itself: -> self
+  def is_a?: (Module) -> bool
 
 private
   def require: (String) -> void
@@ -238,6 +239,7 @@ end
 class Module
   def block_given?: -> untyped
   def attr_reader: (*Symbol) -> void
+  def ===: (untyped) -> bool
 end
 
 class String
