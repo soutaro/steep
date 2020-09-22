@@ -5175,6 +5175,27 @@ end
     end
   end
 
+  def test_flow_sensitive_if_return
+    with_checker(<<-RBS) do |checker|
+class OptionalBlockParam
+  def foo: { (Integer?) -> void } -> void
+end
+    RBS
+
+      source = parse_ruby(<<-RUBY)
+OptionalBlockParam.new.foo do |x|
+  next unless x  
+  x + 1
+end
+      RUBY
+
+      with_standard_construction(checker, source) do |construction, typing|
+        construction.synthesize(source.node)
+        assert_no_error typing
+      end
+    end
+  end
+
   def test_flow_sensitive_when_optional
     with_checker(<<-RBS) do |checker|
 class FlowSensitiveOptional

@@ -2885,7 +2885,7 @@ module Steep
         decls = param_types_hash.each.with_object({}) do |(name, type), hash|
           hash[name] = TypeInference::LocalVariableTypeEnv::Entry.new(type: type)
         end
-        env.update(declared_types: env.declared_types.merge(decls))
+        env.except(decls.keys).update(assigned_types: decls)
       end.annotate(block_annotations)
 
       break_type = if block_annotations.break_type
