@@ -5741,4 +5741,27 @@ end
       end
     end
   end
+
+  def test_case_when_flow_sensitive_bug
+    with_checker(<<-RBS) do |checker|
+    RBS
+      source = parse_ruby(<<-RUBY)
+# @type var version: String?
+version = nil
+# @type var optional_path: String?
+optional_path = nil
+
+case
+when !version && path = optional_path
+  path + ""
+end
+      RUBY
+
+      with_standard_construction(checker, source) do |construction, typing|
+        construction.synthesize(source.node)
+
+        assert_no_error typing
+      end
+    end
+  end
 end

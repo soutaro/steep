@@ -143,6 +143,11 @@ module Steep
           [val, vars + [var.name]]
         when :begin
           decompose_value(node.children.last)
+        when :and
+          left, right = node.children
+          _, left_vars = decompose_value(left)
+          val, right_vars = decompose_value(right)
+          [val, left_vars + right_vars]
         else
           [node, Set[]]
         end
