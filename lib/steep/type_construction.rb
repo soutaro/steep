@@ -1511,70 +1511,87 @@ module Steep
             cond, *whens, els = node.children
 
             constr = self
+            interpreter = TypeInference::LogicTypeInterpreter.new(subtyping: checker, typing: typing)
 
             if cond
-              cond_type, constr = synthesize(cond)
-              cond_type = expand_alias(cond_type)
-              if cond_type.is_a?(AST::Types::Union)
-                var_names = TypeConstruction.value_variables(cond)
-                var_types = cond_type.types.dup
+              branch_pairs = []
+
+              cond_type, constr = constr.synthesize(cond)
+              _, cond_vars = interpreter.decompose_value(cond)
+
+              when_constr = constr
+              whens.each do |clause|
+                *tests, body = clause.children
+
+                test_constr = when_constr
+                test_envs = []
+
+                tests.each do |test|
+                  test_node = test.updated(:send, [test, :===, cond.dup])
+                  test_type, test_constr = test_constr.synthesize(test_node)
+                  truthy_env, falsy_env = interpreter.eval(type: test_type, node: test_node, env: test_constr.context.lvar_env)
+                  test_envs << truthy_env
+                  test_constr = test_constr.update_lvar_env { falsy_env }
+                end
+
+                body_constr = when_constr.update_lvar_env {|env| env.except(cond_vars).join(*test_envs) }
+
+                if body
+                  branch_pairs << body_constr
+                                    .for_branch(body)
+                                    .tap {|constr| typing.add_context_for_node(body, context: constr.context) }
+                                    .synthesize(body, hint: hint)
+                else
+                  branch_pairs << Pair.new(type: AST::Builtin.nil_type, constr: body_constr)
+                end
+
+                when_constr = test_constr
               end
-            end
 
-            branch_pairs = []
-
-            whens.each do |clause|
-              *tests, body = clause.children
-
-              test_types = []
-              clause_constr = constr
-
-              tests.each do |test|
-                type, clause_constr = synthesize(test)
-                test_types << expand_alias(type)
+              if els
+                branch_pairs << when_constr.synthesize(els, hint: hint)
               end
 
-              if var_names && var_types && test_types.all? {|ty| ty.is_a?(AST::Types::Name::Singleton) }
-                var_types_in_body = test_types.flat_map do |test_type|
-                  filtered_types = var_types.select do |var_type|
-                    var_type.is_a?(AST::Types::Name::Base) && var_type.name == test_type.name
-                  end
-                  if filtered_types.empty?
-                    to_instance_type(test_type)
-                  else
-                    filtered_types
-                  end
+              types = branch_pairs.map(&:type)
+              constrs = branch_pairs.map(&:constr)
+
+              unless els
+                constrs << when_constr
+              end
+
+              if when_constr.context.lvar_env[cond_vars.first].is_a?(AST::Types::Bot)
+                # Exhaustive
+                if els
+                  typing.add_error Errors::ElseOnExhaustiveCase.new(node: els, type: cond_type)
+                end
+              else
+                unless els
+                  types << AST::Builtin.nil_type
+                end
+              end
+            else
+              branch_pairs = []
+
+              when_constr = constr
+
+              whens.each do |clause|
+                *tests, body = clause.children
+
+                test_constr = when_constr
+                test_envs = []
+
+                tests.each do |test|
+                  test_type, test_constr = test_constr.synthesize(test)
+                  truthy_env, falsy_env = interpreter.eval(env: test_constr.context.lvar_env, type: test_type, node: test)
+                  test_envs << truthy_env
+                  test_constr = test_constr.update_lvar_env { falsy_env }
                 end
 
-                var_types.reject! do |type|
-                  var_types_in_body.any? do |test_type|
-                    type.is_a?(AST::Types::Name::Base) && test_type.name == type.name
-                  end
-                end
-
-                var_type_in_body = union_type(*var_types_in_body)
-                type_case_override = var_names.each.with_object({}) do |var_name, hash|
-                  hash[var_name] = var_type_in_body
-                end
+                clause_constr = when_constr.update_lvar_env {|env| env.join(*test_envs) }
+                when_constr = test_constr
 
                 if body
                   branch_pairs << clause_constr
-                                    .for_branch(body, type_case_override: type_case_override)
-                                    .synthesize(body, hint: hint)
-                else
-                  branch_pairs << Pair.new(type: AST::Builtin.nil_type, constr: clause_constr)
-                end
-              else
-                logic = TypeInference::Logic.new(subtyping: checker)
-
-                truthys, falseys = logic.nodes(node: ::AST::Node.new(:begin, tests))
-                truthy_env, _ = logic.environments(truthy_vars: truthys.vars,
-                                                   falsey_vars: falseys.vars,
-                                                   lvar_env: clause_constr.context.lvar_env)
-
-                if body
-                  branch_pairs << constr
-                                    .update_lvar_env { truthy_env }
                                     .for_branch(body)
                                     .tap {|constr| typing.add_context_for_node(body, context: constr.context) }
                                     .synthesize(body, hint: hint)
@@ -1582,34 +1599,17 @@ module Steep
                   branch_pairs << Pair.new(type: AST::Builtin.nil_type, constr: clause_constr)
                 end
               end
-            end
 
-            if els
-              if var_names && var_types
-                if var_types.empty?
-                  typing.add_error Errors::ElseOnExhaustiveCase.new(node: node, type: cond_type)
-                end
-
-                else_override = var_names.each.with_object({}) do |var_name, hash|
-                  hash[var_name] = unless var_types.empty?
-                                     union_type(*var_types)
-                                   else
-                                     AST::Builtin.any_type
-                                   end
-                end
-                branch_pairs << constr
-                                  .for_branch(els, type_case_override: else_override)
-                                  .synthesize(els, hint: hint)
-              else
-                branch_pairs << constr.synthesize(els, hint: hint)
+              if els
+                branch_pairs << when_constr.synthesize(els, hint: hint)
               end
-            end
 
-            types = branch_pairs.map(&:type)
-            constrs = branch_pairs.map(&:constr)
+              types = branch_pairs.map(&:type)
+              constrs = branch_pairs.map(&:constr)
 
-            unless var_types&.empty? || els
-              types.push AST::Builtin.nil_type
+              unless els
+                types << AST::Builtin.nil_type
+              end
             end
 
             constr = constr.update_lvar_env do |env|

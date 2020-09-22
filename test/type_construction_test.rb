@@ -2910,7 +2910,7 @@ EOF
     with_checker(<<RBS) do |checker|
 type ty = String | Array[String] | Integer
 RBS
-      source = parse_ruby(<<EOF)
+      source = parse_ruby(<<-RUBY)
 # @type var x: ty
 x = ""
 
@@ -2920,7 +2920,7 @@ when String, Array
 else
   x + 1
 end
-EOF
+      RUBY
 
       with_standard_construction(checker, source) do |construction, typing|
         pair = construction.synthesize(source.node)
@@ -2975,11 +2975,11 @@ EOF
         assert_equal 1, typing.errors.size
         typing.errors[0].yield_self do |error|
           assert_instance_of Steep::Errors::ElseOnExhaustiveCase, error
-          assert_equal error.node, dig(source.node, 1)
+          assert_equal error.node, dig(source.node, 1, 2)
         end
 
-        assert_equal parse_type("untyped"), pair.type
-        assert_equal parse_type("untyped"), pair.context.lvar_env[:z]
+        assert_equal parse_type("::String | ::Integer"), pair.type
+        assert_equal parse_type("nil"), pair.context.lvar_env[:z]
       end
     end
   end
@@ -3349,19 +3349,16 @@ EOF
   def test_case_non_exhaustive2
     with_checker do |checker|
       source = parse_ruby(<<EOF)
-# @type var x: String | Integer
-x = ""
-
 y = case
-when 3.nil?
-  3
-end
+    when 1+2
+      3
+    end
 EOF
 
       with_standard_construction(checker, source) do |construction, typing|
         pair = construction.synthesize(source.node)
 
-        assert_empty typing.errors
+        assert_no_error typing
         assert_equal parse_type("::Integer?"), pair.type
       end
     end
@@ -3369,23 +3366,22 @@ EOF
 
   def test_case_exhaustive
     with_checker do |checker|
-      source = parse_ruby(<<EOF)
+      source = parse_ruby(<<-RUBY)
 # @type var x: String | Integer
 x = ""
 
 y = case x
-when String
-  3
-when Integer
-  4
-end
-EOF
+    when String
+      3
+    when Integer
+      4
+    end
+      RUBY
 
       with_standard_construction(checker, source) do |construction, typing|
         pair = construction.synthesize(source.node)
 
         assert_no_error typing
-
         assert_equal parse_type("::Integer"), pair.type
       end
     end
@@ -5213,8 +5209,11 @@ end
       source = parse_ruby(<<-RUBY)
 array = [1,2,3]
 case
-when number = array.first
-  number + 2
+when (number = array.first).nil?
+  # number is nil
+else
+  # number is Integer
+  number + 100
 end
       RUBY
 
@@ -5222,6 +5221,32 @@ end
         construction.synthesize(source.node)
 
         assert_no_error typing
+      end
+    end
+  end
+
+  def test_flow_sensitive_when2
+    with_checker do |checker|
+      source = parse_ruby(<<-RUBY)
+array = [1,2,3]
+a = array.first
+b = array.first
+
+case
+when a.nil?
+  :a
+when b.nil?
+  :c
+else
+  a + b
+end
+      RUBY
+
+      with_standard_construction(checker, source) do |construction, typing|
+        type, _ = construction.synthesize(source.node)
+
+        assert_no_error typing
+        assert_equal parse_type("::Symbol | ::Integer"), type
       end
     end
   end
@@ -5649,6 +5674,70 @@ end
       with_standard_construction(checker, source) do |construction, typing|
         construction.synthesize(source.node)
         assert_equal 1, typing.errors.size
+      end
+    end
+  end
+
+  def test_type_case_after_union
+    with_checker(<<-RBS) do |checker|
+    RBS
+      source = parse_ruby(<<-RUBY)
+x = [1, ""].first
+
+case x
+when String
+  x + ""
+end
+
+x + ""       # <= error! (x: String | Integer | nil)
+      RUBY
+
+      with_standard_construction(checker, source) do |construction, typing|
+        construction.synthesize(source.node)
+        assert_equal 1, typing.errors.size
+      end
+    end
+  end
+
+  def test_type_case_after_any
+    with_checker(<<-RBS) do |checker|
+    RBS
+      source = parse_ruby(<<-RUBY)
+x = _ = nil
+
+case x
+when String
+  x + 1     # <= error! (x: String)
+end
+
+x + 2       # <= no error (x: untyped)
+      RUBY
+
+      with_standard_construction(checker, source) do |construction, typing|
+        construction.synthesize(source.node)
+        assert_equal 1, typing.errors.size
+      end
+    end
+  end
+
+  def test_incompatible_annotation
+    with_checker(<<-RBS) do |checker|
+    RBS
+      source = parse_ruby(<<-RUBY)
+x = _ = nil
+
+case x
+when String
+  # @type var x: Integer
+  x + 1
+end
+      RUBY
+
+      with_standard_construction(checker, source) do |construction, typing|
+        construction.synthesize(source.node)
+
+        assert_equal 1, typing.errors.size
+        assert_instance_of Steep::Errors::IncompatibleAnnotation, typing.errors[0]
       end
     end
   end

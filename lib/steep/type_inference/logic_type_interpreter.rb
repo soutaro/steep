@@ -148,13 +148,13 @@ module Steep
         end
       end
 
-      def type_case_select(type, *klasses)
+      def type_case_select(type, klass)
         case type
         when AST::Types::Union
           truthy_types, falsy_types = type.types.partition do |ty|
             case ty
             when AST::Types::Name::Instance
-              klasses.include?(ty.name)
+              klass == ty.name
             else
               false
             end
@@ -164,11 +164,20 @@ module Steep
             AST::Types::Union.build(types: truthy_types),
             AST::Types::Union.build(types: falsy_types)
           ]
+        when AST::Types::Name::Instance
+          if klass == type.name
+            [type, AST::Builtin.bottom_type]
+          else
+            [AST::Builtin.bottom_type, type]
+          end
         else
-          [
-            AST::Types::Union.build(types: klasses.map {|klass| factory.instance_type(klass) }),
-            type
-          ]
+          ty = factory.expand_alias(type)
+
+          if ty == type
+            [factory.instance_type(klass), type]
+          else
+            type_case_select(ty, klass)
+          end
         end
       end
     end
