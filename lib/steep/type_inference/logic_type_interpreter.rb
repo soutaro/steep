@@ -13,11 +13,31 @@ module Steep
         subtyping.factory
       end
 
+      def guess_type_from_method(node)
+        if node.type == :send
+          method = node.children[1]
+          case method
+          when :is_a?, :kind_of?, :instance_of?
+            AST::Types::Logic::ReceiverIsArg.new
+          when :nil?
+            AST::Types::Logic::ReceiverIsNil.new
+          when :!
+            AST::Types::Logic::Not.new
+          when :===
+            AST::Types::Logic::ArgIsReceiver.new
+          end
+        end
+      end
+
       def eval(env:, type:, node:)
         value_node, vars = decompose_value(node)
 
         truthy_env = env
         falsy_env = env
+
+        if type.is_a?(AST::Types::Any)
+          type = guess_type_from_method(node) || type
+        end
 
         if type.is_a?(AST::Types::Logic::Base)
           vars.each do |var_name|

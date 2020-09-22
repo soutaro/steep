@@ -5632,4 +5632,24 @@ a + 1
       end
     end
   end
+
+  def test_logic_type_case_any
+    with_checker(<<-RBS) do |checker|
+    RBS
+      source = parse_ruby(<<-RUBY)
+a = _ = 3
+
+a.foooooooooooooo
+
+if a.is_a?(String)
+  a.fooooooo
+end
+      RUBY
+
+      with_standard_construction(checker, source) do |construction, typing|
+        construction.synthesize(source.node)
+        assert_equal 1, typing.errors.size
+      end
+    end
+  end
 end
