@@ -247,6 +247,8 @@ module Steep
             end
           end
         end
+      rescue
+        # nop
       end
 
       def word_name?(name)
