@@ -2009,8 +2009,18 @@ module Steep
             add_typing node, type: AST::Builtin.any_type
           end
 
+        when :args
+          constr = self
+
+          each_child_node(node) do |child|
+            _, constr = constr.synthesize(child)
+          end
+
+          add_typing node, type: AST::Builtin.any_type, constr: constr
+
         else
           raise "Unexpected node: #{node.inspect}, #{node.location.expression}"
+
         end.tap do |pair|
           unless pair.is_a?(Pair) && !pair.type.is_a?(Pair)
             # Steep.logger.error { "result = #{pair.inspect}" }
@@ -2283,6 +2293,12 @@ module Steep
 
       type, constr = case receiver_type
                      when AST::Types::Any
+                       each_child_node(send_node) do |child|
+                         unless child.equal?(receiver)
+                           _, constr = constr.synthesize(child)
+                         end
+                       end
+
                        add_typing node, type: AST::Builtin.any_type
 
                      when nil
