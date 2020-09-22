@@ -1404,7 +1404,11 @@ module Steep
             interpreter = TypeInference::LogicTypeInterpreter.new(subtyping: checker, typing: typing)
             truthy_env, falsey_env = interpreter.eval(env: constr.context.lvar_env, type: left_type, node: left)
 
-            right_type, constr = constr.update_lvar_env { truthy_env }.for_branch(right).synthesize(right)
+            right_type, constr = constr
+                                   .update_lvar_env { truthy_env }
+                                   .tap {|constr| typing.add_context_for_node(right, context: constr.context) }
+                                   .for_branch(right)
+                                   .synthesize(right)
 
             type = if left_type.is_a?(AST::Types::Boolean)
                      union_type(left_type, right_type)
@@ -1433,7 +1437,11 @@ module Steep
             truthy_env, falsey_env = interpreter.eval(env: constr.context.lvar_env, type: left_type, node: left)
 
             left_type_t, _ = checker.factory.unwrap_optional(left_type)
-            right_type, constr = constr.update_lvar_env { falsey_env }.for_branch(right).synthesize(right, hint: left_type_t)
+            right_type, constr = constr
+                                   .update_lvar_env { falsey_env }
+                                   .tap {|constr| typing.add_context_for_node(right, context: constr.context) }
+                                   .for_branch(right)
+                                   .synthesize(right, hint: left_type_t)
 
             type = union_type(left_type_t, right_type)
 
