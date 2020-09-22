@@ -357,6 +357,14 @@ module Steep
                 )
               end
 
+            when defined_in == AST::Builtin::NilClass.module_name && member.instance?
+              case method_name
+              when :nil?
+                return method_type.with(
+                  return_type: AST::Types::Logic::ReceiverIsNil.new(location: method_type.return_type.location)
+                )
+              end
+
             when defined_in == RBS::BuiltinNames::BasicObject.name && member.instance?
               case method_name
               when :!
