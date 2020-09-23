@@ -154,35 +154,64 @@ module Steep
       end
 
       def type_case_select(type, klass)
+        truth_types, false_types = type_case_select0(type, klass)
+
+        [
+          AST::Types::Union.build(types: truth_types),
+          AST::Types::Union.build(types: false_types)
+        ]
+      end
+
+      def type_case_select0(type, klass)
+        instance_type = factory.instance_type(klass)
+
         case type
         when AST::Types::Union
-          truthy_types, falsy_types = type.types.partition do |ty|
-            case ty
-            when AST::Types::Name::Instance
-              klass == ty.name
+          truthy_types = []
+          falsy_types = []
+
+          type.types.each do |ty|
+            truths, falses = type_case_select0(ty, klass)
+
+            if truths.empty?
+              falsy_types.push(ty)
             else
-              false
+              truthy_types.push(*truths)
+              falsy_types.push(*falses)
             end
           end
 
-          [
-            AST::Types::Union.build(types: truthy_types),
-            AST::Types::Union.build(types: falsy_types)
-          ]
-        when AST::Types::Name::Instance
-          if klass == type.name
-            [type, AST::Builtin.bottom_type]
-          else
-            [AST::Builtin.bottom_type, type]
-          end
-        else
-          ty = factory.expand_alias(type)
+          [truthy_types, falsy_types]
 
-          if ty == type
-            [factory.instance_type(klass), type]
+        when AST::Types::Name::Instance
+          relation = Subtyping::Relation.new(sub_type: type, super_type: instance_type)
+          if subtyping.check(relation, constraints: Subtyping::Constraints.empty, self_type: AST::Types::Self.new).success?
+            [
+              [type],
+              []
+            ]
           else
-            type_case_select(ty, klass)
+            [
+              [],
+              [type]
+            ]
           end
+
+        when AST::Types::Name::Alias
+          ty = factory.expand_alias(type)
+          type_case_select0(ty, klass)
+
+        when AST::Types::Any, AST::Types::Top
+          [
+            [instance_type],
+            [type]
+          ]
+
+        else
+          [
+            [],
+            [type]
+          ]
         end
       end
     end
