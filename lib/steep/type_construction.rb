@@ -1549,6 +1549,10 @@ module Steep
               end
 
               if els
+                begin_pos = node.loc.else.end_pos
+                end_pos = node.loc.end.begin_pos
+                typing.add_context(begin_pos..end_pos, context: when_constr.context)
+
                 branch_pairs << when_constr.synthesize(els, hint: hint)
               end
 
