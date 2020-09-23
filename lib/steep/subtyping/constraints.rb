@@ -104,6 +104,14 @@ module Steep
       def add(var, sub_type: nil, super_type: nil)
         subs, supers = dictionary[var]
 
+        if sub_type.is_a?(AST::Types::Logic::Base)
+          sub_type = AST::Builtin.bool_type
+        end
+
+        if super_type.is_a?(AST::Types::Logic::Base)
+          super_type = AST::Builtin.bool_type
+        end
+
         if super_type && !super_type.is_a?(AST::Types::Top)
           supers << eliminate_variable(super_type, to: AST::Types::Top.new)
         end

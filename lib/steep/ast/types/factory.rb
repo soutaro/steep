@@ -287,6 +287,105 @@ module Steep
           end
         end
 
+        def deep_expand_alias(type, recursive: Set.new, &block)
+          raise "Recursive type definition: #{type}" if recursive.member?(type)
+
+          ty = case type
+               when AST::Types::Name::Alias
+                 deep_expand_alias(expand_alias(type), recursive: recursive.union([type]))
+               when AST::Types::Union
+                 AST::Types::Union.build(
+                   types: type.types.map {|ty| deep_expand_alias(ty, recursive: recursive, &block) },
+                   location: type.location
+                 )
+               else
+                 type
+               end
+
+          if block_given?
+            yield ty
+          else
+            ty
+          end
+        end
+
+        def flatten_union(type, acc = [])
+          case type
+          when AST::Types::Union
+            type.types.each {|ty| flatten_union(ty, acc) }
+          else
+            acc << type
+          end
+
+          acc
+        end
+
+        def unwrap_optional(type)
+          case type
+          when AST::Types::Union
+            falsy_types, truthy_types = type.types.partition do |type|
+              (type.is_a?(AST::Types::Literal) && type.value == false) ||
+                type.is_a?(AST::Types::Nil)
+            end
+
+            [
+              AST::Types::Union.build(types: truthy_types),
+              AST::Types::Union.build(types: falsy_types)
+            ]
+          when AST::Types::Name::Alias
+            unwrap_optional(expand_alias(type))
+          else
+            [type, nil]
+          end
+        end
+
+        def setup_primitives(method_name, method_type)
+          if method_def = method_type.method_def
+            defined_in = method_def.defined_in
+            member = method_def.member
+
+            case
+            when defined_in == RBS::BuiltinNames::Object.name && member.instance?
+              case method_name
+              when :is_a?, :kind_of?, :instance_of?
+                return method_type.with(
+                  return_type: AST::Types::Logic::ReceiverIsArg.new(location: method_type.return_type.location)
+                )
+              when :nil?
+                return method_type.with(
+                  return_type: AST::Types::Logic::ReceiverIsNil.new(location: method_type.return_type.location)
+                )
+              end
+
+            when defined_in == AST::Builtin::NilClass.module_name && member.instance?
+              case method_name
+              when :nil?
+                return method_type.with(
+                  return_type: AST::Types::Logic::ReceiverIsNil.new(location: method_type.return_type.location)
+                )
+              end
+
+            when defined_in == RBS::BuiltinNames::BasicObject.name && member.instance?
+              case method_name
+              when :!
+                return method_type.with(
+                  return_type: AST::Types::Logic::Not.new(location: method_type.return_type.location)
+                )
+              end
+
+            when defined_in == RBS::BuiltinNames::Module.name && member.instance?
+              case method_name
+              when :===
+                return method_type.with(
+                  return_type: AST::Types::Logic::ArgIsReceiver.new(location: method_type.return_type.location)
+                )
+              end
+            end
+          end
+
+          method_type
+        end
+
         def interface(type, private:, self_type: type)
           Steep.logger.debug { "Factory#interface: #{type}, private=#{private}, self_type=#{self_type}" }
           type = expand_alias(type)
@@ -321,7 +420,13 @@ module Steep
 
                   interface.methods[name] = Interface::Interface::Entry.new(
                     method_types: method.defs.map do |type_def|
-                      method_type(type_def.type, method_def: type_def, self_type: self_type, subst2: subst)
+                      setup_primitives(
+                        name,
+                        method_type(type_def.type,
+                                    method_def: type_def,
+                                    self_type: self_type,
+                                    subst2: subst)
+                      )
                     end
                   )
                 end
@@ -367,7 +472,13 @@ module Steep
 
                 interface.methods[name] = Interface::Interface::Entry.new(
                   method_types: method.defs.map do |type_def|
-                    method_type(type_def.type, method_def: type_def, self_type: self_type, subst2: subst)
+                    setup_primitives(
+                      name,
+                      method_type(type_def.type,
+                                  method_def: type_def,
+                                  self_type: self_type,
+                                  subst2: subst)
+                    )
                   end
                 )
               end
@@ -571,6 +682,9 @@ module Steep
               interface.methods[:call] = Interface::Interface::Entry.new(method_types: [method_type])
             end
 
+          when Logic::Base
+            interface(AST::Builtin.bool_type, private: private, self_type: self_type)
+
           else
             raise "Unexpected type for interface: #{type}"
           end
@@ -597,6 +711,21 @@ module Steep
 
         def absolute_type_name(type_name, namespace:)
           type_name_resolver.resolve(type_name, context: namespace.ascend)
+        end
+
+        def instance_type(type_name, args: nil, location: nil)
+          raise unless type_name.class?
+
+          definition = definition_builder.build_singleton(type_name)
+          def_args = definition.type_params.map { Any.new(location: nil) }
+
+          if args
+            raise if def_args.size != args.size
+          else
+            args = def_args
+          end
+
+          AST::Types::Name::Instance.new(location: location, name: type_name, args: args)
         end
       end
     end

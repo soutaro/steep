@@ -26,10 +26,3 @@ when String
   # @type var x: Integer
   x + 1
 end
-
-case x
-when Object
-  # !expects@+2 IncompatibleTypeCase: var_name=x, ::Object <: (::Integer | ::String | ::Symbol)
-  # !expects NoMethodError: type=::Object, method=foobar
-  x.foobar
-end
