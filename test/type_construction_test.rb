@@ -5785,4 +5785,23 @@ end
       end
     end
   end
+
+  def test_rescue_hint
+    with_checker(<<-RBS) do |checker|
+    RBS
+      source = parse_ruby(<<-RUBY)
+# @type var x: [Integer, String]
+x = begin
+      [1, ""]
+    rescue
+      [2, ""]
+    end
+      RUBY
+
+      with_standard_construction(checker, source) do |construction, typing|
+        construction.synthesize(source.node)
+        assert_no_error typing
+      end
+    end
+  end
 end

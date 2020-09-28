@@ -1626,7 +1626,7 @@ module Steep
         when :rescue
           yield_self do
             body, *resbodies, else_node = node.children
-            body_pair = synthesize(body) if body
+            body_pair = synthesize(body, hint: hint) if body
 
             body_constr = if body_pair
                             self.update_lvar_env do |env|
@@ -1678,7 +1678,7 @@ module Steep
               resbody_construction = body_constr.for_branch(resbody, type_case_override: type_override)
 
               if body
-                resbody_construction.synthesize(body)
+                resbody_construction.synthesize(body, hint: hint)
               else
                 Pair.new(constr: body_constr, type: AST::Builtin.nil_type)
               end
@@ -1688,7 +1688,7 @@ module Steep
             resbody_envs = resbody_pairs.map {|pair| pair.context.lvar_env }
 
             if else_node
-              else_pair = (body_pair&.constr || self).for_branch(else_node).synthesize(else_node)
+              else_pair = (body_pair&.constr || self).for_branch(else_node).synthesize(else_node, hint: hint)
               add_typing(node,
                          type: union_type(*[else_pair.type, *resbody_types].compact),
                          constr: update_lvar_env {|env| env.join(*resbody_envs, env) })
@@ -1704,7 +1704,7 @@ module Steep
             klasses, asgn, body = node.children
             synthesize(klasses) if klasses
             synthesize(asgn) if asgn
-            body_type = synthesize(body).type if body
+            body_type = synthesize(body, hint: hint).type if body
             add_typing(node, type: body_type)
           end
 
