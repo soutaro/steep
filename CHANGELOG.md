@@ -2,6 +2,12 @@
 
 ## master
 
+## 0.29.0 (2020-09-28)
+
+* Implement reasoning on `is_a?`, `nil?`, and `===` methods. ([#218](https://github.com/soutaro/steep/pull/218))
+* Better completion based on interface ([#215](https://github.com/soutaro/steep/pull/215))
+* Fix begin-rescue typing ([#221](https://github.com/soutaro/steep/pull/221))
+
 ## 0.28.0 (2020-09-17)
 
 * Fix typing case-when with empty body ([#200](https://github.com/soutaro/steep/pull/200))
