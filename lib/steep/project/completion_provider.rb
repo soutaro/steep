@@ -192,21 +192,25 @@ module Steep
         return [] unless node
 
         if at_end?(shift_pos, of: node.loc)
-          context = typing.context_at(line: position.line, column: position.column)
-          receiver_type = case (type = typing.type_of(node: node))
-                          when AST::Types::Self
-                            context.self_type
-                          else
-                            type
-                          end
+          begin
+            context = typing.context_at(line: position.line, column: position.column)
+            receiver_type = case (type = typing.type_of(node: node))
+                            when AST::Types::Self
+                              context.self_type
+                            else
+                              type
+                            end
 
-          items = []
-          method_items_for_receiver_type(receiver_type,
-                                         include_private: false,
-                                         prefix: "",
-                                         position: position,
-                                         items: items)
-          items
+            items = []
+            method_items_for_receiver_type(receiver_type,
+                                           include_private: false,
+                                           prefix: "",
+                                           position: position,
+                                           items: items)
+            items
+          rescue Typing::UnknownNodeError
+            []
+          end
         else
           []
         end
