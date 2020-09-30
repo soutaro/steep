@@ -99,7 +99,7 @@ module Steep
             result: LSP::Interface::InitializeResult.new(
               capabilities: LSP::Interface::ServerCapabilities.new(
                 text_document_sync: LSP::Interface::TextDocumentSyncOptions.new(
-                  change: LSP::Constant::TextDocumentSyncKind::FULL
+                  change: LSP::Constant::TextDocumentSyncKind::INCREMENTAL
                 ),
                 hover_provider: true,
                 completion_provider: LSP::Interface::CompletionOptions.new(
