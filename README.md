@@ -27,6 +27,7 @@ Edit the `Steepfile`:
 
 ```rb
 target :app do
+  typing_options :strict
   check "lib"
   signature "sig"
 
