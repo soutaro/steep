@@ -5,13 +5,15 @@ module Steep
       attr_reader :writer
       attr_reader :stderr
 
+      attr_reader :name
       attr_reader :wait_thread
 
-      def initialize(reader:, writer:, stderr:, wait_thread:)
+      def initialize(reader:, writer:, stderr:, wait_thread:, name:)
         @reader = reader
         @writer = writer
         @stderr = stderr
         @wait_thread = wait_thread
+        @name = name
       end
 
       def self.spawn_worker(type, name:, steepfile:)
@@ -33,7 +35,7 @@ module Steep
         writer = LanguageServer::Protocol::Transport::Io::Writer.new(stdin)
         reader = LanguageServer::Protocol::Transport::Io::Reader.new(stdout)
 
-        new(reader: reader, writer: writer, stderr: stderr, wait_thread: thread)
+        new(reader: reader, writer: writer, stderr: stderr, wait_thread: thread, name: name)
       end
 
       def self.spawn_code_workers(steepfile:, count: [Etc.nprocessors-3, 1].max)
