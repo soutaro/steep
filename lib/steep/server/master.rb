@@ -35,13 +35,18 @@ module Steep
           register_code_to_worker(paths, worker: code_workers[index])
         end
 
+        tags = Steep.logger.formatter.current_tags.dup
+        tags << "master"
+
         Thread.new do
+          Steep.logger.formatter.push_tags(*tags, "from-worker@interaction")
           interaction_worker.reader.read do |message|
             process_message_from_worker(message)
           end
         end
 
         Thread.new do
+          Steep.logger.formatter.push_tags(*tags, "from-worker@signature")
           signature_worker.reader.read do |message|
             process_message_from_worker(message)
           end
@@ -49,6 +54,7 @@ module Steep
 
         code_workers.each do |worker|
           Thread.new do
+            Steep.logger.formatter.push_tags(*tags, "from-worker@#{worker.name}")
             worker.reader.read do |message|
               process_message_from_worker(message)
             end
@@ -56,6 +62,7 @@ module Steep
         end
 
         Thread.new do
+          Steep.logger.formatter.push_tags(*tags, "from-client")
           reader.read do |request|
             process_message_from_client(request)
           end
