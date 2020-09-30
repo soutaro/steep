@@ -29,9 +29,15 @@ module Steep
         @signature_files = {}
       end
 
-      def add_source(path, content)
+      def add_source(path, content = "")
         file = SourceFile.new(path: path)
-        file.content = content
+
+        if block_given?
+          file.content = yield
+        else
+          file.content = content
+        end
+
         source_files[path] = file
       end
 
@@ -39,14 +45,22 @@ module Steep
         source_files.delete(path)
       end
 
-      def update_source(path, content)
+      def update_source(path, content = nil)
         file = source_files[path]
-        file.content = content
+        if block_given?
+          file.content = yield(file.content)
+        else
+          file.content = content || file.content
+        end
       end
 
-      def add_signature(path, content)
+      def add_signature(path, content = "")
         file = SignatureFile.new(path: path)
-        file.content = content
+        if block_given?
+          file.content = yield
+        else
+          file.content = content
+        end
         signature_files[path] = file
       end
 
@@ -54,9 +68,13 @@ module Steep
         signature_files.delete(path)
       end
 
-      def update_signature(path, content)
+      def update_signature(path, content = nil)
         file = signature_files[path]
-        file.content = content
+        if block_given?
+          file.content = yield(file.content)
+        else
+          file.content = content || file.content
+        end
       end
 
       def source_file?(path)

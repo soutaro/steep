@@ -14,6 +14,8 @@ module Steep
       attr_reader :signature_worker
       attr_reader :code_workers
 
+      include Utils
+
       def initialize(project:, reader:, writer:, interaction_worker:, signature_worker:, code_workers:, queue: Queue.new)
         @project = project
         @reader = reader
@@ -97,7 +99,7 @@ module Steep
             result: LSP::Interface::InitializeResult.new(
               capabilities: LSP::Interface::ServerCapabilities.new(
                 text_document_sync: LSP::Interface::TextDocumentSyncOptions.new(
-                  change: LSP::Constant::TextDocumentSyncKind::FULL
+                  change: LSP::Constant::TextDocumentSyncKind::INCREMENTAL
                 ),
                 hover_provider: true,
                 completion_provider: LSP::Interface::CompletionOptions.new(
@@ -112,36 +114,10 @@ module Steep
           end
 
         when "textDocument/didChange"
+          update_source(message)
+
           uri = URI.parse(message[:params][:textDocument][:uri])
           path = project.relative_path(Pathname(uri.path))
-          text = message[:params][:contentChanges][0][:text]
-
-          project.targets.each do |target|
-            case
-            when target.source_file?(path)
-              if text.empty? && !path.file?
-                Steep.logger.info { "Deleting source file: #{path}..." }
-                target.remove_source(path)
-              else
-                Steep.logger.info { "Updating source file: #{path}..." }
-                target.update_source(path, text)
-              end
-            when target.possible_source_file?(path)
-              Steep.logger.info { "Adding source file: #{path}..." }
-              target.add_source(path, text)
-            when target.signature_file?(path)
-              if text.empty? && !path.file?
-                Steep.logger.info { "Deleting signature file: #{path}..." }
-                target.remove_signature(path)
-              else
-                Steep.logger.info { "Updating signature file: #{path}..." }
-                target.update_signature(path, text)
-              end
-            when target.possible_signature_file?(path)
-              Steep.logger.info { "Adding signature file: #{path}..." }
-              target.add_signature(path, text)
-            end
-          end
 
           unless registered_path?(path)
             register_code_to_worker [path], worker: least_busy_worker()
