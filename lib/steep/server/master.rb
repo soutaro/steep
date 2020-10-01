@@ -29,7 +29,7 @@ module Steep
       end
 
       def start
-        source_paths = project.targets.flat_map {|target| target.source_files.keys }
+        source_paths = project.all_source_files
         bin_size = (source_paths.size / code_workers.size) + 1
         source_paths.each_slice(bin_size).with_index do |paths, index|
           register_code_to_worker(paths, worker: code_workers[index])

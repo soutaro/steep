@@ -28,15 +28,20 @@ module Steep
       end
 
       def load_sources(command_line_patterns)
+        loaded_paths = Set[]
+
         project.targets.each do |target|
           Steep.logger.tagged "target=#{target.name}" do
             target_patterns = command_line_patterns.empty? ? target.source_patterns : command_line_patterns
 
-            each_path_in_patterns target_patterns, ".rb" do |path|
+            each_path_in_patterns(target_patterns, ".rb") do |path|
               if target.possible_source_file?(path)
-                unless target.source_file?(path)
+                if loaded_paths.include?(path)
+                  Steep.logger.warn { "Skipping #{target} while loading #{path}... (Already loaded to another target.)" }
+                else
                   Steep.logger.info { "Adding source file: #{path}" }
                   target.add_source path, project.absolute_path(path).read
+                  loaded_paths << path
                 end
               end
             end
