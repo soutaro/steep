@@ -55,12 +55,14 @@ module Steep
         context = TypeInference::Context.new(
           block_context: nil,
           module_context: TypeInference::Context::ModuleContext.new(
-            instance_type: nil,
-            module_type: nil,
+            instance_type: AST::Builtin::Object.instance_type,
+            module_type: AST::Builtin::Object.module_type,
             implement_name: nil,
             current_namespace: RBS::Namespace.root,
             const_env: const_env,
-            class_name: nil
+            class_name: AST::Builtin::Object.module_name,
+            instance_definition: subtyping.factory.definition_builder.build_instance(AST::Builtin::Object.module_name),
+            module_definition: subtyping.factory.definition_builder.build_singleton(AST::Builtin::Object.module_name)
           ),
           method_context: nil,
           break_context: nil,
