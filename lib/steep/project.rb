@@ -24,6 +24,18 @@ module Steep
       (base_dir + path).cleanpath
     end
 
+    def target_for_source_path(path)
+      targets.find do |target|
+        target.possible_source_file?(path)
+      end
+    end
+
+    def all_source_files
+      targets.each.with_object(Set[]) do |target, paths|
+        paths.merge(target.source_files.keys)
+      end
+    end
+
     def type_of_node(path:, line:, column:)
       source_file = targets.map {|target| target.source_files[path] }.compact[0]
 

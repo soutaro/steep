@@ -32,7 +32,7 @@ module Steep
             end
           end
 
-        when target = project.targets.find {|target| target.source_file?(path) }
+        when target = project.target_for_source_path(path)
           if target_files.key?(path)
             yield target, path, version
           end
@@ -139,8 +139,6 @@ module Steep
       end
 
       def handle_job(job)
-        sleep 0.1
-
         path, version, target = job
         if !version || target_files[path] == version
           typecheck_file(path, target)

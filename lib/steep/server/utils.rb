@@ -28,20 +28,32 @@ module Steep
       def update_source(request)
         path = source_path(URI.parse(request[:params][:textDocument][:uri]))
         version = request[:params][:textDocument][:version]
-        Steep.logger.info "Updateing source: path=#{path}, version=#{version}..."
+        Steep.logger.info { "Updating source: path=#{path}, version=#{version}..." }
 
         changes = request[:params][:contentChanges]
-        changes.each do |change|
-          project.targets.each do |target|
+
+        if target = project.target_for_source_path(path)
+          changes.each do |change|
             case
             when target.source_file?(path)
+              Steep.logger.debug { "Updating source in #{target.name}: path=#{path}" }
               target.update_source(path) {|text| apply_change(change, text) }
             when target.possible_source_file?(path)
+              Steep.logger.debug { "Adding source to #{target.name}: path=#{path}" }
               target.add_source(path, change[:text])
-            when target.signature_file?(path)
-              target.update_signature(path) {|text| apply_change(change, text) }
-            when target.possible_signature_file?(path)
-              target.add_signature(path, change[:text])
+            end
+          end
+        else
+          changes.each do |change|
+            project.targets.each do |target|
+              case
+              when target.signature_file?(path)
+                Steep.logger.debug { "Updating signature in #{target.name}: path=#{path}" }
+                target.update_signature(path) {|text| apply_change(change, text) }
+              when target.possible_signature_file?(path)
+                Steep.logger.debug { "Adding signature to #{target.name}: path=#{path}" }
+                target.add_signature(path, change[:text])
+              end
             end
           end
         end
