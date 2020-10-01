@@ -1,0 +1,3 @@
+class Object
+  def fizz_buzz: (Integer) -> String
+end
