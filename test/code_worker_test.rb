@@ -73,7 +73,7 @@ EOF
 
       worker = Server::CodeWorker.new(project: project, reader: worker_reader, writer: worker_writer)
 
-      assert_empty worker.target_files.keys
+      assert_empty worker.typecheck_paths
 
       worker.handle_request(
         {
@@ -88,8 +88,8 @@ EOF
         }
       )
 
-      assert_operator worker.target_files, :key?, Pathname("lib/hello.rb")
-      assert_operator worker.target_files, :key?, Pathname("test/hello_test.rb")
+      assert_operator worker.typecheck_paths, :member?, Pathname("lib/hello.rb")
+      assert_operator worker.typecheck_paths, :member?, Pathname("test/hello_test.rb")
     end
   end
 
@@ -110,7 +110,7 @@ EOF
                                       writer: worker_writer,
                                       queue: [])
 
-      assert_empty worker.target_files.keys
+      assert_empty worker.typecheck_paths
 
       worker.handle_request(
         {
@@ -150,9 +150,7 @@ class Foo
 end
       RUBY
 
-      assert_equal 1, worker.target_files[Pathname("lib/hello.rb")]
-
-      assert_equal [[Pathname("lib/hello.rb"), 1, lib_target]],
+      assert_equal [[lib_target, Pathname("lib/hello.rb")]],
                    worker.queue
     end
   end
@@ -174,7 +172,7 @@ EOF
                                       writer: worker_writer,
                                       queue: [])
 
-      assert_empty worker.target_files.keys
+      assert_empty worker.typecheck_paths
 
       worker.handle_request(
         {
@@ -214,7 +212,7 @@ class World
 end
       RUBY
 
-      refute_operator worker.target_files, :key?, Pathname("lib/world.rb")
+      refute_operator worker.typecheck_paths, :include?, Pathname("lib/world.rb")
 
       assert_empty worker.queue
     end
@@ -237,7 +235,7 @@ EOF
                                       writer: worker_writer,
                                       queue: [])
 
-      assert_empty worker.target_files.keys
+      assert_empty worker.typecheck_paths
 
       worker.handle_request(
         {
@@ -294,7 +292,7 @@ end
       )
 
       assert_equal [
-                     [Pathname("lib/hello.rb"), 1, lib_target]
+                     [lib_target, Pathname("lib/hello.rb")]
                    ],
                    worker.queue
     end
