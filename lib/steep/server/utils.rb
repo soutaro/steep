@@ -32,28 +32,30 @@ module Steep
 
         changes = request[:params][:contentChanges]
 
-        if target = project.target_for_source_path(path)
+        source_target, signature_targets = project.targets_for_path(path)
+
+        if source_target
           changes.each do |change|
             case
-            when target.source_file?(path)
-              Steep.logger.debug { "Updating source in #{target.name}: path=#{path}" }
-              target.update_source(path) {|text| apply_change(change, text) }
-            when target.possible_source_file?(path)
-              Steep.logger.debug { "Adding source to #{target.name}: path=#{path}" }
-              target.add_source(path, change[:text])
+            when source_target.source_file?(path)
+              Steep.logger.debug { "Updating source in #{source_target.name}: path=#{path}" }
+              source_target.update_source(path) {|text| apply_change(change, text) }
+            when source_target.possible_source_file?(path)
+              Steep.logger.debug { "Adding source to #{source_target.name}: path=#{path}" }
+              source_target.add_source(path, change[:text])
             end
           end
-        else
+        end
+
+        signature_targets.each do |target|
           changes.each do |change|
-            project.targets.each do |target|
-              case
-              when target.signature_file?(path)
-                Steep.logger.debug { "Updating signature in #{target.name}: path=#{path}" }
-                target.update_signature(path) {|text| apply_change(change, text) }
-              when target.possible_signature_file?(path)
-                Steep.logger.debug { "Adding signature to #{target.name}: path=#{path}" }
-                target.add_signature(path, change[:text])
-              end
+            case
+            when target.signature_file?(path)
+              Steep.logger.debug { "Updating signature in #{target.name}: path=#{path}" }
+              target.update_signature(path) {|text| apply_change(change, text) }
+            when target.possible_signature_file?(path)
+              Steep.logger.debug { "Adding signature to #{target.name}: path=#{path}" }
+              target.add_signature(path, change[:text])
             end
           end
         end

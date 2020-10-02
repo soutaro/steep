@@ -133,6 +133,7 @@ module Steep
                     when TypeCheckStatus
                       status.timestamp
                     end
+        now = Time.now
 
         updated_files = []
 
@@ -169,11 +170,11 @@ module Steep
                 validator.validate()
 
                 if validator.no_error?
-                  yield env, check, Time.now
+                  yield env, check, now
                 else
                   @status = SignatureValidationErrorStatus.new(
                     errors: validator.each_error.to_a,
-                    timestamp: Time.now
+                    timestamp: now
                   )
                 end
               else
@@ -187,11 +188,11 @@ module Steep
                     location: exn.decls[0].location
                   )
                 ],
-                timestamp: Time.now
+                timestamp: now
               )
             rescue => exn
               Steep.log_error exn
-              @status = SignatureOtherErrorStatus.new(error: exn, timestamp: Time.now)
+              @status = SignatureOtherErrorStatus.new(error: exn, timestamp: now)
             end
           end
 

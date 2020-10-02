@@ -5,47 +5,32 @@ module Steep
 
       include Utils
 
-      attr_reader :target_files
+      attr_reader :typecheck_paths
       attr_reader :queue
 
       def initialize(project:, reader:, writer:, queue: Queue.new)
         super(project: project, reader: reader, writer: writer)
 
-        @target_files = {}
+        @typecheck_paths = Set[]
         @queue = queue
       end
 
-      def enqueue_type_check(target:, path:, version: target_files[path])
-        Steep.logger.info "Enqueueing type check: #{path}(#{version})@#{target.name}..."
-        target_files[path] = version
-        queue << [path, version, target]
-      end
-
-      def each_type_check_subject(path:, version:)
-        case
-        when !(updated_targets = project.targets.select {|target| target.signature_file?(path) }).empty?
-          updated_targets.each do |target|
-            target_files.each_key do |path|
-              if target.source_file?(path)
-                yield target, path, target_files[path]
-              end
-            end
-          end
-
-        when target = project.target_for_source_path(path)
-          if target_files.key?(path)
-            yield target, path, version
-          end
-        end
+      def enqueue_type_check(target:, path:)
+        Steep.logger.info "Enqueueing type check: #{target.name}::#{path}..."
+        queue << [target, path]
       end
 
       def typecheck_file(path, target)
-        Steep.logger.info "Starting type checking: #{path}@#{target.name}..."
+        Steep.logger.info "Starting type checking: #{target.name}::#{path}..."
 
         source = target.source_files[path]
         target.type_check(target_sources: [source], validate_signatures: false)
 
-        Steep.logger.info "Finished type checking: #{path}@#{target.name}"
+        if target.status.is_a?(Project::Target::TypeCheckStatus) && target.status.type_check_sources.empty?
+          Steep.logger.debug "Skipped type checking: #{target.name}::#{path}"
+        else
+          Steep.logger.info "Finished type checking: #{target.name}::#{path}"
+        end
 
         diagnostics = source_diagnostics(source, target.options)
 
@@ -109,8 +94,8 @@ module Steep
           # Don't respond to initialize request, but start type checking.
           project.targets.each do |target|
             target.source_files.each_key do |path|
-              if target_files.key?(path)
-                enqueue_type_check(target: target, path: path, version: target_files[path])
+              if typecheck_paths.include?(path)
+                enqueue_type_check(target: target, path: path)
               end
             end
           end
@@ -118,33 +103,34 @@ module Steep
         when "workspace/executeCommand"
           if request[:params][:command] == "steep/registerSourceToWorker"
             paths = request[:params][:arguments].map {|arg| source_path(URI.parse(arg)) }
-            paths.each do |path|
-              target_files[path] = 0
-            end
+            typecheck_paths.merge(paths)
           end
 
         when "textDocument/didChange"
-          update_source(request) do |path, version|
-            if target_files.key?(path)
-              target_files[path] = version
-            end
-          end
+          update_source(request) do |path, _|
+            source_target, signature_targets = project.targets_for_path(path)
 
-          path = source_path(URI.parse(request[:params][:textDocument][:uri]))
-          version = request[:params][:textDocument][:version]
-          each_type_check_subject(path: path, version: version) do |target, path, version|
-            enqueue_type_check(target: target, path: path, version: version)
+            if source_target
+              if typecheck_paths.include?(path)
+                enqueue_type_check(target: source_target, path: path)
+              end
+            end
+
+            signature_targets.each do |target|
+              target.source_files.each_key do |source_path|
+                if typecheck_paths.include?(source_path)
+                  enqueue_type_check(target: target, path: source_path)
+                end
+              end
+            end
           end
         end
       end
 
       def handle_job(job)
-        path, version, target = job
-        if !version || target_files[path] == version
-          typecheck_file(path, target)
-        else
-          Steep.logger.info "Skipping type check: #{path}@#{target.name}, queued version=#{version}, latest version=#{target_files[path]}"
-        end
+        target, path = job
+
+        typecheck_file(path, target)
       end
     end
   end

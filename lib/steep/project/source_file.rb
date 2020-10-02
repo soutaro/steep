@@ -8,10 +8,10 @@ module Steep
 
       attr_accessor :status
 
-      ParseErrorStatus = Struct.new(:error, keyword_init: true)
-      AnnotationSyntaxErrorStatus = Struct.new(:error, :location, keyword_init: true)
+      ParseErrorStatus = Struct.new(:error, :timestamp, keyword_init: true)
+      AnnotationSyntaxErrorStatus = Struct.new(:error, :location, :timestamp, keyword_init: true)
       TypeCheckStatus = Struct.new(:typing, :source, :timestamp, keyword_init: true)
-      TypeCheckErrorStatus = Struct.new(:error, keyword_init: true)
+      TypeCheckErrorStatus = Struct.new(:error, :timestamp, keyword_init: true)
 
       def initialize(path:)
         @path = path
@@ -20,11 +20,9 @@ module Steep
       end
 
       def content=(content)
-        if @content != content
-          @content_updated_at = Time.now
-          @content = content
-          @status = nil
-        end
+        @content_updated_at = Time.now
+        @content = content
+        @status = nil
       end
 
       def errors
@@ -88,31 +86,31 @@ module Steep
 
       def type_check(subtyping, env_updated_at)
         # skip type check
-        return false if status.is_a?(TypeCheckStatus) && env_updated_at <= status.timestamp
+        return false if status && env_updated_at <= status.timestamp
+
+        now = Time.now
 
         parse(subtyping.factory) do |source|
           typing = self.class.type_check(source, subtyping: subtyping)
-          @status = TypeCheckStatus.new(
-            typing: typing,
-            source: source,
-            timestamp: Time.now
-          )
+          @status = TypeCheckStatus.new(typing: typing, source: source, timestamp: now)
         rescue RBS::NoTypeFoundError,
           RBS::NoMixinFoundError,
           RBS::NoSuperclassFoundError,
           RBS::DuplicatedMethodDefinitionError,
           RBS::InvalidTypeApplicationError => exn
           # Skip logging known signature errors (they are handled with load_signatures(validate: true))
-          @status = TypeCheckErrorStatus.new(error: exn)
+          @status = TypeCheckErrorStatus.new(error: exn, timestamp: now)
         rescue => exn
           Steep.log_error(exn)
-          @status = TypeCheckErrorStatus.new(error: exn)
+          @status = TypeCheckErrorStatus.new(error: exn, timestamp: now)
         end
 
         true
       end
 
       def parse(factory)
+        now = Time.now
+
         if status.is_a?(TypeCheckStatus)
           yield status.source
         else
@@ -120,40 +118,10 @@ module Steep
         end
       rescue AnnotationParser::SyntaxError => exn
         Steep.logger.warn { "Annotation syntax error on #{path}: #{exn.inspect}" }
-        @status = AnnotationSyntaxErrorStatus.new(error: exn, location: exn.location)
+        @status = AnnotationSyntaxErrorStatus.new(error: exn, location: exn.location, timestamp: now)
       rescue ::Parser::SyntaxError, EncodingError => exn
         Steep.logger.warn { "Source parsing error on #{path}: #{exn.inspect}" }
-        @status = ParseErrorStatus.new(error: exn)
-      end
-    end
-
-    class SignatureFile
-      attr_reader :path
-      attr_reader :content
-      attr_reader :content_updated_at
-
-      attr_reader :status
-
-      ParseErrorStatus = Struct.new(:error, keyword_init: true)
-      DeclarationsStatus = Struct.new(:declarations, keyword_init: true)
-
-      def initialize(path:)
-        @path = path
-        self.content = ""
-      end
-
-      def content=(content)
-        @content_updated_at = Time.now
-        @content = content
-        @status = nil
-      end
-
-      def load!
-        buffer = RBS::Buffer.new(name: path, content: content)
-        decls = RBS::Parser.parse_signature(buffer)
-        @status = DeclarationsStatus.new(declarations: decls)
-      rescue RBS::Parser::SyntaxError, RBS::Parser::SemanticsError => exn
-        @status = ParseErrorStatus.new(error: exn)
+        @status = ParseErrorStatus.new(error: exn, timestamp: now)
       end
     end
   end

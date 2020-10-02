@@ -30,6 +30,19 @@ module Steep
       end
     end
 
+    def targets_for_path(path)
+      if target = target_for_source_path(path)
+        [target, []]
+      else
+        [
+          nil,
+          targets.select do |target|
+            target.possible_signature_file?(path)
+          end
+        ]
+      end
+    end
+
     def all_source_files
       targets.each.with_object(Set[]) do |target, paths|
         paths.merge(target.source_files.keys)
