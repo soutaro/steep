@@ -662,7 +662,7 @@ end
       source = parse_ruby(<<-EOF)
 x = [M1.new, M2.new][0]
 
-x.foo do |a| 
+x.foo do |a|
   nil
 end
 
@@ -5184,7 +5184,7 @@ end
 
       source = parse_ruby(<<-RUBY)
 OptionalBlockParam.new.foo do |x|
-  next unless x  
+  next unless x
   x + 1
 end
       RUBY
@@ -5796,6 +5796,23 @@ x = begin
     rescue
       [2, ""]
     end
+      RUBY
+
+      with_standard_construction(checker, source) do |construction, typing|
+        construction.synthesize(source.node)
+        assert_no_error typing
+      end
+    end
+  end
+
+  def test_module_attribute
+    with_checker(<<-RBS) do |checker|
+class Module
+  attr_accessor hello: String
+end
+    RBS
+      source = parse_ruby(<<-RUBY)
+Object.new
       RUBY
 
       with_standard_construction(checker, source) do |construction, typing|

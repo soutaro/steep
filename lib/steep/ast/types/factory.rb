@@ -344,41 +344,43 @@ module Steep
             defined_in = method_def.defined_in
             member = method_def.member
 
-            case
-            when defined_in == RBS::BuiltinNames::Object.name && member.instance?
-              case method_name
-              when :is_a?, :kind_of?, :instance_of?
-                return method_type.with(
-                  return_type: AST::Types::Logic::ReceiverIsArg.new(location: method_type.return_type.location)
-                )
-              when :nil?
-                return method_type.with(
-                  return_type: AST::Types::Logic::ReceiverIsNil.new(location: method_type.return_type.location)
-                )
-              end
+            if member.is_a?(RBS::AST::Members::MethodDefinition)
+              case
+              when defined_in == RBS::BuiltinNames::Object.name && member.instance?
+                case method_name
+                when :is_a?, :kind_of?, :instance_of?
+                  return method_type.with(
+                    return_type: AST::Types::Logic::ReceiverIsArg.new(location: method_type.return_type.location)
+                  )
+                when :nil?
+                  return method_type.with(
+                    return_type: AST::Types::Logic::ReceiverIsNil.new(location: method_type.return_type.location)
+                  )
+                end
 
-            when defined_in == AST::Builtin::NilClass.module_name && member.instance?
-              case method_name
-              when :nil?
-                return method_type.with(
-                  return_type: AST::Types::Logic::ReceiverIsNil.new(location: method_type.return_type.location)
-                )
-              end
+              when defined_in == AST::Builtin::NilClass.module_name && member.instance?
+                case method_name
+                when :nil?
+                  return method_type.with(
+                    return_type: AST::Types::Logic::ReceiverIsNil.new(location: method_type.return_type.location)
+                  )
+                end
 
-            when defined_in == RBS::BuiltinNames::BasicObject.name && member.instance?
-              case method_name
-              when :!
-                return method_type.with(
-                  return_type: AST::Types::Logic::Not.new(location: method_type.return_type.location)
-                )
-              end
+              when defined_in == RBS::BuiltinNames::BasicObject.name && member.instance?
+                case method_name
+                when :!
+                  return method_type.with(
+                    return_type: AST::Types::Logic::Not.new(location: method_type.return_type.location)
+                  )
+                end
 
-            when defined_in == RBS::BuiltinNames::Module.name && member.instance?
-              case method_name
-              when :===
-                return method_type.with(
-                  return_type: AST::Types::Logic::ArgIsReceiver.new(location: method_type.return_type.location)
-                )
+              when defined_in == RBS::BuiltinNames::Module.name && member.instance?
+                case method_name
+                when :===
+                  return method_type.with(
+                    return_type: AST::Types::Logic::ArgIsReceiver.new(location: method_type.return_type.location)
+                  )
+                end
               end
             end
           end
