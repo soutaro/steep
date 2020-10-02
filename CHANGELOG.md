@@ -2,6 +2,12 @@
 
 ## master
 
+## 0.30.0 (2020-10-03)
+
+* Let top-level defs be methods of Object ([#227](https://github.com/soutaro/steep/pull/227))
+* Fix error caused by attribute definitions ([#228](https://github.com/soutaro/steep/pull/228))
+* LSP worker improvements ([#222](https://github.com/soutaro/steep/pull/222), [#223](https://github.com/soutaro/steep/pull/223), [#226](https://github.com/soutaro/steep/pull/226), [#229](https://github.com/soutaro/steep/pull/229))
+
 ## 0.29.0 (2020-09-28)
 
 * Implement reasoning on `is_a?`, `nil?`, and `===` methods. ([#218](https://github.com/soutaro/steep/pull/218))
