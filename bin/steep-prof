@@ -9,8 +9,7 @@ def exit(*)
 
 end
 
-
 STDERR.puts "Running profiler: mode=#{mode}, out=#{out}"
-StackProf.run(mode: mode, out: out) do
+StackProf.run(mode: mode, out: out, raw: true) do
   load File.join(__dir__, "../exe/steep")
 end
