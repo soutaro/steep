@@ -52,21 +52,23 @@ module Steep
 
       def response_to_hover(path:, line:, column:)
         Steep.logger.tagged "#response_to_hover" do
-          Steep.logger.debug { "path=#{path}, line=#{line}, column=#{column}" }
+          Steep.measure "Generating response" do
+            Steep.logger.info { "path=#{path}, line=#{line}, column=#{column}" }
 
-          hover = Project::HoverContent.new(project: project)
-          content = hover.content_for(path: path, line: line+1, column: column+1)
-          if content
-            range = content.location.yield_self do |location|
-              start_position = { line: location.line - 1, character: location.column }
-              end_position = { line: location.last_line - 1, character: location.last_column }
-              { start: start_position, end: end_position }
+            hover = Project::HoverContent.new(project: project)
+            content = hover.content_for(path: path, line: line+1, column: column+1)
+            if content
+              range = content.location.yield_self do |location|
+                start_position = { line: location.line - 1, character: location.column }
+                end_position = { line: location.last_line - 1, character: location.last_column }
+                { start: start_position, end: end_position }
+              end
+
+              LSP::Interface::Hover.new(
+                contents: { kind: "markdown", value: format_hover(content) },
+                range: range
+              )
             end
-
-            LSP::Interface::Hover.new(
-              contents: { kind: "markdown", value: format_hover(content) },
-              range: range
-            )
           end
         rescue Typing::UnknownNodeError => exn
           Steep.log_error exn, message: "Failed to compute hover: #{exn.inspect}"
