@@ -29,11 +29,13 @@ module Steep
         @subtyping = subtyping
       end
 
-      def type_check!(text)
+      def type_check!(text, line:, column:)
         @modified_text = text
 
         Steep.measure "parsing" do
-          @source = SourceFile.parse(text, path: path, factory: subtyping.factory)
+          @source = SourceFile
+                      .parse(text, path: path, factory: subtyping.factory)
+                      .without_unrelated_defs(line: line, column: column)
         end
 
         Steep.measure "typechecking" do
@@ -53,7 +55,7 @@ module Steep
         begin
           Steep.logger.tagged "completion_provider#run(line: #{line}, column: #{column})" do
             Steep.measure "type_check!" do
-              type_check!(source_text)
+              type_check!(source_text, line: line, column: column)
             end
           end
 
@@ -66,11 +68,11 @@ module Steep
           case possible_trigger
           when "."
             source_text[index-1] = " "
-            type_check!(source_text)
+            type_check!(source_text, line: line, column: column)
             items_for_dot(position: position)
           when "@"
             source_text[index-1] = " "
-            type_check!(source_text)
+            type_check!(source_text, line: line, column: column)
             items_for_atmark(position: position)
           else
             []

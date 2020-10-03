@@ -351,7 +351,7 @@ module Steep
     end
 
     def without_unrelated_defs(line:, column:)
-      nodes = find_nodes(line: line, column: column)
+      nodes = find_nodes(line: line, column: column) || []
       defs = Set[].compare_by_identity.merge(nodes.select {|node| node.type == :def || node.type == :defs })
 
       node_ = Source.delete_defs(node, defs)
