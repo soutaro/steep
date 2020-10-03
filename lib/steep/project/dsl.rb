@@ -10,8 +10,9 @@ module Steep
         attr_reader :vendor_dir
         attr_reader :strictness_level
         attr_reader :typing_option_hash
+        attr_reader :repo_paths
 
-        def initialize(name, sources: [], libraries: [], signatures: [], ignored_sources: [])
+        def initialize(name, sources: [], libraries: [], signatures: [], ignored_sources: [], repo_paths: [])
           @name = name
           @sources = sources
           @libraries = libraries
@@ -20,6 +21,7 @@ module Steep
           @vendor_dir = nil
           @strictness_level = :default
           @typing_option_hash = {}
+          @repo_paths = []
         end
 
         def initialize_copy(other)
@@ -31,6 +33,7 @@ module Steep
           @vendor_dir = other.vendor_dir
           @strictness_level = other.strictness_level
           @typing_option_hash = other.typing_option_hash
+          @repo_paths = other.repo_paths.dup
         end
 
         def check(*args)
@@ -74,6 +77,10 @@ module Steep
           end
 
           @vendor_dir = Pathname(dir)
+        end
+
+        def repo_path(*paths)
+          @repo_paths.push(*paths.map {|s| Pathname(s) })
         end
       end
 
@@ -120,6 +127,7 @@ module Steep
           signature_patterns: target.signatures,
           options: Options.new.tap do |options|
             options.libraries.push(*target.libraries)
+            options.repository_paths.push(*target.repo_paths)
             options.vendor_path = target.vendor_dir
 
             case target.strictness_level

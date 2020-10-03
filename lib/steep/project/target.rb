@@ -118,6 +118,8 @@ module Steep
         @environment ||= RBS::Environment.new().yield_self do |env|
           core_root = options.vendor_path ? nil : RBS::EnvironmentLoader::DEFAULT_CORE_ROOT
           repo = RBS::Repository.new(no_stdlib: !core_root)
+          options.repository_paths.each do |path|
+            repo.add(path)
           end
           loader = RBS::EnvironmentLoader.new(core_root: core_root, repository: repo)
           if core_root

@@ -7,12 +7,14 @@ module Steep
       attr_accessor :allow_unknown_method_calls
       attr_accessor :vendor_path
       attr_reader :libraries
+      attr_reader :repository_paths
 
       def initialize
         apply_default_typing_options!
         self.vendor_path = nil
 
         @libraries = []
+        @repository_paths = []
       end
 
       def apply_default_typing_options!

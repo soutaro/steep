@@ -92,4 +92,17 @@ EOF
       end
     end
   end
+
+  def test_repo_path
+    in_tmpdir do
+      project = Project.new(steepfile_path: current_dir + "Steepfile")
+
+      Project::DSL.parse(project, <<EOF)
+target :app do
+  repo_path "vendor/rbs/internal"
+end
+EOF
+      assert_equal [Pathname("vendor/rbs/internal")], project.targets[0].options.repository_paths
+    end
+  end
 end
