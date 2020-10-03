@@ -126,33 +126,35 @@ HOVER
 
       def response_to_completion(path:, line:, column:, trigger:)
         Steep.logger.tagged("#response_to_completion") do
-          Steep.logger.info "path: #{path}, line: #{line}, column: #{column}, trigger: #{trigger}"
+          Steep.measure "Generating response" do
+            Steep.logger.info "path: #{path}, line: #{line}, column: #{column}, trigger: #{trigger}"
 
-          target = project.targets.find {|target| target.source_file?(path) } or return
-          target.type_check(target_sources: [], validate_signatures: false)
+            target = project.target_for_source_path(path) or return
+            target.type_check(target_sources: [], validate_signatures: false)
 
-          case (status = target&.status)
-          when Project::Target::TypeCheckStatus
-            subtyping = status.subtyping
-            source = target.source_files[path]
+            case (status = target&.status)
+            when Project::Target::TypeCheckStatus
+              subtyping = status.subtyping
+              source = target.source_files[path]
 
-            provider = Project::CompletionProvider.new(source_text: source.content, path: path, subtyping: subtyping)
-            items = begin
-                      provider.run(line: line, column: column)
-                    rescue Parser::SyntaxError
-                      []
-                    end
+              provider = Project::CompletionProvider.new(source_text: source.content, path: path, subtyping: subtyping)
+              items = begin
+                        provider.run(line: line, column: column)
+                      rescue Parser::SyntaxError
+                        []
+                      end
 
-            completion_items = items.map do |item|
-              format_completion_item(item)
+              completion_items = items.map do |item|
+                format_completion_item(item)
+              end
+
+              Steep.logger.debug "items = #{completion_items.inspect}"
+
+              LSP::Interface::CompletionList.new(
+                is_incomplete: false,
+                items: completion_items
+              )
             end
-
-            Steep.logger.debug "items = #{completion_items.inspect}"
-
-            LSP::Interface::CompletionList.new(
-              is_incomplete: false,
-              items: completion_items
-            )
           end
         end
       end
