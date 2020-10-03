@@ -116,12 +116,19 @@ module Steep
 
       def environment
         @environment ||= RBS::Environment.new().yield_self do |env|
-          stdlib_root = options.vendored_stdlib_path || RBS::EnvironmentLoader::STDLIB_ROOT
-          gem_vendor_path = options.vendored_gems_path
-          loader = RBS::EnvironmentLoader.new(stdlib_root: stdlib_root, gem_vendor_path: gem_vendor_path)
-          options.libraries.each do |lib|
-            loader.add(library: lib)
+          core_root = options.vendor_path ? nil : RBS::EnvironmentLoader::DEFAULT_CORE_ROOT
+          repo = RBS::Repository.new(no_stdlib: !core_root)
           end
+          loader = RBS::EnvironmentLoader.new(core_root: core_root, repository: repo)
+          if core_root
+            options.libraries.each do |lib|
+              loader.add(library: lib)
+            end
+          else
+            # All library RBSs are loaded from vendor_dir
+            loader.add(path: options.vendor_dir)
+          end
+
           loader.load(env: env)
 
           env.resolve_type_names

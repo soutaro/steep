@@ -27,7 +27,6 @@ target :app do
 end
 
 target :Gemfile, template: :gemfile do
-  vendor stdlib: nil, gems: "vendor/signatures/gems"
 end
 EOF
 
@@ -39,8 +38,7 @@ EOF
         assert_equal ["app/views"], target.ignore_patterns
         assert_equal ["sig", "sig-private"], target.signature_patterns
         assert_equal ["set", "strong_json"], target.options.libraries
-        assert_equal Pathname("vendor/sigs/stdlib"), target.options.vendored_stdlib_path
-        assert_equal Pathname("vendor/sigs/gems"), target.options.vendored_gems_path
+        assert_equal Pathname("vendor/sigs"), target.options.vendor_path
         assert_equal false, target.options.allow_missing_definitions
       end
 
@@ -50,8 +48,7 @@ EOF
         assert_equal [], target.ignore_patterns
         assert_equal [], target.signature_patterns
         assert_equal ["gemfile"], target.options.libraries
-        assert_nil target.options.vendored_stdlib_path
-        assert_equal Pathname("vendor/signatures/gems"), target.options.vendored_gems_path
+        assert_nil target.options.vendor_path
         assert_equal true, target.options.allow_missing_definitions
       end
     end

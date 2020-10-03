@@ -7,7 +7,6 @@ module Steep
         attr_reader :libraries
         attr_reader :signatures
         attr_reader :ignored_sources
-        attr_reader :no_builtin
         attr_reader :vendor_dir
         attr_reader :strictness_level
         attr_reader :typing_option_hash
@@ -71,13 +70,10 @@ module Steep
 
         def vendor(dir = "vendor/sigs", stdlib: nil, gems: nil)
           if stdlib || gems
-            @vendor_dir = [
-              stdlib&.yield_self {|x| Pathname(x) },
-              gems&.yield_self {|x| Pathname(x) }
-            ]
-          else
-            @vendor_dir = Pathname(dir)
+            Steep.logger.warn { "#vendor with stdlib: or gems: keyword is deprecated." }
           end
+
+          @vendor_dir = Pathname(dir)
         end
       end
 
@@ -124,6 +120,7 @@ module Steep
           signature_patterns: target.signatures,
           options: Options.new.tap do |options|
             options.libraries.push(*target.libraries)
+            options.vendor_path = target.vendor_dir
 
             case target.strictness_level
             when :strict
@@ -133,15 +130,6 @@ module Steep
             end
 
             options.merge!(target.typing_option_hash)
-
-            case target.vendor_dir
-            when Array
-              options.vendored_stdlib_path = target.vendor_dir[0]
-              options.vendored_gems_path = target.vendor_dir[1]
-            when Pathname
-              options.vendored_stdlib_path = target.vendor_dir + "stdlib"
-              options.vendored_gems_path = target.vendor_dir + "gems"
-            end
           end
         ).tap do |target|
           project.targets << target
