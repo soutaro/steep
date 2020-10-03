@@ -7,11 +7,14 @@ module Steep
         attr_reader :type_name_cache
         attr_reader :type_cache
 
+        attr_reader :type_interface_cache
+
         def initialize(builder:)
           @definition_builder = builder
 
           @type_name_cache = {}
           @type_cache = {}
+          @type_interface_cache = {}
         end
 
         def type_name_resolver
@@ -390,15 +393,23 @@ module Steep
 
         def interface(type, private:, self_type: type)
           Steep.logger.debug { "Factory#interface: #{type}, private=#{private}, self_type=#{self_type}" }
-          type = expand_alias(type)
+
+          cache_key = [type, self_type, private]
+          if type_interface_cache.key?(cache_key)
+            return type_interface_cache[cache_key]
+          end
 
           case type
+          when Name::Alias
+            interface(expand_alias(type), private: private, self_type: self_type)
+
           when Self
             if self_type != type
               interface self_type, private: private, self_type: Self.new
             else
               raise "Unexpected `self` type interface"
             end
+            
           when Name::Instance
             Interface::Interface.new(type: self_type, private: private).tap do |interface|
               definition = definition_builder.build_instance(type.name)
@@ -689,6 +700,8 @@ module Steep
 
           else
             raise "Unexpected type for interface: #{type}"
+          end.tap do |interface|
+            type_interface_cache[cache_key] = interface
           end
         end
 
