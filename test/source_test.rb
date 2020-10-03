@@ -449,4 +449,66 @@ end
                    source.find_nodes(line: 4, column: 5)    # x
     end
   end
+
+  def test_delete_defs
+    with_factory do |factory|
+      source = Steep::Source.parse(<<-EOF, path: Pathname("foo.rb"), factory: factory)
+require "thread"
+
+class A < X
+  def foo(bar)
+    x = 123
+  end
+
+  attr_reader :baz
+
+  module B
+    def self.hello
+      puts :world
+    end
+
+    class <<self
+      define_method :hogehoge do
+        1+2 
+      end
+    end
+  end
+
+  C = Struct.new(:x, :y) do
+    def test
+    end 
+  end
+end
+      EOF
+
+      source.without_unrelated_defs(line: 5, column: 4).tap do |s|
+        assert_equal parse_ruby(<<-RB).node, s.node
+require "thread"
+
+class A < X
+  def foo(bar)
+    x = 123
+  end
+
+  attr_reader :baz
+
+  module B
+    self
+
+    class <<self
+      define_method :hogehoge do
+        1+2 
+      end
+    end
+  end
+
+  C = Struct.new(:x, :y) do
+    nil
+  end
+end
+        RB
+
+      end
+    end
+  end
 end
