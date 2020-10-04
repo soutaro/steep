@@ -52,21 +52,23 @@ module Steep
 
       def response_to_hover(path:, line:, column:)
         Steep.logger.tagged "#response_to_hover" do
-          Steep.logger.debug { "path=#{path}, line=#{line}, column=#{column}" }
+          Steep.measure "Generating response" do
+            Steep.logger.info { "path=#{path}, line=#{line}, column=#{column}" }
 
-          hover = Project::HoverContent.new(project: project)
-          content = hover.content_for(path: path, line: line+1, column: column+1)
-          if content
-            range = content.location.yield_self do |location|
-              start_position = { line: location.line - 1, character: location.column }
-              end_position = { line: location.last_line - 1, character: location.last_column }
-              { start: start_position, end: end_position }
+            hover = Project::HoverContent.new(project: project)
+            content = hover.content_for(path: path, line: line+1, column: column+1)
+            if content
+              range = content.location.yield_self do |location|
+                start_position = { line: location.line - 1, character: location.column }
+                end_position = { line: location.last_line - 1, character: location.last_column }
+                { start: start_position, end: end_position }
+              end
+
+              LSP::Interface::Hover.new(
+                contents: { kind: "markdown", value: format_hover(content) },
+                range: range
+              )
             end
-
-            LSP::Interface::Hover.new(
-              contents: { kind: "markdown", value: format_hover(content) },
-              range: range
-            )
           end
         rescue Typing::UnknownNodeError => exn
           Steep.log_error exn, message: "Failed to compute hover: #{exn.inspect}"
@@ -126,33 +128,35 @@ HOVER
 
       def response_to_completion(path:, line:, column:, trigger:)
         Steep.logger.tagged("#response_to_completion") do
-          Steep.logger.info "path: #{path}, line: #{line}, column: #{column}, trigger: #{trigger}"
+          Steep.measure "Generating response" do
+            Steep.logger.info "path: #{path}, line: #{line}, column: #{column}, trigger: #{trigger}"
 
-          target = project.targets.find {|target| target.source_file?(path) } or return
-          target.type_check(target_sources: [], validate_signatures: false)
+            target = project.target_for_source_path(path) or return
+            target.type_check(target_sources: [], validate_signatures: false)
 
-          case (status = target&.status)
-          when Project::Target::TypeCheckStatus
-            subtyping = status.subtyping
-            source = target.source_files[path]
+            case (status = target&.status)
+            when Project::Target::TypeCheckStatus
+              subtyping = status.subtyping
+              source = target.source_files[path]
 
-            provider = Project::CompletionProvider.new(source_text: source.content, path: path, subtyping: subtyping)
-            items = begin
-                      provider.run(line: line, column: column)
-                    rescue Parser::SyntaxError
-                      []
-                    end
+              provider = Project::CompletionProvider.new(source_text: source.content, path: path, subtyping: subtyping)
+              items = begin
+                        provider.run(line: line, column: column)
+                      rescue Parser::SyntaxError
+                        []
+                      end
 
-            completion_items = items.map do |item|
-              format_completion_item(item)
+              completion_items = items.map do |item|
+                format_completion_item(item)
+              end
+
+              Steep.logger.debug "items = #{completion_items.inspect}"
+
+              LSP::Interface::CompletionList.new(
+                is_incomplete: false,
+                items: completion_items
+              )
             end
-
-            Steep.logger.debug "items = #{completion_items.inspect}"
-
-            LSP::Interface::CompletionList.new(
-              is_incomplete: false,
-              items: completion_items
-            )
           end
         end
       end

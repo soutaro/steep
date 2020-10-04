@@ -36,102 +36,113 @@ module Steep
         end
       end
 
+      def typecheck(target, path:, line:, column:)
+        target.type_check(target_sources: [], validate_signatures: false)
+
+        case (status = target.status)
+        when Project::Target::TypeCheckStatus
+          subtyping = status.subtyping
+          source = SourceFile
+                     .parse(target.source_files[path].content, path: path, factory: subtyping.factory)
+                     .without_unrelated_defs(line: line, column: column)
+          SourceFile.type_check(source, subtyping: subtyping)
+        end
+      rescue
+        nil
+      end
+
       def content_for(path:, line:, column:)
-        target = project.targets.find {|target| target.source_file?(path) }
+        target = project.target_for_source_path(path)
 
         if target
-          source_file = target.source_files[path]
-          target.type_check(target_sources: [source_file], validate_signatures: false)
+          typing = typecheck(target, path: path, line: line, column: column) or return
 
-          case (status = source_file.status)
-          when SourceFile::TypeCheckStatus
-            node, *parents = status.source.find_nodes(line: line, column: column)
+          node, *parents = typing.source.find_nodes(line: line, column: column)
 
-            if node
-              case node.type
-              when :lvar
-                var_name = node.children[0]
-                context = status.typing.context_at(line: line, column: column)
-                var_type = context.lvar_env[var_name.name] || AST::Types::Any.new(location: nil)
+          if node
+            case node.type
+            when :lvar
+              var_name = node.children[0]
+              context = typing.context_at(line: line, column: column)
+              var_type = context.lvar_env[var_name.name] || AST::Types::Any.new(location: nil)
 
-                VariableContent.new(node: node, name: var_name.name, type: var_type, location: node.location.name)
-              when :lvasgn
-                var_name, rhs = node.children
-                context = status.typing.context_at(line: line, column: column)
-                type = context.lvar_env[var_name.name] || status.typing.type_of(node: rhs)
+              VariableContent.new(node: node, name: var_name.name, type: var_type, location: node.location.name)
+            when :lvasgn
+              var_name, rhs = node.children
+              context = typing.context_at(line: line, column: column)
+              type = context.lvar_env[var_name.name] || typing.type_of(node: rhs)
 
-                VariableContent.new(node: node, name: var_name.name, type: type, location: node.location.name)
-              when :send
-                receiver, method_name, *_ = node.children
+              VariableContent.new(node: node, name: var_name.name, type: type, location: node.location.name)
+            when :send
+              receiver, method_name, *_ = node.children
 
 
-                result_node = if parents[0]&.type == :block
-                                parents[0]
+              result_node = if parents[0]&.type == :block
+                              parents[0]
+                            else
+                              node
+                            end
+
+              context = typing.context_at(line: line, column: column)
+
+              receiver_type = if receiver
+                                typing.type_of(node: receiver)
                               else
-                                node
+                                context.self_type
                               end
 
-                context = status.typing.context_at(line: line, column: column)
-
-                receiver_type = if receiver
-                                  status.typing.type_of(node: receiver)
-                                else
-                                  context.self_type
-                                end
-
-                factory = context.type_env.subtyping.factory
-                method_name, definition = case receiver_type
-                                          when AST::Types::Name::Instance
-                                            method_definition = method_definition_for(factory, receiver_type.name, instance_method: method_name)
-                                            if method_definition&.defined_in
-                                              owner_name = method_definition.defined_in
-                                              [
-                                                InstanceMethodName.new(owner_name, method_name),
-                                                method_definition
-                                              ]
-                                            end
-                                          when AST::Types::Name::Singleton
-                                            method_definition = method_definition_for(factory, receiver_type.name, singleton_method: method_name)
-                                            if method_definition&.defined_in
-                                              owner_name = method_definition.defined_in
-                                              [
-                                                SingletonMethodName.new(owner_name, method_name),
-                                                method_definition
-                                              ]
-                                            end
-                                          else
-                                            nil
+              factory = context.type_env.subtyping.factory
+              method_name, definition = case receiver_type
+                                        when AST::Types::Name::Instance
+                                          method_definition = method_definition_for(factory, receiver_type.name, instance_method: method_name)
+                                          if method_definition&.defined_in
+                                            owner_name = method_definition.defined_in
+                                            [
+                                              InstanceMethodName.new(owner_name, method_name),
+                                              method_definition
+                                            ]
                                           end
+                                        when AST::Types::Name::Singleton
+                                          method_definition = method_definition_for(factory, receiver_type.name, singleton_method: method_name)
+                                          if method_definition&.defined_in
+                                            owner_name = method_definition.defined_in
+                                            [
+                                              SingletonMethodName.new(owner_name, method_name),
+                                              method_definition
+                                            ]
+                                          end
+                                        else
+                                          nil
+                                        end
 
-                MethodCallContent.new(
+              MethodCallContent.new(
+                node: node,
+                method_name: method_name,
+                type: typing.type_of(node: result_node),
+                definition: definition,
+                location: result_node.location.expression
+              )
+            when :def, :defs
+              context = typing.context_at(line: line, column: column)
+              method_context = context.method_context
+
+              if method_context && method_context.method
+                DefinitionContent.new(
                   node: node,
-                  method_name: method_name,
-                  type: status.typing.type_of(node: result_node),
-                  definition: definition,
-                  location: result_node.location.expression
-                )
-              when :def, :defs
-                context = status.typing.context_at(line: line, column: column)
-                method_context = context.method_context
-
-                if method_context && method_context.method
-                  DefinitionContent.new(
-                    node: node,
-                    method_name: method_context.name,
-                    method_type: method_context.method_type,
-                    definition: method_context.method,
-                    location: node.loc.expression
-                  )
-                end
-              else
-                type = status.typing.type_of(node: node)
-
-                TypeContent.new(
-                  node: node,
-                  type: type,
-                  location: node.location.expression
+                  method_name: method_context.name,
+                  method_type: method_context.method_type,
+                  definition: method_context.method,
+                  location: node.loc.expression
                 )
               end
+            else
+              type = typing.type_of(node: node)
+
+              TypeContent.new(
+                node: node,
+                type: type,
+                location: node.location.expression
+              )
             end
           end
         end

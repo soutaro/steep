@@ -276,6 +276,18 @@ module Steep
       end
     end
 
+    def self.map_child_nodes(node)
+      children = node.children.map do |child|
+        if child.is_a?(::AST::Node)
+          yield child
+        else
+          child
+        end
+      end
+
+      node.updated(nil, children)
+    end
+
     def annotations(block:, factory:, current_module:)
       AST::Annotation::Collection.new(
         annotations: mapping[block.__id__] || [],
@@ -314,6 +326,51 @@ module Steep
 
           parents
         end
+      end
+    end
+
+    def self.delete_defs(node, allow_list)
+      case node.type
+      when :def
+        if allow_list.include?(node)
+          node
+        else
+          node.updated(:nil, [])
+        end
+      when :defs
+        if allow_list.include?(node)
+          node
+        else
+          delete_defs(node.children[0], allow_list)
+        end
+      else
+        map_child_nodes(node) do |child|
+          delete_defs(child, allow_list)
+        end
+      end
+    end
+
+    def without_unrelated_defs(line:, column:)
+      nodes = find_nodes(line: line, column: column) || []
+      defs = Set[].compare_by_identity.merge(nodes.select {|node| node.type == :def || node.type == :defs })
+
+      node_ = Source.delete_defs(node, defs)
+
+      Source.new(path: path, node: node_, mapping: mapping)
+    end
+
+    def compact_siblings(node)
+      case node
+      when :def
+        node.updated(:nil, [])
+      when :defs
+        node.children[0]
+      when :class
+        node.updated(:class, [node.children[0], node.children[1], nil])
+      when :module
+        node.updated(:module, [node.children[0], nil])
+      else
+        node
       end
     end
   end
