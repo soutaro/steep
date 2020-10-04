@@ -2,6 +2,13 @@
 
 ## master
 
+## 0.31.0 (2020-10-04)
+
+* Fix type checking performance ([#230](https://github.com/soutaro/steep/pull/230))
+* Improve LSP completion/hover performance ([#232](https://github.com/soutaro/steep/pull/232))
+* Fix instance variable completion ([#234](https://github.com/soutaro/steep/pull/234))
+* Relax version requirements on Listen to allow installing on Ruby 3 ([#235](https://github.com/soutaro/steep/pull/235))
+
 ## 0.30.0 (2020-10-03)
 
 * Let top-level defs be methods of Object ([#227](https://github.com/soutaro/steep/pull/227))
