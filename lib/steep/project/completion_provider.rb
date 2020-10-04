@@ -221,14 +221,14 @@ module Steep
       def items_for_atmark(position:)
         # @ ←
         shift_pos = position-1
-        node, *parents = source.find_nodes(line: shift_pos.line, column: shift_pos.column)
+        node, *_ = source.find_nodes(line: shift_pos.line, column: shift_pos.column)
         node ||= source.node
 
         return [] unless node
 
         context = typing.context_at(line: position.line, column: position.column)
         items = []
-        instance_variable_items_for_context(context, prefix: "", position: position, items: items)
+        instance_variable_items_for_context(context, prefix: "@", position: position, items: items)
         items
       end
 
