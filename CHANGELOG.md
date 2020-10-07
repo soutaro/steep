@@ -2,6 +2,10 @@
 
 ## master
 
+## 0.31.1 (2020-10-07)
+
+* Fix `if-then-else` parsing ([#236](https://github.com/soutaro/steep/pull/236))
+
 ## 0.31.0 (2020-10-04)
 
 * Fix type checking performance ([#230](https://github.com/soutaro/steep/pull/230))
