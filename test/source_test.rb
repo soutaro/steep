@@ -202,6 +202,16 @@ y + "foo" unless bar
     end
   end
 
+  def test_if_then_else
+    with_factory do |factory|
+      source = Steep::Source.parse(<<-EOF, path: Pathname("foo.rb"), factory: factory)
+x = if test then 1 else 2 end
+      EOF
+
+      source.annotations(block: source.node, factory: factory, current_module: Namespace.root)
+    end
+  end
+
   def test_while
     with_factory do |factory|
       source = Steep::Source.parse(<<-EOF, path: Pathname("foo.rb"), factory: factory)
@@ -469,14 +479,14 @@ class A < X
 
     class <<self
       define_method :hogehoge do
-        1+2 
+        1+2
       end
     end
   end
 
   C = Struct.new(:x, :y) do
     def test
-    end 
+    end
   end
 end
       EOF
@@ -497,7 +507,7 @@ class A < X
 
     class <<self
       define_method :hogehoge do
-        1+2 
+        1+2
       end
     end
   end
