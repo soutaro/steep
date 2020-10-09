@@ -207,6 +207,12 @@ module Steep
             [type]
           ]
 
+        when AST::Types::Name::Interface
+          [
+            [instance_type],
+            [type]
+          ]
+
         else
           [
             [],
