@@ -5856,4 +5856,29 @@ end
       end
     end
   end
+
+  def test_flow_sensitive_and
+    with_checker(<<-RBS) do |checker|
+class Fun
+  def foo: (Integer?) -> void
+  def foo2: (Integer) -> void
+end
+    RBS
+      source = parse_ruby(<<-RUBY)
+class Fun
+  def foo(v)
+    !v.nil? && foo2(v)
+  end
+
+  def foo2(_)
+  end
+end
+      RUBY
+
+      with_standard_construction(checker, source) do |construction, typing|
+        construction.synthesize(source.node)
+        assert_no_error typing
+      end
+    end
+  end
 end
