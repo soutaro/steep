@@ -2,6 +2,10 @@
 
 ## master
 
+## 0.32.0 (2020-10-09)
+
+* Let type-case support interface types ([#237](https://github.com/soutaro/steep/pull/237))
+
 ## 0.31.1 (2020-10-07)
 
 * Fix `if-then-else` parsing ([#236](https://github.com/soutaro/steep/pull/236))
