@@ -5663,7 +5663,7 @@ a + 1
     end
   end
 
-  def test_logic_type_no_escape
+  def test_logic_type_no_escape2
     with_checker(<<-RBS) do |checker|
 class Object
   def yield_self: [A] () { () -> A } -> A
