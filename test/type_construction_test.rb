@@ -5821,4 +5821,36 @@ Object.new
       end
     end
   end
+
+  def test_type_case_interface
+    with_checker(<<-RBS) do |checker|
+interface _Fooable
+end
+
+class WithName
+  attr_reader name: String
+end
+
+class WithEmail
+  attr_reader email: String
+end
+    RBS
+      source = parse_ruby(<<-RUBY)
+# @type var x: _Fooable
+x = _ = nil
+
+case x
+when WithName
+  x.name
+when WithEmail
+  x.email
+end
+      RUBY
+
+      with_standard_construction(checker, source) do |construction, typing|
+        construction.synthesize(source.node)
+        assert_no_error typing
+      end
+    end
+  end
 end
