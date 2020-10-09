@@ -15,6 +15,7 @@ class TypeConstructionTest < Minitest::Test
   Annotation = Steep::AST::Annotation
   Context = Steep::TypeInference::Context
   LocalVariableTypeEnv = Steep::TypeInference::LocalVariableTypeEnv
+  AST = Steep::AST
 
   DEFAULT_SIGS = <<-EOS
 interface _A
@@ -79,12 +80,14 @@ end
       block_context: nil,
       method_context: nil,
       module_context: Context::ModuleContext.new(
-        instance_type: nil,
-        module_type: nil,
+        instance_type: AST::Builtin::Object.instance_type,
+        module_type: AST::Builtin::Object.module_type,
         implement_name: nil,
         current_namespace: Namespace.root,
         const_env: const_env,
-        class_name: nil
+        class_name: AST::Builtin::Object.module_name,
+        instance_definition: checker.factory.definition_builder.build_instance(AST::Builtin::Object.module_name),
+        module_definition: checker.factory.definition_builder.build_singleton(AST::Builtin::Object.module_name)
       ),
       break_context: nil,
       self_type: self_type,
@@ -4985,10 +4988,10 @@ end
 
         assert_equal parse_type("::WithSingleton"), module_context.instance_type
         assert_equal parse_type("singleton(::WithSingleton)"), module_context.module_type
-        assert_nil module_context.class_name
+        assert_equal TypeName("::Object"), module_context.class_name
         assert_nil module_context.implement_name
-        assert_equal "::WithSingleton", module_context.module_definition.type_name.to_s
-        assert_equal "::WithSingleton", module_context.instance_definition.type_name.to_s
+        assert_equal TypeName("::WithSingleton"), module_context.module_definition.type_name
+        assert_equal TypeName("::WithSingleton"), module_context.instance_definition.type_name
 
         construction.synthesize(source.node)
 
