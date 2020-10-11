@@ -16,7 +16,6 @@ require 'uri'
 
 require "rbs"
 
-require "steep/ast/location"
 require "steep/ast/types/helper"
 require "steep/ast/types/any"
 require "steep/ast/types/instance"
