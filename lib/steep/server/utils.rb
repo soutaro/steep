@@ -13,7 +13,7 @@ module Steep
         if range
           text = text.dup
 
-          buf = AST::Buffer.new(name: :_, content: text)
+          buf = RBS::Buffer.new(name: :_, content: text)
 
           start_pos = buf.loc_to_pos(range[:start].yield_self {|pos| [pos[:line]+1, pos[:character]] })
           end_pos = buf.loc_to_pos(range[:end].yield_self {|pos| [pos[:line]+1, pos[:character]] })

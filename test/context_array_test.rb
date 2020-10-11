@@ -17,7 +17,7 @@ class ContextArrayTest < Minitest::Test
 
   def test_array_1
     with_factory do
-      buffer = AST::Buffer.new(name: :buf, content: <<EOF)
+      buffer = RBS::Buffer.new(name: :buf, content: <<EOF)
 01234567890123456789
 EOF
 
@@ -38,7 +38,7 @@ EOF
 
   def test_array_2
     with_factory do
-      buffer = AST::Buffer.new(name: :buf, content: <<EOF)
+      buffer = RBS::Buffer.new(name: :buf, content: <<EOF)
 01234567890123456789
 EOF
 

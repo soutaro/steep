@@ -65,7 +65,7 @@ module Steep
         parser.tokenize(buffer)
       end
 
-      buffer = AST::Buffer.new(name: path, content: source_code)
+      buffer = RBS::Buffer.new(name: path, content: source_code)
 
       comments.each do |comment|
         src = comment.text.gsub(/\A#\s*/, '')

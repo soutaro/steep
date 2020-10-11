@@ -29,7 +29,7 @@ module Steep
                   else
                     ""
                   end
-        buffer = AST::Buffer.new(name: source.path, content: content)
+        buffer = RBS::Buffer.new(name: source.path, content: content)
         new(buffer: buffer, context: context, range: range || 0..buffer.content.size)
       end
 
