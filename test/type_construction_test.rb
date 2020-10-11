@@ -5663,7 +5663,7 @@ a + 1
     end
   end
 
-  def test_logic_type_no_escape
+  def test_logic_type_no_escape2
     with_checker(<<-RBS) do |checker|
 class Object
   def yield_self: [A] () { () -> A } -> A
@@ -5847,6 +5847,31 @@ when WithName
   x.name
 when WithEmail
   x.email
+end
+      RUBY
+
+      with_standard_construction(checker, source) do |construction, typing|
+        construction.synthesize(source.node)
+        assert_no_error typing
+      end
+    end
+  end
+
+  def test_flow_sensitive_and
+    with_checker(<<-RBS) do |checker|
+class Fun
+  def foo: (Integer?) -> void
+  def foo2: (Integer) -> void
+end
+    RBS
+      source = parse_ruby(<<-RUBY)
+class Fun
+  def foo(v)
+    !v.nil? && foo2(v)
+  end
+
+  def foo2(_)
+  end
 end
       RUBY
 

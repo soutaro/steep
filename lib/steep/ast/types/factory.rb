@@ -342,44 +342,44 @@ module Steep
           end
         end
 
+        NilClassName = TypeName("::NilClass")
+
         def setup_primitives(method_name, method_type)
           if method_def = method_type.method_def
             defined_in = method_def.defined_in
             member = method_def.member
 
             if member.is_a?(RBS::AST::Members::MethodDefinition)
-              case
-              when defined_in == RBS::BuiltinNames::Object.name && member.instance?
-                case method_name
-                when :is_a?, :kind_of?, :instance_of?
+              case method_name
+              when :is_a?, :kind_of?, :instance_of?
+                if defined_in == RBS::BuiltinNames::Object.name && member.instance?
                   return method_type.with(
                     return_type: AST::Types::Logic::ReceiverIsArg.new(location: method_type.return_type.location)
                   )
-                when :nil?
+                end
+
+              when :nil?
+                case defined_in
+                when RBS::BuiltinNames::Object.name,
+                  NilClassName
                   return method_type.with(
                     return_type: AST::Types::Logic::ReceiverIsNil.new(location: method_type.return_type.location)
                   )
                 end
 
-              when defined_in == AST::Builtin::NilClass.module_name && member.instance?
-                case method_name
-                when :nil?
-                  return method_type.with(
-                    return_type: AST::Types::Logic::ReceiverIsNil.new(location: method_type.return_type.location)
-                  )
-                end
-
-              when defined_in == RBS::BuiltinNames::BasicObject.name && member.instance?
-                case method_name
-                when :!
+              when :!
+                case defined_in
+                when RBS::BuiltinNames::BasicObject.name,
+                  RBS::BuiltinNames::TrueClass.name,
+                  RBS::BuiltinNames::FalseClass.name
                   return method_type.with(
                     return_type: AST::Types::Logic::Not.new(location: method_type.return_type.location)
                   )
                 end
 
-              when defined_in == RBS::BuiltinNames::Module.name && member.instance?
-                case method_name
-                when :===
+              when :===
+                case defined_in
+                when RBS::BuiltinNames::Module.name
                   return method_type.with(
                     return_type: AST::Types::Logic::ArgIsReceiver.new(location: method_type.return_type.location)
                   )
@@ -409,7 +409,7 @@ module Steep
             else
               raise "Unexpected `self` type interface"
             end
-            
+
           when Name::Instance
             Interface::Interface.new(type: self_type, private: private).tap do |interface|
               definition = definition_builder.build_instance(type.name)
