@@ -38,7 +38,6 @@ require "steep/ast/types/logic"
 require "steep/ast/type_params"
 require "steep/ast/annotation"
 require "steep/ast/annotation/collection"
-require "steep/ast/buffer"
 require "steep/ast/builtin"
 require "steep/ast/types/factory"
 
