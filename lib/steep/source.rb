@@ -65,11 +65,11 @@ module Steep
         parser.tokenize(buffer)
       end
 
-      buffer = AST::Buffer.new(name: path, content: source_code)
+      buffer = RBS::Buffer.new(name: path, content: source_code)
 
       comments.each do |comment|
         src = comment.text.gsub(/\A#\s*/, '')
-        location = AST::Location.new(buffer: buffer,
+        location = RBS::Location.new(buffer: buffer,
                                      start_pos: comment.location.expression.begin_pos + 1,
                                      end_pos: comment.location.expression.end_pos)
         annotation = AnnotationParser.new(factory: factory).parse(src, location: location)

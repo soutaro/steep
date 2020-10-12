@@ -228,7 +228,7 @@ end
 
       target.source_files[Pathname("lib/foo.rb")].tap do |file|
         assert_equal Project::SourceFile::AnnotationSyntaxErrorStatus, file.status.class
-        assert_equal "3:5...3:18", file.status.location.to_s
+        assert_equal "lib/foo.rb:3:5...3:18", file.status.location.to_s
       end
     end
   end
