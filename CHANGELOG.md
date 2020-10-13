@@ -2,6 +2,10 @@
 
 ## master
 
+## 0.33.0 (2020-10-13)
+
+* Make `!` typing flow sensitive ([#240](https://github.com/soutaro/steep/pull/240))
+
 ## 0.32.0 (2020-10-09)
 
 * Let type-case support interface types ([#237](https://github.com/soutaro/steep/pull/237))
