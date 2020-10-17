@@ -2339,6 +2339,14 @@ module Steep
                                                                               receiver_type: receiver_type,
                                                                               topdown_hint: true)
 
+
+                             case method_name.to_s
+                             when "[]=", /\w=\Z/
+                               if typing.has_type?(arguments.last)
+                                 return_type = typing.type_of(node: arguments.last)
+                               end
+                             end
+
                              add_typing node, type: return_type, constr: constr
                            else
                              fallback_to_any node do
