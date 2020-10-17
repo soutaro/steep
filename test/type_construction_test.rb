@@ -5881,4 +5881,25 @@ end
       end
     end
   end
+
+  def test_assignment_call
+    with_checker(<<-RBS) do |checker|
+class Fun
+  def foo=: (Integer) -> String
+  def []=: (Integer, String) -> Symbol
+end
+    RBS
+      source = parse_ruby(<<-RUBY)
+# @type var x: Integer
+x = Fun.new.foo = 30
+# @type var y: String
+y = Fun.new[1] = "hoge"
+      RUBY
+
+      with_standard_construction(checker, source) do |construction, typing|
+        construction.synthesize(source.node)
+        assert_no_error typing
+      end
+    end
+  end
 end
