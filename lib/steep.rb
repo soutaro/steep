@@ -77,6 +77,7 @@ require "steep/type_inference/method_call"
 require "steep/ast/types"
 
 require "steep/index/rbs_index"
+require "steep/index/source_index"
 
 require "steep/server/utils"
 require "steep/server/base_worker"
