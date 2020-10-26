@@ -149,6 +149,8 @@ module Steep
               type: function_1(type.params, type.return_type),
               location: nil
             )
+          when Logic::Base
+            RBS::Types::Bases::Bool.new(location: nil)
           else
             raise "Unexpected type given: #{type} (#{type.class})"
           end
@@ -178,7 +180,7 @@ module Steep
           )
         end
 
-        def method_type(method_type, self_type:, subst2: nil, method_def: nil)
+        def method_type(method_type, self_type:, subst2: nil, method_decls:)
           fvs = self_type.free_variables()
 
           type_params = []
@@ -209,8 +211,7 @@ module Steep
                                return_type: type(block.type.return_type).subst(subst), location: nil)
               )
             end,
-            method_def: method_def,
-            location: method_def&.member&.location
+            method_decls: method_decls
           )
 
           if block_given?
@@ -344,46 +345,44 @@ module Steep
 
         NilClassName = TypeName("::NilClass")
 
-        def setup_primitives(method_name, method_type)
-          if method_def = method_type.method_def
-            defined_in = method_def.defined_in
-            member = method_def.member
+        def setup_primitives(method_name, method_def, method_type)
+          defined_in = method_def.defined_in
+          member = method_def.member
 
-            if member.is_a?(RBS::AST::Members::MethodDefinition)
-              case method_name
-              when :is_a?, :kind_of?, :instance_of?
-                if defined_in == RBS::BuiltinNames::Object.name && member.instance?
-                  return method_type.with(
-                    return_type: AST::Types::Logic::ReceiverIsArg.new(location: method_type.return_type.location)
-                  )
-                end
+          if member.is_a?(RBS::AST::Members::MethodDefinition)
+            case method_name
+            when :is_a?, :kind_of?, :instance_of?
+              if defined_in == RBS::BuiltinNames::Object.name && member.instance?
+                return method_type.with(
+                  return_type: AST::Types::Logic::ReceiverIsArg.new(location: method_type.return_type.location)
+                )
+              end
 
-              when :nil?
-                case defined_in
-                when RBS::BuiltinNames::Object.name,
-                  NilClassName
-                  return method_type.with(
-                    return_type: AST::Types::Logic::ReceiverIsNil.new(location: method_type.return_type.location)
-                  )
-                end
+            when :nil?
+              case defined_in
+              when RBS::BuiltinNames::Object.name,
+                NilClassName
+                return method_type.with(
+                  return_type: AST::Types::Logic::ReceiverIsNil.new(location: method_type.return_type.location)
+                )
+              end
 
-              when :!
-                case defined_in
-                when RBS::BuiltinNames::BasicObject.name,
-                  RBS::BuiltinNames::TrueClass.name,
-                  RBS::BuiltinNames::FalseClass.name
-                  return method_type.with(
-                    return_type: AST::Types::Logic::Not.new(location: method_type.return_type.location)
-                  )
-                end
+            when :!
+              case defined_in
+              when RBS::BuiltinNames::BasicObject.name,
+                RBS::BuiltinNames::TrueClass.name,
+                RBS::BuiltinNames::FalseClass.name
+                return method_type.with(
+                  return_type: AST::Types::Logic::Not.new(location: method_type.return_type.location)
+                )
+              end
 
-              when :===
-                case defined_in
-                when RBS::BuiltinNames::Module.name
-                  return method_type.with(
-                    return_type: AST::Types::Logic::ArgIsReceiver.new(location: method_type.return_type.location)
-                  )
-                end
+            when :===
+              case defined_in
+              when RBS::BuiltinNames::Module.name
+                return method_type.with(
+                  return_type: AST::Types::Logic::ArgIsReceiver.new(location: method_type.return_type.location)
+                )
               end
             end
           end
@@ -433,10 +432,13 @@ module Steep
 
                   interface.methods[name] = Interface::Interface::Entry.new(
                     method_types: method.defs.map do |type_def|
+                      method_name = InstanceMethodName.new(type_name: type_def.implemented_in || type_def.defined_in, method_name: name)
+                      decl = TypeInference::MethodCall::MethodDecl.new(method_name: method_name, method_def: type_def)
                       setup_primitives(
                         name,
+                        type_def,
                         method_type(type_def.type,
-                                    method_def: type_def,
+                                    method_decls: Set[decl],
                                     self_type: self_type,
                                     subst2: subst)
                       )
@@ -460,7 +462,11 @@ module Steep
               definition.methods.each do |name, method|
                 interface.methods[name] = Interface::Interface::Entry.new(
                   method_types: method.defs.map do |type_def|
-                    method_type(type_def.type, method_def: type_def, self_type: self_type, subst2: subst)
+                    decls = Set[TypeInference::MethodCall::MethodDecl.new(
+                      method_name: InstanceMethodName.new(type_name: type_def.implemented_in || type_def.defined_in, method_name: name),
+                      method_def: type_def
+                    )]
+                    method_type(type_def.type, method_decls: decls, self_type: self_type, subst2: subst)
                   end
                 )
               end
@@ -485,10 +491,16 @@ module Steep
 
                 interface.methods[name] = Interface::Interface::Entry.new(
                   method_types: method.defs.map do |type_def|
+                    decl = TypeInference::MethodCall::MethodDecl.new(
+                      method_name: SingletonMethodName.new(type_name: type_def.implemented_in || type_def.defined_in,
+                                                           method_name: name),
+                      method_def: type_def
+                    )
                     setup_primitives(
                       name,
+                      type_def,
                       method_type(type_def.type,
-                                  method_def: type_def,
+                                  method_decls: Set[decl],
                                   self_type: self_type,
                                   subst2: subst)
                     )
@@ -568,8 +580,7 @@ module Steep
                                                       rest_keywords: nil),
                         block: nil,
                         return_type: elem_type,
-                        method_def: nil,
-                        location: nil
+                        method_decls: Set[]
                       )
                     } + aref.method_types
                   )
@@ -588,8 +599,7 @@ module Steep
                                                       rest_keywords: nil),
                         block: nil,
                         return_type: elem_type,
-                        method_def: nil,
-                        location: nil
+                        method_decls: Set[]
                       )
                     } + update.method_types
                   )
@@ -603,8 +613,7 @@ module Steep
                         params: Interface::Params.empty,
                         block: nil,
                         return_type: type.types[0] || AST::Builtin.nil_type,
-                        method_def: nil,
-                        location: nil
+                        method_decls: Set[]
                       )
                     ]
                   )
@@ -618,8 +627,7 @@ module Steep
                         params: Interface::Params.empty,
                         block: nil,
                         return_type: type.types.last || AST::Builtin.nil_type,
-                        method_def: nil,
-                        location: nil
+                        method_decls: Set[]
                       )
                     ]
                   )
@@ -640,6 +648,7 @@ module Steep
                   Interface::Interface::Entry.new(
                     method_types: type.elements.map {|key_value, value_type|
                       key_type = Literal.new(value: key_value, location: nil)
+
                       Interface::MethodType.new(
                         type_params: [],
                         params: Interface::Params.new(required: [key_type],
@@ -650,8 +659,7 @@ module Steep
                                                       rest_keywords: nil),
                         block: nil,
                         return_type: value_type,
-                        method_def: nil,
-                        location: nil
+                        method_decls: Set[]
                       )
                     } + ref.method_types
                   )
@@ -671,8 +679,7 @@ module Steep
                                                       rest_keywords: nil),
                         block: nil,
                         return_type: value_type,
-                        method_def: nil,
-                        location: nil
+                        method_decls: Set[]
                       )
                     } + update.method_types
                   )
@@ -687,8 +694,7 @@ module Steep
                 params: type.params,
                 return_type: type.return_type,
                 block: nil,
-                method_def: nil,
-                location: nil
+                method_decls: Set[]
               )
 
               interface.methods[:[]] = Interface::Interface::Entry.new(method_types: [method_type])

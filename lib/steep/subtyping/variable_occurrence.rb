@@ -29,6 +29,8 @@ module Steep
             returns << var
           end
         end
+
+        params.subtract(returns)
       end
 
       def each_var(type, &block)

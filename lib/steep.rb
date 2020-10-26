@@ -16,6 +16,7 @@ require 'uri'
 
 require "rbs"
 
+require "steep/method_name"
 require "steep/ast/types/helper"
 require "steep/ast/types/any"
 require "steep/ast/types/instance"
@@ -70,6 +71,7 @@ require "steep/type_inference/type_env"
 require "steep/type_inference/local_variable_type_env"
 require "steep/type_inference/logic"
 require "steep/type_inference/logic_type_interpreter"
+require "steep/type_inference/method_call"
 require "steep/ast/types"
 
 require "steep/server/utils"

@@ -23,7 +23,8 @@ class TypingTest < Minitest::Test
                              module_context: nil,
                              self_type: parse_type("::Object"),
                              type_env: nil,
-                             lvar_env: nil)
+                             lvar_env: nil,
+                             call_context: Steep::TypeInference::MethodCall::TopLevelContext.new)
   end
 
   def test_1

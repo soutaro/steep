@@ -196,7 +196,7 @@ HOVER
             ),
             documentation: item.comment&.string,
             insert_text_format: LanguageServer::Protocol::Constant::InsertTextFormat::SNIPPET,
-            sort_text: item.inherited_method ? 'z' : 'a' # Ensure language server puts non-inherited methods before inherited methods
+            sort_text: item.inherited? ? 'z' : 'a' # Ensure language server puts non-inherited methods before inherited methods
           )
         when Project::CompletionProvider::InstanceVariableItem
           label = "#{item.identifier}: #{item.type}"

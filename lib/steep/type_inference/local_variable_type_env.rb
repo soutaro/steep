@@ -114,7 +114,9 @@ module Steep
             relation = Subtyping::Relation.new(sub_type: inner_type, super_type: outer_type)
             constraints = Subtyping::Constraints.new(unknowns: Set.new)
             subtyping.check(relation, constraints: constraints, self_type: self_type).else do |result|
-              yield var, outer_type, inner_type, result
+              if block_given?
+                yield var, outer_type, inner_type, result
+              end
             end
           end
         end
@@ -144,6 +146,13 @@ module Steep
         update(
           declared_types: declared_types.reject {|var, _| variables.include?(var) },
           assigned_types: assigned_types.reject {|var, _| variables.include?(var) }
+        )
+      end
+
+      def subst(s)
+        update(
+          declared_types: declared_types.transform_values {|e| e.update(type: e.type.subst(s)) },
+          assigned_types: assigned_types.transform_values {|e| e.update(type: e.type.subst(s)) }
         )
       end
 

@@ -102,6 +102,8 @@ end
       EOR
 
         provider.run(line: 1, column: 4).tap do |items|
+          items.find {|item| item.identifier == :class }.inherited?
+
           assert_equal [
             { :identifier=>:class, :inherited_method=>true },
             { :identifier=>:is_a?, :inherited_method=>true },
@@ -112,7 +114,7 @@ end
             { :identifier=>:to_s, :inherited_method=>true },
             { :identifier=>:to_str, :inherited_method=>false }
           ],
-          items.map { |item| { identifier: item.identifier, inherited_method: item.inherited_method } }.sort { |h1, h2| h1[:identifier] <=> h2[:identifier] }
+          items.map { |item| { identifier: item.identifier, inherited_method: item.inherited? } }.sort { |h1, h2| h1[:identifier] <=> h2[:identifier] }
         end
       end
     end

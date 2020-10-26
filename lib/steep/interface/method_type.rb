@@ -774,16 +774,14 @@ module Steep
       attr_reader :params
       attr_reader :block
       attr_reader :return_type
-      attr_reader :location
-      attr_reader :method_def
+      attr_reader :method_decls
 
-      def initialize(type_params:, params:, block:, return_type:, location:, method_def:)
+      def initialize(type_params:, params:, block:, return_type:, method_decls:)
         @type_params = type_params
         @params = params
         @block = block
         @return_type = return_type
-        @location = location
-        @method_def = method_def
+        @method_decls = method_decls
       end
 
       def ==(other)
@@ -791,9 +789,7 @@ module Steep
           other.type_params == type_params &&
           other.params == params &&
           other.block == block &&
-          other.return_type == return_type &&
-          (!other.method_def || !method_def || other.method_def == method_def) &&
-          (!other.location || !location || other.location == location)
+          other.return_type == return_type
       end
 
       alias eql? ==
@@ -824,8 +820,7 @@ module Steep
           params: params.subst(s_),
           block: block&.subst(s_),
           return_type: return_type.subst(s_),
-          method_def: method_def,
-          location: location
+          method_decls: method_decls
         )
       end
 
@@ -847,17 +842,15 @@ module Steep
                        params: params.subst(s),
                        block: block&.subst(s),
                        return_type: return_type.subst(s),
-                       location: location,
-                       method_def: method_def)
+                       method_decls: method_decls)
       end
 
-      def with(type_params: self.type_params, params: self.params, block: self.block, return_type: self.return_type, location: self.location,  method_def: self.method_def)
+      def with(type_params: self.type_params, params: self.params, block: self.block, return_type: self.return_type, method_decls: self.method_decls)
         self.class.new(type_params: type_params,
                        params: params,
                        block: block,
                        return_type: return_type,
-                       method_def: method_def,
-                       location: location)
+                       method_decls: method_decls)
       end
 
       def to_s
@@ -873,8 +866,7 @@ module Steep
                        params: params.map_type(&block),
                        block: self.block&.yield_self {|blk| blk.map_type(&block) },
                        return_type: yield(return_type),
-                       location: location,
-                       method_def: method_def)
+                       method_decls: method_decls)
       end
 
       # Returns a new method type which can be used for the method implementation type of both `self` and `other`.
@@ -902,8 +894,7 @@ module Steep
           return_type: AST::Types::Union.build(
             types: [return_type.subst(s1),other.return_type.subst(s2)]
           ),
-          method_def: method_def,
-          location: nil
+          method_decls: method_decls + other.method_decls
         )
       end
 
@@ -958,8 +949,7 @@ module Steep
           block: block,
           return_type: return_type,
           type_params: type_params,
-          method_def: nil,
-          location: nil
+          method_decls: method_decls + other.method_decls
         )
       end
 
@@ -1006,8 +996,7 @@ module Steep
           block: block,
           return_type: return_type,
           type_params: type_params,
-          method_def: nil,
-          location: nil
+          method_decls: method_decls + other.method_decls
         )
       end
     end

@@ -313,7 +313,7 @@ end
 class TrueClass
 end
 class FalseClass
-end	
+end
 
   EOS
 
@@ -438,7 +438,7 @@ module FactoryHelper
 
   def parse_method_type(string, factory: self.factory, variables: [], self_type: Steep::AST::Types::Self.new)
     type = RBS::Parser.parse_method_type(string, variables: variables)
-    factory.method_type type, self_type: self_type
+    factory.method_type type, self_type: self_type, method_decls: Set[]
   end
 end
 
@@ -470,5 +470,81 @@ module LSPTestHelper
   end
 end
 
+module TypeConstructionHelper
+  Namespace = RBS::Namespace
+
+  Typing = Steep::Typing
+  ConstantEnv = Steep::TypeInference::ConstantEnv
+  TypeEnv = Steep::TypeInference::TypeEnv
+  TypeConstruction = Steep::TypeConstruction
+  Annotation = Steep::AST::Annotation
+  Context = Steep::TypeInference::Context
+  LocalVariableTypeEnv = Steep::TypeInference::LocalVariableTypeEnv
+  AST = Steep::AST
+  TypeInference = Steep::TypeInference
+
+  def with_standard_construction(checker, source)
+    self_type = parse_type("::Object")
+
+    annotations = source.annotations(block: source.node, factory: checker.factory, current_module: Namespace.root)
+    const_env = ConstantEnv.new(factory: factory,
+                                context: [Namespace.root])
+    type_env = TypeEnv.build(annotations: annotations,
+                             subtyping: checker,
+                             const_env: const_env,
+                             signatures: checker.factory.env)
+    lvar_env = LocalVariableTypeEnv.empty(
+      subtyping: checker,
+      self_type: self_type
+    ).annotate(annotations)
+
+    context = Context.new(
+      block_context: nil,
+      method_context: nil,
+      module_context: Context::ModuleContext.new(
+        instance_type: AST::Builtin::Object.instance_type,
+        module_type: AST::Builtin::Object.module_type,
+        implement_name: nil,
+        current_namespace: Namespace.root,
+        const_env: const_env,
+        class_name: AST::Builtin::Object.module_name,
+        instance_definition: checker.factory.definition_builder.build_instance(AST::Builtin::Object.module_name),
+        module_definition: checker.factory.definition_builder.build_singleton(AST::Builtin::Object.module_name)
+      ),
+      break_context: nil,
+      self_type: self_type,
+      type_env: type_env,
+      lvar_env: lvar_env,
+      call_context: TypeInference::MethodCall::TopLevelContext.new()
+    )
+    typing = Typing.new(source: source, root_context: context)
+
+    construction = TypeConstruction.new(checker: checker,
+                                        source: source,
+                                        annotations: annotations,
+                                        context: context,
+                                        typing: typing)
+
+    yield construction, typing
+  end
+
+  def assert_no_error(typing)
+    assert_instance_of Typing, typing
+    assert_predicate typing.errors.map {|e| StringIO.new().tap {|io| e.print_to(io) }.string }, :empty?
+  end
+
+  def assert_typing_error(typing, size: nil)
+    assert_instance_of Typing, typing
+
+    messages = typing.errors.map {|e| StringIO.new().tap {|io| e.print_to(io) }.string }
+
+    if size
+      assert_equal size, messages.size, "errors=#{messages.inspect}"
+      yield(typing.errors) if block_given?
+    else
+      refute_empty messages
+    end
+  end
+end
 
 TestHelper.timeout = ENV["CI"] ? 50 : 10
