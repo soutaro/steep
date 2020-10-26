@@ -1311,16 +1311,26 @@ module Steep
         when :self
           add_typing node, type: AST::Types::Self.new
 
+        when :cbase
+          add_typing node, type: AST::Types::Void.new
+
         when :const
-          const_name = module_name_from_node(node)
+          parent = node.children[0]
+          if parent
+            _, constr = synthesize(parent)
+          else
+            constr = self
+          end
+
+          const_name = constr.module_name_from_node(node)
 
           if const_name
             type = type_env.get(const: const_name) do
-              fallback_to_any node
+              constr.fallback_to_any(node)
             end
-            add_typing node, type: type
+            constr.add_typing(node, type: type)
           else
-            fallback_to_any node
+            constr.fallback_to_any(node)
           end
 
         when :casgn
