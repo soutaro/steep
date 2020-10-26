@@ -2400,22 +2400,13 @@ module Steep
           constr = synthesize_children(node, skips: [receiver])
           if block_params
             block_annotations = source.annotations(block: node, factory: checker.factory, current_module: current_namespace)
-            block_params_ = TypeInference::BlockParams.from_node(block_params, annotations: block_annotations)
 
-            block_constr = constr.for_block(
-              block_params: block_params_,
-              block_param_hint: nil,
+            constr.type_block_without_hint(
+              node: node,
+              block_params: TypeInference::BlockParams.from_node(block_params, annotations: block_annotations),
               block_annotations: block_annotations,
-              node_type_hint: nil
-            )
-
-            block_constr.typing.add_context_for_body(node, context: block_constr.context)
-
-            block_params_.params.each do |param|
-              _, block_constr = block_constr.synthesize(param.node, hint: param.type)
-            end
-
-            block_constr.synthesize_block(node: node, block_type_hint: nil, block_body: block_body, topdown_hint: false) do |error|
+              block_body: block_body
+            ) do |error|
               errors << error
             end
           end
@@ -2878,20 +2869,7 @@ module Steep
                 result: exn.result
               )
 
-              block_constr = constr.for_block(
-                block_params: block_params_,
-                block_param_hint: nil,
-                block_annotations: block_annotations,
-                node_type_hint: nil
-              )
-
-              block_constr.typing.add_context_for_body(node, context: block_constr.context)
-
-              block_params_.params.each do |param|
-                _, block_constr = block_constr.synthesize(param.node, hint: param.type)
-              end
-
-              block_constr.synthesize_block(node: node, block_type_hint: nil, block_body: block_body, topdown_hint: false) do |error|
+              constr.type_block_without_hint(node: node, block_annotations: block_annotations, block_params: block_params_, block_body: block_body) do |error|
                 errors << error
               end
 
@@ -2910,8 +2888,10 @@ module Steep
           end
         else
           # Block is given but method doesn't accept
-          constr = constr.synthesize_children(block_params)
-          constr = constr.synthesize_children(block_body) if block_body
+          #
+          constr.type_block_without_hint(node: node, block_annotations: block_annotations, block_params: block_params_, block_body: block_body) do |error|
+            errors << error
+          end
 
           errors << Errors::UnexpectedBlockGiven.new(
             node: node,
@@ -3001,6 +2981,23 @@ module Steep
         call,
         constr
       ]
+    end
+
+    def type_block_without_hint(node:, block_annotations:, block_params:, block_body:, &block)
+      block_constr = for_block(
+        block_params: block_params,
+        block_param_hint: nil,
+        block_annotations: block_annotations,
+        node_type_hint: nil
+      )
+
+      block_constr.typing.add_context_for_body(node, context: block_constr.context)
+
+      block_params.params.each do |param|
+        _, block_constr = block_constr.synthesize(param.node, hint: param.type)
+      end
+
+      block_constr.synthesize_block(node: node, block_type_hint: nil, block_body: block_body, topdown_hint: false, &block)
     end
 
     def for_block(block_params:, block_param_hint:, block_annotations:, node_type_hint:)
