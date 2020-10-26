@@ -6239,4 +6239,33 @@ test.foo
       end
     end
   end
+
+  def test_const
+    with_checker(<<RBS) do |checker|
+class Nested
+  module Consta
+    class Nt
+    end
+  end
+end
+RBS
+      source = parse_ruby(<<-RUBY)
+::Nested::Consta::Nt
+Nested::Consta::Nt
+      RUBY
+
+      with_standard_construction(checker, source) do |construction, typing|
+        construction.synthesize(source.node)
+
+        typing.type_of(node: dig(source.node, 0, 0, 0, 0))
+        typing.type_of(node: dig(source.node, 0, 0, 0))
+        typing.type_of(node: dig(source.node, 0, 0))
+        typing.type_of(node: dig(source.node, 0))
+
+        typing.type_of(node: dig(source.node, 1, 0, 0))
+        typing.type_of(node: dig(source.node, 1, 0))
+        typing.type_of(node: dig(source.node, 1))
+      end
+    end
+  end
 end
