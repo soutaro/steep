@@ -313,7 +313,7 @@ end
 class TrueClass
 end
 class FalseClass
-end	
+end
 
   EOS
 
@@ -481,6 +481,7 @@ module TypeConstructionHelper
   Context = Steep::TypeInference::Context
   LocalVariableTypeEnv = Steep::TypeInference::LocalVariableTypeEnv
   AST = Steep::AST
+  TypeInference = Steep::TypeInference
 
   def with_standard_construction(checker, source)
     self_type = parse_type("::Object")
@@ -513,7 +514,8 @@ module TypeConstructionHelper
       break_context: nil,
       self_type: self_type,
       type_env: type_env,
-      lvar_env: lvar_env
+      lvar_env: lvar_env,
+      call_context: TypeInference::MethodCall::TopLevelContext.new()
     )
     typing = Typing.new(source: source, root_context: context)
 
@@ -529,6 +531,19 @@ module TypeConstructionHelper
   def assert_no_error(typing)
     assert_instance_of Typing, typing
     assert_predicate typing.errors.map {|e| StringIO.new().tap {|io| e.print_to(io) }.string }, :empty?
+  end
+
+  def assert_typing_error(typing, size: nil)
+    assert_instance_of Typing, typing
+
+    messages = typing.errors.map {|e| StringIO.new().tap {|io| e.print_to(io) }.string }
+
+    if size
+      assert_equal size, messages.size, "errors=#{messages.inspect}"
+      yield(typing.errors) if block_given?
+    else
+      refute_empty messages
+    end
   end
 end
 

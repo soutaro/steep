@@ -17,6 +17,7 @@ class TypeConstructionTest < Minitest::Test
   Context = Steep::TypeInference::Context
   LocalVariableTypeEnv = Steep::TypeInference::LocalVariableTypeEnv
   AST = Steep::AST
+  MethodCall = Steep::TypeInference::MethodCall
 
   DEFAULT_SIGS = <<-EOS
 interface _A
@@ -855,13 +856,18 @@ Hello.new.foo([])
       with_standard_construction(checker, source) do |construction, typing|
         construction.synthesize(source.node)
 
-        assert_equal 1, typing.errors.size
-        typing.errors[0].tap do |error|
-          assert_instance_of Steep::Errors::UnresolvedOverloading, error
-          assert_equal parse_type("::Hello"), error.receiver_type
-          assert_equal :foo, error.method_name
-          assert_equal [parse_method_type("(::Integer) -> void"), parse_method_type("(::String) -> void")],
-                       error.method_types
+        assert_typing_error(typing, size: 2) do |errors|
+          errors[0].tap do |error|
+            assert_instance_of Steep::Errors::FallbackAny, error
+          end
+
+          errors[1].tap do |error|
+            assert_instance_of Steep::Errors::UnresolvedOverloading, error
+            assert_equal parse_type("::Hello"), error.receiver_type
+            assert_equal :foo, error.method_name
+            assert_equal [parse_method_type("(::Integer) -> void"), parse_method_type("(::String) -> void")],
+                         error.method_types
+          end
         end
       end
     end
@@ -1043,7 +1049,8 @@ end
         break_context: nil,
         self_type: nil,
         type_env: type_env,
-        lvar_env: lvar_env
+        lvar_env: lvar_env,
+        call_context: MethodCall::TopLevelContext.new
       )
       typing = Typing.new(source: source, root_context: context)
 
@@ -1130,7 +1137,7 @@ class Steep end
         implement_name: nil,
         current_namespace: Namespace.parse("::Steep"),
         const_env: const_env,
-        class_name: nil
+        class_name: TypeName("::Steep")
       )
 
       context = Context.new(
@@ -1140,7 +1147,8 @@ class Steep end
         break_context: nil,
         self_type: nil,
         type_env: type_env,
-        lvar_env: lvar_env
+        lvar_env: lvar_env,
+        call_context: MethodCall::ModuleContext.new(type_name: TypeName("::Steep"))
       )
       typing = Typing.new(source: source, root_context: context)
 
@@ -2406,7 +2414,7 @@ end
       with_standard_construction(checker, source) do |construction, typing|
         construction.synthesize(source.node)
 
-        assert_empty typing.errors
+        assert_no_error typing
       end
     end
   end
@@ -2587,6 +2595,25 @@ EOF
 
         assert_equal 1, typing.errors.size
         assert_instance_of Steep::Errors::IncompatibleAssignment, typing.errors[0]
+      end
+    end
+  end
+
+  def test_each_with_object2
+    with_checker do |checker|
+      source = parse_ruby(<<EOF)
+a = [1]
+
+b = a.each_with_object("") do |x, y|
+  y + ""
+end
+EOF
+
+      with_standard_construction(checker, source) do |construction, typing|
+        _, constr = construction.synthesize(source.node)
+
+        assert_no_error typing
+        assert_equal parse_type("::String"), constr.context.lvar_env[:b]
       end
     end
   end
@@ -3032,7 +3059,8 @@ EOF
       with_standard_construction(checker, source) do |construction, typing|
         construction.synthesize(source.node)
 
-        assert_equal 1, typing.errors.size
+        assert_typing_error typing, size: 1
+        # assert_equal 1, typing.errors.size
         assert_any typing.errors do |error|
           error.is_a?(Steep::Errors::NoMethod)
         end
@@ -3963,132 +3991,76 @@ EOF
     end
   end
 
-  def test_type_block
+  def test_type_lambda
     with_checker do |checker|
       source = parse_ruby(<<EOF)
-foo.bar {|x, y| x }
+-> (x, y) { x }
 EOF
 
       with_standard_construction(checker, source) do |construction, typing|
-        construction.synthesize(source.node)
+        type, _ = construction.synthesize(source.node)
 
-        block_params_node = source.node.children[1]
-        block_body_node = source.node.children[2]
-        block_annotations = source.annotations(block: source.node, factory: checker.factory, current_module: Namespace.root)
-        block_params = Steep::TypeInference::BlockParams.from_node(block_params_node, annotations: block_annotations)
-
-        pair = construction.type_block(node: source.node,
-                                       block_param_hint: nil,
-                                       block_type_hint: nil,
-                                       node_type_hint: nil,
-                                       block_params: block_params,
-                                       block_body: block_body_node,
-                                       block_annotations: block_annotations,
-                                       topdown_hint: true)
-
-        assert_equal parse_type("^(untyped, untyped) -> untyped"), pair.type
+        assert_no_error typing
+        assert_equal parse_type("^(untyped, untyped) -> untyped"), type
       end
     end
   end
 
-  def test_type_block_annotation
+
+
+  def test_type_lambda_annotation
     with_checker do |checker|
       source = parse_ruby(<<EOF)
-foo.bar do |x, y|
+-> (x, y) {
   # @type var x: String
   # @type var y: Integer
   # @type block: :bar
   :foo
-end
+}
 EOF
 
       with_standard_construction(checker, source) do |construction, typing|
-        block_params_node = source.node.children[1]
-        block_body_node = source.node.children[2]
-        block_annotations = source.annotations(block: source.node, factory: checker.factory, current_module: Namespace.root)
-        block_params = Steep::TypeInference::BlockParams.from_node(block_params_node, annotations: block_annotations)
+        type, _ = construction.synthesize(source.node)
 
-        pair = construction.type_block(node: source.node,
-                                       block_param_hint: nil,
-                                       block_type_hint: nil,
-                                       node_type_hint: nil,
-                                       block_params: block_params,
-                                       block_body: block_body_node,
-                                       block_annotations: block_annotations,
-                                       topdown_hint: true)
-        assert_equal parse_type("^(::String, ::Integer) -> :bar"), pair.type
-
-        refute_empty typing.errors
+        assert_typing_error typing, size: 1
+        assert_equal parse_type("^(::String, ::Integer) -> :bar"), type
       end
     end
   end
 
-  def test_type_block_hint
+  def test_type_lambda_hint
     with_checker do |checker|
       source = parse_ruby(<<EOF)
-foo.bar do |x, y|
-  :foo
-end
+# @type var proc: ^(String, Integer) -> Symbol
+proc = -> (x, y) { :foo }
 EOF
 
       with_standard_construction(checker, source) do |construction, typing|
-        construction.synthesize(source.node)
+        type, _ = construction.synthesize(source.node)
 
-        hint = parse_method_type("() { (::String, ::Integer) -> :bar } -> void")
-
-        block_params_node = source.node.children[1]
-        block_body_node = source.node.children[2]
-        block_annotations = source.annotations(block: source.node, factory: checker.factory, current_module: Namespace.root)
-        block_params = Steep::TypeInference::BlockParams.from_node(block_params_node, annotations: block_annotations)
-
-        pair = construction.type_block(node: source.node,
-                                       block_param_hint: hint.block.type.params,
-                                       block_type_hint: hint.block.type.return_type,
-                                       node_type_hint: nil,
-                                       block_params: block_params,
-                                       block_body: block_body_node,
-                                       block_annotations: block_annotations,
-                                       topdown_hint: true)
-        assert_equal "^(::String, ::Integer) -> ::Symbol", pair.type.to_s
+        assert_no_error typing
+        assert_equal parse_type("^(::String, ::Integer) -> ::Symbol"), type
       end
     end
   end
 
-  def test_type_block_hint2
+  def test_type_lambda_hint3
     with_checker do |checker|
       source = parse_ruby(<<EOF)
-foo.bar do |x, y, z|
-  z.bazbazbaz
+# @type var proc: ^(untyped, Integer) -> Symbol
+proc = -> (x, y) {
+  # @type var x: String
+  x + y
+
   :foo
-end
+}
 EOF
 
       with_standard_construction(checker, source) do |construction, typing|
-        construction.synthesize(source.node)
+        type, _ = construction.synthesize(source.node)
 
-        hint = parse_method_type("() { (::String, ::Integer) -> :bar } -> void")
-
-        block_params_node = source.node.children[1]
-        block_body_node = source.node.children[2]
-        block_annotations = source.annotations(block: source.node, factory: checker.factory, current_module: Namespace.root)
-        block_params = Steep::TypeInference::BlockParams.from_node(block_params_node, annotations: block_annotations)
-
-        pair = construction.type_block(node: source.node,
-                                       block_param_hint: hint.block.type.params,
-                                       block_type_hint: hint.block.type.return_type,
-                                       node_type_hint: nil,
-                                       block_params: block_params,
-                                       block_body: block_body_node,
-                                       block_annotations: block_annotations,
-                                       topdown_hint: true)
-        assert_equal parse_type("^(::String, ::Integer) -> ::Symbol"), pair.type
-
-        assert_equal 2, typing.errors.size
-        assert_any typing.errors do |error|
-          error.is_a?(Steep::Errors::NoMethod) &&
-            error.method == :bazbazbaz &&
-            error.type == parse_type("nil")
-        end
+        assert_typing_error typing, size: 1
+        assert_equal parse_type("^(untyped, ::Integer) -> ::Symbol"), type
       end
     end
   end
@@ -4112,7 +4084,7 @@ EOF
       with_standard_construction(checker, source) do |construction, typing|
         pair = construction.synthesize(source.node)
 
-        assert_empty typing.errors
+        assert_no_error typing
         assert_equal parse_type("::Array[::String]"), pair.context.lvar_env[:a]
       end
     end
@@ -4128,7 +4100,7 @@ end
 class MethodWithBlockArg
   def foo(&block)
     block.arity
-    block.call("")
+    [block.call("")]
   end
 end
 EOF
@@ -5851,6 +5823,419 @@ y = Fun.new[1] = "hoge"
       with_standard_construction(checker, source) do |construction, typing|
         construction.synthesize(source.node)
         assert_no_error typing
+      end
+    end
+  end
+
+  def test_send_untyped
+    with_checker() do |checker|
+      source = parse_ruby(<<-RUBY)
+a = _ = nil
+x = a.foo(1)
+      RUBY
+
+      with_standard_construction(checker, source) do |construction, typing|
+        _, constr = construction.synthesize(source.node)
+
+        assert_no_error typing
+
+        dig(source.node, 1, 1).tap do |node|
+          # a.foo(1)
+          call = typing.call_of(node: node)
+          assert_instance_of MethodCall::Untyped, call
+        end
+
+        assert_equal parse_type("untyped"), constr.context.lvar_env[:x]
+        assert_equal parse_type("::Integer"), typing.type_of(node: dig(source.node, 1, 1, 2))
+      end
+    end
+  end
+
+  def test_send_top_void
+    with_checker() do |checker|
+      source = parse_ruby(<<-RUBY)
+# @type var a: top
+a = _ = nil
+x = a.foo(1)
+
+# @type var b: void
+b = _ = nil
+y = b.foo(2)
+      RUBY
+
+      with_standard_construction(checker, source) do |construction, typing|
+        _, constr = construction.synthesize(source.node)
+
+        dig(source.node, 1, 1).tap do |a_foo|
+          error = typing.errors.find {|error| error.node == a_foo }
+          assert_instance_of Steep::Errors::NoMethod, error
+
+          call = typing.call_of(node: a_foo)
+          assert_instance_of MethodCall::NoMethodError, call
+        end
+
+        dig(source.node, 3, 1).tap do |b_foo|
+          error = typing.errors.find {|error| error.node == b_foo }
+          assert_instance_of Steep::Errors::NoMethod, error
+
+          call = typing.call_of(node: b_foo)
+          assert_instance_of MethodCall::NoMethodError, call
+        end
+
+        assert_equal parse_type("untyped"), constr.context.lvar_env[:x]
+        assert_equal parse_type("untyped"), constr.context.lvar_env[:y]
+
+        assert_equal parse_type("::Integer"), typing.type_of(node: dig(source.node, 1, 1, 2))
+        assert_equal parse_type("::Integer"), typing.type_of(node: dig(source.node, 3, 1, 2))
+      end
+    end
+  end
+
+  def test_send_concrete_receiver
+    with_checker(<<RBS) do |checker|
+class SendTest
+  def foo: (Integer) -> String
+end
+RBS
+      source = parse_ruby(<<-RUBY)
+x = SendTest.new().foo(1)
+y = SendTest.new().foo("1")
+z = SendTest.new().foo()
+      RUBY
+
+      with_standard_construction(checker, source) do |construction, typing|
+        _, constr = construction.synthesize(source.node)
+
+        assert_equal 2, typing.errors.size
+
+        dig(source.node, 0, 1).tap do |call_node|
+          call = typing.call_of(node: call_node)
+          assert_instance_of MethodCall::Typed, call
+        end
+
+        dig(source.node, 1, 1).tap do |call_node|
+          call = typing.call_of(node: call_node)
+          assert_instance_of MethodCall::Error, call
+
+          assert_equal 1, call.errors.size
+          assert_instance_of Steep::Errors::ArgumentTypeMismatch, call.errors[0]
+        end
+
+        dig(source.node, 2, 1).tap do |call_node|
+          call = typing.call_of(node: call_node)
+          assert_instance_of MethodCall::Error, call
+
+          assert_equal 1, call.errors.size
+          assert_instance_of Steep::Errors::IncompatibleArguments, call.errors[0]
+        end
+
+        assert_equal parse_type("::String"), constr.context.lvar_env[:x]
+        assert_equal parse_type("::String"), constr.context.lvar_env[:y]
+        assert_equal parse_type("::String"), constr.context.lvar_env[:z]
+      end
+    end
+  end
+
+  def test_send_concrete_receiver_with_block
+    with_checker(<<RBS) do |checker|
+class SendTest
+  def foo: (Integer) { (Integer) -> void } -> String
+end
+RBS
+      source = parse_ruby(<<-RUBY)
+# @type var test: SendTest
+test = _ = nil
+
+x = test.foo(1) do
+end
+
+y = SendTest.new().foo("1") do
+end
+
+z = SendTest.new().foo() do
+end
+      RUBY
+
+      with_standard_construction(checker, source) do |construction, typing|
+        _, constr = construction.synthesize(source.node)
+
+        assert_equal 2, typing.errors.size
+
+        dig(source.node, 1, 1).tap do |call_node|
+          call = typing.call_of(node: call_node)
+          assert_instance_of MethodCall::Typed, call
+        end
+
+        dig(source.node, 2, 1).tap do |call_node|
+          call = typing.call_of(node: call_node)
+          assert_instance_of MethodCall::Error, call
+
+          assert_equal 1, call.errors.size
+          assert_instance_of Steep::Errors::ArgumentTypeMismatch, call.errors[0]
+        end
+
+        dig(source.node, 3, 1).tap do |call_node|
+          call = typing.call_of(node: call_node)
+          assert_instance_of MethodCall::Error, call
+
+          assert_equal 1, call.errors.size
+          assert_instance_of Steep::Errors::IncompatibleArguments, call.errors[0]
+        end
+
+        assert_equal parse_type("::String"), constr.context.lvar_env[:x]
+        assert_equal parse_type("::String"), constr.context.lvar_env[:y]
+        assert_equal parse_type("::String"), constr.context.lvar_env[:z]
+      end
+    end
+  end
+
+  def test_send_concrete_receiver_without_expected_block
+    with_checker(<<RBS) do |checker|
+class SendTest
+  def foo: (Integer) { (Integer) -> void } -> String
+end
+RBS
+      source = parse_ruby(<<-RUBY)
+# @type var test: SendTest
+test = _ = nil
+
+x = test.foo(1)
+y = test.foo("1")
+z = test.foo()
+      RUBY
+
+      with_standard_construction(checker, source) do |construction, typing|
+        _, constr = construction.synthesize(source.node)
+
+        assert_equal 4, typing.errors.size
+
+        dig(source.node, 1, 1).tap do |call_node|
+          call = typing.call_of(node: call_node)
+          assert_instance_of MethodCall::Error, call
+
+          assert_equal 1, call.errors.size
+          assert_instance_of Steep::Errors::RequiredBlockMissing, call.errors[0]
+        end
+
+        dig(source.node, 2, 1).tap do |call_node|
+          call = typing.call_of(node: call_node)
+          assert_instance_of MethodCall::Error, call
+
+          assert_equal 2, call.errors.size
+        end
+
+        dig(source.node, 3, 1).tap do |call_node|
+          call = typing.call_of(node: call_node)
+          assert_instance_of MethodCall::Error, call
+
+          assert_equal 1, call.errors.size
+        end
+
+        assert_equal parse_type("::String"), constr.context.lvar_env[:x]
+        assert_equal parse_type("::String"), constr.context.lvar_env[:y]
+        assert_equal parse_type("::String"), constr.context.lvar_env[:z]
+      end
+    end
+  end
+
+  def test_send_concrete_receiver_without_expected_block_type_var
+    with_checker(<<RBS) do |checker|
+class SendTest
+  def foo: [A] () { (Integer) -> A } -> Array[A]
+  def bar: [A] (A) { () -> A } -> Array[A]
+end
+RBS
+      source = parse_ruby(<<-RUBY)
+# @type var test: SendTest
+test = _ = nil
+
+x = test.foo()           # Without any constraints on A
+y = test.bar("foo")      # With a constraint: String <: A
+      RUBY
+
+      with_standard_construction(checker, source) do |construction, typing|
+        _, constr = construction.synthesize(source.node)
+
+        assert_equal 2, typing.errors.size
+
+        dig(source.node, 1, 1).tap do |call_node|
+          call = typing.call_of(node: call_node)
+          assert_instance_of MethodCall::Error, call
+
+          assert_equal parse_type("::Array[untyped]"), call.return_type
+
+          assert_equal 1, call.errors.size
+          assert_instance_of Steep::Errors::RequiredBlockMissing, call.errors[0]
+        end
+
+        dig(source.node, 2, 1).tap do |call_node|
+          call = typing.call_of(node: call_node)
+          assert_instance_of MethodCall::Error, call
+
+          assert_equal parse_type("::Array[::String]"), call.return_type
+
+          assert_equal 1, call.errors.size
+        end
+      end
+    end
+  end
+
+  def test_send_concrete_receiver_with_unsupported_block_params
+    with_checker(<<RBS) do |checker|
+class SendTest
+  def foo: [A] () { (Integer, String) -> A } -> Array[A]
+end
+RBS
+      source = parse_ruby(<<-RUBY)
+# @type var test: SendTest
+test = _ = nil
+
+test.foo do |(x, y)|
+end
+      RUBY
+
+      with_standard_construction(checker, source) do |construction, typing|
+        _, constr = construction.synthesize(source.node)
+
+        assert_equal 1, typing.errors.size
+
+        dig(source.node, 1).tap do |call_node|
+          call = typing.call_of(node: call_node)
+          assert_instance_of MethodCall::Error, call
+
+          assert_equal parse_type("::Array[untyped]"), call.return_type
+
+          assert_equal 1, call.errors.size
+          assert_instance_of Steep::Errors::UnsupportedSyntax, call.errors[0]
+        end
+      end
+    end
+  end
+
+  def test_send_concrete_receiver_no_block_method_with_blockarg
+    with_checker(<<RBS) do |checker|
+class SendTest
+  def foo: () -> String
+end
+RBS
+      source = parse_ruby(<<-RUBY)
+# @type var test: SendTest
+test = _ = nil
+
+test.foo(&->(x) { "" })
+      RUBY
+
+      with_standard_construction(checker, source) do |construction, typing|
+        _, constr = construction.synthesize(source.node)
+
+        assert_equal 1, typing.errors.size
+
+        dig(source.node, 1).tap do |call_node|
+          call = typing.call_of(node: call_node)
+          assert_instance_of MethodCall::Error, call
+
+          assert_equal parse_type("::String"), call.return_type
+
+          assert_equal 1, call.errors.size
+          assert_instance_of Steep::Errors::UnexpectedBlockGiven, call.errors[0]
+        end
+      end
+    end
+  end
+
+  def test_send_concrete_receiver_receiving_block_with_blockarg
+    with_checker(<<RBS) do |checker|
+class SendTest
+  def foo: () { (Integer) -> String }-> String
+end
+RBS
+      source = parse_ruby(<<-RUBY)
+# @type var test: SendTest
+test = _ = nil
+
+test.foo(&->(x) { "" })
+
+# @type var p: ^(::Integer, ::String) -> ::String
+p = -> (x, y) { "" }
+test.foo(&p)
+      RUBY
+
+      with_standard_construction(checker, source) do |construction, typing|
+        _, constr = construction.synthesize(source.node)
+
+        assert_equal 1, typing.errors.size
+
+        dig(source.node, 1).tap do |call_node|
+          call = typing.call_of(node: call_node)
+          assert_instance_of MethodCall::Typed, call
+
+          assert_equal parse_type("::String"), call.return_type
+        end
+
+        dig(source.node, 3).tap do |call_node|
+          call = typing.call_of(node: call_node)
+          assert_instance_of MethodCall::Error, call
+
+          assert_equal parse_type("::String"), call.return_type
+
+          assert_equal 1, call.errors.size
+          assert_instance_of Steep::Errors::BlockTypeMismatch, call.errors[0]
+        end
+      end
+    end
+  end
+
+  def test_send_unsatisfiable_constraint
+    with_checker(<<RBS) do |checker|
+class SendTest
+  def foo: [A, B] (A) { (A) -> void } -> B
+end
+RBS
+      source = parse_ruby(<<-RUBY)
+# @type var test: SendTest
+test = _ = nil
+
+test.foo([]) do |x|
+  # @type var x: String
+  x.foo()
+end
+      RUBY
+
+      with_standard_construction(checker, source) do |construction, typing|
+        type, _ = construction.synthesize(source.node)
+
+        assert_typing_error typing, size: 2 do |errors|
+          assert_instance_of Steep::Errors::NoMethod, errors[0]
+          assert_instance_of Steep::Errors::UnsatisfiableConstraint, errors[1]
+        end
+
+        assert_equal parse_type("untyped"), type
+      end
+    end
+  end
+
+  def test_send_rbs_error
+    with_checker(<<RBS) do |checker|
+class SendTest
+  def foo: () -> String123
+end
+RBS
+      source = parse_ruby(<<-RUBY)
+# @type var test: SendTest
+test = _ = nil
+
+test.foo
+      RUBY
+
+      with_standard_construction(checker, source) do |construction, typing|
+        type, _ = construction.synthesize(source.node)
+
+        assert_typing_error typing, size: 1 do |error,|
+          assert_instance_of Steep::Errors::UnexpectedError, error
+          assert_instance_of RBS::NoTypeFoundError, error.error
+        end
+
+        assert_equal parse_type("untyped"), type
       end
     end
   end

@@ -66,7 +66,8 @@ module Steep
           break_context: nil,
           self_type: AST::Builtin::Object.instance_type,
           type_env: type_env,
-          lvar_env: lvar_env
+          lvar_env: lvar_env,
+          call_context: TypeInference::MethodCall::TopLevelContext.new
         )
 
         typing = Typing.new(source: source, root_context: context)

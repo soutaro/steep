@@ -20,6 +20,7 @@ module Steep
     attr_reader :should_update
     attr_reader :contexts
     attr_reader :root_context
+    attr_reader :method_calls
 
     def initialize(source:, root_context:, parent: nil, parent_last_update: parent&.last_update, contexts: nil)
       @source = source
@@ -33,6 +34,7 @@ module Steep
       @typing = {}.compare_by_identity
       @root_context = root_context
       @contexts = contexts || TypeInference::ContextArray.from_source(source: source)
+      @method_calls = {}.compare_by_identity
     end
 
     def add_error(error)
@@ -44,6 +46,12 @@ module Steep
       @last_update += 1
 
       type
+    end
+
+    def add_call(node, call)
+      method_calls[node] = call
+
+      call
     end
 
     def add_context(range, context:)
@@ -69,11 +77,37 @@ module Steep
       end
     end
 
+    def call_of(node:)
+      call = method_calls[node]
+
+      if call
+        call
+      else
+        if parent
+          parent.call_of(node: node)
+        else
+          raise UnknownNodeError.new(:call, node: node)
+        end
+      end
+    end
+
     def add_context_for_node(node, context:)
       begin_pos = node.loc.expression.begin_pos
       end_pos = node.loc.expression.end_pos
 
       add_context(begin_pos..end_pos, context: context)
+    end
+
+    def block_range(node)
+      send_node, args_node, _ = node.children
+      begin_pos = if send_node.type != :lambda && args_node.loc.expression
+                    args_node.loc.expression.end_pos
+                  else
+                    node.loc.begin.end_pos
+                  end
+      end_pos = node.loc.end.begin_pos
+
+      begin_pos..end_pos
     end
 
     def add_context_for_body(node, context:)
@@ -117,14 +151,8 @@ module Steep
         add_context(body_begin_pos..body_end_pos, context: context)
 
       when :block
-        send_node, args_node, _ = node.children
-        begin_pos = if send_node.type != :lambda && args_node.loc.expression
-                      args_node.loc.expression.end_pos
-                    else
-                      node.loc.begin.end_pos
-                    end
-        end_pos = node.loc.end.begin_pos
-        add_context(begin_pos..end_pos, context: context)
+        range = block_range(node)
+        add_context(range, context: context)
 
       when :for
         _, collection, _ = node.children
@@ -190,6 +218,8 @@ module Steep
       end
 
       parent.contexts.merge(contexts)
+
+      parent.method_calls.merge!(method_calls)
 
       errors.each do |error|
         parent.add_error error

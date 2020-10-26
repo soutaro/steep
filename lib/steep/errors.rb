@@ -101,20 +101,6 @@ module Steep
       end
     end
 
-    class IncompatibleBlockParameters < Base
-      attr_reader :node
-      attr_reader :method_type
-
-      def initialize(node:, method_type:)
-        super(node: node)
-        @method_type = method_type
-      end
-
-      def to_s
-        "#{location_to_str}: IncompatibleBlockParameters: method_type=#{method_type}"
-      end
-    end
-
     class BlockParameterTypeMismatch < Base
       attr_reader :expected
       attr_reader :actual
@@ -186,7 +172,7 @@ module Steep
       end
 
       def to_s
-        "#{location_to_str}: RequiredBlockMissing: method_type=#{method_type.location&.source}"
+        "#{location_to_str}: RequiredBlockMissing: method_type=#{method_type.to_s}"
       end
     end
 
@@ -555,6 +541,24 @@ module Steep
       def to_s
         msg = message || "#{node.type} is not supported"
         "#{location_to_str}: UnsupportedSyntax: #{msg}"
+      end
+    end
+
+    class UnexpectedError < Base
+      attr_reader :message
+      attr_reader :error
+
+      def initialize(node:, error:)
+        super(node: node)
+        @error = error
+        @message = error.message
+      end
+
+      def to_s
+        <<-MESSAGE
+#{location_to_str}: UnexpectedError: #{error.class}
+>> #{message}
+        MESSAGE
       end
     end
   end
