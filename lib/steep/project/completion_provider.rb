@@ -10,9 +10,27 @@ module Steep
 
       InstanceVariableItem = Struct.new(:identifier, :range, :type, keyword_init: true)
       LocalVariableItem = Struct.new(:identifier, :range, :type, keyword_init: true)
-      MethodNameItem = Struct.new(:identifier, :range, :method_def, :method_type, :inherited_method, keyword_init: true) do
+      MethodNameItem = Struct.new(:identifier, :range, :receiver_type, :method_type, :method_decls, keyword_init: true) do
         def comment
-          method_def&.comment
+          case method_decls.size
+          when 0
+            nil
+          when 1
+            method_decls.to_a.first.method_def&.comment
+          else
+            nil
+          end
+        end
+
+        def inherited?
+          case receiver_type
+          when AST::Types::Name::Instance, AST::Types::Name::Singleton, AST::Types::Name::Interface
+            method_decls.any? do |decl|
+              decl.method_name.type_name != receiver_type.name
+            end
+          else
+            false
+          end
         end
       end
 
@@ -245,15 +263,15 @@ module Steep
                 items << MethodNameItem.new(
                   identifier: name,
                   range: range,
-                  method_def: method_type.method_def,
-                  method_type: method_type.method_def&.type || subtyping.factory.method_type_1(method_type, self_type: type),
-                  inherited_method: inherited_method?(method_type.method_def, type)
+                  receiver_type: type,
+                  method_type: subtyping.factory.method_type_1(method_type, self_type: type),
+                  method_decls: method_type.method_decls
                 )
               end
             end
           end
         end
-      rescue
+      rescue RuntimeError => exn
         # nop
       end
 
@@ -296,15 +314,6 @@ module Steep
         end
 
         index
-      end
-
-      def inherited_method?(method_def, type)
-        case type
-        when AST::Types::Name::Instance, AST::Types::Name::Singleton, AST::Types::Name::Interface
-          method_def.implemented_in != type.name
-        else
-          false
-        end
       end
 
       def disallowed_method?(name)

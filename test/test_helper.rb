@@ -438,7 +438,7 @@ module FactoryHelper
 
   def parse_method_type(string, factory: self.factory, variables: [], self_type: Steep::AST::Types::Self.new)
     type = RBS::Parser.parse_method_type(string, variables: variables)
-    factory.method_type type, self_type: self_type
+    factory.method_type type, self_type: self_type, method_decls: Set[]
   end
 end
 

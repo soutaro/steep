@@ -131,7 +131,7 @@ module Steep
       definition_method_type = if definition
                                  definition.methods[method_name]&.yield_self do |method|
                                    method.method_types
-                                     .map {|method_type| checker.factory.method_type(method_type, self_type: self_type) }
+                                     .map {|method_type| checker.factory.method_type(method_type, self_type: self_type, method_decls: Set[]) }
                                      .select {|method_type| method_type.is_a?(Interface::MethodType) }
                                      .inject {|t1, t2| t1 + t2}
                                  end
@@ -786,14 +786,19 @@ module Steep
         when :super
           yield_self do
             if self_type && method_context&.method
-              if method_context.super_method
+              if super_def = method_context.super_method
                 each_child_node(node) do |child|
                   synthesize(child)
                 end
 
                 super_method = Interface::Interface::Entry.new(
                   method_types: method_context.super_method.method_types.map {|method_type|
-                    checker.factory.method_type(method_type, self_type: self_type)
+                    decl = TypeInference::MethodCall::MethodDecl.new(
+                      method_name: InstanceMethodName.new(type_name: super_def.implemented_in || super_def.defined_in,
+                                                          method_name: method_context.name),
+                      method_def: super_def
+                    )
+                    checker.factory.method_type(method_type, self_type: self_type, method_decls: Set[decl])
                   }
                 )
                 args = TypeInference::SendArgs.from_nodes(node.children.dup)
@@ -1338,7 +1343,7 @@ module Steep
             if method_context&.method
               if method_context.super_method
                 types = method_context.super_method.method_types.map {|method_type|
-                  checker.factory.method_type(method_type, self_type: self_type).return_type
+                  checker.factory.method_type(method_type, self_type: self_type, method_decls: Set[]).return_type
                 }
                 add_typing(node, type: union_type(*types))
               else
@@ -2629,14 +2634,12 @@ module Steep
 
           hash_type = AST::Builtin::Hash.instance_type(
             AST::Builtin::Symbol.instance_type,
-            AST::Types::Union.build(types: value_types,
-                                    location: method_type.location)
+            AST::Types::Union.build(types: value_types)
           )
         else
           hash_elements = params.required_keywords.merge(
             method_type.params.optional_keywords.transform_values do |type|
-              AST::Types::Union.build(types: [type, AST::Builtin.nil_type],
-                                      location: method_type.location)
+              AST::Types::Union.build(types: [type, AST::Builtin.nil_type])
             end
           )
 
