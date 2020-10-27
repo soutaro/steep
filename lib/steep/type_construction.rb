@@ -1248,7 +1248,13 @@ module Steep
 
         when :class
           yield_self do
-            for_class(node).tap do |constructor|
+            constr = self
+
+            name, sup, _ = node.children
+            _, constr = constr.synthesize(name)
+            _, constr = constr.synthesize(sup) if sup
+
+            constr.for_class(node).tap do |constructor|
               constructor.typing.add_context_for_node(node, context: constructor.context)
               constructor.typing.add_context_for_body(node, context: constructor.context)
 
@@ -1264,6 +1270,11 @@ module Steep
 
         when :module
           yield_self do
+            constr = self
+
+            name, _ = node.children
+            _, constr = constr.synthesize(name)
+
             for_module(node).yield_self do |constructor|
               constructor.typing.add_context_for_node(node, context: constructor.context)
               constructor.typing.add_context_for_body(node, context: constructor.context)
