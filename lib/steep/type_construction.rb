@@ -1248,7 +1248,13 @@ module Steep
 
         when :class
           yield_self do
-            for_class(node).tap do |constructor|
+            constr = self
+
+            name, sup, _ = node.children
+            _, constr = constr.synthesize(name)
+            _, constr = constr.synthesize(sup) if sup
+
+            constr.for_class(node).tap do |constructor|
               constructor.typing.add_context_for_node(node, context: constructor.context)
               constructor.typing.add_context_for_body(node, context: constructor.context)
 
@@ -1264,6 +1270,11 @@ module Steep
 
         when :module
           yield_self do
+            constr = self
+
+            name, _ = node.children
+            _, constr = constr.synthesize(name)
+
             for_module(node).yield_self do |constructor|
               constructor.typing.add_context_for_node(node, context: constructor.context)
               constructor.typing.add_context_for_body(node, context: constructor.context)
@@ -1335,10 +1346,15 @@ module Steep
 
         when :casgn
           yield_self do
-            const_name = module_name_from_node(node)
+            constr = self
+
+            parent = node.children[0]
+            _, constr = constr.synthesize(parent) if parent
+            const_name = constr.module_name_from_node(node)
+
             if const_name
               const_type = type_env.get(const: const_name) {}
-              value_type = synthesize(node.children.last, hint: const_type).type
+              value_type, constr = constr.synthesize(node.children.last, hint: const_type)
               type = type_env.assign(const: const_name, type: value_type, self_type: self_type) do |error|
                 case error
                 when Subtyping::Result::Failure
@@ -1352,10 +1368,10 @@ module Steep
                 end
               end
 
-              add_typing(node, type: type)
+              constr.add_typing(node, type: type)
             else
-              synthesize(node.children.last).type
-              fallback_to_any(node)
+              _, constr = constr.synthesize(node.children.last)
+              constr.fallback_to_any(node)
             end
           end
 

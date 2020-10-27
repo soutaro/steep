@@ -1383,18 +1383,22 @@ end
       with_standard_construction(checker, source) do |construction, typing|
         construction.synthesize(source.node)
 
-        assert_equal 2, typing.errors.size
+        assert_typing_error(typing, size: 3) do |errors|
+          assert_any!(errors) do |error|
+            assert_instance_of Steep::Errors::IncompatibleAssignment, error
+            assert_equal parse_type("::String"), error.rhs_type
+            assert_equal parse_type("::A::String"), error.lhs_type
+          end
 
-        assert_any typing.errors do |error| error.is_a?(Steep::Errors::IncompatibleAssignment) end
-        typing.errors.find {|e| e.is_a?(Steep::Errors::IncompatibleAssignment) }.yield_self do |error|
-          assert_equal parse_type("::String"), error.rhs_type
-          assert_equal parse_type("::A::String"), error.lhs_type
-        end
+          assert_any!(errors) do |error|
+            assert_instance_of Steep::Errors::MethodBodyTypeMismatch, error
+            assert_equal parse_type("::String"), error.actual
+            assert_equal parse_type("::A::String"), error.expected
+          end
 
-        assert_any typing.errors do |error| error.is_a?(Steep::Errors::MethodBodyTypeMismatch) end
-        typing.errors.find {|e| e.is_a?(Steep::Errors::MethodBodyTypeMismatch) }.yield_self do |error|
-          assert_equal parse_type("::String"), error.actual
-          assert_equal parse_type("::A::String"), error.expected
+          assert_any!(errors) do |error|
+            assert_instance_of Steep::Errors::FallbackAny, error
+          end
         end
       end
     end
@@ -4441,9 +4445,13 @@ end
       with_standard_construction(checker, source) do |construction, typing|
         construction.synthesize(source.node)
 
-        assert_equal 1, typing.errors.size
-        assert_any typing.errors do |error|
-          error.is_a?(Steep::Errors::UnresolvedOverloading)
+        assert_typing_error(typing, size: 2) do |errors|
+          assert_any!(errors) do |error|
+            assert_instance_of Steep::Errors::UnresolvedOverloading, error
+          end
+          assert_any!(errors) do |error|
+            assert_instance_of Steep::Errors::FallbackAny, error
+          end
         end
       end
     end
@@ -4536,9 +4544,20 @@ end
       with_standard_construction(checker, source) do |construction, typing|
         construction.synthesize(source.node)
 
-        assert_equal 2, typing.errors.size
-        assert_all typing.errors do |error|
-          error.is_a?(Steep::Errors::NoMethod)
+        assert_typing_error(typing, size: 3) do |errors|
+          assert_any!(errors) do |error|
+            assert_instance_of Steep::Errors::NoMethod, error
+            assert_equal :attr_reader, error.method
+          end
+
+          assert_any!(errors) do |error|
+            assert_instance_of Steep::Errors::NoMethod, error
+            assert_equal :to_s, error.method
+          end
+
+          assert_any!(errors) do |error|
+            assert_instance_of Steep::Errors::FallbackAny, error
+          end
         end
       end
     end
@@ -5412,8 +5431,16 @@ end
       with_standard_construction(checker, source) do |construction, typing|
         construction.synthesize(source.node)
 
-        assert_equal 1, typing.errors.size
-        assert_instance_of Steep::Errors::UnsupportedSyntax, typing.errors[0]
+        assert_typing_error(typing, size: 2) do |errors|
+          assert_any!(errors) do |error|
+            assert_instance_of Steep::Errors::UnsupportedSyntax, error
+            assert_equal :sclass, error.node.type
+          end
+
+          assert_any!(errors) do |error|
+            assert_instance_of Steep::Errors::FallbackAny, error
+          end
+        end
       end
     end
   end
@@ -6251,7 +6278,7 @@ end
 RBS
       source = parse_ruby(<<-RUBY)
 ::Nested::Consta::Nt
-Nested::Consta::Nt
+Nested::Consta::Nt = _ = 30
       RUBY
 
       with_standard_construction(checker, source) do |construction, typing|
@@ -6265,6 +6292,47 @@ Nested::Consta::Nt
         typing.type_of(node: dig(source.node, 1, 0, 0))
         typing.type_of(node: dig(source.node, 1, 0))
         typing.type_of(node: dig(source.node, 1))
+      end
+    end
+  end
+
+  def test_const_class_module
+    with_checker(<<RBS) do |checker|
+class Nested
+  class Class
+  end
+
+  class Class2
+  end
+
+  module Module
+  end
+end
+RBS
+      source = parse_ruby(<<-RUBY)
+class ::Nested::Class < Nested::Class2
+end
+
+module Nested::Module
+end
+      RUBY
+
+      with_standard_construction(checker, source) do |construction, typing|
+        construction.synthesize(source.node)
+
+        dig(source.node, 0).tap do |klass|
+          typing.type_of(node: dig(klass, 0, 0, 0))
+          typing.type_of(node: dig(klass, 0, 0))
+          typing.type_of(node: dig(klass, 0))
+
+          typing.type_of(node: dig(klass, 1, 0))
+          typing.type_of(node: dig(klass, 1))
+        end
+
+        dig(source.node, 1).tap do |mod|
+          typing.type_of(node: dig(mod, 0, 0))
+          typing.type_of(node: dig(mod, 0))
+        end
       end
     end
   end
