@@ -2,6 +2,13 @@
 
 ## master
 
+## 0.34.0 (2020-10-27)
+
+* Add `steep stats` command to show method call typing stats ([#246](https://github.com/soutaro/steep/pull/246))
+* Fix attribute assignment typing ([#243](https://github.com/soutaro/steep/pull/243))
+* Let `Range[T]` be covariant ([#242](https://github.com/soutaro/steep/pull/242))
+* Fix constant typing ([#247](https://github.com/soutaro/steep/pull/247), [#248](https://github.com/soutaro/steep/pull/248))
+
 ## 0.33.0 (2020-10-13)
 
 * Make `!` typing flow sensitive ([#240](https://github.com/soutaro/steep/pull/240))
