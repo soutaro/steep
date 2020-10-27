@@ -6251,7 +6251,7 @@ end
 RBS
       source = parse_ruby(<<-RUBY)
 ::Nested::Consta::Nt
-Nested::Consta::Nt
+Nested::Consta::Nt = _ = 30
       RUBY
 
       with_standard_construction(checker, source) do |construction, typing|
