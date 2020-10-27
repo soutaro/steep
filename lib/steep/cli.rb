@@ -16,7 +16,7 @@ module Steep
     end
 
     def self.available_commands
-      [:init, :check, :validate, :annotations, :version, :project, :watch, :langserver, :vendor]
+      [:init, :check, :validate, :annotations, :version, :project, :watch, :langserver, :vendor, :stats]
     end
 
     def process_global_options
@@ -84,6 +84,19 @@ module Steep
 
           opts.on("--steepfile=PATH") {|path| check.steepfile = Pathname(path) }
           opts.on("--dump-all-types") { check.dump_all_types = true }
+          handle_logging_options opts
+        end.parse!(argv)
+
+        check.command_line_patterns.push *argv
+      end.run
+    end
+
+    def process_stats
+      Drivers::Stats.new(stdout: stdout, stderr: stderr).tap do |check|
+        OptionParser.new do |opts|
+          opts.banner = "Usage: steep stats [options] [sources]"
+
+          opts.on("--steepfile=PATH") {|path| check.steepfile = Pathname(path) }
           handle_logging_options opts
         end.parse!(argv)
 
