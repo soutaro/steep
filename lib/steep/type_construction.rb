@@ -2423,7 +2423,10 @@ module Steep
             errors: [error]
           )
 
-          constr = synthesize_children(node, skips: [receiver])
+          skips = [receiver]
+          skips << node.children[0] if node.type == :block
+
+          constr = synthesize_children(node, skips: skips)
           if block_params
             block_annotations = source.annotations(block: node, factory: checker.factory, current_module: current_namespace)
 
@@ -2433,7 +2436,7 @@ module Steep
               block_annotations: block_annotations,
               block_body: block_body
             ) do |error|
-              errors << error
+              constr.typing.add_error(error)
             end
           end
         end
