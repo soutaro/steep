@@ -3227,8 +3227,10 @@ module Steep
         end
       end
       expected_module_method_names = (module_context.module_definition&.methods || {}).each.with_object(Set[]) do |(name, method), set|
-        if method.implemented_in == module_context.module_definition.type_name
-          set << name
+        if name != :new
+          if method.implemented_in == module_context.module_definition.type_name
+            set << name
+          end
         end
       end
 
