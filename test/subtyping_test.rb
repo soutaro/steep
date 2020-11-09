@@ -53,6 +53,12 @@ end
 module Kernel
   def Integer: (untyped) -> Integer
 end
+
+class TrueClass
+end
+
+class FalseClass
+end
   EOB
 
   include FactoryHelper

@@ -147,7 +147,23 @@ module Steep
             success(constraints: constraints)
 
           when relation.super_type.is_a?(AST::Types::Boolean)
-            success(constraints: constraints)
+            check(
+              Relation.new(sub_type: relation.sub_type, super_type: AST::Types::Union.build(types: [AST::Builtin.true_type, AST::Builtin.false_type])),
+              self_type: self_type,
+              assumption: assumption,
+              trace: trace,
+              constraints: constraints
+            )
+
+          when relation.sub_type.is_a?(AST::Types::Boolean)
+            check(
+              Relation.new(sub_type: AST::Types::Union.build(types: [AST::Builtin.true_type, AST::Builtin.false_type]),
+                           super_type: relation.super_type),
+              self_type: self_type,
+              assumption: assumption,
+              trace: trace,
+              constraints: constraints
+            )
 
           when relation.sub_type.is_a?(AST::Types::Self) && !self_type.is_a?(AST::Types::Self)
             check(
