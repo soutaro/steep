@@ -16,7 +16,7 @@ module Steep
     end
 
     def self.available_commands
-      [:init, :check, :validate, :annotations, :version, :project, :watch, :langserver, :vendor, :stats]
+      [:init, :check, :validate, :annotations, :version, :project, :watch, :langserver, :stats]
     end
 
     def process_global_options
@@ -34,7 +34,7 @@ module Steep
 
     def setup_command
       @command = argv.shift&.to_sym
-      if CLI.available_commands.include?(@command) || @command == :worker
+      if CLI.available_commands.include?(@command) || @command == :worker || @command == :vendor
         true
       else
         stderr.puts "Unknown command: #{command}"

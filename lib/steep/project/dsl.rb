@@ -7,12 +7,12 @@ module Steep
         attr_reader :libraries
         attr_reader :signatures
         attr_reader :ignored_sources
-        attr_reader :no_builtin
         attr_reader :vendor_dir
         attr_reader :strictness_level
         attr_reader :typing_option_hash
+        attr_reader :repo_paths
 
-        def initialize(name, sources: [], libraries: [], signatures: [], ignored_sources: [])
+        def initialize(name, sources: [], libraries: [], signatures: [], ignored_sources: [], repo_paths: [])
           @name = name
           @sources = sources
           @libraries = libraries
@@ -21,6 +21,7 @@ module Steep
           @vendor_dir = nil
           @strictness_level = :default
           @typing_option_hash = {}
+          @repo_paths = []
         end
 
         def initialize_copy(other)
@@ -32,6 +33,7 @@ module Steep
           @vendor_dir = other.vendor_dir
           @strictness_level = other.strictness_level
           @typing_option_hash = other.typing_option_hash
+          @repo_paths = other.repo_paths.dup
         end
 
         def check(*args)
@@ -71,13 +73,14 @@ module Steep
 
         def vendor(dir = "vendor/sigs", stdlib: nil, gems: nil)
           if stdlib || gems
-            @vendor_dir = [
-              stdlib&.yield_self {|x| Pathname(x) },
-              gems&.yield_self {|x| Pathname(x) }
-            ]
-          else
-            @vendor_dir = Pathname(dir)
+            Steep.logger.warn { "#vendor with stdlib: or gems: keyword is deprecated." }
           end
+
+          @vendor_dir = Pathname(dir)
+        end
+
+        def repo_path(*paths)
+          @repo_paths.push(*paths.map {|s| Pathname(s) })
         end
       end
 
@@ -124,6 +127,8 @@ module Steep
           signature_patterns: target.signatures,
           options: Options.new.tap do |options|
             options.libraries.push(*target.libraries)
+            options.repository_paths.push(*target.repo_paths)
+            options.vendor_path = target.vendor_dir
 
             case target.strictness_level
             when :strict
@@ -133,15 +138,6 @@ module Steep
             end
 
             options.merge!(target.typing_option_hash)
-
-            case target.vendor_dir
-            when Array
-              options.vendored_stdlib_path = target.vendor_dir[0]
-              options.vendored_gems_path = target.vendor_dir[1]
-            when Pathname
-              options.vendored_stdlib_path = target.vendor_dir + "stdlib"
-              options.vendored_gems_path = target.vendor_dir + "gems"
-            end
           end
         ).tap do |target|
           project.targets << target

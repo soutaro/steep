@@ -18,26 +18,7 @@ module Steep
       end
 
       def run
-        stdout.puts "Vendoring into #{vendor_dir}..."
-
-        vendorer = RBS::Vendorer.new(vendor_dir: vendor_dir)
-
-        if clean_before
-          stdout.puts "  Cleaning directory..."
-          vendorer.clean!
-        end
-
-        stdout.puts "  Vendoring standard libraries..."
-        vendorer.stdlib!
-
-        if defined?(Bundler)
-          Bundler.locked_gems.specs.each do |spec|
-            if RBS::EnvironmentLoader.gem_sig_path(spec.name, spec.version.to_s).directory?
-              stdout.puts "  Vendoring rubygem: #{spec.full_name}..."
-              vendorer.gem! spec.name, spec.version.to_s
-            end
-          end
-        end
+        stdout.puts "`steep vendor` is deprecated. Use `rbs vendor` command directly"
 
         0
       end

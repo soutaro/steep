@@ -403,10 +403,8 @@ module FactoryHelper
         absolute_path.write(content)
       end
 
-      env_loader = RBS::EnvironmentLoader.new()
-      if nostdlib
-        env_loader.no_builtin!
-      end
+      core_root = nostdlib ? nil : RBS::EnvironmentLoader::DEFAULT_CORE_ROOT
+      env_loader = RBS::EnvironmentLoader.new(core_root: core_root)
       env_loader.add path: root
 
       env = RBS::Environment.new()

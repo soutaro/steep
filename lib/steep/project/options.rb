@@ -5,16 +5,16 @@ module Steep
       attr_accessor :allow_missing_definitions
       attr_accessor :allow_unknown_constant_assignment
       attr_accessor :allow_unknown_method_calls
-      attr_accessor :vendored_stdlib_path
-      attr_accessor :vendored_gems_path
+      attr_accessor :vendor_path
       attr_reader :libraries
+      attr_reader :repository_paths
 
       def initialize
         apply_default_typing_options!
-        self.vendored_gems_path = nil
-        self.vendored_stdlib_path = nil
+        self.vendor_path = nil
 
         @libraries = []
+        @repository_paths = []
       end
 
       def apply_default_typing_options!
