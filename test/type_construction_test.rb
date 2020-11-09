@@ -6363,4 +6363,32 @@ end
       end
     end
   end
+
+  def test_bool_typing
+    with_checker() do |checker|
+      source = parse_ruby(<<-RUBY)
+# @type var x: bool
+x = true
+x = false
+x = 1
+x = nil
+      RUBY
+
+      with_standard_construction(checker, source) do |construction, typing|
+        construction.synthesize(source.node)
+
+        assert_typing_error(typing, size: 2) do |errors|
+          assert_any!(errors) do |error|
+            assert_instance_of Steep::Errors::IncompatibleAssignment, error
+            assert_equal dig(source.node, 2), error.node
+          end
+
+          assert_any!(errors) do |error|
+            assert_instance_of Steep::Errors::IncompatibleAssignment, error
+            assert_equal dig(source.node, 3), error.node
+          end
+        end
+      end
+    end
+  end
 end
