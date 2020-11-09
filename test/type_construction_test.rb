@@ -6336,4 +6336,31 @@ end
       end
     end
   end
+
+  def test_block_without_hint
+    with_checker(<<-RBS) do |checker|
+class BlockWithoutHint
+  def test: (Integer) -> void
+          | (String) -> void
+end
+    RBS
+
+      source = parse_ruby(<<-RUBY)
+BlockWithoutHint.new.test(true) do
+  # @type block: String
+  3
+end
+      RUBY
+
+      with_standard_construction(checker, source) do |construction, typing|
+        construction.synthesize(source.node)
+
+        assert_typing_error(typing, size: 2) do |errors|
+          assert_any!(errors) do |error|
+            assert_instance_of Steep::Errors::BlockTypeMismatch, error
+          end
+        end
+      end
+    end
+  end
 end
