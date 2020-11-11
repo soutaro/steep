@@ -47,6 +47,17 @@ module Steep
           target.options.libraries.each do |lib|
             stdout.puts "      - #{lib}"
           end
+          stdout.puts "    library dirs:"
+          Project::Target.construct_env_loader(options: target.options).tap do |loader|
+            loader.each_dir do |lib, path|
+              case lib
+              when :core
+                stdout.puts "      - core: #{path}"
+              else
+                stdout.puts "      - #{lib.name}: #{path}"
+              end
+            end
+          end
         end
 
         0
