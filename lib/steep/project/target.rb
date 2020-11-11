@@ -114,27 +114,26 @@ module Steep
         end
       end
 
-      def environment
-        @environment ||= RBS::Environment.new().yield_self do |env|
-          core_root = options.vendor_path ? nil : RBS::EnvironmentLoader::DEFAULT_CORE_ROOT
-          repo = RBS::Repository.new(no_stdlib: !core_root)
-          options.repository_paths.each do |path|
-            repo.add(path)
-          end
-          loader = RBS::EnvironmentLoader.new(core_root: core_root, repository: repo)
-          if core_root
-            options.libraries.each do |lib|
-              loader.add(library: lib)
-            end
-          else
-            # All library RBSs are loaded from vendor_dir
-            loader.add(path: options.vendor_dir)
-          end
-
-          loader.load(env: env)
-
-          env.resolve_type_names
+      def self.construct_env_loader(options:)
+        repo = RBS::Repository.new(no_stdlib: options.vendor_path)
+        options.repository_paths.each do |path|
+          repo.add(path)
         end
+
+        loader = RBS::EnvironmentLoader.new(
+          core_root: options.vendor_path ? nil : RBS::EnvironmentLoader::DEFAULT_CORE_ROOT,
+          repository: repo
+        )
+        loader.add(path: options.vendor_path) if options.vendor_path
+        options.libraries.each do |lib|
+          loader.add(library: lib)
+        end
+
+        loader
+      end
+
+      def environment
+        @environment ||= RBS::Environment.from_loader(Target.construct_env_loader(options: options))
       end
 
       def load_signatures(validate:)

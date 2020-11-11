@@ -11,6 +11,39 @@ module Steep
       refute Project::Target.test_pattern(["lib"], Pathname("test/foo_test.rb"), ext: ".rb")
     end
 
+    def test_environment_loader
+      Dir.mktmpdir do |dir|
+        path = Pathname(dir)
+
+        (path + "vendor/repo").mkpath
+        (path + "vendor/core").mkpath
+
+        Project::Target.construct_env_loader(
+          options: Project::Options.new.tap {|opts|
+            opts.repository_paths << path + "vendor/repo"
+          }
+        ).tap do |loader|
+          refute_nil loader.core_root
+
+          assert_includes loader.repository.dirs, RBS::Repository::DEFAULT_STDLIB_ROOT
+          assert_includes loader.repository.dirs, path + "vendor/repo"
+        end
+
+        Project::Target.construct_env_loader(
+          options: Project::Options.new.tap {|opts|
+            opts.vendor_path = path + "vendor/core"
+            opts.repository_paths << path + "vendor/repo"
+          }
+        ).tap do |loader|
+          assert_nil loader.core_root
+
+          assert_includes loader.dirs, path + "vendor/core"
+          refute_includes loader.repository.dirs, RBS::Repository::DEFAULT_STDLIB_ROOT
+          assert_includes loader.repository.dirs, path + "vendor/repo"
+        end
+      end
+    end
+
     def test_success_type_check
       target = Project::Target.new(
         name: :foo,
