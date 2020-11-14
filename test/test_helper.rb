@@ -277,7 +277,7 @@ end
 class Regexp
 end
 
-class Array[A]
+class Array[unchecked out A]
   def initialize: () -> untyped
                 | (Integer, A) -> untyped
                 | (Integer) -> untyped

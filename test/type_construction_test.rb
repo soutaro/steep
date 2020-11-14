@@ -6391,4 +6391,62 @@ x = nil
       end
     end
   end
+
+  def test_typing_record
+    with_checker() do |checker|
+      source = parse_ruby(<<-RUBY)
+# @type var a: { foo: String, bar: Integer?, baz: Symbol? }
+a = { foo: "hello", bar: 42, baz: nil }
+
+x = a[:foo]
+y = a[:bar]
+z = a[:baz]
+      RUBY
+
+      with_standard_construction(checker, source) do |construction, typing|
+        _, _, context = construction.synthesize(source.node)
+
+        assert_no_error typing
+
+        assert_equal parse_type("::String"), context.lvar_env[:x]
+        assert_equal parse_type("::Integer?"), context.lvar_env[:y]
+        assert_equal parse_type("::Symbol?"), context.lvar_env[:z]
+      end
+    end
+  end
+
+  def test_typing_record_union
+    with_checker() do |checker|
+      source = parse_ruby(<<-RUBY)
+# @type var x: { foo: String, bar: Integer } | String
+x = { foo: "hello", bar: 42 }
+x = "foo"
+      RUBY
+
+      with_standard_construction(checker, source) do |construction, typing|
+        _, _, context = construction.synthesize(source.node)
+
+        assert_no_error typing
+      end
+    end
+  end
+
+  def test_typing_record_map1
+    with_checker() do |checker|
+      source = parse_ruby(<<-RUBY)
+x = [1].map do |x|
+  # @type block: { foo: String, bar: Integer }
+  { foo: "hello", bar: x }
+end
+      RUBY
+
+      with_standard_construction(checker, source) do |construction, typing|
+        _, _, context = construction.synthesize(source.node)
+
+        assert_no_error typing
+
+        assert_equal parse_type("::Array[{ foo: ::String, bar: ::Integer }]"), context.lvar_env[:x]
+      end
+    end
+  end
 end
