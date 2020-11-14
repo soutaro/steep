@@ -617,13 +617,18 @@ type json = String | Integer | Array[json] | Hash[String, json]
   def test_hash
     with_checker do |checker|
       assert_success_check checker, "{ foo: ::Integer, bar: ::String }", "{ foo: ::Integer }"
+      assert_fail_check checker, "{ foo: ::String }", "{ foo: ::Integer }"
+      assert_success_check checker, "{ foo: ::String, bar: ::Integer }", "{ foo: ::String, bar: ::Integer? }"
+      assert_success_check checker, "{ foo: ::String, bar: nil }", "{ foo: ::String, bar: ::Integer? }"
+      assert_success_check checker, "{ foo: ::String }", "{ foo: ::String, bar: ::Integer? }"
+      assert_fail_check checker, "{ foo: ::String, bar: ::Symbol }", "{ foo: ::String, bar: ::Integer? }"
 
       assert_success_check checker,
                            "{ foo: ::Integer }",
                            parse_type("{ foo: X }", checker: checker, variables: [:X]),
                            constraints: Constraints.new(unknowns: [:X]) do |result|
         assert_operator result.constraints, :unknown?, :X
-        assert_equal "::Integer", result.constraints.upper_bound(:X).to_s
+        assert_equal parse_type("top", checker: checker), result.constraints.upper_bound(:X)
         assert_equal "::Integer", result.constraints.lower_bound(:X).to_s
       end
 
