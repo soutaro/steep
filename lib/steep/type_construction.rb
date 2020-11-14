@@ -3491,6 +3491,8 @@ module Steep
     end
 
     def try_hash_type(node, hint)
+      hint = expand_alias(hint)
+
       case hint
       when AST::Types::Record
         typing.new_child(node.loc.expression.yield_self {|l| l.begin_pos..l.end_pos }) do |child_typing|

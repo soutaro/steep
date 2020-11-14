@@ -6431,6 +6431,24 @@ x = "foo"
     end
   end
 
+  def test_typing_record_union_alias
+    with_checker(<<RBS) do |checker|
+type foo_bar = { foo: String, bar: Integer } | String
+RBS
+      source = parse_ruby(<<-RUBY)
+# @type var x: foo_bar
+x = { foo: "hello", bar: 42 }
+x = "foo"
+      RUBY
+
+      with_standard_construction(checker, source) do |construction, typing|
+        _, _, context = construction.synthesize(source.node)
+
+        assert_no_error typing
+      end
+    end
+  end
+
   def test_typing_record_map1
     with_checker() do |checker|
       source = parse_ruby(<<-RUBY)
