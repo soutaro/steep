@@ -2,6 +2,12 @@
 
 ## master
 
+## 0.35.0 (2020-11-14)
+
+* Support third party RBS repository ([#231](https://github.com/soutaro/steep/pull/231), [#254](https://github.com/soutaro/steep/pull/254), [#255](https://github.com/soutaro/steep/pull/255))
+* Boolean type semantics update ([#252](https://github.com/soutaro/steep/pull/252))
+* More flexible record typing ([#256](https://github.com/soutaro/steep/pull/256))
+
 ## 0.34.0 (2020-10-27)
 
 * Add `steep stats` command to show method call typing stats ([#246](https://github.com/soutaro/steep/pull/246))
