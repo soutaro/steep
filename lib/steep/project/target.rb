@@ -126,7 +126,8 @@ module Steep
         )
         loader.add(path: options.vendor_path) if options.vendor_path
         options.libraries.each do |lib|
-          loader.add(library: lib)
+          name, version = lib.split(/:/, 2)
+          loader.add(library: name, version: version)
         end
 
         loader
