@@ -1476,7 +1476,7 @@ module Steep
                                    .for_branch(right)
                                    .synthesize(right)
 
-            type = if left_type.is_a?(AST::Types::Boolean)
+            type = if check_relation(sub_type: left_type, super_type: AST::Types::Boolean.new).success?
                      union_type(left_type, right_type)
                    else
                      union_type(right_type, AST::Builtin.nil_type)

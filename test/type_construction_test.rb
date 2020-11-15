@@ -6555,4 +6555,21 @@ EOF
       end
     end
   end
+
+  def test_bool_and_or
+    with_checker do |checker|
+      source = parse_ruby(<<EOF)
+# @type var x: bool
+
+x = 30.is_a?(Integer) && true
+x = 30.is_a?(String) || false
+EOF
+
+      with_standard_construction(checker, source) do |construction, typing|
+        _, _, context = construction.synthesize(source.node)
+
+        assert_no_error typing
+      end
+    end
+  end
 end
