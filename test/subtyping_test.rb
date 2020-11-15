@@ -812,4 +812,14 @@ type c = a | b
       assert_success_check checker, '"z"', "::c"
     end
   end
+
+  def test_logic_type
+    with_checker do |checker|
+      type = AST::Types::Logic::ReceiverIsNil.new()
+      assert_success_check checker, type, "true"
+      assert_success_check checker, type, "false"
+      assert_success_check checker, type, "::TrueClass"
+      assert_success_check checker, type, "::FalseClass"
+    end
+  end
 end

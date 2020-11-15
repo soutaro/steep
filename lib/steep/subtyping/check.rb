@@ -127,6 +127,24 @@ module Steep
         Result::Failure.new(error: error, trace: trace)
       end
 
+      def true_type?(type)
+        case type
+        when AST::Types::Literal
+          type.value == true
+        else
+          AST::Builtin::TrueClass.instance_type?(type)
+        end
+      end
+
+      def false_type?(type)
+        case type
+        when AST::Types::Literal
+          type.value == false
+        else
+          AST::Builtin::FalseClass.instance_type?(type)
+        end
+      end
+
       def check0(relation, self_type:, assumption:, trace:, constraints:)
         # puts relation
         trace.type(relation.sub_type, relation.super_type) do
@@ -144,6 +162,9 @@ module Steep
             success(constraints: constraints)
 
           when relation.sub_type.is_a?(AST::Types::Bot)
+            success(constraints: constraints)
+
+          when relation.sub_type.is_a?(AST::Types::Logic::Base) && (true_type?(relation.super_type) || false_type?(relation.super_type))
             success(constraints: constraints)
 
           when relation.super_type.is_a?(AST::Types::Boolean)
