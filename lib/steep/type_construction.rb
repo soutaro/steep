@@ -1584,6 +1584,18 @@ module Steep
 
               cond_type, constr = constr.synthesize(cond)
               _, cond_vars = interpreter.decompose_value(cond)
+              unless cond_vars.empty?
+                first_var = cond_vars.to_a[0]
+                var_node = cond.updated(
+                  :lvar,
+                  [
+                    ASTUtils::Labeling::LabeledName.new(name: first_var, label: 0)
+                  ]
+                )
+              else
+                first_var = nil
+                var_node = cond
+              end
 
               when_constr = constr
               whens.each do |clause|
@@ -1593,9 +1605,15 @@ module Steep
                 test_envs = []
 
                 tests.each do |test|
-                  test_node = test.updated(:send, [test, :===, cond.dup])
+                  test_node = test.updated(:send, [test, :===, var_node])
                   test_type, test_constr = test_constr.synthesize(test_node)
                   truthy_env, falsy_env = interpreter.eval(type: test_type, node: test_node, env: test_constr.context.lvar_env)
+                  truthy_env = cond_vars.inject(truthy_env) do |env, var|
+                    env.assign!(var, node: test_node, type: env[first_var])
+                  end
+                  falsy_env = cond_vars.inject(falsy_env) do |env, var|
+                    env.assign!(var, node: test_node, type: env[first_var])
+                  end
                   test_envs << truthy_env
                   test_constr = test_constr.update_lvar_env { falsy_env }
                 end
