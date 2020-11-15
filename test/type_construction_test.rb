@@ -6482,4 +6482,27 @@ x = { }
       end
     end
   end
+
+  def test_type_case_case_when_assignment
+    with_checker do |checker|
+      source = parse_ruby(<<EOF)
+# @type var x: String | Integer
+x = (_ = nil)
+
+case x
+when String
+  a = "String"
+when Integer
+  a = "Integer"
+end
+EOF
+
+      with_standard_construction(checker, source) do |construction, typing|
+        _, _, context = construction.synthesize(source.node)
+
+        assert_no_error typing
+        assert_equal parse_type("::String"), context.lvar_env[:a]
+      end
+    end
+  end
 end

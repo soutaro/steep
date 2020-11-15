@@ -1625,10 +1625,6 @@ module Steep
               types = branch_pairs.map(&:type)
               constrs = branch_pairs.map(&:constr)
 
-              unless els
-                constrs << when_constr
-              end
-
               if when_constr.context.lvar_env[cond_vars.first].is_a?(AST::Types::Bot)
                 # Exhaustive
                 if els
@@ -1636,6 +1632,7 @@ module Steep
                 end
               else
                 unless els
+                  constrs << when_constr
                   types << AST::Builtin.nil_type
                 end
               end
