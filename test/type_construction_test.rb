@@ -6482,4 +6482,94 @@ x = { }
       end
     end
   end
+
+  def test_type_case_case_when_assignment
+    with_checker do |checker|
+      source = parse_ruby(<<EOF)
+# @type var x: String | Integer
+x = (_ = nil)
+
+case x
+when String
+  a = "String"
+when Integer
+  a = "Integer"
+end
+EOF
+
+      with_standard_construction(checker, source) do |construction, typing|
+        _, _, context = construction.synthesize(source.node)
+
+        assert_no_error typing
+        assert_equal parse_type("::String"), context.lvar_env[:a]
+      end
+    end
+  end
+
+  def test_type_case_case_selector
+    with_checker do |checker|
+      source = parse_ruby(<<RUBY)
+x = ["foo", 2, :baz]
+
+a = case y = z = x[0]
+    when String
+      y + ""
+      z + ""
+      "String"
+    when Integer
+      y + 0
+      z + 0
+      "Integer"
+    when Symbol
+      "Array[String]"
+    end
+RUBY
+
+      with_standard_construction(checker, source) do |construction, typing|
+        _, _, context = construction.synthesize(source.node)
+
+        assert_no_error typing
+        assert_equal parse_type("::String"), context.lvar_env[:a]
+      end
+    end
+  end
+
+  def test_type_if_else_when_assignment
+    with_checker do |checker|
+      source = parse_ruby(<<EOF)
+# @type var x: String | Integer
+x = (_ = nil)
+
+if x.is_a?(String)
+  a = "String"
+else
+  a = "Integer"
+end
+EOF
+
+      with_standard_construction(checker, source) do |construction, typing|
+        _, _, context = construction.synthesize(source.node)
+
+        assert_no_error typing
+        assert_equal parse_type("::String"), context.lvar_env[:a]
+      end
+    end
+  end
+
+  def test_bool_and_or
+    with_checker do |checker|
+      source = parse_ruby(<<EOF)
+# @type var x: bool
+
+x = 30.is_a?(Integer) && true
+x = 30.is_a?(String) || false
+EOF
+
+      with_standard_construction(checker, source) do |construction, typing|
+        _, _, context = construction.synthesize(source.node)
+
+        assert_no_error typing
+      end
+    end
+  end
 end
