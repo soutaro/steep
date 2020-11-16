@@ -2,6 +2,12 @@
 
 ## master
 
+## 0.36.0 (2020-11-16)
+
+* Flow-sensitive typing improvements with `||` and `&&` ([#260](https://github.com/soutaro/steep/pull/260))
+* Type-case improvement ([#259](https://github.com/soutaro/steep/pull/259))
+* Subtyping between `bool` and logic types ([#258](https://github.com/soutaro/steep/pull/258))
+
 ## 0.35.0 (2020-11-14)
 
 * Support third party RBS repository ([#231](https://github.com/soutaro/steep/pull/231), [#254](https://github.com/soutaro/steep/pull/254), [#255](https://github.com/soutaro/steep/pull/255))
