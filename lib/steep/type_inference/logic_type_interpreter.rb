@@ -46,6 +46,9 @@ module Steep
           end
 
           case type
+          when AST::Types::Logic::Env
+            truthy_env = type.truthy
+            falsy_env = type.falsy
           when AST::Types::Logic::ReceiverIsNil
             case value_node.type
             when :send

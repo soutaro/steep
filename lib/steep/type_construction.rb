@@ -1476,7 +1476,18 @@ module Steep
                                    .for_branch(right)
                                    .synthesize(right)
 
-            type = if check_relation(sub_type: left_type, super_type: AST::Types::Boolean.new).success?
+            truthy_env, _ = interpreter.eval(env: truthy_env, type: right_type, node: right)
+
+            env = if right_type.is_a?(AST::Types::Bot)
+                    falsey_env
+                  else
+                    context.lvar_env.join(falsey_env, constr.context.lvar_env)
+                  end
+
+            type = case
+                   when left_type.is_a?(AST::Types::Logic::Base) && right_type.is_a?(AST::Types::Logic::Base)
+                     AST::Types::Logic::Env.new(truthy: truthy_env, falsy: env)
+                   when check_relation(sub_type: left_type, super_type: AST::Types::Boolean.new).success?
                      union_type(left_type, right_type)
                    else
                      union_type(right_type, AST::Builtin.nil_type)
@@ -1484,13 +1495,7 @@ module Steep
 
             add_typing(node,
                        type: type,
-                       constr: constr.update_lvar_env do
-                         if right_type.is_a?(AST::Types::Bot)
-                           falsey_env
-                         else
-                           context.lvar_env.join(falsey_env, constr.context.lvar_env)
-                         end
-                       end)
+                       constr: constr.update_lvar_env { env })
           end
 
         when :or
@@ -1502,24 +1507,31 @@ module Steep
             interpreter = TypeInference::LogicTypeInterpreter.new(subtyping: checker, typing: typing)
             truthy_env, falsey_env = interpreter.eval(env: constr.context.lvar_env, type: left_type, node: left)
 
-            left_type_t, _ = checker.factory.unwrap_optional(left_type)
+            left_type, _ = checker.factory.unwrap_optional(left_type)
             right_type, constr = constr
                                    .update_lvar_env { falsey_env }
                                    .tap {|constr| typing.add_context_for_node(right, context: constr.context) }
                                    .for_branch(right)
-                                   .synthesize(right, hint: left_type_t)
+                                   .synthesize(right, hint: left_type)
 
-            type = union_type(left_type_t, right_type)
+            _, falsey_env = interpreter.eval(env: falsey_env, type: right_type, node: right)
+
+            env = if right_type.is_a?(AST::Types::Bot)
+                    truthy_env
+                  else
+                    context.lvar_env.join(truthy_env, constr.context.lvar_env)
+                  end
+
+            type = case
+                   when left_type.is_a?(AST::Types::Logic::Base) && right_type.is_a?(AST::Types::Logic::Base)
+                     AST::Types::Logic::Env.new(truthy: env, falsy: falsey_env)
+                   else
+                     union_type(left_type, right_type)
+                   end
 
             add_typing(node,
                        type: type,
-                       constr: constr.update_lvar_env do
-                         if right_type.is_a?(AST::Types::Bot)
-                           truthy_env
-                         else
-                           context.lvar_env.join(truthy_env, constr.context.lvar_env)
-                         end
-                       end)
+                       constr: constr.update_lvar_env { env })
           end
 
         when :if
