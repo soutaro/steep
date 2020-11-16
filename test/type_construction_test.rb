@@ -6572,4 +6572,81 @@ EOF
       end
     end
   end
+
+  def test_and_is_a
+    with_checker do |checker|
+      source = parse_ruby(<<EOF)
+# @type var x: String | Float
+# @type var y: Symbol | Integer
+
+x = _ = nil
+y = _ = nil
+
+if x.is_a?(String) && y.is_a?(Integer)
+  x + ""
+  y + 3
+else
+  a = x
+  b = y
+end
+EOF
+
+      with_standard_construction(checker, source) do |construction, typing|
+        _, _, context = construction.synthesize(source.node)
+
+        assert_no_error typing
+
+        assert_equal parse_type("::String | ::Float | nil"), context.lvar_env[:a]
+        assert_equal parse_type("::Symbol | ::Integer | nil"), context.lvar_env[:b]
+      end
+    end
+  end
+
+  def test_or_is_a
+    with_checker do |checker|
+      source = parse_ruby(<<EOF)
+# @type var x: String | Float
+# @type var y: Symbol | Integer
+
+x = _ = nil
+y = _ = nil
+
+if x.is_a?(Float) || y.is_a?(Symbol)
+  a = x
+  b = y
+else
+  x + ""
+  y + 3
+end
+EOF
+
+      with_standard_construction(checker, source) do |construction, typing|
+        _, _, context = construction.synthesize(source.node)
+
+        assert_no_error typing
+
+        assert_equal parse_type("::String | ::Float | nil"), context.lvar_env[:a]
+        assert_equal parse_type("::Symbol | ::Integer | nil"), context.lvar_env[:b]
+      end
+    end
+  end
+
+  def test_logic_or2
+    with_checker do |checker|
+      source = parse_ruby(<<RUBY)
+x = [""].first
+y = [""].first
+
+return if x.nil? || y.nil?
+
+x + y
+RUBY
+
+      with_standard_construction(checker, source) do |construction, typing|
+        construction.synthesize(source.node)
+
+        assert_no_error typing
+      end
+    end
+  end
 end

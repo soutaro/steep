@@ -18,7 +18,7 @@ module Steep
           end
 
           def ==(other)
-            other.class ==self.class
+            other.class == self.class
           end
 
           alias eql? ==
@@ -55,6 +55,25 @@ module Steep
         class ArgIsReceiver < Base
           def initialize(location: nil)
             @location = location
+          end
+        end
+
+        class Env < Base
+          attr_reader :truthy, :falsy
+
+          def initialize(truthy:, falsy:, location: nil)
+            @truthy = truthy
+            @falsy = falsy
+          end
+
+          def ==(other)
+            other.is_a?(Env) && other.truthy == truthy && other.falsy == falsy
+          end
+
+          alias eql? ==
+
+          def hash
+            self.class.hash ^ truthy.hash ^ falsy.hash
           end
         end
       end
