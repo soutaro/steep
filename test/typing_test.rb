@@ -33,7 +33,7 @@ class TypingTest < Minitest::Test
 
     typing = Steep::Typing.new(source: source, root_context: context)
 
-    type = parse_method_type("() -> String").return_type
+    type = parse_type("::String")
 
     typing.add_typing(node, type, context)
 
@@ -47,7 +47,7 @@ class TypingTest < Minitest::Test
 
     typing = Steep::Typing.new(source: source, root_context: context)
 
-    type = parse_method_type("() -> String").return_type
+    type = parse_type("::String")
 
     typing.add_typing(node, type, context)
 
@@ -71,7 +71,7 @@ class TypingTest < Minitest::Test
 
     typing = Steep::Typing.new(source: source, root_context: context)
 
-    type = parse_method_type("() -> String").return_type
+    type = parse_type("::String")
 
     typing.add_typing(node, type, context)
 
@@ -93,7 +93,7 @@ class TypingTest < Minitest::Test
 
     typing = Steep::Typing.new(source: source, root_context: context)
 
-    type = parse_method_type("() -> String").return_type
+    type = parse_type("::String")
 
     typing.add_typing(node, type, context)
 
@@ -113,7 +113,7 @@ class TypingTest < Minitest::Test
 
     typing = Steep::Typing.new(source: source, root_context: context)
 
-    type = parse_method_type("() -> String").return_type
+    type = parse_type("::String")
 
     child1 = typing.new_child(typing.contexts.range)
     child1.add_typing(node.children[0], type, context)

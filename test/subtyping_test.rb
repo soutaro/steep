@@ -822,4 +822,14 @@ type c = a | b
       assert_success_check checker, type, "::FalseClass"
     end
   end
+
+  def test_proc_type
+    with_checker do |checker|
+      assert_success_check checker, "^() { () -> void } -> void", "^() { () -> void } -> void"
+      assert_success_check checker, "^() { (::String) -> ::Object } -> void", "^() { (::Object) -> ::String } -> void"
+
+      assert_fail_check checker, "^() { (::Object) -> void } -> void", "^() { (::String) -> void } -> void"
+      assert_fail_check checker, "^() { () -> ::String } -> void", "^() { () -> ::Object } -> void"
+    end
+  end
 end

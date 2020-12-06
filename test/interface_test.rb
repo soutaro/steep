@@ -6,26 +6,26 @@ class InterfaceTest < Minitest::Test
 
   def test_method_type_params_plus
     with_factory do
-      assert_equal parse_method_type("(String | Integer) -> untyped").params,
-                   parse_method_type("(String) -> untyped").params + parse_method_type("(Integer) -> untyped").params
+      assert_equal parse_method_type("(String | Integer) -> untyped").type.params,
+                   parse_method_type("(String) -> untyped").type.params + parse_method_type("(Integer) -> untyped").type.params
 
-      assert_equal parse_method_type("(?String | Integer) -> untyped").params,
-                   parse_method_type("(?String) -> untyped").params + parse_method_type("(Integer) -> untyped").params
+      assert_equal parse_method_type("(?String | Integer) -> untyped").type.params,
+                   parse_method_type("(?String) -> untyped").type.params + parse_method_type("(Integer) -> untyped").type.params
 
-      assert_equal parse_method_type("(?String) -> untyped").params,
-                   parse_method_type("(String) -> untyped").params + parse_method_type("() -> untyped").params
+      assert_equal parse_method_type("(?String) -> untyped").type.params,
+                   parse_method_type("(String) -> untyped").type.params + parse_method_type("() -> untyped").type.params
 
-      assert_equal parse_method_type("(?String | Symbol, *Symbol) -> untyped").params,
-                   parse_method_type("(String) -> untyped").params + parse_method_type("(*Symbol) -> untyped").params
+      assert_equal parse_method_type("(?String | Symbol, *Symbol) -> untyped").type.params,
+                   parse_method_type("(String) -> untyped").type.params + parse_method_type("(*Symbol) -> untyped").type.params
 
-      assert_equal parse_method_type("(?String | Symbol, *Symbol) -> void").params,
-                   parse_method_type("(String) -> params").params + parse_method_type("(*Symbol) -> void").params
+      assert_equal parse_method_type("(?String | Symbol, *Symbol) -> void").type.params,
+                   parse_method_type("(String) -> params").type.params + parse_method_type("(*Symbol) -> void").type.params
 
-      assert_equal parse_method_type("(name: String | Symbol, ?email: String | Array, ?age: Integer | Object, **Array | Object) -> void").params,
-                   parse_method_type("(name: String, email: String, **Object) -> void").params + parse_method_type("(name: Symbol, age: Integer, **Array) -> void").params
+      assert_equal parse_method_type("(name: String | Symbol, ?email: String | Array, ?age: Integer | Object, **Array | Object) -> void").type.params,
+                   parse_method_type("(name: String, email: String, **Object) -> void").type.params + parse_method_type("(name: Symbol, age: Integer, **Array) -> void").type.params
 
-      assert_equal parse_method_type("() ?{ (String | Integer) -> (Array | Hash) } -> void").params,
-                   parse_method_type("() ?{ (String) -> Array } -> void").params + parse_method_type("() { (Integer) -> Hash } -> void").params
+      assert_equal parse_method_type("() ?{ (String | Integer) -> (Array | Hash) } -> void").type.params,
+                   parse_method_type("() ?{ (String) -> Array } -> void").type.params + parse_method_type("() { (Integer) -> Hash } -> void").type.params
     end
   end
 
@@ -34,248 +34,248 @@ class InterfaceTest < Minitest::Test
       # req, none, opt, rest
 
       # required:required
-      assert_equal parse_method_type("(String & Integer) -> untyped").params,
-                   parse_method_type("(String) -> untyped").params & parse_method_type("(Integer) -> untyped").params
+      assert_equal parse_method_type("(String & Integer) -> untyped").type.params,
+                   parse_method_type("(String) -> untyped").type.params & parse_method_type("(Integer) -> untyped").type.params
 
       # required:none
-      assert_nil parse_method_type("(String) -> untyped").params & parse_method_type("() -> untyped").params
+      assert_nil parse_method_type("(String) -> untyped").type.params & parse_method_type("() -> untyped").type.params
 
       # required:optional
-      assert_equal parse_method_type("(String & Integer) -> untyped").params,
-                   parse_method_type("(String) -> untyped").params & parse_method_type("(?Integer) -> untyped").params
+      assert_equal parse_method_type("(String & Integer) -> untyped").type.params,
+                   parse_method_type("(String) -> untyped").type.params & parse_method_type("(?Integer) -> untyped").type.params
 
       # required:rest
-      assert_equal parse_method_type("(String & Integer) -> untyped").params,
-                   parse_method_type("(String) -> untyped").params & parse_method_type("(*Integer) -> untyped").params
+      assert_equal parse_method_type("(String & Integer) -> untyped").type.params,
+                   parse_method_type("(String) -> untyped").type.params & parse_method_type("(*Integer) -> untyped").type.params
 
       # none:required
-      assert_nil parse_method_type("() -> untyped").params & parse_method_type("(String) -> void").params
+      assert_nil parse_method_type("() -> untyped").type.params & parse_method_type("(String) -> void").type.params
 
       # none:optional
-      assert_equal parse_method_type("() -> untyped").params,
-                   parse_method_type("() -> untyped").params & parse_method_type("(?Integer) -> untyped").params
+      assert_equal parse_method_type("() -> untyped").type.params,
+                   parse_method_type("() -> untyped").type.params & parse_method_type("(?Integer) -> untyped").type.params
 
       # none:rest
-      assert_equal parse_method_type("() -> untyped").params,
-                   parse_method_type("() -> untyped").params & parse_method_type("(*Integer) -> untyped").params
+      assert_equal parse_method_type("() -> untyped").type.params,
+                   parse_method_type("() -> untyped").type.params & parse_method_type("(*Integer) -> untyped").type.params
 
       # opt:required
-      assert_equal parse_method_type("(String & Integer) -> untyped").params,
-                   parse_method_type("(?String) -> untyped").params & parse_method_type("(Integer) -> untyped").params
+      assert_equal parse_method_type("(String & Integer) -> untyped").type.params,
+                   parse_method_type("(?String) -> untyped").type.params & parse_method_type("(Integer) -> untyped").type.params
 
       # opt:none
-      assert_equal parse_method_type("() -> untyped").params,
-                   parse_method_type("(?String) -> untyped").params & parse_method_type("() -> untyped").params
+      assert_equal parse_method_type("() -> untyped").type.params,
+                   parse_method_type("(?String) -> untyped").type.params & parse_method_type("() -> untyped").type.params
 
       # opt:opt
-      assert_equal parse_method_type("(?String & Integer) -> untyped").params,
-                   parse_method_type("(?String) -> untyped").params & parse_method_type("(?Integer) -> untyped").params
+      assert_equal parse_method_type("(?String & Integer) -> untyped").type.params,
+                   parse_method_type("(?String) -> untyped").type.params & parse_method_type("(?Integer) -> untyped").type.params
 
       # opt:rest
-      assert_equal parse_method_type("(?String & Integer) -> untyped").params,
-                   parse_method_type("(?String) -> untyped").params & parse_method_type("(*Integer) -> untyped").params
+      assert_equal parse_method_type("(?String & Integer) -> untyped").type.params,
+                   parse_method_type("(?String) -> untyped").type.params & parse_method_type("(*Integer) -> untyped").type.params
 
       # rest:required
-      assert_equal parse_method_type("(String & Integer) -> untyped").params,
-                   parse_method_type("(*String) -> untyped").params & parse_method_type("(Integer) -> untyped").params
+      assert_equal parse_method_type("(String & Integer) -> untyped").type.params,
+                   parse_method_type("(*String) -> untyped").type.params & parse_method_type("(Integer) -> untyped").type.params
 
       # rest:none
-      assert_equal parse_method_type("() -> untyped").params,
-                   parse_method_type("(*String) -> untyped").params & parse_method_type("() -> untyped").params
+      assert_equal parse_method_type("() -> untyped").type.params,
+                   parse_method_type("(*String) -> untyped").type.params & parse_method_type("() -> untyped").type.params
 
       # rest:opt
-      assert_equal parse_method_type("(?String & Integer) -> untyped").params,
-                   parse_method_type("(*String) -> untyped").params & parse_method_type("(?Integer) -> untyped").params
+      assert_equal parse_method_type("(?String & Integer) -> untyped").type.params,
+                   parse_method_type("(*String) -> untyped").type.params & parse_method_type("(?Integer) -> untyped").type.params
 
       # rest:rest
-      assert_equal parse_method_type("(*String & Integer) -> untyped").params,
-                   parse_method_type("(*String) -> untyped").params & parse_method_type("(*Integer) -> untyped").params
+      assert_equal parse_method_type("(*String & Integer) -> untyped").type.params,
+                   parse_method_type("(*String) -> untyped").type.params & parse_method_type("(*Integer) -> untyped").type.params
 
       ## Keywords
 
       # req:req
-      assert_equal parse_method_type("(foo: String & Integer) -> untyped").params,
-                   parse_method_type("(foo: String) -> untyped").params & parse_method_type("(foo: Integer) -> untyped").params
+      assert_equal parse_method_type("(foo: String & Integer) -> untyped").type.params,
+                   parse_method_type("(foo: String) -> untyped").type.params & parse_method_type("(foo: Integer) -> untyped").type.params
 
       # req:opt
-      assert_equal parse_method_type("(foo: Integer & String) -> untyped").params,
-                   parse_method_type("(foo: String) -> untyped").params & parse_method_type("(?foo: Integer) -> untyped").params
+      assert_equal parse_method_type("(foo: Integer & String) -> untyped").type.params,
+                   parse_method_type("(foo: String) -> untyped").type.params & parse_method_type("(?foo: Integer) -> untyped").type.params
 
       # req:none
-      assert_nil parse_method_type("(foo: String) -> untyped").params & parse_method_type("() -> untyped").params
+      assert_nil parse_method_type("(foo: String) -> untyped").type.params & parse_method_type("() -> untyped").type.params
 
       # req:rest
-      assert_equal parse_method_type("(foo: String & Integer) -> untyped").params,
-                   parse_method_type("(foo: String) -> untyped").params & parse_method_type("(**Integer) -> untyped").params
+      assert_equal parse_method_type("(foo: String & Integer) -> untyped").type.params,
+                   parse_method_type("(foo: String) -> untyped").type.params & parse_method_type("(**Integer) -> untyped").type.params
 
       # opt:req
-      assert_equal parse_method_type("(foo: String & Integer) -> untyped").params,
-                   parse_method_type("(?foo: String) -> untyped").params & parse_method_type("(foo: Integer) -> untyped").params
+      assert_equal parse_method_type("(foo: String & Integer) -> untyped").type.params,
+                   parse_method_type("(?foo: String) -> untyped").type.params & parse_method_type("(foo: Integer) -> untyped").type.params
 
       # opt:opt
-      assert_equal parse_method_type("(?foo: String & Integer) -> untyped").params,
-                   parse_method_type("(?foo: String) -> untyped").params & parse_method_type("(?foo: Integer) -> untyped").params
+      assert_equal parse_method_type("(?foo: String & Integer) -> untyped").type.params,
+                   parse_method_type("(?foo: String) -> untyped").type.params & parse_method_type("(?foo: Integer) -> untyped").type.params
 
       # opt:none
-      assert_equal parse_method_type("() -> untyped").params,
-                   parse_method_type("(?foo: String) -> untyped").params & parse_method_type("() -> untyped").params
+      assert_equal parse_method_type("() -> untyped").type.params,
+                   parse_method_type("(?foo: String) -> untyped").type.params & parse_method_type("() -> untyped").type.params
 
       # opt:rest
-      assert_equal parse_method_type("(?foo: String & Integer) -> untyped").params,
-                   parse_method_type("(?foo: String) -> untyped").params & parse_method_type("(**Integer) -> untyped").params
+      assert_equal parse_method_type("(?foo: String & Integer) -> untyped").type.params,
+                   parse_method_type("(?foo: String) -> untyped").type.params & parse_method_type("(**Integer) -> untyped").type.params
 
       # none:req
-      assert_nil parse_method_type("() -> untyped").params & parse_method_type("(foo: String) -> untyped").params
+      assert_nil parse_method_type("() -> untyped").type.params & parse_method_type("(foo: String) -> untyped").type.params
 
       # none:opt
-      assert_equal parse_method_type("() -> untyped").params,
-                   parse_method_type("() -> untyped").params & parse_method_type("(?foo: Integer) -> untyped").params
+      assert_equal parse_method_type("() -> untyped").type.params,
+                   parse_method_type("() -> untyped").type.params & parse_method_type("(?foo: Integer) -> untyped").type.params
 
       # none:rest
-      assert_equal parse_method_type("() -> untyped").params,
-                   parse_method_type("() -> untyped").params & parse_method_type("(**Integer) -> untyped").params
+      assert_equal parse_method_type("() -> untyped").type.params,
+                   parse_method_type("() -> untyped").type.params & parse_method_type("(**Integer) -> untyped").type.params
 
       # rest:req
-      assert_equal parse_method_type("(foo: Integer & String) -> untyped").params,
-                   parse_method_type("(**String) -> untyped").params & parse_method_type("(foo: Integer) -> untyped").params
+      assert_equal parse_method_type("(foo: Integer & String) -> untyped").type.params,
+                   parse_method_type("(**String) -> untyped").type.params & parse_method_type("(foo: Integer) -> untyped").type.params
 
       # rest:opt
-      assert_equal parse_method_type("(?foo: Integer & String) -> untyped").params,
-                   parse_method_type("(**String) -> untyped").params & parse_method_type("(?foo: Integer) -> untyped").params
+      assert_equal parse_method_type("(?foo: Integer & String) -> untyped").type.params,
+                   parse_method_type("(**String) -> untyped").type.params & parse_method_type("(?foo: Integer) -> untyped").type.params
 
       # rest:none
-      assert_equal parse_method_type("() -> untyped").params,
-                   parse_method_type("(**String) -> untyped").params & parse_method_type("() -> untyped").params
+      assert_equal parse_method_type("() -> untyped").type.params,
+                   parse_method_type("(**String) -> untyped").type.params & parse_method_type("() -> untyped").type.params
 
       # rest:rest
-      assert_equal parse_method_type("(**String & Integer) -> untyped").params,
-                   parse_method_type("(**String) -> untyped").params & parse_method_type("(**Integer) -> untyped").params
+      assert_equal parse_method_type("(**String & Integer) -> untyped").type.params,
+                   parse_method_type("(**String) -> untyped").type.params & parse_method_type("(**Integer) -> untyped").type.params
     end
   end
 
   def test_method_type_params_union
     with_factory do
       # required:required
-      assert_equal parse_method_type("(String | Integer) -> untyped").params,
-                   parse_method_type("(String) -> untyped").params | parse_method_type("(Integer) -> untyped").params
+      assert_equal parse_method_type("(String | Integer) -> untyped").type.params,
+                   parse_method_type("(String) -> untyped").type.params | parse_method_type("(Integer) -> untyped").type.params
 
       # required:none
-      assert_equal parse_method_type("(?String) -> void").params,
-                   parse_method_type("(String) -> untyped").params | parse_method_type("() -> untyped").params
+      assert_equal parse_method_type("(?String) -> void").type.params,
+                   parse_method_type("(String) -> untyped").type.params | parse_method_type("() -> untyped").type.params
 
       # required:optional
-      assert_equal parse_method_type("(?String | Integer) -> untyped").params,
-                   parse_method_type("(String) -> untyped").params | parse_method_type("(?Integer) -> untyped").params
+      assert_equal parse_method_type("(?String | Integer) -> untyped").type.params,
+                   parse_method_type("(String) -> untyped").type.params | parse_method_type("(?Integer) -> untyped").type.params
 
       # required:rest
-      assert_equal parse_method_type("(?String | Integer) -> untyped").params,
-                   parse_method_type("(String) -> untyped").params | parse_method_type("(*Integer) -> untyped").params
+      assert_equal parse_method_type("(?String | Integer) -> untyped").type.params,
+                   parse_method_type("(String) -> untyped").type.params | parse_method_type("(*Integer) -> untyped").type.params
 
       # none:required
-      assert_equal parse_method_type("(?String) -> untyped").params,
-                   parse_method_type("() -> untyped").params | parse_method_type("(String) -> untyped").params
+      assert_equal parse_method_type("(?String) -> untyped").type.params,
+                   parse_method_type("() -> untyped").type.params | parse_method_type("(String) -> untyped").type.params
 
       # none:optional
-      assert_equal parse_method_type("(?Integer) -> untyped").params,
-                   parse_method_type("() -> untyped").params | parse_method_type("(?Integer) -> untyped").params
+      assert_equal parse_method_type("(?Integer) -> untyped").type.params,
+                   parse_method_type("() -> untyped").type.params | parse_method_type("(?Integer) -> untyped").type.params
 
       # none:rest
-      assert_equal parse_method_type("(*Integer) -> untyped").params,
-                   parse_method_type("() -> untyped").params | parse_method_type("(*Integer) -> untyped").params
+      assert_equal parse_method_type("(*Integer) -> untyped").type.params,
+                   parse_method_type("() -> untyped").type.params | parse_method_type("(*Integer) -> untyped").type.params
 
       # opt:required
-      assert_equal parse_method_type("(?String | Integer) -> untyped").params,
-                   parse_method_type("(?String) -> untyped").params | parse_method_type("(Integer) -> untyped").params
+      assert_equal parse_method_type("(?String | Integer) -> untyped").type.params,
+                   parse_method_type("(?String) -> untyped").type.params | parse_method_type("(Integer) -> untyped").type.params
 
       # opt:none
-      assert_equal parse_method_type("(?String) -> untyped").params,
-                   parse_method_type("(?String) -> untyped").params | parse_method_type("() -> untyped").params
+      assert_equal parse_method_type("(?String) -> untyped").type.params,
+                   parse_method_type("(?String) -> untyped").type.params | parse_method_type("() -> untyped").type.params
 
       # opt:opt
-      assert_equal parse_method_type("(?String | Integer) -> untyped").params,
-                   parse_method_type("(?String) -> untyped").params | parse_method_type("(?Integer) -> untyped").params
+      assert_equal parse_method_type("(?String | Integer) -> untyped").type.params,
+                   parse_method_type("(?String) -> untyped").type.params | parse_method_type("(?Integer) -> untyped").type.params
 
       # opt:rest
-      assert_equal parse_method_type("(?String | Integer) -> untyped").params,
-                   parse_method_type("(?String) -> untyped").params | parse_method_type("(*Integer) -> untyped").params
+      assert_equal parse_method_type("(?String | Integer) -> untyped").type.params,
+                   parse_method_type("(?String) -> untyped").type.params | parse_method_type("(*Integer) -> untyped").type.params
 
       # rest:required
-      assert_equal parse_method_type("(?String | Integer) -> untyped").params,
-                   parse_method_type("(*String) -> untyped").params | parse_method_type("(Integer) -> untyped").params
+      assert_equal parse_method_type("(?String | Integer) -> untyped").type.params,
+                   parse_method_type("(*String) -> untyped").type.params | parse_method_type("(Integer) -> untyped").type.params
 
       # rest:none
-      assert_equal parse_method_type("(*String) -> untyped").params,
-                   parse_method_type("(*String) -> untyped").params | parse_method_type("() -> untyped").params
+      assert_equal parse_method_type("(*String) -> untyped").type.params,
+                   parse_method_type("(*String) -> untyped").type.params | parse_method_type("() -> untyped").type.params
 
       # rest:opt
-      assert_equal parse_method_type("(?String | Integer, *String) -> untyped").params,
-                   parse_method_type("(*String) -> untyped").params | parse_method_type("(?Integer) -> untyped").params
+      assert_equal parse_method_type("(?String | Integer, *String) -> untyped").type.params,
+                   parse_method_type("(*String) -> untyped").type.params | parse_method_type("(?Integer) -> untyped").type.params
 
       # rest:rest
-      assert_equal parse_method_type("(*String | Integer) -> untyped").params,
-                   parse_method_type("(*String) -> untyped").params | parse_method_type("(*Integer) -> untyped").params
+      assert_equal parse_method_type("(*String | Integer) -> untyped").type.params,
+                   parse_method_type("(*String) -> untyped").type.params | parse_method_type("(*Integer) -> untyped").type.params
 
       ## Keywords
 
       # req:req
-      assert_equal parse_method_type("(foo: String | Integer) -> untyped").params,
-                   parse_method_type("(foo: String) -> untyped").params | parse_method_type("(foo: Integer) -> untyped").params
+      assert_equal parse_method_type("(foo: String | Integer) -> untyped").type.params,
+                   parse_method_type("(foo: String) -> untyped").type.params | parse_method_type("(foo: Integer) -> untyped").type.params
 
       # req:opt
-      assert_equal parse_method_type("(?foo: String | Integer) -> untyped").params,
-                   parse_method_type("(foo: String) -> untyped").params | parse_method_type("(?foo: Integer) -> untyped").params
+      assert_equal parse_method_type("(?foo: String | Integer) -> untyped").type.params,
+                   parse_method_type("(foo: String) -> untyped").type.params | parse_method_type("(?foo: Integer) -> untyped").type.params
 
       # req:none
-      assert_equal parse_method_type("(?foo: String) -> untyped").params,
-                   parse_method_type("(foo: String) -> untyped").params | parse_method_type("() -> untyped").params
+      assert_equal parse_method_type("(?foo: String) -> untyped").type.params,
+                   parse_method_type("(foo: String) -> untyped").type.params | parse_method_type("() -> untyped").type.params
 
       # req:rest
-      assert_equal parse_method_type("(?foo: String | Integer) -> untyped").params,
-                   parse_method_type("(foo: String) -> untyped").params | parse_method_type("(**Integer) -> untyped").params
+      assert_equal parse_method_type("(?foo: String | Integer) -> untyped").type.params,
+                   parse_method_type("(foo: String) -> untyped").type.params | parse_method_type("(**Integer) -> untyped").type.params
 
       # opt:req
-      assert_equal parse_method_type("(?foo: String | Integer) -> untyped").params,
-                   parse_method_type("(?foo: String) -> untyped").params | parse_method_type("(foo: Integer) -> untyped").params
+      assert_equal parse_method_type("(?foo: String | Integer) -> untyped").type.params,
+                   parse_method_type("(?foo: String) -> untyped").type.params | parse_method_type("(foo: Integer) -> untyped").type.params
 
       # opt:opt
-      assert_equal parse_method_type("(?foo: String | Integer) -> untyped").params,
-                   parse_method_type("(?foo: String) -> untyped").params | parse_method_type("(?foo: Integer) -> untyped").params
+      assert_equal parse_method_type("(?foo: String | Integer) -> untyped").type.params,
+                   parse_method_type("(?foo: String) -> untyped").type.params | parse_method_type("(?foo: Integer) -> untyped").type.params
 
       # opt:none
-      assert_equal parse_method_type("(?foo: String) -> untyped").params,
-                   parse_method_type("(?foo: String) -> untyped").params | parse_method_type("() -> untyped").params
+      assert_equal parse_method_type("(?foo: String) -> untyped").type.params,
+                   parse_method_type("(?foo: String) -> untyped").type.params | parse_method_type("() -> untyped").type.params
 
       # opt:rest
-      assert_equal parse_method_type("(?foo: String | Integer) -> untyped").params,
-                   parse_method_type("(?foo: String) -> untyped").params | parse_method_type("(**Integer) -> untyped").params
+      assert_equal parse_method_type("(?foo: String | Integer) -> untyped").type.params,
+                   parse_method_type("(?foo: String) -> untyped").type.params | parse_method_type("(**Integer) -> untyped").type.params
 
       # none:req
-      assert_equal parse_method_type("(?foo: String) -> untyped").params,
-                   parse_method_type("() -> untyped").params | parse_method_type("(foo: String) -> untyped").params
+      assert_equal parse_method_type("(?foo: String) -> untyped").type.params,
+                   parse_method_type("() -> untyped").type.params | parse_method_type("(foo: String) -> untyped").type.params
 
       # none:opt
-      assert_equal parse_method_type("(?foo: Integer) -> untyped").params,
-                   parse_method_type("() -> untyped").params | parse_method_type("(?foo: Integer) -> untyped").params
+      assert_equal parse_method_type("(?foo: Integer) -> untyped").type.params,
+                   parse_method_type("() -> untyped").type.params | parse_method_type("(?foo: Integer) -> untyped").type.params
 
       # none:rest
-      assert_equal parse_method_type("(**Integer) -> untyped").params,
-                   parse_method_type("() -> untyped").params | parse_method_type("(**Integer) -> untyped").params
+      assert_equal parse_method_type("(**Integer) -> untyped").type.params,
+                   parse_method_type("() -> untyped").type.params | parse_method_type("(**Integer) -> untyped").type.params
 
       # rest:req
-      assert_equal parse_method_type("(?foo: String | Integer) -> untyped").params,
-                   parse_method_type("(**String) -> untyped").params | parse_method_type("(foo: Integer) -> untyped").params
+      assert_equal parse_method_type("(?foo: String | Integer) -> untyped").type.params,
+                   parse_method_type("(**String) -> untyped").type.params | parse_method_type("(foo: Integer) -> untyped").type.params
 
       # rest:opt
-      assert_equal parse_method_type("(?foo: String | Integer) -> untyped").params,
-                   parse_method_type("(**String) -> untyped").params | parse_method_type("(?foo: Integer) -> untyped").params
+      assert_equal parse_method_type("(?foo: String | Integer) -> untyped").type.params,
+                   parse_method_type("(**String) -> untyped").type.params | parse_method_type("(?foo: Integer) -> untyped").type.params
 
       # rest:none
-      assert_equal parse_method_type("(**String) -> untyped").params,
-                   parse_method_type("(**String) -> untyped").params | parse_method_type("() -> untyped").params
+      assert_equal parse_method_type("(**String) -> untyped").type.params,
+                   parse_method_type("(**String) -> untyped").type.params | parse_method_type("() -> untyped").type.params
 
       # rest:rest
-      assert_equal parse_method_type("(**String | Integer) -> untyped").params,
-                   parse_method_type("(**String) -> untyped").params | parse_method_type("(**Integer) -> untyped").params
+      assert_equal parse_method_type("(**String | Integer) -> untyped").type.params,
+                   parse_method_type("(**String) -> untyped").type.params | parse_method_type("(**Integer) -> untyped").type.params
     end
   end
 

@@ -319,17 +319,20 @@ module Steep
             end
 
           when relation.sub_type.is_a?(AST::Types::Proc) && relation.super_type.is_a?(AST::Types::Proc)
-            check_method_params(:__proc__,
-                                relation.sub_type.params, relation.super_type.params,
-                                self_type: self_type,
-                                assumption: assumption,
-                                trace: trace,
-                                constraints: constraints).then do
-              check(Relation.new(sub_type: relation.sub_type.return_type, super_type: relation.super_type.return_type),
-                     self_type: self_type,
-                     assumption: assumption,
-                     trace: trace,
-                     constraints: constraints)
+            name = :__proc__
+
+            sub_type = relation.sub_type
+            super_type = relation.super_type
+
+            check_method_params(name, sub_type.type.params, super_type.type.params, self_type: self_type, assumption: assumption, trace: trace, constraints: constraints).then do
+              check_block_given(name, sub_type.block, super_type.block, trace: trace, constraints: constraints).then do
+                check_block_params(name, sub_type.block, super_type.block, self_type: self_type, assumption: assumption, trace: trace, constraints: constraints).then do
+                  check_block_return(sub_type.block, super_type.block, self_type: self_type, assumption: assumption, trace: trace, constraints:constraints).then do
+                    relation = Relation.new(super_type: super_type.type.return_type, sub_type: sub_type.type.return_type)
+                    check(relation, self_type: self_type, assumption: assumption, trace: trace, constraints: constraints)
+                  end
+                end
+              end
             end
 
           when relation.sub_type.is_a?(AST::Types::Tuple) && relation.super_type.is_a?(AST::Types::Tuple)
@@ -700,12 +703,12 @@ module Steep
 
       def check_method_type(name, sub_type, super_type, self_type:, assumption:, trace:, constraints:)
         Steep.logger.tagged("#{name}: #{sub_type} <: #{super_type}") do
-          check_method_params(name, sub_type.params, super_type.params, self_type: self_type, assumption: assumption, trace: trace, constraints: constraints).then do
+          check_method_params(name, sub_type.type.params, super_type.type.params, self_type: self_type, assumption: assumption, trace: trace, constraints: constraints).then do
             check_block_given(name, sub_type.block, super_type.block, trace: trace, constraints: constraints).then do
               check_block_params(name, sub_type.block, super_type.block, self_type: self_type, assumption: assumption, trace: trace, constraints: constraints).then do
                 check_block_return(sub_type.block, super_type.block, self_type: self_type, assumption: assumption, trace: trace, constraints:constraints).then do
-                  relation = Relation.new(super_type: super_type.return_type,
-                                          sub_type: sub_type.return_type)
+                  relation = Relation.new(super_type: super_type.type.return_type,
+                                          sub_type: sub_type.type.return_type)
                   check(relation, self_type: self_type, assumption: assumption, trace: trace, constraints: constraints)
                 end
               end
@@ -750,10 +753,10 @@ module Steep
 
       def match_method_type(name, sub_type, super_type, trace:)
         [].tap do |pairs|
-          match_params(name, sub_type.params, super_type.params, trace: trace).yield_self do |result|
+          match_params(name, sub_type.type.params, super_type.type.params, trace: trace).yield_self do |result|
             return result unless result.is_a?(Array)
             pairs.push(*result)
-            pairs.push [sub_type.return_type, super_type.return_type]
+            pairs.push [sub_type.type.return_type, super_type.type.return_type]
 
             case
             when !super_type.block && !sub_type.block

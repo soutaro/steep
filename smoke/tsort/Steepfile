@@ -1,0 +1,6 @@
+target :test do
+  signature "."
+  check "."
+
+  library "tsort"
+end

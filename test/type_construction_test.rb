@@ -6649,4 +6649,40 @@ RUBY
       end
     end
   end
+
+  def test_self_attributes
+    with_checker(<<RBS) do |checker|
+class Book
+  attr_reader self.all: Array[Book]
+end
+RBS
+      source = parse_ruby(<<RUBY)
+Book.all.each do |book|
+end
+RUBY
+
+      with_standard_construction(checker, source) do |construction, typing|
+        construction.synthesize(source.node)
+
+        assert_no_error typing
+      end
+    end
+  end
+
+  def test_proc_with_block
+    skip "Lambda cannot have proc type with block yet..."
+
+    with_checker() do |checker|
+      source = parse_ruby(<<RUBY)
+# @type var f: ^(Integer) { (String) -> void } -> Array[String]
+f = -> (n, &b) { b["foo"]; ["bar"] }
+RUBY
+
+      with_standard_construction(checker, source) do |construction, typing|
+        construction.synthesize(source.node)
+
+        assert_no_error typing
+      end
+    end
+  end
 end

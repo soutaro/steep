@@ -75,9 +75,23 @@ module Steep
             end
             Record.new(elements: elements, location: nil)
           when RBS::Types::Proc
-            params = params(type.type)
-            return_type = type(type.type.return_type)
-            Proc.new(params: params, return_type: return_type, location: nil)
+            func = Interface::Function.new(
+              params: params(type.type),
+              return_type: type(type.type.return_type),
+              location: type.location
+            )
+            block = if type.block
+                      Interface::Block.new(
+                        type: Interface::Function.new(
+                          params: params(type.block.type),
+                          return_type: type(type.block.type.return_type),
+                          location: type.location
+                        ),
+                        optional: !type.block.required
+                      )
+                    end
+
+            Proc.new(type: func, block: block)
           else
             raise "Unexpected type given: #{type}"
           end
@@ -145,8 +159,15 @@ module Steep
             end
             RBS::Types::Record.new(fields: fields, location: nil)
           when Proc
+            block = if type.block
+                      RBS::Types::Block.new(
+                        type: function_1(type.block.type),
+                        required: !type.block.optional?
+                      )
+                    end
             RBS::Types::Proc.new(
-              type: function_1(type.params, type.return_type),
+              type: function_1(type.type),
+              block: block,
               location: nil
             )
           when Logic::Base
@@ -156,7 +177,10 @@ module Steep
           end
         end
 
-        def function_1(params, return_type)
+        def function_1(func)
+          params = func.params
+          return_type = func.return_type
+
           RBS::Types::Function.new(
             required_positionals: params.required.map {|type| RBS::Types::Function::Param.new(name: nil, type: type_1(type)) },
             optional_positionals: params.optional.map {|type| RBS::Types::Function::Param.new(name: nil, type: type_1(type)) },
@@ -170,7 +194,7 @@ module Steep
         end
 
         def params(type)
-          Interface::Params.new(
+          Interface::Function::Params.new(
             required: type.required_positionals.map {|param| type(param.type) },
             optional: type.optional_positionals.map {|param| type(param.type) },
             rest: type.rest_positionals&.yield_self {|param| type(param.type) },
@@ -202,13 +226,19 @@ module Steep
 
           type = Interface::MethodType.new(
             type_params: type_params,
-            return_type: type(method_type.type.return_type).subst(subst),
-            params: params(method_type.type).subst(subst),
+            type: Interface::Function.new(
+              params: params(method_type.type).subst(subst),
+              return_type: type(method_type.type.return_type).subst(subst),
+              location: method_type.location
+            ),
             block: method_type.block&.yield_self do |block|
               Interface::Block.new(
                 optional: !block.required,
-                type: Proc.new(params: params(block.type).subst(subst),
-                               return_type: type(block.type.return_type).subst(subst), location: nil)
+                type: Interface::Function.new(
+                  params: params(block.type).subst(subst),
+                  return_type: type(block.type.return_type).subst(subst),
+                  location: nil
+                )
               )
             end,
             method_decls: method_decls
@@ -242,12 +272,12 @@ module Steep
 
           type = RBS::MethodType.new(
             type_params: type_params,
-            type: function_1(method_type.params.subst(subst), method_type.return_type.subst(subst)),
+            type: function_1(method_type.type.subst(subst)),
             block: method_type.block&.yield_self do |block|
               block_type = block.type.subst(subst)
 
-              RBS::MethodType::Block.new(
-                type: function_1(block_type.params, block_type.return_type),
+              RBS::Types::Block.new(
+                type: function_1(block_type),
                 required: !block.optional
               )
             end,
@@ -354,7 +384,9 @@ module Steep
             when :is_a?, :kind_of?, :instance_of?
               if defined_in == RBS::BuiltinNames::Object.name && member.instance?
                 return method_type.with(
-                  return_type: AST::Types::Logic::ReceiverIsArg.new(location: method_type.return_type.location)
+                  type: method_type.type.with(
+                    return_type: AST::Types::Logic::ReceiverIsArg.new(location: method_type.type.return_type.location)
+                  )
                 )
               end
 
@@ -363,7 +395,9 @@ module Steep
               when RBS::BuiltinNames::Object.name,
                 NilClassName
                 return method_type.with(
-                  return_type: AST::Types::Logic::ReceiverIsNil.new(location: method_type.return_type.location)
+                  type: method_type.type.with(
+                    return_type: AST::Types::Logic::ReceiverIsNil.new(location: method_type.type.return_type.location)
+                  )
                 )
               end
 
@@ -373,7 +407,9 @@ module Steep
                 RBS::BuiltinNames::TrueClass.name,
                 RBS::BuiltinNames::FalseClass.name
                 return method_type.with(
-                  return_type: AST::Types::Logic::Not.new(location: method_type.return_type.location)
+                  type: method_type.type.with(
+                    return_type: AST::Types::Logic::Not.new(location: method_type.type.return_type.location)
+                  )
                 )
               end
 
@@ -381,7 +417,9 @@ module Steep
               case defined_in
               when RBS::BuiltinNames::Module.name
                 return method_type.with(
-                  return_type: AST::Types::Logic::ArgIsReceiver.new(location: method_type.return_type.location)
+                  type: method_type.type.with(
+                    return_type: AST::Types::Logic::ArgIsReceiver.new(location: method_type.type.return_type.location)
+                  )
                 )
               end
             end
@@ -572,14 +610,17 @@ module Steep
                     method_types: type.types.map.with_index {|elem_type, index|
                       Interface::MethodType.new(
                         type_params: [],
-                        params: Interface::Params.new(required: [AST::Types::Literal.new(value: index)],
-                                                      optional: [],
-                                                      rest: nil,
-                                                      required_keywords: {},
-                                                      optional_keywords: {},
-                                                      rest_keywords: nil),
+                        type: Interface::Function.new(
+                          params: Interface::Function::Params.new(required: [AST::Types::Literal.new(value: index)],
+                                                                  optional: [],
+                                                                  rest: nil,
+                                                                  required_keywords: {},
+                                                                  optional_keywords: {},
+                                                                  rest_keywords: nil),
+                          return_type: elem_type,
+                          location: nil
+                        ),
                         block: nil,
-                        return_type: elem_type,
                         method_decls: Set[]
                       )
                     } + aref.method_types
@@ -591,14 +632,17 @@ module Steep
                     method_types: type.types.map.with_index {|elem_type, index|
                       Interface::MethodType.new(
                         type_params: [],
-                        params: Interface::Params.new(required: [AST::Types::Literal.new(value: index), elem_type],
-                                                      optional: [],
-                                                      rest: nil,
-                                                      required_keywords: {},
-                                                      optional_keywords: {},
-                                                      rest_keywords: nil),
+                        type: Interface::Function.new(
+                          params: Interface::Function::Params.new(required: [AST::Types::Literal.new(value: index), elem_type],
+                                                                  optional: [],
+                                                                  rest: nil,
+                                                                  required_keywords: {},
+                                                                  optional_keywords: {},
+                                                                  rest_keywords: nil),
+                          return_type: elem_type,
+                          location: nil
+                        ),
                         block: nil,
-                        return_type: elem_type,
                         method_decls: Set[]
                       )
                     } + update.method_types
@@ -610,9 +654,12 @@ module Steep
                     method_types: [
                       Interface::MethodType.new(
                         type_params: [],
-                        params: Interface::Params.empty,
+                        type: Interface::Function.new(
+                          params: Interface::Function::Params.empty,
+                          return_type: type.types[0] || AST::Builtin.nil_type,
+                          location: nil
+                        ),
                         block: nil,
-                        return_type: type.types[0] || AST::Builtin.nil_type,
                         method_decls: Set[]
                       )
                     ]
@@ -624,9 +671,12 @@ module Steep
                     method_types: [
                       Interface::MethodType.new(
                         type_params: [],
-                        params: Interface::Params.empty,
+                        type: Interface::Function.new(
+                          params: Interface::Function::Params.empty,
+                          return_type: type.types.last || AST::Builtin.nil_type,
+                          location: nil
+                        ),
                         block: nil,
-                        return_type: type.types.last || AST::Builtin.nil_type,
                         method_decls: Set[]
                       )
                     ]
@@ -651,14 +701,17 @@ module Steep
 
                       Interface::MethodType.new(
                         type_params: [],
-                        params: Interface::Params.new(required: [key_type],
-                                                      optional: [],
-                                                      rest: nil,
-                                                      required_keywords: {},
-                                                      optional_keywords: {},
-                                                      rest_keywords: nil),
+                        type: Interface::Function.new(
+                          params: Interface::Function::Params.new(required: [key_type],
+                                                                  optional: [],
+                                                                  rest: nil,
+                                                                  required_keywords: {},
+                                                                  optional_keywords: {},
+                                                                  rest_keywords: nil),
+                          return_type: value_type,
+                          location: nil
+                        ),
                         block: nil,
-                        return_type: value_type,
                         method_decls: Set[]
                       )
                     } + ref.method_types
@@ -671,14 +724,16 @@ module Steep
                       key_type = Literal.new(value: key_value, location: nil)
                       Interface::MethodType.new(
                         type_params: [],
-                        params: Interface::Params.new(required: [key_type, value_type],
-                                                      optional: [],
-                                                      rest: nil,
-                                                      required_keywords: {},
-                                                      optional_keywords: {},
-                                                      rest_keywords: nil),
+                        type: Interface::Function.new(
+                          params: Interface::Function::Params.new(required: [key_type, value_type],
+                                                                  optional: [],
+                                                                  rest: nil,
+                                                                  required_keywords: {},
+                                                                  optional_keywords: {},
+                                                                  rest_keywords: nil),
+                          return_type: value_type,
+                          location: nil),
                         block: nil,
-                        return_type: value_type,
                         method_decls: Set[]
                       )
                     } + update.method_types
@@ -691,14 +746,18 @@ module Steep
             interface(Builtin::Proc.instance_type, private: private, self_type: self_type).tap do |interface|
               method_type = Interface::MethodType.new(
                 type_params: [],
-                params: type.params,
-                return_type: type.return_type,
-                block: nil,
+                type: type.type,
+                block: type.block,
                 method_decls: Set[]
               )
 
-              interface.methods[:[]] = Interface::Interface::Entry.new(method_types: [method_type])
               interface.methods[:call] = Interface::Interface::Entry.new(method_types: [method_type])
+
+              if type.block_required?
+                interface.methods.delete(:[])
+              else
+                interface.methods[:[]] = Interface::Interface::Entry.new(method_types: [method_type.with(block: nil)])
+              end
             end
 
           when Logic::Base
