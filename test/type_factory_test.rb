@@ -28,6 +28,7 @@ class TypeFactoryTest < Minitest::Test
   end
 
   Types = Steep::AST::Types
+  Interface = Steep::Interface
 
   include TestHelper
   include FactoryHelper
@@ -122,6 +123,17 @@ class TypeFactoryTest < Minitest::Test
         assert_instance_of Types::Proc, type
         assert_equal "(a, ?b, *c, x: e, ?y: f, **g)", type.type.params.to_s
         assert_instance_of Types::Void, type.type.return_type
+      end
+
+      factory.type(parse_type("^() ?{ (Integer) -> void } -> void")).yield_self do |type|
+        assert_instance_of Types::Proc, type
+
+        assert_equal "()", type.type.params.to_s
+        assert_instance_of Types::Void, type.type.return_type
+
+        assert_instance_of Interface::Block, type.block
+        assert_predicate type.block, :optional?
+        assert_equal "?{ (Integer) -> void }", type.block.to_s
       end
 
       factory.type(RBS::Types::Variable.new(name: :T, location: nil)) do |type|
@@ -504,6 +516,32 @@ end
 
           interface.methods[:call].yield_self do |entry|
             assert_overload_with entry, "(String) -> Integer"
+          end
+
+          interface.methods[:[]].yield_self do |entry|
+            assert_overload_with entry, "(String) -> Integer"
+          end
+        end
+      end
+
+      factory.type(parse_type("^(String) { (Object) -> Symbol } -> Integer")).yield_self do |type|
+        factory.interface(type, private: false).yield_self do |interface|
+          assert_instance_of Steep::Interface::Interface, interface
+
+          interface.methods[:call].yield_self do |entry|
+            assert_overload_with entry, "(String) { (Object) -> Symbol } -> Integer"
+          end
+
+          refute_operator interface.methods, :key?, :[]
+        end
+      end
+
+      factory.type(parse_type("^(String) ?{ (Object) -> Symbol } -> Integer")).yield_self do |type|
+        factory.interface(type, private: false).yield_self do |interface|
+          assert_instance_of Steep::Interface::Interface, interface
+
+          interface.methods[:call].yield_self do |entry|
+            assert_overload_with entry, "(String) ?{ (Object) -> Symbol } -> Integer"
           end
 
           interface.methods[:[]].yield_self do |entry|

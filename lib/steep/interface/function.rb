@@ -761,6 +761,10 @@ module Steep
       def to_s
         "#{params} -> #{return_type}"
       end
+
+      def closed?
+        params.closed? && return_type.closed?
+      end
     end
   end
 end

@@ -75,9 +75,23 @@ module Steep
             end
             Record.new(elements: elements, location: nil)
           when RBS::Types::Proc
-            params = params(type.type)
-            return_type = type(type.type.return_type)
-            Proc.new(type: Interface::Function.new(params: params, return_type: return_type, location: type.location))
+            func = Interface::Function.new(
+              params: params(type.type),
+              return_type: type(type.type.return_type),
+              location: type.location
+            )
+            block = if type.block
+                      Interface::Block.new(
+                        type: Interface::Function.new(
+                          params: params(type.block.type),
+                          return_type: type(type.block.type.return_type),
+                          location: type.location
+                        ),
+                        optional: !type.block.required
+                      )
+                    end
+
+            Proc.new(type: func, block: block)
           else
             raise "Unexpected type given: #{type}"
           end
@@ -145,9 +159,15 @@ module Steep
             end
             RBS::Types::Record.new(fields: fields, location: nil)
           when Proc
+            block = if type.block
+                      RBS::Types::Block.new(
+                        type: function_1(type.block.type),
+                        required: !type.block.optional?
+                      )
+                    end
             RBS::Types::Proc.new(
               type: function_1(type.type),
-              block: nil,
+              block: block,
               location: nil
             )
           when Logic::Base
@@ -727,12 +747,17 @@ module Steep
               method_type = Interface::MethodType.new(
                 type_params: [],
                 type: type.type,
-                block: nil,
+                block: type.block,
                 method_decls: Set[]
               )
 
-              interface.methods[:[]] = Interface::Interface::Entry.new(method_types: [method_type])
               interface.methods[:call] = Interface::Interface::Entry.new(method_types: [method_type])
+
+              if type.block_required?
+                interface.methods.delete(:[])
+              else
+                interface.methods[:[]] = Interface::Interface::Entry.new(method_types: [method_type.with(block: nil)])
+              end
             end
 
           when Logic::Base

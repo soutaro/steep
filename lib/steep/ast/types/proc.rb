@@ -4,18 +4,20 @@ module Steep
       class Proc
         attr_reader :location
         attr_reader :type
+        attr_reader :block
 
-        def initialize(type:, location: type.location)
+        def initialize(type:, block:, location: type.location)
           @type = type
+          @block = block
           @location = location
         end
 
         def ==(other)
-          other.is_a?(self.class) && other.type == type
+          other.is_a?(self.class) && other.type == type && other.block == block
         end
 
         def hash
-          self.class.hash && type.hash
+          self.class.hash ^ type.hash ^ block.hash
         end
 
         alias eql? ==
@@ -23,34 +25,47 @@ module Steep
         def subst(s)
           self.class.new(
             type: type.subst(s),
+            block: block&.subst(s),
             location: location
           )
         end
 
         def to_s
-          "^#{type.params} -> #{type.return_type}"
+          if block
+            "^#{type.params} #{block} -> #{type.return_type}"
+          else
+            "^#{type.params} -> #{type.return_type}"
+          end
         end
 
         def free_variables()
-          @fvs ||= type.free_variables
+          @fvs ||= Set[].tap do |fvs|
+            fvs.merge(type.free_variables)
+            fvs.merge(block.free_variables) if block
+          end
         end
 
         def level
           children = type.params.each_type.to_a + [type.return_type]
+          if block
+            children.push(*block.type.params.each_type.to_a)
+            children.push(block.type.return_type)
+          end
           [0] + level_of_children(children)
         end
 
         def closed?
-          type.params.closed? && type.return_type.closed?
+          type.closed? && (block.nil? || block.closed?)
         end
 
         def with_location(new_location)
-          self.class.new(location: new_location, type: type)
+          self.class.new(location: new_location, block: block, type: type)
         end
 
         def map_type(&block)
           self.class.new(
             type: type.map_type(&block),
+            block: self.block&.map_type(&block),
             location: location
           )
         end
@@ -70,6 +85,10 @@ module Steep
           Name::Instance.new(name: Builtin::Proc.module_name,
                              args: [],
                              location: location)
+        end
+
+        def block_required?
+          block && !block.optional?
         end
       end
     end

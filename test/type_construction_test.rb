@@ -6668,4 +6668,21 @@ RUBY
       end
     end
   end
+
+  def test_proc_with_block
+    skip "Lambda cannot have proc type with block yet..."
+
+    with_checker() do |checker|
+      source = parse_ruby(<<RUBY)
+# @type var f: ^(Integer) { (String) -> void } -> Array[String]
+f = -> (n, &b) { b["foo"]; ["bar"] }
+RUBY
+
+      with_standard_construction(checker, source) do |construction, typing|
+        construction.synthesize(source.node)
+
+        assert_no_error typing
+      end
+    end
+  end
 end

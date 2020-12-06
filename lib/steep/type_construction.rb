@@ -160,7 +160,7 @@ module Steep
 
       if (block_arg = args.find {|arg| arg.type == :blockarg})
         if method_type&.block
-          block_type = AST::Types::Proc.new(type: method_type.block.type)
+          block_type = AST::Types::Proc.new(type: method_type.block.type, block: nil)
           if method_type.block.optional?
             block_type = AST::Types::Union.build(types: [block_type, AST::Builtin.nil_type])
           end
@@ -2037,7 +2037,8 @@ module Steep
                         params: Interface::Function::Params.empty.update(required: [param_type]),
                         return_type: AST::Types::Union.build(types: return_types),
                         location: nil
-                      )
+                      ),
+                      block: nil
                     )
                   end
                 end
@@ -2403,7 +2404,8 @@ module Steep
           params: params_hint || params.params_type,
           return_type: return_type,
           location: nil
-        )
+        ),
+        block: nil
       )
 
       add_typing node, type: block_type
@@ -2916,7 +2918,8 @@ module Steep
                     params: method_type.block.type.params || block_params.params_type,
                     return_type: block_body_type,
                     location: nil
-                  )
+                  ),
+                  block: nil
                 )
 
                 method_block_type = AST::Types::Proc.new(
@@ -2924,7 +2927,8 @@ module Steep
                     params: method_type.block.type.params,
                     return_type: method_type.block.type.return_type,
                     location: nil
-                  )
+                  ),
+                  block: nil
                 )
 
                 errors << Errors::BlockTypeMismatch.new(node: node,
@@ -3007,11 +3011,11 @@ module Steep
             begin
               method_type = method_type.subst(constraints.solution(checker, self_type: self_type, variance: variance, variables: occurence.params))
               hint_type = if topdown_hint
-                            AST::Types::Proc.new(type: method_type.block.type)
+                            AST::Types::Proc.new(type: method_type.block.type, block: nil)
                           end
               given_block_type, constr = constr.synthesize(args.block_pass_arg, hint: hint_type)
               method_block_type = method_type.block.yield_self {|expected_block|
-                proc_type = AST::Types::Proc.new(type: expected_block.type)
+                proc_type = AST::Types::Proc.new(type: expected_block.type, block: nil)
                 if expected_block.optional?
                   AST::Builtin.optional(proc_type)
                 else
