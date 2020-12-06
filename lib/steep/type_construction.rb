@@ -140,10 +140,10 @@ module Steep
 
       method_type = annotation_method_type || definition_method_type
 
-      if annots&.return_type && method_type&.return_type
-        check_relation(sub_type: annots.return_type, super_type: method_type.return_type).else do |result|
+      if annots&.return_type && method_type&.type&.return_type
+        check_relation(sub_type: annots.return_type, super_type: method_type.type.return_type).else do |result|
           typing.add_error Errors::MethodReturnTypeAnnotationMismatch.new(node: node,
-                                                                          method_type: method_type.return_type,
+                                                                          method_type: method_type.type.return_type,
                                                                           annotation_type: annots.return_type,
                                                                           result: result)
         end
@@ -152,8 +152,8 @@ module Steep
       # constructor_method = method&.attributes&.include?(:constructor)
 
       if method_type
-        var_types = TypeConstruction.parameter_types(args, method_type)
-        unless TypeConstruction.valid_parameter_env?(var_types, args.reject {|arg| arg.type == :blockarg}, method_type.params)
+        var_types = TypeConstruction.parameter_types(args, method_type.type)
+        unless TypeConstruction.valid_parameter_env?(var_types, args.reject {|arg| arg.type == :blockarg}, method_type.type.params)
           typing.add_error Errors::MethodArityMismatch.new(node: node)
         end
       end
@@ -183,7 +183,7 @@ module Steep
         name: method_name,
         method: definition && definition.methods[method_name],
         method_type: method_type,
-        return_type: annots.return_type || method_type&.return_type || AST::Builtin.any_type,
+        return_type: annots.return_type || method_type&.type&.return_type || AST::Builtin.any_type,
         constructor: false,
         super_method: super_method
       )
@@ -1404,7 +1404,7 @@ module Steep
             if method_context&.method
               if method_context.super_method
                 types = method_context.super_method.method_types.map {|method_type|
-                  checker.factory.method_type(method_type, self_type: self_type, method_decls: Set[]).return_type
+                  checker.factory.method_type(method_type, self_type: self_type, method_decls: Set[]).type.return_type
                 }
                 add_typing(node, type: union_type(*types))
               else
@@ -2027,8 +2027,10 @@ module Steep
                 method = interface.methods[value.children[0]]
                 if method
                   return_types = method.method_types.select {|method_type|
-                    method_type.params.each_type.count == 0
-                  }.map(&:return_type)
+                    method_type.type.params.empty?
+                  }.map {|method_type|
+                    method_type.type.return_type
+                  }
 
                   unless return_types.empty?
                     type = AST::Types::Proc.new(params: Interface::Function::Params.empty.update(required: [param_type]),
@@ -2600,7 +2602,7 @@ module Steep
 
       results = method.method_types.flat_map do |method_type|
         Steep.logger.tagged method_type.to_s do
-          zips = args.zips(method_type.params, method_type.block&.type)
+          zips = args.zips(method_type.type.params, method_type.block&.type)
 
           zips.map do |arg_pairs|
             typing.new_child(node_range) do |child_typing|
@@ -2632,7 +2634,7 @@ module Steep
           context: context.method_context,
           method_name: method_name,
           receiver_type: receiver_type,
-          return_type: method_type.return_type,
+          return_type: method_type.type.return_type,
           errors: [error],
           method_decls: all_decls
         )
@@ -2655,7 +2657,7 @@ module Steep
     end
 
     def check_keyword_arg(receiver_type:, node:, method_type:, constraints:)
-      params = method_type.params
+      params = method_type.type.params
 
       case node.type
       when :hash
@@ -2757,7 +2759,7 @@ module Steep
           )
         else
           hash_elements = params.required_keywords.merge(
-            method_type.params.optional_keywords.transform_values do |type|
+            params.optional_keywords.transform_values do |type|
               AST::Types::Union.build(types: [type, AST::Builtin.nil_type])
             end
           )
@@ -2840,7 +2842,7 @@ module Steep
                 block_params: block_params_,
                 block_param_hint: method_type.block.type.params,
                 block_annotations: block_annotations,
-                node_type_hint: method_type.return_type
+                node_type_hint: method_type.type.return_type
               )
               block_constr = block_constr.with_new_typing(
                 block_constr.typing.new_child(
@@ -2870,7 +2872,7 @@ module Steep
                 checker,
                 self_type: self_type,
                 variance: variance,
-                variables: method_type.params.free_variables + method_type.block.type.params.free_variables
+                variables: method_type.type.params.free_variables + method_type.block.type.params.free_variables
               )
               method_type = method_type.subst(s)
               block_constr = block_constr.update_lvar_env {|env| env.subst(s) }
@@ -2896,7 +2898,7 @@ module Steep
                 s = constraints.solution(checker, self_type: self_type, variance: variance, variables: fresh_vars)
                 method_type = method_type.subst(s)
 
-                return_type = method_type.return_type
+                return_type = method_type.type.return_type
                 if break_type = block_annotations.break_type
                   return_type = union_type(break_type, return_type)
                 end
@@ -2911,7 +2913,7 @@ module Steep
                                                         actual: block_type,
                                                         result: result)
 
-                return_type = method_type.return_type
+                return_type = method_type.type.return_type
               end
 
               block_constr.typing.save!
@@ -3018,7 +3020,7 @@ module Steep
                  receiver_type: receiver_type,
                  method_name: method_name,
                  actual_method_type: method_type,
-                 return_type: return_type || method_type.return_type,
+                 return_type: return_type || method_type.type.return_type,
                  method_decls: method_type.method_decls
                )
              else
@@ -3027,7 +3029,7 @@ module Steep
                  context: context.method_context,
                  receiver_type: receiver_type,
                  method_name: method_name,
-                 return_type: return_type || method_type.return_type,
+                 return_type: return_type || method_type.type.return_type,
                  method_decls: method_type.method_decls,
                  errors: errors
                )

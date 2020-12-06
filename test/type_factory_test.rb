@@ -606,23 +606,23 @@ end
           assert_instance_of Steep::Interface::Interface, interface
 
           interface.methods[:is_a?].tap do |is_a|
-            assert_instance_of Types::Logic::ReceiverIsArg, is_a.method_types[0].return_type
+            assert_instance_of Types::Logic::ReceiverIsArg, is_a.method_types[0].type.return_type
           end
 
           interface.methods[:kind_of?].tap do |kind_of|
-            assert_instance_of Types::Logic::ReceiverIsArg, kind_of.method_types[0].return_type
+            assert_instance_of Types::Logic::ReceiverIsArg, kind_of.method_types[0].type.return_type
           end
 
           interface.methods[:instance_of?].tap do |instance_of|
-            assert_instance_of Types::Logic::ReceiverIsArg, instance_of.method_types[0].return_type
+            assert_instance_of Types::Logic::ReceiverIsArg, instance_of.method_types[0].type.return_type
           end
 
           interface.methods[:nil?].tap do |nilp|
-            assert_instance_of Types::Logic::ReceiverIsNil, nilp.method_types[0].return_type
+            assert_instance_of Types::Logic::ReceiverIsNil, nilp.method_types[0].type.return_type
           end
 
           interface.methods[:!].tap do |unot|
-            assert_instance_of Types::Logic::Not, unot.method_types[0].return_type
+            assert_instance_of Types::Logic::Not, unot.method_types[0].type.return_type
           end
         end
       end
@@ -632,19 +632,19 @@ end
           assert_instance_of Steep::Interface::Interface, interface
 
           interface.methods[:is_a?].tap do |is_a|
-            assert_instance_of Types::Boolean, is_a.method_types[0].return_type
+            assert_instance_of Types::Boolean, is_a.method_types[0].type.return_type
           end
 
           interface.methods[:kind_of?].tap do |kind_of|
-            assert_instance_of Types::Boolean, kind_of.method_types[0].return_type
+            assert_instance_of Types::Boolean, kind_of.method_types[0].type.return_type
           end
 
           interface.methods[:nil?].tap do |nilp|
-            assert_instance_of Types::Boolean, nilp.method_types[0].return_type
+            assert_instance_of Types::Boolean, nilp.method_types[0].type.return_type
           end
 
           interface.methods[:!].tap do |unot|
-            assert_instance_of Types::Boolean, unot.method_types[0].return_type
+            assert_instance_of Types::Boolean, unot.method_types[0].type.return_type
           end
         end
       end

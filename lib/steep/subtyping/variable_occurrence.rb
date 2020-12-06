@@ -10,12 +10,12 @@ module Steep
       end
 
       def add_method_type(method_type)
-        method_type.params.each_type do |type|
+        method_type.type.params.each_type do |type|
           each_var(type) do |var|
             params << var
           end
         end
-        each_var(method_type.return_type) do |var|
+        each_var(method_type.type.return_type) do |var|
           returns << var
         end
 

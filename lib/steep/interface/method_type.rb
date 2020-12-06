@@ -76,40 +76,36 @@ module Steep
 
     class MethodType
       attr_reader :type_params
-      attr_reader :params
+      attr_reader :type
       attr_reader :block
-      attr_reader :return_type
       attr_reader :method_decls
 
-      def initialize(type_params:, params:, block:, return_type:, method_decls:)
+      def initialize(type_params:, type:, block:, method_decls:)
         @type_params = type_params
-        @params = params
+        @type = type
         @block = block
-        @return_type = return_type
         @method_decls = method_decls
       end
 
       def ==(other)
         other.is_a?(self.class) &&
           other.type_params == type_params &&
-          other.params == params &&
-          other.block == block &&
-          other.return_type == return_type
+          other.type == type &&
+          other.block == block
       end
 
       alias eql? ==
 
       def hash
-        type_params.hash ^ params.hash ^ block.hash ^ return_type.hash
+        type_params.hash ^ type.hash ^ block.hash
       end
 
       def free_variables
         @fvs ||= Set.new.tap do |set|
-          set.merge(params.free_variables)
+          set.merge(type.free_variables)
           if block
             set.merge(block.free_variables)
           end
-          set.merge(return_type.free_variables)
           set.subtract(type_params)
         end
       end
@@ -122,21 +118,19 @@ module Steep
 
         self.class.new(
           type_params: type_params,
-          params: params.subst(s_),
+          type: type.subst(s_),
           block: block&.subst(s_),
-          return_type: return_type.subst(s_),
           method_decls: method_decls
         )
       end
 
       def each_type(&block)
         if block_given?
-          params.each_type(&block)
+          type.each_type(&block)
           self.block&.tap do
             self.block.type.params.each_type(&block)
             yield(self.block.type.return_type)
           end
-          yield(return_type)
         else
           enum_for :each_type
         end
@@ -144,23 +138,22 @@ module Steep
 
       def instantiate(s)
         self.class.new(type_params: [],
-                       params: params.subst(s),
+                       type: type.subst(s),
                        block: block&.subst(s),
-                       return_type: return_type.subst(s),
                        method_decls: method_decls)
       end
 
-      def with(type_params: self.type_params, params: self.params, block: self.block, return_type: self.return_type, method_decls: self.method_decls)
+      def with(type_params: self.type_params, type: self.type, block: self.block, method_decls: self.method_decls)
         self.class.new(type_params: type_params,
-                       params: params,
+                       type: type,
                        block: block,
-                       return_type: return_type,
                        method_decls: method_decls)
       end
 
       def to_s
         type_params = !self.type_params.empty? ? "[#{self.type_params.map{|x| "#{x}" }.join(", ")}] " : ""
-        params = self.params.to_s
+        params = type.params.to_s
+        return_type = type.return_type
         block = self.block ? " #{self.block}" : ""
 
         "#{type_params}#{params}#{block} -> #{return_type}"
@@ -168,9 +161,8 @@ module Steep
 
       def map_type(&block)
         self.class.new(type_params: type_params,
-                       params: params.map_type(&block),
+                       type: type.map_type(&block),
                        block: self.block&.yield_self {|blk| blk.map_type(&block) },
-                       return_type: yield(return_type),
                        method_decls: method_decls)
       end
 
@@ -194,11 +186,14 @@ module Steep
 
         self.class.new(
           type_params: type_params,
-          params: params.subst(s1) + other.params.subst(s2),
-          block: block,
-          return_type: AST::Types::Union.build(
-            types: [return_type.subst(s1),other.return_type.subst(s2)]
+          type: Function.new(
+            params: type.params.subst(s1) + other.type.params.subst(s2),
+            return_type: AST::Types::Union.build(
+              types: [type.return_type.subst(s1), other.type.return_type.subst(s2)]
+            ),
+            location: nil
           ),
+          block: block,
           method_decls: method_decls + other.method_decls
         )
       end
@@ -226,7 +221,7 @@ module Steep
           type_params = (self_type_params + other_type_params).to_a
         end
 
-        params = self.params & other.params or return
+        params = self.type.params & other.type.params or return
         block = case
                 when self.block && other.block
                   block_params = self.block.type.params | other.block.type.params
@@ -247,13 +242,12 @@ module Steep
                 else
                   return
                 end
-        return_type = AST::Types::Union.build(types: [self.return_type, other.return_type])
+        return_type = AST::Types::Union.build(types: [self.type.return_type, other.type.return_type])
 
         MethodType.new(
-          params: params,
-          block: block,
-          return_type: return_type,
           type_params: type_params,
+          type: Function.new(params: params, return_type: return_type, location: nil),
+          block: block,
           method_decls: method_decls + other.method_decls
         )
       end
@@ -277,7 +271,7 @@ module Steep
           type_params = (self_type_params + other_type_params).to_a
         end
 
-        params = self.params | other.params
+        params = self.type.params | other.type.params
         block = case
                 when self.block && other.block
                   block_params = self.block.type.params & other.block.type.params or return
@@ -294,13 +288,12 @@ module Steep
                   self.block || other.block
                 end
 
-        return_type = AST::Types::Intersection.build(types: [self.return_type, other.return_type])
+        return_type = AST::Types::Intersection.build(types: [self.type.return_type, other.type.return_type])
 
         MethodType.new(
-          params: params,
-          block: block,
-          return_type: return_type,
           type_params: type_params,
+          type: Function.new(params: params, return_type: return_type, location: nil),
+          block: block,
           method_decls: method_decls + other.method_decls
         )
       end

@@ -695,6 +695,68 @@ module Steep
           end
         end
       end
+
+      attr_reader :params
+      attr_reader :return_type
+      attr_reader :location
+
+      def initialize(params:, return_type:, location:)
+        @params = params
+        @return_type = return_type
+        @location = location
+      end
+
+      def ==(other)
+        other.is_a?(Function) && other.params == params && other.return_type == return_type
+      end
+
+      alias eql? ==
+
+      def hash
+        self.class.hash ^ params.hash ^ return_type.hash
+      end
+
+      def free_variables
+        @fvs ||= Set[].tap do |fvs|
+          fvs.merge(params.free_variables)
+          fvs.merge(return_type.free_variables)
+        end
+      end
+
+      def subst(s)
+        return self if s.empty?
+
+        Function.new(
+          params: params.subst(s),
+          return_type: return_type.subst(s),
+          location: location
+        )
+      end
+
+      def each_type(&block)
+        if block_given?
+          params.each_type(&block)
+          yield return_type
+        else
+          enum_for :each_type
+        end
+      end
+
+      def map_type(&block)
+        Function.new(
+          params: params.map_type(&block),
+          return_type: yield(return_type),
+          location: location
+        )
+      end
+
+      def with(params: self.params, return_type: self.return_type)
+        Function.new(
+          params: params,
+          return_type: return_type,
+          location: location
+        )
+      end
     end
   end
 end
