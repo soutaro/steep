@@ -2,6 +2,10 @@
 
 ## master
 
+## 0.37.0 (2020-12-06)
+
+* Update to RBS 0.20.0 with _singleton attribute_ syntax and _proc types with blocks_. ([#264](https://github.com/soutaro/steep/pull/264))
+
 ## 0.36.0 (2020-11-16)
 
 * Flow-sensitive typing improvements with `||` and `&&` ([#260](https://github.com/soutaro/steep/pull/260))
