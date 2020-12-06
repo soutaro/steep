@@ -160,11 +160,10 @@ module Steep
 
       if (block_arg = args.find {|arg| arg.type == :blockarg})
         if method_type&.block
-          block_type = if method_type.block.optional?
-                         AST::Types::Union.build(types: [method_type.block.type, AST::Builtin.nil_type])
-                       else
-                         method_type.block.type
-                       end
+          block_type = AST::Types::Proc.new(params: method_type.block.type.params, return_type: method_type.block.type.return_type)
+          if method_type.block.optional?
+            block_type = AST::Types::Union.build(types: [block_type, AST::Builtin.nil_type])
+          end
           var_types[block_arg.children[0]] = block_type
         end
       end
@@ -2904,13 +2903,19 @@ module Steep
                 end
 
               when Subtyping::Result::Failure
-                block_type = AST::Types::Proc.new(
+                given_block_type = AST::Types::Proc.new(
                   params: method_type.block.type.params || block_params.params_type,
                   return_type: block_body_type
                 )
+
+                method_block_type = AST::Types::Proc.new(
+                  params: method_type.block.type.params,
+                  return_type: method_type.block.type.return_type
+                )
+
                 errors << Errors::BlockTypeMismatch.new(node: node,
-                                                        expected: method_type.block.type,
-                                                        actual: block_type,
+                                                        expected: method_block_type,
+                                                        actual: given_block_type,
                                                         result: result)
 
                 return_type = method_type.type.return_type
@@ -2987,23 +2992,27 @@ module Steep
           else
             begin
               method_type = method_type.subst(constraints.solution(checker, self_type: self_type, variance: variance, variables: occurence.params))
-              block_type, constr = constr.synthesize(args.block_pass_arg, hint: topdown_hint ? method_type.block.type : nil)
-              result = check_relation(
-                sub_type: block_type,
-                super_type: method_type.block.yield_self {|expected_block|
-                  if expected_block.optional?
-                    AST::Builtin.optional(expected_block.type)
-                  else
-                    expected_block.type
-                  end
-                },
-                constraints: constraints
-              )
+              hint_type = if topdown_hint
+                            AST::Types::Proc.new(
+                              params: method_type.block.type.params,
+                              return_type: method_type.block.type.return_type,
+                            )
+                          end
+              given_block_type, constr = constr.synthesize(args.block_pass_arg, hint: hint_type)
+              method_block_type = method_type.block.yield_self {|expected_block|
+                proc_type = AST::Types::Proc.new(params: expected_block.type.params, return_type: expected_block.type.return_type)
+                if expected_block.optional?
+                  AST::Builtin.optional(proc_type)
+                else
+                  proc_type
+                end
+              }
 
+              result = check_relation(sub_type: given_block_type, super_type: method_block_type, constraints: constraints)
               result.else do |result|
                 errors << Errors::BlockTypeMismatch.new(node: node,
-                                                        expected: method_type.block.type,
-                                                        actual: block_type,
+                                                        expected: method_block_type,
+                                                        actual: given_block_type,
                                                         result: result)
               end
 

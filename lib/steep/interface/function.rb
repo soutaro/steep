@@ -757,6 +757,10 @@ module Steep
           location: location
         )
       end
+
+      def to_s
+        "#{params} -> #{return_type}"
+      end
     end
   end
 end

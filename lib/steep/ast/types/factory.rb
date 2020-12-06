@@ -211,8 +211,11 @@ module Steep
             block: method_type.block&.yield_self do |block|
               Interface::Block.new(
                 optional: !block.required,
-                type: Proc.new(params: params(block.type).subst(subst),
-                               return_type: type(block.type.return_type).subst(subst), location: nil)
+                type: Interface::Function.new(
+                  params: params(block.type).subst(subst),
+                  return_type: type(block.type.return_type).subst(subst),
+                  location: nil
+                )
               )
             end,
             method_decls: method_decls

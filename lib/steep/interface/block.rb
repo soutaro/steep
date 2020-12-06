@@ -63,10 +63,12 @@ module Steep
 
       def +(other)
         optional = self.optional? || other.optional?
-        type = AST::Types::Proc.new(
+        type = Function.new(
           params: self.type.params + other.type.params,
-          return_type: AST::Types::Union.build(types: [self.type.return_type, other.type.return_type])
+          return_type: AST::Types::Union.build(types: [self.type.return_type, other.type.return_type]),
+          location: nil
         )
+
         self.class.new(
           type: type,
           optional: optional

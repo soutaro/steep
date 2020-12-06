@@ -152,9 +152,7 @@ module Steep
                 when self.block && other.block
                   block_params = self.block.type.params | other.block.type.params
                   block_return_type = AST::Types::Intersection.build(types: [self.block.type.return_type, other.block.type.return_type])
-                  block_type = AST::Types::Proc.new(params: block_params,
-                                                    return_type: block_return_type,
-                                                    location: nil)
+                  block_type = Function.new(params: block_params, return_type: block_return_type, location: nil)
                   Block.new(
                     type: block_type,
                     optional: self.block.optional && other.block.optional
@@ -202,9 +200,7 @@ module Steep
                 when self.block && other.block
                   block_params = self.block.type.params & other.block.type.params or return
                   block_return_type = AST::Types::Union.build(types: [self.block.type.return_type, other.block.type.return_type])
-                  block_type = AST::Types::Proc.new(params: block_params,
-                                                    return_type: block_return_type,
-                                                    location: nil)
+                  block_type = Function.new(params: block_params, return_type: block_return_type, location: nil)
                   Block.new(
                     type: block_type,
                     optional: self.block.optional || other.block.optional
