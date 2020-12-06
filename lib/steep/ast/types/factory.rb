@@ -147,6 +147,7 @@ module Steep
           when Proc
             RBS::Types::Proc.new(
               type: function_1(type.params, type.return_type),
+              block: nil,
               location: nil
             )
           when Logic::Base
@@ -246,7 +247,7 @@ module Steep
             block: method_type.block&.yield_self do |block|
               block_type = block.type.subst(subst)
 
-              RBS::MethodType::Block.new(
+              RBS::Types::Block.new(
                 type: function_1(block_type.params, block_type.return_type),
                 required: !block.optional
               )
