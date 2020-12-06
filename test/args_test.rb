@@ -5,7 +5,7 @@ class ArgsTest < Minitest::Test
   include FactoryHelper
 
   SendArgs = Steep::TypeInference::SendArgs
-  Params = Steep::Interface::Params
+  Params = Steep::Interface::Function::Params
   Types = Steep::AST::Types
   AST = Steep::AST
 

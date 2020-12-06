@@ -42,6 +42,7 @@ require "steep/ast/annotation/collection"
 require "steep/ast/builtin"
 require "steep/ast/types/factory"
 
+require "steep/interface/function"
 require "steep/interface/method_type"
 require "steep/interface/substitution"
 require "steep/interface/interface"

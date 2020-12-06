@@ -171,7 +171,7 @@ module Steep
         end
 
         def params(type)
-          Interface::Params.new(
+          Interface::Function::Params.new(
             required: type.required_positionals.map {|param| type(param.type) },
             optional: type.optional_positionals.map {|param| type(param.type) },
             rest: type.rest_positionals&.yield_self {|param| type(param.type) },
@@ -573,12 +573,12 @@ module Steep
                     method_types: type.types.map.with_index {|elem_type, index|
                       Interface::MethodType.new(
                         type_params: [],
-                        params: Interface::Params.new(required: [AST::Types::Literal.new(value: index)],
-                                                      optional: [],
-                                                      rest: nil,
-                                                      required_keywords: {},
-                                                      optional_keywords: {},
-                                                      rest_keywords: nil),
+                        params: Interface::Function::Params.new(required: [AST::Types::Literal.new(value: index)],
+                                                                optional: [],
+                                                                rest: nil,
+                                                                required_keywords: {},
+                                                                optional_keywords: {},
+                                                                rest_keywords: nil),
                         block: nil,
                         return_type: elem_type,
                         method_decls: Set[]
@@ -592,12 +592,12 @@ module Steep
                     method_types: type.types.map.with_index {|elem_type, index|
                       Interface::MethodType.new(
                         type_params: [],
-                        params: Interface::Params.new(required: [AST::Types::Literal.new(value: index), elem_type],
-                                                      optional: [],
-                                                      rest: nil,
-                                                      required_keywords: {},
-                                                      optional_keywords: {},
-                                                      rest_keywords: nil),
+                        params: Interface::Function::Params.new(required: [AST::Types::Literal.new(value: index), elem_type],
+                                                                optional: [],
+                                                                rest: nil,
+                                                                required_keywords: {},
+                                                                optional_keywords: {},
+                                                                rest_keywords: nil),
                         block: nil,
                         return_type: elem_type,
                         method_decls: Set[]
@@ -611,7 +611,7 @@ module Steep
                     method_types: [
                       Interface::MethodType.new(
                         type_params: [],
-                        params: Interface::Params.empty,
+                        params: Interface::Function::Params.empty,
                         block: nil,
                         return_type: type.types[0] || AST::Builtin.nil_type,
                         method_decls: Set[]
@@ -625,7 +625,7 @@ module Steep
                     method_types: [
                       Interface::MethodType.new(
                         type_params: [],
-                        params: Interface::Params.empty,
+                        params: Interface::Function::Params.empty,
                         block: nil,
                         return_type: type.types.last || AST::Builtin.nil_type,
                         method_decls: Set[]
@@ -652,12 +652,12 @@ module Steep
 
                       Interface::MethodType.new(
                         type_params: [],
-                        params: Interface::Params.new(required: [key_type],
-                                                      optional: [],
-                                                      rest: nil,
-                                                      required_keywords: {},
-                                                      optional_keywords: {},
-                                                      rest_keywords: nil),
+                        params: Interface::Function::Params.new(required: [key_type],
+                                                                optional: [],
+                                                                rest: nil,
+                                                                required_keywords: {},
+                                                                optional_keywords: {},
+                                                                rest_keywords: nil),
                         block: nil,
                         return_type: value_type,
                         method_decls: Set[]
@@ -672,12 +672,12 @@ module Steep
                       key_type = Literal.new(value: key_value, location: nil)
                       Interface::MethodType.new(
                         type_params: [],
-                        params: Interface::Params.new(required: [key_type, value_type],
-                                                      optional: [],
-                                                      rest: nil,
-                                                      required_keywords: {},
-                                                      optional_keywords: {},
-                                                      rest_keywords: nil),
+                        params: Interface::Function::Params.new(required: [key_type, value_type],
+                                                                optional: [],
+                                                                rest: nil,
+                                                                required_keywords: {},
+                                                                optional_keywords: {},
+                                                                rest_keywords: nil),
                         block: nil,
                         return_type: value_type,
                         method_decls: Set[]

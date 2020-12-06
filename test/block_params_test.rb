@@ -7,7 +7,7 @@ class BlockParamsTest < Minitest::Test
 
   BlockParams = Steep::TypeInference::BlockParams
   LabeledName = ASTUtils::Labeling::LabeledName
-  Params = Steep::Interface::Params
+  Params = Steep::Interface::Function::Params
   Types = Steep::AST::Types
   Namespace = RBS::Namespace
 
@@ -349,7 +349,7 @@ proc {|a, b=1, *c|
   end
 
   def param_type(required: [], optional: [], rest: nil, required_keywords: {}, optional_keywords: {}, rest_keywords: nil)
-    Steep::Interface::Params.new(
+    Steep::Interface::Function::Params.new(
       required: required.map {|s| parse_type(s) },
       optional: optional.map {|t| parse_type(t) },
       rest: rest&.yield_self {|t| parse_type(t) },

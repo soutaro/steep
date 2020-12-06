@@ -134,7 +134,7 @@ module Steep
           rest = rest_param&.yield_self {|param| param.type.args[0] }
         end
 
-        Interface::Params.new(
+        Interface::Function::Params.new(
           required: leadings,
           optional: optionals,
           rest: rest,
