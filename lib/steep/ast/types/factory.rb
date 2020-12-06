@@ -77,7 +77,7 @@ module Steep
           when RBS::Types::Proc
             params = params(type.type)
             return_type = type(type.type.return_type)
-            Proc.new(params: params, return_type: return_type, location: nil)
+            Proc.new(type: Interface::Function.new(params: params, return_type: return_type, location: type.location))
           else
             raise "Unexpected type given: #{type}"
           end
@@ -146,7 +146,7 @@ module Steep
             RBS::Types::Record.new(fields: fields, location: nil)
           when Proc
             RBS::Types::Proc.new(
-              type: function_1(type.params, type.return_type),
+              type: function_1(type.type),
               block: nil,
               location: nil
             )
@@ -157,7 +157,10 @@ module Steep
           end
         end
 
-        def function_1(params, return_type)
+        def function_1(func)
+          params = func.params
+          return_type = func.return_type
+
           RBS::Types::Function.new(
             required_positionals: params.required.map {|type| RBS::Types::Function::Param.new(name: nil, type: type_1(type)) },
             optional_positionals: params.optional.map {|type| RBS::Types::Function::Param.new(name: nil, type: type_1(type)) },
@@ -249,12 +252,12 @@ module Steep
 
           type = RBS::MethodType.new(
             type_params: type_params,
-            type: function_1(method_type.type.params.subst(subst), method_type.type.return_type.subst(subst)),
+            type: function_1(method_type.type.subst(subst)),
             block: method_type.block&.yield_self do |block|
               block_type = block.type.subst(subst)
 
               RBS::Types::Block.new(
-                type: function_1(block_type.params, block_type.return_type),
+                type: function_1(block_type),
                 required: !block.optional
               )
             end,
@@ -723,11 +726,7 @@ module Steep
             interface(Builtin::Proc.instance_type, private: private, self_type: self_type).tap do |interface|
               method_type = Interface::MethodType.new(
                 type_params: [],
-                type: Interface::Function.new(
-                  params: type.params,
-                  return_type: type.return_type,
-                  location: type.location
-                ),
+                type: type.type,
                 block: nil,
                 method_decls: Set[]
               )

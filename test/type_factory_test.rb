@@ -120,8 +120,8 @@ class TypeFactoryTest < Minitest::Test
 
       factory.type(parse_type("^(a, ?b, *c, d, x: e, ?y: f, **g) -> void")).yield_self do |type|
         assert_instance_of Types::Proc, type
-        assert_equal "(a, ?b, *c, x: e, ?y: f, **g)", type.params.to_s
-        assert_instance_of Types::Void, type.return_type
+        assert_equal "(a, ?b, *c, x: e, ?y: f, **g)", type.type.params.to_s
+        assert_instance_of Types::Void, type.type.return_type
       end
 
       factory.type(RBS::Types::Variable.new(name: :T, location: nil)) do |type|

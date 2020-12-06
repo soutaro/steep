@@ -320,12 +320,12 @@ module Steep
 
           when relation.sub_type.is_a?(AST::Types::Proc) && relation.super_type.is_a?(AST::Types::Proc)
             check_method_params(:__proc__,
-                                relation.sub_type.params, relation.super_type.params,
+                                relation.sub_type.type.params, relation.super_type.type.params,
                                 self_type: self_type,
                                 assumption: assumption,
                                 trace: trace,
                                 constraints: constraints).then do
-              check(Relation.new(sub_type: relation.sub_type.return_type, super_type: relation.super_type.return_type),
+              check(Relation.new(sub_type: relation.sub_type.type.return_type, super_type: relation.super_type.type.return_type),
                      self_type: self_type,
                      assumption: assumption,
                      trace: trace,
