@@ -111,7 +111,8 @@ module Steep
                 hover_provider: true,
                 completion_provider: LSP::Interface::CompletionOptions.new(
                   trigger_characters: [".", "@"]
-                )
+                ),
+                workspace_symbol_provider: true
               )
             )
           }
@@ -142,6 +143,9 @@ module Steep
 
         when "textDocument/open"
           # Ignores open notification
+
+        when "workspace/symbol"
+          signature_worker << message
 
         when "shutdown"
           queue << { id: id, result: nil }

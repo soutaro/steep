@@ -101,7 +101,7 @@ end
         }
       )
 
-      assert_equal [lib_target, test_target], worker.queue.map(&:first)
+      assert_equal [lib_target, test_target], worker.queue.map {|_, pair| pair.first }
       assert_instance_of Time, worker.last_target_validated_at[lib_target]
       assert_instance_of Time, worker.last_target_validated_at[test_target]
 
@@ -127,7 +127,7 @@ end
         }
       )
 
-      assert_equal [test_target], worker.queue.map(&:first)
+      assert_equal [test_target], worker.queue.map {|_, pair| pair.first }
     end
   end
 
