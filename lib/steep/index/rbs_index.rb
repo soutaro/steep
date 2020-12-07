@@ -147,6 +147,17 @@ module Steep
         end
       end
 
+      def each_entry(&block)
+        if block_given?
+          type_index.each_value(&block)
+          method_index.each_value(&block)
+          const_index.each_value(&block)
+          global_index.each_value(&block)
+        else
+          enum_for(:each_entry)
+        end
+      end
+
       def add_type_declaration(type_name, declaration)
         entry(type_name: type_name).add_declaration(declaration)
       end
