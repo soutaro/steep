@@ -1250,13 +1250,32 @@ module Steep
             constr = self
 
             name, sup, _ = node.children
-            _, constr = constr.synthesize(name)
+            if name.type == :const
+              # skip the last constant reference
+              if const_parent = name.children[0]
+                _, constr = constr.synthesize(const_parent)
+              end
+            else
+              _, constr = constr.synthesize(name)
+            end
             _, constr = constr.synthesize(sup) if sup
 
             constr.for_class(node).tap do |constructor|
+              if module_type = constructor.module_context&.module_type
+                _, constructor = constructor.add_typing(name, type: module_type)
+              else
+                _, constructor = constructor.fallback_to_any(name)
+              end
+
+              constructor.typing.source_index.add_definition(
+                constant: constructor.module_context.class_name,
+                definition: node
+              )
+
               constructor.typing.add_context_for_node(node, context: constructor.context)
               constructor.typing.add_context_for_body(node, context: constructor.context)
 
+              constructor.synthesize(node.children[1]) if node.children[1]
               constructor.synthesize(node.children[2]) if node.children[2]
 
               if constructor.module_context&.implement_name && !namespace_module?(node)
@@ -1275,6 +1294,11 @@ module Steep
             _, constr = constr.synthesize(name)
 
             for_module(node).yield_self do |constructor|
+              constructor.typing.source_index.add_definition(
+                constant: constructor.module_context.class_name,
+                definition: node
+              )
+
               constructor.typing.add_context_for_node(node, context: constructor.context)
               constructor.typing.add_context_for_body(node, context: constructor.context)
 
@@ -1335,6 +1359,10 @@ module Steep
           const_name = constr.module_name_from_node(node)
 
           if const_name
+            if constant = module_context.const_env.lookup_constant(const_name)
+              typing.source_index.add_reference(constant: constant.name, ref: node)
+            end
+
             type = type_env.get(const: const_name) do
               constr.fallback_to_any(node)
             end
@@ -1352,6 +1380,10 @@ module Steep
             const_name = constr.module_name_from_node(node)
 
             if const_name
+              if constant = module_context.const_env.lookup_constant(const_name)
+                typing.source_index.add_definition(constant: constant.name, definition: node)
+              end
+
               const_type = type_env.get(const: const_name) {}
               value_type, constr = constr.synthesize(node.children.last, hint: const_type)
               type = type_env.assign(const: const_name, type: value_type, self_type: self_type) do |error|
@@ -3245,7 +3277,7 @@ module Steep
       if module_name.namespace.relative?
         (current_namespace + module_name.namespace).append(module_name.name)
       else
-        module_name
+        module_name.to_namespace
       end
     end
 

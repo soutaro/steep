@@ -15,9 +15,13 @@ module Steep
         @table = RBS::ConstantTable.new(builder: factory.definition_builder)
       end
 
+      def lookup_constant(name)
+        table.resolve_constant_reference(name, context: context)
+      end
+
       def lookup(name)
         cache[name] ||= begin
-          constant = table.resolve_constant_reference(name, context: context)
+          constant = lookup_constant(name)
 
           if constant
             factory.type(constant.type)
