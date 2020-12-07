@@ -214,12 +214,22 @@ module Steep
             type_reference member.type, from: member
 
             if member.is_a?(RBS::AST::Members::AttrReader) || member.is_a?(RBS::AST::Members::AttrAccessor)
-              method_name = InstanceMethodName.new(type_name: type_name, method_name: member.name)
+              method_name = case member.kind
+                            when :instance
+                              InstanceMethodName.new(type_name: type_name, method_name: member.name)
+                            when :singleton
+                              SingletonMethodName.new(type_name: type_name, method_name: member.name)
+                            end
               index.add_method_declaration(method_name, member)
             end
 
             if member.is_a?(RBS::AST::Members::AttrWriter) || member.is_a?(RBS::AST::Members::AttrAccessor)
-              method_name = InstanceMethodName.new(type_name: type_name, method_name: "#{member.name}=".to_sym)
+              method_name = case member.kind
+                            when :instance
+                              InstanceMethodName.new(type_name: type_name, method_name: "#{member.name}=".to_sym)
+                            when :singleton
+                              SingletonMethodName.new(type_name: type_name, method_name: "#{member.name}=".to_sym)
+                            end
               index.add_method_declaration(method_name, member)
             end
 
