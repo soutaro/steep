@@ -21,8 +21,9 @@ module Steep
     attr_reader :contexts
     attr_reader :root_context
     attr_reader :method_calls
+    attr_reader :source_index
 
-    def initialize(source:, root_context:, parent: nil, parent_last_update: parent&.last_update, contexts: nil)
+    def initialize(source:, root_context:, parent: nil, parent_last_update: parent&.last_update, contexts: nil, source_index: nil)
       @source = source
 
       @parent = parent
@@ -35,6 +36,8 @@ module Steep
       @root_context = root_context
       @contexts = contexts || TypeInference::ContextArray.from_source(source: source)
       @method_calls = {}.compare_by_identity
+
+      @source_index = source_index || Index::SourceIndex.new(source: source)
     end
 
     def add_error(error)
@@ -195,7 +198,8 @@ module Steep
       child = self.class.new(source: source,
                              parent: self,
                              root_context: root_context,
-                             contexts: TypeInference::ContextArray.new(buffer: contexts.buffer, range: range, context: nil))
+                             contexts: TypeInference::ContextArray.new(buffer: contexts.buffer, range: range, context: nil),
+                             source_index: source_index.new_child)
       @should_update = true
 
       if block_given?
@@ -224,6 +228,8 @@ module Steep
       errors.each do |error|
         parent.add_error error
       end
+
+      parent.source_index.merge!(source_index)
     end
   end
 end

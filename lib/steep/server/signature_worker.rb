@@ -24,7 +24,12 @@ module Steep
       def enqueue_target(target:, timestamp:)
         Steep.logger.debug "queueing target #{target.name}@#{timestamp}"
         last_target_validated_at[target] = timestamp
-        queue << [target, timestamp]
+        queue << [:validate, [target, timestamp]]
+      end
+
+      def enqueue_symbol(id:, query:)
+        Steep.logger.debug "queueing symbol #{query} (#{id})"
+        queue << [:symbol, [id, query]]
       end
 
       def handle_request(request)
@@ -37,6 +42,8 @@ module Steep
         when "textDocument/didChange"
           update_source(request)
           validate_signature_if_required(request)
+        when "workspace/symbol"
+          enqueue_symbol(query: request[:params][:query], id: request[:id])
         end
       end
 
@@ -138,13 +145,63 @@ module Steep
         end
       end
 
-      def handle_job(job)
-        target, timestamp = job
+      def handle_workspace_symbol(query:, id:)
+        provider = Index::SignatureSymbolProvider.new()
 
-        if active_job?(target, timestamp)
-          validate_signature(target, timestamp: timestamp)
-        else
-          Steep.logger.info "Skipping signature validation: #{target.name}, queued timestamp=#{timestamp}, latest timestamp=#{last_target_validated_at[target]}"
+        project.targets.each do |target|
+          case target.status
+          when Project::Target::TypeCheckStatus
+            index = Index::RBSIndex.new()
+
+            builder = Index::RBSIndex::Builder.new(index: index)
+            builder.env(target.status.environment)
+
+            provider.indexes << index
+          end
+        end
+
+        symbols = provider.query_symbol(query)
+
+        result = symbols.map do |symbol|
+          {
+            name: symbol.name.to_s,
+            kind: symbol.kind,
+            deprecated: false,
+            containerName: symbol.container_name.to_s,
+            location: {
+              uri: URI.parse(project.absolute_path(symbol.location.buffer.name).to_s),
+              range: {
+                start: LSP::Interface::Position.new(
+                  line: symbol.location.start_line - 1,
+                  character: symbol.location.start_column,
+                  ),
+                end: LSP::Interface::Position.new(
+                  line: symbol.location.end_line - 1,
+                  character: symbol.location.end_column
+                )
+              }
+            }
+          }
+        end
+
+        writer.write(id: id, result: result)
+      end
+
+      def handle_job(job)
+        action, data = job
+
+        case action
+        when :validate
+          target, timestamp = data
+
+          if active_job?(target, timestamp)
+            validate_signature(target, timestamp: timestamp)
+          else
+            Steep.logger.info "Skipping signature validation: #{target.name}, queued timestamp=#{timestamp}, latest timestamp=#{last_target_validated_at[target]}"
+          end
+        when :symbol
+          id, query = data
+          handle_workspace_symbol(query: query, id: id)
         end
       end
     end
