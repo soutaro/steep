@@ -1037,22 +1037,32 @@ module Steep
           value = node.children[0]
 
           if break_context
-            case
-            when value && break_context.next_type
-              check(value, break_context.next_type) do |break_type, actual_type, result|
-                typing.add_error Errors::BreakTypeMismatch.new(node: node,
-                                                               expected: break_type,
-                                                               actual: actual_type,
-                                                               result: result)
+            if next_type = break_context.next_type
+              next_type = deep_expand_alias(next_type)
+
+              if value
+                _, constr = check(value, next_type) do |break_type, actual_type, result|
+                  typing.add_error Errors::BreakTypeMismatch.new(node: node,
+                                                                 expected: break_type,
+                                                                 actual: actual_type,
+                                                                 result: result)
+                end
+              else
+                check_relation(sub_type: AST::Builtin.nil_type, super_type: next_type).else do |result|
+                  typing.add_error Errors::BreakTypeMismatch.new(node: node,
+                                                                 expected: next_type,
+                                                                 actual: AST::Builtin.nil_type,
+                                                                 result: result)
+                end
               end
-            when !value
-              # ok
             else
-              synthesize(value) if value
-              typing.add_error Errors::UnexpectedJumpValue.new(node: node)
+              if value
+                synthesize(value)
+                typing.add_error Errors::UnexpectedJumpValue.new(node: node)
+              end
             end
           else
-            synthesize(value)
+            synthesize(value) if value
             typing.add_error Errors::UnexpectedJump.new(node: node)
           end
 
@@ -3170,7 +3180,7 @@ module Steep
                    end
 
       block_context = TypeInference::Context::BlockContext.new(
-        body_type: block_annotations.block_type
+        body_type: block_annotations.block_type || block_type_hint || AST::Builtin.any_type
       )
       break_context = TypeInference::Context::BreakContext.new(
         break_type: break_type,
