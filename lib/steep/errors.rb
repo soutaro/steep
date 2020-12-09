@@ -195,6 +195,25 @@ module Steep
       end
     end
 
+    class BlockBodyTypeMismatch < Base
+      attr_reader :expected
+      attr_reader :actual
+      attr_reader :result
+
+      include ResultPrinter
+
+      def initialize(node:, expected:, actual:, result:)
+        super(node: node)
+        @expected = expected
+        @actual = actual
+        @result = result
+      end
+
+      def to_s
+        "#{location_to_str}: BlockBodyTypeMismatch: expected=#{expected}, actual=#{actual}"
+      end
+    end
+
     class BreakTypeMismatch < Base
       attr_reader :expected
       attr_reader :actual

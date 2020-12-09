@@ -653,10 +653,13 @@ end
       with_standard_construction(checker, source) do |construction, typing|
         pair = construction.synthesize(source.node)
 
-        assert_equal 1, typing.errors.size
-        assert_block_type_mismatch typing.errors[0],
-                                   expected: "^(::_A) -> ::_D",
-                                   actual: "^(::_A) -> ::_A"
+        assert_typing_error(typing, size: 1) do |errors|
+          assert_any!(errors) do |error|
+            assert_instance_of Steep::Errors::BlockTypeMismatch, error
+            assert_equal parse_type("^(::_A) -> ::_D"), error.expected
+            assert_equal parse_type("^(::_A) -> ::_A"), error.actual
+          end
+        end
 
         assert_equal parse_type("::_X"), pair.context.lvar_env[:x]
       end
@@ -4010,8 +4013,6 @@ EOF
     end
   end
 
-
-
   def test_type_lambda_annotation
     with_checker do |checker|
       source = parse_ruby(<<EOF)
@@ -6354,7 +6355,13 @@ end
 
         assert_typing_error(typing, size: 2) do |errors|
           assert_any!(errors) do |error|
-            assert_instance_of Steep::Errors::BlockTypeMismatch, error
+            assert_instance_of Steep::Errors::UnresolvedOverloading, error
+          end
+
+          assert_any!(errors) do |error|
+            assert_instance_of Steep::Errors::BlockBodyTypeMismatch, error
+            assert_equal parse_type("::String"), error.expected
+            assert_equal parse_type("::Integer"), error.actual
           end
         end
       end
