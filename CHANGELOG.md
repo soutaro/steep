@@ -2,6 +2,11 @@
 
 ## master
 
+## 0.38.0 (2020-12-10)
+
+* Improve `break`/`next` typing ([#271](https://github.com/soutaro/steep/pull/271))
+* Add LSP `workspace/symbol` feature ([#267](https://github.com/soutaro/steep/pull/267))
+
 ## 0.37.0 (2020-12-06)
 
 * Update to RBS 0.20.0 with _singleton attribute_ syntax and _proc types with blocks_. ([#264](https://github.com/soutaro/steep/pull/264))
