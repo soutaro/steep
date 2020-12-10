@@ -1012,22 +1012,30 @@ module Steep
           value = node.children[0]
 
           if break_context
-            case
-            when value && break_context.break_type
-              check(value, break_context.break_type) do |break_type, actual_type, result|
-                typing.add_error Errors::BreakTypeMismatch.new(node: node,
-                                                               expected: break_type,
-                                                               actual: actual_type,
-                                                               result: result)
+            if break_type = break_context.break_type
+              if value
+                check(value, break_type) do |break_type, actual_type, result|
+                  typing.add_error Errors::BreakTypeMismatch.new(node: node,
+                                                                 expected: break_type,
+                                                                 actual: actual_type,
+                                                                 result: result)
+                end
+              else
+                check_relation(sub_type: AST::Builtin.nil_type, super_type: break_type).else do |result|
+                  typing.add_error Errors::BreakTypeMismatch.new(node: node,
+                                                                 expected: break_type,
+                                                                 actual: AST::Builtin.nil_type,
+                                                                 result: result)
+                end
               end
-            when !value
-              # ok
             else
-              synthesize(value) if value
-              typing.add_error Errors::UnexpectedJumpValue.new(node: node)
+              if value
+                synthesize(value)
+                typing.add_error Errors::UnexpectedJumpValue.new(node: node)
+              end
             end
           else
-            synthesize(value)
+            synthesize(value) if value
             typing.add_error Errors::UnexpectedJump.new(node: node)
           end
 
@@ -1037,22 +1045,32 @@ module Steep
           value = node.children[0]
 
           if break_context
-            case
-            when value && break_context.next_type
-              check(value, break_context.next_type) do |break_type, actual_type, result|
-                typing.add_error Errors::BreakTypeMismatch.new(node: node,
-                                                               expected: break_type,
-                                                               actual: actual_type,
-                                                               result: result)
+            if next_type = break_context.next_type
+              next_type = deep_expand_alias(next_type)
+
+              if value
+                _, constr = check(value, next_type) do |break_type, actual_type, result|
+                  typing.add_error Errors::BreakTypeMismatch.new(node: node,
+                                                                 expected: break_type,
+                                                                 actual: actual_type,
+                                                                 result: result)
+                end
+              else
+                check_relation(sub_type: AST::Builtin.nil_type, super_type: next_type).else do |result|
+                  typing.add_error Errors::BreakTypeMismatch.new(node: node,
+                                                                 expected: next_type,
+                                                                 actual: AST::Builtin.nil_type,
+                                                                 result: result)
+                end
               end
-            when !value
-              # ok
             else
-              synthesize(value) if value
-              typing.add_error Errors::UnexpectedJumpValue.new(node: node)
+              if value
+                synthesize(value)
+                typing.add_error Errors::UnexpectedJumpValue.new(node: node)
+              end
             end
           else
-            synthesize(value)
+            synthesize(value) if value
             typing.add_error Errors::UnexpectedJump.new(node: node)
           end
 
@@ -2408,6 +2426,7 @@ module Steep
       block_constr = for_block(
         block_params: params,
         block_param_hint: params_hint,
+        block_type_hint: return_hint,
         block_annotations: block_annotations,
         node_type_hint: nil
       )
@@ -2422,10 +2441,22 @@ module Steep
         return_type = block_constr.synthesize_block(
           node: node,
           block_body: block_body,
-          topdown_hint: true,
           block_type_hint: return_hint
-        ) do |error|
-          typing.add_error(error)
+        )
+
+        if expected_block_type = block_constr.block_context.body_type
+          check_relation(sub_type: return_type, super_type: expected_block_type).else do |result|
+            block_constr.typing.add_error(
+              Errors::BlockBodyTypeMismatch.new(
+                node: block_body,
+                expected: expected_block_type,
+                actual: return_type,
+                result: result
+              )
+            )
+
+            return_type = expected_block_type
+          end
         end
       else
         return_type = AST::Builtin.any_type
@@ -2505,9 +2536,7 @@ module Steep
               block_params: TypeInference::BlockParams.from_node(block_params, annotations: block_annotations),
               block_annotations: block_annotations,
               block_body: block_body
-            ) do |error|
-              constr.typing.add_error(error)
-            end
+            )
           end
         end
 
@@ -2882,6 +2911,7 @@ module Steep
               block_constr = constr.for_block(
                 block_params: block_params_,
                 block_param_hint: method_type.block.type.params,
+                block_type_hint: method_type.block.type.return_type,
                 block_annotations: block_annotations,
                 node_type_hint: method_type.type.return_type
               )
@@ -2920,12 +2950,9 @@ module Steep
               if block_body
                 block_body_type = block_constr.synthesize_block(
                   node: node,
-                  block_type_hint: method_type.block.type.return_type,
                   block_body: block_body,
-                  topdown_hint: topdown_hint
-                ) do |error|
-                  errors << error
-                end
+                  block_type_hint: method_type.block.type.return_type
+                )
               else
                 block_body_type = AST::Builtin.nil_type
               end
@@ -2972,6 +2999,7 @@ module Steep
               end
 
               block_constr.typing.save!
+
             rescue Subtyping::Constraints::UnsatisfiableConstraint => exn
               errors << Errors::UnsatisfiableConstraint.new(
                 node: node,
@@ -3101,6 +3129,7 @@ module Steep
       block_constr = for_block(
         block_params: block_params,
         block_param_hint: nil,
+        block_type_hint: nil,
         block_annotations: block_annotations,
         node_type_hint: nil
       )
@@ -3111,10 +3140,23 @@ module Steep
         _, block_constr = block_constr.synthesize(param.node, hint: param.type)
       end
 
-      block_constr.synthesize_block(node: node, block_type_hint: nil, block_body: block_body, topdown_hint: false, &block)
+      block_type = block_constr.synthesize_block(node: node, block_type_hint: nil, block_body: block_body)
+
+      if expected_block_type = block_constr.block_context.body_type
+        block_constr.check_relation(sub_type: block_type, super_type: expected_block_type).else do |result|
+          block_constr.typing.add_error(
+            Errors::BlockBodyTypeMismatch.new(
+              node: node,
+              expected: expected_block_type,
+              actual: block_type,
+              result: result
+            )
+          )
+        end
+      end
     end
 
-    def for_block(block_params:, block_param_hint:, block_annotations:, node_type_hint:)
+    def for_block(block_params:, block_param_hint:, block_type_hint:, block_annotations:, node_type_hint:)
       block_param_pairs = block_param_hint && block_params.zip(block_param_hint)
 
       param_types_hash = {}
@@ -3146,7 +3188,7 @@ module Steep
                    end
 
       block_context = TypeInference::Context::BlockContext.new(
-        body_type: block_annotations.block_type
+        body_type: block_annotations.block_type || block_type_hint || AST::Builtin.any_type
       )
       break_context = TypeInference::Context::BreakContext.new(
         break_type: break_type,
@@ -3171,20 +3213,9 @@ module Steep
       )
     end
 
-    def synthesize_block(node:, block_type_hint:, block_body:, topdown_hint:)
+    def synthesize_block(node:, block_type_hint:, block_body:)
       if block_body
-        body_type, _, context =
-          if (body_type = block_context.body_type)
-            check(block_body, body_type) do |expected, actual, result|
-              error = Errors::BlockTypeMismatch.new(node: block_body,
-                                                    expected: expected,
-                                                    actual: actual,
-                                                    result: result)
-              yield(error) if block_given?
-            end
-          else
-            synthesize(block_body, hint: topdown_hint ? block_type_hint : nil)
-          end
+        body_type, _, context = synthesize(block_body, hint: block_context.body_type || block_type_hint)
 
         range = block_body.loc.expression.end_pos..node.loc.end.begin_pos
         typing.add_context(range, context: context)

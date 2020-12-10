@@ -653,10 +653,13 @@ end
       with_standard_construction(checker, source) do |construction, typing|
         pair = construction.synthesize(source.node)
 
-        assert_equal 1, typing.errors.size
-        assert_block_type_mismatch typing.errors[0],
-                                   expected: "^(::_A) -> ::_D",
-                                   actual: "^(::_A) -> ::_A"
+        assert_typing_error(typing, size: 1) do |errors|
+          assert_any!(errors) do |error|
+            assert_instance_of Steep::Errors::BlockTypeMismatch, error
+            assert_equal parse_type("^(::_A) -> ::_D"), error.expected
+            assert_equal parse_type("^(::_A) -> ::_A"), error.actual
+          end
+        end
 
         assert_equal parse_type("::_X"), pair.context.lvar_env[:x]
       end
@@ -4010,8 +4013,6 @@ EOF
     end
   end
 
-
-
   def test_type_lambda_annotation
     with_checker do |checker|
       source = parse_ruby(<<EOF)
@@ -6354,7 +6355,13 @@ end
 
         assert_typing_error(typing, size: 2) do |errors|
           assert_any!(errors) do |error|
-            assert_instance_of Steep::Errors::BlockTypeMismatch, error
+            assert_instance_of Steep::Errors::UnresolvedOverloading, error
+          end
+
+          assert_any!(errors) do |error|
+            assert_instance_of Steep::Errors::BlockBodyTypeMismatch, error
+            assert_equal parse_type("::String"), error.expected
+            assert_equal parse_type("::Integer"), error.actual
           end
         end
       end
@@ -6679,6 +6686,178 @@ RUBY
         construction.synthesize(source.node)
 
         assert_no_error typing
+      end
+    end
+  end
+
+  def test_next_with_next_type
+    with_checker(<<RBS) do |checker|
+class NextTest
+  def foo: () { (String) -> Integer } -> void
+end
+RBS
+      source = parse_ruby(<<RUBY)
+NextTest.new.foo do |x|
+  next 10
+  next [1,2,3]
+  next
+end
+RUBY
+
+      with_standard_construction(checker, source) do |construction, typing|
+        construction.synthesize(source.node)
+
+        assert_typing_error(typing, size: 2) do |errors|
+          assert_any!(errors) do |error|
+            assert_instance_of Steep::Errors::BreakTypeMismatch, error
+            assert_equal parse_type("::Array[::Integer]"), error.actual
+            assert_equal parse_type("::Integer"), error.expected
+          end
+
+          assert_any!(errors) do |error|
+            assert_instance_of Steep::Errors::BreakTypeMismatch, error
+            assert_equal parse_type("nil"), error.actual
+            assert_equal parse_type("::Integer"), error.expected
+          end
+        end
+      end
+    end
+  end
+
+  def test_next_without_method_type
+    with_checker() do |checker|
+      source = parse_ruby(<<RUBY)
+unknown_method do |x|
+  next 10
+  next
+end
+RUBY
+
+      with_standard_construction(checker, source) do |construction, typing|
+        construction.synthesize(source.node)
+
+        assert_typing_error(typing, size: 1) do |errors|
+          assert_any!(errors) do |error|
+            assert_instance_of Steep::Errors::NoMethod, error
+          end
+        end
+      end
+    end
+  end
+
+  def test_next_without_break_context
+    with_checker() do |checker|
+      source = parse_ruby(<<RUBY)
+def hello_world
+  next
+end
+RUBY
+
+      with_standard_construction(checker, source) do |construction, typing|
+        construction.synthesize(source.node)
+
+        assert_typing_error(typing, size: 1) do |errors|
+          assert_any!(errors) do |error|
+            assert_instance_of Steep::Errors::UnexpectedJump, error
+          end
+        end
+      end
+    end
+  end
+
+  def test_break_with_block
+    with_checker(<<RBS) do |checker|
+class NextTest
+  def foo: () { (String) -> Integer } -> String
+end
+RBS
+      source = parse_ruby(<<RUBY)
+NextTest.new.foo do |x|
+  break "20"
+  break 30
+  break
+end
+RUBY
+
+      with_standard_construction(checker, source) do |construction, typing|
+        construction.synthesize(source.node)
+
+        assert_typing_error(typing, size: 2) do |errors|
+          assert_any!(errors) do |error|
+            assert_instance_of Steep::Errors::BreakTypeMismatch, error
+            assert_equal parse_type("::Integer"), error.actual
+            assert_equal parse_type("::String"), error.expected
+          end
+
+          assert_any!(errors) do |error|
+            assert_instance_of Steep::Errors::BreakTypeMismatch, error
+            assert_equal parse_type("nil"), error.actual
+            assert_equal parse_type("::String"), error.expected
+          end
+        end
+      end
+    end
+  end
+
+  def test_break_without_method_type
+    with_checker() do |checker|
+      source = parse_ruby(<<RUBY)
+unknown_method do |x|
+  break 10
+  break
+end
+RUBY
+
+      with_standard_construction(checker, source) do |construction, typing|
+        construction.synthesize(source.node)
+
+        assert_typing_error(typing, size: 1) do |errors|
+          assert_any!(errors) do |error|
+            assert_instance_of Steep::Errors::NoMethod, error
+          end
+        end
+      end
+    end
+  end
+
+  def test_break_without_break_context
+    with_checker() do |checker|
+      source = parse_ruby(<<RUBY)
+def hello_world
+  break
+end
+RUBY
+
+      with_standard_construction(checker, source) do |construction, typing|
+        construction.synthesize(source.node)
+
+        assert_typing_error(typing, size: 1) do |errors|
+          assert_any!(errors) do |error|
+            assert_instance_of Steep::Errors::UnexpectedJump, error
+          end
+        end
+      end
+    end
+  end
+
+  def test_break_with_annotation
+    with_checker(<<RBS) do |checker|
+class NextTest
+  def foo: () { (String) -> Integer } -> String
+end
+RBS
+      source = parse_ruby(<<RUBY)
+NextTest.new.foo do |x|
+  # @type break: Symbol
+  break :exit
+end
+RUBY
+
+      with_standard_construction(checker, source) do |construction, typing|
+        type, _ = construction.synthesize(source.node)
+
+        assert_no_error typing
+        assert_equal parse_type("::String | ::Symbol"), type
       end
     end
   end
