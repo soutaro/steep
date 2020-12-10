@@ -1012,22 +1012,30 @@ module Steep
           value = node.children[0]
 
           if break_context
-            case
-            when value && break_context.break_type
-              check(value, break_context.break_type) do |break_type, actual_type, result|
-                typing.add_error Errors::BreakTypeMismatch.new(node: node,
-                                                               expected: break_type,
-                                                               actual: actual_type,
-                                                               result: result)
+            if break_type = break_context.break_type
+              if value
+                check(value, break_type) do |break_type, actual_type, result|
+                  typing.add_error Errors::BreakTypeMismatch.new(node: node,
+                                                                 expected: break_type,
+                                                                 actual: actual_type,
+                                                                 result: result)
+                end
+              else
+                check_relation(sub_type: AST::Builtin.nil_type, super_type: break_type).else do |result|
+                  typing.add_error Errors::BreakTypeMismatch.new(node: node,
+                                                                 expected: break_type,
+                                                                 actual: AST::Builtin.nil_type,
+                                                                 result: result)
+                end
               end
-            when !value
-              # ok
             else
-              synthesize(value) if value
-              typing.add_error Errors::UnexpectedJumpValue.new(node: node)
+              if value
+                synthesize(value)
+                typing.add_error Errors::UnexpectedJumpValue.new(node: node)
+              end
             end
           else
-            synthesize(value)
+            synthesize(value) if value
             typing.add_error Errors::UnexpectedJump.new(node: node)
           end
 

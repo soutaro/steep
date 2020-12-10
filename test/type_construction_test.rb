@@ -6764,4 +6764,101 @@ RUBY
       end
     end
   end
+
+  def test_break_with_block
+    with_checker(<<RBS) do |checker|
+class NextTest
+  def foo: () { (String) -> Integer } -> String
+end
+RBS
+      source = parse_ruby(<<RUBY)
+NextTest.new.foo do |x|
+  break "20"
+  break 30
+  break
+end
+RUBY
+
+      with_standard_construction(checker, source) do |construction, typing|
+        construction.synthesize(source.node)
+
+        assert_typing_error(typing, size: 2) do |errors|
+          assert_any!(errors) do |error|
+            assert_instance_of Steep::Errors::BreakTypeMismatch, error
+            assert_equal parse_type("::Integer"), error.actual
+            assert_equal parse_type("::String"), error.expected
+          end
+
+          assert_any!(errors) do |error|
+            assert_instance_of Steep::Errors::BreakTypeMismatch, error
+            assert_equal parse_type("nil"), error.actual
+            assert_equal parse_type("::String"), error.expected
+          end
+        end
+      end
+    end
+  end
+
+  def test_break_without_method_type
+    with_checker() do |checker|
+      source = parse_ruby(<<RUBY)
+unknown_method do |x|
+  break 10
+  break
+end
+RUBY
+
+      with_standard_construction(checker, source) do |construction, typing|
+        construction.synthesize(source.node)
+
+        assert_typing_error(typing, size: 1) do |errors|
+          assert_any!(errors) do |error|
+            assert_instance_of Steep::Errors::NoMethod, error
+          end
+        end
+      end
+    end
+  end
+
+  def test_break_without_break_context
+    with_checker() do |checker|
+      source = parse_ruby(<<RUBY)
+def hello_world
+  break
+end
+RUBY
+
+      with_standard_construction(checker, source) do |construction, typing|
+        construction.synthesize(source.node)
+
+        assert_typing_error(typing, size: 1) do |errors|
+          assert_any!(errors) do |error|
+            assert_instance_of Steep::Errors::UnexpectedJump, error
+          end
+        end
+      end
+    end
+  end
+
+  def test_break_with_annotation
+    with_checker(<<RBS) do |checker|
+class NextTest
+  def foo: () { (String) -> Integer } -> String
+end
+RBS
+      source = parse_ruby(<<RUBY)
+NextTest.new.foo do |x|
+  # @type break: Symbol
+  break :exit
+end
+RUBY
+
+      with_standard_construction(checker, source) do |construction, typing|
+        type, _ = construction.synthesize(source.node)
+
+        assert_no_error typing
+        assert_equal parse_type("::String | ::Symbol"), type
+      end
+    end
+  end
 end
