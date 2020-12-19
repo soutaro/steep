@@ -8,7 +8,18 @@ module Steep
       end
 
       def location_to_str
-        Rainbow("#{node.loc.expression.source_buffer.name}:#{node.loc.first_line}:#{node.loc.column}").red
+        file = Rainbow(node.loc.expression.source_buffer.name).cyan
+        line = Rainbow(node.loc.first_line).bright
+        column = Rainbow(node.loc.column).bright
+        "#{file}:#{line}:#{column}"
+      end
+
+      def format_message(message, class_name: self.class.name.split("::").last)
+        if message.empty?
+          "#{location_to_str}: #{Rainbow(class_name).red}"
+        else
+          "#{location_to_str}: #{Rainbow(class_name).red}: #{message}"
+        end
       end
 
       def print_to(io)
@@ -45,7 +56,7 @@ module Steep
       end
 
       def to_s
-        "#{location_to_str}: IncompatibleAssignment: lhs_type=#{lhs_type}, rhs_type=#{rhs_type}"
+        format_message "lhs_type=#{lhs_type}, rhs_type=#{rhs_type}"
       end
     end
 
@@ -61,7 +72,7 @@ module Steep
       end
 
       def to_s
-        "#{location_to_str}: IncompatibleArguments: receiver=#{receiver_type}, method_type=#{method_type}"
+        format_message "receiver=#{receiver_type}, method_type=#{method_type}"
       end
     end
 
@@ -79,7 +90,7 @@ module Steep
       end
 
       def to_s
-        "#{location_to_str}: UnresolvedOverloading: receiver=#{receiver_type}, method_name=#{method_name}, method_types=#{method_types.join(" | ")}"
+        format_message "receiver=#{receiver_type}, method_name=#{method_name}, method_types=#{method_types.join(" | ")}"
       end
     end
 
@@ -97,7 +108,7 @@ module Steep
       end
 
       def to_s
-        "#{location_to_str}: ArgumentTypeMismatch: receiver=#{receiver_type}, expected=#{expected}, actual=#{actual}"
+        format_message "receiver=#{receiver_type}, expected=#{expected}, actual=#{actual}"
       end
     end
 
@@ -112,7 +123,7 @@ module Steep
       end
 
       def to_s
-        "#{location_to_str}: BlockParameterTypeMismatch: expected=#{expected}, actual=#{actual}"
+        format_message "expected=#{expected}, actual=#{actual}"
       end
     end
 
@@ -127,7 +138,7 @@ module Steep
       end
 
       def to_s
-        "#{location_to_str}: NoMethodError: type=#{type}, method=#{method}"
+        format_message "type=#{type}, method=#{method}", class_name: "NoMethodError"
       end
     end
 
@@ -146,7 +157,7 @@ module Steep
       end
 
       def to_s
-        "#{location_to_str}: ReturnTypeMismatch: expected=#{expected}, actual=#{actual}"
+        format_message "expected=#{expected}, actual=#{actual}"
       end
     end
 
@@ -159,7 +170,7 @@ module Steep
       end
 
       def to_s
-        "#{location_to_str}: UnexpectedBlockGiven: method_type=#{method_type}"
+        format_message "method_type=#{method_type}"
       end
     end
 
@@ -172,7 +183,7 @@ module Steep
       end
 
       def to_s
-        "#{location_to_str}: RequiredBlockMissing: method_type=#{method_type.to_s}"
+        format_message "method_type=#{method_type}"
       end
     end
 
@@ -191,7 +202,7 @@ module Steep
       end
 
       def to_s
-        "#{location_to_str}: BlockTypeMismatch: expected=#{expected}, actual=#{actual}"
+        format_message "expected=#{expected}, actual=#{actual}"
       end
     end
 
@@ -210,7 +221,7 @@ module Steep
       end
 
       def to_s
-        "#{location_to_str}: BlockBodyTypeMismatch: expected=#{expected}, actual=#{actual}"
+        format_message "expected=#{expected}, actual=#{actual}"
       end
     end
 
@@ -229,25 +240,25 @@ module Steep
       end
 
       def to_s
-        "#{location_to_str}: BreakTypeMismatch: expected=#{expected}, actual=#{actual}"
+        format_message "expected=#{expected}, actual=#{actual}"
       end
     end
 
     class UnexpectedJump < Base
       def to_s
-        "#{location_to_str}: UnexpectedJump"
+        format_message ""
       end
     end
 
     class UnexpectedJumpValue < Base
       def to_s
-        "#{location_to_str}: UnexpectedJumpValue"
+        format_message ""
       end
     end
 
     class MethodArityMismatch < Base
       def to_s
-        "#{location_to_str}: MethodArityMismatch: method=#{node.children[0]}"
+        format_message "method=#{node.children[0]}"
       end
     end
 
@@ -266,7 +277,7 @@ module Steep
       end
 
       def to_s
-        "#{location_to_str}: IncompatibleMethodTypeAnnotation: interface_method=#{interface_method.type_name}.#{interface_method.name}, annotation_method=#{annotation_method.name}"
+        format_message "interface_method=#{interface_method.type_name}.#{interface_method.name}, annotation_method=#{annotation_method.name}"
       end
     end
 
@@ -279,7 +290,7 @@ module Steep
       end
 
       def to_s
-        "#{location_to_str}: MethodDefinitionWithOverloading: method=#{method.name}, types=#{method.types.join(" | ")}"
+        format_message "method=#{method.name}, types=#{method.types.join(" | ")}"
       end
     end
 
@@ -298,7 +309,7 @@ module Steep
       end
 
       def to_s
-        "#{location_to_str}: MethodReturnTypeAnnotationMismatch: method_type=#{method_type.return_type}, annotation_type=#{annotation_type}"
+        format_message "method_type=#{method_type.return_type}, annotation_type=#{annotation_type}"
       end
     end
 
@@ -324,13 +335,13 @@ module Steep
                    prefix = node.children[0].type == :self ? "self" : "*"
                    "#{prefix}.#{node.children[1]}"
                  end
-        "#{location_to_str}: MethodBodyTypeMismatch: method=#{method}, expected=#{expected}, actual=#{actual}"
+        format_message "method=#{method}, expected=#{expected}, actual=#{actual}"
       end
     end
 
     class UnexpectedYield < Base
       def to_s
-        "#{location_to_str}: UnexpectedYield"
+        format_message ""
       end
     end
 
@@ -343,7 +354,7 @@ module Steep
       end
 
       def to_s
-        "#{location_to_str}: UnexpectedSuper: method=#{method}"
+        format_message "method=#{method}"
       end
     end
 
@@ -356,7 +367,7 @@ module Steep
       end
 
       def to_s
-        "#{location_to_str}: IncompatibleZuper: method=#{method}"
+        format_message "method=#{method}"
       end
     end
 
@@ -379,7 +390,7 @@ module Steep
                  when :module
                    "self.#{missing_method}"
                  end
-        "#{location_to_str}: MethodDefinitionMissing: module=#{module_name}, method=#{method}"
+        format_message "module=#{module_name}, method=#{method}"
       end
     end
 
@@ -394,7 +405,7 @@ module Steep
       end
 
       def to_s
-        "#{location_to_str}: UnexpectedDynamicMethod: module=#{module_name}, method=#{method_name}"
+        format_message "module=#{module_name}, method=#{method_name}"
       end
     end
 
@@ -407,7 +418,7 @@ module Steep
       end
 
       def to_s
-        "#{location_to_str}: UnknownConstantAssigned: type=#{type}"
+        format_message "type=#{type}"
       end
     end
 
@@ -417,7 +428,7 @@ module Steep
       end
 
       def to_s
-        "#{location_to_str}: FallbackAny"
+        format_message ""
       end
     end
 
@@ -440,7 +451,7 @@ module Steep
       include ResultPrinter
 
       def to_s
-        "#{location_to_str}: UnsatisfiableConstraint: method_type=#{method_type}, constraint=#{sub_type} <: '#{var} <: #{super_type}"
+        format_message "method_type=#{method_type}, constraint=#{sub_type} <: '#{var} <: #{super_type}"
       end
     end
 
@@ -459,7 +470,7 @@ module Steep
       include ResultPrinter
 
       def to_s
-        "#{location_to_str}: IncompatibleAnnotation: var_name=#{var_name}, #{relation}"
+        format_message "var_name=#{var_name}, #{relation}"
       end
     end
 
@@ -478,7 +489,7 @@ module Steep
       include ResultPrinter
 
       def to_s
-        "#{location_to_str}: IncompatibleTypeCase: var_name=#{var_name}, #{relation}"
+        format_message "var_name=#{var_name}, #{relation}"
       end
     end
 
@@ -491,7 +502,7 @@ module Steep
       end
 
       def to_s
-        "#{location_to_str}: ElseOnExhaustiveCase: type=#{type}"
+        format_message "type=#{type}"
       end
     end
 
@@ -504,7 +515,7 @@ module Steep
       end
 
       def to_s
-        "#{location_to_str}: UnexpectedSplat: type=#{type}"
+        format_message "type=#{type}"
       end
     end
 
@@ -519,7 +530,7 @@ module Steep
       end
 
       def to_s
-        "#{location_to_str}: IncompatibleTuple: expected_tuple=#{expected_tuple}"
+        format_message "expected_tuple=#{expected_tuple}"
       end
     end
 
@@ -532,7 +543,7 @@ module Steep
       end
 
       def to_s
-        "#{location_to_str}: UnexpectedKeyword: #{unexpected_keywords.to_a.join(", ")}"
+        format_message unexpected_keywords.to_a.join(", ")
       end
     end
 
@@ -545,7 +556,7 @@ module Steep
       end
 
       def to_s
-        "#{location_to_str}: MissingKeyword: #{missing_keywords.to_a.join(", ")}"
+        format_message missing_keywords.to_a.join(", ")
       end
     end
 
@@ -558,8 +569,7 @@ module Steep
       end
 
       def to_s
-        msg = message || "#{node.type} is not supported"
-        "#{location_to_str}: UnsupportedSyntax: #{msg}"
+        format_message(message || "#{node.type} is not supported")
       end
     end
 
@@ -574,8 +584,8 @@ module Steep
       end
 
       def to_s
-        <<-MESSAGE
-#{location_to_str}: UnexpectedError: #{error.class}
+        format_message <<-MESSAGE
+#{error.class}
 >> #{message}
         MESSAGE
       end
