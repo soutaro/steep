@@ -10,7 +10,7 @@ module Steep
       end
 
       def instance_super_types(type_name, args:)
-        ancestors = factory.definition_builder.one_instance_ancestors(type_name)
+        ancestors = factory.definition_builder.ancestor_builder.one_instance_ancestors(type_name)
 
         subst = unless args.empty?
                   args_ = args.map {|type| factory.type_1(type) }
@@ -50,7 +50,7 @@ module Steep
       end
 
       def singleton_super_types(type_name)
-        ancestors = factory.definition_builder.one_singleton_ancestors(type_name)
+        ancestors = factory.definition_builder.ancestor_builder.one_singleton_ancestors(type_name)
 
         ancestors.each_ancestor.map do |ancestor|
           name = ancestor.name

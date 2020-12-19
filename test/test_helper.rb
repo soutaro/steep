@@ -225,6 +225,7 @@ private
 end
 
 class Class < Module
+  def new: (*untyped, **untyped) ?{ (*untyped, **untyped) -> void } -> void
 end
 
 class Module
