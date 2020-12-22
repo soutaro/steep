@@ -41,8 +41,11 @@ module Steep
 
         if type.is_a?(AST::Types::Logic::Base)
           vars.each do |var_name|
-            truthy_env = truthy_env.assign!(var_name, node: node, type: AST::Builtin.true_type)
-            falsy_env = truthy_env.assign!(var_name, node: node, type: AST::Builtin.false_type)
+            var_type = truthy_env[var_name]
+            truthy_type, falsy_type = factory.unwrap_optional(var_type)
+            falsy_type ||= AST::Builtin.nil_type
+            truthy_env = truthy_env.assign!(var_name, node: node, type: truthy_type) {|_, type, _| type }
+            falsy_env = truthy_env.assign!(var_name, node: node, type: falsy_type) {|_, type, _| type }
           end
 
           case type

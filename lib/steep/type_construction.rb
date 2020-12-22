@@ -642,7 +642,7 @@ module Steep
       Pair.new(type: call.return_type, constr: self)
     end
 
-    def synthesize(node, hint: nil)
+    def synthesize(node, hint: nil, condition: false)
       Steep.logger.tagged "synthesize:(#{node.location.expression.to_s.split(/:/, 2).last})" do
         Steep.logger.debug node.type
         case node.type
@@ -1514,16 +1514,20 @@ module Steep
           yield_self do
             left, right = node.children
 
-            left_type, constr = synthesize(left)
+            left_type, constr = synthesize(left, hint: hint, condition: true)
 
             interpreter = TypeInference::LogicTypeInterpreter.new(subtyping: checker, typing: typing)
             truthy_env, falsey_env = interpreter.eval(env: constr.context.lvar_env, type: left_type, node: left)
+
+            if left_type.is_a?(AST::Types::Logic::Env)
+              left_type = left_type.type
+            end
 
             right_type, constr = constr
                                    .update_lvar_env { truthy_env }
                                    .tap {|constr| typing.add_context_for_node(right, context: constr.context) }
                                    .for_branch(right)
-                                   .synthesize(right)
+                                   .synthesize(right, hint: hint, condition: true)
 
             truthy_env, _ = interpreter.eval(env: truthy_env, type: right_type, node: right)
 
@@ -1534,13 +1538,13 @@ module Steep
                   end
 
             type = case
-                   when left_type.is_a?(AST::Types::Logic::Base) && right_type.is_a?(AST::Types::Logic::Base)
-                     AST::Types::Logic::Env.new(truthy: truthy_env, falsy: env)
                    when check_relation(sub_type: left_type, super_type: AST::Types::Boolean.new).success?
                      union_type(left_type, right_type)
                    else
                      union_type(right_type, AST::Builtin.nil_type)
                    end
+
+            type = AST::Types::Logic::Env.new(truthy: truthy_env, falsy: env, type: type) if condition
 
             add_typing(node,
                        type: type,
@@ -1551,17 +1555,21 @@ module Steep
           yield_self do
             left, right = node.children
 
-            left_type, constr = synthesize(left, hint: hint)
+            left_type, constr = synthesize(left, hint: hint, condition: true)
 
             interpreter = TypeInference::LogicTypeInterpreter.new(subtyping: checker, typing: typing)
             truthy_env, falsey_env = interpreter.eval(env: constr.context.lvar_env, type: left_type, node: left)
 
+            if left_type.is_a?(AST::Types::Logic::Env)
+              left_type = left_type.type
+            end
             left_type, _ = checker.factory.unwrap_optional(left_type)
+
             right_type, constr = constr
                                    .update_lvar_env { falsey_env }
                                    .tap {|constr| typing.add_context_for_node(right, context: constr.context) }
                                    .for_branch(right)
-                                   .synthesize(right, hint: left_type)
+                                   .synthesize(right, hint: left_type, condition: true)
 
             _, falsey_env = interpreter.eval(env: falsey_env, type: right_type, node: right)
 
@@ -1572,12 +1580,14 @@ module Steep
                   end
 
             type = case
-                   when left_type.is_a?(AST::Types::Logic::Base) && right_type.is_a?(AST::Types::Logic::Base)
-                     AST::Types::Logic::Env.new(truthy: env, falsy: falsey_env)
+                   when check_relation(sub_type: left_type, super_type: AST::Builtin.bool_type).success?
+                     AST::Builtin.bool_type
                    else
                      union_type(left_type, right_type)
                    end
 
+            type = AST::Types::Logic::Env.new(truthy: env, falsy: falsey_env, type: type) if condition
+            
             add_typing(node,
                        type: type,
                        constr: constr.update_lvar_env { env })
@@ -1586,7 +1596,7 @@ module Steep
         when :if
           cond, true_clause, false_clause = node.children
 
-          cond_type, constr = synthesize(cond)
+          cond_type, constr = synthesize(cond, condition: true)
           interpreter = TypeInference::LogicTypeInterpreter.new(subtyping: checker, typing: constr.typing)
           truthy_env, falsey_env = interpreter.eval(env: constr.context.lvar_env, type: cond_type, node: cond)
 
@@ -1643,7 +1653,7 @@ module Steep
             if cond
               branch_pairs = []
 
-              cond_type, constr = constr.synthesize(cond)
+              cond_type, constr = constr.synthesize(cond, condition: true)
               _, cond_vars = interpreter.decompose_value(cond)
               unless cond_vars.empty?
                 first_var = cond_vars.to_a[0]
@@ -1907,7 +1917,7 @@ module Steep
         when :while, :until
           yield_self do
             cond, body = node.children
-            cond_type, constr = synthesize(cond)
+            cond_type, constr = synthesize(cond, condition: true)
 
             interpreter = TypeInference::LogicTypeInterpreter.new(subtyping: checker, typing: typing)
             truthy_env, falsy_env = interpreter.eval(env: constr.context.lvar_env, node: cond, type: cond_type)
