@@ -368,6 +368,8 @@ module Steep
             ]
           when AST::Types::Name::Alias
             unwrap_optional(expand_alias(type))
+          when AST::Types::Boolean
+            [AST::Builtin.true_type, AST::Builtin.false_type]
           else
             [type, nil]
           end

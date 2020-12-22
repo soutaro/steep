@@ -4473,6 +4473,28 @@ y = x || []
     end
   end
 
+  def test_or_nil_unwrap2
+    with_checker do |checker|
+      source = parse_ruby(<<-EOF)
+# @type var x: Array[Integer]?
+# @type var y: Array[Integer]?
+# @type var z: Array[Integer]
+x = nil
+y = nil
+z = x || y || []
+      EOF
+
+      with_standard_construction(checker, source) do |construction, typing|
+        pair = construction.synthesize(source.node)
+
+        assert_no_error typing
+        assert_equal parse_type("::Array[::Integer]?"), pair.context.lvar_env[:x]
+        assert_equal parse_type("::Array[::Integer]?"), pair.context.lvar_env[:y]
+        assert_equal parse_type("::Array[::Integer]"), pair.context.lvar_env[:z]
+      end
+    end
+  end
+
   def test_alias
     with_checker do |checker|
       source = parse_ruby(<<-EOF)
@@ -6606,6 +6628,47 @@ EOF
     end
   end
 
+  def test_and_nested
+    with_checker do |checker|
+      source = parse_ruby(<<EOF)
+# @type var x: String | Float
+# @type var y: String?
+x = ""
+y = nil
+
+x.is_a?(String) && y && x + y
+EOF
+
+      with_standard_construction(checker, source) do |construction, typing|
+        _, _, context = construction.synthesize(source.node)
+
+        assert_no_error typing
+      end
+    end
+  end
+
+  def test_or_nested
+    with_checker do |checker|
+      source = parse_ruby(<<RUBY)
+# @type var x: String | Float
+# @type var y: Integer?
+# @type var z: String?
+x = ""
+y = 3
+
+x.is_a?(Float) || (z = x)
+y || (z = y)
+x.is_a?(Float) || y || (z = x; z = y)
+RUBY
+
+      with_standard_construction(checker, source) do |construction, typing|
+        _, _, context = construction.synthesize(source.node)
+
+        assert_no_error typing
+      end
+    end
+  end
+
   def test_or_is_a
     with_checker do |checker|
       source = parse_ruby(<<EOF)
@@ -6858,6 +6921,43 @@ RUBY
 
         assert_no_error typing
         assert_equal parse_type("::String | ::Symbol"), type
+      end
+    end
+  end
+
+  def test_and_is_a_nested
+    with_checker(<<RBS) do |checker|
+class Object
+  def ==: (untyped) -> bool
+end
+
+class TestObject
+  def ==: (untyped) -> bool
+
+  attr_reader foo: String
+end
+RBS
+      source = parse_ruby(<<RUBY)
+class TestObject
+  # @dynamic foo
+
+  def ==(other)
+    other.is_a?(TestObject) &&
+      other.foo == foo &&
+      other.bar == bar
+  end
+end
+RUBY
+
+      with_standard_construction(checker, source) do |construction, typing|
+        type, _ = construction.synthesize(source.node)
+
+        assert_typing_error typing, size: 2 do |errors|
+          assert_all!(errors) do |error|
+            assert_instance_of Steep::Errors::NoMethod, error
+            assert_equal :bar, error.method
+          end
+        end
       end
     end
   end

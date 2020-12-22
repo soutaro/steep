@@ -59,15 +59,16 @@ module Steep
         end
 
         class Env < Base
-          attr_reader :truthy, :falsy
+          attr_reader :truthy, :falsy, :type
 
-          def initialize(truthy:, falsy:, location: nil)
+          def initialize(truthy:, falsy:, type:, location: nil)
             @truthy = truthy
             @falsy = falsy
+            @type = type
           end
 
           def ==(other)
-            other.is_a?(Env) && other.truthy == truthy && other.falsy == falsy
+            other.is_a?(Env) && other.truthy == truthy && other.falsy == falsy && other.type == type
           end
 
           alias eql? ==
@@ -75,6 +76,12 @@ module Steep
           def hash
             self.class.hash ^ truthy.hash ^ falsy.hash
           end
+
+          def inspect
+            "#<Steep::AST::Types::Env @type=#{type}, @truthy=..., @falsy=...>"
+          end
+
+          alias to_s inspect
         end
       end
     end
