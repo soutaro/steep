@@ -192,8 +192,8 @@ module Steep
             rescue RBS::DuplicatedDeclarationError => exn
               @status = SignatureValidationErrorStatus.new(
                 errors: [
-                  Signature::Errors::DuplicatedDefinitionError.new(
-                    name: exn.name,
+                  Signature::Errors::DuplicatedDeclarationError.new(
+                    type_name: exn.name,
                     location: exn.decls[0].location
                   )
                 ],

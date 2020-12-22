@@ -62,7 +62,7 @@ module Steep
       end
 
       def validate_one_class(name)
-        rescue_validation_errors do
+        rescue_validation_errors(name) do
           Steep.logger.debug "Validating class definition `#{name}`..."
           Steep.logger.tagged "#{name}" do
             builder.build_instance(name).each_type do |type|
@@ -76,7 +76,7 @@ module Steep
       end
 
       def validate_one_interface(name)
-        rescue_validation_errors do
+        rescue_validation_errors(name) do
           Steep.logger.debug "Validating interface `#{name}`..."
           Steep.logger.tagged "#{name}" do
             builder.build_interface(name).each_type do |type|
@@ -117,7 +117,7 @@ module Steep
 
       def validate_alias
         env.alias_decls.each do |name, entry|
-          rescue_validation_errors do
+          rescue_validation_errors(name) do
             Steep.logger.debug "Validating alias `#{name}`..."
             builder.expand_alias(name).tap do |type|
               validate_type(type)
@@ -126,7 +126,7 @@ module Steep
         end
       end
 
-      def rescue_validation_errors
+      def rescue_validation_errors(type_name = nil)
         yield
       rescue RBS::InvalidTypeApplicationError => exn
         @errors << Errors::InvalidTypeApplicationError.new(
@@ -145,6 +145,30 @@ module Steep
           class_name: exn.type_name,
           method_name: exn.method_name,
           location: exn.members[0].location
+        )
+      rescue RBS::DuplicatedMethodDefinitionError => exn
+        @errors << Errors::DuplicatedMethodDefinitionError.new(
+          class_name: type_name,
+          method_name: exn.method_name,
+          location: exn.location
+        )
+      rescue RBS::DuplicatedInterfaceMethodDefinitionError => exn
+        @errors << Errors::DuplicatedMethodDefinitionError.new(
+          class_name: type_name,
+          method_name: exn.method_name,
+          location: exn.member.location
+        )
+      rescue RBS::UnknownMethodAliasError => exn
+        @errors << Errors::UnknownMethodAliasError.new(
+          class_name: type_name,
+          method_name: exn.aliased_name,
+          location: exn.location
+        )
+      rescue RBS::RecursiveAliasDefinitionError => exn
+        @errors << Errors::RecursiveAliasError.new(
+          class_name: exn.type.name,
+          names: exn.defs.map(&:name),
+          location: exn.defs[0].original.location
         )
       end
     end

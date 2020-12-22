@@ -35,9 +35,11 @@ module TestHelper
     assert collection.any?(&block)
   end
 
-  def assert_any!(collection, &block)
+  def assert_any!(collection, size: nil, &block)
     errors = []
     count = 0
+
+    assert_equal size, collection.count if size
 
     collection.each do |c|
       begin
