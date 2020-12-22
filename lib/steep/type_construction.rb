@@ -1685,6 +1685,7 @@ module Steep
                   falsy_env = cond_vars.inject(falsy_env) do |env, var|
                     env.assign!(var, node: test_node, type: env[first_var])
                   end
+
                   test_envs << truthy_env
                   test_constr = test_constr.update_lvar_env { falsy_env }
                 end

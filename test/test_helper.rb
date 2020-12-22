@@ -219,6 +219,7 @@ class Object < BasicObject
   def nil?: -> bool
   def itself: -> self
   def is_a?: (Module) -> bool
+  def ===: (untyped) -> bool
 
 private
   def require: (String) -> void
@@ -246,6 +247,8 @@ end
 class Numeric
   def `+`: (Numeric) -> Numeric
   def to_int: -> Integer
+
+  def zero?: () -> bool
 end
 
 class Integer < Numeric

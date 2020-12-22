@@ -58,6 +58,12 @@ module Steep
           end
         end
 
+        class ArgEqualsReceiver < Base
+          def initialize(location: nil)
+            @location = location
+          end
+        end
+
         class Env < Base
           attr_reader :truthy, :falsy, :type
 
