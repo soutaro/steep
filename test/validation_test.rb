@@ -268,6 +268,95 @@ Foo::Bar: Integer
     end
   end
 
+  def test_validate_alias_missing
+    with_checker <<-EOF do |checker|
+interface _Hello
+  alias foo bar
+end
+    EOF
+
+      validator = Validator.new(checker: checker)
+      validator.validate_decl
+
+      assert_operator validator, :has_error?
+      assert_any! validator.each_error do |error|
+        assert_instance_of Errors::UnknownMethodAliasError, error
+        assert_equal TypeName("::_Hello"), error.class_name
+        assert_equal :foo, error.method_name
+        assert_equal "alias foo bar", error.location.source
+      end
+    end
+  end
+
+  def test_duplicated_method_definition
+    with_checker <<-EOF do |checker|
+class Foo
+  def foo: () -> void
+
+  def foo: () -> String
+end
+    EOF
+
+      validator = Validator.new(checker: checker)
+      validator.validate_decl
+
+      assert_operator validator, :has_error?
+      assert_any! validator.each_error do |error|
+        assert_instance_of Errors::DuplicatedMethodDefinitionError, error
+        assert_equal TypeName("::Foo"), error.class_name
+        assert_equal :foo, error.method_name
+      end
+    end
+  end
+
+  def test_duplicated_interface_method_definition
+    with_checker <<-EOF do |checker|
+interface _Foo
+  def foo: () -> void
+end
+
+interface _Bar
+  def foo: () -> String
+end
+
+class Foo
+  include _Foo
+  include _Bar
+end
+    EOF
+
+      validator = Validator.new(checker: checker)
+      validator.validate_decl
+
+      assert_operator validator, :has_error?
+      assert_any! validator.each_error do |error|
+        assert_instance_of Errors::DuplicatedMethodDefinitionError, error
+        assert_equal TypeName("::Foo"), error.class_name
+        assert_equal :foo, error.method_name
+      end
+    end
+  end
+
+  def test_recursive_alias
+    with_checker <<-EOF do |checker|
+class Foo
+  alias foo bar
+  alias bar foo
+end
+    EOF
+
+      validator = Validator.new(checker: checker)
+      validator.validate_decl
+
+      assert_operator validator, :has_error?
+      assert_any! validator.each_error do |error|
+        assert_instance_of Errors::RecursiveAliasError, error
+        assert_equal TypeName("::Foo"), error.class_name
+        assert_equal Set[:foo, :bar], Set.new(error.names)
+      end
+    end
+  end
+
   def test_validate_module
     skip "Not implemented yet"
   end
