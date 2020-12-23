@@ -3033,7 +3033,12 @@ EOF
       with_standard_construction(checker, source) do |construction, typing|
         construction.synthesize(source.node)
 
-        assert_empty typing.errors
+        assert_typing_error typing, size: 1 do |errors|
+          errors[0].tap do |error|
+            assert_instance_of Steep::Errors::UnsupportedSyntax, error
+            assert_equal :splat, error.node.type
+          end
+        end
       end
     end
   end
@@ -4980,8 +4985,15 @@ end
       with_standard_construction(checker, source) do |construction, typing|
         construction.synthesize(source.node)
 
-        assert_equal 1, typing.errors.size
-        assert_instance_of Steep::Errors::MethodArityMismatch, typing.errors[0]
+        assert_typing_error typing, size: 2 do |errors|
+          assert_any!(errors) do |error|
+            assert_instance_of Steep::Errors::MethodArityMismatch, error
+          end
+
+          assert_any!(errors) do |error|
+            assert_instance_of Steep::Errors::UnsupportedSyntax, error
+          end
+        end
       end
     end
   end

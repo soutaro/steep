@@ -311,7 +311,6 @@ class TrueClass
 end
 class FalseClass
 end
-
   EOS
 
   def checker

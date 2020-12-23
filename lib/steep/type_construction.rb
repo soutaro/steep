@@ -1092,7 +1092,12 @@ module Steep
             else
               type = AST::Builtin.any_type
               if context&.method_context&.method_type
-                Steep.logger.error { "Unknown arg type: #{node}" }
+                typing.add_error(
+                  Errors::UnsupportedSyntax.new(
+                    node: node,
+                    message: "Arg type not found in the environment: #{context.lvar_env}"
+                  )
+                )
               end
 
               lvasgn(node, type)
@@ -2164,7 +2169,12 @@ module Steep
 
         when :splat
           yield_self do
-            Steep.logger.warn { "Unsupported node #{node.type} (#{node.location.expression.source_buffer.name}:#{node.location.expression.line})" }
+            typing.add_error(
+              Errors::UnsupportedSyntax.new(
+                node: node,
+                message: "Unsupported splat node occurrence"
+              )
+            )
 
             each_child_node node do |child|
               synthesize(child)
@@ -2183,7 +2193,7 @@ module Steep
           add_typing node, type: AST::Builtin.any_type, constr: constr
 
         else
-          raise "Unexpected node: #{node.inspect}, #{node.location.expression}"
+          typing.add_error(Errors::UnsupportedSyntax.new(node: node))
 
         end.tap do |pair|
           unless pair.is_a?(Pair) && !pair.type.is_a?(Pair)
