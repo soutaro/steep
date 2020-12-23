@@ -23,7 +23,7 @@ module Steep
         end
 
         def to_s
-          "⟘"
+          "bot"
         end
 
         include Helper::NoFreeVariables
