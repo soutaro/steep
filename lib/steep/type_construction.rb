@@ -1095,15 +1095,6 @@ module Steep
               add_typing(node, type: type)
             else
               type = AST::Builtin.any_type
-              if context&.method_context&.method_type
-                typing.add_error(
-                  Errors::UnsupportedSyntax.new(
-                    node: node,
-                    message: "Arg type not found in the environment: #{context.lvar_env}"
-                  )
-                )
-              end
-
               lvasgn(node, type)
             end
           end

@@ -4967,13 +4967,9 @@ end
       with_standard_construction(checker, source) do |construction, typing|
         construction.synthesize(source.node)
 
-        assert_typing_error typing, size: 2 do |errors|
+        assert_typing_error typing, size: 1 do |errors|
           assert_any!(errors) do |error|
             assert_instance_of Steep::Errors::MethodArityMismatch, error
-          end
-
-          assert_any!(errors) do |error|
-            assert_instance_of Steep::Errors::UnsupportedSyntax, error
           end
         end
       end
