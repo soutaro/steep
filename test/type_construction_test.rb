@@ -7043,4 +7043,23 @@ RUBY
       end
     end
   end
+
+  def test_case_when_var
+    with_checker() do |checker|
+      source = parse_ruby(<<RUBY)
+# @type var x: Integer?
+x = _ = nil
+
+case
+when x
+  x + 1
+end
+RUBY
+
+      with_standard_construction(checker, source) do |construction, typing|
+        type, _ = construction.synthesize(source.node)
+        assert_no_error typing
+      end
+    end
+  end
 end

@@ -1529,7 +1529,7 @@ module Steep
                                    .for_branch(right)
                                    .synthesize(right, hint: hint, condition: true)
 
-            truthy_env, _ = interpreter.eval(env: truthy_env, type: right_type, node: right)
+            truthy_env, _ = interpreter.eval(env: constr.context.lvar_env, type: right_type, node: right)
 
             env = if right_type.is_a?(AST::Types::Bot)
                     falsey_env
@@ -1653,7 +1653,7 @@ module Steep
             if cond
               branch_pairs = []
 
-              cond_type, constr = constr.synthesize(cond, condition: true)
+              cond_type, constr = constr.synthesize(cond)
               _, cond_vars = interpreter.decompose_value(cond)
               unless cond_vars.empty?
                 first_var = cond_vars.to_a[0]
@@ -1677,7 +1677,7 @@ module Steep
 
                 tests.each do |test|
                   test_node = test.updated(:send, [test, :===, var_node])
-                  test_type, test_constr = test_constr.synthesize(test_node)
+                  test_type, test_constr = test_constr.synthesize(test_node, condition: true)
                   truthy_env, falsy_env = interpreter.eval(type: test_type, node: test_node, env: test_constr.context.lvar_env)
                   truthy_env = cond_vars.inject(truthy_env) do |env, var|
                     env.assign!(var, node: test_node, type: env[first_var])
@@ -1730,21 +1730,20 @@ module Steep
               branch_pairs = []
 
               when_constr = constr
+              clause_constr = constr
 
               whens.each do |clause|
                 *tests, body = clause.children
 
                 test_constr = when_constr
-                test_envs = []
 
                 tests.each do |test|
-                  test_type, test_constr = test_constr.synthesize(test)
+                  test_type, test_constr = test_constr.synthesize(test, condition: true)
                   truthy_env, falsy_env = interpreter.eval(env: test_constr.context.lvar_env, type: test_type, node: test)
-                  test_envs << truthy_env
+                  clause_constr = clause_constr.update_lvar_env { truthy_env }
                   test_constr = test_constr.update_lvar_env { falsy_env }
                 end
 
-                clause_constr = when_constr.update_lvar_env {|env| env.join(*test_envs) }
                 when_constr = test_constr
 
                 if body
