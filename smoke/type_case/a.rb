@@ -16,7 +16,7 @@ end
 
 case x
 when 1
-  # !expects NoMethodError: type=(::Integer | ::String | ::Symbol), method=foobar
+  # !expects NoMethodError: type=1, method=foobar
   x.foobar
 end
 

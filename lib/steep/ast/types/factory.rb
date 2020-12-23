@@ -423,6 +423,14 @@ module Steep
                     return_type: AST::Types::Logic::ArgIsReceiver.new(location: method_type.type.return_type.location)
                   )
                 )
+              when RBS::BuiltinNames::Object.name, RBS::BuiltinNames::String.name, RBS::BuiltinNames::Integer.name, RBS::BuiltinNames::Symbol.name,
+                RBS::BuiltinNames::TrueClass.name, RBS::BuiltinNames::FalseClass.name, TypeName("::NilClass")
+                # Value based type-case works on literal types which is available for String, Integer, Symbol, TrueClass, FalseClass, and NilClass
+                return method_type.with(
+                  type: method_type.type.with(
+                    return_type: AST::Types::Logic::ArgEqualsReceiver.new(location: method_type.type.return_type.location)
+                  )
+                )
               end
             end
           end

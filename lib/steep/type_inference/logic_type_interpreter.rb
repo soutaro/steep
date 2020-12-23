@@ -96,7 +96,7 @@ module Steep
 
               if receiver
                 _, arg_vars = decompose_value(arg)
-                receiver_type = typing.type_of(node: receiver)
+                receiver_type = factory.deep_expand_alias(typing.type_of(node: receiver))
 
                 if receiver_type.is_a?(AST::Types::Name::Singleton)
                   arg_vars.each do |var_name|
@@ -106,6 +106,23 @@ module Steep
                     truthy_env = truthy_env.assign!(var_name, node: node, type: truthy_type)
                     falsy_env = falsy_env.assign!(var_name, node: node, type: falsy_type)
                   end
+                end
+              end
+            end
+          when AST::Types::Logic::ArgEqualsReceiver
+            case value_node.type
+            when :send
+              receiver, _, arg = value_node.children
+
+              if receiver
+                _, arg_vars = decompose_value(arg)
+
+                arg_vars.each do |var_name|
+                  var_type = factory.deep_expand_alias(env[var_name])
+                  truthy_types, falsy_types = literal_var_type_case_select(receiver, var_type)
+
+                  truthy_env = truthy_env.assign!(var_name, node: node, type: AST::Types::Union.build(types: truthy_types, location: nil))
+                  falsy_env = falsy_env.assign!(var_name, node: node, type: AST::Types::Union.build(types: falsy_types, location: nil))
                 end
               end
             end
@@ -159,6 +176,60 @@ module Steep
         end
       end
 
+      def literal_var_type_case_select(value_node, arg_type)
+        case arg_type
+        when AST::Types::Union
+          truthy_types = []
+          falsy_types = []
+
+          arg_type.types.each do |type|
+            ts, fs = literal_var_type_case_select(value_node, type)
+            truthy_types.push(*ts)
+            falsy_types.push(*fs)
+          end
+
+          [truthy_types, falsy_types]
+        else
+          value_type = typing.type_of(node: value_node)
+          types = [arg_type]
+
+          case value_node.type
+          when :nil
+            types.partition do |type|
+              type.is_a?(AST::Types::Nil) || AST::Builtin::NilClass.instance_type?(type)
+            end
+          when :true
+            types.partition do |type|
+              AST::Builtin::TrueClass.instance_type?(type) ||
+                (type.is_a?(AST::Types::Literal) && type.value == true)
+            end
+          when :false
+            types.partition do |type|
+              AST::Builtin::FalseClass.instance_type?(type) ||
+                (type.is_a?(AST::Types::Literal) && type.value == false)
+            end
+          when :int, :str, :sym
+            types.each.with_object([[], []]) do |type, pair|
+              true_types, false_types = pair
+
+              case
+              when type.is_a?(AST::Types::Literal)
+                if type.value == value_node.children[0]
+                  true_types << type
+                else
+                  false_types << type
+                end
+              else
+                true_types << AST::Types::Literal.new(value: value_node.children[0])
+                false_types << type
+              end
+            end
+          else
+            [[arg_type], [arg_type]]
+          end
+        end
+      end
+
       def type_case_select(type, klass)
         truth_types, false_types = type_case_select0(type, klass)
 
@@ -189,20 +260,6 @@ module Steep
 
           [truthy_types, falsy_types]
 
-        when AST::Types::Name::Instance
-          relation = Subtyping::Relation.new(sub_type: type, super_type: instance_type)
-          if subtyping.check(relation, constraints: Subtyping::Constraints.empty, self_type: AST::Types::Self.new).success?
-            [
-              [type],
-              []
-            ]
-          else
-            [
-              [],
-              [type]
-            ]
-          end
-
         when AST::Types::Name::Alias
           ty = factory.expand_alias(type)
           type_case_select0(ty, klass)
@@ -220,10 +277,18 @@ module Steep
           ]
 
         else
-          [
-            [],
-            [type]
-          ]
+          relation = Subtyping::Relation.new(sub_type: type, super_type: instance_type)
+          if subtyping.check(relation, constraints: Subtyping::Constraints.empty, self_type: AST::Types::Self.new).success?
+            [
+              [type],
+              []
+            ]
+          else
+            [
+              [],
+              [type]
+            ]
+          end
         end
       end
     end

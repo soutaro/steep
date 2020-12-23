@@ -6961,4 +6961,86 @@ RUBY
       end
     end
   end
+
+  def test_value_case
+    with_checker(<<RBS) do |checker|
+type allowed_key = :foo | :bar | nil | Integer
+RBS
+      source = parse_ruby(<<RUBY)
+# @type var x: allowed_key
+x = nil 
+
+# @type var y: nil
+# @type var z: Symbol
+
+case x
+when nil
+  y = x
+when :foo
+  z = x
+when Symbol
+  z = x
+when Integer
+  x + 1
+end
+RUBY
+
+      with_standard_construction(checker, source) do |construction, typing|
+        type, _ = construction.synthesize(source.node)
+        assert_no_error typing
+      end
+    end
+  end
+
+  def test_value_case2
+    with_checker(<<RBS) do |checker|
+type allowed_key = :foo | :bar
+RBS
+      source = parse_ruby(<<RUBY)
+# @type var x: allowed_key
+x = _ = nil
+
+# @type var a: bool
+
+a = case x
+    when :foo
+      true
+    when :bar
+      false
+    end
+RUBY
+
+      with_standard_construction(checker, source) do |construction, typing|
+        type, _ = construction.synthesize(source.node)
+        assert_no_error typing
+      end
+    end
+  end
+
+  def test_value_case3
+    with_checker(<<RBS) do |checker|
+type allowed_key = Integer | String
+RBS
+      source = parse_ruby(<<RUBY)
+# @type var x: allowed_key
+x = _ = nil
+
+# @type var a: bool
+
+a = case x
+    when 1
+      (x + 1).zero?
+    when "2"
+      (x + "").size.zero?
+    when Integer, String
+      false
+    end
+RUBY
+
+      with_standard_construction(checker, source) do |construction, typing|
+        type, _ = construction.synthesize(source.node)
+        assert_no_error typing
+      end
+    end
+  end
 end
