@@ -882,9 +882,7 @@ module Steep
             new.typing.add_context_for_node(node, context: new.context)
             new.typing.add_context_for_body(node, context: new.context)
 
-            each_child_node(args_node) do |arg|
-              _, new = new.synthesize(arg)
-            end
+            new = new.synthesize_children(args_node)
 
             body_pair = if body_node
                           return_type = expand_alias(new.method_context&.return_type)
@@ -939,13 +937,16 @@ module Steep
                            checker.factory.definition_builder.build_singleton(name)
                          end
 
+            args_node = node.children[2]
             new = for_new_method(node.children[1],
                                  node,
-                                 args: node.children[2].children,
+                                 args: args_node.children,
                                  self_type: self_type,
                                  definition: definition)
             new.typing.add_context_for_node(node, context: new.context)
             new.typing.add_context_for_body(node, context: new.context)
+
+            new = new.synthesize_children(args_node)
 
             each_child_node(node.children[2]) do |arg|
               new.synthesize(arg)

@@ -7069,6 +7069,23 @@ RUBY
     end
   end
 
+  def test_case_when_arg
+    with_checker() do |checker|
+      source = parse_ruby(<<'RUBY')
+class C
+  def self.foo(x)
+    case x
+    when Integer
+      x + 1
+    when String
+      x + ""
+    end
+  end
+end
+RUBY
+
+      with_standard_construction(checker, source) do |construction, typing|
+        construction.synthesize(source.node)
         assert_no_error typing
       end
     end
