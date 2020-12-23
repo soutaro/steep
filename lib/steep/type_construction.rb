@@ -399,6 +399,9 @@ module Steep
 
         instance_type = AST::Types::Name::Instance.new(name: class_name, args: class_args)
         module_type = AST::Types::Name::Singleton.new(name: class_name)
+      else
+        instance_type = AST::Builtin::Object.instance_type
+        module_type = AST::Builtin::Object.module_type
       end
 
       if annots.instance_type
