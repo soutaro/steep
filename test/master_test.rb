@@ -108,14 +108,7 @@ end
         RUBY
 
         finally_holds do
-          assert_equal [{
-                          range: {
-                            start: { line: 0, character: 6 },
-                            end: { line: 0, character: 9 }
-                          },
-                          severity: 1,
-                          message: "FallbackAny (Foo)"
-                        }],
+          assert_equal [],
                        ui.diagnostics_for(project.absolute_path(Pathname("lib/foo.rb")))
         end
 

@@ -1009,8 +1009,8 @@ end
         for_class = construction.for_class(source.node)
 
         assert_nil for_class.module_context.implement_name
-        assert_nil for_class.module_context.instance_type
-        assert_nil for_class.module_context.module_type
+        assert_equal parse_type("::Object"), for_class.module_context.instance_type
+        assert_equal parse_type("singleton(::Object)"), for_class.module_context.module_type
       end
     end
   end
@@ -1386,7 +1386,7 @@ end
       with_standard_construction(checker, source) do |construction, typing|
         construction.synthesize(source.node)
 
-        assert_typing_error(typing, size: 3) do |errors|
+        assert_typing_error(typing, size: 2) do |errors|
           assert_any!(errors) do |error|
             assert_instance_of Steep::Errors::IncompatibleAssignment, error
             assert_equal parse_type("::String"), error.rhs_type
@@ -1397,10 +1397,6 @@ end
             assert_instance_of Steep::Errors::MethodBodyTypeMismatch, error
             assert_equal parse_type("::String"), error.actual
             assert_equal parse_type("::A::String"), error.expected
-          end
-
-          assert_any!(errors) do |error|
-            assert_instance_of Steep::Errors::FallbackAny, error
           end
         end
       end
@@ -3033,7 +3029,12 @@ EOF
       with_standard_construction(checker, source) do |construction, typing|
         construction.synthesize(source.node)
 
-        assert_empty typing.errors
+        assert_typing_error typing, size: 1 do |errors|
+          errors[0].tap do |error|
+            assert_instance_of Steep::Errors::UnsupportedSyntax, error
+            assert_equal :splat, error.node.type
+          end
+        end
       end
     end
   end
@@ -4564,21 +4565,7 @@ end
       with_standard_construction(checker, source) do |construction, typing|
         construction.synthesize(source.node)
 
-        assert_typing_error(typing, size: 3) do |errors|
-          assert_any!(errors) do |error|
-            assert_instance_of Steep::Errors::NoMethod, error
-            assert_equal :attr_reader, error.method
-          end
-
-          assert_any!(errors) do |error|
-            assert_instance_of Steep::Errors::NoMethod, error
-            assert_equal :to_s, error.method
-          end
-
-          assert_any!(errors) do |error|
-            assert_instance_of Steep::Errors::FallbackAny, error
-          end
-        end
+        assert_no_error(typing)
       end
     end
   end
@@ -4980,8 +4967,11 @@ end
       with_standard_construction(checker, source) do |construction, typing|
         construction.synthesize(source.node)
 
-        assert_equal 1, typing.errors.size
-        assert_instance_of Steep::Errors::MethodArityMismatch, typing.errors[0]
+        assert_typing_error typing, size: 1 do |errors|
+          assert_any!(errors) do |error|
+            assert_instance_of Steep::Errors::MethodArityMismatch, error
+          end
+        end
       end
     end
   end
@@ -5451,16 +5441,7 @@ end
       with_standard_construction(checker, source) do |construction, typing|
         construction.synthesize(source.node)
 
-        assert_typing_error(typing, size: 2) do |errors|
-          assert_any!(errors) do |error|
-            assert_instance_of Steep::Errors::UnsupportedSyntax, error
-            assert_equal :sclass, error.node.type
-          end
-
-          assert_any!(errors) do |error|
-            assert_instance_of Steep::Errors::FallbackAny, error
-          end
-        end
+        assert_no_error typing
       end
     end
   end
@@ -7058,6 +7039,49 @@ RUBY
 
       with_standard_construction(checker, source) do |construction, typing|
         type, _ = construction.synthesize(source.node)
+        assert_no_error typing
+      end
+    end
+  end
+
+  def test_defs_self
+    with_checker() do |checker|
+      source = parse_ruby(<<'RUBY')
+class C < UnknownSuperClass
+  def self.foo
+  end
+end
+RUBY
+
+      with_standard_construction(checker, source) do |construction, typing|
+        type, _ = construction.synthesize(source.node)
+
+        assert_typing_error(typing, size: 2) do |errors|
+          assert_all!(errors) do |error|
+            assert_instance_of Steep::Errors::FallbackAny, error
+          end
+        end
+      end
+    end
+  end
+
+  def test_case_when_arg
+    with_checker() do |checker|
+      source = parse_ruby(<<'RUBY')
+class C
+  def self.foo(x)
+    case x
+    when Integer
+      x + 1
+    when String
+      x + ""
+    end
+  end
+end
+RUBY
+
+      with_standard_construction(checker, source) do |construction, typing|
+        construction.synthesize(source.node)
         assert_no_error typing
       end
     end

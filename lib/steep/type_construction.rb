@@ -399,6 +399,9 @@ module Steep
 
         instance_type = AST::Types::Name::Instance.new(name: class_name, args: class_args)
         module_type = AST::Types::Name::Singleton.new(name: class_name)
+      else
+        instance_type = AST::Builtin::Object.instance_type
+        module_type = AST::Builtin::Object.module_type
       end
 
       if annots.instance_type
@@ -879,9 +882,7 @@ module Steep
             new.typing.add_context_for_node(node, context: new.context)
             new.typing.add_context_for_body(node, context: new.context)
 
-            each_child_node(args_node) do |arg|
-              _, new = new.synthesize(arg)
-            end
+            new = new.synthesize_children(args_node)
 
             body_pair = if body_node
                           return_type = expand_alias(new.method_context&.return_type)
@@ -936,13 +937,16 @@ module Steep
                            checker.factory.definition_builder.build_singleton(name)
                          end
 
+            args_node = node.children[2]
             new = for_new_method(node.children[1],
                                  node,
-                                 args: node.children[2].children,
+                                 args: args_node.children,
                                  self_type: self_type,
                                  definition: definition)
             new.typing.add_context_for_node(node, context: new.context)
             new.typing.add_context_for_body(node, context: new.context)
+
+            new = new.synthesize_children(args_node)
 
             each_child_node(node.children[2]) do |arg|
               new.synthesize(arg)
@@ -1091,10 +1095,6 @@ module Steep
               add_typing(node, type: type)
             else
               type = AST::Builtin.any_type
-              if context&.method_context&.method_type
-                Steep.logger.error { "Unknown arg type: #{node}" }
-              end
-
               lvasgn(node, type)
             end
           end
@@ -2164,7 +2164,12 @@ module Steep
 
         when :splat
           yield_self do
-            Steep.logger.warn { "Unsupported node #{node.type} (#{node.location.expression.source_buffer.name}:#{node.location.expression.line})" }
+            typing.add_error(
+              Errors::UnsupportedSyntax.new(
+                node: node,
+                message: "Unsupported splat node occurrence"
+              )
+            )
 
             each_child_node node do |child|
               synthesize(child)
@@ -2183,7 +2188,7 @@ module Steep
           add_typing node, type: AST::Builtin.any_type, constr: constr
 
         else
-          raise "Unexpected node: #{node.inspect}, #{node.location.expression}"
+          typing.add_error(Errors::UnsupportedSyntax.new(node: node))
 
         end.tap do |pair|
           unless pair.is_a?(Pair) && !pair.type.is_a?(Pair)
