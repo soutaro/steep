@@ -6,7 +6,7 @@ module Steep
       attr_reader :steepfile
       attr_reader :project
       attr_reader :reader, :writer
-      attr_reader :queue
+      attr_reader :write_queue
       attr_reader :worker_count
       attr_reader :worker_to_paths
 
@@ -20,7 +20,7 @@ module Steep
         @project = project
         @reader = reader
         @writer = writer
-        @queue = queue
+        @write_queue = queue
         @interaction_worker = interaction_worker
         @signature_worker = signature_worker
         @code_workers = code_workers
@@ -68,14 +68,14 @@ module Steep
           end
         end
 
-        while job = queue.pop
+        while response = write_queue.pop
           if @shutdown_request_id
-            if job[:id] == @shutdown_request_id
-              writer.write(job)
+            if response[:id] == @shutdown_request_id
+              writer.write(response)
               break
             end
           else
-            writer.write(job)
+            writer.write(response)
           end
         end
 
@@ -101,7 +101,7 @@ module Steep
 
         case message[:method]
         when "initialize"
-          queue << {
+          write_queue << {
             id: id,
             result: LSP::Interface::InitializeResult.new(
               capabilities: LSP::Interface::ServerCapabilities.new(
@@ -148,16 +148,16 @@ module Steep
           signature_worker << message
 
         when "shutdown"
-          queue << { id: id, result: nil }
+          write_queue << { id: id, result: nil }
           @shutdown_request_id = id
 
         when "exit"
-          queue << nil
+          write_queue << nil
         end
       end
 
       def process_message_from_worker(message)
-        queue << message
+        write_queue << message
       end
 
       def paths_for(worker)
