@@ -34,5 +34,5 @@ Gem::Specification.new do |spec|
   spec.add_runtime_dependency "rainbow", ">= 2.2.2", "< 4.0"
   spec.add_runtime_dependency "listen", "~> 3.0"
   spec.add_runtime_dependency "language_server-protocol", "~> 3.15.0.1"
-  spec.add_runtime_dependency "rbs", "~> 1.0.0.pre"
+  spec.add_runtime_dependency "rbs", "~> 1.0.0.pre2"
 end
