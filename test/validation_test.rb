@@ -132,10 +132,10 @@ end
       validator = Validator.new(checker: checker)
       validator.validate_decl
 
-      assert_operator validator, :has_error?
-      assert_any validator.each_error do |error|
-        error.is_a?(Errors::UnknownTypeNameError) &&
-          error.name == parse_type("::Arraay").name
+      assert_predicate validator, :has_error?
+      assert_any! validator.each_error.to_a, size: 1 do |error|
+        assert_instance_of Errors::UnknownTypeNameError, error
+        assert_equal TypeName("Arraay"), error.name
       end
     end
   end
