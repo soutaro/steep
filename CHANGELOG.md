@@ -2,6 +2,16 @@
 
 ## master
 
+## 0.39.0 (2020-12-25)
+
+* Update RBS to 1.0.0 ([#282](https://github.com/soutaro/steep/pull/282))
+* Better `&&` and `||` typing ([#276](https://github.com/soutaro/steep/pull/276))
+* Type case based on literals ([#277](https://github.com/soutaro/steep/pull/277))
+* Type case improvements ([#279](https://github.com/soutaro/steep/pull/279), [#283](https://github.com/soutaro/steep/pull/283))
+* Improvements on untyped classes/modules, unsupported syntax error handling, and argument types in untyped methods ([#280](https://github.com/soutaro/steep/pull/280))
+* Fix `bot` and `top` type format ([#278](https://github.com/soutaro/steep/pull/278))
+* Colorfull error messages ([#273](https://github.com/soutaro/steep/pull/273))
+
 ## 0.38.0 (2020-12-10)
 
 * Improve `break`/`next` typing ([#271](https://github.com/soutaro/steep/pull/271))
