@@ -83,7 +83,6 @@ module Steep
           opts.banner = "Usage: steep check [options] [sources]"
 
           opts.on("--steepfile=PATH") {|path| check.steepfile = Pathname(path) }
-          opts.on("--dump-all-types") { check.dump_all_types = true }
           handle_logging_options opts
         end.parse!(argv)
 
