@@ -17,6 +17,14 @@ module Steep
         @skip_job = false
       end
 
+      def skip_jobs_after_shutdown!(flag = true)
+        @skip_jobs_after_shutdown = flag
+      end
+
+      def skip_jobs_after_shutdown?
+        @skip_jobs_after_shutdown
+      end
+
       def skip_job?
         @skip_job
       end
@@ -56,7 +64,7 @@ module Steep
               case request[:method]
               when "shutdown"
                 queue << ShutdownJob.new(id: request[:id])
-                @skip_job = true
+                @skip_job = skip_jobs_after_shutdown?
                 queue.close
               when "exit"
                 break

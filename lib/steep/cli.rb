@@ -184,6 +184,7 @@ module Steep
           opts.on("--signature") { command.worker_type = :signature }
           opts.on("--steepfile=PATH") {|path| command.steepfile = Pathname(path) }
           opts.on("--name=NAME") {|name| command.worker_name = name }
+          opts.on("--delay-shutdown") { command.delay_shutdown = true }
         end.parse!(argv)
       end.run
     end
