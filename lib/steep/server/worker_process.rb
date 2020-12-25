@@ -52,12 +52,7 @@ module Steep
         reader.read(&block)
       end
 
-      def shutdown
-        self << { method: :shutdown, params: nil }
-        self << { method: :exit, params: nil }
-
-        writer.io.close()
-        @wait_thread.join()
+      def kill
       end
     end
   end

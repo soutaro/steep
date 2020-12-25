@@ -8,11 +8,17 @@ module Steep
       attr_reader :project
       attr_reader :reader, :writer
 
+      ShutdownJob = Struct.new(:id, keyword_init: true)
+
       def initialize(project:, reader:, writer:)
         @project = project
         @reader = reader
         @writer = writer
-        @shutdown = false
+        @skip_job = false
+      end
+
+      def skip_job?
+        @skip_job
       end
 
       def handle_request(request)
@@ -29,7 +35,16 @@ module Steep
           Steep.logger.formatter.push_tags(*tags)
           Steep.logger.tagged "background" do
             while job = queue.pop
-              handle_job(job) unless @shutdown
+              case job
+              when ShutdownJob
+                writer.write(id: job.id, result: nil)
+              else
+                if skip_job?
+                  Steep.logger.info "Skipping job..."
+                else
+                  handle_job(job)
+                end
+              end
             end
           end
         end
@@ -37,10 +52,12 @@ module Steep
         Steep.logger.tagged "frontend" do
           begin
             reader.read do |request|
+              Steep.logger.info "Received message from master: #{request[:method]}(#{request[:id]})"
               case request[:method]
               when "shutdown"
-                @shutdown = true
-                writer.write(id: request[:id], result: nil)
+                queue << ShutdownJob.new(id: request[:id])
+                @skip_job = true
+                queue.close
               when "exit"
                 break
               else
@@ -48,7 +65,6 @@ module Steep
               end
             end
           ensure
-            queue << nil
             thread.join
           end
         end

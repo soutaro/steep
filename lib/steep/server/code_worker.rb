@@ -91,7 +91,6 @@ module Steep
       def handle_request(request)
         case request[:method]
         when "initialize"
-          # Don't respond to initialize request, but start type checking.
           project.targets.each do |target|
             target.source_files.each_key do |path|
               if typecheck_paths.include?(path)
@@ -100,9 +99,12 @@ module Steep
             end
           end
 
+          writer.write({ id: request[:id], result: nil })
+
         when "workspace/executeCommand"
           if request[:params][:command] == "steep/registerSourceToWorker"
             paths = request[:params][:arguments].map {|arg| source_path(URI.parse(arg)) }
+            Steep.logger.info "Registering paths: #{paths.join(", ")}"
             typecheck_paths.merge(paths)
           end
 
