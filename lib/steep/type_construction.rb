@@ -2557,7 +2557,25 @@ module Steep
 
         constr.add_call(call)
       else
-        add_call(
+        skips = []
+        skips << receiver if receiver
+        skips << node.children[0] if node.type == :block
+        skips << block_params if block_params
+        skips << block_body if block_body
+
+        constr = synthesize_children(node, skips: skips)
+        if block_params
+          block_annotations = source.annotations(block: node, factory: checker.factory, current_module: current_namespace)
+
+          constr.type_block_without_hint(
+            node: node,
+            block_params: TypeInference::BlockParams.from_node(block_params, annotations: block_annotations),
+            block_annotations: block_annotations,
+            block_body: block_body
+          )
+        end
+
+        constr.add_call(
           TypeInference::MethodCall::NoMethodError.new(
             node: node,
             context: context.method_context,
@@ -3144,9 +3162,9 @@ module Steep
       block_constr = for_block(
         block_params: block_params,
         block_param_hint: nil,
-        block_type_hint: nil,
+        block_type_hint: AST::Builtin.any_type,
         block_annotations: block_annotations,
-        node_type_hint: nil
+        node_type_hint: AST::Builtin.any_type
       )
 
       block_constr.typing.add_context_for_body(node, context: block_constr.context)
