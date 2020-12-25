@@ -80,11 +80,16 @@ module Steep
 
                 if arg_type.is_a?(AST::Types::Name::Singleton)
                   receiver_vars.each do |var_name|
-                    var_type = env[var_name]
-                    truthy_type, falsy_type = type_case_select(var_type, arg_type.name)
+                    case var_name
+                    when :_, :__any__, :__skip__
+                      # skip
+                    else
+                      var_type = env[var_name]
+                      truthy_type, falsy_type = type_case_select(var_type, arg_type.name)
 
-                    truthy_env = truthy_env.assign!(var_name, node: node, type: truthy_type)
-                    falsy_env = falsy_env.assign!(var_name, node: node, type: falsy_type)
+                      truthy_env = truthy_env.assign!(var_name, node: node, type: truthy_type)
+                      falsy_env = falsy_env.assign!(var_name, node: node, type: falsy_type)
+                    end
                   end
                 end
               end

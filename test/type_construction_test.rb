@@ -7086,4 +7086,26 @@ RUBY
       end
     end
   end
+
+  def test_if_is_a_assign
+    with_checker(<<RBS) do |checker|
+interface _Hello
+  def to_s: () -> String
+end
+RBS
+      source = parse_ruby(<<'RUBY')
+# @type var x: _Hello
+x = ""
+
+if (_ = x).is_a?(String)
+  x + ""
+end
+RUBY
+
+      with_standard_construction(checker, source) do |construction, typing|
+        construction.synthesize(source.node)
+        assert_no_error typing
+      end
+    end
+  end
 end

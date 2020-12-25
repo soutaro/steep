@@ -2557,7 +2557,9 @@ module Steep
 
         constr.add_call(call)
       else
-        add_call(
+        constr = synthesize_children(node, skips: [receiver])
+
+        constr.add_call(
           TypeInference::MethodCall::NoMethodError.new(
             node: node,
             context: context.method_context,
