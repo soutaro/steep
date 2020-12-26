@@ -150,7 +150,9 @@ class Foo
 end
       RUBY
 
-      assert_equal [[lib_target, Pathname("lib/hello.rb")]],
+      assert_equal [
+                     Server::CodeWorker::TypeCheckJob.new(target: lib_target, path: Pathname("lib/hello.rb"))
+                   ],
                    worker.queue
     end
   end
@@ -292,7 +294,7 @@ end
       )
 
       assert_equal [
-                     [lib_target, Pathname("lib/hello.rb")]
+                     Server::CodeWorker::TypeCheckJob.new(target: lib_target, path: Pathname("lib/hello.rb"))
                    ],
                    worker.queue
     end

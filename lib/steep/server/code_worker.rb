@@ -3,6 +3,8 @@ module Steep
     class CodeWorker < BaseWorker
       LSP = LanguageServer::Protocol
 
+      TypeCheckJob = Struct.new(:target, :path, keyword_init: true)
+
       include Utils
 
       attr_reader :typecheck_paths
@@ -17,7 +19,7 @@ module Steep
 
       def enqueue_type_check(target:, path:)
         Steep.logger.info "Enqueueing type check: #{target.name}::#{path}..."
-        queue << [target, path]
+        queue << TypeCheckJob.new(target: target, path: path)
       end
 
       def typecheck_file(path, target)
@@ -130,9 +132,10 @@ module Steep
       end
 
       def handle_job(job)
-        target, path = job
-
-        typecheck_file(path, target)
+        case job
+        when TypeCheckJob
+          typecheck_file(job.path, job.target)
+        end
       end
     end
   end
