@@ -58,7 +58,7 @@ module Steep
 
         Steep.logger.info "Watching #{dirs.join(", ")}..."
         listener = Listen.to(*dirs.map(&:to_s)) do |modified, added, removed|
-          stdout.puts "🔬 Type checking updated files..."
+          stdout.puts Rainbow("🔬 Type checking updated files...").bold
 
           version = Time.now.to_i
           Steep.logger.tagged "watch" do
@@ -101,22 +101,20 @@ module Steep
         end.tap(&:start)
 
         begin
-          stdout.puts "👀 Watching directories, Ctrl-C to stop."
+          stdout.puts Rainbow("👀 Watching directories, Ctrl-C to stop.").bold
           client_reader.read do |response|
             case response[:method]
             when "textDocument/publishDiagnostics"
               uri = URI.parse(response[:params][:uri])
               path = project.relative_path(Pathname(uri.path))
+              buffer = RBS::Buffer.new(content: path.read, name: path)
+              printer = DiagnosticPrinter.new(stdout: stdout, buffer: buffer)
 
               diagnostics = response[:params][:diagnostics]
 
               unless diagnostics.empty?
                 diagnostics.each do |diagnostic|
-                  start = diagnostic[:range][:start]
-                  loc = "#{start[:line]+1}:#{start[:character]}"
-                  message = diagnostic[:message].chomp.lines.join("  ")
-
-                  stdout.puts "#{path}:#{loc}: #{message}"
+                  printer.print(diagnostic)
                 end
               end
             end
