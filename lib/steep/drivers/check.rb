@@ -11,8 +11,6 @@ module Steep
         @stdout = stdout
         @stderr = stderr
         @command_line_patterns = []
-
-        self.dump_all_types = false
       end
 
       def run
@@ -22,7 +20,7 @@ module Steep
         loader.load_sources(command_line_patterns)
         loader.load_signatures()
 
-        stdout.puts "# Type checking files:"
+        stdout.puts Rainbow("# Type checking files:").bold
         stdout.puts
 
         client_read, server_write = IO.pipe
@@ -83,45 +81,23 @@ module Steep
         stdout.puts
 
         if responses.all? {|res| res[:diagnostics].empty? }
-          stdout.puts Rainbow("No type error detected").green
+          emoji = %w(🫖 🫖 🫖 🫖 🫖 🫖 🫖 🫖 🍵 🧋 🧉).sample
+          stdout.puts Rainbow("No type error detected. #{emoji}").green.bold
           0
         else
           errors = responses.reject {|res| res[:diagnostics].empty? }
           total = errors.sum {|res| res[:diagnostics].size }
-          stdout.puts Rainbow("Detected #{total} problems on #{errors.size} files").red
+          stdout.puts Rainbow("Detected #{total} problems from #{errors.size} files").red.bold
           stdout.puts
 
           errors.each do |resp|
             path = project.relative_path(Pathname(URI.parse(resp[:uri]).path))
             buffer = RBS::Buffer.new(name: path, content: path.read)
+            printer = DiagnosticPrinter.new(buffer: buffer, stdout: stdout)
+
             resp[:diagnostics].each do |diag|
-              severity = [nil, Rainbow("error").red, Rainbow("warning").yellow, Rainbow("info").blue][diag[:severity]]
-              if severity
-                start = diag[:range][:start]
-                loc = Rainbow("#{path}:#{start[:line]+1}:#{start[:character]}").magenta
-                head, *rest = diag[:message].split(/\n/)
-                head = Rainbow(head).underline
-                stdout.puts "#{loc}: [#{severity}] #{head}"
-                rest.each do |line|
-                  stdout.puts "  #{line}"
-                end
-                stdout.puts
-
-                source_line = buffer.lines[start[:line]] || ""
-                if diag[:range][:start][:line] == diag[:range][:end][:line]
-                  before = source_line[0...diag[:range][:start][:character]]
-                  subject = source_line[diag[:range][:start][:character]...diag[:range][:end][:character]]
-                  after = source_line[diag[:range][:end][:character]...]
-                  puts "  | #{before}#{Rainbow(subject).red}#{after}"
-                else
-                  before = source_line[0...diag[:range][:start][:character]]
-                  subject = source_line[diag[:range][:start][:character]...]
-                  puts "  | #{before}#{Rainbow(subject).red}"
-                end
-
-
-                stdout.puts
-              end
+              printer.print(diag)
+              stdout.puts
             end
           end
           1
