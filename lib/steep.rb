@@ -110,6 +110,7 @@ require "steep/drivers/print_project"
 require "steep/drivers/init"
 require "steep/drivers/vendor"
 require "steep/drivers/worker"
+require "steep/drivers/diagnostic_printer"
 
 if ENV["NO_COLOR"]
   Rainbow.enabled = false
