@@ -28,7 +28,7 @@ ARGV.each do |arg|
   rb_files = []
   expectations = []
   allowed_paths = []
-  
+
   dir.children.each do |file|
     if file.extname == ".rb"
       buffer = ::Parser::Source::Buffer.new(file.to_s)
@@ -98,9 +98,9 @@ ARGV.each do |arg|
   expectations.each do |expectation|
     deleted = lines.reject! do |string|
       if expectation.prefix_test
-        string =~ /\A#{Regexp.escape(expectation.path.to_s)}:#{expectation.line}:\d+: #{Regexp.quote expectation.message}/
+        string =~ /\A#{Regexp.escape(expectation.path.to_s)}:#{expectation.line}:\d+: \[.*?\] #{Regexp.quote expectation.message}/
       else
-        string =~ /\A#{Regexp.escape(expectation.path.to_s)}:#{expectation.line}:\d+: #{Regexp.quote expectation.message} \(/
+        string =~ /\A#{Regexp.escape(expectation.path.to_s)}:#{expectation.line}:\d+: \[.*?\] #{Regexp.quote expectation.message} \(/
       end
     end
 
