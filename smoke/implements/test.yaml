@@ -1,0 +1,14 @@
+---
+test:
+  a.rb:
+    diagnostics:
+    - |
+      a.rb:1:0: [error] MethodDefinitionMissing: module=::A, method=baz (class A)
+      │
+      └ class A
+        ~~~~~~~
+    - |
+      a.rb:1:0: [error] MethodDefinitionMissing: module=::A, method=self.bar (class A)
+      │
+      └ class A
+        ~~~~~~~
