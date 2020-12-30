@@ -1,0 +1,22 @@
+---
+test:
+  a.rb:
+    diagnostics:
+    - |
+      a.rb:6:0: [error] IncompatibleAssignment: lhs_type=::String, rhs_type=(::String | nil) (b = a && a.to_str)
+      │   (::String | nil) <: ::String
+      │    nil <: ::String
+      │ ==> nil <: ::String does not hold
+      │
+      └ b = a && a.to_str
+        ~~~~~~~~~~~~~~~~~
+    - |
+      a.rb:8:0: [error] IncompatibleAssignment: lhs_type=::Integer, rhs_type=(::String | nil) (c = a && a.to_str)
+      │   (::String | nil) <: ::Integer
+      │    ::String <: ::Integer
+      │     ::Object <: ::Integer
+      │      ::BasicObject <: ::Integer
+      │ ==> ::BasicObject <: ::Integer does not hold
+      │
+      └ c = a && a.to_str
+        ~~~~~~~~~~~~~~~~~
