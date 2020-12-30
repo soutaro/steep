@@ -1,0 +1,70 @@
+---
+test:
+  a.rb:
+    diagnostics:
+    - |
+      a.rb:4:0: [error] IncompatibleAssignment: lhs_type=::String, rhs_type=::Integer (x = 1)
+      │   ::Integer <: ::String
+      │    ::Numeric <: ::String
+      │     ::Object <: ::String
+      │      ::BasicObject <: ::String
+      │ ==> ::BasicObject <: ::String does not hold
+      │
+      └ x = 1
+        ~~~~~
+    - |
+      a.rb:6:0: [error] IncompatibleAssignment: lhs_type=::String, rhs_type=::Symbol (x = :foo)
+      │   ::Symbol <: ::String
+      │    ::Object <: ::String
+      │     ::BasicObject <: ::String
+      │ ==> ::BasicObject <: ::String does not hold
+      │
+      └ x = :foo
+        ~~~~~~~~
+    - |
+      a.rb:8:0: [error] IncompatibleAssignment: lhs_type=::Integer, rhs_type=::String (y = "foo")
+      │   ::String <: ::Integer
+      │    ::Object <: ::Integer
+      │     ::BasicObject <: ::Integer
+      │ ==> ::BasicObject <: ::Integer does not hold
+      │
+      └ y = "foo"
+        ~~~~~~~~~
+    - |
+      a.rb:10:0: [error] IncompatibleAssignment: lhs_type=::String, rhs_type=bool (x = true)
+      │   bool <: ::String
+      │    (true | false) <: ::String
+      │     true <: ::String
+      │      ::TrueClass <: ::String
+      │       ::Object <: ::String
+      │        ::BasicObject <: ::String
+      │ ==> ::BasicObject <: ::String does not hold
+      │
+      └ x = true
+        ~~~~~~~~
+    - |
+      a.rb:11:0: [error] IncompatibleAssignment: lhs_type=::Integer, rhs_type=bool (y = false)
+      │   bool <: ::Integer
+      │    (true | false) <: ::Integer
+      │     true <: ::Integer
+      │      ::TrueClass <: ::Integer
+      │       ::Object <: ::Integer
+      │        ::BasicObject <: ::Integer
+      │ ==> ::BasicObject <: ::Integer does not hold
+      │
+      └ y = false
+        ~~~~~~~~~
+  b.rb:
+    diagnostics:
+    - |
+      b.rb:4:6: [error] ArgumentTypeMismatch: receiver=::LiteralMethods, expected=3, actual=::Integer (4)
+      │
+      └ l.foo(4)
+              ~
+    - |
+      b.rb:7:11: [error] IncompatibleAssignment: lhs_type=:foo, rhs_type=::Symbol (:bar)
+      │   ::Symbol <: :foo
+      │ ==> ::Symbol <: :foo does not hold
+      │
+      └ l.bar(foo: :bar)
+                   ~~~~
