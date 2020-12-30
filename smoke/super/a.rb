@@ -3,9 +3,7 @@ class A
     # @type self: A
 
     # @type var a: Integer
-    # !expects IncompatibleAssignment: lhs_type=::Integer, rhs_type=::Object
     a = super(x)
-    # !expects IncompatibleAssignment: lhs_type=::Integer, rhs_type=::Object
     a = super
 
     # @type var b: Object
@@ -25,10 +23,8 @@ class A
   def baz
     # @type self: A
 
-    # !expects UnexpectedSuper: method=baz
     super()
 
-    # !expects UnexpectedSuper: method=baz
     super
   end
 end
