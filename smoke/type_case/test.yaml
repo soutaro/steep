@@ -1,0 +1,29 @@
+---
+test:
+  a.rb:
+    diagnostics:
+    - |
+      a.rb:7:2: [error] NoMethodError: type=(::Integer | ::String), method=foobar (x.foobar())
+      │
+      └   x.foobar()
+          ~~~~~~~~~~
+    - |
+      a.rb:12:2: [error] NoMethodError: type=(::Integer | ::String | ::Symbol), method=foobar (x.foobar)
+      │
+      └   x.foobar
+          ~~~~~~~~
+    - |
+      a.rb:17:2: [error] NoMethodError: type=1, method=foobar (x.foobar)
+      │
+      └   x.foobar
+          ~~~~~~~~
+    - |
+      a.rb:23:2: [error] IncompatibleAnnotation: var_name=x, ::Integer <: ::String (x + 1)
+      │   ::Integer <: ::String
+      │    ::Numeric <: ::String
+      │     ::Object <: ::String
+      │      ::BasicObject <: ::String
+      │ ==> ::BasicObject <: ::String does not hold
+      │
+      └   x + 1
+          ~~~~~

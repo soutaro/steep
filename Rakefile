@@ -9,6 +9,9 @@ end
 
 task :default => :test
 
-task :smoke do
-  sh "bundle", "exec", "bin/smoke_runner.rb", *Dir.glob("smoke/*")
+namespace :test do
+  desc "Run output test"
+  task :output do
+    sh "ruby", "bin/output_test.rb"
+  end
 end

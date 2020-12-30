@@ -1,0 +1,65 @@
+---
+test:
+  a.rb:
+    diagnostics:
+    - |
+      a.rb:6:2: [error] IncompatibleAssignment: lhs_type=::String, rhs_type=::Integer (z = x)
+      │   ::Integer <: ::String
+      │    ::Numeric <: ::String
+      │     ::Object <: ::String
+      │      ::BasicObject <: ::String
+      │ ==> ::BasicObject <: ::String does not hold
+      │
+      └   z = x
+          ~~~~~
+    - |
+      a.rb:8:2: [error] IncompatibleAssignment: lhs_type=::String, rhs_type=::Integer (z = y)
+      │   ::Integer <: ::String
+      │    ::Numeric <: ::String
+      │     ::Object <: ::String
+      │      ::BasicObject <: ::String
+      │ ==> ::BasicObject <: ::String does not hold
+      │
+      └   z = y
+          ~~~~~
+    - |
+      a.rb:3:0: [error] MethodBodyTypeMismatch: method=foo, expected=::String, actual=::Integer (def foo(x, y:))
+      │   ::Integer <: ::String
+      │    ::Numeric <: ::String
+      │     ::Object <: ::String
+      │      ::BasicObject <: ::String
+      │ ==> ::BasicObject <: ::String does not hold
+      │
+      └ def foo(x, y:)
+        ~~~~~~~~~~~~~~
+    - |
+      a.rb:15:0: [error] MethodArityMismatch: method=bar (def bar(x, y))
+      │
+      └ def bar(x, y)
+        ~~~~~~~~~~~~~
+    - |
+      a.rb:18:2: [error] IncompatibleAssignment: lhs_type=::String, rhs_type=::Integer (z = x)
+      │   ::Integer <: ::String
+      │    ::Numeric <: ::String
+      │     ::Object <: ::String
+      │      ::BasicObject <: ::String
+      │ ==> ::BasicObject <: ::String does not hold
+      │
+      └   z = x
+          ~~~~~
+  b.rb:
+    diagnostics:
+    - |
+      b.rb:4:2: [error] MethodBodyTypeMismatch: method=foo, expected=(::Integer | ::String), actual=::Symbol (def foo(x))
+      │   ::Symbol <: (::Integer | ::String)
+      │    ::Symbol <: ::Integer
+      │     ::Object <: ::Integer
+      │      ::BasicObject <: ::Integer
+      │ ==> ::BasicObject <: ::Integer does not hold
+      │
+      └   def foo(x)
+          ~~~~~~~~~~
+  c.rb:
+    diagnostics: []
+  d.rb:
+    diagnostics: []

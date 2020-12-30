@@ -1,0 +1,61 @@
+---
+test:
+  a.rb:
+    diagnostics:
+    - |
+      a.rb:4:0: [error] UnresolvedOverloading: receiver=(::String | ::Integer), method_name=+, method_types=((::string & ::Integer)) -> (::String | ::Integer) | ((::string & ::Float)) -> (::String | ::Float) | ((::string & ::Rational)) -> (::String | ::Rational) | ((::string & ::Complex)) -> (::String | ::Complex) (x + 123)
+      │
+      └ x + 123
+        ~~~~~~~
+    - |
+      a.rb:13:2: [error] IncompatibleAssignment: lhs_type=::Symbol, rhs_type=::String (z = x)
+      │   ::String <: ::Symbol
+      │    ::Object <: ::Symbol
+      │     ::BasicObject <: ::Symbol
+      │ ==> ::BasicObject <: ::Symbol does not hold
+      │
+      └   z = x
+          ~~~~~
+    - |
+      a.rb:15:2: [error] IncompatibleAssignment: lhs_type=::Symbol, rhs_type=::Integer (z = x)
+      │   ::Integer <: ::Symbol
+      │    ::Numeric <: ::Symbol
+      │     ::Object <: ::Symbol
+      │      ::BasicObject <: ::Symbol
+      │ ==> ::BasicObject <: ::Symbol does not hold
+      │
+      └   z = x
+          ~~~~~
+  b.rb:
+    diagnostics:
+    - |
+      b.rb:6:0: [error] IncompatibleAssignment: lhs_type=::Integer, rhs_type=::String (x = a[0])
+      │   ::String <: ::Integer
+      │    ::Object <: ::Integer
+      │     ::BasicObject <: ::Integer
+      │ ==> ::BasicObject <: ::Integer does not hold
+      │
+      └ x = a[0]
+        ~~~~~~~~
+  c.rb:
+    diagnostics:
+    - |
+      c.rb:3:0: [error] IncompatibleAssignment: lhs_type=::String, rhs_type=::Integer (x = AliasMethodArg.new.foo(:foo))
+      │   ::Integer <: ::String
+      │    ::Numeric <: ::String
+      │     ::Object <: ::String
+      │      ::BasicObject <: ::String
+      │ ==> ::BasicObject <: ::String does not hold
+      │
+      └ x = AliasMethodArg.new.foo(:foo)
+        ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    - |
+      c.rb:8:0: [error] IncompatibleAssignment: lhs_type=::String, rhs_type=::Integer (x = AliasMethodArg.new.foo(name))
+      │   ::Integer <: ::String
+      │    ::Numeric <: ::String
+      │     ::Object <: ::String
+      │      ::BasicObject <: ::String
+      │ ==> ::BasicObject <: ::String does not hold
+      │
+      └ x = AliasMethodArg.new.foo(name)
+        ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~

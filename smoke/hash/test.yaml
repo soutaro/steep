@@ -1,0 +1,56 @@
+---
+test:
+  a.rb:
+    diagnostics: []
+  b.rb:
+    diagnostics:
+    - |
+      b.rb:6:0: [error] IncompatibleAssignment: lhs_type=::Hash[::Symbol, (::String | nil)], rhs_type=::Hash[::Symbol, ::Integer] (x = { foo: 3 })
+      │   ::Hash[::Symbol, ::Integer] <: ::Hash[::Symbol, (::String | nil)]
+      │    ::Integer <: (::String | nil)
+      │     ::Integer <: ::String
+      │      ::Numeric <: ::String
+      │       ::Object <: ::String
+      │        ::BasicObject <: ::String
+      │ ==> ::BasicObject <: ::String does not hold
+      │
+      └ x = { foo: 3 }
+        ~~~~~~~~~~~~~~
+  c.rb:
+    diagnostics:
+    - |
+      c.rb:5:0: [error] NoMethodError: type=::Integer, method=abcdefg (id.abcdefg)
+      │
+      └ id.abcdefg
+        ~~~~~~~~~~
+    - |
+      c.rb:8:0: [error] NoMethodError: type=::String, method=abcdefg (name.abcdefg)
+      │
+      └ name.abcdefg
+        ~~~~~~~~~~~~
+    - |
+      c.rb:10:0: [error] NoMethodError: type=(::Integer | ::String), method=abcdefg (params[(_=nil) ? :id : :name].abcdefg)
+      │
+      └ params[(_=nil) ? :id : :name].abcdefg
+        ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+  d.rb:
+    diagnostics:
+    - |
+      d.rb:5:0: [error] IncompatibleAssignment: lhs_type={ :id => ::Integer, :name => ::String }, rhs_type={ :email => ::String, :id => ::String, :name => ::String } (params = { id: "30", name: "foo", email: "matsumoto@soutaro.com" })
+      │   { :email => ::String, :id => ::String, :name => ::String } <: { :id => ::Integer, :name => ::String }
+      │    ::String <: ::Integer
+      │     ::Object <: ::Integer
+      │      ::BasicObject <: ::Integer
+      │ ==> ::BasicObject <: ::Integer does not hold
+      │
+      └ params = { id: "30", name: "foo", email: "matsumoto@soutaro.com" }
+        ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+  e.rb:
+    diagnostics:
+    - |
+      e.rb:1:0: [error] NoMethodError: type=::Integer, method=fffffffffffff (Foo.new.get({ foo: 3 }).fffffffffffff)
+      │
+      └ Foo.new.get({ foo: 3 }).fffffffffffff
+        ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+  f.rb:
+    diagnostics: []

@@ -1,0 +1,34 @@
+---
+test:
+  set_divide.rb:
+    diagnostics:
+    - |
+      set_divide.rb:2:0: [error] NoMethodError: type=::Set[::String], method=ffffffff (d.ffffffff)
+      │
+      └ d.ffffffff
+        ~~~~~~~~~~
+    - |
+      set_divide.rb:5:2: [error] NoMethodError: type=::String, method=ggggg (x.ggggg)
+      │
+      └   x.ggggg
+          ~~~~~~~
+    - |
+      set_divide.rb:7:2: [error] NoMethodError: type=::String, method=ggggg (y.ggggg)
+      │
+      └   y.ggggg
+          ~~~~~~~
+    - |
+      set_divide.rb:11:2: [error] NoMethodError: type=::String, method=ggggg (x.ggggg)
+      │
+      └   x.ggggg
+          ~~~~~~~
+  array.rb:
+    diagnostics: []
+  fun.rb:
+    diagnostics: []
+  hash.rb:
+    diagnostics: []
+  poly_new.rb:
+    diagnostics: []
+  range.rb:
+    diagnostics: []

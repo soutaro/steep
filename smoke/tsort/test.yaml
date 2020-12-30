@@ -1,0 +1,16 @@
+---
+test:
+  a.rb:
+    fail: true
+    diagnostics:
+    - |
+      a.rb:12:0: [error] IncompatibleAssignment: lhs_type=::Array[::String], rhs_type=::Array[::Integer] (xs = TSort.tsort(each_node, each_child))
+      │   ::Array[::Integer] <: ::Array[::String]
+      │    ::Integer <: ::String
+      │     ::Numeric <: ::String
+      │      ::Object <: ::String
+      │       ::BasicObject <: ::String
+      │ ==> ::BasicObject <: ::String does not hold
+      │
+      └ xs = TSort.tsort(each_node, each_child)
+        ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~

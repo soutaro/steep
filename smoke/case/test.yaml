@@ -1,0 +1,27 @@
+---
+test:
+  a.rb:
+    diagnostics:
+    - |
+      a.rb:3:0: [error] IncompatibleAssignment: lhs_type=::Integer, rhs_type=(::Integer | ::Array[::String] | nil | ::String) (a = case 1)
+      │   (::Integer | ::Array[::String] | nil | ::String) <: ::Integer
+      │    ::Array[::String] <: ::Integer
+      │     ::Object <: ::Integer
+      │      ::BasicObject <: ::Integer
+      │ ==> ::BasicObject <: ::Integer does not hold
+      │
+      └ a = case 1
+        ~~~~~~~~~~
+    - |
+      a.rb:16:9: [error] UnresolvedOverloading: receiver=::Integer, method_name=+, method_types=(::Integer) -> ::Integer | (::Float) -> ::Float | (::Rational) -> ::Rational | (::Complex) -> ::Complex (1+"a")
+      │
+      └     when 1+"a"
+                 ~~~~~
+    - |
+      a.rb:15:0: [error] IncompatibleAssignment: lhs_type=::Integer, rhs_type=(::Integer | nil) (a = case)
+      │   (::Integer | nil) <: ::Integer
+      │    nil <: ::Integer
+      │ ==> nil <: ::Integer does not hold
+      │
+      └ a = case
+        ~~~~~~~~

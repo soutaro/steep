@@ -1,0 +1,89 @@
+---
+test:
+  a.rb:
+    diagnostics:
+    - |
+      a.rb:4:0: [error] IncompatibleAssignment: lhs_type=::String, rhs_type=::Integer (x = A)
+      │   ::Integer <: ::String
+      │    ::Numeric <: ::String
+      │     ::Object <: ::String
+      │      ::BasicObject <: ::String
+      │ ==> ::BasicObject <: ::String does not hold
+      │
+      └ x = A
+        ~~~~~
+    - |
+      a.rb:6:4: [error] FallbackAny (B)
+      │
+      └ x = B
+            ~
+    - |
+      a.rb:8:7: [error] FallbackAny (X)
+      │
+      └ module X
+               ~
+    - |
+      a.rb:14:4: [error] IncompatibleAssignment: lhs_type=::String, rhs_type=::Integer (x = A)
+      │   ::Integer <: ::String
+      │    ::Numeric <: ::String
+      │     ::Object <: ::String
+      │      ::BasicObject <: ::String
+      │ ==> ::BasicObject <: ::String does not hold
+      │
+      └     x = A
+            ~~~~~
+    - |
+      a.rb:16:8: [error] FallbackAny (B)
+      │
+      └     x = B
+                ~
+    - |
+      a.rb:23:4: [error] FallbackAny (Foo)
+      │
+      └ x = Foo::Bar::Baz
+            ~~~
+    - |
+      a.rb:23:4: [error] FallbackAny (Foo::Bar)
+      │
+      └ x = Foo::Bar::Baz
+            ~~~~~~~~
+    - |
+      a.rb:23:0: [error] IncompatibleAssignment: lhs_type=::String, rhs_type=::Integer (x = Foo::Bar::Baz)
+      │   ::Integer <: ::String
+      │    ::Numeric <: ::String
+      │     ::Object <: ::String
+      │      ::BasicObject <: ::String
+      │ ==> ::BasicObject <: ::String does not hold
+      │
+      └ x = Foo::Bar::Baz
+        ~~~~~~~~~~~~~~~~~
+    - |
+      a.rb:25:4: [error] FallbackAny (Foo)
+      │
+      └ z = Foo
+            ~~~
+    - |
+      a.rb:26:4: [error] FallbackAny (z::Bar)
+      │
+      └ x = z::Bar::Baz
+            ~~~~~~
+    - |
+      a.rb:26:4: [error] FallbackAny (z::Bar::Baz)
+      │
+      └ x = z::Bar::Baz
+            ~~~~~~~~~~~
+    - |
+      a.rb:27:4: [error] FallbackAny (::Foo)
+      │
+      └ x = ::Foo::Bar::Baz
+            ~~~~~
+    - |
+      a.rb:27:4: [error] FallbackAny (::Foo::Bar)
+      │
+      └ x = ::Foo::Bar::Baz
+            ~~~~~~~~~~
+    - |
+      a.rb:27:4: [error] FallbackAny (::Foo::Bar::Baz)
+      │
+      └ x = ::Foo::Bar::Baz
+            ~~~~~~~~~~~~~~~

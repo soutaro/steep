@@ -13,11 +13,9 @@ end
 def bar
   # @type self: Object
 
-  # !expects NoMethodError: type=::Object, method=baz
   baz
 
   tap do
-    # !expects NoMethodError: type=::Object, method=baz
     baz
   end
 end

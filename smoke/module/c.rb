@@ -18,6 +18,5 @@ module A
   # ok
   block_given?
 
-  # !expects NoMethodError: type=singleton(::A), method=no_such_method_in_module
   no_such_method_in_module
 end

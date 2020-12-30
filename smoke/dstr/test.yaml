@@ -1,0 +1,9 @@
+---
+test:
+  a.rb:
+    diagnostics:
+    - |
+      a.rb:5:13: [error] NoMethodError: type=::Integer, method=foo (a.foo)
+      │
+      └ b = "Hello #{a.foo} world!"
+                     ~~~~~

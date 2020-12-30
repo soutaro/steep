@@ -5,13 +5,11 @@ class A
   end
 
   # A#bar is defined but the implementation is incompatible.
-  # !expects MethodArityMismatch: method=bar
   def bar(y)
     y
   end
 
   # Object#to_s is defined but the implementation is incompatible.
-  # !expects MethodBodyTypeMismatch: method=to_s, expected=::String, actual=::Integer
   def to_s
     3
   end
@@ -21,7 +19,6 @@ class A
     5
   end
 
-  # !expects MethodBodyTypeMismatch: method=self.baz, expected=::Integer, actual=::String
   def self.baz
     "baz"
   end
