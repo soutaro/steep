@@ -1,7 +1,6 @@
 class A
   # @implements X
 
-  # !expects MethodBodyTypeMismatch: method=foo, expected=(::Integer | ::String), actual=::Symbol
   def foo(x)
     :foobar
   end
