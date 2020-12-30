@@ -1,4 +1,3 @@
-# !expects UnexpectedDynamicMethod: module=::B, method=type
 class B
   # @implements B
 
