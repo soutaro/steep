@@ -1,0 +1,87 @@
+---
+test:
+  a.rb:
+    diagnostics:
+    - |
+      a.rb:6:2: [error] IncompatibleAssignment: lhs_type=::Hash[::Symbol, ::String], rhs_type=::Integer (hash = x)
+      │   ::Integer <: ::Hash[::Symbol, ::String]
+      │    ::Numeric <: ::Hash[::Symbol, ::String]
+      │     ::Object <: ::Hash[::Symbol, ::String]
+      │      ::BasicObject <: ::Hash[::Symbol, ::String]
+      │ ==> ::BasicObject <: ::Hash[::Symbol, ::String] does not hold
+      │
+      └   hash = x
+          ~~~~~~~~
+    - |
+      a.rb:7:2: [error] IncompatibleAssignment: lhs_type=::Hash[::Symbol, ::String], rhs_type=::String (hash = y)
+      │   ::String <: ::Hash[::Symbol, ::String]
+      │    ::Object <: ::Hash[::Symbol, ::String]
+      │     ::BasicObject <: ::Hash[::Symbol, ::String]
+      │ ==> ::BasicObject <: ::Hash[::Symbol, ::String] does not hold
+      │
+      └   hash = y
+          ~~~~~~~~
+    - |
+      a.rb:5:0: [error] IncompatibleAssignment: lhs_type=::Hash[::Symbol, ::String], rhs_type=::String (hash = a.each.with_object("") do |x, y|)
+      │   ::String <: ::Hash[::Symbol, ::String]
+      │    ::Object <: ::Hash[::Symbol, ::String]
+      │     ::BasicObject <: ::Hash[::Symbol, ::String]
+      │ ==> ::BasicObject <: ::Hash[::Symbol, ::String] does not hold
+      │
+      └ hash = a.each.with_object("") do |x, y|
+        ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    - |
+      a.rb:11:2: [error] IncompatibleAssignment: lhs_type=::Hash[::Symbol, ::String], rhs_type=::Integer (hash = x)
+      │   ::Integer <: ::Hash[::Symbol, ::String]
+      │    ::Numeric <: ::Hash[::Symbol, ::String]
+      │     ::Object <: ::Hash[::Symbol, ::String]
+      │      ::BasicObject <: ::Hash[::Symbol, ::String]
+      │ ==> ::BasicObject <: ::Hash[::Symbol, ::String] does not hold
+      │
+      └   hash = x
+          ~~~~~~~~
+    - |
+      a.rb:12:2: [error] IncompatibleAssignment: lhs_type=::Hash[::Symbol, ::String], rhs_type=::Integer (hash = y)
+      │   ::Integer <: ::Hash[::Symbol, ::String]
+      │    ::Numeric <: ::Hash[::Symbol, ::String]
+      │     ::Object <: ::Hash[::Symbol, ::String]
+      │      ::BasicObject <: ::Hash[::Symbol, ::String]
+      │ ==> ::BasicObject <: ::Hash[::Symbol, ::String] does not hold
+      │
+      └   hash = y
+          ~~~~~~~~
+    - |
+      a.rb:10:0: [error] IncompatibleAssignment: lhs_type=::Hash[::Symbol, ::String], rhs_type=::Array[::Integer] (hash = a.each.with_index do |x, y|)
+      │   ::Array[::Integer] <: ::Hash[::Symbol, ::String]
+      │    ::Object <: ::Hash[::Symbol, ::String]
+      │     ::BasicObject <: ::Hash[::Symbol, ::String]
+      │ ==> ::BasicObject <: ::Hash[::Symbol, ::String] does not hold
+      │
+      └ hash = a.each.with_index do |x, y|
+        ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+  b.rb:
+    diagnostics:
+    - |
+      b.rb:6:4: [error] UnresolvedOverloading: receiver=::Enumerator[::Integer, ::Array[::Integer]], method_name=with_object, method_types=[U] (U) { (::Integer, U) -> untyped } -> U | [U] (U) -> ::Enumerator[[::Integer, U], ::Array[::Integer]] (a.each.with_object([]) do |i, xs|)
+      │
+      └ b = a.each.with_object([]) do |i, xs|
+            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    - |
+      b.rb:11:0: [error] IncompatibleAssignment: lhs_type=::Array[::Integer], rhs_type=::Array[::String] (c = a.each.with_object([]) do |i, xs|)
+      │   ::Array[::String] <: ::Array[::Integer]
+      │    ::String <: ::Integer
+      │     ::Object <: ::Integer
+      │      ::BasicObject <: ::Integer
+      │ ==> ::BasicObject <: ::Integer does not hold
+      │
+      └ c = a.each.with_object([]) do |i, xs|
+        ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    - |
+      b.rb:17:0: [error] IncompatibleAssignment: lhs_type=::String, rhs_type=::Array[untyped] (d = a.each.with_object([]) do |i, xs|)
+      │   ::Array[untyped] <: ::String
+      │    ::Object <: ::String
+      │     ::BasicObject <: ::String
+      │ ==> ::BasicObject <: ::String does not hold
+      │
+      └ d = a.each.with_object([]) do |i, xs|
+        ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
