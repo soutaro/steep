@@ -1,5 +1,3 @@
-# ALLOW FAILURE
-
 require "tsort"
 
 # @type var g: Hash[Integer, Array[Integer]]
@@ -11,5 +9,4 @@ each_node = -> (&b) { g.each_key(&b) }
 each_child = -> (n, &b) { g[n].each(&b) }
 
 # @type var xs: Array[String]
-# !expects IncompatibleAssignment: lhs_type=::Array[::String], rhs_type=::Array[::Integer]
 xs = TSort.tsort(each_node, each_child)
