@@ -1,0 +1,55 @@
+---
+test:
+  a.rb:
+    diagnostics:
+    - |
+      a.rb:3:0: [error] IncompatibleAssignment: lhs_type=::Integer, rhs_type=(::String | ::Integer) (a = begin)
+      │   (::String | ::Integer) <: ::Integer
+      │    ::String <: ::Integer
+      │     ::Object <: ::Integer
+      │      ::BasicObject <: ::Integer
+      │ ==> ::BasicObject <: ::Integer does not hold
+      │
+      └ a = begin
+        ~~~~~~~~~
+    - |
+      a.rb:11:0: [error] IncompatibleAssignment: lhs_type=::Integer, rhs_type=(::String | ::Integer) (b = 'foo' rescue 1)
+      │   (::String | ::Integer) <: ::Integer
+      │    ::String <: ::Integer
+      │     ::Object <: ::Integer
+      │      ::BasicObject <: ::Integer
+      │ ==> ::BasicObject <: ::Integer does not hold
+      │
+      └ b = 'foo' rescue 1
+        ~~~~~~~~~~~~~~~~~~
+    - |
+      a.rb:15:0: [error] IncompatibleAssignment: lhs_type=::Integer, rhs_type=(::String | ::Symbol | ::Integer) (c = begin)
+      │   (::String | ::Symbol | ::Integer) <: ::Integer
+      │    ::String <: ::Integer
+      │     ::Object <: ::Integer
+      │      ::BasicObject <: ::Integer
+      │ ==> ::BasicObject <: ::Integer does not hold
+      │
+      └ c = begin
+        ~~~~~~~~~
+    - |
+      a.rb:25:0: [error] IncompatibleAssignment: lhs_type=::Integer, rhs_type=(::Array[::Integer] | ::Symbol | ::Integer) (e = begin)
+      │   (::Array[::Integer] | ::Symbol | ::Integer) <: ::Integer
+      │    ::Array[::Integer] <: ::Integer
+      │     ::Object <: ::Integer
+      │      ::BasicObject <: ::Integer
+      │ ==> ::BasicObject <: ::Integer does not hold
+      │
+      └ e = begin
+        ~~~~~~~~~
+    - |
+      a.rb:37:0: [error] MethodBodyTypeMismatch: method=foo, expected=::String, actual=(::Integer | ::String) (def foo(a))
+      │   (::Integer | ::String) <: ::String
+      │    ::Integer <: ::String
+      │     ::Numeric <: ::String
+      │      ::Object <: ::String
+      │       ::BasicObject <: ::String
+      │ ==> ::BasicObject <: ::String does not hold
+      │
+      └ def foo(a)
+        ~~~~~~~~~~
