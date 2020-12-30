@@ -6,6 +6,7 @@ module Steep
       attr_accessor :steepfile_path
       attr_accessor :worker_type
       attr_accessor :worker_name
+      attr_accessor :delay_shutdown
 
       include Utils::DriverHelper
 
@@ -36,6 +37,10 @@ module Steep
                    else
                      raise "Unknown worker type: #{worker_type}"
                    end
+
+          unless delay_shutdown
+            worker.skip_jobs_after_shutdown!
+          end
 
           Steep.logger.info "Starting #{worker_type} worker..."
 

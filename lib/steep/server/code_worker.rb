@@ -3,6 +3,9 @@ module Steep
     class CodeWorker < BaseWorker
       LSP = LanguageServer::Protocol
 
+      TypeCheckJob = Struct.new(:target, :path, keyword_init: true)
+      StatsJob = Struct.new(:request, :paths, keyword_init: true)
+
       include Utils
 
       attr_reader :typecheck_paths
@@ -17,7 +20,7 @@ module Steep
 
       def enqueue_type_check(target:, path:)
         Steep.logger.info "Enqueueing type check: #{target.name}::#{path}..."
-        queue << [target, path]
+        queue << TypeCheckJob.new(target: target, path: path)
       end
 
       def typecheck_file(path, target)
@@ -40,6 +43,23 @@ module Steep
             uri: URI.parse(project.absolute_path(path).to_s).tap {|uri| uri.scheme = "file"},
             diagnostics: diagnostics
           )
+        )
+      end
+
+      def calculate_stats(request_id, paths)
+        calculator = Project::StatsCalculator.new(project: project)
+
+        stats = paths.map do |path|
+          if typecheck_paths.include?(path)
+            if target = project.target_for_source_path(path)
+              calculator.calc_stats(target, path)
+            end
+          end
+        end.compact
+
+        writer.write(
+          id: request_id,
+          result: stats.map(&:as_json)
         )
       end
 
@@ -91,7 +111,6 @@ module Steep
       def handle_request(request)
         case request[:method]
         when "initialize"
-          # Don't respond to initialize request, but start type checking.
           project.targets.each do |target|
             target.source_files.each_key do |path|
               if typecheck_paths.include?(path)
@@ -100,10 +119,17 @@ module Steep
             end
           end
 
+          writer.write({ id: request[:id], result: nil })
+
         when "workspace/executeCommand"
-          if request[:params][:command] == "steep/registerSourceToWorker"
+          Steep.logger.info { "Executing command: #{request[:params][:command]}, arguments=#{request[:params][:arguments].map(&:inspect).join(", ")}" }
+          case request[:params][:command]
+          when "steep/registerSourceToWorker"
             paths = request[:params][:arguments].map {|arg| source_path(URI.parse(arg)) }
             typecheck_paths.merge(paths)
+          when "steep/stats"
+            paths = request[:params][:arguments].map {|arg| source_path(URI.parse(arg)) }
+            queue << StatsJob.new(paths: paths, request: request)
           end
 
         when "textDocument/didChange"
@@ -128,9 +154,12 @@ module Steep
       end
 
       def handle_job(job)
-        target, path = job
-
-        typecheck_file(path, target)
+        case job
+        when TypeCheckJob
+          typecheck_file(job.path, job.target)
+        when StatsJob
+          calculate_stats(job.request[:id], job.paths)
+        end
       end
     end
   end

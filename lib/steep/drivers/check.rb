@@ -5,16 +5,12 @@ module Steep
       attr_reader :stderr
       attr_reader :command_line_patterns
 
-      attr_accessor :dump_all_types
-
       include Utils::DriverHelper
 
       def initialize(stdout:, stderr:)
         @stdout = stdout
         @stderr = stderr
         @command_line_patterns = []
-
-        self.dump_all_types = false
       end
 
       def run
@@ -24,73 +20,87 @@ module Steep
         loader.load_sources(command_line_patterns)
         loader.load_signatures()
 
-        type_check(project)
+        stdout.puts Rainbow("# Type checking files:").bold
+        stdout.puts
 
-        if self.dump_all_types
-          project.targets.each do |target|
-            case (status = target.status)
-            when Project::Target::TypeCheckStatus
-              target.source_files.each_value do |file|
-                case (file_status = file.status)
-                when Project::SourceFile::TypeCheckStatus
-                  output_types(file_status.typing)
-                end
-              end
-            end
-          end
+        client_read, server_write = IO.pipe
+        server_read, client_write = IO.pipe
+
+        client_reader = LanguageServer::Protocol::Transport::Io::Reader.new(client_read)
+        client_writer = LanguageServer::Protocol::Transport::Io::Writer.new(client_write)
+
+        server_reader = LanguageServer::Protocol::Transport::Io::Reader.new(server_read)
+        server_writer = LanguageServer::Protocol::Transport::Io::Writer.new(server_write)
+
+        interaction_worker = Server::WorkerProcess.spawn_worker(:interaction, name: "interaction", steepfile: project.steepfile_path, delay_shutdown: true)
+        signature_worker = Server::WorkerProcess.spawn_worker(:signature, name: "signature", steepfile: project.steepfile_path, delay_shutdown: true)
+        code_workers = Server::WorkerProcess.spawn_code_workers(steepfile: project.steepfile_path, delay_shutdown: true)
+
+        master = Server::Master.new(
+          project: project,
+          reader: server_reader,
+          writer: server_writer,
+          interaction_worker: interaction_worker,
+          signature_worker: signature_worker,
+          code_workers: code_workers
+        )
+
+        main_thread = Thread.start do
+          master.start()
         end
+        main_thread.abort_on_exception = true
 
-        project.targets.each do |target|
-          Steep.logger.tagged "target=#{target.name}" do
-            case (status = target.status)
-            when Project::Target::SignatureSyntaxErrorStatus
-              printer = SignatureErrorPrinter.new(stdout: stdout, stderr: stderr)
-              printer.print_syntax_errors(status.errors)
-            when Project::Target::SignatureValidationErrorStatus
-              printer = SignatureErrorPrinter.new(stdout: stdout, stderr: stderr)
-              printer.print_semantic_errors(status.errors)
-            when Project::Target::TypeCheckStatus
-              status.type_check_sources.each do |source_file|
-                case source_file.status
-                when Project::SourceFile::TypeCheckStatus
-                  source_file.errors.select {|error| target.options.error_to_report?(error) }.each do |error|
-                    error.print_to stdout
-                  end
-                when Project::SourceFile::TypeCheckErrorStatus
-                  Steep.log_error source_file.status.error
-                end
-              end
-            when Project::Target::SignatureOtherErrorStatus
-              Steep.log_error status.error
+        client_writer.write({ method: :initialize, id: 0 })
+
+        shutdown_id = -1
+        client_writer.write({ method: :shutdown, id: shutdown_id })
+
+        responses = []
+        client_reader.read do |response|
+          case
+          when response[:method] == "textDocument/publishDiagnostics"
+            ds = response[:params][:diagnostics]
+            if ds.empty?
+              stdout.print "."
             else
-              Steep.logger.error { "Unexpected status: #{status.class}" }
+              stdout.print "F"
+            end
+            responses << response[:params]
+            stdout.flush
+          when response[:id] == shutdown_id
+            break
+          end
+        end
+
+        client_writer.write({ method: :exit })
+        client_writer.io.close()
+
+        main_thread.join()
+
+        stdout.puts
+        stdout.puts
+
+        if responses.all? {|res| res[:diagnostics].empty? }
+          emoji = %w(🫖 🫖 🫖 🫖 🫖 🫖 🫖 🫖 🍵 🧋 🧉).sample
+          stdout.puts Rainbow("No type error detected. #{emoji}").green.bold
+          0
+        else
+          errors = responses.reject {|res| res[:diagnostics].empty? }
+          total = errors.sum {|res| res[:diagnostics].size }
+          stdout.puts Rainbow("Detected #{total} problems from #{errors.size} files").red.bold
+          stdout.puts
+
+          errors.each do |resp|
+            path = project.relative_path(Pathname(URI.parse(resp[:uri]).path))
+            buffer = RBS::Buffer.new(name: path, content: path.read)
+            printer = DiagnosticPrinter.new(buffer: buffer, stdout: stdout)
+
+            resp[:diagnostics].each do |diag|
+              printer.print(diag)
+              stdout.puts
             end
           end
-        end
-
-        if project.targets.all? {|target| target.status.is_a?(Project::Target::TypeCheckStatus) && target.no_error? && target.errors.empty? }
-          Steep.logger.info "No type error found"
-          return 0
-        end
-
-        1
-      end
-
-      def output_types(typing)
-        lines = []
-
-        typing.each_typing do |node, _|
-          begin
-            type = typing.type_of(node: node)
-            lines << [node.loc.expression.source_buffer.name, [node.loc.last_line,node.loc.last_column], [node.loc.first_line, node.loc.column], node, type]
-          rescue
-            lines << [node.loc.expression.source_buffer.name, [node.loc.last_line,node.loc.last_column], [node.loc.first_line, node.loc.column], node, nil]
-          end
-        end
-
-        lines.sort {|x,y| y <=> x }.reverse_each do |line|
-          source = line[3].loc.expression.source
-          stdout.puts "#{line[0]}:(#{line[2].join(",")}):(#{line[1].join(",")}):\t#{line[3].type}:\t#{line[4]}\t(#{source.split(/\n/).first})"
+          1
         end
       end
     end

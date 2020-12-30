@@ -97,6 +97,7 @@ require "steep/project/dsl"
 require "steep/project/file_loader"
 require "steep/project/hover_content"
 require "steep/project/completion_provider"
+require "steep/project/stats_calculator"
 require "steep/drivers/utils/driver_helper"
 require "steep/drivers/check"
 require "steep/drivers/stats"
@@ -110,6 +111,7 @@ require "steep/drivers/print_project"
 require "steep/drivers/init"
 require "steep/drivers/vendor"
 require "steep/drivers/worker"
+require "steep/drivers/diagnostic_printer"
 
 if ENV["NO_COLOR"]
   Rainbow.enabled = false

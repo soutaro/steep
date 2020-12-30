@@ -29,9 +29,14 @@ class CodeWorkerTest < Minitest::Test
 
   def shutdown!
     master_writer.write(
+      id: -123,
       method: :shutdown,
       params: nil
     )
+
+    master_reader do |response|
+      break if response[:id] == -123
+    end
 
     master_writer.write(
       method: :exit
@@ -50,9 +55,14 @@ EOF
 
       run_worker(Server::CodeWorker.new(project: project, reader: worker_reader, writer: worker_writer)) do |worker|
         master_writer.write(
+          id: 123,
           method: :shutdown,
           params: nil
         )
+
+        master_reader.read do |response|
+          break if response[:id] == 123
+        end
 
         master_writer.write(
           method: :exit
@@ -150,7 +160,9 @@ class Foo
 end
       RUBY
 
-      assert_equal [[lib_target, Pathname("lib/hello.rb")]],
+      assert_equal [
+                     Server::CodeWorker::TypeCheckJob.new(target: lib_target, path: Pathname("lib/hello.rb"))
+                   ],
                    worker.queue
     end
   end
@@ -292,7 +304,7 @@ end
       )
 
       assert_equal [
-                     [lib_target, Pathname("lib/hello.rb")]
+                     Server::CodeWorker::TypeCheckJob.new(target: lib_target, path: Pathname("lib/hello.rb"))
                    ],
                    worker.queue
     end
@@ -519,6 +531,93 @@ end
 
         shutdown!
       end
+    end
+  end
+
+  def test_calculate_stats
+    in_tmpdir do
+      project = Project.new(steepfile_path: current_dir + "Steepfile")
+      Project::DSL.parse(project, <<EOF)
+target :lib do
+  check "lib"
+  signature "sig"
+end
+EOF
+
+      (current_dir + "lib").mkdir
+      (current_dir + "lib/hello.rb").write(<<RUBY)
+1+2
+RUBY
+      (current_dir + "lib/world.rb").write(<<RUBY)
+1+""
+RUBY
+
+
+      loader = Project::FileLoader.new(project: project)
+      loader.load_sources([])
+      loader.load_signatures()
+
+      worker = Server::CodeWorker.new(project: project, reader: worker_reader, writer: worker_writer)
+
+      thread = Thread.new do
+        worker.run
+      end
+
+      worker.handle_request(
+        {
+          id: 100,
+          method: "workspace/executeCommand",
+          params: LSP::ExecuteCommandParams.new(
+            command: "steep/registerSourceToWorker",
+            arguments: [
+              "file://#{current_dir}/lib/hello.rb"
+            ]
+          ).to_hash
+        }
+      )
+
+      worker.handle_request(
+        {
+          id: 1,
+          method: "initialize",
+          params: {}
+        }
+      )
+
+      worker.handle_request(
+        {
+          id: 101,
+          method: "workspace/executeCommand",
+          params: LSP::ExecuteCommandParams.new(
+            command: "steep/stats",
+            arguments: [
+              "file://#{current_dir}/lib/hello.rb",
+              "file://#{current_dir}/lib/world.rb"
+            ]
+          ).to_hash
+        }
+      )
+
+      response = master_reader.read do |response|
+        break response if response[:id] == 101
+      end
+
+
+      assert_equal [
+                     {
+                       type: "success",
+                       target: "lib",
+                       path: "lib/hello.rb",
+                       typed_calls: 1,
+                       untyped_calls: 0,
+                       error_calls: 0,
+                       total_calls: 1
+                     }
+                   ], response[:result]
+
+      shutdown!
+
+      thread.join
     end
   end
 end

@@ -83,7 +83,6 @@ module Steep
           opts.banner = "Usage: steep check [options] [sources]"
 
           opts.on("--steepfile=PATH") {|path| check.steepfile = Pathname(path) }
-          opts.on("--dump-all-types") { check.dump_all_types = true }
           handle_logging_options opts
         end.parse!(argv)
 
@@ -184,6 +183,7 @@ module Steep
           opts.on("--signature") { command.worker_type = :signature }
           opts.on("--steepfile=PATH") {|path| command.steepfile = Pathname(path) }
           opts.on("--name=NAME") {|name| command.worker_name = name }
+          opts.on("--delay-shutdown") { command.delay_shutdown = true }
         end.parse!(argv)
       end.run
     end

@@ -35,10 +35,13 @@ module Steep
       def handle_request(request)
         case request[:method]
         when "initialize"
-          # Don't respond to initialize request, but start type checking.
+          # Start type checking.
           project.targets.each do |target|
             enqueue_target(target: target, timestamp: Time.now)
           end
+
+          writer.write({ id: request[:id], result: nil})
+
         when "textDocument/didChange"
           update_source(request)
           validate_signature_if_required(request)

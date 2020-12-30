@@ -17,6 +17,7 @@ module Steep
         case request[:method]
         when "initialize"
           # nop
+          writer.write({ id: request[:id], result: nil })
 
         when "textDocument/didChange"
           update_source(request)
