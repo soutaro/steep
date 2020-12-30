@@ -1,0 +1,25 @@
+---
+test:
+  a.rb:
+    diagnostics:
+    - |
+      a.rb:3:0: [error] IncompatibleAssignment: lhs_type=::Integer, rhs_type=::String (a = -> (x, y) do)
+      │   ::String <: ::Integer
+      │    ::Object <: ::Integer
+      │     ::BasicObject <: ::Integer
+      │ ==> ::BasicObject <: ::Integer does not hold
+      │
+      └ a = -> (x, y) do
+        ~~~~~~~~~~~~~~~~
+    - |
+      a.rb:11:2: [error] NoMethodError: type=nil, method=+ (x + 1)
+      │
+      └   x + 1
+          ~~~~~
+    - |
+      a.rb:10:0: [error] IncompatibleAssignment: lhs_type=^(::Integer) -> ::Integer, rhs_type=::Proc (b = lambda do |x|)
+      │   ::Proc <: ^(::Integer) -> ::Integer
+      │ ==> ::Proc <: ^(::Integer) -> ::Integer does not hold
+      │
+      └ b = lambda do |x|
+        ~~~~~~~~~~~~~~~~~
