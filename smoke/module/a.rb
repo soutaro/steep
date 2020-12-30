@@ -10,10 +10,8 @@ module A
     end
 
     # @type var s: String
-    # !expects IncompatibleAssignment: lhs_type=::String, rhs_type=::Integer
     s = n
 
-    # !expects NoMethodError: type=(::Object & ::_Each2[::Integer, ::A] & ::A), method=foo
     foo()
 
     n

@@ -1,5 +1,3 @@
-# ALLOW FAILURE
-
 # @type var klass: Class
 # @type var mod: Module
 
