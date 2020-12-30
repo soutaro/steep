@@ -1,0 +1,65 @@
+---
+test:
+  a.rb:
+    diagnostics:
+    - |
+      a.rb:6:0: [error] UnresolvedOverloading: receiver=::Array[::Integer], method_name=[]=, method_types=(::int, ::Integer) -> ::Integer | (::int, ::int, ::Integer) -> ::Integer | (::int, ::int, ::Array[::Integer]) -> ::Array[::Integer] | (::int, ::int, nil) -> nil | (::Range[::Integer], ::Integer) -> ::Integer | (::Range[::Integer], ::Array[::Integer]) -> ::Array[::Integer] | (::Range[::Integer], nil) -> nil (a[2] = "foo")
+      │
+      └ a[2] = "foo"
+        ~~~~~~~~~~~~
+    - |
+      a.rb:12:0: [error] IncompatibleAssignment: lhs_type=::String, rhs_type=::Integer (s = a[1])
+      │   ::Integer <: ::String
+      │    ::Numeric <: ::String
+      │     ::Object <: ::String
+      │      ::BasicObject <: ::String
+      │ ==> ::BasicObject <: ::String does not hold
+      │
+      └ s = a[1]
+        ~~~~~~~~
+    - |
+      a.rb:18:0: [error] IncompatibleAssignment: lhs_type=::Integer, rhs_type=::String (i = b[1])
+      │   ::String <: ::Integer
+      │    ::Object <: ::Integer
+      │     ::BasicObject <: ::Integer
+      │ ==> ::BasicObject <: ::Integer does not hold
+      │
+      └ i = b[1]
+        ~~~~~~~~
+  b.rb:
+    diagnostics:
+    - |
+      b.rb:11:0: [error] IncompatibleAssignment: lhs_type=::Array[::String], rhs_type=::Array[::Integer] (b = a)
+      │   ::Array[::Integer] <: ::Array[::String]
+      │    ::Integer <: ::String
+      │     ::Numeric <: ::String
+      │      ::Object <: ::String
+      │       ::BasicObject <: ::String
+      │ ==> ::BasicObject <: ::String does not hold
+      │
+      └ b = a
+        ~~~~~
+    - |
+      b.rb:12:0: [error] IncompatibleAssignment: lhs_type=::Array[::Integer], rhs_type=::Array[::String] (a = b)
+      │   ::Array[::String] <: ::Array[::Integer]
+      │    ::String <: ::Integer
+      │     ::Object <: ::Integer
+      │      ::BasicObject <: ::Integer
+      │ ==> ::BasicObject <: ::Integer does not hold
+      │
+      └ a = b
+        ~~~~~
+  c.rb:
+    diagnostics:
+    - |
+      c.rb:6:0: [error] IncompatibleAssignment: lhs_type=::Array[(::String | nil)], rhs_type=::Array[::Integer] (x = [1])
+      │   ::Array[::Integer] <: ::Array[(::String | nil)]
+      │    ::Integer <: (::String | nil)
+      │     ::Integer <: ::String
+      │      ::Numeric <: ::String
+      │       ::Object <: ::String
+      │        ::BasicObject <: ::String
+      │ ==> ::BasicObject <: ::String does not hold
+      │
+      └ x = [1]
+        ~~~~~~~
