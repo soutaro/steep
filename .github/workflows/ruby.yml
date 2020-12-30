@@ -16,7 +16,7 @@ jobs:
         - 2.7.0-bionic
         task:
         - test
-        - smoke
+        - test:output
         - build
     container:
       image: rubylang/ruby:${{ matrix.container_tag }}
