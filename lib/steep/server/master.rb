@@ -254,6 +254,21 @@ module Steep
             end
           end
 
+        when "workspace/executeCommand"
+          case message[:params][:command]
+          when "steep/stats"
+            send_request(message, workers: code_workers) do |handler|
+              handler.on_completion do |*responses|
+                stats = responses.flat_map {|resp| resp[:result] }
+
+                write_queue << {
+                  id: handler.request_id,
+                  result: stats
+                }
+              end
+            end
+          end
+
         when "shutdown"
           broadcast_request(message) do |handler|
             handler.on_completion do |*_|
@@ -285,13 +300,17 @@ module Steep
         worker << message
       end
 
-      def send_request(message, worker:)
-        Steep.logger.info "Sending request #{message[:method]}(#{message[:id]}) to #{worker.name}"
-        handler = ResponseHandler.new(request: message, workers: [worker])
+      def send_request(message, worker: nil, workers: [])
+        workers << worker if worker
+
+        Steep.logger.info "Sending request #{message[:method]}(#{message[:id]}) to #{workers.map(&:name).join(", ")}"
+        handler = ResponseHandler.new(request: message, workers: workers)
         yield(handler) if block_given?
         response_handlers[handler.request_id] = handler
 
-        worker << message
+        workers.each do |w|
+          w << message
+        end
       end
 
       def broadcast_request(message)

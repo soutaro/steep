@@ -4,6 +4,7 @@ module Steep
       LSP = LanguageServer::Protocol
 
       TypeCheckJob = Struct.new(:target, :path, keyword_init: true)
+      StatsJob = Struct.new(:request, :paths, keyword_init: true)
 
       include Utils
 
@@ -42,6 +43,23 @@ module Steep
             uri: URI.parse(project.absolute_path(path).to_s).tap {|uri| uri.scheme = "file"},
             diagnostics: diagnostics
           )
+        )
+      end
+
+      def calculate_stats(request_id, paths)
+        calculator = Project::StatsCalculator.new(project: project)
+
+        stats = paths.map do |path|
+          if typecheck_paths.include?(path)
+            if target = project.target_for_source_path(path)
+              calculator.calc_stats(target, path)
+            end
+          end
+        end.compact
+
+        writer.write(
+          id: request_id,
+          result: stats.map(&:as_json)
         )
       end
 
@@ -104,10 +122,14 @@ module Steep
           writer.write({ id: request[:id], result: nil })
 
         when "workspace/executeCommand"
-          if request[:params][:command] == "steep/registerSourceToWorker"
+          Steep.logger.info { "Executing command: #{request[:params][:command]}, arguments=#{request[:params][:arguments].map(&:inspect).join(", ")}" }
+          case request[:params][:command]
+          when "steep/registerSourceToWorker"
             paths = request[:params][:arguments].map {|arg| source_path(URI.parse(arg)) }
-            Steep.logger.info "Registering paths: #{paths.join(", ")}"
             typecheck_paths.merge(paths)
+          when "steep/stats"
+            paths = request[:params][:arguments].map {|arg| source_path(URI.parse(arg)) }
+            queue << StatsJob.new(paths: paths, request: request)
           end
 
         when "textDocument/didChange"
@@ -135,6 +157,8 @@ module Steep
         case job
         when TypeCheckJob
           typecheck_file(job.path, job.target)
+        when StatsJob
+          calculate_stats(job.request[:id], job.paths)
         end
       end
     end
