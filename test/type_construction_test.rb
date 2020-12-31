@@ -659,7 +659,7 @@ end
 
         assert_typing_error(typing, size: 1) do |errors|
           assert_any!(errors) do |error|
-            assert_instance_of Steep::Errors::BlockTypeMismatch, error
+            assert_instance_of Diagnostic::Ruby::BlockTypeMismatch, error
             assert_equal parse_type("^(::_A) -> ::_D"), error.expected
             assert_equal parse_type("^(::_A) -> ::_A"), error.actual
           end
@@ -6215,7 +6215,7 @@ test.foo(&p)
           assert_equal parse_type("::String"), call.return_type
 
           assert_equal 1, call.errors.size
-          assert_instance_of Steep::Errors::BlockTypeMismatch, call.errors[0]
+          assert_instance_of Diagnostic::Ruby::BlockTypeMismatch, call.errors[0]
         end
       end
     end

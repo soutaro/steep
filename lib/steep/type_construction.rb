@@ -3055,10 +3055,12 @@ module Steep
                   block: nil
                 )
 
-                errors << Errors::BlockTypeMismatch.new(node: node,
-                                                        expected: method_block_type,
-                                                        actual: given_block_type,
-                                                        result: result)
+                errors << Diagnostic::Ruby::BlockTypeMismatch.new(
+                  node: node,
+                  expected: method_block_type,
+                  actual: given_block_type,
+                  result: result
+                )
 
                 return_type = method_type.type.return_type
               end
@@ -3150,10 +3152,12 @@ module Steep
 
               result = check_relation(sub_type: given_block_type, super_type: method_block_type, constraints: constraints)
               result.else do |result|
-                errors << Errors::BlockTypeMismatch.new(node: node,
-                                                        expected: method_block_type,
-                                                        actual: given_block_type,
-                                                        result: result)
+                errors << Diagnostic::Ruby::BlockTypeMismatch.new(
+                  node: node,
+                  expected: method_block_type,
+                  actual: given_block_type,
+                  result: result
+                )
               end
 
               method_type = method_type.subst(constraints.solution(checker, self_type: self_type, variance: variance, variables: method_type.free_variables))
