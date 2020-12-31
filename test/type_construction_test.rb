@@ -6761,13 +6761,13 @@ RUBY
 
         assert_typing_error(typing, size: 2) do |errors|
           assert_any!(errors) do |error|
-            assert_instance_of Steep::Errors::BreakTypeMismatch, error
+            assert_instance_of Diagnostic::Ruby::BreakTypeMismatch, error
             assert_equal parse_type("::Array[::Integer]"), error.actual
             assert_equal parse_type("::Integer"), error.expected
           end
 
           assert_any!(errors) do |error|
-            assert_instance_of Steep::Errors::BreakTypeMismatch, error
+            assert_instance_of Diagnostic::Ruby::BreakTypeMismatch, error
             assert_equal parse_type("nil"), error.actual
             assert_equal parse_type("::Integer"), error.expected
           end
@@ -6836,13 +6836,13 @@ RUBY
 
         assert_typing_error(typing, size: 2) do |errors|
           assert_any!(errors) do |error|
-            assert_instance_of Steep::Errors::BreakTypeMismatch, error
+            assert_instance_of Diagnostic::Ruby::BreakTypeMismatch, error
             assert_equal parse_type("::Integer"), error.actual
             assert_equal parse_type("::String"), error.expected
           end
 
           assert_any!(errors) do |error|
-            assert_instance_of Steep::Errors::BreakTypeMismatch, error
+            assert_instance_of Diagnostic::Ruby::BreakTypeMismatch, error
             assert_equal parse_type("nil"), error.actual
             assert_equal parse_type("::String"), error.expected
           end

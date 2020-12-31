@@ -163,7 +163,7 @@ module TypeErrorAssertions
   end
 
   def assert_break_type_mismatch(error, expected: nil, actual: nil)
-    assert_instance_of Steep::Errors::BreakTypeMismatch, error
+    assert_instance_of Diagnostic::Ruby::BreakTypeMismatch, error
 
     assert_equal expected, error.expected if expected
     assert_equal actual, error.actual if actual

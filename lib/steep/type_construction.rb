@@ -1027,17 +1027,25 @@ module Steep
             if break_type = break_context.break_type
               if value
                 check(value, break_type) do |break_type, actual_type, result|
-                  typing.add_error Errors::BreakTypeMismatch.new(node: node,
-                                                                 expected: break_type,
-                                                                 actual: actual_type,
-                                                                 result: result)
+                  typing.add_error(
+                    Diagnostic::Ruby::BreakTypeMismatch.new(
+                      node: node,
+                      expected: break_type,
+                      actual: actual_type,
+                      result: result
+                    )
+                  )
                 end
               else
                 check_relation(sub_type: AST::Builtin.nil_type, super_type: break_type).else do |result|
-                  typing.add_error Errors::BreakTypeMismatch.new(node: node,
-                                                                 expected: break_type,
-                                                                 actual: AST::Builtin.nil_type,
-                                                                 result: result)
+                  typing.add_error(
+                    Diagnostic::Ruby::BreakTypeMismatch.new(
+                      node: node,
+                      expected: break_type,
+                      actual: AST::Builtin.nil_type,
+                      result: result
+                    )
+                  )
                 end
               end
             else
@@ -1062,17 +1070,25 @@ module Steep
 
               if value
                 _, constr = check(value, next_type) do |break_type, actual_type, result|
-                  typing.add_error Errors::BreakTypeMismatch.new(node: node,
-                                                                 expected: break_type,
-                                                                 actual: actual_type,
-                                                                 result: result)
+                  typing.add_error(
+                    Diagnostic::Ruby::BreakTypeMismatch.new(
+                      node: node,
+                      expected: break_type,
+                      actual: actual_type,
+                      result: result
+                    )
+                  )
                 end
               else
                 check_relation(sub_type: AST::Builtin.nil_type, super_type: next_type).else do |result|
-                  typing.add_error Errors::BreakTypeMismatch.new(node: node,
-                                                                 expected: next_type,
-                                                                 actual: AST::Builtin.nil_type,
-                                                                 result: result)
+                  typing.add_error(
+                    Diagnostic::Ruby::BreakTypeMismatch.new(
+                      node: node,
+                      expected: next_type,
+                      actual: AST::Builtin.nil_type,
+                      result: result
+                    )
+                  )
                 end
               end
             else
