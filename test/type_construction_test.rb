@@ -730,7 +730,7 @@ end
         construction.synthesize(source.node)
 
         assert_any typing.errors do |error|
-          error.is_a?(Steep::Errors::ReturnTypeMismatch) && error.expected == parse_type("::_X") && error.actual == parse_type("::_A")
+          error.is_a?(Diagnostic::Ruby::ReturnTypeMismatch) && error.expected == parse_type("::_X") && error.actual == parse_type("::_A")
         end
       end
     end

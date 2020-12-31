@@ -1004,10 +1004,14 @@ module Steep
                   result = check_relation(sub_type: value_type, super_type: method_return_type)
 
                   if result.failure?
-                    typing.add_error(Errors::ReturnTypeMismatch.new(node: node,
-                                                                    expected: method_context&.return_type,
-                                                                    actual: value_type,
-                                                                    result: result))
+                    typing.add_error(
+                      Diagnostic::Ruby::ReturnTypeMismatch.new(
+                        node: node,
+                        expected: method_context&.return_type,
+                        actual: value_type,
+                        result: result
+                      )
+                    )
                   end
                 end
               end
