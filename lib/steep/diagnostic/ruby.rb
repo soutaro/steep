@@ -235,6 +235,12 @@ module Steep
           format_message ""
         end
       end
+
+      class UnexpectedJumpValue < Base
+        def to_s
+          format_message ""
+        end
+      end
     end
   end
 end

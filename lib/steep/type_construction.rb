@@ -1051,7 +1051,7 @@ module Steep
             else
               if value
                 synthesize(value)
-                typing.add_error Errors::UnexpectedJumpValue.new(node: node)
+                typing.add_error Diagnostic::Ruby::UnexpectedJumpValue.new(node: node)
               end
             end
           else
@@ -1094,7 +1094,7 @@ module Steep
             else
               if value
                 synthesize(value)
-                typing.add_error Errors::UnexpectedJumpValue.new(node: node)
+                typing.add_error Diagnostic::Ruby::UnexpectedJumpValue.new(node: node)
               end
             end
           else

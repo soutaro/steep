@@ -1840,7 +1840,7 @@ end
 
         assert_equal 1, typing.errors.size
         assert_any typing.errors do |error|
-          error.is_a?(Steep::Errors::UnexpectedJumpValue)
+          error.is_a?(Diagnostic::Ruby::UnexpectedJumpValue)
         end
       end
     end
@@ -2101,7 +2101,7 @@ end
 
         refute_empty typing.errors
         assert_any typing.errors do |error|
-          error.is_a?(Steep::Errors::UnexpectedJumpValue)
+          error.is_a?(Diagnostic::Ruby::UnexpectedJumpValue)
         end
       end
     end

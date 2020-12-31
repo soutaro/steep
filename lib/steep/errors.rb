@@ -41,12 +41,6 @@ module Steep
       end
     end
 
-    class UnexpectedJumpValue < Base
-      def to_s
-        format_message ""
-      end
-    end
-
     class MethodArityMismatch < Base
       def to_s
         format_message "method=#{node.children[0]}"
