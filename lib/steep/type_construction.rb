@@ -154,7 +154,7 @@ module Steep
       if method_type
         var_types = TypeConstruction.parameter_types(args, method_type.type)
         unless TypeConstruction.valid_parameter_env?(var_types, args.reject {|arg| arg.type == :blockarg}, method_type.type.params)
-          typing.add_error Errors::MethodArityMismatch.new(node: node)
+          typing.add_error Diagnostic::Ruby::MethodArityMismatch.new(node: node)
         end
       end
 

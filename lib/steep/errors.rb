@@ -41,12 +41,6 @@ module Steep
       end
     end
 
-    class MethodArityMismatch < Base
-      def to_s
-        format_message "method=#{node.children[0]}"
-      end
-    end
-
     class IncompatibleMethodTypeAnnotation < Base
       attr_reader :interface_method
       attr_reader :annotation_method
