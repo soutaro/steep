@@ -2553,7 +2553,7 @@ module Steep
             end
           end
         else
-          error = Errors::UnresolvedOverloading.new(
+          error = Diagnostic::Ruby::UnresolvedOverloading.new(
             node: node,
             receiver_type: receiver_type,
             method_name: method_name,

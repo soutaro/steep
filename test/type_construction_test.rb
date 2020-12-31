@@ -869,7 +869,7 @@ Hello.new.foo([])
           end
 
           errors[1].tap do |error|
-            assert_instance_of Steep::Errors::UnresolvedOverloading, error
+            assert_instance_of Diagnostic::Ruby::UnresolvedOverloading, error
             assert_equal parse_type("::Hello"), error.receiver_type
             assert_equal :foo, error.method_name
             assert_equal [parse_method_type("(::Integer) -> void"), parse_method_type("(::String) -> void")],
@@ -1705,7 +1705,7 @@ y = x + ""
 
         assert_equal 1, typing.errors.size
         assert_any typing.errors do |error|
-          error.is_a?(Steep::Errors::UnresolvedOverloading)
+          error.is_a?(Diagnostic::Ruby::UnresolvedOverloading)
         end
       end
     end
@@ -2066,7 +2066,7 @@ a ||= a + "foo"
 
         assert_equal 1, typing.errors.size
         assert_any typing.errors do |error|
-          error.is_a?(Steep::Errors::UnresolvedOverloading)
+          error.is_a?(Diagnostic::Ruby::UnresolvedOverloading)
         end
       end
     end
@@ -4457,7 +4457,7 @@ end
 
         assert_typing_error(typing, size: 1) do |errors|
           assert_any!(errors) do |error|
-            assert_instance_of Steep::Errors::UnresolvedOverloading, error
+            assert_instance_of Diagnostic::Ruby::UnresolvedOverloading, error
           end
         end
       end
@@ -6366,7 +6366,7 @@ end
 
         assert_typing_error(typing, size: 2) do |errors|
           assert_any!(errors) do |error|
-            assert_instance_of Steep::Errors::UnresolvedOverloading, error
+            assert_instance_of Diagnostic::Ruby::UnresolvedOverloading, error
           end
 
           assert_any!(errors) do |error|
