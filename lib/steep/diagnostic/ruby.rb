@@ -112,6 +112,21 @@ module Steep
           format_message "receiver=#{receiver_type}, expected=#{expected}, actual=#{actual}"
         end
       end
+
+      class NoMethod < Base
+        attr_reader :type
+        attr_reader :method
+
+        def initialize(node:, type:, method:)
+          super(node: node)
+          @type = type
+          @method = method
+        end
+
+        def to_s
+          format_message "type=#{type}, method=#{method}", class_name: "NoMethodError"
+        end
+      end
     end
   end
 end

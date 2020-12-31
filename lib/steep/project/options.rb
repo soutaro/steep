@@ -44,7 +44,7 @@ module Steep
           !allow_fallback_any
         when error.is_a?(Errors::MethodDefinitionMissing)
           !allow_missing_definitions
-        when error.is_a?(Errors::NoMethod)
+        when error.is_a?(Diagnostic::Ruby::NoMethod)
           !allow_unknown_method_calls
         when error.is_a?(Errors::UnknownConstantAssigned)
           !allow_unknown_constant_assignment

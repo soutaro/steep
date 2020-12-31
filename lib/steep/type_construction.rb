@@ -1920,7 +1920,7 @@ module Steep
               add_typing(node, type: collection_type, constr: constr)
             else
               fallback_to_any(node) do
-                Errors::NoMethod.new(
+                Diagnostic::Ruby::NoMethod.new(
                   node: node,
                   method: :each,
                   type: collection_type
@@ -2609,7 +2609,7 @@ module Steep
             context: context.method_context,
             method_name: method_name,
             receiver_type: receiver_type,
-            error: Errors::NoMethod.new(node: node, method: method_name, type: receiver_type)
+            error: Diagnostic::Ruby::NoMethod.new(node: node, method: method_name, type: receiver_type)
           )
         )
       end
@@ -2647,7 +2647,7 @@ module Steep
                            context: context.method_context,
                            method_name: method_name,
                            receiver_type: receiver_type,
-                           error: Errors::NoMethod.new(node: node, method: method_name, type: receiver_type)
+                           error: Diagnostic::Ruby::NoMethod.new(node: node, method: method_name, type: receiver_type)
                          )
                        )
 
@@ -2664,7 +2664,7 @@ module Steep
                              context: context.method_context,
                              method_name: method_name,
                              receiver_type: receiver_type,
-                             error: Errors::NoMethod.new(node: node, method: method_name, type: receiver_type)
+                             error: Diagnostic::Ruby::NoMethod.new(node: node, method: method_name, type: receiver_type)
                            )
                          )
                        else

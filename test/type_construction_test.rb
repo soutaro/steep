@@ -1909,7 +1909,7 @@ end
 
         assert_equal 1, typing.errors.size
         typing.errors[0].tap do |error|
-          assert_instance_of Steep::Errors::NoMethod, error
+          assert_instance_of Diagnostic::Ruby::NoMethod, error
           assert_equal parse_type("nil"), error.type
           assert_equal :+, error.method
         end
@@ -1932,7 +1932,7 @@ end while line = gets
 
         assert_equal 1, typing.errors.size
         typing.errors[0].tap do |error|
-          assert_instance_of Steep::Errors::NoMethod, error
+          assert_instance_of Diagnostic::Ruby::NoMethod, error
           assert_equal parse_type("::String?"), error.type
           assert_equal :+, error.method
         end
@@ -1991,7 +1991,7 @@ end
         assert_equal 1, typing.errors.size
 
         assert_any!(typing.errors) do |error|
-          assert_instance_of Steep::Errors::NoMethod, error
+          assert_instance_of Diagnostic::Ruby::NoMethod, error
         end
       end
     end
@@ -2029,7 +2029,7 @@ a = /#{a + 3}/
 
         assert_equal 1, typing.errors.size
         assert_any typing.errors do |error|
-          error.is_a?(Steep::Errors::NoMethod)
+          error.is_a?(Diagnostic::Ruby::NoMethod)
         end
       end
     end
@@ -2530,7 +2530,7 @@ end
           error.is_a?(Diagnostic::Ruby::IncompatibleAssignment) && error.rhs_type.is_a?(Steep::AST::Types::Void)
         end
         assert_any typing.errors do |error|
-          error.is_a?(Steep::Errors::NoMethod) && error.type.is_a?(Steep::AST::Types::Void)
+          error.is_a?(Diagnostic::Ruby::NoMethod) && error.type.is_a?(Steep::AST::Types::Void)
         end
       end
     end
@@ -2562,7 +2562,7 @@ end
           error.is_a?(Diagnostic::Ruby::IncompatibleAssignment) && error.rhs_type.is_a?(Steep::AST::Types::Void)
         end
         assert_any typing.errors do |error|
-          error.is_a?(Steep::Errors::NoMethod) && error.type.is_a?(Steep::AST::Types::Void)
+          error.is_a?(Diagnostic::Ruby::NoMethod) && error.type.is_a?(Steep::AST::Types::Void)
         end
       end
     end
@@ -3074,7 +3074,7 @@ EOF
         assert_typing_error typing, size: 1
         # assert_equal 1, typing.errors.size
         assert_any typing.errors do |error|
-          error.is_a?(Steep::Errors::NoMethod)
+          error.is_a?(Diagnostic::Ruby::NoMethod)
         end
       end
     end
@@ -3575,7 +3575,7 @@ EOF
 
         assert_equal 1, typing.errors.size
         typing.errors[0].yield_self do |error|
-          assert_instance_of Steep::Errors::NoMethod, error
+          assert_instance_of Diagnostic::Ruby::NoMethod, error
           assert_equal :no_such_method, error.method
         end
       end
@@ -3596,7 +3596,7 @@ EOF
 
         assert_equal 1, typing.errors.size
         typing.errors[0].yield_self do |error|
-          assert_instance_of Steep::Errors::NoMethod, error
+          assert_instance_of Diagnostic::Ruby::NoMethod, error
           assert_equal :no_such_method, error.method
         end
       end
@@ -3757,7 +3757,7 @@ EOF
 
         assert_equal 1, typing.errors.size
         typing.errors[0].yield_self do |error|
-          assert_instance_of Steep::Errors::NoMethod, error
+          assert_instance_of Diagnostic::Ruby::NoMethod, error
           assert_equal parse_type("(::Integer | ::String)"), error.type
         end
       end
@@ -4379,7 +4379,7 @@ WithPrivate.new.foo
 
         assert_equal 1, typing.errors.size
         assert_any typing.errors do |error|
-          error.is_a?(Steep::Errors::NoMethod)
+          error.is_a?(Diagnostic::Ruby::NoMethod)
         end
       end
     end
@@ -4432,7 +4432,7 @@ end
 
         assert_equal 1, typing.errors.size
         assert_any typing.errors do |error|
-          error.is_a?(Steep::Errors::NoMethod)
+          error.is_a?(Diagnostic::Ruby::NoMethod)
         end
       end
     end
@@ -5904,7 +5904,7 @@ y = b.foo(2)
 
         dig(source.node, 1, 1).tap do |a_foo|
           error = typing.errors.find {|error| error.node == a_foo }
-          assert_instance_of Steep::Errors::NoMethod, error
+          assert_instance_of Diagnostic::Ruby::NoMethod, error
 
           call = typing.call_of(node: a_foo)
           assert_instance_of MethodCall::NoMethodError, call
@@ -5912,7 +5912,7 @@ y = b.foo(2)
 
         dig(source.node, 3, 1).tap do |b_foo|
           error = typing.errors.find {|error| error.node == b_foo }
-          assert_instance_of Steep::Errors::NoMethod, error
+          assert_instance_of Diagnostic::Ruby::NoMethod, error
 
           call = typing.call_of(node: b_foo)
           assert_instance_of MethodCall::NoMethodError, call
@@ -6241,7 +6241,7 @@ end
         type, _ = construction.synthesize(source.node)
 
         assert_typing_error typing, size: 2 do |errors|
-          assert_instance_of Steep::Errors::NoMethod, errors[0]
+          assert_instance_of Diagnostic::Ruby::NoMethod, errors[0]
           assert_instance_of Steep::Errors::UnsatisfiableConstraint, errors[1]
         end
 
@@ -6790,7 +6790,7 @@ RUBY
 
         assert_typing_error(typing, size: 1) do |errors|
           assert_any!(errors) do |error|
-            assert_instance_of Steep::Errors::NoMethod, error
+            assert_instance_of Diagnostic::Ruby::NoMethod, error
           end
         end
       end
@@ -6865,7 +6865,7 @@ RUBY
 
         assert_typing_error(typing, size: 1) do |errors|
           assert_any!(errors) do |error|
-            assert_instance_of Steep::Errors::NoMethod, error
+            assert_instance_of Diagnostic::Ruby::NoMethod, error
           end
         end
       end
@@ -6943,7 +6943,7 @@ RUBY
 
         assert_typing_error typing, size: 2 do |errors|
           assert_all!(errors) do |error|
-            assert_instance_of Steep::Errors::NoMethod, error
+            assert_instance_of Diagnostic::Ruby::NoMethod, error
             assert_equal :bar, error.method
           end
         end

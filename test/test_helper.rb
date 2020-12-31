@@ -144,7 +144,7 @@ module TypeErrorAssertions
   end
 
   def assert_no_method_error(error, node: nil, method: nil, type: nil)
-    assert_instance_of Steep::Errors::NoMethod, error
+    assert_instance_of Diagnostic::Ruby::NoMethod, error
 
     node and assert_equal node, error.node
     method and assert_equal method, error.method

@@ -22,7 +22,7 @@ class ErrorsTest < Minitest::Test
 
   def test_to_s_with_class_name
     assert_equal "foo.rb:1:0: NoMethodError: type=String, method=bar",
-                 Errors::NoMethod.new(node: @node, type: "String", method: "bar").to_s
+                 Diagnostic::Ruby::NoMethod.new(node: @node, type: "String", method: "bar").to_s
   end
 
   def test_to_s_multiline
