@@ -6370,7 +6370,7 @@ end
           end
 
           assert_any!(errors) do |error|
-            assert_instance_of Steep::Errors::BlockBodyTypeMismatch, error
+            assert_instance_of Diagnostic::Ruby::BlockBodyTypeMismatch, error
             assert_equal parse_type("::String"), error.expected
             assert_equal parse_type("::Integer"), error.actual
           end

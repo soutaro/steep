@@ -2494,7 +2494,7 @@ module Steep
         if expected_block_type = block_constr.block_context.body_type
           check_relation(sub_type: return_type, super_type: expected_block_type).else do |result|
             block_constr.typing.add_error(
-              Errors::BlockBodyTypeMismatch.new(
+              Diagnostic::Ruby::BlockBodyTypeMismatch.new(
                 node: block_body,
                 expected: expected_block_type,
                 actual: return_type,
@@ -3214,7 +3214,7 @@ module Steep
       if expected_block_type = block_constr.block_context.body_type
         block_constr.check_relation(sub_type: block_type, super_type: expected_block_type).else do |result|
           block_constr.typing.add_error(
-            Errors::BlockBodyTypeMismatch.new(
+            Diagnostic::Ruby::BlockBodyTypeMismatch.new(
               node: node,
               expected: expected_block_type,
               actual: block_type,
