@@ -41,21 +41,6 @@ module Steep
       end
     end
 
-    class BlockParameterTypeMismatch < Base
-      attr_reader :expected
-      attr_reader :actual
-
-      def initialize(node:, expected:, actual:)
-        super(node: node)
-        @expected = expected
-        @actual = actual
-      end
-
-      def to_s
-        format_message "expected=#{expected}, actual=#{actual}"
-      end
-    end
-
     class NoMethod < Base
       attr_reader :type
       attr_reader :method
