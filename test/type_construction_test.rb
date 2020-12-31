@@ -1361,7 +1361,7 @@ end
         skip "Skip testing if method type annotation is compatible with interface"
 
         assert_equal 1, typing.errors.size
-        assert_instance_of Steep::Errors::IncompatibleMethodTypeAnnotation, typing.errors.first
+        assert_instance_of Diagnostic::Ruby::IncompatibleMethodTypeAnnotation, typing.errors.first
       end
     end
   end

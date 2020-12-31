@@ -247,6 +247,25 @@ module Steep
           format_message "method=#{node.children[0]}"
         end
       end
+
+      class IncompatibleMethodTypeAnnotation < Base
+        attr_reader :interface_method
+        attr_reader :annotation_method
+        attr_reader :result
+
+        include ResultPrinter
+
+        def initialize(node:, interface_method:, annotation_method:, result:)
+          super(node: node)
+          @interface_method = interface_method
+          @annotation_method = annotation_method
+          @result = result
+        end
+
+        def to_s
+          format_message "interface_method=#{interface_method.type_name}.#{interface_method.name}, annotation_method=#{annotation_method.name}"
+        end
+      end
     end
   end
 end
