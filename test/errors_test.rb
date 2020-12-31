@@ -17,7 +17,7 @@ class ErrorsTest < Minitest::Test
 
   def test_to_s_without_message
     assert_equal "foo.rb:1:0: UnexpectedJump",
-                 Errors::UnexpectedJump.new(node: @node).to_s
+                 Diagnostic::Ruby::UnexpectedJump.new(node: @node).to_s
   end
 
   def test_to_s_with_class_name

@@ -6810,7 +6810,7 @@ RUBY
 
         assert_typing_error(typing, size: 1) do |errors|
           assert_any!(errors) do |error|
-            assert_instance_of Steep::Errors::UnexpectedJump, error
+            assert_instance_of Diagnostic::Ruby::UnexpectedJump, error
           end
         end
       end
@@ -6885,7 +6885,7 @@ RUBY
 
         assert_typing_error(typing, size: 1) do |errors|
           assert_any!(errors) do |error|
-            assert_instance_of Steep::Errors::UnexpectedJump, error
+            assert_instance_of Diagnostic::Ruby::UnexpectedJump, error
           end
         end
       end

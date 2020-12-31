@@ -1056,7 +1056,7 @@ module Steep
             end
           else
             synthesize(value) if value
-            typing.add_error Errors::UnexpectedJump.new(node: node)
+            typing.add_error Diagnostic::Ruby::UnexpectedJump.new(node: node)
           end
 
           add_typing(node, type: AST::Builtin.bottom_type)
@@ -1099,14 +1099,14 @@ module Steep
             end
           else
             synthesize(value) if value
-            typing.add_error Errors::UnexpectedJump.new(node: node)
+            typing.add_error Diagnostic::Ruby::UnexpectedJump.new(node: node)
           end
 
           add_typing(node, type: AST::Builtin.bottom_type)
 
         when :retry
           unless break_context
-            typing.add_error Errors::UnexpectedJump.new(node: node)
+            typing.add_error Diagnostic::Ruby::UnexpectedJump.new(node: node)
           end
           add_typing(node, type: AST::Builtin.bottom_type)
 
