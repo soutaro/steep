@@ -3,6 +3,7 @@ require_relative "test_helper"
 class ErrorsTest < Minitest::Test
   include TestHelper
 
+  Diagnostic = Steep::Diagnostic
   Errors = Steep::Errors
 
   def setup
@@ -11,7 +12,7 @@ class ErrorsTest < Minitest::Test
 
   def test_to_s_with_message
     assert_equal "foo.rb:1:0: IncompatibleAssignment: lhs_type=lhs, rhs_type=rhs",
-                 Errors::IncompatibleAssignment.new(node: @node, lhs_type: "lhs", rhs_type: "rhs", result: nil).to_s
+                 Diagnostic::Ruby::IncompatibleAssignment.new(node: @node, lhs_type: "lhs", rhs_type: "rhs", result: nil).to_s
   end
 
   def test_to_s_without_message

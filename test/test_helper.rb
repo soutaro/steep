@@ -131,8 +131,10 @@ module TestHelper
 end
 
 module TypeErrorAssertions
+  Diagnostic = Steep::Diagnostic
+
   def assert_incompatible_assignment(error, node: nil, lhs_type: nil, rhs_type:)
-    assert_instance_of Steep::Errors::IncompatibleAssignment, error
+    assert_instance_of Diagnostic::Ruby::IncompatibleAssignment, error
 
     assert_equal node, error.node if node
     assert_equal lhs_type, error.lhs_type if lhs_type

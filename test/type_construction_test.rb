@@ -9,6 +9,7 @@ class TypeConstructionTest < Minitest::Test
 
   Namespace = RBS::Namespace
 
+  Diagnostic = Steep::Diagnostic
   Typing = Steep::Typing
   ConstantEnv = Steep::TypeInference::ConstantEnv
   TypeEnv = Steep::TypeInference::TypeEnv
@@ -391,10 +392,13 @@ x.h(a: y)
 
         assert_equal parse_type("::_C"), typing.type_of(node: source.node)
 
-        assert_equal 1, typing.errors.size
-        assert_incompatible_assignment typing.errors[0],
-                                       lhs_type: parse_type("::_A"),
-                                       rhs_type: parse_type("::_B")
+        assert_typing_error(typing, size: 1) do |errors|
+          assert_any! errors do |error|
+            assert_incompatible_assignment error,
+                                           lhs_type: parse_type("::_A"),
+                                           rhs_type: parse_type("::_B")
+          end
+        end
       end
     end
   end
@@ -776,7 +780,7 @@ Hello::World = ""
         construction.synthesize(source.node)
 
         assert_any typing.errors do |error|
-          error.is_a?(Steep::Errors::IncompatibleAssignment)
+          error.is_a?(Diagnostic::Ruby::IncompatibleAssignment)
         end
 
         assert_equal parse_type("::Integer"), typing.type_of(node: source.node)
@@ -795,7 +799,7 @@ x = String
         construction.synthesize(source.node)
 
         assert_any typing.errors do |error|
-          error.is_a?(Steep::Errors::IncompatibleAssignment)
+          error.is_a?(Diagnostic::Ruby::IncompatibleAssignment)
         end
       end
     end
@@ -815,7 +819,7 @@ x = X
         construction.synthesize(source.node)
 
         assert_equal 2, typing.errors.size
-        assert typing.errors.all? {|error| error.is_a?(Steep::Errors::IncompatibleAssignment) }
+        assert typing.errors.all? {|error| error.is_a?(Diagnostic::Ruby::IncompatibleAssignment) }
       end
     end
   end
@@ -895,12 +899,12 @@ end
 
         assert_equal 2, typing.errors.size
         assert_any typing.errors do |error|
-          error.is_a?(Steep::Errors::IncompatibleAssignment) &&
+          error.is_a?(Diagnostic::Ruby::IncompatibleAssignment) &&
             error.node.type == :ivasgn &&
             error.node.children[0] == :"@x"
         end
         assert_any typing.errors do |error|
-          error.is_a?(Steep::Errors::IncompatibleAssignment) &&
+          error.is_a?(Diagnostic::Ruby::IncompatibleAssignment) &&
             error.node.type == :lvasgn &&
             error.node.children[1].type == :ivar &&
             error.node.children[1].children[0] == :"@x"
@@ -1388,7 +1392,7 @@ end
 
         assert_typing_error(typing, size: 2) do |errors|
           assert_any!(errors) do |error|
-            assert_instance_of Steep::Errors::IncompatibleAssignment, error
+            assert_instance_of Diagnostic::Ruby::IncompatibleAssignment, error
             assert_equal parse_type("::String"), error.rhs_type
             assert_equal parse_type("::A::String"), error.lhs_type
           end
@@ -1497,11 +1501,11 @@ a, @b = 1, 2
 
         assert_equal 2, typing.errors.size
         assert_any typing.errors do |error|
-          error.is_a?(Steep::Errors::IncompatibleAssignment) &&
+          error.is_a?(Diagnostic::Ruby::IncompatibleAssignment) &&
             error.node.type == :lvasgn
         end
         assert_any typing.errors do |error|
-          error.is_a?(Steep::Errors::IncompatibleAssignment) &&
+          error.is_a?(Diagnostic::Ruby::IncompatibleAssignment) &&
             error.node.type == :ivasgn
         end
       end
@@ -1524,11 +1528,11 @@ a, @b, c = tuple
 
         assert_equal 2, typing.errors.size
         assert_any typing.errors do |error|
-          error.is_a?(Steep::Errors::IncompatibleAssignment) &&
+          error.is_a?(Diagnostic::Ruby::IncompatibleAssignment) &&
             error.node.type == :lvasgn
         end
         assert_any typing.errors do |error|
-          error.is_a?(Steep::Errors::IncompatibleAssignment) &&
+          error.is_a?(Diagnostic::Ruby::IncompatibleAssignment) &&
             error.node.type == :ivasgn
         end
 
@@ -1572,12 +1576,12 @@ a, @b, c = x
 
         assert_equal 2, typing.errors.size
         assert_any typing.errors do |error|
-          error.is_a?(Steep::Errors::IncompatibleAssignment) &&
+          error.is_a?(Diagnostic::Ruby::IncompatibleAssignment) &&
             error.node.type == :lvasgn &&
             error.rhs_type == parse_type("::Integer?")
         end
         assert_any typing.errors do |error|
-          error.is_a?(Steep::Errors::IncompatibleAssignment) &&
+          error.is_a?(Diagnostic::Ruby::IncompatibleAssignment) &&
             error.node.type == :ivasgn &&
             error.rhs_type == parse_type("::Integer?")
         end
@@ -2006,7 +2010,7 @@ a = 2..."a"
 
         assert_equal 1, typing.errors.size
         assert_any typing.errors do |error|
-          error.is_a?(Steep::Errors::IncompatibleAssignment)
+          error.is_a?(Diagnostic::Ruby::IncompatibleAssignment)
         end
       end
     end
@@ -2043,7 +2047,7 @@ a = $1
 
         assert_equal 1, typing.errors.size
         assert_any typing.errors do |error|
-          error.is_a?(Steep::Errors::IncompatibleAssignment)
+          error.is_a?(Diagnostic::Ruby::IncompatibleAssignment)
         end
       end
     end
@@ -2177,7 +2181,7 @@ end
         construction.synthesize(source.node)
 
         assert_equal 1, typing.errors.size
-        assert_any typing.errors do |error| error.is_a?(Steep::Errors::IncompatibleAssignment) end
+        assert_any typing.errors do |error| error.is_a?(Diagnostic::Ruby::IncompatibleAssignment) end
       end
     end
   end
@@ -2210,7 +2214,7 @@ x = $HOGE
         construction.synthesize(source.node)
 
         assert_equal 2, typing.errors.size
-        assert typing.errors.all? {|error| error.is_a?(Steep::Errors::IncompatibleAssignment) }
+        assert typing.errors.all? {|error| error.is_a?(Diagnostic::Ruby::IncompatibleAssignment) }
       end
     end
   end
@@ -2289,7 +2293,7 @@ b = [*a]
 
         assert_equal 1, typing.errors.size
         assert_any typing.errors do |error|
-          error.is_a?(Steep::Errors::IncompatibleAssignment)
+          error.is_a?(Diagnostic::Ruby::IncompatibleAssignment)
         end
       end
     end
@@ -2307,7 +2311,7 @@ b = [*1...3]
 
         assert_equal 1, typing.errors.size
         assert_any typing.errors do |error|
-          error.is_a?(Steep::Errors::IncompatibleAssignment)
+          error.is_a?(Diagnostic::Ruby::IncompatibleAssignment)
         end
       end
     end
@@ -2523,7 +2527,7 @@ end
 
         assert_equal 2, typing.errors.size
         assert_any typing.errors do |error|
-          error.is_a?(Steep::Errors::IncompatibleAssignment) && error.rhs_type.is_a?(Steep::AST::Types::Void)
+          error.is_a?(Diagnostic::Ruby::IncompatibleAssignment) && error.rhs_type.is_a?(Steep::AST::Types::Void)
         end
         assert_any typing.errors do |error|
           error.is_a?(Steep::Errors::NoMethod) && error.type.is_a?(Steep::AST::Types::Void)
@@ -2555,7 +2559,7 @@ end
 
         assert_equal 2, typing.errors.size
         assert_any typing.errors do |error|
-          error.is_a?(Steep::Errors::IncompatibleAssignment) && error.rhs_type.is_a?(Steep::AST::Types::Void)
+          error.is_a?(Diagnostic::Ruby::IncompatibleAssignment) && error.rhs_type.is_a?(Steep::AST::Types::Void)
         end
         assert_any typing.errors do |error|
           error.is_a?(Steep::Errors::NoMethod) && error.type.is_a?(Steep::AST::Types::Void)
@@ -2597,7 +2601,7 @@ EOF
         construction.synthesize(source.node)
 
         assert_equal 1, typing.errors.size
-        assert_instance_of Steep::Errors::IncompatibleAssignment, typing.errors[0]
+        assert_instance_of Diagnostic::Ruby::IncompatibleAssignment, typing.errors[0]
       end
     end
   end
@@ -2786,7 +2790,7 @@ EOF
         construction.synthesize(source.node)
 
         assert_equal 1, typing.errors.size
-        assert_instance_of Steep::Errors::IncompatibleAssignment, typing.errors[0]
+        assert_instance_of Diagnostic::Ruby::IncompatibleAssignment, typing.errors[0]
       end
     end
   end
@@ -3164,7 +3168,7 @@ EOF
         construction.synthesize(source.node)
 
         assert_any typing.errors do |error|
-          error.is_a?(Steep::Errors::IncompatibleAssignment) &&
+          error.is_a?(Diagnostic::Ruby::IncompatibleAssignment) &&
             error.lhs_type == parse_type("::Integer") &&
             error.rhs_type == parse_type("::String")
         end
@@ -3441,12 +3445,12 @@ EOF
       with_standard_construction(checker, source) do |construction, typing|
         construction.synthesize(source.node)
 
-        assert_equal 1, typing.errors.size
-
-        assert_any typing.errors do |error|
-          error.is_a?(Steep::Errors::IncompatibleAssignment) &&
-            error.rhs_type == parse_type("::Integer") &&
-            error.lhs_type == parse_type("::Hash[::Symbol, untyped]")
+        assert_typing_error(typing, size: 1) do |errors|
+          assert_any errors do |error|
+            error.is_a?(Diagnostic::Ruby::IncompatibleAssignment) &&
+              error.rhs_type == parse_type("::Integer") &&
+              error.lhs_type == parse_type("::Hash[::Symbol, untyped]")
+          end
         end
       end
     end
@@ -3553,7 +3557,7 @@ EOF
 
         assert_equal 1, typing.errors.size
         typing.errors[0].yield_self do |error|
-          assert_instance_of Steep::Errors::IncompatibleAssignment, error
+          assert_instance_of Diagnostic::Ruby::IncompatibleAssignment, error
         end
       end
     end
@@ -4162,7 +4166,7 @@ EOF
 
         assert_equal 1, typing.errors.size
         typing.errors[0].yield_self do |error|
-          assert_instance_of Steep::Errors::IncompatibleAssignment, error
+          assert_instance_of Diagnostic::Ruby::IncompatibleAssignment, error
         end
       end
     end
@@ -4233,7 +4237,7 @@ EOF
 
         assert_equal 1, typing.errors.size
         assert_any typing.errors do |error|
-          error.is_a?(Steep::Errors::IncompatibleAssignment)
+          error.is_a?(Diagnostic::Ruby::IncompatibleAssignment)
         end
       end
     end
@@ -4251,7 +4255,7 @@ EOF
 
         assert_equal 1, typing.errors.size
         assert_any typing.errors do |error|
-          error.is_a?(Steep::Errors::IncompatibleAssignment)
+          error.is_a?(Diagnostic::Ruby::IncompatibleAssignment)
         end
       end
     end
@@ -4915,7 +4919,7 @@ EOF
         construction.synthesize(source.node)
 
         assert_equal 1, typing.errors.size
-        assert_instance_of Steep::Errors::IncompatibleAssignment, typing.errors[0]
+        assert_instance_of Diagnostic::Ruby::IncompatibleAssignment, typing.errors[0]
       end
     end
   end
@@ -5108,7 +5112,7 @@ end
         end
 
         assert_any!(typing.errors) do |error|
-          assert_instance_of Steep::Errors::IncompatibleAssignment, error
+          assert_instance_of Diagnostic::Ruby::IncompatibleAssignment, error
           assert_equal :cvasgn, error.node.type
         end
       end
@@ -6390,12 +6394,12 @@ x = nil
 
         assert_typing_error(typing, size: 2) do |errors|
           assert_any!(errors) do |error|
-            assert_instance_of Steep::Errors::IncompatibleAssignment, error
+            assert_instance_of Diagnostic::Ruby::IncompatibleAssignment, error
             assert_equal dig(source.node, 2), error.node
           end
 
           assert_any!(errors) do |error|
-            assert_instance_of Steep::Errors::IncompatibleAssignment, error
+            assert_instance_of Diagnostic::Ruby::IncompatibleAssignment, error
             assert_equal dig(source.node, 3), error.node
           end
         end

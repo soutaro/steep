@@ -694,10 +694,14 @@ module Steep
 
               constr = rhs_result.constr.update_lvar_env do |lvar_env|
                 lvar_env.assign(name, node: node, type: rhs_result.type) do |declared_type, actual_type, result|
-                  typing.add_error(Errors::IncompatibleAssignment.new(node: node,
-                                                                      lhs_type: declared_type,
-                                                                      rhs_type: actual_type,
-                                                                      result: result))
+                  typing.add_error(
+                    Diagnostic::Ruby::IncompatibleAssignment.new(
+                      node: node,
+                      lhs_type: declared_type,
+                      rhs_type: actual_type,
+                      result: result
+                    )
+                  )
                 end
               end
 
@@ -1112,10 +1116,12 @@ module Steep
             constr_ = constr.update_lvar_env do |env|
               env.assign(var.name, node: node, type: type) do |declared_type, type, result|
                 typing.add_error(
-                  Errors::IncompatibleAssignment.new(node: node,
-                                                     lhs_type: declared_type,
-                                                     rhs_type: type,
-                                                     result: result)
+                  Diagnostic::Ruby::IncompatibleAssignment.new(
+                    node: node,
+                    lhs_type: declared_type,
+                    rhs_type: type,
+                    result: result
+                  )
                 )
               end
             end
@@ -1408,10 +1414,14 @@ module Steep
                 case error
                 when Subtyping::Result::Failure
                   const_type = type_env.get(const: const_name)
-                  typing.add_error(Errors::IncompatibleAssignment.new(node: node,
-                                                                      lhs_type: const_type,
-                                                                      rhs_type: value_type,
-                                                                      result: error))
+                  typing.add_error(
+                    Diagnostic::Ruby::IncompatibleAssignment.new(
+                      node: node,
+                      lhs_type: const_type,
+                      rhs_type: value_type,
+                      result: error
+                    )
+                  )
                 when nil
                   typing.add_error(Errors::UnknownConstantAssigned.new(node: node, type: value_type))
                 end
@@ -1431,10 +1441,14 @@ module Steep
               block_type.type.params.flat_unnamed_params.map(&:last).zip(node.children).each do |(type, node)|
                 if node && type
                   check(node, type) do |_, rhs_type, result|
-                    typing.add_error(Errors::IncompatibleAssignment.new(node: node,
-                                                                        lhs_type: type,
-                                                                        rhs_type: rhs_type,
-                                                                        result: result))
+                    typing.add_error(
+                      Diagnostic::Ruby::IncompatibleAssignment.new(
+                        node: node,
+                        lhs_type: type,
+                        rhs_type: rhs_type,
+                        result: result
+                      )
+                    )
                   end
                 end
               end
@@ -1587,7 +1601,7 @@ module Steep
                    end
 
             type = AST::Types::Logic::Env.new(truthy: env, falsy: falsey_env, type: type) if condition
-            
+
             add_typing(node,
                        type: type,
                        constr: constr.update_lvar_env { env })
@@ -2055,11 +2069,13 @@ module Steep
             end
 
             check(rhs, type) do |_, rhs_type, result|
-              typing.add_error(Errors::IncompatibleAssignment.new(
-                node: node,
-                lhs_type: type,
-                rhs_type: rhs_type,
-                result: result)
+              typing.add_error(
+                Diagnostic::Ruby::IncompatibleAssignment.new(
+                  node: node,
+                  lhs_type: type,
+                  rhs_type: rhs_type,
+                  result: result
+                )
               )
             end
           end
@@ -2137,10 +2153,12 @@ module Steep
               add_typing node, type: type, constr: constr
             else
               fallback_to_any node do
-                Errors::IncompatibleAssignment.new(node: node,
-                                                   lhs_type: var_type,
-                                                   rhs_type: type,
-                                                   result: result)
+                Diagnostic::Ruby::IncompatibleAssignment.new(
+                  node: node,
+                  lhs_type: var_type,
+                  rhs_type: type,
+                  result: result
+                )
               end
             end
           else
@@ -2218,10 +2236,14 @@ module Steep
         case error
         when Subtyping::Result::Failure
           type = type_env.get(ivar: name)
-          typing.add_error(Errors::IncompatibleAssignment.new(node: node,
-                                                              lhs_type: type,
-                                                              rhs_type: rhs_type,
-                                                              result: error))
+          typing.add_error(
+            Diagnostic::Ruby::IncompatibleAssignment.new(
+              node: node,
+              lhs_type: type,
+              rhs_type: rhs_type,
+              result: error
+            )
+          )
         when nil
           fallback_to_any node
         end
@@ -2244,10 +2266,12 @@ module Steep
       name = node.children[0].name
       env = context.lvar_env.assign(name, node: node, type: type) do |declared_type, type, result|
         typing.add_error(
-          Errors::IncompatibleAssignment.new(node: node,
-                                             lhs_type: declared_type,
-                                             rhs_type: type,
-                                             result: result)
+          Diagnostic::Ruby::IncompatibleAssignment.new(
+            node: node,
+            lhs_type: declared_type,
+            rhs_type: type,
+            result: result
+          )
         )
       end
 
@@ -2261,10 +2285,14 @@ module Steep
         case error
         when Subtyping::Result::Failure
           var_type = type_env.get(ivar: ivar)
-          typing.add_error(Errors::IncompatibleAssignment.new(node: node,
-                                                              lhs_type: var_type,
-                                                              rhs_type: type,
-                                                              result: error))
+          typing.add_error(
+            Diagnostic::Ruby::IncompatibleAssignment.new(
+              node: node,
+              lhs_type: var_type,
+              rhs_type: type,
+              result: error
+            )
+          )
         when nil
           fallback_to_any node
         end
@@ -2796,7 +2824,7 @@ module Steep
 
               if keyword_type
                 check(value_node, keyword_type, constraints: constraints) do |expected, actual, result|
-                  return Errors::IncompatibleAssignment.new(
+                  return Diagnostic::Ruby::IncompatibleAssignment.new(
                     node: value_node,
                     lhs_type: expected,
                     rhs_type: actual,
@@ -2809,7 +2837,7 @@ module Steep
 
             else
               check(key_node, AST::Builtin::Symbol.instance_type, constraints: constraints) do |expected, actual, result|
-                return Errors::IncompatibleAssignment.new(
+                return Diagnostic::Ruby::IncompatibleAssignment.new(
                   node: key_node,
                   lhs_type: expected,
                   rhs_type: actual,
@@ -2822,7 +2850,7 @@ module Steep
             Steep.logger.warn("Keyword arg with kwsplat(**) node are not supported.")
 
             check(element.children[0], keyword_hash_type, constraints: constraints) do |expected, actual, result|
-              return Errors::IncompatibleAssignment.new(
+              return Diagnostic::Ruby::IncompatibleAssignment.new(
                 node: node,
                 lhs_type: expected,
                 rhs_type: actual,
@@ -2925,7 +2953,7 @@ module Steep
                                             method_type: method_type,
                                             constraints: constraints)
 
-          if result.is_a?(Errors::Base)
+          if result.is_a?(Errors::Base) || result.is_a?(Diagnostic::Ruby::Base)
             errors << result
           end
         end
@@ -2961,7 +2989,7 @@ module Steep
 
                 if param.type
                   check_relation(sub_type: type, super_type: param.type, constraints: constraints).else do |result|
-                    error = Errors::IncompatibleAssignment.new(
+                    error = Diagnostic::Ruby::IncompatibleAssignment.new(
                       node: param.node,
                       lhs_type: param.type,
                       rhs_type: type,
