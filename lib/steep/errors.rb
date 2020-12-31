@@ -41,19 +41,6 @@ module Steep
       end
     end
 
-    class MethodDefinitionWithOverloading < Base
-      attr_reader :method
-
-      def initialize(node:, method:)
-        super(node: node)
-        @method = method
-      end
-
-      def to_s
-        format_message "method=#{method.name}, types=#{method.types.join(" | ")}"
-      end
-    end
-
     class MethodReturnTypeAnnotationMismatch < Base
       attr_reader :method_type
       attr_reader :annotation_type
