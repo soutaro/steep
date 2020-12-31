@@ -154,7 +154,7 @@ module TypeErrorAssertions
   end
 
   def assert_argument_type_mismatch(error, expected: nil, actual: nil)
-    assert_instance_of Steep::Errors::ArgumentTypeMismatch, error
+    assert_instance_of Diagnostic::Ruby::ArgumentTypeMismatch, error
 
     assert_equal expected, error.expected if expected
     assert_equal actual, error.actual if actual

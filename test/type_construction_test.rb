@@ -1781,7 +1781,7 @@ b += 3
 
         assert_equal 1, typing.errors.size
         typing.errors[0].tap do |error|
-          assert_instance_of Steep::Errors::ArgumentTypeMismatch, error
+          assert_instance_of Diagnostic::Ruby::ArgumentTypeMismatch, error
           assert_equal dig(source.node, 2, 2), error.node
         end
 
@@ -2351,7 +2351,7 @@ a.gen(*["1"])
 
         assert_equal 1, typing.errors.size
         assert_any typing.errors do |error|
-          error.is_a?(Steep::Errors::ArgumentTypeMismatch)
+          error.is_a?(Diagnostic::Ruby::ArgumentTypeMismatch)
         end
 
         assert_equal parse_type("::A"), pair.context.lvar_env[:a]
@@ -3476,13 +3476,13 @@ EOF
         assert_equal 2, typing.errors.size
 
         assert_any typing.errors do |error|
-          error.is_a?(Steep::Errors::ArgumentTypeMismatch) &&
+          error.is_a?(Diagnostic::Ruby::ArgumentTypeMismatch) &&
             error.actual == parse_type("::Hash[::Symbol, ::Integer]") &&
             error.expected == parse_type("::Hash[::Symbol, ::String]")
         end
 
         assert_any typing.errors do |error|
-          error.is_a?(Steep::Errors::ArgumentTypeMismatch) &&
+          error.is_a?(Diagnostic::Ruby::ArgumentTypeMismatch) &&
             error.actual == parse_type("::Integer") &&
             error.expected == parse_type("::Hash[::Symbol, ::String]")
         end
@@ -4124,7 +4124,7 @@ EOF
 
         assert_equal 1, typing.errors.size
         typing.errors[0].yield_self do |error|
-          assert_instance_of Steep::Errors::ArgumentTypeMismatch, error
+          assert_instance_of Diagnostic::Ruby::ArgumentTypeMismatch, error
         end
       end
     end
@@ -5954,7 +5954,7 @@ z = SendTest.new().foo()
           assert_instance_of MethodCall::Error, call
 
           assert_equal 1, call.errors.size
-          assert_instance_of Steep::Errors::ArgumentTypeMismatch, call.errors[0]
+          assert_instance_of Diagnostic::Ruby::ArgumentTypeMismatch, call.errors[0]
         end
 
         dig(source.node, 2, 1).tap do |call_node|
@@ -6007,7 +6007,7 @@ end
           assert_instance_of MethodCall::Error, call
 
           assert_equal 1, call.errors.size
-          assert_instance_of Steep::Errors::ArgumentTypeMismatch, call.errors[0]
+          assert_instance_of Diagnostic::Ruby::ArgumentTypeMismatch, call.errors[0]
         end
 
         dig(source.node, 3, 1).tap do |call_node|

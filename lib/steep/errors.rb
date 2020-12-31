@@ -41,24 +41,6 @@ module Steep
       end
     end
 
-    class ArgumentTypeMismatch < Base
-      attr_reader :node
-      attr_reader :expected
-      attr_reader :actual
-      attr_reader :receiver_type
-
-      def initialize(node:, receiver_type:, expected:, actual:)
-        super(node: node)
-        @receiver_type = receiver_type
-        @expected = expected
-        @actual = actual
-      end
-
-      def to_s
-        format_message "receiver=#{receiver_type}, expected=#{expected}, actual=#{actual}"
-      end
-    end
-
     class BlockParameterTypeMismatch < Base
       attr_reader :expected
       attr_reader :actual

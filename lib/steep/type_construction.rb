@@ -2901,7 +2901,7 @@ module Steep
         node_type = synthesize(node, hint: hash_type).type
 
         check_relation(sub_type: node_type, super_type: hash_type).else do
-          return Errors::ArgumentTypeMismatch.new(
+          return Diagnostic::Ruby::ArgumentTypeMismatch.new(
             node: node,
             receiver_type: receiver_type,
             expected: hash_type,
@@ -2941,10 +2941,10 @@ module Steep
                              end
 
           check_relation(sub_type: arg_type, super_type: param_type, constraints: constraints).else do
-            errors << Errors::ArgumentTypeMismatch.new(node: arg_node,
-                                                       receiver_type: receiver_type,
-                                                       expected: param_type,
-                                                       actual: arg_type)
+            errors << Diagnostic::Ruby::ArgumentTypeMismatch.new(node: arg_node,
+                                                                 receiver_type: receiver_type,
+                                                                 expected: param_type,
+                                                                 actual: arg_type)
           end
         else
           # keyword
