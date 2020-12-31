@@ -3099,7 +3099,7 @@ module Steep
             errors << error
           end
 
-          errors << Errors::UnexpectedBlockGiven.new(
+          errors << Diagnostic::Ruby::UnexpectedBlockGiven.new(
             node: node,
             method_type: method_type
           )
@@ -3117,7 +3117,7 @@ module Steep
             s = constraints.solution(checker, variance: variance, variables: fresh_vars, self_type: self_type)
             method_type = method_type.subst(s)
 
-            errors << Errors::UnexpectedBlockGiven.new(
+            errors << Diagnostic::Ruby::UnexpectedBlockGiven.new(
               node: node,
               method_type: method_type
             )

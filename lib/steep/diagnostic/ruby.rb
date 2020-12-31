@@ -146,6 +146,19 @@ module Steep
           format_message "expected=#{expected}, actual=#{actual}"
         end
       end
+
+      class UnexpectedBlockGiven < Base
+        attr_reader :method_type
+
+        def initialize(node:, method_type:)
+          super(node: node)
+          @method_type = method_type
+        end
+
+        def to_s
+          format_message "method_type=#{method_type}"
+        end
+      end
     end
   end
 end

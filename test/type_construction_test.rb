@@ -4001,7 +4001,7 @@ EOF
 
         assert_equal 1, typing.errors.size
         assert_any typing.errors do |error|
-          error.is_a?(Steep::Errors::UnexpectedBlockGiven)
+          error.is_a?(Diagnostic::Ruby::UnexpectedBlockGiven)
         end
       end
     end
@@ -6173,7 +6173,7 @@ test.foo(&->(x) { "" })
           assert_equal parse_type("::String"), call.return_type
 
           assert_equal 1, call.errors.size
-          assert_instance_of Steep::Errors::UnexpectedBlockGiven, call.errors[0]
+          assert_instance_of Diagnostic::Ruby::UnexpectedBlockGiven, call.errors[0]
         end
       end
     end
