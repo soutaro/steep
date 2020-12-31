@@ -142,10 +142,14 @@ module Steep
 
       if annots&.return_type && method_type&.type&.return_type
         check_relation(sub_type: annots.return_type, super_type: method_type.type.return_type).else do |result|
-          typing.add_error Errors::MethodReturnTypeAnnotationMismatch.new(node: node,
-                                                                          method_type: method_type.type.return_type,
-                                                                          annotation_type: annots.return_type,
-                                                                          result: result)
+          typing.add_error(
+            Diagnostic::Ruby::MethodReturnTypeAnnotationMismatch.new(
+              node: node,
+              method_type: method_type.type.return_type,
+              annotation_type: annots.return_type,
+              result: result
+            )
+          )
         end
       end
 

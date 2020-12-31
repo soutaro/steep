@@ -41,25 +41,6 @@ module Steep
       end
     end
 
-    class MethodReturnTypeAnnotationMismatch < Base
-      attr_reader :method_type
-      attr_reader :annotation_type
-      attr_reader :result
-
-      include ResultPrinter
-
-      def initialize(node:, method_type:, annotation_type:, result:)
-        super(node: node)
-        @method_type = method_type
-        @annotation_type = annotation_type
-        @result = result
-      end
-
-      def to_s
-        format_message "method_type=#{method_type.return_type}, annotation_type=#{annotation_type}"
-      end
-    end
-
     class MethodBodyTypeMismatch < Base
       attr_reader :expected
       attr_reader :actual

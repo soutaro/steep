@@ -1326,7 +1326,7 @@ end
         assert_equal parse_type("::String"), for_method.context.lvar_env[:x]
 
         assert_equal 1, typing.errors.size
-        assert_instance_of Steep::Errors::MethodReturnTypeAnnotationMismatch, typing.errors.first
+        assert_instance_of Diagnostic::Ruby::MethodReturnTypeAnnotationMismatch, typing.errors.first
       end
     end
   end

@@ -266,6 +266,25 @@ module Steep
           format_message "interface_method=#{interface_method.type_name}.#{interface_method.name}, annotation_method=#{annotation_method.name}"
         end
       end
+
+      class MethodReturnTypeAnnotationMismatch < Base
+        attr_reader :method_type
+        attr_reader :annotation_type
+        attr_reader :result
+
+        include ResultPrinter
+
+        def initialize(node:, method_type:, annotation_type:, result:)
+          super(node: node)
+          @method_type = method_type
+          @annotation_type = annotation_type
+          @result = result
+        end
+
+        def to_s
+          format_message "method_type=#{method_type.return_type}, annotation_type=#{annotation_type}"
+        end
+      end
     end
   end
 end
