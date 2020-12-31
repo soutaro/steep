@@ -2759,7 +2759,7 @@ module Steep
         all_decls = method.method_types.each.with_object(Set[]) do |method_type, set|
           set.merge(method_type.method_decls)
         end
-        error = Errors::IncompatibleArguments.new(node: node, receiver_type: receiver_type, method_type: method_type)
+        error = Diagnostic::Ruby::IncompatibleArguments.new(node: node, receiver_type: receiver_type, method_type: method_type)
         call = TypeInference::MethodCall::Error.new(
           node: node,
           context: context.method_context,

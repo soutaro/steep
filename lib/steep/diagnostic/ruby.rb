@@ -60,6 +60,22 @@ module Steep
           format_message "lhs_type=#{lhs_type}, rhs_type=#{rhs_type}"
         end
       end
+
+      class IncompatibleArguments < Base
+        attr_reader :node
+        attr_reader :receiver_type
+        attr_reader :method_type
+
+        def initialize(node:, receiver_type:, method_type:)
+          super(node: node)
+          @receiver_type = receiver_type
+          @method_type = method_type
+        end
+
+        def to_s
+          format_message "receiver=#{receiver_type}, method_type=#{method_type}"
+        end
+      end
     end
   end
 end

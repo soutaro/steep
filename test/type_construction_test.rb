@@ -280,7 +280,7 @@ a.g()
 
         assert_equal 1, typing.errors.size
         typing.errors.first.tap do |error|
-          assert_instance_of Steep::Errors::IncompatibleArguments, error
+          assert_instance_of Diagnostic::Ruby::IncompatibleArguments, error
           assert_equal parse_method_type("(::_A, ?::_B) -> ::_B"), error.method_type
         end
       end
@@ -304,7 +304,7 @@ a.g(_ = nil, _ = nil, _ = nil)
 
         assert_equal 1, typing.errors.size
         typing.errors.first.tap do |error|
-          assert_instance_of Steep::Errors::IncompatibleArguments, error
+          assert_instance_of Diagnostic::Ruby::IncompatibleArguments, error
           assert_equal parse_method_type("(::_A, ?::_B) -> ::_B"), error.method_type
         end
       end
@@ -348,7 +348,7 @@ x.h()
         assert_equal 1, typing.errors.size
 
         typing.errors.first.tap do |error|
-          assert_instance_of Steep::Errors::IncompatibleArguments, error
+          assert_instance_of Diagnostic::Ruby::IncompatibleArguments, error
           assert_equal parse_method_type("(a: ::_A, ?b: ::_B) -> ::_C"), error.method_type
         end
       end
@@ -5962,7 +5962,7 @@ z = SendTest.new().foo()
           assert_instance_of MethodCall::Error, call
 
           assert_equal 1, call.errors.size
-          assert_instance_of Steep::Errors::IncompatibleArguments, call.errors[0]
+          assert_instance_of Diagnostic::Ruby::IncompatibleArguments, call.errors[0]
         end
 
         assert_equal parse_type("::String"), constr.context.lvar_env[:x]
@@ -6015,7 +6015,7 @@ end
           assert_instance_of MethodCall::Error, call
 
           assert_equal 1, call.errors.size
-          assert_instance_of Steep::Errors::IncompatibleArguments, call.errors[0]
+          assert_instance_of Diagnostic::Ruby::IncompatibleArguments, call.errors[0]
         end
 
         assert_equal parse_type("::String"), constr.context.lvar_env[:x]
