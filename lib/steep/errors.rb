@@ -41,19 +41,6 @@ module Steep
       end
     end
 
-    class RequiredBlockMissing < Base
-      attr_reader :method_type
-
-      def initialize(node:, method_type:)
-        super(node: node)
-        @method_type = method_type
-      end
-
-      def to_s
-        format_message "method_type=#{method_type}"
-      end
-    end
-
     class BlockTypeMismatch < Base
       attr_reader :expected
       attr_reader :actual

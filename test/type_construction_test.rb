@@ -6050,7 +6050,7 @@ z = test.foo()
           assert_instance_of MethodCall::Error, call
 
           assert_equal 1, call.errors.size
-          assert_instance_of Steep::Errors::RequiredBlockMissing, call.errors[0]
+          assert_instance_of Diagnostic::Ruby::RequiredBlockMissing, call.errors[0]
         end
 
         dig(source.node, 2, 1).tap do |call_node|
@@ -6101,7 +6101,7 @@ y = test.bar("foo")      # With a constraint: String <: A
           assert_equal parse_type("::Array[untyped]"), call.return_type
 
           assert_equal 1, call.errors.size
-          assert_instance_of Steep::Errors::RequiredBlockMissing, call.errors[0]
+          assert_instance_of Diagnostic::Ruby::RequiredBlockMissing, call.errors[0]
         end
 
         dig(source.node, 2, 1).tap do |call_node|

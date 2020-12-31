@@ -3125,7 +3125,7 @@ module Steep
         else
           unless args.block_pass_arg
             # Required block is missing
-            errors << Errors::RequiredBlockMissing.new(
+            errors << Diagnostic::Ruby::RequiredBlockMissing.new(
               node: node,
               method_type: method_type
             )
