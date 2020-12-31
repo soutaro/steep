@@ -40,26 +40,7 @@ module Steep
         print_result_to io
       end
     end
-
-    class IncompatibleAssignment < Base
-      attr_reader :lhs_type
-      attr_reader :rhs_type
-      attr_reader :result
-
-      include ResultPrinter
-
-      def initialize(node:, lhs_type:, rhs_type:, result:)
-        super(node: node)
-        @lhs_type = lhs_type
-        @rhs_type = rhs_type
-        @result = result
-      end
-
-      def to_s
-        format_message "lhs_type=#{lhs_type}, rhs_type=#{rhs_type}"
-      end
-    end
-
+    
     class IncompatibleArguments < Base
       attr_reader :node
       attr_reader :receiver_type
