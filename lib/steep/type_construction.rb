@@ -1383,7 +1383,7 @@ module Steep
 
             unless constructor
               typing.add_error(
-                Errors::UnsupportedSyntax.new(
+                Diagnostic::Ruby::UnsupportedSyntax.new(
                   node: node,
                   message: "sclass receiver must be instance type or singleton type, but type given `#{type}`"
                 )
@@ -2225,7 +2225,7 @@ module Steep
         when :splat
           yield_self do
             typing.add_error(
-              Errors::UnsupportedSyntax.new(
+              Diagnostic::Ruby::UnsupportedSyntax.new(
                 node: node,
                 message: "Unsupported splat node occurrence"
               )
@@ -2248,7 +2248,7 @@ module Steep
           add_typing node, type: AST::Builtin.any_type, constr: constr
 
         else
-          typing.add_error(Errors::UnsupportedSyntax.new(node: node))
+          typing.add_error(Diagnostic::Ruby::UnsupportedSyntax.new(node: node))
 
         end.tap do |pair|
           unless pair.is_a?(Pair) && !pair.type.is_a?(Pair)
@@ -3128,7 +3128,7 @@ module Steep
               method_type = method_type.subst(s)
             end
           else
-            errors << Errors::UnsupportedSyntax.new(
+            errors << Diagnostic::Ruby::UnsupportedSyntax.new(
               node: block_params,
               message: "Unsupported block params pattern, probably masgn?"
             )

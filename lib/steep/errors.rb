@@ -41,19 +41,6 @@ module Steep
       end
     end
 
-    class UnsupportedSyntax < Base
-      attr_reader :message
-
-      def initialize(node:, message: nil)
-        super(node: node)
-        @message = message
-      end
-
-      def to_s
-        format_message(message || "#{node.type} is not supported")
-      end
-    end
-
     class UnexpectedError < Base
       attr_reader :message
       attr_reader :error

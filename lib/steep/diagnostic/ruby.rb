@@ -504,6 +504,20 @@ module Steep
           format_message missing_keywords.to_a.join(", ")
         end
       end
+
+      class UnsupportedSyntax < Base
+        attr_reader :message
+
+        def initialize(node:, message: nil)
+          super(node: node)
+          @message = message
+        end
+
+        def to_s
+          format_message(message || "#{node.type} is not supported")
+        end
+      end
+
     end
   end
 end

@@ -3035,7 +3035,7 @@ EOF
 
         assert_typing_error typing, size: 1 do |errors|
           errors[0].tap do |error|
-            assert_instance_of Steep::Errors::UnsupportedSyntax, error
+            assert_instance_of Diagnostic::Ruby::UnsupportedSyntax, error
             assert_equal :splat, error.node.type
           end
         end
@@ -5469,7 +5469,7 @@ end
         construction.synthesize(source.node)
 
         assert_equal 1, typing.errors.size
-        assert_instance_of Steep::Errors::UnsupportedSyntax, typing.errors[0]
+        assert_instance_of Diagnostic::Ruby::UnsupportedSyntax, typing.errors[0]
       end
     end
   end
@@ -6142,7 +6142,7 @@ end
           assert_equal parse_type("::Array[untyped]"), call.return_type
 
           assert_equal 1, call.errors.size
-          assert_instance_of Steep::Errors::UnsupportedSyntax, call.errors[0]
+          assert_instance_of Diagnostic::Ruby::UnsupportedSyntax, call.errors[0]
         end
       end
     end
