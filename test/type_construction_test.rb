@@ -2963,7 +2963,7 @@ EOF
 
         assert_equal 1, typing.errors.size
         typing.errors[0].yield_self do |error|
-          assert_instance_of Steep::Errors::ElseOnExhaustiveCase, error
+          assert_instance_of Diagnostic::Ruby::ElseOnExhaustiveCase, error
           assert_equal error.node, dig(source.node, 1, 2)
         end
 

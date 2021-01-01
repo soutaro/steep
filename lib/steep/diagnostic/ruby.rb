@@ -452,6 +452,19 @@ module Steep
           format_message "var_name=#{var_name}, #{relation}"
         end
       end
+
+      class ElseOnExhaustiveCase < Base
+        attr_reader :type
+
+        def initialize(node:, type:)
+          super(node: node)
+          @type = type
+        end
+
+        def to_s
+          format_message "type=#{type}"
+        end
+      end
     end
   end
 end

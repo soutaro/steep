@@ -1774,7 +1774,7 @@ module Steep
               if when_constr.context.lvar_env[cond_vars.first].is_a?(AST::Types::Bot)
                 # Exhaustive
                 if els
-                  typing.add_error Errors::ElseOnExhaustiveCase.new(node: els, type: cond_type)
+                  typing.add_error Diagnostic::Ruby::ElseOnExhaustiveCase.new(node: els, type: cond_type)
                 end
               else
                 unless els
