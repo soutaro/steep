@@ -1398,7 +1398,7 @@ end
           end
 
           assert_any!(errors) do |error|
-            assert_instance_of Steep::Errors::MethodBodyTypeMismatch, error
+            assert_instance_of Diagnostic::Ruby::MethodBodyTypeMismatch, error
             assert_equal parse_type("::String"), error.actual
             assert_equal parse_type("::A::String"), error.expected
           end

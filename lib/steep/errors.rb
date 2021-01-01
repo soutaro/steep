@@ -41,31 +41,6 @@ module Steep
       end
     end
 
-    class MethodBodyTypeMismatch < Base
-      attr_reader :expected
-      attr_reader :actual
-      attr_reader :result
-
-      include ResultPrinter
-
-      def initialize(node:, expected:, actual:, result:)
-        super(node: node)
-        @expected = expected
-        @actual = actual
-        @result = result
-      end
-
-      def to_s
-        method = case node.type
-                 when :def
-                   node.children[0]
-                 when :defs
-                   prefix = node.children[0].type == :self ? "self" : "*"
-                   "#{prefix}.#{node.children[1]}"
-                 end
-        format_message "method=#{method}, expected=#{expected}, actual=#{actual}"
-      end
-    end
 
     class UnexpectedYield < Base
       def to_s
