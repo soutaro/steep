@@ -348,7 +348,7 @@ RUBY
                            end: { line: 1, character: 8 }
                          },
                          severity: 1,
-                         message: "UnresolvedOverloading: receiver=::Integer, method_name=+, method_types=(::Integer) -> ::Integer | (::Float) -> ::Float | (::Rational) -> ::Rational | (::Complex) -> ::Complex (1 + \"\")"
+                         message: "UnresolvedOverloading: receiver=::Integer, method_name=+, method_types=(::Integer) -> ::Integer | (::Float) -> ::Float | (::Rational) -> ::Rational | (::Complex) -> ::Complex"
                        }
                      ],
                      diagnostics

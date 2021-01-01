@@ -3,7 +3,7 @@ test:
   a.rb:
     diagnostics:
     - |
-      a.rb:8:0: [error] IncompatibleAssignment: lhs_type=::String, rhs_type=::Integer (s = a.foo)
+      a.rb:8:0: [error] IncompatibleAssignment: lhs_type=::String, rhs_type=::Integer
       │   ::Integer <: ::String
       │    ::Numeric <: ::String
       │     ::Object <: ::String
@@ -13,7 +13,7 @@ test:
       └ s = a.foo
         ~~~~~~~~~
     - |
-      a.rb:10:0: [error] IncompatibleAssignment: lhs_type=::Integer, rhs_type=::String (i = a.foo { nil })
+      a.rb:10:0: [error] IncompatibleAssignment: lhs_type=::Integer, rhs_type=::String
       │   ::String <: ::Integer
       │    ::Object <: ::Integer
       │     ::BasicObject <: ::Integer
@@ -24,7 +24,7 @@ test:
   b.rb:
     diagnostics:
     - |
-      b.rb:5:2: [error] BreakTypeMismatch: expected=::Symbol, actual=::Integer (break 3)
+      b.rb:5:2: [error] BreakTypeMismatch: expected=::Symbol, actual=::Integer
       │   ::Integer <: ::Symbol
       │    ::Numeric <: ::Symbol
       │     ::Object <: ::Symbol
@@ -34,7 +34,7 @@ test:
       └   break 3
           ~~~~~~~
     - |
-      b.rb:10:0: [error] IncompatibleAssignment: lhs_type=::String, rhs_type=(::Integer | ::Symbol) (s = a.bar do |x|)
+      b.rb:10:0: [error] IncompatibleAssignment: lhs_type=::String, rhs_type=(::Integer | ::Symbol)
       │   (::Integer | ::Symbol) <: ::String
       │    ::Integer <: ::String
       │     ::Numeric <: ::String
@@ -49,7 +49,7 @@ test:
   d.rb:
     diagnostics:
     - |
-      d.rb:6:0: [error] IncompatibleAssignment: lhs_type=::Array[::Float], rhs_type=::Array[::String] (b = [1,2,3].map(&a))
+      d.rb:6:0: [error] IncompatibleAssignment: lhs_type=::Array[::Float], rhs_type=::Array[::String]
       │   ::Array[::String] <: ::Array[::Float]
       │    ::String <: ::Float
       │     ::Object <: ::Float
@@ -59,7 +59,7 @@ test:
       └ b = [1,2,3].map(&a)
         ~~~~~~~~~~~~~~~~~~~
     - |
-      d.rb:8:0: [error] IncompatibleAssignment: lhs_type=::Array[::Float], rhs_type=::Array[::String] (b = [1,2,3].map(&:to_s))
+      d.rb:8:0: [error] IncompatibleAssignment: lhs_type=::Array[::Float], rhs_type=::Array[::String]
       │   ::Array[::String] <: ::Array[::Float]
       │    ::String <: ::Float
       │     ::Object <: ::Float
@@ -69,12 +69,12 @@ test:
       └ b = [1,2,3].map(&:to_s)
         ~~~~~~~~~~~~~~~~~~~~~~~
     - |
-      d.rb:10:0: [error] UnresolvedOverloading: receiver=::Array[::Integer], method_name=map, method_types=[U] () { (::Integer) -> U } -> ::Array[U] | () -> ::Enumerator[::Integer, ::Array[untyped]] ([1,2,3].map(&:no_such_method))
+      d.rb:10:0: [error] UnresolvedOverloading: receiver=::Array[::Integer], method_name=map, method_types=[U] () { (::Integer) -> U } -> ::Array[U] | () -> ::Enumerator[::Integer, ::Array[untyped]]
       │
       └ [1,2,3].map(&:no_such_method)
         ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     - |
-      d.rb:11:0: [error] UnresolvedOverloading: receiver=::Array[::Integer], method_name=map, method_types=[U] () { (::Integer) -> U } -> ::Array[U] | () -> ::Enumerator[::Integer, ::Array[untyped]] ([1,2,3].map(&:divmod))
+      d.rb:11:0: [error] UnresolvedOverloading: receiver=::Array[::Integer], method_name=map, method_types=[U] () { (::Integer) -> U } -> ::Array[U] | () -> ::Enumerator[::Integer, ::Array[untyped]]
       │
       └ [1,2,3].map(&:divmod)
         ~~~~~~~~~~~~~~~~~~~~~

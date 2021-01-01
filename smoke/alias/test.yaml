@@ -3,12 +3,12 @@ test:
   a.rb:
     diagnostics:
     - |
-      a.rb:4:0: [error] UnresolvedOverloading: receiver=(::String | ::Integer), method_name=+, method_types=((::string & ::Integer)) -> (::String | ::Integer) | ((::string & ::Float)) -> (::String | ::Float) | ((::string & ::Rational)) -> (::String | ::Rational) | ((::string & ::Complex)) -> (::String | ::Complex) (x + 123)
+      a.rb:4:0: [error] UnresolvedOverloading: receiver=(::String | ::Integer), method_name=+, method_types=((::string & ::Integer)) -> (::String | ::Integer) | ((::string & ::Float)) -> (::String | ::Float) | ((::string & ::Rational)) -> (::String | ::Rational) | ((::string & ::Complex)) -> (::String | ::Complex)
       │
       └ x + 123
         ~~~~~~~
     - |
-      a.rb:13:2: [error] IncompatibleAssignment: lhs_type=::Symbol, rhs_type=::String (z = x)
+      a.rb:13:2: [error] IncompatibleAssignment: lhs_type=::Symbol, rhs_type=::String
       │   ::String <: ::Symbol
       │    ::Object <: ::Symbol
       │     ::BasicObject <: ::Symbol
@@ -17,7 +17,7 @@ test:
       └   z = x
           ~~~~~
     - |
-      a.rb:15:2: [error] IncompatibleAssignment: lhs_type=::Symbol, rhs_type=::Integer (z = x)
+      a.rb:15:2: [error] IncompatibleAssignment: lhs_type=::Symbol, rhs_type=::Integer
       │   ::Integer <: ::Symbol
       │    ::Numeric <: ::Symbol
       │     ::Object <: ::Symbol
@@ -29,7 +29,7 @@ test:
   b.rb:
     diagnostics:
     - |
-      b.rb:6:0: [error] IncompatibleAssignment: lhs_type=::Integer, rhs_type=::String (x = a[0])
+      b.rb:6:0: [error] IncompatibleAssignment: lhs_type=::Integer, rhs_type=::String
       │   ::String <: ::Integer
       │    ::Object <: ::Integer
       │     ::BasicObject <: ::Integer
@@ -40,7 +40,7 @@ test:
   c.rb:
     diagnostics:
     - |
-      c.rb:3:0: [error] IncompatibleAssignment: lhs_type=::String, rhs_type=::Integer (x = AliasMethodArg.new.foo(:foo))
+      c.rb:3:0: [error] IncompatibleAssignment: lhs_type=::String, rhs_type=::Integer
       │   ::Integer <: ::String
       │    ::Numeric <: ::String
       │     ::Object <: ::String
@@ -50,7 +50,7 @@ test:
       └ x = AliasMethodArg.new.foo(:foo)
         ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     - |
-      c.rb:8:0: [error] IncompatibleAssignment: lhs_type=::String, rhs_type=::Integer (x = AliasMethodArg.new.foo(name))
+      c.rb:8:0: [error] IncompatibleAssignment: lhs_type=::String, rhs_type=::Integer
       │   ::Integer <: ::String
       │    ::Numeric <: ::String
       │     ::Object <: ::String

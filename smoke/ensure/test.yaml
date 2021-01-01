@@ -3,7 +3,7 @@ test:
   a.rb:
     diagnostics:
     - |
-      a.rb:7:6: [error] IncompatibleAssignment: lhs_type=::Integer, rhs_type=::Symbol (b = :foo)
+      a.rb:7:6: [error] IncompatibleAssignment: lhs_type=::Integer, rhs_type=::Symbol
       │   ::Symbol <: ::Integer
       │    ::Object <: ::Integer
       │     ::BasicObject <: ::Integer
@@ -12,7 +12,7 @@ test:
       └       b = :foo
               ~~~~~~~~
     - |
-      a.rb:4:0: [error] IncompatibleAssignment: lhs_type=::Integer, rhs_type=::String (a = begin)
+      a.rb:4:0: [error] IncompatibleAssignment: lhs_type=::Integer, rhs_type=::String
       │   ::String <: ::Integer
       │    ::Object <: ::Integer
       │     ::BasicObject <: ::Integer
@@ -21,12 +21,12 @@ test:
       └ a = begin
         ~~~~~~~~~
     - |
-      a.rb:16:2: [error] UnresolvedOverloading: receiver=::Integer, method_name=+, method_types=(::Integer) -> ::Integer | (::Float) -> ::Float | (::Rational) -> ::Rational | (::Complex) -> ::Complex (1 + '1')
+      a.rb:16:2: [error] UnresolvedOverloading: receiver=::Integer, method_name=+, method_types=(::Integer) -> ::Integer | (::Float) -> ::Float | (::Rational) -> ::Rational | (::Complex) -> ::Complex
       │
       └   1 + '1'
           ~~~~~~~
     - |
-      a.rb:13:0: [error] MethodBodyTypeMismatch: method=foo, expected=::String, actual=::Integer (def foo(a))
+      a.rb:13:0: [error] MethodBodyTypeMismatch: method=foo, expected=::String, actual=::Integer
       │   ::Integer <: ::String
       │    ::Numeric <: ::String
       │     ::Object <: ::String

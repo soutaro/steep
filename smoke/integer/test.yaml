@@ -3,47 +3,47 @@ test:
   a.rb:
     diagnostics:
     - |
-      a.rb:4:0: [error] NoMethodError: type=::Integer, method=foo (integer_1.foo)
+      a.rb:4:0: [error] NoMethodError: type=::Integer, method=foo
       │
       └ integer_1.foo
         ~~~~~~~~~~~~~
     - |
-      a.rb:7:0: [error] NoMethodError: type=::Integer, method=foo (integer_2.foo)
+      a.rb:7:0: [error] NoMethodError: type=::Integer, method=foo
       │
       └ integer_2.foo
         ~~~~~~~~~~~~~
     - |
-      a.rb:12:20: [error] FallbackAny (WithToInt)
+      a.rb:12:20: [error] FallbackAny
       │
       └ integer_3 = Integer(WithToInt.new)
                             ~~~~~~~~~
     - |
-      a.rb:13:0: [error] NoMethodError: type=::Integer, method=foo (integer_3.foo)
+      a.rb:13:0: [error] NoMethodError: type=::Integer, method=foo
       │
       └ integer_3.foo
         ~~~~~~~~~~~~~
     - |
-      a.rb:18:20: [error] FallbackAny (WithToI)
+      a.rb:18:20: [error] FallbackAny
       │
       └ integer_4 = Integer(WithToI.new)
                             ~~~~~~~
     - |
-      a.rb:19:0: [error] NoMethodError: type=::Integer, method=foo (integer_4.foo)
+      a.rb:19:0: [error] NoMethodError: type=::Integer, method=foo
       │
       └ integer_4.foo
         ~~~~~~~~~~~~~
     - |
-      a.rb:22:0: [error] NoMethodError: type=::Integer, method=foo (integer_5.foo)
+      a.rb:22:0: [error] NoMethodError: type=::Integer, method=foo
       │
       └ integer_5.foo
         ~~~~~~~~~~~~~
     - |
-      a.rb:24:0: [error] UnresolvedOverloading: receiver=::Object, method_name=Integer, method_types=((::Numeric | ::String), ?exception: bool) -> ::Integer | (::String, ?::Integer, ?exception: bool) -> ::Integer (Integer(Object.new))
+      a.rb:24:0: [error] UnresolvedOverloading: receiver=::Object, method_name=Integer, method_types=((::Numeric | ::String), ?exception: bool) -> ::Integer | (::String, ?::Integer, ?exception: bool) -> ::Integer
       │
       └ Integer(Object.new)
         ~~~~~~~~~~~~~~~~~~~
     - |
-      a.rb:26:0: [error] UnresolvedOverloading: receiver=::Object, method_name=Integer, method_types=((::Numeric | ::String), ?exception: bool) -> ::Integer | (::String, ?::Integer, ?exception: bool) -> ::Integer (Integer(nil))
+      a.rb:26:0: [error] UnresolvedOverloading: receiver=::Object, method_name=Integer, method_types=((::Numeric | ::String), ?exception: bool) -> ::Integer | (::String, ?::Integer, ?exception: bool) -> ::Integer
       │
       └ Integer(nil)
         ~~~~~~~~~~~~

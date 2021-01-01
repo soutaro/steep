@@ -3,12 +3,12 @@ test:
   a.rb:
     diagnostics:
     - |
-      a.rb:16:2: [error] NoMethodError: type=::Object, method=baz (baz)
+      a.rb:16:2: [error] NoMethodError: type=::Object, method=baz
       │
       └   baz
           ~~~
     - |
-      a.rb:19:4: [error] NoMethodError: type=::Object, method=baz (baz)
+      a.rb:19:4: [error] NoMethodError: type=::Object, method=baz
       │
       └     baz
             ~~~

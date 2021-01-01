@@ -3,12 +3,12 @@ test:
   hello.rb:
     diagnostics:
     - |
-      hello.rb:9:4: [error] NoMethodError: type=::_Bar, method=foo (y.foo)
+      hello.rb:9:4: [error] NoMethodError: type=::_Bar, method=foo
       │
       └ b = y.foo
             ~~~~~
     - |
-      hello.rb:11:0: [error] IncompatibleAssignment: lhs_type=::_Foo, rhs_type=::_Bar (x = y)
+      hello.rb:11:0: [error] IncompatibleAssignment: lhs_type=::_Foo, rhs_type=::_Bar
       │   ::_Bar <: ::_Foo
       │ ==> Method foo is missing
       │

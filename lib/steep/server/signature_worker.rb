@@ -103,7 +103,7 @@ module Steep
                           errors = error_hash[path] || []
                           hash[path] = errors.map do |error|
                             LSP::Interface::Diagnostic.new(
-                              message: StringIO.new.tap {|io| error.puts(io) }.string.split(/\t/, 2).last,
+                              message: error.to_s.chomp,
                               severity: LSP::Constant::DiagnosticSeverity::ERROR,
                               range: LSP::Interface::Range.new(
                                 start: LSP::Interface::Position.new(

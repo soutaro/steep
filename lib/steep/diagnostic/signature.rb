@@ -28,7 +28,7 @@ module Steep
         end
 
         def puts(io)
-          io.puts "#{loc_to_s}\sDuplicatedDeclarationError: name=#{type_name}"
+          io.puts "DuplicatedDeclarationError: name=#{type_name}"
         end
       end
 
@@ -41,7 +41,7 @@ module Steep
         end
 
         def puts(io)
-          io.puts "#{loc_to_s}\tUnknownTypeNameError: name=#{name}"
+          io.puts "UnknownTypeNameError: name=#{name}"
         end
       end
 
@@ -58,7 +58,7 @@ module Steep
         end
 
         def puts(io)
-          io.puts "#{loc_to_s}\tInvalidTypeApplicationError: name=#{name}, expected=[#{params.join(", ")}], actual=[#{args.join(", ")}]"
+          io.puts "InvalidTypeApplicationError: name=#{name}, expected=[#{params.join(", ")}], actual=[#{args.join(", ")}]"
         end
       end
 
@@ -73,7 +73,7 @@ module Steep
         end
 
         def puts(io)
-          io.puts "#{loc_to_s}\tInvalidMethodOverloadError: class_name=#{class_name}, method_name=#{method_name}"
+          io.puts "InvalidMethodOverloadError: class_name=#{class_name}, method_name=#{method_name}"
         end
       end
 
@@ -88,7 +88,7 @@ module Steep
         end
 
         def puts(io)
-          io.puts "#{loc_to_s}\tUnknownMethodAliasError: class_name=#{class_name}, method_name=#{method_name}"
+          io.puts "UnknownMethodAliasError: class_name=#{class_name}, method_name=#{method_name}"
         end
       end
 
@@ -103,7 +103,7 @@ module Steep
         end
 
         def puts(io)
-          io.puts "#{loc_to_s}\tDuplicatedMethodDefinitionError: class_name=#{class_name}, method_name=#{method_name}"
+          io.puts "DuplicatedMethodDefinitionError: class_name=#{class_name}, method_name=#{method_name}"
         end
       end
 
@@ -119,7 +119,7 @@ module Steep
         end
 
         def puts(io)
-          io.puts "#{loc_to_s}\tRecursiveAliasError: class_name=#{class_name}, names=#{names.join(", ")}"
+          io.puts "RecursiveAliasError: class_name=#{class_name}, names=#{names.join(", ")}"
         end
       end
     end

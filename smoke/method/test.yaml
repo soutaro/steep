@@ -3,7 +3,7 @@ test:
   a.rb:
     diagnostics:
     - |
-      a.rb:6:2: [error] IncompatibleAssignment: lhs_type=::String, rhs_type=::Integer (z = x)
+      a.rb:6:2: [error] IncompatibleAssignment: lhs_type=::String, rhs_type=::Integer
       │   ::Integer <: ::String
       │    ::Numeric <: ::String
       │     ::Object <: ::String
@@ -13,7 +13,7 @@ test:
       └   z = x
           ~~~~~
     - |
-      a.rb:8:2: [error] IncompatibleAssignment: lhs_type=::String, rhs_type=::Integer (z = y)
+      a.rb:8:2: [error] IncompatibleAssignment: lhs_type=::String, rhs_type=::Integer
       │   ::Integer <: ::String
       │    ::Numeric <: ::String
       │     ::Object <: ::String
@@ -23,7 +23,7 @@ test:
       └   z = y
           ~~~~~
     - |
-      a.rb:3:0: [error] MethodBodyTypeMismatch: method=foo, expected=::String, actual=::Integer (def foo(x, y:))
+      a.rb:3:0: [error] MethodBodyTypeMismatch: method=foo, expected=::String, actual=::Integer
       │   ::Integer <: ::String
       │    ::Numeric <: ::String
       │     ::Object <: ::String
@@ -33,12 +33,12 @@ test:
       └ def foo(x, y:)
         ~~~~~~~~~~~~~~
     - |
-      a.rb:15:0: [error] MethodArityMismatch: method=bar (def bar(x, y))
+      a.rb:15:0: [error] MethodArityMismatch: method=bar
       │
       └ def bar(x, y)
         ~~~~~~~~~~~~~
     - |
-      a.rb:18:2: [error] IncompatibleAssignment: lhs_type=::String, rhs_type=::Integer (z = x)
+      a.rb:18:2: [error] IncompatibleAssignment: lhs_type=::String, rhs_type=::Integer
       │   ::Integer <: ::String
       │    ::Numeric <: ::String
       │     ::Object <: ::String
@@ -50,7 +50,7 @@ test:
   b.rb:
     diagnostics:
     - |
-      b.rb:4:2: [error] MethodBodyTypeMismatch: method=foo, expected=(::Integer | ::String), actual=::Symbol (def foo(x))
+      b.rb:4:2: [error] MethodBodyTypeMismatch: method=foo, expected=(::Integer | ::String), actual=::Symbol
       │   ::Symbol <: (::Integer | ::String)
       │    ::Symbol <: ::Integer
       │     ::Object <: ::Integer

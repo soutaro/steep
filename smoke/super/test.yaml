@@ -3,7 +3,7 @@ test:
   a.rb:
     diagnostics:
     - |
-      a.rb:6:4: [error] IncompatibleAssignment: lhs_type=::Integer, rhs_type=::Object (a = super(x))
+      a.rb:6:4: [error] IncompatibleAssignment: lhs_type=::Integer, rhs_type=::Object
       │   ::Object <: ::Integer
       │    ::BasicObject <: ::Integer
       │ ==> ::BasicObject <: ::Integer does not hold
@@ -11,7 +11,7 @@ test:
       └     a = super(x)
             ~~~~~~~~~~~~
     - |
-      a.rb:7:4: [error] IncompatibleAssignment: lhs_type=::Integer, rhs_type=::Object (a = super)
+      a.rb:7:4: [error] IncompatibleAssignment: lhs_type=::Integer, rhs_type=::Object
       │   ::Object <: ::Integer
       │    ::BasicObject <: ::Integer
       │ ==> ::BasicObject <: ::Integer does not hold
@@ -19,27 +19,27 @@ test:
       └     a = super
             ~~~~~~~~~
     - |
-      a.rb:19:4: [error] FallbackAny (super())
+      a.rb:19:4: [error] FallbackAny
       │
       └     super()
             ~~~~~~~
     - |
-      a.rb:20:4: [error] FallbackAny (super)
+      a.rb:20:4: [error] FallbackAny
       │
       └     super
             ~~~~~
     - |
-      a.rb:26:4: [error] UnexpectedSuper: method=baz (super())
+      a.rb:26:4: [error] UnexpectedSuper: method=baz
       │
       └     super()
             ~~~~~~~
     - |
-      a.rb:28:4: [error] UnexpectedSuper: method=baz (super)
+      a.rb:28:4: [error] UnexpectedSuper: method=baz
       │
       └     super
             ~~~~~
     - |
-      a.rb:28:4: [error] FallbackAny (super)
+      a.rb:28:4: [error] FallbackAny
       │
       └     super
             ~~~~~

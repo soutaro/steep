@@ -86,10 +86,8 @@ module Steep
           ]
         when Project::SourceFile::TypeCheckStatus
           status.typing.errors.select {|error| options.error_to_report?(error) }.map do |error|
-            loc = error.location_to_str
-
             LSP::Interface::Diagnostic.new(
-              message: StringIO.new.tap {|io| error.print_to(io) }.string.gsub(/\A#{Regexp.escape(loc)}: /, "").chomp,
+              message: StringIO.new.tap {|io| error.print_to(io) }.string.chomp,
               severity: LSP::Constant::DiagnosticSeverity::ERROR,
               range: LSP::Interface::Range.new(
                 start: LSP::Interface::Position.new(

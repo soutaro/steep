@@ -3,12 +3,12 @@ test:
   a.rb:
     diagnostics:
     - |
-      a.rb:6:0: [error] UnresolvedOverloading: receiver=::Array[::Integer], method_name=[]=, method_types=(::int, ::Integer) -> ::Integer | (::int, ::int, ::Integer) -> ::Integer | (::int, ::int, ::Array[::Integer]) -> ::Array[::Integer] | (::int, ::int, nil) -> nil | (::Range[::Integer], ::Integer) -> ::Integer | (::Range[::Integer], ::Array[::Integer]) -> ::Array[::Integer] | (::Range[::Integer], nil) -> nil (a[2] = "foo")
+      a.rb:6:0: [error] UnresolvedOverloading: receiver=::Array[::Integer], method_name=[]=, method_types=(::int, ::Integer) -> ::Integer | (::int, ::int, ::Integer) -> ::Integer | (::int, ::int, ::Array[::Integer]) -> ::Array[::Integer] | (::int, ::int, nil) -> nil | (::Range[::Integer], ::Integer) -> ::Integer | (::Range[::Integer], ::Array[::Integer]) -> ::Array[::Integer] | (::Range[::Integer], nil) -> nil
       │
       └ a[2] = "foo"
         ~~~~~~~~~~~~
     - |
-      a.rb:12:0: [error] IncompatibleAssignment: lhs_type=::String, rhs_type=::Integer (s = a[1])
+      a.rb:12:0: [error] IncompatibleAssignment: lhs_type=::String, rhs_type=::Integer
       │   ::Integer <: ::String
       │    ::Numeric <: ::String
       │     ::Object <: ::String
@@ -18,7 +18,7 @@ test:
       └ s = a[1]
         ~~~~~~~~
     - |
-      a.rb:18:0: [error] IncompatibleAssignment: lhs_type=::Integer, rhs_type=::String (i = b[1])
+      a.rb:18:0: [error] IncompatibleAssignment: lhs_type=::Integer, rhs_type=::String
       │   ::String <: ::Integer
       │    ::Object <: ::Integer
       │     ::BasicObject <: ::Integer
@@ -29,7 +29,7 @@ test:
   b.rb:
     diagnostics:
     - |
-      b.rb:11:0: [error] IncompatibleAssignment: lhs_type=::Array[::String], rhs_type=::Array[::Integer] (b = a)
+      b.rb:11:0: [error] IncompatibleAssignment: lhs_type=::Array[::String], rhs_type=::Array[::Integer]
       │   ::Array[::Integer] <: ::Array[::String]
       │    ::Integer <: ::String
       │     ::Numeric <: ::String
@@ -40,7 +40,7 @@ test:
       └ b = a
         ~~~~~
     - |
-      b.rb:12:0: [error] IncompatibleAssignment: lhs_type=::Array[::Integer], rhs_type=::Array[::String] (a = b)
+      b.rb:12:0: [error] IncompatibleAssignment: lhs_type=::Array[::Integer], rhs_type=::Array[::String]
       │   ::Array[::String] <: ::Array[::Integer]
       │    ::String <: ::Integer
       │     ::Object <: ::Integer
@@ -52,7 +52,7 @@ test:
   c.rb:
     diagnostics:
     - |
-      c.rb:6:0: [error] IncompatibleAssignment: lhs_type=::Array[(::String | nil)], rhs_type=::Array[::Integer] (x = [1])
+      c.rb:6:0: [error] IncompatibleAssignment: lhs_type=::Array[(::String | nil)], rhs_type=::Array[::Integer]
       │   ::Array[::Integer] <: ::Array[(::String | nil)]
       │    ::Integer <: (::String | nil)
       │     ::Integer <: ::String
