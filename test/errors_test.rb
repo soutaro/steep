@@ -27,7 +27,7 @@ class ErrorsTest < Minitest::Test
 
   def test_to_s_multiline
     assert_equal "foo.rb:1:0: UnexpectedError: RuntimeError\n>> Oops!\n",
-                 Errors::UnexpectedError.new(node: @node, error: RuntimeError.new("Oops!")).to_s
+                 Diagnostic::Ruby::UnexpectedError.new(node: @node, error: RuntimeError.new("Oops!")).to_s
   end
 end
 

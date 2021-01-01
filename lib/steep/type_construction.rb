@@ -2747,7 +2747,7 @@ module Steep
         Steep.log_error(exn, message: "Unexpected error in #type_send: #{exn.message} (#{exn.class})")
       end
 
-      error = Errors::UnexpectedError.new(node: node, error: exn)
+      error = Diagnostic::Ruby::UnexpectedError.new(node: node, error: exn)
 
       type_any_rec(node)
 

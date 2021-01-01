@@ -6267,7 +6267,7 @@ test.foo
         type, _ = construction.synthesize(source.node)
 
         assert_typing_error typing, size: 1 do |error,|
-          assert_instance_of Steep::Errors::UnexpectedError, error
+          assert_instance_of Diagnostic::Ruby::UnexpectedError, error
           assert_instance_of RBS::NoTypeFoundError, error.error
         end
 

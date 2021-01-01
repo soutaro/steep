@@ -40,23 +40,5 @@ module Steep
         print_result_to io
       end
     end
-
-    class UnexpectedError < Base
-      attr_reader :message
-      attr_reader :error
-
-      def initialize(node:, error:)
-        super(node: node)
-        @error = error
-        @message = error.message
-      end
-
-      def to_s
-        format_message <<-MESSAGE
-#{error.class}
->> #{message}
-        MESSAGE
-      end
-    end
   end
 end
