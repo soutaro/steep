@@ -41,19 +41,6 @@ module Steep
       end
     end
 
-    class UnknownConstantAssigned < Base
-      attr_reader :type
-
-      def initialize(node:, type:)
-        super(node: node)
-        @type = type
-      end
-
-      def to_s
-        format_message "type=#{type}"
-      end
-    end
-
     class FallbackAny < Base
       def initialize(node:)
         @node = node

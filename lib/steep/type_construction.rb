@@ -1459,7 +1459,9 @@ module Steep
                     )
                   )
                 when nil
-                  typing.add_error(Errors::UnknownConstantAssigned.new(node: node, type: value_type))
+                  typing.add_error(
+                    Diagnostic::Ruby::UnknownConstantAssigned.new(node: node, type: value_type)
+                  )
                 end
               end
 

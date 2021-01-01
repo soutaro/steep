@@ -46,7 +46,7 @@ module Steep
           !allow_missing_definitions
         when error.is_a?(Diagnostic::Ruby::NoMethod)
           !allow_unknown_method_calls
-        when error.is_a?(Errors::UnknownConstantAssigned)
+        when error.is_a?(Diagnostic::Ruby::UnknownConstantAssigned)
           !allow_unknown_constant_assignment
         else
           true
