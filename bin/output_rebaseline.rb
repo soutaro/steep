@@ -15,7 +15,7 @@ test_dirs.each do |dir|
   if test.file?
     content = YAML.load_file(test)
   else
-    content = { "test" => [] }
+    content = { "test" => {} }
   end
 
   puts "Rebaselining #{dir}..."
@@ -30,6 +30,12 @@ test_dirs.each do |dir|
       path = $1
       hash[path] ||= { "diagnostics" => [] }
       hash[path]["diagnostics"] << message.chomp + "\n"
+    end
+  end
+
+  content["test"].each_key do |path|
+    unless diagnostics.key?(path)
+      diagnostics[path] = { "diagnostics" => [] }
     end
   end
 
