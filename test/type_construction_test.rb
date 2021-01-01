@@ -6213,6 +6213,29 @@ test.foo(&p)
     end
   end
 
+  def test_block_pass_and_untyped
+    with_checker(<<-RBS) do |checker|
+interface _YieldUntyped
+  def m: [T] () { (untyped) -> T } -> T
+end
+    RBS
+      source = parse_ruby(<<-EOF)
+# @type var x: _YieldUntyped
+x = (_ = nil)
+r = x.m(&:to_s)
+      EOF
+
+      with_standard_construction(checker, source) do |construction, typing|
+        pair = construction.synthesize(source.node)
+
+        assert_no_error typing
+
+        assert_equal parse_type("::_YieldUntyped"), pair.context.lvar_env[:x]
+        assert_equal parse_type("untyped"), pair.context.lvar_env[:r]
+      end
+    end
+  end
+
   def test_send_unsatisfiable_constraint
     with_checker(<<RBS) do |checker|
 class SendTest

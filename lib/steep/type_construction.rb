@@ -2082,24 +2082,29 @@ module Steep
               if hint.one_arg?
                 # Assumes Symbol#to_proc implementation
                 param_type = hint.type.params.required[0]
-                interface = checker.factory.interface(param_type, private: true)
-                method = interface.methods[value.children[0]]
-                if method
-                  return_types = method.method_types.select {|method_type|
-                    method_type.type.params.empty?
-                  }.map {|method_type|
-                    method_type.type.return_type
-                  }
+                case param_type
+                when AST::Types::Any
+                  type = AST::Types::Any.new
+                else
+                  interface = checker.factory.interface(param_type, private: true)
+                  method = interface.methods[value.children[0]]
+                  if method
+                    return_types = method.method_types.select {|method_type|
+                      method_type.type.params.empty?
+                    }.map {|method_type|
+                      method_type.type.return_type
+                    }
 
-                  unless return_types.empty?
-                    type = AST::Types::Proc.new(
-                      type: Interface::Function.new(
-                        params: Interface::Function::Params.empty.update(required: [param_type]),
-                        return_type: AST::Types::Union.build(types: return_types),
-                        location: nil
-                      ),
-                      block: nil
-                    )
+                    unless return_types.empty?
+                      type = AST::Types::Proc.new(
+                        type: Interface::Function.new(
+                          params: Interface::Function::Params.empty.update(required: [param_type]),
+                          return_type: AST::Types::Union.build(types: return_types),
+                          location: nil
+                        ),
+                        block: nil
+                      )
+                    end
                   end
                 end
               else
