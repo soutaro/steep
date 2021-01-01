@@ -40,7 +40,7 @@ module Steep
 
       def error_to_report?(error)
         case
-        when error.is_a?(Errors::FallbackAny)
+        when error.is_a?(Diagnostic::Ruby::FallbackAny)
           !allow_fallback_any
         when error.is_a?(Diagnostic::Ruby::MethodDefinitionMissing)
           !allow_missing_definitions

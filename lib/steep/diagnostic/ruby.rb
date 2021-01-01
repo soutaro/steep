@@ -381,6 +381,16 @@ module Steep
           format_message "type=#{type}"
         end
       end
+
+      class FallbackAny < Base
+        def initialize(node:)
+          @node = node
+        end
+
+        def to_s
+          format_message ""
+        end
+      end
     end
   end
 end

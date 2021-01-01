@@ -1173,7 +1173,7 @@ module Steep
               if context&.method_context&.method_type
                 Steep.logger.error { "Unknown variable: #{node}" }
               end
-              typing.add_error Errors::FallbackAny.new(node: node)
+              typing.add_error Diagnostic::Ruby::FallbackAny.new(node: node)
               type = AST::Builtin::Array.instance_type(AST::Builtin.any_type)
             end
 
@@ -1188,7 +1188,7 @@ module Steep
               if context&.method_context&.method_type
                 Steep.logger.error { "Unknown variable: #{node}" }
               end
-              typing.add_error Errors::FallbackAny.new(node: node)
+              typing.add_error Diagnostic::Ruby::FallbackAny.new(node: node)
               type = AST::Builtin::Hash.instance_type(AST::Builtin::Symbol.instance_type, AST::Builtin.any_type)
             end
 
@@ -1285,7 +1285,7 @@ module Steep
             value_type = value_types.empty? ? AST::Builtin.any_type : AST::Types::Union.build(types: value_types)
 
             if key_types.empty? && value_types.empty? && !hint
-              typing.add_error Errors::FallbackAny.new(node: node)
+              typing.add_error Diagnostic::Ruby::FallbackAny.new(node: node)
             end
 
             add_typing(node, type: AST::Builtin::Hash.instance_type(key_type, value_type))
@@ -1528,7 +1528,7 @@ module Steep
                   add_typing node, type: array
                 end
               else
-                typing.add_error Errors::FallbackAny.new(node: node)
+                typing.add_error Diagnostic::Ruby::FallbackAny.new(node: node)
                 add_typing node, type: AST::Builtin::Array.instance_type(AST::Builtin.any_type)
               end
             else
@@ -2122,7 +2122,7 @@ module Steep
           yield_self do
             name = node.children.first
             type = type_env.get(gvar: name) do
-              typing.add_error Errors::FallbackAny.new(node: node)
+              typing.add_error Diagnostic::Ruby::FallbackAny.new(node: node)
             end
 
             add_typing(node, type: type)
@@ -3533,7 +3533,7 @@ module Steep
       if block_given?
         typing.add_error yield
       else
-        typing.add_error Errors::FallbackAny.new(node: node)
+        typing.add_error Diagnostic::Ruby::FallbackAny.new(node: node)
       end
 
       add_typing node, type: AST::Builtin.any_type

@@ -41,16 +41,6 @@ module Steep
       end
     end
 
-    class FallbackAny < Base
-      def initialize(node:)
-        @node = node
-      end
-
-      def to_s
-        format_message ""
-      end
-    end
-
     class UnsatisfiableConstraint < Base
       attr_reader :method_type
       attr_reader :var

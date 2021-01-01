@@ -865,7 +865,7 @@ Hello.new.foo([])
 
         assert_typing_error(typing, size: 2) do |errors|
           errors[0].tap do |error|
-            assert_instance_of Steep::Errors::FallbackAny, error
+            assert_instance_of Diagnostic::Ruby::FallbackAny, error
           end
 
           errors[1].tap do |error|
@@ -1685,7 +1685,7 @@ a, @b = _ = nil
         assert_equal 1, typing.errors.size
 
         assert_all!(typing.errors) do |error|
-          assert_instance_of Steep::Errors::FallbackAny, error
+          assert_instance_of Diagnostic::Ruby::FallbackAny, error
         end
       end
     end
@@ -1758,7 +1758,7 @@ a, @b = 3
 
         assert_equal 1, typing.errors.size
         assert_any typing.errors do |error|
-          error.is_a?(Steep::Errors::FallbackAny)
+          error.is_a?(Diagnostic::Ruby::FallbackAny)
         end
       end
     end
@@ -2156,11 +2156,11 @@ end
 
         assert_equal 2, typing.errors.size
         assert_any typing.errors do |error|
-          error.is_a?(Steep::Errors::FallbackAny) &&
+          error.is_a?(Diagnostic::Ruby::FallbackAny) &&
             error.node == dig(source.node, 1, 0)
         end
         assert_any typing.errors do |error|
-          error.is_a?(Steep::Errors::FallbackAny) &&
+          error.is_a?(Diagnostic::Ruby::FallbackAny) &&
             error.node == dig(source.node, 2, 1)
         end
       end
@@ -2230,7 +2230,7 @@ x = $HOGE
         construction.synthesize(source.node)
 
         assert_equal 2, typing.errors.size
-        assert typing.errors.all? {|error| error.is_a?(Steep::Errors::FallbackAny) }
+        assert typing.errors.all? {|error| error.is_a?(Diagnostic::Ruby::FallbackAny) }
       end
     end
   end
@@ -2274,7 +2274,7 @@ end
         construction.synthesize(source.node)
 
         assert_equal 1, typing.errors.size
-        assert_any typing.errors do |error| error.is_a?(Steep::Errors::FallbackAny) end
+        assert_any typing.errors do |error| error.is_a?(Diagnostic::Ruby::FallbackAny) end
       end
     end
   end
@@ -3422,7 +3422,7 @@ EOF
 
         assert_equal 1, typing.errors.size
         typing.errors[0].yield_self do |error|
-          assert_instance_of Steep::Errors::FallbackAny, error
+          assert_instance_of Diagnostic::Ruby::FallbackAny, error
         end
       end
     end
@@ -3889,7 +3889,7 @@ EOF
 
         assert_equal 2, typing.errors.size
         assert_all typing.errors do |error|
-          error.is_a?(Steep::Errors::FallbackAny)
+          error.is_a?(Diagnostic::Ruby::FallbackAny)
         end
       end
     end
@@ -5102,12 +5102,12 @@ end
         assert_equal 3, typing.errors.size
 
         assert_any!(typing.errors) do |error|
-          assert_instance_of Steep::Errors::FallbackAny, error
+          assert_instance_of Diagnostic::Ruby::FallbackAny, error
           assert_equal :cvasgn, error.node.type
         end
 
         assert_any!(typing.errors) do |error|
-          assert_instance_of Steep::Errors::FallbackAny, error
+          assert_instance_of Diagnostic::Ruby::FallbackAny, error
           assert_equal :cvar, error.node.type
         end
 
@@ -5133,7 +5133,7 @@ end
         construction.synthesize(source.node)
 
         assert_all!(typing.errors) do |error|
-          assert_instance_of Steep::Errors::FallbackAny, error
+          assert_instance_of Diagnostic::Ruby::FallbackAny, error
         end
       end
     end
@@ -7066,7 +7066,7 @@ RUBY
 
         assert_typing_error(typing, size: 2) do |errors|
           assert_all!(errors) do |error|
-            assert_instance_of Steep::Errors::FallbackAny, error
+            assert_instance_of Diagnostic::Ruby::FallbackAny, error
           end
         end
       end
