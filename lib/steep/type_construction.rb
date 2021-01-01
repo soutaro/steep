@@ -2999,7 +2999,7 @@ module Steep
                                             method_type: method_type,
                                             constraints: constraints)
 
-          if result.is_a?(Errors::Base) || result.is_a?(Diagnostic::Ruby::Base)
+          if result.is_a?(Diagnostic::Ruby::Base)
             errors << result
           end
         end

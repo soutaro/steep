@@ -4,7 +4,6 @@ class ErrorsTest < Minitest::Test
   include TestHelper
 
   Diagnostic = Steep::Diagnostic
-  Errors = Steep::Errors
 
   def setup
     @node = Parser::Ruby27.parse("2 + 2", "foo.rb")
