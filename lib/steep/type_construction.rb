@@ -578,7 +578,7 @@ module Steep
           lvar_env.assign!(name, node: node, type: type) do |declared_type, assigned_type, result|
             relation = Subtyping::Relation.new(sub_type: assigned_type, super_type: declared_type)
             typing.add_error(
-              Errors::IncompatibleTypeCase.new(
+              Diagnostic::Ruby::IncompatibleTypeCase.new(
                 node: node,
                 var_name: name,
                 relation: relation,
