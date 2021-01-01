@@ -58,7 +58,6 @@ require "steep/subtyping/variable_occurrence"
 
 require "steep/diagnostic/ruby"
 require "steep/diagnostic/signature"
-require "steep/signature/errors"
 require "steep/signature/validator"
 require "steep/source"
 require "steep/annotation_parser"

@@ -6,7 +6,6 @@ class ValidationTest < Minitest::Test
   include SubtypingHelper
 
   Validator = Steep::Signature::Validator
-  Errors = Steep::Signature::Errors
   Diagnostic = Steep::Diagnostic
 
   def test_validate_constant
