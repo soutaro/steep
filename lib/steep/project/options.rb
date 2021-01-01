@@ -42,7 +42,7 @@ module Steep
         case
         when error.is_a?(Errors::FallbackAny)
           !allow_fallback_any
-        when error.is_a?(Errors::MethodDefinitionMissing)
+        when error.is_a?(Diagnostic::Ruby::MethodDefinitionMissing)
           !allow_missing_definitions
         when error.is_a?(Diagnostic::Ruby::NoMethod)
           !allow_unknown_method_calls

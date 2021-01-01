@@ -1445,12 +1445,12 @@ end
         assert_equal 2, typing.errors.size
 
         typing.errors[0].tap do |error|
-          assert_instance_of Steep::Errors::MethodDefinitionMissing, error
+          assert_instance_of Diagnostic::Ruby::MethodDefinitionMissing, error
           assert_equal "::A", error.module_name.to_s
         end
 
         typing.errors[1].tap do |error|
-          assert_instance_of Steep::Errors::MethodDefinitionMissing, error
+          assert_instance_of Diagnostic::Ruby::MethodDefinitionMissing, error
           assert_equal "::B", error.module_name.to_s
         end
       end

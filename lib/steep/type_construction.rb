@@ -3459,10 +3459,14 @@ module Steep
           # ok
         else
           if module_name.name == module_context&.class_name
-            typing.add_error Errors::MethodDefinitionMissing.new(node: node,
-                                                                 module_name: module_name.name,
-                                                                 kind: :instance,
-                                                                 missing_method: method_name)
+            typing.add_error(
+              Diagnostic::Ruby::MethodDefinitionMissing.new(
+                node: node,
+                module_name: module_name.name,
+                kind: :instance,
+                missing_method: method_name
+              )
+            )
           end
         end
       end
@@ -3474,10 +3478,12 @@ module Steep
           # ok
         else
           if module_name.name == module_context&.class_name
-            typing.add_error Errors::MethodDefinitionMissing.new(node: node,
-                                                                 module_name: module_name.name,
-                                                                 kind: :module,
-                                                                 missing_method: method_name)
+            typing.add_error(
+              Diagnostic::Ruby::MethodDefinitionMissing.new(node: node,
+                                                            module_name: module_name.name,
+                                                            kind: :module,
+                                                            missing_method: method_name)
+            )
           end
         end
       end
