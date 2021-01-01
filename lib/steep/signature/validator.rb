@@ -129,43 +129,43 @@ module Steep
       def rescue_validation_errors(type_name = nil)
         yield
       rescue RBS::InvalidTypeApplicationError => exn
-        @errors << Errors::InvalidTypeApplicationError.new(
+        @errors << Diagnostic::Signature::InvalidTypeApplicationError.new(
           name: exn.type_name,
           args: exn.args.map {|ty| factory.type(ty) },
           params: exn.params,
           location: exn.location
         )
       rescue RBS::NoTypeFoundError, RBS::NoSuperclassFoundError, RBS::NoMixinFoundError => exn
-        @errors << Errors::UnknownTypeNameError.new(
+        @errors << Diagnostic::Signature::UnknownTypeNameError.new(
           name: exn.type_name,
           location: exn.location
         )
       rescue RBS::InvalidOverloadMethodError => exn
-        @errors << Errors::InvalidMethodOverloadError.new(
+        @errors << Diagnostic::Signature::InvalidMethodOverloadError.new(
           class_name: exn.type_name,
           method_name: exn.method_name,
           location: exn.members[0].location
         )
       rescue RBS::DuplicatedMethodDefinitionError => exn
-        @errors << Errors::DuplicatedMethodDefinitionError.new(
+        @errors << Diagnostic::Signature::DuplicatedMethodDefinitionError.new(
           class_name: type_name,
           method_name: exn.method_name,
           location: exn.location
         )
       rescue RBS::DuplicatedInterfaceMethodDefinitionError => exn
-        @errors << Errors::DuplicatedMethodDefinitionError.new(
+        @errors << Diagnostic::Signature::DuplicatedMethodDefinitionError.new(
           class_name: type_name,
           method_name: exn.method_name,
           location: exn.member.location
         )
       rescue RBS::UnknownMethodAliasError => exn
-        @errors << Errors::UnknownMethodAliasError.new(
+        @errors << Diagnostic::Signature::UnknownMethodAliasError.new(
           class_name: type_name,
           method_name: exn.aliased_name,
           location: exn.location
         )
       rescue RBS::RecursiveAliasDefinitionError => exn
-        @errors << Errors::RecursiveAliasError.new(
+        @errors << Diagnostic::Signature::RecursiveAliasError.new(
           class_name: exn.type.name,
           names: exn.defs.map(&:name),
           location: exn.defs[0].original.location

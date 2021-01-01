@@ -1,6 +1,6 @@
 module Steep
-  module Signature
-    module Errors
+  module Diagnostic
+    module Signature
       class Base
         attr_reader :location
 
@@ -125,4 +125,3 @@ module Steep
     end
   end
 end
-

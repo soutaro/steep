@@ -142,10 +142,14 @@ module Steep
 
       if annots&.return_type && method_type&.type&.return_type
         check_relation(sub_type: annots.return_type, super_type: method_type.type.return_type).else do |result|
-          typing.add_error Errors::MethodReturnTypeAnnotationMismatch.new(node: node,
-                                                                          method_type: method_type.type.return_type,
-                                                                          annotation_type: annots.return_type,
-                                                                          result: result)
+          typing.add_error(
+            Diagnostic::Ruby::MethodReturnTypeAnnotationMismatch.new(
+              node: node,
+              method_type: method_type.type.return_type,
+              annotation_type: annots.return_type,
+              result: result
+            )
+          )
         end
       end
 
@@ -154,7 +158,7 @@ module Steep
       if method_type
         var_types = TypeConstruction.parameter_types(args, method_type.type)
         unless TypeConstruction.valid_parameter_env?(var_types, args.reject {|arg| arg.type == :blockarg}, method_type.type.params)
-          typing.add_error Errors::MethodArityMismatch.new(node: node)
+          typing.add_error Diagnostic::Ruby::MethodArityMismatch.new(node: node)
         end
       end
 
@@ -574,7 +578,7 @@ module Steep
           lvar_env.assign!(name, node: node, type: type) do |declared_type, assigned_type, result|
             relation = Subtyping::Relation.new(sub_type: assigned_type, super_type: declared_type)
             typing.add_error(
-              Errors::IncompatibleTypeCase.new(
+              Diagnostic::Ruby::IncompatibleTypeCase.new(
                 node: node,
                 var_name: name,
                 relation: relation,
@@ -588,10 +592,12 @@ module Steep
       lvar_env = lvar_env.annotate(annots) do |var, outer_type, inner_type, result|
         relation = Subtyping::Relation.new(sub_type: inner_type, super_type: outer_type)
         typing.add_error(
-          Errors::IncompatibleAnnotation.new(node: node,
-                                             var_name: var,
-                                             relation: relation,
-                                             result: result)
+          Diagnostic::Ruby::IncompatibleAnnotation.new(
+            node: node,
+            var_name: var,
+            relation: relation,
+            result: result
+          )
         )
       end
 
@@ -608,10 +614,12 @@ module Steep
         self_type: self_type
       ) do |var, relation, result|
         typing.add_error(
-          Errors::IncompatibleAnnotation.new(node: node,
-                                             var_name: var,
-                                             relation: relation,
-                                             result: result)
+          Diagnostic::Ruby::IncompatibleAnnotation.new(
+            node: node,
+            var_name: var,
+            relation: relation,
+            result: result
+          )
         )
       end
 
@@ -694,10 +702,14 @@ module Steep
 
               constr = rhs_result.constr.update_lvar_env do |lvar_env|
                 lvar_env.assign(name, node: node, type: rhs_result.type) do |declared_type, actual_type, result|
-                  typing.add_error(Errors::IncompatibleAssignment.new(node: node,
-                                                                      lhs_type: declared_type,
-                                                                      rhs_type: actual_type,
-                                                                      result: result))
+                  typing.add_error(
+                    Diagnostic::Ruby::IncompatibleAssignment.new(
+                      node: node,
+                      lhs_type: declared_type,
+                      rhs_type: actual_type,
+                      result: result
+                    )
+                  )
                 end
               end
 
@@ -852,7 +864,7 @@ module Steep
                 constr.add_call(call)
               else
                 fallback_to_any node do
-                  Errors::UnexpectedSuper.new(node: node, method: method_context.name)
+                  Diagnostic::Ruby::UnexpectedSuper.new(node: node, method: method_context.name)
                 end
               end
             else
@@ -888,10 +900,14 @@ module Steep
                           return_type = expand_alias(new.method_context&.return_type)
                           if return_type && !return_type.is_a?(AST::Types::Void)
                             new.check(body_node, return_type) do |_, actual_type, result|
-                              typing.add_error(Errors::MethodBodyTypeMismatch.new(node: node,
-                                                                                  expected: new.method_context&.return_type,
-                                                                                  actual: actual_type,
-                                                                                  result: result))
+                              typing.add_error(
+                                Diagnostic::Ruby::MethodBodyTypeMismatch.new(
+                                  node: node,
+                                  expected: new.method_context&.return_type,
+                                  actual: actual_type,
+                                  result: result
+                                )
+                              )
                             end
                           else
                             new.synthesize(body_node)
@@ -901,10 +917,14 @@ module Steep
                           if return_type && !return_type.is_a?(AST::Types::Void)
                             result = check_relation(sub_type: AST::Builtin.nil_type, super_type: return_type)
                             if result.failure?
-                              typing.add_error(Errors::MethodBodyTypeMismatch.new(node: node,
-                                                                                  expected: new.method_context&.return_type,
-                                                                                  actual: AST::Builtin.nil_type,
-                                                                                  result: result))
+                              typing.add_error(
+                                Diagnostic::Ruby::MethodBodyTypeMismatch.new(
+                                  node: node,
+                                  expected: new.method_context&.return_type,
+                                  actual: AST::Builtin.nil_type,
+                                  result: result
+                                )
+                              )
                             end
                           end
 
@@ -956,10 +976,14 @@ module Steep
               return_type = expand_alias(new.method_context&.return_type)
               if return_type && !return_type.is_a?(AST::Types::Void)
                 new.check(node.children[3], return_type) do |return_type, actual_type, result|
-                  typing.add_error(Errors::MethodBodyTypeMismatch.new(node: node,
-                                                                      expected: return_type,
-                                                                      actual: actual_type,
-                                                                      result: result))
+                  typing.add_error(
+                    Diagnostic::Ruby::MethodBodyTypeMismatch.new(
+                      node: node,
+                      expected: return_type,
+                      actual: actual_type,
+                      result: result
+                    )
+                  )
                 end
               else
                 new.synthesize(node.children[3])
@@ -1000,10 +1024,14 @@ module Steep
                   result = check_relation(sub_type: value_type, super_type: method_return_type)
 
                   if result.failure?
-                    typing.add_error(Errors::ReturnTypeMismatch.new(node: node,
-                                                                    expected: method_context&.return_type,
-                                                                    actual: value_type,
-                                                                    result: result))
+                    typing.add_error(
+                      Diagnostic::Ruby::ReturnTypeMismatch.new(
+                        node: node,
+                        expected: method_context&.return_type,
+                        actual: value_type,
+                        result: result
+                      )
+                    )
                   end
                 end
               end
@@ -1019,28 +1047,36 @@ module Steep
             if break_type = break_context.break_type
               if value
                 check(value, break_type) do |break_type, actual_type, result|
-                  typing.add_error Errors::BreakTypeMismatch.new(node: node,
-                                                                 expected: break_type,
-                                                                 actual: actual_type,
-                                                                 result: result)
+                  typing.add_error(
+                    Diagnostic::Ruby::BreakTypeMismatch.new(
+                      node: node,
+                      expected: break_type,
+                      actual: actual_type,
+                      result: result
+                    )
+                  )
                 end
               else
                 check_relation(sub_type: AST::Builtin.nil_type, super_type: break_type).else do |result|
-                  typing.add_error Errors::BreakTypeMismatch.new(node: node,
-                                                                 expected: break_type,
-                                                                 actual: AST::Builtin.nil_type,
-                                                                 result: result)
+                  typing.add_error(
+                    Diagnostic::Ruby::BreakTypeMismatch.new(
+                      node: node,
+                      expected: break_type,
+                      actual: AST::Builtin.nil_type,
+                      result: result
+                    )
+                  )
                 end
               end
             else
               if value
                 synthesize(value)
-                typing.add_error Errors::UnexpectedJumpValue.new(node: node)
+                typing.add_error Diagnostic::Ruby::UnexpectedJumpValue.new(node: node)
               end
             end
           else
             synthesize(value) if value
-            typing.add_error Errors::UnexpectedJump.new(node: node)
+            typing.add_error Diagnostic::Ruby::UnexpectedJump.new(node: node)
           end
 
           add_typing(node, type: AST::Builtin.bottom_type)
@@ -1054,35 +1090,43 @@ module Steep
 
               if value
                 _, constr = check(value, next_type) do |break_type, actual_type, result|
-                  typing.add_error Errors::BreakTypeMismatch.new(node: node,
-                                                                 expected: break_type,
-                                                                 actual: actual_type,
-                                                                 result: result)
+                  typing.add_error(
+                    Diagnostic::Ruby::BreakTypeMismatch.new(
+                      node: node,
+                      expected: break_type,
+                      actual: actual_type,
+                      result: result
+                    )
+                  )
                 end
               else
                 check_relation(sub_type: AST::Builtin.nil_type, super_type: next_type).else do |result|
-                  typing.add_error Errors::BreakTypeMismatch.new(node: node,
-                                                                 expected: next_type,
-                                                                 actual: AST::Builtin.nil_type,
-                                                                 result: result)
+                  typing.add_error(
+                    Diagnostic::Ruby::BreakTypeMismatch.new(
+                      node: node,
+                      expected: next_type,
+                      actual: AST::Builtin.nil_type,
+                      result: result
+                    )
+                  )
                 end
               end
             else
               if value
                 synthesize(value)
-                typing.add_error Errors::UnexpectedJumpValue.new(node: node)
+                typing.add_error Diagnostic::Ruby::UnexpectedJumpValue.new(node: node)
               end
             end
           else
             synthesize(value) if value
-            typing.add_error Errors::UnexpectedJump.new(node: node)
+            typing.add_error Diagnostic::Ruby::UnexpectedJump.new(node: node)
           end
 
           add_typing(node, type: AST::Builtin.bottom_type)
 
         when :retry
           unless break_context
-            typing.add_error Errors::UnexpectedJump.new(node: node)
+            typing.add_error Diagnostic::Ruby::UnexpectedJump.new(node: node)
           end
           add_typing(node, type: AST::Builtin.bottom_type)
 
@@ -1112,10 +1156,12 @@ module Steep
             constr_ = constr.update_lvar_env do |env|
               env.assign(var.name, node: node, type: type) do |declared_type, type, result|
                 typing.add_error(
-                  Errors::IncompatibleAssignment.new(node: node,
-                                                     lhs_type: declared_type,
-                                                     rhs_type: type,
-                                                     result: result)
+                  Diagnostic::Ruby::IncompatibleAssignment.new(
+                    node: node,
+                    lhs_type: declared_type,
+                    rhs_type: type,
+                    result: result
+                  )
                 )
               end
             end
@@ -1131,7 +1177,7 @@ module Steep
               if context&.method_context&.method_type
                 Steep.logger.error { "Unknown variable: #{node}" }
               end
-              typing.add_error Errors::FallbackAny.new(node: node)
+              typing.add_error Diagnostic::Ruby::FallbackAny.new(node: node)
               type = AST::Builtin::Array.instance_type(AST::Builtin.any_type)
             end
 
@@ -1146,7 +1192,7 @@ module Steep
               if context&.method_context&.method_type
                 Steep.logger.error { "Unknown variable: #{node}" }
               end
-              typing.add_error Errors::FallbackAny.new(node: node)
+              typing.add_error Diagnostic::Ruby::FallbackAny.new(node: node)
               type = AST::Builtin::Hash.instance_type(AST::Builtin::Symbol.instance_type, AST::Builtin.any_type)
             end
 
@@ -1229,7 +1275,7 @@ module Steep
                     key_types << splat_type.args[0]
                     value_types << splat_type.args[1]
                   else
-                    typing.add_error Errors::UnexpectedSplat.new(node: child, type: original_type)
+                    typing.add_error Diagnostic::Ruby::UnexpectedSplat.new(node: child, type: original_type)
                     key_types << AST::Builtin.any_type
                     value_types << AST::Builtin.any_type
                   end
@@ -1243,7 +1289,7 @@ module Steep
             value_type = value_types.empty? ? AST::Builtin.any_type : AST::Types::Union.build(types: value_types)
 
             if key_types.empty? && value_types.empty? && !hint
-              typing.add_error Errors::FallbackAny.new(node: node)
+              typing.add_error Diagnostic::Ruby::FallbackAny.new(node: node)
             end
 
             add_typing(node, type: AST::Builtin::Hash.instance_type(key_type, value_type))
@@ -1337,7 +1383,7 @@ module Steep
 
             unless constructor
               typing.add_error(
-                Errors::UnsupportedSyntax.new(
+                Diagnostic::Ruby::UnsupportedSyntax.new(
                   node: node,
                   message: "sclass receiver must be instance type or singleton type, but type given `#{type}`"
                 )
@@ -1408,12 +1454,18 @@ module Steep
                 case error
                 when Subtyping::Result::Failure
                   const_type = type_env.get(const: const_name)
-                  typing.add_error(Errors::IncompatibleAssignment.new(node: node,
-                                                                      lhs_type: const_type,
-                                                                      rhs_type: value_type,
-                                                                      result: error))
+                  typing.add_error(
+                    Diagnostic::Ruby::IncompatibleAssignment.new(
+                      node: node,
+                      lhs_type: const_type,
+                      rhs_type: value_type,
+                      result: error
+                    )
+                  )
                 when nil
-                  typing.add_error(Errors::UnknownConstantAssigned.new(node: node, type: value_type))
+                  typing.add_error(
+                    Diagnostic::Ruby::UnknownConstantAssigned.new(node: node, type: value_type)
+                  )
                 end
               end
 
@@ -1431,17 +1483,21 @@ module Steep
               block_type.type.params.flat_unnamed_params.map(&:last).zip(node.children).each do |(type, node)|
                 if node && type
                   check(node, type) do |_, rhs_type, result|
-                    typing.add_error(Errors::IncompatibleAssignment.new(node: node,
-                                                                        lhs_type: type,
-                                                                        rhs_type: rhs_type,
-                                                                        result: result))
+                    typing.add_error(
+                      Diagnostic::Ruby::IncompatibleAssignment.new(
+                        node: node,
+                        lhs_type: type,
+                        rhs_type: rhs_type,
+                        result: result
+                      )
+                    )
                   end
                 end
               end
 
               add_typing(node, type: block_type.type.return_type)
             else
-              typing.add_error(Errors::UnexpectedYield.new(node: node))
+              typing.add_error(Diagnostic::Ruby::UnexpectedYield.new(node: node))
               fallback_to_any node
             end
           else
@@ -1457,7 +1513,7 @@ module Steep
                 }
                 add_typing(node, type: union_type(*types))
               else
-                typing.add_error(Errors::UnexpectedSuper.new(node: node, method: method_context.name))
+                typing.add_error(Diagnostic::Ruby::UnexpectedSuper.new(node: node, method: method_context.name))
                 fallback_to_any node
               end
             else
@@ -1476,7 +1532,7 @@ module Steep
                   add_typing node, type: array
                 end
               else
-                typing.add_error Errors::FallbackAny.new(node: node)
+                typing.add_error Diagnostic::Ruby::FallbackAny.new(node: node)
                 add_typing node, type: AST::Builtin::Array.instance_type(AST::Builtin.any_type)
               end
             else
@@ -1587,7 +1643,7 @@ module Steep
                    end
 
             type = AST::Types::Logic::Env.new(truthy: env, falsy: falsey_env, type: type) if condition
-            
+
             add_typing(node,
                        type: type,
                        constr: constr.update_lvar_env { env })
@@ -1718,7 +1774,7 @@ module Steep
               if when_constr.context.lvar_env[cond_vars.first].is_a?(AST::Types::Bot)
                 # Exhaustive
                 if els
-                  typing.add_error Errors::ElseOnExhaustiveCase.new(node: els, type: cond_type)
+                  typing.add_error Diagnostic::Ruby::ElseOnExhaustiveCase.new(node: els, type: cond_type)
                 end
               else
                 unless els
@@ -1906,7 +1962,7 @@ module Steep
               add_typing(node, type: collection_type, constr: constr)
             else
               fallback_to_any(node) do
-                Errors::NoMethod.new(
+                Diagnostic::Ruby::NoMethod.new(
                   node: node,
                   method: :each,
                   type: collection_type
@@ -2055,11 +2111,13 @@ module Steep
             end
 
             check(rhs, type) do |_, rhs_type, result|
-              typing.add_error(Errors::IncompatibleAssignment.new(
-                node: node,
-                lhs_type: type,
-                rhs_type: rhs_type,
-                result: result)
+              typing.add_error(
+                Diagnostic::Ruby::IncompatibleAssignment.new(
+                  node: node,
+                  lhs_type: type,
+                  rhs_type: rhs_type,
+                  result: result
+                )
               )
             end
           end
@@ -2068,7 +2126,7 @@ module Steep
           yield_self do
             name = node.children.first
             type = type_env.get(gvar: name) do
-              typing.add_error Errors::FallbackAny.new(node: node)
+              typing.add_error Diagnostic::Ruby::FallbackAny.new(node: node)
             end
 
             add_typing(node, type: type)
@@ -2137,10 +2195,12 @@ module Steep
               add_typing node, type: type, constr: constr
             else
               fallback_to_any node do
-                Errors::IncompatibleAssignment.new(node: node,
-                                                   lhs_type: var_type,
-                                                   rhs_type: type,
-                                                   result: result)
+                Diagnostic::Ruby::IncompatibleAssignment.new(
+                  node: node,
+                  lhs_type: var_type,
+                  rhs_type: type,
+                  result: result
+                )
               end
             end
           else
@@ -2165,7 +2225,7 @@ module Steep
         when :splat
           yield_self do
             typing.add_error(
-              Errors::UnsupportedSyntax.new(
+              Diagnostic::Ruby::UnsupportedSyntax.new(
                 node: node,
                 message: "Unsupported splat node occurrence"
               )
@@ -2188,7 +2248,7 @@ module Steep
           add_typing node, type: AST::Builtin.any_type, constr: constr
 
         else
-          typing.add_error(Errors::UnsupportedSyntax.new(node: node))
+          typing.add_error(Diagnostic::Ruby::UnsupportedSyntax.new(node: node))
 
         end.tap do |pair|
           unless pair.is_a?(Pair) && !pair.type.is_a?(Pair)
@@ -2218,10 +2278,14 @@ module Steep
         case error
         when Subtyping::Result::Failure
           type = type_env.get(ivar: name)
-          typing.add_error(Errors::IncompatibleAssignment.new(node: node,
-                                                              lhs_type: type,
-                                                              rhs_type: rhs_type,
-                                                              result: error))
+          typing.add_error(
+            Diagnostic::Ruby::IncompatibleAssignment.new(
+              node: node,
+              lhs_type: type,
+              rhs_type: rhs_type,
+              result: error
+            )
+          )
         when nil
           fallback_to_any node
         end
@@ -2244,10 +2308,12 @@ module Steep
       name = node.children[0].name
       env = context.lvar_env.assign(name, node: node, type: type) do |declared_type, type, result|
         typing.add_error(
-          Errors::IncompatibleAssignment.new(node: node,
-                                             lhs_type: declared_type,
-                                             rhs_type: type,
-                                             result: result)
+          Diagnostic::Ruby::IncompatibleAssignment.new(
+            node: node,
+            lhs_type: declared_type,
+            rhs_type: type,
+            result: result
+          )
         )
       end
 
@@ -2261,10 +2327,14 @@ module Steep
         case error
         when Subtyping::Result::Failure
           var_type = type_env.get(ivar: ivar)
-          typing.add_error(Errors::IncompatibleAssignment.new(node: node,
-                                                              lhs_type: var_type,
-                                                              rhs_type: type,
-                                                              result: error))
+          typing.add_error(
+            Diagnostic::Ruby::IncompatibleAssignment.new(
+              node: node,
+              lhs_type: var_type,
+              rhs_type: type,
+              result: error
+            )
+          )
         when nil
           fallback_to_any node
         end
@@ -2462,7 +2532,7 @@ module Steep
         if expected_block_type = block_constr.block_context.body_type
           check_relation(sub_type: return_type, super_type: expected_block_type).else do |result|
             block_constr.typing.add_error(
-              Errors::BlockBodyTypeMismatch.new(
+              Diagnostic::Ruby::BlockBodyTypeMismatch.new(
                 node: block_body,
                 expected: expected_block_type,
                 actual: return_type,
@@ -2525,7 +2595,7 @@ module Steep
             end
           end
         else
-          error = Errors::UnresolvedOverloading.new(
+          error = Diagnostic::Ruby::UnresolvedOverloading.new(
             node: node,
             receiver_type: receiver_type,
             method_name: method_name,
@@ -2581,7 +2651,7 @@ module Steep
             context: context.method_context,
             method_name: method_name,
             receiver_type: receiver_type,
-            error: Errors::NoMethod.new(node: node, method: method_name, type: receiver_type)
+            error: Diagnostic::Ruby::NoMethod.new(node: node, method: method_name, type: receiver_type)
           )
         )
       end
@@ -2619,7 +2689,7 @@ module Steep
                            context: context.method_context,
                            method_name: method_name,
                            receiver_type: receiver_type,
-                           error: Errors::NoMethod.new(node: node, method: method_name, type: receiver_type)
+                           error: Diagnostic::Ruby::NoMethod.new(node: node, method: method_name, type: receiver_type)
                          )
                        )
 
@@ -2636,7 +2706,7 @@ module Steep
                              context: context.method_context,
                              method_name: method_name,
                              receiver_type: receiver_type,
-                             error: Errors::NoMethod.new(node: node, method: method_name, type: receiver_type)
+                             error: Diagnostic::Ruby::NoMethod.new(node: node, method: method_name, type: receiver_type)
                            )
                          )
                        else
@@ -2677,7 +2747,7 @@ module Steep
         Steep.log_error(exn, message: "Unexpected error in #type_send: #{exn.message} (#{exn.class})")
       end
 
-      error = Errors::UnexpectedError.new(node: node, error: exn)
+      error = Diagnostic::Ruby::UnexpectedError.new(node: node, error: exn)
 
       type_any_rec(node)
 
@@ -2731,7 +2801,7 @@ module Steep
         all_decls = method.method_types.each.with_object(Set[]) do |method_type, set|
           set.merge(method_type.method_decls)
         end
-        error = Errors::IncompatibleArguments.new(node: node, receiver_type: receiver_type, method_type: method_type)
+        error = Diagnostic::Ruby::IncompatibleArguments.new(node: node, receiver_type: receiver_type, method_type: method_type)
         call = TypeInference::MethodCall::Error.new(
           node: node,
           context: context.method_context,
@@ -2796,7 +2866,7 @@ module Steep
 
               if keyword_type
                 check(value_node, keyword_type, constraints: constraints) do |expected, actual, result|
-                  return Errors::IncompatibleAssignment.new(
+                  return Diagnostic::Ruby::IncompatibleAssignment.new(
                     node: value_node,
                     lhs_type: expected,
                     rhs_type: actual,
@@ -2809,7 +2879,7 @@ module Steep
 
             else
               check(key_node, AST::Builtin::Symbol.instance_type, constraints: constraints) do |expected, actual, result|
-                return Errors::IncompatibleAssignment.new(
+                return Diagnostic::Ruby::IncompatibleAssignment.new(
                   node: key_node,
                   lhs_type: expected,
                   rhs_type: actual,
@@ -2822,7 +2892,7 @@ module Steep
             Steep.logger.warn("Keyword arg with kwsplat(**) node are not supported.")
 
             check(element.children[0], keyword_hash_type, constraints: constraints) do |expected, actual, result|
-              return Errors::IncompatibleAssignment.new(
+              return Diagnostic::Ruby::IncompatibleAssignment.new(
                 node: node,
                 lhs_type: expected,
                 rhs_type: actual,
@@ -2838,14 +2908,18 @@ module Steep
         when Set
           missing_keywords = Set.new(params.required_keywords.keys) - given_keys
           unless missing_keywords.empty?
-            return Errors::MissingKeyword.new(node: node,
-                                              missing_keywords: missing_keywords)
+            return Diagnostic::Ruby::MissingKeyword.new(
+              node: node,
+              missing_keywords: missing_keywords
+            )
           end
 
           extra_keywords = given_keys - Set.new(params.required_keywords.keys) - Set.new(params.optional_keywords.keys)
           if extra_keywords.any? && !params.rest_keywords
-            return Errors::UnexpectedKeyword.new(node: node,
-                                                 unexpected_keywords: extra_keywords)
+            return Diagnostic::Ruby::UnexpectedKeyword.new(
+              node: node,
+              unexpected_keywords: extra_keywords
+            )
           end
         end
       else
@@ -2873,7 +2947,7 @@ module Steep
         node_type = synthesize(node, hint: hash_type).type
 
         check_relation(sub_type: node_type, super_type: hash_type).else do
-          return Errors::ArgumentTypeMismatch.new(
+          return Diagnostic::Ruby::ArgumentTypeMismatch.new(
             node: node,
             receiver_type: receiver_type,
             expected: hash_type,
@@ -2913,10 +2987,10 @@ module Steep
                              end
 
           check_relation(sub_type: arg_type, super_type: param_type, constraints: constraints).else do
-            errors << Errors::ArgumentTypeMismatch.new(node: arg_node,
-                                                       receiver_type: receiver_type,
-                                                       expected: param_type,
-                                                       actual: arg_type)
+            errors << Diagnostic::Ruby::ArgumentTypeMismatch.new(node: arg_node,
+                                                                 receiver_type: receiver_type,
+                                                                 expected: param_type,
+                                                                 actual: arg_type)
           end
         else
           # keyword
@@ -2925,7 +2999,7 @@ module Steep
                                             method_type: method_type,
                                             constraints: constraints)
 
-          if result.is_a?(Errors::Base)
+          if result.is_a?(Diagnostic::Ruby::Base)
             errors << result
           end
         end
@@ -2961,7 +3035,7 @@ module Steep
 
                 if param.type
                   check_relation(sub_type: type, super_type: param.type, constraints: constraints).else do |result|
-                    error = Errors::IncompatibleAssignment.new(
+                    error = Diagnostic::Ruby::IncompatibleAssignment.new(
                       node: param.node,
                       lhs_type: param.type,
                       rhs_type: type,
@@ -3023,10 +3097,12 @@ module Steep
                   block: nil
                 )
 
-                errors << Errors::BlockTypeMismatch.new(node: node,
-                                                        expected: method_block_type,
-                                                        actual: given_block_type,
-                                                        result: result)
+                errors << Diagnostic::Ruby::BlockTypeMismatch.new(
+                  node: node,
+                  expected: method_block_type,
+                  actual: given_block_type,
+                  result: result
+                )
 
                 return_type = method_type.type.return_type
               end
@@ -3034,7 +3110,7 @@ module Steep
               block_constr.typing.save!
 
             rescue Subtyping::Constraints::UnsatisfiableConstraint => exn
-              errors << Errors::UnsatisfiableConstraint.new(
+              errors << Diagnostic::Ruby::UnsatisfiableConstraint.new(
                 node: node,
                 method_type: method_type,
                 var: exn.var,
@@ -3052,7 +3128,7 @@ module Steep
               method_type = method_type.subst(s)
             end
           else
-            errors << Errors::UnsupportedSyntax.new(
+            errors << Diagnostic::Ruby::UnsupportedSyntax.new(
               node: block_params,
               message: "Unsupported block params pattern, probably masgn?"
             )
@@ -3067,7 +3143,7 @@ module Steep
             errors << error
           end
 
-          errors << Errors::UnexpectedBlockGiven.new(
+          errors << Diagnostic::Ruby::UnexpectedBlockGiven.new(
             node: node,
             method_type: method_type
           )
@@ -3085,7 +3161,7 @@ module Steep
             s = constraints.solution(checker, variance: variance, variables: fresh_vars, self_type: self_type)
             method_type = method_type.subst(s)
 
-            errors << Errors::UnexpectedBlockGiven.new(
+            errors << Diagnostic::Ruby::UnexpectedBlockGiven.new(
               node: node,
               method_type: method_type
             )
@@ -3093,7 +3169,7 @@ module Steep
         else
           unless args.block_pass_arg
             # Required block is missing
-            errors << Errors::RequiredBlockMissing.new(
+            errors << Diagnostic::Ruby::RequiredBlockMissing.new(
               node: node,
               method_type: method_type
             )
@@ -3118,10 +3194,12 @@ module Steep
 
               result = check_relation(sub_type: given_block_type, super_type: method_block_type, constraints: constraints)
               result.else do |result|
-                errors << Errors::BlockTypeMismatch.new(node: node,
-                                                        expected: method_block_type,
-                                                        actual: given_block_type,
-                                                        result: result)
+                errors << Diagnostic::Ruby::BlockTypeMismatch.new(
+                  node: node,
+                  expected: method_block_type,
+                  actual: given_block_type,
+                  result: result
+                )
               end
 
               method_type = method_type.subst(constraints.solution(checker, self_type: self_type, variance: variance, variables: method_type.free_variables))
@@ -3178,7 +3256,7 @@ module Steep
       if expected_block_type = block_constr.block_context.body_type
         block_constr.check_relation(sub_type: block_type, super_type: expected_block_type).else do |result|
           block_constr.typing.add_error(
-            Errors::BlockBodyTypeMismatch.new(
+            Diagnostic::Ruby::BlockBodyTypeMismatch.new(
               node: node,
               expected: expected_block_type,
               actual: block_type,
@@ -3391,10 +3469,14 @@ module Steep
           # ok
         else
           if module_name.name == module_context&.class_name
-            typing.add_error Errors::MethodDefinitionMissing.new(node: node,
-                                                                 module_name: module_name.name,
-                                                                 kind: :instance,
-                                                                 missing_method: method_name)
+            typing.add_error(
+              Diagnostic::Ruby::MethodDefinitionMissing.new(
+                node: node,
+                module_name: module_name.name,
+                kind: :instance,
+                missing_method: method_name
+              )
+            )
           end
         end
       end
@@ -3406,26 +3488,32 @@ module Steep
           # ok
         else
           if module_name.name == module_context&.class_name
-            typing.add_error Errors::MethodDefinitionMissing.new(node: node,
-                                                                 module_name: module_name.name,
-                                                                 kind: :module,
-                                                                 missing_method: method_name)
+            typing.add_error(
+              Diagnostic::Ruby::MethodDefinitionMissing.new(node: node,
+                                                            module_name: module_name.name,
+                                                            kind: :module,
+                                                            missing_method: method_name)
+            )
           end
         end
       end
 
       annotations.instance_dynamics.each do |method_name|
         unless expected_instance_method_names.member?(method_name)
-          typing.add_error Errors::UnexpectedDynamicMethod.new(node: node,
-                                                               module_name: module_name.name,
-                                                               method_name: method_name)
+          typing.add_error(
+            Diagnostic::Ruby::UnexpectedDynamicMethod.new(node: node,
+                                                          module_name: module_name.name,
+                                                          method_name: method_name)
+          )
         end
       end
       annotations.module_dynamics.each do |method_name|
         unless expected_module_method_names.member?(method_name)
-          typing.add_error Errors::UnexpectedDynamicMethod.new(node: node,
-                                                               module_name: module_name.name,
-                                                               method_name: method_name)
+          typing.add_error(
+            Diagnostic::Ruby::UnexpectedDynamicMethod.new(node: node,
+                                                          module_name: module_name.name,
+                                                          method_name: method_name)
+          )
         end
       end
     end
@@ -3453,7 +3541,7 @@ module Steep
       if block_given?
         typing.add_error yield
       else
-        typing.add_error Errors::FallbackAny.new(node: node)
+        typing.add_error Diagnostic::Ruby::FallbackAny.new(node: node)
       end
 
       add_typing node, type: AST::Builtin.any_type
