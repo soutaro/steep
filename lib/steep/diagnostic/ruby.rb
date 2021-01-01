@@ -17,15 +17,14 @@ module Steep
 
         def format_message(message, class_name: self.class.name.split("::").last)
           if message.empty?
-            "#{location_to_str}: #{Rainbow(class_name).red}"
+            class_name
           else
-            "#{location_to_str}: #{Rainbow(class_name).red}: #{message}"
+            "#{class_name}: #{message}"
           end
         end
 
         def print_to(io)
-          source = node.loc.expression.source
-          io.puts "#{to_s} (#{Rainbow(source.split(/\n/).first).blue})"
+          io.puts to_s
         end
       end
 
