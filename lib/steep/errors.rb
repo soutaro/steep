@@ -40,21 +40,6 @@ module Steep
         print_result_to io
       end
     end
-    
-    class IncompatibleTuple < Base
-      attr_reader :expected_tuple
-      include ResultPrinter
-
-      def initialize(node:, expected_tuple:, result:)
-        super(node: node)
-        @result = result
-        @expected_tuple = expected_tuple
-      end
-
-      def to_s
-        format_message "expected_tuple=#{expected_tuple}"
-      end
-    end
 
     class UnexpectedKeyword < Base
       attr_reader :unexpected_keywords
