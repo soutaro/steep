@@ -1580,7 +1580,7 @@ module Steep
                   end
 
             type = case
-                   when check_relation(sub_type: left_type, super_type: AST::Builtin.bool_type).success?
+                   when check_relation(sub_type: left_type, super_type: AST::Builtin.bool_type).success? && !left_type.is_a?(AST::Types::Any)
                      AST::Builtin.bool_type
                    else
                      union_type(left_type, right_type)

@@ -3913,9 +3913,12 @@ EOF
       source = parse_ruby(<<EOF)
 # @type var x: String?
 x = nil
+# @type var y: untyped
+y = _ = nil
 
 a = x || "foo"
 b = "foo" || x
+c = y || "foo"
 EOF
 
       with_standard_construction(checker, source) do |construction, typing|
@@ -3924,6 +3927,7 @@ EOF
         assert_no_error typing
         assert_equal parse_type("::String"), pair.context.lvar_env[:a]
         assert_equal parse_type("::String?"), pair.context.lvar_env[:b]
+        assert_equal parse_type("untyped"), pair.context.lvar_env[:c]
       end
     end
   end
