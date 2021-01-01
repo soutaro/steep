@@ -370,7 +370,7 @@ x.h(a: (_ = nil), b: (_ = nil), c: (_ = nil))
 
         assert_equal 1, typing.errors.size
         typing.errors.first.tap do |error|
-          assert_instance_of Steep::Errors::UnexpectedKeyword, error
+          assert_instance_of Diagnostic::Ruby::UnexpectedKeyword, error
           assert_equal Set.new([:c]), error.unexpected_keywords
         end
       end

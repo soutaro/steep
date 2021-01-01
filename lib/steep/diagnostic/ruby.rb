@@ -478,6 +478,19 @@ module Steep
           format_message "type=#{type}"
         end
       end
+
+      class UnexpectedKeyword < Base
+        attr_reader :unexpected_keywords
+
+        def initialize(node:, unexpected_keywords:)
+          super(node: node)
+          @unexpected_keywords = unexpected_keywords
+        end
+
+        def to_s
+          format_message unexpected_keywords.to_a.join(", ")
+        end
+      end
     end
   end
 end

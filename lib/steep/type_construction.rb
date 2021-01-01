@@ -2914,8 +2914,10 @@ module Steep
 
           extra_keywords = given_keys - Set.new(params.required_keywords.keys) - Set.new(params.optional_keywords.keys)
           if extra_keywords.any? && !params.rest_keywords
-            return Errors::UnexpectedKeyword.new(node: node,
-                                                 unexpected_keywords: extra_keywords)
+            return Diagnostic::Ruby::UnexpectedKeyword.new(
+              node: node,
+              unexpected_keywords: extra_keywords
+            )
           end
         end
       else
