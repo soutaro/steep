@@ -391,6 +391,29 @@ module Steep
           format_message ""
         end
       end
+
+      class UnsatisfiableConstraint < Base
+        attr_reader :method_type
+        attr_reader :var
+        attr_reader :sub_type
+        attr_reader :super_type
+        attr_reader :result
+
+        def initialize(node:, method_type:, var:, sub_type:, super_type:, result:)
+          super(node: node)
+          @method_type = method_type
+          @var = var
+          @sub_type = sub_type
+          @super_type = super_type
+          @result = result
+        end
+
+        include ResultPrinter
+
+        def to_s
+          format_message "method_type=#{method_type}, constraint=#{sub_type} <: '#{var} <: #{super_type}"
+        end
+      end
     end
   end
 end

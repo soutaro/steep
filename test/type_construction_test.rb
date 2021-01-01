@@ -6242,7 +6242,7 @@ end
 
         assert_typing_error typing, size: 2 do |errors|
           assert_instance_of Diagnostic::Ruby::NoMethod, errors[0]
-          assert_instance_of Steep::Errors::UnsatisfiableConstraint, errors[1]
+          assert_instance_of Diagnostic::Ruby::UnsatisfiableConstraint, errors[1]
         end
 
         assert_equal parse_type("untyped"), type

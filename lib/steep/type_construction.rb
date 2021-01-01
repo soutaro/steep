@@ -3102,7 +3102,7 @@ module Steep
               block_constr.typing.save!
 
             rescue Subtyping::Constraints::UnsatisfiableConstraint => exn
-              errors << Errors::UnsatisfiableConstraint.new(
+              errors << Diagnostic::Ruby::UnsatisfiableConstraint.new(
                 node: node,
                 method_type: method_type,
                 var: exn.var,
