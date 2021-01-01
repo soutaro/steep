@@ -3490,16 +3490,20 @@ module Steep
 
       annotations.instance_dynamics.each do |method_name|
         unless expected_instance_method_names.member?(method_name)
-          typing.add_error Errors::UnexpectedDynamicMethod.new(node: node,
-                                                               module_name: module_name.name,
-                                                               method_name: method_name)
+          typing.add_error(
+            Diagnostic::Ruby::UnexpectedDynamicMethod.new(node: node,
+                                                          module_name: module_name.name,
+                                                          method_name: method_name)
+          )
         end
       end
       annotations.module_dynamics.each do |method_name|
         unless expected_module_method_names.member?(method_name)
-          typing.add_error Errors::UnexpectedDynamicMethod.new(node: node,
-                                                               module_name: module_name.name,
-                                                               method_name: method_name)
+          typing.add_error(
+            Diagnostic::Ruby::UnexpectedDynamicMethod.new(node: node,
+                                                          module_name: module_name.name,
+                                                          method_name: method_name)
+          )
         end
       end
     end

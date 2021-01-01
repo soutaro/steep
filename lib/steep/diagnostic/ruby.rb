@@ -353,6 +353,21 @@ module Steep
           format_message "module=#{module_name}, method=#{method}"
         end
       end
+
+      class UnexpectedDynamicMethod < Base
+        attr_reader :module_name
+        attr_reader :method_name
+
+        def initialize(node:, module_name:, method_name:)
+          @node = node
+          @module_name = module_name
+          @method_name = method_name
+        end
+
+        def to_s
+          format_message "module=#{module_name}, method=#{method_name}"
+        end
+      end
     end
   end
 end
