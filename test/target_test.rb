@@ -228,7 +228,7 @@ end
       assert_equal Project::Target::SignatureValidationErrorStatus, target.status.class
 
       assert_any! target.status.errors do |error|
-        assert_instance_of Signature::Errors::DuplicatedDeclarationError, error
+        assert_instance_of Diagnostic::Signature::DuplicatedDeclarationError, error
         assert_equal TypeName("::Foo"), error.type_name
       end
     end
