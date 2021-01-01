@@ -414,6 +414,25 @@ module Steep
           format_message "method_type=#{method_type}, constraint=#{sub_type} <: '#{var} <: #{super_type}"
         end
       end
+
+      class IncompatibleAnnotation < Base
+        attr_reader :var_name
+        attr_reader :result
+        attr_reader :relation
+
+        def initialize(node:, var_name:, result:, relation:)
+          super(node: node)
+          @var_name = var_name
+          @result = result
+          @relation = relation
+        end
+
+        include ResultPrinter
+
+        def to_s
+          format_message "var_name=#{var_name}, #{relation}"
+        end
+      end
     end
   end
 end

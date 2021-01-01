@@ -592,10 +592,12 @@ module Steep
       lvar_env = lvar_env.annotate(annots) do |var, outer_type, inner_type, result|
         relation = Subtyping::Relation.new(sub_type: inner_type, super_type: outer_type)
         typing.add_error(
-          Errors::IncompatibleAnnotation.new(node: node,
-                                             var_name: var,
-                                             relation: relation,
-                                             result: result)
+          Diagnostic::Ruby::IncompatibleAnnotation.new(
+            node: node,
+            var_name: var,
+            relation: relation,
+            result: result
+          )
         )
       end
 
@@ -612,10 +614,12 @@ module Steep
         self_type: self_type
       ) do |var, relation, result|
         typing.add_error(
-          Errors::IncompatibleAnnotation.new(node: node,
-                                             var_name: var,
-                                             relation: relation,
-                                             result: result)
+          Diagnostic::Ruby::IncompatibleAnnotation.new(
+            node: node,
+            var_name: var,
+            relation: relation,
+            result: result
+          )
         )
       end
 

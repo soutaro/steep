@@ -2718,12 +2718,12 @@ EOF
         construction.synthesize(source.node)
 
         typing.errors.find {|error| error.node == dig(source.node, 1, 1) }.tap do |error|
-          assert_instance_of Steep::Errors::IncompatibleAnnotation, error
+          assert_instance_of Diagnostic::Ruby::IncompatibleAnnotation, error
           assert_equal :x, error.var_name
         end
 
         typing.errors.find {|error| error.node == dig(source.node, 1, 2) }.tap do |error|
-          assert_instance_of Steep::Errors::IncompatibleAnnotation, error
+          assert_instance_of Diagnostic::Ruby::IncompatibleAnnotation, error
           assert_equal :x, error.var_name
         end
       end
@@ -3310,7 +3310,7 @@ EOF
         assert_equal 1, typing.errors.size
 
         typing.errors[0].tap do |error|
-          assert_instance_of Steep::Errors::IncompatibleAnnotation, error
+          assert_instance_of Diagnostic::Ruby::IncompatibleAnnotation, error
           assert_equal dig(source.node, 1, 1, 1), error.node
         end
 
@@ -5721,7 +5721,7 @@ end
         construction.synthesize(source.node)
 
         assert_equal 1, typing.errors.size
-        assert_instance_of Steep::Errors::IncompatibleAnnotation, typing.errors[0]
+        assert_instance_of Diagnostic::Ruby::IncompatibleAnnotation, typing.errors[0]
       end
     end
   end
