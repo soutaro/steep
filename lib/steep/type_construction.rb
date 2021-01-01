@@ -1275,7 +1275,7 @@ module Steep
                     key_types << splat_type.args[0]
                     value_types << splat_type.args[1]
                   else
-                    typing.add_error Errors::UnexpectedSplat.new(node: child, type: original_type)
+                    typing.add_error Diagnostic::Ruby::UnexpectedSplat.new(node: child, type: original_type)
                     key_types << AST::Builtin.any_type
                     value_types << AST::Builtin.any_type
                   end

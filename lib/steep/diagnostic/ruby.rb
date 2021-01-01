@@ -465,6 +465,19 @@ module Steep
           format_message "type=#{type}"
         end
       end
+
+      class UnexpectedSplat < Base
+        attr_reader :type
+
+        def initialize(node:, type:)
+          super(node: node)
+          @type = type
+        end
+
+        def to_s
+          format_message "type=#{type}"
+        end
+      end
     end
   end
 end
