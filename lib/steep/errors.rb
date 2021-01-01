@@ -41,20 +41,6 @@ module Steep
       end
     end
 
-
-    class MissingKeyword < Base
-      attr_reader :missing_keywords
-
-      def initialize(node:, missing_keywords:)
-        super(node: node)
-        @missing_keywords = missing_keywords
-      end
-
-      def to_s
-        format_message missing_keywords.to_a.join(", ")
-      end
-    end
-
     class UnsupportedSyntax < Base
       attr_reader :message
 

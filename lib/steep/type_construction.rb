@@ -2908,8 +2908,10 @@ module Steep
         when Set
           missing_keywords = Set.new(params.required_keywords.keys) - given_keys
           unless missing_keywords.empty?
-            return Errors::MissingKeyword.new(node: node,
-                                              missing_keywords: missing_keywords)
+            return Diagnostic::Ruby::MissingKeyword.new(
+              node: node,
+              missing_keywords: missing_keywords
+            )
           end
 
           extra_keywords = given_keys - Set.new(params.required_keywords.keys) - Set.new(params.optional_keywords.keys)
