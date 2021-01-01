@@ -3,309 +3,309 @@ test:
   a.rb:
     diagnostics:
     - |
-      a.rb:2:0: [error] NoMethodError: type=::Regexp, method=foo (new_1.foo)
+      a.rb:2:0: [error] NoMethodError: type=::Regexp, method=foo
       │
       └ new_1.foo
         ~~~~~~~~~
     - |
-      a.rb:5:0: [error] NoMethodError: type=::Regexp, method=foo (new_2.foo)
+      a.rb:5:0: [error] NoMethodError: type=::Regexp, method=foo
       │
       └ new_2.foo
         ~~~~~~~~~
     - |
-      a.rb:8:0: [error] NoMethodError: type=::Regexp, method=foo (new_3.foo)
+      a.rb:8:0: [error] NoMethodError: type=::Regexp, method=foo
       │
       └ new_3.foo
         ~~~~~~~~~
     - |
-      a.rb:11:0: [error] NoMethodError: type=::Regexp, method=foo (new_4.foo)
+      a.rb:11:0: [error] NoMethodError: type=::Regexp, method=foo
       │
       └ new_4.foo
         ~~~~~~~~~
     - |
-      a.rb:14:0: [error] NoMethodError: type=::Regexp, method=foo (compile_1.foo)
+      a.rb:14:0: [error] NoMethodError: type=::Regexp, method=foo
       │
       └ compile_1.foo
         ~~~~~~~~~~~~~
     - |
-      a.rb:17:0: [error] NoMethodError: type=::Regexp, method=foo (compile_2.foo)
+      a.rb:17:0: [error] NoMethodError: type=::Regexp, method=foo
       │
       └ compile_2.foo
         ~~~~~~~~~~~~~
     - |
-      a.rb:20:0: [error] NoMethodError: type=::Regexp, method=foo (compile_3.foo)
+      a.rb:20:0: [error] NoMethodError: type=::Regexp, method=foo
       │
       └ compile_3.foo
         ~~~~~~~~~~~~~
     - |
-      a.rb:23:0: [error] NoMethodError: type=::Regexp, method=foo (compile_4.foo)
+      a.rb:23:0: [error] NoMethodError: type=::Regexp, method=foo
       │
       └ compile_4.foo
         ~~~~~~~~~~~~~
     - |
-      a.rb:26:0: [error] NoMethodError: type=::String, method=foo (escape_1.foo)
+      a.rb:26:0: [error] NoMethodError: type=::String, method=foo
       │
       └ escape_1.foo
         ~~~~~~~~~~~~
     - |
-      a.rb:29:0: [error] NoMethodError: type=(::MatchData | nil), method=foo (last_match_1.foo)
+      a.rb:29:0: [error] NoMethodError: type=(::MatchData | nil), method=foo
       │
       └ last_match_1.foo
         ~~~~~~~~~~~~~~~~
     - |
-      a.rb:32:0: [error] NoMethodError: type=(::String | nil), method=foo (last_match_2.foo)
+      a.rb:32:0: [error] NoMethodError: type=(::String | nil), method=foo
       │
       └ last_match_2.foo
         ~~~~~~~~~~~~~~~~
     - |
-      a.rb:35:0: [error] NoMethodError: type=::String, method=foo (quote_1.foo)
+      a.rb:35:0: [error] NoMethodError: type=::String, method=foo
       │
       └ quote_1.foo
         ~~~~~~~~~~~
     - |
-      a.rb:38:0: [error] NoMethodError: type=(::Regexp | nil), method=foo (try_convert_1.foo)
+      a.rb:38:0: [error] NoMethodError: type=(::Regexp | nil), method=foo
       │
       └ try_convert_1.foo
         ~~~~~~~~~~~~~~~~~
     - |
-      a.rb:41:0: [error] NoMethodError: type=::Regexp, method=foo (union_1.foo)
+      a.rb:41:0: [error] NoMethodError: type=::Regexp, method=foo
       │
       └ union_1.foo
         ~~~~~~~~~~~
     - |
-      a.rb:44:0: [error] NoMethodError: type=::Regexp, method=foo (union_2.foo)
+      a.rb:44:0: [error] NoMethodError: type=::Regexp, method=foo
       │
       └ union_2.foo
         ~~~~~~~~~~~
     - |
-      a.rb:47:0: [error] NoMethodError: type=::Regexp, method=foo (union_3.foo)
+      a.rb:47:0: [error] NoMethodError: type=::Regexp, method=foo
       │
       └ union_3.foo
         ~~~~~~~~~~~
     - |
-      a.rb:50:0: [error] NoMethodError: type=::Regexp, method=foo (union_4.foo)
+      a.rb:50:0: [error] NoMethodError: type=::Regexp, method=foo
       │
       └ union_4.foo
         ~~~~~~~~~~~
     - |
-      a.rb:53:0: [error] NoMethodError: type=::Regexp, method=foo (union_5.foo)
+      a.rb:53:0: [error] NoMethodError: type=::Regexp, method=foo
       │
       └ union_5.foo
         ~~~~~~~~~~~
     - |
-      a.rb:56:0: [error] NoMethodError: type=::Regexp, method=foo (union_6.foo)
+      a.rb:56:0: [error] NoMethodError: type=::Regexp, method=foo
       │
       └ union_6.foo
         ~~~~~~~~~~~
     - |
-      a.rb:59:0: [error] NoMethodError: type=::Regexp, method=foo (union_7.foo)
+      a.rb:59:0: [error] NoMethodError: type=::Regexp, method=foo
       │
       └ union_7.foo
         ~~~~~~~~~~~
     - |
-      a.rb:62:0: [error] NoMethodError: type=bool, method=foo (op_eqeqeq_1.foo)
+      a.rb:62:0: [error] NoMethodError: type=bool, method=foo
       │
       └ op_eqeqeq_1.foo
         ~~~~~~~~~~~~~~~
     - |
-      a.rb:68:0: [error] NoMethodError: type=bool, method=foo (casefold_1.foo)
+      a.rb:68:0: [error] NoMethodError: type=bool, method=foo
       │
       └ casefold_1.foo
         ~~~~~~~~~~~~~~
     - |
-      a.rb:71:0: [error] NoMethodError: type=::Encoding, method=foo (encoding_1.foo)
+      a.rb:71:0: [error] NoMethodError: type=::Encoding, method=foo
       │
       └ encoding_1.foo
         ~~~~~~~~~~~~~~
     - |
-      a.rb:74:0: [error] NoMethodError: type=bool, method=foo (fixed_encoding_1.foo)
+      a.rb:74:0: [error] NoMethodError: type=bool, method=foo
       │
       └ fixed_encoding_1.foo
         ~~~~~~~~~~~~~~~~~~~~
     - |
-      a.rb:77:0: [error] NoMethodError: type=(::MatchData | nil), method=foo (match_1.foo)
+      a.rb:77:0: [error] NoMethodError: type=(::MatchData | nil), method=foo
       │
       └ match_1.foo
         ~~~~~~~~~~~
     - |
-      a.rb:80:0: [error] NoMethodError: type=(::MatchData | nil), method=foo (match_2.foo)
+      a.rb:80:0: [error] NoMethodError: type=(::MatchData | nil), method=foo
       │
       └ match_2.foo
         ~~~~~~~~~~~
     - |
-      a.rb:83:2: [error] NoMethodError: type=::MatchData, method=foo (m.foo)
+      a.rb:83:2: [error] NoMethodError: type=::MatchData, method=foo
       │
       └   m.foo
           ~~~~~
     - |
-      a.rb:87:2: [error] NoMethodError: type=::MatchData, method=foo (m.foo)
+      a.rb:87:2: [error] NoMethodError: type=::MatchData, method=foo
       │
       └   m.foo
           ~~~~~
     - |
-      a.rb:91:0: [error] NoMethodError: type=bool, method=foo (match_q_1.foo)
+      a.rb:91:0: [error] NoMethodError: type=bool, method=foo
       │
       └ match_q_1.foo
         ~~~~~~~~~~~~~
     - |
-      a.rb:94:0: [error] NoMethodError: type=bool, method=foo (match_q_2.foo)
+      a.rb:94:0: [error] NoMethodError: type=bool, method=foo
       │
       └ match_q_2.foo
         ~~~~~~~~~~~~~
     - |
-      a.rb:97:0: [error] NoMethodError: type=::Hash[::String, ::Array[::Integer]], method=foo (named_captures_1.foo)
+      a.rb:97:0: [error] NoMethodError: type=::Hash[::String, ::Array[::Integer]], method=foo
       │
       └ named_captures_1.foo
         ~~~~~~~~~~~~~~~~~~~~
     - |
-      a.rb:100:0: [error] NoMethodError: type=::Array[::String], method=foo (names_1.foo)
+      a.rb:100:0: [error] NoMethodError: type=::Array[::String], method=foo
       │
       └ names_1.foo
         ~~~~~~~~~~~
     - |
-      a.rb:103:0: [error] NoMethodError: type=::Integer, method=foo (options_1.foo)
+      a.rb:103:0: [error] NoMethodError: type=::Integer, method=foo
       │
       └ options_1.foo
         ~~~~~~~~~~~~~
     - |
-      a.rb:106:0: [error] NoMethodError: type=::String, method=foo (source_1.foo)
+      a.rb:106:0: [error] NoMethodError: type=::String, method=foo
       │
       └ source_1.foo
         ~~~~~~~~~~~~
     - |
-      a.rb:109:0: [error] NoMethodError: type=(::Integer | nil), method=foo (op_unary_match_1.foo)
+      a.rb:109:0: [error] NoMethodError: type=(::Integer | nil), method=foo
       │
       └ op_unary_match_1.foo
         ~~~~~~~~~~~~~~~~~~~~
   b.rb:
     diagnostics:
     - |
-      b.rb:3:2: [error] NoMethodError: type=(::String | nil), method=foo (match_ref_1.foo)
+      b.rb:3:2: [error] NoMethodError: type=(::String | nil), method=foo
       │
       └   match_ref_1.foo
           ~~~~~~~~~~~~~~~
     - |
-      b.rb:6:2: [error] NoMethodError: type=(::String | nil), method=foo (match_ref_2.foo)
+      b.rb:6:2: [error] NoMethodError: type=(::String | nil), method=foo
       │
       └   match_ref_2.foo
           ~~~~~~~~~~~~~~~
     - |
-      b.rb:9:2: [error] NoMethodError: type=(::String | nil), method=foo (match_ref_3.foo)
+      b.rb:9:2: [error] NoMethodError: type=(::String | nil), method=foo
       │
       └   match_ref_3.foo
           ~~~~~~~~~~~~~~~
     - |
-      b.rb:12:2: [error] NoMethodError: type=::Array[(::String | nil)], method=foo (match_ref_4.foo)
+      b.rb:12:2: [error] NoMethodError: type=::Array[(::String | nil)], method=foo
       │
       └   match_ref_4.foo
           ~~~~~~~~~~~~~~~
     - |
-      b.rb:15:2: [error] NoMethodError: type=::Array[(::String | nil)], method=foo (match_ref_5.foo)
+      b.rb:15:2: [error] NoMethodError: type=::Array[(::String | nil)], method=foo
       │
       └   match_ref_5.foo
           ~~~~~~~~~~~~~~~
     - |
-      b.rb:18:2: [error] NoMethodError: type=(::Integer | nil), method=foo (begin_1.foo)
+      b.rb:18:2: [error] NoMethodError: type=(::Integer | nil), method=foo
       │
       └   begin_1.foo
           ~~~~~~~~~~~
     - |
-      b.rb:21:2: [error] NoMethodError: type=(::Integer | nil), method=foo (begin_2.foo)
+      b.rb:21:2: [error] NoMethodError: type=(::Integer | nil), method=foo
       │
       └   begin_2.foo
           ~~~~~~~~~~~
     - |
-      b.rb:24:2: [error] NoMethodError: type=(::Integer | nil), method=foo (begin_3.foo)
+      b.rb:24:2: [error] NoMethodError: type=(::Integer | nil), method=foo
       │
       └   begin_3.foo
           ~~~~~~~~~~~
     - |
-      b.rb:27:2: [error] NoMethodError: type=::Array[(::String | nil)], method=foo (captures_1.foo)
+      b.rb:27:2: [error] NoMethodError: type=::Array[(::String | nil)], method=foo
       │
       └   captures_1.foo
           ~~~~~~~~~~~~~~
     - |
-      b.rb:30:2: [error] NoMethodError: type=(::Integer | nil), method=foo (end_1.foo)
+      b.rb:30:2: [error] NoMethodError: type=(::Integer | nil), method=foo
       │
       └   end_1.foo
           ~~~~~~~~~
     - |
-      b.rb:33:2: [error] NoMethodError: type=(::Integer | nil), method=foo (end_2.foo)
+      b.rb:33:2: [error] NoMethodError: type=(::Integer | nil), method=foo
       │
       └   end_2.foo
           ~~~~~~~~~
     - |
-      b.rb:36:2: [error] NoMethodError: type=(::Integer | nil), method=foo (end_3.foo)
+      b.rb:36:2: [error] NoMethodError: type=(::Integer | nil), method=foo
       │
       └   end_3.foo
           ~~~~~~~~~
     - |
-      b.rb:39:2: [error] NoMethodError: type=::Integer, method=foo (length_1.foo)
+      b.rb:39:2: [error] NoMethodError: type=::Integer, method=foo
       │
       └   length_1.foo
           ~~~~~~~~~~~~
     - |
-      b.rb:42:2: [error] NoMethodError: type=::Hash[::String, (::String | nil)], method=foo (named_captures_1.foo)
+      b.rb:42:2: [error] NoMethodError: type=::Hash[::String, (::String | nil)], method=foo
       │
       └   named_captures_1.foo
           ~~~~~~~~~~~~~~~~~~~~
     - |
-      b.rb:45:2: [error] NoMethodError: type=::Array[::String], method=foo (names_1.foo)
+      b.rb:45:2: [error] NoMethodError: type=::Array[::String], method=foo
       │
       └   names_1.foo
           ~~~~~~~~~~~
     - |
-      b.rb:48:2: [error] NoMethodError: type=([::Integer, ::Integer] | [nil, nil]), method=foo (offset_1.foo)
+      b.rb:48:2: [error] NoMethodError: type=([::Integer, ::Integer] | [nil, nil]), method=foo
       │
       └   offset_1.foo
           ~~~~~~~~~~~~
     - |
-      b.rb:51:2: [error] NoMethodError: type=([::Integer, ::Integer] | [nil, nil]), method=foo (offset_2.foo)
+      b.rb:51:2: [error] NoMethodError: type=([::Integer, ::Integer] | [nil, nil]), method=foo
       │
       └   offset_2.foo
           ~~~~~~~~~~~~
     - |
-      b.rb:54:2: [error] NoMethodError: type=([::Integer, ::Integer] | [nil, nil]), method=foo (offset_3.foo)
+      b.rb:54:2: [error] NoMethodError: type=([::Integer, ::Integer] | [nil, nil]), method=foo
       │
       └   offset_3.foo
           ~~~~~~~~~~~~
     - |
-      b.rb:57:2: [error] NoMethodError: type=::String, method=foo (post_match_1.foo)
+      b.rb:57:2: [error] NoMethodError: type=::String, method=foo
       │
       └   post_match_1.foo
           ~~~~~~~~~~~~~~~~
     - |
-      b.rb:60:2: [error] NoMethodError: type=::String, method=foo (pre_match_1.foo)
+      b.rb:60:2: [error] NoMethodError: type=::String, method=foo
       │
       └   pre_match_1.foo
           ~~~~~~~~~~~~~~~
     - |
-      b.rb:63:2: [error] NoMethodError: type=::Regexp, method=foo (regexp_1.foo)
+      b.rb:63:2: [error] NoMethodError: type=::Regexp, method=foo
       │
       └   regexp_1.foo
           ~~~~~~~~~~~~
     - |
-      b.rb:66:2: [error] NoMethodError: type=::Integer, method=foo (size_1.foo)
+      b.rb:66:2: [error] NoMethodError: type=::Integer, method=foo
       │
       └   size_1.foo
           ~~~~~~~~~~
     - |
-      b.rb:69:2: [error] NoMethodError: type=::String, method=foo (string_1.foo)
+      b.rb:69:2: [error] NoMethodError: type=::String, method=foo
       │
       └   string_1.foo
           ~~~~~~~~~~~~
     - |
-      b.rb:72:2: [error] NoMethodError: type=::Array[(::String | nil)], method=foo (to_a_1.foo)
+      b.rb:72:2: [error] NoMethodError: type=::Array[(::String | nil)], method=foo
       │
       └   to_a_1.foo
           ~~~~~~~~~~
     - |
-      b.rb:75:2: [error] NoMethodError: type=::Array[(::String | nil)], method=foo (values_at_1.foo)
+      b.rb:75:2: [error] NoMethodError: type=::Array[(::String | nil)], method=foo
       │
       └   values_at_1.foo
           ~~~~~~~~~~~~~~~
     - |
-      b.rb:78:2: [error] NoMethodError: type=::Array[(::String | nil)], method=foo (values_at_2.foo)
+      b.rb:78:2: [error] NoMethodError: type=::Array[(::String | nil)], method=foo
       │
       └   values_at_2.foo
           ~~~~~~~~~~~~~~~

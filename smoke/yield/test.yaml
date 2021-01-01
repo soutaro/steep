@@ -3,7 +3,7 @@ test:
   a.rb:
     diagnostics:
     - |
-      a.rb:6:4: [error] IncompatibleAssignment: lhs_type=::String, rhs_type=::Integer (x = yield(3))
+      a.rb:6:4: [error] IncompatibleAssignment: lhs_type=::String, rhs_type=::Integer
       │   ::Integer <: ::String
       │    ::Numeric <: ::String
       │     ::Object <: ::String
@@ -13,7 +13,7 @@ test:
       └     x = yield(3)
             ~~~~~~~~~~~~
     - |
-      a.rb:8:10: [error] IncompatibleAssignment: lhs_type=::Integer, rhs_type=::String (x)
+      a.rb:8:10: [error] IncompatibleAssignment: lhs_type=::Integer, rhs_type=::String
       │   ::String <: ::Integer
       │    ::Object <: ::Integer
       │     ::BasicObject <: ::Integer
@@ -22,12 +22,12 @@ test:
       └     yield(x)
                   ~
     - |
-      a.rb:13:4: [error] UnexpectedYield (yield 4)
+      a.rb:13:4: [error] UnexpectedYield
       │
       └     yield 4
             ~~~~~~~
     - |
-      a.rb:13:4: [error] FallbackAny (yield 4)
+      a.rb:13:4: [error] FallbackAny
       │
       └     yield 4
             ~~~~~~~

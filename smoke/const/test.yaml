@@ -3,7 +3,7 @@ test:
   a.rb:
     diagnostics:
     - |
-      a.rb:4:0: [error] IncompatibleAssignment: lhs_type=::String, rhs_type=::Integer (x = A)
+      a.rb:4:0: [error] IncompatibleAssignment: lhs_type=::String, rhs_type=::Integer
       │   ::Integer <: ::String
       │    ::Numeric <: ::String
       │     ::Object <: ::String
@@ -13,17 +13,17 @@ test:
       └ x = A
         ~~~~~
     - |
-      a.rb:6:4: [error] FallbackAny (B)
+      a.rb:6:4: [error] FallbackAny
       │
       └ x = B
             ~
     - |
-      a.rb:8:7: [error] FallbackAny (X)
+      a.rb:8:7: [error] FallbackAny
       │
       └ module X
                ~
     - |
-      a.rb:14:4: [error] IncompatibleAssignment: lhs_type=::String, rhs_type=::Integer (x = A)
+      a.rb:14:4: [error] IncompatibleAssignment: lhs_type=::String, rhs_type=::Integer
       │   ::Integer <: ::String
       │    ::Numeric <: ::String
       │     ::Object <: ::String
@@ -33,22 +33,22 @@ test:
       └     x = A
             ~~~~~
     - |
-      a.rb:16:8: [error] FallbackAny (B)
+      a.rb:16:8: [error] FallbackAny
       │
       └     x = B
                 ~
     - |
-      a.rb:23:4: [error] FallbackAny (Foo)
+      a.rb:23:4: [error] FallbackAny
       │
       └ x = Foo::Bar::Baz
             ~~~
     - |
-      a.rb:23:4: [error] FallbackAny (Foo::Bar)
+      a.rb:23:4: [error] FallbackAny
       │
       └ x = Foo::Bar::Baz
             ~~~~~~~~
     - |
-      a.rb:23:0: [error] IncompatibleAssignment: lhs_type=::String, rhs_type=::Integer (x = Foo::Bar::Baz)
+      a.rb:23:0: [error] IncompatibleAssignment: lhs_type=::String, rhs_type=::Integer
       │   ::Integer <: ::String
       │    ::Numeric <: ::String
       │     ::Object <: ::String
@@ -58,32 +58,32 @@ test:
       └ x = Foo::Bar::Baz
         ~~~~~~~~~~~~~~~~~
     - |
-      a.rb:25:4: [error] FallbackAny (Foo)
+      a.rb:25:4: [error] FallbackAny
       │
       └ z = Foo
             ~~~
     - |
-      a.rb:26:4: [error] FallbackAny (z::Bar)
+      a.rb:26:4: [error] FallbackAny
       │
       └ x = z::Bar::Baz
             ~~~~~~
     - |
-      a.rb:26:4: [error] FallbackAny (z::Bar::Baz)
+      a.rb:26:4: [error] FallbackAny
       │
       └ x = z::Bar::Baz
             ~~~~~~~~~~~
     - |
-      a.rb:27:4: [error] FallbackAny (::Foo)
+      a.rb:27:4: [error] FallbackAny
       │
       └ x = ::Foo::Bar::Baz
             ~~~~~
     - |
-      a.rb:27:4: [error] FallbackAny (::Foo::Bar)
+      a.rb:27:4: [error] FallbackAny
       │
       └ x = ::Foo::Bar::Baz
             ~~~~~~~~~~
     - |
-      a.rb:27:4: [error] FallbackAny (::Foo::Bar::Baz)
+      a.rb:27:4: [error] FallbackAny
       │
       └ x = ::Foo::Bar::Baz
             ~~~~~~~~~~~~~~~

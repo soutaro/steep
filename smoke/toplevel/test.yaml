@@ -3,7 +3,7 @@ test:
   a.rb:
     diagnostics:
     - |
-      a.rb:1:0: [error] MethodBodyTypeMismatch: method=fizz_buzz, expected=::String, actual=nil (def fizz_buzz(n))
+      a.rb:1:0: [error] MethodBodyTypeMismatch: method=fizz_buzz, expected=::String, actual=nil
       │   nil <: ::String
       │ ==> nil <: ::String does not hold
       │
