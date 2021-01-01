@@ -317,6 +317,19 @@ module Steep
           format_message ""
         end
       end
+
+      class UnexpectedSuper < Base
+        attr_reader :method
+
+        def initialize(node:, method:)
+          super(node: node)
+          @method = method
+        end
+
+        def to_s
+          format_message "method=#{method}"
+        end
+      end
     end
   end
 end
