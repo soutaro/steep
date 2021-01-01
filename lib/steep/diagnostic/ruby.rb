@@ -311,6 +311,12 @@ module Steep
           format_message "method=#{method}, expected=#{expected}, actual=#{actual}"
         end
       end
+
+      class UnexpectedYield < Base
+        def to_s
+          format_message ""
+        end
+      end
     end
   end
 end

@@ -1491,7 +1491,7 @@ module Steep
 
               add_typing(node, type: block_type.type.return_type)
             else
-              typing.add_error(Errors::UnexpectedYield.new(node: node))
+              typing.add_error(Diagnostic::Ruby::UnexpectedYield.new(node: node))
               fallback_to_any node
             end
           else
