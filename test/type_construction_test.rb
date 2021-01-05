@@ -281,7 +281,7 @@ a.g()
         assert_equal 1, typing.errors.size
         typing.errors.first.tap do |error|
           assert_instance_of Diagnostic::Ruby::IncompatibleArguments, error
-          assert_equal parse_method_type("(::_A, ?::_B) -> ::_B"), error.method_type
+          assert_equal [parse_method_type("(::_A, ?::_B) -> ::_B")], error.method_types
         end
       end
     end
@@ -305,7 +305,7 @@ a.g(_ = nil, _ = nil, _ = nil)
         assert_equal 1, typing.errors.size
         typing.errors.first.tap do |error|
           assert_instance_of Diagnostic::Ruby::IncompatibleArguments, error
-          assert_equal parse_method_type("(::_A, ?::_B) -> ::_B"), error.method_type
+          assert_equal [parse_method_type("(::_A, ?::_B) -> ::_B")], error.method_types
         end
       end
     end
@@ -349,7 +349,7 @@ x.h()
 
         typing.errors.first.tap do |error|
           assert_instance_of Diagnostic::Ruby::IncompatibleArguments, error
-          assert_equal parse_method_type("(a: ::_A, ?b: ::_B) -> ::_C"), error.method_type
+          assert_equal [parse_method_type("(a: ::_A, ?b: ::_B) -> ::_C")], error.method_types
         end
       end
     end

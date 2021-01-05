@@ -158,7 +158,7 @@ module Steep
       if method_type
         var_types = TypeConstruction.parameter_types(args, method_type.type)
         unless TypeConstruction.valid_parameter_env?(var_types, args.reject {|arg| arg.type == :blockarg}, method_type.type.params)
-          typing.add_error Diagnostic::Ruby::MethodArityMismatch.new(node: node)
+          typing.add_error Diagnostic::Ruby::MethodArityMismatch.new(node: node, method_type: method_type)
         end
       end
 
@@ -1464,7 +1464,11 @@ module Steep
                   )
                 when nil
                   typing.add_error(
-                    Diagnostic::Ruby::UnknownConstantAssigned.new(node: node, type: value_type)
+                    Diagnostic::Ruby::UnknownConstantAssigned.new(
+                      node: node,
+                      name: const_name,
+                      context: module_context
+                    )
                   )
                 end
               end
@@ -2801,7 +2805,8 @@ module Steep
         all_decls = method.method_types.each.with_object(Set[]) do |method_type, set|
           set.merge(method_type.method_decls)
         end
-        error = Diagnostic::Ruby::IncompatibleArguments.new(node: node, receiver_type: receiver_type, method_type: method_type)
+
+        error = Diagnostic::Ruby::IncompatibleArguments.new(node: node, method_name: method_name, receiver_type: receiver_type, method_types: method.method_types)
         call = TypeInference::MethodCall::Error.new(
           node: node,
           context: context.method_context,
@@ -2946,12 +2951,13 @@ module Steep
 
         node_type = synthesize(node, hint: hash_type).type
 
-        check_relation(sub_type: node_type, super_type: hash_type).else do
+        check_relation(sub_type: node_type, super_type: hash_type).else do |result|
           return Diagnostic::Ruby::ArgumentTypeMismatch.new(
             node: node,
             receiver_type: receiver_type,
             expected: hash_type,
-            actual: node_type
+            actual: node_type,
+            result: result
           )
         end
       end
@@ -2986,11 +2992,12 @@ module Steep
                                constr.synthesize(arg_node, hint: topdown_hint ? param_type : nil)
                              end
 
-          check_relation(sub_type: arg_type, super_type: param_type, constraints: constraints).else do
+          check_relation(sub_type: arg_type, super_type: param_type, constraints: constraints).else do |result|
             errors << Diagnostic::Ruby::ArgumentTypeMismatch.new(node: arg_node,
                                                                  receiver_type: receiver_type,
                                                                  expected: param_type,
-                                                                 actual: arg_type)
+                                                                 actual: arg_type,
+                                                                 result: result)
           end
         else
           # keyword
@@ -3177,7 +3184,7 @@ module Steep
               result = check_relation(sub_type: given_block_type, super_type: method_block_type, constraints: constraints)
               result.else do |result|
                 errors << Diagnostic::Ruby::BlockTypeMismatch.new(
-                  node: node,
+                  node: args.block_pass_arg,
                   expected: method_block_type,
                   actual: given_block_type,
                   result: result

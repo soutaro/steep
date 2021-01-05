@@ -526,13 +526,13 @@ module TypeConstructionHelper
 
   def assert_no_error(typing)
     assert_instance_of Typing, typing
-    assert_predicate typing.errors.map {|e| StringIO.new().tap {|io| e.print_to(io) }.string }, :empty?
+    assert_predicate typing.errors.map {|e| e.to_s }, :empty?
   end
 
   def assert_typing_error(typing, size: nil)
     assert_instance_of Typing, typing
 
-    messages = typing.errors.map {|e| StringIO.new().tap {|io| e.print_to(io) }.string }
+    messages = typing.errors.map {|e| e.to_s }
 
     if size
       assert_equal size, messages.size, "errors=#{messages.inspect}"
