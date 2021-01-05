@@ -1,0 +1,2 @@
+class MethodDefinitionMissing
+end
