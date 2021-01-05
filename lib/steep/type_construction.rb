@@ -2533,7 +2533,7 @@ module Steep
           check_relation(sub_type: return_type, super_type: expected_block_type).else do |result|
             block_constr.typing.add_error(
               Diagnostic::Ruby::BlockBodyTypeMismatch.new(
-                node: block_body,
+                node: node,
                 expected: expected_block_type,
                 actual: return_type,
                 result: result
@@ -3079,28 +3079,10 @@ module Steep
                 end
 
               when Subtyping::Result::Failure
-                given_block_type = AST::Types::Proc.new(
-                  type: Interface::Function.new(
-                    params: method_type.block.type.params || block_params.params_type,
-                    return_type: block_body_type,
-                    location: nil
-                  ),
-                  block: nil
-                )
-
-                method_block_type = AST::Types::Proc.new(
-                  type: Interface::Function.new(
-                    params: method_type.block.type.params,
-                    return_type: method_type.block.type.return_type,
-                    location: nil
-                  ),
-                  block: nil
-                )
-
-                errors << Diagnostic::Ruby::BlockTypeMismatch.new(
+                errors << Diagnostic::Ruby::BlockBodyTypeMismatch.new(
                   node: node,
-                  expected: method_block_type,
-                  actual: given_block_type,
+                  expected: method_type.block.type.return_type,
+                  actual: block_body_type,
                   result: result
                 )
 

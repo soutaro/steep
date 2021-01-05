@@ -659,9 +659,9 @@ end
 
         assert_typing_error(typing, size: 1) do |errors|
           assert_any!(errors) do |error|
-            assert_instance_of Diagnostic::Ruby::BlockTypeMismatch, error
-            assert_equal parse_type("^(::_A) -> ::_D"), error.expected
-            assert_equal parse_type("^(::_A) -> ::_A"), error.actual
+            assert_instance_of Diagnostic::Ruby::BlockBodyTypeMismatch, error
+            assert_equal parse_type("::_D"), error.expected
+            assert_equal parse_type("::_A"), error.actual
           end
         end
 
