@@ -3,25 +3,34 @@ test:
   a.rb:
     diagnostics:
     - |
-      a.rb:3:0: [error] IncompatibleAssignment: lhs_type=::Integer, rhs_type=(::Integer | ::Array[::String] | nil | ::String)
+      a.rb:3:0: [error] Cannot assign a value of type `(::Integer | ::Array[::String] | nil | ::String)` to a variable of type `::Integer`
       │   (::Integer | ::Array[::String] | nil | ::String) <: ::Integer
-      │    ::Array[::String] <: ::Integer
-      │     ::Object <: ::Integer
-      │      ::BasicObject <: ::Integer
-      │ ==> ::BasicObject <: ::Integer does not hold
+      │     ::Array[::String] <: ::Integer
+      │       ::Object <: ::Integer
+      │         ::BasicObject <: ::Integer
+      │
+      │ Diagnostic ID: Ruby::IncompatibleAssignment
       │
       └ a = case 1
         ~~~~~~~~~~
     - |
-      a.rb:16:9: [error] UnresolvedOverloading: receiver=::Integer, method_name=+, method_types=(::Integer) -> ::Integer | (::Float) -> ::Float | (::Rational) -> ::Rational | (::Complex) -> ::Complex
+      a.rb:16:9: [error] Cannot find compatible overloading of method `+` of type `::Integer`
+      │ Method types:
+      │   def +: (::Integer) -> ::Integer
+      │        | (::Float) -> ::Float
+      │        | (::Rational) -> ::Rational
+      │        | (::Complex) -> ::Complex
+      │
+      │ Diagnostic ID: Ruby::UnresolvedOverloading
       │
       └     when 1+"a"
                  ~~~~~
     - |
-      a.rb:15:0: [error] IncompatibleAssignment: lhs_type=::Integer, rhs_type=(::Integer | nil)
+      a.rb:15:0: [error] Cannot assign a value of type `(::Integer | nil)` to a variable of type `::Integer`
       │   (::Integer | nil) <: ::Integer
-      │    nil <: ::Integer
-      │ ==> nil <: ::Integer does not hold
+      │     nil <: ::Integer
+      │
+      │ Diagnostic ID: Ruby::IncompatibleAssignment
       │
       └ a = case
         ~~~~~~~~

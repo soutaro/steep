@@ -3,20 +3,22 @@ test:
   a.rb:
     diagnostics:
     - |
-      a.rb:6:0: [error] IncompatibleAssignment: lhs_type=::String, rhs_type=(::String | nil)
+      a.rb:6:0: [error] Cannot assign a value of type `(::String | nil)` to a variable of type `::String`
       │   (::String | nil) <: ::String
-      │    nil <: ::String
-      │ ==> nil <: ::String does not hold
+      │     nil <: ::String
+      │
+      │ Diagnostic ID: Ruby::IncompatibleAssignment
       │
       └ b = a && a.to_str
         ~~~~~~~~~~~~~~~~~
     - |
-      a.rb:8:0: [error] IncompatibleAssignment: lhs_type=::Integer, rhs_type=(::String | nil)
+      a.rb:8:0: [error] Cannot assign a value of type `(::String | nil)` to a variable of type `::Integer`
       │   (::String | nil) <: ::Integer
-      │    ::String <: ::Integer
-      │     ::Object <: ::Integer
-      │      ::BasicObject <: ::Integer
-      │ ==> ::BasicObject <: ::Integer does not hold
+      │     ::String <: ::Integer
+      │       ::Object <: ::Integer
+      │         ::BasicObject <: ::Integer
+      │
+      │ Diagnostic ID: Ruby::IncompatibleAssignment
       │
       └ c = a && a.to_str
         ~~~~~~~~~~~~~~~~~

@@ -3,12 +3,14 @@ test:
   skip.rb:
     diagnostics:
     - |
-      skip.rb:8:2: [error] NoMethodError: type=::Object, method=no_such_method
+      skip.rb:8:7: [error] Type `::Object` does not have method `no_such_method`
+      │ Diagnostic ID: Ruby::NoMethod
       │
       └   self.no_such_method
-          ~~~~~~~~~~~~~~~~~~~
+               ~~~~~~~~~~~~~~
     - |
-      skip.rb:12:2: [error] NoMethodError: type=::Object, method=no_such_method
+      skip.rb:12:7: [error] Type `::Object` does not have method `no_such_method`
+      │ Diagnostic ID: Ruby::NoMethod
       │
       └   self.no_such_method
-          ~~~~~~~~~~~~~~~~~~~
+               ~~~~~~~~~~~~~~

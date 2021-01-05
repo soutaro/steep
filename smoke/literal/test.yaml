@@ -3,68 +3,77 @@ test:
   a.rb:
     diagnostics:
     - |
-      a.rb:4:0: [error] IncompatibleAssignment: lhs_type=::String, rhs_type=::Integer
+      a.rb:4:0: [error] Cannot assign a value of type `::Integer` to a variable of type `::String`
       │   ::Integer <: ::String
-      │    ::Numeric <: ::String
-      │     ::Object <: ::String
-      │      ::BasicObject <: ::String
-      │ ==> ::BasicObject <: ::String does not hold
+      │     ::Numeric <: ::String
+      │       ::Object <: ::String
+      │         ::BasicObject <: ::String
+      │
+      │ Diagnostic ID: Ruby::IncompatibleAssignment
       │
       └ x = 1
         ~~~~~
     - |
-      a.rb:6:0: [error] IncompatibleAssignment: lhs_type=::String, rhs_type=::Symbol
+      a.rb:6:0: [error] Cannot assign a value of type `::Symbol` to a variable of type `::String`
       │   ::Symbol <: ::String
-      │    ::Object <: ::String
-      │     ::BasicObject <: ::String
-      │ ==> ::BasicObject <: ::String does not hold
+      │     ::Object <: ::String
+      │       ::BasicObject <: ::String
+      │
+      │ Diagnostic ID: Ruby::IncompatibleAssignment
       │
       └ x = :foo
         ~~~~~~~~
     - |
-      a.rb:8:0: [error] IncompatibleAssignment: lhs_type=::Integer, rhs_type=::String
+      a.rb:8:0: [error] Cannot assign a value of type `::String` to a variable of type `::Integer`
       │   ::String <: ::Integer
-      │    ::Object <: ::Integer
-      │     ::BasicObject <: ::Integer
-      │ ==> ::BasicObject <: ::Integer does not hold
+      │     ::Object <: ::Integer
+      │       ::BasicObject <: ::Integer
+      │
+      │ Diagnostic ID: Ruby::IncompatibleAssignment
       │
       └ y = "foo"
         ~~~~~~~~~
     - |
-      a.rb:10:0: [error] IncompatibleAssignment: lhs_type=::String, rhs_type=bool
+      a.rb:10:0: [error] Cannot assign a value of type `bool` to a variable of type `::String`
       │   bool <: ::String
-      │    (true | false) <: ::String
-      │     true <: ::String
-      │      ::TrueClass <: ::String
-      │       ::Object <: ::String
-      │        ::BasicObject <: ::String
-      │ ==> ::BasicObject <: ::String does not hold
+      │     (true | false) <: ::String
+      │       true <: ::String
+      │         ::TrueClass <: ::String
+      │           ::Object <: ::String
+      │             ::BasicObject <: ::String
+      │
+      │ Diagnostic ID: Ruby::IncompatibleAssignment
       │
       └ x = true
         ~~~~~~~~
     - |
-      a.rb:11:0: [error] IncompatibleAssignment: lhs_type=::Integer, rhs_type=bool
+      a.rb:11:0: [error] Cannot assign a value of type `bool` to a variable of type `::Integer`
       │   bool <: ::Integer
-      │    (true | false) <: ::Integer
-      │     true <: ::Integer
-      │      ::TrueClass <: ::Integer
-      │       ::Object <: ::Integer
-      │        ::BasicObject <: ::Integer
-      │ ==> ::BasicObject <: ::Integer does not hold
+      │     (true | false) <: ::Integer
+      │       true <: ::Integer
+      │         ::TrueClass <: ::Integer
+      │           ::Object <: ::Integer
+      │             ::BasicObject <: ::Integer
+      │
+      │ Diagnostic ID: Ruby::IncompatibleAssignment
       │
       └ y = false
         ~~~~~~~~~
   b.rb:
     diagnostics:
     - |
-      b.rb:4:6: [error] ArgumentTypeMismatch: receiver=::LiteralMethods, expected=3, actual=::Integer
+      b.rb:4:6: [error] Cannot pass a value of type `::Integer` as an argument of type `3`
+      │   ::Integer <: 3
+      │
+      │ Diagnostic ID: Ruby::ArgumentTypeMismatch
       │
       └ l.foo(4)
               ~
     - |
-      b.rb:7:11: [error] IncompatibleAssignment: lhs_type=:foo, rhs_type=::Symbol
+      b.rb:7:11: [error] Cannot assign a value of type `::Symbol` to an expression of type `:foo`
       │   ::Symbol <: :foo
-      │ ==> ::Symbol <: :foo does not hold
+      │
+      │ Diagnostic ID: Ruby::IncompatibleAssignment
       │
       └ l.bar(foo: :bar)
                    ~~~~

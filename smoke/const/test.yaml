@@ -3,87 +3,94 @@ test:
   a.rb:
     diagnostics:
     - |
-      a.rb:4:0: [error] IncompatibleAssignment: lhs_type=::String, rhs_type=::Integer
+      a.rb:4:0: [error] Cannot assign a value of type `::Integer` to a variable of type `::String`
       │   ::Integer <: ::String
-      │    ::Numeric <: ::String
-      │     ::Object <: ::String
-      │      ::BasicObject <: ::String
-      │ ==> ::BasicObject <: ::String does not hold
+      │     ::Numeric <: ::String
+      │       ::Object <: ::String
+      │         ::BasicObject <: ::String
+      │
+      │ Diagnostic ID: Ruby::IncompatibleAssignment
       │
       └ x = A
         ~~~~~
     - |
-      a.rb:6:4: [error] FallbackAny
+      a.rb:6:4: [error] Cannot detect the type of the expression
+      │ Diagnostic ID: Ruby::FallbackAny
       │
       └ x = B
             ~
     - |
-      a.rb:8:7: [error] FallbackAny
+      a.rb:8:7: [error] Cannot detect the type of the expression
+      │ Diagnostic ID: Ruby::FallbackAny
       │
       └ module X
                ~
     - |
-      a.rb:14:4: [error] IncompatibleAssignment: lhs_type=::String, rhs_type=::Integer
+      a.rb:14:4: [error] Cannot assign a value of type `::Integer` to a variable of type `::String`
       │   ::Integer <: ::String
-      │    ::Numeric <: ::String
-      │     ::Object <: ::String
-      │      ::BasicObject <: ::String
-      │ ==> ::BasicObject <: ::String does not hold
+      │     ::Numeric <: ::String
+      │       ::Object <: ::String
+      │         ::BasicObject <: ::String
+      │
+      │ Diagnostic ID: Ruby::IncompatibleAssignment
       │
       └     x = A
             ~~~~~
     - |
-      a.rb:16:8: [error] FallbackAny
+      a.rb:16:8: [error] Cannot detect the type of the expression
+      │ Diagnostic ID: Ruby::FallbackAny
       │
       └     x = B
                 ~
     - |
-      a.rb:23:4: [error] FallbackAny
-      │
-      └ x = Foo::Bar::Baz
-            ~~~
-    - |
-      a.rb:23:4: [error] FallbackAny
-      │
-      └ x = Foo::Bar::Baz
-            ~~~~~~~~
-    - |
-      a.rb:23:0: [error] IncompatibleAssignment: lhs_type=::String, rhs_type=::Integer
+      a.rb:23:0: [error] Cannot assign a value of type `::Integer` to a variable of type `::String`
       │   ::Integer <: ::String
-      │    ::Numeric <: ::String
-      │     ::Object <: ::String
-      │      ::BasicObject <: ::String
-      │ ==> ::BasicObject <: ::String does not hold
+      │     ::Numeric <: ::String
+      │       ::Object <: ::String
+      │         ::BasicObject <: ::String
+      │
+      │ Diagnostic ID: Ruby::IncompatibleAssignment
       │
       └ x = Foo::Bar::Baz
         ~~~~~~~~~~~~~~~~~
     - |
-      a.rb:25:4: [error] FallbackAny
-      │
-      └ z = Foo
-            ~~~
-    - |
-      a.rb:26:4: [error] FallbackAny
+      a.rb:26:4: [error] Cannot detect the type of the expression
+      │ Diagnostic ID: Ruby::FallbackAny
       │
       └ x = z::Bar::Baz
             ~~~~~~
     - |
-      a.rb:26:4: [error] FallbackAny
+      a.rb:26:4: [error] Cannot detect the type of the expression
+      │ Diagnostic ID: Ruby::FallbackAny
       │
       └ x = z::Bar::Baz
             ~~~~~~~~~~~
     - |
-      a.rb:27:4: [error] FallbackAny
+      a.rb:27:0: [error] Cannot assign a value of type `::Integer` to a variable of type `::String`
+      │   ::Integer <: ::String
+      │     ::Numeric <: ::String
+      │       ::Object <: ::String
+      │         ::BasicObject <: ::String
+      │
+      │ Diagnostic ID: Ruby::IncompatibleAssignment
       │
       └ x = ::Foo::Bar::Baz
-            ~~~~~
+        ~~~~~~~~~~~~~~~~~~~
+  b.rb:
+    diagnostics:
     - |
-      a.rb:27:4: [error] FallbackAny
+      b.rb:3:4: [error] Cannot assign a value of type `::String` to a constant of type `::Integer`
+      │   ::String <: ::Integer
+      │     ::Object <: ::Integer
+      │       ::BasicObject <: ::Integer
       │
-      └ x = ::Foo::Bar::Baz
-            ~~~~~~~~~~
+      │ Diagnostic ID: Ruby::IncompatibleAssignment
+      │
+      └     Baz = "Hello"
+            ~~~~~~~~~~~~~
     - |
-      a.rb:27:4: [error] FallbackAny
+      b.rb:5:4: [error] Cannot find the declaration of constant `Baz2`
+      │ Diagnostic ID: Ruby::UnknownConstantAssigned
       │
-      └ x = ::Foo::Bar::Baz
-            ~~~~~~~~~~~~~~~
+      └     Baz2 = "World"
+            ~~~~

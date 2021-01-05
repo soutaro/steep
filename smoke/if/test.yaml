@@ -3,23 +3,25 @@ test:
   a.rb:
     diagnostics:
     - |
-      a.rb:5:0: [error] IncompatibleAssignment: lhs_type=::String, rhs_type=(::Symbol | nil)
+      a.rb:5:0: [error] Cannot assign a value of type `(::Symbol | nil)` to a variable of type `::String`
       │   (::Symbol | nil) <: ::String
-      │    ::Symbol <: ::String
-      │     ::Object <: ::String
-      │      ::BasicObject <: ::String
-      │ ==> ::BasicObject <: ::String does not hold
+      │     ::Symbol <: ::String
+      │       ::Object <: ::String
+      │         ::BasicObject <: ::String
+      │
+      │ Diagnostic ID: Ruby::IncompatibleAssignment
       │
       └ a = if x
         ~~~~~~~~
     - |
-      a.rb:15:0: [error] IncompatibleAssignment: lhs_type=::String, rhs_type=(::String | ::Integer)
+      a.rb:15:0: [error] Cannot assign a value of type `(::String | ::Integer)` to a variable of type `::String`
       │   (::String | ::Integer) <: ::String
-      │    ::Integer <: ::String
-      │     ::Numeric <: ::String
-      │      ::Object <: ::String
-      │       ::BasicObject <: ::String
-      │ ==> ::BasicObject <: ::String does not hold
+      │     ::Integer <: ::String
+      │       ::Numeric <: ::String
+      │         ::Object <: ::String
+      │           ::BasicObject <: ::String
+      │
+      │ Diagnostic ID: Ruby::IncompatibleAssignment
       │
       └ a = if z
         ~~~~~~~~

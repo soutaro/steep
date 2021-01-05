@@ -1,27 +1,5 @@
 ---
 test:
-  set_divide.rb:
-    diagnostics:
-    - |
-      set_divide.rb:2:0: [error] NoMethodError: type=::Set[::String], method=ffffffff
-      │
-      └ d.ffffffff
-        ~~~~~~~~~~
-    - |
-      set_divide.rb:5:2: [error] NoMethodError: type=::String, method=ggggg
-      │
-      └   x.ggggg
-          ~~~~~~~
-    - |
-      set_divide.rb:7:2: [error] NoMethodError: type=::String, method=ggggg
-      │
-      └   y.ggggg
-          ~~~~~~~
-    - |
-      set_divide.rb:11:2: [error] NoMethodError: type=::String, method=ggggg
-      │
-      └   x.ggggg
-          ~~~~~~~
   array.rb:
     diagnostics: []
   fun.rb:
@@ -32,3 +10,29 @@ test:
     diagnostics: []
   range.rb:
     diagnostics: []
+  set_divide.rb:
+    diagnostics:
+    - |
+      set_divide.rb:2:2: [error] Type `::Set[::String]` does not have method `ffffffff`
+      │ Diagnostic ID: Ruby::NoMethod
+      │
+      └ d.ffffffff
+          ~~~~~~~~
+    - |
+      set_divide.rb:5:4: [error] Type `::String` does not have method `ggggg`
+      │ Diagnostic ID: Ruby::NoMethod
+      │
+      └   x.ggggg
+            ~~~~~
+    - |
+      set_divide.rb:7:4: [error] Type `::String` does not have method `ggggg`
+      │ Diagnostic ID: Ruby::NoMethod
+      │
+      └   y.ggggg
+            ~~~~~
+    - |
+      set_divide.rb:11:4: [error] Type `::String` does not have method `ggggg`
+      │ Diagnostic ID: Ruby::NoMethod
+      │
+      └   x.ggggg
+            ~~~~~

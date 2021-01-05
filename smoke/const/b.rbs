@@ -1,0 +1,5 @@
+module Foo
+  module Bar
+    Baz: Integer
+  end
+end

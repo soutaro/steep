@@ -3,47 +3,64 @@ test:
   a.rb:
     diagnostics:
     - |
-      a.rb:4:0: [error] NoMethodError: type=::Integer, method=foo
+      a.rb:4:10: [error] Type `::Integer` does not have method `foo`
+      │ Diagnostic ID: Ruby::NoMethod
       │
       └ integer_1.foo
-        ~~~~~~~~~~~~~
+                  ~~~
     - |
-      a.rb:7:0: [error] NoMethodError: type=::Integer, method=foo
+      a.rb:7:10: [error] Type `::Integer` does not have method `foo`
+      │ Diagnostic ID: Ruby::NoMethod
       │
       └ integer_2.foo
-        ~~~~~~~~~~~~~
+                  ~~~
     - |
-      a.rb:12:20: [error] FallbackAny
+      a.rb:12:20: [error] Cannot detect the type of the expression
+      │ Diagnostic ID: Ruby::FallbackAny
       │
       └ integer_3 = Integer(WithToInt.new)
                             ~~~~~~~~~
     - |
-      a.rb:13:0: [error] NoMethodError: type=::Integer, method=foo
+      a.rb:13:10: [error] Type `::Integer` does not have method `foo`
+      │ Diagnostic ID: Ruby::NoMethod
       │
       └ integer_3.foo
-        ~~~~~~~~~~~~~
+                  ~~~
     - |
-      a.rb:18:20: [error] FallbackAny
+      a.rb:18:20: [error] Cannot detect the type of the expression
+      │ Diagnostic ID: Ruby::FallbackAny
       │
       └ integer_4 = Integer(WithToI.new)
                             ~~~~~~~
     - |
-      a.rb:19:0: [error] NoMethodError: type=::Integer, method=foo
+      a.rb:19:10: [error] Type `::Integer` does not have method `foo`
+      │ Diagnostic ID: Ruby::NoMethod
       │
       └ integer_4.foo
-        ~~~~~~~~~~~~~
+                  ~~~
     - |
-      a.rb:22:0: [error] NoMethodError: type=::Integer, method=foo
+      a.rb:22:10: [error] Type `::Integer` does not have method `foo`
+      │ Diagnostic ID: Ruby::NoMethod
       │
       └ integer_5.foo
-        ~~~~~~~~~~~~~
+                  ~~~
     - |
-      a.rb:24:0: [error] UnresolvedOverloading: receiver=::Object, method_name=Integer, method_types=((::Numeric | ::String), ?exception: bool) -> ::Integer | (::String, ?::Integer, ?exception: bool) -> ::Integer
+      a.rb:24:0: [error] Cannot find compatible overloading of method `Integer` of type `::Object`
+      │ Method types:
+      │   def Integer: ((::Numeric | ::String), ?exception: bool) -> ::Integer
+      │              | (::String, ?::Integer, ?exception: bool) -> ::Integer
+      │
+      │ Diagnostic ID: Ruby::UnresolvedOverloading
       │
       └ Integer(Object.new)
         ~~~~~~~~~~~~~~~~~~~
     - |
-      a.rb:26:0: [error] UnresolvedOverloading: receiver=::Object, method_name=Integer, method_types=((::Numeric | ::String), ?exception: bool) -> ::Integer | (::String, ?::Integer, ?exception: bool) -> ::Integer
+      a.rb:26:0: [error] Cannot find compatible overloading of method `Integer` of type `::Object`
+      │ Method types:
+      │   def Integer: ((::Numeric | ::String), ?exception: bool) -> ::Integer
+      │              | (::String, ?::Integer, ?exception: bool) -> ::Integer
+      │
+      │ Diagnostic ID: Ruby::UnresolvedOverloading
       │
       └ Integer(nil)
         ~~~~~~~~~~~~
