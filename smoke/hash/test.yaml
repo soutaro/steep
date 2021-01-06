@@ -5,52 +5,58 @@ test:
   b.rb:
     diagnostics:
     - |
-      b.rb:6:0: [error] IncompatibleAssignment: lhs_type=::Hash[::Symbol, (::String | nil)], rhs_type=::Hash[::Symbol, ::Integer]
+      b.rb:6:0: [error] Cannot assign a value of type `::Hash[::Symbol, ::Integer]` to a variable of type `::Hash[::Symbol, (::String | nil)]`
       │   ::Hash[::Symbol, ::Integer] <: ::Hash[::Symbol, (::String | nil)]
-      │    ::Integer <: (::String | nil)
-      │     ::Integer <: ::String
-      │      ::Numeric <: ::String
-      │       ::Object <: ::String
-      │        ::BasicObject <: ::String
-      │ ==> ::BasicObject <: ::String does not hold
+      │     ::Integer <: (::String | nil)
+      │       ::Integer <: ::String
+      │         ::Numeric <: ::String
+      │           ::Object <: ::String
+      │             ::BasicObject <: ::String
+      │
+      │ Diagnostic ID: Ruby::IncompatibleAssignment
       │
       └ x = { foo: 3 }
         ~~~~~~~~~~~~~~
   c.rb:
     diagnostics:
     - |
-      c.rb:5:0: [error] NoMethodError: type=::Integer, method=abcdefg
+      c.rb:5:3: [error] Type `::Integer` does not have method `abcdefg`
+      │ Diagnostic ID: Ruby::NoMethod
       │
       └ id.abcdefg
-        ~~~~~~~~~~
+           ~~~~~~~
     - |
-      c.rb:8:0: [error] NoMethodError: type=::String, method=abcdefg
+      c.rb:8:5: [error] Type `::String` does not have method `abcdefg`
+      │ Diagnostic ID: Ruby::NoMethod
       │
       └ name.abcdefg
-        ~~~~~~~~~~~~
+             ~~~~~~~
     - |
-      c.rb:10:0: [error] NoMethodError: type=(::Integer | ::String), method=abcdefg
+      c.rb:10:30: [error] Type `(::Integer | ::String)` does not have method `abcdefg`
+      │ Diagnostic ID: Ruby::NoMethod
       │
       └ params[(_=nil) ? :id : :name].abcdefg
-        ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+                                      ~~~~~~~
   d.rb:
     diagnostics:
     - |
-      d.rb:5:0: [error] IncompatibleAssignment: lhs_type={ :id => ::Integer, :name => ::String }, rhs_type={ :email => ::String, :id => ::String, :name => ::String }
+      d.rb:5:0: [error] Cannot assign a value of type `{ :email => ::String, :id => ::String, :name => ::String }` to a variable of type `{ :id => ::Integer, :name => ::String }`
       │   { :email => ::String, :id => ::String, :name => ::String } <: { :id => ::Integer, :name => ::String }
-      │    ::String <: ::Integer
-      │     ::Object <: ::Integer
-      │      ::BasicObject <: ::Integer
-      │ ==> ::BasicObject <: ::Integer does not hold
+      │     ::String <: ::Integer
+      │       ::Object <: ::Integer
+      │         ::BasicObject <: ::Integer
+      │
+      │ Diagnostic ID: Ruby::IncompatibleAssignment
       │
       └ params = { id: "30", name: "foo", email: "matsumoto@soutaro.com" }
         ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
   e.rb:
     diagnostics:
     - |
-      e.rb:1:0: [error] NoMethodError: type=::Integer, method=fffffffffffff
+      e.rb:1:24: [error] Type `::Integer` does not have method `fffffffffffff`
+      │ Diagnostic ID: Ruby::NoMethod
       │
       └ Foo.new.get({ foo: 3 }).fffffffffffff
-        ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+                                ~~~~~~~~~~~~~
   f.rb:
     diagnostics: []

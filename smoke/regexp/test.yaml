@@ -3,309 +3,370 @@ test:
   a.rb:
     diagnostics:
     - |
-      a.rb:2:0: [error] NoMethodError: type=::Regexp, method=foo
+      a.rb:2:6: [error] Type `::Regexp` does not have method `foo`
+      │ Diagnostic ID: Ruby::NoMethod
       │
       └ new_1.foo
-        ~~~~~~~~~
+              ~~~
     - |
-      a.rb:5:0: [error] NoMethodError: type=::Regexp, method=foo
+      a.rb:5:6: [error] Type `::Regexp` does not have method `foo`
+      │ Diagnostic ID: Ruby::NoMethod
       │
       └ new_2.foo
-        ~~~~~~~~~
+              ~~~
     - |
-      a.rb:8:0: [error] NoMethodError: type=::Regexp, method=foo
+      a.rb:8:6: [error] Type `::Regexp` does not have method `foo`
+      │ Diagnostic ID: Ruby::NoMethod
       │
       └ new_3.foo
-        ~~~~~~~~~
+              ~~~
     - |
-      a.rb:11:0: [error] NoMethodError: type=::Regexp, method=foo
+      a.rb:11:6: [error] Type `::Regexp` does not have method `foo`
+      │ Diagnostic ID: Ruby::NoMethod
       │
       └ new_4.foo
-        ~~~~~~~~~
+              ~~~
     - |
-      a.rb:14:0: [error] NoMethodError: type=::Regexp, method=foo
+      a.rb:14:10: [error] Type `::Regexp` does not have method `foo`
+      │ Diagnostic ID: Ruby::NoMethod
       │
       └ compile_1.foo
-        ~~~~~~~~~~~~~
+                  ~~~
     - |
-      a.rb:17:0: [error] NoMethodError: type=::Regexp, method=foo
+      a.rb:17:10: [error] Type `::Regexp` does not have method `foo`
+      │ Diagnostic ID: Ruby::NoMethod
       │
       └ compile_2.foo
-        ~~~~~~~~~~~~~
+                  ~~~
     - |
-      a.rb:20:0: [error] NoMethodError: type=::Regexp, method=foo
+      a.rb:20:10: [error] Type `::Regexp` does not have method `foo`
+      │ Diagnostic ID: Ruby::NoMethod
       │
       └ compile_3.foo
-        ~~~~~~~~~~~~~
+                  ~~~
     - |
-      a.rb:23:0: [error] NoMethodError: type=::Regexp, method=foo
+      a.rb:23:10: [error] Type `::Regexp` does not have method `foo`
+      │ Diagnostic ID: Ruby::NoMethod
       │
       └ compile_4.foo
-        ~~~~~~~~~~~~~
+                  ~~~
     - |
-      a.rb:26:0: [error] NoMethodError: type=::String, method=foo
+      a.rb:26:9: [error] Type `::String` does not have method `foo`
+      │ Diagnostic ID: Ruby::NoMethod
       │
       └ escape_1.foo
-        ~~~~~~~~~~~~
+                 ~~~
     - |
-      a.rb:29:0: [error] NoMethodError: type=(::MatchData | nil), method=foo
+      a.rb:29:13: [error] Type `(::MatchData | nil)` does not have method `foo`
+      │ Diagnostic ID: Ruby::NoMethod
       │
       └ last_match_1.foo
-        ~~~~~~~~~~~~~~~~
+                     ~~~
     - |
-      a.rb:32:0: [error] NoMethodError: type=(::String | nil), method=foo
+      a.rb:32:13: [error] Type `(::String | nil)` does not have method `foo`
+      │ Diagnostic ID: Ruby::NoMethod
       │
       └ last_match_2.foo
-        ~~~~~~~~~~~~~~~~
+                     ~~~
     - |
-      a.rb:35:0: [error] NoMethodError: type=::String, method=foo
+      a.rb:35:8: [error] Type `::String` does not have method `foo`
+      │ Diagnostic ID: Ruby::NoMethod
       │
       └ quote_1.foo
-        ~~~~~~~~~~~
+                ~~~
     - |
-      a.rb:38:0: [error] NoMethodError: type=(::Regexp | nil), method=foo
+      a.rb:38:14: [error] Type `(::Regexp | nil)` does not have method `foo`
+      │ Diagnostic ID: Ruby::NoMethod
       │
       └ try_convert_1.foo
-        ~~~~~~~~~~~~~~~~~
+                      ~~~
     - |
-      a.rb:41:0: [error] NoMethodError: type=::Regexp, method=foo
+      a.rb:41:8: [error] Type `::Regexp` does not have method `foo`
+      │ Diagnostic ID: Ruby::NoMethod
       │
       └ union_1.foo
-        ~~~~~~~~~~~
+                ~~~
     - |
-      a.rb:44:0: [error] NoMethodError: type=::Regexp, method=foo
+      a.rb:44:8: [error] Type `::Regexp` does not have method `foo`
+      │ Diagnostic ID: Ruby::NoMethod
       │
       └ union_2.foo
-        ~~~~~~~~~~~
+                ~~~
     - |
-      a.rb:47:0: [error] NoMethodError: type=::Regexp, method=foo
+      a.rb:47:8: [error] Type `::Regexp` does not have method `foo`
+      │ Diagnostic ID: Ruby::NoMethod
       │
       └ union_3.foo
-        ~~~~~~~~~~~
+                ~~~
     - |
-      a.rb:50:0: [error] NoMethodError: type=::Regexp, method=foo
+      a.rb:50:8: [error] Type `::Regexp` does not have method `foo`
+      │ Diagnostic ID: Ruby::NoMethod
       │
       └ union_4.foo
-        ~~~~~~~~~~~
+                ~~~
     - |
-      a.rb:53:0: [error] NoMethodError: type=::Regexp, method=foo
+      a.rb:53:8: [error] Type `::Regexp` does not have method `foo`
+      │ Diagnostic ID: Ruby::NoMethod
       │
       └ union_5.foo
-        ~~~~~~~~~~~
+                ~~~
     - |
-      a.rb:56:0: [error] NoMethodError: type=::Regexp, method=foo
+      a.rb:56:8: [error] Type `::Regexp` does not have method `foo`
+      │ Diagnostic ID: Ruby::NoMethod
       │
       └ union_6.foo
-        ~~~~~~~~~~~
+                ~~~
     - |
-      a.rb:59:0: [error] NoMethodError: type=::Regexp, method=foo
+      a.rb:59:8: [error] Type `::Regexp` does not have method `foo`
+      │ Diagnostic ID: Ruby::NoMethod
       │
       └ union_7.foo
-        ~~~~~~~~~~~
+                ~~~
     - |
-      a.rb:62:0: [error] NoMethodError: type=bool, method=foo
+      a.rb:62:12: [error] Type `bool` does not have method `foo`
+      │ Diagnostic ID: Ruby::NoMethod
       │
       └ op_eqeqeq_1.foo
-        ~~~~~~~~~~~~~~~
+                    ~~~
     - |
-      a.rb:68:0: [error] NoMethodError: type=bool, method=foo
+      a.rb:68:11: [error] Type `bool` does not have method `foo`
+      │ Diagnostic ID: Ruby::NoMethod
       │
       └ casefold_1.foo
-        ~~~~~~~~~~~~~~
+                   ~~~
     - |
-      a.rb:71:0: [error] NoMethodError: type=::Encoding, method=foo
+      a.rb:71:11: [error] Type `::Encoding` does not have method `foo`
+      │ Diagnostic ID: Ruby::NoMethod
       │
       └ encoding_1.foo
-        ~~~~~~~~~~~~~~
+                   ~~~
     - |
-      a.rb:74:0: [error] NoMethodError: type=bool, method=foo
+      a.rb:74:17: [error] Type `bool` does not have method `foo`
+      │ Diagnostic ID: Ruby::NoMethod
       │
       └ fixed_encoding_1.foo
-        ~~~~~~~~~~~~~~~~~~~~
+                         ~~~
     - |
-      a.rb:77:0: [error] NoMethodError: type=(::MatchData | nil), method=foo
+      a.rb:77:8: [error] Type `(::MatchData | nil)` does not have method `foo`
+      │ Diagnostic ID: Ruby::NoMethod
       │
       └ match_1.foo
-        ~~~~~~~~~~~
+                ~~~
     - |
-      a.rb:80:0: [error] NoMethodError: type=(::MatchData | nil), method=foo
+      a.rb:80:8: [error] Type `(::MatchData | nil)` does not have method `foo`
+      │ Diagnostic ID: Ruby::NoMethod
       │
       └ match_2.foo
-        ~~~~~~~~~~~
+                ~~~
     - |
-      a.rb:83:2: [error] NoMethodError: type=::MatchData, method=foo
+      a.rb:83:4: [error] Type `::MatchData` does not have method `foo`
+      │ Diagnostic ID: Ruby::NoMethod
       │
       └   m.foo
-          ~~~~~
+            ~~~
     - |
-      a.rb:87:2: [error] NoMethodError: type=::MatchData, method=foo
+      a.rb:87:4: [error] Type `::MatchData` does not have method `foo`
+      │ Diagnostic ID: Ruby::NoMethod
       │
       └   m.foo
-          ~~~~~
+            ~~~
     - |
-      a.rb:91:0: [error] NoMethodError: type=bool, method=foo
+      a.rb:91:10: [error] Type `bool` does not have method `foo`
+      │ Diagnostic ID: Ruby::NoMethod
       │
       └ match_q_1.foo
-        ~~~~~~~~~~~~~
+                  ~~~
     - |
-      a.rb:94:0: [error] NoMethodError: type=bool, method=foo
+      a.rb:94:10: [error] Type `bool` does not have method `foo`
+      │ Diagnostic ID: Ruby::NoMethod
       │
       └ match_q_2.foo
-        ~~~~~~~~~~~~~
+                  ~~~
     - |
-      a.rb:97:0: [error] NoMethodError: type=::Hash[::String, ::Array[::Integer]], method=foo
+      a.rb:97:17: [error] Type `::Hash[::String, ::Array[::Integer]]` does not have method `foo`
+      │ Diagnostic ID: Ruby::NoMethod
       │
       └ named_captures_1.foo
-        ~~~~~~~~~~~~~~~~~~~~
+                         ~~~
     - |
-      a.rb:100:0: [error] NoMethodError: type=::Array[::String], method=foo
+      a.rb:100:8: [error] Type `::Array[::String]` does not have method `foo`
+      │ Diagnostic ID: Ruby::NoMethod
       │
       └ names_1.foo
-        ~~~~~~~~~~~
+                ~~~
     - |
-      a.rb:103:0: [error] NoMethodError: type=::Integer, method=foo
+      a.rb:103:10: [error] Type `::Integer` does not have method `foo`
+      │ Diagnostic ID: Ruby::NoMethod
       │
       └ options_1.foo
-        ~~~~~~~~~~~~~
+                  ~~~
     - |
-      a.rb:106:0: [error] NoMethodError: type=::String, method=foo
+      a.rb:106:9: [error] Type `::String` does not have method `foo`
+      │ Diagnostic ID: Ruby::NoMethod
       │
       └ source_1.foo
-        ~~~~~~~~~~~~
+                 ~~~
     - |
-      a.rb:109:0: [error] NoMethodError: type=(::Integer | nil), method=foo
+      a.rb:109:17: [error] Type `(::Integer | nil)` does not have method `foo`
+      │ Diagnostic ID: Ruby::NoMethod
       │
       └ op_unary_match_1.foo
-        ~~~~~~~~~~~~~~~~~~~~
+                         ~~~
   b.rb:
     diagnostics:
     - |
-      b.rb:3:2: [error] NoMethodError: type=(::String | nil), method=foo
+      b.rb:3:14: [error] Type `(::String | nil)` does not have method `foo`
+      │ Diagnostic ID: Ruby::NoMethod
       │
       └   match_ref_1.foo
-          ~~~~~~~~~~~~~~~
+                      ~~~
     - |
-      b.rb:6:2: [error] NoMethodError: type=(::String | nil), method=foo
+      b.rb:6:14: [error] Type `(::String | nil)` does not have method `foo`
+      │ Diagnostic ID: Ruby::NoMethod
       │
       └   match_ref_2.foo
-          ~~~~~~~~~~~~~~~
+                      ~~~
     - |
-      b.rb:9:2: [error] NoMethodError: type=(::String | nil), method=foo
+      b.rb:9:14: [error] Type `(::String | nil)` does not have method `foo`
+      │ Diagnostic ID: Ruby::NoMethod
       │
       └   match_ref_3.foo
-          ~~~~~~~~~~~~~~~
+                      ~~~
     - |
-      b.rb:12:2: [error] NoMethodError: type=::Array[(::String | nil)], method=foo
+      b.rb:12:14: [error] Type `::Array[(::String | nil)]` does not have method `foo`
+      │ Diagnostic ID: Ruby::NoMethod
       │
       └   match_ref_4.foo
-          ~~~~~~~~~~~~~~~
+                      ~~~
     - |
-      b.rb:15:2: [error] NoMethodError: type=::Array[(::String | nil)], method=foo
+      b.rb:15:14: [error] Type `::Array[(::String | nil)]` does not have method `foo`
+      │ Diagnostic ID: Ruby::NoMethod
       │
       └   match_ref_5.foo
-          ~~~~~~~~~~~~~~~
+                      ~~~
     - |
-      b.rb:18:2: [error] NoMethodError: type=(::Integer | nil), method=foo
+      b.rb:18:10: [error] Type `(::Integer | nil)` does not have method `foo`
+      │ Diagnostic ID: Ruby::NoMethod
       │
       └   begin_1.foo
-          ~~~~~~~~~~~
+                  ~~~
     - |
-      b.rb:21:2: [error] NoMethodError: type=(::Integer | nil), method=foo
+      b.rb:21:10: [error] Type `(::Integer | nil)` does not have method `foo`
+      │ Diagnostic ID: Ruby::NoMethod
       │
       └   begin_2.foo
-          ~~~~~~~~~~~
+                  ~~~
     - |
-      b.rb:24:2: [error] NoMethodError: type=(::Integer | nil), method=foo
+      b.rb:24:10: [error] Type `(::Integer | nil)` does not have method `foo`
+      │ Diagnostic ID: Ruby::NoMethod
       │
       └   begin_3.foo
-          ~~~~~~~~~~~
+                  ~~~
     - |
-      b.rb:27:2: [error] NoMethodError: type=::Array[(::String | nil)], method=foo
+      b.rb:27:13: [error] Type `::Array[(::String | nil)]` does not have method `foo`
+      │ Diagnostic ID: Ruby::NoMethod
       │
       └   captures_1.foo
-          ~~~~~~~~~~~~~~
+                     ~~~
     - |
-      b.rb:30:2: [error] NoMethodError: type=(::Integer | nil), method=foo
+      b.rb:30:8: [error] Type `(::Integer | nil)` does not have method `foo`
+      │ Diagnostic ID: Ruby::NoMethod
       │
       └   end_1.foo
-          ~~~~~~~~~
+                ~~~
     - |
-      b.rb:33:2: [error] NoMethodError: type=(::Integer | nil), method=foo
+      b.rb:33:8: [error] Type `(::Integer | nil)` does not have method `foo`
+      │ Diagnostic ID: Ruby::NoMethod
       │
       └   end_2.foo
-          ~~~~~~~~~
+                ~~~
     - |
-      b.rb:36:2: [error] NoMethodError: type=(::Integer | nil), method=foo
+      b.rb:36:8: [error] Type `(::Integer | nil)` does not have method `foo`
+      │ Diagnostic ID: Ruby::NoMethod
       │
       └   end_3.foo
-          ~~~~~~~~~
+                ~~~
     - |
-      b.rb:39:2: [error] NoMethodError: type=::Integer, method=foo
+      b.rb:39:11: [error] Type `::Integer` does not have method `foo`
+      │ Diagnostic ID: Ruby::NoMethod
       │
       └   length_1.foo
-          ~~~~~~~~~~~~
+                   ~~~
     - |
-      b.rb:42:2: [error] NoMethodError: type=::Hash[::String, (::String | nil)], method=foo
+      b.rb:42:19: [error] Type `::Hash[::String, (::String | nil)]` does not have method `foo`
+      │ Diagnostic ID: Ruby::NoMethod
       │
       └   named_captures_1.foo
-          ~~~~~~~~~~~~~~~~~~~~
+                           ~~~
     - |
-      b.rb:45:2: [error] NoMethodError: type=::Array[::String], method=foo
+      b.rb:45:10: [error] Type `::Array[::String]` does not have method `foo`
+      │ Diagnostic ID: Ruby::NoMethod
       │
       └   names_1.foo
-          ~~~~~~~~~~~
+                  ~~~
     - |
-      b.rb:48:2: [error] NoMethodError: type=([::Integer, ::Integer] | [nil, nil]), method=foo
+      b.rb:48:11: [error] Type `([::Integer, ::Integer] | [nil, nil])` does not have method `foo`
+      │ Diagnostic ID: Ruby::NoMethod
       │
       └   offset_1.foo
-          ~~~~~~~~~~~~
+                   ~~~
     - |
-      b.rb:51:2: [error] NoMethodError: type=([::Integer, ::Integer] | [nil, nil]), method=foo
+      b.rb:51:11: [error] Type `([::Integer, ::Integer] | [nil, nil])` does not have method `foo`
+      │ Diagnostic ID: Ruby::NoMethod
       │
       └   offset_2.foo
-          ~~~~~~~~~~~~
+                   ~~~
     - |
-      b.rb:54:2: [error] NoMethodError: type=([::Integer, ::Integer] | [nil, nil]), method=foo
+      b.rb:54:11: [error] Type `([::Integer, ::Integer] | [nil, nil])` does not have method `foo`
+      │ Diagnostic ID: Ruby::NoMethod
       │
       └   offset_3.foo
-          ~~~~~~~~~~~~
+                   ~~~
     - |
-      b.rb:57:2: [error] NoMethodError: type=::String, method=foo
+      b.rb:57:15: [error] Type `::String` does not have method `foo`
+      │ Diagnostic ID: Ruby::NoMethod
       │
       └   post_match_1.foo
-          ~~~~~~~~~~~~~~~~
+                       ~~~
     - |
-      b.rb:60:2: [error] NoMethodError: type=::String, method=foo
+      b.rb:60:14: [error] Type `::String` does not have method `foo`
+      │ Diagnostic ID: Ruby::NoMethod
       │
       └   pre_match_1.foo
-          ~~~~~~~~~~~~~~~
+                      ~~~
     - |
-      b.rb:63:2: [error] NoMethodError: type=::Regexp, method=foo
+      b.rb:63:11: [error] Type `::Regexp` does not have method `foo`
+      │ Diagnostic ID: Ruby::NoMethod
       │
       └   regexp_1.foo
-          ~~~~~~~~~~~~
+                   ~~~
     - |
-      b.rb:66:2: [error] NoMethodError: type=::Integer, method=foo
+      b.rb:66:9: [error] Type `::Integer` does not have method `foo`
+      │ Diagnostic ID: Ruby::NoMethod
       │
       └   size_1.foo
-          ~~~~~~~~~~
+                 ~~~
     - |
-      b.rb:69:2: [error] NoMethodError: type=::String, method=foo
+      b.rb:69:11: [error] Type `::String` does not have method `foo`
+      │ Diagnostic ID: Ruby::NoMethod
       │
       └   string_1.foo
-          ~~~~~~~~~~~~
+                   ~~~
     - |
-      b.rb:72:2: [error] NoMethodError: type=::Array[(::String | nil)], method=foo
+      b.rb:72:9: [error] Type `::Array[(::String | nil)]` does not have method `foo`
+      │ Diagnostic ID: Ruby::NoMethod
       │
       └   to_a_1.foo
-          ~~~~~~~~~~
+                 ~~~
     - |
-      b.rb:75:2: [error] NoMethodError: type=::Array[(::String | nil)], method=foo
+      b.rb:75:14: [error] Type `::Array[(::String | nil)]` does not have method `foo`
+      │ Diagnostic ID: Ruby::NoMethod
       │
       └   values_at_1.foo
-          ~~~~~~~~~~~~~~~
+                      ~~~
     - |
-      b.rb:78:2: [error] NoMethodError: type=::Array[(::String | nil)], method=foo
+      b.rb:78:14: [error] Type `::Array[(::String | nil)]` does not have method `foo`
+      │ Diagnostic ID: Ruby::NoMethod
       │
       └   values_at_2.foo
-          ~~~~~~~~~~~~~~~
+                      ~~~

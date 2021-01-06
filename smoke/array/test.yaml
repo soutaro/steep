@@ -3,63 +3,78 @@ test:
   a.rb:
     diagnostics:
     - |
-      a.rb:6:0: [error] UnresolvedOverloading: receiver=::Array[::Integer], method_name=[]=, method_types=(::int, ::Integer) -> ::Integer | (::int, ::int, ::Integer) -> ::Integer | (::int, ::int, ::Array[::Integer]) -> ::Array[::Integer] | (::int, ::int, nil) -> nil | (::Range[::Integer], ::Integer) -> ::Integer | (::Range[::Integer], ::Array[::Integer]) -> ::Array[::Integer] | (::Range[::Integer], nil) -> nil
+      a.rb:6:0: [error] Cannot find compatible overloading of method `[]=` of type `::Array[::Integer]`
+      │ Method types:
+      │   def []=: (::int, ::Integer) -> ::Integer
+      │          | (::int, ::int, ::Integer) -> ::Integer
+      │          | (::int, ::int, ::Array[::Integer]) -> ::Array[::Integer]
+      │          | (::int, ::int, nil) -> nil
+      │          | (::Range[::Integer], ::Integer) -> ::Integer
+      │          | (::Range[::Integer], ::Array[::Integer]) -> ::Array[::Integer]
+      │          | (::Range[::Integer], nil) -> nil
+      │
+      │ Diagnostic ID: Ruby::UnresolvedOverloading
       │
       └ a[2] = "foo"
         ~~~~~~~~~~~~
     - |
-      a.rb:12:0: [error] IncompatibleAssignment: lhs_type=::String, rhs_type=::Integer
+      a.rb:12:0: [error] Cannot assign a value of type `::Integer` to a variable of type `::String`
       │   ::Integer <: ::String
-      │    ::Numeric <: ::String
-      │     ::Object <: ::String
-      │      ::BasicObject <: ::String
-      │ ==> ::BasicObject <: ::String does not hold
+      │     ::Numeric <: ::String
+      │       ::Object <: ::String
+      │         ::BasicObject <: ::String
+      │
+      │ Diagnostic ID: Ruby::IncompatibleAssignment
       │
       └ s = a[1]
         ~~~~~~~~
     - |
-      a.rb:18:0: [error] IncompatibleAssignment: lhs_type=::Integer, rhs_type=::String
+      a.rb:18:0: [error] Cannot assign a value of type `::String` to a variable of type `::Integer`
       │   ::String <: ::Integer
-      │    ::Object <: ::Integer
-      │     ::BasicObject <: ::Integer
-      │ ==> ::BasicObject <: ::Integer does not hold
+      │     ::Object <: ::Integer
+      │       ::BasicObject <: ::Integer
+      │
+      │ Diagnostic ID: Ruby::IncompatibleAssignment
       │
       └ i = b[1]
         ~~~~~~~~
   b.rb:
     diagnostics:
     - |
-      b.rb:11:0: [error] IncompatibleAssignment: lhs_type=::Array[::String], rhs_type=::Array[::Integer]
+      b.rb:11:0: [error] Cannot assign a value of type `::Array[::Integer]` to a variable of type `::Array[::String]`
       │   ::Array[::Integer] <: ::Array[::String]
-      │    ::Integer <: ::String
-      │     ::Numeric <: ::String
-      │      ::Object <: ::String
-      │       ::BasicObject <: ::String
-      │ ==> ::BasicObject <: ::String does not hold
+      │     ::Integer <: ::String
+      │       ::Numeric <: ::String
+      │         ::Object <: ::String
+      │           ::BasicObject <: ::String
+      │
+      │ Diagnostic ID: Ruby::IncompatibleAssignment
       │
       └ b = a
         ~~~~~
     - |
-      b.rb:12:0: [error] IncompatibleAssignment: lhs_type=::Array[::Integer], rhs_type=::Array[::String]
+      b.rb:12:0: [error] Cannot assign a value of type `::Array[::String]` to a variable of type `::Array[::Integer]`
       │   ::Array[::String] <: ::Array[::Integer]
-      │    ::String <: ::Integer
-      │     ::Object <: ::Integer
-      │      ::BasicObject <: ::Integer
-      │ ==> ::BasicObject <: ::Integer does not hold
+      │     ::String <: ::Integer
+      │       ::Object <: ::Integer
+      │         ::BasicObject <: ::Integer
+      │
+      │ Diagnostic ID: Ruby::IncompatibleAssignment
       │
       └ a = b
         ~~~~~
   c.rb:
     diagnostics:
     - |
-      c.rb:6:0: [error] IncompatibleAssignment: lhs_type=::Array[(::String | nil)], rhs_type=::Array[::Integer]
+      c.rb:6:0: [error] Cannot assign a value of type `::Array[::Integer]` to a variable of type `::Array[(::String | nil)]`
       │   ::Array[::Integer] <: ::Array[(::String | nil)]
-      │    ::Integer <: (::String | nil)
-      │     ::Integer <: ::String
-      │      ::Numeric <: ::String
-      │       ::Object <: ::String
-      │        ::BasicObject <: ::String
-      │ ==> ::BasicObject <: ::String does not hold
+      │     ::Integer <: (::String | nil)
+      │       ::Integer <: ::String
+      │         ::Numeric <: ::String
+      │           ::Object <: ::String
+      │             ::BasicObject <: ::String
+      │
+      │ Diagnostic ID: Ruby::IncompatibleAssignment
       │
       └ x = [1]
         ~~~~~~~

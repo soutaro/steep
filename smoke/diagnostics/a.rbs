@@ -1,0 +1,26 @@
+class BlockBodyTypeMismatch
+  def foo: () { () -> Integer } -> void
+end
+
+class MethodDefinitionMissing
+  def foo: () -> void
+end
+
+class UnexpectedDynamicMethod
+  def bar: () -> void
+end
+
+class UnknownConstantAssigned
+end
+
+class UnsatisfiableConstraint
+  def foo: [A, B] (A) { (A) -> void } -> B
+end
+
+class UnexpectedKeyword
+  def foo: (foo: Integer) -> void
+end
+
+class MissingKeyword
+  def foo: (?String, foo: Integer, ?bar: Symbol) -> void
+end

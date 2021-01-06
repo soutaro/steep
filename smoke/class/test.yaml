@@ -3,26 +3,29 @@ test:
   a.rb:
     diagnostics:
     - |
-      a.rb:8:2: [error] MethodArityMismatch: method=bar
+      a.rb:8:9: [error] Method parameters are incompatible with declaration `() -> ::String`
+      │ Diagnostic ID: Ruby::MethodArityMismatch
       │
       └   def bar(y)
-          ~~~~~~~~~~
+                 ~~~
     - |
-      a.rb:13:2: [error] MethodBodyTypeMismatch: method=to_s, expected=::String, actual=::Integer
+      a.rb:13:2: [error] Cannot allow method body have type `::Integer` because declared as type `::String`
       │   ::Integer <: ::String
-      │    ::Numeric <: ::String
-      │     ::Object <: ::String
-      │      ::BasicObject <: ::String
-      │ ==> ::BasicObject <: ::String does not hold
+      │     ::Numeric <: ::String
+      │       ::Object <: ::String
+      │         ::BasicObject <: ::String
+      │
+      │ Diagnostic ID: Ruby::MethodBodyTypeMismatch
       │
       └   def to_s
           ~~~~~~~~
     - |
-      a.rb:22:2: [error] MethodBodyTypeMismatch: method=self.baz, expected=::Integer, actual=::String
+      a.rb:22:2: [error] Cannot allow method body have type `::String` because declared as type `::Integer`
       │   ::String <: ::Integer
-      │    ::Object <: ::Integer
-      │     ::BasicObject <: ::Integer
-      │ ==> ::BasicObject <: ::Integer does not hold
+      │     ::Object <: ::Integer
+      │       ::BasicObject <: ::Integer
+      │
+      │ Diagnostic ID: Ruby::MethodBodyTypeMismatch
       │
       └   def self.baz
           ~~~~~~~~~~~~
@@ -31,47 +34,56 @@ test:
   c.rb:
     diagnostics:
     - |
-      c.rb:1:0: [error] UnexpectedDynamicMethod: module=::B, method=type
+      c.rb:1:6: [error] @dynamic annotation contains unknown method name `type`
+      │ Diagnostic ID: Ruby::UnexpectedDynamicMethod
       │
       └ class B
-        ~~~~~~~
+              ~
   f.rb:
     diagnostics:
     - |
-      f.rb:9:0: [error] IncompatibleAssignment: lhs_type=::D, rhs_type=::_E
+      f.rb:9:0: [error] Cannot assign a value of type `::_E` to a variable of type `::D`
       │   ::_E <: ::D
-      │ ==> ::_E <: ::D does not hold
+      │
+      │ Diagnostic ID: Ruby::IncompatibleAssignment
       │
       └ d = e
         ~~~~~
   g.rb:
     diagnostics:
     - |
-      g.rb:1:0: [error] MethodDefinitionMissing: module=::B, method=name
+      g.rb:1:6: [error] Cannot find implementation of method `::B#name`
+      │ Diagnostic ID: Ruby::MethodDefinitionMissing
       │
       └ class B
-        ~~~~~~~
+              ~
     - |
-      g.rb:4:0: [error] MethodDefinitionMissing: module=::B, method=name
+      g.rb:4:6: [error] Cannot find implementation of method `::B#name`
+      │ Diagnostic ID: Ruby::MethodDefinitionMissing
       │
       └ class C
-        ~~~~~~~
+              ~
   h.rb:
     diagnostics: []
   i.rb:
     diagnostics:
     - |
-      i.rb:4:4: [error] IncompatibleAssignment: lhs_type=::Symbol, rhs_type=::Integer
+      i.rb:4:4: [error] Cannot assign a value of type `::Integer` to a variable of type `::Symbol`
       │   ::Integer <: ::Symbol
-      │    ::Numeric <: ::Symbol
-      │     ::Object <: ::Symbol
-      │      ::BasicObject <: ::Symbol
-      │ ==> ::BasicObject <: ::Symbol does not hold
+      │     ::Numeric <: ::Symbol
+      │       ::Object <: ::Symbol
+      │         ::BasicObject <: ::Symbol
+      │
+      │ Diagnostic ID: Ruby::IncompatibleAssignment
       │
       └     x = super()
             ~~~~~~~~~~~
     - |
-      i.rb:10:4: [error] IncompatibleArguments: receiver=::IncompatibleChild, method_type=(name: ::String) -> untyped
+      i.rb:10:4: [error] Cannot find method `initialize` of type `::IncompatibleChild` with compatible arity
+      │ Method types:
+      │   def initialize: (name: ::String) -> untyped
+      │
+      │ Diagnostic ID: Ruby::IncompatibleArguments
       │
       └     super()
             ~~~~~~~

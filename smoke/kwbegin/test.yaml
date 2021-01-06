@@ -3,11 +3,12 @@ test:
   a.rb:
     diagnostics:
     - |
-      a.rb:3:0: [error] IncompatibleAssignment: lhs_type=::Integer, rhs_type=::String
+      a.rb:3:0: [error] Cannot assign a value of type `::String` to a variable of type `::Integer`
       │   ::String <: ::Integer
-      │    ::Object <: ::Integer
-      │     ::BasicObject <: ::Integer
-      │ ==> ::BasicObject <: ::Integer does not hold
+      │     ::Object <: ::Integer
+      │       ::BasicObject <: ::Integer
+      │
+      │ Diagnostic ID: Ruby::IncompatibleAssignment
       │
       └ a = begin
         ~~~~~~~~~

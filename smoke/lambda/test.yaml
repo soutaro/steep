@@ -3,23 +3,26 @@ test:
   a.rb:
     diagnostics:
     - |
-      a.rb:3:0: [error] IncompatibleAssignment: lhs_type=::Integer, rhs_type=::String
+      a.rb:3:0: [error] Cannot assign a value of type `::String` to a variable of type `::Integer`
       │   ::String <: ::Integer
-      │    ::Object <: ::Integer
-      │     ::BasicObject <: ::Integer
-      │ ==> ::BasicObject <: ::Integer does not hold
+      │     ::Object <: ::Integer
+      │       ::BasicObject <: ::Integer
+      │
+      │ Diagnostic ID: Ruby::IncompatibleAssignment
       │
       └ a = -> (x, y) do
         ~~~~~~~~~~~~~~~~
     - |
-      a.rb:11:2: [error] NoMethodError: type=nil, method=+
+      a.rb:11:4: [error] Type `nil` does not have method `+`
+      │ Diagnostic ID: Ruby::NoMethod
       │
       └   x + 1
-          ~~~~~
+            ~
     - |
-      a.rb:10:0: [error] IncompatibleAssignment: lhs_type=^(::Integer) -> ::Integer, rhs_type=::Proc
+      a.rb:10:0: [error] Cannot assign a value of type `::Proc` to a variable of type `^(::Integer) -> ::Integer`
       │   ::Proc <: ^(::Integer) -> ::Integer
-      │ ==> ::Proc <: ^(::Integer) -> ::Integer does not hold
+      │
+      │ Diagnostic ID: Ruby::IncompatibleAssignment
       │
       └ b = lambda do |x|
         ~~~~~~~~~~~~~~~~~

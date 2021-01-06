@@ -3,14 +3,16 @@ test:
   hello.rb:
     diagnostics:
     - |
-      hello.rb:9:4: [error] NoMethodError: type=::_Bar, method=foo
+      hello.rb:9:6: [error] Type `::_Bar` does not have method `foo`
+      │ Diagnostic ID: Ruby::NoMethod
       │
       └ b = y.foo
-            ~~~~~
+              ~~~
     - |
-      hello.rb:11:0: [error] IncompatibleAssignment: lhs_type=::_Foo, rhs_type=::_Bar
+      hello.rb:11:0: [error] Cannot assign a value of type `::_Bar` to a variable of type `::_Foo`
       │   ::_Bar <: ::_Foo
-      │ ==> Method foo is missing
+      │
+      │ Diagnostic ID: Ruby::IncompatibleAssignment
       │
       └ x = y
         ~~~~~

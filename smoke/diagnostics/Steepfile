@@ -1,0 +1,5 @@
+target :test do
+  typing_options :strict
+  check "*.rb"
+  signature "*.rbs"
+end

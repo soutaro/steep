@@ -3,59 +3,71 @@ test:
   a.rb:
     diagnostics:
     - |
-      a.rb:4:0: [error] UnresolvedOverloading: receiver=(::String | ::Integer), method_name=+, method_types=((::string & ::Integer)) -> (::String | ::Integer) | ((::string & ::Float)) -> (::String | ::Float) | ((::string & ::Rational)) -> (::String | ::Rational) | ((::string & ::Complex)) -> (::String | ::Complex)
+      a.rb:4:0: [error] Cannot find compatible overloading of method `+` of type `(::String | ::Integer)`
+      │ Method types:
+      │   def +: ((::string & ::Integer)) -> (::String | ::Integer)
+      │        | ((::string & ::Float)) -> (::String | ::Float)
+      │        | ((::string & ::Rational)) -> (::String | ::Rational)
+      │        | ((::string & ::Complex)) -> (::String | ::Complex)
+      │
+      │ Diagnostic ID: Ruby::UnresolvedOverloading
       │
       └ x + 123
         ~~~~~~~
     - |
-      a.rb:13:2: [error] IncompatibleAssignment: lhs_type=::Symbol, rhs_type=::String
+      a.rb:13:2: [error] Cannot assign a value of type `::String` to a variable of type `::Symbol`
       │   ::String <: ::Symbol
-      │    ::Object <: ::Symbol
-      │     ::BasicObject <: ::Symbol
-      │ ==> ::BasicObject <: ::Symbol does not hold
+      │     ::Object <: ::Symbol
+      │       ::BasicObject <: ::Symbol
+      │
+      │ Diagnostic ID: Ruby::IncompatibleAssignment
       │
       └   z = x
           ~~~~~
     - |
-      a.rb:15:2: [error] IncompatibleAssignment: lhs_type=::Symbol, rhs_type=::Integer
+      a.rb:15:2: [error] Cannot assign a value of type `::Integer` to a variable of type `::Symbol`
       │   ::Integer <: ::Symbol
-      │    ::Numeric <: ::Symbol
-      │     ::Object <: ::Symbol
-      │      ::BasicObject <: ::Symbol
-      │ ==> ::BasicObject <: ::Symbol does not hold
+      │     ::Numeric <: ::Symbol
+      │       ::Object <: ::Symbol
+      │         ::BasicObject <: ::Symbol
+      │
+      │ Diagnostic ID: Ruby::IncompatibleAssignment
       │
       └   z = x
           ~~~~~
   b.rb:
     diagnostics:
     - |
-      b.rb:6:0: [error] IncompatibleAssignment: lhs_type=::Integer, rhs_type=::String
+      b.rb:6:0: [error] Cannot assign a value of type `::String` to a variable of type `::Integer`
       │   ::String <: ::Integer
-      │    ::Object <: ::Integer
-      │     ::BasicObject <: ::Integer
-      │ ==> ::BasicObject <: ::Integer does not hold
+      │     ::Object <: ::Integer
+      │       ::BasicObject <: ::Integer
+      │
+      │ Diagnostic ID: Ruby::IncompatibleAssignment
       │
       └ x = a[0]
         ~~~~~~~~
   c.rb:
     diagnostics:
     - |
-      c.rb:3:0: [error] IncompatibleAssignment: lhs_type=::String, rhs_type=::Integer
+      c.rb:3:0: [error] Cannot assign a value of type `::Integer` to a variable of type `::String`
       │   ::Integer <: ::String
-      │    ::Numeric <: ::String
-      │     ::Object <: ::String
-      │      ::BasicObject <: ::String
-      │ ==> ::BasicObject <: ::String does not hold
+      │     ::Numeric <: ::String
+      │       ::Object <: ::String
+      │         ::BasicObject <: ::String
+      │
+      │ Diagnostic ID: Ruby::IncompatibleAssignment
       │
       └ x = AliasMethodArg.new.foo(:foo)
         ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     - |
-      c.rb:8:0: [error] IncompatibleAssignment: lhs_type=::String, rhs_type=::Integer
+      c.rb:8:0: [error] Cannot assign a value of type `::Integer` to a variable of type `::String`
       │   ::Integer <: ::String
-      │    ::Numeric <: ::String
-      │     ::Object <: ::String
-      │      ::BasicObject <: ::String
-      │ ==> ::BasicObject <: ::String does not hold
+      │     ::Numeric <: ::String
+      │       ::Object <: ::String
+      │         ::BasicObject <: ::String
+      │
+      │ Diagnostic ID: Ruby::IncompatibleAssignment
       │
       └ x = AliasMethodArg.new.foo(name)
         ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~

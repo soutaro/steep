@@ -3,9 +3,10 @@ test:
   a.rb:
     diagnostics:
     - |
-      a.rb:1:0: [error] MethodBodyTypeMismatch: method=fizz_buzz, expected=::String, actual=nil
+      a.rb:1:0: [error] Cannot allow method body have type `nil` because declared as type `::String`
       │   nil <: ::String
-      │ ==> nil <: ::String does not hold
+      │
+      │ Diagnostic ID: Ruby::MethodBodyTypeMismatch
       │
       └ def fizz_buzz(n)
         ~~~~~~~~~~~~~~~~

@@ -55,9 +55,17 @@ module Steep
 
         stdout.puts "#{location(diagnostic)}: [#{severity_message(diagnostic[:severity])}] #{Rainbow(header).underline}"
 
-        rest.each do |message|
-          stdout.puts "│ #{message}"
+        unless rest.empty?
+          rest.each do |message|
+            stdout.puts "│ #{message}"
+          end
         end
+
+        if diagnostic[:code]
+          stdout.puts "│" unless rest.empty?
+          stdout.puts "│ Diagnostic ID: #{diagnostic[:code]}"
+        end
+
         stdout.puts "│"
 
         print_source_line(diagnostic)
