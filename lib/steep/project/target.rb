@@ -137,6 +137,27 @@ module Steep
         @environment ||= RBS::Environment.from_loader(Target.construct_env_loader(options: options))
       end
 
+      def parse_signatures(timestamp:)
+        updated_signature_files = []
+
+        signature_files.each_value do |file|
+          if !timestamp || file.content_updated_at >= timestamp
+            Steep.logger.debug { "Loading #{file.path}..."}
+            updated_signature_files << file
+            file.load!()
+          end
+        end
+
+        decl_sigs, error_sigs = signature_files.each_value.partition {|file| file.status.is_a?(SignatureFile::DeclarationsStatus) }
+
+        if error_sigs.empty?
+          yield updated_signature_files
+        else
+          errors = error_sigs.map {|file| file.status.error }
+          @status = SignatureSyntaxErrorStatus.new(errors: errors, timestamp: Time.now)
+        end
+      end
+
       def load_signatures(validate:)
         timestamp = case status
                     when TypeCheckStatus
@@ -144,17 +165,8 @@ module Steep
                     end
         now = Time.now
 
-        updated_files = []
-
-        signature_files.each_value do |file|
-          if !timestamp || file.content_updated_at >= timestamp
-            updated_files << file
-            file.load!()
-          end
-        end
-
-        if signature_files.each_value.all? {|file| file.status.is_a?(SignatureFile::DeclarationsStatus) }
-          if status.is_a?(TypeCheckStatus) && updated_files.empty?
+        parse_signatures(timestamp: timestamp) do |updated_signature_files|
+          if status.is_a?(TypeCheckStatus) && updated_signature_files.empty?
             yield status.environment, status.subtyping, status.timestamp
           else
             begin
@@ -199,24 +211,12 @@ module Steep
                 ],
                 timestamp: now
               )
-            rescue => exn
-              Steep.log_error exn
-              @status = SignatureOtherErrorStatus.new(error: exn, timestamp: now)
             end
           end
-
-        else
-          errors = signature_files.each_value.with_object([]) do |file, errors|
-            if file.status.is_a?(SignatureFile::ParseErrorStatus)
-              errors << file.status.error
-            end
-          end
-
-          @status = SignatureSyntaxErrorStatus.new(
-            errors: errors,
-            timestamp: Time.now
-          )
         end
+      rescue => exn
+        Steep.log_error exn
+        @status = SignatureOtherErrorStatus.new(error: exn, timestamp: now)
       end
 
       def run_type_check(env, check, timestamp, target_sources: source_files.values)

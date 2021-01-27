@@ -265,5 +265,25 @@ end
         assert_equal "lib/foo.rb:3:5...3:18", file.status.location.to_s
       end
     end
+
+    def test_signature_other_error
+      target = Project::Target.new(
+        name: :foo,
+        options: Project::Options.new,
+        source_patterns: ["lib"],
+        ignore_patterns: [],
+        signature_patterns: ["sig"]
+      )
+
+      target.add_signature Pathname("lib/foo.rbs"), <<-EOF.force_encoding(Encoding::UTF_32)
+class Foo
+end
+      EOF
+
+      target.type_check
+
+      assert_equal Project::Target::SignatureOtherErrorStatus, target.status.class
+
+    end
   end
 end
