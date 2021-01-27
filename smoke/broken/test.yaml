@@ -1,0 +1,6 @@
+---
+test:
+  broken.rbs:
+    diagnostics: []
+  broken.rb:
+    diagnostics: []
