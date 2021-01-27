@@ -15,6 +15,7 @@ module Steep
         @reader = reader
         @writer = writer
         @skip_job = false
+        @shutdown = false
       end
 
       def skip_jobs_after_shutdown!(flag = true)
@@ -50,7 +51,20 @@ module Steep
                 if skip_job?
                   Steep.logger.info "Skipping job..."
                 else
-                  handle_job(job)
+                  begin
+                    handle_job(job)
+                  rescue => exn
+                    Steep.log_error exn
+                    writer.write(
+                      {
+                        method: "window/showMessage",
+                        params: {
+                          type: LSP::Constant::MessageType::ERROR,
+                          message: "Unexpected error: #{exn.message} (#{exn.class})"
+                        }
+                      }
+                    )
+                  end
                 end
               end
             end
