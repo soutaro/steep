@@ -280,10 +280,9 @@ class Foo
 end
       EOF
 
-      target.type_check
-
-      assert_equal Project::Target::SignatureOtherErrorStatus, target.status.class
-
+      assert_raises ArgumentError do
+        target.type_check
+      end
     end
   end
 end

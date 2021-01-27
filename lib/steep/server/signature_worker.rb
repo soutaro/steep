@@ -122,9 +122,6 @@ module Steep
                         target.signature_files.each_key.with_object({}) do |path, hash|
                           hash[path] = []
                         end
-                      when Project::Target::SignatureOtherErrorStatus
-                        Steep.log_error status.error
-                        {}
                       else
                         Steep.logger.info "Unexpected target status: #{status.class}"
                         {}

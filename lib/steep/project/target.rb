@@ -15,7 +15,6 @@ module Steep
 
       SignatureSyntaxErrorStatus = Struct.new(:timestamp, :errors, keyword_init: true)
       SignatureValidationErrorStatus = Struct.new(:timestamp, :errors, keyword_init: true)
-      SignatureOtherErrorStatus = Struct.new(:timestamp, :error, keyword_init: true)
       TypeCheckStatus = Struct.new(:environment, :subtyping, :type_check_sources, :timestamp, keyword_init: true)
 
       def initialize(name:, options:, source_patterns:, ignore_patterns:, signature_patterns:)
@@ -214,9 +213,6 @@ module Steep
             end
           end
         end
-      rescue => exn
-        Steep.log_error exn
-        @status = SignatureOtherErrorStatus.new(error: exn, timestamp: now)
       end
 
       def run_type_check(env, check, timestamp, target_sources: source_files.values)
