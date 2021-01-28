@@ -1,0 +1,10 @@
+---
+test:
+  a.rbs:
+    diagnostics:
+    - |
+      a.rbs:4:0: [error] Declaration of `::A` is duplicated
+      │ Diagnostic ID: Ruby::DuplicatedDeclarationError
+      │
+      └ module A
+        ~~~~~~~~
