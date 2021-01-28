@@ -165,6 +165,19 @@ module Steep
           io.puts "RecursiveAncestorError: #{names}"
         end
       end
+
+      class SuperclassMismatchError < Base
+        attr_reader :name
+
+        def initialize(name:, location:)
+          super(location: location)
+          @name = name
+        end
+
+        def puts(io)
+          io.puts "SuperclassMismatchError: #{name}"
+        end
+      end
     end
   end
 end

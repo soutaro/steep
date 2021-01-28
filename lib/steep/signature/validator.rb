@@ -178,6 +178,11 @@ module Steep
           ancestors: exn.ancestors,
           location: exn.location
         )
+      rescue RBS::SuperclassMismatchError => exn
+        @errors << Diagnostic::Signature::SuperclassMismatchError.new(
+          name: exn.name,
+          location: exn.entry.primary.decl.location
+        )
       end
     end
   end
