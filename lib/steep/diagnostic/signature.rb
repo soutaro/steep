@@ -191,6 +191,21 @@ module Steep
           io.puts "GenericParameterMismatchError: #{name}"
         end
       end
+
+      class InvalidVarianceAnnotationError < Base
+        attr_reader :name
+        attr_reader :param
+
+        def initialize(name:, param:, location:)
+          super(location: location)
+          @name = name
+          @param = param
+        end
+
+        def puts(io)
+          io.puts "InvalidVarianceAnnotationError: name=#{name}, param=#{param.name}"
+        end
+      end
     end
   end
 end

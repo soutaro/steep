@@ -1,0 +1,3 @@
+class InvalidVarianceAnnotationError[out A]
+  def foo: (A) -> void
+end

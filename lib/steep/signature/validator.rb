@@ -188,6 +188,12 @@ module Steep
           name: exn.name,
           location: exn.decl.location
         )
+      rescue RBS::InvalidVarianceAnnotationError => exn
+        @errors << Diagnostic::Signature::InvalidVarianceAnnotationError.new(
+          name: exn.type_name,
+          param: exn.param,
+          location: exn.location
+        )
       end
     end
   end
