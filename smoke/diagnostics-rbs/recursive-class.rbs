@@ -1,0 +1,8 @@
+class Foo < Bar
+end
+
+class Bar < Baz
+end
+
+class Baz < Foo
+end

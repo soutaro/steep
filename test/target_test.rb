@@ -168,18 +168,28 @@ Foo = 1
         signature_patterns: ["sig"]
       )
 
-      target.add_source "lib/foo.rb", <<-EOF
-class Foo
-end
-      EOF
-
       target.add_signature "sig/foo.rbs", <<-EOF
 class Foo
       EOF
 
+      target.add_signature "sig/bar.rbs", <<-EOF
+interface _Bar
+  def self.foo: () -> void
+end
+      EOF
+
       target.type_check
 
-      assert_equal Project::Target::SignatureSyntaxErrorStatus, target.status.class
+      assert_equal Project::Target::SignatureErrorStatus, target.status.class
+
+      assert_any!(target.status.errors, size: 2) do |error|
+        assert_instance_of RBS::Parser::SemanticsError, error.exception
+        assert_equal "def self.foo: () -> void", error.location.source
+      end
+
+      assert_any!(target.status.errors, size: 2) do |error|
+        assert_instance_of RBS::Parser::SyntaxError, error.exception
+      end
     end
 
     def test_signature_validation_error
@@ -203,7 +213,7 @@ end
 
       target.type_check
 
-      assert_equal Project::Target::SignatureValidationErrorStatus, target.status.class
+      assert_equal Project::Target::SignatureErrorStatus, target.status.class
     end
 
     def test_signature_mixed_module_class_error
@@ -225,10 +235,10 @@ end
 
       target.type_check
 
-      assert_equal Project::Target::SignatureValidationErrorStatus, target.status.class
+      assert_equal Project::Target::SignatureErrorStatus, target.status.class
 
       assert_any! target.status.errors do |error|
-        assert_instance_of Diagnostic::Signature::DuplicatedDeclarationError, error
+        assert_instance_of Diagnostic::Signature::DuplicatedDeclaration, error
         assert_equal TypeName("::Foo"), error.type_name
       end
     end
@@ -263,6 +273,93 @@ end
       target.source_files[Pathname("lib/foo.rb")].tap do |file|
         assert_equal Project::SourceFile::AnnotationSyntaxErrorStatus, file.status.class
         assert_equal "lib/foo.rb:3:5...3:18", file.status.location.to_s
+      end
+    end
+
+    def test_signature_other_error
+      target = Project::Target.new(
+        name: :foo,
+        options: Project::Options.new,
+        source_patterns: ["lib"],
+        ignore_patterns: [],
+        signature_patterns: ["sig"]
+      )
+
+      target.add_signature Pathname("lib/foo.rbs"), <<-EOF.force_encoding(Encoding::UTF_32)
+class Foo
+end
+      EOF
+
+      assert_raises ArgumentError do
+        target.type_check
+      end
+    end
+
+    def test_signature_error_duplicated_decl
+      target = Project::Target.new(
+        name: :foo,
+        options: Project::Options.new,
+        source_patterns: ["lib"],
+        ignore_patterns: [],
+        signature_patterns: ["sig"]
+      )
+
+      target.add_signature Pathname("lib/foo.rbs"), <<-EOF
+class Foo
+end
+
+Foo: Integer
+      EOF
+
+      target.add_signature Pathname("lib/bar.rbs"), <<-EOF
+module Bar
+end
+
+Bar: Integer
+      EOF
+
+      target.type_check
+
+      assert_equal Project::Target::SignatureErrorStatus, target.status.class
+
+      assert_any!(target.status.errors, size: 2) do |error|
+        assert_instance_of Diagnostic::Signature::DuplicatedDeclaration, error
+        assert_equal "Foo: Integer", error.location.source
+      end
+
+      assert_any!(target.status.errors, size: 2) do |error|
+        assert_instance_of Diagnostic::Signature::DuplicatedDeclaration, error
+        assert_equal "Bar: Integer", error.location.source
+      end
+    end
+
+    def test_signature_error_recursive_super
+      target = Project::Target.new(
+        name: :foo,
+        options: Project::Options.new,
+        source_patterns: ["lib"],
+        ignore_patterns: [],
+        signature_patterns: ["sig"]
+      )
+
+      target.add_signature Pathname("lib/foo.rbs"), <<-EOF
+class Foo < Bar
+end
+
+class Bar < Foo
+end
+      EOF
+
+      target.type_check
+
+      assert_equal Project::Target::SignatureErrorStatus, target.status.class
+      assert_any!(target.status.errors, size: 2) do |error|
+        assert_instance_of Diagnostic::Signature::RecursiveAncestor, error
+        assert_equal "class Foo < Bar\nend", error.location.source
+      end
+      assert_any!(target.status.errors, size: 2) do |error|
+        assert_instance_of Diagnostic::Signature::RecursiveAncestor, error
+        assert_equal "class Bar < Foo\nend", error.location.source
       end
     end
   end

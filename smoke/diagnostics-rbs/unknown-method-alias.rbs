@@ -1,0 +1,3 @@
+class UnknownMethodAlias
+  alias foo bar
+end

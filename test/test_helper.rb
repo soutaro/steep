@@ -51,7 +51,7 @@ module TestHelper
     end
 
     if count == 0
-      raise Minitest::Assertion.new("Assertion should hold one of the collection members: #{collection.to_a.join(', ')}")
+      raise Minitest::Assertion.new("Assertion should hold one of the collection members: [#{collection.map(&:inspect).join(', ')}]")
     end
   end
 
@@ -59,7 +59,9 @@ module TestHelper
     assert collection.all?(&block)
   end
 
-  def assert_all!(collection)
+  def assert_all!(collection, size: nil)
+    assert_equal size, collection.count if size
+
     collection.each do |c|
       yield c
     end

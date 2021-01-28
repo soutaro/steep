@@ -2,19 +2,14 @@ module Steep
   module Diagnostic
     module Ruby
       class Base
+        include Helper
+
         attr_reader :node
         attr_reader :location
 
         def initialize(node:, location: node.location.expression)
           @node = node
           @location = location
-        end
-
-        def location_to_str
-          file = Rainbow(location.source_buffer.name).cyan
-          line = Rainbow(location.first_line).bright
-          column = Rainbow(location.column).bright
-          "#{file}:#{line}:#{column}"
         end
 
         def header_line
@@ -25,24 +20,8 @@ module Steep
           nil
         end
 
-        def error_name
-          self.class.name.split(/::/).last
-        end
-
-        def full_message
-          if detail = detail_lines
-            "#{header_line}\n#{detail}"
-          else
-            "#{header_line}"
-          end
-        end
-
         def diagnostic_code
           "Ruby::#{error_name}"
-        end
-
-        def to_s
-          "#{location_to_str}: #{header_line}"
         end
       end
 

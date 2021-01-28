@@ -1,0 +1,7 @@
+class InvalidTypeApplication
+  type foo = Integer[3]
+
+  type bar = Array[1, 2]
+
+  type baz = Hash
+end

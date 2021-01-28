@@ -5,8 +5,6 @@ module Steep
       attr_reader :content
       attr_reader :content_updated_at
 
-      attr_reader :status
-
       ParseErrorStatus = Struct.new(:error, :timestamp, keyword_init: true)
       DeclarationsStatus = Struct.new(:declarations, :timestamp, keyword_init: true)
 
@@ -19,6 +17,14 @@ module Steep
         @content_updated_at = Time.now
         @content = content
         @status = nil
+      end
+
+      def status
+        unless @status
+          @status = DeclarationsStatus.new(declarations: [], timestamp: Time.now)
+        end
+
+        @status
       end
 
       def load!

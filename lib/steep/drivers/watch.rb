@@ -8,6 +8,8 @@ module Steep
 
       include Utils::DriverHelper
 
+      LSP = LanguageServer::Protocol
+
       def initialize(stdout:, stderr:)
         @dirs = []
         @stdout = stdout
@@ -116,6 +118,12 @@ module Steep
                 diagnostics.each do |diagnostic|
                   printer.print(diagnostic)
                 end
+              end
+            when "window/showMessage"
+              # Assuming ERROR message means unrecoverable error.
+              message = response[:params]
+              if message[:type] == LSP::Constant::MessageType::ERROR
+                stdout.puts "Unexpected error reported... 🚨"
               end
             end
           end

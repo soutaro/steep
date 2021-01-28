@@ -18,7 +18,7 @@ A: ::Array
 
       assert_operator validator, :has_error?
       assert_any validator.each_error do |error|
-        error.is_a?(Diagnostic::Signature::InvalidTypeApplicationError) &&
+        error.is_a?(Diagnostic::Signature::InvalidTypeApplication) &&
           error.name == parse_type("::Array").name &&
           error.args == [] &&
           error.params == [:A]
@@ -34,7 +34,7 @@ A: ::No::Such::Type
 
       assert_operator validator, :has_error?
       assert_any validator.each_error do |error|
-        error.is_a?(Diagnostic::Signature::UnknownTypeNameError) &&
+        error.is_a?(Diagnostic::Signature::UnknownTypeName) &&
           error.name == parse_type("::No::Such::Type").name
       end
     end
@@ -50,7 +50,7 @@ $A: Array
 
       assert_operator validator, :has_error?
       assert_any validator.each_error do |error|
-        error.is_a?(Diagnostic::Signature::InvalidTypeApplicationError) &&
+        error.is_a?(Diagnostic::Signature::InvalidTypeApplication) &&
           error.name == parse_type("::Array").name &&
           error.args == [] &&
           error.params == [:A]
@@ -66,7 +66,7 @@ $A: ::No::Such::Type
 
       assert_operator validator, :has_error?
       assert_any validator.each_error do |error|
-        error.is_a?(Diagnostic::Signature::UnknownTypeNameError) &&
+        error.is_a?(Diagnostic::Signature::UnknownTypeName) &&
           error.name == parse_type("::No::Such::Type").name
       end
     end
@@ -82,7 +82,7 @@ type a = Array
 
       assert_operator validator, :has_error?
       assert_any validator.each_error do |error|
-        error.is_a?(Diagnostic::Signature::InvalidTypeApplicationError) &&
+        error.is_a?(Diagnostic::Signature::InvalidTypeApplication) &&
           error.name == parse_type("::Array").name &&
           error.args == [] &&
           error.params == [:A]
@@ -98,7 +98,7 @@ type a = X::Y::Z
 
       assert_operator validator, :has_error?
       assert_any validator.each_error do |error|
-        error.is_a?(Diagnostic::Signature::UnknownTypeNameError) &&
+        error.is_a?(Diagnostic::Signature::UnknownTypeName) &&
           error.name == parse_type("::X::Y::Z").name
       end
     end
@@ -116,7 +116,7 @@ end
 
       assert_operator validator, :has_error?
       assert_any validator.each_error do |error|
-        error.is_a?(Diagnostic::Signature::InvalidTypeApplicationError) &&
+        error.is_a?(Diagnostic::Signature::InvalidTypeApplication) &&
           error.name == parse_type("::Array").name &&
           error.args == [parse_type("A", variables: [:A]), parse_type("::Integer")] &&
           error.params == [:A]
@@ -134,7 +134,7 @@ end
 
       assert_predicate validator, :has_error?
       assert_any! validator.each_error.to_a, size: 1 do |error|
-        assert_instance_of Diagnostic::Signature::UnknownTypeNameError, error
+        assert_instance_of Diagnostic::Signature::UnknownTypeName, error
         assert_equal TypeName("Arraay"), error.name
       end
     end
@@ -152,7 +152,7 @@ end
 
       assert_operator validator, :has_error?
       assert_any! validator.each_error do |error|
-        assert_instance_of Diagnostic::Signature::InvalidTypeApplicationError, error
+        assert_instance_of Diagnostic::Signature::InvalidTypeApplication, error
         assert_equal parse_type("::Array").name, error.name
         assert_empty error.args
         assert_equal [:A], error.params
@@ -171,7 +171,7 @@ end
       assert_operator validator, :has_error?
 
       assert_any validator.each_error do |error|
-        error.is_a?(Diagnostic::Signature::UnknownTypeNameError) &&
+        error.is_a?(Diagnostic::Signature::UnknownTypeName) &&
           error.name == parse_type("Arryay").name
       end
     end
@@ -199,7 +199,7 @@ end
 
       assert_operator validator, :has_error?
       assert_any! validator.each_error do |error|
-        assert_instance_of Diagnostic::Signature::UnknownTypeNameError, error
+        assert_instance_of Diagnostic::Signature::UnknownTypeName, error
         assert_equal parse_type("Bar").name, error.name
       end
     end
@@ -217,7 +217,7 @@ end
 
       assert_operator validator, :has_error?
       assert_any! validator.each_error do |error|
-        assert_instance_of Diagnostic::Signature::UnknownTypeNameError, error
+        assert_instance_of Diagnostic::Signature::UnknownTypeName, error
         assert_equal parse_type("Bar").name, error.name
       end
     end
@@ -234,7 +234,7 @@ end
 
       assert_operator validator, :has_error?
       assert_any! validator.each_error do |error|
-        assert_instance_of Diagnostic::Signature::UnknownTypeNameError, error
+        assert_instance_of Diagnostic::Signature::UnknownTypeName, error
         assert_equal parse_type("::Foo").name, error.name
       end
     end
@@ -248,7 +248,7 @@ type Foo::bar = Integer
 
       assert_operator validator, :has_error?
       assert_any! validator.each_error do |error|
-        assert_instance_of Diagnostic::Signature::UnknownTypeNameError, error
+        assert_instance_of Diagnostic::Signature::UnknownTypeName, error
         assert_equal parse_type("::Foo").name, error.name
       end
     end
@@ -262,7 +262,7 @@ Foo::Bar: Integer
 
       assert_operator validator, :has_error?
       assert_any! validator.each_error do |error|
-        assert_instance_of Diagnostic::Signature::UnknownTypeNameError, error
+        assert_instance_of Diagnostic::Signature::UnknownTypeName, error
         assert_equal parse_type("::Foo").name, error.name
       end
     end
@@ -280,9 +280,9 @@ end
 
       assert_operator validator, :has_error?
       assert_any! validator.each_error do |error|
-        assert_instance_of Diagnostic::Signature::UnknownMethodAliasError, error
+        assert_instance_of Diagnostic::Signature::UnknownMethodAlias, error
         assert_equal TypeName("::_Hello"), error.class_name
-        assert_equal :foo, error.method_name
+        assert_equal :bar, error.method_name
         assert_equal "alias foo bar", error.location.source
       end
     end
@@ -302,7 +302,7 @@ end
 
       assert_operator validator, :has_error?
       assert_any! validator.each_error do |error|
-        assert_instance_of Diagnostic::Signature::DuplicatedMethodDefinitionError, error
+        assert_instance_of Diagnostic::Signature::DuplicatedMethodDefinition, error
         assert_equal TypeName("::Foo"), error.class_name
         assert_equal :foo, error.method_name
       end
@@ -330,7 +330,7 @@ end
 
       assert_operator validator, :has_error?
       assert_any! validator.each_error do |error|
-        assert_instance_of Diagnostic::Signature::DuplicatedMethodDefinitionError, error
+        assert_instance_of Diagnostic::Signature::DuplicatedMethodDefinition, error
         assert_equal TypeName("::Foo"), error.class_name
         assert_equal :foo, error.method_name
       end
@@ -350,7 +350,7 @@ end
 
       assert_operator validator, :has_error?
       assert_any! validator.each_error do |error|
-        assert_instance_of Diagnostic::Signature::RecursiveAliasError, error
+        assert_instance_of Diagnostic::Signature::RecursiveAlias, error
         assert_equal TypeName("::Foo"), error.class_name
         assert_equal Set[:foo, :bar], Set.new(error.names)
       end

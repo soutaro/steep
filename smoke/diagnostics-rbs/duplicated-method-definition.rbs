@@ -1,0 +1,20 @@
+class DuplicatedMethodDefinitionError
+  def foo: () -> void
+  def foo: () -> Integer
+
+  interface _Hello
+    def f: () -> void
+
+    def f: () -> void
+  end
+
+  interface _A
+    def g: () -> void
+  end
+
+  class A
+    include _A
+
+    def g: () -> String
+  end
+end

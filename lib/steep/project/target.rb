@@ -13,9 +13,7 @@ module Steep
 
       attr_reader :status
 
-      SignatureSyntaxErrorStatus = Struct.new(:timestamp, :errors, keyword_init: true)
-      SignatureValidationErrorStatus = Struct.new(:timestamp, :errors, keyword_init: true)
-      SignatureOtherErrorStatus = Struct.new(:timestamp, :error, keyword_init: true)
+      SignatureErrorStatus = Struct.new(:timestamp, :errors, keyword_init: true)
       TypeCheckStatus = Struct.new(:environment, :subtyping, :type_check_sources, :timestamp, keyword_init: true)
 
       def initialize(name:, options:, source_patterns:, ignore_patterns:, signature_patterns:)
@@ -137,6 +135,65 @@ module Steep
         @environment ||= RBS::Environment.from_loader(Target.construct_env_loader(options: options))
       end
 
+      def parse_signatures(timestamp:)
+        updated_signature_files = []
+
+        signature_files.each_value do |file|
+          if !timestamp || file.content_updated_at >= timestamp
+            Steep.logger.debug { "Loading #{file.path}..."}
+            updated_signature_files << file
+            file.load!()
+          end
+        end
+
+        error_sigs = signature_files.each_value.reject {|file| file.status.is_a?(SignatureFile::DeclarationsStatus) }
+
+        if error_sigs.empty?
+          yield updated_signature_files
+        else
+          errors = error_sigs.map do |file|
+            case error = file.status.error
+            when RBS::Parser::SemanticsError
+              Diagnostic::Signature::SyntaxError.new(error, location: error.location)
+            when RBS::Parser::SyntaxError
+              Diagnostic::Signature::SyntaxError.new(error, location: error.error_value.location)
+            end
+          end
+
+          @status = SignatureErrorStatus.new(
+            errors: errors,
+            timestamp: Time.now
+          )
+        end
+      end
+
+      def load_decls(now:)
+        errors = []
+        env = environment.dup
+
+        signature_files.each_value do |file|
+          raise unless file.status.is_a?(SignatureFile::DeclarationsStatus)
+
+          file.status.declarations.each do |decl|
+            env << decl
+          rescue RBS::DuplicatedDeclarationError => exn
+            errors << Diagnostic::Signature::DuplicatedDeclaration.new(
+              type_name: exn.name,
+              location: exn.decls[0].location
+            )
+          end
+        end
+
+        if errors.empty?
+          yield env.resolve_type_names
+        else
+          @status = SignatureErrorStatus.new(
+            errors: errors,
+            timestamp: now
+          )
+        end
+      end
+
       def load_signatures(validate:)
         timestamp = case status
                     when TypeCheckStatus
@@ -144,32 +201,11 @@ module Steep
                     end
         now = Time.now
 
-        updated_files = []
-
-        signature_files.each_value do |file|
-          if !timestamp || file.content_updated_at >= timestamp
-            updated_files << file
-            file.load!()
-          end
-        end
-
-        if signature_files.each_value.all? {|file| file.status.is_a?(SignatureFile::DeclarationsStatus) }
-          if status.is_a?(TypeCheckStatus) && updated_files.empty?
+        parse_signatures(timestamp: timestamp) do |updated_signature_files|
+          if status.is_a?(TypeCheckStatus) && updated_signature_files.empty?
             yield status.environment, status.subtyping, status.timestamp
           else
-            begin
-              env = environment.dup
-
-              signature_files.each_value do |file|
-                if file.status.is_a?(SignatureFile::DeclarationsStatus)
-                  file.status.declarations.each do |decl|
-                    env << decl
-                  end
-                end
-              end
-
-              env = env.resolve_type_names
-
+            load_decls(now: now) do |env|
               definition_builder = RBS::DefinitionBuilder.new(env: env)
               factory = AST::Types::Factory.new(builder: definition_builder)
               check = Subtyping::Check.new(factory: factory)
@@ -181,7 +217,7 @@ module Steep
                 if validator.no_error?
                   yield env, check, now
                 else
-                  @status = SignatureValidationErrorStatus.new(
+                  @status = SignatureErrorStatus.new(
                     errors: validator.each_error.to_a,
                     timestamp: now
                   )
@@ -189,33 +225,8 @@ module Steep
               else
                 yield env, check, Time.now
               end
-            rescue RBS::DuplicatedDeclarationError => exn
-              @status = SignatureValidationErrorStatus.new(
-                errors: [
-                  Diagnostic::Signature::DuplicatedDeclarationError.new(
-                    type_name: exn.name,
-                    location: exn.decls[0].location
-                  )
-                ],
-                timestamp: now
-              )
-            rescue => exn
-              Steep.log_error exn
-              @status = SignatureOtherErrorStatus.new(error: exn, timestamp: now)
             end
           end
-
-        else
-          errors = signature_files.each_value.with_object([]) do |file, errors|
-            if file.status.is_a?(SignatureFile::ParseErrorStatus)
-              errors << file.status.error
-            end
-          end
-
-          @status = SignatureSyntaxErrorStatus.new(
-            errors: errors,
-            timestamp: Time.now
-          )
         end
       end
 

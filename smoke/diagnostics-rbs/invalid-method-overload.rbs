@@ -1,0 +1,3 @@
+class InvalidMethodOverload
+  def foo: () -> void | ...
+end

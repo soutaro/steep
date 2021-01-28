@@ -85,23 +85,8 @@ module Steep
             )
           ]
         when Project::SourceFile::TypeCheckStatus
-          status.typing.errors.select {|error| options.error_to_report?(error) }.map do |error|
-            LSP::Interface::Diagnostic.new(
-              message: error.full_message,
-              code: error.diagnostic_code,
-              severity: LSP::Constant::DiagnosticSeverity::ERROR,
-              range: LSP::Interface::Range.new(
-                start: LSP::Interface::Position.new(
-                  line: error.location.line - 1,
-                  character: error.location.column
-                ),
-                end: LSP::Interface::Position.new(
-                  line: error.location.last_line - 1,
-                  character: error.location.last_column
-                )
-              )
-            )
-          end
+          formatter = Diagnostic::LSPFormatter.new()
+          status.typing.errors.select {|error| options.error_to_report?(error) }.map {|error| formatter.format(error) }
         when Project::SourceFile::TypeCheckErrorStatus
           []
         end

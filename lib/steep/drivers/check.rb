@@ -1,6 +1,8 @@
 module Steep
   module Drivers
     class Check
+      LSP = LanguageServer::Protocol
+
       attr_reader :stdout
       attr_reader :stderr
       attr_reader :command_line_patterns
@@ -56,6 +58,7 @@ module Steep
         client_writer.write({ method: :shutdown, id: shutdown_id })
 
         responses = []
+        error_messages = []
         client_reader.read do |response|
           case
           when response[:method] == "textDocument/publishDiagnostics"
@@ -67,6 +70,12 @@ module Steep
             end
             responses << response[:params]
             stdout.flush
+          when response[:method] == "window/showMessage"
+            # Assuming ERROR message means unrecoverable error.
+            message = response[:params]
+            if message[:type] == LSP::Constant::MessageType::ERROR
+              error_messages << message[:message]
+            end
           when response[:id] == shutdown_id
             break
           end
@@ -80,10 +89,14 @@ module Steep
         stdout.puts
         stdout.puts
 
-        if responses.all? {|res| res[:diagnostics].empty? }
+        case
+        when responses.all? {|res| res[:diagnostics].empty? } && error_messages.empty?
           emoji = %w(🫖 🫖 🫖 🫖 🫖 🫖 🫖 🫖 🍵 🧋 🧉).sample
           stdout.puts Rainbow("No type error detected. #{emoji}").green.bold
           0
+        when !error_messages.empty?
+          stdout.puts Rainbow("Unexpected error reported. 🚨").red.bold
+          1
         else
           errors = responses.reject {|res| res[:diagnostics].empty? }
           total = errors.sum {|res| res[:diagnostics].size }
