@@ -40,8 +40,18 @@ module Steep
                   end
                 end
               when Project::Target::SignatureErrorStatus
-                printer = SignatureErrorPrinter.new(stdout: stdout, stderr: stderr)
-                printer.print_semantic_errors(status.errors)
+                formatter = Diagnostic::LSPFormatter.new
+                diagnostics = status.errors.group_by {|e| e.location.buffer }.transform_values do |errors|
+                  errors.map {|error| formatter.format(error) }
+                end
+
+                diagnostics.each do |buffer, ds|
+                  printer = DiagnosticPrinter.new(stdout: stdout, buffer: buffer)
+                  ds.each do |d|
+                    printer.print(d)
+                    stdout.puts
+                  end
+                end
               end
             end
           end
