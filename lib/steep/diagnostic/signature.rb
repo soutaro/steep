@@ -2,20 +2,26 @@ module Steep
   module Diagnostic
     module Signature
       class Base
+        include Helper
+
         attr_reader :location
 
         def initialize(location:)
           @location = location
         end
 
-        def loc_to_s
-          RBS::Location.to_string location
-        end
-
-        def to_s
+        def header_line
           StringIO.new.tap do |io|
             puts io
           end.string
+        end
+
+        def detail_lines
+          nil
+        end
+
+        def diagnostic_code
+          "Ruby::#{error_name}"
         end
 
         def path
@@ -31,8 +37,8 @@ module Steep
           @exception = exception
         end
 
-        def puts(io)
-          io.puts "SyntaxError: #{exception.message}"
+        def header_line
+          "Syntax error: #{exception.message}"
         end
       end
 
@@ -40,12 +46,12 @@ module Steep
         attr_reader :type_name
 
         def initialize(type_name:, location:)
+          super(location: location)
           @type_name = type_name
-          @location = location
         end
 
-        def puts(io)
-          io.puts "DuplicatedDeclarationError: name=#{type_name}"
+        def header_line
+          "Declaration of `#{type_name}` is duplicated"
         end
       end
 
@@ -53,12 +59,12 @@ module Steep
         attr_reader :name
 
         def initialize(name:, location:)
+          super(location: location)
           @name = name
-          @location = location
         end
 
-        def puts(io)
-          io.puts "UnknownTypeNameError: name=#{name}"
+        def header_line
+          "Cannot find type `#{name}`"
         end
       end
 
@@ -68,14 +74,21 @@ module Steep
         attr_reader :params
 
         def initialize(name:, args:, params:, location:)
+          super(location: location)
           @name = name
           @args = args
           @params = params
-          @location = location
         end
 
-        def puts(io)
-          io.puts "InvalidTypeApplicationError: name=#{name}, expected=[#{params.join(", ")}], actual=[#{args.join(", ")}]"
+        def header_line
+          case
+          when params.empty?
+            "Type `#{name}` is not generic but used as a generic type with #{args.size} arguments"
+          when args.empty?
+            "Type `#{name}` is generic but used as a non generic type"
+          else
+            "Type `#{name}` expects #{params.size} arguments, but #{args.size} arguments are given"
+          end
         end
       end
 
@@ -84,13 +97,13 @@ module Steep
         attr_reader :method_name
 
         def initialize(class_name:, method_name:, location:)
+          super(location: location)
           @class_name = class_name
           @method_name = method_name
-          @location = location
         end
 
-        def puts(io)
-          io.puts "InvalidMethodOverloadError: class_name=#{class_name}, method_name=#{method_name}"
+        def header_line
+          "Cannot find a non-overloading definition of `#{method_name}` in `#{class_name}`"
         end
       end
 
@@ -99,13 +112,13 @@ module Steep
         attr_reader :method_name
 
         def initialize(class_name:, method_name:, location:)
+          super(location: location)
           @class_name = class_name
           @method_name = method_name
-          @location = location
         end
 
-        def puts(io)
-          io.puts "UnknownMethodAliasError: class_name=#{class_name}, method_name=#{method_name}"
+        def header_line
+          "Cannot find the original method `#{method_name}` in `#{class_name}`"
         end
       end
 
@@ -114,13 +127,13 @@ module Steep
         attr_reader :method_name
 
         def initialize(class_name:, method_name:, location:)
+          super(location: location)
           @class_name = class_name
           @method_name = method_name
-          @location = location
         end
 
-        def puts(io)
-          io.puts "DuplicatedMethodDefinitionError: class_name=#{class_name}, method_name=#{method_name}"
+        def header_line
+          "Non-overloading method definition of `#{method_name}` in `#{class_name}` cannot be duplicated"
         end
       end
 
@@ -130,13 +143,13 @@ module Steep
         attr_reader :location
 
         def initialize(class_name:, names:, location:)
+          super(location: location)
           @class_name = class_name
           @names = names
-          @location = location
         end
 
-        def puts(io)
-          io.puts "RecursiveAliasError: class_name=#{class_name}, names=#{names.join(", ")}"
+        def header_line
+          "Circular method alias is detected in `#{class_name}`: #{names.join(" -> ")}"
         end
       end
 
@@ -148,7 +161,7 @@ module Steep
           @ancestors = ancestors
         end
 
-        def puts(io)
+        def header_line
           names = ancestors.map do |ancestor|
             case ancestor
             when RBS::Definition::Ancestor::Singleton
@@ -162,7 +175,7 @@ module Steep
             end
           end
 
-          io.puts "RecursiveAncestorError: #{names}"
+          "Circular inheritance/mix-in is detected: #{names.join(" <: ")}"
         end
       end
 
@@ -174,8 +187,8 @@ module Steep
           @name = name
         end
 
-        def puts(io)
-          io.puts "SuperclassMismatchError: #{name}"
+        def header_line
+          "Different superclasses are specified for `#{name}`"
         end
       end
 
@@ -187,8 +200,8 @@ module Steep
           @name = name
         end
 
-        def puts(io)
-          io.puts "GenericParameterMismatchError: #{name}"
+        def header_line
+          "Different generic parameters are specified across definitions of `#{name}`"
         end
       end
 
@@ -202,8 +215,8 @@ module Steep
           @param = param
         end
 
-        def puts(io)
-          io.puts "InvalidVarianceAnnotationError: name=#{name}, param=#{param.name}"
+        def header_line
+          "The variance of type parameter `#{param.name}` is #{param.variance}, but used in incompatible position here"
         end
       end
     end

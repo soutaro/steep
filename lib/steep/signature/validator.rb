@@ -164,7 +164,7 @@ module Steep
       rescue RBS::UnknownMethodAliasError => exn
         @errors << Diagnostic::Signature::UnknownMethodAliasError.new(
           class_name: type_name,
-          method_name: exn.aliased_name,
+          method_name: exn.original_name,
           location: exn.location
         )
       rescue RBS::RecursiveAliasDefinitionError => exn

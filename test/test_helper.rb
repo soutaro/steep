@@ -51,7 +51,7 @@ module TestHelper
     end
 
     if count == 0
-      raise Minitest::Assertion.new("Assertion should hold one of the collection members: #{collection.to_a.join(', ')}")
+      raise Minitest::Assertion.new("Assertion should hold one of the collection members: [#{collection.map(&:inspect).join(', ')}]")
     end
   end
 

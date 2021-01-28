@@ -237,7 +237,7 @@ Name: Array[Integer, String]
                          start: { line: 0, character: 6 },
                          end: { line: 0, character: 28 }
                        }, diagnostic[:range])
-          assert_match(/InvalidTypeApplicationError:/, diagnostic[:message])
+          assert_equal "Type `::Array` expects 1 arguments, but 2 arguments are given", diagnostic[:message]
         end
 
         break

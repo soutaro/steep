@@ -282,7 +282,7 @@ end
       assert_any! validator.each_error do |error|
         assert_instance_of Diagnostic::Signature::UnknownMethodAliasError, error
         assert_equal TypeName("::_Hello"), error.class_name
-        assert_equal :foo, error.method_name
+        assert_equal :bar, error.method_name
         assert_equal "alias foo bar", error.location.source
       end
     end
