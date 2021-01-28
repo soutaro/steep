@@ -183,6 +183,11 @@ module Steep
           name: exn.name,
           location: exn.entry.primary.decl.location
         )
+      rescue RBS::GenericParameterMismatchError => exn
+        @errors << Diagnostic::Signature::GenericParameterMismatchError.new(
+          name: exn.name,
+          location: exn.decl.location
+        )
       end
     end
   end

@@ -178,6 +178,19 @@ module Steep
           io.puts "SuperclassMismatchError: #{name}"
         end
       end
+
+      class GenericParameterMismatchError < Base
+        attr_reader :name
+
+        def initialize(name:, location:)
+          super(location: location)
+          @name = name
+        end
+
+        def puts(io)
+          io.puts "GenericParameterMismatchError: #{name}"
+        end
+      end
     end
   end
 end
