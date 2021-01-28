@@ -56,6 +56,7 @@ require "steep/subtyping/constraints"
 require "steep/subtyping/variable_variance"
 require "steep/subtyping/variable_occurrence"
 
+require "steep/diagnostic/helper"
 require "steep/diagnostic/ruby"
 require "steep/diagnostic/signature"
 require "steep/signature/validator"
