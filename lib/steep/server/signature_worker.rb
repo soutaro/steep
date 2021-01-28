@@ -60,25 +60,11 @@ module Steep
         diagnostics = case status = target.status
                       when Project::Target::SignatureErrorStatus
                         error_hash = status.errors.group_by {|error| error.location.buffer.name }
+                        formatter = Diagnostic::LSPFormatter.new
 
                         target.signature_files.each_key.with_object({}) do |path, hash|
                           errors = error_hash[path] || []
-                          hash[path] = errors.map do |error|
-                            LSP::Interface::Diagnostic.new(
-                              message: error.to_s.chomp,
-                              severity: LSP::Constant::DiagnosticSeverity::ERROR,
-                              range: LSP::Interface::Range.new(
-                                start: LSP::Interface::Position.new(
-                                  line: error.location.start_line - 1,
-                                  character: error.location.start_column,
-                                  ),
-                                end: LSP::Interface::Position.new(
-                                  line: error.location.end_line - 1,
-                                  character: error.location.end_column
-                                )
-                              )
-                            )
-                          end
+                          hash[path] = errors.map {|error| formatter.format(error) }
                         end
                       when Project::Target::TypeCheckStatus
                         target.signature_files.each_key.with_object({}) do |path, hash|
