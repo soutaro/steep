@@ -1,0 +1,7 @@
+class SuperclassMismatch
+  class Foo < String
+  end
+
+  class Foo < Integer
+  end
+end

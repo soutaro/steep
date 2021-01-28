@@ -1,0 +1,5 @@
+class RecursiveAlias
+  alias foo bar
+  alias bar baz
+  alias baz foo
+end

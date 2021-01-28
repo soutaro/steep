@@ -1,0 +1,13 @@
+class UnknownTypeName
+  type foo = bar
+
+  Hello: World
+
+  include World
+
+  class Foo < ABC
+  end
+
+  module Bar : ZZZ
+  end
+end

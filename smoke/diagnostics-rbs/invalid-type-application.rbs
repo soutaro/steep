@@ -1,0 +1,4 @@
+class InvalidTypeApplication
+  type foo = Integer[3]
+  type bar = Object[String]
+end
