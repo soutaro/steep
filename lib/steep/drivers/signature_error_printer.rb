@@ -9,12 +9,6 @@ module Steep
         @stderr = stderr
       end
 
-      def print_syntax_errors(errors)
-        errors.each do |error|
-          stderr.puts error.message
-        end
-      end
-
       def print_semantic_errors(errors)
         errors.each do |error|
           error.puts stderr

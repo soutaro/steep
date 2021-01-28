@@ -4,6 +4,10 @@ module Steep
       class Base
         attr_reader :location
 
+        def initialize(location:)
+          @location = location
+        end
+
         def loc_to_s
           RBS::Location.to_string location
         end
@@ -16,6 +20,19 @@ module Steep
 
         def path
           location.buffer.name
+        end
+      end
+
+      class SyntaxError < Base
+        attr_reader :exception
+
+        def initialize(exception, location:)
+          super(location: location)
+          @exception = exception
+        end
+
+        def puts(io)
+          io.puts "SyntaxError: #{exception.message}"
         end
       end
 

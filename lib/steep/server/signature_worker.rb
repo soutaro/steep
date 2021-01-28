@@ -58,44 +58,6 @@ module Steep
         Steep.logger.info "Finished signature validation: #{target.name} (#{timestamp})"
 
         diagnostics = case status = target.status
-                      when Project::Target::SignatureSyntaxErrorStatus
-                        target.signature_files.each.with_object({}) do |(path, file), hash|
-                          if file.status.is_a?(Project::SignatureFile::ParseErrorStatus)
-                            location = case error = file.status.error
-                                       when RBS::Parser::SyntaxError
-                                         if error.error_value.is_a?(String)
-                                           buf = RBS::Buffer.new(name: path, content: file.content)
-                                           RBS::Location.new(buffer: buf, start_pos: buf.content.size, end_pos: buf.content.size)
-                                         else
-                                           error.error_value.location
-                                         end
-                                       when RBS::Parser::SemanticsError
-                                         error.location
-                                       else
-                                         raise
-                                       end
-
-                            hash[path] =
-                              [
-                                LSP::Interface::Diagnostic.new(
-                                  message: file.status.error.message,
-                                  severity: LSP::Constant::DiagnosticSeverity::ERROR,
-                                  range: LSP::Interface::Range.new(
-                                    start: LSP::Interface::Position.new(
-                                      line: location.start_line - 1,
-                                      character: location.start_column,
-                                    ),
-                                    end: LSP::Interface::Position.new(
-                                      line: location.end_line - 1,
-                                      character: location.end_column
-                                    )
-                                  )
-                                )
-                              ]
-                          else
-                            hash[path] = []
-                          end
-                        end
                       when Project::Target::SignatureValidationErrorStatus
                         error_hash = status.errors.group_by {|error| error.location.buffer.name }
 

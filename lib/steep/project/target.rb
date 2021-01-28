@@ -13,7 +13,6 @@ module Steep
 
       attr_reader :status
 
-      SignatureSyntaxErrorStatus = Struct.new(:timestamp, :errors, keyword_init: true)
       SignatureValidationErrorStatus = Struct.new(:timestamp, :errors, keyword_init: true)
       TypeCheckStatus = Struct.new(:environment, :subtyping, :type_check_sources, :timestamp, keyword_init: true)
 
@@ -147,13 +146,24 @@ module Steep
           end
         end
 
-        decl_sigs, error_sigs = signature_files.each_value.partition {|file| file.status.is_a?(SignatureFile::DeclarationsStatus) }
+        error_sigs = signature_files.each_value.reject {|file| file.status.is_a?(SignatureFile::DeclarationsStatus) }
 
         if error_sigs.empty?
           yield updated_signature_files
         else
-          errors = error_sigs.map {|file| file.status.error }
-          @status = SignatureSyntaxErrorStatus.new(errors: errors, timestamp: Time.now)
+          errors = error_sigs.map do |file|
+            case error = file.status.error
+            when RBS::Parser::SemanticsError
+              Diagnostic::Signature::SyntaxError.new(error, location: error.location)
+            when RBS::Parser::SyntaxError
+              Diagnostic::Signature::SyntaxError.new(error, location: error.error_value.location)
+            end
+          end
+
+          @status = SignatureValidationErrorStatus.new(
+            errors: errors,
+            timestamp: Time.now
+          )
         end
       end
 

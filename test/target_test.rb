@@ -168,18 +168,28 @@ Foo = 1
         signature_patterns: ["sig"]
       )
 
-      target.add_source "lib/foo.rb", <<-EOF
-class Foo
-end
-      EOF
-
       target.add_signature "sig/foo.rbs", <<-EOF
 class Foo
       EOF
 
+      target.add_signature "sig/bar.rbs", <<-EOF
+interface _Bar
+  def self.foo: () -> void
+end
+      EOF
+
       target.type_check
 
-      assert_equal Project::Target::SignatureSyntaxErrorStatus, target.status.class
+      assert_equal Project::Target::SignatureValidationErrorStatus, target.status.class
+
+      assert_any!(target.status.errors, size: 2) do |error|
+        assert_instance_of RBS::Parser::SemanticsError, error.exception
+        assert_equal "def self.foo: () -> void", error.location.source
+      end
+
+      assert_any!(target.status.errors, size: 2) do |error|
+        assert_instance_of RBS::Parser::SyntaxError, error.exception
+      end
     end
 
     def test_signature_validation_error
