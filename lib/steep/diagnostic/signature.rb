@@ -139,6 +139,32 @@ module Steep
           io.puts "RecursiveAliasError: class_name=#{class_name}, names=#{names.join(", ")}"
         end
       end
+
+      class RecursiveAncestorError < Base
+        attr_reader :ancestors
+
+        def initialize(ancestors:, location:)
+          super(location: location)
+          @ancestors = ancestors
+        end
+
+        def puts(io)
+          names = ancestors.map do |ancestor|
+            case ancestor
+            when RBS::Definition::Ancestor::Singleton
+              "singleton(#{ancestor.name})"
+            when RBS::Definition::Ancestor::Instance
+              if ancestor.args.empty?
+                ancestor.name.to_s
+              else
+                "#{ancestor.name}[#{ancestor.args.join(", ")}]"
+              end
+            end
+          end
+
+          io.puts "RecursiveAncestorError: #{names}"
+        end
+      end
     end
   end
 end

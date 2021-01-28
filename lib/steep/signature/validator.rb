@@ -170,6 +170,11 @@ module Steep
           names: exn.defs.map(&:name),
           location: exn.defs[0].original.location
         )
+      rescue RBS::RecursiveAncestorError => exn
+        @errors << Diagnostic::Signature::RecursiveAncestorError.new(
+          ancestors: exn.ancestors,
+          location: exn.location
+        )
       end
     end
   end

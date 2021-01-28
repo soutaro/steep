@@ -332,5 +332,35 @@ Bar: Integer
         assert_equal "Bar: Integer", error.location.source
       end
     end
+
+    def test_signature_error_recursive_super
+      target = Project::Target.new(
+        name: :foo,
+        options: Project::Options.new,
+        source_patterns: ["lib"],
+        ignore_patterns: [],
+        signature_patterns: ["sig"]
+      )
+
+      target.add_signature Pathname("lib/foo.rbs"), <<-EOF
+class Foo < Bar
+end
+
+class Bar < Foo
+end
+      EOF
+
+      target.type_check
+
+      assert_equal Project::Target::SignatureErrorStatus, target.status.class
+      assert_any!(target.status.errors, size: 2) do |error|
+        assert_instance_of Diagnostic::Signature::RecursiveAncestorError, error
+        assert_equal "class Foo < Bar\nend", error.location.source
+      end
+      assert_any!(target.status.errors, size: 2) do |error|
+        assert_instance_of Diagnostic::Signature::RecursiveAncestorError, error
+        assert_equal "class Bar < Foo\nend", error.location.source
+      end
+    end
   end
 end
