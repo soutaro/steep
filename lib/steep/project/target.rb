@@ -177,7 +177,7 @@ module Steep
           file.status.declarations.each do |decl|
             env << decl
           rescue RBS::DuplicatedDeclarationError => exn
-            errors << Diagnostic::Signature::DuplicatedDeclarationError.new(
+            errors << Diagnostic::Signature::DuplicatedDeclaration.new(
               type_name: exn.name,
               location: exn.decls[0].location
             )

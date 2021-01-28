@@ -238,7 +238,7 @@ end
       assert_equal Project::Target::SignatureErrorStatus, target.status.class
 
       assert_any! target.status.errors do |error|
-        assert_instance_of Diagnostic::Signature::DuplicatedDeclarationError, error
+        assert_instance_of Diagnostic::Signature::DuplicatedDeclaration, error
         assert_equal TypeName("::Foo"), error.type_name
       end
     end
@@ -323,12 +323,12 @@ Bar: Integer
       assert_equal Project::Target::SignatureErrorStatus, target.status.class
 
       assert_any!(target.status.errors, size: 2) do |error|
-        assert_instance_of Diagnostic::Signature::DuplicatedDeclarationError, error
+        assert_instance_of Diagnostic::Signature::DuplicatedDeclaration, error
         assert_equal "Foo: Integer", error.location.source
       end
 
       assert_any!(target.status.errors, size: 2) do |error|
-        assert_instance_of Diagnostic::Signature::DuplicatedDeclarationError, error
+        assert_instance_of Diagnostic::Signature::DuplicatedDeclaration, error
         assert_equal "Bar: Integer", error.location.source
       end
     end
@@ -354,11 +354,11 @@ end
 
       assert_equal Project::Target::SignatureErrorStatus, target.status.class
       assert_any!(target.status.errors, size: 2) do |error|
-        assert_instance_of Diagnostic::Signature::RecursiveAncestorError, error
+        assert_instance_of Diagnostic::Signature::RecursiveAncestor, error
         assert_equal "class Foo < Bar\nend", error.location.source
       end
       assert_any!(target.status.errors, size: 2) do |error|
-        assert_instance_of Diagnostic::Signature::RecursiveAncestorError, error
+        assert_instance_of Diagnostic::Signature::RecursiveAncestor, error
         assert_equal "class Bar < Foo\nend", error.location.source
       end
     end

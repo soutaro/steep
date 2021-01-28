@@ -42,7 +42,7 @@ module Steep
         end
       end
 
-      class DuplicatedDeclarationError < Base
+      class DuplicatedDeclaration < Base
         attr_reader :type_name
 
         def initialize(type_name:, location:)
@@ -55,7 +55,7 @@ module Steep
         end
       end
 
-      class UnknownTypeNameError < Base
+      class UnknownTypeName < Base
         attr_reader :name
 
         def initialize(name:, location:)
@@ -68,7 +68,7 @@ module Steep
         end
       end
 
-      class InvalidTypeApplicationError < Base
+      class InvalidTypeApplication < Base
         attr_reader :name
         attr_reader :args
         attr_reader :params
@@ -92,7 +92,7 @@ module Steep
         end
       end
 
-      class InvalidMethodOverloadError < Base
+      class InvalidMethodOverload < Base
         attr_reader :class_name
         attr_reader :method_name
 
@@ -107,7 +107,7 @@ module Steep
         end
       end
 
-      class UnknownMethodAliasError < Base
+      class UnknownMethodAlias < Base
         attr_reader :class_name
         attr_reader :method_name
 
@@ -122,7 +122,7 @@ module Steep
         end
       end
 
-      class DuplicatedMethodDefinitionError < Base
+      class DuplicatedMethodDefinition < Base
         attr_reader :class_name
         attr_reader :method_name
 
@@ -137,7 +137,7 @@ module Steep
         end
       end
 
-      class RecursiveAliasError < Base
+      class RecursiveAlias < Base
         attr_reader :class_name
         attr_reader :names
         attr_reader :location
@@ -153,7 +153,7 @@ module Steep
         end
       end
 
-      class RecursiveAncestorError < Base
+      class RecursiveAncestor < Base
         attr_reader :ancestors
 
         def initialize(ancestors:, location:)
@@ -179,7 +179,7 @@ module Steep
         end
       end
 
-      class SuperclassMismatchError < Base
+      class SuperclassMismatch < Base
         attr_reader :name
 
         def initialize(name:, location:)
@@ -192,7 +192,7 @@ module Steep
         end
       end
 
-      class GenericParameterMismatchError < Base
+      class GenericParameterMismatch < Base
         attr_reader :name
 
         def initialize(name:, location:)
@@ -205,7 +205,7 @@ module Steep
         end
       end
 
-      class InvalidVarianceAnnotationError < Base
+      class InvalidVarianceAnnotation < Base
         attr_reader :name
         attr_reader :param
 

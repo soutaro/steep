@@ -4,19 +4,19 @@ test:
     diagnostics:
     - |
       duplicated-method-definition.rbs:2:2: [error] Non-overloading method definition of `foo` in `::DuplicatedMethodDefinitionError` cannot be duplicated
-      │ Diagnostic ID: Ruby::DuplicatedMethodDefinitionError
+      │ Diagnostic ID: Ruby::DuplicatedMethodDefinition
       │
       └   def foo: () -> void
           ~~~~~~~~~~~~~~~~~~~
     - |
       duplicated-method-definition.rbs:18:4: [error] Non-overloading method definition of `g` in `::DuplicatedMethodDefinitionError::A` cannot be duplicated
-      │ Diagnostic ID: Ruby::DuplicatedMethodDefinitionError
+      │ Diagnostic ID: Ruby::DuplicatedMethodDefinition
       │
       └     def g: () -> String
             ~~~~~~~~~~~~~~~~~~~
     - |
       duplicated-method-definition.rbs:6:4: [error] Non-overloading method definition of `f` in `::DuplicatedMethodDefinitionError::_Hello` cannot be duplicated
-      │ Diagnostic ID: Ruby::DuplicatedMethodDefinitionError
+      │ Diagnostic ID: Ruby::DuplicatedMethodDefinition
       │
       └     def f: () -> void
             ~~~~~~~~~~~~~~~~~
@@ -24,7 +24,7 @@ test:
     diagnostics:
     - |
       generic-parameter-mismatch.rbs:5:2: [error] Different generic parameters are specified across definitions of `::GenericParameterMismatchError::Foo`
-      │ Diagnostic ID: Ruby::GenericParameterMismatchError
+      │ Diagnostic ID: Ruby::GenericParameterMismatch
       │
       └   class Foo[A, B]
           ~~~~~~~~~~~~~~~
@@ -32,7 +32,7 @@ test:
     diagnostics:
     - |
       invalid-method-overload.rbs:2:2: [error] Cannot find a non-overloading definition of `foo` in `::InvalidMethodOverload`
-      │ Diagnostic ID: Ruby::InvalidMethodOverloadError
+      │ Diagnostic ID: Ruby::InvalidMethodOverload
       │
       └   def foo: () -> void | ...
           ~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -40,19 +40,19 @@ test:
     diagnostics:
     - |
       invalid-type-application.rbs:2:13: [error] Type `::Integer` is not generic but used as a generic type with 1 arguments
-      │ Diagnostic ID: Ruby::InvalidTypeApplicationError
+      │ Diagnostic ID: Ruby::InvalidTypeApplication
       │
       └   type foo = Integer[3]
                      ~~~~~~~~~~
     - |
       invalid-type-application.rbs:4:13: [error] Type `::Array` expects 1 arguments, but 2 arguments are given
-      │ Diagnostic ID: Ruby::InvalidTypeApplicationError
+      │ Diagnostic ID: Ruby::InvalidTypeApplication
       │
       └   type bar = Array[1, 2]
                      ~~~~~~~~~~~
     - |
       invalid-type-application.rbs:6:13: [error] Type `::Hash` is generic but used as a non generic type
-      │ Diagnostic ID: Ruby::InvalidTypeApplicationError
+      │ Diagnostic ID: Ruby::InvalidTypeApplication
       │
       └   type baz = Hash
                      ~~~~
@@ -60,7 +60,7 @@ test:
     diagnostics:
     - |
       invalid_variance_annotation.rbs:2:11: [error] The variance of type parameter `A` is covariant, but used in incompatible position here
-      │ Diagnostic ID: Ruby::InvalidVarianceAnnotationError
+      │ Diagnostic ID: Ruby::InvalidVarianceAnnotation
       │
       └   def foo: (A) -> void
                    ~~~~~~~~~~~
@@ -68,7 +68,7 @@ test:
     diagnostics:
     - |
       recursive-alias.rbs:2:2: [error] Circular method alias is detected in `::RecursiveAlias`: foo -> bar -> baz
-      │ Diagnostic ID: Ruby::RecursiveAliasError
+      │ Diagnostic ID: Ruby::RecursiveAlias
       │
       └   alias foo bar
           ~~~~~~~~~~~~~
@@ -76,19 +76,19 @@ test:
     diagnostics:
     - |
       recursive-class.rbs:1:0: [error] Circular inheritance/mix-in is detected: ::Foo <: ::Bar <: ::Baz <: ::Foo
-      │ Diagnostic ID: Ruby::RecursiveAncestorError
+      │ Diagnostic ID: Ruby::RecursiveAncestor
       │
       └ class Foo < Bar
         ~~~~~~~~~~~~~~~
     - |
       recursive-class.rbs:4:0: [error] Circular inheritance/mix-in is detected: ::Bar <: ::Baz <: ::Foo <: ::Bar
-      │ Diagnostic ID: Ruby::RecursiveAncestorError
+      │ Diagnostic ID: Ruby::RecursiveAncestor
       │
       └ class Bar < Baz
         ~~~~~~~~~~~~~~~
     - |
       recursive-class.rbs:7:0: [error] Circular inheritance/mix-in is detected: ::Baz <: ::Foo <: ::Bar <: ::Baz
-      │ Diagnostic ID: Ruby::RecursiveAncestorError
+      │ Diagnostic ID: Ruby::RecursiveAncestor
       │
       └ class Baz < Foo
         ~~~~~~~~~~~~~~~
@@ -96,7 +96,7 @@ test:
     diagnostics:
     - |
       superclass-mismatch.rbs:2:2: [error] Different superclasses are specified for `::SuperclassMismatch::Foo`
-      │ Diagnostic ID: Ruby::SuperclassMismatchError
+      │ Diagnostic ID: Ruby::SuperclassMismatch
       │
       └   class Foo < String
           ~~~~~~~~~~~~~~~~~~
@@ -104,7 +104,7 @@ test:
     diagnostics:
     - |
       unknown-method-alias.rbs:2:2: [error] Cannot find the original method `bar` in `::UnknownMethodAlias`
-      │ Diagnostic ID: Ruby::UnknownMethodAliasError
+      │ Diagnostic ID: Ruby::UnknownMethodAlias
       │
       └   alias foo bar
           ~~~~~~~~~~~~~
@@ -112,31 +112,31 @@ test:
     diagnostics:
     - |
       unknown-type-name.rbs:6:2: [error] Cannot find type `World`
-      │ Diagnostic ID: Ruby::UnknownTypeNameError
+      │ Diagnostic ID: Ruby::UnknownTypeName
       │
       └   include World
           ~~~~~~~~~~~~~
     - |
       unknown-type-name.rbs:8:2: [error] Cannot find type `ABC`
-      │ Diagnostic ID: Ruby::UnknownTypeNameError
+      │ Diagnostic ID: Ruby::UnknownTypeName
       │
       └   class Foo < ABC
           ~~~~~~~~~~~~~~~
     - |
       unknown-type-name.rbs:11:15: [error] Cannot find type `ZZZ`
-      │ Diagnostic ID: Ruby::UnknownTypeNameError
+      │ Diagnostic ID: Ruby::UnknownTypeName
       │
       └   module Bar : ZZZ
                        ~~~
     - |
       unknown-type-name.rbs:4:9: [error] Cannot find type `::World`
-      │ Diagnostic ID: Ruby::UnknownTypeNameError
+      │ Diagnostic ID: Ruby::UnknownTypeName
       │
       └   Hello: World
                  ~~~~~
     - |
       unknown-type-name.rbs:2:13: [error] Cannot find type `::bar`
-      │ Diagnostic ID: Ruby::UnknownTypeNameError
+      │ Diagnostic ID: Ruby::UnknownTypeName
       │
       └   type foo = bar
                      ~~~

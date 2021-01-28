@@ -129,7 +129,7 @@ module Steep
       def rescue_validation_errors(type_name = nil)
         yield
       rescue RBS::InvalidTypeApplicationError => exn
-        @errors << Diagnostic::Signature::InvalidTypeApplicationError.new(
+        @errors << Diagnostic::Signature::InvalidTypeApplication.new(
           name: exn.type_name,
           args: exn.args.map {|ty| factory.type(ty) },
           params: exn.params,
@@ -139,57 +139,57 @@ module Steep
         RBS::NoSuperclassFoundError,
         RBS::NoMixinFoundError,
         RBS::NoSelfTypeFoundError => exn
-        @errors << Diagnostic::Signature::UnknownTypeNameError.new(
+        @errors << Diagnostic::Signature::UnknownTypeName.new(
           name: exn.type_name,
           location: exn.location
         )
       rescue RBS::InvalidOverloadMethodError => exn
-        @errors << Diagnostic::Signature::InvalidMethodOverloadError.new(
+        @errors << Diagnostic::Signature::InvalidMethodOverload.new(
           class_name: exn.type_name,
           method_name: exn.method_name,
           location: exn.members[0].location
         )
       rescue RBS::DuplicatedMethodDefinitionError => exn
-        @errors << Diagnostic::Signature::DuplicatedMethodDefinitionError.new(
+        @errors << Diagnostic::Signature::DuplicatedMethodDefinition.new(
           class_name: type_name,
           method_name: exn.method_name,
           location: exn.location
         )
       rescue RBS::DuplicatedInterfaceMethodDefinitionError => exn
-        @errors << Diagnostic::Signature::DuplicatedMethodDefinitionError.new(
+        @errors << Diagnostic::Signature::DuplicatedMethodDefinition.new(
           class_name: type_name,
           method_name: exn.method_name,
           location: exn.member.location
         )
       rescue RBS::UnknownMethodAliasError => exn
-        @errors << Diagnostic::Signature::UnknownMethodAliasError.new(
+        @errors << Diagnostic::Signature::UnknownMethodAlias.new(
           class_name: type_name,
           method_name: exn.original_name,
           location: exn.location
         )
       rescue RBS::RecursiveAliasDefinitionError => exn
-        @errors << Diagnostic::Signature::RecursiveAliasError.new(
+        @errors << Diagnostic::Signature::RecursiveAlias.new(
           class_name: exn.type.name,
           names: exn.defs.map(&:name),
           location: exn.defs[0].original.location
         )
       rescue RBS::RecursiveAncestorError => exn
-        @errors << Diagnostic::Signature::RecursiveAncestorError.new(
+        @errors << Diagnostic::Signature::RecursiveAncestor.new(
           ancestors: exn.ancestors,
           location: exn.location
         )
       rescue RBS::SuperclassMismatchError => exn
-        @errors << Diagnostic::Signature::SuperclassMismatchError.new(
+        @errors << Diagnostic::Signature::SuperclassMismatch.new(
           name: exn.name,
           location: exn.entry.primary.decl.location
         )
       rescue RBS::GenericParameterMismatchError => exn
-        @errors << Diagnostic::Signature::GenericParameterMismatchError.new(
+        @errors << Diagnostic::Signature::GenericParameterMismatch.new(
           name: exn.name,
           location: exn.decl.location
         )
       rescue RBS::InvalidVarianceAnnotationError => exn
-        @errors << Diagnostic::Signature::InvalidVarianceAnnotationError.new(
+        @errors << Diagnostic::Signature::InvalidVarianceAnnotation.new(
           name: exn.type_name,
           param: exn.param,
           location: exn.location
