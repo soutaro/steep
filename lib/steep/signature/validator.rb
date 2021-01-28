@@ -135,7 +135,10 @@ module Steep
           params: exn.params,
           location: exn.location
         )
-      rescue RBS::NoTypeFoundError, RBS::NoSuperclassFoundError, RBS::NoMixinFoundError => exn
+      rescue RBS::NoTypeFoundError,
+        RBS::NoSuperclassFoundError,
+        RBS::NoMixinFoundError,
+        RBS::NoSelfTypeFoundError => exn
         @errors << Diagnostic::Signature::UnknownTypeNameError.new(
           name: exn.type_name,
           location: exn.location
