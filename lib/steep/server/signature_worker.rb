@@ -58,7 +58,7 @@ module Steep
         Steep.logger.info "Finished signature validation: #{target.name} (#{timestamp})"
 
         diagnostics = case status = target.status
-                      when Project::Target::SignatureValidationErrorStatus
+                      when Project::Target::SignatureErrorStatus
                         error_hash = status.errors.group_by {|error| error.location.buffer.name }
 
                         target.signature_files.each_key.with_object({}) do |path, hash|

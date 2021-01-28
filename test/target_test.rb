@@ -180,7 +180,7 @@ end
 
       target.type_check
 
-      assert_equal Project::Target::SignatureValidationErrorStatus, target.status.class
+      assert_equal Project::Target::SignatureErrorStatus, target.status.class
 
       assert_any!(target.status.errors, size: 2) do |error|
         assert_instance_of RBS::Parser::SemanticsError, error.exception
@@ -213,7 +213,7 @@ end
 
       target.type_check
 
-      assert_equal Project::Target::SignatureValidationErrorStatus, target.status.class
+      assert_equal Project::Target::SignatureErrorStatus, target.status.class
     end
 
     def test_signature_mixed_module_class_error
@@ -235,7 +235,7 @@ end
 
       target.type_check
 
-      assert_equal Project::Target::SignatureValidationErrorStatus, target.status.class
+      assert_equal Project::Target::SignatureErrorStatus, target.status.class
 
       assert_any! target.status.errors do |error|
         assert_instance_of Diagnostic::Signature::DuplicatedDeclarationError, error

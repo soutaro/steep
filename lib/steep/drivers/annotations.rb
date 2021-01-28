@@ -39,7 +39,7 @@ module Steep
                     end
                   end
                 end
-              when Project::Target::SignatureValidationErrorStatus
+              when Project::Target::SignatureErrorStatus
                 printer = SignatureErrorPrinter.new(stdout: stdout, stderr: stderr)
                 printer.print_semantic_errors(status.errors)
               end

@@ -22,7 +22,7 @@ module Steep
         project.targets.each do |target|
           Steep.logger.tagged "target=#{target.name}" do
             case (status = target.status)
-            when Project::Target::SignatureValidationErrorStatus
+            when Project::Target::SignatureErrorStatus
               printer = SignatureErrorPrinter.new(stdout: stdout, stderr: stderr)
               printer.print_semantic_errors(status.errors)
             end

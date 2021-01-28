@@ -13,7 +13,7 @@ module Steep
 
       attr_reader :status
 
-      SignatureValidationErrorStatus = Struct.new(:timestamp, :errors, keyword_init: true)
+      SignatureErrorStatus = Struct.new(:timestamp, :errors, keyword_init: true)
       TypeCheckStatus = Struct.new(:environment, :subtyping, :type_check_sources, :timestamp, keyword_init: true)
 
       def initialize(name:, options:, source_patterns:, ignore_patterns:, signature_patterns:)
@@ -160,7 +160,7 @@ module Steep
             end
           end
 
-          @status = SignatureValidationErrorStatus.new(
+          @status = SignatureErrorStatus.new(
             errors: errors,
             timestamp: Time.now
           )
@@ -202,7 +202,7 @@ module Steep
                 if validator.no_error?
                   yield env, check, now
                 else
-                  @status = SignatureValidationErrorStatus.new(
+                  @status = SignatureErrorStatus.new(
                     errors: validator.each_error.to_a,
                     timestamp: now
                   )
@@ -211,7 +211,7 @@ module Steep
                 yield env, check, Time.now
               end
             rescue RBS::DuplicatedDeclarationError => exn
-              @status = SignatureValidationErrorStatus.new(
+              @status = SignatureErrorStatus.new(
                 errors: [
                   Diagnostic::Signature::DuplicatedDeclarationError.new(
                     type_name: exn.name,
