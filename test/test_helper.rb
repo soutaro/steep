@@ -59,7 +59,9 @@ module TestHelper
     assert collection.all?(&block)
   end
 
-  def assert_all!(collection)
+  def assert_all!(collection, size: nil)
+    assert_equal size, collection.count if size
+
     collection.each do |c|
       yield c
     end

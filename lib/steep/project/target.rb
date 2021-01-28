@@ -167,6 +167,33 @@ module Steep
         end
       end
 
+      def load_decls(now:)
+        errors = []
+        env = environment.dup
+
+        signature_files.each_value do |file|
+          raise unless file.status.is_a?(SignatureFile::DeclarationsStatus)
+
+          file.status.declarations.each do |decl|
+            env << decl
+          rescue RBS::DuplicatedDeclarationError => exn
+            errors << Diagnostic::Signature::DuplicatedDeclarationError.new(
+              type_name: exn.name,
+              location: exn.decls[0].location
+            )
+          end
+        end
+
+        if errors.empty?
+          yield env.resolve_type_names
+        else
+          @status = SignatureErrorStatus.new(
+            errors: errors,
+            timestamp: now
+          )
+        end
+      end
+
       def load_signatures(validate:)
         timestamp = case status
                     when TypeCheckStatus
@@ -178,19 +205,7 @@ module Steep
           if status.is_a?(TypeCheckStatus) && updated_signature_files.empty?
             yield status.environment, status.subtyping, status.timestamp
           else
-            begin
-              env = environment.dup
-
-              signature_files.each_value do |file|
-                if file.status.is_a?(SignatureFile::DeclarationsStatus)
-                  file.status.declarations.each do |decl|
-                    env << decl
-                  end
-                end
-              end
-
-              env = env.resolve_type_names
-
+            load_decls(now: now) do |env|
               definition_builder = RBS::DefinitionBuilder.new(env: env)
               factory = AST::Types::Factory.new(builder: definition_builder)
               check = Subtyping::Check.new(factory: factory)
@@ -210,16 +225,6 @@ module Steep
               else
                 yield env, check, Time.now
               end
-            rescue RBS::DuplicatedDeclarationError => exn
-              @status = SignatureErrorStatus.new(
-                errors: [
-                  Diagnostic::Signature::DuplicatedDeclarationError.new(
-                    type_name: exn.name,
-                    location: exn.decls[0].location
-                  )
-                ],
-                timestamp: now
-              )
             end
           end
         end
