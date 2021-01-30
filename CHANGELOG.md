@@ -2,6 +2,12 @@
 
 ## master
 
+## 0.40.0 (2021-01-31)
+
+* Report progress with dots ([#287](https://github.com/soutaro/steep/pull/287))
+* Diagnostics message improvements ([#297](https://github.com/soutaro/steep/pull/297), [#301](https://github.com/soutaro/steep/pull/301))
+* Fix error on implicit `to_proc` syntax when `untyped` is yielded ([#291](https://github.com/soutaro/steep/pull/291))
+
 ## 0.39.0 (2020-12-25)
 
 * Update RBS to 1.0.0 ([#282](https://github.com/soutaro/steep/pull/282))
