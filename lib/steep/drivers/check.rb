@@ -6,6 +6,8 @@ module Steep
       attr_reader :stdout
       attr_reader :stderr
       attr_reader :command_line_patterns
+      attr_accessor :with_expectations_path
+      attr_accessor :save_expectations_path
 
       include Utils::DriverHelper
 
@@ -57,7 +59,7 @@ module Steep
         shutdown_id = -1
         client_writer.write({ method: :shutdown, id: shutdown_id })
 
-        responses = []
+        diagnostic_notifications = []
         error_messages = []
         client_reader.read do |response|
           case
@@ -68,7 +70,7 @@ module Steep
             else
               stdout.print "F"
             end
-            responses << response[:params]
+            diagnostic_notifications << response[:params]
             stdout.flush
           when response[:method] == "window/showMessage"
             # Assuming ERROR message means unrecoverable error.
@@ -89,26 +91,102 @@ module Steep
         stdout.puts
         stdout.puts
 
-        case
-        when responses.all? {|res| res[:diagnostics].empty? } && error_messages.empty?
+        if error_messages.empty?
+          case
+          when with_expectations_path
+            print_expectations(project: project,
+                               expectations_path: with_expectations_path,
+                               notifications: diagnostic_notifications)
+          when save_expectations_path
+            save_expectations(project: project,
+                              expectations_path: save_expectations_path,
+                              notifications: diagnostic_notifications)
+          else
+            print_result(project: project, notifications: diagnostic_notifications)
+          end
+        else
+          stdout.puts Rainbow("Unexpected error reported. 🚨").red.bold
+          1
+        end
+      end
+
+      def print_expectations(project:, expectations_path:, notifications:)
+        expectations = Expectations.load(path: expectations_path, content: expectations_path.read)
+
+        expected_count = 0
+        unexpected_count = 0
+        missing_count = 0
+
+        notifications.each do |notification|
+          path = project.relative_path(Pathname(URI.parse(notification[:uri]).path))
+          diagnostics = notification[:diagnostics]
+          test = expectations.test(path: path, diagnostics: diagnostics)
+
+          buffer = RBS::Buffer.new(name: path, content: path.read)
+          printer = DiagnosticPrinter.new(buffer: buffer, stdout: stdout)
+
+          test.each_diagnostics.each do |type, diag|
+            case type
+            when :expected
+              expected_count += 1
+            when :unexpected
+              unexpected_count += 1
+              printer.print(diag, prefix: Rainbow("+ ").green)
+            when :missing
+              missing_count += 1
+              printer.print(diag, prefix: Rainbow("- ").red)
+            end
+          end
+        end
+
+        stdout.puts
+
+        if unexpected_count > 0 || missing_count > 0
+          stdout.puts Rainbow("Expectations unsatisfied:").bold.red
+          stdout.puts "  #{expected_count} expected diagnostics"
+          stdout.puts Rainbow("  + #{unexpected_count} unexpected diagnostics").green
+          stdout.puts Rainbow("  - #{missing_count} missing diagnostics").red
+          1
+        else
+          stdout.puts Rainbow("Expectations satisfied:").bold.green
+          stdout.puts "  #{expected_count} expected diagnostics"
+          0
+        end
+      end
+
+      def save_expectations(project:, expectations_path:, notifications:)
+        expectations = Expectations.empty()
+
+        notifications.each do |notification|
+          unless notification[:diagnostics].empty?
+            path = project.relative_path(Pathname(URI.parse(notification[:uri]).path))
+            diagnostics = notification[:diagnostics]
+            expectations.diagnostics[path] = diagnostics
+          end
+        end
+
+        stdout.puts Rainbow("Updating #{expectations_path}...").bold
+        expectations_path.write(expectations.to_yaml)
+        0
+      end
+
+      def print_result(project:, notifications:)
+        if notifications.all? {|notification| notification[:diagnostics].empty? }
           emoji = %w(🫖 🫖 🫖 🫖 🫖 🫖 🫖 🫖 🍵 🧋 🧉).sample
           stdout.puts Rainbow("No type error detected. #{emoji}").green.bold
           0
-        when !error_messages.empty?
-          stdout.puts Rainbow("Unexpected error reported. 🚨").red.bold
-          1
         else
-          errors = responses.reject {|res| res[:diagnostics].empty? }
-          total = errors.sum {|res| res[:diagnostics].size }
+          errors = notifications.reject {|notification| notification[:diagnostics].empty? }
+          total = errors.sum {|notification| notification[:diagnostics].size }
           stdout.puts Rainbow("Detected #{total} problems from #{errors.size} files").red.bold
           stdout.puts
 
-          errors.each do |resp|
-            path = project.relative_path(Pathname(URI.parse(resp[:uri]).path))
+          errors.each do |notification|
+            path = project.relative_path(Pathname(URI.parse(notification[:uri]).path))
             buffer = RBS::Buffer.new(name: path, content: path.read)
             printer = DiagnosticPrinter.new(buffer: buffer, stdout: stdout)
 
-            resp[:diagnostics].each do |diag|
+            notification[:diagnostics].each do |diag|
               printer.print(diag)
               stdout.puts
             end
