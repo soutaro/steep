@@ -51,15 +51,15 @@ module Steep
     end
 
     def handle_logging_options(opts)
-      opts.on("--log-level=[debug,info,warn,error,fatal]") do |level|
+      opts.on("--log-level=LEVEL", "Specify log level: debug, info, warn, error, fatal") do |level|
         Steep.logger.level = level
       end
 
-      opts.on("--log-output=[PATH]") do |file|
+      opts.on("--log-output=PATH", "Print logs to given path") do |file|
         Steep.log_output = file
       end
 
-      opts.on("--verbose") do
+      opts.on("--verbose", "Set log level to debug") do
         Steep.logger.level = Logger::DEBUG
       end
     end
