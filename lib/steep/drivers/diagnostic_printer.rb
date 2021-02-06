@@ -50,28 +50,28 @@ module Steep
         Rainbow("#{path}:#{start[:line]+1}:#{start[:character]}").magenta
       end
 
-      def print(diagnostic)
+      def print(diagnostic, prefix: "")
         header, *rest = diagnostic[:message].split(/\n/)
 
-        stdout.puts "#{location(diagnostic)}: [#{severity_message(diagnostic[:severity])}] #{Rainbow(header).underline}"
+        stdout.puts "#{prefix}#{location(diagnostic)}: [#{severity_message(diagnostic[:severity])}] #{Rainbow(header).underline}"
 
         unless rest.empty?
           rest.each do |message|
-            stdout.puts "│ #{message}"
+            stdout.puts "#{prefix}│ #{message}"
           end
         end
 
         if diagnostic[:code]
-          stdout.puts "│" unless rest.empty?
-          stdout.puts "│ Diagnostic ID: #{diagnostic[:code]}"
+          stdout.puts "#{prefix}│" unless rest.empty?
+          stdout.puts "#{prefix}│ Diagnostic ID: #{diagnostic[:code]}"
         end
 
-        stdout.puts "│"
+        stdout.puts "#{prefix}│"
 
-        print_source_line(diagnostic)
+        print_source_line(diagnostic, prefix: prefix)
       end
 
-      def print_source_line(diagnostic)
+      def print_source_line(diagnostic, prefix: "")
         start_pos = diagnostic[:range][:start]
         end_pos = diagnostic[:range][:end]
 
@@ -86,8 +86,8 @@ module Steep
           trailing = ""
         end
 
-        stdout.puts "└ #{leading}#{color_severity(subject, severity: diagnostic[:severity])}#{trailing}"
-        stdout.puts "  #{" " * leading.size}#{"~" * subject.size}"
+        stdout.puts "#{prefix}└ #{leading}#{color_severity(subject, severity: diagnostic[:severity])}#{trailing}"
+        stdout.puts "#{prefix}  #{" " * leading.size}#{"~" * subject.size}"
       end
     end
   end
