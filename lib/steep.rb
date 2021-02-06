@@ -13,6 +13,7 @@ require "etc"
 require "open3"
 require "stringio"
 require 'uri'
+require "yaml"
 
 require "rbs"
 
@@ -102,6 +103,8 @@ require "steep/project/file_loader"
 require "steep/project/hover_content"
 require "steep/project/completion_provider"
 require "steep/project/stats_calculator"
+
+require "steep/expectations"
 require "steep/drivers/utils/driver_helper"
 require "steep/drivers/check"
 require "steep/drivers/stats"
