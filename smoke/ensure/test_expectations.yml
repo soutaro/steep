@@ -1,0 +1,62 @@
+---
+- file: a.rb
+  diagnostics:
+  - range:
+      start:
+        line: 4
+        character: 0
+      end:
+        line: 9
+        character: 7
+    severity: ERROR
+    message: |-
+      Cannot assign a value of type `::String` to a variable of type `::Integer`
+        ::String <: ::Integer
+          ::Object <: ::Integer
+            ::BasicObject <: ::Integer
+    code: Ruby::IncompatibleAssignment
+  - range:
+      start:
+        line: 7
+        character: 6
+      end:
+        line: 7
+        character: 14
+    severity: ERROR
+    message: |-
+      Cannot assign a value of type `::Symbol` to a variable of type `::Integer`
+        ::Symbol <: ::Integer
+          ::Object <: ::Integer
+            ::BasicObject <: ::Integer
+    code: Ruby::IncompatibleAssignment
+  - range:
+      start:
+        line: 13
+        character: 0
+      end:
+        line: 18
+        character: 3
+    severity: ERROR
+    message: |-
+      Cannot allow method body have type `::Integer` because declared as type `::String`
+        ::Integer <: ::String
+          ::Numeric <: ::String
+            ::Object <: ::String
+              ::BasicObject <: ::String
+    code: Ruby::MethodBodyTypeMismatch
+  - range:
+      start:
+        line: 16
+        character: 2
+      end:
+        line: 16
+        character: 9
+    severity: ERROR
+    message: |-
+      Cannot find compatible overloading of method `+` of type `::Integer`
+      Method types:
+        def +: (::Integer) -> ::Integer
+             | (::Float) -> ::Float
+             | (::Rational) -> ::Rational
+             | (::Complex) -> ::Complex
+    code: Ruby::UnresolvedOverloading

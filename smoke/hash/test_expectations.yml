@@ -1,0 +1,81 @@
+---
+- file: b.rb
+  diagnostics:
+  - range:
+      start:
+        line: 6
+        character: 0
+      end:
+        line: 6
+        character: 14
+    severity: ERROR
+    message: |-
+      Cannot assign a value of type `::Hash[::Symbol, ::Integer]` to a variable of type `::Hash[::Symbol, (::String | nil)]`
+        ::Hash[::Symbol, ::Integer] <: ::Hash[::Symbol, (::String | nil)]
+          ::Integer <: (::String | nil)
+            ::Integer <: ::String
+              ::Numeric <: ::String
+                ::Object <: ::String
+                  ::BasicObject <: ::String
+    code: Ruby::IncompatibleAssignment
+- file: c.rb
+  diagnostics:
+  - range:
+      start:
+        line: 5
+        character: 3
+      end:
+        line: 5
+        character: 10
+    severity: ERROR
+    message: Type `::Integer` does not have method `abcdefg`
+    code: Ruby::NoMethod
+  - range:
+      start:
+        line: 8
+        character: 5
+      end:
+        line: 8
+        character: 12
+    severity: ERROR
+    message: Type `::String` does not have method `abcdefg`
+    code: Ruby::NoMethod
+  - range:
+      start:
+        line: 10
+        character: 30
+      end:
+        line: 10
+        character: 37
+    severity: ERROR
+    message: Type `(::Integer | ::String)` does not have method `abcdefg`
+    code: Ruby::NoMethod
+- file: d.rb
+  diagnostics:
+  - range:
+      start:
+        line: 5
+        character: 0
+      end:
+        line: 5
+        character: 66
+    severity: ERROR
+    message: |-
+      Cannot assign a value of type `{ :email => ::String, :id => ::String, :name => ::String }` to a variable of type `{ :id => ::Integer, :name => ::String }`
+        { :email => ::String, :id => ::String, :name => ::String } <: { :id => ::Integer, :name => ::String }
+          ::String <: ::Integer
+            ::Object <: ::Integer
+              ::BasicObject <: ::Integer
+    code: Ruby::IncompatibleAssignment
+- file: e.rb
+  diagnostics:
+  - range:
+      start:
+        line: 1
+        character: 24
+      end:
+        line: 1
+        character: 37
+    severity: ERROR
+    message: Type `::Integer` does not have method `fffffffffffff`
+    code: Ruby::NoMethod

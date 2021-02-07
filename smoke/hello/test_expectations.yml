@@ -1,0 +1,25 @@
+---
+- file: hello.rb
+  diagnostics:
+  - range:
+      start:
+        line: 9
+        character: 6
+      end:
+        line: 9
+        character: 9
+    severity: ERROR
+    message: Type `::_Bar` does not have method `foo`
+    code: Ruby::NoMethod
+  - range:
+      start:
+        line: 11
+        character: 0
+      end:
+        line: 11
+        character: 5
+    severity: ERROR
+    message: |-
+      Cannot assign a value of type `::_Bar` to a variable of type `::_Foo`
+        ::_Bar <: ::_Foo
+    code: Ruby::IncompatibleAssignment

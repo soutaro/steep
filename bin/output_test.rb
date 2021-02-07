@@ -14,21 +14,27 @@ else
   test_dirs = ARGV.map {|p| Pathname.pwd + p }
 end
 
-success = true
+failed_tests = []
 
 test_dirs.each do |dir|
-  test = dir + "test.yaml"
-
-  next unless test.file?
-
   puts "Running test #{dir}..."
 
-  content = YAML.load_file(test)
+  unless (dir + "test_expectations.yml").file?
+    puts "Skipped ⛹️‍♀️"
+    next
+  end
 
-  command = content["command"] || "steep check"
-  puts "  command: #{command}"
+  command = %w(steep check --with-expectations=test_expectations.yml)
+  puts "  command: #{command.join(" ")}"
 
-  output, _ = Open3.capture2(command, chdir: dir.to_s)
+  output, status = Open3.capture2(*command, chdir: dir.to_s)
+
+  unless status.success?
+    failed_tests << dir.basename
+    puts "  Failed! 🤕"
+  else
+    puts "  Succeed! 👍"
+  end
 
   if @verbose
     puts "  Raw output:"
@@ -36,58 +42,12 @@ test_dirs.each do |dir|
       puts "  > #{line.chomp}"
     end
   end
-
-  diagnostics = output.split(/\n\n/).each.with_object({}) do |d, hash|
-    if d =~ /\A([^:]+):\d+:\d+:/
-      path = $1
-      hash[path] ||= []
-      hash[path] << (d.chomp + "\n")
-    end
-  end
-
-  content["test"].each do |path, test|
-    puts "  Checking: #{path}..."
-
-    fail_expected = test["fail"] || false
-
-    expected_diagnostics = test["diagnostics"]
-    reported_diagnostics = (diagnostics[path] || [])
-
-    puts "    # of expected: #{expected_diagnostics.size}, # of reported: #{reported_diagnostics.size}"
-
-    unexpected_diagnostics = reported_diagnostics.reject {|d| expected_diagnostics.include?(d) }
-    missing_diagnostics = expected_diagnostics.reject {|d| reported_diagnostics.include?(d) }
-
-    unexpected_diagnostics.each do |d|
-      puts "    Unexpected diagnostics:"
-      d.split(/\n/).each do |line|
-        puts "      + #{line.chomp}"
-      end
-    end
-
-    missing_diagnostics.each do |d|
-      puts "    Missing diagnostics:"
-      d.split(/\n/).each do |line|
-        puts "      - #{line.chomp}"
-      end
-    end
-
-    if unexpected_diagnostics.empty? && missing_diagnostics.empty?
-      puts "    👍"
-    else
-      if fail_expected
-        puts "    🚨 (expected failure)"
-      else
-        puts "    🚨"
-        success = false
-      end
-    end
-  end
 end
 
-if success
+if failed_tests.empty?
   puts "All tests ok! 👏"
 else
   puts "Errors detected! 🤮"
+  puts "  #{failed_tests.join(", ")}"
   exit 1
 end

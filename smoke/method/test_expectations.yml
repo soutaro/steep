@@ -1,0 +1,90 @@
+---
+- file: a.rb
+  diagnostics:
+  - range:
+      start:
+        line: 3
+        character: 0
+      end:
+        line: 11
+        character: 3
+    severity: ERROR
+    message: |-
+      Cannot allow method body have type `::Integer` because declared as type `::String`
+        ::Integer <: ::String
+          ::Numeric <: ::String
+            ::Object <: ::String
+              ::BasicObject <: ::String
+    code: Ruby::MethodBodyTypeMismatch
+  - range:
+      start:
+        line: 6
+        character: 2
+      end:
+        line: 6
+        character: 7
+    severity: ERROR
+    message: |-
+      Cannot assign a value of type `::Integer` to a variable of type `::String`
+        ::Integer <: ::String
+          ::Numeric <: ::String
+            ::Object <: ::String
+              ::BasicObject <: ::String
+    code: Ruby::IncompatibleAssignment
+  - range:
+      start:
+        line: 8
+        character: 2
+      end:
+        line: 8
+        character: 7
+    severity: ERROR
+    message: |-
+      Cannot assign a value of type `::Integer` to a variable of type `::String`
+        ::Integer <: ::String
+          ::Numeric <: ::String
+            ::Object <: ::String
+              ::BasicObject <: ::String
+    code: Ruby::IncompatibleAssignment
+  - range:
+      start:
+        line: 15
+        character: 7
+      end:
+        line: 15
+        character: 13
+    severity: ERROR
+    message: Method parameters are incompatible with declaration `(::Integer) -> ::String`
+    code: Ruby::MethodArityMismatch
+  - range:
+      start:
+        line: 18
+        character: 2
+      end:
+        line: 18
+        character: 7
+    severity: ERROR
+    message: |-
+      Cannot assign a value of type `::Integer` to a variable of type `::String`
+        ::Integer <: ::String
+          ::Numeric <: ::String
+            ::Object <: ::String
+              ::BasicObject <: ::String
+    code: Ruby::IncompatibleAssignment
+- file: b.rb
+  diagnostics:
+  - range:
+      start:
+        line: 4
+        character: 2
+      end:
+        line: 6
+        character: 5
+    severity: ERROR
+    message: |-
+      Cannot allow method body have type `::Symbol` because declared as type `(::Integer | ::String)`
+        ::Symbol <: (::Integer | ::String)
+          ::Symbol <: ::Integer
+            ::Object <: ::Integer
+              ::BasicObject <: ::Integer
+    code: Ruby::MethodBodyTypeMismatch

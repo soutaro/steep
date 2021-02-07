@@ -1,0 +1,120 @@
+---
+- file: a.rb
+  diagnostics:
+  - range:
+      start:
+        line: 8
+        character: 9
+      end:
+        line: 8
+        character: 12
+    severity: ERROR
+    message: Method parameters are incompatible with declaration `() -> ::String`
+    code: Ruby::MethodArityMismatch
+  - range:
+      start:
+        line: 13
+        character: 2
+      end:
+        line: 15
+        character: 5
+    severity: ERROR
+    message: |-
+      Cannot allow method body have type `::Integer` because declared as type `::String`
+        ::Integer <: ::String
+          ::Numeric <: ::String
+            ::Object <: ::String
+              ::BasicObject <: ::String
+    code: Ruby::MethodBodyTypeMismatch
+  - range:
+      start:
+        line: 22
+        character: 2
+      end:
+        line: 24
+        character: 5
+    severity: ERROR
+    message: |-
+      Cannot allow method body have type `::String` because declared as type `::Integer`
+        ::String <: ::Integer
+          ::Object <: ::Integer
+            ::BasicObject <: ::Integer
+    code: Ruby::MethodBodyTypeMismatch
+- file: c.rb
+  diagnostics:
+  - range:
+      start:
+        line: 1
+        character: 6
+      end:
+        line: 1
+        character: 7
+    severity: ERROR
+    message: "@dynamic annotation contains unknown method name `type`"
+    code: Ruby::UnexpectedDynamicMethod
+- file: f.rb
+  diagnostics:
+  - range:
+      start:
+        line: 9
+        character: 0
+      end:
+        line: 9
+        character: 5
+    severity: ERROR
+    message: |-
+      Cannot assign a value of type `::_E` to a variable of type `::D`
+        ::_E <: ::D
+    code: Ruby::IncompatibleAssignment
+- file: g.rb
+  diagnostics:
+  - range:
+      start:
+        line: 1
+        character: 6
+      end:
+        line: 1
+        character: 7
+    severity: ERROR
+    message: Cannot find implementation of method `::B#name`
+    code: Ruby::MethodDefinitionMissing
+  - range:
+      start:
+        line: 4
+        character: 6
+      end:
+        line: 4
+        character: 7
+    severity: ERROR
+    message: Cannot find implementation of method `::B#name`
+    code: Ruby::MethodDefinitionMissing
+- file: i.rb
+  diagnostics:
+  - range:
+      start:
+        line: 4
+        character: 4
+      end:
+        line: 4
+        character: 15
+    severity: ERROR
+    message: |-
+      Cannot assign a value of type `::Integer` to a variable of type `::Symbol`
+        ::Integer <: ::Symbol
+          ::Numeric <: ::Symbol
+            ::Object <: ::Symbol
+              ::BasicObject <: ::Symbol
+    code: Ruby::IncompatibleAssignment
+  - range:
+      start:
+        line: 10
+        character: 4
+      end:
+        line: 10
+        character: 11
+    severity: ERROR
+    message: |-
+      Cannot find method `initialize` of type `::IncompatibleChild` with compatible arity
+      Method types:
+        def initialize: (name: ::String) -> untyped
+    code: Ruby::IncompatibleArguments

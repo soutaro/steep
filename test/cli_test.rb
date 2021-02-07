@@ -24,6 +24,155 @@ class CLITest < Minitest::Test
     end
   end
 
+  def test_check_success
+    in_tmpdir do
+      (current_dir + "Steepfile").write(<<-EOF)
+target :app do
+  check "foo.rb"
+end
+      EOF
+
+      (current_dir + "foo.rb").write(<<-EOF)
+1 + 2
+      EOF
+
+      stdout, _, status = sh(*steep, "check")
+
+      assert_predicate status, :success?
+      assert_match /No type error detected\./, stdout
+    end
+  end
+
+  def test_check_failure
+    in_tmpdir do
+      (current_dir + "Steepfile").write(<<-EOF)
+target :app do
+  check "foo.rb"
+end
+      EOF
+
+      (current_dir + "foo.rb").write(<<-EOF)
+1 + "2"
+      EOF
+
+      stdout, _, status = sh(*steep, "check")
+
+      refute_predicate status, :success?
+      assert_match /Detected 1 problem from 1 file/, stdout
+    end
+  end
+
+  def test_check_expectations_success
+    in_tmpdir do
+      (current_dir + "Steepfile").write(<<-EOF)
+target :app do
+  check "foo.rb"
+end
+      EOF
+
+      (current_dir + "foo.rb").write(<<-EOF)
+1 + "2"
+      EOF
+
+      stdout, _, status = sh(*steep, "check", "--save-expectation=foo.yml")
+      assert_predicate status, :success?
+      assert_match /Saved expectations in foo\.yml\.\.\./, stdout
+
+      stdout, _, status = sh(*steep, "check", "--with-expectation=foo.yml")
+      assert_predicate status, :success?
+      assert_match /Expectations satisfied:/, stdout
+    end
+  end
+
+  def test_check_expectations_fail
+    in_tmpdir do
+      (current_dir + "Steepfile").write(<<-EOF)
+target :app do
+  check "foo.rb"
+end
+      EOF
+
+      (current_dir + "foo.rb").write(<<-EOF)
+1 + "2"
+      EOF
+
+      stdout, _, status = sh(*steep, "check", "--save-expectation=foo.yml")
+      assert_predicate status, :success?
+      assert_match /Saved expectations in foo\.yml\.\.\./, stdout
+
+      (current_dir + "foo.rb").write(<<-EOF)
+1 + 2
+      EOF
+
+      stdout, _, status = sh(*steep, "check", "--with-expectation=foo.yml")
+      refute_predicate status, :success?
+
+      assert_match /Expectations unsatisfied:/, stdout
+      assert_match /0 expected diagnostics/, stdout
+      assert_match /0 unexpected diagnostics/, stdout
+      assert_match /1 missing diagnostic/, stdout
+    end
+  end
+
+  def test_check_expectations_fail2
+    in_tmpdir do
+      (current_dir + "Steepfile").write(<<-EOF)
+target :app do
+  check "foo.rb", "bar.rb"
+end
+      EOF
+
+      (current_dir + "foo.rb").write(<<-EOF)
+1 + "2"
+      EOF
+
+      (current_dir + "bar.rb").write(<<-EOF)
+1 + "2"
+      EOF
+
+      stdout, _, status = sh(*steep, "check", "--save-expectation")
+      assert_predicate status, :success?
+      assert_match /Saved expectations in steep_expectations\.yml\.\.\./, stdout
+
+      (current_dir + "foo.rb").write(<<-EOF)
+1 + 2
+      EOF
+
+      stdout, _, status = sh(*steep, "check", "--with-expectation", "foo.rb")
+      refute_predicate status, :success?
+
+      assert_match /Expectations unsatisfied:/, stdout
+      assert_match /0 expected diagnostics/, stdout
+      assert_match /0 unexpected diagnostics/, stdout
+      assert_match /1 missing diagnostic/, stdout
+
+      stdout, _, status = sh(*steep, "check", "--with-expectation", "bar.rb")
+      assert_predicate status, :success?
+
+      assert_match /Expectations satisfied:/, stdout
+      assert_match /1 expected diagnostic/, stdout
+    end
+  end
+
+  def test_check_broken
+    in_tmpdir do
+      (current_dir + "Steepfile").write(<<-EOF)
+target :app do
+  signature "foo.rbs"
+end
+      EOF
+
+      (current_dir + "foo.rbs").write(<<-EOF.encode(Encoding::EUC_JP).force_encoding(Encoding::UTF_8))
+無効なUTF-8ファイル
+      EOF
+
+      stdout, stderr, status = sh(*steep, "check")
+      refute_predicate status, :success?
+      assert_match /Unexpected error reported./, stdout
+      assert_match /ArgumentError: invalid byte sequence in UTF-8/, stderr
+    end
+  end
+
   def test_annotations
     in_tmpdir do
       (current_dir + "foo.rb").write(<<-RUBY)

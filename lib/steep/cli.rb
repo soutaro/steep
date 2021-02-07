@@ -51,15 +51,15 @@ module Steep
     end
 
     def handle_logging_options(opts)
-      opts.on("--log-level=[debug,info,warn,error,fatal]") do |level|
+      opts.on("--log-level=LEVEL", "Specify log level: debug, info, warn, error, fatal") do |level|
         Steep.logger.level = level
       end
 
-      opts.on("--log-output=[PATH]") do |file|
+      opts.on("--log-output=PATH", "Print logs to given path") do |file|
         Steep.log_output = file
       end
 
-      opts.on("--verbose") do
+      opts.on("--verbose", "Set log level to debug") do
         Steep.logger.level = Logger::DEBUG
       end
     end
@@ -83,6 +83,12 @@ module Steep
           opts.banner = "Usage: steep check [options] [sources]"
 
           opts.on("--steepfile=PATH") {|path| check.steepfile = Pathname(path) }
+          opts.on("--with-expectations[=PATH]", "Type check with expectations saved in PATH (or steep_expectations.yml)") do |path|
+            check.with_expectations_path = Pathname(path || "steep_expectations.yml")
+          end
+          opts.on("--save-expectations[=PATH]", "Save expectations with current type check result to PATH (or steep_expectations.yml)") do |path|
+            check.save_expectations_path = Pathname(path || "steep_expectations.yml")
+          end
           handle_logging_options opts
         end.parse!(argv)
 
