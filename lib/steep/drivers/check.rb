@@ -146,13 +146,13 @@ module Steep
 
         if unexpected_count > 0 || missing_count > 0
           stdout.puts Rainbow("Expectations unsatisfied:").bold.red
-          stdout.puts "  #{expected_count} expected diagnostics"
-          stdout.puts Rainbow("  + #{unexpected_count} unexpected diagnostics").green
-          stdout.puts Rainbow("  - #{missing_count} missing diagnostics").red
+          stdout.puts "  #{expected_count} expected #{"diagnostic".pluralize(expected_count)}"
+          stdout.puts Rainbow("  + #{unexpected_count} unexpected #{"diagnostic".pluralize(unexpected_count)}").green
+          stdout.puts Rainbow("  - #{missing_count} missing #{"diagnostic".pluralize(missing_count)}").red
           1
         else
           stdout.puts Rainbow("Expectations satisfied:").bold.green
-          stdout.puts "  #{expected_count} expected diagnostics"
+          stdout.puts "  #{expected_count} expected #{"diagnostic".pluralize(expected_count)}"
           0
         end
       end
@@ -192,7 +192,7 @@ module Steep
         else
           errors = notifications.reject {|notification| notification[:diagnostics].empty? }
           total = errors.sum {|notification| notification[:diagnostics].size }
-          stdout.puts Rainbow("Detected #{total} problems from #{errors.size} files").red.bold
+          stdout.puts Rainbow("Detected #{total} #{"problem".pluralize(total)} from #{errors.size} #{"file".pluralize(errors.size)}").red.bold
           stdout.puts
 
           errors.each do |notification|
