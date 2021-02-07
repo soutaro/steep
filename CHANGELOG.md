@@ -2,6 +2,10 @@
 
 ## master
 
+## 0.41.0 (2021-02-07)
+
+* Add `--with-expectations` and `--save-expectations` option ([#303](https://github.com/soutaro/steep/pull/303))
+
 ## 0.40.0 (2021-01-31)
 
 * Report progress with dots ([#287](https://github.com/soutaro/steep/pull/287))
