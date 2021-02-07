@@ -142,9 +142,9 @@ module Steep
           end
         end
 
-        stdout.puts
-
         if unexpected_count > 0 || missing_count > 0
+          stdout.puts
+
           stdout.puts Rainbow("Expectations unsatisfied:").bold.red
           stdout.puts "  #{expected_count} expected #{"diagnostic".pluralize(expected_count)}"
           stdout.puts Rainbow("  + #{unexpected_count} unexpected #{"diagnostic".pluralize(unexpected_count)}").green
@@ -179,8 +179,8 @@ module Steep
           end
         end
 
-        stdout.puts Rainbow("Updating #{expectations_path}...").bold
         expectations_path.write(expectations.to_yaml)
+        stdout.puts Rainbow("Saved expectations in #{expectations_path}...").bold
         0
       end
 
@@ -192,8 +192,6 @@ module Steep
         else
           errors = notifications.reject {|notification| notification[:diagnostics].empty? }
           total = errors.sum {|notification| notification[:diagnostics].size }
-          stdout.puts Rainbow("Detected #{total} #{"problem".pluralize(total)} from #{errors.size} #{"file".pluralize(errors.size)}").red.bold
-          stdout.puts
 
           errors.each do |notification|
             path = project.relative_path(Pathname(URI.parse(notification[:uri]).path))
@@ -205,6 +203,8 @@ module Steep
               stdout.puts
             end
           end
+
+          stdout.puts Rainbow("Detected #{total} #{"problem".pluralize(total)} from #{errors.size} #{"file".pluralize(errors.size)}").red.bold
           1
         end
       end
