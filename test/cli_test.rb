@@ -154,6 +154,25 @@ end
     end
   end
 
+  def test_check_broken
+    in_tmpdir do
+      (current_dir + "Steepfile").write(<<-EOF)
+target :app do
+  signature "foo.rbs"
+end
+      EOF
+
+      (current_dir + "foo.rbs").write(<<-EOF.encode(Encoding::EUC_JP).force_encoding(Encoding::UTF_8))
+無効なUTF-8ファイル
+      EOF
+
+      stdout, stderr, status = sh(*steep, "check")
+      refute_predicate status, :success?
+      assert_match /Unexpected error reported./, stdout
+      assert_match /ArgumentError: invalid byte sequence in UTF-8/, stderr
+    end
+  end
+
   def test_annotations
     in_tmpdir do
       (current_dir + "foo.rb").write(<<-RUBY)
