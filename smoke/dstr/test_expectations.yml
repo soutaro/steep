@@ -1,0 +1,13 @@
+---
+- file: a.rb
+  diagnostics:
+  - range:
+      start:
+        line: 5
+        character: 15
+      end:
+        line: 5
+        character: 18
+    severity: ERROR
+    message: Type `::Integer` does not have method `foo`
+    code: Ruby::NoMethod

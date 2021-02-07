@@ -1,0 +1,103 @@
+---
+- file: a.rb
+  diagnostics:
+  - range:
+      start:
+        line: 6
+        character: 0
+      end:
+        line: 6
+        character: 12
+    severity: ERROR
+    message: |-
+      Cannot find compatible overloading of method `[]=` of type `::Array[::Integer]`
+      Method types:
+        def []=: (::int, ::Integer) -> ::Integer
+               | (::int, ::int, ::Integer) -> ::Integer
+               | (::int, ::int, ::Array[::Integer]) -> ::Array[::Integer]
+               | (::int, ::int, nil) -> nil
+               | (::Range[::Integer], ::Integer) -> ::Integer
+               | (::Range[::Integer], ::Array[::Integer]) -> ::Array[::Integer]
+               | (::Range[::Integer], nil) -> nil
+    code: Ruby::UnresolvedOverloading
+  - range:
+      start:
+        line: 12
+        character: 0
+      end:
+        line: 12
+        character: 8
+    severity: ERROR
+    message: |-
+      Cannot assign a value of type `::Integer` to a variable of type `::String`
+        ::Integer <: ::String
+          ::Numeric <: ::String
+            ::Object <: ::String
+              ::BasicObject <: ::String
+    code: Ruby::IncompatibleAssignment
+  - range:
+      start:
+        line: 18
+        character: 0
+      end:
+        line: 18
+        character: 8
+    severity: ERROR
+    message: |-
+      Cannot assign a value of type `::String` to a variable of type `::Integer`
+        ::String <: ::Integer
+          ::Object <: ::Integer
+            ::BasicObject <: ::Integer
+    code: Ruby::IncompatibleAssignment
+- file: b.rb
+  diagnostics:
+  - range:
+      start:
+        line: 11
+        character: 0
+      end:
+        line: 11
+        character: 5
+    severity: ERROR
+    message: |-
+      Cannot assign a value of type `::Array[::Integer]` to a variable of type `::Array[::String]`
+        ::Array[::Integer] <: ::Array[::String]
+          ::Integer <: ::String
+            ::Numeric <: ::String
+              ::Object <: ::String
+                ::BasicObject <: ::String
+    code: Ruby::IncompatibleAssignment
+  - range:
+      start:
+        line: 12
+        character: 0
+      end:
+        line: 12
+        character: 5
+    severity: ERROR
+    message: |-
+      Cannot assign a value of type `::Array[::String]` to a variable of type `::Array[::Integer]`
+        ::Array[::String] <: ::Array[::Integer]
+          ::String <: ::Integer
+            ::Object <: ::Integer
+              ::BasicObject <: ::Integer
+    code: Ruby::IncompatibleAssignment
+- file: c.rb
+  diagnostics:
+  - range:
+      start:
+        line: 6
+        character: 0
+      end:
+        line: 6
+        character: 7
+    severity: ERROR
+    message: |-
+      Cannot assign a value of type `::Array[::Integer]` to a variable of type `::Array[(::String | nil)]`
+        ::Array[::Integer] <: ::Array[(::String | nil)]
+          ::Integer <: (::String | nil)
+            ::Integer <: ::String
+              ::Numeric <: ::String
+                ::Object <: ::String
+                  ::BasicObject <: ::String
+    code: Ruby::IncompatibleAssignment

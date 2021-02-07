@@ -1,0 +1,615 @@
+---
+- file: a.rb
+  diagnostics:
+  - range:
+      start:
+        line: 2
+        character: 6
+      end:
+        line: 2
+        character: 9
+    severity: ERROR
+    message: Type `::Regexp` does not have method `foo`
+    code: Ruby::NoMethod
+  - range:
+      start:
+        line: 5
+        character: 6
+      end:
+        line: 5
+        character: 9
+    severity: ERROR
+    message: Type `::Regexp` does not have method `foo`
+    code: Ruby::NoMethod
+  - range:
+      start:
+        line: 8
+        character: 6
+      end:
+        line: 8
+        character: 9
+    severity: ERROR
+    message: Type `::Regexp` does not have method `foo`
+    code: Ruby::NoMethod
+  - range:
+      start:
+        line: 11
+        character: 6
+      end:
+        line: 11
+        character: 9
+    severity: ERROR
+    message: Type `::Regexp` does not have method `foo`
+    code: Ruby::NoMethod
+  - range:
+      start:
+        line: 14
+        character: 10
+      end:
+        line: 14
+        character: 13
+    severity: ERROR
+    message: Type `::Regexp` does not have method `foo`
+    code: Ruby::NoMethod
+  - range:
+      start:
+        line: 17
+        character: 10
+      end:
+        line: 17
+        character: 13
+    severity: ERROR
+    message: Type `::Regexp` does not have method `foo`
+    code: Ruby::NoMethod
+  - range:
+      start:
+        line: 20
+        character: 10
+      end:
+        line: 20
+        character: 13
+    severity: ERROR
+    message: Type `::Regexp` does not have method `foo`
+    code: Ruby::NoMethod
+  - range:
+      start:
+        line: 23
+        character: 10
+      end:
+        line: 23
+        character: 13
+    severity: ERROR
+    message: Type `::Regexp` does not have method `foo`
+    code: Ruby::NoMethod
+  - range:
+      start:
+        line: 26
+        character: 9
+      end:
+        line: 26
+        character: 12
+    severity: ERROR
+    message: Type `::String` does not have method `foo`
+    code: Ruby::NoMethod
+  - range:
+      start:
+        line: 29
+        character: 13
+      end:
+        line: 29
+        character: 16
+    severity: ERROR
+    message: Type `(::MatchData | nil)` does not have method `foo`
+    code: Ruby::NoMethod
+  - range:
+      start:
+        line: 32
+        character: 13
+      end:
+        line: 32
+        character: 16
+    severity: ERROR
+    message: Type `(::String | nil)` does not have method `foo`
+    code: Ruby::NoMethod
+  - range:
+      start:
+        line: 35
+        character: 8
+      end:
+        line: 35
+        character: 11
+    severity: ERROR
+    message: Type `::String` does not have method `foo`
+    code: Ruby::NoMethod
+  - range:
+      start:
+        line: 38
+        character: 14
+      end:
+        line: 38
+        character: 17
+    severity: ERROR
+    message: Type `(::Regexp | nil)` does not have method `foo`
+    code: Ruby::NoMethod
+  - range:
+      start:
+        line: 41
+        character: 8
+      end:
+        line: 41
+        character: 11
+    severity: ERROR
+    message: Type `::Regexp` does not have method `foo`
+    code: Ruby::NoMethod
+  - range:
+      start:
+        line: 44
+        character: 8
+      end:
+        line: 44
+        character: 11
+    severity: ERROR
+    message: Type `::Regexp` does not have method `foo`
+    code: Ruby::NoMethod
+  - range:
+      start:
+        line: 47
+        character: 8
+      end:
+        line: 47
+        character: 11
+    severity: ERROR
+    message: Type `::Regexp` does not have method `foo`
+    code: Ruby::NoMethod
+  - range:
+      start:
+        line: 50
+        character: 8
+      end:
+        line: 50
+        character: 11
+    severity: ERROR
+    message: Type `::Regexp` does not have method `foo`
+    code: Ruby::NoMethod
+  - range:
+      start:
+        line: 53
+        character: 8
+      end:
+        line: 53
+        character: 11
+    severity: ERROR
+    message: Type `::Regexp` does not have method `foo`
+    code: Ruby::NoMethod
+  - range:
+      start:
+        line: 56
+        character: 8
+      end:
+        line: 56
+        character: 11
+    severity: ERROR
+    message: Type `::Regexp` does not have method `foo`
+    code: Ruby::NoMethod
+  - range:
+      start:
+        line: 59
+        character: 8
+      end:
+        line: 59
+        character: 11
+    severity: ERROR
+    message: Type `::Regexp` does not have method `foo`
+    code: Ruby::NoMethod
+  - range:
+      start:
+        line: 62
+        character: 12
+      end:
+        line: 62
+        character: 15
+    severity: ERROR
+    message: Type `bool` does not have method `foo`
+    code: Ruby::NoMethod
+  - range:
+      start:
+        line: 68
+        character: 11
+      end:
+        line: 68
+        character: 14
+    severity: ERROR
+    message: Type `bool` does not have method `foo`
+    code: Ruby::NoMethod
+  - range:
+      start:
+        line: 71
+        character: 11
+      end:
+        line: 71
+        character: 14
+    severity: ERROR
+    message: Type `::Encoding` does not have method `foo`
+    code: Ruby::NoMethod
+  - range:
+      start:
+        line: 74
+        character: 17
+      end:
+        line: 74
+        character: 20
+    severity: ERROR
+    message: Type `bool` does not have method `foo`
+    code: Ruby::NoMethod
+  - range:
+      start:
+        line: 77
+        character: 8
+      end:
+        line: 77
+        character: 11
+    severity: ERROR
+    message: Type `(::MatchData | nil)` does not have method `foo`
+    code: Ruby::NoMethod
+  - range:
+      start:
+        line: 80
+        character: 8
+      end:
+        line: 80
+        character: 11
+    severity: ERROR
+    message: Type `(::MatchData | nil)` does not have method `foo`
+    code: Ruby::NoMethod
+  - range:
+      start:
+        line: 83
+        character: 4
+      end:
+        line: 83
+        character: 7
+    severity: ERROR
+    message: Type `::MatchData` does not have method `foo`
+    code: Ruby::NoMethod
+  - range:
+      start:
+        line: 87
+        character: 4
+      end:
+        line: 87
+        character: 7
+    severity: ERROR
+    message: Type `::MatchData` does not have method `foo`
+    code: Ruby::NoMethod
+  - range:
+      start:
+        line: 91
+        character: 10
+      end:
+        line: 91
+        character: 13
+    severity: ERROR
+    message: Type `bool` does not have method `foo`
+    code: Ruby::NoMethod
+  - range:
+      start:
+        line: 94
+        character: 10
+      end:
+        line: 94
+        character: 13
+    severity: ERROR
+    message: Type `bool` does not have method `foo`
+    code: Ruby::NoMethod
+  - range:
+      start:
+        line: 97
+        character: 17
+      end:
+        line: 97
+        character: 20
+    severity: ERROR
+    message: Type `::Hash[::String, ::Array[::Integer]]` does not have method `foo`
+    code: Ruby::NoMethod
+  - range:
+      start:
+        line: 100
+        character: 8
+      end:
+        line: 100
+        character: 11
+    severity: ERROR
+    message: Type `::Array[::String]` does not have method `foo`
+    code: Ruby::NoMethod
+  - range:
+      start:
+        line: 103
+        character: 10
+      end:
+        line: 103
+        character: 13
+    severity: ERROR
+    message: Type `::Integer` does not have method `foo`
+    code: Ruby::NoMethod
+  - range:
+      start:
+        line: 106
+        character: 9
+      end:
+        line: 106
+        character: 12
+    severity: ERROR
+    message: Type `::String` does not have method `foo`
+    code: Ruby::NoMethod
+  - range:
+      start:
+        line: 109
+        character: 17
+      end:
+        line: 109
+        character: 20
+    severity: ERROR
+    message: Type `(::Integer | nil)` does not have method `foo`
+    code: Ruby::NoMethod
+- file: b.rb
+  diagnostics:
+  - range:
+      start:
+        line: 3
+        character: 14
+      end:
+        line: 3
+        character: 17
+    severity: ERROR
+    message: Type `(::String | nil)` does not have method `foo`
+    code: Ruby::NoMethod
+  - range:
+      start:
+        line: 6
+        character: 14
+      end:
+        line: 6
+        character: 17
+    severity: ERROR
+    message: Type `(::String | nil)` does not have method `foo`
+    code: Ruby::NoMethod
+  - range:
+      start:
+        line: 9
+        character: 14
+      end:
+        line: 9
+        character: 17
+    severity: ERROR
+    message: Type `(::String | nil)` does not have method `foo`
+    code: Ruby::NoMethod
+  - range:
+      start:
+        line: 12
+        character: 14
+      end:
+        line: 12
+        character: 17
+    severity: ERROR
+    message: Type `::Array[(::String | nil)]` does not have method `foo`
+    code: Ruby::NoMethod
+  - range:
+      start:
+        line: 15
+        character: 14
+      end:
+        line: 15
+        character: 17
+    severity: ERROR
+    message: Type `::Array[(::String | nil)]` does not have method `foo`
+    code: Ruby::NoMethod
+  - range:
+      start:
+        line: 18
+        character: 10
+      end:
+        line: 18
+        character: 13
+    severity: ERROR
+    message: Type `(::Integer | nil)` does not have method `foo`
+    code: Ruby::NoMethod
+  - range:
+      start:
+        line: 21
+        character: 10
+      end:
+        line: 21
+        character: 13
+    severity: ERROR
+    message: Type `(::Integer | nil)` does not have method `foo`
+    code: Ruby::NoMethod
+  - range:
+      start:
+        line: 24
+        character: 10
+      end:
+        line: 24
+        character: 13
+    severity: ERROR
+    message: Type `(::Integer | nil)` does not have method `foo`
+    code: Ruby::NoMethod
+  - range:
+      start:
+        line: 27
+        character: 13
+      end:
+        line: 27
+        character: 16
+    severity: ERROR
+    message: Type `::Array[(::String | nil)]` does not have method `foo`
+    code: Ruby::NoMethod
+  - range:
+      start:
+        line: 30
+        character: 8
+      end:
+        line: 30
+        character: 11
+    severity: ERROR
+    message: Type `(::Integer | nil)` does not have method `foo`
+    code: Ruby::NoMethod
+  - range:
+      start:
+        line: 33
+        character: 8
+      end:
+        line: 33
+        character: 11
+    severity: ERROR
+    message: Type `(::Integer | nil)` does not have method `foo`
+    code: Ruby::NoMethod
+  - range:
+      start:
+        line: 36
+        character: 8
+      end:
+        line: 36
+        character: 11
+    severity: ERROR
+    message: Type `(::Integer | nil)` does not have method `foo`
+    code: Ruby::NoMethod
+  - range:
+      start:
+        line: 39
+        character: 11
+      end:
+        line: 39
+        character: 14
+    severity: ERROR
+    message: Type `::Integer` does not have method `foo`
+    code: Ruby::NoMethod
+  - range:
+      start:
+        line: 42
+        character: 19
+      end:
+        line: 42
+        character: 22
+    severity: ERROR
+    message: Type `::Hash[::String, (::String | nil)]` does not have method `foo`
+    code: Ruby::NoMethod
+  - range:
+      start:
+        line: 45
+        character: 10
+      end:
+        line: 45
+        character: 13
+    severity: ERROR
+    message: Type `::Array[::String]` does not have method `foo`
+    code: Ruby::NoMethod
+  - range:
+      start:
+        line: 48
+        character: 11
+      end:
+        line: 48
+        character: 14
+    severity: ERROR
+    message: Type `([::Integer, ::Integer] | [nil, nil])` does not have method `foo`
+    code: Ruby::NoMethod
+  - range:
+      start:
+        line: 51
+        character: 11
+      end:
+        line: 51
+        character: 14
+    severity: ERROR
+    message: Type `([::Integer, ::Integer] | [nil, nil])` does not have method `foo`
+    code: Ruby::NoMethod
+  - range:
+      start:
+        line: 54
+        character: 11
+      end:
+        line: 54
+        character: 14
+    severity: ERROR
+    message: Type `([::Integer, ::Integer] | [nil, nil])` does not have method `foo`
+    code: Ruby::NoMethod
+  - range:
+      start:
+        line: 57
+        character: 15
+      end:
+        line: 57
+        character: 18
+    severity: ERROR
+    message: Type `::String` does not have method `foo`
+    code: Ruby::NoMethod
+  - range:
+      start:
+        line: 60
+        character: 14
+      end:
+        line: 60
+        character: 17
+    severity: ERROR
+    message: Type `::String` does not have method `foo`
+    code: Ruby::NoMethod
+  - range:
+      start:
+        line: 63
+        character: 11
+      end:
+        line: 63
+        character: 14
+    severity: ERROR
+    message: Type `::Regexp` does not have method `foo`
+    code: Ruby::NoMethod
+  - range:
+      start:
+        line: 66
+        character: 9
+      end:
+        line: 66
+        character: 12
+    severity: ERROR
+    message: Type `::Integer` does not have method `foo`
+    code: Ruby::NoMethod
+  - range:
+      start:
+        line: 69
+        character: 11
+      end:
+        line: 69
+        character: 14
+    severity: ERROR
+    message: Type `::String` does not have method `foo`
+    code: Ruby::NoMethod
+  - range:
+      start:
+        line: 72
+        character: 9
+      end:
+        line: 72
+        character: 12
+    severity: ERROR
+    message: Type `::Array[(::String | nil)]` does not have method `foo`
+    code: Ruby::NoMethod
+  - range:
+      start:
+        line: 75
+        character: 14
+      end:
+        line: 75
+        character: 17
+    severity: ERROR
+    message: Type `::Array[(::String | nil)]` does not have method `foo`
+    code: Ruby::NoMethod
+  - range:
+      start:
+        line: 78
+        character: 14
+      end:
+        line: 78
+        character: 17
+    severity: ERROR
+    message: Type `::Array[(::String | nil)]` does not have method `foo`
+    code: Ruby::NoMethod

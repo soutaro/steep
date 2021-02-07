@@ -1,0 +1,23 @@
+---
+- file: a.rb
+  diagnostics:
+  - range:
+      start:
+        line: 5
+        character: 12
+      end:
+        line: 5
+        character: 15
+    severity: ERROR
+    message: Type `::A::Object` does not have method `bar`
+    code: Ruby::NoMethod
+  - range:
+      start:
+        line: 10
+        character: 11
+      end:
+        line: 10
+        character: 18
+    severity: ERROR
+    message: Type `::Object` does not have method `object?`
+    code: Ruby::NoMethod

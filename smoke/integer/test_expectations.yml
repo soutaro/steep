@@ -1,0 +1,101 @@
+---
+- file: a.rb
+  diagnostics:
+  - range:
+      start:
+        line: 4
+        character: 10
+      end:
+        line: 4
+        character: 13
+    severity: ERROR
+    message: Type `::Integer` does not have method `foo`
+    code: Ruby::NoMethod
+  - range:
+      start:
+        line: 7
+        character: 10
+      end:
+        line: 7
+        character: 13
+    severity: ERROR
+    message: Type `::Integer` does not have method `foo`
+    code: Ruby::NoMethod
+  - range:
+      start:
+        line: 12
+        character: 20
+      end:
+        line: 12
+        character: 29
+    severity: ERROR
+    message: Cannot detect the type of the expression
+    code: Ruby::FallbackAny
+  - range:
+      start:
+        line: 13
+        character: 10
+      end:
+        line: 13
+        character: 13
+    severity: ERROR
+    message: Type `::Integer` does not have method `foo`
+    code: Ruby::NoMethod
+  - range:
+      start:
+        line: 18
+        character: 20
+      end:
+        line: 18
+        character: 27
+    severity: ERROR
+    message: Cannot detect the type of the expression
+    code: Ruby::FallbackAny
+  - range:
+      start:
+        line: 19
+        character: 10
+      end:
+        line: 19
+        character: 13
+    severity: ERROR
+    message: Type `::Integer` does not have method `foo`
+    code: Ruby::NoMethod
+  - range:
+      start:
+        line: 22
+        character: 10
+      end:
+        line: 22
+        character: 13
+    severity: ERROR
+    message: Type `::Integer` does not have method `foo`
+    code: Ruby::NoMethod
+  - range:
+      start:
+        line: 24
+        character: 0
+      end:
+        line: 24
+        character: 19
+    severity: ERROR
+    message: |-
+      Cannot find compatible overloading of method `Integer` of type `::Object`
+      Method types:
+        def Integer: ((::Numeric | ::String), ?exception: bool) -> ::Integer
+                   | (::String, ?::Integer, ?exception: bool) -> ::Integer
+    code: Ruby::UnresolvedOverloading
+  - range:
+      start:
+        line: 26
+        character: 0
+      end:
+        line: 26
+        character: 12
+    severity: ERROR
+    message: |-
+      Cannot find compatible overloading of method `Integer` of type `::Object`
+      Method types:
+        def Integer: ((::Numeric | ::String), ?exception: bool) -> ::Integer
+                   | (::String, ?::Integer, ?exception: bool) -> ::Integer
+    code: Ruby::UnresolvedOverloading

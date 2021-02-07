@@ -1,0 +1,79 @@
+---
+- file: a.rb
+  diagnostics:
+  - range:
+      start:
+        line: 3
+        character: 0
+      end:
+        line: 7
+        character: 7
+    severity: ERROR
+    message: |-
+      Cannot assign a value of type `(::String | ::Integer)` to a variable of type `::Integer`
+        (::String | ::Integer) <: ::Integer
+          ::String <: ::Integer
+            ::Object <: ::Integer
+              ::BasicObject <: ::Integer
+    code: Ruby::IncompatibleAssignment
+  - range:
+      start:
+        line: 11
+        character: 0
+      end:
+        line: 11
+        character: 18
+    severity: ERROR
+    message: |-
+      Cannot assign a value of type `(::String | ::Integer)` to a variable of type `::Integer`
+        (::String | ::Integer) <: ::Integer
+          ::String <: ::Integer
+            ::Object <: ::Integer
+              ::BasicObject <: ::Integer
+    code: Ruby::IncompatibleAssignment
+  - range:
+      start:
+        line: 15
+        character: 0
+      end:
+        line: 21
+        character: 7
+    severity: ERROR
+    message: |-
+      Cannot assign a value of type `(::String | ::Symbol | ::Integer)` to a variable of type `::Integer`
+        (::String | ::Symbol | ::Integer) <: ::Integer
+          ::String <: ::Integer
+            ::Object <: ::Integer
+              ::BasicObject <: ::Integer
+    code: Ruby::IncompatibleAssignment
+  - range:
+      start:
+        line: 25
+        character: 0
+      end:
+        line: 33
+        character: 7
+    severity: ERROR
+    message: |-
+      Cannot assign a value of type `(::Array[::Integer] | ::Symbol | ::Integer)` to a variable of type `::Integer`
+        (::Array[::Integer] | ::Symbol | ::Integer) <: ::Integer
+          ::Array[::Integer] <: ::Integer
+            ::Object <: ::Integer
+              ::BasicObject <: ::Integer
+    code: Ruby::IncompatibleAssignment
+  - range:
+      start:
+        line: 37
+        character: 0
+      end:
+        line: 41
+        character: 3
+    severity: ERROR
+    message: |-
+      Cannot allow method body have type `(::Integer | ::String)` because declared as type `::String`
+        (::Integer | ::String) <: ::String
+          ::Integer <: ::String
+            ::Numeric <: ::String
+              ::Object <: ::String
+                ::BasicObject <: ::String
+    code: Ruby::MethodBodyTypeMismatch

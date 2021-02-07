@@ -1,0 +1,47 @@
+---
+- file: a.rb
+  diagnostics:
+  - range:
+      start:
+        line: 3
+        character: 0
+      end:
+        line: 13
+        character: 7
+    severity: ERROR
+    message: |-
+      Cannot assign a value of type `(::Integer | ::Array[::String] | nil | ::String)` to a variable of type `::Integer`
+        (::Integer | ::Array[::String] | nil | ::String) <: ::Integer
+          ::Array[::String] <: ::Integer
+            ::Object <: ::Integer
+              ::BasicObject <: ::Integer
+    code: Ruby::IncompatibleAssignment
+  - range:
+      start:
+        line: 15
+        character: 0
+      end:
+        line: 18
+        character: 7
+    severity: ERROR
+    message: |-
+      Cannot assign a value of type `(::Integer | nil)` to a variable of type `::Integer`
+        (::Integer | nil) <: ::Integer
+          nil <: ::Integer
+    code: Ruby::IncompatibleAssignment
+  - range:
+      start:
+        line: 16
+        character: 9
+      end:
+        line: 16
+        character: 14
+    severity: ERROR
+    message: |-
+      Cannot find compatible overloading of method `+` of type `::Integer`
+      Method types:
+        def +: (::Integer) -> ::Integer
+             | (::Float) -> ::Float
+             | (::Rational) -> ::Rational
+             | (::Complex) -> ::Complex
+    code: Ruby::UnresolvedOverloading

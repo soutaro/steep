@@ -1,0 +1,13 @@
+---
+- file: a.rbs
+  diagnostics:
+  - range:
+      start:
+        line: 4
+        character: 0
+      end:
+        line: 5
+        character: 3
+    severity: ERROR
+    message: Declaration of `::A` is duplicated
+    code: Ruby::DuplicatedDeclaration

@@ -1,0 +1,15 @@
+---
+- file: a.rb
+  diagnostics:
+  - range:
+      start:
+        line: 1
+        character: 0
+      end:
+        line: 3
+        character: 3
+    severity: ERROR
+    message: |-
+      Cannot allow method body have type `nil` because declared as type `::String`
+        nil <: ::String
+    code: Ruby::MethodBodyTypeMismatch

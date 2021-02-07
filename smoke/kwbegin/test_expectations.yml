@@ -1,0 +1,17 @@
+---
+- file: a.rb
+  diagnostics:
+  - range:
+      start:
+        line: 3
+        character: 0
+      end:
+        line: 7
+        character: 3
+    severity: ERROR
+    message: |-
+      Cannot assign a value of type `::String` to a variable of type `::Integer`
+        ::String <: ::Integer
+          ::Object <: ::Integer
+            ::BasicObject <: ::Integer
+    code: Ruby::IncompatibleAssignment

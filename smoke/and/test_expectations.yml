@@ -1,0 +1,31 @@
+---
+- file: a.rb
+  diagnostics:
+  - range:
+      start:
+        line: 6
+        character: 0
+      end:
+        line: 6
+        character: 17
+    severity: ERROR
+    message: |-
+      Cannot assign a value of type `(::String | nil)` to a variable of type `::String`
+        (::String | nil) <: ::String
+          nil <: ::String
+    code: Ruby::IncompatibleAssignment
+  - range:
+      start:
+        line: 8
+        character: 0
+      end:
+        line: 8
+        character: 17
+    severity: ERROR
+    message: |-
+      Cannot assign a value of type `(::String | nil)` to a variable of type `::Integer`
+        (::String | nil) <: ::Integer
+          ::String <: ::Integer
+            ::Object <: ::Integer
+              ::BasicObject <: ::Integer
+    code: Ruby::IncompatibleAssignment

@@ -1,0 +1,43 @@
+---
+- file: set_divide.rb
+  diagnostics:
+  - range:
+      start:
+        line: 2
+        character: 2
+      end:
+        line: 2
+        character: 10
+    severity: ERROR
+    message: Type `::Set[::String]` does not have method `ffffffff`
+    code: Ruby::NoMethod
+  - range:
+      start:
+        line: 5
+        character: 4
+      end:
+        line: 5
+        character: 9
+    severity: ERROR
+    message: Type `::String` does not have method `ggggg`
+    code: Ruby::NoMethod
+  - range:
+      start:
+        line: 7
+        character: 4
+      end:
+        line: 7
+        character: 9
+    severity: ERROR
+    message: Type `::String` does not have method `ggggg`
+    code: Ruby::NoMethod
+  - range:
+      start:
+        line: 11
+        character: 4
+      end:
+        line: 11
+        character: 9
+    severity: ERROR
+    message: Type `::String` does not have method `ggggg`
+    code: Ruby::NoMethod
