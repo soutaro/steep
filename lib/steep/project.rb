@@ -49,6 +49,12 @@ module Steep
       end
     end
 
+    def all_signature_files
+      targets.each.with_object(Set[]) do |target, paths|
+        paths.merge(target.signature_files.keys)
+      end
+    end
+
     def type_of_node(path:, line:, column:)
       source_file = targets.map {|target| target.source_files[path] }.compact[0]
 

@@ -117,10 +117,13 @@ module Steep
         unexpected_count = 0
         missing_count = 0
 
-        notifications.each do |notification|
+        ns = notifications.each.with_object({}) do |notification, hash|
           path = project.relative_path(Pathname(URI.parse(notification[:uri]).path))
-          diagnostics = notification[:diagnostics]
-          test = expectations.test(path: path, diagnostics: diagnostics)
+          hash[path] = notification[:diagnostics]
+        end
+
+        (project.all_source_files + project.all_signature_files).sort.each do |path|
+          test = expectations.test(path: path, diagnostics: ns[path] || [])
 
           buffer = RBS::Buffer.new(name: path, content: path.read)
           printer = DiagnosticPrinter.new(buffer: buffer, stdout: stdout)
@@ -155,13 +158,24 @@ module Steep
       end
 
       def save_expectations(project:, expectations_path:, notifications:)
-        expectations = Expectations.empty()
+        expectations = if expectations_path.file?
+                         Expectations.load(path: expectations_path, content: expectations_path.read)
+                       else
+                         Expectations.empty()
+                       end
 
-        notifications.each do |notification|
-          unless notification[:diagnostics].empty?
-            path = project.relative_path(Pathname(URI.parse(notification[:uri]).path))
-            diagnostics = notification[:diagnostics]
-            expectations.diagnostics[path] = diagnostics
+        ns = notifications.each.with_object({}) do |notification, hash|
+          path = project.relative_path(Pathname(URI.parse(notification[:uri]).path))
+          hash[path] = notification[:diagnostics]
+        end
+
+        (project.all_source_files + project.all_signature_files).sort.each do |path|
+          ds = ns[path] || []
+
+          if ds.empty?
+            expectations.diagnostics.delete(path)
+          else
+            expectations.diagnostics[path] = ds
           end
         end
 
