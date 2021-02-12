@@ -50,7 +50,7 @@ module Steep
         Rainbow("#{path}:#{start[:line]+1}:#{start[:character]}").magenta
       end
 
-      def print(diagnostic, prefix: "")
+      def print(diagnostic, prefix: "", source: true)
         header, *rest = diagnostic[:message].split(/\n/)
 
         stdout.puts "#{prefix}#{location(diagnostic)}: [#{severity_message(diagnostic[:severity])}] #{Rainbow(header).underline}"
@@ -68,7 +68,12 @@ module Steep
 
         stdout.puts "#{prefix}│"
 
-        print_source_line(diagnostic, prefix: prefix)
+        if source
+          print_source_line(diagnostic, prefix: prefix)
+        else
+          stdout.puts "#{prefix}└ (no source code available)"
+          stdout.puts "#{prefix}"
+        end
       end
 
       def print_source_line(diagnostic, prefix: "")

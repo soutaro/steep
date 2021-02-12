@@ -84,6 +84,39 @@ end
     end
   end
 
+  def test_check_expectations_lineno_changed
+    in_tmpdir do
+      (current_dir + "Steepfile").write(<<-EOF)
+target :app do
+  check "foo.rb"
+end
+      EOF
+
+      (current_dir + "foo.rb").write(<<-EOF)
+
+
+
+1 + "2"
+      EOF
+
+      stdout, _, status = sh(*steep, "check", "--save-expectation=foo.yml")
+      assert_predicate status, :success?
+      assert_match /Saved expectations in foo\.yml\.\.\./, stdout
+
+      (current_dir + "foo.rb").write(<<-EOF)
+1 + "2"
+      EOF
+
+      stdout, _, status = sh(*steep, "check", "--with-expectation=foo.yml")
+      refute_predicate status, :success?
+
+      assert_match /Expectations unsatisfied:/, stdout
+      assert_match /0 expected diagnostics/, stdout
+      assert_match /1 unexpected diagnostic/, stdout
+      assert_match /1 missing diagnostic/, stdout
+    end
+  end
+
   def test_check_expectations_fail
     in_tmpdir do
       (current_dir + "Steepfile").write(<<-EOF)

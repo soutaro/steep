@@ -137,7 +137,7 @@ module Steep
               printer.print(diag, prefix: Rainbow("+ ").green)
             when :missing
               missing_count += 1
-              printer.print(diag, prefix: Rainbow("- ").red)
+              printer.print(diag, prefix: Rainbow("- ").red, source: false)
             end
           end
         end
