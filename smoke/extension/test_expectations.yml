@@ -59,3 +59,15 @@
         ::Object <: ::String
           ::BasicObject <: ::String
     code: Ruby::IncompatibleAssignment
+- file: f.rb
+  diagnostics:
+  - range:
+      start:
+        line: 2
+        character: 12
+      end:
+        line: 2
+        character: 21
+    severity: ERROR
+    message: Type `::Integer` does not have method `__error__`
+    code: Ruby::NoMethod
