@@ -10,4 +10,4 @@
         character: 3
     severity: ERROR
     message: Declaration of `::A` is duplicated
-    code: Ruby::DuplicatedDeclaration
+    code: RBS::DuplicatedDeclaration

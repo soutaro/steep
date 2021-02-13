@@ -21,7 +21,7 @@ module Steep
         end
 
         def diagnostic_code
-          "Ruby::#{error_name}"
+          "RBS::#{error_name}"
         end
 
         def path

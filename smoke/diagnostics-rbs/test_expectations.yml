@@ -11,7 +11,7 @@
     severity: ERROR
     message: Non-overloading method definition of `foo` in `::DuplicatedMethodDefinitionError`
       cannot be duplicated
-    code: Ruby::DuplicatedMethodDefinition
+    code: RBS::DuplicatedMethodDefinition
   - range:
       start:
         line: 6
@@ -22,7 +22,7 @@
     severity: ERROR
     message: Non-overloading method definition of `f` in `::DuplicatedMethodDefinitionError::_Hello`
       cannot be duplicated
-    code: Ruby::DuplicatedMethodDefinition
+    code: RBS::DuplicatedMethodDefinition
   - range:
       start:
         line: 18
@@ -33,7 +33,7 @@
     severity: ERROR
     message: Non-overloading method definition of `g` in `::DuplicatedMethodDefinitionError::A`
       cannot be duplicated
-    code: Ruby::DuplicatedMethodDefinition
+    code: RBS::DuplicatedMethodDefinition
 - file: generic-parameter-mismatch.rbs
   diagnostics:
   - range:
@@ -45,7 +45,7 @@
         character: 5
     severity: ERROR
     message: Different generic parameters are specified across definitions of `::GenericParameterMismatchError::Foo`
-    code: Ruby::GenericParameterMismatch
+    code: RBS::GenericParameterMismatch
 - file: invalid-method-overload.rbs
   diagnostics:
   - range:
@@ -57,7 +57,7 @@
         character: 27
     severity: ERROR
     message: Cannot find a non-overloading definition of `foo` in `::InvalidMethodOverload`
-    code: Ruby::InvalidMethodOverload
+    code: RBS::InvalidMethodOverload
 - file: invalid-type-application.rbs
   diagnostics:
   - range:
@@ -69,7 +69,7 @@
         character: 23
     severity: ERROR
     message: Type `::Integer` is not generic but used as a generic type with 1 arguments
-    code: Ruby::InvalidTypeApplication
+    code: RBS::InvalidTypeApplication
   - range:
       start:
         line: 4
@@ -79,7 +79,7 @@
         character: 24
     severity: ERROR
     message: Type `::Array` expects 1 arguments, but 2 arguments are given
-    code: Ruby::InvalidTypeApplication
+    code: RBS::InvalidTypeApplication
   - range:
       start:
         line: 6
@@ -89,7 +89,7 @@
         character: 17
     severity: ERROR
     message: Type `::Hash` is generic but used as a non generic type
-    code: Ruby::InvalidTypeApplication
+    code: RBS::InvalidTypeApplication
 - file: invalid_variance_annotation.rbs
   diagnostics:
   - range:
@@ -102,7 +102,7 @@
     severity: ERROR
     message: The variance of type parameter `A` is covariant, but used in incompatible
       position here
-    code: Ruby::InvalidVarianceAnnotation
+    code: RBS::InvalidVarianceAnnotation
 - file: recursive-alias.rbs
   diagnostics:
   - range:
@@ -115,7 +115,7 @@
     severity: ERROR
     message: 'Circular method alias is detected in `::RecursiveAlias`: foo -> bar
       -> baz'
-    code: Ruby::RecursiveAlias
+    code: RBS::RecursiveAlias
 - file: recursive-class.rbs
   diagnostics:
   - range:
@@ -128,7 +128,7 @@
     severity: ERROR
     message: 'Circular inheritance/mix-in is detected: ::Foo <: ::Bar <: ::Baz <:
       ::Foo'
-    code: Ruby::RecursiveAncestor
+    code: RBS::RecursiveAncestor
   - range:
       start:
         line: 4
@@ -139,7 +139,7 @@
     severity: ERROR
     message: 'Circular inheritance/mix-in is detected: ::Bar <: ::Baz <: ::Foo <:
       ::Bar'
-    code: Ruby::RecursiveAncestor
+    code: RBS::RecursiveAncestor
   - range:
       start:
         line: 7
@@ -150,7 +150,7 @@
     severity: ERROR
     message: 'Circular inheritance/mix-in is detected: ::Baz <: ::Foo <: ::Bar <:
       ::Baz'
-    code: Ruby::RecursiveAncestor
+    code: RBS::RecursiveAncestor
 - file: superclass-mismatch.rbs
   diagnostics:
   - range:
@@ -162,7 +162,7 @@
         character: 5
     severity: ERROR
     message: Different superclasses are specified for `::SuperclassMismatch::Foo`
-    code: Ruby::SuperclassMismatch
+    code: RBS::SuperclassMismatch
 - file: unknown-method-alias.rbs
   diagnostics:
   - range:
@@ -174,7 +174,7 @@
         character: 15
     severity: ERROR
     message: Cannot find the original method `bar` in `::UnknownMethodAlias`
-    code: Ruby::UnknownMethodAlias
+    code: RBS::UnknownMethodAlias
 - file: unknown-type-name.rbs
   diagnostics:
   - range:
@@ -186,7 +186,7 @@
         character: 16
     severity: ERROR
     message: Cannot find type `::bar`
-    code: Ruby::UnknownTypeName
+    code: RBS::UnknownTypeName
   - range:
       start:
         line: 4
@@ -196,7 +196,7 @@
         character: 14
     severity: ERROR
     message: Cannot find type `::World`
-    code: Ruby::UnknownTypeName
+    code: RBS::UnknownTypeName
   - range:
       start:
         line: 6
@@ -206,7 +206,7 @@
         character: 15
     severity: ERROR
     message: Cannot find type `World`
-    code: Ruby::UnknownTypeName
+    code: RBS::UnknownTypeName
   - range:
       start:
         line: 8
@@ -216,7 +216,7 @@
         character: 5
     severity: ERROR
     message: Cannot find type `ABC`
-    code: Ruby::UnknownTypeName
+    code: RBS::UnknownTypeName
   - range:
       start:
         line: 11
@@ -226,4 +226,4 @@
         character: 18
     severity: ERROR
     message: Cannot find type `ZZZ`
-    code: Ruby::UnknownTypeName
+    code: RBS::UnknownTypeName
