@@ -62,7 +62,7 @@ class ProjectFileTest < Minitest::Test
 
   def test_source_file_signature_invalid
     with_checker <<RBS do |checker|
-class Foo < Bar
+class Foo < Bar   # Bar is undefined
 end
 RBS
       file = Project::SourceFile.new(path: Pathname("lib/foo.rb"))
@@ -70,7 +70,8 @@ RBS
 
       assert file.type_check(checker, Time.now), "returns true if contains some update"
 
-      assert_instance_of Project::SourceFile::TypeCheckErrorStatus, file.status
+      assert_instance_of Project::SourceFile::TypeCheckStatus, file.status
+      refute_empty file.errors
     end
   end
 end

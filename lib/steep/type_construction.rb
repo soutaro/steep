@@ -2266,6 +2266,9 @@ module Steep
             raise "#synthesize should return an instance of Pair: #{pair.class}, node=#{node.inspect}"
           end
         end
+      rescue StandardError => exn
+        typing.add_error(Diagnostic::Ruby::UnexpectedError.new(node: node, error: exn))
+        type_any_rec(node)
       end
     end
 
@@ -2748,27 +2751,6 @@ module Steep
                      end
 
       Pair.new(type: type, constr: constr)
-    rescue => exn
-      case exn
-      when RBS::NoTypeFoundError, RBS::NoMixinFoundError, RBS::NoSuperclassFoundError, RBS::InvalidTypeApplicationError
-        # ignore known RBS errors.
-      else
-        Steep.log_error(exn, message: "Unexpected error in #type_send: #{exn.message} (#{exn.class})")
-      end
-
-      error = Diagnostic::Ruby::UnexpectedError.new(node: node, error: exn)
-
-      type_any_rec(node)
-
-      add_call(
-        TypeInference::MethodCall::Error.new(
-          node: node,
-          context: context.method_context,
-          method_name: method_name,
-          receiver_type: receiver_type,
-          errors: [error]
-        )
-      )
     end
 
     def expand_self(type)
@@ -3568,6 +3550,8 @@ module Steep
       each_child_node(node) do |child|
         type_any_rec(child)
       end
+
+      Pair.new(type: AST::Builtin.any_type, constr: self)
     end
 
     def fallback_any_rec(node)

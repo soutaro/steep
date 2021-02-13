@@ -94,13 +94,6 @@ module Steep
         parse(subtyping.factory) do |source|
           typing = self.class.type_check(source, subtyping: subtyping)
           @status = TypeCheckStatus.new(typing: typing, source: source, timestamp: now)
-        rescue RBS::NoTypeFoundError,
-          RBS::NoMixinFoundError,
-          RBS::NoSuperclassFoundError,
-          RBS::DuplicatedMethodDefinitionError,
-          RBS::InvalidTypeApplicationError => exn
-          # Skip logging known signature errors (they are handled with load_signatures(validate: true))
-          @status = TypeCheckErrorStatus.new(error: exn, timestamp: now)
         rescue => exn
           Steep.log_error(exn)
           @status = TypeCheckErrorStatus.new(error: exn, timestamp: now)
