@@ -7139,4 +7139,27 @@ RUBY
       end
     end
   end
+
+  def test_rescue_rbs_errors
+    with_checker(<<RBS) do |checker|
+interface _Hello
+  def to_s: () -> String
+  def to_s: () -> String
+end
+RBS
+      source = parse_ruby(<<'RUBY')
+# @type var x: _Hello
+x = ""
+
+x.to_s()
+RUBY
+
+      with_standard_construction(checker, source) do |construction, typing|
+        construction.synthesize(source.node)
+        assert_typing_error(typing) do |error|
+          assert_instance_of Diagnostic::Ruby::UnexpectedError, error
+        end
+      end
+    end
+  end
 end
