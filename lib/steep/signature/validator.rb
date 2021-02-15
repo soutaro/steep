@@ -114,6 +114,26 @@ module Steep
           Steep.logger.debug "Validating class definition `#{name}`..."
           Steep.logger.tagged "#{name}" do
             builder.build_instance(name).tap do |definition|
+              definition.instance_variables.each do |name, var|
+                if parent = var.parent_variable
+                  var_type = checker.factory.type(var.type)
+                  parent_type = checker.factory.type(parent.type)
+
+                  relation = Subtyping::Relation.new(sub_type: var_type, super_type: parent_type)
+                  result1 = checker.check(relation, self_type: nil, constraints: Subtyping::Constraints.empty)
+                  result2 = checker.check(relation.flip, self_type: nil, constraints: Subtyping::Constraints.empty)
+
+                  unless result1.success? and result2.success?
+                    @errors << Diagnostic::Signature::InstanceVariableTypeError.new(
+                      name: name,
+                      location: var.type.location,
+                      var_type: var_type,
+                      parent_type: parent_type
+                    )
+                  end
+                end
+              end
+
               ancestors = builder.ancestor_builder.one_instance_ancestors(name)
               mixin_constraints(definition, ancestors.included_modules, immediate_self_types: ancestors.self_types).each do |relation, ancestor|
                 checker.check(relation, self_type: nil, constraints: Subtyping::Constraints.empty).else do
@@ -132,6 +152,26 @@ module Steep
             end
 
             builder.build_singleton(name).tap do |definition|
+              definition.instance_variables.each do |name, var|
+                if parent = var.parent_variable
+                  var_type = checker.factory.type(var.type)
+                  parent_type = checker.factory.type(parent.type)
+
+                  relation = Subtyping::Relation.new(sub_type: var_type, super_type: parent_type)
+                  result1 = checker.check(relation, self_type: nil, constraints: Subtyping::Constraints.empty)
+                  result2 = checker.check(relation.flip, self_type: nil, constraints: Subtyping::Constraints.empty)
+
+                  unless result1.success? and result2.success?
+                    @errors << Diagnostic::Signature::InstanceVariableTypeError.new(
+                      name: name,
+                      location: var.type.location,
+                      var_type: var_type,
+                      parent_type: parent_type
+                    )
+                  end
+                end
+              end
+
               ancestors = builder.ancestor_builder.one_singleton_ancestors(name)
               mixin_constraints(definition, ancestors.extended_modules, immediate_self_types: ancestors.self_types).each do |relation, ancestor|
                 checker.check(relation, self_type: nil, constraints: Subtyping::Constraints.empty).else do

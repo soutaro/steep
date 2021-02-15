@@ -237,6 +237,25 @@ module Steep
           "Module self type constraint in type `#{name}` doesn't satisfy: `#{relation}`"
         end
       end
+
+      class InstanceVariableTypeError < Base
+        attr_reader :name
+        attr_reader :variable
+        attr_reader :var_type
+        attr_reader :parent_type
+
+        def initialize(name:, location:, var_type:, parent_type:)
+          super(location: location)
+
+          @name = name
+          @var_type = var_type
+          @parent_type = parent_type
+        end
+
+        def header_line
+          "Instance variable cannot have different type with parents: #{var_type} <=> #{parent_type}"
+        end
+      end
     end
   end
 end

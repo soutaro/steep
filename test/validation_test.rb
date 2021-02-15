@@ -487,6 +487,63 @@ end
   end
 
   def test_validate_instance_variables
-    skip "Not implemented yet"
+    with_checker <<-EOF do |checker|
+class A
+  @foo: Integer
+end
+
+class B < A
+  @foo: Integer?
+end
+
+module M[A]
+  @bar: A
+end
+
+class C[X]
+  include M[Array[X]]
+
+  @bar: X
+end
+
+class D
+  extend M[String]
+
+  self.@bar: Array[String]
+end
+EOF
+      Validator.new(checker: checker).tap do |validator|
+        validator.validate_one_class(TypeName("::A"))
+
+        assert_predicate validator, :no_error?
+      end
+
+      Validator.new(checker: checker).tap do |validator|
+        validator.validate_one_class(TypeName("::B"))
+
+        assert_predicate validator, :has_error?
+        assert_any!(validator.each_error, size: 1) do |error|
+          assert_instance_of Diagnostic::Signature::InstanceVariableTypeError, error
+        end
+      end
+
+      Validator.new(checker: checker).tap do |validator|
+        validator.validate_one_class(TypeName("::C"))
+
+        assert_predicate validator, :has_error?
+        assert_any!(validator.each_error, size: 1) do |error|
+          assert_instance_of Diagnostic::Signature::InstanceVariableTypeError, error
+        end
+      end
+
+      Validator.new(checker: checker).tap do |validator|
+        validator.validate_one_class(TypeName("::D"))
+
+        assert_predicate validator, :has_error?
+        assert_any!(validator.each_error, size: 1) do |error|
+          assert_instance_of Diagnostic::Signature::InstanceVariableTypeError, error
+        end
+      end
+    end
   end
 end
