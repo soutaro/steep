@@ -111,7 +111,8 @@ module Steep
 
       def validate_one_class(name)
         rescue_validation_errors(name) do
-          Steep.logger.debug "Validating class definition `#{name}`..."
+          Steep.logger.debug { "Validating class definition `#{name}`..." }
+
           Steep.logger.tagged "#{name}" do
             builder.build_instance(name).tap do |definition|
               definition.instance_variables.each do |name, var|
