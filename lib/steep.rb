@@ -105,6 +105,7 @@ require "steep/project/hover_content"
 require "steep/project/completion_provider"
 require "steep/project/stats_calculator"
 
+require "steep/signature_controller"
 require "steep/expectations"
 require "steep/drivers/utils/driver_helper"
 require "steep/drivers/check"
