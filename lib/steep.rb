@@ -151,11 +151,14 @@ module Steep
   @logger = nil
   self.log_output = STDERR
 
-  def self.measure(message)
+  def self.measure(message, level: :info)
     start = Time.now
     yield.tap do
       time = Time.now - start
-      self.logger.info "#{message} took #{time} seconds"
+      if level.is_a?(Symbol)
+        level = Logger.const_get(level.to_s.upcase)
+      end
+      self.logger.log(level) { "#{message} took #{time} seconds" }
     end
   end
 
