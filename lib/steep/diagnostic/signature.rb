@@ -219,6 +219,43 @@ module Steep
           "The variance of type parameter `#{param.name}` is #{param.variance}, but used in incompatible position here"
         end
       end
+
+      class ModuleSelfTypeError < Base
+        attr_reader :name
+        attr_reader :ancestor
+        attr_reader :relation
+
+        def initialize(name:, ancestor:, relation:, location:)
+          super(location: location)
+
+          @name = name
+          @ancestor = ancestor
+          @relation = relation
+        end
+
+        def header_line
+          "Module self type constraint in type `#{name}` doesn't satisfy: `#{relation}`"
+        end
+      end
+
+      class InstanceVariableTypeError < Base
+        attr_reader :name
+        attr_reader :variable
+        attr_reader :var_type
+        attr_reader :parent_type
+
+        def initialize(name:, location:, var_type:, parent_type:)
+          super(location: location)
+
+          @name = name
+          @var_type = var_type
+          @parent_type = parent_type
+        end
+
+        def header_line
+          "Instance variable cannot have different type with parents: #{var_type} <=> #{parent_type}"
+        end
+      end
     end
   end
 end

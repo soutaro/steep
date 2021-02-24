@@ -61,15 +61,132 @@ module Steep
         validator.validate_type type, context: [RBS::Namespace.root]
       end
 
+      def ancestor_to_type(ancestor)
+        case ancestor
+        when RBS::Definition::Ancestor::Instance
+          args = ancestor.args.map {|type| checker.factory.type(type) }
+
+          case
+          when ancestor.name.interface?
+            AST::Types::Name::Interface.new(name: ancestor.name, args: args, location: nil)
+          when ancestor.name.class?
+            AST::Types::Name::Instance.new(name: ancestor.name, args: args, location: nil)
+          else
+            raise "#{ancestor.name}"
+          end
+        else
+          raise "Unexpected ancestor: #{ancestor.inspect}"
+        end
+      end
+
+      def mixin_constraints(definition, mixin_ancestors, immediate_self_types:)
+        relations = []
+
+        self_type = checker.factory.type(definition.self_type)
+        if immediate_self_types && !immediate_self_types.empty?
+          self_type = AST::Types::Intersection.build(
+            types: immediate_self_types.map {|st| ancestor_to_type(st) }.push(self_type),
+            location: nil
+          )
+        end
+
+        mixin_ancestors.each do |ancestor|
+          args = ancestor.args.map {|type| checker.factory.type(type) }
+          ancestor_ancestors = builder.ancestor_builder.one_instance_ancestors(ancestor.name)
+          self_constraints = ancestor_ancestors.self_types.map do |self_ancestor|
+            s = Interface::Substitution.build(ancestor_ancestors.params, args)
+            ancestor_to_type(self_ancestor).subst(s)
+          end
+
+          self_constraints.each do |constraint|
+            relations << [
+              Subtyping::Relation.new(sub_type: self_type, super_type: constraint),
+              ancestor
+            ]
+          end
+        end
+
+        relations
+      end
+
       def validate_one_class(name)
         rescue_validation_errors(name) do
           Steep.logger.debug "Validating class definition `#{name}`..."
           Steep.logger.tagged "#{name}" do
-            builder.build_instance(name).each_type do |type|
-              validate_type type
+            builder.build_instance(name).tap do |definition|
+              definition.instance_variables.each do |name, var|
+                if parent = var.parent_variable
+                  var_type = checker.factory.type(var.type)
+                  parent_type = checker.factory.type(parent.type)
+
+                  relation = Subtyping::Relation.new(sub_type: var_type, super_type: parent_type)
+                  result1 = checker.check(relation, self_type: nil, constraints: Subtyping::Constraints.empty)
+                  result2 = checker.check(relation.flip, self_type: nil, constraints: Subtyping::Constraints.empty)
+
+                  unless result1.success? and result2.success?
+                    @errors << Diagnostic::Signature::InstanceVariableTypeError.new(
+                      name: name,
+                      location: var.type.location,
+                      var_type: var_type,
+                      parent_type: parent_type
+                    )
+                  end
+                end
+              end
+
+              ancestors = builder.ancestor_builder.one_instance_ancestors(name)
+              mixin_constraints(definition, ancestors.included_modules, immediate_self_types: ancestors.self_types).each do |relation, ancestor|
+                checker.check(relation, self_type: nil, constraints: Subtyping::Constraints.empty).else do
+                  @errors << Diagnostic::Signature::ModuleSelfTypeError.new(
+                    name: name,
+                    location: ancestor.source&.location || raise,
+                    ancestor: ancestor,
+                    relation: relation
+                  )
+                end
+              end
+
+              definition.each_type do |type|
+                validate_type type
+              end
             end
-            builder.build_singleton(name).each_type do |type|
-              validate_type type
+
+            builder.build_singleton(name).tap do |definition|
+              definition.instance_variables.each do |name, var|
+                if parent = var.parent_variable
+                  var_type = checker.factory.type(var.type)
+                  parent_type = checker.factory.type(parent.type)
+
+                  relation = Subtyping::Relation.new(sub_type: var_type, super_type: parent_type)
+                  result1 = checker.check(relation, self_type: nil, constraints: Subtyping::Constraints.empty)
+                  result2 = checker.check(relation.flip, self_type: nil, constraints: Subtyping::Constraints.empty)
+
+                  unless result1.success? and result2.success?
+                    @errors << Diagnostic::Signature::InstanceVariableTypeError.new(
+                      name: name,
+                      location: var.type.location,
+                      var_type: var_type,
+                      parent_type: parent_type
+                    )
+                  end
+                end
+              end
+
+              ancestors = builder.ancestor_builder.one_singleton_ancestors(name)
+              mixin_constraints(definition, ancestors.extended_modules, immediate_self_types: ancestors.self_types).each do |relation, ancestor|
+                checker.check(relation, self_type: nil, constraints: Subtyping::Constraints.empty).else do
+                  @errors << Diagnostic::Signature::ModuleSelfTypeError.new(
+                    name: name,
+                    location: ancestor.source&.location || raise,
+                    ancestor: ancestor,
+                    relation: relation
+                  )
+                end
+              end
+
+              definition.each_type do |type|
+                validate_type type
+              end
             end
           end
         end

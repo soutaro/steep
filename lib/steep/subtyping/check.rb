@@ -9,6 +9,21 @@ module Steep
         @cache = {}
       end
 
+      def each_ancestor(ancestors, &block)
+        if block_given?
+          if ancestors.super_class
+            yield ancestors.super_class
+          end
+          ancestors.each_included_module(&block)
+          ancestors.each_included_interface(&block)
+          ancestors.each_prepended_module(&block)
+          ancestors.each_extended_module(&block)
+          ancestors.each_extended_interface(&block)
+        else
+          enum_for :each_ancestor, ancestors
+        end
+      end
+
       def instance_super_types(type_name, args:)
         ancestors = factory.definition_builder.ancestor_builder.one_instance_ancestors(type_name)
 
@@ -17,7 +32,7 @@ module Steep
                   RBS::Substitution.build(ancestors.params, args_)
                 end
 
-        ancestors.each_ancestor.map do |ancestor|
+        each_ancestor(ancestors).map do |ancestor|
           name = ancestor.name
 
           case ancestor

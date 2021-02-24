@@ -357,11 +357,193 @@ end
     end
   end
 
-  def test_validate_module
-    skip "Not implemented yet"
+  def test_validate_mixin_class
+    with_checker <<-EOF do |checker|
+interface _FooEach[A]
+  def each: () { (A) -> void } -> void
+end
+
+module Enum[A] : _FooEach[A]
+  def count: () -> Integer
+end
+
+class A
+  include Enum[Integer]
+
+  def each: () { (Integer) -> void } -> void
+end
+
+class B
+  include Enum[Integer]
+end
+
+class C
+  include Enum[Integer]
+
+  def each: () { (String, Integer) -> void } -> void
+end
+
+class D
+  extend Enum[D]
+
+  def self.each: () { (D) -> void } -> Array[D]
+end
+
+class E
+  extend Enum[String]
+end
+    EOF
+
+      Validator.new(checker: checker).tap do |validator|
+        validator.validate_one_class(TypeName("::A"))
+
+        assert_predicate validator, :no_error?
+      end
+
+      Validator.new(checker: checker).tap do |validator|
+        validator.validate_one_class(TypeName("::B"))
+
+        assert_predicate validator, :has_error?
+        assert_any!(validator.each_error, size: 1) do |error|
+          assert_instance_of Diagnostic::Signature::ModuleSelfTypeError, error
+        end
+      end
+
+      Validator.new(checker: checker).tap do |validator|
+        validator.validate_one_class(TypeName("::C"))
+
+        assert_predicate validator, :has_error?
+        assert_any!(validator.each_error, size: 1) do |error|
+          assert_instance_of Diagnostic::Signature::ModuleSelfTypeError, error
+        end
+      end
+
+      Validator.new(checker: checker).tap do |validator|
+        validator.validate_one_class(TypeName("::D"))
+
+        assert_predicate validator, :no_error?
+      end
+
+      Validator.new(checker: checker).tap do |validator|
+        validator.validate_one_class(TypeName("::E"))
+
+        assert_predicate validator, :has_error?
+        assert_any!(validator.each_error, size: 1) do |error|
+          assert_instance_of Diagnostic::Signature::ModuleSelfTypeError, error
+        end
+      end
+    end
+  end
+
+  def test_validate_mixin_module
+    with_checker <<-EOF do |checker|
+interface _FooEach[A]
+  def each: () { (A) -> void } -> void
+end
+
+module Enum[A] : _FooEach[A]
+  def count: () -> Integer
+end
+
+module ArrayExt[A] : Array[A]
+end
+
+module A
+  include Enum[String]
+
+  def each: () { (String) -> void } -> void
+end
+
+module B : Array[String]
+  include ArrayExt[String]
+end
+
+module C
+  include ArrayExt[Integer]
+end
+    EOF
+
+      Validator.new(checker: checker).tap do |validator|
+        validator.validate_one_class(TypeName("::A"))
+
+        assert_predicate validator, :no_error?
+      end
+
+      Validator.new(checker: checker).tap do |validator|
+        validator.validate_one_class(TypeName("::B"))
+
+        assert_predicate validator, :no_error?
+      end
+
+      Validator.new(checker: checker).tap do |validator|
+        validator.validate_one_class(TypeName("::C"))
+
+        assert_predicate validator, :has_error?
+        assert_any!(validator.each_error, size: 1) do |error|
+          assert_instance_of Diagnostic::Signature::ModuleSelfTypeError, error
+        end
+      end
+    end
   end
 
   def test_validate_instance_variables
-    skip "Not implemented yet"
+    with_checker <<-EOF do |checker|
+class A
+  @foo: Integer
+end
+
+class B < A
+  @foo: Integer?
+end
+
+module M[A]
+  @bar: A
+end
+
+class C[X]
+  include M[Array[X]]
+
+  @bar: X
+end
+
+class D
+  extend M[String]
+
+  self.@bar: Array[String]
+end
+EOF
+      Validator.new(checker: checker).tap do |validator|
+        validator.validate_one_class(TypeName("::A"))
+
+        assert_predicate validator, :no_error?
+      end
+
+      Validator.new(checker: checker).tap do |validator|
+        validator.validate_one_class(TypeName("::B"))
+
+        assert_predicate validator, :has_error?
+        assert_any!(validator.each_error, size: 1) do |error|
+          assert_instance_of Diagnostic::Signature::InstanceVariableTypeError, error
+        end
+      end
+
+      Validator.new(checker: checker).tap do |validator|
+        validator.validate_one_class(TypeName("::C"))
+
+        assert_predicate validator, :has_error?
+        assert_any!(validator.each_error, size: 1) do |error|
+          assert_instance_of Diagnostic::Signature::InstanceVariableTypeError, error
+        end
+      end
+
+      Validator.new(checker: checker).tap do |validator|
+        validator.validate_one_class(TypeName("::D"))
+
+        assert_predicate validator, :has_error?
+        assert_any!(validator.each_error, size: 1) do |error|
+          assert_instance_of Diagnostic::Signature::InstanceVariableTypeError, error
+        end
+      end
+    end
   end
 end
