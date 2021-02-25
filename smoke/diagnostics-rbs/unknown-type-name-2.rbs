@@ -1,0 +1,5 @@
+class UnknownTypeName
+  type foo = bar
+
+  Hello: World
+end
