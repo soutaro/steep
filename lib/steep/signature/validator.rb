@@ -246,72 +246,8 @@ module Steep
 
       def rescue_validation_errors(type_name = nil)
         yield
-      rescue RBS::InvalidTypeApplicationError => exn
-        @errors << Diagnostic::Signature::InvalidTypeApplication.new(
-          name: exn.type_name,
-          args: exn.args.map {|ty| factory.type(ty) },
-          params: exn.params,
-          location: exn.location
-        )
-      rescue RBS::NoTypeFoundError,
-        RBS::NoSuperclassFoundError,
-        RBS::NoMixinFoundError,
-        RBS::NoSelfTypeFoundError => exn
-        @errors << Diagnostic::Signature::UnknownTypeName.new(
-          name: exn.type_name,
-          location: exn.location
-        )
-      rescue RBS::InvalidOverloadMethodError => exn
-        @errors << Diagnostic::Signature::InvalidMethodOverload.new(
-          class_name: exn.type_name,
-          method_name: exn.method_name,
-          location: exn.members[0].location
-        )
-      rescue RBS::DuplicatedMethodDefinitionError => exn
-        @errors << Diagnostic::Signature::DuplicatedMethodDefinition.new(
-          class_name: type_name,
-          method_name: exn.method_name,
-          location: exn.location
-        )
-      rescue RBS::DuplicatedInterfaceMethodDefinitionError => exn
-        @errors << Diagnostic::Signature::DuplicatedMethodDefinition.new(
-          class_name: type_name,
-          method_name: exn.method_name,
-          location: exn.member.location
-        )
-      rescue RBS::UnknownMethodAliasError => exn
-        @errors << Diagnostic::Signature::UnknownMethodAlias.new(
-          class_name: type_name,
-          method_name: exn.original_name,
-          location: exn.location
-        )
-      rescue RBS::RecursiveAliasDefinitionError => exn
-        @errors << Diagnostic::Signature::RecursiveAlias.new(
-          class_name: exn.type.name,
-          names: exn.defs.map(&:name),
-          location: exn.defs[0].original.location
-        )
-      rescue RBS::RecursiveAncestorError => exn
-        @errors << Diagnostic::Signature::RecursiveAncestor.new(
-          ancestors: exn.ancestors,
-          location: exn.location
-        )
-      rescue RBS::SuperclassMismatchError => exn
-        @errors << Diagnostic::Signature::SuperclassMismatch.new(
-          name: exn.name,
-          location: exn.entry.primary.decl.location
-        )
-      rescue RBS::GenericParameterMismatchError => exn
-        @errors << Diagnostic::Signature::GenericParameterMismatch.new(
-          name: exn.name,
-          location: exn.decl.location
-        )
-      rescue RBS::InvalidVarianceAnnotationError => exn
-        @errors << Diagnostic::Signature::InvalidVarianceAnnotation.new(
-          name: exn.type_name,
-          param: exn.param,
-          location: exn.location
-        )
+      rescue RBS::ErrorBase => exn
+        @errors << Diagnostic::Signature.from_rbs_error(exn, factory: factory)
       end
     end
   end
