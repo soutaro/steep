@@ -101,9 +101,7 @@ end
         }
       )
 
-      assert_equal [lib_target, test_target], worker.queue.map {|_, pair| pair.first }
-      assert_instance_of Time, worker.last_target_validated_at[lib_target]
-      assert_instance_of Time, worker.last_target_validated_at[test_target]
+      assert_equal [[:validate, []]], worker.queue
 
       worker.queue.clear
 
@@ -127,7 +125,7 @@ end
         }
       )
 
-      assert_equal [test_target], worker.queue.map {|_, pair| pair.first }
+      assert_equal [[:validate, []]], worker.queue
     end
   end
 
@@ -150,8 +148,11 @@ end
       EOF
 
       thread = Thread.new do
-        worker.validate_signature(lib_target, timestamp: Time.now)
+        worker.load_project_files()
+        changes = worker.pop_change()
+        worker.validate_signature(changes: changes)
       end
+      thread.abort_on_exception = true
 
       master_reader.read do |req|
         assert_equal "textDocument/publishDiagnostics", req[:method]
@@ -182,8 +183,11 @@ class Foo
       EOF
 
       thread = Thread.new do
-        worker.validate_signature(lib_target, timestamp: Time.now)
+        worker.load_project_files()
+        changes = worker.pop_change
+        worker.validate_signature(changes: changes)
       end
+      thread.abort_on_exception = true
 
       master_reader.read do |req|
         assert_equal "textDocument/publishDiagnostics", req[:method]
@@ -222,8 +226,11 @@ EOF
 Name: Array[Integer, String]
       EOF
 
+
       thread = Thread.new do
-        worker.validate_signature(lib_target, timestamp: Time.now)
+        worker.load_project_files()
+        changes = worker.pop_change
+        worker.validate_signature(changes: changes)
       end
       thread.abort_on_exception = true
 

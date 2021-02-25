@@ -175,7 +175,7 @@
     severity: ERROR
     message: Cannot find the original method `bar` in `::UnknownMethodAlias`
     code: RBS::UnknownMethodAlias
-- file: unknown-type-name.rbs
+- file: unknown-type-name-2.rbs
   diagnostics:
   - range:
       start:
@@ -197,6 +197,8 @@
     severity: ERROR
     message: Cannot find type `::World`
     code: RBS::UnknownTypeName
+- file: unknown-type-name.rbs
+  diagnostics:
   - range:
       start:
         line: 6

@@ -256,6 +256,88 @@ module Steep
           "Instance variable cannot have different type with parents: #{var_type} <=> #{parent_type}"
         end
       end
+
+      def self.from_rbs_error(error, factory:)
+        case error
+        when RBS::Parser::SemanticsError
+          Diagnostic::Signature::SyntaxError.new(error, location: error.location)
+        when RBS::Parser::SyntaxError
+          Diagnostic::Signature::SyntaxError.new(error, location: error.error_value.location)
+        when RBS::DuplicatedDeclarationError
+          Diagnostic::Signature::DuplicatedDeclaration.new(
+            type_name: error.name,
+            location: error.decls[0].location
+          )
+        when RBS::GenericParameterMismatchError
+          Diagnostic::Signature::GenericParameterMismatch.new(
+            name: error.name,
+            location: error.decl.location
+          )
+        when RBS::InvalidTypeApplicationError
+          Diagnostic::Signature::InvalidTypeApplication.new(
+            name: error.type_name,
+            args: error.args.map {|ty| factory.type(ty) },
+            params: error.params,
+            location: error.location
+          )
+        when RBS::NoTypeFoundError,
+          RBS::NoSuperclassFoundError,
+          RBS::NoMixinFoundError,
+          RBS::NoSelfTypeFoundError
+          Diagnostic::Signature::UnknownTypeName.new(
+            name: error.type_name,
+            location: error.location
+          )
+        when RBS::InvalidOverloadMethodError
+          Diagnostic::Signature::InvalidMethodOverload.new(
+            class_name: error.type_name,
+            method_name: error.method_name,
+            location: error.members[0].location
+          )
+        when RBS::DuplicatedMethodDefinitionError
+          Diagnostic::Signature::DuplicatedMethodDefinition.new(
+            class_name: error.type_name,
+            method_name: error.method_name,
+            location: error.location
+          )
+        when RBS::DuplicatedInterfaceMethodDefinitionError
+          Diagnostic::Signature::DuplicatedMethodDefinition.new(
+            class_name: error.type_name,
+            method_name: error.method_name,
+            location: error.member.location
+          )
+        when RBS::UnknownMethodAliasError
+          Diagnostic::Signature::UnknownMethodAlias.new(
+            class_name: error.type_name,
+            method_name: error.original_name,
+            location: error.location
+          )
+        when RBS::RecursiveAliasDefinitionError
+          Diagnostic::Signature::RecursiveAlias.new(
+            class_name: error.type.name,
+            names: error.defs.map(&:name),
+            location: error.defs[0].original.location
+          )
+        when RBS::RecursiveAncestorError
+          Diagnostic::Signature::RecursiveAncestor.new(
+            ancestors: error.ancestors,
+            location: error.location
+          )
+        when RBS::SuperclassMismatchError
+          Diagnostic::Signature::SuperclassMismatch.new(
+            name: error.name,
+            location: error.entry.primary.decl.location
+          )
+        when RBS::InvalidVarianceAnnotationError
+          Diagnostic::Signature::InvalidVarianceAnnotation.new(
+            name: error.type_name,
+            param: error.param,
+            location: error.location
+          )
+        else
+          raise error
+        end
+      end
     end
   end
 end
