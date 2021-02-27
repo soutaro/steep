@@ -1,9 +1,10 @@
 require "test_helper"
 
-class SignatureControllerTest < Minitest::Test
+class SignatureServiceTest < Minitest::Test
   include Steep
   include TestHelper
 
+  SignatureService = Services::SignatureService
   ContentChange = Services::ContentChange
 
   def environment_loader
@@ -11,9 +12,9 @@ class SignatureControllerTest < Minitest::Test
   end
 
   def test_update
-    controller = SignatureController.load_from(environment_loader)
+    controller = SignatureService.load_from(environment_loader)
 
-    assert_instance_of SignatureController::LoadedStatus, controller.status
+    assert_instance_of SignatureService::LoadedStatus, controller.status
 
     {}.tap do |changes|
       changes[Pathname("sig/foo.rbs")] = [
@@ -45,9 +46,9 @@ RBS
   end
 
   def test_update_nested
-    controller = SignatureController.load_from(environment_loader)
+    controller = SignatureService.load_from(environment_loader)
 
-    assert_instance_of SignatureController::LoadedStatus, controller.status
+    assert_instance_of SignatureService::LoadedStatus, controller.status
 
     {}.tap do |changes|
       changes[Pathname("sig/foo.rbs")] = [
@@ -102,9 +103,9 @@ RBS
   end
 
   def test_update_syntax_error
-    controller = SignatureController.load_from(environment_loader)
+    controller = SignatureService.load_from(environment_loader)
 
-    assert_instance_of SignatureController::LoadedStatus, controller.status
+    assert_instance_of SignatureService::LoadedStatus, controller.status
 
     {}.tap do |changes|
       changes[Pathname("sig/foo.rbs")] = [
@@ -115,15 +116,15 @@ RBS
       controller.update(changes)
     end
 
-    assert_instance_of SignatureController::ErrorStatus, controller.status
+    assert_instance_of SignatureService::ErrorStatus, controller.status
     assert_equal 1, controller.status.errors.size
     assert_instance_of RBS::Parser::SyntaxError, controller.status.errors[0]
   end
 
   def test_update_loading_error
-    controller = SignatureController.load_from(environment_loader)
+    controller = SignatureService.load_from(environment_loader)
 
-    assert_instance_of SignatureController::LoadedStatus, controller.status
+    assert_instance_of SignatureService::LoadedStatus, controller.status
 
     {}.tap do |changes|
       changes[Pathname("sig/foo.rbs")] = [
@@ -138,7 +139,7 @@ RBS
       controller.update(changes)
     end
 
-    assert_instance_of SignatureController::ErrorStatus, controller.status
+    assert_instance_of SignatureService::ErrorStatus, controller.status
     assert_equal 1, controller.status.errors.size
     assert_instance_of RBS::DuplicatedDeclarationError, controller.status.errors[0]
   end

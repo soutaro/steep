@@ -12,7 +12,7 @@ module Steep
         @mutex = Mutex.new
         @controllers = project.targets.each.with_object({}) do |target, hash|
           loader = Project::Target.construct_env_loader(options: target.options)
-          hash[target.name] = SignatureController.load_from(loader)
+          hash[target.name] = Services::SignatureService.load_from(loader)
         end
       end
 
@@ -103,9 +103,9 @@ module Steep
             controller.update(target_changes) unless target_changes.empty?
 
             diagnostics = case controller.status
-                          when SignatureController::ErrorStatus
+                          when Services::SignatureService::ErrorStatus
                             controller.status.diagnostics
-                          when SignatureController::LoadedStatus
+                          when Services::SignatureService::LoadedStatus
                             check = Subtyping::Check.new(factory: AST::Types::Factory.new(builder: controller.current_builder))
                             Signature::Validator.new(checker: check).tap {|v| v.validate() }.each_error.to_a
                           end.group_by {|error| error.location.buffer.name }

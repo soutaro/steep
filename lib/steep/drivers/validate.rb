@@ -21,7 +21,7 @@ module Steep
 
         project.targets.each do |target|
           loader = Project::Target.construct_env_loader(options: target.options)
-          controller = SignatureController.load_from(loader)
+          controller = Services::SignatureService.load_from(loader)
 
           changes = target.signature_files.each.with_object({}) do |(path, file), changes|
             changes[path] = [
@@ -31,9 +31,9 @@ module Steep
           controller.update(changes)
 
           errors = case controller.status
-                   when SignatureController::ErrorStatus
+                   when Services::SignatureService::ErrorStatus
                      controller.status.diagnostics
-                   when SignatureController::LoadedStatus
+                   when Services::SignatureService::LoadedStatus
                      check = Subtyping::Check.new(factory: AST::Types::Factory.new(builder: controller.current_builder))
                      Signature::Validator.new(checker: check).tap {|v| v.validate() }.each_error.to_a
                    end
