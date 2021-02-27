@@ -48,7 +48,7 @@ module Steep
         push_change do |changes|
           project.targets.each do |target|
             target_changes = target.signature_files.each.with_object({}) do |(path, file), hash|
-              changes[path] = [SignatureController::ContentChange.new(text: file.content)]
+              changes[path] = [Services::ContentChange.new(text: file.content)]
             end
           end
         end
@@ -78,11 +78,11 @@ module Steep
 
           changes[path] ||= []
           request[:params][:contentChanges].each do |change|
-            changes[path] << SignatureController::ContentChange.new(
+            changes[path] << Services::ContentChange.new(
               range: change[:range]&.yield_self {|range|
                 [
-                  range[:start].yield_self {|pos| SignatureController::Position.new(line: pos[:line] + 1, column: pos[:character]) },
-                  range[:end].yield_self {|pos| SignatureController::Position.new(line: pos[:line] + 1, column: pos[:character]) }
+                  range[:start].yield_self {|pos| Services::ContentChange::Position.new(line: pos[:line] + 1, column: pos[:character]) },
+                  range[:end].yield_self {|pos| Services::ContentChange::Position.new(line: pos[:line] + 1, column: pos[:character]) }
                 ]
               },
               text: change[:text]

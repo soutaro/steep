@@ -25,7 +25,7 @@ module Steep
 
           changes = target.signature_files.each.with_object({}) do |(path, file), changes|
             changes[path] = [
-              SignatureController::ContentChange.new(range: nil, text: file.content)
+              Services::ContentChange.new(range: nil, text: file.content)
             ]
           end
           controller.update(changes)

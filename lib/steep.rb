@@ -94,6 +94,8 @@ require "steep/server/worker_process"
 require "steep/server/interaction_worker"
 require "steep/server/master"
 
+require "steep/services/content_change"
+
 require "steep/project"
 require "steep/project/pattern"
 require "steep/project/signature_file"

@@ -10,9 +10,6 @@ module Steep
     end
     LoadedStatus = Struct.new(:files, :builder, keyword_init: true)
 
-    ContentChange = Struct.new(:range, :text, keyword_init: true)
-    Position = Struct.new(:line, :column, keyword_init: true)
-
     FileStatus = Struct.new(:path, :content, :decls, keyword_init: true)
 
     def initialize(env:)
@@ -45,7 +42,7 @@ module Steep
     def apply_changes(files, changes)
       changes.each.with_object({}) do |(path, cs), update|
         old_text = files[path]&.content
-        content = cs.inject(old_text || "") {|text, change| apply_change(change, text) }
+        content = cs.inject(old_text || "") {|text, change| change.apply_to(text) }
 
         buffer = RBS::Buffer.new(name: path, content: content)
 
@@ -213,24 +210,6 @@ module Steep
             set << name
           end
         end
-      end
-    end
-
-    def apply_change(change, text)
-      range = change.range
-
-      if range
-        text = text.dup
-        start_pos, end_pos = range
-
-        buf = RBS::Buffer.new(name: :_, content: text)
-        start_pos = buf.loc_to_pos([start_pos.line, start_pos.column])
-        end_pos = buf.loc_to_pos([end_pos.line, end_pos.column])
-
-        text[start_pos...end_pos] = change[:text]
-        text
-      else
-        change.text
       end
     end
   end

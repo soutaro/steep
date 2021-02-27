@@ -4,6 +4,8 @@ class SignatureControllerTest < Minitest::Test
   include Steep
   include TestHelper
 
+  ContentChange = Services::ContentChange
+
   def environment_loader
     @loader ||= RBS::EnvironmentLoader.new
   end
@@ -15,7 +17,7 @@ class SignatureControllerTest < Minitest::Test
 
     {}.tap do |changes|
       changes[Pathname("sig/foo.rbs")] = [
-        SignatureController::ContentChange.new(range: nil, text: <<RBS)
+        ContentChange.new(range: nil, text: <<RBS)
 class Hello
 end
 RBS
@@ -29,7 +31,7 @@ RBS
 
     {}.tap do |changes|
       changes[Pathname("sig/foo.rbs")] = [
-        SignatureController::ContentChange.new(range: nil, text: <<RBS)
+        ContentChange.new(range: nil, text: <<RBS)
 class Hello
   def foo: () -> void
 end
@@ -49,7 +51,7 @@ RBS
 
     {}.tap do |changes|
       changes[Pathname("sig/foo.rbs")] = [
-        SignatureController::ContentChange.new(range: nil, text: <<RBS)
+        ContentChange.new(range: nil, text: <<RBS)
 module A
   class B
   end
@@ -57,7 +59,7 @@ end
 RBS
       ]
       changes[Pathname("sig/bar.rbs")] = [
-        SignatureController::ContentChange.new(range: nil, text: <<RBS)
+        ContentChange.new(range: nil, text: <<RBS)
 module A
   class C
   end
@@ -82,7 +84,7 @@ RBS
 
     {}.tap do |changes|
       changes[Pathname("sig/foo.rbs")] = [
-        SignatureController::ContentChange.new(range: nil, text: <<RBS)
+        ContentChange.new(range: nil, text: <<RBS)
 module A
   class B
     def foo: () -> void
@@ -106,7 +108,7 @@ RBS
 
     {}.tap do |changes|
       changes[Pathname("sig/foo.rbs")] = [
-        SignatureController::ContentChange.new(range: nil, text: <<RBS)
+        ContentChange.new(range: nil, text: <<RBS)
 class Hello
 RBS
       ]
@@ -125,7 +127,7 @@ RBS
 
     {}.tap do |changes|
       changes[Pathname("sig/foo.rbs")] = [
-        SignatureController::ContentChange.new(range: nil, text: <<RBS)
+        ContentChange.new(range: nil, text: <<RBS)
 class Hello
 end
 
