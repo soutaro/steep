@@ -94,6 +94,9 @@ require "steep/server/worker_process"
 require "steep/server/interaction_worker"
 require "steep/server/master"
 
+require "steep/services/content_change"
+require "steep/services/signature_service"
+
 require "steep/project"
 require "steep/project/pattern"
 require "steep/project/signature_file"
@@ -106,7 +109,6 @@ require "steep/project/hover_content"
 require "steep/project/completion_provider"
 require "steep/project/stats_calculator"
 
-require "steep/signature_controller"
 require "steep/expectations"
 require "steep/drivers/utils/driver_helper"
 require "steep/drivers/check"

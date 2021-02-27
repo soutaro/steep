@@ -1,21 +1,24 @@
 require "test_helper"
 
-class SignatureControllerTest < Minitest::Test
+class SignatureServiceTest < Minitest::Test
   include Steep
   include TestHelper
+
+  SignatureService = Services::SignatureService
+  ContentChange = Services::ContentChange
 
   def environment_loader
     @loader ||= RBS::EnvironmentLoader.new
   end
 
   def test_update
-    controller = SignatureController.load_from(environment_loader)
+    controller = SignatureService.load_from(environment_loader)
 
-    assert_instance_of SignatureController::LoadedStatus, controller.status
+    assert_instance_of SignatureService::LoadedStatus, controller.status
 
     {}.tap do |changes|
       changes[Pathname("sig/foo.rbs")] = [
-        SignatureController::ContentChange.new(range: nil, text: <<RBS)
+        ContentChange.new(range: nil, text: <<RBS)
 class Hello
 end
 RBS
@@ -29,7 +32,7 @@ RBS
 
     {}.tap do |changes|
       changes[Pathname("sig/foo.rbs")] = [
-        SignatureController::ContentChange.new(range: nil, text: <<RBS)
+        ContentChange.new(range: nil, text: <<RBS)
 class Hello
   def foo: () -> void
 end
@@ -43,13 +46,13 @@ RBS
   end
 
   def test_update_nested
-    controller = SignatureController.load_from(environment_loader)
+    controller = SignatureService.load_from(environment_loader)
 
-    assert_instance_of SignatureController::LoadedStatus, controller.status
+    assert_instance_of SignatureService::LoadedStatus, controller.status
 
     {}.tap do |changes|
       changes[Pathname("sig/foo.rbs")] = [
-        SignatureController::ContentChange.new(range: nil, text: <<RBS)
+        ContentChange.new(range: nil, text: <<RBS)
 module A
   class B
   end
@@ -57,7 +60,7 @@ end
 RBS
       ]
       changes[Pathname("sig/bar.rbs")] = [
-        SignatureController::ContentChange.new(range: nil, text: <<RBS)
+        ContentChange.new(range: nil, text: <<RBS)
 module A
   class C
   end
@@ -82,7 +85,7 @@ RBS
 
     {}.tap do |changes|
       changes[Pathname("sig/foo.rbs")] = [
-        SignatureController::ContentChange.new(range: nil, text: <<RBS)
+        ContentChange.new(range: nil, text: <<RBS)
 module A
   class B
     def foo: () -> void
@@ -100,32 +103,32 @@ RBS
   end
 
   def test_update_syntax_error
-    controller = SignatureController.load_from(environment_loader)
+    controller = SignatureService.load_from(environment_loader)
 
-    assert_instance_of SignatureController::LoadedStatus, controller.status
+    assert_instance_of SignatureService::LoadedStatus, controller.status
 
     {}.tap do |changes|
       changes[Pathname("sig/foo.rbs")] = [
-        SignatureController::ContentChange.new(range: nil, text: <<RBS)
+        ContentChange.new(range: nil, text: <<RBS)
 class Hello
 RBS
       ]
       controller.update(changes)
     end
 
-    assert_instance_of SignatureController::ErrorStatus, controller.status
+    assert_instance_of SignatureService::ErrorStatus, controller.status
     assert_equal 1, controller.status.errors.size
     assert_instance_of RBS::Parser::SyntaxError, controller.status.errors[0]
   end
 
   def test_update_loading_error
-    controller = SignatureController.load_from(environment_loader)
+    controller = SignatureService.load_from(environment_loader)
 
-    assert_instance_of SignatureController::LoadedStatus, controller.status
+    assert_instance_of SignatureService::LoadedStatus, controller.status
 
     {}.tap do |changes|
       changes[Pathname("sig/foo.rbs")] = [
-        SignatureController::ContentChange.new(range: nil, text: <<RBS)
+        ContentChange.new(range: nil, text: <<RBS)
 class Hello
 end
 
@@ -136,7 +139,7 @@ RBS
       controller.update(changes)
     end
 
-    assert_instance_of SignatureController::ErrorStatus, controller.status
+    assert_instance_of SignatureService::ErrorStatus, controller.status
     assert_equal 1, controller.status.errors.size
     assert_instance_of RBS::DuplicatedDeclarationError, controller.status.errors[0]
   end

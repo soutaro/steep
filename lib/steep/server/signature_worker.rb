@@ -12,7 +12,7 @@ module Steep
         @mutex = Mutex.new
         @controllers = project.targets.each.with_object({}) do |target, hash|
           loader = Project::Target.construct_env_loader(options: target.options)
-          hash[target.name] = SignatureController.load_from(loader)
+          hash[target.name] = Services::SignatureService.load_from(loader)
         end
       end
 
@@ -48,7 +48,7 @@ module Steep
         push_change do |changes|
           project.targets.each do |target|
             target_changes = target.signature_files.each.with_object({}) do |(path, file), hash|
-              changes[path] = [SignatureController::ContentChange.new(text: file.content)]
+              changes[path] = [Services::ContentChange.new(text: file.content)]
             end
           end
         end
@@ -78,11 +78,11 @@ module Steep
 
           changes[path] ||= []
           request[:params][:contentChanges].each do |change|
-            changes[path] << SignatureController::ContentChange.new(
+            changes[path] << Services::ContentChange.new(
               range: change[:range]&.yield_self {|range|
                 [
-                  range[:start].yield_self {|pos| SignatureController::Position.new(line: pos[:line] + 1, column: pos[:character]) },
-                  range[:end].yield_self {|pos| SignatureController::Position.new(line: pos[:line] + 1, column: pos[:character]) }
+                  range[:start].yield_self {|pos| Services::ContentChange::Position.new(line: pos[:line] + 1, column: pos[:character]) },
+                  range[:end].yield_self {|pos| Services::ContentChange::Position.new(line: pos[:line] + 1, column: pos[:character]) }
                 ]
               },
               text: change[:text]
@@ -103,9 +103,9 @@ module Steep
             controller.update(target_changes) unless target_changes.empty?
 
             diagnostics = case controller.status
-                          when SignatureController::ErrorStatus
+                          when Services::SignatureService::ErrorStatus
                             controller.status.diagnostics
-                          when SignatureController::LoadedStatus
+                          when Services::SignatureService::LoadedStatus
                             check = Subtyping::Check.new(factory: AST::Types::Factory.new(builder: controller.current_builder))
                             Signature::Validator.new(checker: check).tap {|v| v.validate() }.each_error.to_a
                           end.group_by {|error| error.location.buffer.name }
