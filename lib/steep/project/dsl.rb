@@ -120,11 +120,13 @@ module Steep
 
         target.instance_eval(&block) if block_given?
 
+        source_pattern = Pattern.new(patterns: target.sources, ignores: target.ignored_sources, ext: ".rb")
+        signature_pattern = Pattern.new(patterns: target.signatures, ext: ".rbs")
+
         Project::Target.new(
           name: target.name,
-          source_patterns: target.sources,
-          ignore_patterns: target.ignored_sources,
-          signature_patterns: target.signatures,
+          source_pattern: source_pattern,
+          signature_pattern: signature_pattern,
           options: Options.new.tap do |options|
             options.libraries.push(*target.libraries)
             options.repository_paths.push(*target.repo_paths)

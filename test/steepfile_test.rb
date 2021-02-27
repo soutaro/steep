@@ -1,6 +1,6 @@
 require "test_helper"
 
-class SteepfileDSLTest < Minitest::Test
+class SteepfileTest < Minitest::Test
   include Steep
   include TestHelper
   include ShellHelper
@@ -34,9 +34,9 @@ EOF
 
       project.targets.find {|target| target.name == :app }.tap do |target|
         assert_instance_of Project::Target, target
-        assert_equal ["app"], target.source_patterns
-        assert_equal ["app/views"], target.ignore_patterns
-        assert_equal ["sig", "sig-private"], target.signature_patterns
+        assert_equal ["app"], target.source_pattern.patterns
+        assert_equal ["app/views"], target.source_pattern.ignores
+        assert_equal ["sig", "sig-private"], target.signature_pattern.patterns
         assert_equal ["set", "strong_json"], target.options.libraries
         assert_equal Pathname("vendor/sigs"), target.options.vendor_path
         assert_equal false, target.options.allow_missing_definitions
@@ -44,9 +44,9 @@ EOF
 
       project.targets.find {|target| target.name == :Gemfile }.tap do |target|
         assert_instance_of Project::Target, target
-        assert_equal ["Gemfile"], target.source_patterns
-        assert_equal [], target.ignore_patterns
-        assert_equal [], target.signature_patterns
+        assert_equal ["Gemfile"], target.source_pattern.patterns
+        assert_equal [], target.source_pattern.ignores
+        assert_equal [], target.signature_pattern.patterns
         assert_equal ["gemfile"], target.options.libraries
         assert_nil target.options.vendor_path
         assert_equal true, target.options.allow_missing_definitions

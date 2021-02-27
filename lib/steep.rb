@@ -95,6 +95,7 @@ require "steep/server/interaction_worker"
 require "steep/server/master"
 
 require "steep/project"
+require "steep/project/pattern"
 require "steep/project/signature_file"
 require "steep/project/source_file"
 require "steep/project/options"
