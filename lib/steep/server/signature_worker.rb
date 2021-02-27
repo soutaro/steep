@@ -11,8 +11,7 @@ module Steep
         @changes = {}
         @mutex = Mutex.new
         @controllers = project.targets.each.with_object({}) do |target, hash|
-          loader = Project::Target.construct_env_loader(options: target.options)
-          hash[target.name] = Services::SignatureService.load_from(loader)
+          hash[target.name] = Services::SignatureService.load_from(target.new_env_loader)
         end
       end
 

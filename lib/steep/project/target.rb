@@ -101,6 +101,10 @@ module Steep
         end
       end
 
+      def new_env_loader
+        Target.construct_env_loader(options: options)
+      end
+
       def self.construct_env_loader(options:)
         repo = RBS::Repository.new(no_stdlib: options.vendor_path)
         options.repository_paths.each do |path|
@@ -121,7 +125,7 @@ module Steep
       end
 
       def environment
-        @environment ||= RBS::Environment.from_loader(Target.construct_env_loader(options: options))
+        @environment ||= RBS::Environment.from_loader(new_env_loader)
       end
 
       def parse_signatures(timestamp:)
