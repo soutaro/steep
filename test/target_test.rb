@@ -4,13 +4,6 @@ module Steep
   class TargetTest < Minitest::Test
     include TestHelper
 
-    def test_test_pattern
-      assert Project::Target.test_pattern(["lib/*"], Pathname("lib/foo.rb"), ext: ".rb")
-      assert Project::Target.test_pattern(["lib"], Pathname("lib/foo.rb"), ext: ".rb")
-      assert Project::Target.test_pattern(["./lib"], Pathname("lib/foo.rb"), ext: ".rb")
-      refute Project::Target.test_pattern(["lib"], Pathname("test/foo_test.rb"), ext: ".rb")
-    end
-
     def test_environment_loader
       Dir.mktmpdir do |dir|
         path = Pathname(dir)
@@ -48,9 +41,8 @@ module Steep
       target = Project::Target.new(
         name: :foo,
         options: Project::Options.new,
-        source_patterns: ["lib"],
-        ignore_patterns: [],
-        signature_patterns: ["sig"]
+        source_pattern: Project::Pattern.new(patterns: ["lib"], ext: ".rb"),
+        signature_pattern: Project::Pattern.new(patterns: ["sig"], ext: ".rbs")
       )
 
       target.add_source Pathname("lib/foo.rb"), <<-EOF
@@ -104,9 +96,8 @@ x = ""
       target = Project::Target.new(
         name: :foo,
         options: Project::Options.new,
-        source_patterns: ["lib"],
-        ignore_patterns: [],
-        signature_patterns: ["sig"]
+        source_pattern: Project::Pattern.new(patterns: ["lib"], ext: ".rb"),
+        signature_pattern: Project::Pattern.new(patterns: ["sig"], ext: ".rbs")
       )
 
       target.add_source Pathname("lib/foo.rb"), <<-EOF
@@ -140,9 +131,8 @@ end
       target = Project::Target.new(
         name: :foo,
         options: Project::Options.new.tap { |o| o.apply_lenient_typing_options! },
-        source_patterns: ["lib"],
-        ignore_patterns: [],
-        signature_patterns: ["sig"]
+        source_pattern: Project::Pattern.new(patterns: ["lib"], ext: ".rb"),
+        signature_pattern: Project::Pattern.new(patterns: ["sig"], ext: ".rbs")
       )
 
       target.add_source Pathname("lib/foo.rb"), <<-EOF
@@ -163,9 +153,8 @@ Foo = 1
       target = Project::Target.new(
         name: :foo,
         options: Project::Options.new,
-        source_patterns: ["lib"],
-        ignore_patterns: [],
-        signature_patterns: ["sig"]
+        source_pattern: Project::Pattern.new(patterns: ["lib"], ext: ".rb"),
+        signature_pattern: Project::Pattern.new(patterns: ["sig"], ext: ".rbs")
       )
 
       target.add_signature "sig/foo.rbs", <<-EOF
@@ -196,9 +185,8 @@ end
       target = Project::Target.new(
         name: :foo,
         options: Project::Options.new,
-        source_patterns: ["lib"],
-        ignore_patterns: [],
-        signature_patterns: ["sig"]
+        source_pattern: Project::Pattern.new(patterns: ["lib"], ext: ".rb"),
+        signature_pattern: Project::Pattern.new(patterns: ["sig"], ext: ".rbs")
       )
 
       target.add_source "lib/foo.rb", <<-EOF
@@ -220,9 +208,8 @@ end
       target = Project::Target.new(
         name: :foo,
         options: Project::Options.new,
-        source_patterns: ["lib"],
-        ignore_patterns: [],
-        signature_patterns: ["sig"]
+        source_pattern: Project::Pattern.new(patterns: ["lib"], ext: ".rb"),
+        signature_pattern: Project::Pattern.new(patterns: ["sig"], ext: ".rbs")
       )
 
       target.add_signature "sig/foo.rbs", <<-EOF
@@ -247,9 +234,8 @@ end
       target = Project::Target.new(
         name: :foo,
         options: Project::Options.new,
-        source_patterns: ["lib"],
-        ignore_patterns: [],
-        signature_patterns: ["sig"]
+        source_pattern: Project::Pattern.new(patterns: ["lib"], ext: ".rb"),
+        signature_pattern: Project::Pattern.new(patterns: ["sig"], ext: ".rbs")
       )
 
       target.add_source Pathname("lib/foo.rb"), <<-EOF
@@ -280,9 +266,8 @@ end
       target = Project::Target.new(
         name: :foo,
         options: Project::Options.new,
-        source_patterns: ["lib"],
-        ignore_patterns: [],
-        signature_patterns: ["sig"]
+        source_pattern: Project::Pattern.new(patterns: ["lib"], ext: ".rb"),
+        signature_pattern: Project::Pattern.new(patterns: ["sig"], ext: ".rbs")
       )
 
       target.add_signature Pathname("lib/foo.rbs"), <<-EOF.force_encoding(Encoding::UTF_32)
@@ -299,9 +284,8 @@ end
       target = Project::Target.new(
         name: :foo,
         options: Project::Options.new,
-        source_patterns: ["lib"],
-        ignore_patterns: [],
-        signature_patterns: ["sig"]
+        source_pattern: Project::Pattern.new(patterns: ["lib"], ext: ".rb"),
+        signature_pattern: Project::Pattern.new(patterns: ["sig"], ext: ".rbs")
       )
 
       target.add_signature Pathname("lib/foo.rbs"), <<-EOF
@@ -337,9 +321,8 @@ Bar: Integer
       target = Project::Target.new(
         name: :foo,
         options: Project::Options.new,
-        source_patterns: ["lib"],
-        ignore_patterns: [],
-        signature_patterns: ["sig"]
+        source_pattern: Project::Pattern.new(patterns: ["lib"], ext: ".rb"),
+        signature_pattern: Project::Pattern.new(patterns: ["sig"], ext: ".rbs")
       )
 
       target.add_signature Pathname("lib/foo.rbs"), <<-EOF

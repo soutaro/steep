@@ -4,9 +4,8 @@ module Steep
       attr_reader :name
       attr_reader :options
 
-      attr_reader :source_patterns
-      attr_reader :ignore_patterns
-      attr_reader :signature_patterns
+      attr_reader :source_pattern
+      attr_reader :signature_pattern
 
       attr_reader :source_files
       attr_reader :signature_files
@@ -16,12 +15,11 @@ module Steep
       SignatureErrorStatus = Struct.new(:timestamp, :errors, keyword_init: true)
       TypeCheckStatus = Struct.new(:environment, :subtyping, :type_check_sources, :timestamp, keyword_init: true)
 
-      def initialize(name:, options:, source_patterns:, ignore_patterns:, signature_patterns:)
+      def initialize(name:, options:, source_pattern:, signature_pattern:)
         @name = name
         @options = options
-        @source_patterns = source_patterns
-        @ignore_patterns = ignore_patterns
-        @signature_patterns = signature_patterns
+        @source_pattern = source_pattern
+        @signature_pattern = signature_pattern
 
         @source_files = {}
         @signature_files = {}
@@ -84,20 +82,11 @@ module Steep
       end
 
       def possible_source_file?(path)
-        self.class.test_pattern(source_patterns, path, ext: ".rb") &&
-          !self.class.test_pattern(ignore_patterns, path, ext: ".rb")
+        source_pattern =~ path
       end
 
       def possible_signature_file?(path)
-        self.class.test_pattern(signature_patterns, path, ext: ".rbs")
-      end
-
-      def self.test_pattern(patterns, path, ext:)
-        patterns.any? do |pattern|
-          p = pattern.end_with?(File::Separator) ? pattern : pattern + File::Separator
-          p.delete_prefix!('./')
-          (path.to_s.start_with?(p) && path.extname == ext) || File.fnmatch(pattern, path.to_s)
-        end
+        signature_pattern =~ path
       end
 
       def type_check(target_sources: source_files.values, validate_signatures: true)
