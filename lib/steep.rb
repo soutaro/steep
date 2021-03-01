@@ -97,6 +97,7 @@ require "steep/server/master"
 require "steep/services/content_change"
 require "steep/services/path_assignment"
 require "steep/services/signature_service"
+require "steep/services/type_check_service"
 
 require "steep/project"
 require "steep/project/pattern"
