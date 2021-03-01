@@ -30,10 +30,10 @@ module Steep
           controller.update(changes)
 
           errors = case controller.status
-                   when Services::SignatureService::ErrorStatus
+                   when Services::SignatureService::SyntaxErrorStatus, Services::SignatureService::AncestorErrorStatus
                      controller.status.diagnostics
                    when Services::SignatureService::LoadedStatus
-                     check = Subtyping::Check.new(factory: AST::Types::Factory.new(builder: controller.current_builder))
+                     check = Subtyping::Check.new(factory: AST::Types::Factory.new(builder: controller.latest_builder))
                      Signature::Validator.new(checker: check).tap {|v| v.validate() }.each_error.to_a
                    end
 
