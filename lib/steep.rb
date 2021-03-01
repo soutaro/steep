@@ -95,6 +95,7 @@ require "steep/server/interaction_worker"
 require "steep/server/master"
 
 require "steep/services/content_change"
+require "steep/services/path_assignment"
 require "steep/services/signature_service"
 
 require "steep/project"
