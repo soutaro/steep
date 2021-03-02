@@ -1,39 +1,63 @@
 module Steep
   module Server
     class InteractionWorker < BaseWorker
-      attr_reader :queue
+      include ChangeBuffer
+
+      ApplyChangeJob = Class.new()
+      HoverJob = Struct.new(:id, :path, :line, :column, keyword_init: true)
+      CompletionJob = Struct.new(:id, :path, :line, :column, :trigger, keyword_init: true)
+
+      attr_reader :service
 
       def initialize(project:, reader:, writer:, queue: Queue.new)
         super(project: project, reader: reader, writer: writer)
         @queue = queue
+        @service = Services::TypeCheckService.new(project: project, assignment: Services::PathAssignment.all)
+        service.no_type_checking!
+        @mutex = Mutex.new
+        @buffered_changes = {}
       end
 
       def handle_job(job)
-        Steep.logger.debug "Handling job: id=#{job[:id]}, result=#{job[:result]&.to_hash}"
-        writer.write(job)
+        Steep.logger.tagged "#handle_job" do
+          changes = pop_buffer()
+
+          unless changes.empty?
+            Steep.logger.debug { "Applying changes for #{changes.size} files..." }
+            service.update(changes: changes) {}
+          end
+
+          case job
+          when ApplyChangeJob
+            # nop
+          when HoverJob
+            writer.write({ id: job.id, result: process_hover(job) })
+          when CompletionJob
+            writer.write({ id: job.id, result: process_completion(job) })
+          end
+        end
       end
 
       def handle_request(request)
         case request[:method]
         when "initialize"
-          # nop
+          load_files(project: project)
+          queue << ApplyChangeJob.new
           writer.write({ id: request[:id], result: nil })
 
         when "textDocument/didChange"
-          update_source(request)
+          collect_changes(request)
+          queue << ApplyChangeJob.new
 
         when "textDocument/hover"
           id = request[:id]
 
           uri = URI.parse(request[:params][:textDocument][:uri])
           path = project.relative_path(Pathname(uri.path))
-          line = request[:params][:position][:line]
+          line = request[:params][:position][:line]+1
           column = request[:params][:position][:character]
 
-          queue << {
-            id: id,
-            result: response_to_hover(path: path, line: line, column: column)
-          }
+          queue << HoverJob.new(id: id, path: path, line: line, column: column)
 
         when "textDocument/completion"
           id = request[:id]
@@ -44,20 +68,17 @@ module Steep
           line, column = params[:position].yield_self {|hash| [hash[:line]+1, hash[:character]] }
           trigger = params[:context][:triggerCharacter]
 
-          queue << {
-            id: id,
-            result: response_to_completion(path: path, line: line, column: column, trigger: trigger)
-          }
+          queue << CompletionJob.new(id: id, path: path, line: line, column: column, trigger: trigger)
         end
       end
 
-      def response_to_hover(path:, line:, column:)
-        Steep.logger.tagged "#response_to_hover" do
-          Steep.measure "Generating response" do
-            Steep.logger.info { "path=#{path}, line=#{line}, column=#{column}" }
+      def process_hover(job)
+        Steep.logger.tagged "#process_hover" do
+          Steep.measure "Generating hover response" do
+            Steep.logger.info { "path=#{job.path}, line=#{job.line}, column=#{job.column}" }
 
-            hover = Project::HoverContent.new(project: project)
-            content = hover.content_for(path: path, line: line+1, column: column+1)
+            hover = Services::HoverContent.new(service: service)
+            content = hover.content_for(path: job.path, line: job.line, column: job.column+1)
             if content
               range = content.location.yield_self do |location|
                 start_position = { line: location.line - 1, character: location.column }
@@ -70,22 +91,22 @@ module Steep
                 range: range
               )
             end
+          rescue Typing::UnknownNodeError => exn
+            Steep.log_error exn, message: "Failed to compute hover: #{exn.inspect}"
+            nil
           end
-        rescue Typing::UnknownNodeError => exn
-          Steep.log_error exn, message: "Failed to compute hover: #{exn.inspect}"
-          nil
         end
       end
 
       def format_hover(content)
         case content
-        when Project::HoverContent::VariableContent
+        when Services::HoverContent::VariableContent
           "`#{content.name}`: `#{content.type.to_s}`"
-        when Project::HoverContent::MethodCallContent
+        when Services::HoverContent::MethodCallContent
           method_name = case content.method_name
-                        when Project::HoverContent::InstanceMethodName
+                        when Services::HoverContent::InstanceMethodName
                           "#{content.method_name.class_name}##{content.method_name.method_name}"
-                        when Project::HoverContent::SingletonMethodName
+                        when Services::HoverContent::SingletonMethodName
                           "#{content.method_name.class_name}.#{content.method_name.method_name}"
                         else
                           nil
@@ -107,7 +128,7 @@ HOVER
           else
             "`#{content.type}`"
           end
-        when Project::HoverContent::DefinitionContent
+        when Services::HoverContent::DefinitionContent
           string = <<HOVER
 ```
 def #{content.method_name}: #{content.method_type}
@@ -122,42 +143,37 @@ HOVER
           end
 
           string
-        when Project::HoverContent::TypeContent
+        when Services::HoverContent::TypeContent
           "`#{content.type}`"
         end
       end
 
-      def response_to_completion(path:, line:, column:, trigger:)
+      def process_completion(job)
         Steep.logger.tagged("#response_to_completion") do
           Steep.measure "Generating response" do
-            Steep.logger.info "path: #{path}, line: #{line}, column: #{column}, trigger: #{trigger}"
+            Steep.logger.info "path: #{job.path}, line: #{job.line}, column: #{job.column}, trigger: #{job.trigger}"
 
-            target = project.target_for_source_path(path) or return
-            target.type_check(target_sources: [], validate_signatures: false)
+            target = project.target_for_source_path(job.path) or return
+            file = service.source_files[job.path] or return
+            subtyping = service.signature_services[target.name].current_subtyping or return
 
-            case (status = target&.status)
-            when Project::Target::TypeCheckStatus
-              subtyping = status.subtyping
-              source = target.source_files[path]
+            provider = Services::CompletionProvider.new(source_text: file.content, path: job.path, subtyping: subtyping)
+            items = begin
+                      provider.run(line: job.line, column: job.column)
+                    rescue Parser::SyntaxError
+                      []
+                    end
 
-              provider = Project::CompletionProvider.new(source_text: source.content, path: path, subtyping: subtyping)
-              items = begin
-                        provider.run(line: line, column: column)
-                      rescue Parser::SyntaxError
-                        []
-                      end
-
-              completion_items = items.map do |item|
-                format_completion_item(item)
-              end
-
-              Steep.logger.debug "items = #{completion_items.inspect}"
-
-              LSP::Interface::CompletionList.new(
-                is_incomplete: false,
-                items: completion_items
-              )
+            completion_items = items.map do |item|
+              format_completion_item(item)
             end
+
+            Steep.logger.debug "items = #{completion_items.inspect}"
+
+            LSP::Interface::CompletionList.new(
+              is_incomplete: false,
+              items: completion_items
+            )
           end
         end
       end
@@ -175,7 +191,7 @@ HOVER
         )
 
         case item
-        when Project::CompletionProvider::LocalVariableItem
+        when Services::CompletionProvider::LocalVariableItem
           LanguageServer::Protocol::Interface::CompletionItem.new(
             label: item.identifier,
             kind: LanguageServer::Protocol::Constant::CompletionItemKind::VARIABLE,
@@ -185,7 +201,7 @@ HOVER
               new_text: "#{item.identifier}"
             )
           )
-        when Project::CompletionProvider::MethodNameItem
+        when Services::CompletionProvider::MethodNameItem
           label = "def #{item.identifier}: #{item.method_type}"
           method_type_snippet = method_type_to_snippet(item.method_type)
           LanguageServer::Protocol::Interface::CompletionItem.new(
@@ -199,7 +215,7 @@ HOVER
             insert_text_format: LanguageServer::Protocol::Constant::InsertTextFormat::SNIPPET,
             sort_text: item.inherited? ? 'z' : 'a' # Ensure language server puts non-inherited methods before inherited methods
           )
-        when Project::CompletionProvider::InstanceVariableItem
+        when Services::CompletionProvider::InstanceVariableItem
           label = "#{item.identifier}: #{item.type}"
           LanguageServer::Protocol::Interface::CompletionItem.new(
             label: label,
