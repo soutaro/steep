@@ -13,10 +13,18 @@ module Steep
         @ext = ext
 
         @prefixes = patterns.map do |pat|
-          pat.delete_prefix("./").delete_suffix(File::Separator) << File::Separator
+          if pat == "." || pat == "./"
+            ""
+          else
+            pat.delete_prefix("./").delete_suffix(File::Separator) << File::Separator
+          end
         end
-        @ignore_prefixes = ignores.map do |prefix|
-          prefix.delete_prefix("./").delete_suffix(File::Separator) << File::Separator
+        @ignore_prefixes = ignores.map do |pat|
+          if pat == "." || pat == "./"
+            ""
+          else
+            pat.delete_prefix("./").delete_suffix(File::Separator) << File::Separator
+          end
         end
       end
 
