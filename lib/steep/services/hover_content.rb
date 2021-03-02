@@ -1,5 +1,5 @@
 module Steep
-  class Project
+  module Services
     class HoverContent
       TypeContent = Struct.new(:node, :type, :location, keyword_init: true)
       VariableContent = Struct.new(:node, :name, :type, :location, keyword_init: true)
@@ -15,10 +15,14 @@ module Steep
       InstanceMethodName = Struct.new(:class_name, :method_name)
       SingletonMethodName = Struct.new(:class_name, :method_name)
 
-      attr_reader :project
+      attr_reader :service
 
-      def initialize(project:)
-        @project = project
+      def initialize(service:)
+        @service = service
+      end
+
+      def project
+        service.project
       end
 
       def method_definition_for(factory, type_name, singleton_method: nil, instance_method: nil)
@@ -36,17 +40,10 @@ module Steep
         end
       end
 
-      def typecheck(target, path:, line:, column:)
-        target.type_check(target_sources: [], validate_signatures: false)
-
-        case (status = target.status)
-        when Project::Target::TypeCheckStatus
-          subtyping = status.subtyping
-          source = SourceFile
-                     .parse(target.source_files[path].content, path: path, factory: subtyping.factory)
-                     .without_unrelated_defs(line: line, column: column)
-          SourceFile.type_check(source, subtyping: subtyping)
-        end
+      def typecheck(target, path:, content:, line:, column:)
+        subtyping = service.signature_services[target.name].current_subtyping or return
+        source = Source.parse(content, path: path, factory: subtyping.factory)
+        Services::TypeCheckService.type_check(source: source, subtyping: subtyping)
       rescue
         nil
       end
@@ -55,7 +52,8 @@ module Steep
         target = project.target_for_source_path(path)
 
         if target
-          typing = typecheck(target, path: path, line: line, column: column) or return
+          file = service.source_files[path]
+          typing = typecheck(target, path: path, content: file.content, line: line, column: column) or return
 
           node, *parents = typing.source.find_nodes(line: line, column: column)
 
