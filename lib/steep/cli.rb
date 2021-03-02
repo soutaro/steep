@@ -185,11 +185,12 @@ module Steep
           handle_logging_options opts
 
           opts.on("--interaction") { command.worker_type = :interaction }
-          opts.on("--code") { command.worker_type = :code }
-          opts.on("--signature") { command.worker_type = :signature }
+          opts.on("--typecheck") { command.worker_type = :typecheck }
           opts.on("--steepfile=PATH") {|path| command.steepfile = Pathname(path) }
           opts.on("--name=NAME") {|name| command.worker_name = name }
           opts.on("--delay-shutdown") { command.delay_shutdown = true }
+          opts.on("--max-index=COUNT") {|count| command.max_index = Integer(count) }
+          opts.on("--index=INDEX") {|index| command.index = Integer(index) }
         end.parse!(argv)
       end.run
     end

@@ -6,7 +6,7 @@ module Steep
       include Utils
 
       attr_reader :project
-      attr_reader :reader, :writer
+      attr_reader :reader, :writer, :queue
 
       ShutdownJob = Struct.new(:id, keyword_init: true)
 

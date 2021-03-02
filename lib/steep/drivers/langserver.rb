@@ -41,16 +41,14 @@ module Steep
         loader.load_signatures()
 
         interaction_worker = Server::WorkerProcess.spawn_worker(:interaction, name: "interaction", steepfile: project.steepfile_path)
-        signature_worker = Server::WorkerProcess.spawn_worker(:signature, name: "signature", steepfile: project.steepfile_path)
-        code_workers = Server::WorkerProcess.spawn_code_workers(steepfile: project.steepfile_path)
+        typecheck_workers = Server::WorkerProcess.spawn_typecheck_workers(steepfile: project.steepfile_path)
 
         master = Server::Master.new(
           project: project,
           reader: reader,
           writer: writer,
           interaction_worker: interaction_worker,
-          signature_worker: signature_worker,
-          code_workers: code_workers
+          typecheck_workers: typecheck_workers
         )
 
         master.start()

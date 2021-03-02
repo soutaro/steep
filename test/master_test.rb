@@ -25,15 +25,13 @@ EOF
       Project::DSL.parse(project, steepfile.read)
 
       interaction_worker = Server::WorkerProcess.spawn_worker(:interaction, name: "interaction", steepfile: steepfile)
-      signature_worker = Server::WorkerProcess.spawn_worker(:signature, name: "signature", steepfile: steepfile)
-      code_workers = Server::WorkerProcess.spawn_code_workers(steepfile: steepfile, count: 2)
+      typecheck_workers = Server::WorkerProcess.spawn_typecheck_workers(steepfile: steepfile, count: 1)
 
       master = Server::Master.new(project: project,
                                   reader: worker_reader,
                                   writer: worker_writer,
                                   interaction_worker: interaction_worker,
-                                  signature_worker: signature_worker,
-                                  code_workers: code_workers)
+                                  typecheck_workers: typecheck_workers)
 
       main_thread = Thread.new do
         master.start()
@@ -53,11 +51,6 @@ end
 class Bar
 end
         RUBY
-
-        finally_holds do
-          assert_includes master.worker_to_paths.values, Set[Pathname("lib/foo.rb")]
-          assert_includes master.worker_to_paths.values, Set[Pathname("lib/bar.rb")]
-        end
 
         finally_holds do
           assert_equal [], ui.diagnostics_for(project.absolute_path(Pathname("lib/foo.rb")))
@@ -84,15 +77,13 @@ end
       Project::DSL.parse(project, steepfile.read)
 
       interaction_worker = Server::WorkerProcess.spawn_worker(:interaction, name: "interaction", steepfile: steepfile)
-      signature_worker = Server::WorkerProcess.spawn_worker(:signature, name: "signature", steepfile: steepfile)
-      code_workers = Server::WorkerProcess.spawn_code_workers(steepfile: steepfile, count: 2)
+      typecheck_workers = Server::WorkerProcess.spawn_typecheck_workers(steepfile: steepfile, count: 1)
 
       master = Server::Master.new(project: project,
                                   reader: worker_reader,
                                   writer: worker_writer,
                                   interaction_worker: interaction_worker,
-                                  signature_worker: signature_worker,
-                                  code_workers: code_workers)
+                                  typecheck_workers: typecheck_workers)
 
       main_thread = Thread.new do
         master.start()
@@ -148,15 +139,13 @@ end
       Project::DSL.parse(project, steepfile.read)
 
       interaction_worker = Server::WorkerProcess.spawn_worker(:interaction, name: "interaction", steepfile: steepfile)
-      signature_worker = Server::WorkerProcess.spawn_worker(:signature, name: "signature", steepfile: steepfile)
-      code_workers = Server::WorkerProcess.spawn_code_workers(steepfile: steepfile, count: 2)
+      typecheck_workers = Server::WorkerProcess.spawn_typecheck_workers(steepfile: steepfile, count: 2)
 
       master = Server::Master.new(project: project,
                                   reader: worker_reader,
                                   writer: worker_writer,
                                   interaction_worker: interaction_worker,
-                                  signature_worker: signature_worker,
-                                  code_workers: code_workers)
+                                  typecheck_workers: typecheck_workers)
 
       main_thread = Thread.new do
         master.start()
