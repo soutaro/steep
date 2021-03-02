@@ -7,6 +7,26 @@ class InteractionWorkerTest < Minitest::Test
 
   include Steep
 
+  InteractionWorker = Server::InteractionWorker
+  ContentChange = Services::ContentChange
+
+  def flush_queue(queue)
+    queue << self
+
+    copy = []
+
+    while true
+      ret = queue.pop
+
+      break if ret.nil?
+      break if ret.equal?(self)
+
+      copy << ret
+    end
+
+    copy
+  end
+
   def run_worker(worker)
     t = Thread.new do
       worker.run()
@@ -36,7 +56,7 @@ class InteractionWorkerTest < Minitest::Test
     @dirs ||= []
   end
 
-  def test_handle_request_hover
+  def test_handle_request_initialize
     in_tmpdir do
       project = Project.new(steepfile_path: current_dir + "Steepfile")
       Project::DSL.parse(project, <<EOF)
@@ -45,9 +65,31 @@ target :lib do
   signature "sig"
 end
 EOF
-      target = project.targets[0]
 
-      worker = Server::InteractionWorker.new(project: project, reader: worker_reader, writer: worker_writer, queue: [])
+      worker = InteractionWorker.new(project: project, reader: worker_reader, writer: worker_writer)
+
+      worker.handle_request({ method: "initialize", id: 1, params: nil })
+
+      q = flush_queue(worker.queue)
+      assert_equal 1, q.size
+      assert_instance_of InteractionWorker::ApplyChangeJob, q[0]
+    end
+  end
+
+  def test_handle_request_change
+    in_tmpdir do
+      project = Project.new(steepfile_path: current_dir + "Steepfile")
+      Project::DSL.parse(project, <<EOF)
+target :lib do
+  check "lib"
+  signature "sig"
+end
+EOF
+
+      worker = InteractionWorker.new(project: project, reader: worker_reader, writer: worker_writer)
+
+      worker.handle_request({ method: "initialize", id: 1, params: nil })
+      flush_queue(worker.queue)
 
       worker.handle_request(
         {
@@ -75,56 +117,15 @@ end
         }
       )
 
-      refute_empty target.source_files[Pathname("lib/hello.rb")].content
+      q = flush_queue(worker.queue)
+      assert_equal 1, q.size
+      assert_instance_of InteractionWorker::ApplyChangeJob, q[0]
 
-      worker.handle_request(
-        {
-          method: "textDocument/hover",
-          params: {
-            textDocument: { uri: "file://#{current_dir}/lib/hello.rb" },
-            position: { line: 1, character: 2 }
-          }
-        }
-      )
-
-      assert_equal 1, worker.queue.size
-
-      response = worker.queue.pop
-      assert_equal "`foo`: `::Integer`", response[:result].contents[:value]
-
-      worker.handle_request(
-        {
-          method: "textDocument/hover",
-          params: {
-            textDocument: { uri: "file://#{current_dir}/lib/hello.rb" },
-            position: { line: 1, character: 6 }
-          }
-        }
-      )
-
-      assert_equal 1, worker.queue.size
-
-      response = worker.queue.pop
-      assert_match(/Returns a string containing the place-value representation of `int` with radix/, response[:result].contents[:value])
-
-      worker.handle_request(
-        {
-          method: "textDocument/hover",
-          params: {
-            textDocument: { uri: "file://#{current_dir}/lib/hello.rb" },
-            position: { line: 4, character: 6 }
-          }
-        }
-      )
-
-      assert_equal 1, worker.queue.size
-
-      response = worker.queue.pop
-      assert_match(/Returns `self`/, response[:result].contents[:value])
+      refute_empty worker.buffered_changes
     end
   end
 
-  def test_hover_on_syntax_error
+  def test_handle_request_hover
     in_tmpdir do
       project = Project.new(steepfile_path: current_dir + "Steepfile")
       Project::DSL.parse(project, <<EOF)
@@ -133,28 +134,11 @@ target :lib do
   signature "sig"
 end
 EOF
-      worker = Server::InteractionWorker.new(project: project, reader: worker_reader, writer: worker_writer, queue: [])
 
-      worker.handle_request(
-        {
-          id: 123,
-          method: "textDocument/didChange",
-          params: LSP::Interface::DidChangeTextDocumentParams.new(
-            text_document: {
-              version: 1,
-              uri: "file://#{current_dir}/lib/hello.rb"
-            },
-            content_changes: [
-              {
-                text: <<-RUBY
-foo = 100
-foo + "ba
-                RUBY
-              }
-            ]
-          ).to_hash
-        }
-      )
+      worker = InteractionWorker.new(project: project, reader: worker_reader, writer: worker_writer)
+
+      worker.handle_request({ method: "initialize", id: 1, params: nil })
+      flush_queue(worker.queue)
 
       worker.handle_request(
         {
@@ -166,12 +150,18 @@ foo + "ba
         }
       )
 
-      assert_equal 1, worker.queue.size
-      assert_nil worker.queue[0][:result]
+      q = flush_queue(worker.queue)
+      assert_equal 1, q.size
+      q[0].tap do |job|
+        assert_instance_of InteractionWorker::HoverJob, job
+        assert_equal Pathname("lib/hello.rb"), job.path
+        assert_equal 2, job.line
+        assert_equal 2, job.column
+      end
     end
   end
 
-  def test_hover_on_signature
+  def test_handle_hover_job_success
     in_tmpdir do
       project = Project.new(steepfile_path: current_dir + "Steepfile")
       Project::DSL.parse(project, <<EOF)
@@ -180,41 +170,49 @@ target :lib do
   signature "sig"
 end
 EOF
-      worker = Server::InteractionWorker.new(project: project, reader: worker_reader, writer: worker_writer, queue: [])
 
-      worker.handle_request(
-        {
-          id: 123,
-          method: "textDocument/didChange",
-          params: LSP::Interface::DidChangeTextDocumentParams.new(
-            text_document: {
-              version: 1,
-              uri: "file://#{current_dir}/sig/hello.rbs"
-            },
-            content_changes: [
-              {
-                text: <<-RUBY
-class Integer
+      worker = InteractionWorker.new(project: project, reader: worker_reader, writer: worker_writer)
+
+      worker.service.update(
+        changes: {
+          Pathname("lib/foo.rb") => [ContentChange.string(<<RUBY)]
+foo = 1 + 2
+bar = foo.to_s
+RUBY
+        }
+      ) {}
+
+      response = worker.process_hover(InteractionWorker::HoverJob.new(path: Pathname("lib/foo.rb"), line: 1, column: 1))
+      response = response.attributes
+
+      assert_equal({ kind: "markdown", value: "`foo`: `::Integer`" }, response[:contents])
+      assert_equal({ start: { line: 0, character: 0 }, end: { line: 0, character: 3 }}, response[:range])
+    end
+  end
+
+  def test_handle_hover_invalid
+    in_tmpdir do
+      project = Project.new(steepfile_path: current_dir + "Steepfile")
+      Project::DSL.parse(project, <<EOF)
+target :lib do
+  check "lib"
+  signature "sig"
 end
-                RUBY
-              }
-            ]
-          ).to_hash
-        }
-      )
+EOF
 
-      worker.handle_request(
-        {
-          method: "textDocument/hover",
-          params: {
-            textDocument: { uri: "file://#{current_dir}/sig/hello.rbs" },
-            position: { line: 1, character: 2 }
-          }
-        }
-      )
+      worker = InteractionWorker.new(project: project, reader: worker_reader, writer: worker_writer)
 
-      assert_equal 1, worker.queue.size
-      assert_nil worker.queue[0][:result]
+      worker.service.update(
+        changes: {
+          Pathname("lib/foo.rb") => [ContentChange.string(<<RUBY)]
+foo = 1 + 2
+bar = foo.
+RUBY
+        }
+      ) {}
+
+      response = worker.process_hover(InteractionWorker::HoverJob.new(path: Pathname("lib/foo.rb"), line: 1, column: 1))
+      assert_nil response
     end
   end
 
@@ -229,103 +227,60 @@ end
 EOF
       worker = Server::InteractionWorker.new(project: project, reader: worker_reader, writer: worker_writer, queue: [])
 
-      worker.handle_request(
-        {
-          id: 123,
-          method: "textDocument/didChange",
-          params: LSP::Interface::DidChangeTextDocumentParams.new(
-            text_document: {
-              version: 1,
-              uri: "file://#{current_dir}/lib/hello.rb"
-            },
-            content_changes: [
-              {
-                text: <<-RUBY
+      worker.service.update(
+        changes: {
+          Pathname("lib/hello.rb") => [ContentChange.string(<<RUBY)]
 foo = 100
 foo + "bar"
-                RUBY
-              }
-            ]
-          ).to_hash
+RUBY
         }
+      ) {}
+
+      response = worker.process_completion(
+        InteractionWorker::CompletionJob.new(
+          path: Pathname("lib/hello.rb"),
+          line: 3,
+          column: 0,
+          trigger: nil
+        )
       )
 
-      worker.handle_request(
-        {
-          id: 234,
-          method: "textDocument/completion",
-          params: {
-            textDocument: { uri: "file://#{current_dir}/lib/hello.rb" },
-            position: {
-              line: 2,
-              character: 0
-            },
-            context: {
-              triggerKind: LSP::Constant::CompletionTriggerKind::INVOKED
-            }
-          }
-        }
-      )
-
-      response = worker.queue.first
-
-      assert_equal 234, response[:id]
+      assert_instance_of LanguageServer::Protocol::Interface::CompletionList, response
     end
   end
 
   def test_completion_on_signature
     in_tmpdir do
-      project = Project.new(steepfile_path: current_dir + "Steepfile")
-      Project::DSL.parse(project, <<EOF)
+      in_tmpdir do
+        project = Project.new(steepfile_path: current_dir + "Steepfile")
+        Project::DSL.parse(project, <<EOF)
 target :lib do
   check "lib"
   signature "sig"
 end
 EOF
-      worker = Server::InteractionWorker.new(project: project, reader: worker_reader, writer: worker_writer, queue: [])
+        worker = Server::InteractionWorker.new(project: project, reader: worker_reader, writer: worker_writer, queue: [])
 
-      worker.handle_request(
-        {
-          id: 123,
-          method: "textDocument/didChange",
-          params: LSP::Interface::DidChangeTextDocumentParams.new(
-            text_document: {
-              version: 1,
-              uri: "file://#{current_dir}/sig/hello.rbs"
-            },
-            content_changes: [
-              {
-                text: <<-RUBY
+        worker.service.update(
+          changes: {
+            Pathname("lib/hello.rbs") => [ContentChange.string(<<RUBY)]
 class Foo
 end
-                RUBY
-              }
-            ]
-          ).to_hash
-        }
-      )
-
-      worker.handle_request(
-        {
-          id: 234,
-          method: "textDocument/completion",
-          params: {
-            textDocument: { uri: "file://#{current_dir}/sig/hello.rbs" },
-            position: {
-              line: 1,
-              character: 3
-            },
-            context: {
-              triggerKind: LSP::Constant::CompletionTriggerKind::INVOKED
-            }
+RUBY
           }
-        }
-      )
+        ) {}
 
-      response = worker.queue.first
+        response = worker.process_completion(
+          InteractionWorker::CompletionJob.new(
+            path: Pathname("sig/hello.rbs"),
+            line: 3,
+            column: 0,
+            trigger: nil
+          )
+        )
 
-      assert_equal 234, response[:id]
-      assert_nil response[:result]
+        assert_nil response
+      end
     end
   end
 end

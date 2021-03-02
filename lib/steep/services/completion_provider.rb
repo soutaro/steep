@@ -1,5 +1,5 @@
 module Steep
-  class Project
+  module Services
     class CompletionProvider
       Position = Struct.new(:line, :column, keyword_init: true) do
         def -(size)
@@ -51,13 +51,13 @@ module Steep
         @modified_text = text
 
         Steep.measure "parsing" do
-          @source = SourceFile
+          @source = Source
                       .parse(text, path: path, factory: subtyping.factory)
                       .without_unrelated_defs(line: line, column: column)
         end
 
         Steep.measure "typechecking" do
-          @typing = SourceFile.type_check(source, subtyping: subtyping)
+          @typing = TypeCheckService.type_check(source: source, subtyping: subtyping)
         end
       end
 

@@ -60,6 +60,17 @@ module Steep
           loader = Project::Target.construct_env_loader(options: target.options)
           hash[target.name] = SignatureService.load_from(loader)
         end
+
+        @no_type_checking = false
+      end
+
+      def no_type_checking!
+        @no_type_checking = true
+        self
+      end
+
+      def no_type_checking?
+        @no_type_checking
       end
 
       def signature_diagnostics
@@ -144,6 +155,8 @@ module Steep
 
         updated_targets.each do |target|
           service = signature_services[target.name]
+
+          next if no_type_checking?
 
           case service.status
           when SignatureService::SyntaxErrorStatus, SignatureService::AncestorErrorStatus
@@ -244,8 +257,12 @@ module Steep
       def type_check_file(target:, subtyping:, path:, text:)
         Steep.logger.tagged "#type_check_file(#{path}@#{target.name})" do
           source = Source.parse(text, path: path, factory: subtyping.factory)
-          typing = TypeCheckService.type_check(source: source, subtyping: subtyping)
-          SourceFile.with_typing(path: path, content: text, node: source.node, typing: typing)
+          if no_type_checking?
+            SourceFile.no_data(path: path, content: text)
+          else
+            typing = TypeCheckService.type_check(source: source, subtyping: subtyping)
+            SourceFile.with_typing(path: path, content: text, node: source.node, typing: typing)
+          end
         end
       rescue AnnotationParser::SyntaxError => exn
         SourceFile.no_data(path: path, content: text)

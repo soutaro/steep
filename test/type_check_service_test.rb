@@ -374,4 +374,29 @@ RBS
       reported_diagnostics.clear
     end
   end
+
+  def test_update_without_type_check
+    # Recovering from syntax error test
+    service = Services::TypeCheckService.new(project: project, assignment: assignment)
+    service.no_type_checking!
+
+    {
+      Pathname("lib/a.rb") => [ContentChange.string(<<RBS)],
+1 + ""
+RBS
+    }.tap do |changes|
+      service.update(changes: changes, &reporter)
+
+      assert_empty_diagnostics reported_diagnostics
+      assert_empty_diagnostics service.diagnostics
+
+      service.source_files[Pathname("lib/a.rb")].tap do |source|
+        assert_equal false, source.node
+        assert_nil source.typing
+        assert_nil source.errors
+      end
+
+      reported_diagnostics.clear
+    end
+  end
 end

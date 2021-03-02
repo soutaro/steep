@@ -1,10 +1,11 @@
 require_relative "test_helper"
 
 class CompletionProviderTest < Minitest::Test
-  CompletionProvider = Steep::Project::CompletionProvider
-
   include FactoryHelper
   include SubtypingHelper
+
+  include Steep
+  CompletionProvider = Services::CompletionProvider
 
   def test_on_lower_identifier
     with_checker do
