@@ -7,6 +7,8 @@ module Steep
       attr_accessor :worker_type
       attr_accessor :worker_name
       attr_accessor :delay_shutdown
+      attr_accessor :max_index
+      attr_accessor :index
 
       include Utils::DriverHelper
 
@@ -20,19 +22,17 @@ module Steep
         Steep.logger.tagged("#{worker_type}:#{worker_name}") do
           project = load_config()
 
-          loader = Project::FileLoader.new(project: project)
-          loader.load_sources([])
-          loader.load_signatures()
-
           reader = LanguageServer::Protocol::Transport::Io::Reader.new(stdin)
           writer = LanguageServer::Protocol::Transport::Io::Writer.new(stdout)
 
           worker = case worker_type
-                   when :code
-                     Server::CodeWorker.new(project: project, reader: reader, writer: writer)
-                   when :signature
-                     Server::SignatureWorker.new(project: project, reader: reader, writer: writer)
+                   when :typecheck
+                     assignment = Services::PathAssignment.new(max_index: max_index, index: index)
+                     Server::TypeCheckWorker.new(project: project, reader: reader, writer: writer, assignment: assignment)
                    when :interaction
+                     loader = Project::FileLoader.new(project: project)
+                     loader.load_sources([])
+                     loader.load_signatures()
                      Server::InteractionWorker.new(project: project, reader: reader, writer: writer)
                    else
                      raise "Unknown worker type: #{worker_type}"

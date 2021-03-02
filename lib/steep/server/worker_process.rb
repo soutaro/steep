@@ -16,17 +16,15 @@ module Steep
         @name = name
       end
 
-      def self.spawn_worker(type, name:, steepfile:, delay_shutdown: false)
+      def self.spawn_worker(type, name:, steepfile:, options: [], delay_shutdown: false)
         log_level = %w(debug info warn error fatal unknown)[Steep.logger.level]
         command = case type
-                  when :code
-                    ["steep", "worker", "--code", "--name=#{name}", "--log-level=#{log_level}", "--steepfile=#{steepfile}"]
-                  when :signature
-                    ["steep", "worker", "--signature", "--name=#{name}", "--log-level=#{log_level}", "--steepfile=#{steepfile}"]
                   when :interaction
-                    ["steep", "worker", "--interaction", "--name=#{name}", "--log-level=#{log_level}", "--steepfile=#{steepfile}"]
+                    ["steep", "worker", "--interaction", "--name=#{name}", "--log-level=#{log_level}", "--steepfile=#{steepfile}", *options]
+                  when :typecheck
+                    ["steep", "worker", "--typecheck", "--name=#{name}", "--log-level=#{log_level}", "--steepfile=#{steepfile}", *options]
                   else
-                    raise
+                    raise "Unknown type: #{type}"
                   end
 
         if delay_shutdown
@@ -42,9 +40,9 @@ module Steep
         new(reader: reader, writer: writer, stderr: stderr, wait_thread: thread, name: name)
       end
 
-      def self.spawn_code_workers(steepfile:, count: [Etc.nprocessors-3, 1].max, delay_shutdown: false)
+      def self.spawn_typecheck_workers(steepfile:, count: [Etc.nprocessors - 1, 1].max, delay_shutdown: false)
         count.times.map do |i|
-          spawn_worker(:code, name: "code@#{i}", steepfile: steepfile, delay_shutdown: delay_shutdown)
+          spawn_worker(:typecheck, name: "typecheck@#{i}", steepfile: steepfile, options: ["--max-index=#{count}", "--index=#{i}"], delay_shutdown: delay_shutdown)
         end
       end
 

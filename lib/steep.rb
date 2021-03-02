@@ -88,14 +88,15 @@ require "steep/index/source_index"
 
 require "steep/server/utils"
 require "steep/server/base_worker"
-require "steep/server/code_worker"
-require "steep/server/signature_worker"
 require "steep/server/worker_process"
 require "steep/server/interaction_worker"
+require "steep/server/type_check_worker"
 require "steep/server/master"
 
 require "steep/services/content_change"
+require "steep/services/path_assignment"
 require "steep/services/signature_service"
+require "steep/services/type_check_service"
 
 require "steep/project"
 require "steep/project/pattern"

@@ -15,6 +15,16 @@
     code: Ruby::IncompatibleAssignment
   - range:
       start:
+        line: 7
+        character: 34
+      end:
+        line: 7
+        character: 35
+    severity: ERROR
+    message: Cannot detect the type of the expression
+    code: Ruby::FallbackAny
+  - range:
+      start:
         line: 9
         character: 0
       end:
@@ -25,6 +35,16 @@
       Cannot assign a value of type `^(::Integer) -> ::Array[::Integer]` to a variable of type `^(::Integer) { (::Integer) -> void } -> void`
         ^(::Integer) -> ::Array[::Integer] <: ^(::Integer) { (::Integer) -> void } -> void
     code: Ruby::IncompatibleAssignment
+  - range:
+      start:
+        line: 9
+        character: 37
+      end:
+        line: 9
+        character: 38
+    severity: ERROR
+    message: Cannot detect the type of the expression
+    code: Ruby::FallbackAny
   - range:
       start:
         line: 12

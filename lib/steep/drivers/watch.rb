@@ -39,16 +39,14 @@ module Steep
         server_writer = LanguageServer::Protocol::Transport::Io::Writer.new(server_write)
 
         interaction_worker = Server::WorkerProcess.spawn_worker(:interaction, name: "interaction", steepfile: project.steepfile_path)
-        signature_worker = Server::WorkerProcess.spawn_worker(:signature, name: "signature", steepfile: project.steepfile_path)
-        code_workers = Server::WorkerProcess.spawn_code_workers(steepfile: project.steepfile_path)
+        typecheck_workers = Server::WorkerProcess.spawn_typecheck_workers(steepfile: project.steepfile_path)
 
         master = Server::Master.new(
           project: project,
           reader: server_reader,
           writer: server_writer,
           interaction_worker: interaction_worker,
-          signature_worker: signature_worker,
-          code_workers: code_workers
+          typecheck_workers: typecheck_workers
         )
 
         main_thread = Thread.start do

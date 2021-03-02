@@ -6,12 +6,9 @@ module Steep
       attr_reader :steepfile
       attr_reader :project
       attr_reader :reader, :writer
-      attr_reader :worker_count
-      attr_reader :worker_to_paths
 
       attr_reader :interaction_worker
-      attr_reader :signature_worker
-      attr_reader :code_workers
+      attr_reader :typecheck_workers
 
       attr_reader :response_handlers
 
@@ -101,16 +98,14 @@ module Steep
         end
       end
 
-      def initialize(project:, reader:, writer:, interaction_worker:, signature_worker:, code_workers:, queue: Queue.new)
+      def initialize(project:, reader:, writer:, interaction_worker:, typecheck_workers:, queue: Queue.new)
         @project = project
         @reader = reader
         @writer = writer
         @write_queue = queue
         @recon_queue = Queue.new
         @interaction_worker = interaction_worker
-        @signature_worker = signature_worker
-        @code_workers = code_workers
-        @worker_to_paths = {}
+        @typecheck_workers = typecheck_workers
         @shutdown_request_id = nil
         @response_handlers = {}
       end
@@ -118,13 +113,6 @@ module Steep
       def start
         Steep.logger.tagged "master" do
           tags = Steep.logger.formatter.current_tags.dup
-
-          Steep.logger.info "Registering all code to workers..."
-          source_paths = project.all_source_files
-          bin_size = (source_paths.size / code_workers.size) + 1
-          source_paths.each_slice(bin_size).with_index do |paths, index|
-            register_code_to_worker(paths, worker: code_workers[index])
-          end
 
           worker_threads = []
 
@@ -135,14 +123,7 @@ module Steep
             end
           end
 
-          worker_threads << Thread.new do
-            Steep.logger.formatter.push_tags(*tags, "from-worker@signature")
-            signature_worker.reader.read do |message|
-              process_message_from_worker(message, worker: signature_worker)
-            end
-          end
-
-          code_workers.each do |worker|
+          typecheck_workers.each do |worker|
             worker_threads << Thread.new do
               Steep.logger.formatter.push_tags(*tags, "from-worker@#{worker.name}")
               worker.reader.read do |message|
@@ -192,8 +173,7 @@ module Steep
       def each_worker(&block)
         if block_given?
           yield interaction_worker
-          yield signature_worker
-          code_workers.each &block
+          typecheck_workers.each &block
         else
           enum_for :each_worker
         end
@@ -227,14 +207,6 @@ module Steep
 
         when "textDocument/didChange"
           update_source(message)
-
-          uri = URI.parse(message[:params][:textDocument][:uri])
-          path = project.relative_path(Pathname(uri.path))
-
-          unless registered_path?(path)
-            register_code_to_worker [path], worker: least_busy_worker()
-          end
-
           broadcast_notification(message)
 
         when "textDocument/hover", "textDocument/completion"
@@ -248,11 +220,11 @@ module Steep
           # Ignores open notification
 
         when "workspace/symbol"
-          send_request(message, worker: signature_worker) do |handler|
-            handler.on_completion do |response|
-              write_queue << response
-            end
-          end
+          # send_request(message, worker: signature_worker) do |handler|
+          #   handler.on_completion do |response|
+          #     write_queue << response
+          #   end
+          # end
 
         when "workspace/executeCommand"
           case message[:params][:command]
@@ -335,37 +307,6 @@ module Steep
           Steep.logger.info "Received notification #{message[:method]} from worker"
           write_queue << message
         end
-      end
-
-      def paths_for(worker)
-        worker_to_paths[worker] ||= Set[]
-      end
-
-      def least_busy_worker
-        code_workers.min_by do |w|
-          paths_for(w).size
-        end
-      end
-
-      def registered_path?(path)
-        worker_to_paths.each_value.any? {|set| set.include?(path) }
-      end
-
-      def register_code_to_worker(paths, worker:)
-        paths_for(worker).merge(paths)
-
-        send_notification(
-          {
-            method: "workspace/executeCommand",
-            params: LSP::Interface::ExecuteCommandParams.new(
-              command: "steep/registerSourceToWorker",
-              arguments: paths.map do |path|
-                "file://#{project.absolute_path(path)}"
-              end
-            )
-          },
-          worker: worker
-        )
       end
 
       def kill

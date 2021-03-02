@@ -48,7 +48,7 @@ module Steep
             stdout.puts "      - #{lib}"
           end
           stdout.puts "    library dirs:"
-          Project::Target.construct_env_loader(options: target.options).tap do |loader|
+          target.new_env_loader.tap do |loader|
             loader.each_dir do |lib, path|
               case lib
               when :core

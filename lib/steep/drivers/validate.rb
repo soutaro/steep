@@ -20,8 +20,7 @@ module Steep
         any_error = false
 
         project.targets.each do |target|
-          loader = Project::Target.construct_env_loader(options: target.options)
-          controller = Services::SignatureService.load_from(loader)
+          controller = Services::SignatureService.load_from(target.new_env_loader)
 
           changes = target.signature_files.each.with_object({}) do |(path, file), changes|
             changes[path] = [
@@ -31,10 +30,10 @@ module Steep
           controller.update(changes)
 
           errors = case controller.status
-                   when Services::SignatureService::ErrorStatus
+                   when Services::SignatureService::SyntaxErrorStatus, Services::SignatureService::AncestorErrorStatus
                      controller.status.diagnostics
                    when Services::SignatureService::LoadedStatus
-                     check = Subtyping::Check.new(factory: AST::Types::Factory.new(builder: controller.current_builder))
+                     check = Subtyping::Check.new(factory: AST::Types::Factory.new(builder: controller.latest_builder))
                      Signature::Validator.new(checker: check).tap {|v| v.validate() }.each_error.to_a
                    end
 

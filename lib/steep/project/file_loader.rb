@@ -23,8 +23,9 @@ module Steep
                     end
 
             files.sort.each do |source_path|
-              unless pattern.ignore?(source_path)
-                yield project.relative_path(source_path)
+              relative_path = project.relative_path(source_path)
+              unless pattern.ignore?(relative_path)
+                yield relative_path
               end
             end
           end

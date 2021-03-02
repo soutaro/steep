@@ -37,6 +37,10 @@ module Steep
         self.class.hash ^ range.hash ^ text.hash
       end
 
+      def self.string(string)
+        new(text: string)
+      end
+
       def apply_to(text)
         if range
           text = text.dup
