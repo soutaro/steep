@@ -9,6 +9,10 @@ module Steep
         @cache = {}
       end
 
+      def self.all
+        new(index: 0, max_index: 1)
+      end
+
       def =~(path)
         path = path.to_s
 
