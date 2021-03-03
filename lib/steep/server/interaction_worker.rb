@@ -41,7 +41,7 @@ module Steep
       def handle_request(request)
         case request[:method]
         when "initialize"
-          load_files(project: project)
+          load_files(project: project, commandline_args: [])
           queue << ApplyChangeJob.new
           writer.write({ id: request[:id], result: nil })
 

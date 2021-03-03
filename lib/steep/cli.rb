@@ -192,6 +192,8 @@ module Steep
           opts.on("--max-index=COUNT") {|count| command.max_index = Integer(count) }
           opts.on("--index=INDEX") {|index| command.index = Integer(index) }
         end.parse!(argv)
+
+        command.commandline_args.push(*argv)
       end.run
     end
   end

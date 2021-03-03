@@ -25,7 +25,7 @@ EOF
       Project::DSL.parse(project, steepfile.read)
 
       interaction_worker = Server::WorkerProcess.spawn_worker(:interaction, name: "interaction", steepfile: steepfile)
-      typecheck_workers = Server::WorkerProcess.spawn_typecheck_workers(steepfile: steepfile, count: 1)
+      typecheck_workers = Server::WorkerProcess.spawn_typecheck_workers(steepfile: steepfile, count: 1, args: [])
 
       master = Server::Master.new(project: project,
                                   reader: worker_reader,
@@ -77,7 +77,7 @@ end
       Project::DSL.parse(project, steepfile.read)
 
       interaction_worker = Server::WorkerProcess.spawn_worker(:interaction, name: "interaction", steepfile: steepfile)
-      typecheck_workers = Server::WorkerProcess.spawn_typecheck_workers(steepfile: steepfile, count: 1)
+      typecheck_workers = Server::WorkerProcess.spawn_typecheck_workers(steepfile: steepfile, count: 1, args: [])
 
       master = Server::Master.new(project: project,
                                   reader: worker_reader,
@@ -139,7 +139,7 @@ end
       Project::DSL.parse(project, steepfile.read)
 
       interaction_worker = Server::WorkerProcess.spawn_worker(:interaction, name: "interaction", steepfile: steepfile)
-      typecheck_workers = Server::WorkerProcess.spawn_typecheck_workers(steepfile: steepfile, count: 2)
+      typecheck_workers = Server::WorkerProcess.spawn_typecheck_workers(steepfile: steepfile, count: 2, args: [])
 
       master = Server::Master.new(project: project,
                                   reader: worker_reader,
@@ -190,7 +190,7 @@ end
       Project::DSL.parse(project, steepfile.read)
 
       interaction_worker = Server::WorkerProcess.spawn_worker(:interaction, name: "interaction", steepfile: steepfile)
-      typecheck_workers = Server::WorkerProcess.spawn_typecheck_workers(steepfile: steepfile, count: 2)
+      typecheck_workers = Server::WorkerProcess.spawn_typecheck_workers(steepfile: steepfile, count: 2, args: [])
 
       master = Server::Master.new(project: project,
                                   reader: worker_reader,
