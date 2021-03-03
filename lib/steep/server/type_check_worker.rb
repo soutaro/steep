@@ -6,6 +6,7 @@ module Steep
 
       TypeCheckJob = Class.new
       WorkspaceSymbolJob = Struct.new(:query, :id, keyword_init: true)
+      StatsJob = Struct.new(:id, keyword_init: true)
 
       include ChangeBuffer
 
@@ -32,6 +33,11 @@ module Steep
         when "workspace/symbol"
           query = request[:params][:query]
           queue << WorkspaceSymbolJob.new(id: request[:id], query: query)
+        when "workspace/executeCommand"
+          case request[:params][:command]
+          when "steep/stats"
+            queue << StatsJob.new(id: request[:id])
+          end
         end
       end
 
@@ -57,6 +63,11 @@ module Steep
           writer.write(
             id: job.id,
             result: workspace_symbol_result(job.query)
+          )
+        when StatsJob
+          writer.write(
+            id: job.id,
+            result: stats_result().map(&:as_json)
           )
         end
       end
@@ -86,6 +97,19 @@ module Steep
               end,
               container_name: symbol.container_name
             )
+          end
+        end
+      end
+
+      def stats_result
+        calculator = Services::StatsCalculator.new(service: service)
+
+        project.targets.each.with_object([]) do |target, stats|
+          service.source_files.each_value do |file|
+            next unless assignment =~ file.path
+            next unless target.possible_source_file?(file.path)
+
+            stats << calculator.calc_stats(target, file: file)
           end
         end
       end

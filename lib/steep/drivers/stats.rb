@@ -35,16 +35,14 @@ module Steep
         server_writer = LanguageServer::Protocol::Transport::Io::Writer.new(server_write)
 
         interaction_worker = Server::WorkerProcess.spawn_worker(:interaction, name: "interaction", steepfile: project.steepfile_path, delay_shutdown: true)
-        signature_worker = Server::WorkerProcess.spawn_worker(:signature, name: "signature", steepfile: project.steepfile_path, delay_shutdown: true)
-        code_workers = Server::WorkerProcess.spawn_code_workers(steepfile: project.steepfile_path, delay_shutdown: true)
+        typecheck_workers = Server::WorkerProcess.spawn_typecheck_workers(steepfile: project.steepfile_path, delay_shutdown: true, args: command_line_patterns)
 
         master = Server::Master.new(
           project: project,
           reader: server_reader,
           writer: server_writer,
           interaction_worker: interaction_worker,
-          signature_worker: signature_worker,
-          code_workers: code_workers
+          typecheck_workers: typecheck_workers
         )
 
         main_thread = Thread.start do
@@ -59,10 +57,7 @@ module Steep
           {
             id: stats_id,
             method: "workspace/executeCommand",
-            params: {
-              command: "steep/stats",
-              arguments: project.all_source_files.map {|path| project.absolute_path(path) }
-            }
+            params: { command: "steep/stats", arguments: [] }
           })
 
         stats_result = []

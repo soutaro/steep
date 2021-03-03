@@ -234,10 +234,9 @@ module Steep
         when "workspace/executeCommand"
           case message[:params][:command]
           when "steep/stats"
-            send_request(message, workers: code_workers) do |handler|
+            send_request(message, workers: typecheck_workers) do |handler|
               handler.on_completion do |*responses|
                 stats = responses.flat_map {|resp| resp[:result] }
-
                 write_queue << {
                   id: handler.request_id,
                   result: stats

@@ -8,13 +8,14 @@ class StatsCalculatorTest < Minitest::Test
 
   include Steep
 
-  StatsCalculator = Project::StatsCalculator
+  StatsCalculator = Services::StatsCalculator
+  ContentChange = Services::ContentChange
 
   def dirs
     @dirs ||= []
   end
 
-  def setup_project(sources)
+  def setup_project()
     in_tmpdir do
       project = Project.new(steepfile_path: current_dir + "Steepfile")
       Project::DSL.parse(project, <<EOF)
@@ -24,30 +25,25 @@ target :lib do
 end
 EOF
 
-      target = project.targets[0]
-      sources.each do |path, content|
-        case path.extname
-        when ".rb"
-          target.add_source(path, content)
-        when ".rbs"
-          target.add_signature(path, content)
-        end
-      end
-
-      yield project
+      yield Services::TypeCheckService.new(project: project, assignment: Services::PathAssignment.all)
     end
   end
 
   def test_stats_success
-    setup_project(Pathname("lib/hello.rb") => <<-RUBY) do |project|
+    setup_project() do |service|
+      service.update(changes: {
+        Pathname("lib/hello.rb") => [ContentChange.string(<<RUBY)]
 1 + 2
 (_ = 1) + 2
 1 + ""
-    RUBY
+RUBY
+      }) {}
 
-      calculator = StatsCalculator.new(project: project)
+      calculator = StatsCalculator.new(service: service)
 
-      calculator.calc_stats(project.targets[0],Pathname("lib/hello.rb")).tap do |stats|
+      target = service.project.targets[0]
+
+      calculator.calc_stats(target, file: service.source_files[Pathname("lib/hello.rb")]).tap do |stats|
         assert_instance_of StatsCalculator::SuccessStats, stats
         assert_equal :lib, stats.target.name
         assert_equal Pathname("lib/hello.rb"), stats.path
@@ -59,15 +55,21 @@ EOF
   end
 
   def test_stats_syntax_error
-    setup_project(Pathname("lib/hello.rbs") => <<-RBS, Pathname("lib/hello.rb") => <<-RUBY) do |project|
+    setup_project do |service|
+      service.update(changes: {
+        Pathname("sig/hello.rbs") => [ContentChange.string(<<-RBS)],
 interface _HelloWorld
-    RBS
+        RBS
+        Pathname("lib/hello.rb") => [ContentChange.string(<<-RUBY)]
 1+2
     RUBY
+      }) {}
 
-      calculator = StatsCalculator.new(project: project)
+      calculator = StatsCalculator.new(service: service)
 
-      calculator.calc_stats(project.targets[0], Pathname("lib/hello.rb")).tap do |stats|
+      target = service.project.targets[0]
+
+      calculator.calc_stats(target, file: service.source_files[Pathname("lib/hello.rb")]).tap do |stats|
         assert_instance_of StatsCalculator::ErrorStats, stats
         assert_equal :lib, stats.target.name
         assert_equal Pathname("lib/hello.rb"), stats.path
