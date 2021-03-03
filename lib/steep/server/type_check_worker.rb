@@ -4,6 +4,7 @@ module Steep
       attr_reader :project, :assignment, :service
 
       TypeCheckJob = Class.new
+      WorkspaceSymbolJob = Struct.new(:query, :id, keyword_init: true)
 
       include ChangeBuffer
 
@@ -26,6 +27,9 @@ module Steep
         when "textDocument/didChange"
           collect_changes(request)
           queue << TypeCheckJob.new()
+        when "workspace/symbol"
+          query = request[:params][:query]
+          queue << WorkspaceSymbolJob.new(id: request[:id], query: query)
         end
       end
 
@@ -46,6 +50,40 @@ module Steep
                 )
               )
             end
+          end
+        when WorkspaceSymbolJob
+          writer.write(
+            id: job.id,
+            result: workspace_symbol_result(job.query)
+          )
+        end
+      end
+
+      def workspace_symbol_result(query)
+        Steep.measure "Generating workspace symbol list for query=`#{query}`" do
+          indexes = project.targets.map {|target| service.signature_services[target.name].latest_rbs_index }
+
+          provider = Index::SignatureSymbolProvider.new()
+          provider.indexes.push(*indexes)
+
+          symbols = provider.query_symbol(query, assignment: assignment)
+
+          symbols.map do |symbol|
+            LSP::Interface::SymbolInformation.new(
+              name: symbol.name,
+              kind: symbol.kind,
+              location: symbol.location.yield_self do |location|
+                path = Pathname(location.buffer.name)
+                {
+                  uri: URI.parse(project.absolute_path(path).to_s).tap {|uri| uri.scheme = "file" },
+                  range: {
+                    start: { line: location.start_line - 1, character: location.start_column },
+                    end: { line: location.end_line - 1, character: location.end_column }
+                  }
+                }
+              end,
+              container_name: symbol.container_name
+            )
           end
         end
       end

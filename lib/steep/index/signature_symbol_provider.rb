@@ -33,7 +33,7 @@ module Steep
         end
       end
 
-      def query_symbol(query)
+      def query_symbol(query, assignment:)
         symbols = []
 
         indexes.each do |index|
@@ -46,6 +46,8 @@ module Steep
               name = entry.type_name.name.to_s
 
               entry.declarations.each do |decl|
+                next unless assignment =~ decl.location.buffer.name
+
                 case decl
                 when RBS::AST::Declarations::Class
                   symbols << SymbolInformation.new(
@@ -89,6 +91,8 @@ module Steep
               container_name = entry.method_name.type_name.relative!.to_s
 
               entry.declarations.each do |decl|
+                next unless assignment =~ decl.location.buffer.name
+
                 case decl
                 when RBS::AST::Members::MethodDefinition
                   symbols << SymbolInformation.new(
@@ -126,6 +130,8 @@ module Steep
               next unless SignatureSymbolProvider.test_const_name(query, entry.const_name)
 
               entry.declarations.each do |decl|
+                next unless assignment =~ decl.location.buffer.name
+
                 symbols << SymbolInformation.new(
                   name: entry.const_name.name.to_s,
                   location: decl.location,
@@ -137,6 +143,8 @@ module Steep
               next unless SignatureSymbolProvider.test_global_name(query, entry.global_name)
 
               entry.declarations.each do |decl|
+                next unless assignment =~ decl.location.buffer.name
+
                 symbols << SymbolInformation.new(
                   name: decl.name.to_s,
                   location: decl.location,

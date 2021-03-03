@@ -12,6 +12,13 @@ module Steep
           @diagnostics = diagnostics
           @last_builder = last_builder
         end
+
+        def rbs_index
+          @rbs_index ||= Index::RBSIndex.new().tap do |index|
+            builder = Index::RBSIndex::Builder.new(index: index)
+            builder.env(last_builder.env)
+          end
+        end
       end
 
       class AncestorErrorStatus
@@ -22,6 +29,13 @@ module Steep
           @changed_paths = changed_paths
           @diagnostics = diagnostics
           @last_builder = last_builder
+        end
+
+        def rbs_index
+          @rbs_index ||= Index::RBSIndex.new().tap do |index|
+            builder = Index::RBSIndex::Builder.new(index: index)
+            builder.env(last_builder.env)
+          end
         end
       end
 
@@ -35,6 +49,13 @@ module Steep
 
         def subtyping
           @subtyping ||= Subtyping::Check.new(factory: AST::Types::Factory.new(builder: builder))
+        end
+
+        def rbs_index
+          @rbs_index ||= Index::RBSIndex.new().tap do |index|
+            builder = Index::RBSIndex::Builder.new(index: index)
+            builder.env(self.builder.env)
+          end
         end
       end
 
@@ -88,6 +109,10 @@ module Steep
         when SyntaxErrorStatus, AncestorErrorStatus
           status.last_builder
         end
+      end
+
+      def latest_rbs_index
+        status.rbs_index
       end
 
       def current_subtyping
