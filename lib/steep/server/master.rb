@@ -220,11 +220,16 @@ module Steep
           # Ignores open notification
 
         when "workspace/symbol"
-          # send_request(message, worker: signature_worker) do |handler|
-          #   handler.on_completion do |response|
-          #     write_queue << response
-          #   end
-          # end
+          send_request(message, workers: typecheck_workers) do |handler|
+            handler.on_completion do |*responses|
+              result = responses.flat_map {|resp| resp[:result] || [] }
+
+              write_queue << {
+                id: handler.request_id,
+                result: result
+              }
+            end
+          end
 
         when "workspace/executeCommand"
           case message[:params][:command]

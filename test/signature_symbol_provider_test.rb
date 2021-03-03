@@ -4,9 +4,15 @@ class SignatureSymbolProviderTest < Minitest::Test
   include TestHelper
   include FactoryHelper
 
+  include Steep
+
   LSP = LanguageServer::Protocol
-  SignatureSymbolProvider = Steep::Index::SignatureSymbolProvider
-  RBSIndex = Steep::Index::RBSIndex
+  SignatureSymbolProvider = Index::SignatureSymbolProvider
+  RBSIndex = Index::RBSIndex
+
+  def assignment
+    Services::PathAssignment.all
+  end
 
   def test_find_class_symbol
     with_factory({ "a.rbs" => <<RBS }) do |factory|
@@ -28,39 +34,39 @@ RBS
       provider = SignatureSymbolProvider.new()
       provider.indexes << index
 
-      assert_any! provider.query_symbol("") do |symbol|
+      assert_any! provider.query_symbol("", assignment: assignment) do |symbol|
         assert_equal 'Class1', symbol.name
         assert_equal "", symbol.container_name
         assert_equal LSP::Constant::SymbolKind::CLASS, symbol.kind
         assert_operator symbol.location.buffer.name, :end_with?, "a.rbs"
       end
 
-      assert_any! provider.query_symbol("") do |symbol|
+      assert_any! provider.query_symbol("", assignment: assignment) do |symbol|
         assert_equal 'Module1', symbol.name
         assert_equal "Class1", symbol.container_name
         assert_equal LSP::Constant::SymbolKind::MODULE, symbol.kind
         assert_operator symbol.location.buffer.name, :end_with?, "a.rbs"
       end
 
-      assert_any! provider.query_symbol("") do |symbol|
+      assert_any! provider.query_symbol("", assignment: assignment) do |symbol|
         assert_equal '_Interface1', symbol.name
         assert_equal "Class1::Module1", symbol.container_name
         assert_equal LSP::Constant::SymbolKind::INTERFACE, symbol.kind
         assert_operator symbol.location.buffer.name, :end_with?, "a.rbs"
       end
 
-      assert_any! provider.query_symbol("") do |symbol|
+      assert_any! provider.query_symbol("", assignment: assignment) do |symbol|
         assert_equal 'alias1', symbol.name
         assert_equal "Class1::Module1", symbol.container_name
         assert_equal LSP::Constant::SymbolKind::ENUM, symbol.kind
         assert_operator symbol.location.buffer.name, :end_with?, "a.rbs"
       end
 
-      assert_any! provider.query_symbol("class1") do |symbol|
+      assert_any! provider.query_symbol("class1", assignment: assignment) do |symbol|
         assert_equal 'Class1', symbol.name
       end
 
-      assert_any! provider.query_symbol("class") do |symbol|
+      assert_any! provider.query_symbol("class", assignment: assignment) do |symbol|
         assert_equal 'Class1', symbol.name
       end
     end
@@ -89,7 +95,7 @@ RBS
       provider = SignatureSymbolProvider.new()
       provider.indexes << index
 
-      provider.query_symbol("").tap do |symbols|
+      provider.query_symbol("", assignment: assignment).tap do |symbols|
         assert_any! symbols do |symbol|
           assert_equal "#foo", symbol.name
           assert_equal "Class1", symbol.container_name
@@ -174,7 +180,7 @@ RBS
       provider = SignatureSymbolProvider.new()
       provider.indexes << index
 
-      provider.query_symbol("").tap do |symbols|
+      provider.query_symbol("", assignment: assignment).tap do |symbols|
         assert_any! symbols do |symbol|
           assert_equal "VERSION", symbol.name
           assert_equal "Steep", symbol.container_name

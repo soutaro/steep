@@ -177,6 +177,16 @@ class LSPDouble
     end
   end
 
+  def workspace_symbol(query = "")
+    send_request(
+      id: next_request_id,
+      method: "workspace/symbol",
+      params: { query: query }
+    ) do |response|
+      response[:result]
+    end
+  end
+
   def diagnostics_for(path)
     diagnostics["file://#{path}"]
   end

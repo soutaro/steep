@@ -9,6 +9,8 @@ class TypeCheckWorkerTest < Minitest::Test
 
   LSP = LanguageServer::Protocol::Interface
 
+  ContentChange = Services::ContentChange
+
   def flush_queue(queue)
     queue << self
 
@@ -61,9 +63,8 @@ class TypeCheckWorkerTest < Minitest::Test
   end
 
   def assignment
-    @assignment ||= Services::PathAssignment.new(max_index: 1, index: 0)
+    @assignment ||= Services::PathAssignment.all
   end
-
 
   def test_worker_shutdown
     in_tmpdir do
@@ -207,6 +208,40 @@ EOF
       responses.find {|resp| resp.dig(:params, :uri) =~ /\/sig\/hello\.rbs/ }.tap do |resp|
         diagnostics = resp.dig(:params, :diagnostics)
         assert_empty diagnostics
+      end
+    end
+  end
+
+  def test_job_workspace_symbol
+    in_tmpdir do
+      project = Project.new(steepfile_path: current_dir + "Steepfile")
+      Project::DSL.parse(project, <<EOF)
+target :lib do
+  check "lib"
+  signature "sig"
+end
+EOF
+
+      worker = Server::TypeCheckWorker.new(project: project, assignment: assignment, reader: worker_reader, writer: worker_writer)
+
+      worker.service.update(changes: {
+        Pathname("sig/foo.rbs") => [ContentChange.string(<<RBS)]
+class NewClassName
+  def new_class_method: () -> void
+end
+RBS
+      }) {}
+
+      symbols = worker.workspace_symbol_result("")
+
+      symbols.find {|symbol| symbol.name == "NewClassName" }.tap do |symbol|
+        assert_equal "file://#{current_dir}/sig/foo.rbs", symbol.location[:uri].to_s
+        assert_equal "", symbol.container_name
+      end
+
+      symbols.find {|symbol| symbol.name == "#new_class_method" }.tap do |symbol|
+        assert_equal "file://#{current_dir}/sig/foo.rbs", symbol.location[:uri].to_s
+        assert_equal "NewClassName", symbol.container_name
       end
     end
   end

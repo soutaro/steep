@@ -174,4 +174,53 @@ x.ab
       main_thread.join
     end
   end
+
+  def test_workspace_symbol
+    in_tmpdir do
+      steepfile = current_dir + "Steepfile"
+      steepfile.write(<<-EOF)
+target :lib do
+  check "lib"
+  signature "sig"
+  typing_options :strict
+end
+      EOF
+
+      project = Project.new(steepfile_path: steepfile)
+      Project::DSL.parse(project, steepfile.read)
+
+      interaction_worker = Server::WorkerProcess.spawn_worker(:interaction, name: "interaction", steepfile: steepfile)
+      typecheck_workers = Server::WorkerProcess.spawn_typecheck_workers(steepfile: steepfile, count: 2)
+
+      master = Server::Master.new(project: project,
+                                  reader: worker_reader,
+                                  writer: worker_writer,
+                                  interaction_worker: interaction_worker,
+                                  typecheck_workers: typecheck_workers)
+
+      main_thread = Thread.new do
+        master.start()
+      end
+      main_thread.abort_on_exception = true
+
+      ui = LSPDouble.new(reader: master_reader, writer: master_writer)
+      ui.start do
+        ui.open_file(project.absolute_path(Pathname("sig/foo.rbs")))
+        ui.edit_file(project.absolute_path(Pathname("sig/foo.rbs")), content: <<-RUBY, version: 0)
+class FooClassNew
+end
+        RUBY
+
+        ui.workspace_symbol().tap do |symbols|
+          assert symbols.find {|symbol| symbol[:name] == "FooClassNew" }
+        end
+
+        ui.workspace_symbol("array").tap do |symbols|
+          assert symbols.find {|symbol| symbol[:name] == "Array" }
+        end
+      end
+
+      main_thread.join
+    end
+  end
 end
