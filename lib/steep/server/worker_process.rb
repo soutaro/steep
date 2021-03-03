@@ -40,9 +40,13 @@ module Steep
         new(reader: reader, writer: writer, stderr: stderr, wait_thread: thread, name: name)
       end
 
-      def self.spawn_typecheck_workers(steepfile:, count: [Etc.nprocessors - 1, 1].max, delay_shutdown: false)
+      def self.spawn_typecheck_workers(steepfile:, args:, count: [Etc.nprocessors - 1, 1].max, delay_shutdown: false)
         count.times.map do |i|
-          spawn_worker(:typecheck, name: "typecheck@#{i}", steepfile: steepfile, options: ["--max-index=#{count}", "--index=#{i}"], delay_shutdown: delay_shutdown)
+          spawn_worker(:typecheck,
+                       name: "typecheck@#{i}",
+                       steepfile: steepfile,
+                       options: ["--max-index=#{count}", "--index=#{i}", *args],
+                       delay_shutdown: delay_shutdown)
         end
       end
 

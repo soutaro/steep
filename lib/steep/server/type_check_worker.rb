@@ -2,13 +2,14 @@ module Steep
   module Server
     class TypeCheckWorker < BaseWorker
       attr_reader :project, :assignment, :service
+      attr_reader :commandline_args
 
       TypeCheckJob = Class.new
       WorkspaceSymbolJob = Struct.new(:query, :id, keyword_init: true)
 
       include ChangeBuffer
 
-      def initialize(project:, reader:, writer:, assignment:)
+      def initialize(project:, reader:, writer:, assignment:, commandline_args:)
         super(project: project, reader: reader, writer: writer)
 
         @assignment = assignment
@@ -16,12 +17,13 @@ module Steep
         @buffered_changes = {}
         @mutex = Mutex.new()
         @queue = Queue.new
+        @commandline_args = commandline_args
       end
 
       def handle_request(request)
         case request[:method]
         when "initialize"
-          load_files(project: project)
+          load_files(project: project, commandline_args: commandline_args)
           queue << TypeCheckJob.new()
           writer.write({ id: request[:id], result: nil})
         when "textDocument/didChange"

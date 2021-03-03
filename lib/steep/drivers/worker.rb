@@ -9,6 +9,7 @@ module Steep
       attr_accessor :delay_shutdown
       attr_accessor :max_index
       attr_accessor :index
+      attr_accessor :commandline_args
 
       include Utils::DriverHelper
 
@@ -16,6 +17,7 @@ module Steep
         @stdout = stdout
         @stderr = stderr
         @stdin = stdin
+        @commandline_args = []
       end
 
       def run()
@@ -28,7 +30,11 @@ module Steep
           worker = case worker_type
                    when :typecheck
                      assignment = Services::PathAssignment.new(max_index: max_index, index: index)
-                     Server::TypeCheckWorker.new(project: project, reader: reader, writer: writer, assignment: assignment)
+                     Server::TypeCheckWorker.new(project: project,
+                                                 reader: reader,
+                                                 writer: writer,
+                                                 assignment: assignment,
+                                                 commandline_args: commandline_args)
                    when :interaction
                      loader = Project::FileLoader.new(project: project)
                      loader.load_sources([])

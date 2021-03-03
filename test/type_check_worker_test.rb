@@ -76,7 +76,14 @@ target :lib do
 end
 EOF
 
-      run_worker(Server::TypeCheckWorker.new(project: project, assignment: assignment, reader: worker_reader, writer: worker_writer)) do |worker|
+      run_worker(
+        Server::TypeCheckWorker.new(
+          project: project,
+          assignment: assignment,
+          commandline_args: [],
+          reader: worker_reader,
+          writer: worker_writer)
+      ) do |worker|
         master_writer.write(
           id: 123,
           method: :shutdown,
@@ -104,7 +111,13 @@ target :lib do
 end
 EOF
 
-      worker = Server::TypeCheckWorker.new(project: project, assignment: assignment, reader: worker_reader, writer: worker_writer)
+      worker = Server::TypeCheckWorker.new(
+        project: project,
+        assignment: assignment,
+        commandline_args: [],
+        reader: worker_reader,
+        writer: worker_writer
+      )
 
       worker.handle_request(
         {
@@ -131,7 +144,13 @@ target :lib do
 end
 EOF
 
-      worker = Server::TypeCheckWorker.new(project: project, assignment: assignment, reader: worker_reader, writer: worker_writer)
+      worker = Server::TypeCheckWorker.new(
+        project: project,
+        assignment: assignment,
+        commandline_args: [],
+        reader: worker_reader,
+        writer: worker_writer
+      )
 
       worker.handle_request(
         {
@@ -184,7 +203,13 @@ EOF
         responses
       end
 
-      worker = Server::TypeCheckWorker.new(project: project, assignment: assignment, reader: worker_reader, writer: worker_writer)
+      worker = Server::TypeCheckWorker.new(
+        project: project,
+        assignment: assignment,
+        commandline_args: [],
+        reader: worker_reader,
+        writer: worker_writer
+      )
 
       worker.push_buffer do |changes|
         changes[Pathname("lib/hello.rb")] = [Services::ContentChange.string(<<EOF)]
@@ -222,7 +247,13 @@ target :lib do
 end
 EOF
 
-      worker = Server::TypeCheckWorker.new(project: project, assignment: assignment, reader: worker_reader, writer: worker_writer)
+      worker = Server::TypeCheckWorker.new(
+        project: project,
+        assignment: assignment,
+        commandline_args: [],
+        reader: worker_reader,
+        writer: worker_writer
+      )
 
       worker.service.update(changes: {
         Pathname("sig/foo.rbs") => [ContentChange.string(<<RBS)]
@@ -243,6 +274,35 @@ RBS
         assert_equal "file://#{current_dir}/sig/foo.rbs", symbol.location[:uri].to_s
         assert_equal "NewClassName", symbol.container_name
       end
+    end
+  end
+
+  def test_loading_files_with_args
+    in_tmpdir do
+      project = Project.new(steepfile_path: current_dir + "Steepfile")
+      Project::DSL.parse(project, <<EOF)
+target :lib do
+  check "lib"
+  signature "sig"
+end
+EOF
+
+      (current_dir + "lib").mkdir
+      (current_dir + "lib/foo.rb").write("")
+      (current_dir + "lib/bar.rb").write("")
+
+      worker = Server::TypeCheckWorker.new(
+        project: project,
+        assignment: assignment,
+        commandline_args: [],
+        reader: worker_reader,
+        writer: worker_writer
+      )
+
+      worker.load_files(project: worker.project, commandline_args: ["lib/foo.rb"])
+      worker.service.update(changes: worker.pop_buffer) {}
+
+      assert_equal [Pathname("lib/foo.rb")], worker.service.source_files.keys
     end
   end
 end

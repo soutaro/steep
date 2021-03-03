@@ -39,7 +39,7 @@ module Steep
         server_writer = LanguageServer::Protocol::Transport::Io::Writer.new(server_write)
 
         interaction_worker = Server::WorkerProcess.spawn_worker(:interaction, name: "interaction", steepfile: project.steepfile_path)
-        typecheck_workers = Server::WorkerProcess.spawn_typecheck_workers(steepfile: project.steepfile_path)
+        typecheck_workers = Server::WorkerProcess.spawn_typecheck_workers(steepfile: project.steepfile_path, args: dirs)
 
         master = Server::Master.new(
           project: project,
