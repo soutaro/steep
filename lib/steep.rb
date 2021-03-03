@@ -16,6 +16,8 @@ require "stringio"
 require 'uri'
 require "yaml"
 
+require "parallel/processor_count"
+
 require "rbs"
 
 require "steep/method_name"
@@ -113,6 +115,7 @@ require "steep/project/file_loader"
 
 require "steep/expectations"
 require "steep/drivers/utils/driver_helper"
+require "steep/drivers/utils/jobs_count"
 require "steep/drivers/check"
 require "steep/drivers/stats"
 require "steep/drivers/validate"
