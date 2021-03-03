@@ -8,6 +8,8 @@ module Steep
     attr_reader :stderr
     attr_reader :command
 
+    include Parallel::ProcessorCount
+
     def initialize(stdout:, stdin:, stderr:, argv:)
       @stdout = stdout
       @stdin = stdin
@@ -64,6 +66,14 @@ module Steep
       end
     end
 
+    def handle_jobs_option(command, opts, modifier = 0)
+      default = physical_processor_count + modifier
+      command.jobs_count = default
+      opts.on("-j N", "--jobs=N", "Specify the number of type check workers (defaults: #{default})") do |count|
+        command.jobs_count = Integer(count)
+      end
+    end
+
     def process_init
       Drivers::Init.new(stdout: stdout, stderr: stderr).tap do |command|
         OptionParser.new do |opts|
@@ -89,6 +99,7 @@ module Steep
           opts.on("--save-expectations[=PATH]", "Save expectations with current type check result to PATH (or steep_expectations.yml)") do |path|
             check.save_expectations_path = Pathname(path || "steep_expectations.yml")
           end
+          handle_jobs_option check, opts
           handle_logging_options opts
         end.parse!(argv)
 
@@ -142,6 +153,7 @@ module Steep
       Drivers::Watch.new(stdout: stdout, stderr: stderr).tap do |command|
         OptionParser.new do |opts|
           opts.banner = "Usage: steep watch [options] [dirs]"
+          handle_jobs_option command, opts, -1
           handle_logging_options opts
         end.parse!(argv)
 
@@ -153,6 +165,7 @@ module Steep
       Drivers::Langserver.new(stdout: stdout, stderr: stderr, stdin: stdin).tap do |command|
         OptionParser.new do |opts|
           opts.on("--steepfile=PATH") {|path| command.steepfile = Pathname(path) }
+          handle_jobs_option command, opts, -1
           handle_logging_options opts
         end.parse!(argv)
       end.run

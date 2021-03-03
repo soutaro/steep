@@ -10,6 +10,7 @@ module Steep
       attr_reader :type_check_thread
 
       include Utils::DriverHelper
+      include Utils::JobsCount
 
       TypeCheckRequest = Struct.new(:version, keyword_init: true)
 
@@ -41,7 +42,7 @@ module Steep
         loader.load_signatures()
 
         interaction_worker = Server::WorkerProcess.spawn_worker(:interaction, name: "interaction", steepfile: project.steepfile_path)
-        typecheck_workers = Server::WorkerProcess.spawn_typecheck_workers(steepfile: project.steepfile_path, args: [])
+        typecheck_workers = Server::WorkerProcess.spawn_typecheck_workers(steepfile: project.steepfile_path, args: [], count: jobs_count)
 
         master = Server::Master.new(
           project: project,

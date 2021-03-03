@@ -10,6 +10,7 @@ module Steep
       attr_accessor :save_expectations_path
 
       include Utils::DriverHelper
+      include Utils::JobsCount
 
       def initialize(stdout:, stderr:)
         @stdout = stdout
@@ -40,7 +41,8 @@ module Steep
         typecheck_workers = Server::WorkerProcess.spawn_typecheck_workers(
           steepfile: project.steepfile_path,
           args: command_line_patterns,
-          delay_shutdown: true
+          delay_shutdown: true,
+          count: jobs_count
         )
 
         master = Server::Master.new(
