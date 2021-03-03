@@ -50,6 +50,10 @@ module Steep
             formatter = Diagnostic::LSPFormatter.new()
 
             service.update(changes: changes) do |path, diagnostics|
+              if target = project.target_for_source_path(path)
+                diagnostics = diagnostics.select {|diagnostic| target.options.error_to_report?(diagnostic) }
+              end
+
               writer.write(
                 method: :"textDocument/publishDiagnostics",
                 params: LSP::Interface::PublishDiagnosticsParams.new(
