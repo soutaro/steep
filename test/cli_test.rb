@@ -297,4 +297,26 @@ RUBY
       end
     end
   end
+
+  def test_stats
+    in_tmpdir do
+      (current_dir + "Steepfile").write(<<-EOF)
+target :app do
+  check "foo.rb"
+end
+      EOF
+
+      (current_dir + "foo.rb").write(<<-EOF)
+1 + 2
+      EOF
+
+      stdout, _, status = sh(*steep, "stats")
+
+      assert_predicate status, :success?
+      assert_equal <<CSV, stdout
+Target,File,Status,Typed calls,Untyped calls,All calls,Typed %
+app,foo.rb,success,1,0,1,100
+CSV
+    end
+  end
 end

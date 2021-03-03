@@ -305,4 +305,42 @@ EOF
       assert_equal [Pathname("lib/foo.rb")], worker.service.source_files.keys
     end
   end
+
+  def test_job_stats
+    in_tmpdir do
+      project = Project.new(steepfile_path: current_dir + "Steepfile")
+      Project::DSL.parse(project, <<RUBY)
+target :lib do
+  check "lib"
+  signature "sig"
+end
+RUBY
+
+      worker = Server::TypeCheckWorker.new(
+        project: project,
+        assignment: assignment,
+        commandline_args: [],
+        reader: worker_reader,
+        writer: worker_writer
+      )
+
+      worker.service.update(changes: {
+        Pathname("lib/hello.rb") => [Services::ContentChange.string(<<RUBY)],
+Hello.new.world(10)
+RUBY
+        Pathname("lib/world.rb") => [Services::ContentChange.string(<<RUBY)]
+1+
+RUBY
+      }) {}
+
+      result = worker.stats_result()
+
+      result.find {|stat| stat.path == Pathname("lib/hello.rb") }.tap do |stat|
+        assert_instance_of Services::StatsCalculator::SuccessStats, stat
+      end
+      result.find {|stat| stat.path == Pathname("lib/world.rb") }.tap do |stat|
+        assert_instance_of Services::StatsCalculator::ErrorStats, stat
+      end
+    end
+  end
 end
