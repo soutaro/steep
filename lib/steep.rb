@@ -88,7 +88,6 @@ require "steep/index/rbs_index"
 require "steep/index/signature_symbol_provider"
 require "steep/index/source_index"
 
-require "steep/server/utils"
 require "steep/server/change_buffer"
 require "steep/server/base_worker"
 require "steep/server/worker_process"
