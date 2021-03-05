@@ -103,6 +103,7 @@ require "steep/services/type_check_service"
 require "steep/services/hover_content"
 require "steep/services/completion_provider"
 require "steep/services/stats_calculator"
+require "steep/services/file_loader"
 
 require "steep/project"
 require "steep/project/pattern"
