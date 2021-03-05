@@ -106,8 +106,6 @@ require "steep/services/file_loader"
 
 require "steep/project"
 require "steep/project/pattern"
-require "steep/project/signature_file"
-require "steep/project/source_file"
 require "steep/project/options"
 require "steep/project/target"
 require "steep/project/dsl"
