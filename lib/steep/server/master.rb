@@ -116,10 +116,12 @@ module Steep
 
           worker_threads = []
 
-          worker_threads << Thread.new do
-            Steep.logger.formatter.push_tags(*tags, "from-worker@interaction")
-            interaction_worker.reader.read do |message|
-              process_message_from_worker(message, worker: interaction_worker)
+          if interaction_worker
+            worker_threads << Thread.new do
+              Steep.logger.formatter.push_tags(*tags, "from-worker@interaction")
+              interaction_worker.reader.read do |message|
+                process_message_from_worker(message, worker: interaction_worker)
+              end
             end
           end
 
@@ -172,7 +174,7 @@ module Steep
 
       def each_worker(&block)
         if block_given?
-          yield interaction_worker
+          yield interaction_worker if interaction_worker
           typecheck_workers.each &block
         else
           enum_for :each_worker
@@ -210,9 +212,11 @@ module Steep
           broadcast_notification(message)
 
         when "textDocument/hover", "textDocument/completion"
-          send_request(message, worker: interaction_worker) do |handler|
-            handler.on_completion do |response|
-              write_queue << response
+          if interaction_worker
+            send_request(message, worker: interaction_worker) do |handler|
+              handler.on_completion do |response|
+                write_queue << response
+              end
             end
           end
 
