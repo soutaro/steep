@@ -37,7 +37,6 @@ module Steep
         server_reader = LanguageServer::Protocol::Transport::Io::Reader.new(server_read)
         server_writer = LanguageServer::Protocol::Transport::Io::Writer.new(server_write)
 
-        interaction_worker = Server::WorkerProcess.spawn_worker(:interaction, name: "interaction", steepfile: project.steepfile_path, delay_shutdown: true)
         typecheck_workers = Server::WorkerProcess.spawn_typecheck_workers(
           steepfile: project.steepfile_path,
           args: command_line_patterns,
@@ -49,7 +48,7 @@ module Steep
           project: project,
           reader: server_reader,
           writer: server_writer,
-          interaction_worker: interaction_worker,
+          interaction_worker: nil,
           typecheck_workers: typecheck_workers
         )
 
