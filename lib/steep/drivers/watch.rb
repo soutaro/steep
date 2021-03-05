@@ -26,10 +26,6 @@ module Steep
 
         project = load_config()
 
-        loader = Project::FileLoader.new(project: project)
-        loader.load_sources(dirs)
-        loader.load_signatures()
-
         client_read, server_write = IO.pipe
         server_read, client_write = IO.pipe
 

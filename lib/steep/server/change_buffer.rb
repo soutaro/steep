@@ -25,20 +25,11 @@ module Steep
 
       def load_files(project:, commandline_args:)
         push_buffer do |changes|
-          loader = Project::FileLoader.new(project: project)
+          loader = Services::FileLoader.new(base_dir: project.base_dir)
 
           project.targets.each do |target|
-            loader.each_path_in_patterns(target.source_pattern, commandline_args) do |path|
-              content = project.absolute_path(path).read()
-              changes[path] = [Services::ContentChange.string(content)]
-            end
-
-            loader.each_path_in_patterns(target.signature_pattern) do |path|
-              unless changes.key?(path)
-                content = project.absolute_path(path).read()
-                changes[path] = [Services::ContentChange.string(content)]
-              end
-            end
+            loader.load_changes(target.source_pattern, commandline_args, changes: changes)
+            loader.load_changes(target.signature_pattern, changes: changes)
           end
         end
       end

@@ -13,20 +13,14 @@ module Steep
 
       def run
         project = load_config()
-
-        loader = Project::FileLoader.new(project: project)
-        loader.load_signatures()
+        file_loader = Services::FileLoader.new(base_dir: project.base_dir)
 
         any_error = false
 
         project.targets.each do |target|
           controller = Services::SignatureService.load_from(target.new_env_loader)
 
-          changes = target.signature_files.each.with_object({}) do |(path, file), changes|
-            changes[path] = [
-              Services::ContentChange.new(range: nil, text: file.content)
-            ]
-          end
+          changes = file_loader.load_changes(target.signature_pattern, changes: {})
           controller.update(changes)
 
           errors = case controller.status

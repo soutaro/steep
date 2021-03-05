@@ -36,9 +36,6 @@ module Steep
                                                  assignment: assignment,
                                                  commandline_args: commandline_args)
                    when :interaction
-                     loader = Project::FileLoader.new(project: project)
-                     loader.load_sources([])
-                     loader.load_signatures()
                      Server::InteractionWorker.new(project: project, reader: reader, writer: writer)
                    else
                      raise "Unknown worker type: #{worker_type}"

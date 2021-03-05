@@ -112,7 +112,6 @@ require "steep/project/source_file"
 require "steep/project/options"
 require "steep/project/target"
 require "steep/project/dsl"
-require "steep/project/file_loader"
 
 require "steep/expectations"
 require "steep/drivers/utils/driver_helper"

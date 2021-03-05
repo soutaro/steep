@@ -14,33 +14,34 @@ module Steep
       def run
         project = load_config()
 
-        loader = Project::FileLoader.new(project: project)
-        loader.load_sources([])
-        loader.load_signatures()
+        loader = Services::FileLoader.new(base_dir: project.base_dir)
 
         project.targets.each do |target|
+          source_changes = loader.load_changes(target.source_pattern, changes: {})
+          signature_changes = loader.load_changes(target.signature_pattern, changes: {})
+
           stdout.puts "Target:"
           stdout.puts "  #{target.name}:"
           stdout.puts "    sources:"
           stdout.puts "      patterns:"
-          target.source_patterns.each do |pattern|
+          target.source_pattern.patterns.each do |pattern|
             stdout.puts "        - #{pattern}"
           end
           stdout.puts "      ignores:"
-          target.ignore_patterns.each do |pattern|
+          target.source_pattern.ignores.each do |pattern|
             stdout.puts "        - #{pattern}"
           end
           stdout.puts "      files:"
-          target.source_files.each_key do |path|
+          source_changes.each_key do |path|
             stdout.puts "        - #{path}"
           end
           stdout.puts "    signatures:"
           stdout.puts "      patterns:"
-          target.signature_patterns.each do |pattern|
+          target.signature_pattern.patterns.each do |pattern|
             stdout.puts "        - #{pattern}"
           end
           stdout.puts "      files:"
-          target.signature_files.each_key do |path|
+          signature_changes.each_key do |path|
             stdout.puts "        - #{path}"
           end
           stdout.puts "    libraries:"

@@ -37,10 +37,6 @@ module Steep
       def run
         @project = load_config()
 
-        loader = Project::FileLoader.new(project: project)
-        loader.load_sources([])
-        loader.load_signatures()
-
         interaction_worker = Server::WorkerProcess.spawn_worker(:interaction, name: "interaction", steepfile: project.steepfile_path)
         typecheck_workers = Server::WorkerProcess.spawn_typecheck_workers(steepfile: project.steepfile_path, args: [], count: jobs_count)
 

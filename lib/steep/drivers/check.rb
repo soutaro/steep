@@ -21,10 +21,6 @@ module Steep
       def run
         project = load_config()
 
-        loader = Project::FileLoader.new(project: project)
-        loader.load_sources(command_line_patterns)
-        loader.load_signatures()
-
         stdout.puts Rainbow("# Type checking files:").bold
         stdout.puts
 
@@ -95,13 +91,21 @@ module Steep
         stdout.puts
 
         if error_messages.empty?
+          loader = Services::FileLoader.new(base_dir: project.base_dir)
+          all_files = project.targets.each.with_object(Set[]) do |target, set|
+            set.merge(loader.load_changes(target.source_pattern, command_line_patterns, changes: {}).each_key)
+            set.merge(loader.load_changes(target.signature_pattern, changes: {}).each_key)
+          end.to_a
+
           case
           when with_expectations_path
             print_expectations(project: project,
+                               all_files: all_files,
                                expectations_path: with_expectations_path,
                                notifications: diagnostic_notifications)
           when save_expectations_path
             save_expectations(project: project,
+                              all_files: all_files,
                               expectations_path: save_expectations_path,
                               notifications: diagnostic_notifications)
           else
@@ -113,7 +117,7 @@ module Steep
         end
       end
 
-      def print_expectations(project:, expectations_path:, notifications:)
+      def print_expectations(project:, all_files:, expectations_path:, notifications:)
         expectations = Expectations.load(path: expectations_path, content: expectations_path.read)
 
         expected_count = 0
@@ -125,7 +129,7 @@ module Steep
           hash[path] = notification[:diagnostics]
         end
 
-        (project.all_source_files + project.all_signature_files).sort.each do |path|
+        all_files.sort.each do |path|
           test = expectations.test(path: path, diagnostics: ns[path] || [])
 
           buffer = RBS::Buffer.new(name: path, content: path.read)
@@ -160,7 +164,7 @@ module Steep
         end
       end
 
-      def save_expectations(project:, expectations_path:, notifications:)
+      def save_expectations(project:, all_files:, expectations_path:, notifications:)
         expectations = if expectations_path.file?
                          Expectations.load(path: expectations_path, content: expectations_path.read)
                        else
@@ -172,7 +176,7 @@ module Steep
           hash[path] = notification[:diagnostics]
         end
 
-        (project.all_source_files + project.all_signature_files).sort.each do |path|
+        all_files.sort.each do |path|
           ds = ns[path] || []
 
           if ds.empty?
