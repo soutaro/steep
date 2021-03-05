@@ -42,41 +42,5 @@ module Steep
         ]
       end
     end
-
-    def all_source_files
-      targets.each.with_object(Set[]) do |target, paths|
-        paths.merge(target.source_files.keys)
-      end
-    end
-
-    def all_signature_files
-      targets.each.with_object(Set[]) do |target, paths|
-        paths.merge(target.signature_files.keys)
-      end
-    end
-
-    def type_of_node(path:, line:, column:)
-      source_file = targets.map {|target| target.source_files[path] }.compact[0]
-
-      if source_file
-
-        case (status = source_file.status)
-        when SourceFile::TypeCheckStatus
-          node = status.source.find_node(line: line, column: column)
-
-          type = begin
-            status.typing.type_of(node: node)
-          rescue RuntimeError
-            AST::Builtin.any_type
-          end
-
-          if block_given?
-            yield type, node
-          else
-            type
-          end
-        end
-      end
-    end
   end
 end

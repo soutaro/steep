@@ -18,10 +18,6 @@ module Steep
       def run
         project = load_config()
 
-        loader = Project::FileLoader.new(project: project)
-        loader.load_sources(command_line_patterns)
-        loader.load_signatures()
-
         stderr.puts Rainbow("# Calculating stats:").bold
         stderr.puts
 

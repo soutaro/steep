@@ -3,8 +3,6 @@ module Steep
     class BaseWorker
       LSP = LanguageServer::Protocol
 
-      include Utils
-
       attr_reader :project
       attr_reader :reader, :writer, :queue
 

@@ -44,8 +44,6 @@ module Steep
       attr_reader :write_queue
       attr_reader :recon_queue
 
-      include Utils
-
       class ResponseHandler
         attr_reader :workers
 
@@ -208,7 +206,6 @@ module Steep
           end
 
         when "textDocument/didChange"
-          update_source(message)
           broadcast_notification(message)
 
         when "textDocument/hover", "textDocument/completion"
