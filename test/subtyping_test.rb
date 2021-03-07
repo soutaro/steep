@@ -870,4 +870,39 @@ type c = a | b
       assert_fail_check checker, "^() { () -> ::String } -> void", "^() { () -> ::Object } -> void"
     end
   end
+
+  def test_self_type
+    with_checker do |checker|
+      assert_success_check checker, "self", "::Integer", self_type: "::Integer"
+      assert_success_check checker, "self", "::Object", self_type: "::Integer"
+      assert_fail_check checker, "self", "::String", self_type: "::Integer"
+
+      assert_fail_check checker, "::Integer", "self", self_type: "::Integer"
+      assert_fail_check checker, "::String", "self", self_type: "::Integer"
+      assert_fail_check checker, "::Object", "self", self_type: "::Integer"
+    end
+  end
+
+  def test_instance_type
+    with_checker do |checker|
+      assert_success_check checker, "instance", "::Integer", instance_type: "::Integer"
+      assert_success_check checker, "instance", "::Object", instance_type: "::Integer"
+      assert_fail_check checker, "instance", "::String", instance_type: "::Integer"
+
+      assert_success_check checker, "::Integer", "instance", instance_type: "::Integer"
+      assert_fail_check checker, "::String", "instance", instance_type: "::Integer"
+      assert_fail_check checker, "::Object", "instance", instance_type: "::Integer"
+    end
+  end
+
+  def test_class_type
+    with_checker do |checker|
+      assert_success_check checker, "class", "singleton(::Integer)", class_type: "singleton(::Integer)"
+      assert_success_check checker, "class", "singleton(::Object)", class_type: "singleton(::Integer)"
+      assert_fail_check checker, "class", "singleton(::String)", class_type: "singleton(::Integer)"
+
+      assert_success_check checker, "singleton(::Integer)", "class", class_type: "singleton(::Integer)"
+      assert_fail_check checker, "singleton(::Object)", "class", class_type: "singleton(::Integer)"
+    end
+  end
 end

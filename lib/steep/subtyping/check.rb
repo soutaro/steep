@@ -224,6 +224,64 @@ module Steep
               constraints: constraints
             )
 
+          when relation.sub_type.is_a?(AST::Types::Instance) && !instance_type.is_a?(AST::Types::Instance)
+            check(
+              Relation.new(sub_type: instance_type, super_type: relation.super_type),
+              self_type: self_type,
+              instance_type: instance_type,
+              class_type: class_type,
+              assumption: assumption,
+              trace: trace,
+              constraints: constraints
+            )
+
+          when relation.super_type.is_a?(AST::Types::Instance) && !instance_type.is_a?(AST::Types::Instance)
+            rel = Relation.new(sub_type: relation.sub_type, super_type: instance_type)
+
+            success_all?([rel, rel.flip]) do |r|
+              check(
+                r,
+                self_type: self_type,
+                instance_type: instance_type,
+                class_type: class_type,
+                assumption: assumption,
+                trace: trace,
+                constraints: constraints
+              )
+            end.then do |result|
+              Steep.logger.error { "`T <: instance` doesn't hold generally, but testing it with `#{relation} && #{relation.flip}` for compatibility"}
+              result
+            end
+
+          when relation.sub_type.is_a?(AST::Types::Class) && !instance_type.is_a?(AST::Types::Class)
+            check(
+              Relation.new(sub_type: class_type, super_type: relation.super_type),
+              self_type: self_type,
+              instance_type: instance_type,
+              class_type: class_type,
+              assumption: assumption,
+              trace: trace,
+              constraints: constraints
+            )
+
+          when relation.super_type.is_a?(AST::Types::Class) && !instance_type.is_a?(AST::Types::Class)
+            rel = Relation.new(sub_type: relation.sub_type, super_type: class_type)
+
+            success_all?([rel, rel.flip]) do |r|
+              check(
+                r,
+                self_type: self_type,
+                instance_type: instance_type,
+                class_type: class_type,
+                assumption: assumption,
+                trace: trace,
+                constraints: constraints
+              )
+            end.then do |result|
+              Steep.logger.error { "`T <: class` doesn't hold generally, but testing with `#{relation} && |- #{relation.flip}` for compatibility"}
+              result
+            end
+
           when alias?(relation.sub_type)
             check(
               Relation.new(sub_type: expand_alias(relation.sub_type), super_type: relation.super_type),
