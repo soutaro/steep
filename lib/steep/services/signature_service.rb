@@ -193,6 +193,7 @@ module Steep
       def update_env(updated_files, paths:)
         Steep.logger.tagged "#update_env" do
           errors = []
+          new_decls = Set[].compare_by_identity
 
           env =
             Steep.measure "Deleting out of date decls" do
@@ -211,6 +212,7 @@ module Steep
                 begin
                   content.decls.each do |decl|
                     env << decl
+                    new_decls << decl
                   end
                 rescue RBS::LoadingError => exn
                   errors << exn
@@ -220,7 +222,7 @@ module Steep
           end
 
           Steep.measure "resolve type names with #{new_decls.size} top-level decls" do
-            env = env.resolve_type_names()
+            env = env.resolve_type_names(only: new_decls)
           end
 
           Steep.measure "validate type params" do
