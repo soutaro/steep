@@ -18,7 +18,9 @@ class LocalVariableTypeEnvTest < Minitest::Test
         subtyping: checker,
         declared_types: {},
         assigned_types: {},
-        self_type: parse_type("::Object")
+        self_type: parse_type("::Object"),
+        instance_type: parse_type("::Object"),
+        class_type: parse_type("singleton(::Object)")
       )
 
       source = parse_ruby(<<EOF)
@@ -44,7 +46,9 @@ EOF
         subtyping: checker,
         declared_types: { x: Entry.new(type: parse_type("::Integer | ::String")) },
         assigned_types: {},
-        self_type: parse_type("::Object")
+        self_type: parse_type("::Object"),
+        instance_type: parse_type("::Object"),
+        class_type: parse_type("singleton(::Object)")
       )
 
       source = parse_ruby(<<EOF)
@@ -67,7 +71,9 @@ EOF
         subtyping: checker,
         declared_types: { x: Entry.new(type: parse_type("::Integer | ::String")) },
         assigned_types: {},
-        self_type: parse_type("::Object")
+        self_type: parse_type("::Object"),
+        instance_type: parse_type("::Object"),
+        class_type: parse_type("singleton(::Object)")
       )
 
       source = parse_ruby(<<EOF)
@@ -94,7 +100,9 @@ EOF
         subtyping: checker,
         declared_types: { x: Entry.new(type: parse_type("::Integer | ::String")) },
         assigned_types: {},
-        self_type: parse_type("::Object")
+        self_type: parse_type("::Object"),
+        instance_type: parse_type("::Object"),
+        class_type: parse_type("singleton(::Object)")
       )
 
       source = parse_ruby(<<EOF)
@@ -123,7 +131,9 @@ EOF
         subtyping: checker,
         declared_types: { x: Entry.new(type: parse_type("::Integer | ::String")) },
         assigned_types: {},
-        self_type: parse_type("::Object")
+        self_type: parse_type("::Object"),
+        instance_type: parse_type("::Object"),
+        class_type: parse_type("singleton(::Object)")
       )
 
       source = parse_ruby(<<EOF)
@@ -155,7 +165,9 @@ EOF
         subtyping: checker,
         declared_types: {},
         assigned_types: {},
-        self_type: parse_type("::Object")
+        self_type: parse_type("::Object"),
+        instance_type: parse_type("::Object"),
+        class_type: parse_type("singleton(::Object)")
       )
 
       source = parse_ruby(<<EOF)
@@ -189,7 +201,9 @@ EOF
         subtyping: checker,
         declared_types: {},
         assigned_types: {},
-        self_type: parse_type("::Object")
+        self_type: parse_type("::Object"),
+        instance_type: parse_type("::Object"),
+        class_type: parse_type("singleton(::Object)")
       )
 
       source = parse_ruby(<<EOF)
@@ -221,7 +235,9 @@ EOF
         subtyping: checker,
         declared_types: { x: Entry.new(type: parse_type("::String | ::Integer")) },
         assigned_types: {},
-        self_type: parse_type("::Object")
+        self_type: parse_type("::Object"),
+        instance_type: parse_type("::Object"),
+        class_type: parse_type("singleton(::Object)")
       )
 
       source = parse_ruby(<<EOF)
@@ -250,7 +266,9 @@ EOF
         subtyping: checker,
         declared_types: {},
         assigned_types: {},
-        self_type: parse_type("::Object")
+        self_type: parse_type("::Object"),
+        instance_type: parse_type("::Object"),
+        class_type: parse_type("singleton(::Object)")
       )
 
       source = parse_ruby(<<EOF)
@@ -285,7 +303,9 @@ EOF
         subtyping: checker,
         declared_types: {},
         assigned_types: {},
-        self_type: parse_type("::Object")
+        self_type: parse_type("::Object"),
+        instance_type: parse_type("::Object"),
+        class_type: parse_type("singleton(::Object)")
       )
 
       source = parse_ruby(<<EOF)
@@ -343,7 +363,9 @@ EOF
         subtyping: checker,
         declared_types: {},
         assigned_types: {},
-        self_type: parse_type("::Object")
+        self_type: parse_type("::Object"),
+        instance_type: parse_type("::Object"),
+        class_type: parse_type("singleton(::Object)")
       )
 
       env2 = LocalVariableTypeEnv.new(
@@ -351,7 +373,9 @@ EOF
         declared_types: {},
         assigned_types: { x: Entry.new(type: parse_type("::String")),
                           y: Entry.new(type: parse_type("::Symbol")) },
-        self_type: parse_type("::Object")
+        self_type: parse_type("::Object"),
+        instance_type: parse_type("::Object"),
+        class_type: parse_type("singleton(::Object)")
       )
 
       env3 = LocalVariableTypeEnv.new(
@@ -359,7 +383,9 @@ EOF
         declared_types: {},
         assigned_types: { x: Entry.new(type: parse_type("::Integer")),
                           z: Entry.new(type: parse_type("::Array[::Integer]")) },
-        self_type: parse_type("::Object")
+        self_type: parse_type("::Object"),
+        instance_type: parse_type("::Object"),
+        class_type: parse_type("singleton(::Object)")
       )
 
       join = env1.join(env2, env3)
@@ -391,7 +417,9 @@ EOF
         subtyping: checker,
         declared_types: { x: Entry.new(type: parse_type("::String | ::Integer | ::Symbol")) },
         assigned_types: {},
-        self_type: parse_type("::Object")
+        self_type: parse_type("::Object"),
+        instance_type: parse_type("::Object"),
+        class_type: parse_type("singleton(::Object)")
       )
 
       env2 = LocalVariableTypeEnv.new(
@@ -399,14 +427,18 @@ EOF
         declared_types: { x: Entry.new(type: parse_type("::String")),
                           y: Entry.new(type: parse_type("::String")) },
         assigned_types: {},
-        self_type: parse_type("::Object")
+        self_type: parse_type("::Object"),
+        instance_type: parse_type("::Object"),
+        class_type: parse_type("singleton(::Object)")
       )
 
       env3 = LocalVariableTypeEnv.new(
         subtyping: checker,
         declared_types: { x: Entry.new(type: parse_type("::Integer")) },
         assigned_types: {},
-        self_type: parse_type("::Object")
+        self_type: parse_type("::Object"),
+        instance_type: parse_type("::Object"),
+        class_type: parse_type("singleton(::Object)")
       )
 
       join = env1.join(env2, env3)
@@ -430,14 +462,18 @@ EOF
         subtyping: checker,
         declared_types: {},
         assigned_types: { x: Entry.new(type: parse_type("::String")) },
-        self_type: parse_type("::Object")
+        self_type: parse_type("::Object"),
+        instance_type: parse_type("::Object"),
+        class_type: parse_type("singleton(::Object)")
       )
 
       env2 = LocalVariableTypeEnv.new(
         subtyping: checker,
         declared_types: { x: Entry.new(type: parse_type("::String")) },
         assigned_types: { y: Entry.new(type: parse_type("::Integer")) },
-        self_type: parse_type("::Object")
+        self_type: parse_type("::Object"),
+        instance_type: parse_type("::Object"),
+        class_type: parse_type("singleton(::Object)")
       )
 
       join = env1.join(env1, env2)

@@ -115,8 +115,15 @@ module Steep
     end
 
     def check_relation(sub_type:, super_type:, constraints: Subtyping::Constraints.empty)
-      Steep.logger.debug { "check_relation: self:#{self_type} |- #{sub_type} <: #{super_type}" }
-      checker.check(Subtyping::Relation.new(sub_type: sub_type, super_type: super_type), self_type: self_type, constraints: constraints)
+      Steep.logger.debug { "check_relation: self:#{self_type}, instance:#{module_context.instance_type}, class:#{module_context.module_type} |- #{sub_type} <: #{super_type}" }
+      relation = Subtyping::Relation.new(sub_type: sub_type, super_type: super_type)
+      checker.check(
+        relation,
+        self_type: self_type,
+        instance_type: module_context.instance_type,
+        class_type: module_context.module_type,
+        constraints: constraints
+      )
     end
 
     def for_new_method(method_name, node, args:, self_type:, definition:)
@@ -200,12 +207,16 @@ module Steep
       type_env = type_env.with_annotations(
         ivar_types: annots.ivar_types,
         const_types: annots.const_types,
-        self_type: annots.self_type || self_type
+        self_type: annots.self_type || self_type,
+        instance_type: module_context.instance_type,
+        class_type: module_context.module_type
       )
 
       lvar_env = TypeInference::LocalVariableTypeEnv.empty(
         subtyping: checker,
-        self_type: annots.self_type || self_type
+        self_type: annots.self_type || self_type,
+        instance_type: module_context.instance_type,
+        class_type: module_context.module_type
       )
 
       if var_types
@@ -359,7 +370,9 @@ module Steep
 
       lvar_env = TypeInference::LocalVariableTypeEnv.empty(
         subtyping: checker,
-        self_type: module_context_.module_type
+        self_type: module_context_.module_type,
+        instance_type: module_context_.instance_type,
+        class_type: module_context_.module_type
       ).annotate(annots)
 
       self.class.new(
@@ -437,7 +450,9 @@ module Steep
 
       lvar_env = TypeInference::LocalVariableTypeEnv.empty(
         subtyping: checker,
-        self_type: module_context.module_type
+        self_type: module_context.module_type,
+        instance_type: module_context.instance_type,
+        class_type: module_context.module_type
       ).annotate(annots)
 
       class_body_context = TypeInference::Context.new(
@@ -523,7 +538,9 @@ module Steep
 
       lvar_env = TypeInference::LocalVariableTypeEnv.empty(
         subtyping: checker,
-        self_type: module_context.module_type
+        self_type: module_context.module_type,
+        instance_type: module_context.instance_type,
+        class_type: module_context.module_type
       ).annotate(annots)
 
       body_context = TypeInference::Context.new(
@@ -604,14 +621,20 @@ module Steep
       type_env = context.type_env
 
       if type_case_override
-        type_env = type_env.with_annotations(self_type: self_type)
+        type_env = type_env.with_annotations(
+          self_type: self_type,
+          instance_type: module_context.instance_type,
+          class_type: module_context.module_type
+        )
       end
 
       type_env = type_env.with_annotations(
         ivar_types: annots.ivar_types,
         const_types: annots.const_types,
         gvar_types: {},
-        self_type: self_type
+        self_type: self_type,
+        instance_type: module_context.instance_type,
+        class_type: module_context.module_type
       ) do |var, relation, result|
         typing.add_error(
           Diagnostic::Ruby::IncompatibleAnnotation.new(
@@ -1450,7 +1473,13 @@ module Steep
 
               const_type = type_env.get(const: const_name) {}
               value_type, constr = constr.synthesize(node.children.last, hint: const_type)
-              type = type_env.assign(const: const_name, type: value_type, self_type: self_type) do |error|
+              type = type_env.assign(
+                const: const_name,
+                type: value_type,
+                self_type: self_type,
+                instance_type: module_context.instance_type,
+                class_type: module_context.module_type
+              ) do |error|
                 case error
                 when Subtyping::Result::Failure
                   const_type = type_env.get(const: const_name)
@@ -1942,7 +1971,7 @@ module Steep
                        when AST::Types::Any
                          AST::Types::Any.new
                        else
-                         each = checker.factory.interface(collection_type, private: true).methods[:each]
+                         each = calculate_interface(collection_type, private: true).methods[:each]
                          method_type = (each&.method_types || []).find {|type| type.block && type.block.type.params.first_param }
                          method_type&.yield_self do |method_type|
                            method_type.block.type.params.first_param&.type
@@ -2148,7 +2177,7 @@ module Steep
                 when AST::Types::Any
                   type = AST::Types::Any.new
                 else
-                  interface = checker.factory.interface(param_type, private: true)
+                  interface = calculate_interface(param_type, private: true)
                   method = interface.methods[value.children[0]]
                   if method
                     return_types = method.method_types.select {|method_type|
@@ -2267,6 +2296,7 @@ module Steep
           end
         end
       rescue StandardError => exn
+        Steep.log_error exn
         typing.add_error(Diagnostic::Ruby::UnexpectedError.new(node: node, error: exn))
         type_any_rec(node)
       end
@@ -2286,7 +2316,13 @@ module Steep
 
     def type_ivasgn(name, rhs, node)
       rhs_type = synthesize(rhs, hint: type_env.get(ivar: name) { fallback_to_any(node) }).type
-      ivar_type = type_env.assign(ivar: name, type: rhs_type, self_type: self_type) do |error|
+      ivar_type = type_env.assign(
+        ivar: name,
+        type: rhs_type,
+        self_type: self_type,
+        instance_type: module_context.instance_type,
+        class_type: module_context.module_type
+      ) do |error|
         case error
         when Subtyping::Result::Failure
           type = type_env.get(ivar: name)
@@ -2335,7 +2371,13 @@ module Steep
     def ivasgn(node, type)
       ivar = node.children[0]
 
-      type_env.assign(ivar: ivar, type: type, self_type: self_type) do |error|
+      type_env.assign(
+        ivar: ivar,
+        type: type,
+        self_type: self_type,
+        instance_type: module_context.instance_type,
+        class_type: module_context.module_type
+      ) do |error|
         case error
         when Subtyping::Result::Failure
           var_type = type_env.get(ivar: ivar)
@@ -2722,9 +2764,9 @@ module Steep
                            )
                          )
                        else
-                         interface = checker.factory.interface(expanded_self,
-                                                               private: !receiver,
-                                                               self_type: AST::Types::Self.new)
+                         interface = calculate_interface(expanded_self,
+                                                         private: !receiver,
+                                                         self_type: AST::Types::Self.new)
 
                          constr.type_send_interface(node,
                                                     interface: interface,
@@ -2736,9 +2778,7 @@ module Steep
                                                     block_body: block_body)
                        end
                      else
-                       interface = checker.factory.interface(receiver_type,
-                                                             private: !receiver,
-                                                             self_type: receiver_type)
+                       interface = calculate_interface(receiver_type, private: !receiver, self_type: receiver_type)
 
                        constr.type_send_interface(node,
                                                   interface: interface,
@@ -2751,6 +2791,19 @@ module Steep
                      end
 
       Pair.new(type: type, constr: constr)
+    end
+
+    def calculate_interface(type, private:, self_type: type)
+      case type
+      when AST::Types::Self
+        type = self_type
+      when AST::Types::Instance
+        type = module_context.instance_type
+      when AST::Types::Class
+        type = module_context.module_type
+      end
+
+      checker.factory.interface(type, private: private, self_type: self_type)
     end
 
     def expand_self(type)
@@ -3043,6 +3096,8 @@ module Steep
               s = constraints.solution(
                 checker,
                 self_type: self_type,
+                instance_type: module_context.instance_type,
+                class_type: module_context.module_type,
                 variance: variance,
                 variables: method_type.type.params.free_variables + method_type.block.type.params.free_variables
               )
@@ -3064,7 +3119,14 @@ module Steep
 
               case result
               when Subtyping::Result::Success
-                s = constraints.solution(checker, self_type: self_type, variance: variance, variables: fresh_vars)
+                s = constraints.solution(
+                  checker,
+                  self_type: self_type,
+                  instance_type: module_context.instance_type,
+                  class_type: module_context.module_type,
+                  variance: variance,
+                  variables: fresh_vars
+                )
                 method_type = method_type.subst(s)
 
                 return_type = method_type.type.return_type
@@ -3109,7 +3171,14 @@ module Steep
               message: "Unsupported block params pattern, probably masgn?"
             )
 
-            s = constraints.solution(checker, variance: variance, variables: fresh_vars, self_type: self_type)
+            s = constraints.solution(
+              checker,
+              variance: variance,
+              variables: fresh_vars,
+              self_type: self_type,
+              instance_type: module_context.instance_type,
+              class_type: module_context.module_type
+            )
             method_type = method_type.subst(s)
           end
         else
@@ -3130,11 +3199,25 @@ module Steep
           # Method call without block is allowed
           unless args.block_pass_arg
             # OK, without block
-            s = constraints.solution(checker, variance: variance, variables: fresh_vars, self_type: self_type)
+            s = constraints.solution(
+              checker,
+              variance: variance,
+              variables: fresh_vars,
+              self_type: self_type,
+              instance_type: module_context.instance_type,
+              class_type: module_context.module_type
+            )
             method_type = method_type.subst(s)
           else
             # &block arg is given
-            s = constraints.solution(checker, variance: variance, variables: fresh_vars, self_type: self_type)
+            s = constraints.solution(
+              checker,
+              variance: variance,
+              variables: fresh_vars,
+              self_type: self_type,
+              instance_type: module_context.instance_type,
+              class_type: module_context.module_type
+            )
             method_type = method_type.subst(s)
 
             errors << Diagnostic::Ruby::UnexpectedBlockGiven.new(
@@ -3150,11 +3233,27 @@ module Steep
               method_type: method_type
             )
 
-            s = constraints.solution(checker, variance: variance, variables: fresh_vars, self_type: self_type)
+            s = constraints.solution(
+              checker,
+              variance: variance,
+              variables: fresh_vars,
+              self_type: self_type,
+              instance_type: module_context.instance_type,
+              class_type: module_context.module_type
+            )
             method_type = method_type.subst(s)
           else
             begin
-              method_type = method_type.subst(constraints.solution(checker, self_type: self_type, variance: variance, variables: occurence.params))
+              method_type = method_type.subst(
+                constraints.solution(
+                  checker,
+                  self_type: self_type,
+                  instance_type: module_context.instance_type,
+                  class_type: module_context.module_type,
+                  variance: variance,
+                  variables: occurence.params
+                )
+              )
               hint_type = if topdown_hint
                             AST::Types::Proc.new(type: method_type.block.type, block: nil)
                           end
@@ -3178,7 +3277,16 @@ module Steep
                 )
               end
 
-              method_type = method_type.subst(constraints.solution(checker, self_type: self_type, variance: variance, variables: method_type.free_variables))
+              method_type = method_type.subst(
+                constraints.solution(
+                  checker,
+                  self_type: self_type,
+                  instance_type: module_context.instance_type,
+                  class_type: module_context.module_type,
+                  variance: variance,
+                  variables: method_type.free_variables
+                )
+              )
             end
           end
         end

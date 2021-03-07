@@ -1037,7 +1037,9 @@ end
                                signatures: checker.factory.env)
       lvar_env = LocalVariableTypeEnv.empty(
         subtyping: checker,
-        self_type: parse_type("singleton(::Steep::Names::Module)")
+        self_type: parse_type("singleton(::Steep::Names::Module)"),
+        instance_type: parse_type("::Steep"),
+        class_type: parse_type("singleton(::Steep)")
       ).annotate(annotations)
 
       module_context = Context::ModuleContext.new(
@@ -1135,8 +1137,10 @@ class Steep end
                                signatures: checker.factory.env)
       lvar_env = LocalVariableTypeEnv.empty(
         subtyping: checker,
-        self_type: parse_type("singleton(::Steep)")
-      )
+        self_type: parse_type("singleton(::Steep)"),
+        instance_type: parse_type("::Steep"),
+        class_type: parse_type("singleton(::Steep)")
+        )
 
       module_context = Context::ModuleContext.new(
         instance_type: parse_type("::Steep"),
@@ -2502,6 +2506,161 @@ end
         construction.synthesize(source.node)
 
         refute_empty typing.errors
+      end
+    end
+  end
+
+  def test_instance_type_defn
+    with_checker <<-EOF do |checker|
+class Hoge
+  def foo: (instance) -> void
+  def bar: () -> instance
+end
+    EOF
+
+      source = parse_ruby(<<-'EOF')
+class Hoge
+  def foo(hoge)
+    hoge.bar()
+
+    # @type var x: Hoge
+    x = hoge
+  end
+
+  def bar
+    Hoge.new()
+  end
+end
+      EOF
+
+      with_standard_construction(checker, source) do |construction, typing|
+        construction.synthesize(source.node)
+
+        assert_no_error typing
+      end
+    end
+  end
+
+  def test_instance_type_send
+    with_checker <<-EOF do |checker|
+class Hoge
+  def foo: (instance) -> void
+  def bar: () -> instance
+end
+    EOF
+
+      source = parse_ruby(<<-'EOF')
+Hoge.new.foo(Hoge.new)
+Hoge.new.bar().bar()
+      EOF
+
+      with_standard_construction(checker, source) do |construction, typing|
+        construction.synthesize(source.node)
+
+        assert_no_error typing
+      end
+    end
+  end
+
+  def test_instance_type_poly
+    with_checker <<-EOF do |checker|
+class Hoge
+  def foo: (instance) -> void
+end
+
+class Huga < Hoge
+end
+    EOF
+
+      source = parse_ruby(<<-'EOF')
+Hoge.new.foo(Huga.new)
+Huga.new.foo(Hoge.new)
+      EOF
+
+      with_standard_construction(checker, source) do |construction, typing|
+        construction.synthesize(source.node)
+
+        assert_typing_error(typing, size: 1) do |errors|
+          assert_any!(errors) do |error|
+            assert_instance_of Diagnostic::Ruby::ArgumentTypeMismatch, error
+          end
+        end
+      end
+    end
+  end
+
+  def test_class_type_defn
+    with_checker <<-EOF do |checker|
+class Hoge
+  def foo: (class) -> void
+  def bar: () -> class
+end
+    EOF
+
+      source = parse_ruby(<<-'EOF')
+class Hoge
+  def foo(hoge)
+    hoge.new
+  end
+
+  def bar
+    Hoge
+  end
+end
+      EOF
+
+      with_standard_construction(checker, source) do |construction, typing|
+        construction.synthesize(source.node)
+
+        assert_no_error typing
+      end
+    end
+  end
+
+  def test_class_type_send
+    with_checker <<-EOF do |checker|
+class Hoge
+  def foo: (class) -> void
+  def bar: () -> class
+end
+    EOF
+
+      source = parse_ruby(<<-'EOF')
+Hoge.new.foo(Hoge)
+Hoge.new.bar().new
+      EOF
+
+      with_standard_construction(checker, source) do |construction, typing|
+        construction.synthesize(source.node)
+
+        assert_no_error typing
+      end
+    end
+  end
+
+  def test_class_type_poly
+    with_checker <<-EOF do |checker|
+class Hoge
+  def foo: (class) -> void
+end
+
+class Huga < Hoge
+end
+    EOF
+
+      source = parse_ruby(<<-'EOF')
+Hoge.new.foo(Huga)
+Huga.new.foo(Hoge)
+      EOF
+
+      with_standard_construction(checker, source) do |construction, typing|
+        construction.synthesize(source.node)
+
+        assert_typing_error(typing, size: 1) do |errors|
+          assert_any!(errors) do |error|
+            assert_instance_of Diagnostic::Ruby::ArgumentTypeMismatch, error
+          end
+        end
       end
     end
   end

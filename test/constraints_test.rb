@@ -78,7 +78,14 @@ end
         contravariants: Set.new([:b, :c])
       )
 
-      subst = constraints.solution(checker, self_type: AST::Types::Self.new, variance: variance, variables: Set.new([:a, :b, :c]))
+      subst = constraints.solution(
+        checker,
+        self_type: AST::Types::Self.new,
+        instance_type: AST::Types::Instance.new,
+        class_type: AST::Types::Class.new,
+        variance: variance,
+        variables: Set.new([:a, :b, :c])
+      )
 
       assert_equal string, subst[:a]
       assert_equal integer, subst[:b]
@@ -102,7 +109,14 @@ end
         contravariants: Set.new([:b, :c])
       )
 
-      subst = constraints.solution(checker, self_type: AST::Types::Self.new, variance: variance, variables: Set.new([:a, :b]))
+      subst = constraints.solution(
+        checker,
+        self_type: AST::Types::Self.new,
+        instance_type: AST::Types::Instance.new,
+        class_type: AST::Types::Class.new,
+        variance: variance,
+        variables: Set.new([:a, :b])
+      )
 
       assert_equal string, subst[:a]
       assert_equal integer, subst[:b]

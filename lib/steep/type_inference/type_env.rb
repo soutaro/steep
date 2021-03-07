@@ -38,19 +38,23 @@ module Steep
         end
       end
 
-      def with_annotations(ivar_types: {}, const_types: {}, gvar_types: {}, self_type:, &block)
+      def with_annotations(ivar_types: {}, const_types: {}, gvar_types: {}, self_type:, instance_type:, class_type:, &block)
         dup.tap do |env|
-          merge!(original_env: env.ivar_types, override_env: ivar_types, self_type: self_type, &block)
-          merge!(original_env: env.gvar_types, override_env: gvar_types, self_type: self_type, &block)
+          merge!(original_env: env.ivar_types, override_env: ivar_types, self_type: self_type, instance_type: instance_type, class_type: class_type, &block)
+          merge!(original_env: env.gvar_types, override_env: gvar_types, self_type: self_type, instance_type: instance_type, class_type: class_type, &block)
 
           const_types.each do |name, annotated_type|
             original_type = self.const_types[name] || const_env.lookup(name)
             if original_type
-              assert_annotation name,
-                                original_type: original_type,
-                                annotated_type: annotated_type,
-                                self_type: self_type,
-                                &block
+              assert_annotation(
+                name,
+                original_type: original_type,
+                annotated_type: annotated_type,
+                self_type: self_type,
+                instance_type: instance_type,
+                class_type: class_type,
+                &block
+              )
             end
             env.const_types[name] = annotated_type
           end
@@ -101,13 +105,20 @@ module Steep
       # @type method assign: (const: TypeName, type: AST::Type) { (Subtyping::Result::Failure | nil) -> void } -> AST::Type
       #                    | (gvar: Symbol, type: AST::Type) { (Subtyping::Result::Failure | nil) -> void } -> AST::Type
       #                    | (ivar: Symbol, type: AST::Type) { (Subtyping::Result::Failure | nil) -> void } -> AST::Type
-      def assign(const: nil, gvar: nil, ivar: nil, type:, self_type:, &block)
+      def assign(const: nil, gvar: nil, ivar: nil, type:, self_type:, instance_type:, class_type:, &block)
         case
         when const
           yield_self do
             const_type = const_types[const] || const_env.lookup(const)
             if const_type
-              assert_assign(var_type: const_type, lhs_type: type, self_type: self_type, &block)
+              assert_assign(
+                var_type: const_type,
+                lhs_type: type,
+                self_type: self_type,
+                instance_type: instance_type,
+                class_type: class_type,
+                &block
+              )
             else
               yield nil
               AST::Types::Any.new
@@ -116,7 +127,14 @@ module Steep
         else
           lookup_dictionary(ivar: ivar, gvar: gvar) do |var_name, dictionary|
             if dictionary.key?(var_name)
-              assert_assign(var_type: dictionary[var_name], lhs_type: type, self_type: self_type, &block)
+              assert_assign(
+                var_type: dictionary[var_name],
+                lhs_type: type,
+                self_type: self_type,
+                instance_type: instance_type,
+                class_type: class_type,
+                &block
+              )
             else
               yield nil
               AST::Types::Any.new
@@ -134,7 +152,7 @@ module Steep
         end
       end
 
-      def assert_assign(var_type:, lhs_type:, self_type:)
+      def assert_assign(var_type:, lhs_type:, self_type:, instance_type:, class_type:)
         return var_type if var_type == lhs_type
 
         var_type = subtyping.expand_alias(var_type)
@@ -143,20 +161,28 @@ module Steep
         relation = Subtyping::Relation.new(sub_type: lhs_type, super_type: var_type)
         constraints = Subtyping::Constraints.new(unknowns: Set.new)
 
-        subtyping.check(relation, self_type: self_type, constraints: constraints).else do |result|
+        subtyping.check(relation, self_type: self_type, constraints: constraints, instance_type: instance_type, class_type: class_type).else do |result|
           yield result
         end
 
         var_type
       end
 
-      def merge!(original_env:, override_env:, self_type:, &block)
+      def merge!(original_env:, override_env:, self_type:, instance_type:, class_type:, &block)
         original_env.merge!(override_env) do |name, original_type, override_type|
-          assert_annotation name, annotated_type: override_type, original_type: original_type, self_type: self_type, &block
+          assert_annotation(
+            name,
+            annotated_type: override_type,
+            original_type: original_type,
+            self_type: self_type,
+            instance_type: instance_type,
+            class_type: class_type,
+            &block
+          )
         end
       end
 
-      def assert_annotation(name, annotated_type:, original_type:, self_type:)
+      def assert_annotation(name, annotated_type:, original_type:, self_type:, instance_type:, class_type:)
         return annotated_type if annotated_type == original_type
 
         annotated_type = subtyping.expand_alias(annotated_type)
@@ -165,7 +191,7 @@ module Steep
         relation = Subtyping::Relation.new(sub_type: annotated_type, super_type: original_type)
         constraints = Subtyping::Constraints.new(unknowns: Set.new)
 
-        subtyping.check(relation, constraints: constraints, self_type: self_type).else do |result|
+        subtyping.check(relation, constraints: constraints, self_type: self_type, instance_type: instance_type, class_type: class_type).else do |result|
           yield name, relation, result
         end
 

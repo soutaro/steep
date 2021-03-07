@@ -143,7 +143,12 @@ class LogicTest < Minitest::Test
     with_checker do |checker|
       logic = Logic.new(subtyping: checker)
 
-      env = LocalVariableTypeEnv.empty(subtyping: checker, self_type: parse_type("::Object"))
+      env = LocalVariableTypeEnv.empty(
+        subtyping: checker,
+        self_type: parse_type("::Object"),
+        instance_type: parse_type("::Object"),
+        class_type: parse_type("singleton(::Object)")
+      )
         .assign(:x, type: parse_type("::Integer?"), node: nil)
 
       truthy, falsey = logic.environments(truthy_vars: Set[:x], falsey_vars: Set[:x], lvar_env: env)

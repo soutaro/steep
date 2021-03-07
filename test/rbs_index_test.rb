@@ -8,22 +8,6 @@ class RBSIndexTest < Minitest::Test
 
   def test_class_decl
     with_factory({ "a.rbs" => <<-RBS }) do |factory|
-class HelloWorld
-end
-    RBS
-      env = factory.definition_builder.env
-
-      index = RBSIndex.new()
-      builder = RBSIndex::Builder.new(index: index)
-
-      builder.env(env)
-
-      assert_equal 1, index.each_declaration(type_name: TypeName("::HelloWorld")).count
-    end
-  end
-
-  def test_class_decl
-    with_factory({ "a.rbs" => <<-RBS }) do |factory|
 module HelloWorld
 end
     RBS

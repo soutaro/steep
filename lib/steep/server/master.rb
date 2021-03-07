@@ -305,11 +305,11 @@ module Steep
         case
         when message.key?(:id) && !message.key?(:method)
           # Response from worker
-          Steep.logger.info "Received response #{message[:id]} from worker"
+          Steep.logger.debug { "Received response #{message[:id]} from worker" }
           recon_queue << [message, worker]
         when message.key?(:method) && !message.key?(:id)
           # Notification from worker
-          Steep.logger.info "Received notification #{message[:method]} from worker"
+          Steep.logger.debug { "Received notification #{message[:method]} from worker" }
           write_queue << message
         end
       end

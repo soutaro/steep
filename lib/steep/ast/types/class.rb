@@ -8,6 +8,10 @@ module Steep
           @location = location
         end
 
+        def to_s
+          "class"
+        end
+
         def ==(other)
           other.is_a?(Class)
         end
