@@ -298,7 +298,9 @@ module Steep
                                                 signatures: subtyping.factory.env)
         lvar_env = TypeInference::LocalVariableTypeEnv.empty(
           subtyping: subtyping,
-          self_type: AST::Builtin::Object.instance_type
+          self_type: AST::Builtin::Object.instance_type,
+          instance_type: AST::Builtin::Object.instance_type,
+          class_type: AST::Builtin::Object.module_type
         ).annotate(annotations)
 
         context = TypeInference::Context.new(

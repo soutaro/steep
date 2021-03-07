@@ -1,9 +1,6 @@
 module Steep
   module TypeInference
     class LocalVariableTypeEnv
-      attr_reader :subtyping
-      attr_reader :self_type
-
       class Entry
         attr_reader :type
         attr_reader :annotations
@@ -39,31 +36,46 @@ module Steep
         end
       end
 
+      attr_reader :subtyping
+      attr_reader :self_type
+      attr_reader :instance_type
+      attr_reader :class_type
       attr_reader :declared_types
       attr_reader :assigned_types
 
-      def self.empty(subtyping:, self_type:)
-        new(subtyping: subtyping, declared_types: {}, assigned_types: {}, self_type: self_type)
+      def self.empty(subtyping:, self_type:, instance_type:, class_type:)
+        new(
+          subtyping: subtyping,
+          declared_types: {},
+          assigned_types: {},
+          self_type: self_type,
+          instance_type: instance_type,
+          class_type: class_type
+        )
       end
 
-      def initialize(subtyping:, declared_types:, assigned_types:, self_type:)
+      def initialize(subtyping:, declared_types:, assigned_types:, self_type:, instance_type:, class_type:)
         @subtyping = subtyping
         @self_type = self_type
 
         @declared_types = declared_types
         @assigned_types = assigned_types
+        @class_type = class_type
+        @instance_type = instance_type
 
         unless (intersection = Set.new(declared_types.keys) & Set.new(assigned_types.keys)).empty?
           raise "Declared types and assigned types should be disjoint: #{intersection}"
         end
       end
 
-      def update(declared_types: self.declared_types, assigned_types: self.assigned_types, self_type: self.self_type)
+      def update(declared_types: self.declared_types, assigned_types: self.assigned_types, self_type: self.self_type, instance_type: self.instance_type, class_type: self.class_type)
         self.class.new(
           subtyping: subtyping,
           declared_types: declared_types,
           assigned_types: assigned_types,
-          self_type: self_type
+          self_type: self_type,
+          instance_type: instance_type,
+          class_type: class_type
         )
       end
 
@@ -73,7 +85,7 @@ module Steep
         if declared_type
           relation = Subtyping::Relation.new(sub_type: type, super_type: declared_type)
           constraints = Subtyping::Constraints.new(unknowns: Set.new)
-          subtyping.check(relation, constraints: constraints, self_type: self_type).else do |result|
+          subtyping.check(relation, constraints: constraints, self_type: self_type, instance_type: instance_type, class_type: class_type).else do |result|
             yield declared_type, type, result
           end
         end
@@ -89,7 +101,7 @@ module Steep
         if declared_type
           relation = Subtyping::Relation.new(sub_type: type, super_type: declared_type)
           constraints = Subtyping::Constraints.new(unknowns: Set.new)
-          subtyping.check(relation, constraints: constraints, self_type: self_type).else do |result|
+          subtyping.check(relation, constraints: constraints, self_type: self_type, instance_type: instance_type, class_type: class_type).else do |result|
             yield declared_type, type, result
           end
 
@@ -113,7 +125,7 @@ module Steep
           if outer_type
             relation = Subtyping::Relation.new(sub_type: inner_type, super_type: outer_type)
             constraints = Subtyping::Constraints.new(unknowns: Set.new)
-            subtyping.check(relation, constraints: constraints, self_type: self_type).else do |result|
+            subtyping.check(relation, constraints: constraints, self_type: self_type, instance_type: instance_type, class_type: class_type).else do |result|
               if block_given?
                 yield var, outer_type, inner_type, result
               end
@@ -194,7 +206,9 @@ module Steep
               subtyping: subtyping,
               self_type: self_type,
               declared_types: declared_types,
-              assigned_types: assigned_types
+              assigned_types: assigned_types,
+              instance_type: instance_type,
+              class_type: class_type
             )
           end
 

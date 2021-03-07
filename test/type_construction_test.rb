@@ -1037,7 +1037,9 @@ end
                                signatures: checker.factory.env)
       lvar_env = LocalVariableTypeEnv.empty(
         subtyping: checker,
-        self_type: parse_type("singleton(::Steep::Names::Module)")
+        self_type: parse_type("singleton(::Steep::Names::Module)"),
+        instance_type: parse_type("::Steep"),
+        class_type: parse_type("singleton(::Steep)")
       ).annotate(annotations)
 
       module_context = Context::ModuleContext.new(
@@ -1135,8 +1137,10 @@ class Steep end
                                signatures: checker.factory.env)
       lvar_env = LocalVariableTypeEnv.empty(
         subtyping: checker,
-        self_type: parse_type("singleton(::Steep)")
-      )
+        self_type: parse_type("singleton(::Steep)"),
+        instance_type: parse_type("::Steep"),
+        class_type: parse_type("singleton(::Steep)")
+        )
 
       module_context = Context::ModuleContext.new(
         instance_type: parse_type("::Steep"),

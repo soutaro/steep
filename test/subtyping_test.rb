@@ -84,6 +84,18 @@ end
     )
   end
 
+  def self_type
+    AST::Types::Self.new()
+  end
+
+  def instance_type
+    AST::Types::Instance.new
+  end
+
+  def class_type
+    AST::Types::Class.new()
+  end
+
   def with_checker(*files, nostdlib: false, &block)
     paths = {}
 
@@ -118,6 +130,8 @@ end
       result = checker.check(
         Relation.new(sub_type: type, super_type: type),
         self_type: parse_type("self", checker: checker),
+        instance_type: instance_type,
+        class_type: class_type,
         constraints: Constraints.empty
       )
 
@@ -136,8 +150,8 @@ interface _B
 end
     EOS
 
-      assert_success_result checker.check(parse_relation("::_A", "::_B", checker: checker), self_type: parse_type("self", checker: checker), constraints: Constraints.empty)
-      assert_success_result checker.check(parse_relation("::_B", "::_A", checker: checker), self_type: parse_type("self", checker: checker), constraints: Constraints.empty)
+      assert_success_check checker, "::_A", "::_B"
+      assert_success_check checker, "::_B", "::_A"
     end
   end
 
@@ -152,8 +166,8 @@ interface _B
   def foo: -> untyped
 end
     EOS
-      assert_success_result checker.check(parse_relation("::_A", "::_B", checker: checker), self_type: parse_type("self", checker: checker), constraints: Constraints.empty)
-      assert_fail_result checker.check(parse_relation("::_B", "::_A", checker: checker), self_type: parse_type("self", checker: checker), constraints: Constraints.empty) do |result|
+      assert_success_check checker, "::_A", "::_B"
+      assert_fail_check checker, "::_B", "::_A" do |result|
         assert_instance_of Failure::MethodMissingError, result.error
         assert_equal :bar, result.error.name
       end
@@ -171,7 +185,7 @@ interface _B
 end
     EOS
 
-      assert_fail_result checker.check(parse_relation("::_A", "::_B", checker: checker), self_type: parse_type("self", checker: checker), constraints: Constraints.empty) do |result|
+      assert_fail_check checker, "::_A", "::_B" do |result|
         assert_instance_of Failure::UnknownPairError, result.error
       end
     end
@@ -188,8 +202,8 @@ interface _B
 end
     EOS
 
-      assert_success_result checker.check(parse_relation("::_B", "::_A", checker: checker), self_type: parse_type("self", checker: checker), constraints: Constraints.empty)
-      assert_fail_result checker.check(parse_relation("::_A", "::_B", checker: checker), self_type: parse_type("self", checker: checker), constraints: Constraints.empty) do |result|
+      assert_success_check checker, "::_B", "::_A"
+      assert_fail_check checker, "::_A", "::_B" do |result|
         assert_instance_of Failure::ParameterMismatchError, result.error
         assert_equal :foo, result.error.name
       end
@@ -206,12 +220,12 @@ interface _B
   def foo: () -> Integer
 end
     EOS
-      assert_fail_result checker.check(parse_relation("::_B", "::_A", checker: checker), self_type: parse_type("self", checker: checker), constraints: Constraints.empty) do |result|
+      assert_fail_check checker, "::_B", "::_A" do |result|
         assert_instance_of Failure::PolyMethodSubtyping, result.error
         assert_equal :foo, result.error.name
       end
 
-      assert_success_result checker.check(parse_relation("::_A", "::_B", checker: checker), self_type: parse_type("self", checker: checker), constraints: Constraints.empty)
+      assert_success_check checker, "::_A", "::_B"
     end
   end
 
@@ -226,12 +240,12 @@ interface _B
 end
     EOS
 
-      assert_fail_result checker.check(parse_relation("::_A", "::_B", checker: checker), self_type: parse_type("self", checker: checker), constraints: Constraints.empty) do |result|
+      assert_fail_check checker, "::_A", "::_B" do |result|
         assert_instance_of Failure::PolyMethodSubtyping, result.error
         assert_equal :foo, result.error.name
       end
 
-      assert_fail_result checker.check(parse_relation("::_B", "::_A", checker: checker), self_type: parse_type("self", checker: checker), constraints: Constraints.empty) do |result|
+      assert_fail_check checker, "::_B", "::_A" do |result|
         assert_instance_of Failure::PolyMethodSubtyping, result.error
         assert_equal :foo, result.error.name
       end
@@ -248,11 +262,11 @@ interface _B
   def foo: (String) -> Integer
 end
     EOS
-      assert_fail_result checker.check(parse_relation("::_B", "::_A", checker: checker), self_type: parse_type("self", checker: checker), constraints: Constraints.empty) do |result|
+      assert_fail_check checker, "::_B", "::_A" do |result|
         assert_instance_of Failure::PolyMethodSubtyping, result.error
       end
 
-      assert_fail_result checker.check(parse_relation("::_A", "::_B", checker: checker), self_type: parse_type("self", checker: checker), constraints: Constraints.empty) do |result|
+      assert_fail_check checker, "::_A", "::_B" do |result|
         assert_instance_of Failure::UnknownPairError, result.error
       end
     end
@@ -298,8 +312,8 @@ interface _B
   def foo: [X, Y] (X) -> Y
 end
     EOS
-      assert_success_result checker.check(parse_relation("::_A", "::_B", checker: checker), self_type: parse_type("self", checker: checker), constraints: Constraints.empty)
-      assert_success_result checker.check(parse_relation("::_B", "::_A", checker: checker), self_type: parse_type("self", checker: checker), constraints: Constraints.empty)
+      assert_success_check checker, "::_A", "::_B"
+      assert_success_check checker, "::_B", "::_A"
     end
   end
 
@@ -315,9 +329,9 @@ interface _B
 end
     EOS
 
-      assert_success_result checker.check(parse_relation("::_A", "::_B", checker: checker), self_type: parse_type("self", checker: checker), constraints: Constraints.empty)
+      assert_success_check checker, "::_A", "::_B"
 
-      assert_fail_result checker.check(parse_relation("::_B", "::_A", checker: checker), self_type: parse_type("self", checker: checker), constraints: Constraints.empty) do |result|
+      assert_fail_check checker, "::_B", "::_A" do |result|
         assert_instance_of Failure::UnknownPairError, result.error
       end
     end
@@ -334,9 +348,9 @@ interface _B
 end
     EOS
 
-      assert_success_result checker.check(parse_relation("::_A", "::_B", checker: checker), self_type: parse_type("self", checker: checker), constraints: Constraints.empty)
+      assert_success_check checker, "::_A", "::_B"
 
-      assert_fail_result checker.check(parse_relation("::_B", "::_A", checker: checker), self_type: parse_type("self", checker: checker), constraints: Constraints.empty) do |result|
+      assert_fail_check checker, "::_B", "::_A" do |result|
         assert_instance_of Failure::UnknownPairError, result.error
       end
     end
@@ -344,13 +358,13 @@ end
 
   def test_literal
     with_checker do |checker|
-      assert_success_result checker.check(parse_relation("123", "::Integer", checker: checker), self_type: parse_type("self", checker: checker), constraints: Constraints.empty)
+      assert_success_check checker, "123", "::Integer"
 
-      assert_fail_result checker.check(parse_relation("::Integer", "123", checker: checker), self_type: parse_type("self", checker: checker), constraints: Constraints.empty) do |result|
+      assert_fail_check checker, "::Integer", "123" do |result|
         assert_instance_of Failure::UnknownPairError, result.error
       end
 
-      assert_fail_result checker.check(parse_relation(":foo", "::Integer", checker: checker), self_type: parse_type("self", checker: checker), constraints: Constraints.empty) do |result|
+      assert_fail_check checker, ":foo", "::Integer" do |result|
         assert_instance_of Failure::UnknownPairError, result.error
       end
     end
@@ -358,36 +372,39 @@ end
 
   def test_literal_bidirectional
     with_checker do |checker|
-      assert_success_result checker.check(parse_relation("true", "::TrueClass", checker: checker), self_type: parse_type("self", checker: checker), constraints: Constraints.empty)
-      assert_success_result checker.check(parse_relation("::TrueClass", "true", checker: checker), self_type: parse_type("self", checker: checker), constraints: Constraints.empty)
+      assert_success_check checker, "true", "::TrueClass"
+      assert_success_check checker, "::TrueClass", "true"
 
-      assert_success_result checker.check(parse_relation("false", "::FalseClass", checker: checker), self_type: parse_type("self", checker: checker), constraints: Constraints.empty)
-      assert_success_result checker.check(parse_relation("::FalseClass", "false", checker: checker), self_type: parse_type("self", checker: checker), constraints: Constraints.empty)
+      assert_success_check checker, "false", "::FalseClass"
+      assert_success_check checker, "::FalseClass", "false"
     end
   end
 
   def test_nil_type
     with_checker do |checker|
-      assert_success_result checker.check(parse_relation("nil", "::NilClass", checker: checker), self_type: parse_type("self", checker: checker), constraints: Constraints.empty)
-      assert_success_result checker.check(parse_relation("::NilClass", "nil", checker: checker), self_type: parse_type("self", checker: checker), constraints: Constraints.empty)
+      assert_success_check checker, "nil", "::NilClass"
+      assert_success_check checker, "::NilClass", "nil"
     end
   end
 
   def test_void
     with_checker do |checker|
-      assert_success_result checker.check(parse_relation("void", "void", checker: checker), self_type: parse_type("self", checker: checker), constraints: Constraints.empty)
+      assert_success_check checker, "void", "void"
+      assert_success_check checker, "::Integer", "void"
 
-      assert_success_result checker.check(parse_relation("::Integer", "void", checker: checker), self_type: parse_type("self", checker: checker), constraints: Constraints.empty)
-
-      assert_fail_result checker.check(parse_relation("void", "::String", checker: checker), self_type: parse_type("self", checker: checker), constraints: Constraints.empty) do |result|
+      assert_fail_check checker, "void", "::String" do |result|
         assert_instance_of Failure::UnknownPairError, result.error
       end
     end
   end
 
-  def assert_success_check(checker, sub_type, super_type, self_type: parse_type("self", checker: checker), constraints: Constraints.empty)
+  def assert_success_check(checker, sub_type, super_type, self_type: parse_type("self", checker: checker), instance_type: parse_type("instance", checker: checker), class_type: parse_type("class", checker: checker), constraints: Constraints.empty)
+    self_type = parse_type(self_type, checker: checker) if self_type.is_a?(String)
+    instance_type = parse_type(instance_type, checker: checker) if instance_type.is_a?(String)
+    class_type = parse_type(class_type, checker: checker) if class_type.is_a?(String)
+
     relation = parse_relation(sub_type, super_type, checker: checker)
-    result = checker.check(relation, self_type: self_type, constraints: constraints)
+    result = checker.check(relation, self_type: self_type, instance_type: instance_type, class_type: class_type, constraints: constraints)
 
     assert result.instance_of?(Subtyping::Result::Success), message {
       str = ""
@@ -401,9 +418,19 @@ end
     yield result if block_given?
   end
 
-  def assert_fail_check(checker, sub_type, super_type, self_type: parse_type("self", checker: checker), constraints: Constraints.empty)
+  def assert_fail_check(checker, sub_type, super_type, self_type: nil, instance_type: nil, class_type: nil, constraints: Constraints.empty)
+    self_type = parse_type(self_type, checker: checker) if self_type.is_a?(String)
+    instance_type = parse_type(instance_type, checker: checker) if instance_type.is_a?(String)
+    class_type = parse_type(class_type, checker: checker) if class_type.is_a?(String)
+
     relation = parse_relation(sub_type, super_type, checker: checker)
-    result = checker.check(relation, self_type: self_type, constraints: constraints)
+    result = checker.check(
+      relation,
+      self_type: self_type,
+      instance_type: instance_type,
+      class_type: class_type,
+      constraints: constraints
+    )
 
     assert result.instance_of?(Subtyping::Result::Failure), message {
       str = ""
@@ -473,6 +500,8 @@ end
           super_type: AST::Types::Var.new(name: :foo)
         ),
         self_type: parse_type("self", checker: checker),
+        instance_type: nil,
+        class_type: nil,
         constraints: Subtyping::Constraints.empty
       )
 
@@ -484,6 +513,8 @@ end
       checker.check(
         parse_relation("::Integer", "::Object", checker: checker),
         self_type: parse_type("self", checker: checker),
+        instance_type: nil,
+        class_type: nil,
         constraints: Subtyping::Constraints.empty
       )
 
@@ -577,7 +608,14 @@ end
         assert_equal "::String", result.constraints.lower_bound(:T).to_s
 
         variance = Subtyping::VariableVariance.new(covariants: Set[:T], contravariants: Set[:T])
-        s = result.constraints.solution(checker, variance: variance, variables: Set[:T], self_type: parse_type("self", checker: checker))
+        s = result.constraints.solution(
+          checker,
+          variance: variance,
+          variables: Set[:T],
+          self_type: parse_type("self", checker: checker),
+          instance_type: parse_type("instance", checker: checker),
+          class_type: parse_type("class", checker: checker)
+        )
         assert_equal "::String", s[:T].to_s
       end
     end

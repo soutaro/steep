@@ -121,8 +121,20 @@ module Steep
                   parent_type = checker.factory.type(parent.type)
 
                   relation = Subtyping::Relation.new(sub_type: var_type, super_type: parent_type)
-                  result1 = checker.check(relation, self_type: nil, constraints: Subtyping::Constraints.empty)
-                  result2 = checker.check(relation.flip, self_type: nil, constraints: Subtyping::Constraints.empty)
+                  result1 = checker.check(
+                    relation,
+                    self_type: AST::Types::Self.new,
+                    instance_type: AST::Types::Instance.new,
+                    class_type: AST::Types::Class.new,
+                    constraints: Subtyping::Constraints.empty
+                  )
+                  result2 = checker.check(
+                    relation.flip,
+                    self_type: AST::Types::Self.new,
+                    instance_type: AST::Types::Instance.new,
+                    class_type: AST::Types::Class.new,
+                    constraints: Subtyping::Constraints.empty
+                  )
 
                   unless result1.success? and result2.success?
                     @errors << Diagnostic::Signature::InstanceVariableTypeError.new(
@@ -137,7 +149,13 @@ module Steep
 
               ancestors = builder.ancestor_builder.one_instance_ancestors(name)
               mixin_constraints(definition, ancestors.included_modules, immediate_self_types: ancestors.self_types).each do |relation, ancestor|
-                checker.check(relation, self_type: nil, constraints: Subtyping::Constraints.empty).else do
+                checker.check(
+                  relation,
+                  self_type: AST::Types::Self.new,
+                  instance_type: AST::Types::Instance.new,
+                  class_type: AST::Types::Class.new,
+                  constraints: Subtyping::Constraints.empty
+                ).else do
                   @errors << Diagnostic::Signature::ModuleSelfTypeError.new(
                     name: name,
                     location: ancestor.source&.location || raise,
@@ -159,8 +177,20 @@ module Steep
                   parent_type = checker.factory.type(parent.type)
 
                   relation = Subtyping::Relation.new(sub_type: var_type, super_type: parent_type)
-                  result1 = checker.check(relation, self_type: nil, constraints: Subtyping::Constraints.empty)
-                  result2 = checker.check(relation.flip, self_type: nil, constraints: Subtyping::Constraints.empty)
+                  result1 = checker.check(
+                    relation,
+                    self_type: AST::Types::Self.new,
+                    instance_type: AST::Types::Instance.new,
+                    class_type: AST::Types::Class.new,
+                    constraints: Subtyping::Constraints.empty
+                  )
+                  result2 = checker.check(
+                    relation.flip,
+                    self_type: AST::Types::Self.new,
+                    instance_type: AST::Types::Instance.new,
+                    class_type: AST::Types::Class.new,
+                    constraints: Subtyping::Constraints.empty
+                  )
 
                   unless result1.success? and result2.success?
                     @errors << Diagnostic::Signature::InstanceVariableTypeError.new(
@@ -175,7 +205,13 @@ module Steep
 
               ancestors = builder.ancestor_builder.one_singleton_ancestors(name)
               mixin_constraints(definition, ancestors.extended_modules, immediate_self_types: ancestors.self_types).each do |relation, ancestor|
-                checker.check(relation, self_type: nil, constraints: Subtyping::Constraints.empty).else do
+                checker.check(
+                  relation,
+                  self_type: AST::Types::Self.new,
+                  instance_type: AST::Types::Instance.new,
+                  class_type: AST::Types::Class.new,
+                  constraints: Subtyping::Constraints.empty
+                ).else do
                   @errors << Diagnostic::Signature::ModuleSelfTypeError.new(
                     name: name,
                     location: ancestor.source&.location || raise,

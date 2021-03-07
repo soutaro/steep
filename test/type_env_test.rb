@@ -17,9 +17,13 @@ class TypeEnvTest < Minitest::Test
 
       # If no annotation is given to ivar, assign yields the block with nil and returns `any`
       yield_self do
-        ivar_type = type_env.assign(ivar: :"@x",
-                                    type: AST::Types::Name.new_instance(name: "::String"),
-                                    self_type: parse_type("self")) { |error| assert_nil error }
+        ivar_type = type_env.assign(
+          ivar: :"@x",
+          type: AST::Types::Name.new_instance(name: "::String"),
+          self_type: parse_type("self"),
+          instance_type: parse_type("instance"),
+          class_type: parse_type("class")
+        ) { |error| assert_nil error }
         assert_instance_of AST::Types::Any, ivar_type
       end
 
@@ -46,9 +50,13 @@ class TypeEnvTest < Minitest::Test
 
       # If annotation is given and assigned type is compatible with that, assign returns annotated type, no yield
       yield_self do
-        ivar_type = type_env.assign(ivar: :"@x",
-                                    type: AST::Types::Name.new_instance(name: "::Integer"),
-                                    self_type: parse_type("self")) do |_|
+        ivar_type = type_env.assign(
+          ivar: :"@x",
+          type: AST::Types::Name.new_instance(name: "::Integer"),
+          self_type: parse_type("self"),
+          instance_type: parse_type("instance"),
+          class_type: parse_type("class")
+        ) do |_|
           raise
         end
         assert_equal AST::Types::Name.new_instance(name: "::Numeric"), ivar_type
@@ -56,9 +64,13 @@ class TypeEnvTest < Minitest::Test
 
       # If annotation is given and assigned type is incompatible with that, assign returns annotated type and yield an failure result
       yield_self do
-        ivar_type = type_env.assign(ivar: :"@x",
-                                    type: AST::Types::Name.new_instance(name: "::String"),
-                                    self_type: parse_type("self")) do |error|
+        ivar_type = type_env.assign(
+          ivar: :"@x",
+          type: AST::Types::Name.new_instance(name: "::String"),
+          self_type: parse_type("self"),
+          instance_type: parse_type("instance"),
+          class_type: parse_type("class")
+        ) do |error|
           assert_instance_of Subtyping::Result::Failure, error
         end
         assert_equal AST::Types::Name.new_instance(name: "::Numeric"), ivar_type
@@ -73,9 +85,13 @@ class TypeEnvTest < Minitest::Test
 
       # If no annotation is given to ivar, assign yields the block with nil and returns `any`
       yield_self do
-        type = type_env.assign(gvar: :"$x",
-                               type: AST::Types::Name.new_instance(name: "::String"),
-                               self_type: parse_type("self")) { |error| assert_nil error }
+        type = type_env.assign(
+          gvar: :"$x",
+          type: AST::Types::Name.new_instance(name: "::String"),
+          self_type: parse_type("self"),
+          instance_type: parse_type("instance"),
+          class_type: parse_type("class")
+        ) { |error| assert_nil error }
         assert_instance_of AST::Types::Any, type
       end
 
@@ -102,9 +118,13 @@ class TypeEnvTest < Minitest::Test
 
       # If annotation is given and assigned type is compatible with that, assign returns annotated type, no yield
       yield_self do
-        type = type_env.assign(gvar: :"$x",
-                               type: AST::Types::Name.new_instance(name: "::Integer"),
-                               self_type: parse_type("self")) do |_|
+        type = type_env.assign(
+          gvar: :"$x",
+          type: AST::Types::Name.new_instance(name: "::Integer"),
+          self_type: parse_type("self"),
+          instance_type: parse_type("instance"),
+          class_type: parse_type("class")
+        ) do |_|
           raise
         end
         assert_equal AST::Types::Name.new_instance(name: "::Numeric"), type
@@ -112,9 +132,13 @@ class TypeEnvTest < Minitest::Test
 
       # If annotation is given and assigned type is incompatible with that, assign returns annotated type and yield an failure result
       yield_self do
-        type = type_env.assign(gvar: :"$x",
-                               type: AST::Types::Name.new_instance(name: "::String"),
-                               self_type: parse_type("self")) do |error|
+        type = type_env.assign(
+          gvar: :"$x",
+          type: AST::Types::Name.new_instance(name: "::String"),
+          self_type: parse_type("self"),
+          instance_type: parse_type("instance"),
+          class_type: parse_type("class")
+        ) do |error|
           assert_instance_of Subtyping::Result::Failure, error
         end
         assert_equal AST::Types::Name.new_instance(name: "::Numeric"), type
@@ -135,18 +159,26 @@ class TypeEnvTest < Minitest::Test
       end
 
       yield_self do
-        type = type_env.assign(const: TypeName("Regexp"),
-                               type: AST::Types::Name.new_instance(name: "::String"),
-                               self_type: parse_type("self")) do |error|
+        type = type_env.assign(
+          const: TypeName("Regexp"),
+          type: AST::Types::Name.new_instance(name: "::String"),
+          self_type: parse_type("self"),
+          instance_type: parse_type("instance"),
+          class_type: parse_type("class")
+        ) do |error|
           assert_instance_of Subtyping::Result::Failure, error
         end
         assert_equal AST::Types::Name.new_singleton(name: "::Regexp"), type
       end
 
       yield_self do
-        type = type_env.assign(const: TypeName("Regexp"),
-                               type: AST::Types::Any.new,
-                               self_type: parse_type("self")) do |_|
+        type = type_env.assign(
+          const: TypeName("Regexp"),
+          type: AST::Types::Any.new,
+          self_type: parse_type("self"),
+          instance_type: parse_type("instance"),
+          class_type: parse_type("class")
+        ) do |_|
           raise
         end
         assert_equal AST::Types::Name.new_singleton(name: "::Regexp"), type
@@ -161,9 +193,13 @@ class TypeEnvTest < Minitest::Test
       end
 
       yield_self do
-        type = type_env.assign(const: TypeName("HOGE"),
-                               type: AST::Types::Name.new_instance(name: "::String"),
-                               self_type: parse_type("self")) do |error|
+        type = type_env.assign(
+          const: TypeName("HOGE"),
+          type: AST::Types::Name.new_instance(name: "::String"),
+          self_type: parse_type("self"),
+          instance_type: parse_type("instance"),
+          class_type: parse_type("class")
+        ) do |error|
           assert_nil error
         end
         assert_instance_of AST::Types::Any, type
@@ -184,18 +220,26 @@ class TypeEnvTest < Minitest::Test
       end
 
       yield_self do
-        type = type_env.assign(const: TypeName("Regexp"),
-                               type: AST::Types::Name.new_instance(name: "::Integer"),
-                               self_type: parse_type("self")) do |error|
+        type = type_env.assign(
+          const: TypeName("Regexp"),
+          type: AST::Types::Name.new_instance(name: "::Integer"),
+          self_type: parse_type("self"),
+          instance_type: parse_type("instance"),
+          class_type: parse_type("class")
+        ) do |error|
           assert_instance_of Subtyping::Result::Failure, error
         end
         assert_equal AST::Types::Name.new_instance(name: "::String"), type
       end
 
       yield_self do
-        type = type_env.assign(const: TypeName("Regexp"),
-                               type: AST::Types::Name.new_instance(name: "::String"),
-                               self_type: parse_type("self")) do |_|
+        type = type_env.assign(
+          const: TypeName("Regexp"),
+          type: AST::Types::Name.new_instance(name: "::String"),
+          self_type: parse_type("self"),
+          instance_type: parse_type("instance"),
+          class_type: parse_type("class")
+        ) do |_|
           raise
         end
         assert_equal AST::Types::Name.new_instance(name: "::String"), type
@@ -216,11 +260,14 @@ class TypeEnvTest < Minitest::Test
       original_env.set(ivar: :"@x", type: union_type)
 
       yield_self do
-        type_env = original_env.with_annotations(ivar_types:
-                                                   {
-                                                     "@x": AST::Types::Name.new_instance(name: "::String")
-                                                   },
-                                                 self_type: parse_type("self")) do |_, _, _|
+        type_env = original_env.with_annotations(
+          ivar_types: {
+            "@x": AST::Types::Name.new_instance(name: "::String")
+          },
+          self_type: parse_type("self"),
+          instance_type: parse_type("instance"),
+          class_type: parse_type("class")
+        ) do |_, _, _|
           raise
         end
 
@@ -228,11 +275,14 @@ class TypeEnvTest < Minitest::Test
       end
 
       yield_self do
-        type_env = original_env.with_annotations(ivar_types:
-                                                   {
-                                                     "@x": AST::Types::Name.new_instance(name: "::Regexp")
-                                                   },
-                                                 self_type: parse_type("self")) do |name, relation, error|
+        type_env = original_env.with_annotations(
+          ivar_types: {
+            "@x": AST::Types::Name.new_instance(name: "::Regexp")
+          },
+          self_type: parse_type("self"),
+          instance_type: parse_type("instance"),
+          class_type: parse_type("class")
+        ) do |name, relation, error|
           assert_equal name, :"@x"
           assert_instance_of Subtyping::Result::Failure, error
         end
@@ -241,11 +291,14 @@ class TypeEnvTest < Minitest::Test
       end
 
       yield_self do
-        type_env = original_env.with_annotations(ivar_types:
-                                                   {
-                                                     "@y": AST::Types::Name.new_instance(name: "::String")
-                                                   },
-                                                 self_type: parse_type("self")) do |_, _, _|
+        type_env = original_env.with_annotations(
+          ivar_types: {
+            "@y": AST::Types::Name.new_instance(name: "::String")
+          },
+          self_type: parse_type("self"),
+          instance_type: parse_type("instance"),
+          class_type: parse_type("class")
+        ) do |_, _, _|
           raise
         end
 
@@ -267,11 +320,14 @@ class TypeEnvTest < Minitest::Test
       original_env.set(gvar: :"$x", type: union_type)
 
       yield_self do
-        type_env = original_env.with_annotations(gvar_types:
-                                                   {
-                                                     "$x": AST::Types::Name.new_instance(name: "::String")
-                                                   },
-                                                 self_type: parse_type("self")) do |_, _|
+        type_env = original_env.with_annotations(
+          gvar_types: {
+            "$x": AST::Types::Name.new_instance(name: "::String")
+          },
+          self_type: parse_type("self"),
+          instance_type: parse_type("instance"),
+          class_type: parse_type("class")
+        ) do |_, _|
           raise
         end
 
@@ -279,11 +335,14 @@ class TypeEnvTest < Minitest::Test
       end
 
       yield_self do
-        type_env = original_env.with_annotations(gvar_types:
-                                                   {
-                                                     "$x": AST::Types::Name.new_instance(name: "::Regexp")
-                                                   },
-                                                 self_type: parse_type("self")) do |name, relation, error|
+        type_env = original_env.with_annotations(
+          gvar_types: {
+            "$x": AST::Types::Name.new_instance(name: "::Regexp")
+          },
+          self_type: parse_type("self"),
+          instance_type: parse_type("instance"),
+          class_type: parse_type("class")
+        ) do |name, relation, error|
           assert_equal name, :"$x"
           assert_instance_of Subtyping::Result::Failure, error
         end
@@ -292,11 +351,14 @@ class TypeEnvTest < Minitest::Test
       end
 
       yield_self do
-        type_env = original_env.with_annotations(gvar_types:
-                                                   {
-                                                     "$y": AST::Types::Name.new_instance(name: "::String")
-                                                   },
-                                                 self_type: parse_type("self")) do |_, _|
+        type_env = original_env.with_annotations(
+          gvar_types: {
+            "$y": AST::Types::Name.new_instance(name: "::String")
+          },
+          self_type: parse_type("self"),
+          instance_type: parse_type("instance"),
+          class_type: parse_type("class")
+        ) do |_, _|
           raise
         end
 
@@ -318,11 +380,14 @@ class TypeEnvTest < Minitest::Test
       original_env.set(const: TypeName("FOO"), type: union_type)
 
       yield_self do
-        type_env = original_env.with_annotations(const_types:
-                                                   {
-                                                     TypeName("FOO") => AST::Types::Name.new_instance(name: "::String")
-                                                   },
-                                                 self_type: parse_type("self")) do |_, _|
+        type_env = original_env.with_annotations(
+          const_types: {
+            TypeName("FOO") => AST::Types::Name.new_instance(name: "::String")
+          },
+          self_type: parse_type("self"),
+          instance_type: parse_type("instance"),
+          class_type: parse_type("class")
+        ) do |_, _|
           raise
         end
 
@@ -331,11 +396,14 @@ class TypeEnvTest < Minitest::Test
       end
 
       yield_self do
-        type_env = original_env.with_annotations(const_types:
-                                                   {
-                                                     TypeName("FOO") => AST::Types::Name.new_instance(name: "::Regexp")
-                                                   },
-                                                 self_type: parse_type("self")) do |name, relation, error|
+        type_env = original_env.with_annotations(
+          const_types: {
+            TypeName("FOO") => AST::Types::Name.new_instance(name: "::Regexp")
+          },
+          self_type: parse_type("self"),
+          instance_type: parse_type("instance"),
+          class_type: parse_type("class")
+        ) do |name, relation, error|
           assert_equal name, TypeName("FOO")
           assert_instance_of Subtyping::Result::Failure, error
         end
@@ -345,11 +413,14 @@ class TypeEnvTest < Minitest::Test
       end
 
       yield_self do
-        type_env = original_env.with_annotations(const_types:
-                                                   {
-                                                     TypeName("String") => AST::Types::Name.new_instance(name: "::Regexp")
-                                                   },
-                                                 self_type: parse_type("self")) do |name, relation, error|
+        type_env = original_env.with_annotations(
+          const_types: {
+            TypeName("String") => AST::Types::Name.new_instance(name: "::Regexp")
+          },
+          self_type: parse_type("self"),
+          instance_type: parse_type("instance"),
+          class_type: parse_type("class")
+        ) do |name, relation, error|
           assert_equal name, TypeName("String")
           assert_instance_of Subtyping::Result::Failure, error
         end
@@ -359,11 +430,14 @@ class TypeEnvTest < Minitest::Test
       end
 
       yield_self do
-        type_env = original_env.with_annotations(const_types:
-                                                   {
-                                                     TypeName("BAR") => AST::Types::Name.new_instance(name: "::String")
-                                                   },
-                                                 self_type: parse_type("self")) do |_, _, _|
+        type_env = original_env.with_annotations(
+          const_types: {
+            TypeName("BAR") => AST::Types::Name.new_instance(name: "::String")
+          },
+          self_type: parse_type("self"),
+          instance_type: parse_type("instance"),
+          class_type: parse_type("class")
+        ) do |_, _, _|
           raise
         end
 

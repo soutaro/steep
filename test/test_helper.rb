@@ -493,7 +493,9 @@ module TypeConstructionHelper
                              signatures: checker.factory.env)
     lvar_env = LocalVariableTypeEnv.empty(
       subtyping: checker,
-      self_type: self_type
+      self_type: self_type,
+      instance_type: AST::Builtin::Object.instance_type,
+      class_type: AST::Builtin::Object.module_type,
     ).annotate(annotations)
 
     context = Context.new(

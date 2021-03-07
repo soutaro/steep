@@ -283,7 +283,7 @@ module Steep
 
         else
           relation = Subtyping::Relation.new(sub_type: type, super_type: instance_type)
-          if subtyping.check(relation, constraints: Subtyping::Constraints.empty, self_type: AST::Types::Self.new).success?
+          if subtyping.check(relation, constraints: Subtyping::Constraints.empty, self_type: AST::Types::Self.new, instance_type: AST::Types::Instance.new, class_type: AST::Types::Class.new).success?
             [
               [type],
               []
