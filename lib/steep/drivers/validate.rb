@@ -23,13 +23,16 @@ module Steep
           changes = file_loader.load_changes(target.signature_pattern, changes: {})
           controller.update(changes)
 
-          errors = case controller.status
-                   when Services::SignatureService::SyntaxErrorStatus, Services::SignatureService::AncestorErrorStatus
-                     controller.status.diagnostics
-                   when Services::SignatureService::LoadedStatus
-                     check = Subtyping::Check.new(factory: AST::Types::Factory.new(builder: controller.latest_builder))
-                     Signature::Validator.new(checker: check).tap {|v| v.validate() }.each_error.to_a
-                   end
+          errors =
+            Steep.measure "Validation" do
+              case controller.status
+              when Services::SignatureService::SyntaxErrorStatus, Services::SignatureService::AncestorErrorStatus
+                controller.status.diagnostics
+              when Services::SignatureService::LoadedStatus
+                check = Subtyping::Check.new(factory: AST::Types::Factory.new(builder: controller.latest_builder))
+                Signature::Validator.new(checker: check).tap {|v| v.validate() }.each_error.to_a
+              end
+            end
 
           any_error ||= !errors.empty?
 

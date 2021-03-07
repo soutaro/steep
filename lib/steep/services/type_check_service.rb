@@ -128,138 +128,155 @@ module Steep
       end
 
       def update(changes:, &block)
-        updated_targets = Steep.measure "Updating signatures..." do
+        updated_targets = Steep.measure "#update_signature" do
           update_signature(changes: changes, &block)
         end
-        project.targets.each do |target|
-          Steep.measure "Typechecking target `#{target.name}`..." do
-            update_target(target: target, changes: changes, updated: updated_targets.include?(target), &block)
+        Steep.measure2 "Type check target" do |sampler|
+          project.targets.each do |target|
+            sampler.sample target.name.to_s do
+              update_target(target: target, changes: changes, updated: updated_targets.include?(target), &block)
+            end
           end
         end
       end
 
       def update_signature(changes:, &block)
-        updated_targets = []
+        Steep.logger.tagged "#update_signature" do
+          updated_targets = []
 
-        project.targets.each do |target|
-          signature_service = signature_services[target.name]
-          signature_changes = changes.filter {|path, _| target.possible_signature_file?(path) }
+          Steep.measure2 "Update signatures" do |sampler|
+            project.targets.each do |target|
+              sampler.sample target.name.to_s do
+                signature_service = signature_services[target.name]
+                signature_changes = changes.filter {|path, _| target.possible_signature_file?(path) }
 
-          unless signature_changes.empty?
-            updated_targets << target
-            signature_service.update(signature_changes)
-          end
-        end
-
-        accumulated_diagnostics = {}
-
-        updated_targets.each do |target|
-          service = signature_services[target.name]
-
-          next if no_type_checking?
-
-          case service.status
-          when SignatureService::SyntaxErrorStatus, SignatureService::AncestorErrorStatus
-            service.status.diagnostics.group_by {|diag| Pathname(diag.location.buffer.name) }.each do |path, diagnostics|
-              if assignment =~ path
-                array = accumulated_diagnostics[path] ||= []
-                array.push(*diagnostics)
-                yield [path, array]
+                unless signature_changes.empty?
+                  updated_targets << target
+                  signature_service.update(signature_changes)
+                end
               end
             end
-          when SignatureService::LoadedStatus
-            validator = Signature::Validator.new(checker: service.current_subtyping)
-            paths = service.each_rbs_path.select {|path| assignment =~ path }.to_set
-            type_names = service.type_names(paths: paths, env: service.latest_env)
+          end
 
-            validated_names = Set[]
-            type_names.each do |type_name|
-              unless validated_names.include?(type_name)
-                case
-                when type_name.class?
-                  validator.validate_one_class(type_name)
-                when type_name.interface?
-                  validator.validate_one_interface(type_name)
-                when type_name.alias?
-                  validator.validate_one_alias(type_name)
+          Steep.measure "signature validations" do
+            accumulated_diagnostics = {}
+
+            updated_targets.each do |target|
+              service = signature_services[target.name]
+
+              next if no_type_checking?
+
+              case service.status
+              when SignatureService::SyntaxErrorStatus, SignatureService::AncestorErrorStatus
+                service.status.diagnostics.group_by {|diag| Pathname(diag.location.buffer.name) }.each do |path, diagnostics|
+                  if assignment =~ path
+                    array = accumulated_diagnostics[path] ||= []
+                    array.push(*diagnostics)
+                    yield [path, array]
+                  end
+                end
+              when SignatureService::LoadedStatus
+                validator = Signature::Validator.new(checker: service.current_subtyping)
+                paths = service.each_rbs_path.select {|path| assignment =~ path }.to_set
+                type_names = service.type_names(paths: paths, env: service.latest_env).to_set
+
+                Steep.measure2 "Validating #{type_names.size} types from #{paths.size} files" do |sampler|
+                  type_names.each do |type_name|
+                    sampler.sample type_name.to_s do
+                      case
+                      when type_name.class?
+                        validator.validate_one_class(type_name)
+                      when type_name.interface?
+                        validator.validate_one_interface(type_name)
+                      when type_name.alias?
+                        validator.validate_one_alias(type_name)
+                      end
+                    end
+                  end
                 end
 
-                validated_names << type_name
+                Steep.measure "Validating const and globals" do
+                  validator.validate_const()
+                  validator.validate_global()
+                end
+
+                target_diagnostics = validator.each_error.group_by {|error| Pathname(error.location.buffer.name) }
+                signature_validation_diagnostics[target.name] = target_diagnostics
+
+                paths.each do |path|
+                  array = (accumulated_diagnostics[path] ||= [])
+                  if ds = target_diagnostics[path]
+                    array.push(*ds)
+                  end
+                  yield [path, array]
+                end
               end
-            end
-
-            validator.validate_const()
-            validator.validate_global()
-
-            target_diagnostics = validator.each_error.group_by {|error| Pathname(error.location.buffer.name) }
-            signature_validation_diagnostics[target.name] = target_diagnostics
-
-            paths.each do |path|
-              array = (accumulated_diagnostics[path] ||= [])
-              if ds = target_diagnostics[path]
-                array.push(*ds)
-              end
-              yield [path, array]
             end
           end
-        end
 
-        updated_targets
+          updated_targets
+        end
       end
 
       def update_target(changes:, target:, updated:, &block)
-        contents = {}
+        Steep.logger.tagged "#update_target" do
+          contents = {}
 
-        if updated
-          source_files.each do |path, file|
-            if target.possible_source_file?(path)
-              contents[path] = file.content
-            end
-          end
-
-          changes.each do |path, changes|
-            if target.possible_source_file?(path)
-              text = contents[path] || ""
-              contents[path] = changes.inject(text) {|text, change| change.apply_to(text) }
-            end
-          end
-        else
-          changes.each do |path, changes|
-            if target.possible_source_file?(path)
-              text = source_files[path]&.content || ""
-              contents[path] = changes.inject(text) {|text, change| change.apply_to(text) }
-            end
-          end
-        end
-
-        signature_service = signature_services[target.name]
-        subtyping = signature_service.current_subtyping
-
-        contents.each do |path, text|
-          if assignment =~ path
-            if subtyping
-              file = type_check_file(target: target, subtyping: subtyping, path: path, text: text)
-              yield [file.path, file.diagnostics]
-            else
-              if source_files.key?(path)
-                file = source_files[path]&.update_content(text)
-              else
-                file = SourceFile.no_data(path: path, content: text)
-                yield [file.path, []]
+          if updated
+            source_files.each do |path, file|
+              if target.possible_source_file?(path)
+                contents[path] = file.content
               end
             end
 
-            source_files[path] = file
+            changes.each do |path, changes|
+              if target.possible_source_file?(path)
+                text = contents[path] || ""
+                contents[path] = changes.inject(text) {|text, change| change.apply_to(text) }
+              end
+            end
+          else
+            changes.each do |path, changes|
+              if target.possible_source_file?(path)
+                text = source_files[path]&.content || ""
+                contents[path] = changes.inject(text) {|text, change| change.apply_to(text) }
+              end
+            end
+          end
+
+          signature_service = signature_services[target.name]
+          subtyping = signature_service.current_subtyping
+
+          Steep.measure2 "Type check sources" do |sampler|
+            contents.each do |path, text|
+              if assignment =~ path
+                if subtyping
+                  file = sampler.sample(path.to_s) do
+                    type_check_file(target: target, subtyping: subtyping, path: path, text: text)
+                  end
+                  yield [file.path, file.diagnostics]
+                else
+                  if source_files.key?(path)
+                    file = source_files[path]&.update_content(text)
+                  else
+                    file = SourceFile.no_data(path: path, content: text)
+                    yield [file.path, []]
+                  end
+                end
+
+                source_files[path] = file
+              end
+            end
           end
         end
       end
 
       def type_check_file(target:, subtyping:, path:, text:)
         Steep.logger.tagged "#type_check_file(#{path}@#{target.name})" do
-          source = Source.parse(text, path: path, factory: subtyping.factory)
           if no_type_checking?
             SourceFile.no_data(path: path, content: text)
           else
+            source = Source.parse(text, path: path, factory: subtyping.factory)
             typing = TypeCheckService.type_check(source: source, subtyping: subtyping)
             SourceFile.with_typing(path: path, content: text, node: source.node, typing: typing)
           end

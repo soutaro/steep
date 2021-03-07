@@ -122,114 +122,142 @@ module Steep
       end
 
       def apply_changes(files, changes)
-        changes.each.with_object({}) do |(path, cs), update|
-          old_text = files[path]&.content
-          content = cs.inject(old_text || "") {|text, change| change.apply_to(text) }
+        Steep.logger.tagged "#apply_changes" do
+          Steep.measure2 "Applying change" do |sampler|
+            changes.each.with_object({}) do |(path, cs), update|
+              sampler.sample "#{path}" do
+                old_text = files[path]&.content
+                content = cs.inject(old_text || "") {|text, change| change.apply_to(text) }
 
-          buffer = RBS::Buffer.new(name: path, content: content)
+                buffer = RBS::Buffer.new(name: path, content: content)
 
-          update[path] = begin
-                           FileStatus.new(path: path, content: content, decls: RBS::Parser.parse_signature(buffer))
-                         rescue RBS::ParsingError => exn
-                           FileStatus.new(path: path, content: content, decls: exn)
-                         end
+                update[path] = begin
+                                 FileStatus.new(path: path, content: content, decls: RBS::Parser.parse_signature(buffer))
+                               rescue RBS::ParsingError => exn
+                                 FileStatus.new(path: path, content: content, decls: exn)
+                               end
+              end
+            end
+          end
         end
       end
 
       def update(changes)
-        updates = apply_changes(files, changes)
-        paths = Set.new(updates.each_key)
-        paths.merge(pending_changed_paths)
+        Steep.logger.tagged "#update" do
+          updates = apply_changes(files, changes)
+          paths = Set.new(updates.each_key)
+          paths.merge(pending_changed_paths)
 
-        if updates.each_value.any? {|file| file.decls.is_a?(RBS::ParsingError) }
-          diagnostics = []
+          if updates.each_value.any? {|file| file.decls.is_a?(RBS::ParsingError) }
+            diagnostics = []
 
-          updates.each do |path, file|
-            if file.decls.is_a?(RBS::ParsingError)
-              # facotry is not used here because the error is a syntax error.
-              diagnostics << Diagnostic::Signature.from_rbs_error(file.decls, factory: nil)
+            updates.each_value do |file|
+              if file.decls.is_a?(RBS::ParsingError)
+                # factory is not used here because the error is a syntax error.
+                diagnostics << Diagnostic::Signature.from_rbs_error(file.decls, factory: nil)
+              end
             end
-          end
 
-          @status = SyntaxErrorStatus.new(
-            files: self.files.merge(updates),
-            diagnostics: diagnostics,
-            last_builder: latest_builder,
-            changed_paths: paths
-          )
-        else
-          files = self.files.merge(updates)
-          updated_files = paths.each.with_object({}) do |path, hash|
-            hash[path] = files[path]
-          end
-          result = update_env(updated_files, paths: paths)
+            @status = SyntaxErrorStatus.new(
+              files: self.files.merge(updates),
+              diagnostics: diagnostics,
+              last_builder: latest_builder,
+              changed_paths: paths
+            )
+          else
+            files = self.files.merge(updates)
+            updated_files = paths.each.with_object({}) do |path, hash|
+              hash[path] = files[path]
+            end
+            result =
+              Steep.measure "#update_env with updated #{paths.size} files" do
+                update_env(updated_files, paths: paths)
+              end
 
-          @status = case result
-                    when Array
-                      AncestorErrorStatus.new(
-                        changed_paths: paths,
-                        last_builder: latest_builder,
-                        diagnostics: result,
-                        files: files
-                      )
-                    when RBS::DefinitionBuilder::AncestorBuilder
-                      LoadedStatus.new(builder: update_builder(ancestor_builder: result, paths: paths), files: files)
-                    end
+            @status = case result
+                      when Array
+                        AncestorErrorStatus.new(
+                          changed_paths: paths,
+                          last_builder: latest_builder,
+                          diagnostics: result,
+                          files: files
+                        )
+                      when RBS::DefinitionBuilder::AncestorBuilder
+                        builder2 = update_builder(ancestor_builder: result, paths: paths)
+                        LoadedStatus.new(builder: builder2, files: files)
+                      end
+          end
         end
       end
 
       def update_env(updated_files, paths:)
-        errors = []
+        Steep.logger.tagged "#update_env" do
+          errors = []
 
-        env = latest_env.reject do |decl|
-          if decl.location
-            paths.include?(decl.location.buffer.name)
-          end
-        end
-
-        updated_files.each_value do |content|
-          if content.decls.is_a?(RBS::ErrorBase)
-            errors << content.decls
-          else
-            begin
-              content.decls.each do |decl|
-                env << decl
+          env =
+            Steep.measure "Deleting out of date decls" do
+              latest_env.reject do |decl|
+                if decl.location
+                  paths.include?(decl.location.buffer.name)
+                end
               end
+            end
+
+          Steep.measure "Loading new decls" do
+            updated_files.each_value do |content|
+              if content.decls.is_a?(RBS::ErrorBase)
+                errors << content.decls
+              else
+                begin
+                  content.decls.each do |decl|
+                    env << decl
+                  end
+                rescue RBS::LoadingError => exn
+                  errors << exn
+                end
+              end
+            end
+          end
+
+          Steep.measure "resolve type names with #{new_decls.size} top-level decls" do
+            env = env.resolve_type_names()
+          end
+
+          Steep.measure "validate type params" do
+            begin
+              env.validate_type_params
             rescue RBS::LoadingError => exn
               errors << exn
             end
           end
-        end
 
-        begin
-          env.validate_type_params
-        rescue RBS::LoadingError => exn
-          errors << exn
-        end
+          unless errors.empty?
+            return errors.map {|error|
+              # Factory will not be used because of the possible error types.
+              Diagnostic::Signature.from_rbs_error(error, factory: nil)
+            }
+          end
 
-        unless errors.empty?
-          return errors.map {|error|
-            # Factory will not be used because of the possible error types.
-            Diagnostic::Signature.from_rbs_error(error, factory: nil)
-          }
-        end
+          builder = RBS::DefinitionBuilder::AncestorBuilder.new(env: env)
 
-        builder = RBS::DefinitionBuilder::AncestorBuilder.new(env: env.resolve_type_names)
-        builder.env.class_decls.each_key do |type_name|
-          rescue_rbs_error(errors) { builder.one_instance_ancestors(type_name) }
-          rescue_rbs_error(errors) { builder.one_singleton_ancestors(type_name) }
-        end
-        builder.env.interface_decls.each_key do |type_name|
-          rescue_rbs_error(errors) { builder.one_interface_ancestors(type_name) }
-        end
+          Steep.measure("Pre-loading one ancestors") do
+            builder.env.class_decls.each_key do |type_name|
+              rescue_rbs_error(errors) { builder.one_instance_ancestors(type_name) }
+              rescue_rbs_error(errors) { builder.one_singleton_ancestors(type_name) }
+            end
+            builder.env.interface_decls.each_key do |type_name|
+              rescue_rbs_error(errors) { builder.one_interface_ancestors(type_name) }
+            end
+          end
 
-        unless errors.empty?
-          # Builder won't be used.
-          factory = AST::Types::Factory.new(builder: nil)
-          return errors.map {|error| Diagnostic::Signature.from_rbs_error(error, factory: factory) }
-        end
+          unless errors.empty?
+            # Builder won't be used.
+            factory = AST::Types::Factory.new(builder: nil)
+            return errors.map {|error| Diagnostic::Signature.from_rbs_error(error, factory: factory) }
+          end
 
-        builder
+          builder
+        end
       end
 
       def rescue_rbs_error(errors)
@@ -241,29 +269,30 @@ module Steep
       end
 
       def update_builder(ancestor_builder:, paths:)
-        changed_names = Set[]
+        Steep.measure "#update_builder with #{paths.size} files" do
+          changed_names = Set[]
 
-        old_definition_builder = latest_builder
-        old_env = old_definition_builder.env
-        old_names = type_names(paths: paths, env: old_env)
-        old_ancestor_builder = old_definition_builder.ancestor_builder
-        old_method_builder = old_definition_builder.method_builder
-        old_graph = RBS::AncestorGraph.new(env: old_env, ancestor_builder: old_ancestor_builder)
-        add_descendants(graph: old_graph, names: old_names, set: changed_names)
-        add_nested_decls(env: old_env, names: old_names, set: changed_names)
+          old_definition_builder = latest_builder
+          old_env = old_definition_builder.env
+          old_names = type_names(paths: paths, env: old_env)
+          old_ancestor_builder = old_definition_builder.ancestor_builder
+          old_graph = RBS::AncestorGraph.new(env: old_env, ancestor_builder: old_ancestor_builder)
+          add_descendants(graph: old_graph, names: old_names, set: changed_names)
+          add_nested_decls(env: old_env, names: old_names, set: changed_names)
 
-        new_env = ancestor_builder.env
-        new_ancestor_builder = ancestor_builder
-        new_names = type_names(paths: paths, env: new_env)
-        new_graph = RBS::AncestorGraph.new(env: new_env, ancestor_builder: new_ancestor_builder)
-        add_descendants(graph: new_graph, names: new_names, set: changed_names)
-        add_nested_decls(env: new_env, names: new_names, set: changed_names)
+          new_env = ancestor_builder.env
+          new_ancestor_builder = ancestor_builder
+          new_names = type_names(paths: paths, env: new_env)
+          new_graph = RBS::AncestorGraph.new(env: new_env, ancestor_builder: new_ancestor_builder)
+          add_descendants(graph: new_graph, names: new_names, set: changed_names)
+          add_nested_decls(env: new_env, names: new_names, set: changed_names)
 
-        old_definition_builder.update(
-          env: new_env,
-          ancestor_builder: new_ancestor_builder,
-          except: changed_names
-        )
+          old_definition_builder.update(
+            env: new_env,
+            ancestor_builder: new_ancestor_builder,
+            except: changed_names
+          )
+        end
       end
 
       def type_names(paths:, env:)
