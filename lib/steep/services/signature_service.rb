@@ -221,10 +221,6 @@ module Steep
             end
           end
 
-          Steep.measure "resolve type names with #{new_decls.size} top-level decls" do
-            env = env.resolve_type_names(only: new_decls)
-          end
-
           Steep.measure "validate type params" do
             begin
               env.validate_type_params
@@ -238,6 +234,10 @@ module Steep
               # Factory will not be used because of the possible error types.
               Diagnostic::Signature.from_rbs_error(error, factory: nil)
             }
+          end
+
+          Steep.measure "resolve type names with #{new_decls.size} top-level decls" do
+            env = env.resolve_type_names(only: new_decls)
           end
 
           builder = RBS::DefinitionBuilder::AncestorBuilder.new(env: env)
