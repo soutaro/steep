@@ -140,7 +140,7 @@ module Steep
   def self.new_logger(output, prev_level)
     ActiveSupport::TaggedLogging.new(Logger.new(output)).tap do |logger|
       logger.push_tags "Steep #{VERSION}"
-      logger.level = prev_level || Logger::WARN
+      logger.level = prev_level || Logger::ERROR
     end
   end
 
