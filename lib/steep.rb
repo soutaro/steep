@@ -157,7 +157,7 @@ module Steep
   @logger = nil
   self.log_output = STDERR
 
-  def self.measure(message, level: :info)
+  def self.measure(message, level: :warn)
     start = Time.now
     yield.tap do
       time = Time.now - start
@@ -173,5 +173,64 @@ module Steep
     exn.backtrace.each do |loc|
       Steep.logger.warn "  #{loc}"
     end
+  end
+
+  class Sampler
+    def initialize()
+      @samples = []
+    end
+
+    def sample(message)
+      start = Time.now
+      yield.tap do
+        time = Time.now - start
+        @samples << [message, time]
+      end
+    end
+
+    def count
+      @samples.count
+    end
+
+    def total
+      @samples.sum(&:last)
+    end
+
+    def slowests(num)
+      @samples.sort_by(&:last).reverse.take(num)
+    end
+
+    def average
+      if count > 0
+        total/count
+      else
+        0
+      end
+    end
+
+    def percentile(p)
+      slowests(count - count * p / 100r).last&.last || 0
+    end
+  end
+
+  def self.measure2(message, level: :warn)
+    sampler = Sampler.new
+    result = yield(sampler)
+
+    if level.is_a?(Symbol)
+      level = Logger.const_get(level.to_s.upcase)
+    end
+    logger.log(level) { "#{sampler.total}secs for \"#{message}\"" }
+    logger.log(level) { "  Average: #{sampler.average}secs"}
+    logger.log(level) { "  Median: #{sampler.percentile(50)}secs"}
+    logger.log(level) { "  Samples: #{sampler.count}"}
+    logger.log(level) { "  99 percentile: #{sampler.percentile(99)}secs"}
+    logger.log(level) { "  90 percentile: #{sampler.percentile(90)}secs"}
+    logger.log(level) { "  10 Slowests:"}
+    sampler.slowests(10).each do |message, time|
+      logger.log(level) { "    #{message} (#{time}secs)"}
+    end
+
+    result
   end
 end
