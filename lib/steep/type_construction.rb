@@ -1942,7 +1942,7 @@ module Steep
                        when AST::Types::Any
                          AST::Types::Any.new
                        else
-                         each = checker.factory.interface(collection_type, private: true).methods[:each]
+                         each = calculate_interface(collection_type, private: true).methods[:each]
                          method_type = (each&.method_types || []).find {|type| type.block && type.block.type.params.first_param }
                          method_type&.yield_self do |method_type|
                            method_type.block.type.params.first_param&.type
@@ -2148,7 +2148,7 @@ module Steep
                 when AST::Types::Any
                   type = AST::Types::Any.new
                 else
-                  interface = checker.factory.interface(param_type, private: true)
+                  interface = calculate_interface(param_type, private: true)
                   method = interface.methods[value.children[0]]
                   if method
                     return_types = method.method_types.select {|method_type|
@@ -2722,9 +2722,9 @@ module Steep
                            )
                          )
                        else
-                         interface = checker.factory.interface(expanded_self,
-                                                               private: !receiver,
-                                                               self_type: AST::Types::Self.new)
+                         interface = calculate_interface(expanded_self,
+                                                         private: !receiver,
+                                                         self_type: AST::Types::Self.new)
 
                          constr.type_send_interface(node,
                                                     interface: interface,
@@ -2736,9 +2736,7 @@ module Steep
                                                     block_body: block_body)
                        end
                      else
-                       interface = checker.factory.interface(receiver_type,
-                                                             private: !receiver,
-                                                             self_type: receiver_type)
+                       interface = calculate_interface(receiver_type, private: !receiver, self_type: receiver_type)
 
                        constr.type_send_interface(node,
                                                   interface: interface,
@@ -2751,6 +2749,19 @@ module Steep
                      end
 
       Pair.new(type: type, constr: constr)
+    end
+
+    def calculate_interface(type, private:, self_type: type)
+      case type
+      when AST::Types::Self
+        type = self_type
+      when AST::Types::Instance
+        type = module_context.instance_type
+      when AST::Types::Class
+        type = module_context.module_type
+      end
+
+      checker.factory.interface(type, private: private, self_type: self_type)
     end
 
     def expand_self(type)
