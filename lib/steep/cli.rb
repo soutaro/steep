@@ -153,7 +153,7 @@ module Steep
       Drivers::Watch.new(stdout: stdout, stderr: stderr).tap do |command|
         OptionParser.new do |opts|
           opts.banner = "Usage: steep watch [options] [dirs]"
-          handle_jobs_option command, opts, -1
+          handle_jobs_option command, opts
           handle_logging_options opts
         end.parse!(argv)
 
