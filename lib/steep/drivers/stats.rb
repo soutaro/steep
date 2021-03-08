@@ -8,6 +8,7 @@ module Steep
       attr_reader :command_line_patterns
 
       include Utils::DriverHelper
+      include Utils::JobsCount
 
       def initialize(stdout:, stderr:)
         @stdout = stdout
@@ -30,14 +31,18 @@ module Steep
         server_reader = LanguageServer::Protocol::Transport::Io::Reader.new(server_read)
         server_writer = LanguageServer::Protocol::Transport::Io::Writer.new(server_write)
 
-        interaction_worker = Server::WorkerProcess.spawn_worker(:interaction, name: "interaction", steepfile: project.steepfile_path, delay_shutdown: true)
-        typecheck_workers = Server::WorkerProcess.spawn_typecheck_workers(steepfile: project.steepfile_path, delay_shutdown: true, args: command_line_patterns)
+        typecheck_workers = Server::WorkerProcess.spawn_typecheck_workers(
+          steepfile: project.steepfile_path,
+          delay_shutdown: true,
+          args: command_line_patterns,
+          count: jobs_count
+        )
 
         master = Server::Master.new(
           project: project,
           reader: server_reader,
           writer: server_writer,
-          interaction_worker: interaction_worker,
+          interaction_worker: nil,
           typecheck_workers: typecheck_workers
         )
 
