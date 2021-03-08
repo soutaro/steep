@@ -2,6 +2,15 @@
 
 ## master
 
+## 0.42.0 (2021-03-08)
+
+* Type checking performance improvement ([\#309](https://github.com/soutaro/steep/pull/309), [\#311](https://github.com/soutaro/steep/pull/311), [\#312](https://github.com/soutaro/steep/pull/312), [\#313](https://github.com/soutaro/steep/pull/313), [\#314](https://github.com/soutaro/steep/pull/314), [\#315](https://github.com/soutaro/steep/pull/315), [\#316](https://github.com/soutaro/steep/pull/316), [\#320](https://github.com/soutaro/steep/pull/320), [\#322](https://github.com/soutaro/steep/pull/322))
+* Let `watch` command support files ([\#323](https://github.com/soutaro/steep/pull/323))
+* Validate _module-self-type_ constraints ([\#308](https://github.com/soutaro/steep/pull/308))
+* Add `-j` option to specify number of worker processes ([\#318](https://github.com/soutaro/steep/pull/318), [\#325](https://github.com/soutaro/steep/pull/325))
+* Fix `code` of RBS diagnostics ([\#306](https://github.com/soutaro/steep/pull/306))
+* Skip printing source code from out of date _expectations_ file ([\#305](https://github.com/soutaro/steep/pull/305))
+
 ## 0.41.0 (2021-02-07)
 
 * Add `--with-expectations` and `--save-expectations` option ([#303](https://github.com/soutaro/steep/pull/303))
