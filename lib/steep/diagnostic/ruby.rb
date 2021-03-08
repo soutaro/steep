@@ -613,10 +613,6 @@ module Steep
         def header_line
           "UnexpectedError: #{error.message}"
         end
-
-        def detail_lines
-          error.backtrace.join("\n")
-        end
       end
     end
   end

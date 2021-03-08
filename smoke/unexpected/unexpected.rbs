@@ -1,0 +1,3 @@
+class Unexpected
+  def foo: () -> String1
+end
