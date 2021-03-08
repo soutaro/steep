@@ -280,21 +280,79 @@ RUBY
       pid = spawn(*steep.push("watch", "app/lib"), out: w, chdir: current_dir.to_s)
       w.close
 
-      begin
-        output = []
+      output = []
 
-        Thread.new do
+      begin
+        read_thread = Thread.new do
+          while line = r.gets
+            output << line
+          end
+        end
+
+        sleep 15
+      ensure
+        Process.kill(:INT, pid)
+        read_thread.join
+
+        Process.waitpid(pid)
+        assert_equal 0, $?.exitstatus
+      end
+
+      assert_includes output.join("\n"), "app/lib/foo.rb"
+      refute_includes output.join("\n"), "app/models/person.rb"
+    end
+  end
+
+  def test_watch_file
+    in_tmpdir do
+      (current_dir + "Steepfile").write(<<-EOF)
+target :app do
+  check "app"
+  signature "sig"
+end
+      EOF
+
+      (current_dir + "app").mkdir
+      (current_dir + "app/lib").mkdir
+      (current_dir + "app/models").mkdir
+      (current_dir + "sig").mkdir
+
+      (current_dir + "app/models/person.rb").write <<RUBY
+class Person
+end
+
+"hello" + 3
+RUBY
+
+
+      r, w = IO.pipe
+      pid = spawn(*steep.push("watch", "app/models/person.rb"), out: w, chdir: current_dir.to_s)
+      w.close
+
+      output = []
+
+      begin
+        read_thread = Thread.new do
           while line = r.gets
             output << line
           end
         end
 
         sleep 10
+
+        (current_dir + "app/models/group.rb").write <<RUBY
+1+"2"
+RUBY
+        sleep 5
       ensure
         Process.kill(:INT, pid)
+        read_thread.join
         Process.waitpid(pid)
         assert_equal 0, $?.exitstatus
       end
+
+      assert_includes output.join("\n"), "app/models/person.rb"
+      refute_includes output.join("\n"), "app/models/group.rb"
     end
   end
 

@@ -18,6 +18,10 @@ module Steep
         @queue = Thread::Queue.new
       end
 
+      def watching?(changed_path, files:, dirs:)
+        files.empty? || files.include?(changed_path) || dirs.intersect?(changed_path.ascend.to_set)
+      end
+
       def run()
         if dirs.empty?
           stdout.puts "Specify directories to watch"
@@ -35,7 +39,7 @@ module Steep
         server_reader = LanguageServer::Protocol::Transport::Io::Reader.new(server_read)
         server_writer = LanguageServer::Protocol::Transport::Io::Writer.new(server_write)
 
-        typecheck_workers = Server::WorkerProcess.spawn_typecheck_workers(steepfile: project.steepfile_path, args: dirs, count: jobs_count)
+        typecheck_workers = Server::WorkerProcess.spawn_typecheck_workers(steepfile: project.steepfile_path, args: dirs.map(&:to_s), count: jobs_count)
 
         master = Server::Master.new(
           project: project,
@@ -53,7 +57,22 @@ module Steep
         client_writer.write(method: "initialize", id: 0)
 
         Steep.logger.info "Watching #{dirs.join(", ")}..."
-        listener = Listen.to(*dirs.map(&:to_s)) do |modified, added, removed|
+
+        watch_paths = dirs.map do |dir|
+          case
+          when dir.directory?
+            dir.realpath
+          when dir.file?
+            dir.parent.realpath
+          else
+            dir
+          end
+        end
+
+        dir_paths = Set.new(dirs.select(&:directory?).map(&:realpath))
+        file_paths = Set.new(dirs.select(&:file?).map(&:realpath))
+
+        listener = Listen.to(*watch_paths.map(&:to_s)) do |modified, added, removed|
           stdout.puts Rainbow("🔬 Type checking updated files...").bold
 
           version = Time.now.to_i
@@ -61,37 +80,28 @@ module Steep
             Steep.logger.info "Received file system updates: modified=[#{modified.join(",")}], added=[#{added.join(",")}], removed=[#{removed.join(",")}]"
 
             (modified + added).each do |path|
-              client_writer.write(
-                method: "textDocument/didChange",
-                params: {
-                  textDocument: {
-                    uri: "file://#{path}",
-                    version: version
-                  },
-                  contentChanges: [
-                    {
-                      text: Pathname(path).read
-                    }
-                  ]
-                }
-              )
+              p = Pathname(path)
+              if watching?(p, files: file_paths, dirs: dir_paths)
+                client_writer.write(
+                  method: "textDocument/didChange",
+                  params: {
+                    textDocument: { uri: "file://#{path}", version: version },
+                    contentChanges: [{ text: p.read }]
+                  }
+                )
+              end
             end
 
             removed.each do |path|
-              client_writer.write(
-                method: "textDocument/didChange",
-                params: {
-                  textDocument: {
-                    uri: "file://#{path}",
-                    version: version
-                  },
-                  contentChanges: [
-                    {
-                      text: ""
-                    }
-                  ]
-                }
-              )
+              if watching?(p, files: file_paths, dirs: dir_paths)
+                client_writer.write(
+                  method: "textDocument/didChange",
+                  params: {
+                    textDocument: { uri: "file://#{path}", version: version },
+                    contentChanges: [{ text: "" }]
+                  }
+                )
+              end
             end
           end
         end.tap(&:start)

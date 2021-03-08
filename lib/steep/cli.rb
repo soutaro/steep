@@ -157,7 +157,8 @@ module Steep
           handle_logging_options opts
         end.parse!(argv)
 
-        command.dirs.push *argv
+        dirs = argv.map {|dir| Pathname(dir) }
+        command.dirs.push(*dirs)
       end.run
     end
 
