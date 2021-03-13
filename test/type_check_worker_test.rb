@@ -324,14 +324,17 @@ RUBY
         writer: worker_writer
       )
 
-      worker.service.update(changes: {
-        Pathname("lib/hello.rb") => [Services::ContentChange.string(<<RUBY)],
+      worker.service.update_and_check(
+        changes: {
+          Pathname("lib/hello.rb") => [Services::ContentChange.string(<<RUBY)],
 Hello.new.world(10)
 RUBY
-        Pathname("lib/world.rb") => [Services::ContentChange.string(<<RUBY)]
+          Pathname("lib/world.rb") => [Services::ContentChange.string(<<RUBY)]
 1+
 RUBY
-      }) {}
+        },
+        assignment: assignment
+      ) {}
 
       result = worker.stats_result()
 

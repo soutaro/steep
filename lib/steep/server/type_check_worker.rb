@@ -14,7 +14,7 @@ module Steep
         super(project: project, reader: reader, writer: writer)
 
         @assignment = assignment
-        @service = Services::TypeCheckService.new(project: project, assignment: assignment)
+        @service = Services::TypeCheckService.new(project: project)
         @buffered_changes = {}
         @mutex = Mutex.new()
         @queue = Queue.new
@@ -49,7 +49,7 @@ module Steep
 
             formatter = Diagnostic::LSPFormatter.new()
 
-            service.update(changes: changes) do |path, diagnostics|
+            service.update_and_check(changes: changes,assignment: assignment) do |path, diagnostics|
               if target = project.target_for_source_path(path)
                 diagnostics = diagnostics.select {|diagnostic| target.options.error_to_report?(diagnostic) }
               end

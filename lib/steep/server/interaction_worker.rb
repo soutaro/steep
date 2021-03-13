@@ -12,8 +12,7 @@ module Steep
       def initialize(project:, reader:, writer:, queue: Queue.new)
         super(project: project, reader: reader, writer: writer)
         @queue = queue
-        @service = Services::TypeCheckService.new(project: project, assignment: Services::PathAssignment.all)
-        service.no_type_checking!
+        @service = Services::TypeCheckService.new(project: project)
         @mutex = Mutex.new
         @buffered_changes = {}
       end
@@ -24,7 +23,7 @@ module Steep
 
           unless changes.empty?
             Steep.logger.debug { "Applying changes for #{changes.size} files..." }
-            service.update(changes: changes) {}
+            service.update(changes: changes)
           end
 
           case job

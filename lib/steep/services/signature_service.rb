@@ -71,11 +71,17 @@ module Steep
         new(env: env)
       end
 
+      def env_rbs_paths
+        @env_rbs_paths ||= latest_env.buffers.each.with_object(Set[]) do |buffer, set|
+          set << Pathname(buffer.name)
+        end
+      end
+
       def each_rbs_path(&block)
         if block
-          latest_env.buffers.each do |buffer|
-            unless files.key?(buffer.name)
-              yield Pathname(buffer.name)
+          env_rbs_paths.each do |path|
+            unless files.key?(path)
+              yield path
             end
           end
 
