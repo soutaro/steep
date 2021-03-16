@@ -2720,6 +2720,7 @@ module Steep
       end
 
       receiver_type = checker.factory.deep_expand_alias(recv_type)
+      private = receiver.nil? || receiver.type == :self
 
       type, constr = case receiver_type
                      when nil
@@ -2765,7 +2766,7 @@ module Steep
                          )
                        else
                          interface = calculate_interface(expanded_self,
-                                                         private: !receiver,
+                                                         private: private,
                                                          self_type: AST::Types::Self.new)
 
                          constr.type_send_interface(node,
@@ -2778,7 +2779,7 @@ module Steep
                                                     block_body: block_body)
                        end
                      else
-                       interface = calculate_interface(receiver_type, private: !receiver, self_type: receiver_type)
+                       interface = calculate_interface(receiver_type, private: private, self_type: receiver_type)
 
                        constr.type_send_interface(node,
                                                   interface: interface,
