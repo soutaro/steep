@@ -55,8 +55,8 @@ end
 
       assert_equal string, constraints.lower_bound(:a)
       assert_equal integer, constraints.upper_bound(:a)
-      assert_equal AST::Types::Intersection.build(types: [string, integer]), constraints.lower_bound(:b)
-      assert_equal AST::Types::Union.build(types: [string, integer]), constraints.upper_bound(:b)
+      assert_equal parse_type("::String | ::Integer"),constraints.lower_bound(:b)
+      assert_instance_of AST::Types::Intersection, constraints.upper_bound(:b)
       assert_equal AST::Types::Bot.new, constraints.lower_bound(:c)
       assert_equal AST::Types::Top.new, constraints.upper_bound(:c)
     end

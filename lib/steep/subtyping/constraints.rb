@@ -190,7 +190,7 @@ module Steep
         when 1
           upper_bound.first
         else
-          AST::Types::Union.build(types: upper_bound.to_a)
+          AST::Types::Intersection.build(types: upper_bound.to_a)
         end
       end
 
@@ -203,7 +203,7 @@ module Steep
         when 1
           lower_bound.first
         else
-          AST::Types::Intersection.build(types: lower_bound.to_a)
+          AST::Types::Union.build(types: lower_bound.to_a)
         end
       end
 
