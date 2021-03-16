@@ -282,11 +282,13 @@ module Steep
           end
         end
       rescue AnnotationParser::SyntaxError => exn
-        SourceFile.no_data(path: path, content: text)
-        # SourceFile.with_syntax_error(path: path, content: text, error: exn)
-      rescue ::Parser::SyntaxError, EncodingError => exn
-        SourceFile.no_data(path: path, content: text)
-        # SourceFile.with_syntax_error(path: path, content: text, error: exn)
+        error = Diagnostic::Ruby::SyntaxError.new(message: exn.message, location: exn.location)
+        SourceFile.with_syntax_error(path: path, content: text, error: error)
+      rescue ::Parser::SyntaxError => exn
+        error = Diagnostic::Ruby::SyntaxError.new(message: exn.message, location: exn.diagnostic.location)
+        SourceFile.with_syntax_error(path: path, content: text, error: error)
+      rescue EncodingError => exn
+        SourceFile.no_data(path: path, content: "")
       end
 
       def self.type_check(source:, subtyping:)

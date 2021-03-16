@@ -23,7 +23,15 @@ module Steep
       def initialize(source:, location:, exn: nil)
         @source = source
         @location = location
-        super "Syntax error on annotation: `#{source}`, cause=#{exn.inspect}"
+
+        message = case exn
+                  when RBS::Parser::SyntaxError
+                    Diagnostic::Signature::SyntaxError.parser_syntax_error_message(exn)
+                  else
+                    exn.message
+                  end
+
+        super message
       end
     end
 
@@ -158,7 +166,7 @@ module Steep
         end
       end
 
-    rescue RBS::Parser::SyntaxError, RBS::Parser::SemanticsError => exn
+    rescue RBS::ParsingError => exn
       raise SyntaxError.new(source: src, location: location, exn: exn)
     end
   end
