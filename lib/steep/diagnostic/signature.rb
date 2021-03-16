@@ -37,19 +37,23 @@ module Steep
           @exception = exception
         end
 
+        def self.parser_syntax_error_message(exception)
+          value = if exception.error_value.is_a?(RBS::Parser::LocatedValue)
+                    exception.error_value.value
+                  else
+                    exception.error_value
+                  end
+          string = value.to_s
+          unless string.empty?
+            string = " (#{string})"
+          end
+
+          "Syntax error caused by token `#{exception.token_str}`#{string}"
+        end
+
         def header_line
           if exception.is_a?(RBS::Parser::SyntaxError)
-            value = if exception.error_value.is_a?(RBS::Parser::LocatedValue)
-                      exception.error_value.value
-                    else
-                      exception.error_value
-                    end
-            string = value.to_s
-            unless string.empty?
-              string = " (#{string})"
-            end
-
-            "Syntax error caused by token `#{exception.token_str}`#{string}"
+            SyntaxError.parser_syntax_error_message(exception)
           else
             exception.message
           end

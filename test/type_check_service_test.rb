@@ -45,8 +45,6 @@ EOF
   end
 
   def test_update_ruby_syntax_error
-    skip "Fix syntax error handling"
-
     service = Services::TypeCheckService.new(project: project, assignment: assignment)
 
     {
@@ -56,13 +54,42 @@ RUBY
     }.tap do |changes|
       service.update(changes: changes, &reporter)
 
+      service.source_files[Pathname("lib/syntax_error.rb")].tap do |file|
+        assert_any!(file.errors, size: 1) do |error|
+          assert_instance_of Diagnostic::Ruby::SyntaxError, error
+          assert_equal 2, error.location.line
+          assert_equal 0, error.location.column
+          assert_equal 2, error.location.last_line
+          assert_equal 0, error.location.last_column
+        end
+      end
+
+      reported_diagnostics.clear
+    end
+  end
+
+  def test_update_encoding_error
+    service = Services::TypeCheckService.new(project: project, assignment: assignment)
+
+    broken = "寿限無寿限無".encode(Encoding::EUC_JP)
+
+    broken.force_encoding(Encoding::UTF_8)
+
+    {
+      Pathname("lib/syntax_error.rb") => [ContentChange.string(broken)]
+    }.tap do |changes|
+      service.update(changes: changes, &reporter)
+
+      service.source_files[Pathname("lib/syntax_error.rb")].tap do |file|
+        assert_nil file.errors
+        assert_equal "", file.content
+      end
+
       reported_diagnostics.clear
     end
   end
 
   def test_update_ruby_annotation_syntax_error
-    skip "Fix annotation syntax error handling"
-
     service = Services::TypeCheckService.new(project: project, assignment: assignment)
 
     {
@@ -73,6 +100,14 @@ end
 RUBY
     }.tap do |changes|
       service.update(changes: changes, &reporter)
+
+      service.source_files[Pathname("lib/annotation_syntax_error.rb")].tap do |file|
+        assert_any!(file.errors, size: 1) do |error|
+          assert_instance_of Diagnostic::Ruby::SyntaxError, error
+          assert_equal " @type self: Array[", error.location.source
+          assert_equal "Syntax error caused by token `$end`", error.message
+        end
+      end
 
       reported_diagnostics.clear
     end
