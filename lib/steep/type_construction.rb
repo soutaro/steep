@@ -2344,11 +2344,11 @@ module Steep
     def masgn_lhs?(lhs)
       lhs.children.all? do |a|
         asgn_type = if a.type == :splat
-                      a.children[0].type
+                      a.children[0]&.type
                     else
                       a.type
                     end
-        asgn_type == :lvasgn || asgn_type == :ivasgn
+        asgn_type.nil? || asgn_type == :lvasgn || asgn_type == :ivasgn
       end
     end
 
@@ -2494,7 +2494,7 @@ module Steep
         assignment_nodes.each do |asgn|
           case asgn.type
           when :splat
-            case asgn.children[0].type
+            case asgn.children[0]&.type
             when :lvasgn
               _, constr = constr.lvasgn(asgn.children[0], array_type)
             when :ivasgn
