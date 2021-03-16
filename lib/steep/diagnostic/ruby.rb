@@ -614,6 +614,19 @@ module Steep
           "UnexpectedError: #{error.message}"
         end
       end
+
+      class SyntaxError < Base
+        attr_reader :message
+
+        def initialize(message: ,location:)
+          super(node: nil, location: location)
+          @message = message
+        end
+
+        def header_line
+          "SyntaxError: #{message}"
+        end
+      end
     end
   end
 end
