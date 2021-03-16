@@ -7321,4 +7321,25 @@ RUBY
       end
     end
   end
+
+  def test_inference
+    with_checker <<-EOF do |checker|
+class Inference
+  def foo: [A] (A, A) -> A
+end
+    EOF
+
+      source = parse_ruby(<<-'EOF')
+Inference.new.foo(1, "")
+      EOF
+
+      with_standard_construction(checker, source) do |construction, typing|
+        type, _ = construction.synthesize(source.node)
+
+        assert_no_error typing
+
+        assert_equal parse_type("::Integer | ::String"), type
+      end
+    end
+  end
 end
