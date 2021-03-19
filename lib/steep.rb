@@ -15,6 +15,7 @@ require "open3"
 require "stringio"
 require 'uri'
 require "yaml"
+require "securerandom"
 
 require "parallel/processor_count"
 

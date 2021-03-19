@@ -7,16 +7,18 @@ module Steep
 
       attr_reader :name
       attr_reader :wait_thread
+      attr_reader :index
 
-      def initialize(reader:, writer:, stderr:, wait_thread:, name:)
+      def initialize(reader:, writer:, stderr:, wait_thread:, name:, index: nil)
         @reader = reader
         @writer = writer
         @stderr = stderr
         @wait_thread = wait_thread
         @name = name
+        @index = index
       end
 
-      def self.spawn_worker(type, name:, steepfile:, options: [], delay_shutdown: false)
+      def self.spawn_worker(type, name:, steepfile:, options: [], delay_shutdown: false, index: nil)
         log_level = %w(debug info warn error fatal unknown)[Steep.logger.level]
         command = case type
                   when :interaction
@@ -37,7 +39,7 @@ module Steep
         writer = LanguageServer::Protocol::Transport::Io::Writer.new(stdin)
         reader = LanguageServer::Protocol::Transport::Io::Reader.new(stdout)
 
-        new(reader: reader, writer: writer, stderr: stderr, wait_thread: thread, name: name)
+        new(reader: reader, writer: writer, stderr: stderr, wait_thread: thread, name: name, index: index)
       end
 
       def self.spawn_typecheck_workers(steepfile:, args:, count: [Etc.nprocessors - 1, 1].max, delay_shutdown: false)
@@ -46,7 +48,8 @@ module Steep
                        name: "typecheck@#{i}",
                        steepfile: steepfile,
                        options: ["--max-index=#{count}", "--index=#{i}", *args],
-                       delay_shutdown: delay_shutdown)
+                       delay_shutdown: delay_shutdown,
+                       index: i)
         end
       end
 

@@ -4,7 +4,7 @@ module Steep
       attr_reader :project, :assignment, :service
       attr_reader :commandline_args
 
-      TypeCheckJob = Class.new
+      TypeCheckJob = Struct.new(:request_id, :guid, :priority_paths, :library_paths, :signature_paths, :code_paths, keyword_init: true)
       WorkspaceSymbolJob = Struct.new(:query, :id, keyword_init: true)
       StatsJob = Struct.new(:id, keyword_init: true)
 
@@ -25,11 +25,9 @@ module Steep
         case request[:method]
         when "initialize"
           load_files(project: project, commandline_args: commandline_args)
-          queue << TypeCheckJob.new()
           writer.write({ id: request[:id], result: nil})
         when "textDocument/didChange"
           collect_changes(request)
-          queue << TypeCheckJob.new()
         when "workspace/symbol"
           query = request[:params][:query]
           queue << WorkspaceSymbolJob.new(id: request[:id], query: query)
@@ -38,30 +36,43 @@ module Steep
           when "steep/stats"
             queue << StatsJob.new(id: request[:id])
           end
+        when "$/typecheck/start"
+          params = request[:params]
+          queue << TypeCheckJob.new(
+            request_id: request[:id],
+            guid: params[:guid],
+            priority_paths: Set.new(params[:priority_uris].map {|uri| Pathname(URI.parse(uri).path) }),
+            library_paths: params[:library_uris].map {|uri| Pathname(URI.parse(uri).path) },
+            signature_paths: params[:signature_uris].map {|uri| Pathname(URI.parse(uri).path) },
+            code_paths: params[:code_uris].map {|uri| Pathname(URI.parse(uri).path) }
+          )
         end
       end
 
       def handle_job(job)
         case job
         when TypeCheckJob
-          pop_buffer() do |changes|
-            break if changes.empty?
+          run_typecheck(job) do |path, diagnostics|
+            absolute_path = project.absolute_path(path)
+
+            if target = project.target_for_source_path(path)
+              diagnostics = diagnostics.select {|diagnostic| target.options.error_to_report?(diagnostic) }
+            end
 
             formatter = Diagnostic::LSPFormatter.new()
 
-            service.update_and_check(changes: changes,assignment: assignment) do |path, diagnostics|
-              if target = project.target_for_source_path(path)
-                diagnostics = diagnostics.select {|diagnostic| target.options.error_to_report?(diagnostic) }
-              end
-
-              writer.write(
-                method: :"textDocument/publishDiagnostics",
-                params: LSP::Interface::PublishDiagnosticsParams.new(
-                  uri: URI.parse(project.absolute_path(path).to_s).tap {|uri| uri.scheme = "file"},
-                  diagnostics: diagnostics.map {|diagnostic| formatter.format(diagnostic) }.uniq
-                )
+            writer.write(
+              method: :"textDocument/publishDiagnostics",
+              params: LSP::Interface::PublishDiagnosticsParams.new(
+                uri: URI.parse(absolute_path.to_s).tap {|uri| uri.scheme = "file"},
+                diagnostics: diagnostics.map {|diagnostic| formatter.format(diagnostic) }.uniq
               )
-            end
+            )
+
+            writer.write(
+              method: "$/typecheck/progress",
+              params: { guid: job.guid, path: absolute_path }
+            )
           end
         when WorkspaceSymbolJob
           writer.write(
@@ -73,6 +84,62 @@ module Steep
             id: job.id,
             result: stats_result().map(&:as_json)
           )
+        end
+      end
+
+      def run_typecheck(job, &block)
+        pop_buffer() do |changes|
+          formatter = Diagnostic::LSPFormatter.new()
+
+          request = service.update(changes: changes)
+
+          job.library_paths.each do |path|
+            if job.priority_paths.include?(path)
+              service.validate_signature(path: path, &block)
+            end
+          end
+
+          job.code_paths.each do |path|
+            if job.priority_paths.include?(path)
+              service.typecheck_source(
+                path: project.relative_path(path),
+                &block
+              )
+            end
+          end
+
+          job.signature_paths.each do |path|
+            if job.priority_paths.include?(path)
+              service.validate_signature(
+                path: project.relative_path(path),
+                &block
+              )
+            end
+          end
+
+          job.library_paths.each do |path|
+            unless job.priority_paths.include?(path)
+              service.validate_signature(path: path, &block)
+            end
+          end
+
+          job.code_paths.each do |path|
+            unless job.priority_paths.include?(path)
+              service.typecheck_source(
+                path: project.relative_path(path),
+                &block
+              )
+            end
+          end
+
+          job.signature_paths.each do |path|
+            unless job.priority_paths.include?(path)
+              service.validate_signature(
+                path: project.relative_path(path),
+                &block
+              )
+            end
+          end
         end
       end
 

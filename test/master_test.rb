@@ -7,8 +7,317 @@ class MasterTest < Minitest::Test
 
   include Steep
 
+  Master = Server::Master
+  TypeCheckController = Master::TypeCheckController
+  TypeCheckRequest = Master::TypeCheckRequest
+
   def dirs
     @dirs ||= []
+  end
+
+  def test_start_type_check_with_progress
+    in_tmpdir do
+      steepfile = current_dir + "Steepfile"
+      steepfile.write(<<-EOF)
+target :lib do
+  check "lib"
+  signature "sig"
+end
+      EOF
+
+      project = Project.new(steepfile_path: steepfile)
+      Project::DSL.parse(project, steepfile.read)
+
+      write_queue = []
+      worker = []
+
+      master = Server::Master.new(
+        project: project,
+        reader: worker_reader,
+        writer: worker_writer,
+        interaction_worker: nil,
+        typecheck_workers: [worker],
+        queue: write_queue
+      )
+
+      request = TypeCheckRequest.new(guid: "guid")
+      request.code_paths << current_dir + "lib/customer.rb"
+      request.code_paths << current_dir + "lib/account.rb"
+      master.start_type_check(request, last_request: nil, start_progress: true)
+
+      assert_instance_of Server::Master::TypeCheckRequest, master.current_type_check_request
+
+      assert_any!(write_queue) do |message|
+        assert_equal("window/workDoneProgress/create", message[:method])
+        assert_equal({ token: request.guid }, message[:params])
+      end
+
+      assert_any!(write_queue) do |message|
+        assert_equal("$/progress", message[:method])
+        assert_equal(
+          {
+            token: request.guid,
+            value: { kind: "begin", title: "Type checking", percentage: 0 }
+          },
+          message[:params]
+        )
+      end
+
+      assert_equal 1, worker.size
+      worker[0].tap do |message|
+        assert_equal "$/typecheck/start", message[:method]
+
+        message[:params].tap do |params|
+          assert_equal request.guid, params[:guid]
+        end
+      end
+    end
+  end
+
+  def test_start_type_check_without_progress
+    in_tmpdir do
+      steepfile = current_dir + "Steepfile"
+      steepfile.write(<<-EOF)
+target :lib do
+  check "lib"
+  signature "sig"
+end
+      EOF
+
+      project = Project.new(steepfile_path: steepfile)
+      Project::DSL.parse(project, steepfile.read)
+
+      write_queue = []
+      worker = []
+
+      master = Server::Master.new(
+        project: project,
+        reader: worker_reader,
+        writer: worker_writer,
+        interaction_worker: nil,
+        typecheck_workers: [worker],
+        queue: write_queue
+      )
+
+      request = TypeCheckRequest.new(guid: "guid")
+      request.code_paths << current_dir + "lib/customer.rb"
+      request.code_paths << current_dir + "lib/account.rb"
+      master.start_type_check(request, last_request: nil, start_progress: false)
+
+      assert_nil master.current_type_check_request
+
+      assert_empty write_queue
+
+      assert_equal 1, worker.size
+      worker[0].tap do |message|
+        assert_equal "$/typecheck/start", message[:method]
+
+        message[:params].tap do |params|
+          assert_equal request.guid, params[:guid]
+        end
+      end
+    end
+  end
+
+  def test_on_type_check_update_with_progress
+    in_tmpdir do
+      steepfile = current_dir + "Steepfile"
+      steepfile.write(<<-EOF)
+target :lib do
+  check "lib"
+  signature "sig"
+end
+      EOF
+
+      project = Project.new(steepfile_path: steepfile)
+      Project::DSL.parse(project, steepfile.read)
+
+      write_queue = []
+      worker = []
+
+      master = Server::Master.new(
+        project: project,
+        reader: worker_reader,
+        writer: worker_writer,
+        interaction_worker: nil,
+        typecheck_workers: [worker],
+        queue: write_queue
+      )
+
+      request = TypeCheckRequest.new(guid: "guid")
+      request.code_paths << current_dir + "lib/customer.rb"
+      request.code_paths << current_dir + "lib/account.rb"
+
+      master.start_type_check(request, last_request: nil, start_progress: true)
+
+      write_queue.clear()
+
+      master.on_type_check_update(guid: "guid", path: current_dir + "lib/customer.rb")
+
+      assert_equal 1, write_queue.size
+      write_queue[0].tap do |message|
+        assert_equal "$/progress", message[:method]
+
+        message[:params].tap do |params|
+          assert_equal "guid", params[:token]
+          assert_equal "report", params[:value][:kind]
+          assert_equal 50, params[:value][:percentage]
+        end
+      end
+
+      write_queue.clear()
+
+      master.on_type_check_update(guid: "guid", path: current_dir + "lib/account.rb")
+
+      assert_equal 1, write_queue.size
+      write_queue[0].tap do |message|
+        assert_equal "$/progress", message[:method]
+
+        message[:params].tap do |params|
+          assert_equal "guid", params[:token]
+          assert_equal "end", params[:value][:kind]
+        end
+      end
+
+      assert_nil master.current_type_check_request
+    end
+  end
+
+  def test_on_type_check_update_without_progress
+    in_tmpdir do
+      steepfile = current_dir + "Steepfile"
+      steepfile.write(<<-EOF)
+target :lib do
+  check "lib"
+  signature "sig"
+end
+      EOF
+
+      project = Project.new(steepfile_path: steepfile)
+      Project::DSL.parse(project, steepfile.read)
+
+      write_queue = []
+      worker = []
+
+      master = Server::Master.new(
+        project: project,
+        reader: worker_reader,
+        writer: worker_writer,
+        interaction_worker: nil,
+        typecheck_workers: [worker],
+        queue: write_queue
+      )
+
+      request = TypeCheckRequest.new(guid: "guid")
+      request.code_paths << current_dir + "lib/customer.rb"
+      request.code_paths << current_dir + "lib/account.rb"
+
+      master.start_type_check(request, last_request: nil, start_progress: false)
+
+      write_queue.clear()
+
+      master.on_type_check_update(guid: "guid", path: current_dir + "lib/customer.rb")
+      master.on_type_check_update(guid: "guid", path: current_dir + "lib/account.rb")
+
+      assert_empty write_queue
+    end
+  end
+
+  def test_client_message_document_did_change
+    in_tmpdir do
+      steepfile = current_dir + "Steepfile"
+      steepfile.write(<<-EOF)
+target :lib do
+  check "lib"
+  signature "sig"
+end
+      EOF
+
+      project = Project.new(steepfile_path: steepfile)
+      Project::DSL.parse(project, steepfile.read)
+
+      write_queue = []
+      worker = []
+
+      master = Server::Master.new(
+        project: project,
+        reader: worker_reader,
+        writer: worker_writer,
+        interaction_worker: nil,
+        typecheck_workers: [worker],
+        queue: write_queue
+      )
+
+      assert_empty master.controller.changed_paths
+
+      master.process_message_from_client(
+        {
+          method: "textDocument/didChange",
+          params: {
+            textDocument: {
+              uri: "file://#{current_dir + "lib/customer.rb"}"
+            }
+          }
+        }
+      )
+
+      assert_operator master.controller.changed_paths, :include?, current_dir + "lib/customer.rb"
+    end
+  end
+
+  def test_client_message_document_did_open_close
+    in_tmpdir do
+      steepfile = current_dir + "Steepfile"
+      steepfile.write(<<-EOF)
+target :lib do
+  check "lib"
+  signature "sig"
+end
+      EOF
+
+      project = Project.new(steepfile_path: steepfile)
+      Project::DSL.parse(project, steepfile.read)
+
+      write_queue = []
+      worker = []
+
+      master = Server::Master.new(
+        project: project,
+        reader: worker_reader,
+        writer: worker_writer,
+        interaction_worker: nil,
+        typecheck_workers: [worker],
+        queue: write_queue
+      )
+
+      assert_empty master.controller.priority_paths
+
+      master.process_message_from_client(
+        {
+          method: "textDocument/didOpen",
+          params: {
+            textDocument: {
+              uri: "file://#{current_dir + "lib/customer.rb"}"
+            }
+          }
+        }
+      )
+
+      assert_operator master.controller.priority_paths, :include?, current_dir + "lib/customer.rb"
+
+      master.process_message_from_client(
+        {
+          method: "textDocument/didClose",
+          params: {
+            textDocument: {
+              uri: "file://#{current_dir + "lib/customer.rb"}"
+            }
+          }
+        }
+      )
+
+      refute_operator master.controller.priority_paths, :include?, current_dir + "lib/customer.rb"
+    end
   end
 
   def test_code_type_check

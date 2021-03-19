@@ -240,7 +240,7 @@ module Steep
         end
       end
 
-      def typecheck_source(path:, target:, &block)
+      def typecheck_source(path:, target: project.target_for_source_path(path), &block)
         signature_service = signature_services[target.name]
         subtyping = signature_service.current_subtyping
 

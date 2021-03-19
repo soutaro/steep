@@ -9,6 +9,7 @@ class TypeCheckWorkerTest < Minitest::Test
 
   LSP = LanguageServer::Protocol::Interface
 
+  TypeCheckWorker = Server::TypeCheckWorker
   ContentChange = Services::ContentChange
 
   def flush_queue(queue)
@@ -101,7 +102,7 @@ EOF
     end
   end
 
-  def test_handle_initialize
+  def test_handle_request_initialize
     in_tmpdir do
       project = Project.new(steepfile_path: current_dir + "Steepfile")
       Project::DSL.parse(project, <<EOF)
@@ -128,13 +129,11 @@ EOF
       )
 
       jobs = flush_queue(worker.queue)
-
-      assert_equal 1, jobs.size
-      assert_instance_of Server::TypeCheckWorker::TypeCheckJob, jobs[0]
+      assert_empty jobs
     end
   end
 
-  def test_handle_update
+  def test_handle_request_document_did_change
     in_tmpdir do
       project = Project.new(steepfile_path: current_dir + "Steepfile")
       Project::DSL.parse(project, <<EOF)
@@ -173,16 +172,14 @@ end
       )
 
       jobs = flush_queue(worker.queue)
-
-      assert_equal 1, jobs.size
-      assert_instance_of Server::TypeCheckWorker::TypeCheckJob, jobs[0]
+      assert_empty jobs
 
       changes = worker.pop_buffer
       assert_equal({ Pathname("lib/hello.rb") => [Services::ContentChange.string("class Foo\nend\n")] }, changes)
     end
   end
 
-  def test_job_typecheck
+  def test_handle_request_typecheck_start
     in_tmpdir do
       project = Project.new(steepfile_path: current_dir + "Steepfile")
       Project::DSL.parse(project, <<EOF)
@@ -192,16 +189,51 @@ target :lib do
 end
 EOF
 
-      reader = Thread.new do
-        responses = []
+      worker = Server::TypeCheckWorker.new(
+        project: project,
+        assignment: assignment,
+        commandline_args: [],
+        reader: worker_reader,
+        writer: worker_writer
+      )
 
-        master_reader.read do |response|
-          break if response[:method] == "close"
-          responses << response
-        end
+      worker.handle_request(
+        {
+          id: 123,
+          method: "$/typecheck/start",
+          params: {
+            guid: "guid1",
+            priority_uris: ["file://#{current_dir}/lib/hello.rb"],
+            signature_uris: ["file://#{current_dir}/sig/hello.rbs"],
+            code_uris: ["file://#{current_dir}/lib/hello.rb"],
+            library_uris: ["file://#{(RBS::EnvironmentLoader::DEFAULT_CORE_ROOT + "object.rbs")}"]
+          }
+        }
+      )
 
-        responses
+      jobs = flush_queue(worker.queue)
+      assert_equal 1, jobs.size
+
+      jobs[0].tap do |job|
+        assert_instance_of TypeCheckWorker::TypeCheckJob, job
+        assert_equal 123, job.request_id
+        assert_equal Set[current_dir + "lib/hello.rb"], job.priority_paths
+        assert_equal [current_dir + "sig/hello.rbs"], job.signature_paths
+        assert_equal [current_dir + "lib/hello.rb"], job.code_paths
+        assert_equal [RBS::EnvironmentLoader::DEFAULT_CORE_ROOT + "object.rbs"], job.library_paths
       end
+    end
+  end
+
+  def test_run_typecheck
+    in_tmpdir do
+      project = Project.new(steepfile_path: current_dir + "Steepfile")
+      Project::DSL.parse(project, <<EOF)
+target :lib do
+  check "lib"
+  signature "sig"
+end
+EOF
 
       worker = Server::TypeCheckWorker.new(
         project: project,
@@ -222,17 +254,33 @@ end
 EOF
       end
 
-      worker.handle_job(Server::TypeCheckWorker::TypeCheckJob.new)
-      worker_writer.write({ method: "close" })
+      job = TypeCheckWorker::TypeCheckJob.new(
+        guid: "guid",
+        priority_paths: Set[],
+        signature_paths: [current_dir + "sig/hello.rbs"],
+        code_paths: [current_dir + "lib/hello.rb"],
+        library_paths: [RBS::EnvironmentLoader::DEFAULT_CORE_ROOT + "object.rbs"]
+      )
 
-      responses = reader.join.value
-      responses.find {|resp| resp.dig(:params, :uri) =~ /\/lib\/hello\.rb/ }.tap do |resp|
-        diagnostics = resp.dig(:params, :diagnostics)
-        assert_equal ["Ruby::IncompatibleArguments"], diagnostics.map {|d| d[:code] }
+      diagnostics = []
+      worker.run_typecheck(job) do |path, ds|
+        diagnostics << [path, ds]
       end
-      responses.find {|resp| resp.dig(:params, :uri) =~ /\/sig\/hello\.rbs/ }.tap do |resp|
-        diagnostics = resp.dig(:params, :diagnostics)
-        assert_empty diagnostics
+
+      assert_any!(diagnostics) do |(path, ds)|
+        assert_equal RBS::EnvironmentLoader::DEFAULT_CORE_ROOT + "object.rbs", path
+        assert_empty ds
+      end
+
+      assert_any!(diagnostics) do |(path, ds)|
+        assert_equal Pathname("sig/hello.rbs"), path
+        assert_empty ds
+      end
+
+      assert_any!(diagnostics) do |(path, ds)|
+        assert_equal Pathname("lib/hello.rb"), path
+        assert_equal 1, ds.size
+        assert_instance_of Diagnostic::Ruby::IncompatibleArguments, ds[0]
       end
     end
   end
