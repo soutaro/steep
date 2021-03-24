@@ -130,6 +130,23 @@ module TestHelper
       nil
     end
   end
+
+  def flush_queue(queue)
+    queue << self
+
+    copy = []
+
+    while true
+      ret = queue.pop
+
+      break if ret.nil?
+      break if ret.equal?(self)
+
+      copy << ret
+    end
+
+    copy
+  end
 end
 
 module TypeErrorAssertions
