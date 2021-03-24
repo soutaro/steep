@@ -60,6 +60,7 @@ class Hello
 
 end
 RUBY
+          lsp.save_file(current_dir + "lib/hello.rb")
 
           finally_holds do
             lsp.synchronize_ui do

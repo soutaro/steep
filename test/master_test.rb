@@ -354,12 +354,14 @@ EOF
 class Foo
 end
         RUBY
+        ui.save_file(project.absolute_path(Pathname("lib/foo.rb")))
 
         ui.open_file(project.absolute_path(Pathname("lib/bar.rb")))
         ui.edit_file(project.absolute_path(Pathname("lib/bar.rb")), content: <<-RUBY, version: 0)
 class Bar
 end
         RUBY
+        ui.save_file(project.absolute_path(Pathname("lib/bar.rb")))
 
         finally_holds do
           assert_equal [], ui.diagnostics_for(project.absolute_path(Pathname("lib/foo.rb")))

@@ -188,6 +188,8 @@ end
   end
 
   def test_check_broken
+    skip
+
     in_tmpdir do
       (current_dir + "Steepfile").write(<<-EOF)
 target :app do
@@ -275,7 +277,6 @@ RUBY
 1 + ""
 RUBY
 
-
       r, w = IO.pipe
       pid = spawn(*steep.push("watch", "app/lib"), out: w, chdir: current_dir.to_s)
       w.close
@@ -323,7 +324,6 @@ end
 
 "hello" + 3
 RUBY
-
 
       r, w = IO.pipe
       pid = spawn(*steep.push("watch", "app/models/person.rb"), out: w, chdir: current_dir.to_s)

@@ -45,15 +45,27 @@ module Steep
           interaction_worker: nil,
           typecheck_workers: typecheck_workers
         )
+        master.typecheck_automatically = false
+        master.commandline_args.push(*command_line_patterns)
 
         main_thread = Thread.start do
           master.start()
         end
         main_thread.abort_on_exception = true
 
-        client_writer.write({ method: :initialize, id: 0 })
+        initialize_id = request_id()
+        client_writer.write({ method: :initialize, id: initialize_id })
+        wait_for_response_id(reader: client_reader, id: initialize_id)
 
-        stats_id = -1
+        typecheck_guid = SecureRandom.uuid
+        client_writer.write({ method: "$/typecheck", params: { guid: typecheck_guid }})
+        wait_for_message(reader: client_reader) do |message|
+          message[:method] == "$/progress" &&
+            message[:params][:token] == typecheck_guid &&
+            message[:params][:value][:kind] == "end"
+        end
+
+        stats_id = request_id()
         client_writer.write(
           {
             id: stats_id,
@@ -61,23 +73,11 @@ module Steep
             params: { command: "steep/stats", arguments: [] }
           })
 
-        stats_result = []
-        client_reader.read do |response|
-          if response[:id] == stats_id
-            stats_result.push(*response[:result])
-            break
-          end
-        end
+        stats_response = wait_for_response_id(reader: client_reader, id: stats_id)
+        stats_result = stats_response[:result]
 
-        shutdown_id = -2
+        shutdown_id = request_id()
         client_writer.write({ method: :shutdown, id: shutdown_id })
-
-        client_reader.read do |response|
-          if response[:id] == shutdown_id
-            break
-          end
-        end
-
         client_writer.write({ method: "exit" })
         main_thread.join()
 

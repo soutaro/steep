@@ -47,16 +47,22 @@ module Steep
           interaction_worker: nil,
           typecheck_workers: typecheck_workers
         )
+        master.typecheck_automatically = false
+        master.commandline_args.push(*command_line_patterns)
 
         main_thread = Thread.start do
           master.start()
         end
         main_thread.abort_on_exception = true
 
-        client_writer.write({ method: :initialize, id: 0 })
+        Steep.logger.info { "Initializing server" }
+        initialize_id = request_id()
+        client_writer.write({ method: :initialize, id: initialize_id, params: {} })
+        wait_for_response_id(reader: client_reader, id: initialize_id)
 
-        shutdown_id = -1
-        client_writer.write({ method: :shutdown, id: shutdown_id })
+        request_guid = SecureRandom.uuid
+        Steep.logger.info { "Starting type checking: #{request_guid}" }
+        client_writer.write({ method: "$/typecheck", params: { guid: request_guid } })
 
         diagnostic_notifications = []
         error_messages = []
@@ -77,11 +83,18 @@ module Steep
             if message[:type] == LSP::Constant::MessageType::ERROR
               error_messages << message[:message]
             end
-          when response[:id] == shutdown_id
-            break
+          when response[:method] == "$/progress"
+            if response[:params][:token] == request_guid
+              if response[:params][:value][:kind] == "end"
+                break
+              end
+            end
           end
         end
 
+        Steep.logger.info { "Shutting down..." }
+
+        client_writer.write({ method: :shutdown, id: request_id() })
         client_writer.write({ method: :exit })
         client_writer.io.close()
 

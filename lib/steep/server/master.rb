@@ -183,26 +183,34 @@ module Steep
           end
         end
 
-        def make_request(last_request: nil)
-          return if changed_paths.empty?
+        def make_request(guid: SecureRandom.uuid, last_request: nil, include_unchanged: false)
+          return if changed_paths.empty? && !include_unchanged
 
-          TypeCheckRequest.new(guid: SecureRandom.uuid).tap do |request|
+          TypeCheckRequest.new(guid: guid).tap do |request|
             if last_request
               request.library_paths.merge(last_request.unchecked_library_paths)
               request.signature_paths.merge(last_request.unchecked_signature_paths)
               request.code_paths.merge(last_request.unchecked_code_paths)
             end
 
-            updated_paths = target_paths.select {|paths| changed_paths.intersect?(paths.all_paths) }
-
-            updated_paths.each do |paths|
-              case
-              when paths.signature_paths.intersect?(changed_paths)
+            if include_unchanged
+              target_paths.each do |paths|
                 request.signature_paths.merge(paths.signature_paths)
                 request.library_paths.merge(paths.library_paths)
                 request.code_paths.merge(paths.code_paths)
-              when paths.code_paths.intersect?(changed_paths)
-                request.code_paths.merge(paths.code_paths & changed_paths)
+              end
+            else
+              updated_paths = target_paths.select {|paths| changed_paths.intersect?(paths.all_paths) }
+
+              updated_paths.each do |paths|
+                case
+                when paths.signature_paths.intersect?(changed_paths)
+                  request.signature_paths.merge(paths.signature_paths)
+                  request.library_paths.merge(paths.library_paths)
+                  request.code_paths.merge(paths.code_paths)
+                when paths.code_paths.intersect?(changed_paths)
+                  request.code_paths.merge(paths.code_paths & changed_paths)
+                end
               end
             end
 
@@ -218,6 +226,7 @@ module Steep
       attr_reader :steepfile
       attr_reader :project
       attr_reader :reader, :writer
+      attr_reader :commandline_args
 
       attr_reader :interaction_worker
       attr_reader :typecheck_workers
@@ -312,6 +321,8 @@ module Steep
         end
       end
 
+      attr_accessor :typecheck_automatically
+
       def initialize(project:, reader:, writer:, interaction_worker:, typecheck_workers:, queue: Queue.new)
         @project = project
         @reader = reader
@@ -324,6 +335,8 @@ module Steep
         @shutdown_request_id = nil
         @response_handlers = {}
         @current_type_check_request = nil
+        @typecheck_automatically = true
+        @commandline_args = []
 
         @controller = TypeCheckController.new(project: project)
       end
@@ -357,6 +370,13 @@ module Steep
               value: { kind: "begin", title: "Type checking", percentage: 0 }
             }
           }
+
+          if request.finished?
+            write_queue << {
+              method: "$/progress",
+              params: { token: request.guid, value: { kind: "end" } }
+            }
+          end
         else
           @current_type_check_request = nil
         end
@@ -487,6 +507,8 @@ module Steep
         when "initialize"
           broadcast_request(message) do |handler|
             handler.on_completion do
+              controller.load(command_line_args: commandline_args)
+
               write_queue << {
                 id: id,
                 result: LSP::Interface::InitializeResult.new(
@@ -505,13 +527,14 @@ module Steep
                 )
               }
 
-              controller.load(command_line_args: [])
-              request = controller.make_request()
-              start_type_check(
-                request,
-                last_request: current_type_check_request,
-                start_progress: request.total > 10
-              )
+              if typecheck_automatically
+                request = controller.make_request()
+                start_type_check(
+                  request,
+                  last_request: current_type_check_request,
+                  start_progress: request.total > 10
+                )
+              end
             end
           end
 
@@ -521,12 +544,14 @@ module Steep
           controller.push_changes(path)
 
         when "textDocument/didSave"
-          request = controller.make_request()
-          start_type_check(
-            request,
-            last_request: current_type_check_request,
-            start_progress: request.total > 10
-          )
+          if typecheck_automatically
+            request = controller.make_request()
+            start_type_check(
+              request,
+              last_request: current_type_check_request,
+              start_progress: request.total > 10
+            )
+          end
 
         when "textDocument/didOpen"
           path = pathname(message[:params][:textDocument][:uri])
@@ -570,6 +595,14 @@ module Steep
               end
             end
           end
+
+        when "$/typecheck"
+          request = controller.make_request(guid: message[:params][:guid], include_unchanged: true)
+          start_type_check(
+            request,
+            last_request: current_type_check_request,
+            start_progress: true
+          )
 
         when "shutdown"
           broadcast_request(message) do |handler|

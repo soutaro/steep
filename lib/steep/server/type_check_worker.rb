@@ -147,10 +147,10 @@ module Steep
         Steep.measure "Generating workspace symbol list for query=`#{query}`" do
           indexes = project.targets.map {|target| service.signature_services[target.name].latest_rbs_index }
 
-          provider = Index::SignatureSymbolProvider.new()
+          provider = Index::SignatureSymbolProvider.new(project: project, assignment: assignment)
           provider.indexes.push(*indexes)
 
-          symbols = provider.query_symbol(query, assignment: assignment)
+          symbols = provider.query_symbol(query)
 
           symbols.map do |symbol|
             LSP::Interface::SymbolInformation.new(
@@ -177,8 +177,9 @@ module Steep
 
         project.targets.each.with_object([]) do |target, stats|
           service.source_files.each_value do |file|
-            next unless assignment =~ file.path
             next unless target.possible_source_file?(file.path)
+            absolute_path = project.absolute_path(file.path)
+            next unless assignment =~ absolute_path
 
             stats << calculator.calc_stats(target, file: file)
           end
