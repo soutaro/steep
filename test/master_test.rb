@@ -28,7 +28,6 @@ end
       project = Project.new(steepfile_path: steepfile)
       Project::DSL.parse(project, steepfile.read)
 
-      write_queue = []
       worker = []
 
       master = Server::Master.new(
@@ -36,8 +35,7 @@ end
         reader: worker_reader,
         writer: worker_writer,
         interaction_worker: nil,
-        typecheck_workers: [worker],
-        queue: write_queue
+        typecheck_workers: [worker]
       )
 
       request = TypeCheckRequest.new(guid: "guid")
@@ -47,12 +45,14 @@ end
 
       assert_instance_of Server::Master::TypeCheckRequest, master.current_type_check_request
 
-      assert_any!(write_queue) do |message|
+      client_messages = flush_queue(master.write_queue)
+
+      assert_any!(client_messages) do |message|
         assert_equal("window/workDoneProgress/create", message[:method])
         assert_equal({ token: request.guid }, message[:params])
       end
 
-      assert_any!(write_queue) do |message|
+      assert_any!(client_messages) do |message|
         assert_equal("$/progress", message[:method])
         assert_equal(
           {
@@ -406,10 +406,10 @@ end
 class Foo
 end
         RUBY
+        ui.save_file(project.absolute_path(Pathname("lib/foo.rb")))
 
         finally_holds do
-          assert_equal [],
-                       ui.diagnostics_for(project.absolute_path(Pathname("lib/foo.rb")))
+          assert_empty ui.diagnostics_for(project.absolute_path(Pathname("lib/foo.rb")))
         end
 
         ui.open_file(project.absolute_path(Pathname("sig/foo.rbs")))
@@ -418,14 +418,14 @@ class Foo
   def foo: () -> void
 end
         RBS
-
+        ui.save_file(project.absolute_path(Pathname("sig/foo.rbs")))
 
         finally_holds do
           assert_equal 1, ui.diagnostics_for(project.absolute_path(Pathname("lib/foo.rb"))).size
         end
 
         finally_holds timeout: 30 do
-          assert_equal [], ui.diagnostics_for(project.absolute_path(Pathname("sig/foo.rbs")))
+          assert_empty ui.diagnostics_for(project.absolute_path(Pathname("sig/foo.rbs")))
         end
       end
 
@@ -519,6 +519,7 @@ end
 class FooClassNew
 end
         RUBY
+        ui.save_file(project.absolute_path(Pathname("sig/foo.rbs")))
 
         ui.workspace_symbol().tap do |symbols|
           assert symbols.find {|symbol| symbol[:name] == "FooClassNew" }

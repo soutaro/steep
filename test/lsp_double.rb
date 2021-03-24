@@ -150,6 +150,15 @@ class LSPDouble
     )
   end
 
+  def save_file(path)
+    send_notification(
+      method: "textDocument/didSave",
+      params: {
+        textDocument: { uri: "file://#{path}" }
+      }
+    )
+  end
+
   def hover_on(path:, line:, character:)
     send_request(
       id: next_request_id,
