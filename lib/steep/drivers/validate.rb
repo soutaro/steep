@@ -18,7 +18,7 @@ module Steep
         any_error = false
 
         project.targets.each do |target|
-          controller = Services::SignatureService.load_from(target.new_env_loader)
+          controller = Services::SignatureService.load_from(target.new_env_loader(project: project))
 
           changes = file_loader.load_changes(target.signature_pattern, changes: {})
           controller.update(changes)

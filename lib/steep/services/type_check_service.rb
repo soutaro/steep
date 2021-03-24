@@ -91,7 +91,7 @@ module Steep
 
         @source_files = {}
         @signature_services = project.targets.each.with_object({}) do |target, hash|
-          loader = Project::Target.construct_env_loader(options: target.options)
+          loader = Project::Target.construct_env_loader(options: target.options, project: project)
           hash[target.name] = SignatureService.load_from(loader)
         end
         @signature_validation_diagnostics = project.targets.each.with_object({}) do |target, hash|

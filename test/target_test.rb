@@ -11,10 +11,13 @@ module Steep
         (path + "vendor/repo").mkpath
         (path + "vendor/core").mkpath
 
+        project = Project.new(steepfile_path: path + "Steepfile")
+
         Project::Target.construct_env_loader(
           options: Project::Options.new.tap {|opts|
             opts.repository_paths << path + "vendor/repo"
-          }
+          },
+          project: project
         ).tap do |loader|
           refute_nil loader.core_root
 
@@ -26,7 +29,8 @@ module Steep
           options: Project::Options.new.tap {|opts|
             opts.vendor_path = path + "vendor/core"
             opts.repository_paths << path + "vendor/repo"
-          }
+          },
+          project: project
         ).tap do |loader|
           assert_nil loader.core_root
 
