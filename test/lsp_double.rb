@@ -32,13 +32,15 @@ class LSPDouble
     raise if reader_thread
 
     @reader_thread = Thread.new do
-      reader.read do |event|
-        Steep.logger.info "received event: event=#{event}"
+      Steep.logger.tagged "LSP client" do
+        reader.read do |event|
+          Steep.logger.info "received event: event=#{event}"
 
-        if event.key?(:method)
-          process_request event
-        else
-          process_response event
+          if event.key?(:method)
+            process_request event
+          else
+            process_response event
+          end
         end
       end
     end

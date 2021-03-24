@@ -336,11 +336,13 @@ EOF
       interaction_worker = Server::WorkerProcess.spawn_worker(:interaction, name: "interaction", steepfile: steepfile)
       typecheck_workers = Server::WorkerProcess.spawn_typecheck_workers(steepfile: steepfile, count: 1, args: [])
 
-      master = Server::Master.new(project: project,
-                                  reader: worker_reader,
-                                  writer: worker_writer,
-                                  interaction_worker: interaction_worker,
-                                  typecheck_workers: typecheck_workers)
+      master = Server::Master.new(
+        project: project,
+        reader: worker_reader,
+        writer: worker_writer,
+        interaction_worker: interaction_worker,
+        typecheck_workers: typecheck_workers
+      )
 
       main_thread = Thread.new do
         master.start()

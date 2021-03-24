@@ -322,6 +322,7 @@ module Steep
       end
 
       attr_accessor :typecheck_automatically
+      attr_reader :client_write_thread
 
       def initialize(project:, reader:, writer:, interaction_worker:, typecheck_workers:, queue: Queue.new)
         @project = project
@@ -337,57 +338,68 @@ module Steep
         @current_type_check_request = nil
         @typecheck_automatically = true
         @commandline_args = []
+        @client_write_thread = nil
 
         @controller = TypeCheckController.new(project: project)
       end
 
       def start_type_check(request, last_request:, start_progress:)
-        return unless request
+        Steep.logger.tagged "#start_type_check(#{request.guid}, #{last_request&.guid}" do
+          unless request
+            Steep.logger.info "Skip start type checking"
+            return
+          end
 
-        if last_request
-          write_queue << {
-            method: "$/progress",
-            params: {
-              token: last_request.guid,
-              value: { kind: "end" }
-            }
-          }
-        end
+          if last_request
+            Steep.logger.info "Cancelling last request"
 
-        if start_progress
-          @current_type_check_request = request
-
-          write_queue << {
-            id: (Time.now.to_f * 1000).to_i,
-            method: "window/workDoneProgress/create",
-            params: { token: request.guid }
-          }
-
-          write_queue << {
-            method: "$/progress",
-            params: {
-              token: request.guid,
-              value: { kind: "begin", title: "Type checking", percentage: 0 }
-            }
-          }
-
-          if request.finished?
             write_queue << {
               method: "$/progress",
-              params: { token: request.guid, value: { kind: "end" } }
+              params: {
+                token: last_request.guid,
+                value: { kind: "end" }
+              }
             }
           end
-        else
-          @current_type_check_request = nil
-        end
 
-        typecheck_workers.each do |worker|
-          assignment = Services::PathAssignment.new(max_index: typecheck_workers.size, index: worker.index)
+          if start_progress
+            Steep.logger.info "Starting new progress..."
 
-          worker << {
-            method: "$/typecheck/start",
-            params: request.as_json(assignment: assignment)
-          }
+            @current_type_check_request = request
+
+            write_queue << {
+              id: (Time.now.to_f * 1000).to_i,
+              method: "window/workDoneProgress/create",
+              params: { token: request.guid }
+            }
+
+            write_queue << {
+              method: "$/progress",
+              params: {
+                token: request.guid,
+                value: { kind: "begin", title: "Type checking", percentage: 0 }
+              }
+            }
+
+            if request.finished?
+              write_queue << {
+                method: "$/progress",
+                params: { token: request.guid, value: { kind: "end" } }
+              }
+            end
+          else
+            @current_type_check_request = nil
+          end
+
+          Steep.logger.info "Sending $/typecheck/start notifications"
+          typecheck_workers.each do |worker|
+            assignment = Services::PathAssignment.new(max_index: typecheck_workers.size, index: worker.index)
+
+            worker << {
+              method: "$/typecheck/start",
+              params: request.as_json(assignment: assignment)
+            }
+          end
         end
       end
 
@@ -395,6 +407,7 @@ module Steep
         if current = current_type_check_request()
           if current.guid == guid
             current.checked(path)
+            Steep.logger.info { "Request updated: checked=#{path}, unchecked=#{current.unchecked_paths.size}" }
             percentage = current.percentage
             value = if percentage == 100
                       { kind: "end" }
@@ -444,14 +457,19 @@ module Steep
             end
           end
 
-          worker_threads << Thread.new do
+          @client_write_thread = Thread.new do
             Steep.logger.formatter.push_tags(*tags, "write")
+
+            # Start writing to client after `initialize` request
+            Thread.stop
+
             while message = write_queue.pop
               writer.write(message)
             end
 
             writer.io.close
           end
+          worker_threads << client_write_thread
 
           worker_threads << Thread.new do
             Steep.logger.formatter.push_tags(*tags, "reconciliation")
@@ -528,13 +546,11 @@ module Steep
               }
 
               if typecheck_automatically
-                request = controller.make_request()
-                start_type_check(
-                  request,
-                  last_request: current_type_check_request,
-                  start_progress: request.total > 10
-                )
+                request = controller.make_request(include_unchanged: true)
+                start_type_check(request, last_request: nil, start_progress: request.total > 10)
               end
+
+              client_write_thread.wakeup()
             end
           end
 
@@ -545,7 +561,7 @@ module Steep
 
         when "textDocument/didSave"
           if typecheck_automatically
-            request = controller.make_request()
+            request = controller.make_request(last_request: current_type_check_request)
             start_type_check(
               request,
               last_request: current_type_check_request,
@@ -597,7 +613,11 @@ module Steep
           end
 
         when "$/typecheck"
-          request = controller.make_request(guid: message[:params][:guid], include_unchanged: true)
+          request = controller.make_request(
+            guid: message[:params][:guid],
+            last_request: current_type_check_request,
+            include_unchanged: true
+          )
           start_type_check(
             request,
             last_request: current_type_check_request,
@@ -660,14 +680,14 @@ module Steep
       end
 
       def process_message_from_worker(message, worker:)
+        Steep.logger.info { "Received message #{message[:method]} (#{message[:id] || "*"}) from worker #{worker.name}" }
+
         case
         when message.key?(:id) && !message.key?(:method)
           # Response from worker
-          Steep.logger.debug { "Received response #{message[:id]} from worker" }
           recon_queue << [message, worker]
         when message.key?(:method) && !message.key?(:id)
           # Notification from worker
-          Steep.logger.debug { "Received notification #{message[:method]} from worker" }
 
           case message[:method]
           when "$/typecheck/progress"
