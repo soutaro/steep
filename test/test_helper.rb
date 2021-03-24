@@ -391,21 +391,21 @@ module ShellHelper
   end
 
   def sh(*command)
-    Open3.capture3(env_vars, *command, chdir: current_dir.to_s)
+    Open3.capture2(env_vars, *command, chdir: current_dir.to_s)
   end
 
   def sh!(*command)
-    stdout, stderr, status = sh(*command)
+    stdout, status = sh(*command)
     unless status.success?
-      raise "Failed to execute: #{command.join(" ")}, #{status.inspect}, stdout=#{stdout.inspect}, stderr=#{stderr.inspect}"
+      raise "Failed to execute: #{command.join(" ")}, #{status.inspect}, stdout=#{stdout.inspect}"
     end
 
-    [stdout, stderr]
+    stdout
   end
 
   def in_tmpdir(&block)
     Dir.mktmpdir do |dir|
-      chdir(Pathname(dir), &block)
+      chdir(Pathname(dir).realpath, &block)
     end
   end
 end

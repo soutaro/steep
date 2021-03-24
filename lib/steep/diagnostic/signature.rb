@@ -275,6 +275,19 @@ module Steep
         end
       end
 
+      class UnexpectedError < Base
+        attr_reader :message
+
+        def initialize(message:, location:)
+          @message = message
+          @location = location
+        end
+
+        def header_line
+          "Unexpected error: #{message}"
+        end
+      end
+
       def self.from_rbs_error(error, factory:)
         case error
         when RBS::Parser::SemanticsError, RBS::Parser::LexerError

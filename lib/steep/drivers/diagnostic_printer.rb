@@ -91,6 +91,10 @@ module Steep
           trailing = ""
         end
 
+        unless subject.valid_encoding?
+          subject.scrub!
+        end
+
         stdout.puts "#{prefix}└ #{leading}#{color_severity(subject, severity: diagnostic[:severity])}#{trailing}"
         stdout.puts "#{prefix}  #{" " * leading.size}#{"~" * subject.size}"
       end

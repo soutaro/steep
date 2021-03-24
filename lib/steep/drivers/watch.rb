@@ -59,7 +59,6 @@ module Steep
         initialize_id = request_id()
         client_writer.write(method: "initialize", id: initialize_id)
         wait_for_response_id(reader: client_reader, id: initialize_id)
-        client_writer.write(method: "$/typecheck", params: { guid: nil })
 
         Steep.logger.info "Watching #{dirs.join(", ")}..."
 
@@ -115,6 +114,9 @@ module Steep
 
         begin
           stdout.puts Rainbow("👀 Watching directories, Ctrl-C to stop.").bold
+
+          client_writer.write(method: "$/typecheck", params: { guid: nil })
+
           client_reader.read do |response|
             case response[:method]
             when "textDocument/publishDiagnostics"
@@ -128,6 +130,7 @@ module Steep
               unless diagnostics.empty?
                 diagnostics.each do |diagnostic|
                   printer.print(diagnostic)
+                  stdout.flush
                 end
               end
             when "window/showMessage"

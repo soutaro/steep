@@ -68,11 +68,6 @@ module Steep
                 diagnostics: diagnostics.map {|diagnostic| formatter.format(diagnostic) }.uniq
               )
             )
-
-            writer.write(
-              method: "$/typecheck/progress",
-              params: { guid: job.guid, path: absolute_path }
-            )
           end
         when WorkspaceSymbolJob
           writer.write(
@@ -87,15 +82,23 @@ module Steep
         end
       end
 
+      def typecheck_progress(guid:, path:)
+        writer.write(
+          method: "$/typecheck/progress",
+          params: { guid: guid, path: path }
+        )
+      end
+
       def run_typecheck(job, &block)
         pop_buffer() do |changes|
           formatter = Diagnostic::LSPFormatter.new()
 
-          request = service.update(changes: changes)
+          service.update(changes: changes)
 
           job.library_paths.each do |path|
             if job.priority_paths.include?(path)
               service.validate_signature(path: path, &block)
+              typecheck_progress(path: path, guid: job.guid)
             end
           end
 
@@ -105,6 +108,7 @@ module Steep
                 path: project.relative_path(path),
                 &block
               )
+              typecheck_progress(path: path, guid: job.guid)
             end
           end
 
@@ -114,12 +118,14 @@ module Steep
                 path: project.relative_path(path),
                 &block
               )
+              typecheck_progress(path: path, guid: job.guid)
             end
           end
 
           job.library_paths.each do |path|
             unless job.priority_paths.include?(path)
               service.validate_signature(path: path, &block)
+              typecheck_progress(path: path, guid: job.guid)
             end
           end
 
@@ -129,6 +135,7 @@ module Steep
                 path: project.relative_path(path),
                 &block
               )
+              typecheck_progress(path: path, guid: job.guid)
             end
           end
 
@@ -138,6 +145,7 @@ module Steep
                 path: project.relative_path(path),
                 &block
               )
+              typecheck_progress(path: path, guid: job.guid)
             end
           end
         end

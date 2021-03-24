@@ -170,9 +170,9 @@ module Steep
   end
 
   def self.log_error(exn, message: "Unexpected error: #{exn.inspect}")
-    Steep.logger.error message
+    Steep.logger.fatal message
     exn.backtrace.each do |loc|
-      Steep.logger.warn "  #{loc}"
+      Steep.logger.error "  #{loc}"
     end
   end
 

@@ -18,7 +18,7 @@ class CLITest < Minitest::Test
 
   def test_version
     in_tmpdir do
-      stdout, _ = sh!(*steep, "version")
+      stdout = sh!(*steep, "version")
 
       assert_equal "#{Steep::VERSION}", stdout.chomp
     end
@@ -36,9 +36,9 @@ end
 1 + 2
       EOF
 
-      stdout, _, status = sh(*steep, "check")
+      stdout, status = sh(*steep, "check")
 
-      assert_predicate status, :success?
+      assert_predicate status, :success?, stdout
       assert_match /No type error detected\./, stdout
     end
   end
@@ -55,9 +55,9 @@ end
 1 + "2"
       EOF
 
-      stdout, _, status = sh(*steep, "check")
+      stdout, status = sh(*steep, "check")
 
-      refute_predicate status, :success?
+      refute_predicate status, :success?, stdout
       assert_match /Detected 1 problem from 1 file/, stdout
     end
   end
@@ -74,11 +74,11 @@ end
 1 + "2"
       EOF
 
-      stdout, _, status = sh(*steep, "check", "--save-expectation=foo.yml")
+      stdout, status = sh(*steep, "check", "--save-expectation=foo.yml")
       assert_predicate status, :success?
       assert_match /Saved expectations in foo\.yml\.\.\./, stdout
 
-      stdout, _, status = sh(*steep, "check", "--with-expectation=foo.yml")
+      stdout, status = sh(*steep, "check", "--with-expectation=foo.yml")
       assert_predicate status, :success?
       assert_match /Expectations satisfied:/, stdout
     end
@@ -99,16 +99,16 @@ end
 1 + "2"
       EOF
 
-      stdout, _, status = sh(*steep, "check", "--save-expectation=foo.yml")
-      assert_predicate status, :success?
+      stdout, status = sh(*steep, "check", "--save-expectation=foo.yml")
+      assert_predicate status, :success?, stdout
       assert_match /Saved expectations in foo\.yml\.\.\./, stdout
 
       (current_dir + "foo.rb").write(<<-EOF)
 1 + "2"
       EOF
 
-      stdout, _, status = sh(*steep, "check", "--with-expectation=foo.yml")
-      refute_predicate status, :success?
+      stdout, status = sh(*steep, "check", "--with-expectation=foo.yml")
+      refute_predicate status, :success?, stdout
 
       assert_match /Expectations unsatisfied:/, stdout
       assert_match /0 expected diagnostics/, stdout
@@ -129,16 +129,16 @@ end
 1 + "2"
       EOF
 
-      stdout, _, status = sh(*steep, "check", "--save-expectation=foo.yml")
-      assert_predicate status, :success?
+      stdout, status = sh(*steep, "check", "--save-expectation=foo.yml")
+      assert_predicate status, :success?, stdout
       assert_match /Saved expectations in foo\.yml\.\.\./, stdout
 
       (current_dir + "foo.rb").write(<<-EOF)
 1 + 2
       EOF
 
-      stdout, _, status = sh(*steep, "check", "--with-expectation=foo.yml")
-      refute_predicate status, :success?
+      stdout, status = sh(*steep, "check", "--with-expectation=foo.yml")
+      refute_predicate status, :success?, stdout
 
       assert_match /Expectations unsatisfied:/, stdout
       assert_match /0 expected diagnostics/, stdout
@@ -163,24 +163,24 @@ end
 1 + "2"
       EOF
 
-      stdout, _, status = sh(*steep, "check", "--save-expectation")
-      assert_predicate status, :success?
+      stdout, status = sh(*steep, "check", "--save-expectation")
+      assert_predicate status, :success?, stdout
       assert_match /Saved expectations in steep_expectations\.yml\.\.\./, stdout
 
       (current_dir + "foo.rb").write(<<-EOF)
 1 + 2
       EOF
 
-      stdout, _, status = sh(*steep, "check", "--with-expectation", "foo.rb")
-      refute_predicate status, :success?
+      stdout, status = sh(*steep, "check", "--with-expectation", "foo.rb")
+      refute_predicate status, :success?, stdout
 
       assert_match /Expectations unsatisfied:/, stdout
       assert_match /0 expected diagnostics/, stdout
       assert_match /0 unexpected diagnostics/, stdout
       assert_match /1 missing diagnostic/, stdout
 
-      stdout, _, status = sh(*steep, "check", "--with-expectation", "bar.rb")
-      assert_predicate status, :success?
+      stdout, status = sh(*steep, "check", "--with-expectation", "bar.rb")
+      assert_predicate status, :success?, stdout
 
       assert_match /Expectations satisfied:/, stdout
       assert_match /1 expected diagnostic/, stdout
@@ -188,8 +188,6 @@ end
   end
 
   def test_check_broken
-    skip
-
     in_tmpdir do
       (current_dir + "Steepfile").write(<<-EOF)
 target :app do
@@ -201,10 +199,9 @@ end
 無効なUTF-8ファイル
       EOF
 
-      stdout, stderr, status = sh(*steep, "check")
-      refute_predicate status, :success?
-      assert_match /Unexpected error reported./, stdout
-      assert_match /ArgumentError: invalid byte sequence in UTF-8/, stderr
+      stdout, status = sh(*steep, "check")
+      refute_predicate status, :success?, stdout
+      assert_match /invalid byte sequence in UTF-8/, stdout.force_encoding(Encoding::ASCII_8BIT)
     end
   end
 
@@ -227,7 +224,7 @@ target :app do
 end
       EOF
 
-      stdout, _ = sh!(*steep, "annotations", "foo.rb")
+      stdout = sh!(*steep, "annotations", "foo.rb")
 
       assert_equal <<-RBS, stdout
 foo.rb:1:0:class:\tclass Foo
@@ -244,7 +241,7 @@ foo.rb:4:2:def:\tdef hello(x, y)
 target :app do
 end
       EOF
-      stdout, _ = sh!(*steep, "validate")
+      stdout = sh!(*steep, "validate")
 
       assert_equal "", stdout
     end
@@ -274,23 +271,37 @@ RUBY
 
       (current_dir + "app/lib/foo.rb").write <<RUBY
 # steep will type check this file.
-1 + ""
+1.__first_error__
 RUBY
 
       r, w = IO.pipe
       pid = spawn(*steep.push("watch", "app/lib"), out: w, chdir: current_dir.to_s)
       w.close
 
-      output = []
+      output = ""
 
       begin
         read_thread = Thread.new do
-          while line = r.gets
+          while line = r.gets()
             output << line
           end
         end
 
-        sleep 15
+        finally_holds do
+          assert_includes output, "app/lib/foo.rb:2:2: [error] Type `::Integer` does not have method `__first_error__`"
+          refute_includes output, "app/models/person.rb"
+        end
+
+        (current_dir + "app/lib/foo.rb").write <<RUBY
+# steep will type check this file.
+1.__second_error__
+RUBY
+
+        finally_holds do
+          assert_includes output, "Type checking updated files..."
+          assert_includes output, "app/lib/foo.rb:2:2: [error] Type `::Integer` does not have method `__second_error__`"
+          refute_includes output, "app/models/person.rb"
+        end
       ensure
         Process.kill(:INT, pid)
         read_thread.join
@@ -298,9 +309,6 @@ RUBY
         Process.waitpid(pid)
         assert_equal 0, $?.exitstatus
       end
-
-      assert_includes output.join("\n"), "app/lib/foo.rb"
-      refute_includes output.join("\n"), "app/models/person.rb"
     end
   end
 
@@ -329,7 +337,7 @@ RUBY
       pid = spawn(*steep.push("watch", "app/models/person.rb"), out: w, chdir: current_dir.to_s)
       w.close
 
-      output = []
+      output = ""
 
       begin
         read_thread = Thread.new do
@@ -338,12 +346,14 @@ RUBY
           end
         end
 
-        sleep 10
-
         (current_dir + "app/models/group.rb").write <<RUBY
 1+"2"
 RUBY
-        sleep 5
+
+        finally_holds do
+          assert_includes output, "app/models/person.rb"
+          refute_includes output, "app/models/group.rb"
+        end
       ensure
         Process.kill(:INT, pid)
         read_thread.join
@@ -351,8 +361,6 @@ RUBY
         assert_equal 0, $?.exitstatus
       end
 
-      assert_includes output.join("\n"), "app/models/person.rb"
-      refute_includes output.join("\n"), "app/models/group.rb"
     end
   end
 
@@ -368,9 +376,9 @@ end
 1 + 2
       EOF
 
-      stdout, _, status = sh(*steep, "stats")
+      stdout, status = sh(*steep, "stats")
 
-      assert_predicate status, :success?
+      assert_predicate status, :success?, stdout
       assert_equal <<CSV, stdout
 Target,File,Status,Typed calls,Untyped calls,All calls,Typed %
 app,foo.rb,success,1,0,1,100
