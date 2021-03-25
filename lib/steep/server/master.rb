@@ -460,9 +460,6 @@ module Steep
           @client_write_thread = Thread.new do
             Steep.logger.formatter.push_tags(*tags, "write")
 
-            # Start writing to client after `initialize` request
-            Thread.stop
-
             while message = write_queue.pop
               writer.write(message)
             end
@@ -544,14 +541,13 @@ module Steep
                   )
                 )
               }
-
-              if typecheck_automatically
-                request = controller.make_request(include_unchanged: true)
-                start_type_check(request, last_request: nil, start_progress: request.total > 10)
-              end
-
-              client_write_thread.wakeup()
             end
+          end
+
+        when "initialized"
+          if typecheck_automatically
+            request = controller.make_request(include_unchanged: true)
+            start_type_check(request, last_request: nil, start_progress: request.total > 10)
           end
 
         when "textDocument/didChange"
