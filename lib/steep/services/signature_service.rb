@@ -71,11 +71,17 @@ module Steep
         new(env: env)
       end
 
+      def env_rbs_paths
+        @env_rbs_paths ||= latest_env.buffers.each.with_object(Set[]) do |buffer, set|
+          set << Pathname(buffer.name)
+        end
+      end
+
       def each_rbs_path(&block)
         if block
-          latest_env.buffers.each do |buffer|
-            unless files.key?(buffer.name)
-              yield Pathname(buffer.name)
+          env_rbs_paths.each do |path|
+            unless files.key?(path)
+              yield path
             end
           end
 
@@ -133,6 +139,12 @@ module Steep
 
                 update[path] = begin
                                  FileStatus.new(path: path, content: content, decls: RBS::Parser.parse_signature(buffer))
+                               rescue ArgumentError => exn
+                                 error = Diagnostic::Signature::UnexpectedError.new(
+                                   message: exn.message,
+                                   location: RBS::Location.new(buffer: buffer, start_pos: 0, end_pos: content.size)
+                                 )
+                                 FileStatus.new(path: path, content: content, decls: error)
                                rescue RBS::ParsingError => exn
                                  FileStatus.new(path: path, content: content, decls: exn)
                                end
@@ -148,13 +160,18 @@ module Steep
           paths = Set.new(updates.each_key)
           paths.merge(pending_changed_paths)
 
-          if updates.each_value.any? {|file| file.decls.is_a?(RBS::ParsingError) }
+          if updates.each_value.any? {|file| !file.decls.is_a?(Array) }
             diagnostics = []
 
             updates.each_value do |file|
-              if file.decls.is_a?(RBS::ParsingError)
-                # factory is not used here because the error is a syntax error.
-                diagnostics << Diagnostic::Signature.from_rbs_error(file.decls, factory: nil)
+              unless file.decls.is_a?(Array)
+                diagnostic = if file.decls.is_a?(Diagnostic::Signature::Base)
+                               file.decls
+                             else
+                               # factory is not used here because the error is a syntax error.
+                               Diagnostic::Signature.from_rbs_error(file.decls, factory: nil)
+                             end
+                diagnostics << diagnostic
               end
             end
 
@@ -206,7 +223,8 @@ module Steep
 
           Steep.measure "Loading new decls" do
             updated_files.each_value do |content|
-              if content.decls.is_a?(RBS::ErrorBase)
+              case decls = content.decls
+              when RBS::ErrorBase
                 errors << content.decls
               else
                 begin

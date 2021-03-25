@@ -9,24 +9,8 @@ class TypeCheckWorkerTest < Minitest::Test
 
   LSP = LanguageServer::Protocol::Interface
 
+  TypeCheckWorker = Server::TypeCheckWorker
   ContentChange = Services::ContentChange
-
-  def flush_queue(queue)
-    queue << self
-
-    copy = []
-
-    while true
-      ret = queue.pop
-
-      break if ret.nil?
-      break if ret.equal?(self)
-
-      copy << ret
-    end
-
-    copy
-  end
 
   def dirs
     @dirs ||= []
@@ -101,7 +85,7 @@ EOF
     end
   end
 
-  def test_handle_initialize
+  def test_handle_request_initialize
     in_tmpdir do
       project = Project.new(steepfile_path: current_dir + "Steepfile")
       Project::DSL.parse(project, <<EOF)
@@ -128,13 +112,11 @@ EOF
       )
 
       jobs = flush_queue(worker.queue)
-
-      assert_equal 1, jobs.size
-      assert_instance_of Server::TypeCheckWorker::TypeCheckJob, jobs[0]
+      assert_empty jobs
     end
   end
 
-  def test_handle_update
+  def test_handle_request_document_did_change
     in_tmpdir do
       project = Project.new(steepfile_path: current_dir + "Steepfile")
       Project::DSL.parse(project, <<EOF)
@@ -173,16 +155,14 @@ end
       )
 
       jobs = flush_queue(worker.queue)
-
-      assert_equal 1, jobs.size
-      assert_instance_of Server::TypeCheckWorker::TypeCheckJob, jobs[0]
+      assert_empty jobs
 
       changes = worker.pop_buffer
       assert_equal({ Pathname("lib/hello.rb") => [Services::ContentChange.string("class Foo\nend\n")] }, changes)
     end
   end
 
-  def test_job_typecheck
+  def test_handle_request_typecheck_start
     in_tmpdir do
       project = Project.new(steepfile_path: current_dir + "Steepfile")
       Project::DSL.parse(project, <<EOF)
@@ -192,16 +172,111 @@ target :lib do
 end
 EOF
 
-      reader = Thread.new do
-        responses = []
+      worker = Server::TypeCheckWorker.new(
+        project: project,
+        assignment: assignment,
+        commandline_args: [],
+        reader: worker_reader,
+        writer: worker_writer
+      )
+      worker.load_files(project: worker.project, commandline_args: [])
 
-        master_reader.read do |response|
-          break if response[:method] == "close"
-          responses << response
-        end
+      worker.handle_request(
+        {
+          method: "$/typecheck/start",
+          params: {
+            guid: "guid1",
+            priority_uris: ["file://#{current_dir}/lib/hello.rb"],
+            signature_uris: ["file://#{current_dir}/sig/hello.rbs"],
+            code_uris: ["file://#{current_dir}/lib/hello.rb"],
+            library_uris: ["file://#{RBS::EnvironmentLoader::DEFAULT_CORE_ROOT + "object.rbs"}"]
+          }
+        }
+      )
 
-        responses
+      jobs = flush_queue(worker.queue)
+      assert_equal 4, jobs.size
+
+      assert_equal "guid1", worker.current_type_check_guid
+
+      jobs[0].tap do |job|
+        assert_instance_of TypeCheckWorker::StartTypeCheckJob, job
+        assert_equal "guid1", job.guid
       end
+
+      assert_any!(jobs) do |job|
+        assert_instance_of TypeCheckWorker::ValidateAppSignatureJob, job
+        assert_equal "guid1", job.guid
+        assert_equal current_dir + "sig/hello.rbs", job.path
+      end
+
+      assert_any!(jobs) do |job|
+        assert_instance_of TypeCheckWorker::ValidateLibrarySignatureJob, job
+        assert_equal "guid1", job.guid
+        assert_equal RBS::EnvironmentLoader::DEFAULT_CORE_ROOT + "object.rbs", job.path
+      end
+
+      assert_any!(jobs) do |job|
+        assert_instance_of TypeCheckWorker::TypeCheckCodeJob, job
+        assert_equal "guid1", job.guid
+        assert_equal current_dir + "lib/hello.rb", job.path
+      end
+    end
+  end
+
+  def test_handle_job_start_typecheck
+    in_tmpdir do
+      project = Project.new(steepfile_path: current_dir + "Steepfile")
+      Project::DSL.parse(project, <<EOF)
+target :lib do
+  check "lib"
+  signature "sig"
+end
+EOF
+
+      worker = Server::TypeCheckWorker.new(
+        project: project,
+        assignment: assignment,
+        commandline_args: [],
+        reader: worker_reader,
+        writer: worker_writer
+      )
+      worker.load_files(project: worker.project, commandline_args: [])
+
+      changes = {}
+      changes[Pathname("lib/hello.rb")] = [Services::ContentChange.string(<<EOF)]
+Hello.new.world(10)
+EOF
+      changes[Pathname("sig/hello.rbs")] = [Services::ContentChange.string(<<EOF)]
+class Hello
+  def world: () -> void
+end
+EOF
+      job = TypeCheckWorker::StartTypeCheckJob.new(guid: "guid", changes: changes)
+
+      # StartTypeCheckJob applies buffered changes to TypeCheckService
+      worker.handle_job(job)
+
+      assert_equal <<RUBY, worker.service.source_files[Pathname("lib/hello.rb")].content
+Hello.new.world(10)
+RUBY
+      assert_equal <<RBS, worker.service.signature_services[:lib].files[Pathname("sig/hello.rbs")].content
+class Hello
+  def world: () -> void
+end
+RBS
+    end
+  end
+
+  def test_handle_job_validate_app_signature
+    in_tmpdir do
+      project = Project.new(steepfile_path: current_dir + "Steepfile")
+      Project::DSL.parse(project, <<EOF)
+target :lib do
+  check "lib"
+  signature "sig"
+end
+EOF
 
       worker = Server::TypeCheckWorker.new(
         project: project,
@@ -211,7 +286,10 @@ EOF
         writer: worker_writer
       )
 
-      worker.push_buffer do |changes|
+      worker.load_files(project: worker.project, commandline_args: [])
+      worker.instance_variable_set(:@current_type_check_guid, "guid")
+
+      {}.tap do |changes|
         changes[Pathname("lib/hello.rb")] = [Services::ContentChange.string(<<EOF)]
 Hello.new.world(10)
 EOF
@@ -220,19 +298,255 @@ class Hello
   def world: () -> void
 end
 EOF
+        worker.handle_job(TypeCheckWorker::StartTypeCheckJob.new(guid: "guid", changes: changes))
       end
 
-      worker.handle_job(Server::TypeCheckWorker::TypeCheckJob.new)
-      worker_writer.write({ method: "close" })
+      job = TypeCheckWorker::ValidateAppSignatureJob.new(guid: "guid", path: current_dir + "sig/hello.rbs")
+      worker.handle_job(job)
 
-      responses = reader.join.value
-      responses.find {|resp| resp.dig(:params, :uri) =~ /\/lib\/hello\.rb/ }.tap do |resp|
-        diagnostics = resp.dig(:params, :diagnostics)
-        assert_equal ["Ruby::IncompatibleArguments"], diagnostics.map {|d| d[:code] }
+      master_reader.read {|response| break response }.tap do |message|
+        assert_equal "textDocument/publishDiagnostics", message[:method]
+        assert_equal "file://#{current_dir + "sig/hello.rbs"}", message[:params][:uri]
       end
-      responses.find {|resp| resp.dig(:params, :uri) =~ /\/sig\/hello\.rbs/ }.tap do |resp|
-        diagnostics = resp.dig(:params, :diagnostics)
-        assert_empty diagnostics
+
+      master_reader.read {|response| break response }.tap do |message|
+        assert_equal "$/typecheck/progress", message[:method]
+        assert_equal "guid", message[:params][:guid]
+        assert_equal (current_dir + "sig/hello.rbs").to_s, message[:params][:path]
+      end
+    end
+  end
+
+  def test_handle_job_validate_app_signature_skip
+    in_tmpdir do
+      project = Project.new(steepfile_path: current_dir + "Steepfile")
+      Project::DSL.parse(project, <<EOF)
+target :lib do
+  check "lib"
+  signature "sig"
+end
+EOF
+
+      worker = Server::TypeCheckWorker.new(
+        project: project,
+        assignment: assignment,
+        commandline_args: [],
+        reader: worker_reader,
+        writer: worker_writer
+      )
+
+      worker.load_files(project: worker.project, commandline_args: [])
+      worker.instance_variable_set(:@current_type_check_guid, nil)
+
+      {}.tap do |changes|
+        changes[Pathname("lib/hello.rb")] = [Services::ContentChange.string(<<EOF)]
+Hello.new.world(10)
+EOF
+        changes[Pathname("sig/hello.rbs")] = [Services::ContentChange.string(<<EOF)]
+class Hello
+  def world: () -> void
+end
+EOF
+        worker.handle_job(TypeCheckWorker::StartTypeCheckJob.new(guid: "guid", changes: changes))
+      end
+
+      job = TypeCheckWorker::ValidateAppSignatureJob.new(guid: "guid", path: current_dir + "sig/hello.rbs")
+      worker.handle_job(job)
+
+      # handle_job doesn't write anything because the #current_type_check_guid is different.
+      worker.writer.write({ method: "sentinel"})
+      master_reader.read {|response| break response }.tap do |message|
+        assert_equal "sentinel", message[:method]
+      end
+    end
+  end
+
+  def test_handle_job_validate_lib_signature
+    in_tmpdir do
+      project = Project.new(steepfile_path: current_dir + "Steepfile")
+      Project::DSL.parse(project, <<EOF)
+target :lib do
+  check "lib"
+  signature "sig"
+end
+EOF
+
+      worker = Server::TypeCheckWorker.new(
+        project: project,
+        assignment: assignment,
+        commandline_args: [],
+        reader: worker_reader,
+        writer: worker_writer
+      )
+
+      worker.load_files(project: worker.project, commandline_args: [])
+      worker.instance_variable_set(:@current_type_check_guid, "guid")
+
+      {}.tap do |changes|
+        changes[Pathname("lib/hello.rb")] = [Services::ContentChange.string(<<EOF)]
+Hello.new.world(10)
+EOF
+        changes[Pathname("sig/hello.rbs")] = [Services::ContentChange.string(<<EOF)]
+class Hello
+  def world: () -> void
+end
+EOF
+        worker.handle_job(TypeCheckWorker::StartTypeCheckJob.new(guid: "guid", changes: changes))
+      end
+
+      job = TypeCheckWorker::ValidateLibrarySignatureJob.new(
+        guid: "guid",
+        path: RBS::EnvironmentLoader::DEFAULT_CORE_ROOT + "object.rbs"
+      )
+      worker.handle_job(job)
+
+      master_reader.read {|response| break response }.tap do |message|
+        assert_equal "textDocument/publishDiagnostics", message[:method]
+        assert_equal "file://#{RBS::EnvironmentLoader::DEFAULT_CORE_ROOT + "object.rbs"}", message[:params][:uri]
+      end
+
+      master_reader.read {|response| break response }.tap do |message|
+        assert_equal "$/typecheck/progress", message[:method]
+        assert_equal "guid", message[:params][:guid]
+        assert_equal (RBS::EnvironmentLoader::DEFAULT_CORE_ROOT + "object.rbs").to_s, message[:params][:path]
+      end
+    end
+  end
+
+  def test_handle_job_validate_lib_signature_skip
+    in_tmpdir do
+      project = Project.new(steepfile_path: current_dir + "Steepfile")
+      Project::DSL.parse(project, <<EOF)
+target :lib do
+  check "lib"
+  signature "sig"
+end
+EOF
+
+      worker = Server::TypeCheckWorker.new(
+        project: project,
+        assignment: assignment,
+        commandline_args: [],
+        reader: worker_reader,
+        writer: worker_writer
+      )
+
+      worker.load_files(project: worker.project, commandline_args: [])
+      worker.instance_variable_set(:@current_type_check_guid, nil)
+
+      {}.tap do |changes|
+        changes[Pathname("lib/hello.rb")] = [Services::ContentChange.string(<<EOF)]
+Hello.new.world(10)
+EOF
+        changes[Pathname("sig/hello.rbs")] = [Services::ContentChange.string(<<EOF)]
+class Hello
+  def world: () -> void
+end
+EOF
+        worker.handle_job(TypeCheckWorker::StartTypeCheckJob.new(guid: "guid", changes: changes))
+      end
+
+      job = TypeCheckWorker::ValidateLibrarySignatureJob.new(
+        guid: "guid",
+        path: RBS::EnvironmentLoader::DEFAULT_CORE_ROOT + "object.rbs"
+      )
+
+      # handle_job doesn't write anything because the #current_type_check_guid is different.
+      worker.writer.write({ method: "sentinel"})
+      master_reader.read {|response| break response }.tap do |message|
+        assert_equal "sentinel", message[:method]
+      end
+    end
+  end
+
+  def test_handle_job_typecheck_code
+    in_tmpdir do
+      project = Project.new(steepfile_path: current_dir + "Steepfile")
+      Project::DSL.parse(project, <<EOF)
+target :lib do
+  check "lib"
+  signature "sig"
+end
+EOF
+
+      worker = Server::TypeCheckWorker.new(
+        project: project,
+        assignment: assignment,
+        commandline_args: [],
+        reader: worker_reader,
+        writer: worker_writer
+      )
+
+      worker.load_files(project: worker.project, commandline_args: [])
+      worker.instance_variable_set(:@current_type_check_guid, "guid")
+
+      {}.tap do |changes|
+        changes[Pathname("lib/hello.rb")] = [Services::ContentChange.string(<<EOF)]
+Hello.new.world(10)
+EOF
+        changes[Pathname("sig/hello.rbs")] = [Services::ContentChange.string(<<EOF)]
+class Hello
+  def world: () -> void
+end
+EOF
+        worker.handle_job(TypeCheckWorker::StartTypeCheckJob.new(guid: "guid", changes: changes))
+      end
+
+      job = TypeCheckWorker::TypeCheckCodeJob.new(guid: "guid", path: current_dir + "lib/hello.rb")
+      worker.handle_job(job)
+
+      master_reader.read {|response| break response }.tap do |message|
+        assert_equal "textDocument/publishDiagnostics", message[:method]
+        assert_equal "file://#{current_dir + "lib/hello.rb"}", message[:params][:uri]
+      end
+
+      master_reader.read {|response| break response }.tap do |message|
+        assert_equal "$/typecheck/progress", message[:method]
+        assert_equal "guid", message[:params][:guid]
+        assert_equal (current_dir + "lib/hello.rb").to_s, message[:params][:path]
+      end
+    end
+  end
+
+  def test_handle_job_validate_lib_signature_skip
+    in_tmpdir do
+      project = Project.new(steepfile_path: current_dir + "Steepfile")
+      Project::DSL.parse(project, <<EOF)
+target :lib do
+  check "lib"
+  signature "sig"
+end
+EOF
+
+      worker = Server::TypeCheckWorker.new(
+        project: project,
+        assignment: assignment,
+        commandline_args: [],
+        reader: worker_reader,
+        writer: worker_writer
+      )
+
+      worker.load_files(project: worker.project, commandline_args: [])
+      worker.instance_variable_set(:@current_type_check_guid, nil)
+
+      {}.tap do |changes|
+        changes[Pathname("lib/hello.rb")] = [Services::ContentChange.string(<<EOF)]
+Hello.new.world(10)
+EOF
+        changes[Pathname("sig/hello.rbs")] = [Services::ContentChange.string(<<EOF)]
+class Hello
+  def world: () -> void
+end
+EOF
+        worker.handle_job(TypeCheckWorker::StartTypeCheckJob.new(guid: "guid", changes: changes))
+      end
+
+      job = TypeCheckWorker::TypeCheckCodeJob.new(guid: "guid", path: current_dir + "lib/hello.rb")
+
+      # handle_job doesn't write anything because the #current_type_check_guid is different.
+      worker.writer.write({ method: "sentinel"})
+      master_reader.read {|response| break response }.tap do |message|
+        assert_equal "sentinel", message[:method]
       end
     end
   end
@@ -324,14 +638,17 @@ RUBY
         writer: worker_writer
       )
 
-      worker.service.update(changes: {
-        Pathname("lib/hello.rb") => [Services::ContentChange.string(<<RUBY)],
+      worker.service.update_and_check(
+        changes: {
+          Pathname("lib/hello.rb") => [Services::ContentChange.string(<<RUBY)],
 Hello.new.world(10)
 RUBY
-        Pathname("lib/world.rb") => [Services::ContentChange.string(<<RUBY)]
+          Pathname("lib/world.rb") => [Services::ContentChange.string(<<RUBY)]
 1+
 RUBY
-      }) {}
+        },
+        assignment: assignment
+      ) {}
 
       result = worker.stats_result()
 

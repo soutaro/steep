@@ -21,7 +21,7 @@ RUBY
     project = Project.new(steepfile_path: current_dir + "Steepfile")
     Project::DSL.parse(project, steepfile)
 
-    Services::TypeCheckService.new(project: project, assignment: Services::PathAssignment.all).no_type_checking!
+    Services::TypeCheckService.new(project: project)
   end
 
   def test_hover_content

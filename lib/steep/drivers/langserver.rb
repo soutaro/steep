@@ -47,6 +47,7 @@ module Steep
           interaction_worker: interaction_worker,
           typecheck_workers: typecheck_workers
         )
+        master.typecheck_automatically = true
 
         master.start()
 

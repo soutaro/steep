@@ -14,15 +14,13 @@ module Steep
       end
 
       def =~(path)
-        path = path.to_s
+        (cache[path] ||= self.class.index_for(path: path.to_s, max_index: max_index)) == index
+      end
 
-        if cache.key?(path)
-          cache[path]
-        else
-          value = Digest::MD5.hexdigest(path).hex % max_index == index
-          cache[path] = value
-          value
-        end
+      alias === =~
+
+      def self.index_for(path:, max_index:)
+        Digest::MD5.hexdigest(path).hex % max_index
       end
     end
   end

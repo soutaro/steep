@@ -4,10 +4,14 @@ module Steep
       LSP = LanguageServer::Protocol
       SymbolInformation = Struct.new(:name, :kind, :container_name, :location, keyword_init: true)
 
+      attr_reader :project
       attr_reader :indexes
+      attr_reader :assignment
 
-      def initialize()
+      def initialize(project:, assignment:)
         @indexes = []
+        @project = project
+        @assignment = assignment
       end
 
       def self.test_type_name(query, type_name)
@@ -33,7 +37,17 @@ module Steep
         end
       end
 
-      def query_symbol(query, assignment:)
+      def assigned?(path)
+        if path.relative?
+          if project.targets.any? {|target| target.possible_signature_file?(path) }
+            path = project.absolute_path(path)
+          end
+        end
+
+        assignment =~ path
+      end
+
+      def query_symbol(query)
         symbols = []
 
         indexes.each do |index|
@@ -46,7 +60,7 @@ module Steep
               name = entry.type_name.name.to_s
 
               entry.declarations.each do |decl|
-                next unless assignment =~ decl.location.buffer.name
+                next unless assigned?(Pathname(decl.location.buffer.name))
 
                 case decl
                 when RBS::AST::Declarations::Class
@@ -91,7 +105,7 @@ module Steep
               container_name = entry.method_name.type_name.relative!.to_s
 
               entry.declarations.each do |decl|
-                next unless assignment =~ decl.location.buffer.name
+                next unless assigned?(Pathname(decl.location.buffer.name))
 
                 case decl
                 when RBS::AST::Members::MethodDefinition
@@ -130,7 +144,7 @@ module Steep
               next unless SignatureSymbolProvider.test_const_name(query, entry.const_name)
 
               entry.declarations.each do |decl|
-                next unless assignment =~ decl.location.buffer.name
+                next unless assigned?(Pathname(decl.location.buffer.name))
 
                 symbols << SymbolInformation.new(
                   name: entry.const_name.name.to_s,
@@ -143,7 +157,7 @@ module Steep
               next unless SignatureSymbolProvider.test_global_name(query, entry.global_name)
 
               entry.declarations.each do |decl|
-                next unless assignment =~ decl.location.buffer.name
+                next unless assigned?(Pathname(decl.location.buffer.name))
 
                 symbols << SymbolInformation.new(
                   name: decl.name.to_s,

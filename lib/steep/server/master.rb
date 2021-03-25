@@ -1,11 +1,232 @@
 module Steep
   module Server
     class Master
+      class TypeCheckRequest
+        attr_reader :guid
+        attr_reader :library_paths
+        attr_reader :signature_paths
+        attr_reader :code_paths
+        attr_reader :priority_paths
+        attr_reader :checked_paths
+
+        def initialize(guid:)
+          @guid = guid
+          @library_paths = Set[]
+          @signature_paths = Set[]
+          @code_paths = Set[]
+          @priority_paths = Set[]
+          @checked_paths = Set[]
+        end
+
+        def uri(path)
+          URI.parse(path.to_s).tap do |uri|
+            uri.scheme = "file"
+          end
+        end
+
+        def as_json(assignment:)
+          {
+            guid: guid,
+            library_uris: library_paths.grep(assignment).map {|path| uri(path).to_s },
+            signature_uris: signature_paths.grep(assignment).map {|path| uri(path).to_s },
+            code_uris: code_paths.grep(assignment).map {|path| uri(path).to_s },
+            priority_uris: priority_paths.map {|path| uri(path).to_s }
+          }
+        end
+
+        def total
+          library_paths.size + signature_paths.size + code_paths.size
+        end
+
+        def percentage
+          checked_paths.size * 100 / total
+        end
+
+        def all_paths
+          library_paths + signature_paths + code_paths
+        end
+
+        def checking_path?(path)
+          library_paths.include?(path) ||
+            signature_paths.include?(path) ||
+            code_paths.include?(path)
+        end
+
+        def checked(path)
+          raise unless checking_path?(path)
+          checked_paths << path
+        end
+
+        def finished?
+          unchecked_paths.empty?
+        end
+
+        def unchecked_paths
+          all_paths - checked_paths
+        end
+
+        def unchecked_code_paths
+          code_paths - checked_paths
+        end
+
+        def unchecked_library_paths
+          library_paths - checked_paths
+        end
+
+        def unchecked_signature_paths
+          signature_paths - checked_paths
+        end
+      end
+
+      class TypeCheckController
+        attr_reader :project
+        attr_reader :priority_paths
+        attr_reader :changed_paths
+        attr_reader :target_paths
+
+        class TargetPaths
+          attr_reader :project
+          attr_reader :target
+          attr_reader :code_paths
+          attr_reader :signature_paths
+          attr_reader :library_paths
+
+          def initialize(project:, target:)
+            @project = project
+            @target = target
+            @code_paths = Set[]
+            @signature_paths = Set[]
+            @library_paths = Set[]
+          end
+
+          def all_paths
+            code_paths + signature_paths + library_paths
+          end
+
+          def library_path?(path)
+            library_paths.include?(path)
+          end
+
+          def signature_path?(path)
+            signature_paths.include?(path)
+          end
+
+          def code_path?(path)
+            code_paths.include?(path)
+          end
+
+          def add(path)
+            return if library_path?(path) || signature_path?(path) || code_path?(path)
+
+            relative_path = project.relative_path(path)
+
+            case
+            when target.source_pattern =~ relative_path
+              code_paths << path
+            when target.signature_pattern =~ relative_path
+              signature_paths << path
+            else
+              library_paths << path
+            end
+          end
+
+          alias << add
+        end
+
+        def initialize(project:)
+          @project = project
+          @priority_paths = Set[]
+          @changed_paths = Set[]
+          @target_paths = project.targets.each.map {|target| TargetPaths.new(project: project, target: target) }
+        end
+
+        def load(command_line_args:)
+          loader = Services::FileLoader.new(base_dir: project.base_dir)
+
+          target_paths.each do |paths|
+            target = paths.target
+
+            signature_service = Services::SignatureService.load_from(target.new_env_loader(project: project))
+            paths.library_paths.merge(signature_service.env_rbs_paths)
+
+            loader.each_path_in_patterns(target.source_pattern, command_line_args) do |path|
+              paths.code_paths << project.absolute_path(path)
+            end
+            loader.each_path_in_patterns(target.signature_pattern) do |path|
+              paths.signature_paths << project.absolute_path(path)
+            end
+
+            changed_paths.merge(paths.all_paths)
+          end
+        end
+
+        def push_changes(path)
+          return if target_paths.any? {|paths| paths.library_path?(path) }
+
+          target_paths.each {|paths| paths << path }
+
+          if target_paths.any? {|paths| paths.code_path?(path) || paths.signature_path?(path) }
+            changed_paths << path
+          end
+        end
+
+        def update_priority(open: nil, close: nil)
+          path = open || close
+
+          target_paths.each {|paths| paths << path }
+
+          case
+          when open
+            priority_paths << path
+          when close
+            priority_paths.delete path
+          end
+        end
+
+        def make_request(guid: SecureRandom.uuid, last_request: nil, include_unchanged: false)
+          return if changed_paths.empty? && !include_unchanged
+
+          TypeCheckRequest.new(guid: guid).tap do |request|
+            if last_request
+              request.library_paths.merge(last_request.unchecked_library_paths)
+              request.signature_paths.merge(last_request.unchecked_signature_paths)
+              request.code_paths.merge(last_request.unchecked_code_paths)
+            end
+
+            if include_unchanged
+              target_paths.each do |paths|
+                request.signature_paths.merge(paths.signature_paths)
+                request.library_paths.merge(paths.library_paths)
+                request.code_paths.merge(paths.code_paths)
+              end
+            else
+              updated_paths = target_paths.select {|paths| changed_paths.intersect?(paths.all_paths) }
+
+              updated_paths.each do |paths|
+                case
+                when paths.signature_paths.intersect?(changed_paths)
+                  request.signature_paths.merge(paths.signature_paths)
+                  request.library_paths.merge(paths.library_paths)
+                  request.code_paths.merge(paths.code_paths)
+                when paths.code_paths.intersect?(changed_paths)
+                  request.code_paths.merge(paths.code_paths & changed_paths)
+                end
+              end
+            end
+
+            request.priority_paths.merge(priority_paths)
+
+            changed_paths.clear()
+          end
+        end
+      end
+
       LSP = LanguageServer::Protocol
 
       attr_reader :steepfile
       attr_reader :project
       attr_reader :reader, :writer
+      attr_reader :commandline_args
 
       attr_reader :interaction_worker
       attr_reader :typecheck_workers
@@ -43,6 +264,10 @@ module Steep
       #
       attr_reader :write_queue
       attr_reader :recon_queue
+      attr_reader :read_worker_queue
+
+      attr_reader :current_type_check_request
+      attr_reader :controller
 
       class ResponseHandler
         attr_reader :workers
@@ -96,21 +321,121 @@ module Steep
         end
       end
 
+      attr_accessor :typecheck_automatically
+      attr_reader :client_write_thread
+
       def initialize(project:, reader:, writer:, interaction_worker:, typecheck_workers:, queue: Queue.new)
         @project = project
         @reader = reader
         @writer = writer
         @write_queue = queue
         @recon_queue = Queue.new
+        @read_worker_queue = Queue.new
         @interaction_worker = interaction_worker
         @typecheck_workers = typecheck_workers
         @shutdown_request_id = nil
         @response_handlers = {}
+        @current_type_check_request = nil
+        @typecheck_automatically = true
+        @commandline_args = []
+        @client_write_thread = nil
+
+        @controller = TypeCheckController.new(project: project)
+      end
+
+      def start_type_check(request, last_request:, start_progress:)
+        Steep.logger.tagged "#start_type_check(#{request.guid}, #{last_request&.guid}" do
+          unless request
+            Steep.logger.info "Skip start type checking"
+            return
+          end
+
+          if last_request
+            Steep.logger.info "Cancelling last request"
+
+            write_queue << {
+              method: "$/progress",
+              params: {
+                token: last_request.guid,
+                value: { kind: "end" }
+              }
+            }
+          end
+
+          if start_progress
+            Steep.logger.info "Starting new progress..."
+
+            @current_type_check_request = request
+
+            write_queue << {
+              id: (Time.now.to_f * 1000).to_i,
+              method: "window/workDoneProgress/create",
+              params: { token: request.guid }
+            }
+
+            write_queue << {
+              method: "$/progress",
+              params: {
+                token: request.guid,
+                value: { kind: "begin", title: "Type checking", percentage: 0 }
+              }
+            }
+
+            if request.finished?
+              write_queue << {
+                method: "$/progress",
+                params: { token: request.guid, value: { kind: "end" } }
+              }
+            end
+          else
+            @current_type_check_request = nil
+          end
+
+          Steep.logger.info "Sending $/typecheck/start notifications"
+          typecheck_workers.each do |worker|
+            assignment = Services::PathAssignment.new(max_index: typecheck_workers.size, index: worker.index)
+
+            worker << {
+              method: "$/typecheck/start",
+              params: request.as_json(assignment: assignment)
+            }
+          end
+        end
+      end
+
+      def on_type_check_update(guid:, path:)
+        if current = current_type_check_request()
+          if current.guid == guid
+            current.checked(path)
+            Steep.logger.info { "Request updated: checked=#{path}, unchecked=#{current.unchecked_paths.size}" }
+            percentage = current.percentage
+            value = if percentage == 100
+                      { kind: "end" }
+                    else
+                      progress_string = ("▮"*(percentage/5)) + ("▯"*(20 - percentage/5))
+                      { kind: "report", percentage: percentage, message: "#{progress_string} (#{percentage}%)" }
+                    end
+
+            write_queue << {
+              method: "$/progress",
+              params: { token: current.guid, value: value }
+            }
+
+            @current_type_check_request = nil if current.finished?
+          end
+        end
       end
 
       def start
         Steep.logger.tagged "master" do
           tags = Steep.logger.formatter.current_tags.dup
+
+          read_worker_thread = Thread.new do
+            Steep.logger.formatter.push_tags(*tags, "read-worker")
+            while (message, worker = read_worker_queue.pop)
+              process_message_from_worker(message, worker: worker)
+            end
+          end
 
           worker_threads = []
 
@@ -118,7 +443,7 @@ module Steep
             worker_threads << Thread.new do
               Steep.logger.formatter.push_tags(*tags, "from-worker@interaction")
               interaction_worker.reader.read do |message|
-                process_message_from_worker(message, worker: interaction_worker)
+                read_worker_queue << [message, interaction_worker]
               end
             end
           end
@@ -127,19 +452,24 @@ module Steep
             worker_threads << Thread.new do
               Steep.logger.formatter.push_tags(*tags, "from-worker@#{worker.name}")
               worker.reader.read do |message|
-                process_message_from_worker(message, worker: worker)
+                read_worker_queue << [message, worker]
               end
             end
           end
 
-          worker_threads << Thread.new do
+          @client_write_thread = Thread.new do
             Steep.logger.formatter.push_tags(*tags, "write")
+
+            # Start writing to client after `initialize` request
+            Thread.stop
+
             while message = write_queue.pop
               writer.write(message)
             end
 
             writer.io.close
           end
+          worker_threads << client_write_thread
 
           worker_threads << Thread.new do
             Steep.logger.formatter.push_tags(*tags, "reconciliation")
@@ -166,6 +496,10 @@ module Steep
             worker_threads.each do |thread|
               thread.join
             end
+
+            read_worker_queue.close()
+
+            read_worker_thread.join()
           end
         end
       end
@@ -179,6 +513,10 @@ module Steep
         end
       end
 
+      def pathname(uri)
+        Pathname(URI.parse(uri).path)
+      end
+
       def process_message_from_client(message)
         Steep.logger.info "Received message #{message[:method]}(#{message[:id]})"
         id = message[:id]
@@ -187,12 +525,16 @@ module Steep
         when "initialize"
           broadcast_request(message) do |handler|
             handler.on_completion do
+              controller.load(command_line_args: commandline_args)
+
               write_queue << {
                 id: id,
                 result: LSP::Interface::InitializeResult.new(
                   capabilities: LSP::Interface::ServerCapabilities.new(
                     text_document_sync: LSP::Interface::TextDocumentSyncOptions.new(
-                      change: LSP::Constant::TextDocumentSyncKind::INCREMENTAL
+                      change: LSP::Constant::TextDocumentSyncKind::INCREMENTAL,
+                      save: true,
+                      open_close: true
                     ),
                     hover_provider: true,
                     completion_provider: LSP::Interface::CompletionOptions.new(
@@ -202,11 +544,38 @@ module Steep
                   )
                 )
               }
+
+              if typecheck_automatically
+                request = controller.make_request(include_unchanged: true)
+                start_type_check(request, last_request: nil, start_progress: request.total > 10)
+              end
+
+              client_write_thread.wakeup()
             end
           end
 
         when "textDocument/didChange"
           broadcast_notification(message)
+          path = pathname(message[:params][:textDocument][:uri])
+          controller.push_changes(path)
+
+        when "textDocument/didSave"
+          if typecheck_automatically
+            request = controller.make_request(last_request: current_type_check_request)
+            start_type_check(
+              request,
+              last_request: current_type_check_request,
+              start_progress: request.total > 10
+            )
+          end
+
+        when "textDocument/didOpen"
+          path = pathname(message[:params][:textDocument][:uri])
+          controller.update_priority(open: path)
+
+        when "textDocument/didClose"
+          path = pathname(message[:params][:textDocument][:uri])
+          controller.update_priority(close: path)
 
         when "textDocument/hover", "textDocument/completion"
           if interaction_worker
@@ -216,9 +585,6 @@ module Steep
               end
             end
           end
-
-        when "textDocument/open"
-          # Ignores open notification
 
         when "workspace/symbol"
           send_request(message, workers: typecheck_workers) do |handler|
@@ -245,6 +611,18 @@ module Steep
               end
             end
           end
+
+        when "$/typecheck"
+          request = controller.make_request(
+            guid: message[:params][:guid],
+            last_request: current_type_check_request,
+            include_unchanged: true
+          )
+          start_type_check(
+            request,
+            last_request: current_type_check_request,
+            start_progress: true
+          )
 
         when "shutdown"
           broadcast_request(message) do |handler|
@@ -302,15 +680,24 @@ module Steep
       end
 
       def process_message_from_worker(message, worker:)
+        Steep.logger.info { "Received message #{message[:method]} (#{message[:id] || "*"}) from worker #{worker.name}" }
+
         case
         when message.key?(:id) && !message.key?(:method)
           # Response from worker
-          Steep.logger.debug { "Received response #{message[:id]} from worker" }
           recon_queue << [message, worker]
         when message.key?(:method) && !message.key?(:id)
           # Notification from worker
-          Steep.logger.debug { "Received notification #{message[:method]} from worker" }
-          write_queue << message
+
+          case message[:method]
+          when "$/typecheck/progress"
+            on_type_check_update(
+              guid: message[:params][:guid],
+              path: Pathname(message[:params][:path])
+            )
+          else
+            write_queue << message
+          end
         end
       end
 

@@ -48,13 +48,17 @@ module Steep
           interaction_worker: nil,
           typecheck_workers: typecheck_workers
         )
+        master.typecheck_automatically = false
+        master.commandline_args.push(*dirs)
 
         main_thread = Thread.start do
           master.start()
         end
         main_thread.abort_on_exception = true
 
-        client_writer.write(method: "initialize", id: 0)
+        initialize_id = request_id()
+        client_writer.write(method: "initialize", id: initialize_id)
+        wait_for_response_id(reader: client_reader, id: initialize_id)
 
         Steep.logger.info "Watching #{dirs.join(", ")}..."
 
@@ -104,10 +108,15 @@ module Steep
               end
             end
           end
+
+          client_writer.write(method: "$/typecheck", params: { guid: nil })
         end.tap(&:start)
 
         begin
           stdout.puts Rainbow("👀 Watching directories, Ctrl-C to stop.").bold
+
+          client_writer.write(method: "$/typecheck", params: { guid: nil })
+
           client_reader.read do |response|
             case response[:method]
             when "textDocument/publishDiagnostics"
@@ -121,6 +130,7 @@ module Steep
               unless diagnostics.empty?
                 diagnostics.each do |diagnostic|
                   printer.print(diagnostic)
+                  stdout.flush
                 end
               end
             when "window/showMessage"
@@ -132,14 +142,9 @@ module Steep
             end
           end
         rescue Interrupt
-          shutdown_id = -1
+          shutdown_id = request_id()
           stdout.puts "Shutting down workers..."
           client_writer.write({ method: :shutdown, id: shutdown_id })
-          client_reader.read do |response|
-            if response[:id] == shutdown_id
-              break
-            end
-          end
           client_writer.write({ method: :exit })
           client_writer.io.close()
         end

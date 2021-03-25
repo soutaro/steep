@@ -25,14 +25,14 @@ module Steep
         signature_pattern =~ path
       end
 
-      def new_env_loader
-        Target.construct_env_loader(options: options)
+      def new_env_loader(project:)
+        Target.construct_env_loader(options: options, project: project)
       end
 
-      def self.construct_env_loader(options:)
+      def self.construct_env_loader(options:, project:)
         repo = RBS::Repository.new(no_stdlib: options.vendor_path)
         options.repository_paths.each do |path|
-          repo.add(path)
+          repo.add(project.absolute_path(path))
         end
 
         loader = RBS::EnvironmentLoader.new(

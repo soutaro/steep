@@ -5,6 +5,8 @@ class TypeCheckServiceTest < Minitest::Test
   include TestHelper
 
   ContentChange = Services::ContentChange
+  TypeCheckService = Services::TypeCheckService
+  TargetRequest = Services::TypeCheckService::TargetRequest
 
   def project
     @project ||= Project.new(steepfile_path: Pathname.pwd + "Steepfile").tap do |project|
@@ -44,15 +46,75 @@ EOF
     end
   end
 
+  def test_update_files
+    service = Services::TypeCheckService.new(project: project)
+
+    # lib.rbs is used in both `lib` and `test`
+    {
+      Pathname("lib.rbs") => [ContentChange.string(<<RBS)],
+class Customer
+end
+RBS
+    }.tap do |changes|
+      requests = service.update(changes: changes)
+
+      assert_predicate requests[:lib], :signature_updated?
+      assert_predicate requests[:test], :signature_updated?
+    end
+
+    # private.rbs is used only in both `lib`
+    {
+      Pathname("private.rbs") => [ContentChange.string(<<RBS)],
+module CustomerHelper
+end
+RBS
+    }.tap do |changes|
+      requests = service.update(changes: changes)
+
+      assert_predicate requests[:lib], :signature_updated?
+      assert_nil requests[:test]
+    end
+
+    # test/customer_test.rb is in `test`
+    {
+      Pathname("test/customer_test.rb") => [ContentChange.string(<<RUBY)],
+RUBY
+    }.tap do |changes|
+      requests = service.update(changes: changes)
+
+      assert_nil requests[:lib]
+      requests[:test].tap do |request|
+        refute_predicate request, :signature_updated?
+        assert_equal Set[Pathname("test/customer_test.rb")], request.source_paths
+      end
+    end
+
+    # test.rbs is in `test`
+    {
+      Pathname("test.rbs") => [ContentChange.string(<<RBS)],
+class CustomerTest
+end
+RBS
+    }.tap do |changes|
+      requests = service.update(changes: changes)
+
+      assert_nil requests[:lib]
+      requests[:test].tap do |request|
+        assert_predicate request, :signature_updated?
+        assert_equal Set[Pathname("test/customer_test.rb")], request.source_paths
+      end
+    end
+  end
+
   def test_update_ruby_syntax_error
-    service = Services::TypeCheckService.new(project: project, assignment: assignment)
+    service = Services::TypeCheckService.new(project: project)
 
     {
       Pathname("lib/syntax_error.rb") => [ContentChange.string(<<RUBY)],
 class Account
 RUBY
     }.tap do |changes|
-      service.update(changes: changes, &reporter)
+      service.update_and_check(changes: changes, assignment: assignment, &reporter)
 
       service.source_files[Pathname("lib/syntax_error.rb")].tap do |file|
         assert_any!(file.errors, size: 1) do |error|
@@ -69,7 +131,7 @@ RUBY
   end
 
   def test_update_encoding_error
-    service = Services::TypeCheckService.new(project: project, assignment: assignment)
+    service = Services::TypeCheckService.new(project: project)
 
     broken = "寿限無寿限無".encode(Encoding::EUC_JP)
 
@@ -78,7 +140,7 @@ RUBY
     {
       Pathname("lib/syntax_error.rb") => [ContentChange.string(broken)]
     }.tap do |changes|
-      service.update(changes: changes, &reporter)
+      service.update_and_check(changes: changes, assignment: assignment, &reporter)
 
       service.source_files[Pathname("lib/syntax_error.rb")].tap do |file|
         assert_nil file.errors
@@ -90,7 +152,7 @@ RUBY
   end
 
   def test_update_ruby_annotation_syntax_error
-    service = Services::TypeCheckService.new(project: project, assignment: assignment)
+    service = Services::TypeCheckService.new(project: project)
 
     {
       Pathname("lib/annotation_syntax_error.rb") => [ContentChange.string(<<RUBY)],
@@ -99,7 +161,7 @@ class Account
 end
 RUBY
     }.tap do |changes|
-      service.update(changes: changes, &reporter)
+      service.update_and_check(changes: changes, assignment: assignment, &reporter)
 
       service.source_files[Pathname("lib/annotation_syntax_error.rb")].tap do |file|
         assert_any!(file.errors, size: 1) do |error|
@@ -116,7 +178,7 @@ RUBY
   def test_update_ruby
     # Update Ruby code notifies diagnostics found in updated files and sets up #diagnostics.
 
-    service = Services::TypeCheckService.new(project: project, assignment: assignment)
+    service = Services::TypeCheckService.new(project: project)
 
     {
       Pathname("lib/no_error.rb") => [ContentChange.string(<<RUBY)],
@@ -127,7 +189,7 @@ RUBY
 1+""
 RUBY
     }.tap do |changes|
-      service.update(changes: changes, &reporter)
+      service.update_and_check(changes: changes, assignment: assignment, &reporter)
 
       assert_equal [], reported_diagnostics.dig(Pathname("lib/no_error.rb"))
       assert_equal "Ruby::UnresolvedOverloading", reported_diagnostics.dig(Pathname("lib/type_error.rb"), 0, :code)
@@ -145,7 +207,7 @@ RUBY
 
   def test_update_signature_1
     # Updating signature runs type check
-    service = Services::TypeCheckService.new(project: project, assignment: assignment)
+    service = Services::TypeCheckService.new(project: project)
 
     {
       Pathname("lib/a.rb") => [ContentChange.string(<<RUBY)],
@@ -153,7 +215,7 @@ account = Account.new
 RUBY
     }.tap do |changes|
       # Account is not defined.
-      service.update(changes: changes, &reporter)
+      service.update_and_check(changes: changes, assignment: assignment, &reporter)
 
       assert_equal "Ruby::FallbackAny", reported_diagnostics.dig(Pathname("lib/a.rb"), 0, :code)
       service.diagnostics[Pathname("lib/a.rb")].tap do |errors|
@@ -171,7 +233,7 @@ end
 RUBY
     }.tap do |changes|
       # Adding RBS file removes the type errors.
-      service.update(changes: changes, &reporter)
+      service.update_and_check(changes: changes, assignment: assignment, &reporter)
 
       assert_empty_diagnostics reported_diagnostics
       assert_empty_diagnostics service.diagnostics
@@ -182,7 +244,7 @@ RUBY
 
   def test_update_signature_2
     # Reports signature errors from all targets
-    service = Services::TypeCheckService.new(project: project, assignment: assignment)
+    service = Services::TypeCheckService.new(project: project)
 
     {
       Pathname("lib.rbs") => [ContentChange.string(<<RBS)],
@@ -202,7 +264,7 @@ RBS
     }.tap do |changes|
       # lib target reports an error on `User`
       # test target reports an error on `User[String]`
-      service.update(changes: changes, &reporter)
+      service.update_and_check(changes: changes, assignment: assignment, &reporter)
 
       reported_diagnostics[Pathname("lib.rbs")].tap do |errors|
         assert_equal 2, errors.size
@@ -231,7 +293,7 @@ RBS
 
   def test_update_signature_3
     # Syntax error in RBS will be reported
-    service = Services::TypeCheckService.new(project: project, assignment: assignment)
+    service = Services::TypeCheckService.new(project: project)
 
     {
       Pathname("lib.rbs") => [ContentChange.string(<<RBS)],
@@ -239,7 +301,7 @@ class Account[z]
 end
 RBS
     }.tap do |changes|
-      service.update(changes: changes, &reporter)
+      service.update_and_check(changes: changes, assignment: assignment, &reporter)
 
       reported_diagnostics[Pathname("lib.rbs")].tap do |errors|
         assert_equal 1, errors.size
@@ -259,14 +321,14 @@ RBS
 
   def test_update_signature_4
     # Target with syntax error RBS won't report new type errors.
-    service = Services::TypeCheckService.new(project: project, assignment: assignment)
+    service = Services::TypeCheckService.new(project: project)
 
     {
       Pathname("lib/a.rb") => [ContentChange.string(<<RBS)],
 1 + ""
 RBS
     }.tap do |changes|
-      service.update(changes: changes, &reporter)
+      service.update_and_check(changes: changes, assignment: assignment, &reporter)
 
       reported_diagnostics[Pathname("lib/a.rb")].tap do |errors|
         assert_equal 1, errors.size
@@ -282,7 +344,7 @@ class Account[z]
 end
 RBS
     }.tap do |changes|
-      service.update(changes: changes, &reporter)
+      service.update_and_check(changes: changes, assignment: assignment, &reporter)
 
       reported_diagnostics[Pathname("lib.rbs")].tap do |errors|
         assert_equal 1, errors.size
@@ -315,7 +377,7 @@ RBS
 
   def test_update_signature_5
     # Target with syntax error RBS won't report new validation errors.
-    service = Services::TypeCheckService.new(project: project, assignment: assignment)
+    service = Services::TypeCheckService.new(project: project)
 
     {
       Pathname("lib.rbs") => [ContentChange.string(<<RBS)],
@@ -326,7 +388,7 @@ RBS
 B: Array
 RBS
     }.tap do |changes|
-      service.update(changes: changes, &reporter)
+      service.update_and_check(changes: changes, assignment: assignment, &reporter)
 
       reported_diagnostics[Pathname("lib.rbs")].tap do |errors|
         assert_empty errors
@@ -346,20 +408,19 @@ class A < FooBar
 end
 RBS
     }.tap do |changes|
-      service.update(changes: changes, &reporter)
+      service.update_and_check(changes: changes, assignment: assignment, &reporter)
 
       reported_diagnostics[Pathname("lib.rbs")].tap do |errors|
         assert_any! errors, size: 1 do |error|
           assert_equal "RBS::UnknownTypeName", error[:code]
         end
       end
-      # No error is reported to non-updated files
-      reported_diagnostics[Pathname("private.rbs")].tap do |errors|
-        assert_nil errors
-      end
 
+      # No error can be reported/registered because of ancestor error.
+      reported_diagnostics[Pathname("private.rbs")].tap do |errors|
+        assert_empty errors
+      end
       service.diagnostics[Pathname("private.rbs")].tap do |errors|
-        # No error can be registered because of syntax error.
         assert_empty errors
       end
 
@@ -369,7 +430,7 @@ RBS
 
   def test_update_signature_6
     # Recovering from syntax error test
-    service = Services::TypeCheckService.new(project: project, assignment: assignment)
+    service = Services::TypeCheckService.new(project: project)
 
     {
       Pathname("private.rbs") => [ContentChange.string(<<RBS)],
@@ -380,7 +441,7 @@ class B
 end
 RBS
     }.tap do |changes|
-      service.update(changes: changes, &reporter)
+      service.update_and_check(changes: changes, assignment: assignment, &reporter)
 
       reported_diagnostics[Pathname("private.rbs")].tap do |errors|
         assert_any! errors, size: 1 do |error|
@@ -401,35 +462,10 @@ class A
 end
 RBS
     }.tap do |changes|
-      service.update(changes: changes, &reporter)
+      service.update_and_check(changes: changes, assignment: assignment, &reporter)
 
       assert_empty_diagnostics reported_diagnostics
       assert_empty_diagnostics service.diagnostics
-
-      reported_diagnostics.clear
-    end
-  end
-
-  def test_update_without_type_check
-    # Recovering from syntax error test
-    service = Services::TypeCheckService.new(project: project, assignment: assignment)
-    service.no_type_checking!
-
-    {
-      Pathname("lib/a.rb") => [ContentChange.string(<<RBS)],
-1 + ""
-RBS
-    }.tap do |changes|
-      service.update(changes: changes, &reporter)
-
-      assert_empty_diagnostics reported_diagnostics
-      assert_empty_diagnostics service.diagnostics
-
-      service.source_files[Pathname("lib/a.rb")].tap do |source|
-        assert_equal false, source.node
-        assert_nil source.typing
-        assert_nil source.errors
-      end
 
       reported_diagnostics.clear
     end
