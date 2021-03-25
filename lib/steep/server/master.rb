@@ -232,6 +232,7 @@ module Steep
       attr_reader :typecheck_workers
 
       attr_reader :response_handlers
+      attr_reader :initialize_params
 
       # There are four types of threads:
       #
@@ -367,11 +368,13 @@ module Steep
 
             @current_type_check_request = request
 
-            write_queue << {
-              id: (Time.now.to_f * 1000).to_i,
-              method: "window/workDoneProgress/create",
-              params: { token: request.guid }
-            }
+            if work_done_progress_supported?
+              write_queue << {
+                id: (Time.now.to_f * 1000).to_i,
+                method: "window/workDoneProgress/create",
+                params: { token: request.guid }
+              }
+            end
 
             write_queue << {
               method: "$/progress",
@@ -514,12 +517,17 @@ module Steep
         Pathname(URI.parse(uri).path)
       end
 
+      def work_done_progress_supported?
+        initialize_params&.dig(:window, :workDoneProgress)
+      end
+
       def process_message_from_client(message)
         Steep.logger.info "Received message #{message[:method]}(#{message[:id]})"
         id = message[:id]
 
         case message[:method]
         when "initialize"
+          @initialize_params = message[:params]
           broadcast_request(message) do |handler|
             handler.on_completion do
               controller.load(command_line_args: commandline_args)
