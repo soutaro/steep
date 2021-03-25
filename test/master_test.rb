@@ -37,6 +37,7 @@ end
         interaction_worker: nil,
         typecheck_workers: [worker]
       )
+      master.instance_variable_set(:@initialize_params, { window: { workDoneProgress: true } })
 
       request = TypeCheckRequest.new(guid: "guid")
       request.code_paths << current_dir + "lib/customer.rb"
@@ -50,6 +51,65 @@ end
       assert_any!(client_messages) do |message|
         assert_equal("window/workDoneProgress/create", message[:method])
         assert_equal({ token: request.guid }, message[:params])
+      end
+
+      assert_any!(client_messages) do |message|
+        assert_equal("$/progress", message[:method])
+        assert_equal(
+          {
+            token: request.guid,
+            value: { kind: "begin", title: "Type checking", percentage: 0 }
+          },
+          message[:params]
+        )
+      end
+
+      assert_equal 1, worker.size
+      worker[0].tap do |message|
+        assert_equal "$/typecheck/start", message[:method]
+
+        message[:params].tap do |params|
+          assert_equal request.guid, params[:guid]
+        end
+      end
+    end
+  end
+
+  def test_start_type_check_with_progress_no_support
+    in_tmpdir do
+      steepfile = current_dir + "Steepfile"
+      steepfile.write(<<-EOF)
+target :lib do
+  check "lib"
+  signature "sig"
+end
+      EOF
+
+      project = Project.new(steepfile_path: steepfile)
+      Project::DSL.parse(project, steepfile.read)
+
+      worker = []
+
+      master = Server::Master.new(
+        project: project,
+        reader: worker_reader,
+        writer: worker_writer,
+        interaction_worker: nil,
+        typecheck_workers: [worker]
+      )
+      master.instance_variable_set(:@initialize_params, { window: { workDoneProgress: false } })
+
+      request = TypeCheckRequest.new(guid: "guid")
+      request.code_paths << current_dir + "lib/customer.rb"
+      request.code_paths << current_dir + "lib/account.rb"
+      master.start_type_check(request, last_request: nil, start_progress: true)
+
+      assert_instance_of Server::Master::TypeCheckRequest, master.current_type_check_request
+
+      client_messages = flush_queue(master.write_queue)
+
+      assert_none!(client_messages) do |message|
+        assert_equal("window/workDoneProgress/create", message[:method])
       end
 
       assert_any!(client_messages) do |message|
@@ -220,6 +280,84 @@ end
       master.on_type_check_update(guid: "guid", path: current_dir + "lib/account.rb")
 
       assert_empty write_queue
+    end
+  end
+
+  def test_client_message_initialize_work_done_supported_no
+    in_tmpdir do
+      steepfile = current_dir + "Steepfile"
+      steepfile.write(<<-EOF)
+target :lib do
+  check "lib"
+  signature "sig"
+end
+      EOF
+
+      project = Project.new(steepfile_path: steepfile)
+      Project::DSL.parse(project, steepfile.read)
+
+      write_queue = []
+      worker = []
+
+      master = Server::Master.new(
+        project: project,
+        reader: worker_reader,
+        writer: worker_writer,
+        interaction_worker: nil,
+        typecheck_workers: [worker],
+        queue: write_queue
+      )
+
+      master.process_message_from_client(
+        {
+          method: "initialize",
+          params: {
+            window: {}
+          }
+        }
+      )
+
+      refute_predicate master, :work_done_progress_supported?
+    end
+  end
+
+  def test_client_message_initialize_work_done_supported_yes
+    in_tmpdir do
+      steepfile = current_dir + "Steepfile"
+      steepfile.write(<<-EOF)
+target :lib do
+  check "lib"
+  signature "sig"
+end
+      EOF
+
+      project = Project.new(steepfile_path: steepfile)
+      Project::DSL.parse(project, steepfile.read)
+
+      write_queue = []
+      worker = []
+
+      master = Server::Master.new(
+        project: project,
+        reader: worker_reader,
+        writer: worker_writer,
+        interaction_worker: nil,
+        typecheck_workers: [worker],
+        queue: write_queue
+      )
+
+      master.process_message_from_client(
+        {
+          method: "initialize",
+          params: {
+            window: {
+              workDoneProgress: true
+            }
+          }
+        }
+      )
+
+      assert_predicate master, :work_done_progress_supported?
     end
   end
 

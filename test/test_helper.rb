@@ -71,6 +71,25 @@ module TestHelper
     refute collection.any?(&block)
   end
 
+  def assert_none!(collection, size: nil)
+    assert_equal size, collection.count if size
+
+    result = collection.all? do |c|
+      begin
+        yield(c)
+        false
+      rescue Minitest::Assertion
+        true
+      end
+    end
+
+    unless result
+      raise Minitest::Assertion.new(
+        "Assertion shouldn't hold any of the collection members: [#{collection.map(&:inspect).join(', ')}]"
+      )
+    end
+  end
+
   def assert_size(size, collection)
     assert_equal size, collection.size
   end
