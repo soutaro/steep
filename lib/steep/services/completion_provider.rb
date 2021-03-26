@@ -82,7 +82,7 @@ module Steep
           end
 
         rescue Parser::SyntaxError => exn
-          Steep.logger.error "recovering syntax error: #{exn.inspect}"
+          Steep.logger.info "recovering syntax error: #{exn.inspect}"
           case possible_trigger
           when "."
             source_text[index-1] = " "
