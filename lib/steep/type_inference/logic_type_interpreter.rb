@@ -159,16 +159,16 @@ module Steep
       def decompose_value(node)
         case node.type
         when :lvar
-          [node, Set[node.children[0].name]]
+          [node, Set[node.children[0]]]
         when :masgn
           lhs, rhs = node.children
-          lhs_vars = lhs.children.select {|m| m.type == :lvasgn }.map {|m| m.children[0].name }
+          lhs_vars = lhs.children.select {|m| m.type == :lvasgn }.map {|m| m.children[0] }
           val, vars = decompose_value(rhs)
           [val, vars + lhs_vars]
         when :lvasgn
           var, rhs = node.children
           val, vars = decompose_value(rhs)
-          [val, vars + [var.name]]
+          [val, vars + [var]]
         when :begin
           decompose_value(node.children.last)
         when :and

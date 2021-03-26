@@ -143,7 +143,7 @@ module Steep
 
         when node.type == :lvar && at_end?(position, of: node.loc)
           # foo ← (lvar)
-          local_variable_items_for_context(context, position: position, prefix: node.children[0].name.to_s, items: items)
+          local_variable_items_for_context(context, position: position, prefix: node.children[0].to_s, items: items)
 
         when node.type == :send && node.children[0] && at_end?(position, of: node.loc.selector)
           # foo.ba ←

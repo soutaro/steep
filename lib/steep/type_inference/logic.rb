@@ -22,7 +22,7 @@ module Steep
           nodes.each do |node|
             case node.type
             when :lvar, :lvasgn
-              vars << node.children[0].name
+              vars << node.children[0]
             end
           end
 

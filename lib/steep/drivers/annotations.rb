@@ -4,7 +4,6 @@ module Steep
       attr_reader :command_line_patterns
       attr_reader :stdout
       attr_reader :stderr
-      attr_reader :labeling
 
       include Utils::DriverHelper
 
@@ -13,7 +12,6 @@ module Steep
         @stderr = stderr
 
         @command_line_patterns = []
-        @labeling = ASTUtils::Labeling.new
       end
 
       def run

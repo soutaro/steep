@@ -61,7 +61,7 @@ module Steep
             return
           end
 
-          type = annotations.var_type(lvar: var.name)
+          type = annotations.var_type(lvar: var)
 
           case arg.type
           when :arg, :procarg0
