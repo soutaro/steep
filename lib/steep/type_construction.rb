@@ -3434,6 +3434,32 @@ module Steep
         next_type: block_context.body_type
       )
 
+      module_context = self.module_context
+      if implements = block_annotations.implement_module_annotation
+        yield_self do
+          module_name = checker.factory.absolute_type_name(implements.name.name, namespace: current_namespace)
+          module_args = implements.name.args.map {|name| AST::Types::Var.new(name: name) }
+
+          module_entry = checker.factory.definition_builder.env.class_decls[module_name]
+          instance_def = checker.factory.definition_builder.build_instance(module_name)
+          module_def = checker.factory.definition_builder.build_singleton(module_name)
+
+          instance_type = AST::Types::Name::Instance.new(name: module_name, args: module_args)
+          module_type = AST::Types::Name::Singleton.new(name: module_name)
+
+          module_context = TypeInference::Context::ModuleContext.new(
+            instance_type: instance_type,
+            module_type: module_type,
+            implement_name: implements.name,
+            current_namespace: current_namespace,
+            const_env: module_context.const_env,
+            class_name: module_name,
+            instance_definition: instance_def,
+            module_definition: module_def
+          )
+        end
+      end
+
       self.class.new(
         checker: checker,
         source: source,
