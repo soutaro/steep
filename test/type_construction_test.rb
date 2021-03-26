@@ -7394,4 +7394,36 @@ end
       end
     end
   end
+
+  def test_block_implements
+    with_checker <<-EOF do |checker|
+class String
+  def extra_method: (String) -> String
+
+  def self.class_eval: () { () -> void } -> void
+end
+
+class TestImplements
+end
+    EOF
+
+      source = parse_ruby(<<-'RUBY')
+class TestImplements
+  String.class_eval do
+    # @implements String
+  
+    def extra_method(x)
+      self + x
+    end
+  end
+end
+      RUBY
+
+      with_standard_construction(checker, source) do |construction, typing|
+        type, _ = construction.synthesize(source.node)
+
+        assert_no_error typing
+      end
+    end
+  end
 end

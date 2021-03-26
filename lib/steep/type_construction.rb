@@ -296,6 +296,41 @@ module Steep
       end
     end
 
+    def default_module_context(implement_module_name, const_env:, current_namespace:)
+      if implement_module_name
+        module_name = checker.factory.absolute_type_name(implement_module_name.name, namespace: current_namespace)
+        module_args = implement_module_name.args.map {|name| AST::Types::Var.new(name: name) }
+
+        instance_def = checker.factory.definition_builder.build_instance(module_name)
+        module_def = checker.factory.definition_builder.build_singleton(module_name)
+
+        instance_type = AST::Types::Name::Instance.new(name: module_name, args: module_args)
+        module_type = AST::Types::Name::Singleton.new(name: module_name)
+
+        TypeInference::Context::ModuleContext.new(
+          instance_type: instance_type,
+          module_type: module_type,
+          implement_name: implement_module_name,
+          current_namespace: current_namespace,
+          const_env: const_env,
+          class_name: module_name,
+          instance_definition: instance_def,
+          module_definition: module_def
+        )
+      else
+        TypeInference::Context::ModuleContext.new(
+          instance_type: nil,
+          module_type: nil,
+          implement_name: nil,
+          current_namespace: current_namespace,
+          const_env: self.module_context.const_env,
+          class_name: self.module_context.class_name,
+          module_definition: nil,
+          instance_definition: nil
+        )
+      end
+    end
+
     def for_module(node)
       new_module_name = module_name_from_node(node.children.first) or raise "Unexpected module name: #{node.children.first}"
       new_namespace = nested_namespace_for_module(new_module_name)
@@ -304,64 +339,55 @@ module Steep
       module_const_env = TypeInference::ConstantEnv.new(factory: checker.factory, context: const_context)
 
       annots = source.annotations(block: node, factory: checker.factory, current_module: new_namespace)
-      module_type = AST::Builtin::Module.instance_type
 
       implement_module_name = implement_module(module_name: new_module_name, annotations: annots)
+      module_context = default_module_context(implement_module_name, const_env: module_const_env, current_namespace: new_namespace)
+
+      unless implement_module_name
+        module_context = module_context.update(module_type: AST::Builtin::Module.instance_type)
+      end
 
       if implement_module_name
-        module_name = implement_module_name.name
-        module_args = implement_module_name.args.map {|x| AST::Types::Var.new(name: x)}
+        module_entry = checker.factory.definition_builder.env.class_decls[implement_module_name.name]
 
-        type_name_ = implement_module_name.name
-        module_entry = checker.factory.definition_builder.env.class_decls[type_name_]
-        instance_def = checker.factory.definition_builder.build_instance(type_name_)
-        module_def = checker.factory.definition_builder.build_singleton(type_name_)
-
-        instance_type = AST::Types::Intersection.build(
-          types: [
-            AST::Builtin::Object.instance_type,
-            *module_entry.self_types.map {|module_self|
-              type = case
-                     when module_self.name.interface?
-                       RBS::Types::Interface.new(
-                         name: module_self.name,
-                         args: module_self.args,
-                         location: module_self.location
-                       )
-                     when module_self.name.class?
-                       RBS::Types::ClassInstance.new(
-                         name: module_self.name,
-                         args: module_self.args,
-                         location: module_self.location
-                       )
-                     end
-              checker.factory.type(type)
-            },
-            AST::Types::Name::Instance.new(name: module_name, args: module_args)
-          ].compact
+        module_context = module_context.update(
+          instance_type: AST::Types::Intersection.build(
+            types: [
+              AST::Builtin::Object.instance_type,
+              *module_entry.self_types.map {|module_self|
+                type = case
+                       when module_self.name.interface?
+                         RBS::Types::Interface.new(
+                           name: module_self.name,
+                           args: module_self.args,
+                           location: module_self.location
+                         )
+                       when module_self.name.class?
+                         RBS::Types::ClassInstance.new(
+                           name: module_self.name,
+                           args: module_self.args,
+                           location: module_self.location
+                         )
+                       end
+                checker.factory.type(type)
+              },
+              module_context.instance_type
+            ].compact
+          )
         )
-
-        module_type = AST::Types::Name::Singleton.new(name: module_name)
       end
 
       if annots.instance_type
-        instance_type = annots.instance_type
+        module_context = module_context.update(instance_type: annots.instance_type)
       end
 
       if annots.module_type
-        module_type = annots.module_type
+        module_context = module_context.update(module_type: annots.module_type)
       end
 
-      module_context_ = TypeInference::Context::ModuleContext.new(
-        instance_type: instance_type,
-        module_type: annots.self_type || module_type,
-        implement_name: implement_module_name,
-        current_namespace: new_namespace,
-        const_env: module_const_env,
-        class_name: absolute_name(new_module_name),
-        instance_definition: instance_def,
-        module_definition: module_def
-      )
+      if annots.self_type
+        module_context = module_context.update(module_type: annots.self_type)
+      end
 
       module_type_env = TypeInference::TypeEnv.build(annotations: annots,
                                                      subtyping: checker,
@@ -370,9 +396,9 @@ module Steep
 
       lvar_env = TypeInference::LocalVariableTypeEnv.empty(
         subtyping: checker,
-        self_type: module_context_.module_type,
-        instance_type: module_context_.instance_type,
-        class_type: module_context_.module_type
+        self_type: module_context.module_type,
+        instance_type: module_context.instance_type,
+        class_type: module_context.module_type
       ).annotate(annots)
 
       self.class.new(
@@ -384,11 +410,11 @@ module Steep
           method_context: nil,
           block_context: nil,
           break_context: nil,
-          module_context: module_context_,
-          self_type: module_context_.module_type,
+          module_context: module_context,
+          self_type: module_context.module_type,
           type_env: module_type_env,
           lvar_env: lvar_env,
-          call_context: TypeInference::MethodCall::ModuleContext.new(type_name: module_context_.class_name)
+          call_context: TypeInference::MethodCall::ModuleContext.new(type_name: module_context.class_name)
         )
       )
     end
@@ -400,48 +426,37 @@ module Steep
 
       annots = source.annotations(block: node, factory: checker.factory, current_module: new_namespace)
 
-      implement_module_name = implement_module(module_name: new_class_name, super_name: super_class_name, annotations: annots)
-
-      if annots.implement_module_annotation
-        new_class_name = implement_module_name.name
-      end
-
-      if implement_module_name
-        class_name = implement_module_name.name
-        class_args = implement_module_name.args.map {|x| AST::Types::Var.new(name: x)}
-
-        type_name_ = implement_module_name.name
-        instance_def = checker.factory.definition_builder.build_instance(type_name_)
-        module_def = checker.factory.definition_builder.build_singleton(type_name_)
-
-        instance_type = AST::Types::Name::Instance.new(name: class_name, args: class_args)
-        module_type = AST::Types::Name::Singleton.new(name: class_name)
-      else
-        instance_type = AST::Builtin::Object.instance_type
-        module_type = AST::Builtin::Object.module_type
-      end
-
-      if annots.instance_type
-        instance_type = annots.instance_type
-      end
-
-      if annots.module_type
-        module_type = annots.module_type
-      end
-
       const_context = [new_namespace] + self.module_context.const_env.context
       class_const_env = TypeInference::ConstantEnv.new(factory: checker.factory, context: const_context)
 
-      module_context = TypeInference::Context::ModuleContext.new(
-        instance_type: annots.instance_type || instance_type,
-        module_type: annots.self_type || annots.module_type || module_type,
-        implement_name: implement_module_name,
-        current_namespace: new_namespace,
-        const_env: class_const_env,
-        class_name: absolute_name(new_class_name),
-        module_definition: module_def,
-        instance_definition: instance_def
-      )
+      implement_module_name = implement_module(module_name: new_class_name, super_name: super_class_name, annotations: annots)
+      module_context = default_module_context(implement_module_name, const_env: class_const_env, current_namespace: new_namespace)
+
+      if implement_module_name
+        if super_class_name && implement_module_name.name == absolute_name(super_class_name)
+          module_context = module_context.update(
+            instance_definition: nil,
+            module_definition: nil
+          )
+        end
+      else
+        module_context = module_context.update(
+          instance_type: AST::Builtin::Object.instance_type,
+          module_type: AST::Builtin::Object.module_type
+        )
+      end
+
+      if annots.instance_type
+        module_context = module_context.update(instance_type: annots.instance_type)
+      end
+
+      if annots.module_type
+        module_context = module_context.update(module_type: annots.module_type)
+      end
+
+      if annots.self_type
+        module_context = module_context.update(module_type: annots.self_type)
+      end
 
       class_type_env = TypeInference::TypeEnv.build(annotations: annots,
                                                     subtyping: checker,
@@ -3433,6 +3448,32 @@ module Steep
         break_type: break_type,
         next_type: block_context.body_type
       )
+
+      module_context = self.module_context
+      if implements = block_annotations.implement_module_annotation
+        yield_self do
+          module_name = checker.factory.absolute_type_name(implements.name.name, namespace: current_namespace)
+          module_args = implements.name.args.map {|name| AST::Types::Var.new(name: name) }
+
+          module_entry = checker.factory.definition_builder.env.class_decls[module_name]
+          instance_def = checker.factory.definition_builder.build_instance(module_name)
+          module_def = checker.factory.definition_builder.build_singleton(module_name)
+
+          instance_type = AST::Types::Name::Instance.new(name: module_name, args: module_args)
+          module_type = AST::Types::Name::Singleton.new(name: module_name)
+
+          module_context = TypeInference::Context::ModuleContext.new(
+            instance_type: instance_type,
+            module_type: module_type,
+            implement_name: implements.name,
+            current_namespace: current_namespace,
+            const_env: module_context.const_env,
+            class_name: module_name,
+            instance_definition: instance_def,
+            module_definition: module_def
+          )
+        end
+      end
 
       self.class.new(
         checker: checker,
