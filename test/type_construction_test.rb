@@ -7339,4 +7339,59 @@ Inference.new.foo(1, "")
       end
     end
   end
+
+  def test_issue_269_1
+    # https://github.com/soutaro/steep/issues/269
+    with_checker <<-EOF do |checker|
+class Test269
+  def foo: (untyped) -> void
+end
+    EOF
+
+      source = parse_ruby(<<-'RUBY')
+class Test269
+  def foo(x)
+    x.bar() {|(a, (b, c))|
+      a.hello()
+    }
+  end
+end
+      RUBY
+
+      with_standard_construction(checker, source) do |construction, typing|
+        type, _ = construction.synthesize(source.node)
+
+        assert_no_error typing
+      end
+    end
+  end
+
+  def test_issue_269_2
+    # https://github.com/soutaro/steep/issues/269
+    with_checker <<-EOF do |checker|
+class Test269
+  def foo: (Integer) -> void
+end
+    EOF
+
+      source = parse_ruby(<<-'RUBY')
+class Test269
+  def foo(x)
+    x.bar() {|(key, value)| }
+  end
+end
+      RUBY
+
+      with_standard_construction(checker, source) do |construction, typing|
+        type, _ = construction.synthesize(source.node)
+
+        assert_typing_error(typing, size: 2) do |errors|
+          assert_any!(errors) do | error|
+            assert_instance_of Diagnostic::Ruby::UnsupportedSyntax, error
+            assert_equal :args, error.node.type
+          end
+        end
+      end
+    end
+  end
 end
