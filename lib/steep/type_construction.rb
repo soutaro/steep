@@ -1153,7 +1153,40 @@ module Steep
           end
           add_typing(node, type: AST::Builtin.bottom_type)
 
-        when :arg, :kwarg, :procarg0
+        when :procarg0
+          yield_self do
+            constr = self
+
+            node.children.each do |arg|
+              if arg.is_a?(Symbol)
+                type = context.lvar_env[arg]
+
+                if type
+                  _, constr = add_typing(node, type: type)
+                else
+                  type = AST::Builtin.any_type
+                  _, constr = lvasgn(node, type)
+                end
+              else
+                _, constr = constr.synthesize(arg)
+              end
+            end
+
+            Pair.new(constr: constr, type: AST::Builtin.any_type)
+          end
+
+        when :mlhs
+          yield_self do
+            constr = self
+
+            node.children.each do |arg|
+              _, constr = constr.synthesize(arg)
+            end
+
+            Pair.new(constr: constr, type: AST::Builtin.any_type)
+          end
+
+        when :arg, :kwarg
           yield_self do
             var = node.children[0]
             type = context.lvar_env[var]
@@ -3322,6 +3355,16 @@ module Steep
     end
 
     def type_block_without_hint(node:, block_annotations:, block_params:, block_body:, &block)
+      unless block_params
+        typing.add_error(
+          Diagnostic::Ruby::UnsupportedSyntax.new(
+            node: node.children[1],
+            message: "Unsupported block params pattern, probably masgn?"
+          )
+        )
+        block_params = TypeInference::BlockParams.new(leading_params: [], optional_params: [], rest_param: nil, trailing_params: [])
+      end
+
       block_constr = for_block(
         block_params: block_params,
         block_param_hint: nil,
