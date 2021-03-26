@@ -72,6 +72,8 @@ RUBY
           items = lsp.complete_on(path: current_dir + "lib/hello.rb", line: 2, character: 0)
           refute_empty items
         end
+
+        lsp.reader_thread.join
       end
     end
   end
