@@ -1,0 +1,12 @@
+class B
+  class Request
+    attr_reader method: String
+    attr_reader path: String
+
+    def initialize: (method: String, path: String) -> void
+
+    def post?: () -> bool
+
+    def get?: () -> bool
+  end
+end
