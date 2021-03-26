@@ -231,4 +231,46 @@ RBS
     assert_operator controller.latest_env.class_decls, :key?, TypeName("::B")
     assert_operator controller.latest_env.class_decls, :key?, TypeName("::A")
   end
+
+  def test_const_decls
+    service = SignatureService.load_from(environment_loader)
+
+    assert_instance_of SignatureService::LoadedStatus, service.status
+
+    {}.tap do |changes|
+      changes[Pathname("sig/foo.rbs")] = [
+        ContentChange.new(range: nil, text: <<RBS)
+VERSION: String
+RBS
+      ]
+      service.update(changes)
+    end
+
+    service.const_decls(paths: Set[Pathname("sig/foo.rbs")], env: service.latest_env).tap do |consts|
+      assert_equal Set[TypeName("::VERSION")], Set.new(consts.each_key)
+    end
+
+    service.const_decls(paths: Set[RBS::EnvironmentLoader::DEFAULT_CORE_ROOT + "file.rbs"], env: service.latest_env).tap do |consts|
+      assert_operator consts.each_key, :include?, TypeName("::File::PATH_SEPARATOR")
+    end
+  end
+
+  def test_global_decls
+    service = SignatureService.load_from(environment_loader)
+
+    assert_instance_of SignatureService::LoadedStatus, service.status
+
+    {}.tap do |changes|
+      changes[Pathname("sig/foo.rbs")] = [
+        ContentChange.new(range: nil, text: <<RBS)
+$VERSION: String
+RBS
+      ]
+      service.update(changes)
+    end
+
+    service.global_decls(paths: Set[Pathname("sig/foo.rbs")]).tap do |consts|
+      assert_equal Set[:$VERSION], Set.new(consts.each_key)
+    end
+  end
 end

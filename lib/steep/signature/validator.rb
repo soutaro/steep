@@ -252,20 +252,28 @@ module Steep
 
       def validate_const
         env.constant_decls.each do |name, entry|
-          rescue_validation_errors do
-            Steep.logger.debug "Validating constant `#{name}`..."
-            builder.ensure_namespace!(name.namespace, location: entry.decl.location)
-            validate_type entry.decl.type
-          end
+          validate_one_constant(name, entry)
+        end
+      end
+
+      def validate_one_constant(name, entry)
+        rescue_validation_errors do
+          Steep.logger.debug "Validating constant `#{name}`..."
+          builder.ensure_namespace!(name.namespace, location: entry.decl.location)
+          validate_type entry.decl.type
         end
       end
 
       def validate_global
         env.global_decls.each do |name, entry|
-          rescue_validation_errors do
-            Steep.logger.debug "Validating global `#{name}`..."
-            validate_type entry.decl.type
-          end
+          validate_one_global(name, entry)
+        end
+      end
+
+      def validate_one_global(name, entry)
+        rescue_validation_errors do
+          Steep.logger.debug "Validating global `#{name}`..."
+          validate_type entry.decl.type
         end
       end
 

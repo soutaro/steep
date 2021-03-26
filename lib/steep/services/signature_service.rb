@@ -318,9 +318,25 @@ module Steep
       def type_names(paths:, env:)
         env.declarations.each.with_object(Set[]) do |decl, set|
           if decl.location
-            if paths.include?(decl.location.buffer.name)
+            if paths.include?(Pathname(decl.location.buffer.name))
               type_name_from_decl(decl, set: set)
             end
+          end
+        end
+      end
+
+      def const_decls(paths:, env:)
+        env.constant_decls.filter do |_, entry|
+          if location = entry.decl.location
+            paths.include?(Pathname(location.buffer.name))
+          end
+        end
+      end
+
+      def global_decls(paths:, env: latest_env)
+        env.global_decls.filter do |_, entry|
+          if location = entry.decl.location
+            paths.include?(Pathname(location.buffer.name))
           end
         end
       end

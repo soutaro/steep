@@ -218,19 +218,44 @@ module Steep
                 validator = Signature::Validator.new(checker: service.current_subtyping)
                 type_names = service.type_names(paths: Set[path], env: service.latest_env).to_set
 
-                type_names.each do |type_name|
-                  case
-                  when type_name.class?
-                    validator.validate_one_class(type_name)
-                  when type_name.interface?
-                    validator.validate_one_interface(type_name)
-                  when type_name.alias?
-                    validator.validate_one_alias(type_name)
+                unless type_names.empty?
+                  Steep.measure2 "Validating #{type_names.size} types" do |sampler|
+                    type_names.each do |type_name|
+                      sampler.sample(type_name.to_s) do
+                        case
+                        when type_name.class?
+                          validator.validate_one_class(type_name)
+                        when type_name.interface?
+                          validator.validate_one_interface(type_name)
+                        when type_name.alias?
+                          validator.validate_one_alias(type_name)
+                        end
+                      end
+                    end
                   end
                 end
 
-                validator.validate_const()
-                validator.validate_global()
+                const_decls = service.const_decls(paths: Set[path], env: service.latest_env)
+                unless const_decls.empty?
+                  Steep.measure2 "Validating #{const_decls.size} constants" do |sampler|
+                    const_decls.each do |name, entry|
+                      sampler.sample(name.to_s) do
+                        validator.validate_one_constant(name, entry)
+                      end
+                    end
+                  end
+                end
+
+                global_decls = service.global_decls(paths: Set[path])
+                unless global_decls.empty?
+                  Steep.measure2 "Validating #{global_decls.size} globals" do |sampler|
+                    global_decls.each do |name, entry|
+                      sampler.sample(name.to_s) do
+                        validator.validate_one_global(name, entry)
+                      end
+                    end
+                  end
+                end
 
                 diagnostics = validator.each_error.select {|error| Pathname(error.location.buffer.name) == path }
                 accumulated_diagnostics.push(*diagnostics)
