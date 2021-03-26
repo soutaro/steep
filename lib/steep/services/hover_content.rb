@@ -62,15 +62,15 @@ module Steep
             when :lvar
               var_name = node.children[0]
               context = typing.context_at(line: line, column: column)
-              var_type = context.lvar_env[var_name.name] || AST::Types::Any.new(location: nil)
+              var_type = context.lvar_env[var_name] || AST::Types::Any.new(location: nil)
 
-              VariableContent.new(node: node, name: var_name.name, type: var_type, location: node.location.name)
+              VariableContent.new(node: node, name: var_name, type: var_type, location: node.location.name)
             when :lvasgn
               var_name, rhs = node.children
               context = typing.context_at(line: line, column: column)
-              type = context.lvar_env[var_name.name] || typing.type_of(node: rhs)
+              type = context.lvar_env[var_name] || typing.type_of(node: rhs)
 
-              VariableContent.new(node: node, name: var_name.name, type: type, location: node.location.name)
+              VariableContent.new(node: node, name: var_name, type: type, location: node.location.name)
             when :send
               receiver, method_name, *_ = node.children
 

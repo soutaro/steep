@@ -44,16 +44,10 @@ module Steep
       end
     end
 
-    def self.parse(source_code, path:, factory:, labeling: ASTUtils::Labeling.new)
+    def self.parse(source_code, path:, factory:)
       buffer = ::Parser::Source::Buffer.new(path.to_s, 1)
       buffer.source = source_code
-      node = parser.parse(buffer).yield_self do |n|
-        if n
-          labeling.translate(n, {})
-        else
-          return new(path: path, node: nil, mapping: {})
-        end
-      end
+      node = parser.parse(buffer)
 
       annotations = []
 

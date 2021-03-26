@@ -223,7 +223,7 @@ module Steep
         lvar_env = lvar_env.update(
           assigned_types: var_types.each.with_object({}) {|(var, type), hash|
             arg_node = args.find {|arg| arg.children[0] == var }
-            hash[var.name] = TypeInference::LocalVariableTypeEnv::Entry.new(type: type, nodes: [arg_node].compact)
+            hash[var] = TypeInference::LocalVariableTypeEnv::Entry.new(type: type, nodes: [arg_node].compact)
           }
         )
       end
@@ -707,7 +707,7 @@ module Steep
         when :lvasgn
           yield_self do
             var, rhs = node.children
-            name = var.name
+            name = var
 
             case name
             when :_, :__any__
@@ -743,7 +743,7 @@ module Steep
         when :lvar
           yield_self do
             var = node.children[0]
-            if (type = context.lvar_env[var.name])
+            if (type = context.lvar_env[var])
               add_typing node, type: type
             else
               fallback_to_any(node)
@@ -1156,7 +1156,7 @@ module Steep
         when :arg, :kwarg, :procarg0
           yield_self do
             var = node.children[0]
-            type = context.lvar_env[var.name]
+            type = context.lvar_env[var]
 
             if type
               add_typing(node, type: type)
@@ -1171,13 +1171,13 @@ module Steep
             var = node.children[0]
             rhs = node.children[1]
 
-            var_type = context.lvar_env[var.name]
+            var_type = context.lvar_env[var]
             node_type, constr = synthesize(rhs, hint: var_type)
 
             type = AST::Types::Union.build(types: [var_type, node_type])
 
             constr_ = constr.update_lvar_env do |env|
-              env.assign(var.name, node: node, type: type) do |declared_type, type, result|
+              env.assign(var, node: node, type: type) do |declared_type, type, result|
                 typing.add_error(
                   Diagnostic::Ruby::IncompatibleAssignment.new(
                     node: node,
@@ -1195,7 +1195,7 @@ module Steep
         when :restarg
           yield_self do
             var = node.children[0]
-            type = context.lvar_env[var.name]
+            type = context.lvar_env[var]
             unless type
               if context&.method_context&.method_type
                 Steep.logger.error { "Unknown variable: #{node}" }
@@ -1210,7 +1210,7 @@ module Steep
         when :kwrestarg
           yield_self do
             var = node.children[0]
-            type = context.lvar_env[var.name]
+            type = context.lvar_env[var]
             unless type
               if context&.method_context&.method_type
                 Steep.logger.error { "Unknown variable: #{node}" }
@@ -1746,12 +1746,7 @@ module Steep
               _, cond_vars = interpreter.decompose_value(cond)
               unless cond_vars.empty?
                 first_var = cond_vars.to_a[0]
-                var_node = cond.updated(
-                  :lvar,
-                  [
-                    ASTUtils::Labeling::LabeledName.new(name: first_var, label: 0)
-                  ]
-                )
+                var_node = cond.updated(:lvar, [first_var])
               else
                 first_var = nil
                 var_node = cond
@@ -1892,7 +1887,7 @@ module Steep
               if assignment
                 case assignment.type
                 when :lvasgn
-                  var_name = assignment.children[0].name
+                  var_name = assignment.children[0]
                 else
                   Steep.logger.error "Unexpected rescue variable assignment: #{assignment.type}"
                 end
@@ -1981,7 +1976,7 @@ module Steep
             if var_type
               if body
                 body_constr = constr.with_updated_context(
-                  lvar_env: constr.context.lvar_env.assign(asgn.children[0].name, node: asgn, type: var_type)
+                  lvar_env: constr.context.lvar_env.assign(asgn.children[0], node: asgn, type: var_type)
                 )
 
                 typing.add_context_for_body(node, context: body_constr.context)
@@ -2358,7 +2353,7 @@ module Steep
     end
 
     def lvasgn(node, type)
-      name = node.children[0].name
+      name = node.children[0]
       env = context.lvar_env.assign(name, node: node, type: type) do |declared_type, type, result|
         typing.add_error(
           Diagnostic::Ruby::IncompatibleAssignment.new(
@@ -3363,12 +3358,12 @@ module Steep
       param_types_hash = {}
       if block_param_pairs
         block_param_pairs.each do |param, type|
-          var_name = param.var.name
+          var_name = param.var
           param_types_hash[var_name] = type
         end
       else
         block_params.each do |param|
-          var_name = param.var.name
+          var_name = param.var
           param_types_hash[var_name] = param.type || AST::Builtin.any_type
         end
       end
@@ -3476,13 +3471,13 @@ module Steep
       nodes.each do |node|
         if node.type == :kwarg
           name = node.children[0]
-          ty = type.params.required_keywords[name.name]
+          ty = type.params.required_keywords[name]
           env[name] = ty if ty
         end
 
         if node.type == :kwoptarg
           name = node.children[0]
-          ty = type.params.optional_keywords[name.name]
+          ty = type.params.optional_keywords[name]
           env[name] = ty if ty
         end
 
@@ -3693,9 +3688,9 @@ module Steep
     def self.value_variables(node)
       case node&.type
       when :lvar
-        Set.new([node.children.first.name])
+        Set.new([node.children.first])
       when :lvasgn
-        Set.new([node.children.first.name]) + value_variables(node.children[1])
+        Set.new([node.children.first]) + value_variables(node.children[1])
       when :begin
         value_variables(node.children.last)
       else

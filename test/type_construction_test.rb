@@ -99,7 +99,7 @@ z = x
                                        lhs_type: parse_type("::_A"),
                                        rhs_type: parse_type("::_B") do |error|
           assert_equal :lvasgn, error.node.type
-          assert_equal :z, error.node.children[0].name
+          assert_equal :z, error.node.children[0]
         end
       end
     end
@@ -460,7 +460,7 @@ end
                                        lhs_type: parse_type("::_C"),
                                        rhs_type: parse_type("::_A | ::_C") do |error|
           assert_equal :optarg, error.node.type
-          assert_equal :y, error.node.children[0].name
+          assert_equal :y, error.node.children[0]
         end
 
         x = dig(source.node, 2, 0)
@@ -491,7 +491,7 @@ end
                                        lhs_type: parse_type("::_C"),
                                        rhs_type: parse_type("::_A | ::_C") do |error|
           assert_equal :kwoptarg, error.node.type
-          assert_equal :y, error.node.children[0].name
+          assert_equal :y, error.node.children[0]
         end
 
         x = dig(source.node, 2, 0)

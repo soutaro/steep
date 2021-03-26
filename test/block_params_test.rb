@@ -6,7 +6,6 @@ class BlockParamsTest < Minitest::Test
   include SubtypingHelper
 
   BlockParams = Steep::TypeInference::BlockParams
-  LabeledName = ASTUtils::Labeling::LabeledName
   Params = Steep::Interface::Function::Params
   Types = Steep::AST::Types
   Namespace = RBS::Namespace
