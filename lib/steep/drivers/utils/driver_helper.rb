@@ -22,13 +22,21 @@ module Steep
         end
 
         def request_id
-          (Time.now.to_f * 1000).to_i
+          SecureRandom.alphanumeric(10)
         end
 
         def wait_for_response_id(reader:, id:, unknown_responses: :ignore)
           wait_for_message(reader: reader, unknown_messages: unknown_responses) do |response|
             response[:id] == id
           end
+        end
+
+        def shutdown_exit(writer:, reader:)
+          request_id().tap do |id|
+            writer.write({ method: :shutdown, id: id })
+            wait_for_response_id(reader: reader, id: id)
+          end
+          writer.write({ method: :exit })
         end
 
         def wait_for_message(reader:, unknown_messages: :ignore, &block)

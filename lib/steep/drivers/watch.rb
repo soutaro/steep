@@ -142,11 +142,8 @@ module Steep
             end
           end
         rescue Interrupt
-          shutdown_id = request_id()
           stdout.puts "Shutting down workers..."
-          client_writer.write({ method: :shutdown, id: shutdown_id })
-          client_writer.write({ method: :exit })
-          client_writer.io.close()
+          shutdown_exit(reader: client_reader, writer: client_writer)
         end
 
         listener.stop

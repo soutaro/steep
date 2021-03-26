@@ -76,9 +76,7 @@ module Steep
         stats_response = wait_for_response_id(reader: client_reader, id: stats_id)
         stats_result = stats_response[:result]
 
-        shutdown_id = request_id()
-        client_writer.write({ method: :shutdown, id: shutdown_id })
-        client_writer.write({ method: "exit" })
+        shutdown_exit(reader: client_reader, writer: client_writer)
         main_thread.join()
 
         stdout.puts(
