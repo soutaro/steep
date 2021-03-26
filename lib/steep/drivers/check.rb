@@ -94,10 +94,7 @@ module Steep
 
         Steep.logger.info { "Shutting down..." }
 
-        client_writer.write({ method: :shutdown, id: request_id() })
-        client_writer.write({ method: :exit })
-        client_writer.io.close()
-
+        shutdown_exit(reader: client_reader, writer: client_writer)
         main_thread.join()
 
         stdout.puts
