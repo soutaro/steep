@@ -78,6 +78,28 @@ module Steep
             end
           end
         end
+
+        def update(
+          instance_type: self.instance_type,
+          module_type: self.module_type,
+          implement_name: self.implement_name,
+          current_namespace: self.current_namespace,
+          const_env: self.const_env,
+          class_name: self.class_name,
+          instance_definition: self.instance_definition,
+          module_definition: self.module_definition
+        )
+          ModuleContext.new(
+            instance_type: instance_type,
+            module_type: module_type,
+            implement_name: implement_name,
+            current_namespace: current_namespace,
+            const_env: const_env,
+            class_name: class_name,
+            instance_definition: instance_definition,
+            module_definition: module_definition
+          )
+        end
       end
 
       attr_reader :call_context
