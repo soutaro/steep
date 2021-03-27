@@ -113,6 +113,14 @@ module Steep
           opts.banner = "Usage: steep stats [options] [sources]"
 
           opts.on("--steepfile=PATH") {|path| check.steepfile = Pathname(path) }
+          opts.on("--format=FORMAT", "Specify output format: csv, table") do |format|
+            case format
+            when "csv", "table"
+              check.format = format
+            else
+              stderr.puts "--format option is ignored because it has unknown value: `#{format}`"
+            end
+          end
           handle_jobs_option check, opts
           handle_logging_options opts
         end.parse!(argv)
