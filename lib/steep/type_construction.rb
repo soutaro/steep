@@ -1644,8 +1644,7 @@ module Steep
               if hint && !(tuples = select_flatten_types(hint) {|type| type.is_a?(AST::Types::Tuple) }).empty?
                 tuples.each do |tuple|
                   typing.new_child(node_range) do |child_typing|
-                    pair = with_new_typing(child_typing).try_tuple_type(node, tuple)
-                    if pair && pair.constr.check_relation(sub_type: pair.type, super_type: hint).success?
+                    if pair = with_new_typing(child_typing).try_tuple_type(node, tuple)
                       child_typing.save!
                       return pair.with(constr: pair.constr.with_new_typing(typing))
                     end

@@ -7497,4 +7497,25 @@ end
       end
     end
   end
+
+  def test_issue_328
+    with_checker <<-EOF do |checker|
+module Issue328
+  class Foo
+    def to_h: [A, B] () { () -> [A, B] } -> Hash[A, B]
+  end
+end
+    EOF
+
+      source = parse_ruby(<<-'RUBY')
+Issue328::Foo.new.to_h { [1, ""] }
+      RUBY
+
+      with_standard_construction(checker, source) do |construction, typing|
+        type, _ = construction.synthesize(source.node)
+
+        assert_no_error typing
+      end
+    end
+  end
 end
