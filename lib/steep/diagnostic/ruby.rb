@@ -391,8 +391,8 @@ module Steep
           @method = method
         end
 
-        def to_s
-          format_message "method=#{method}"
+        def header_line
+          "No superclass method `#{method}` defined"
         end
       end
 
