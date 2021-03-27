@@ -55,7 +55,7 @@
         line: 26
         character: 11
     severity: ERROR
-    message: UnexpectedSuper
+    message: No superclass method `baz` defined
     code: Ruby::UnexpectedSuper
   - range:
       start:
@@ -65,15 +65,5 @@
         line: 28
         character: 9
     severity: ERROR
-    message: Cannot detect the type of the expression
-    code: Ruby::FallbackAny
-  - range:
-      start:
-        line: 28
-        character: 4
-      end:
-        line: 28
-        character: 9
-    severity: ERROR
-    message: UnexpectedSuper
+    message: No superclass method `baz` defined
     code: Ruby::UnexpectedSuper
