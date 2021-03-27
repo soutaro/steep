@@ -1,4 +1,21 @@
 ---
+- file: issue_332.rb
+  diagnostics:
+  - range:
+      start:
+        line: 7
+        character: 8
+      end:
+        line: 7
+        character: 20
+    severity: ERROR
+    message: |-
+      Cannot find compatible overloading of method `-` of type `(::Object & ::Issue332::_TimeDurationExtensions & ::Issue332::TimeDurationExtensions)`
+      Method types:
+        def -: (::Issue332::Duration) -> ::Time
+             | (::Numeric) -> ::Time
+             | (::Time) -> ::Float
+    code: Ruby::UnresolvedOverloading
 - file: set_divide.rb
   diagnostics:
   - range:

@@ -899,7 +899,27 @@ module Steep
                                                 block_body: nil,
                                                 topdown_hint: true)
 
-                constr.add_call(call)
+                if call && constr
+                  constr.add_call(call)
+                else
+                  error = Diagnostic::Ruby::UnresolvedOverloading.new(
+                    node: node,
+                    receiver_type: self_type,
+                    method_name: method_context.name,
+                    method_types: super_method.method_types
+                  )
+                  call = TypeInference::MethodCall::Error.new(
+                    node: node,
+                    context: context.method_context,
+                    method_name: method_context.name,
+                    receiver_type: self_type,
+                    errors: [error]
+                  )
+
+                  constr = synthesize_children(node)
+
+                  fallback_to_any(node) { error }
+                end
               else
                 fallback_to_any node do
                   Diagnostic::Ruby::UnexpectedSuper.new(node: node, method: method_context.name)

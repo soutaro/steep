@@ -566,7 +566,7 @@ module TypeConstructionHelper
 
   def assert_no_error(typing)
     assert_instance_of Typing, typing
-    assert_predicate typing.errors.map {|e| e.to_s }, :empty?
+    assert_predicate typing.errors.map {|e| e.header_line }, :empty?
   end
 
   def assert_typing_error(typing, size: nil)
