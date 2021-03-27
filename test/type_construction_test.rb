@@ -7453,4 +7453,48 @@ TestNilBlock.new.bar(&nil)
       end
     end
   end
+
+  def test_issue_332
+    with_checker <<-EOF do |checker|
+module Issue332
+  class Foo
+    def test: (Integer) -> void
+            | (String) -> void
+  end
+
+  class Bar < Foo
+  end
+end
+    EOF
+
+      source = parse_ruby(<<-'RUBY')
+module Issue332
+  class Bar
+    def test(x)
+      super(x)
+    end
+  end
+end
+      RUBY
+
+      with_standard_construction(checker, source) do |construction, typing|
+        type, _ = construction.synthesize(source.node)
+
+        assert_typing_error(typing, size: 1) do |errors|
+          assert_any!(errors) do |error|
+            assert_instance_of Diagnostic::Ruby::UnresolvedOverloading, error
+            assert_equal parse_type("::Issue332::Bar"), error.receiver_type
+            assert_equal :test, error.method_name
+            assert_equal(
+              [
+                parse_method_type("(::Integer) -> void"),
+                parse_method_type("(::String) -> void")
+              ],
+              error.method_types
+            )
+          end
+        end
+      end
+    end
+  end
 end

@@ -1,0 +1,19 @@
+module Issue332
+  class Duration
+  end
+
+  interface _TimeDurationExtensions
+    def -: (Numeric other) -> Time
+         | (Time other) -> Float
+  end
+
+  module TimeDurationExtensions : _TimeDurationExtensions
+    def -: (Duration other) -> Time
+         | ...
+  end
+end
+
+class Time
+  prepend Issue332::TimeDurationExtensions
+end
+
