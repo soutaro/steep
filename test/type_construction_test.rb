@@ -7426,4 +7426,31 @@ end
       end
     end
   end
+
+  def test_nil_block
+    with_checker <<-EOF do |checker|
+class TestNilBlock
+  def foo: () { () -> void } -> void
+  def bar: () -> void
+end
+    EOF
+
+      source = parse_ruby(<<-'RUBY')
+TestNilBlock.new.foo(&nil)
+TestNilBlock.new.bar(&nil)
+      RUBY
+
+      with_standard_construction(checker, source) do |construction, typing|
+        type, _ = construction.synthesize(source.node)
+
+        assert_typing_error typing, size: 1 do |errors|
+          assert_any!(errors) do |error|
+            assert_instance_of Diagnostic::Ruby::BlockTypeMismatch, error
+            assert_equal parse_type("nil"), error.actual
+            assert_equal parse_type("^() -> void"), error.expected
+          end
+        end
+      end
+    end
+  end
 end
