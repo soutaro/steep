@@ -1594,8 +1594,10 @@ module Steep
                 }
                 add_typing(node, type: union_type(*types))
               else
-                typing.add_error(Diagnostic::Ruby::UnexpectedSuper.new(node: node, method: method_context.name))
-                fallback_to_any node
+
+                fallback_to_any(node) do
+                  Diagnostic::Ruby::UnexpectedSuper.new(node: node, method: method_context.name)
+                end
               end
             else
               fallback_to_any node
