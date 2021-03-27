@@ -3269,10 +3269,14 @@ module Steep
             )
             method_type = method_type.subst(s)
 
-            errors << Diagnostic::Ruby::UnexpectedBlockGiven.new(
-              node: node,
-              method_type: method_type
-            )
+            type, constr = constr.synthesize(args.block_pass_arg, hint: AST::Builtin.nil_type)
+            type = expand_alias(type)
+            unless type.is_a?(AST::Types::Nil)
+              errors << Diagnostic::Ruby::UnexpectedBlockGiven.new(
+                node: node,
+                method_type: method_type
+              )
+            end
           end
         else
           unless args.block_pass_arg

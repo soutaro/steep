@@ -220,10 +220,6 @@ module Steep
         def header_line
           "The method cannot be called with a block"
         end
-
-        def to_s
-          format_message "method_type=#{method_type}"
-        end
       end
 
       class RequiredBlockMissing < Base
