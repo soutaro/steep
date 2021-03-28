@@ -1183,9 +1183,6 @@ module Steep
           add_typing(node, type: AST::Builtin.bottom_type)
 
         when :retry
-          unless break_context
-            typing.add_error Diagnostic::Ruby::UnexpectedJump.new(node: node)
-          end
           add_typing(node, type: AST::Builtin.bottom_type)
 
         when :procarg0
