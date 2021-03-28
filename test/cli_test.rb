@@ -364,6 +364,28 @@ RUBY
     end
   end
 
+  def test_stats_default_no_tty
+    in_tmpdir do
+      (current_dir + "Steepfile").write(<<-EOF)
+target :app do
+  check "foo.rb"
+end
+      EOF
+
+      (current_dir + "foo.rb").write(<<-EOF)
+1 + 2
+      EOF
+
+      stdout, _, status = sh3(*steep, "stats")
+
+      assert_predicate status, :success?, stdout
+      assert_equal <<CSV, stdout
+Target,File,Status,Typed calls,Untyped calls,All calls,Typed %
+app,foo.rb,success,1,0,1,100
+CSV
+    end
+  end
+
   def test_stats_csv
     in_tmpdir do
       (current_dir + "Steepfile").write(<<-EOF)
@@ -376,7 +398,7 @@ end
 1 + 2
       EOF
 
-      stdout, status = sh(*steep, "stats", "--format=csv")
+      stdout, _, status = sh3(*steep, "stats", "--format=csv")
 
       assert_predicate status, :success?, stdout
       assert_equal <<CSV, stdout
@@ -398,7 +420,7 @@ end
 1 + 2
       EOF
 
-      stdout, status = sh(*steep, "stats", "--format=table")
+      stdout, _, status = sh3(*steep, "stats", "--format=table")
 
       assert_predicate status, :success?, stdout
       assert_equal <<CSV, stdout
@@ -406,6 +428,24 @@ end
 ---------------------------------------------------------------------------
  app     foo.rb    success            1              0          1     100%
 CSV
+    end
+  end
+
+  def test_stats_error
+    in_tmpdir do
+      (current_dir + "Steepfile").write(<<-EOF)
+target :app do
+  check "foo.rb"
+end
+      EOF
+
+      (current_dir + "foo.rb").write(<<-EOF)
+1 + 2
+      EOF
+
+      stdout, status = sh2e(*steep, "stats", "--format=unknown")
+
+      refute_predicate status, :success?, stdout
     end
   end
 end

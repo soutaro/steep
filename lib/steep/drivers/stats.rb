@@ -178,12 +178,14 @@ module Steep
                     CSVPrinter.new(io: stdout)
                   when "table"
                     TablePrinter.new(io: stdout)
-                  else
+                  when nil
                     if stdout.tty?
                       TablePrinter.new(io: stdout)
                     else
                       CSVPrinter.new(io: stdout)
                     end
+                  else
+                    raise ArgumentError.new("Invalid format: #{format}")
                   end
 
         printer.print(stats_result)
