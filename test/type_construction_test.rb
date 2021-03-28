@@ -7518,4 +7518,22 @@ Issue328::Foo.new.to_h { [1, ""] }
       end
     end
   end
+
+  def test_issue_293
+    with_checker do |checker|
+      source = parse_ruby(<<-'RUBY')
+begin
+  1+2
+rescue
+  retry
+end
+      RUBY
+
+      with_standard_construction(checker, source) do |construction, typing|
+        type, _ = construction.synthesize(source.node)
+
+        assert_no_error typing
+      end
+    end
+  end
 end
