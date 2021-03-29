@@ -7444,7 +7444,7 @@ end
     EOF
 
       source = parse_ruby(<<-'RUBY')
-class TestImplements
+class TestOutside
   TestInside.class_eval do
     # @implements TestInside
   

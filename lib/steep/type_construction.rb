@@ -3475,19 +3475,17 @@ module Steep
       module_context = self.module_context
 
       if implements = block_annotations.implement_module_annotation
-        yield_self do
-          module_context = default_module_context(
-            implements.name,
-            const_env: self.module_context.const_env,
-            current_namespace: current_namespace
-          )
+        module_context = default_module_context(
+          implements.name,
+          const_env: self.module_context.const_env,
+          current_namespace: current_namespace
+        )
 
-          self_type = module_context.module_type
-        end
+        self_type = module_context.module_type
       end
 
-      if type = block_annotations.self_type
-        self_type = type
+      if annotation_self_type = block_annotations.self_type
+        self_type = annotation_self_type
       end
 
       self.class.new(
