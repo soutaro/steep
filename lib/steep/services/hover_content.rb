@@ -43,6 +43,7 @@ module Steep
       def typecheck(target, path:, content:, line:, column:)
         subtyping = service.signature_services[target.name].current_subtyping or return
         source = Source.parse(content, path: path, factory: subtyping.factory)
+        source = source.without_unrelated_defs(line: line, column: column)
         Services::TypeCheckService.type_check(source: source, subtyping: subtyping)
       rescue
         nil
