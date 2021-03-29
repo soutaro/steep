@@ -3471,30 +3471,23 @@ module Steep
         next_type: block_context.body_type
       )
 
+      self_type = self.self_type
       module_context = self.module_context
+
       if implements = block_annotations.implement_module_annotation
         yield_self do
-          module_name = checker.factory.absolute_type_name(implements.name.name, namespace: current_namespace)
-          module_args = implements.name.args.map {|name| AST::Types::Var.new(name: name) }
-
-          module_entry = checker.factory.definition_builder.env.class_decls[module_name]
-          instance_def = checker.factory.definition_builder.build_instance(module_name)
-          module_def = checker.factory.definition_builder.build_singleton(module_name)
-
-          instance_type = AST::Types::Name::Instance.new(name: module_name, args: module_args)
-          module_type = AST::Types::Name::Singleton.new(name: module_name)
-
-          module_context = TypeInference::Context::ModuleContext.new(
-            instance_type: instance_type,
-            module_type: module_type,
-            implement_name: implements.name,
-            current_namespace: current_namespace,
-            const_env: module_context.const_env,
-            class_name: module_name,
-            instance_definition: instance_def,
-            module_definition: module_def
+          module_context = default_module_context(
+            implements.name,
+            const_env: self.module_context.const_env,
+            current_namespace: current_namespace
           )
+
+          self_type = module_context.module_type
         end
+      end
+
+      if type = block_annotations.self_type
+        self_type = type
       end
 
       self.class.new(
@@ -3507,7 +3500,7 @@ module Steep
           method_context: method_context,
           module_context: module_context,
           break_context: break_context,
-          self_type: block_annotations.self_type || self_type,
+          self_type: self_type,
           type_env: type_env.dup,
           lvar_env: lvar_env,
           call_context: self.context.call_context
