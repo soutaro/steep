@@ -35,4 +35,5 @@ Gem::Specification.new do |spec|
   spec.add_runtime_dependency "language_server-protocol", ">= 3.15", "< 4.0"
   spec.add_runtime_dependency "rbs", "~> 1.1.0"
   spec.add_runtime_dependency "parallel", ">= 1.0.0"
+  spec.add_runtime_dependency "terminal-table", "~> 2.0"
 end

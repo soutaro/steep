@@ -17,6 +17,7 @@ require "yaml"
 require "securerandom"
 
 require "parallel/processor_count"
+require "terminal-table"
 
 require "rbs"
 

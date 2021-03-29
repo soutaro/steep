@@ -413,6 +413,14 @@ module ShellHelper
     Open3.capture2(env_vars, *command, chdir: current_dir.to_s)
   end
 
+  def sh3(*command)
+    Open3.capture3(env_vars, *command, chdir: current_dir.to_s)
+  end
+
+  def sh2e(*command)
+    Open3.capture2e(env_vars, *command, chdir: current_dir.to_s)
+  end
+
   def sh!(*command)
     stdout, status = sh(*command)
     unless status.success?

@@ -3,9 +3,103 @@ require "csv"
 module Steep
   module Drivers
     class Stats
+      class CSVPrinter
+        attr_reader :io
+
+        def initialize(io:)
+          @io = io
+        end
+
+        def print(stats_result)
+          io.puts(
+            CSV.generate do |csv|
+              csv << ["Target", "File", "Status", "Typed calls", "Untyped calls", "All calls", "Typed %"]
+              stats_result.each do |row|
+                if row[:type] == "success"
+                  csv << [
+                    row[:target],
+                    row[:path],
+                    row[:type],
+                    row[:typed_calls],
+                    row[:untyped_calls],
+                    row[:total_calls],
+                    if row[:total_calls].nonzero?
+                      (row[:typed_calls].to_f / row[:total_calls] * 100).to_i
+                    else
+                      100
+                    end
+                  ]
+                else
+                  csv << [
+                    row[:target],
+                    row[:path],
+                    row[:type],
+                    0,
+                    0,
+                    0,
+                    0
+                  ]
+                end
+              end
+            end
+          )
+        end
+      end
+
+      class TablePrinter
+        attr_reader :io
+
+        def initialize(io:)
+          @io = io
+        end
+
+        def print(stats_result)
+          rows = []
+          stats_result.sort_by {|row| row[:path] }.each do |row|
+            if row[:type] == "success"
+              rows << [
+                row[:target],
+                row[:path] + "  ",
+                row[:type],
+                row[:typed_calls],
+                row[:untyped_calls],
+                row[:total_calls],
+                if row[:total_calls].nonzero?
+                  "#{(row[:typed_calls].to_f / row[:total_calls] * 100).to_i}%"
+                else
+                  "100%"
+                end
+              ]
+            else
+              rows << [
+                row[:target],
+                row[:path],
+                row[:type],
+                0,
+                0,
+                0,
+                "N/A"
+              ]
+            end
+          end
+
+          table = Terminal::Table.new(
+            headings: ["Target", "File", "Status", "Typed calls", "Untyped calls", "All calls", "Typed %"],
+            rows: rows
+          )
+          table.align_column(3, :right)
+          table.align_column(4, :right)
+          table.align_column(5, :right)
+          table.align_column(6, :right)
+          table.style = { border_top: false, border_bottom: false, border_y: "", border_i: "" }
+          io.puts(table)
+        end
+      end
+
       attr_reader :stdout
       attr_reader :stderr
       attr_reader :command_line_patterns
+      attr_accessor :format
 
       include Utils::DriverHelper
       include Utils::JobsCount
@@ -79,96 +173,24 @@ module Steep
         shutdown_exit(reader: client_reader, writer: client_writer)
         main_thread.join()
 
-        stdout.puts(
-          CSV.generate do |csv|
-            csv << ["Target", "File", "Status", "Typed calls", "Untyped calls", "All calls", "Typed %"]
-            stats_result.each do |row|
-              if row[:type] == "success"
-                csv << [
-                  row[:target],
-                  row[:path],
-                  row[:type],
-                  row[:typed_calls],
-                  row[:untyped_calls],
-                  row[:total_calls],
-                  if row[:total_calls].nonzero?
-                    (row[:typed_calls].to_f / row[:total_calls] * 100).to_i
+        printer = case format
+                  when "csv"
+                    CSVPrinter.new(io: stdout)
+                  when "table"
+                    TablePrinter.new(io: stdout)
+                  when nil
+                    if stdout.tty?
+                      TablePrinter.new(io: stdout)
+                    else
+                      CSVPrinter.new(io: stdout)
+                    end
                   else
-                    100
+                    raise ArgumentError.new("Invalid format: #{format}")
                   end
-                ]
-              else
-                csv << [
-                  row[:target],
-                  row[:path],
-                  row[:type],
-                  0,
-                  0,
-                  0,
-                  0
-                ]
-              end
-            end
-          end
-        )
-        #
-        # type_check(project)
-        #
-        # stdout.puts(
-        #   CSV.generate do |csv|
-        #     csv << ["Target", "File", "Status", "Typed calls", "Untyped calls", "All calls", "Typed %"]
-        #
-        #     project.targets.each do |target|
-        #       case (status = target.status)
-        #       when Project::Target::TypeCheckStatus
-        #         status.type_check_sources.each do |source_file|
-        #           case source_file.status
-        #           when Project::SourceFile::TypeCheckStatus
-        #             typing = source_file.status.typing
-        #
-        #             typed = 0
-        #             untyped = 0
-        #             total = 0
-        #             typing.method_calls.each_value do |call|
-        #               case call
-        #               when TypeInference::MethodCall::Typed
-        #                 typed += 1
-        #               when TypeInference::MethodCall::Untyped
-        #                 untyped += 1
-        #               end
-        #
-        #               total += 1
-        #             end
-        #
-        #             csv << format_stats(target, source_file.path, "success", typed, untyped, total)
-        #           when Project::SourceFile::TypeCheckErrorStatus
-        #             csv << format_stats(target, source_file.path, "error", 0, 0, 0)
-        #           else
-        #             csv << format_stats(target, source_file.path, "unknown (#{source_file.status.class.to_s.split(/::/).last})", 0, 0, 0)
-        #           end
-        #         end
-        #       end
-        #     end
-        #   end
-        # )
+
+        printer.print(stats_result)
 
         0
-      end
-
-      def format_stats(target, path, status, typed, untyped, total)
-        [
-          target.name,
-          path.to_s,
-          status,
-          typed,
-          untyped,
-          total,
-          if total.nonzero?
-            format("%.2f", (typed.to_f/total)*100)
-          else
-            0
-          end
-        ]
       end
     end
   end
