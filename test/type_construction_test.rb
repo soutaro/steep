@@ -7427,6 +7427,44 @@ end
     end
   end
 
+  def test_block_implements_singleton
+    with_checker <<-EOF do |checker|
+class Object
+  def self.class_eval: () { () -> void } -> void
+end
+
+class TestInside
+  def initialize: (String) -> void
+  def self.foo: () -> void
+  def self.make_copy: () -> TestInside
+end
+
+class TestOutside
+end
+    EOF
+
+      source = parse_ruby(<<-'RUBY')
+class TestImplements
+  TestInside.class_eval do
+    # @implements TestInside
+  
+    foo()
+
+    def self.make_copy
+      TestInside.new("Foo")
+    end
+  end
+end
+      RUBY
+
+      with_standard_construction(checker, source) do |construction, typing|
+        type, _ = construction.synthesize(source.node)
+
+        assert_no_error typing
+      end
+    end
+  end
+
   def test_nil_block
     with_checker <<-EOF do |checker|
 class TestNilBlock
