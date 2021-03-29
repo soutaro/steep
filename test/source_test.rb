@@ -521,4 +521,29 @@ end
       end
     end
   end
+
+  def test_delete_defs_annotation
+    with_factory do |factory|
+      source = Steep::Source.parse(<<-EOF, path: Pathname("foo.rb"), factory: factory)
+class Foo
+  X = Struct.new do
+    # @implements Foo::X
+
+    def hello
+    end
+
+    def world
+    end
+  end
+end
+      EOF
+
+      source.without_unrelated_defs(line: 6, column: 0).tap do |source|
+        block = dig(source.node, 2, 2)
+        annots = source.annotations(block: block, factory: factory, current_module: nil)
+
+        refute_nil annots.implement_module_annotation
+      end
+    end
+  end
 end

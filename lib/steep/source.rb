@@ -72,13 +72,13 @@ module Steep
         end
       end
 
-      mapping = {}
+      mapping = {}.compare_by_identity
 
       construct_mapping(node: node, annotations: annotations, mapping: mapping)
 
       annotations.each do |annot|
-        mapping[node.__id__] = [] unless mapping.key?(node.__id__)
-        mapping[node.__id__] << annot.annotation
+        mapping[node] ||= []
+        mapping[node] << annot
       end
 
       new(path: path, node: node, mapping: mapping)
@@ -256,8 +256,8 @@ module Steep
       end
 
       associated_annotations.each do |annot|
-        mapping[node.__id__] = [] unless mapping.key?(node.__id__)
-        mapping[node.__id__] << annot.annotation
+        mapping[node] ||= []
+        mapping[node] << annot
         annotations.delete annot
       end
     end
@@ -284,17 +284,16 @@ module Steep
 
     def annotations(block:, factory:, current_module:)
       AST::Annotation::Collection.new(
-        annotations: mapping[block.__id__] || [],
+        annotations: (mapping[block] || []).map(&:annotation),
         factory: factory,
         current_module: current_module
       )
     end
 
-    def each_annotation
+    def each_annotation(&block)
       if block_given?
-        mapping.each_key do |id|
-          node = ObjectSpace._id2ref(id)
-          yield node, mapping[id]
+        mapping.each do |node, annots|
+          yield node, annots.map(&:annotation)
         end
       else
         enum_for :each_annotation
@@ -349,6 +348,16 @@ module Steep
       defs = Set[].compare_by_identity.merge(nodes.select {|node| node.type == :def || node.type == :defs })
 
       node_ = Source.delete_defs(node, defs)
+
+      mapping = {}.compare_by_identity
+
+      annotations = self.mapping.values.flatten
+      Source.construct_mapping(node: node_, annotations: annotations, mapping: mapping)
+
+      annotations.each do |annot|
+        mapping[node] ||= []
+        mapping[node] << annot
+      end
 
       Source.new(path: path, node: node_, mapping: mapping)
     end
