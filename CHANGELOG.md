@@ -2,6 +2,20 @@
 
 ## master
 
+## 0.43.0 (2021-03-30)
+
+* LSP responsiveness improvements ([\#352](https://github.com/soutaro/steep/issues/352))
+* `@implements` annotation in blocks ([#338](https://github.com/soutaro/steep/issues/338))
+* Better `steep stats` table formatting ([\#300](https://github.com/soutaro/steep/issues/300))
+* Fix retry type checking ([\#293](https://github.com/soutaro/steep/issues/293))
+* Better tuple type checking ([\#328](https://github.com/soutaro/steep/issues/328))
+* Fix unexpected `add_call` error ([\#358](https://github.com/soutaro/steep/pull/358))
+* Ignore passing nil as a block `&nil` ([\#356](https://github.com/soutaro/steep/pull/356))
+* Better type checking for non-trivial block parameters ([\#354](https://github.com/soutaro/steep/pull/354))
+* Avoid unexpected error on splat assignments ([\#330](https://github.com/soutaro/steep/pull/330))
+* Fix constraint solver ([\#343](https://github.com/soutaro/steep/pull/343))
+* Ruby 2.7 compatible private method call typing ([\#344](https://github.com/soutaro/steep/pull/344))
+
 ## 0.42.0 (2021-03-08)
 
 * Type checking performance improvement ([\#309](https://github.com/soutaro/steep/pull/309), [\#311](https://github.com/soutaro/steep/pull/311), [\#312](https://github.com/soutaro/steep/pull/312), [\#313](https://github.com/soutaro/steep/pull/313), [\#314](https://github.com/soutaro/steep/pull/314), [\#315](https://github.com/soutaro/steep/pull/315), [\#316](https://github.com/soutaro/steep/pull/316), [\#320](https://github.com/soutaro/steep/pull/320), [\#322](https://github.com/soutaro/steep/pull/322))
