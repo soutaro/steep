@@ -2,6 +2,10 @@
 
 ## master
 
+## 0.43.1 (2021-04-01)
+
+* Fix LSP `textDocument/didSave` notification handling ([#368](https://github.com/soutaro/steep/issues/368))
+
 ## 0.43.0 (2021-03-30)
 
 * LSP responsiveness improvements ([\#352](https://github.com/soutaro/steep/issues/352))
