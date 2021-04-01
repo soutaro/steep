@@ -419,6 +419,47 @@ end
     end
   end
 
+  def test_client_message_document_did_save
+    in_tmpdir do
+      steepfile = current_dir + "Steepfile"
+      steepfile.write(<<-EOF)
+target :lib do
+  check "lib"
+  signature "sig"
+end
+      EOF
+
+      project = Project.new(steepfile_path: steepfile)
+      Project::DSL.parse(project, steepfile.read)
+
+      worker = Server::WorkerProcess.new(reader: nil, writer: nil, stderr: nil, wait_thread: nil, name: "test", index: 0)
+
+      master = Server::Master.new(
+        project: project,
+        reader: worker_reader,
+        writer: worker_writer,
+        interaction_worker: nil,
+        typecheck_workers: [worker]
+      )
+
+      assert_empty master.controller.changed_paths
+
+      master.process_message_from_client(
+        {
+          method: "textDocument/didSave",
+          params: {
+            textDocument: {
+              uri: "file://#{current_dir + "lib/customer.rb"}"
+            }
+          }
+        }
+      )
+
+      jobs = flush_queue(master.job_queue)
+      assert_empty jobs
+    end
+  end
+
   def test_client_message_document_did_open_close
     in_tmpdir do
       steepfile = current_dir + "Steepfile"

@@ -509,8 +509,9 @@ module Steep
 
         when "initialized"
           if typecheck_automatically
-            request = controller.make_request(include_unchanged: true)
-            start_type_check(request, last_request: nil, start_progress: request.total > 10)
+            if request = controller.make_request(include_unchanged: true)
+              start_type_check(request, last_request: nil, start_progress: request.total > 10)
+            end
           end
 
         when "textDocument/didChange"
@@ -520,12 +521,13 @@ module Steep
 
         when "textDocument/didSave"
           if typecheck_automatically
-            request = controller.make_request(last_request: current_type_check_request)
-            start_type_check(
-              request,
-              last_request: current_type_check_request,
-              start_progress: request.total > 10
-            )
+            if request = controller.make_request(last_request: current_type_check_request)
+              start_type_check(
+                request,
+                last_request: current_type_check_request,
+                start_progress: request.total > 10
+              )
+            end
           end
 
         when "textDocument/didOpen"
@@ -588,11 +590,14 @@ module Steep
             last_request: current_type_check_request,
             include_unchanged: true
           )
-          start_type_check(
-            request,
-            last_request: current_type_check_request,
-            start_progress: true
-          )
+
+          if request
+            start_type_check(
+              request,
+              last_request: current_type_check_request,
+              start_progress: true
+            )
+          end
 
         when "shutdown"
           result_controller << group_request do |group|
@@ -637,11 +642,6 @@ module Steep
 
       def start_type_check(request, last_request:, start_progress:)
         Steep.logger.tagged "#start_type_check(#{request.guid}, #{last_request&.guid}" do
-          unless request
-            Steep.logger.info "Skip start type checking"
-            return
-          end
-
           if last_request
             Steep.logger.info "Cancelling last request"
 
