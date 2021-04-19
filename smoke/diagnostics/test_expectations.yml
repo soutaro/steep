@@ -436,32 +436,6 @@
              | (::Rational) -> ::Rational
              | (::Complex) -> ::Complex
     code: Ruby::UnresolvedOverloading
-- file: unsatisfiable_constraint.rb
-  diagnostics:
-  - range:
-      start:
-        line: 4
-        character: 0
-      end:
-        line: 7
-        character: 3
-    severity: ERROR
-    message: |-
-      Unsatisfiable constraint `::Array[untyped] <: A(1) <: ::String` is generated through (A(1)) { (A(1)) -> void } -> B(2)
-        ::Array[untyped] <: ::String
-          ::Object <: ::String
-            ::BasicObject <: ::String
-    code: Ruby::UnsatisfiableConstraint
-  - range:
-      start:
-        line: 6
-        character: 4
-      end:
-        line: 6
-        character: 7
-    severity: ERROR
-    message: Type `::String` does not have method `foo`
-    code: Ruby::NoMethod
 - file: unsupported_syntax.rb
   diagnostics:
   - range:
