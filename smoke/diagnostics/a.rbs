@@ -13,10 +13,6 @@ end
 class UnknownConstantAssigned
 end
 
-class UnsatisfiableConstraint
-  def foo: [A, B] (A) { (A) -> void } -> B
-end
-
 class UnexpectedKeyword
   def foo: (foo: Integer) -> void
 end

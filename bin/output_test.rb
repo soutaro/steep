@@ -16,6 +16,8 @@ end
 
 failed_tests = []
 
+ALLOW_FAILURE = ["diagnostics-ruby-unsat"]
+
 test_dirs.each do |dir|
   puts "Running test #{dir}..."
 
@@ -30,8 +32,12 @@ test_dirs.each do |dir|
   output, status = Open3.capture2(*command, chdir: dir.to_s)
 
   unless status.success?
-    failed_tests << dir.basename
-    puts "  Failed! 🤕"
+    unless ALLOW_FAILURE.include?(dir.basename.to_s)
+      failed_tests << dir.basename
+      puts "  Failed! 🤕"
+    else
+      puts "  Failed! 🤕 (ALLOW_FAILURE)"
+    end
   else
     puts "  Succeed! 👍"
   end

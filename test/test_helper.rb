@@ -1,5 +1,7 @@
 $LOAD_PATH.unshift File.expand_path('../../lib', __FILE__)
 
+Encoding.default_external = Encoding::UTF_8
+
 require "bundler/setup"
 require 'steep'
 

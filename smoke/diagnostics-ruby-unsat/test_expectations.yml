@@ -1,0 +1,27 @@
+---
+- file: unsatisfiable_constraint.rb
+  diagnostics:
+  - range:
+      start:
+        line: 3
+        character: 0
+      end:
+        line: 6
+        character: 3
+    severity: ERROR
+    message: |-
+      Unsatisfiable constraint `::Array[untyped] <: A(2) <: ::String` is generated through (A(2)) { (A(2)) -> void } -> B(3)
+        ::Array[untyped] <: ::String
+          ::Object <: ::String
+            ::BasicObject <: ::String
+    code: Ruby::UnsatisfiableConstraint
+  - range:
+      start:
+        line: 5
+        character: 4
+      end:
+        line: 5
+        character: 7
+    severity: ERROR
+    message: Type `::String` does not have method `foo`
+    code: Ruby::NoMethod

@@ -383,6 +383,31 @@ module Steep
 
         typing
       end
+
+      def source_file?(path)
+        if source_files.key?(path)
+          project.target_for_source_path(path)
+        end
+      end
+
+      def signature_file?(path)
+        relative_path = project.relative_path(path)
+        targets = signature_services.select {|_, sig| sig.files.key?(relative_path) || sig.env_rbs_paths.include?(path) }
+        unless targets.empty?
+          targets.keys
+        end
+      end
+
+      def app_signature_file?(path)
+        target_names = signature_services.select {|_, sig| sig.files.key?(path) }.keys
+        unless target_names.empty?
+          target_names
+        end
+      end
+
+      def lib_signature_file?(path)
+        signature_services.each_value.any? {|sig| sig.env_rbs_paths.include?(path) }
+      end
     end
   end
 end

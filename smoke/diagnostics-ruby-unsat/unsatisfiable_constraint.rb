@@ -1,4 +1,3 @@
-
 test = UnsatisfiableConstraint.new
 
 test.foo([]) do |x|

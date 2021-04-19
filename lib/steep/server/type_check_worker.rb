@@ -11,6 +11,31 @@ module Steep
       TypeCheckCodeJob = Struct.new(:guid, :path, keyword_init: true)
       ValidateAppSignatureJob = Struct.new(:guid, :path, keyword_init: true)
       ValidateLibrarySignatureJob = Struct.new(:guid, :path, keyword_init: true)
+      GotoJob = Struct.new(:id, :kind, :params, keyword_init: true) do
+        def self.implementation(id:, params:)
+          new(
+            kind: :implementation,
+            id: id,
+            params: params
+          )
+        end
+
+        def self.definition(id:, params:)
+          new(
+            kind: :definition,
+            id: id,
+            params: params
+          )
+        end
+
+        def implementation?
+          kind == :implementation
+        end
+
+        def definition?
+          kind == :definition
+        end
+      end
 
       include ChangeBuffer
 
@@ -44,6 +69,10 @@ module Steep
         when "$/typecheck/start"
           params = request[:params]
           enqueue_typecheck_jobs(params)
+        when "textDocument/definition"
+          queue << GotoJob.definition(id: request[:id], params: request[:params])
+        when "textDocument/implementation"
+          queue << GotoJob.implementation(id: request[:id], params: request[:params])
         end
       end
 
@@ -179,6 +208,11 @@ module Steep
             id: job.id,
             result: stats_result().map(&:as_json)
           )
+        when GotoJob
+          writer.write(
+            id: job.id,
+            result: goto(job)
+          )
         end
       end
 
@@ -229,6 +263,40 @@ module Steep
 
             stats << calculator.calc_stats(target, file: file)
           end
+        end
+      end
+
+      def goto(job)
+        path = Pathname(URI.parse(job.params[:textDocument][:uri]).path)
+        line = job.params[:position][:line] + 1
+        column = job.params[:position][:character]
+
+        goto_service = Services::GotoService.new(type_check: service)
+        locations =
+          case
+          when job.definition?
+            goto_service.definition(path: path, line: line, column: column)
+          when job.implementation?
+            goto_service.implementation(path: path, line: line, column: column)
+          else
+            raise
+          end
+
+        locations.map do |loc|
+          path =
+            case loc
+            when RBS::Location
+              Pathname(loc.buffer.name)
+            else
+              Pathname(loc.source_buffer.name)
+            end
+
+          path = project.absolute_path(path)
+
+          {
+            uri: URI.parse(path.to_s).tap {|uri| uri.scheme = "file" }.to_s,
+            range: loc.as_lsp_range
+          }
         end
       end
     end

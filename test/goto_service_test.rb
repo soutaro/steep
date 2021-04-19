@@ -1,0 +1,534 @@
+require "test_helper"
+
+class GotoServiceTest < Minitest::Test
+  include Steep
+  include TestHelper
+
+  ContentChange = Services::ContentChange
+  TypeCheckService = Services::TypeCheckService
+  GotoService = Services::GotoService
+
+  def dir
+    @dir ||= Pathname(Dir.mktmpdir)
+  end
+
+  def project
+    @project ||= Project.new(steepfile_path: dir + "Steepfile").tap do |project|
+      Project::DSL.parse(project, <<EOF)
+target :lib do
+  check "lib"
+  signature "sig"
+end
+EOF
+    end
+  end
+
+  def type_check_service()
+    changes = {}
+    yield changes
+
+    type_check = Services::TypeCheckService.new(project: project)
+    type_check.update_and_check(changes: changes, assignment: Services::PathAssignment.all) {}
+    type_check
+  end
+
+  def test_goto_definition_sig_class
+    type_check = type_check_service do |changes|
+      changes[Pathname("sig/customer.rbs")] = [ContentChange.string(<<RBS)]
+class Customer
+  VERSION: String
+end
+
+class ::Customer
+  SIZE: Integer
+end
+RBS
+      changes[Pathname("lib/customer.rb")] = [ContentChange.string(<<RUBY)]
+class Customer
+  VERSION = "0.1.0"
+end
+
+class Customer
+  SIZE = 30
+end
+RUBY
+    end
+
+    service = Services::GotoService.new(type_check: type_check)
+
+    service.definition(path: dir + "sig/customer.rbs", line: 2, column: 4).tap do |locations|
+    end
+  end
+
+  def test_query_at_code_const
+    type_check = type_check_service do |changes|
+      changes[Pathname("sig/customer.rbs")] = [ContentChange.string(<<RBS)]
+class Customer
+  VERSION: String
+end
+
+class ::Customer
+  SIZE: Integer
+end
+RBS
+      changes[Pathname("lib/customer.rb")] = [ContentChange.string(<<RUBY)]
+class Customer
+  VERSION = "0.1.0"
+end
+
+Customer::SIZE + 2
+RUBY
+    end
+
+    service = Services::GotoService.new(type_check: type_check)
+
+    service.query_at(path: dir + "lib/customer.rb", line: 1, column: 10).tap do |qs|
+      assert_equal 1, qs.size
+      assert_any!(qs) do |query|
+        assert_instance_of Services::GotoService::ConstantQuery, query
+        assert_equal TypeName("::Customer"), query.name
+        assert_predicate query, :from_ruby?
+      end
+    end
+
+    service.query_at(path: dir + "lib/customer.rb", line: 2, column: 4).tap do |qs|
+      assert_equal 1, qs.size
+      assert_any!(qs) do |query|
+        assert_instance_of Services::GotoService::ConstantQuery, query
+        assert_equal TypeName("::Customer::VERSION"), query.name
+        assert_predicate query, :from_ruby?
+      end
+    end
+
+    service.query_at(path: dir + "lib/customer.rb", line: 5, column: 12).tap do |qs|
+      assert_equal 1, qs.size
+      assert_any!(qs) do |query|
+        assert_instance_of Services::GotoService::ConstantQuery, query
+        assert_equal TypeName("::Customer::SIZE"), query.name
+        assert_predicate query, :from_ruby?
+      end
+    end
+  end
+
+  def test_query_at_rbs_const
+    type_check = type_check_service do |changes|
+      changes[Pathname("sig/customer.rbs")] = [ContentChange.string(<<RBS)]
+class Customer
+  VERSION: String
+end
+
+class ::Customer
+  SIZE: Integer
+end
+RBS
+      changes[Pathname("lib/customer.rb")] = [ContentChange.string(<<RUBY)]
+class Customer
+  VERSION = "0.1.0"
+end
+
+Customer::SIZE + 2
+RUBY
+    end
+
+    service = Services::GotoService.new(type_check: type_check)
+
+    service.query_at(path: dir + "sig/customer.rbs", line: 1, column: 10).tap do |qs|
+      assert_equal 1, qs.size
+      assert_any!(qs) do |query|
+        assert_instance_of Services::GotoService::ConstantQuery, query
+        assert_equal TypeName("::Customer"), query.name
+        assert_predicate query, :from_rbs?
+      end
+    end
+
+    service.query_at(path: dir + "sig/customer.rbs", line: 2, column: 6).tap do |qs|
+      assert_equal 1, qs.size
+      assert_any!(qs) do |query|
+        assert_instance_of Services::GotoService::ConstantQuery, query
+        assert_equal TypeName("::Customer::VERSION"), query.name
+        assert_predicate query, :from_rbs?
+      end
+    end
+  end
+
+  def test_query_at_method_def
+    type_check = type_check_service do |changes|
+      changes[Pathname("sig/customer.rbs")] = [ContentChange.string(<<RBS)]
+class Customer
+  def foo: () -> void
+
+  def self.bar: () -> void
+
+  def self?.baz: () -> void
+end
+RBS
+      changes[Pathname("lib/customer.rb")] = [ContentChange.string(<<RUBY)]
+class Customer
+  def foo
+  end
+
+  def self.bar
+  end
+end
+RUBY
+    end
+
+    service = Services::GotoService.new(type_check: type_check)
+
+    service.query_at(path: dir + "sig/customer.rbs", line: 2, column: 7).tap do |qs|
+      assert_equal 1, qs.size
+      assert_any!(qs) do |query|
+        assert_instance_of Services::GotoService::MethodQuery, query
+        assert_equal InstanceMethodName.new(type_name: TypeName("::Customer"), method_name: :foo), query.name
+        assert_predicate query, :from_rbs?
+      end
+    end
+
+    service.query_at(path: dir + "sig/customer.rbs", line: 4, column: 13).tap do |qs|
+      assert_equal 1, qs.size
+      assert_any!(qs) do |query|
+        assert_instance_of Services::GotoService::MethodQuery, query
+        assert_equal SingletonMethodName.new(type_name: TypeName("::Customer"), method_name: :bar), query.name
+        assert_predicate query, :from_rbs?
+      end
+    end
+
+    service.query_at(path: dir + "sig/customer.rbs", line: 6, column: 13).tap do |qs|
+      assert_equal 2, qs.size
+
+      assert_any!(qs) do |query|
+        assert_instance_of Services::GotoService::MethodQuery, query
+        assert_equal SingletonMethodName.new(type_name: TypeName("::Customer"), method_name: :baz), query.name
+        assert_predicate query, :from_rbs?
+      end
+
+      assert_any!(qs) do |query|
+        assert_instance_of Services::GotoService::MethodQuery, query
+        assert_equal InstanceMethodName.new(type_name: TypeName("::Customer"), method_name: :baz), query.name
+        assert_predicate query, :from_rbs?
+      end
+    end
+
+    service.query_at(path: dir + "lib/customer.rb", line: 2, column: 8).tap do |qs|
+      assert_equal 1, qs.size
+      assert_any!(qs) do |query|
+        assert_instance_of Services::GotoService::MethodQuery, query
+        assert_equal InstanceMethodName.new(type_name: TypeName("::Customer"), method_name: :foo), query.name
+        assert_predicate query, :from_ruby?
+      end
+    end
+
+    service.query_at(path: dir + "lib/customer.rb", line: 5, column: 13).tap do |qs|
+      assert_equal 1, qs.size
+      assert_any!(qs) do |query|
+        assert_instance_of Services::GotoService::MethodQuery, query
+        assert_equal SingletonMethodName.new(type_name: TypeName("::Customer"), method_name: :bar), query.name
+        assert_predicate query, :from_ruby?
+      end
+    end
+  end
+
+  def test_query_at_type
+    type_check = type_check_service do |changes|
+      changes[Pathname("sig/customer.rbs")] = [ContentChange.string(<<RBS)]
+class Customer
+  def foo: ([String, string] key) -> String
+end
+RBS
+    end
+
+    service = Services::GotoService.new(type_check: type_check)
+
+    service.query_at(path: dir + "sig/customer.rbs", line: 2, column: 16).tap do |qs|
+      assert_equal 1, qs.size
+      assert_any!(qs) do |query|
+        assert_instance_of Services::GotoService::TypeNameQuery, query
+        assert_equal TypeName("::String"), query.name
+      end
+    end
+
+    service.query_at(path: dir + "sig/customer.rbs", line: 2, column: 24).tap do |qs|
+      assert_equal 1, qs.size
+      assert_any!(qs) do |query|
+        assert_instance_of Services::GotoService::TypeNameQuery, query
+        assert_equal TypeName("::string"), query.name
+      end
+    end
+  end
+
+  def test_query_at_method_call
+    type_check = type_check_service do |changes|
+      changes[Pathname("sig/customer.rbs")] = [ContentChange.string(<<RBS)]
+class Customer
+  def foo: () -> void
+
+  def self.bar: () -> void
+
+  def self?.baz: () -> void
+end
+RBS
+      changes[Pathname("lib/main.rb")] = [ContentChange.string(<<RUBY)]
+Customer.new.foo()
+Customer.bar()
+
+Customer.no_method_error()
+(_ = Customer).bar()
+RUBY
+    end
+
+    service = Services::GotoService.new(type_check: type_check)
+
+    service.query_at(path: dir + "lib/main.rb", line: 1, column: 16).tap do |qs|
+      assert_equal 1, qs.size
+      assert_any!(qs) do |query|
+        assert_instance_of Services::GotoService::MethodQuery, query
+        assert_equal InstanceMethodName.new(type_name: TypeName("::Customer"), method_name: :foo), query.name
+      end
+    end
+
+    service.query_at(path: dir + "lib/main.rb", line: 2, column: 11).tap do |qs|
+      assert_equal 1, qs.size
+      assert_any!(qs) do |query|
+        assert_instance_of Services::GotoService::MethodQuery, query
+        assert_equal SingletonMethodName.new(type_name: TypeName("::Customer"), method_name: :bar), query.name
+      end
+    end
+
+    service.query_at(path: dir + "lib/main.rb", line: 4, column: 11).tap do |qs|
+      assert_empty qs
+    end
+
+    service.query_at(path: dir + "lib/main.rb", line: 5, column: 18).tap do |qs|
+      assert_empty qs
+    end
+  end
+
+  def test_constant_locations
+    type_check = type_check_service do |changes|
+      changes[Pathname("sig/customer.rbs")] = [ContentChange.string(<<RBS)]
+class Customer
+  module ::Customer2
+  end
+end
+
+Customer::NAME: String
+RBS
+      changes[Pathname("lib/main.rb")] = [ContentChange.string(<<RUBY)]
+class Customer
+  module ::Customer2
+  end
+
+  NAME = "FOO"
+end
+RUBY
+    end
+
+    type_check.source_files.each_key do |path|
+      type_check.typecheck_source(path: path) {}
+    end
+    service = Services::GotoService.new(type_check: type_check)
+
+    service.constant_definition_in_ruby(TypeName("::Customer"), locations: []).tap do |locs|
+      assert_equal 1, locs.size
+
+      assert_any!(locs) do |loc|
+        assert_instance_of Parser::Source::Range, loc
+        assert_equal "Customer", loc.source
+        assert_equal 1, loc.line
+      end
+    end
+
+    service.constant_definition_in_rbs(TypeName("::Customer"), locations: []).tap do |locs|
+      assert_equal 1, locs.size
+
+      assert_any!(locs) do |loc|
+        assert_instance_of RBS::Location, loc
+        assert_equal "Customer", loc.source
+        assert_equal 1, loc.start_line
+      end
+    end
+
+    service.constant_definition_in_ruby(TypeName("::Customer2"), locations: []).tap do |locs|
+      assert_equal 1, locs.size
+
+      assert_any!(locs) do |loc|
+        assert_instance_of Parser::Source::Range, loc
+        assert_equal "::Customer2", loc.source
+        assert_equal 2, loc.line
+      end
+    end
+
+    service.constant_definition_in_rbs(TypeName("::Customer2"), locations: []).tap do |locs|
+      assert_equal 1, locs.size
+
+      assert_any!(locs) do |loc|
+        assert_instance_of RBS::Location, loc
+        assert_equal "::Customer2", loc.source
+        assert_equal 2, loc.start_line
+      end
+    end
+
+    service.constant_definition_in_ruby(TypeName("::Customer::NAME"), locations: []).tap do |locs|
+      assert_equal 1, locs.size
+
+      assert_any!(locs) do |loc|
+        assert_instance_of Parser::Source::Range, loc
+        assert_equal "NAME", loc.source
+        assert_equal 5, loc.line
+      end
+    end
+
+    service.constant_definition_in_rbs(TypeName("::Customer::NAME"), locations: []).tap do |locs|
+      assert_equal 1, locs.size
+
+      assert_any!(locs) do |loc|
+        assert_instance_of RBS::Location, loc
+        assert_equal "Customer::NAME", loc.source
+        assert_equal 6, loc.start_line
+      end
+    end
+  end
+
+  def test_method_locations
+    type_check = type_check_service do |changes|
+      changes[Pathname("sig/customer.rbs")] = [ContentChange.string(<<RBS)]
+class Customer
+  def foo: () -> void
+
+  alias bar foo
+
+  attr_accessor baz: String
+
+  extend _Finder
+end
+
+interface _Finder
+  def find: () -> void
+end
+RBS
+      changes[Pathname("lib/main.rb")] = [ContentChange.string(<<RUBY)]
+class Customer
+  def foo
+  end
+
+  def self.find
+  end
+end
+RUBY
+    end
+
+    type_check.source_files.each_key do |path|
+      type_check.typecheck_source(path: path) {}
+    end
+    service = Services::GotoService.new(type_check: type_check)
+
+    service.method_locations(MethodName("::Customer#foo"), locations: [], in_ruby: true, in_rbs: true).tap do |locs|
+      assert_equal 2, locs.size
+
+      assert_any!(locs) do |loc|
+        assert_instance_of RBS::Location, loc
+        assert_equal "foo", loc.source
+        assert_equal 2, loc.start_line
+      end
+
+      assert_any!(locs) do |loc|
+        assert_instance_of Parser::Source::Range, loc
+        assert_equal "foo", loc.source
+        assert_equal 2, loc.line
+      end
+    end
+
+    service.method_locations(MethodName("::Customer#bar"), locations: [], in_ruby: true, in_rbs: true).tap do |locs|
+      assert_equal 1, locs.size
+
+      assert_any!(locs) do |loc|
+        assert_instance_of RBS::Location, loc
+        assert_equal "bar", loc.source
+        assert_equal 4, loc.start_line
+      end
+    end
+
+    service.method_locations(MethodName("::Customer#baz="), locations: [], in_ruby: true, in_rbs: true).tap do |locs|
+      assert_equal 1, locs.size
+
+      assert_any!(locs) do |loc|
+        assert_instance_of RBS::Location, loc
+        assert_equal "baz", loc.source
+        assert_equal 6, loc.start_line
+      end
+    end
+
+    service.method_locations(MethodName("::Customer.find"), locations: [], in_ruby: true, in_rbs: true).tap do |locs|
+      assert_equal 1, locs.size
+
+      assert_any!(locs) do |loc|
+        assert_instance_of Parser::Source::Range, loc
+        assert_equal "find", loc.source
+        assert_equal 5, loc.line
+      end
+    end
+
+    service.method_locations(MethodName("::_Finder#find"), locations: [], in_ruby: true, in_rbs: true).tap do |locs|
+      assert_equal 1, locs.size
+
+      assert_any!(locs) do |loc|
+        assert_instance_of RBS::Location, loc
+        assert_equal "find", loc.source
+        assert_equal 12, loc.start_line
+      end
+    end
+  end
+
+  def test_type_name_locations
+    type_check = type_check_service do |changes|
+      changes[Pathname("sig/customer.rbs")] = [ContentChange.string(<<RBS)]
+class Customer
+  type loc = Location::WithChildren[:name | :args]
+end
+
+class Customer
+  interface _Base
+  end
+end
+RBS
+    end
+
+    service = Services::GotoService.new(type_check: type_check)
+
+    service.type_name_locations(TypeName("::Customer")).tap do |locs|
+      assert_equal 2, locs.size
+
+      assert_any!(locs) do |loc|
+        assert_instance_of RBS::Location, loc
+        assert_equal "Customer", loc.source
+        assert_equal 1, loc.start_line
+      end
+
+      assert_any!(locs) do |loc|
+        assert_instance_of RBS::Location, loc
+        assert_equal "Customer", loc.source
+        assert_equal 5, loc.start_line
+      end
+    end
+
+    service.type_name_locations(TypeName("::Customer::loc")).tap do |locs|
+      assert_equal 1, locs.size
+
+      assert_any!(locs) do |loc|
+        assert_instance_of RBS::Location, loc
+        assert_equal "loc", loc.source
+        assert_equal 2, loc.start_line
+      end
+    end
+
+    service.type_name_locations(TypeName("::Customer::_Base")).tap do |locs|
+      assert_equal 1, locs.size
+
+      assert_any!(locs) do |loc|
+        assert_instance_of RBS::Location, loc
+        assert_equal "_Base", loc.source
+        assert_equal 6, loc.start_line
+      end
+    end
+  end
+end

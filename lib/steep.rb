@@ -104,6 +104,7 @@ require "steep/services/hover_content"
 require "steep/services/completion_provider"
 require "steep/services/stats_calculator"
 require "steep/services/file_loader"
+require "steep/services/goto_service"
 
 require "steep/project"
 require "steep/project/pattern"

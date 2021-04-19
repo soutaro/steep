@@ -43,8 +43,51 @@ module Steep
         end
       end
 
+      class MethodEntry
+        attr_reader :name
+
+        attr_reader :definitions
+        attr_reader :references
+
+        def initialize(name:)
+          @name = name
+
+          @definitions = Set[].compare_by_identity
+          @references = Set[].compare_by_identity
+        end
+
+        def add_definition(node)
+          case node.type
+          when :def, :defs
+            @definitions << node
+          else
+            raise "Unexpected method definition: #{node.type}"
+          end
+
+          self
+        end
+
+        def add_reference(node)
+          case node.type
+          when :send, :block
+            @references << node
+          else
+            raise "Unexpected method reference: #{node.type}"
+          end
+
+          self
+        end
+
+        def merge!(other)
+          definitions.merge(other.definitions)
+          references.merge(other.references)
+          self
+        end
+      end
+
       attr_reader :source
       attr_reader :constant_index
+      attr_reader :method_index
 
       attr_reader :parent
       attr_reader :count
@@ -58,6 +101,7 @@ module Steep
         @count = @parent_count || 0
 
         @constant_index = {}
+        @method_index = {}
       end
 
       def new_child
@@ -72,25 +116,31 @@ module Steep
           entry.merge!(child_entry)
         end
 
+        method_index.merge!(child.method_index) do |_, entry, child_entry|
+          entry.merge!(child_entry)
+        end
+
         @count = child.count + 1
       end
 
-      def add_definition(constant:, definition:)
+      def add_definition(constant: nil, method: nil, definition:)
         @count += 1
-        entry(constant: constant).add_definition(definition)
+        entry(constant: constant, method: method).add_definition(definition)
         self
       end
 
-      def add_reference(constant:, ref:)
+      def add_reference(constant: nil, method: nil, ref:)
         @count += 1
-        entry(constant: constant).add_reference(ref)
+        entry(constant: constant, method: method).add_reference(ref)
         self
       end
 
-      def entry(constant:)
+      def entry(constant: nil, method: nil)
         case
         when constant
           constant_index[constant] ||= ConstantEntry.new(name: constant)
+        when method
+          method_index[method] ||= MethodEntry.new(name: method)
         else
           raise
         end

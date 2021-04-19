@@ -944,13 +944,22 @@ module Steep
           yield_self do
             name, args_node, body_node = node.children
 
-            new = for_new_method(name,
-                                 node,
-                                 args: args_node.children,
-                                 self_type: module_context&.instance_type,
-                                 definition: module_context&.instance_definition)
+            new = for_new_method(
+              name,
+              node,
+              args: args_node.children,
+              self_type: module_context&.instance_type,
+              definition: module_context&.instance_definition
+            )
             new.typing.add_context_for_node(node, context: new.context)
             new.typing.add_context_for_body(node, context: new.context)
+
+            new.method_context.tap do |method_context|
+              if method_context.method
+                method_name = InstanceMethodName.new(type_name: method_context.method.implemented_in, method_name: name)
+                new.typing.source_index.add_definition(method: method_name, definition: node)
+              end
+            end
 
             new = new.synthesize_children(args_node)
 
@@ -1006,23 +1015,42 @@ module Steep
         when :defs
           synthesize(node.children[0]).type.tap do |self_type|
             self_type = expand_self(self_type)
-            definition = case self_type
-                         when AST::Types::Name::Instance
-                           name = self_type.name
-                           checker.factory.definition_builder.build_singleton(name)
-                         when AST::Types::Name::Singleton
-                           name = self_type.name
-                           checker.factory.definition_builder.build_singleton(name)
-                         end
+            definition =
+              case self_type
+              when AST::Types::Name::Instance
+                name = self_type.name
+                checker.factory.definition_builder.build_instance(name)
+              when AST::Types::Name::Singleton
+                name = self_type.name
+                checker.factory.definition_builder.build_singleton(name)
+              end
 
             args_node = node.children[2]
-            new = for_new_method(node.children[1],
-                                 node,
-                                 args: args_node.children,
-                                 self_type: self_type,
-                                 definition: definition)
+            new = for_new_method(
+              node.children[1],
+              node,
+              args: args_node.children,
+              self_type: self_type,
+              definition: definition
+            )
             new.typing.add_context_for_node(node, context: new.context)
             new.typing.add_context_for_body(node, context: new.context)
+
+            new.method_context.tap do |method_context|
+              if method_context.method
+                name_ = node.children[1]
+
+                method_name =
+                  case self_type
+                  when AST::Types::Name::Instance
+                    InstanceMethodName.new(type_name: method_context.method.implemented_in, method_name: name_)
+                  when AST::Types::Name::Singleton
+                    SingletonMethodName.new(type_name: method_context.method.implemented_in, method_name: name_)
+                  end
+
+                new.typing.source_index.add_definition(method: method_name, definition: node)
+              end
+            end
 
             new = new.synthesize_children(args_node)
 
@@ -1443,9 +1471,22 @@ module Steep
             constr = self
 
             name, _ = node.children
-            _, constr = constr.synthesize(name)
+            if name.type == :const
+              # skip the last constant reference
+              if const_parent = name.children[0]
+                _, constr = constr.synthesize(const_parent)
+              end
+            else
+              _, constr = constr.synthesize(name)
+            end
 
             for_module(node).yield_self do |constructor|
+              if module_type = constructor.module_context&.module_type
+                _, constructor = constructor.add_typing(name, type: module_type)
+              else
+                _, constructor = constructor.fallback_to_any(name)
+              end
+
               constructor.typing.source_index.add_definition(
                 constant: constructor.module_context.class_name,
                 definition: node
