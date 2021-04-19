@@ -660,4 +660,71 @@ RUBY
       end
     end
   end
+
+  def test_goto_definition_from_ruby
+    in_tmpdir do
+      project = Project.new(steepfile_path: current_dir + "Steepfile")
+      Project::DSL.parse(project, <<RUBY)
+target :lib do
+  check "lib"
+  signature "sig"
+end
+RUBY
+
+      worker = TypeCheckWorker.new(
+        project: project,
+        assignment: assignment,
+        commandline_args: [],
+        reader: worker_reader,
+        writer: worker_writer
+      )
+
+      worker.service.update(
+        changes: {
+          Pathname("sig/customer.rbs") => [Services::ContentChange.string(<<RBS)],
+class Customer
+  attr_accessor name: String
+end
+RBS
+          Pathname("lib/main.rb") => [Services::ContentChange.string(<<RUBY)],
+customer = Customer.new()
+customer.name = "Soutaro"
+RUBY
+        }
+      )
+
+      TypeCheckWorker::GotoJob.definition(
+        id: Time.now.to_i,
+        params: {
+          textDocument: { uri: "file://#{current_dir}/lib/main.rb" },
+          position: { line: 0, character: 14 }
+        }
+      ).tap do |job|
+        worker.goto(job).tap do |locations|
+          assert_any!(locations, size: 1) do |loc|
+            assert_equal "file://#{current_dir}/sig/customer.rbs", loc[:uri]
+            assert_equal(
+              {
+                start: { line: 0, character: 6 },
+                end: { line: 0, character: 14 }
+              },
+              loc[:range]
+            )
+          end
+        end
+      end
+
+      TypeCheckWorker::GotoJob.implementation(
+        id: Time.now.to_i,
+        params: {
+          textDocument: { uri: "file://#{current_dir}/lib/main.rb" },
+          position: { line: 0, character: 14 }
+        }
+      ).tap do |job|
+        worker.goto(job).tap do |locations|
+          assert_empty locations
+        end
+      end
+    end
+  end
 end

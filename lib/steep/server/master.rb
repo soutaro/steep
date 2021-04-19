@@ -499,7 +499,11 @@ module Steep
                         trigger_characters: [".", "@"],
                         work_done_progress: true
                       ),
-                      workspace_symbol_provider: true
+                      workspace_symbol_provider: true,
+                      definition_provider: true,
+                      declaration_provider: true,
+                      implementation_provider: true,
+                      type_definition_provider: true
                     )
                   )
                 }
@@ -581,6 +585,23 @@ module Steep
                   }
                 )
               end
+            end
+          end
+
+        when "textDocument/definition", "textDocument/implementation"
+          result_controller << group_request do |group|
+            typecheck_workers.each do |worker|
+              group << send_request(method: message[:method], params: message[:params], worker: worker)
+            end
+
+            group.on_completion do |handlers|
+              links = handlers.flat_map(&:result)
+              job_queue << SendMessageJob.to_client(
+                message: {
+                  id: message[:id],
+                  result: links
+                }
+              )
             end
           end
 
