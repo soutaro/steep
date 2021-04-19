@@ -58,15 +58,3 @@
     severity: ERROR
     message: Type `::String` does not have method `ggggg`
     code: Ruby::NoMethod
-- file: thread.rb
-  diagnostics:
-  - range:
-      start:
-        line: 6
-        character: 13
-      end:
-        line: 7
-        character: 3
-    severity: ERROR
-    message: The method cannot be called with a block
-    code: Ruby::UnexpectedBlockGiven
