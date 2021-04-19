@@ -7136,7 +7136,7 @@ type allowed_key = :foo | :bar | nil | Integer
 RBS
       source = parse_ruby(<<RUBY)
 # @type var x: allowed_key
-x = nil 
+x = nil
 
 # @type var y: nil
 # @type var z: Symbol
@@ -7411,7 +7411,7 @@ end
 class TestImplements
   String.class_eval do
     # @implements String
-  
+
     def extra_method(x)
       self + x
     end
@@ -7447,7 +7447,7 @@ end
 class TestOutside
   TestInside.class_eval do
     # @implements TestInside
-  
+
     foo()
 
     def self.make_copy
