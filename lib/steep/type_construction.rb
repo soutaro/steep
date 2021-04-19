@@ -1471,9 +1471,22 @@ module Steep
             constr = self
 
             name, _ = node.children
-            _, constr = constr.synthesize(name)
+            if name.type == :const
+              # skip the last constant reference
+              if const_parent = name.children[0]
+                _, constr = constr.synthesize(const_parent)
+              end
+            else
+              _, constr = constr.synthesize(name)
+            end
 
             for_module(node).yield_self do |constructor|
+              if module_type = constructor.module_context&.module_type
+                _, constructor = constructor.add_typing(name, type: module_type)
+              else
+                _, constructor = constructor.fallback_to_any(name)
+              end
+
               constructor.typing.source_index.add_definition(
                 constant: constructor.module_context.class_name,
                 definition: node
