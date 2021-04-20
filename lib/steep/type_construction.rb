@@ -3303,8 +3303,8 @@ module Steep
         end
       else
         # block is not given
-        if (!method_type.block || method_type.block.optional?)
-          # Method call without block is allowed
+        if !method_type.block
+          # Method doesn't accept blocks
           unless args.block_pass_arg
             # OK, without block
             s = constraints.solution(
@@ -3338,12 +3338,16 @@ module Steep
             end
           end
         else
-          unless args.block_pass_arg
-            # Required block is missing
-            errors << Diagnostic::Ruby::RequiredBlockMissing.new(
-              node: node,
-              method_type: method_type
-            )
+          # Method accepts block
+          if !args.block_pass_arg
+            # Block pass is not given
+            if method_type.block.required?
+              # Required block is missing
+              errors << Diagnostic::Ruby::RequiredBlockMissing.new(
+                node: node,
+                method_type: method_type
+              )
+            end
 
             s = constraints.solution(
               checker,
