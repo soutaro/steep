@@ -13,6 +13,10 @@ module Steep
         @optional
       end
 
+      def required?
+        !optional?
+      end
+
       def to_optional
         self.class.new(
           type: type,

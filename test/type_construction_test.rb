@@ -7574,4 +7574,31 @@ end
       end
     end
   end
+
+  def test_issue_372
+    with_checker(<<-RBS) do |checker|
+class Issue372
+  def f: () ?{ () -> void } -> void
+  def g: () ?{ () -> void } -> void
+end
+    RBS
+
+      source = parse_ruby(<<-'RUBY')
+class Issue372
+  def f(&block)
+  end
+
+  def g(&block)
+    f(&block)
+  end
+end
+      RUBY
+
+      with_standard_construction(checker, source) do |construction, typing|
+        type, _ = construction.synthesize(source.node)
+
+        assert_no_error typing
+      end
+    end
+  end
 end
