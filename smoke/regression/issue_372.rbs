@@ -1,0 +1,4 @@
+class Issue372
+  def f: () ?{ () -> void } -> void
+  def g: () ?{ () -> void } -> void
+end
