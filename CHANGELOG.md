@@ -2,6 +2,13 @@
 
 ## master
 
+## 0.44.0 (2021-04-22)
+
+* Implement LSP go to definition/implementation ([#371](https://github.com/soutaro/steep/pull/371), [#375](https://github.com/soutaro/steep/pull/375))
+* Fix typing on passing optional block ([#373](https://github.com/soutaro/steep/pull/373))
+* Do not crash when completion request `context` is missing ([#370](https://github.com/soutaro/steep/pull/370))
+* Update RBS ([#376](https://github.com/soutaro/steep/pull/376))
+
 ## 0.43.1 (2021-04-01)
 
 * Fix LSP `textDocument/didSave` notification handling ([#368](https://github.com/soutaro/steep/issues/368))
