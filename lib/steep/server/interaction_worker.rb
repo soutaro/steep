@@ -65,7 +65,7 @@ module Steep
           uri = URI.parse(params[:textDocument][:uri])
           path = project.relative_path(Pathname(uri.path))
           line, column = params[:position].yield_self {|hash| [hash[:line]+1, hash[:character]] }
-          trigger = params[:context][:triggerCharacter]
+          trigger = params.dig(:context, :triggerCharacter)
 
           queue << CompletionJob.new(id: id, path: path, line: line, column: column, trigger: trigger)
         end
