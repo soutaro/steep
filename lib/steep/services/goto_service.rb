@@ -255,6 +255,14 @@ module Steep
           type_check.source_files.each do |path, source|
             if typing = source.typing
               entry = typing.source_index.entry(method: name)
+
+              if entry.definitions.empty?
+                if name.is_a?(SingletonMethodName) && name.method_name == :new
+                  initialize = InstanceMethodName.new(method_name: :initialize, type_name: name.type_name)
+                  entry = typing.source_index.entry(method: initialize)
+                end
+              end
+
               entry.definitions.each do |node|
                 case node.type
                 when :def
@@ -272,6 +280,14 @@ module Steep
             index = signature.latest_rbs_index
 
             entry = index.entry(method_name: name)
+
+            if entry.declarations.empty?
+              if name.is_a?(SingletonMethodName) && name.method_name == :new
+                initialize = InstanceMethodName.new(method_name: :initialize, type_name: name.type_name)
+                entry = index.entry(method_name: initialize)
+              end
+            end
+
             entry.declarations.each do |decl|
               case decl
               when RBS::AST::Members::MethodDefinition

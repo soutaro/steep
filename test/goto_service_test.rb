@@ -531,4 +531,103 @@ RBS
       end
     end
   end
+
+  def test_new_method_definition
+    type_check = type_check_service do |changes|
+      changes[Pathname("sig/a.rbs")] = [ContentChange.string(<<RBS)]
+class Foo
+  def initialize: (String) -> void
+end
+
+class Bar
+end
+
+class Baz
+  def self.new: (Integer) -> Baz
+end
+RBS
+
+      changes[Pathname("lib/test.rb")] = [ContentChange.string(<<RBS)]
+Foo.new("foo")
+Bar.new()
+Baz.new(123)
+RBS
+    end
+
+    service = Services::GotoService.new(type_check: type_check)
+
+    service.definition(path: dir + "lib/test.rb", line: 1, column: 6).tap do |locs|
+      assert_any!(locs) do |loc|
+        assert_instance_of RBS::Location, loc
+        assert_equal "initialize", loc.source
+        assert_equal 2, loc.start_line
+        assert_equal Pathname("sig/a.rbs"), loc.buffer.name
+      end
+    end
+
+    service.definition(path: dir + "lib/test.rb", line: 2, column: 6).tap do |locs|
+      assert_any!(locs) do |loc|
+        assert_instance_of RBS::Location, loc
+        assert_equal "initialize", loc.source
+        assert_equal Pathname("basic_object.rbs"), Pathname(loc.buffer.name).basename
+      end
+    end
+
+    service.definition(path: dir + "lib/test.rb", line: 3, column: 6).tap do |locs|
+      assert_any!(locs) do |loc|
+        assert_instance_of RBS::Location, loc
+        assert_equal "new", loc.source
+        assert_equal 9, loc.start_line
+        assert_equal Pathname("sig/a.rbs"), loc.buffer.name
+      end
+    end
+  end
+
+  def test_new_method_impl
+    type_check = type_check_service do |changes|
+      changes[Pathname("sig/a.rbs")] = [ContentChange.string(<<RBS)]
+class Foo
+  def initialize: (String) -> void
+end
+
+class Baz
+  def self.new: (Integer) -> Baz
+end
+RBS
+
+      changes[Pathname("lib/test.rb")] = [ContentChange.string(<<RBS)]
+class Foo
+  def initialize(string)
+  end
+end
+
+class Baz
+  def self.new(i)
+    super()
+  end
+end
+
+Foo.new("foo")
+Baz.new(123)
+RBS
+    end
+
+    service = Services::GotoService.new(type_check: type_check)
+
+    service.implementation(path: dir + "lib/test.rb", line: 12, column: 6).tap do |locs|
+      assert_any!(locs, size: 1) do |loc|
+        assert_instance_of Parser::Source::Range, loc
+        assert_equal "initialize", loc.source
+        assert_equal 2, loc.line
+      end
+    end
+
+    service.implementation(path: dir + "lib/test.rb", line: 13, column: 6).tap do |locs|
+      assert_any!(locs, size: 1) do |loc|
+        assert_instance_of Parser::Source::Range, loc
+        assert_equal "new", loc.source
+        assert_equal 7, loc.line
+      end
+    end
+  end
 end
