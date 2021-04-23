@@ -501,9 +501,9 @@ module Steep
                       ),
                       workspace_symbol_provider: true,
                       definition_provider: true,
-                      declaration_provider: true,
+                      declaration_provider: false,
                       implementation_provider: true,
-                      type_definition_provider: true
+                      type_definition_provider: false
                     )
                   )
                 }
