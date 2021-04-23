@@ -630,4 +630,21 @@ RBS
       end
     end
   end
+
+  def test_method_block
+    type_check = type_check_service do |changes|
+      changes[Pathname("lib/test.rb")] = [ContentChange.string(<<RBS)]
+[].each do |x|
+end
+RBS
+    end
+
+    service = Services::GotoService.new(type_check: type_check)
+
+    service.definition(path: dir + "lib/test.rb", line: 1, column: 4).tap do |locs|
+      assert_any!(locs, size: 1) do |loc|
+        assert_equal Pathname("array.rbs"), Pathname(loc.buffer.name).basename
+      end
+    end
+  end
 end

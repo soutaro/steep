@@ -125,6 +125,7 @@ module Steep
                 end
               when :send
                 if test_ast_location(node.location.selector, line: line, column: column)
+                  node = parents[0] if parents[0]&.type == :block
                   case call = typing.call_of(node: node)
                   when TypeInference::MethodCall::Typed, TypeInference::MethodCall::Error
                     call.method_decls.each do |decl|
