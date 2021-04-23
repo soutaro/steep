@@ -2,6 +2,11 @@
 
 ## master
 
+## 0.44.1 (2021-04-23)
+
+* Disable goto declaration and goto type declaration (because they are not implemented) ([#377](https://github.com/soutaro/steep/pull/377))
+* Fix goto from block calls ([#378](https://github.com/soutaro/steep/pull/378))
+
 ## 0.44.0 (2021-04-22)
 
 * Implement LSP go to definition/implementation ([#371](https://github.com/soutaro/steep/pull/371), [#375](https://github.com/soutaro/steep/pull/375))
