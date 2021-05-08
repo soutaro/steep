@@ -37,26 +37,22 @@ module Steep
       self.emit_procarg0 = true
     end
 
-    def self.parser
-      ::Parser::Ruby27.new(Builder.new).tap do |parser|
+    def self.new_parser
+      ::Parser::Ruby30.new(Builder.new).tap do |parser|
         parser.diagnostics.all_errors_are_fatal = true
         parser.diagnostics.ignore_warnings = true
       end
     end
 
     def self.parse(source_code, path:, factory:)
-      buffer = ::Parser::Source::Buffer.new(path.to_s, 1)
-      buffer.source = source_code
-      node = parser.parse(buffer)
+      buffer = ::Parser::Source::Buffer.new(path.to_s, 1, source: source_code)
+      node = new_parser().parse(buffer)
 
       annotations = []
 
       _, comments, _ = yield_self do
-        buffer = ::Parser::Source::Buffer.new(path.to_s)
-        buffer.source = source_code
-        parser = ::Parser::Ruby27.new
-
-        parser.tokenize(buffer)
+        buffer = ::Parser::Source::Buffer.new(path.to_s, 1, source: source_code)
+        new_parser().tokenize(buffer)
       end
 
       buffer = RBS::Buffer.new(name: path, content: source_code)
