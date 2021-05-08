@@ -5,8 +5,6 @@ Encoding.default_external = Encoding::UTF_8
 require "bundler/setup"
 require 'steep'
 
-require "minitest/reporters"
-Minitest::Reporters.use! [Minitest::Reporters::DefaultReporter.new]
 require 'minitest/autorun'
 require "pp"
 require "open3"
