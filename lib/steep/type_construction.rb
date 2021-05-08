@@ -999,10 +999,13 @@ module Steep
                         end
 
             if body_node
-              begin_pos = body_node.loc.expression.end_pos
-              end_pos = node.loc.end.begin_pos
-
-              typing.add_context(begin_pos..end_pos, context: body_pair.context)
+              # Add context to ranges from the end of the method body to the beginning of the `end` keyword
+              if node.loc.end
+                # Skip end-less def
+                begin_pos = body_node.loc.expression.end_pos
+                end_pos = node.loc.end.begin_pos
+                typing.add_context(begin_pos..end_pos, context: body_pair.context)
+              end
             end
 
             if module_context
