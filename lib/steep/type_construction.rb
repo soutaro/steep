@@ -692,7 +692,7 @@ module Steep
     end
 
     def synthesize(node, hint: nil, condition: false)
-      Steep.logger.tagged "synthesize:(#{node.location.expression.to_s.split(/:/, 2).last})" do
+      Steep.logger.tagged "synthesize:(#{node.location&.yield_self {|loc| loc.expression.to_s.split(/:/, 2).last } || "-"})" do
         Steep.logger.debug node.type
         case node.type
         when :begin, :kwbegin
@@ -933,6 +933,25 @@ module Steep
         when :block
           yield_self do
             send_node, params, body = node.children
+            if send_node.type == :lambda
+              type_lambda(node, block_params: params, block_body: body, type_hint: hint)
+            else
+              type_send(node, send_node: send_node, block_params: params, block_body: body, unwrap: send_node.type == :csend)
+            end
+          end
+
+        when :numblock
+          yield_self do
+            send_node, max_num, body = node.children
+
+            if max_num == 1
+              arg_nodes = [Parser::AST::Node.new(:procarg0, [:_1])]
+            else
+              arg_nodes = max_num.times.map {|i| Parser::AST::Node.new(:arg, [:"_#{i+1}"]) }
+            end
+
+            params = Parser::AST::Node.new(:args, arg_nodes)
+
             if send_node.type == :lambda
               type_lambda(node, block_params: params, block_body: body, type_hint: hint)
             else

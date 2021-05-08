@@ -102,13 +102,20 @@ module Steep
     end
 
     def block_range(node)
-      send_node, args_node, _ = node.children
-      begin_pos = if send_node.type != :lambda && args_node.loc.expression
-                    args_node.loc.expression.end_pos
-                  else
-                    node.loc.begin.end_pos
-                  end
-      end_pos = node.loc.end.begin_pos
+      case node.type
+      when :block
+        send_node, args_node, _ = node.children
+        begin_pos = if send_node.type != :lambda && args_node.loc.expression
+                      args_node.loc.expression.end_pos
+                    else
+                      node.loc.begin.end_pos
+                    end
+        end_pos = node.loc.end.begin_pos
+      when :numblock
+        send_node, _ = node.children
+        begin_pos = node.loc.begin.end_pos
+        end_pos = node.loc.end.begin_pos
+      end
 
       begin_pos..end_pos
     end
@@ -171,7 +178,7 @@ module Steep
           add_context(body_begin_pos..body_end_pos, context: context)
         end
 
-      when :block
+      when :block, :numblock
         range = block_range(node)
         add_context(range, context: context)
 
