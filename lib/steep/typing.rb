@@ -102,13 +102,20 @@ module Steep
     end
 
     def block_range(node)
-      send_node, args_node, _ = node.children
-      begin_pos = if send_node.type != :lambda && args_node.loc.expression
-                    args_node.loc.expression.end_pos
-                  else
-                    node.loc.begin.end_pos
-                  end
-      end_pos = node.loc.end.begin_pos
+      case node.type
+      when :block
+        send_node, args_node, _ = node.children
+        begin_pos = if send_node.type != :lambda && args_node.loc.expression
+                      args_node.loc.expression.end_pos
+                    else
+                      node.loc.begin.end_pos
+                    end
+        end_pos = node.loc.end.begin_pos
+      when :numblock
+        send_node, _ = node.children
+        begin_pos = node.loc.begin.end_pos
+        end_pos = node.loc.end.begin_pos
+      end
 
       begin_pos..end_pos
     end
@@ -139,21 +146,39 @@ module Steep
         add_context(begin_pos..end_pos, context: context)
 
       when :def, :defs
-        args_node = case node.type
-                    when :def
-                      node.children[1]
-                    when :defs
-                      node.children[2]
-                    end
-        body_begin_pos = if args_node.loc.expression
-                           args_node.loc.expression.end_pos
-                         else
-                           node.loc.name.end_pos
-                         end
-        body_end_pos = node.loc.end.begin_pos
-        add_context(body_begin_pos..body_end_pos, context: context)
+        if node.children.last
+          args_node =
+            case node.type
+            when :def
+              node.children[1]
+            when :defs
+              node.children[2]
+            end
 
-      when :block
+          body_begin_pos =
+            case
+            when node.loc.assignment
+              # endless def
+              node.loc.assignment.end_pos
+            when args_node.loc.expression
+              # with args
+              args_node.loc.expression.end_pos
+            else
+              # without args
+              node.loc.name.end_pos
+            end
+
+          body_end_pos =
+            if node.loc.end
+              node.loc.end.begin_pos
+            else
+              node.loc.expression.end_pos
+            end
+
+          add_context(body_begin_pos..body_end_pos, context: context)
+        end
+
+      when :block, :numblock
         range = block_range(node)
         add_context(range, context: context)
 

@@ -692,7 +692,7 @@ module Steep
     end
 
     def synthesize(node, hint: nil, condition: false)
-      Steep.logger.tagged "synthesize:(#{node.location.expression.to_s.split(/:/, 2).last})" do
+      Steep.logger.tagged "synthesize:(#{node.location&.yield_self {|loc| loc.expression.to_s.split(/:/, 2).last } || "-"})" do
         Steep.logger.debug node.type
         case node.type
         when :begin, :kwbegin
@@ -940,6 +940,25 @@ module Steep
             end
           end
 
+        when :numblock
+          yield_self do
+            send_node, max_num, body = node.children
+
+            if max_num == 1
+              arg_nodes = [Parser::AST::Node.new(:procarg0, [:_1])]
+            else
+              arg_nodes = max_num.times.map {|i| Parser::AST::Node.new(:arg, [:"_#{i+1}"]) }
+            end
+
+            params = Parser::AST::Node.new(:args, arg_nodes)
+
+            if send_node.type == :lambda
+              type_lambda(node, block_params: params, block_body: body, type_hint: hint)
+            else
+              type_send(node, send_node: send_node, block_params: params, block_body: body, unwrap: send_node.type == :csend)
+            end
+          end
+
         when :def
           yield_self do
             name, args_node, body_node = node.children
@@ -999,10 +1018,13 @@ module Steep
                         end
 
             if body_node
-              begin_pos = body_node.loc.expression.end_pos
-              end_pos = node.loc.end.begin_pos
-
-              typing.add_context(begin_pos..end_pos, context: body_pair.context)
+              # Add context to ranges from the end of the method body to the beginning of the `end` keyword
+              if node.loc.end
+                # Skip end-less def
+                begin_pos = body_node.loc.expression.end_pos
+                end_pos = node.loc.end.begin_pos
+                typing.add_context(begin_pos..end_pos, context: body_pair.context)
+              end
             end
 
             if module_context

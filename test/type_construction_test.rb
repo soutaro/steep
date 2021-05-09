@@ -7601,4 +7601,93 @@ end
       end
     end
   end
+
+  def test_ruby3_endless_def
+    with_checker(<<-RBS) do |checker|
+module Ruby3
+  class Test
+    def foo: (String) -> Integer
+  end
+end
+    RBS
+
+      source = parse_ruby(<<-'RUBY')
+module Ruby3
+  class Test
+    def foo(x) = x.size
+  end
+end
+      RUBY
+
+      with_standard_construction(checker, source) do |construction, typing|
+        type, _ = construction.synthesize(source.node)
+
+        assert_no_error typing
+      end
+    end
+  end
+
+  def test_ruby3_numbered_parameter1
+    with_checker do |checker|
+      source = parse_ruby(<<RUBY)
+[1].map { _1.to_s }
+RUBY
+
+      with_standard_construction(checker, source) do |construction, typing|
+        type, _ = construction.synthesize(source.node)
+
+        assert_equal parse_type("::Array[::String]"), type
+
+        assert_no_error typing
+      end
+    end
+  end
+
+  def test_ruby3_numbered_parameter2
+    with_checker(<<RBS) do |checker|
+module Ruby3
+  class Foo
+    def foo: () { ([String, Integer]) -> void } -> void
+  end
+end
+RBS
+
+      source = parse_ruby(<<RUBY)
+Ruby3::Foo.new().foo do
+  _1[0] + ""
+  _1[1] + 0
+end
+RUBY
+
+      with_standard_construction(checker, source) do |construction, typing|
+        type, _ = construction.synthesize(source.node)
+
+        assert_no_error typing
+      end
+    end
+  end
+
+  def test_ruby3_numbered_parameter3
+    with_checker(<<RBS) do |checker|
+module Ruby3
+  class Foo
+    def foo: () { ([String, Integer]) -> void } -> void
+  end
+end
+RBS
+
+      source = parse_ruby(<<RUBY)
+Ruby3::Foo.new().foo do
+  _1 + ""
+  _2 + 0
+end
+RUBY
+
+      with_standard_construction(checker, source) do |construction, typing|
+        type, _ = construction.synthesize(source.node)
+
+        assert_no_error typing
+      end
+    end
+  end
 end
