@@ -8,29 +8,36 @@ module Steep
       end
 
       def each_path_in_patterns(pattern, commandline_patterns = [])
-        pats = commandline_patterns.empty? ? pattern.patterns : commandline_patterns
+        if block_given?
+          pats = commandline_patterns.empty? ? pattern.patterns : commandline_patterns
 
-        pats.each do |path|
-          absolute_path = base_dir + path
+          pats.each do |path|
+            absolute_path = base_dir + path
 
-          if absolute_path.file?
-            yield absolute_path.relative_path_from(base_dir)
-          else
-            files = if absolute_path.directory?
-                      Pathname.glob("#{absolute_path}/**/*#{pattern.ext}")
-                    else
-                      Pathname.glob(absolute_path)
-                    end
+            if absolute_path.file?
+              if pattern =~ path
+                yield absolute_path.relative_path_from(base_dir)
+              end
+            else
+              files = if absolute_path.directory?
+                        Pathname.glob("#{absolute_path}/**/*#{pattern.ext}")
+                      else
+                        Pathname.glob(absolute_path)
+                      end
 
-            files.sort.each do |source_path|
-              if source_path.file?
-                relative_path = source_path.relative_path_from(base_dir)
-                unless pattern.ignore?(relative_path)
-                  yield relative_path
+              files.sort.each do |source_path|
+                if source_path.file?
+                  relative_path = source_path.relative_path_from(base_dir)
+                  unless pattern.ignore?(relative_path)
+                    yield relative_path
+                  end
                 end
               end
             end
+
           end
+        else
+          enum_for :each_path_in_patterns, pattern, commandline_patterns
         end
       end
 

@@ -205,6 +205,21 @@ end
     end
   end
 
+  def test_check_unknown
+    in_tmpdir do
+      (current_dir + "Steepfile").write(<<-EOF)
+target :app do
+  check "foo.rb"
+end
+      EOF
+
+      (current_dir + "bar.rb").write("")
+
+      stdout, status = sh(*steep, "check", "bar.rb")
+      assert_predicate status, :success?, stdout
+    end
+  end
+
   def test_annotations
     in_tmpdir do
       (current_dir + "foo.rb").write(<<-RUBY)
