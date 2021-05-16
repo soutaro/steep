@@ -2,216 +2,808 @@ module Steep
   module Interface
     class Function
       class Params
-        attr_reader :required
-        attr_reader :optional
-        attr_reader :rest
-        attr_reader :required_keywords
-        attr_reader :optional_keywords
-        attr_reader :rest_keywords
+        module Utils
+          def union(*types, null: false)
+            types << AST::Builtin.nil_type if null
+            AST::Types::Union.build(types: types)
+          end
 
-        def initialize(required:, optional:, rest:, required_keywords:, optional_keywords:, rest_keywords:)
-          @required = required
-          @optional = optional
-          @rest = rest
-          @required_keywords = required_keywords
-          @optional_keywords = optional_keywords
-          @rest_keywords = rest_keywords
+          def intersection(*types)
+            AST::Types::Intersection.build(types: types)
+          end
         end
 
-        def update(required: self.required, optional: self.optional, rest: self.rest, required_keywords: self.required_keywords, optional_keywords: self.optional_keywords, rest_keywords: self.rest_keywords)
-          self.class.new(
-            required: required,
-            optional: optional,
-            rest: rest,
-            required_keywords: required_keywords,
-            optional_keywords: optional_keywords,
-            rest_keywords: rest_keywords,
+        class PositionalParams
+          class Base
+            attr_reader :type
+
+            def initialize(type)
+              @type = type
+            end
+
+            def ==(other)
+              other.is_a?(self.class) && other.type == type
+            end
+
+            alias eql? ==
+
+            def hash
+              self.class.hash ^ type.hash
+            end
+
+            def subst(s)
+              ty = type.subst(s)
+
+              if ty == type
+                self
+              else
+                self.class.new(ty)
+              end
+            end
+
+            def map_type(&block)
+              if block_given?
+                self.class.new(yield type)
+              else
+                enum_for(:map_type)
+              end
+            end
+          end
+
+          class Required < Base; end
+          class Optional < Base; end
+          class Rest < Base; end
+
+          attr_reader :head
+          attr_reader :tail
+
+          def initialize(head:, tail:)
+            @head = head
+            @tail = tail
+          end
+
+          def self.required(type, tail = nil)
+            PositionalParams.new(head: Required.new(type), tail: tail)
+          end
+
+          def self.optional(type, tail = nil)
+            PositionalParams.new(head: Optional.new(type), tail: tail)
+          end
+
+          def self.rest(type, tail = nil)
+            PositionalParams.new(head: Rest.new(type), tail: tail)
+          end
+
+          def to_ary
+            [head, tail]
+          end
+
+          def map(&block)
+            hd = yield(head)
+            tl = tail&.map(&block)
+
+            if head == hd && tail == tl
+              self
+            else
+              PositionalParams.new(head: hd, tail: tl)
+            end
+          end
+
+          def map_type(&block)
+            if block_given?
+              map {|param| param.map_type(&block) }
+            else
+              enum_for :map_type
+            end
+          end
+
+          def subst(s)
+            map_type do |type|
+              ty = type.subst(s)
+              if ty == type
+                type
+              else
+                ty
+              end
+            end
+          end
+
+          def ==(other)
+            other.is_a?(PositionalParams) && other.head == head && other.tail == tail
+          end
+
+          alias eql? ==
+
+          def hash
+            self.class.hash ^ head.hash ^ tail.hash
+          end
+
+          def each(&block)
+            if block_given?
+              yield head
+              tail&.each(&block)
+            else
+              enum_for(:each)
+            end
+          end
+
+          def each_type
+            if block_given?
+              each do |param|
+                yield param.type
+              end
+            else
+              enum_for :each_type
+            end
+          end
+
+          def size
+            1 + (tail&.size || 0)
+          end
+
+          def self.build(required:, optional:, rest:)
+            params = rest ? self.rest(rest) : nil
+            params = optional.reverse_each.inject(params) {|params, type| self.optional(type, params) }
+            params = required.reverse_each.inject(params) {|params, type| self.required(type, params) }
+
+            params
+          end
+
+          extend Utils
+
+          # Calculates xs + ys.
+          # Never fails.
+          def self.merge_for_overload(xs, ys)
+            x = xs&.head
+            y = ys&.head
+
+            case
+            when x.is_a?(Required) && y.is_a?(Required)
+              required(
+                union(x.type, y.type),
+                merge_for_overload(xs.tail, ys.tail)
+              )
+            when x.is_a?(Required) && y.is_a?(Optional)
+              optional(
+                union(x.type, y.type, null: true),
+                merge_for_overload(xs.tail, ys.tail)
+              )
+            when x.is_a?(Required) && y.is_a?(Rest)
+              optional(
+                union(x.type, y.type, null: true),
+                merge_for_overload(xs.tail, ys)
+              )
+            when x.is_a?(Required) && !y
+              optional(
+                union(x.type, null: true),
+                merge_for_overload(xs.tail, nil)
+              )
+            when x.is_a?(Optional) && y.is_a?(Required)
+              optional(
+                union(x.type, y.type, null: true),
+                merge_for_overload(xs.tail, ys.tail)
+              )
+            when x.is_a?(Optional) && y.is_a?(Optional)
+              optional(
+                union(x.type, y.type),
+                merge_for_overload(xs.tail, ys.tail)
+              )
+            when x.is_a?(Optional) && y.is_a?(Rest)
+              optional(
+                union(x.type, y.type),
+                merge_for_overload(xs.tail, ys)
+              )
+            when x.is_a?(Optional) && !y
+              optional(
+                x.type,
+                merge_for_overload(xs.tail, nil)
+              )  # == xs
+            when x.is_a?(Rest) && y.is_a?(Required)
+              optional(
+                union(x.type, y.type, null: true),
+                merge_for_overload(xs, ys.tail)
+              )
+            when x.is_a?(Rest) && y.is_a?(Optional)
+              optional(
+                union(x.type, y.type),
+                merge_for_overload(xs, ys.tail)
+              )
+            when x.is_a?(Rest) && y.is_a?(Rest)
+              rest(union(x.type, y.type))
+            when x.is_a?(Rest) && !y
+              xs
+            when !x && y.is_a?(Required)
+              optional(
+                union(y.type, null: true),
+                merge_for_overload(nil, ys.tail)
+              )
+            when !x && y.is_a?(Optional)
+              optional(
+                y.type,
+                merge_for_overload(nil, ys.tail)
+              )  # == ys
+            when !x && y.is_a?(Rest)
+              ys
+            when !x && !y
+              nil
+            end
+          end
+
+          # xs | ys
+          def self.merge_for_union(xs, ys)
+            x = xs&.head
+            y = ys&.head
+
+            case
+            when x.is_a?(Required) && y.is_a?(Required)
+              required(
+                union(x.type, y.type),
+                merge_for_union(xs.tail, ys.tail)
+              )
+            when x.is_a?(Required) && !y
+              optional(
+                x.type,
+                merge_for_union(xs.tail, nil)
+              )
+            when x.is_a?(Required) && y.is_a?(Optional)
+              optional(
+                union(x.type, y.type),
+                merge_for_union(xs.tail, ys.tail)
+              )
+            when x.is_a?(Required) && y.is_a?(Rest)
+              optional(
+                union(x.type, y.type),
+                merge_for_union(xs.tail, ys)
+              )
+            when !x && y.is_a?(Required)
+              optional(
+                y.type,
+                merge_for_union(nil, ys.tail)
+              )
+            when !x && !y
+              nil
+            when !x && y.is_a?(Optional)
+              PositionalParams.new(head: y, tail: merge_for_union(nil, ys.tail))
+            when !x && y.is_a?(Rest)
+              ys
+            when x.is_a?(Optional) && y.is_a?(Required)
+              optional(
+                union(x.type, y.type),
+                merge_for_union(xs.tail, ys.tail)
+              )
+            when x.is_a?(Optional) && !y
+              PositionalParams.new(head: x, tail: merge_for_union(xs.tail, nil)) # == xs
+            when x.is_a?(Optional) && y.is_a?(Optional)
+              optional(
+                union(x.type, y.type),
+                merge_for_union(xs.tail, ys.tail)
+              )
+            when x.is_a?(Optional) && y.is_a?(Rest)
+              optional(
+                union(x.type, y.type),
+                merge_for_union(xs.tail, ys.tail)
+              )
+            when x.is_a?(Rest) && y.is_a?(Required)
+              optional(
+                union(x.type, y.type),
+                merge_for_union(xs, ys.tail)
+              )
+            when x.is_a?(Rest) && !y
+              xs
+            when x.is_a?(Rest) && y.is_a?(Optional)
+              optional(
+                union(x.type, y.type),
+                merge_for_union(xs, ys.tail)
+              )
+            when x.is_a?(Rest) && y.is_a?(Rest)
+              rest(
+                union(x.type, y.type)
+              )
+            end
+          end
+
+          # Calculates xs & ys.
+          # Raises when failed.
+          #
+          def self.merge_for_intersection(xs, ys)
+            x = xs&.head
+            y = ys&.head
+
+            case
+            when x.is_a?(Required) && y.is_a?(Required)
+              required(
+                intersection(x.type, y.type),
+                merge_for_intersection(xs.tail, ys.tail)
+              )
+            when x.is_a?(Required) && !y
+              raise
+            when x.is_a?(Required) && y.is_a?(Optional)
+              required(
+                intersection(x.type, y.type),
+                merge_for_intersection(xs.tail, ys.tail)
+              )
+            when x.is_a?(Required) && y.is_a?(Rest)
+              required(
+                intersection(x.type, y.type),
+                merge_for_intersection(xs.tail, ys)
+              )
+            when !x && y.is_a?(Required)
+              raise
+            when !x && !y
+              nil
+            when !x && y.is_a?(Optional)
+              nil
+            when !x && y.is_a?(Rest)
+              nil
+            when x.is_a?(Optional) && y.is_a?(Required)
+              required(
+                intersection(x.type, y.type),
+                merge_for_intersection(xs.tail, ys.tail)
+              )
+            when x.is_a?(Optional) && !y
+              nil
+            when x.is_a?(Optional) && y.is_a?(Optional)
+              optional(
+                intersection(x.type, y.type),
+                merge_for_intersection(xs.tail, ys.tail)
+              )
+            when x.is_a?(Optional) && y.is_a?(Rest)
+              optional(
+                intersection(x.type, y.type),
+                merge_for_intersection(xs.tail, ys)
+              )
+            when x.is_a?(Rest) && y.is_a?(Required)
+              required(
+                intersection(x.type, y.type),
+                merge_for_intersection(xs, ys.tail)
+              )
+            when x.is_a?(Rest) && !y
+              nil
+            when x.is_a?(Rest) && y.is_a?(Optional)
+              optional(
+                intersection(x.type, y.type),
+                merge_for_intersection(xs, ys.tail)
+              )
+            when x.is_a?(Rest) && y.is_a?(Rest)
+              rest(intersection(x.type, y.type))
+            end
+          end
+        end
+
+        class KeywordParams
+          attr_reader :requireds
+          attr_reader :optionals
+          attr_reader :rest
+
+          def initialize(requireds: {}, optionals: {}, rest: nil)
+            @requireds = requireds
+            @optionals = optionals
+            @rest = rest
+          end
+
+          def ==(other)
+            other.is_a?(KeywordParams) &&
+              other.requireds == requireds &&
+              other.optionals == optionals &&
+              other.rest == rest
+          end
+
+          alias eql? ==
+
+          def hash
+            self.class.hash ^ requireds.hash ^ optionals.hash ^ rest.hash
+          end
+
+          def update(requireds: self.requireds, optionals: self.optionals, rest: self.rest)
+            KeywordParams.new(
+              requireds: requireds,
+              optionals: optionals,
+              rest: rest
             )
+          end
+
+          def empty?
+            requireds.empty? && optionals.empty? && rest.nil?
+          end
+
+          def each(&block)
+            if block_given?
+              requireds.each(&block)
+              optionals.each(&block)
+              if rest
+                yield nil, rest
+              end
+            else
+              enum_for :each
+            end
+          end
+
+          def each_type
+            if block_given?
+              each do |_, type|
+                yield type
+              end
+            else
+              enum_for :each_type
+            end
+          end
+
+          def map_type(&block)
+            if block_given?
+              rs = requireds.transform_values(&block)
+              os = optionals.transform_values(&block)
+              r = rest&.yield_self(&block)
+
+              if requireds == rs && optionals == os && rest == r
+                self
+              else
+                update(requireds: rs, optionals: os, rest: r)
+              end
+            else
+              enum_for(:map_type)
+            end
+          end
+
+          def subst(s)
+            map_type do |type|
+              ty = type.subst(s)
+              if ty == type
+                type
+              else
+                ty
+              end
+            end
+          end
+
+          def size
+            requireds.size + optionals.size + (rest ? 1 : 0)
+          end
+
+          include Utils
+
+          # For overloading
+          def +(other)
+            requireds = {}
+            optionals = {}
+
+            all_keys = Set[] + self.requireds.keys + self.optionals.keys + other.requireds.keys + other.optionals.keys
+            all_keys.each do |key|
+              case
+              when t = self.requireds[key]
+                case
+                when s = other.requireds[key]
+                  requireds[key] = union(t, s)
+                when s = other.optionals[key]
+                  optionals[key] = union(t, s, null: true)
+                when s = other.rest
+                  optionals[key] = union(t, s, null: true)
+                else
+                  optionals[key] = union(t, null: true)
+                end
+              when t = self.optionals[key]
+                case
+                when s = other.requireds[key]
+                  optionals[key] = union(t, s, null: true)
+                when s = other.optionals[key]
+                  optionals[key] = union(t, s)
+                when s = other.rest
+                  optionals[key] = union(t, s)
+                else
+                  optionals[key] = t
+                end
+              when t = self.rest
+                case
+                when s = other.requireds[key]
+                  optionals[key] = union(t, s, null: true)
+                when s = other.optionals[key]
+                  optionals[key] = union(t, s)
+                when s = other.rest
+                  # cannot happen
+                else
+                  # nop
+                end
+              else
+                case
+                when s = other.requireds[key]
+                  optionals[key] = union(s, null: true)
+                when s = other.optionals[key]
+                  optionals[key] = s
+                when s = other.rest
+                  # nop
+                else
+                  # cannot happen
+                end
+              end
+            end
+
+            if self.rest && other.rest
+              rest = union(self.rest, other.rest)
+            else
+              rest = self.rest || other.rest
+            end
+
+            KeywordParams.new(requireds: requireds, optionals: optionals, rest: rest)
+          end
+
+          # For union
+          def |(other)
+            requireds = {}
+            optionals = {}
+
+            all_keys = Set[] + self.requireds.keys + self.optionals.keys + other.requireds.keys + other.optionals.keys
+            all_keys.each do |key|
+              case
+              when t = self.requireds[key]
+                case
+                when s = other.requireds[key]
+                  requireds[key] = union(t, s)
+                when s = other.optionals[key]
+                  optionals[key] = union(t, s)
+                when s = other.rest
+                  optionals[key] = union(t, s)
+                else
+                  optionals[key] = t
+                end
+              when t = self.optionals[key]
+                case
+                when s = other.requireds[key]
+                  optionals[key] = union(t, s)
+                when s = other.optionals[key]
+                  optionals[key] = union(t, s)
+                when s = other.rest
+                  optionals[key] = union(t, s)
+                else
+                  optionals[key] = t
+                end
+              when t = self.rest
+                case
+                when s = other.requireds[key]
+                  optionals[key] = union(t, s)
+                when s = other.optionals[key]
+                  optionals[key] = union(t, s)
+                when s = other.rest
+                  # cannot happen
+                else
+                  # nop
+                end
+              else
+                case
+                when s = other.requireds[key]
+                  optionals[key] = s
+                when s = other.optionals[key]
+                  optionals[key] = s
+                when s = other.rest
+                  # nop
+                else
+                  # cannot happen
+                end
+              end
+            end
+
+            rest =
+              if self.rest && other.rest
+                union(self.rest, other.rest)
+              else
+                self.rest || other.rest
+              end
+
+            KeywordParams.new(requireds: requireds, optionals: optionals, rest: rest)
+          end
+
+          # For intersection
+          def &(other)
+            requireds = {}
+            optionals = {}
+
+            all_keys = Set[] + self.requireds.keys + self.optionals.keys + other.requireds.keys + other.optionals.keys
+            all_keys.each do |key|
+              case
+              when t = self.requireds[key]
+                case
+                when s = other.requireds[key]
+                  requireds[key] = intersection(t, s)
+                when s = other.optionals[key]
+                  requireds[key] = intersection(t, s)
+                when s = other.rest
+                  requireds[key] = intersection(t, s)
+                else
+                  return nil
+                end
+              when t = self.optionals[key]
+                case
+                when s = other.requireds[key]
+                  requireds[key] = intersection(t, s)
+                when s = other.optionals[key]
+                  optionals[key] = intersection(t, s)
+                when s = other.rest
+                  optionals[key] = intersection(t, s)
+                else
+                  # nop
+                end
+              when t = self.rest
+                case
+                when s = other.requireds[key]
+                  requireds[key] = intersection(t, s)
+                when s = other.optionals[key]
+                  optionals[key] = intersection(t, s)
+                when s = other.rest
+                  # cannot happen
+                else
+                  # nop
+                end
+              else
+                case
+                when s = other.requireds[key]
+                  return nil
+                when s = other.optionals[key]
+                  # nop
+                when s = other.rest
+                  # nop
+                else
+                  # cannot happen
+                end
+              end
+            end
+
+            rest =
+              if self.rest && other.rest
+                intersection(self.rest, other.rest)
+              else
+                nil
+              end
+
+            KeywordParams.new(requireds: requireds, optionals: optionals, rest: rest)
+          end
         end
 
-        RequiredPositional = Struct.new(:type)
-        OptionalPositional = Struct.new(:type)
-        RestPositional = Struct.new(:type)
+        def required
+          array = []
+
+          positional_params&.each do |param|
+            case param
+            when PositionalParams::Required
+              array << param.type
+            else
+              break
+            end
+          end
+
+          array
+        end
+
+        def optional
+          array = []
+
+          positional_params&.each do |param|
+            case param
+            when PositionalParams::Required
+              # skip
+            when PositionalParams::Optional
+              array << param.type
+            else
+              break
+            end
+          end
+
+          array
+        end
+
+        def rest
+          positional_params&.each do |param|
+            case param
+            when PositionalParams::Required, PositionalParams::Optional
+              # skip
+            when PositionalParams::Rest
+              return param.type
+            end
+          end
+        end
+
+        attr_reader :positional_params
+        attr_reader :keyword_params
+
+        def self.build(required: [], optional: [], rest: nil, required_keywords: {}, optional_keywords: {}, rest_keywords: nil)
+          positional_params = PositionalParams.build(required: required, optional: optional, rest: rest)
+          keyword_params = KeywordParams.new(requireds: required_keywords, optionals: optional_keywords, rest: rest_keywords)
+          new(positional_params: positional_params, keyword_params: keyword_params)
+        end
+
+        def initialize(positional_params:, keyword_params:)
+          @positional_params = positional_params
+          @keyword_params = keyword_params
+        end
+
+        def update(positional_params: self.positional_params, keyword_params: self.keyword_params)
+          self.class.new(positional_params: positional_params, keyword_params: keyword_params)
+        end
 
         def first_param
-          case
-          when !required.empty?
-            RequiredPositional.new(required[0])
-          when !optional.empty?
-            OptionalPositional.new(optional[0])
-          when rest
-            RestPositional.new(rest)
-          else
-            nil
-          end
+          positional_params&.head
         end
 
         def with_first_param(param)
-          case param
-          when RequiredPositional
-            update(required: [param.type] + required)
-          when OptionalPositional
-            update(optional: [param.type] + required)
-          when RestPositional
-            update(rest: param.type)
-          else
-            self
-          end
+          update(
+            positional_params: PositionalParams.new(
+              head: param,
+              tail: positional_params
+            )
+          )
         end
 
         def has_positional?
-          first_param
+          positional_params ? true : false
         end
 
         def self.empty
-          self.new(
-            required: [],
-            optional: [],
-            rest: nil,
-            required_keywords: {},
-            optional_keywords: {},
-            rest_keywords: nil
-          )
+          self.new(positional_params: nil, keyword_params: KeywordParams.new)
         end
 
         def ==(other)
           other.is_a?(self.class) &&
-            other.required == required &&
-            other.optional == optional &&
-            other.rest == rest &&
-            other.required_keywords == required_keywords &&
-            other.optional_keywords == optional_keywords &&
-            other.rest_keywords == rest_keywords
+            other.positional_params == positional_params &&
+            other.keyword_params == keyword_params
         end
 
         alias eql? ==
 
         def hash
-          required.hash ^ optional.hash ^ rest.hash ^ required_keywords.hash ^ optional_keywords.hash ^ rest_keywords.hash
+          self.class.hash ^ positional_params.hash ^ keyword_params.hash
         end
 
         def flat_unnamed_params
-          required.map {|p| [:required, p] } + optional.map {|p| [:optional, p] }
+          if positional_params
+            positional_params.each.with_object([]) do |param, types|
+              case param
+              when PositionalParams::Required
+                types << [:required, param.type]
+              when PositionalParams::Optional
+                types << [:optional, param.type]
+              end
+            end
+          else
+            []
+          end
         end
 
         def flat_keywords
-          required_keywords.merge optional_keywords
+          required_keywords.merge(optional_keywords)
+        end
+
+        def required_keywords
+          keyword_params.requireds
+        end
+
+        def optional_keywords
+          keyword_params.optionals
+        end
+
+        def rest_keywords
+          keyword_params.rest
         end
 
         def has_keywords?
-          !required_keywords.empty? || !optional_keywords.empty? || rest_keywords
+          !keyword_params.empty?
         end
 
         def without_keywords
-          self.class.new(
-            required: required,
-            optional: optional,
-            rest: rest,
-            required_keywords: {},
-            optional_keywords: {},
-            rest_keywords: nil
-          )
+          update(keyword_params: KeywordParams.new)
         end
 
         def drop_first
           case
-          when required.any? || optional.any? || rest
-            self.class.new(
-              required: required.any? ? required.drop(1) : [],
-              optional: required.empty? && optional.any? ? optional.drop(1) : optional,
-              rest: required.empty? && optional.empty? ? nil : rest,
-              required_keywords: required_keywords,
-              optional_keywords: optional_keywords,
-              rest_keywords: rest_keywords
-            )
+          when positional_params
+            update(positional_params: positional_params.tail)
           when has_keywords?
-            without_keywords
+            without_keywords()
           else
             raise "Cannot drop from empty params"
           end
         end
 
-        def each_missing_argument(args)
-          required.size.times do |index|
-            if index >= args.size
-              yield index
-            end
-          end
-        end
-
-        def each_extra_argument(args)
-          return if rest
-
-          if has_keywords?
-            args = args.take(args.count - 1) if args.count > 0
-          end
-
-          args.size.times do |index|
-            if index >= required.count + optional.count
-              yield index
-            end
-          end
-        end
-
-        def each_missing_keyword(args)
-          return unless has_keywords?
-
-          keywords, rest = extract_keywords(args)
-
-          return unless rest.empty?
-
-          required_keywords.each do |keyword, _|
-            yield keyword unless keywords.key?(keyword)
-          end
-        end
-
-        def each_extra_keyword(args)
-          return unless has_keywords?
-          return if rest_keywords
-
-          keywords, rest = extract_keywords(args)
-
-          return unless rest.empty?
-
-          all_keywords = flat_keywords
-          keywords.each do |keyword, _|
-            yield keyword unless all_keywords.key?(keyword)
-          end
-        end
-
-        def extract_keywords(args)
-          last_arg = args.last
-
-          keywords = {}
-          rest = []
-
-          if last_arg&.type == :hash
-            last_arg.children.each do |element|
-              case element.type
-              when :pair
-                if element.children[0].type == :sym
-                  name = element.children[0].children[0]
-                  keywords[name] = element.children[1]
-                end
-              when :kwsplat
-                rest << element.children[0]
-              end
-            end
-          end
-
-          [keywords, rest]
-        end
-
-        def each_type()
+        def each_type(&block)
           if block_given?
-            flat_unnamed_params.each do |(_, type)|
-              yield type
-            end
-            flat_keywords.each do |_, type|
-              yield type
-            end
-            rest and yield rest
-            rest_keywords and yield rest_keywords
+            positional_params&.each_type(&block)
+            keyword_params.each_type(&block)
           else
             enum_for :each_type
           end
@@ -226,7 +818,7 @@ module Steep
         end
 
         def closed?
-          required.all?(&:closed?) && optional.all?(&:closed?) && (!rest || rest.closed?) && required_keywords.values.all?(&:closed?) && optional_keywords.values.all?(&:closed?) && (!rest_keywords || rest_keywords.closed?)
+          each_type.all?(&:closed?)
         end
 
         def subst(s)
@@ -234,49 +826,34 @@ module Steep
           return self if empty?
           return self if free_variables.disjoint?(s.domain)
 
-          rs = required.map {|t| t.subst(s) }
-          os = optional.map {|t| t.subst(s) }
-          r = rest&.subst(s)
-          rk = required_keywords.transform_values {|t| t.subst(s) }
-          ok = optional_keywords.transform_values {|t| t.subst(s) }
-          k = rest_keywords&.subst(s)
+          pp = positional_params&.subst(s)
+          kp = keyword_params.subst(s)
 
-          if rs == required && os == optional && r == rest && rk == required_keywords && ok == optional_keywords && k == rest_keywords
+          if positional_params == pp && keyword_params == kp
             self
           else
-            self.class.new(
-              required: required.map {|t| t.subst(s) },
-              optional: optional.map {|t| t.subst(s) },
-              rest: rest&.subst(s),
-              required_keywords: required_keywords.transform_values {|t| t.subst(s) },
-              optional_keywords: optional_keywords.transform_values {|t| t.subst(s) },
-              rest_keywords: rest_keywords&.subst(s)
-            )
+            self.class.new(positional_params: pp, keyword_params: kp)
           end
         end
 
         def size
-          required.size + optional.size + (rest ? 1 : 0) + required_keywords.size + optional_keywords.size + (rest_keywords ? 1 : 0)
+          (positional_params&.size || 0) + keyword_params.size
         end
 
         def to_s
           required = self.required.map {|ty| ty.to_s }
           optional = self.optional.map {|ty| "?#{ty}" }
           rest = self.rest ? ["*#{self.rest}"] : []
-          required_keywords = self.required_keywords.map {|name, type| "#{name}: #{type}" }
-          optional_keywords = self.optional_keywords.map {|name, type| "?#{name}: #{type}"}
-          rest_keywords = self.rest_keywords ? ["**#{self.rest_keywords}"] : []
+          required_keywords = keyword_params.requireds.map {|name, type| "#{name}: #{type}" }
+          optional_keywords = keyword_params.optionals.map {|name, type| "?#{name}: #{type}"}
+          rest_keywords = keyword_params.rest ? ["**#{keyword_params.rest}"] : []
           "(#{(required + optional + rest + required_keywords + optional_keywords + rest_keywords).join(", ")})"
         end
 
         def map_type(&block)
           self.class.new(
-            required: required.map(&block),
-            optional: optional.map(&block),
-            rest: rest && yield(rest),
-            required_keywords: required_keywords.transform_values(&block),
-            optional_keywords: optional_keywords.transform_values(&block),
-            rest_keywords: rest_keywords && yield(rest_keywords)
+            positional_params: positional_params&.map_type(&block),
+            keyword_params: keyword_params.map_type(&block)
           )
         end
 
@@ -287,412 +864,36 @@ module Steep
         # self + params returns a new params for overloading.
         #
         def +(other)
-          a = first_param
-          b = other.first_param
-
-          case
-          when a.is_a?(RequiredPositional) && b.is_a?(RequiredPositional)
-            AST::Types::Union.build(types: [a.type, b.type]).yield_self do |type|
-              (self.drop_first + other.drop_first).with_first_param(RequiredPositional.new(type))
-            end
-          when a.is_a?(RequiredPositional) && b.is_a?(OptionalPositional)
-            AST::Types::Union.build(types: [a.type, b.type]).yield_self do |type|
-              (self.drop_first + other.drop_first).with_first_param(OptionalPositional.new(type))
-            end
-          when a.is_a?(RequiredPositional) && b.is_a?(RestPositional)
-            AST::Types::Union.build(types: [a.type, b.type]).yield_self do |type|
-              (self.drop_first + other).with_first_param(OptionalPositional.new(type))
-            end
-          when a.is_a?(RequiredPositional) && b.nil?
-            (self.drop_first + other).with_first_param(OptionalPositional.new(a.type))
-          when a.is_a?(OptionalPositional) && b.is_a?(RequiredPositional)
-            AST::Types::Union.build(types: [a.type, b.type]).yield_self do |type|
-              (self.drop_first + other.drop_first).with_first_param(OptionalPositional.new(type))
-            end
-          when a.is_a?(OptionalPositional) && b.is_a?(OptionalPositional)
-            AST::Types::Union.build(types: [a.type, b.type]).yield_self do |type|
-              (self.drop_first + other.drop_first).with_first_param(OptionalPositional.new(type))
-            end
-          when a.is_a?(OptionalPositional) && b.is_a?(RestPositional)
-            AST::Types::Union.build(types: [a.type, b.type]).yield_self do |type|
-              (self.drop_first + other).with_first_param(OptionalPositional.new(type))
-            end
-          when a.is_a?(OptionalPositional) && b.nil?
-            (self.drop_first + other).with_first_param(OptionalPositional.new(a.type))
-          when a.is_a?(RestPositional) && b.is_a?(RequiredPositional)
-            AST::Types::Union.build(types: [a.type, b.type]).yield_self do |type|
-              (self + other.drop_first).with_first_param(OptionalPositional.new(type))
-            end
-          when a.is_a?(RestPositional) && b.is_a?(OptionalPositional)
-            AST::Types::Union.build(types: [a.type, b.type]).yield_self do |type|
-              (self + other.drop_first).with_first_param(OptionalPositional.new(type))
-            end
-          when a.is_a?(RestPositional) && b.is_a?(RestPositional)
-            AST::Types::Union.build(types: [a.type, b.type]).yield_self do |type|
-              (self.drop_first + other.drop_first).with_first_param(RestPositional.new(type))
-            end
-          when a.is_a?(RestPositional) && b.nil?
-            (self.drop_first + other).with_first_param(RestPositional.new(a.type))
-          when a.nil? && b.is_a?(RequiredPositional)
-            (self + other.drop_first).with_first_param(OptionalPositional.new(b.type))
-          when a.nil? && b.is_a?(OptionalPositional)
-            (self + other.drop_first).with_first_param(OptionalPositional.new(b.type))
-          when a.nil? && b.is_a?(RestPositional)
-            (self + other.drop_first).with_first_param(RestPositional.new(b.type))
-          when a.nil? && b.nil?
-            required_keywords = {}
-
-            (Set.new(self.required_keywords.keys) & Set.new(other.required_keywords.keys)).each do |keyword|
-              required_keywords[keyword] = AST::Types::Union.build(
-                types: [
-                  self.required_keywords[keyword],
-                  other.required_keywords[keyword]
-                ]
-              )
-            end
-
-            optional_keywords = {}
-            self.required_keywords.each do |keyword, t|
-              unless required_keywords.key?(keyword)
-                case
-                when other.optional_keywords.key?(keyword)
-                  optional_keywords[keyword] = AST::Types::Union.build(types: [t, other.optional_keywords[keyword]])
-                when other.rest_keywords
-                  optional_keywords[keyword] = AST::Types::Union.build(types: [t, other.rest_keywords])
-                else
-                  optional_keywords[keyword] = t
-                end
-              end
-            end
-            other.required_keywords.each do |keyword, t|
-              unless required_keywords.key?(keyword)
-                case
-                when self.optional_keywords.key?(keyword)
-                  optional_keywords[keyword] = AST::Types::Union.build(types: [t, self.optional_keywords[keyword]])
-                when self.rest_keywords
-                  optional_keywords[keyword] = AST::Types::Union.build(types: [t, self.rest_keywords])
-                else
-                  optional_keywords[keyword] = t
-                end
-              end
-            end
-            self.optional_keywords.each do |keyword, t|
-              unless optional_keywords.key?(keyword)
-                case
-                when other.optional_keywords.key?(keyword)
-                  optional_keywords[keyword] = AST::Types::Union.build(types: [t, other.optional_keywords[keyword]])
-                when other.rest_keywords
-                  optional_keywords[keyword] = AST::Types::Union.build(types: [t, other.rest_keywords])
-                else
-                  optional_keywords[keyword] = t
-                end
-              end
-            end
-            other.optional_keywords.each do |keyword, t|
-              unless optional_keywords.key?(keyword)
-                case
-                when self.optional_keywords.key?(keyword)
-                  optional_keywords[keyword] = AST::Types::Union.build(types: [t, self.optional_keywords[keyword]])
-                when self.rest_keywords
-                  optional_keywords[keyword] = AST::Types::Union.build(types: [t, self.rest_keywords])
-                else
-                  optional_keywords[keyword] = t
-                end
-              end
-            end
-
-            rest = case
-                   when self.rest_keywords && other.rest_keywords
-                     AST::Types::Union.build(types: [self.rest_keywords, other.rest_keywords])
-                   else
-                     self.rest_keywords || other.rest_keywords
-                   end
-
-            Params.new(
-              required: [],
-              optional: [],
-              rest: nil,
-              required_keywords: required_keywords,
-              optional_keywords: optional_keywords,
-              rest_keywords: rest)
-          end
+          pp = PositionalParams.merge_for_overload(positional_params, other.positional_params)
+          kp = keyword_params + other.keyword_params
+          Params.new(positional_params: pp, keyword_params: kp)
         end
 
         # Returns the intersection between self and other.
         # Returns nil if the intersection cannot be computed.
         #
+        #   (self & other) <: self
+        #   (self & other) <: other
+        #
+        # `self & other` accept `arg` if `arg` is acceptable for both of `self` and `other`.
+        #
         def &(other)
-          a = first_param
-          b = other.first_param
-
-          case
-          when a.is_a?(RequiredPositional) && b.is_a?(RequiredPositional)
-            AST::Types::Intersection.build(types: [a.type, b.type]).yield_self do |type|
-              (self.drop_first & other.drop_first)&.with_first_param(RequiredPositional.new(type))
-            end
-          when a.is_a?(RequiredPositional) && b.is_a?(OptionalPositional)
-            AST::Types::Intersection.build(types: [a.type, b.type]).yield_self do |type|
-              (self.drop_first & other.drop_first)&.with_first_param(RequiredPositional.new(type))
-            end
-          when a.is_a?(RequiredPositional) && b.is_a?(RestPositional)
-            AST::Types::Intersection.build(types: [a.type, b.type]).yield_self do |type|
-              (self.drop_first & other)&.with_first_param(RequiredPositional.new(type))
-            end
-          when a.is_a?(RequiredPositional) && b.nil?
-            nil
-          when a.is_a?(OptionalPositional) && b.is_a?(RequiredPositional)
-            AST::Types::Intersection.build(types: [a.type, b.type]).yield_self do |type|
-              (self.drop_first & other.drop_first)&.with_first_param(RequiredPositional.new(type))
-            end
-          when a.is_a?(OptionalPositional) && b.is_a?(OptionalPositional)
-            AST::Types::Intersection.build(types: [a.type, b.type]).yield_self do |type|
-              (self.drop_first & other.drop_first)&.with_first_param(OptionalPositional.new(type))
-            end
-          when a.is_a?(OptionalPositional) && b.is_a?(RestPositional)
-            AST::Types::Intersection.build(types: [a.type, b.type]).yield_self do |type|
-              (self.drop_first & other)&.with_first_param(OptionalPositional.new(type))
-            end
-          when a.is_a?(OptionalPositional) && b.nil?
-            self.drop_first & other
-          when a.is_a?(RestPositional) && b.is_a?(RequiredPositional)
-            AST::Types::Intersection.build(types: [a.type, b.type]).yield_self do |type|
-              (self & other.drop_first)&.with_first_param(RequiredPositional.new(type))
-            end
-          when a.is_a?(RestPositional) && b.is_a?(OptionalPositional)
-            AST::Types::Intersection.build(types: [a.type, b.type]).yield_self do |type|
-              (self & other.drop_first)&.with_first_param(OptionalPositional.new(type))
-            end
-          when a.is_a?(RestPositional) && b.is_a?(RestPositional)
-            AST::Types::Intersection.build(types: [a.type, b.type]).yield_self do |type|
-              (self.drop_first & other.drop_first)&.with_first_param(RestPositional.new(type))
-            end
-          when a.is_a?(RestPositional) && b.nil?
-            self.drop_first & other
-          when a.nil? && b.is_a?(RequiredPositional)
-            nil
-          when a.nil? && b.is_a?(OptionalPositional)
-            self & other.drop_first
-          when a.nil? && b.is_a?(RestPositional)
-            self & other.drop_first
-          when a.nil? && b.nil?
-            optional_keywords = {}
-
-            (Set.new(self.optional_keywords.keys) & Set.new(other.optional_keywords.keys)).each do |keyword|
-              optional_keywords[keyword] = AST::Types::Intersection.build(
-                types: [
-                  self.optional_keywords[keyword],
-                  other.optional_keywords[keyword]
-                ]
-              )
-            end
-
-            required_keywords = {}
-            self.optional_keywords.each do |keyword, t|
-              unless optional_keywords.key?(keyword)
-                case
-                when other.required_keywords.key?(keyword)
-                  required_keywords[keyword] = AST::Types::Intersection.build(types: [t, other.required_keywords[keyword]])
-                when other.rest_keywords
-                  optional_keywords[keyword] = AST::Types::Intersection.build(types: [t, other.rest_keywords])
-                end
-              end
-            end
-            other.optional_keywords.each do |keyword, t|
-              unless optional_keywords.key?(keyword)
-                case
-                when self.required_keywords.key?(keyword)
-                  required_keywords[keyword] = AST::Types::Intersection.build(types: [t, self.required_keywords[keyword]])
-                when self.rest_keywords
-                  optional_keywords[keyword] = AST::Types::Intersection.build(types: [t, self.rest_keywords])
-                end
-              end
-            end
-            self.required_keywords.each do |keyword, t|
-              unless required_keywords.key?(keyword)
-                case
-                when other.required_keywords.key?(keyword)
-                  required_keywords[keyword] = AST::Types::Intersection.build(types: [t, other.required_keywords[keyword]])
-                when other.rest_keywords
-                  required_keywords[keyword] = AST::Types::Intersection.build(types: [t, other.rest_keywords])
-                else
-                  return
-                end
-              end
-            end
-            other.required_keywords.each do |keyword, t|
-              unless required_keywords.key?(keyword)
-                case
-                when self.required_keywords.key?(keyword)
-                  required_keywords[keyword] = AST::Types::Intersection.build(types: [t, self.required_keywords[keyword]])
-                when self.rest_keywords
-                  required_keywords[keyword] = AST::Types::Intersection.build(types: [t, self.rest_keywords])
-                else
-                  return
-                end
-              end
-            end
-
-            rest = case
-                   when self.rest_keywords && other.rest_keywords
-                     AST::Types::Intersection.build(types: [self.rest_keywords, other.rest_keywords])
-                   else
-                     nil
-                   end
-
-            Params.new(
-              required: [],
-              optional: [],
-              rest: nil,
-              required_keywords: required_keywords,
-              optional_keywords: optional_keywords,
-              rest_keywords: rest)
-          end
+          pp = PositionalParams.merge_for_intersection(positional_params, other.positional_params) rescue return
+          kp = keyword_params & other.keyword_params or return
+          Params.new(positional_params: pp, keyword_params: kp)
         end
 
         # Returns the union between self and other.
         #
+        #    self <: (self | other)
+        #   other <: (self | other)
+        #
+        # `self | other` accept `arg` if `self` accepts `arg` or `other` accepts `arg`.
+        #
         def |(other)
-          a = first_param
-          b = other.first_param
-
-          case
-          when a.is_a?(RequiredPositional) && b.is_a?(RequiredPositional)
-            AST::Types::Union.build(types: [a.type, b.type]).yield_self do |type|
-              (self.drop_first | other.drop_first)&.with_first_param(RequiredPositional.new(type))
-            end
-          when a.is_a?(RequiredPositional) && b.is_a?(OptionalPositional)
-            AST::Types::Union.build(types: [a.type, b.type]).yield_self do |type|
-              (self.drop_first | other.drop_first)&.with_first_param(OptionalPositional.new(type))
-            end
-          when a.is_a?(RequiredPositional) && b.is_a?(RestPositional)
-            AST::Types::Union.build(types: [a.type, b.type]).yield_self do |type|
-              (self.drop_first | other.drop_first)&.with_first_param(OptionalPositional.new(type))
-            end
-          when a.is_a?(RequiredPositional) && b.nil?
-            self.drop_first&.with_first_param(OptionalPositional.new(a.type))
-          when a.is_a?(OptionalPositional) && b.is_a?(RequiredPositional)
-            AST::Types::Union.build(types: [a.type, b.type]).yield_self do |type|
-              (self.drop_first | other.drop_first)&.with_first_param(OptionalPositional.new(type))
-            end
-          when a.is_a?(OptionalPositional) && b.is_a?(OptionalPositional)
-            AST::Types::Union.build(types: [a.type, b.type]).yield_self do |type|
-              (self.drop_first | other.drop_first)&.with_first_param(OptionalPositional.new(type))
-            end
-          when a.is_a?(OptionalPositional) && b.is_a?(RestPositional)
-            AST::Types::Union.build(types: [a.type, b.type]).yield_self do |type|
-              (self.drop_first | other.drop_first)&.with_first_param(OptionalPositional.new(type))
-            end
-          when a.is_a?(OptionalPositional) && b.nil?
-            (self.drop_first | other)&.with_first_param(a)
-          when a.is_a?(RestPositional) && b.is_a?(RequiredPositional)
-            AST::Types::Union.build(types: [a.type, b.type]).yield_self do |type|
-              (self.drop_first | other.drop_first)&.with_first_param(OptionalPositional.new(type))
-            end
-          when a.is_a?(RestPositional) && b.is_a?(OptionalPositional)
-            AST::Types::Union.build(types: [a.type, b.type]).yield_self do |type|
-              (self | other.drop_first)&.with_first_param(OptionalPositional.new(type))
-            end
-          when a.is_a?(RestPositional) && b.is_a?(RestPositional)
-            AST::Types::Union.build(types: [a.type, b.type]).yield_self do |type|
-              (self.drop_first | other.drop_first)&.with_first_param(RestPositional.new(type))
-            end
-          when a.is_a?(RestPositional) && b.nil?
-            (self.drop_first | other)&.with_first_param(a)
-          when a.nil? && b.is_a?(RequiredPositional)
-            other.drop_first&.with_first_param(OptionalPositional.new(b.type))
-          when a.nil? && b.is_a?(OptionalPositional)
-            (self | other.drop_first)&.with_first_param(b)
-          when a.nil? && b.is_a?(RestPositional)
-            (self | other.drop_first)&.with_first_param(b)
-          when a.nil? && b.nil?
-            required_keywords = {}
-            optional_keywords = {}
-
-            (Set.new(self.required_keywords.keys) & Set.new(other.required_keywords.keys)).each do |keyword|
-              required_keywords[keyword] = AST::Types::Union.build(
-                types: [
-                  self.required_keywords[keyword],
-                  other.required_keywords[keyword]
-                ]
-              )
-            end
-
-            self.optional_keywords.each do |keyword, t|
-              unless optional_keywords.key?(keyword) || required_keywords.key?(keyword)
-                case
-                when s = other.required_keywords[keyword]
-                  optional_keywords[keyword] = AST::Types::Union.build(types: [t, s])
-                when s = other.optional_keywords[keyword]
-                  optional_keywords[keyword] = AST::Types::Union.build(types: [t, s])
-                when r = other.rest_keywords
-                  optional_keywords[keyword] = AST::Types::Union.build(types: [t, r])
-                else
-                  optional_keywords[keyword] = t
-                end
-              end
-            end
-            other.optional_keywords.each do |keyword, t|
-              unless optional_keywords.key?(keyword) || required_keywords.key?(keyword)
-                case
-                when s = self.required_keywords[keyword]
-                  optional_keywords[keyword] = AST::Types::Union.build(types: [t, s])
-                when s = self.optional_keywords[keyword]
-                  optional_keywords[keyword] = AST::Types::Union.build(types: [t, s])
-                when r = self.rest_keywords
-                  optional_keywords[keyword] = AST::Types::Union.build(types: [t, r])
-                else
-                  optional_keywords[keyword] = t
-                end
-              end
-            end
-            self.required_keywords.each do |keyword, t|
-              unless optional_keywords.key?(keyword) || required_keywords.key?(keyword)
-                case
-                when s = other.optional_keywords[keyword]
-                  optional_keywords[keyword] = AST::Types::Union.build(types: [t, s])
-                when r = other.rest_keywords
-                  optional_keywords[keyword] = AST::Types::Union.build(types: [t, r])
-                else
-                  optional_keywords[keyword] = t
-                end
-              end
-            end
-            other.required_keywords.each do |keyword, t|
-              unless optional_keywords.key?(keyword) || required_keywords.key?(keyword)
-                case
-                when s = self.optional_keywords[keyword]
-                  optional_keywords[keyword] = AST::Types::Union.build(types: [t, s])
-                when r = self.rest_keywords
-                  optional_keywords[keyword] = AST::Types::Union.build(types: [t, r])
-                else
-                  optional_keywords[keyword] = t
-                end
-              end
-            end
-
-            rest = case
-                   when self.rest_keywords && other.rest_keywords
-                     AST::Types::Union.build(types: [self.rest_keywords, other.rest_keywords])
-                   when self.rest_keywords
-                     if required_keywords.empty? && optional_keywords.empty?
-                       self.rest_keywords
-                     end
-                   when other.rest_keywords
-                     if required_keywords.empty? && optional_keywords.empty?
-                       other.rest_keywords
-                     end
-                   else
-                     nil
-                   end
-
-            Params.new(
-              required: [],
-              optional: [],
-              rest: nil,
-              required_keywords: required_keywords,
-              optional_keywords: optional_keywords,
-              rest_keywords: rest)
-          end
+          pp = PositionalParams.merge_for_union(positional_params, other.positional_params) rescue return
+          kp = keyword_params | other.keyword_params or return
+          Params.new(positional_params: pp, keyword_params: kp)
         end
       end
 

@@ -40,7 +40,7 @@ class ArgsTest < Minitest::Test
   end
 
   def test_zip_0
-    params = Params.new(
+    params = Params.build(
       required: [parse_type("Integer"), parse_type("String")],
       optional: [],
       rest: nil,
@@ -72,7 +72,7 @@ class ArgsTest < Minitest::Test
   end
 
   def test_zip_1
-    params = Params.new(
+    params = Params.build(
       required: [],
       optional: [parse_type("Integer"), parse_type("String")],
       rest: nil,
@@ -100,7 +100,7 @@ class ArgsTest < Minitest::Test
   end
 
   def test_zip_2
-    params = Params.new(
+    params = Params.build(
       required: [parse_type("Integer")],
       optional: [],
       rest: nil,
@@ -134,7 +134,7 @@ class ArgsTest < Minitest::Test
   end
 
   def test_zip_3
-    params = Params.new(
+    params = Params.build(
       required: [],
       optional: [parse_type("Symbol")],
       rest: nil,
@@ -166,7 +166,7 @@ class ArgsTest < Minitest::Test
   end
 
   def test_zip_4
-    params = Params.new(
+    params = Params.build(
       required: [],
       optional: [],
       rest: parse_type("Integer"),
@@ -200,7 +200,7 @@ class ArgsTest < Minitest::Test
   end
 
   def test_zip_5
-    params = Params.new(
+    params = Params.build(
       required: [parse_type("String")],
       optional: [parse_type("Symbol"), parse_type("Integer")],
       rest: parse_type("Integer"),
@@ -262,7 +262,7 @@ class ArgsTest < Minitest::Test
   end
 
   def test_zip_6
-    params = Params.new(
+    params = Params.build(
       required: [],
       optional: [],
       rest: parse_type("Integer"),
@@ -291,7 +291,7 @@ class ArgsTest < Minitest::Test
   end
 
   def test_zip_7
-    params = Params.new(
+    params = Params.build(
       required: [],
       optional: [],
       rest: parse_type("Integer"),

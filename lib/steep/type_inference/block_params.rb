@@ -134,13 +134,10 @@ module Steep
           rest = rest_param&.yield_self {|param| param.type.args[0] }
         end
 
-        Interface::Function::Params.new(
+        Interface::Function::Params.build(
           required: leadings,
           optional: optionals,
-          rest: rest,
-          required_keywords: {},
-          optional_keywords: {},
-          rest_keywords: nil
+          rest: rest
         )
       end
 

@@ -213,7 +213,7 @@ RBS
         assert_instance_of HoverContent::VariableContent, content
         assert_equal [3,4]...[3, 5], [content.location.line,content.location.column]...[content.location.last_line, content.location.last_column]
         assert_equal :y, content.name
-        assert_equal "::Symbol", content.type.to_s
+        assert_equal "(::Symbol | nil)", content.type.to_s
       end
     end
   end
