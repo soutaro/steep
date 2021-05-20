@@ -202,18 +202,21 @@ module Steep
         class_type: module_context.module_type
       )
 
-      if method_type
-        param_types = TypeInference::MethodParams.build(node: node, method_type: method_type)
-
-        param_types.each_param do |param|
-          lvar_env = lvar_env.assign(param.name, type: param.var_type, node: param.node) {
-            raise "Unexpected assignment error: #{param.name}"
-          }
+      method_params =
+        if method_type
+          TypeInference::MethodParams.build(node: node, method_type: method_type)
+        else
+          TypeInference::MethodParams.empty(node: node)
         end
 
-        param_types.errors.each do |error|
-          typing.add_error error
-        end
+      method_params.each_param do |param|
+        lvar_env = lvar_env.assign(param.name, type: param.var_type, node: param.node) {
+          raise "Unexpected assignment error: #{param.name}"
+        }
+      end
+
+      method_params.errors.each do |error|
+        typing.add_error error
       end
 
       lvar_env = lvar_env.annotate(annots)

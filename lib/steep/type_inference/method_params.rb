@@ -170,6 +170,42 @@ module Steep
         end
       end
 
+      def self.empty(node:)
+        args_node =
+          case node.type
+          when :def
+            node.children[1]
+          when :defs
+            node.children[2]
+          else
+            raise
+          end
+
+        params = new(args: args_node.children, method_type: nil)
+
+        args_node.children.each do |arg|
+          case arg.type
+          when :arg, :optarg
+            name = arg.children[0]
+            params.params[name] = PositionalParameter.new(name: name, type: nil, node: arg)
+          when :kwarg, :kwoptarg
+            name = arg.children[0]
+            params.params[name] = KeywordParameter.new(name: name, type: nil, node: arg)
+          when :restarg
+            name = arg.children[0]
+            params.params[name] = PositionalRestParameter.new(name: name, type: nil, node: arg)
+          when :kwrestarg
+            name = arg.children[0]
+            params.params[name] = KeywordRestParameter.new(name: name, type: nil, node: arg)
+          when :blockarg
+            name = arg.children[0]
+            params.params[name] = BlockParameter.new(name: name, type: nil, optional: nil, node: arg)
+          end
+        end
+
+        params
+      end
+
       def self.build(node:, method_type:)
         args_node =
           case node.type

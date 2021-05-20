@@ -2158,14 +2158,10 @@ end
       with_standard_construction(checker, source) do |construction, typing|
         construction.synthesize(source.node)
 
-        assert_equal 2, typing.errors.size
-        assert_any typing.errors do |error|
-          error.is_a?(Diagnostic::Ruby::FallbackAny) &&
-            error.node == dig(source.node, 1, 0)
-        end
-        assert_any typing.errors do |error|
-          error.is_a?(Diagnostic::Ruby::FallbackAny) &&
-            error.node == dig(source.node, 2, 1)
+        assert_any!(typing.errors, size: 1) do |error|
+          assert_instance_of Diagnostic::Ruby::IncompatibleAssignment, error
+          assert_equal parse_type("::String"), error.lhs_type
+          assert_equal parse_type("::Array[untyped]"), error.rhs_type
         end
       end
     end
@@ -3578,11 +3574,7 @@ EOF
 
       with_standard_construction(checker, source) do |construction, typing|
         construction.synthesize(source.node)
-
-        assert_equal 1, typing.errors.size
-        typing.errors[0].yield_self do |error|
-          assert_instance_of Diagnostic::Ruby::FallbackAny, error
-        end
+        assert_no_error typing
       end
     end
   end
@@ -7686,6 +7678,29 @@ RUBY
       with_standard_construction(checker, source) do |construction, typing|
         type, _ = construction.synthesize(source.node)
 
+        assert_no_error typing
+      end
+    end
+  end
+
+  def test_type_check_def_without_decl
+    with_checker(<<RBS) do |checker|
+RBS
+
+      source = parse_ruby(<<RUBY)
+def HelloWorld(x, y = 1, *z, a:, b: false, **c, &block)
+  x
+  y
+  z
+  a
+  b
+  c
+  block
+end
+RUBY
+
+      with_standard_construction(checker, source) do |construction, typing|
+        type, _ = construction.synthesize(source.node)
         assert_no_error typing
       end
     end
