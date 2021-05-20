@@ -2304,7 +2304,9 @@ module Steep
                     unless return_types.empty?
                       type = AST::Types::Proc.new(
                         type: Interface::Function.new(
-                          params: Interface::Function::Params.empty.update(required: [param_type]),
+                          params: Interface::Function::Params.empty.with_first_param(
+                            Interface::Function::Params::PositionalParams::Required.new(param_type)
+                          ),
                           return_type: AST::Types::Union.build(types: return_types),
                           location: nil
                         ),
