@@ -162,23 +162,6 @@ module Steep
 
       # constructor_method = method&.attributes&.include?(:constructor)
 
-      if method_type
-        var_types = TypeConstruction.parameter_types(args, method_type.type)
-        unless TypeConstruction.valid_parameter_env?(var_types, args.reject {|arg| arg.type == :blockarg}, method_type.type.params)
-          typing.add_error Diagnostic::Ruby::MethodArityMismatch.new(node: node, method_type: method_type)
-        end
-      end
-
-      if (block_arg = args.find {|arg| arg.type == :blockarg})
-        if method_type&.block
-          block_type = AST::Types::Proc.new(type: method_type.block.type, block: nil)
-          if method_type.block.optional?
-            block_type = AST::Types::Union.build(types: [block_type, AST::Builtin.nil_type])
-          end
-          var_types[block_arg.children[0]] = block_type
-        end
-      end
-
       super_method = if definition
                        if (this_method = definition.methods[method_name])
                          if module_context&.class_name == this_method.defined_in
@@ -219,13 +202,18 @@ module Steep
         class_type: module_context.module_type
       )
 
-      if var_types
-        lvar_env = lvar_env.update(
-          assigned_types: var_types.each.with_object({}) {|(var, type), hash|
-            arg_node = args.find {|arg| arg.children[0] == var }
-            hash[var] = TypeInference::LocalVariableTypeEnv::Entry.new(type: type, nodes: [arg_node].compact)
+      if method_type
+        param_types = TypeInference::MethodParams.build(node: node, method_type: method_type)
+
+        param_types.each_param do |param|
+          lvar_env = lvar_env.assign(param.name, type: param.var_type, node: param.node) {
+            raise "Unexpected assignment error: #{param.name}"
           }
-        )
+        end
+
+        param_types.errors.each do |error|
+          typing.add_error error
+        end
       end
 
       lvar_env = lvar_env.annotate(annots)
@@ -3596,68 +3584,6 @@ module Steep
       else
         enum_for :each_child_node, node
       end
-    end
-
-    def self.parameter_types(nodes, type)
-      nodes = nodes.dup
-
-      env = {}
-
-      type.params.required.each do |type|
-        a = nodes.first
-        if a&.type == :arg
-          env[a.children.first] = type
-          nodes.shift
-        else
-          break
-        end
-      end
-
-      type.params.optional.each do |type|
-        a = nodes.first
-
-        if a&.type == :optarg
-          env[a.children.first] = type
-          nodes.shift
-        else
-          break
-        end
-      end
-
-      if type.params.rest
-        a = nodes.first
-        if a&.type == :restarg
-          env[a.children.first] = AST::Builtin::Array.instance_type(type.params.rest)
-          nodes.shift
-        end
-      end
-
-      nodes.each do |node|
-        if node.type == :kwarg
-          name = node.children[0]
-          ty = type.params.required_keywords[name]
-          env[name] = ty if ty
-        end
-
-        if node.type == :kwoptarg
-          name = node.children[0]
-          ty = type.params.optional_keywords[name]
-          env[name] = ty if ty
-        end
-
-        if node.type == :kwrestarg
-          ty = type.params.rest_keywords
-          if ty
-            env[node.children[0]] = AST::Builtin::Hash.instance_type(AST::Builtin::Symbol.instance_type, ty)
-          end
-        end
-      end
-
-      env
-    end
-
-    def self.valid_parameter_env?(env, nodes, params)
-      env.size == nodes.size && env.size == params.size
     end
 
     def current_namespace

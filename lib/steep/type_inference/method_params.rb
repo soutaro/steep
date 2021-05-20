@@ -160,8 +160,27 @@ module Steep
         params.each_value(&block)
       end
 
+      def each
+        if block_given?
+          each_param do |param|
+            yield param.name, param.var_type
+          end
+        else
+          enum_for :each
+        end
+      end
+
       def self.build(node:, method_type:)
-        original = node.children[1].children
+        args_node =
+          case node.type
+          when :def
+            node.children[1]
+          when :defs
+            node.children[2]
+          else
+            raise
+          end
+        original = args_node.children
         args = original.dup
 
         instance = new(args: original, method_type: method_type)

@@ -5133,7 +5133,7 @@ end
 
         assert_typing_error typing, size: 1 do |errors|
           assert_any!(errors) do |error|
-            assert_instance_of Diagnostic::Ruby::MethodArityMismatch, error
+            assert_instance_of Diagnostic::Ruby::MethodParameterMismatch, error
           end
         end
       end
