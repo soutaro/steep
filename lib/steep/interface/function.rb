@@ -459,6 +459,10 @@ module Steep
             requireds.size + optionals.size + (rest ? 1 : 0)
           end
 
+          def keywords
+            Set[] + requireds.keys + optionals.keys
+          end
+
           include Utils
 
           # For overloading
@@ -783,6 +787,16 @@ module Steep
 
         def has_keywords?
           !keyword_params.empty?
+        end
+
+        def each_positional_param(&block)
+          if block_given?
+            if positional_params
+              positional_params.each(&block)
+            end
+          else
+            enum_for :each_positional_param
+          end
         end
 
         def without_keywords
