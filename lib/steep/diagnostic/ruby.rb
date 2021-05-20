@@ -323,6 +323,36 @@ module Steep
         end
       end
 
+      class MethodParameterMismatch < Base
+        attr_reader :method_param
+        attr_reader :method_type
+
+        def initialize(method_param:, method_type:)
+          super(node: method_param.node)
+          @method_param = method_param
+          @method_type = method_type
+        end
+
+        def header_line
+          "The method parameter is incompatible with the declaration `#{method_type}`"
+        end
+      end
+
+      class DifferentMethodParameterKind < Base
+        attr_reader :method_param
+        attr_reader :method_type
+
+        def initialize(method_param:, method_type:)
+          super(node: method_param.node)
+          @method_param = method_param
+          @method_type = method_type
+        end
+
+        def header_line
+          "The method parameter has different kind from the declaration `#{method_type}`"
+        end
+      end
+
       class IncompatibleMethodTypeAnnotation < Base
         attr_reader :interface_method
         attr_reader :annotation_method
