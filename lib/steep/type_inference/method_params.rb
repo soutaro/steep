@@ -28,6 +28,10 @@ module Steep
           end
         end
 
+        def var_type
+          type || AST::Builtin.any_type
+        end
+
         def untyped?
           !type
         end
@@ -87,7 +91,7 @@ module Steep
         end
       end
 
-      class BlockPassParameter
+      class BlockParameter
         attr_reader :name
         attr_reader :type
         attr_reader :node
@@ -104,10 +108,16 @@ module Steep
         end
 
         def var_type
-          if optional?
-            AST::Types::Union.build(types: [type, AST::Builtin.nil_type], location: type.location)
+          if type
+            proc_type = AST::Types::Proc.new(type: type, block: nil)
+
+            if optional?
+              AST::Types::Union.build(types: [proc_type, AST::Builtin.nil_type], location: proc_type.location)
+            else
+              proc_type
+            end
           else
-            type
+            AST::Builtin.nil_type
           end
         end
 
@@ -380,11 +390,33 @@ module Steep
               method_type: method_type
             )
           end
+
+          args.shift
         else
           if !keywords.empty? || keyword_params.rest
             instance.errors << Diagnostic::Ruby::MethodArityMismatch.new(
               node: node,
               method_type: method_type
+            )
+          end
+        end
+
+        if (arg = args.first)&.type == :blockarg
+          name = arg.children[0]
+
+          if method_type.block
+            instance.params[name] = BlockParameter.new(
+              name: name,
+              type: method_type.block.type,
+              optional: method_type.block.optional?,
+              node: arg
+            )
+          else
+            instance.params[name] = BlockParameter.new(
+              name: name,
+              type: nil,
+              optional: nil,
+              node: arg
             )
           end
         end

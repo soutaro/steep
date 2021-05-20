@@ -438,4 +438,64 @@ class MethodParamsTest < Minitest::Test
       end
     end
   end
+
+  def test_block_arg
+    with_factory do
+      node = def_node("def foo(&block); end")
+
+      MethodParams.build(node: node, method_type: parse_method_type("() { () -> void } -> void")).tap do |params|
+        assert_equal 1, params.size
+
+        assert_equal(
+          MethodParams::BlockParameter.new(
+            name: :block,
+            type: parse_type("^() -> void").type,
+            node: params.args[0],
+            optional: false
+          ),
+          params[:block]
+        )
+
+        assert_equal parse_type("^() -> void"), params[:block].var_type
+
+        assert_empty params.errors
+      end
+
+      MethodParams.build(node: node, method_type: parse_method_type("() ?{ () -> void } -> void")).tap do |params|
+        assert_equal 1, params.size
+
+        assert_equal(
+          MethodParams::BlockParameter.new(
+            name: :block,
+            type: parse_type("^() -> void").type,
+            node: params.args[0],
+            optional: true
+          ),
+          params[:block]
+        )
+
+        assert_equal parse_type("^() -> void | nil"), params[:block].var_type
+
+        assert_empty params.errors
+      end
+
+      MethodParams.build(node: node, method_type: parse_method_type("() -> void")).tap do |params|
+        assert_equal 1, params.size
+
+        assert_equal(
+          MethodParams::BlockParameter.new(
+            name: :block,
+            type: nil,
+            node: params.args[0],
+            optional: false
+          ),
+          params[:block]
+        )
+
+        assert_equal parse_type("nil"), params[:block].var_type
+
+        assert_empty params.errors
+      end
+    end
+  end
 end
