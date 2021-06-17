@@ -218,6 +218,35 @@ RBS
     end
   end
 
+  def test_hover_on_rbs
+    in_tmpdir do
+      service = typecheck_service()
+
+      service.update(
+        changes: {
+          Pathname("hello.rbs") => [ContentChange.string(<<RBS)]
+type foo = Integer | String
+
+class FooBar
+  def f: (foo) -> void
+end
+RBS
+        }
+      ) {}
+
+      hover = HoverContent.new(service: service)
+
+      hover.content_for(path: Pathname("hello.rbs"), line: 4, column: 11).tap do |content|
+        assert_instance_of HoverContent::TypeAliasContent, content
+        assert_instance_of RBS::Location::WithChildren, content.location
+
+        assert_equal content.location.start_line, 4
+        assert_equal content.location.start_column, 10
+      end
+    end
+  end
+
+
   def test_hover_on_syntax_error
     in_tmpdir do
       service = typecheck_service()

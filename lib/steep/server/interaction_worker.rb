@@ -80,9 +80,16 @@ module Steep
             content = hover.content_for(path: job.path, line: job.line, column: job.column+1)
             if content
               range = content.location.yield_self do |location|
-                start_position = { line: location.line - 1, character: location.column }
-                end_position = { line: location.last_line - 1, character: location.last_column }
-                { start: start_position, end: end_position }
+                case content.location
+                when RBS::Location::WithChildren
+                  start_position = { line: location.start_line - 1, character: location.start_column }
+                  end_position = { line: location.start_line - 1, character: location.start_column }
+                  { start: start_position, end: end_position }
+                else
+                  start_position = { line: location.line - 1, character: location.column }
+                  end_position = { line: location.last_line - 1, character: location.last_column }
+                  { start: start_position, end: end_position }
+                end
               end
 
               LSP::Interface::Hover.new(
@@ -99,6 +106,16 @@ module Steep
 
       def format_hover(content)
         case content
+        when Services::HoverContent::TypeAliasContent
+          comment = content.decl.comment&.string || ''
+
+          <<-MD
+#{comment}
+
+```rbs
+#{content.decl.type}
+```
+          MD
         when Services::HoverContent::VariableContent
           "`#{content.name}`: `#{content.type.to_s}`"
         when Services::HoverContent::MethodCallContent

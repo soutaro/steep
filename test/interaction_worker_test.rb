@@ -173,6 +173,47 @@ RUBY
     end
   end
 
+  def test_handle_hover_job_success_on_rbs
+    in_tmpdir do
+      project = Project.new(steepfile_path: current_dir + "Steepfile")
+      Project::DSL.parse(project, <<EOF)
+target :lib do
+  check "lib"
+  signature "sig"
+end
+EOF
+
+      worker = InteractionWorker.new(project: project, reader: worker_reader, writer: worker_writer)
+
+      worker.service.update(
+        changes: {
+          Pathname("sig/hello.rbs") => [ContentChange.string(<<RBS)]
+# here is your comments
+type foo = Integer | String
+
+class FooBar
+  def f: (foo) -> void
+end
+RBS
+        }
+      ) {}
+
+      response = worker.process_hover(InteractionWorker::HoverJob.new(path: Pathname("sig/hello.rbs"), line: 5, column: 11))
+
+      response = response.attributes
+      expected_value = "here is your comments
+
+
+```rbs
+::Integer | ::String
+```
+"
+      assert_equal({ kind: "markdown", value: expected_value }, response[:contents])
+      assert_equal({ start: { line: 4, character: 10 }, end: { line: 4, character: 10 }}, response[:range])
+    end
+  end
+
+
   def test_handle_hover_invalid
     in_tmpdir do
       project = Project.new(steepfile_path: current_dir + "Steepfile")
