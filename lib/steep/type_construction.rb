@@ -2954,137 +2954,6 @@ module Steep
       ]
     end
 
-    def check_keyword_arg(receiver_type:, node:, method_type:, constraints:)
-      params = method_type.type.params
-
-      case node.type
-      when :hash
-        keyword_hash_type = AST::Builtin::Hash.instance_type(AST::Builtin::Symbol.instance_type,
-                                                             AST::Builtin.any_type)
-        add_typing node, type: keyword_hash_type
-
-        given_keys = Set.new()
-
-        node.children.each do |element|
-          case element.type
-          when :pair
-            key_node, value_node = element.children
-
-            case key_node.type
-            when :sym
-              key_symbol = key_node.children[0]
-              keyword_type = case
-                             when params.required_keywords.key?(key_symbol)
-                               params.required_keywords[key_symbol]
-                             when params.optional_keywords.key?(key_symbol)
-                               AST::Types::Union.build(
-                                 types: [params.optional_keywords[key_symbol],
-                                         AST::Builtin.nil_type]
-                               )
-                             when params.rest_keywords
-                               params.rest_keywords
-                             end
-
-              add_typing key_node, type: AST::Builtin::Symbol.instance_type
-
-              given_keys << key_symbol
-
-              if keyword_type
-                check(value_node, keyword_type, constraints: constraints) do |expected, actual, result|
-                  return Diagnostic::Ruby::IncompatibleAssignment.new(
-                    node: value_node,
-                    lhs_type: expected,
-                    rhs_type: actual,
-                    result: result
-                  )
-                end
-              else
-                synthesize(value_node)
-              end
-
-            else
-              check(key_node, AST::Builtin::Symbol.instance_type, constraints: constraints) do |expected, actual, result|
-                return Diagnostic::Ruby::IncompatibleAssignment.new(
-                  node: key_node,
-                  lhs_type: expected,
-                  rhs_type: actual,
-                  result: result
-                )
-              end
-            end
-
-          when :kwsplat
-            Steep.logger.warn("Keyword arg with kwsplat(**) node are not supported.")
-
-            check(element.children[0], keyword_hash_type, constraints: constraints) do |expected, actual, result|
-              return Diagnostic::Ruby::IncompatibleAssignment.new(
-                node: node,
-                lhs_type: expected,
-                rhs_type: actual,
-                result: result
-              )
-            end
-
-            given_keys = true
-          end
-        end
-
-        case given_keys
-        when Set
-          missing_keywords = Set.new(params.required_keywords.keys) - given_keys
-          unless missing_keywords.empty?
-            return Diagnostic::Ruby::MissingKeyword.new(
-              node: node,
-              missing_keywords: missing_keywords
-            )
-          end
-
-          extra_keywords = given_keys - Set.new(params.required_keywords.keys) - Set.new(params.optional_keywords.keys)
-          if extra_keywords.any? && !params.rest_keywords
-            return Diagnostic::Ruby::UnexpectedKeyword.new(
-              node: node,
-              unexpected_keywords: extra_keywords
-            )
-          end
-        end
-      else
-        if params.rest_keywords
-          Steep.logger.warn("Method call with rest keywords type is detected. Rough approximation to be improved.")
-
-          value_types = params.required_keywords.values +
-            params.optional_keywords.values.map {|type| AST::Types::Union.build(types: [type, AST::Builtin.nil_type])} +
-            [params.rest_keywords]
-
-          hash_type = AST::Builtin::Hash.instance_type(
-            AST::Builtin::Symbol.instance_type,
-            AST::Types::Union.build(types: value_types)
-          )
-        else
-          hash_elements = params.required_keywords.merge(
-            params.optional_keywords.transform_values do |type|
-              AST::Types::Union.build(types: [type, AST::Builtin.nil_type])
-            end
-          )
-
-          hash_type = AST::Types::Record.new(elements: hash_elements)
-        end
-
-        node_type = synthesize(node, hint: hash_type).type
-
-        check_relation(sub_type: node_type, super_type: hash_type).else do |result|
-          return Diagnostic::Ruby::ArgumentTypeMismatch.new(
-            node: node,
-            receiver_type: receiver_type,
-            expected: hash_type,
-            actual: node_type,
-            result: result
-          )
-        end
-      end
-
-      nil
-    end
-
     def inspect
       "#<#{self.class}>"
     end
@@ -3454,111 +3323,6 @@ module Steep
             )
           end
         end
-        # # block is not given
-        # if !method_type.block
-        #   # Method doesn't accept blocks
-        #   unless args.block_pass_arg
-        #     # OK, without block
-        #     s = constraints.solution(
-        #       checker,
-        #       variance: variance,
-        #       variables: fresh_vars,
-        #       self_type: self_type,
-        #       instance_type: module_context.instance_type,
-        #       class_type: module_context.module_type
-        #     )
-        #     method_type = method_type.subst(s)
-        #   else
-        #     # &block arg is given
-        #     s = constraints.solution(
-        #       checker,
-        #       variance: variance,
-        #       variables: fresh_vars,
-        #       self_type: self_type,
-        #       instance_type: module_context.instance_type,
-        #       class_type: module_context.module_type
-        #     )
-        #     method_type = method_type.subst(s)
-        #
-        #     type, constr = constr.synthesize(args.block_pass_arg, hint: AST::Builtin.nil_type)
-        #     type = expand_alias(type)
-        #     unless type.is_a?(AST::Types::Nil)
-        #       errors << Diagnostic::Ruby::UnexpectedBlockGiven.new(
-        #         node: node,
-        #         method_type: method_type
-        #       )
-        #     end
-        #   end
-        # else
-        #   # Method accepts block
-        #   if !args.block_pass_arg
-        #     # Block pass is not given
-        #     if method_type.block.required?
-        #       # Required block is missing
-        #       errors << Diagnostic::Ruby::RequiredBlockMissing.new(
-        #         node: node,
-        #         method_type: method_type
-        #       )
-        #     end
-        #
-        #     s = constraints.solution(
-        #       checker,
-        #       variance: variance,
-        #       variables: fresh_vars,
-        #       self_type: self_type,
-        #       instance_type: module_context.instance_type,
-        #       class_type: module_context.module_type
-        #     )
-        #     method_type = method_type.subst(s)
-        #   else
-        #     begin
-        #       method_type = method_type.subst(
-        #         constraints.solution(
-        #           checker,
-        #           self_type: self_type,
-        #           instance_type: module_context.instance_type,
-        #           class_type: module_context.module_type,
-        #           variance: variance,
-        #           variables: occurence.params
-        #         )
-        #       )
-        #       hint_type = if topdown_hint
-        #                     AST::Types::Proc.new(type: method_type.block.type, block: nil)
-        #                   end
-        #       given_block_type, constr = constr.synthesize(args.block_pass_arg, hint: hint_type)
-        #       method_block_type = method_type.block.yield_self {|expected_block|
-        #         proc_type = AST::Types::Proc.new(type: expected_block.type, block: nil)
-        #         if expected_block.optional?
-        #           AST::Builtin.optional(proc_type)
-        #         else
-        #           proc_type
-        #         end
-        #       }
-        #
-        #       result = check_relation(sub_type: given_block_type, super_type: method_block_type, constraints: constraints)
-        #       result.else do |result|
-        #         errors << Diagnostic::Ruby::BlockTypeMismatch.new(
-        #           node: args.block_pass_arg,
-        #           expected: method_block_type,
-        #           actual: given_block_type,
-        #           result: result
-        #         )
-        #       end
-        #
-        #       method_type = method_type.subst(
-        #         constraints.solution(
-        #           checker,
-        #           self_type: self_type,
-        #           instance_type: module_context.instance_type,
-        #           class_type: module_context.module_type,
-        #           variance: variance,
-        #           variables: method_type.free_variables
-        #         )
-        #       )
-        #     end
-        #   end
-        # end
-        #
       end
 
       call = if errors.empty?
@@ -3848,25 +3612,6 @@ module Steep
       end
     end
 
-    def flatten_const_name(node)
-      path = []
-
-      while node
-        case node.type
-        when :const, :casgn
-          path.unshift(node.children[1])
-          node = node.children[0]
-        when :cbase
-          path.unshift("")
-          break
-        else
-          return nil
-        end
-      end
-
-      path.join("::").to_sym
-    end
-
     def fallback_to_any(node)
       if block_given?
         typing.add_error yield
@@ -3908,16 +3653,6 @@ module Steep
       Pair.new(type: AST::Builtin.any_type, constr: self)
     end
 
-    def fallback_any_rec(node)
-      fallback_to_any(node) unless typing.has_type?(node)
-
-      each_child_node(node) do |child|
-        fallback_any_rec(child)
-      end
-
-      typing.type_of(node: node)
-    end
-
     def unwrap(type)
       expand_alias(type) do |expanded|
         case
@@ -3927,19 +3662,6 @@ module Steep
         else
           type
         end
-      end
-    end
-
-    def self.value_variables(node)
-      case node&.type
-      when :lvar
-        Set.new([node.children.first])
-      when :lvasgn
-        Set.new([node.children.first]) + value_variables(node.children[1])
-      when :begin
-        value_variables(node.children.last)
-      else
-        Set.new
       end
     end
 
@@ -3986,24 +3708,6 @@ module Steep
             hint
           end
         end
-      end
-    end
-
-    def select_super_type(sub_type, super_type)
-      if super_type
-        result = check_relation(sub_type: sub_type, super_type: super_type)
-
-        if result.success?
-          super_type
-        else
-          if block_given?
-            yield result
-          else
-            sub_type
-          end
-        end
-      else
-        sub_type
       end
     end
 
