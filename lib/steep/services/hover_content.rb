@@ -5,13 +5,13 @@ module Steep
       VariableContent = Struct.new(:node, :name, :type, :location, keyword_init: true)
       MethodCallContent = Struct.new(:node, :method_name, :type, :definition, :location, keyword_init: true)
       DefinitionContent = Struct.new(:node, :method_name, :method_type, :definition, :location, keyword_init: true) do
+      TypeAliasContent = Struct.new(:location, :decl, keyword_init: true)
         def comment_string
           if comments = definition&.comments
             comments.map {|c| c.string.chomp }.uniq.join("\n----\n")
           end
         end
       end
-      TypeAliasContent = Struct.new(:location, :decl, keyword_init: true)
 
       InstanceMethodName = Struct.new(:class_name, :method_name)
       SingletonMethodName = Struct.new(:class_name, :method_name)

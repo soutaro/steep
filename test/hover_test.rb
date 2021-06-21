@@ -246,7 +246,6 @@ RBS
     end
   end
 
-
   def test_hover_on_syntax_error
     in_tmpdir do
       service = typecheck_service()
