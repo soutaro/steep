@@ -77,11 +77,12 @@ module Steep
             Steep.logger.info { "path=#{job.path}, line=#{job.line}, column=#{job.column}" }
 
             hover = Services::HoverContent.new(service: service)
-            content = hover.content_for(path: job.path, line: job.line, column: job.column+1)
+            content = hover.content_for(path: job.path, line: job.line, column: job.column)
             if content
               range = content.location.yield_self do |location|
-                start_position = { line: location.line - 1, character: location.column }
-                end_position = { line: location.last_line - 1, character: location.last_column }
+                lsp_range = location.as_lsp_range
+                start_position = { line: lsp_range[:start][:line], character: lsp_range[:start][:character] }
+                end_position = { line: lsp_range[:end][:line], character: lsp_range[:end][:character] }
                 { start: start_position, end: end_position }
               end
 
@@ -99,6 +100,16 @@ module Steep
 
       def format_hover(content)
         case content
+        when Services::HoverContent::TypeAliasContent
+          comment = content.decl.comment&.string || ''
+
+          <<-MD
+#{comment}
+
+```rbs
+#{content.decl.type}
+```
+          MD
         when Services::HoverContent::VariableContent
           "`#{content.name}`: `#{content.type.to_s}`"
         when Services::HoverContent::MethodCallContent
