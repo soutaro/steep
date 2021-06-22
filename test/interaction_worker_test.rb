@@ -209,7 +209,7 @@ RBS
 ```
 "
       assert_equal({ kind: "markdown", value: expected_value }, response[:contents])
-      assert_equal({ start: { line: 4, character: 10 }, end: { line: 4, character: 10 }}, response[:range])
+      assert_equal({ start: { line: 4, character: 10 }, end: { line: 4, character: 13 }}, response[:range])
     end
   end
 
