@@ -71,46 +71,86 @@ module Steep
         end
       end
 
-      class IncompatibleArguments < Base
+      class UnexpectedPositionalArgument < Base
         attr_reader :node
+        attr_reader :method_type
         attr_reader :method_name
-        attr_reader :receiver_type
-        attr_reader :method_types
 
-        def initialize(node:, method_name:, receiver_type:, method_types:)
-          location = case node.type
-                     when :send
-                       node.loc.selector
-                     when :block
-                       node.children[0].yield_self do |node|
-                         node.loc.selector
-                       end
-                     when :super
-                       node.loc.expression
-                     else
-                       Steep.logger.error { "Unexpected node given: #{node.type} (IncompatibleArguments#initialize)"}
-                       node.loc.expression
-                     end
-          super(node: node, location: location)
-          @receiver_type = receiver_type
-          @method_types = method_types
+        def initialize(node:, method_name:, method_type:)
+          super(node: node)
           @method_name = method_name
+          @method_type = method_type
         end
 
         def header_line
-          "Cannot find method `#{method_name}` of type `#{receiver_type}` with compatible arity"
+          "Unexpected positional argument"
+        end
+      end
+
+      class InsufficientPositionalArguments < Base
+        attr_reader :node
+        attr_reader :method_name
+        attr_reader :method_type
+
+        def initialize(node:, method_name:, method_type:)
+          send = case node.type
+                 when :send
+                   node
+                 when :block
+                   node.children[0]
+                 end
+
+          loc = send.loc.selector.with(end_pos: send.loc.expression.end_pos)
+
+          super(node: node, location: loc)
+          @method_name = method_name
+          @method_type = method_type
         end
 
-        def detail_lines
-          StringIO.new.tap do |io|
-            io.puts "Method types:"
-            first_type, *rest_types = method_types
-            defn = "  def #{method_name}"
-            io.puts "#{defn}: #{first_type}"
-            rest_types.each do |method_type|
-              io.puts "#{" " * defn.size}| #{method_type}"
-            end
-          end.string.chomp
+        def header_line
+          "More positional arguments are required"
+        end
+      end
+
+      class UnexpectedKeywordArgument < Base
+        attr_reader :node
+        attr_reader :method_name
+        attr_reader :method_type
+
+        def initialize(node:, method_name:, method_type:)
+          loc = case node.type
+                when :pair
+                  node.children[0].location.expression
+                when :kwsplat
+                  node.location.expression
+                else
+                  raise
+                end
+          super(node: node, location: loc)
+          @method_name = method_name
+          @method_type = method_type
+        end
+
+        def header_line
+          "Unexpected keyword argument"
+        end
+      end
+
+      class InsufficientKeywordArguments < Base
+        attr_reader :node
+        attr_reader :method_name
+        attr_reader :method_type
+        attr_reader :missing_keywords
+
+        def initialize(node:, method_name:, method_type:, missing_keywords:)
+          super(node: node)
+          @method_name = method_name
+          @method_type = method_type
+          @missing_keywords = missing_keywords
+        end
+
+        def header_line
+          "More keyword arguments are required: #{missing_keywords.join(", ")}"
         end
       end
 
@@ -579,34 +619,6 @@ module Steep
 
         def header_line
           "Hash splat is given with object other than `Hash[X, Y]`"
-        end
-      end
-
-      class UnexpectedKeyword < Base
-        attr_reader :unexpected_keywords
-
-        def initialize(node:, unexpected_keywords:)
-          super(node: node)
-          @unexpected_keywords = unexpected_keywords
-        end
-
-        def header_line
-          keywords = unexpected_keywords.sort.map {|x| "`#{x}`" }
-          "Cannot specify unexpected keyword arguments: #{keywords.join(", ")}"
-        end
-      end
-
-      class MissingKeyword < Base
-        attr_reader :missing_keywords
-
-        def initialize(node:, missing_keywords:)
-          super(node: node)
-          @missing_keywords = missing_keywords
-        end
-
-        def header_line
-          keywords = missing_keywords.sort.map {|x| "`#{x}`" }
-          "Cannot omit required keywords: #{keywords.join(", ")}"
         end
       end
 

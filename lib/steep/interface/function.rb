@@ -41,6 +41,10 @@ module Steep
               end
             end
 
+            def var_type
+              type
+            end
+
             def map_type(&block)
               if block_given?
                 self.class.new(yield type)

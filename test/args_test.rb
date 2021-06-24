@@ -17,312 +17,716 @@ class ArgsTest < Minitest::Test
     end
   end
 
-  def test_1
-    nodes = parse_ruby("foo(1, 2, *rest, k1: foo(), k2: bar(), **k3, &proc)").node.children.drop(2)
-    args = SendArgs.from_nodes(nodes)
-
-    assert_equal [nodes[0], nodes[1], nodes[2], nodes[3]], args.args
-    assert_equal nodes[4], args.block_pass_arg
+  def method_name
+    MethodName("Foo#bar")
   end
 
-  def test_2
-    nodes = parse_ruby("foo({ k1: foo(), k2: bar() }, **k3)").node.children.drop(2)
-    args = SendArgs.from_nodes(nodes)
+  def parse_args(source)
+    node = parse_ruby(source).node
+    _, _, *args = node.children
 
-    assert_equal [nodes[0], nodes[1]], args.args
-  end
-
-  def test_3
-    nodes = parse_ruby("foo({ 'k1' => foo(), k2: bar() })").node.children.drop(2)
-    args = SendArgs.from_nodes(nodes)
-
-    assert_equal [nodes[0]], args.args
-  end
-
-  def test_zip_0
-    params = Params.build(
-      required: [parse_type("Integer"), parse_type("String")],
-      optional: [],
-      rest: nil,
-      required_keywords: {},
-      optional_keywords: {},
-      rest_keywords: nil
-    )
-
-    SendArgs.from_nodes(parse_ruby("foo(:a, :b)").node.children.drop(2)).yield_self do |args|
-      pairs, *rest = args.zips(params, nil)
-
-      assert_empty rest
-
-      assert_equal [
-                     [parse_ruby(":a").node, parse_type("Integer")],
-                     [parse_ruby(":b").node, parse_type("String")]
-                   ], pairs
-    end
-
-    SendArgs.from_nodes(parse_ruby("foo(:a)").node.children.drop(2)).yield_self do |args|
-      zips = args.zips(params, nil)
-      assert_empty zips
-    end
-
-    SendArgs.from_nodes(parse_ruby("foo(1, 2, 3)").node.children.drop(2)).yield_self do |args|
-      zips = args.zips(params, nil)
-      assert_empty zips
+    if block_given?
+      yield node, args
+    else
+      [node, args]
     end
   end
 
-  def test_zip_1
-    params = Params.build(
-      required: [],
-      optional: [parse_type("Integer"), parse_type("String")],
-      rest: nil,
-      required_keywords: {},
-      optional_keywords: {},
-      rest_keywords: nil
-    )
+  def test_positional_single_arg
+    parse_args("foo(1)") do |node, args|
+      SendArgs.new(node: node, arguments: args, method_name: method_name, method_type: parse_method_type("(Integer) -> void")).tap do |args|
+        arg = args.positional_arg
 
-    SendArgs.from_nodes(parse_ruby("foo(:a)").node.children.drop(2)).yield_self do |args|
-      pairs, *rest = args.zips(params, nil)
-      assert_empty rest
-      assert_equal [[parse_ruby(":a").node, parse_type("Integer")]], pairs
-    end
+        pair, arg = arg.next()
 
-    SendArgs.from_nodes(parse_ruby("foo()").node.children.drop(2)).yield_self do |args|
-      pairs, *rest = args.zips(params, nil)
-      assert_empty rest
-      assert_empty pairs
-    end
+        assert_instance_of SendArgs::PositionalArgs::NodeParamPair, pair
+        assert_instance_of SendArgs::PositionalArgs, arg
 
-    SendArgs.from_nodes(parse_ruby("foo(1, 2, 3)").node.children.drop(2)).yield_self do |args|
-      zips = args.zips(params, nil)
-      assert_empty zips
-    end
-  end
+        assert_equal args.arguments[0], pair.node
+        assert_equal args.positional_params.head, pair.param
 
-  def test_zip_2
-    params = Params.build(
-      required: [parse_type("Integer")],
-      optional: [],
-      rest: nil,
-      required_keywords: { name: parse_type("String") },
-      optional_keywords: {},
-      rest_keywords: nil
-    )
+        assert_nil arg.next()
+      end
 
-    SendArgs.from_nodes(parse_ruby("foo(:a, name: 'hello')").node.children.drop(2)).yield_self do |args|
-      pairs, *rest = args.zips(params, nil)
-      assert_empty rest
-      assert_equal [
-                     [parse_ruby(":a").node, parse_type("Integer")],
-                     parse_ruby("{ name: 'hello' }").node
-                   ], pairs
-    end
+      SendArgs.new(node: node, arguments: args, method_name: method_name, method_type: parse_method_type("(?Integer) -> void")).tap do |args|
+        arg = args.positional_arg
 
-    SendArgs.from_nodes(parse_ruby("foo(:a)").node.children.drop(2)).yield_self do |args|
-      zips = args.zips(params, nil)
-      assert_empty zips
-    end
+        pair, arg = arg.next()
 
-    SendArgs.from_nodes(parse_ruby("foo(1, 2)").node.children.drop(2)).yield_self do |args|
-      pairs, *rest = args.zips(params, nil)
-      assert_empty rest
-      assert_equal [
-                     [parse_ruby("1").node, parse_type("Integer")],
-                     parse_ruby("2").node
-                   ], pairs
+        assert_instance_of SendArgs::PositionalArgs::NodeParamPair, pair
+        assert_instance_of SendArgs::PositionalArgs, arg
+
+        assert_equal args.arguments[0], pair.node
+        assert_equal args.positional_params.head, pair.param
+
+        assert_nil arg.next()
+      end
+
+      SendArgs.new(node: node, arguments: args, method_name: method_name, method_type: parse_method_type("(*Integer) -> void")).tap do |args|
+        arg = args.positional_arg
+
+        pair, arg = arg.next()
+
+        assert_instance_of SendArgs::PositionalArgs::NodeParamPair, pair
+        assert_instance_of SendArgs::PositionalArgs, arg
+
+        assert_equal args.arguments[0], pair.node
+        assert_equal args.positional_params.head, pair.param
+
+        assert_nil arg.next()
+      end
+
+      SendArgs.new(node: node, arguments: args, method_name: method_name, method_type: parse_method_type("() -> void")).tap do |args|
+        arg = args.positional_arg
+
+        value, arg = arg.next()
+
+        assert_instance_of SendArgs::PositionalArgs::UnexpectedArg, value
+        assert_instance_of SendArgs::PositionalArgs, arg
+
+        assert_nil arg.next()
+      end
     end
   end
 
-  def test_zip_3
-    params = Params.build(
-      required: [],
-      optional: [parse_type("Symbol")],
-      rest: nil,
-      required_keywords: {},
-      optional_keywords: { name: parse_type("String") },
-      rest_keywords: nil
-    )
+  def test_positional_no_arg
+    parse_args("foo()") do |node, args|
+      SendArgs.new(node: node, arguments: args, method_name: method_name, method_type: parse_method_type("(Integer) -> void")).tap do |args|
+        arg = args.positional_arg
 
-    SendArgs.from_nodes(parse_ruby("foo(:a, name: 'hello')").node.children.drop(2)).yield_self do |args|
-      pairs, *rest = args.zips(params, nil)
-      assert_empty rest
-      assert_equal [
-                     [parse_ruby(":a").node, parse_type("Symbol")],
-                     parse_ruby("{ name: 'hello' }").node
-                   ], pairs
-    end
+        value, arg = arg.next()
 
-    SendArgs.from_nodes(parse_ruby("foo(:a)").node.children.drop(2)).yield_self do |args|
-      pairs1, pairs2, *rest = args.zips(params, nil)
+        assert_instance_of SendArgs::PositionalArgs::MissingArg, value
+        assert_instance_of SendArgs::PositionalArgs, arg
 
-      assert_empty rest
-      assert_equal [
-                     parse_ruby(":a").node
-                   ], pairs1
-      assert_equal [
-                     [parse_ruby(":a").node, parse_type("Symbol")]
-                   ], pairs2
-    end
-  end
+        assert_nil arg.next
+      end
 
-  def test_zip_4
-    params = Params.build(
-      required: [],
-      optional: [],
-      rest: parse_type("Integer"),
-      required_keywords: {},
-      optional_keywords: { name: parse_type("String") },
-      rest_keywords: nil
-    )
+      SendArgs.new(node: node, arguments: args, method_name: method_name, method_type: parse_method_type("(?Integer) -> void")).tap do |args|
+        arg = args.positional_arg
 
-    SendArgs.from_nodes(parse_ruby("foo(:a, name: 'hello')").node.children.drop(2)).yield_self do |args|
-      pairs1, pairs2, *rest = args.zips(params, nil)
-      assert_empty rest
-      assert_equal [
-                     [parse_ruby(":a").node, parse_type("Integer")],
-                     parse_ruby("{ name: 'hello' }").node
-                   ], pairs1
-      assert_equal [
-                     [parse_ruby(":a").node, parse_type("Integer")],
-                     [parse_ruby("{ name: 'hello' }").node, parse_type("Integer")]
-                   ], pairs2
-    end
+        assert_nil arg.next()
+      end
 
-    SendArgs.from_nodes(parse_ruby("foo()").node.children.drop(2)).yield_self do |args|
-      pairs, *rest = args.zips(params, nil)
-      assert_empty rest
-      assert_equal [], pairs
+      SendArgs.new(node: node, arguments: args, method_name: method_name, method_type: parse_method_type("(*Integer) -> void")).tap do |args|
+        arg = args.positional_arg
+
+        assert_nil arg.next()
+      end
+
+      SendArgs.new(node: node, arguments: args, method_name: method_name, method_type: parse_method_type("() -> void")).tap do |args|
+        arg = args.positional_arg
+
+        assert_nil arg.next()
+      end
     end
   end
 
-  def params(ruby)
-    parse_ruby(ruby).node.children.drop(2)
-  end
+  def test_positional_consume
+    parse_args("foo()") do |node, args|
+      SendArgs.new(node: node, arguments: args, method_name: method_name, method_type: parse_method_type("(Integer, ?String, *Symbol) -> void")).tap do |args|
+        arg = args.positional_arg
+        int, str, sym = args.positional_params.each.to_a
 
-  def test_zip_5
-    params = Params.build(
-      required: [parse_type("String")],
-      optional: [parse_type("Symbol"), parse_type("Integer")],
-      rest: parse_type("Integer"),
-      required_keywords: {},
-      optional_keywords: {},
-      rest_keywords: nil
-    )
+        arg.consume(1, node: args.arguments[0]).tap do |params, arg|
+          assert_equal [int], params
+          assert_equal 1, arg.index
+          assert_equal str, arg.param
+        end
 
-    SendArgs.from_nodes(params("foo(1, 2, 3, *args)")).yield_self do |args|
-      pairs, *rest = args.zips(params, nil)
+        arg.consume(2, node: args.arguments[0]).tap do |params, arg|
+          assert_equal [int, str], params
+          assert_equal 1, arg.index
+          assert_equal sym, arg.param
+        end
 
-      assert_empty rest
-
-      assert_equal [
-                     [parse_ruby("1").node, parse_type("String")],
-                     [parse_ruby("2").node, parse_type("Symbol")],
-                     [parse_ruby("3").node, parse_type("Integer")],
-                     [args.args[3], parse_type("::Array[Integer]")]
-                   ], pairs
-
+        arg.consume(4, node: args.arguments[0]).tap do |params, arg|
+          assert_equal [int, str, sym, sym], params
+          assert_equal 1, arg.index
+          assert_equal sym, arg.param
+        end
+      end
     end
 
-    SendArgs.from_nodes(params("foo(1, 2, *args)")).yield_self do |args|
-      pairs, *rest = args.zips(params, nil)
+    parse_args("foo(*x)") do |node, args|
+      SendArgs.new(node: node, arguments: args, method_name: method_name, method_type: parse_method_type("(Integer) -> void")).tap do |args|
+        arg = args.positional_arg
 
-      assert_empty rest
-
-      assert_equal [
-                     [parse_ruby("1").node, parse_type("String")],
-                     [parse_ruby("2").node, parse_type("Symbol")],
-                     [args.args[2], parse_type("::Array[Integer]")]
-                   ], pairs
-
-    end
-
-    SendArgs.from_nodes(params("foo(1, *args)")).yield_self do |args|
-      pairs, *rest = args.zips(params, nil)
-
-      assert_empty rest
-
-      assert_equal [
-                     [parse_ruby("1").node, parse_type("String")],
-                     [args.args[1],
-                      AST::Types::Intersection.build(types: [
-                        parse_type("::Array[Symbol]"),
-                        parse_type("::Array[Integer]")
-                      ])
-                     ]
-                   ], pairs
-
-    end
-
-    SendArgs.from_nodes(params("foo(*args)")).yield_self do |args|
-      pairs, *rest = args.zips(params, nil)
-
-      assert_empty rest
-      assert_nil pairs
+        arg.consume(2, node: args.arguments[0]).tap do |params, arg|
+          assert_instance_of SendArgs::PositionalArgs::UnexpectedArg, params
+          assert_nil arg.positional_params
+        end
+      end
     end
   end
 
-  def test_zip_6
-    params = Params.build(
-      required: [],
-      optional: [],
-      rest: parse_type("Integer"),
-      required_keywords: { name: parse_type("String") },
-      optional_keywords: {},
-      rest_keywords: nil
-    )
+  def test_positional_rest_arg
+    parse_args("foo(*a)") do |node, args|
+      SendArgs.new(node: node, arguments: args, method_name: method_name, method_type: parse_method_type("(Integer, *Symbol) -> void")).tap do |args|
+        arg = args.positional_arg
 
-    SendArgs.from_nodes(params("foo(*args, name: 1)")).yield_self do |args|
-      pairs, *rest = args.zips(params, nil)
+        value, arg = arg.next()
 
-      assert_empty rest
+        assert_instance_of SendArgs::PositionalArgs::SplatArg, value
+        assert_instance_of SendArgs::PositionalArgs, arg
 
-      assert_equal [
-                     [args.args[0], parse_type("::Array[Integer]")],
-                     args.args[1]
-                   ], pairs
-    end
-
-    SendArgs.from_nodes(params("foo(*args)")).yield_self do |args|
-      pairs, *rest = args.zips(params, nil)
-
-      assert_empty rest
-      assert_nil pairs
+        assert_equal args.arguments[0], value.node
+        assert_nil value.type
+      end
     end
   end
 
-  def test_zip_7
-    params = Params.build(
-      required: [],
-      optional: [],
-      rest: parse_type("Integer"),
-      required_keywords: {},
-      optional_keywords: { foo: parse_type("bar") },
-      rest_keywords: nil
-    )
+  def test_keyword_single_keyword_arg
+    parse_args("foo(x: a)") do |node, args|
+      SendArgs.new(node: node, arguments: args, method_name: method_name, method_type: parse_method_type("(x: Integer) -> void")).tap do |args|
+        kwargs = args.keyword_args
 
-    SendArgs.from_nodes(params("foo(*args, name: 1)")).yield_self do |args|
-      pairs1, pairs2, *rest = args.zips(params, nil)
+        pairs, kwargs = kwargs.next()
 
-      assert_empty rest
+        assert_instance_of SendArgs::KeywordArgs::ArgTypePairs, pairs
 
-      assert_equal [
-                     [args.args[0], parse_type("::Array[Integer]")],
-                     args.args[1]
-                   ], pairs1
+        assert_equal 2, pairs.size
 
-      assert_equal [
-                     [args.args[0], parse_type("::Array[Integer]")],
-                     [args.args[1], parse_type("Integer")]
-                   ], pairs2
+        pairs[0].tap do |node, type|
+          assert_equal dig(args.arguments, 0, 0, 0), node
+          assert_equal parse_type(":x"), type
+        end
+
+        pairs[1].tap do |node, type|
+          assert_equal dig(args.arguments, 0, 0, 1), node
+          assert_equal parse_type("Integer"), type
+        end
+
+        assert_nil kwargs.next()
+      end
+
+      SendArgs.new(node: node, arguments: args, method_name: method_name, method_type: parse_method_type("(?x: Integer) -> void")).tap do |args|
+        kwargs = args.keyword_args
+
+        pairs, kwargs = kwargs.next()
+
+        assert_instance_of SendArgs::KeywordArgs::ArgTypePairs, pairs
+
+        assert_equal 2, pairs.size
+
+        pairs[0].tap do |node, type|
+          assert_equal dig(args.arguments, 0, 0, 0), node
+          assert_equal parse_type(":x"), type
+        end
+
+        pairs[1].tap do |node, type|
+          assert_equal dig(args.arguments, 0, 0, 1), node
+          assert_equal parse_type("Integer"), type
+        end
+
+        assert_nil kwargs.next()
+      end
+
+      SendArgs.new(node: node, arguments: args, method_name: method_name, method_type: parse_method_type("(**Integer) -> void")).tap do |args|
+        kwargs = args.keyword_args
+
+        pairs, kwargs = kwargs.next()
+
+        assert_instance_of SendArgs::KeywordArgs::ArgTypePairs, pairs
+
+        assert_equal 2, pairs.size
+
+        pairs[0].tap do |node, type|
+          assert_equal dig(args.arguments, 0, 0, 0), node
+          assert_equal parse_type("::Symbol"), type
+        end
+
+        pairs[1].tap do |node, type|
+          assert_equal dig(args.arguments, 0, 0, 1), node
+          assert_equal parse_type("Integer"), type
+        end
+
+        assert_nil kwargs.next()
+      end
+
+      SendArgs.new(node: node, arguments: args, method_name: method_name, method_type: parse_method_type("() -> void")).tap do |args|
+        kwargs = args.keyword_args
+
+        assert_nil kwargs.next()
+      end
+    end
+  end
+
+  def test_keyword_single_keyword_no_arg
+    parse_args("foo()") do |node, args|
+      SendArgs.new(node: node, arguments: args, method_name: method_name, method_type: parse_method_type("(x: Integer) -> void")).tap do |args|
+        kwargs = args.keyword_args
+
+        value, kwargs = kwargs.next()
+
+        assert_instance_of SendArgs::KeywordArgs::MissingKeyword, value
+
+        assert_nil kwargs.next()
+      end
+
+      SendArgs.new(node: node, arguments: args, method_name: method_name, method_type: parse_method_type("(?x: Integer) -> void")).tap do |args|
+        kwargs = args.keyword_args
+
+        assert_nil kwargs.next()
+      end
+
+      SendArgs.new(node: node, arguments: args, method_name: method_name, method_type: parse_method_type("(**Integer) -> void")).tap do |args|
+        kwargs = args.keyword_args
+
+        assert_nil kwargs.next()
+      end
+
+      SendArgs.new(node: node, arguments: args, method_name: method_name, method_type: parse_method_type("() -> void")).tap do |args|
+        kwargs = args.keyword_args
+
+        assert_nil kwargs.next()
+      end
+    end
+  end
+
+  def test_keyword_single_rocket_arg
+    parse_args("foo(a() => b())") do |node, args|
+      SendArgs.new(node: node, arguments: args, method_name: method_name, method_type: parse_method_type("(x: Integer) -> void")).tap do |args|
+        kwargs = args.keyword_args
+
+        pairs, kwargs = kwargs.next()
+
+        assert_instance_of SendArgs::KeywordArgs::ArgTypePairs, pairs
+        assert_instance_of SendArgs::KeywordArgs, kwargs
+
+        assert_equal 2, pairs.size
+
+        pairs[0].tap do |node, type|
+          assert_equal dig(args.arguments, 0, 0, 0), node
+          assert_equal parse_type(":x"), type
+        end
+
+        pairs[1].tap do |node, type|
+          assert_equal dig(args.arguments, 0, 0, 1), node
+          assert_equal parse_type("Integer"), type
+        end
+
+        assert_empty kwargs.consumed_keywords
+      end
+
+      SendArgs.new(node: node, arguments: args, method_name: method_name, method_type: parse_method_type("(?x: Integer) -> void")).tap do |args|
+        kwargs = args.keyword_args
+
+        pairs, kwargs = kwargs.next()
+
+        assert_instance_of SendArgs::KeywordArgs::ArgTypePairs, pairs
+        assert_instance_of SendArgs::KeywordArgs, kwargs
+
+        assert_equal 2, pairs.size
+
+        pairs[0].tap do |node, type|
+          assert_equal dig(args.arguments, 0, 0, 0), node
+          assert_equal parse_type(":x"), type
+        end
+
+        pairs[1].tap do |node, type|
+          assert_equal dig(args.arguments, 0, 0, 1), node
+          assert_equal parse_type("Integer"), type
+        end
+
+        assert_empty kwargs.consumed_keywords
+      end
+
+      SendArgs.new(node: node, arguments: args, method_name: method_name, method_type: parse_method_type("(**Integer) -> void")).tap do |args|
+        kwargs = args.keyword_args
+
+        pairs, kwargs = kwargs.next()
+
+        assert_instance_of SendArgs::KeywordArgs::ArgTypePairs, pairs
+        assert_instance_of SendArgs::KeywordArgs, kwargs
+
+        assert_equal 2, pairs.size
+
+        pairs[0].tap do |node, type|
+          assert_equal dig(args.arguments, 0, 0, 0), node
+          assert_equal parse_type("::Symbol"), type
+        end
+
+        pairs[1].tap do |node, type|
+          assert_equal dig(args.arguments, 0, 0, 1),node
+          assert_equal parse_type("Integer"), type
+        end
+
+        assert_empty kwargs.consumed_keywords
+      end
+
+      SendArgs.new(node: node, arguments: args, method_name: method_name, method_type: parse_method_type("() -> void")).tap do |args|
+        kwargs = args.keyword_args
+
+        assert_nil kwargs.next()
+      end
+    end
+  end
+
+  def test_keyword_splat_arg
+    parse_args("foo(**a)") do |node, args|
+      SendArgs.new(node: node, arguments: args, method_name: method_name, method_type: parse_method_type("(x: Integer) -> void")).tap do |args|
+        kwargs = args.keyword_args
+
+        a, kwargs = kwargs.next()
+
+        assert_instance_of SendArgs::KeywordArgs::SplatArg, a
+        assert_equal args.arguments[0].children[0], a.node
+        assert_nil a.type
+
+        assert_instance_of SendArgs::KeywordArgs, kwargs
+      end
+    end
+  end
+
+  def test_keyword_consume_keys
+    parse_args("foo(**args)") do |node, args|
+      SendArgs.new(node: node, arguments: args, method_name: method_name, method_type: parse_method_type("(x: Integer, y: String, **Symbol) -> void")).tap do |args|
+        kwargs = args.keyword_args
+
+        kwargs.consume_keys([:x, :z], node: kwargs.keyword_pair).tap do |types, kwargs|
+          assert_equal [parse_type("Integer"), parse_type("Symbol")], types
+          assert_equal Set[:x], kwargs.consumed_keywords
+        end
+      end
+
+      SendArgs.new(node: node, arguments: args, method_name: method_name, method_type: parse_method_type("(x: Integer, y: String) -> void")).tap do |args|
+        kwargs = args.keyword_args
+
+        kwargs.consume_keys([:a], node: kwargs.keyword_pair).tap do |types, kwargs|
+          assert_equal(
+            SendArgs::KeywordArgs::UnexpectedKeyword.new(
+              keyword: :a,
+              node: kwargs.kwarg_nodes[0]
+            ),
+            types
+          )
+        end
+      end
+    end
+  end
+
+  def test_compat_keyword_positional_arg
+    parse_args("foo(bar: baz)") do |node, args|
+      # Conversion from kwargs to hash for methods without keyword params still works
+      SendArgs.new(node: node, arguments: args, method_name: method_name, method_type: parse_method_type("(untyped) -> void")).tap do |args|
+        positionals = args.positional_arg
+
+        value, positionals = positionals.next()
+
+        assert_instance_of SendArgs::PositionalArgs::NodeParamPair, value
+        assert_instance_of SendArgs::PositionalArgs, positionals
+
+        assert_nil positionals.next()
+
+        keywords = args.keyword_args
+        assert_nil keywords.next()
+      end
+    end
+  end
+
+  def test_block_pass_arg
+    parse_args("foo(&bar)") do |node, args|
+      SendArgs.new(node: node, arguments: args, method_name: method_name, method_type: parse_method_type("() { () -> void } -> void")).tap do |args|
+        arg = args.block_pass_arg
+
+        assert_operator arg, :compatible?
+        assert_equal(
+          [
+            args.arguments[0],
+            parse_method_type("() { () -> void } -> void").block.type
+          ],
+          arg.pair
+        )
+      end
+
+      SendArgs.new(node: node, arguments: args, method_name: method_name, method_type: parse_method_type("() ?{ () -> void } -> void")).tap do |args|
+        arg = args.block_pass_arg
+
+        assert_operator arg, :compatible?
+        assert_equal(
+          [
+            args.arguments[0],
+            parse_method_type("() { () -> void } -> void").block.type
+          ],
+          arg.pair
+        )
+      end
+
+      SendArgs.new(node: node, arguments: args, method_name: method_name, method_type: parse_method_type("() -> void")).tap do |args|
+        arg = args.block_pass_arg
+
+        refute_operator arg, :compatible?
+      end
     end
 
-    SendArgs.from_nodes(params("foo(*args)")).yield_self do |args|
-      pairs, *rest = args.zips(params, nil)
+    parse_args("foo()") do |node, args|
+      SendArgs.new(node: node, arguments: args, method_name: method_name, method_type: parse_method_type("() { () -> void } -> void")).tap do |args|
+        arg = args.block_pass_arg
 
-      assert_empty rest
-      assert_equal [
-                     [args.args[0], parse_type("::Array[Integer]")]
-                   ], pairs
+        refute_operator arg, :compatible?
+      end
+
+      SendArgs.new(node: node, arguments: args, method_name: method_name, method_type: parse_method_type("() ?{ () -> void } -> void")).tap do |args|
+        arg = args.block_pass_arg
+
+        assert_operator arg, :compatible?
+        assert_nil arg.pair
+      end
+
+      SendArgs.new(node: node, arguments: args, method_name: method_name, method_type: parse_method_type("() -> void")).tap do |args|
+        arg = args.block_pass_arg
+
+        assert_operator arg, :compatible?
+        assert_nil arg.pair
+      end
+    end
+  end
+
+  def test_each_single_args
+    parse_args("foo(1, 2, 3)") do |node, args|
+      SendArgs.new(node: node, arguments: args, method_name: method_name, method_type: parse_method_type("(Integer, ?String, *Symbol) -> void")).tap do |args|
+        types = {}
+
+        args.each() do |value|
+          case value
+          when SendArgs::PositionalArgs::NodeParamPair
+            types[value.node] = value.param.type
+          else
+            raise
+          end
+        end
+
+        assert_equal parse_type("Integer"), types[args.arguments[0]]
+        assert_equal parse_type("String"), types[args.arguments[1]]
+        assert_equal parse_type("Symbol"), types[args.arguments[2]]
+      end
+    end
+  end
+
+  def test_each_missing_arg
+    parse_args("foo()") do |node, args|
+      SendArgs.new(node: node, arguments: args, method_name: method_name, method_type: parse_method_type("(Integer) -> void")).tap do |args|
+        args.each() do |value|
+          case value
+          when SendArgs::PositionalArgs::MissingArg
+            # Expected
+          else
+            raise
+          end
+        end
+      end
+    end
+  end
+
+  def test_each_splat_tuple
+    parse_args("foo(1, *[2, 3], 4)") do |node, args|
+      SendArgs.new(node: node, arguments: args, method_name: method_name, method_type: parse_method_type("(Integer, String, *Symbol) -> void")).tap do |args|
+        pairs = {}
+
+        args.each() do |value|
+          case value
+          when SendArgs::PositionalArgs::SplatArg
+            value.type = parse_type("[Integer, Integer]")
+          when SendArgs::PositionalArgs::NodeParamPair
+            pairs[value.node] = value.param.type
+          when SendArgs::PositionalArgs::NodeTypePair
+            pairs[value.node] = value.type
+          else
+            raise
+          end
+        end
+
+        assert_equal parse_type("Integer"), pairs[args.arguments[0]]
+        assert_equal parse_type("[String, Symbol]"), pairs[args.arguments[1]]
+        assert_equal parse_type("Symbol"), pairs[args.arguments[2]]
+      end
+
+      SendArgs.new(node: node, arguments: args, method_name: method_name, method_type: parse_method_type("(Integer, String) -> void")).tap do |args|
+        pairs = {}
+
+        args.each() do |value|
+          case value
+          when SendArgs::PositionalArgs::SplatArg
+            value.type = parse_type("[Integer, Integer]")
+          when SendArgs::PositionalArgs::NodeParamPair
+            pairs[value.node] = value.param.type
+          when SendArgs::PositionalArgs::UnexpectedArg
+            pairs[value.node] = :unexpected
+          else
+            raise
+          end
+        end
+
+        assert_equal parse_type("Integer"), pairs[args.arguments[0]]
+        assert_equal :unexpected, pairs[args.arguments[1]]
+        assert_equal :unexpected, pairs[args.arguments[2]]
+      end
+    end
+  end
+
+  def test_each_splat_array
+    parse_args("foo(1, *x, 3)") do |node, args|
+      SendArgs.new(node: node, arguments: args, method_name: method_name, method_type: parse_method_type("(Integer, String, *Symbol) -> void")).tap do |args|
+        pairs = {}
+
+        args.each() do |value|
+          case value
+          when SendArgs::PositionalArgs::SplatArg
+            value.type = parse_type("Array[Integer]")
+          when SendArgs::PositionalArgs::NodeParamPair
+            pairs[value.node] = value.param.type
+          when SendArgs::PositionalArgs::NodeTypePair
+            pairs[value.node] = value.type
+          else
+            raise
+          end
+        end
+
+        assert_equal parse_type("Integer"), pairs[args.arguments[0]]
+        assert_equal parse_type("String & Symbol"), pairs[args.arguments[1]]
+        assert_equal parse_type("String & Symbol"), pairs[args.arguments[2]]
+      end
+
+      SendArgs.new(node: node, arguments: args, method_name: method_name, method_type: parse_method_type("(Integer, String) -> void")).tap do |args|
+        pairs = {}
+
+        args.each() do |value|
+          case value
+          when SendArgs::PositionalArgs::SplatArg
+            value.type = parse_type("Array[Integer]")
+          when SendArgs::PositionalArgs::NodeParamPair
+            pairs[value.node] = value.param.type
+          when SendArgs::PositionalArgs::UnexpectedArg
+            pairs[value.node] = :unexpected
+          else
+            raise
+          end
+        end
+
+        assert_equal parse_type("Integer"), pairs[args.arguments[0]]
+        assert_equal :unexpected, pairs[args.arguments[1]]
+        assert_equal :unexpected, pairs[args.arguments[2]]
+      end
+    end
+  end
+
+  def test_each_keyword_arg
+    parse_args("foo(a:1, b:2, c: 3)") do |node, args|
+      SendArgs.new(node: node, arguments: args, method_name: method_name, method_type: parse_method_type("(a: String, ?b: Symbol, **bool) -> void")).tap do |args|
+        pairs = {}
+
+        args.each() do |value|
+          case value
+          when SendArgs::KeywordArgs::ArgTypePairs
+            value.pairs.each do |node, type|
+              pairs[node] = type
+            end
+          else
+            raise value.inspect
+          end
+        end
+
+        assert_equal parse_type(":a"), pairs[dig(args.arguments[0], 0, 0)]
+        assert_equal parse_type("String"), pairs[dig(args.arguments[0], 0, 1)]
+        assert_equal parse_type(":b"), pairs[dig(args.arguments[0], 1, 0)]
+        assert_equal parse_type("Symbol"), pairs[dig(args.arguments[0], 1, 1)]
+        assert_equal parse_type("::Symbol"), pairs[dig(args.arguments[0], 2, 0)]
+        assert_equal parse_type("bool"), pairs[dig(args.arguments[0], 2, 1)]
+      end
+    end
+
+    parse_args("foo(a:1, b:2)") do |node, args|
+      SendArgs.new(node: node, arguments: args, method_name: method_name, method_type: parse_method_type("() -> void")).tap do |args|
+        args.each() do |value|
+          case value
+          when SendArgs::PositionalArgs::UnexpectedArg
+            # expected
+          else
+            raise
+          end
+        end
+      end
+    end
+  end
+
+  def test_each_keyword_arg_splat_record
+    parse_args("foo(**x)") do |node, args|
+      SendArgs.new(node: node, arguments: args, method_name: method_name, method_type: parse_method_type("(a: String, ?b: Symbol, **bool) -> void")).tap do |args|
+        pairs = {}
+
+        args.each() do |value|
+          case value
+          when SendArgs::KeywordArgs::ArgTypePairs
+            value.pairs.each do |node, type|
+              pairs[node] = type
+            end
+          when SendArgs::KeywordArgs::SplatArg
+            value.type = parse_type("{ a: String }")
+          end
+        end
+
+        assert_equal parse_type("{ a: String }"), pairs[dig(args.arguments[0], 0)]
+      end
+
+      SendArgs.new(node: node, arguments: args, method_name: method_name, method_type: parse_method_type("(a: String) -> void")).tap do |args|
+        pairs = {}
+
+        args.each() do |value|
+          case value
+          when SendArgs::KeywordArgs::ArgTypePairs
+            value.pairs.each do |node, type|
+              pairs[node] = type
+            end
+          when SendArgs::KeywordArgs::SplatArg
+            value.type = parse_type("{ id: Integer }")
+          when SendArgs::KeywordArgs::UnexpectedKeyword
+            pairs[value.node] = :unexpected
+          end
+        end
+
+        assert_equal :unexpected, pairs[dig(args.arguments[0], 0)]
+      end
+    end
+  end
+
+  def test_each_keyword_arg_splat_array
+    parse_args("foo(**x)") do |node, args|
+      SendArgs.new(node: node, arguments: args, method_name: method_name, method_type: parse_method_type("(a: String, ?b: Symbol, **bool) -> void")).tap do |args|
+        pairs = {}
+
+        errors = args.each() do |value|
+          case value
+          when SendArgs::KeywordArgs::ArgTypePairs
+            value.pairs.each do |node, type|
+              pairs[node] = type
+            end
+          when SendArgs::KeywordArgs::SplatArg
+            value.type = parse_type("Hash[Symbol, String]")
+          end
+        end
+
+        assert_equal parse_type("::Hash[::Symbol, String & Symbol & bool]"), pairs[dig(args.arguments[0], 0)]
+      end
+
+      SendArgs.new(node: node, arguments: args, method_name: method_name, method_type: parse_method_type("(a: String) -> void")).tap do |args|
+        pairs = {}
+
+        args.each() do |value|
+          case value
+          when SendArgs::KeywordArgs::ArgTypePairs
+            value.pairs.each do |node, type|
+              pairs[node] = type
+            end
+          when SendArgs::KeywordArgs::SplatArg
+            value.type = parse_type("Hash[String, String]")
+          when SendArgs::KeywordArgs::UnexpectedKeyword
+            pairs[value.node] = :unexpected
+          end
+        end
+
+        assert_equal :unexpected, pairs[dig(args.arguments[0], 0)]
+      end
     end
   end
 end

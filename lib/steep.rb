@@ -21,6 +21,7 @@ require "terminal-table"
 
 require "rbs"
 
+require "steep/equatable"
 require "steep/method_name"
 require "steep/ast/types/helper"
 require "steep/ast/types/any"

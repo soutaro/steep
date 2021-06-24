@@ -10,10 +10,7 @@ module Steep
       end
 
       def with(type: self.type, constr: self.constr)
-        self.class.new(
-          type: type,
-          constr: constr
-        )
+        self.class.new(type: type, constr: constr)
       end
 
       def +(other)
@@ -742,7 +739,7 @@ module Steep
                 end
               end
 
-              add_typing(node, type: rhs_result.type, constr: constr)
+              constr.add_typing(node, type: rhs_result.type)
             end
           end
 
@@ -879,13 +876,12 @@ module Steep
                     checker.factory.method_type(method_type, self_type: self_type, method_decls: Set[decl])
                   }
                 )
-                args = TypeInference::SendArgs.from_nodes(node.children.dup)
 
                 call, constr = type_method_call(node,
                                                 receiver_type: self_type,
                                                 method_name: method_context.name,
                                                 method: super_method,
-                                                args: args,
+                                                arguments: node.children,
                                                 block_params: nil,
                                                 block_body: nil,
                                                 topdown_hint: true)
@@ -1376,52 +1372,20 @@ module Steep
             add_typing(node, type: AST::Types::Boolean.new)
           end
 
-        when :hash
-          yield_self do
-            ty = try_hash_type(node, hint) and return ty
-
-            if AST::Builtin::Hash.instance_type?(hint)
-              key_hint = hint.args[0]
-              value_hint = hint.args[1]
-            end
-
-            key_types = []
-            value_types = []
-
-            each_child_node(node) do |child|
-              case child.type
-              when :pair
-                key, value = child.children
-                key_types << synthesize(key, hint: key_hint).type.yield_self do |type|
-                  select_super_type(type, key_hint)
-                end
-                value_types << synthesize(value, hint: value_hint).type.yield_self do |type|
-                  select_super_type(type, value_hint)
-                end
-              when :kwsplat
-                expand_alias(synthesize(child.children[0]).type) do |splat_type, original_type|
-                  if AST::Builtin::Hash.instance_type?(splat_type)
-                    key_types << splat_type.args[0]
-                    value_types << splat_type.args[1]
-                  else
-                    typing.add_error Diagnostic::Ruby::UnexpectedSplat.new(node: child, type: original_type)
-                    key_types << AST::Builtin.any_type
-                    value_types << AST::Builtin.any_type
-                  end
-                end
+        when :hash, :kwargs
+          # :kwargs happens for method calls with keyword argument, but the method doesn't have keyword params.
+          # Conversion from kwargs to hash happens, and this when-clause is to support it.
+          type_hash(node, hint: hint).tap do |pair|
+            if pair.type == AST::Builtin::Hash.instance_type(fill_untyped: true)
+              case hint
+              when AST::Types::Any, AST::Types::Top, AST::Types::Void
+                # ok
+              when hint == pair.type
+                # ok
               else
-                raise "Unexpected non pair: #{child.inspect}" unless child.type == :pair
+                pair.constr.typing.add_error Diagnostic::Ruby::FallbackAny.new(node: node)
               end
             end
-
-            key_type = key_types.empty? ? AST::Builtin.any_type : AST::Types::Union.build(types: key_types)
-            value_type = value_types.empty? ? AST::Builtin.any_type : AST::Types::Union.build(types: value_types)
-
-            if key_types.empty? && value_types.empty? && !hint
-              typing.add_error Diagnostic::Ruby::FallbackAny.new(node: node)
-            end
-
-            add_typing(node, type: AST::Builtin::Hash.instance_type(key_type, value_type))
           end
 
         when :dstr, :xstr
@@ -1696,8 +1660,7 @@ module Steep
                 tuples.each do |tuple|
                   typing.new_child(node_range) do |child_typing|
                     if pair = with_new_typing(child_typing).try_tuple_type(node, tuple)
-                      child_typing.save!
-                      return pair.with(constr: pair.constr.with_new_typing(typing))
+                      return pair.with(constr: pair.constr.save_typing)
                     end
                   end
                 end
@@ -1708,8 +1671,7 @@ module Steep
                   typing.new_child(node_range) do |child_typing|
                     pair = with_new_typing(child_typing).try_array_type(node, array)
                     if pair.constr.check_relation(sub_type: pair.type, super_type: hint).success?
-                      child_typing.save!
-                      return pair.with(constr: pair.constr.with_new_typing(typing))
+                      return pair.with(constr: pair.constr.save_typing)
                     end
                   end
                 end
@@ -2404,6 +2366,7 @@ module Steep
 
         else
           typing.add_error(Diagnostic::Ruby::UnsupportedSyntax.new(node: node))
+          add_typing(node, type: AST::Builtin.any_type)
 
         end.tap do |pair|
           unless pair.is_a?(Pair) && !pair.type.is_a?(Pair)
@@ -2753,11 +2716,10 @@ module Steep
       method = interface.methods[method_name]
 
       if method
-        args = TypeInference::SendArgs.from_nodes(arguments)
         call, constr = type_method_call(node,
                                         method: method,
                                         method_name: method_name,
-                                        args: args,
+                                        arguments: arguments,
                                         block_params: block_params,
                                         block_body: block_body,
                                         receiver_type: receiver_type,
@@ -2937,27 +2899,22 @@ module Steep
       end
     end
 
-    def type_method_call(node, method_name:, receiver_type:, method:, args:, block_params:, block_body:, topdown_hint:)
+    def type_method_call(node, method_name:, receiver_type:, method:, arguments:, block_params:, block_body:, topdown_hint:)
       node_range = node.loc.expression.yield_self {|l| l.begin_pos..l.end_pos }
 
-      results = method.method_types.flat_map do |method_type|
+      results = method.method_types.map do |method_type|
         Steep.logger.tagged method_type.to_s do
-          zips = args.zips(method_type.type.params, method_type.block&.type)
-
-          zips.map do |arg_pairs|
-            typing.new_child(node_range) do |child_typing|
-              self.with_new_typing(child_typing).try_method_type(
-                node,
-                receiver_type: receiver_type,
-                method_name: method_name,
-                method_type: method_type,
-                args: args,
-                arg_pairs: arg_pairs,
-                block_params: block_params,
-                block_body: block_body,
-                topdown_hint: topdown_hint
-              )
-            end
+          typing.new_child(node_range) do |child_typing|
+            self.with_new_typing(child_typing).try_method_type(
+              node,
+              receiver_type: receiver_type,
+              method_name: method_name,
+              method_type: method_type,
+              arguments: arguments,
+              block_params: block_params,
+              block_body: block_body,
+              topdown_hint: topdown_hint
+            )
           end
         end
       end
@@ -3128,7 +3085,34 @@ module Steep
       nil
     end
 
-    def try_method_type(node, receiver_type:, method_name:, method_type:, args:, arg_pairs:, block_params:, block_body:, topdown_hint:)
+    def inspect
+      "#<#{self.class}>"
+    end
+
+    def with_child_typing(range:)
+      constr = with_new_typing(typing.new_child(range: range))
+
+      if block_given?
+        yield constr
+      else
+        constr
+      end
+    end
+
+    # Bypass :splat and :kwsplat
+    def bypass_splat(node)
+      splat = node.type == :splat || node.type == :kwsplat
+
+      if splat
+        pair = yield(node.children[0])
+        pair.constr.add_typing(node, type: pair.type)
+        pair
+      else
+        yield node
+      end
+    end
+
+    def try_method_type(node, receiver_type:, method_name:, method_type:, arguments:, block_params:, block_body:, topdown_hint:)
       fresh_types = method_type.type_params.map {|x| AST::Types::Var.fresh(x)}
       fresh_vars = Set.new(fresh_types.map(&:name))
       instantiation = Interface::Substitution.build(method_type.type_params, fresh_types)
@@ -3143,37 +3127,89 @@ module Steep
 
       errors = []
 
-      arg_pairs.each do |pair|
-        case pair
-        when Array
-          arg_node, param_type = pair
-          param_type = param_type.subst(instantiation)
+      args = TypeInference::SendArgs.new(node: node, arguments: arguments, method_name: method_name, method_type: method_type)
+      es = args.each do |arg|
+        case arg
+        when TypeInference::SendArgs::PositionalArgs::NodeParamPair
+          _, constr = constr.type_check_argument(
+            arg.node,
+            type: arg.param.type,
+            receiver_type: receiver_type,
+            constraints: constraints,
+            errors: errors
+          )
 
-          arg_type, constr = if arg_node.type == :splat
-                               constr.synthesize(arg_node.children[0])
-                             else
-                               constr.synthesize(arg_node, hint: topdown_hint ? param_type : nil)
-                             end
-
-          check_relation(sub_type: arg_type, super_type: param_type, constraints: constraints).else do |result|
-            errors << Diagnostic::Ruby::ArgumentTypeMismatch.new(node: arg_node,
-                                                                 receiver_type: receiver_type,
-                                                                 expected: param_type,
-                                                                 actual: arg_type,
-                                                                 result: result)
+        when TypeInference::SendArgs::PositionalArgs::NodeTypePair
+          _, constr = bypass_splat(arg.node) do |n|
+            constr.type_check_argument(
+              n,
+              type: arg.node_type,
+              receiver_type: receiver_type,
+              constraints: constraints,
+              report_node: arg.node,
+              errors: errors
+            )
           end
+
+        when TypeInference::SendArgs::PositionalArgs::UnexpectedArg
+          _, constr = bypass_splat(arg.node) do |n|
+            constr.synthesize(n)
+          end
+
+        when TypeInference::SendArgs::PositionalArgs::SplatArg
+          arg_type, _ = constr
+                          .with_child_typing(range: arg.node.loc.expression.begin_pos ... arg.node.loc.expression.end_pos)
+                          .try_tuple_type!(arg.node.children[0])
+          arg.type = arg_type
+
+        when TypeInference::SendArgs::PositionalArgs::MissingArg
+          # ignore
+
+        when TypeInference::SendArgs::KeywordArgs::ArgTypePairs
+          arg.pairs.each do |node, type|
+            _, constr = bypass_splat(node) do |node|
+              constr.type_check_argument(
+                node,
+                type: type,
+                receiver_type: receiver_type,
+                constraints: constraints,
+                errors: errors
+              )
+            end
+          end
+
+        when TypeInference::SendArgs::KeywordArgs::UnexpectedKeyword
+          if arg.node.type == :pair
+            arg.node.children.each do |nn|
+              _, constr = constr.synthesize(nn)
+            end
+          else
+            _, constr = bypass_splat(arg.node) do |n|
+              constr.synthesize(n)
+            end
+          end
+
+        when TypeInference::SendArgs::KeywordArgs::SplatArg
+          type, _ = bypass_splat(arg.node) do |sp_node|
+            if sp_node.type == :hash
+              pair = constr.type_hash_record(sp_node, nil) and break pair
+            end
+
+            constr.synthesize(sp_node)
+          end
+
+          arg.type = type
+
+        when TypeInference::SendArgs::KeywordArgs::MissingKeyword
+          # ignore
         else
-          # keyword
-          result = constr.check_keyword_arg(receiver_type: receiver_type,
-                                            node: pair,
-                                            method_type: method_type,
-                                            constraints: constraints)
-
-          if result.is_a?(Diagnostic::Ruby::Base)
-            errors << result
-          end
+          raise arg.inspect
         end
+
+        constr
       end
+
+      errors.push(*es)
 
       if block_params
         # block is given
@@ -3317,110 +3353,212 @@ module Steep
           )
         end
       else
-        # block is not given
-        if !method_type.block
-          # Method doesn't accept blocks
-          unless args.block_pass_arg
-            # OK, without block
-            s = constraints.solution(
-              checker,
-              variance: variance,
-              variables: fresh_vars,
-              self_type: self_type,
-              instance_type: module_context.instance_type,
-              class_type: module_context.module_type
-            )
-            method_type = method_type.subst(s)
-          else
-            # &block arg is given
-            s = constraints.solution(
-              checker,
-              variance: variance,
-              variables: fresh_vars,
-              self_type: self_type,
-              instance_type: module_context.instance_type,
-              class_type: module_context.module_type
-            )
-            method_type = method_type.subst(s)
+        arg = args.block_pass_arg
 
-            type, constr = constr.synthesize(args.block_pass_arg, hint: AST::Builtin.nil_type)
-            type = expand_alias(type)
-            unless type.is_a?(AST::Types::Nil)
-              errors << Diagnostic::Ruby::UnexpectedBlockGiven.new(
-                node: node,
-                method_type: method_type
-              )
+        case
+        when arg.compatible?
+          if arg.node
+            subst = constraints.solution(
+              checker,
+              self_type: self_type,
+              instance_type: module_context.instance_type,
+              class_type: module_context.module_type,
+              variance: variance,
+              variables: occurence.params
+            )
+
+            block_type = arg.node_type.subst(subst)
+
+            node_type, constr = constr.synthesize(arg.node, hint: block_type)
+            nil_block =
+              constr.check_relation(sub_type: node_type, super_type: AST::Builtin.nil_type).success? &&
+                !node_type.is_a?(AST::Types::Any)
+
+            unless nil_block
+              constr.check_relation(sub_type: node_type, super_type: block_type, constraints: constraints).else do |result|
+                errors << Diagnostic::Ruby::BlockTypeMismatch.new(
+                  node: arg.node,
+                  expected: block_type,
+                  actual: node_type,
+                  result: result
+                )
+              end
             end
-          end
-        else
-          # Method accepts block
-          if !args.block_pass_arg
-            # Block pass is not given
-            if method_type.block.required?
-              # Required block is missing
+
+            subst = constraints.solution(
+              checker,
+              self_type: self_type,
+              instance_type: module_context.instance_type,
+              class_type: module_context.module_type,
+              variance: variance,
+              variables: method_type.free_variables
+            )
+
+            method_type = method_type.subst(subst)
+
+            if nil_block && arg.block.required?
+              # Passing no block
               errors << Diagnostic::Ruby::RequiredBlockMissing.new(
                 node: node,
                 method_type: method_type
               )
             end
-
-            s = constraints.solution(
+          else
+            subst = constraints.solution(
               checker,
-              variance: variance,
-              variables: fresh_vars,
               self_type: self_type,
               instance_type: module_context.instance_type,
-              class_type: module_context.module_type
+              class_type: module_context.module_type,
+              variance: variance,
+              variables: method_type.free_variables
             )
-            method_type = method_type.subst(s)
-          else
-            begin
-              method_type = method_type.subst(
-                constraints.solution(
-                  checker,
-                  self_type: self_type,
-                  instance_type: module_context.instance_type,
-                  class_type: module_context.module_type,
-                  variance: variance,
-                  variables: occurence.params
-                )
-              )
-              hint_type = if topdown_hint
-                            AST::Types::Proc.new(type: method_type.block.type, block: nil)
-                          end
-              given_block_type, constr = constr.synthesize(args.block_pass_arg, hint: hint_type)
-              method_block_type = method_type.block.yield_self {|expected_block|
-                proc_type = AST::Types::Proc.new(type: expected_block.type, block: nil)
-                if expected_block.optional?
-                  AST::Builtin.optional(proc_type)
-                else
-                  proc_type
-                end
-              }
 
-              result = check_relation(sub_type: given_block_type, super_type: method_block_type, constraints: constraints)
-              result.else do |result|
-                errors << Diagnostic::Ruby::BlockTypeMismatch.new(
-                  node: args.block_pass_arg,
-                  expected: method_block_type,
-                  actual: given_block_type,
-                  result: result
-                )
-              end
+            method_type = method_type.subst(subst)
+          end
 
-              method_type = method_type.subst(
-                constraints.solution(
-                  checker,
-                  self_type: self_type,
-                  instance_type: module_context.instance_type,
-                  class_type: module_context.module_type,
-                  variance: variance,
-                  variables: method_type.free_variables
-                )
-              )
-            end
+        when arg.block_missing?
+          subst = constraints.solution(
+            checker,
+            self_type: self_type,
+            instance_type: module_context.instance_type,
+            class_type: module_context.module_type,
+            variance: variance,
+            variables: method_type.free_variables
+          )
+
+          method_type = method_type.subst(subst)
+
+          errors << Diagnostic::Ruby::RequiredBlockMissing.new(
+            node: node,
+            method_type: method_type
+          )
+
+        when arg.unexpected_block?
+          subst = constraints.solution(
+            checker,
+            self_type: self_type,
+            instance_type: module_context.instance_type,
+            class_type: module_context.module_type,
+            variance: variance,
+            variables: method_type.free_variables
+          )
+
+          method_type = method_type.subst(subst)
+
+          node_type, constr = constr.synthesize(arg.node)
+
+          unless constr.check_relation(sub_type: node_type, super_type: AST::Builtin.nil_type).success?
+            errors << Diagnostic::Ruby::UnexpectedBlockGiven.new(
+              node: node,
+              method_type: method_type
+            )
           end
         end
+        # # block is not given
+        # if !method_type.block
+        #   # Method doesn't accept blocks
+        #   unless args.block_pass_arg
+        #     # OK, without block
+        #     s = constraints.solution(
+        #       checker,
+        #       variance: variance,
+        #       variables: fresh_vars,
+        #       self_type: self_type,
+        #       instance_type: module_context.instance_type,
+        #       class_type: module_context.module_type
+        #     )
+        #     method_type = method_type.subst(s)
+        #   else
+        #     # &block arg is given
+        #     s = constraints.solution(
+        #       checker,
+        #       variance: variance,
+        #       variables: fresh_vars,
+        #       self_type: self_type,
+        #       instance_type: module_context.instance_type,
+        #       class_type: module_context.module_type
+        #     )
+        #     method_type = method_type.subst(s)
+        #
+        #     type, constr = constr.synthesize(args.block_pass_arg, hint: AST::Builtin.nil_type)
+        #     type = expand_alias(type)
+        #     unless type.is_a?(AST::Types::Nil)
+        #       errors << Diagnostic::Ruby::UnexpectedBlockGiven.new(
+        #         node: node,
+        #         method_type: method_type
+        #       )
+        #     end
+        #   end
+        # else
+        #   # Method accepts block
+        #   if !args.block_pass_arg
+        #     # Block pass is not given
+        #     if method_type.block.required?
+        #       # Required block is missing
+        #       errors << Diagnostic::Ruby::RequiredBlockMissing.new(
+        #         node: node,
+        #         method_type: method_type
+        #       )
+        #     end
+        #
+        #     s = constraints.solution(
+        #       checker,
+        #       variance: variance,
+        #       variables: fresh_vars,
+        #       self_type: self_type,
+        #       instance_type: module_context.instance_type,
+        #       class_type: module_context.module_type
+        #     )
+        #     method_type = method_type.subst(s)
+        #   else
+        #     begin
+        #       method_type = method_type.subst(
+        #         constraints.solution(
+        #           checker,
+        #           self_type: self_type,
+        #           instance_type: module_context.instance_type,
+        #           class_type: module_context.module_type,
+        #           variance: variance,
+        #           variables: occurence.params
+        #         )
+        #       )
+        #       hint_type = if topdown_hint
+        #                     AST::Types::Proc.new(type: method_type.block.type, block: nil)
+        #                   end
+        #       given_block_type, constr = constr.synthesize(args.block_pass_arg, hint: hint_type)
+        #       method_block_type = method_type.block.yield_self {|expected_block|
+        #         proc_type = AST::Types::Proc.new(type: expected_block.type, block: nil)
+        #         if expected_block.optional?
+        #           AST::Builtin.optional(proc_type)
+        #         else
+        #           proc_type
+        #         end
+        #       }
+        #
+        #       result = check_relation(sub_type: given_block_type, super_type: method_block_type, constraints: constraints)
+        #       result.else do |result|
+        #         errors << Diagnostic::Ruby::BlockTypeMismatch.new(
+        #           node: args.block_pass_arg,
+        #           expected: method_block_type,
+        #           actual: given_block_type,
+        #           result: result
+        #         )
+        #       end
+        #
+        #       method_type = method_type.subst(
+        #         constraints.solution(
+        #           checker,
+        #           self_type: self_type,
+        #           instance_type: module_context.instance_type,
+        #           class_type: module_context.module_type,
+        #           variance: variance,
+        #           variables: method_type.free_variables
+        #         )
+        #       )
+        #     end
+        #   end
+        # end
+        #
       end
 
       call = if errors.empty?
@@ -3449,6 +3587,18 @@ module Steep
         call,
         constr
       ]
+    end
+
+    def type_check_argument(node, receiver_type:, type:, constraints:, report_node: node, errors:)
+      check(node, type, constraints: constraints) do |expected, actual, result|
+        errors << Diagnostic::Ruby::ArgumentTypeMismatch.new(
+            node: report_node,
+            receiver_type: receiver_type,
+            expected: expected,
+            actual: actual,
+            result: result
+          )
+      end
     end
 
     def type_block_without_hint(node:, block_annotations:, block_params:, block_body:, &block)
@@ -3868,16 +4018,35 @@ module Steep
       AST::Types::Name::Instance.new(name: type.name, args: args)
     end
 
+    def try_tuple_type!(node, hint: nil)
+      if node.type == :array && (hint.nil? || hint.is_a?(AST::Types::Tuple))
+        node_range = node.loc.expression.yield_self {|l| l.begin_pos..l.end_pos }
+
+        typing.new_child(node_range) do |child_typing|
+          if pair = with_new_typing(child_typing).try_tuple_type(node, hint)
+            return pair.with(constr: pair.constr.save_typing)
+          end
+        end
+      end
+
+      synthesize(node, hint: hint)
+    end
+
     def try_tuple_type(node, hint)
-      if node.children.size != hint.types.size
-        return
+      if hint
+        if node.children.size != hint.types.size
+          return
+        end
       end
 
       constr = self
       element_types = []
 
       each_child_node(node).with_index do |child, index|
-        type, constr = constr.synthesize(child, hint: hint.types[index])
+        child_hint = if hint
+                       hint.types[index]
+                     end
+        type, constr = constr.synthesize(child, hint: child_hint)
         element_types << type
       end
 
@@ -3909,55 +4078,152 @@ module Steep
       constr.add_typing(node, type: AST::Builtin::Array.instance_type(element_type))
     end
 
-    def try_hash_type(node, hint)
-      hint = expand_alias(hint)
+    # Try to give record type to hash_node.
+    #
+    # Returns nil when it cannot have a record type.
+    # `record_type` can be nil when the keys are not specified.
+    #
+    def type_hash_record(hash_node, record_type)
+      raise unless hash_node.type == :hash
+
+      constr = self
+
+      if record_type
+        elements = record_type.elements.dup
+      else
+        elements = {}
+      end
+
+      elems = {}
+
+      each_child_node(hash_node) do |child|
+        if child.type == :pair
+          case child.children[0].type
+          when :sym, :str, :int
+            key_node = child.children[0]
+            value_node = child.children[1]
+
+            key = key_node.children[0]
+
+            _, constr = constr.synthesize(key_node, hint: AST::Types::Literal.new(value: key))
+            value_type, constr = constr.synthesize(value_node, hint: elements[key])
+
+            elems[key] = value_type
+          else
+            return
+          end
+        else
+          return
+        end
+      end
+
+      type = AST::Types::Record.new(elements: elems)
+      constr.add_typing(hash_node, type: type)
+    end
+
+    # Give hash_node a type based on hint.
+    #
+    # * When hint is Record type, it may have record type.
+    # * When hint is union type, it tries recursively with the union cases.
+    # * Otherwise, it tries to be a hash instance.
+    #
+    def type_hash(hash_node, hint:)
+      hint = deep_expand_alias(hint)
+      range = hash_node.loc.expression.yield_self {|l| l.begin_pos..l.end_pos }
 
       case hint
       when AST::Types::Record
-        typing.new_child(node.loc.expression.yield_self {|l| l.begin_pos..l.end_pos }) do |child_typing|
-          new_construction = with_new_typing(child_typing)
-          elements = {}
-
-          each_child_node(node) do |child|
-            case child.type
-            when :pair
-              key, value = child.children
-
-              key_value = case key.type
-                          when :str, :int, :sym
-                            key.children[0]
-                          else
-                            return nil
-                          end
-
-              value_hint = hint.elements[key_value]
-              value_type = new_construction.synthesize(value, hint: value_hint).type
-
-              if value_hint
-                if check_relation(sub_type: value_type, super_type: value_hint).success?
-                  value_type = value_hint
-                end
-              end
-
-              elements[key_value] = value_type
-            else
-              return nil
-            end
+        with_child_typing(range: range) do |constr|
+          pair = constr.type_hash_record(hash_node, hint)
+          if pair
+            return pair.with(constr: pair.constr.save_typing)
           end
-
-          child_typing.save!
-
-          hash = AST::Types::Record.new(elements: elements)
-          add_typing(node, type: hash)
         end
       when AST::Types::Union
-        hint.types.each do |type|
-          if pair = try_hash_type(node, type)
-            return pair
+        pair = pick_one_of(hint.types, range: range) do |type, constr|
+          constr.type_hash(hash_node, hint: type)
+        end
+
+        if pair
+          return pair
+        end
+      end
+
+      key_types = []
+      value_types = []
+
+      if AST::Builtin::Hash.instance_type?(hint)
+        key_hint, value_hint = hint.args
+      end
+
+      hint_hash = AST::Builtin::Hash.instance_type(
+        key_hint || AST::Builtin.any_type,
+        value_hint || AST::Builtin.any_type
+      )
+
+      constr = self
+
+      if hash_node.children.empty?
+        key_types << key_hint if key_hint
+        value_types << value_hint if value_hint
+      else
+        hash_node.children.each do |elem|
+          case elem.type
+          when :pair
+            key_node, value_node = elem.children
+            key_type, constr = constr.synthesize(key_node, hint: key_hint)
+            value_type, constr = constr.synthesize(value_node, hint: value_hint)
+
+            key_types << key_type
+            value_types << value_type
+          when :kwsplat
+            bypass_splat(elem) do |elem_|
+              pair = constr.synthesize(elem_, hint: hint_hash)
+
+              if AST::Builtin::Hash.instance_type?(pair.type)
+                key_types << pair.type.args[0]
+                value_types << pair.type.args[1]
+              end
+
+              pair
+            end
+          else
+            raise
           end
         end
-        nil
       end
+
+      key_types.reject! {|ty| ty.is_a?(AST::Types::Any) }
+      value_types.reject! {|ty| ty.is_a?(AST::Types::Any) }
+
+      key_types << AST::Builtin.any_type if key_types.empty?
+      value_types << AST::Builtin.any_type if value_types.empty?
+
+      hash_type = AST::Builtin::Hash.instance_type(
+        AST::Types::Union.build(types: key_types),
+        AST::Types::Union.build(types: value_types)
+      )
+      constr.add_typing(hash_node, type: hash_type)
+    end
+
+    def pick_one_of(types, range:)
+      types.each do |type|
+        with_child_typing(range: range) do |constr|
+          type_, constr = yield type, constr
+
+          constr.check_relation(sub_type: type_, super_type: type).then do
+            constr = constr.save_typing
+            return Pair.new(type: type, constr: constr)
+          end
+        end
+      end
+
+      nil
+    end
+
+    def save_typing
+      typing.save!
+      with_new_typing(typing.parent)
     end
   end
 end

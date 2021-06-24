@@ -1,0 +1,42 @@
+module Steep
+  type node = untyped
+
+  module TypeInference
+    class SendArgs
+      class PositionalArgs
+      end
+
+      class KeywordArgs
+        type value = ArgTypePairs | UnexpectedKeyword | MissingKeyword
+
+        class ArgTypePairs
+        end
+
+        class UnexpectedKeyword
+        end
+
+        class MissingKeyword
+        end
+
+        def consume: () -> [value, self]?
+
+        def consume_keys: (Array[Symbol], node: node) -> [AST::Types::t | UnexpectedKeyword, self]
+      end
+
+
+      type error = Diagnostics::Ruby::IncompatibleArguments
+                 | Diagnostics::Ruby::UnexpectedBlockGiven
+                 | Diagnostics::Ruby::RequiredBlockMissing
+
+      type arg = PositionalArgs::NodeParamPair
+               | PositionalArgs::NodeTypePair
+               | PositionalArgs::SplatArg
+               | PositionalArgs::UnexpectedArg
+               | KeywordArgs::ArgTypePairs
+               | KeywordArgs::SplatArg
+               | KeywordArgs::UnexpectedKeyword
+
+      def each_arg: (TypeConstruction) { (arg, TypeConstruction) -> TypeConstruction } -> Array[error]
+    end
+  end
+end

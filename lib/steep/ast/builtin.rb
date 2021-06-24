@@ -10,8 +10,14 @@ module Steep
           @arity = arity
         end
 
-        def instance_type(*args)
+        def instance_type(*args, fill_untyped: false)
+          if fill_untyped
+            (arity - args.size).times do
+              args << Builtin.any_type
+            end
+          end
           arity == args.size or raise "Mulformed instance type: name=#{module_name}, args=#{args}"
+
           Types::Name::Instance.new(name: module_name, args: args)
         end
 

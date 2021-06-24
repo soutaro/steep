@@ -278,10 +278,11 @@ a.g()
 
         assert_equal parse_type("::_B"), typing.type_of(node: source.node)
 
-        assert_equal 1, typing.errors.size
-        typing.errors.first.tap do |error|
-          assert_instance_of Diagnostic::Ruby::IncompatibleArguments, error
-          assert_equal [parse_method_type("(::_A, ?::_B) -> ::_B")], error.method_types
+        assert_typing_error(typing, size: 1) do |errors|
+          assert_any!(errors) do |error|
+            assert_instance_of Diagnostic::Ruby::InsufficientPositionalArguments, error
+            assert_equal "g()", error.location.source
+          end
         end
       end
     end
@@ -294,7 +295,7 @@ a.g()
 # @type var a: _C
 a = (_ = nil)
 x = (_ = nil)
-a.g(_ = nil, _ = nil, _ = nil)
+a.g(_ = 1, _ = 2, _ = 3)
       EOF
 
       with_standard_construction(checker, source) do |construction, typing|
@@ -302,10 +303,11 @@ a.g(_ = nil, _ = nil, _ = nil)
 
         assert_equal parse_type("::_B"), typing.type_of(node: source.node)
 
-        assert_equal 1, typing.errors.size
-        typing.errors.first.tap do |error|
-          assert_instance_of Diagnostic::Ruby::IncompatibleArguments, error
-          assert_equal [parse_method_type("(::_A, ?::_B) -> ::_B")], error.method_types
+        assert_typing_error(typing, size: 1) do |errors|
+          assert_any!(errors) do |error|
+            assert_instance_of Diagnostic::Ruby::UnexpectedPositionalArgument, error
+            assert_equal "_ = 3", error.location.source
+          end
         end
       end
     end
@@ -345,11 +347,11 @@ x.h()
 
         assert_equal parse_type("::_C"), typing.type_of(node: source.node)
 
-        assert_equal 1, typing.errors.size
-
-        typing.errors.first.tap do |error|
-          assert_instance_of Diagnostic::Ruby::IncompatibleArguments, error
-          assert_equal [parse_method_type("(a: ::_A, ?b: ::_B) -> ::_C")], error.method_types
+        assert_typing_error(typing, size: 1) do |errors|
+          assert_any!(errors) do |error|
+            assert_instance_of Diagnostic::Ruby::InsufficientKeywordArguments, error
+            assert_equal [:a], error.missing_keywords
+          end
         end
       end
     end
@@ -368,10 +370,12 @@ x.h(a: (_ = nil), b: (_ = nil), c: (_ = nil))
 
         assert_equal parse_type("::_C"), typing.type_of(node: source.node)
 
-        assert_equal 1, typing.errors.size
-        typing.errors.first.tap do |error|
-          assert_instance_of Diagnostic::Ruby::UnexpectedKeyword, error
-          assert_equal Set.new([:c]), error.unexpected_keywords
+        assert_typing_error(typing, size: 1) do |errors|
+          assert_any!(errors) do |error|
+            assert_instance_of Diagnostic::Ruby::UnexpectedKeywordArgument, error
+            assert_equal "c: (_ = nil)", error.node.loc.expression.source
+            assert_equal "c", error.location.source
+          end
         end
       end
     end
@@ -394,9 +398,9 @@ x.h(a: y)
 
         assert_typing_error(typing, size: 1) do |errors|
           assert_any! errors do |error|
-            assert_incompatible_assignment error,
-                                           lhs_type: parse_type("::_A"),
-                                           rhs_type: parse_type("::_B")
+            assert_instance_of Diagnostic::Ruby::ArgumentTypeMismatch, error
+            assert_equal parse_type("::_A"), error.expected
+            assert_equal parse_type("::_B"), error.actual
           end
         end
       end
@@ -2375,7 +2379,7 @@ a.gen(*b)
       with_standard_construction(checker, source) do |construction, typing|
         construction.synthesize(source.node)
 
-        assert_empty typing.errors
+        assert_no_error typing
       end
     end
   end
@@ -3596,46 +3600,18 @@ EOF
       with_standard_construction(checker, source) do |construction, typing|
         construction.synthesize(source.node)
 
-        assert_typing_error(typing, size: 1) do |errors|
+        assert_typing_error(typing, size: 2) do |errors|
           assert_any errors do |error|
-            error.is_a?(Diagnostic::Ruby::IncompatibleAssignment) &&
-              error.rhs_type == parse_type("::Integer") &&
-              error.lhs_type == parse_type("::Hash[::Symbol, untyped]")
+            error.is_a?(Diagnostic::Ruby::ArgumentTypeMismatch) &&
+              error.actual == parse_type("::Hash[::Symbol, ::Integer]") &&
+              error.expected == parse_type("::Hash[::Symbol, ::String]")
           end
-        end
-      end
-    end
-  end
 
-  def test_splat_kw_args_2
-    with_checker <<-EOS do |checker|
-class KWArgTest
-  def foo: (Integer, **String) -> void
-end
-    EOS
-      source = parse_ruby(<<EOF)
-test = KWArgTest.new
-
-params = { a: 123 }
-test.foo(123, params)
-test.foo(123, 123)
-EOF
-
-      with_standard_construction(checker, source) do |construction, typing|
-        construction.synthesize(source.node)
-
-        assert_equal 2, typing.errors.size
-
-        assert_any typing.errors do |error|
-          error.is_a?(Diagnostic::Ruby::ArgumentTypeMismatch) &&
-            error.actual == parse_type("::Hash[::Symbol, ::Integer]") &&
-            error.expected == parse_type("::Hash[::Symbol, ::String]")
-        end
-
-        assert_any typing.errors do |error|
-          error.is_a?(Diagnostic::Ruby::ArgumentTypeMismatch) &&
-            error.actual == parse_type("::Integer") &&
-            error.expected == parse_type("::Hash[::Symbol, ::String]")
+          assert_any errors do |error|
+            error.is_a?(Diagnostic::Ruby::ArgumentTypeMismatch) &&
+              error.actual == parse_type("::Integer") &&
+              error.expected == parse_type("::Hash[::Symbol, ::String]")
+          end
         end
       end
     end
@@ -4430,7 +4406,7 @@ EOF
   def test_hash_type5
     with_checker <<-EOF do |checker|
 module WithHashArg
-  def self.f: [A] ({ foo: A }) -> A
+  def self.f: [A] (Hash[Symbol, A]) -> A
 end
     EOF
       source = parse_ruby(<<EOF)
@@ -4440,7 +4416,7 @@ EOF
       with_standard_construction(checker, source) do |construction, typing|
         construction.synthesize(source.node)
 
-        assert_empty typing.errors
+        assert_no_error typing
       end
     end
   end
@@ -4867,7 +4843,7 @@ end
       source = parse_ruby(<<-RUBY)
 # @type var test: AssignTest?
 test = nil
-test&.foo(x = "", y = x + "")
+test&.foo(x = "", y = x)
       RUBY
 
       with_standard_construction(checker, source) do |construction, typing|
@@ -6110,7 +6086,7 @@ z = SendTest.new().foo()
           assert_instance_of MethodCall::Error, call
 
           assert_equal 1, call.errors.size
-          assert_instance_of Diagnostic::Ruby::IncompatibleArguments, call.errors[0]
+          assert_instance_of Diagnostic::Ruby::InsufficientPositionalArguments, call.errors[0]
         end
 
         assert_equal parse_type("::String"), constr.context.lvar_env[:x]
@@ -6163,7 +6139,7 @@ end
           assert_instance_of MethodCall::Error, call
 
           assert_equal 1, call.errors.size
-          assert_instance_of Diagnostic::Ruby::IncompatibleArguments, call.errors[0]
+          assert_instance_of Diagnostic::Ruby::InsufficientPositionalArguments, call.errors[0]
         end
 
         assert_equal parse_type("::String"), constr.context.lvar_env[:x]
@@ -6191,7 +6167,9 @@ z = test.foo()
       with_standard_construction(checker, source) do |construction, typing|
         _, constr = construction.synthesize(source.node)
 
-        assert_equal 4, typing.errors.size
+        # assert_no_error typing
+
+        # assert_equal 4, typing.errors.size
 
         dig(source.node, 1, 1).tap do |call_node|
           call = typing.call_of(node: call_node)
@@ -6212,7 +6190,13 @@ z = test.foo()
           call = typing.call_of(node: call_node)
           assert_instance_of MethodCall::Error, call
 
-          assert_equal 1, call.errors.size
+          assert_equal 2, call.errors.size
+          assert_any!(call.errors) do |error|
+            assert_instance_of Diagnostic::Ruby::RequiredBlockMissing, error
+          end
+          assert_any!(call.errors) do |error|
+            assert_instance_of Diagnostic::Ruby::InsufficientPositionalArguments, error
+          end
         end
 
         assert_equal parse_type("::String"), constr.context.lvar_env[:x]
@@ -7475,9 +7459,8 @@ TestNilBlock.new.bar(&nil)
 
         assert_typing_error typing, size: 1 do |errors|
           assert_any!(errors) do |error|
-            assert_instance_of Diagnostic::Ruby::BlockTypeMismatch, error
-            assert_equal parse_type("nil"), error.actual
-            assert_equal parse_type("^() -> void"), error.expected
+            assert_instance_of Diagnostic::Ruby::RequiredBlockMissing, error
+            assert_equal "foo", error.location.source
           end
         end
       end
