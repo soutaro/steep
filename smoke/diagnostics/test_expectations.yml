@@ -142,16 +142,23 @@
   - range:
       start:
         line: 1
-        character: 6
+        character: 11
       end:
         line: 1
-        character: 8
+        character: 12
     severity: ERROR
-    message: |-
-      Cannot find method `at` of type `::Array[::Integer]` with compatible arity
-      Method types:
-        def at: (::int) -> (::Integer | nil)
-    code: Ruby::IncompatibleArguments
+    message: Unexpected positional argument
+    code: Ruby::UnexpectedPositionalArgument
+  - range:
+      start:
+        line: 1
+        character: 13
+      end:
+        line: 1
+        character: 14
+    severity: ERROR
+    message: Unexpected positional argument
+    code: Ruby::UnexpectedPositionalArgument
 - file: incompatible_assignment.rb
   diagnostics:
   - range:
@@ -311,8 +318,8 @@
         line: 1
         character: 32
     severity: ERROR
-    message: 'Cannot omit required keywords: `foo`'
-    code: Ruby::MissingKeyword
+    message: 'More keyword arguments are required: foo'
+    code: Ruby::InsufficientKeywordArguments
 - file: no_method.rb
   diagnostics:
   - range:
@@ -417,25 +424,13 @@
   - range:
       start:
         line: 1
-        character: 26
+        character: 36
       end:
         line: 1
-        character: 45
+        character: 39
     severity: ERROR
-    message: 'Cannot specify unexpected keyword arguments: `bar`'
-    code: Ruby::UnexpectedKeyword
-- file: unexpected_splat.rb
-  diagnostics:
-  - range:
-      start:
-        line: 1
-        character: 13
-      end:
-        line: 1
-        character: 18
-    severity: ERROR
-    message: Hash splat is given with object other than `Hash[X, Y]`
-    code: Ruby::UnexpectedSplat
+    message: Unexpected keyword argument
+    code: Ruby::UnexpectedKeywordArgument
 - file: unexpected_yield.rb
   diagnostics:
   - range:

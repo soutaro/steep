@@ -113,8 +113,5 @@
         line: 10
         character: 11
     severity: ERROR
-    message: |-
-      Cannot find method `initialize` of type `::IncompatibleChild` with compatible arity
-      Method types:
-        def initialize: (name: ::String) -> untyped
-    code: Ruby::IncompatibleArguments
+    message: 'More keyword arguments are required: name'
+    code: Ruby::InsufficientKeywordArguments
