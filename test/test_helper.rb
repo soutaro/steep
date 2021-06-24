@@ -126,13 +126,15 @@ module TestHelper
   end
 
   def dig(node, *indexes)
+    children = node.is_a?(Array) ? node :  node.children
+
     case indexes.size
     when 0
       node
     when 1
-      node.children[indexes.first]
+      children[indexes.first]
     else
-      dig(node.children[indexes.first], *indexes.drop(1))
+      dig(children[indexes.first], *indexes.drop(1))
     end
   end
 

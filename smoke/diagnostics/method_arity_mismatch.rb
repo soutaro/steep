@@ -1,6 +1,6 @@
 class MethodArityMismatch
-  # @type method foo: () -> void
-  def foo(x)
+  # @type method foo: (name: String) -> void
+  def foo()
 
   end
 

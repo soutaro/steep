@@ -63,6 +63,52 @@
           ::Object <: ::Integer
             ::BasicObject <: ::Integer
     code: Ruby::BreakTypeMismatch
+- file: different_method_parameter_kind.rb
+  diagnostics:
+  - range:
+      start:
+        line: 3
+        character: 10
+      end:
+        line: 3
+        character: 15
+    severity: ERROR
+    message: The method parameter has different kind from the declaration `(::Integer,
+      ::String) -> void`
+    code: Ruby::DifferentMethodParameterKind
+  - range:
+      start:
+        line: 3
+        character: 17
+      end:
+        line: 3
+        character: 19
+    severity: ERROR
+    message: The method parameter has different kind from the declaration `(::Integer,
+      ::String) -> void`
+    code: Ruby::DifferentMethodParameterKind
+  - range:
+      start:
+        line: 7
+        character: 10
+      end:
+        line: 7
+        character: 21
+    severity: ERROR
+    message: 'The method parameter has different kind from the declaration `(size:
+      ::Integer, name: ::String) -> void`'
+    code: Ruby::DifferentMethodParameterKind
+  - range:
+      start:
+        line: 7
+        character: 23
+      end:
+        line: 7
+        character: 29
+    severity: ERROR
+    message: 'The method parameter has different kind from the declaration `(size:
+      ::Integer, name: ::String) -> void`'
+    code: Ruby::DifferentMethodParameterKind
 - file: else_on_exhaustive_case.rb
   diagnostics:
   - range:
@@ -96,16 +142,23 @@
   - range:
       start:
         line: 1
-        character: 6
+        character: 11
       end:
         line: 1
-        character: 8
+        character: 12
     severity: ERROR
-    message: |-
-      Cannot find method `at` of type `::Array[::Integer]` with compatible arity
-      Method types:
-        def at: (::int) -> (::Integer | nil)
-    code: Ruby::IncompatibleArguments
+    message: Unexpected positional argument
+    code: Ruby::UnexpectedPositionalArgument
+  - range:
+      start:
+        line: 1
+        character: 13
+      end:
+        line: 1
+        character: 14
+    severity: ERROR
+    message: Unexpected positional argument
+    code: Ruby::UnexpectedPositionalArgument
 - file: incompatible_assignment.rb
   diagnostics:
   - range:
@@ -160,9 +213,10 @@
         character: 9
       end:
         line: 3
-        character: 12
+        character: 11
     severity: ERROR
-    message: Method parameters are incompatible with declaration `() -> void`
+    message: 'Method parameters are incompatible with declaration `(name: ::String)
+      -> void`'
     code: Ruby::MethodArityMismatch
   - range:
       start:
@@ -202,6 +256,41 @@
     severity: ERROR
     message: Cannot find implementation of method `::MethodDefinitionMissing#foo`
     code: Ruby::MethodDefinitionMissing
+- file: method_parameter_mismatch.rb
+  diagnostics:
+  - range:
+      start:
+        line: 3
+        character: 10
+      end:
+        line: 3
+        character: 11
+    severity: ERROR
+    message: The method parameter is incompatible with the declaration `(?::String,
+      *::Integer) -> void`
+    code: Ruby::MethodParameterMismatch
+  - range:
+      start:
+        line: 3
+        character: 13
+      end:
+        line: 3
+        character: 14
+    severity: ERROR
+    message: The method parameter is incompatible with the declaration `(?::String,
+      *::Integer) -> void`
+    code: Ruby::MethodParameterMismatch
+  - range:
+      start:
+        line: 7
+        character: 15
+      end:
+        line: 7
+        character: 20
+    severity: ERROR
+    message: 'The method parameter is incompatible with the declaration `(?name: ::String)
+      -> void`'
+    code: Ruby::MethodParameterMismatch
 - file: method_return_type_annotation_mismatch.rb
   diagnostics:
   - range:
@@ -229,8 +318,8 @@
         line: 1
         character: 32
     severity: ERROR
-    message: 'Cannot omit required keywords: `foo`'
-    code: Ruby::MissingKeyword
+    message: 'More keyword arguments are required: foo'
+    code: Ruby::InsufficientKeywordArguments
 - file: no_method.rb
   diagnostics:
   - range:
@@ -335,25 +424,13 @@
   - range:
       start:
         line: 1
-        character: 26
+        character: 36
       end:
         line: 1
-        character: 45
+        character: 39
     severity: ERROR
-    message: 'Cannot specify unexpected keyword arguments: `bar`'
-    code: Ruby::UnexpectedKeyword
-- file: unexpected_splat.rb
-  diagnostics:
-  - range:
-      start:
-        line: 1
-        character: 13
-      end:
-        line: 1
-        character: 18
-    severity: ERROR
-    message: Hash splat is given with object other than `Hash[X, Y]`
-    code: Ruby::UnexpectedSplat
+    message: Unexpected keyword argument
+    code: Ruby::UnexpectedKeywordArgument
 - file: unexpected_yield.rb
   diagnostics:
   - range:

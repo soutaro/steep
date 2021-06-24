@@ -32,8 +32,8 @@
         character: 41
     severity: ERROR
     message: |-
-      Cannot assign a value of type `^(::Integer) -> ::Array[::Integer]` to a variable of type `^(::Integer) { (::Integer) -> void } -> void`
-        ^(::Integer) -> ::Array[::Integer] <: ^(::Integer) { (::Integer) -> void } -> void
+      Cannot assign a value of type `^(::Integer) -> ::Enumerator[::Integer, ::Array[::Integer]]` to a variable of type `^(::Integer) { (::Integer) -> void } -> void`
+        ^(::Integer) -> ::Enumerator[::Integer, ::Array[::Integer]] <: ^(::Integer) { (::Integer) -> void } -> void
     code: Ruby::IncompatibleAssignment
   - range:
       start:

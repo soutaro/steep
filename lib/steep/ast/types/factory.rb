@@ -194,7 +194,7 @@ module Steep
         end
 
         def params(type)
-          Interface::Function::Params.new(
+          Interface::Function::Params.build(
             required: type.required_positionals.map {|param| type(param.type) },
             optional: type.optional_positionals.map {|param| type(param.type) },
             rest: type.rest_positionals&.yield_self {|param| type(param.type) },
@@ -621,12 +621,7 @@ module Steep
                       Interface::MethodType.new(
                         type_params: [],
                         type: Interface::Function.new(
-                          params: Interface::Function::Params.new(required: [AST::Types::Literal.new(value: index)],
-                                                                  optional: [],
-                                                                  rest: nil,
-                                                                  required_keywords: {},
-                                                                  optional_keywords: {},
-                                                                  rest_keywords: nil),
+                          params: Interface::Function::Params.build(required: [AST::Types::Literal.new(value: index)]),
                           return_type: elem_type,
                           location: nil
                         ),
@@ -643,12 +638,7 @@ module Steep
                       Interface::MethodType.new(
                         type_params: [],
                         type: Interface::Function.new(
-                          params: Interface::Function::Params.new(required: [AST::Types::Literal.new(value: index), elem_type],
-                                                                  optional: [],
-                                                                  rest: nil,
-                                                                  required_keywords: {},
-                                                                  optional_keywords: {},
-                                                                  rest_keywords: nil),
+                          params: Interface::Function::Params.build(required: [AST::Types::Literal.new(value: index), elem_type]),
                           return_type: elem_type,
                           location: nil
                         ),
@@ -712,12 +702,14 @@ module Steep
                       Interface::MethodType.new(
                         type_params: [],
                         type: Interface::Function.new(
-                          params: Interface::Function::Params.new(required: [key_type],
-                                                                  optional: [],
-                                                                  rest: nil,
-                                                                  required_keywords: {},
-                                                                  optional_keywords: {},
-                                                                  rest_keywords: nil),
+                          params: Interface::Function::Params.build(
+                            required: [key_type],
+                            optional: [],
+                            rest: nil,
+                            required_keywords: {},
+                            optional_keywords: {},
+                            rest_keywords: nil
+                          ),
                           return_type: value_type,
                           location: nil
                         ),
@@ -735,12 +727,14 @@ module Steep
                       Interface::MethodType.new(
                         type_params: [],
                         type: Interface::Function.new(
-                          params: Interface::Function::Params.new(required: [key_type, value_type],
-                                                                  optional: [],
-                                                                  rest: nil,
-                                                                  required_keywords: {},
-                                                                  optional_keywords: {},
-                                                                  rest_keywords: nil),
+                          params: Interface::Function::Params.build(
+                            required: [key_type, value_type],
+                            optional: [],
+                            rest: nil,
+                            required_keywords: {},
+                            optional_keywords: {},
+                            rest_keywords: nil
+                          ),
                           return_type: value_type,
                           location: nil),
                         block: nil,

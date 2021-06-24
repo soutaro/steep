@@ -7,4 +7,3 @@ end
 
 OptionalBlock.new.optional_block()
 OptionalBlock.new.optional_block() { :foo }
-

@@ -49,13 +49,14 @@
   - range:
       start:
         line: 15
-        character: 7
+        character: 11
       end:
         line: 15
-        character: 13
+        character: 12
     severity: ERROR
-    message: Method parameters are incompatible with declaration `(::Integer) -> ::String`
-    code: Ruby::MethodArityMismatch
+    message: The method parameter is incompatible with the declaration `(::Integer)
+      -> ::String`
+    code: Ruby::MethodParameterMismatch
   - range:
       start:
         line: 18

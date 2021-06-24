@@ -101,6 +101,6 @@
         character: 15
     severity: ERROR
     message: |-
-      Cannot assign a value of type `::Symbol` to an expression of type `:foo`
+      Cannot pass a value of type `::Symbol` as an argument of type `:foo`
         ::Symbol <: :foo
-    code: Ruby::IncompatibleAssignment
+    code: Ruby::ArgumentTypeMismatch

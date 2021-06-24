@@ -78,7 +78,7 @@ proc {|a, b=1, *c, d|
 
   def test_zip1
     with_factory do
-      type = Params.new(
+      type = Params.build(
         required: [Types::Name.new_instance(name: :Integer)],
         optional: [],
         rest: nil,
@@ -98,7 +98,7 @@ proc {|a, b=1, *c, d|
 
   def test_zip2
     with_factory do
-      type = Params.new(
+      type = Params.build(
         required: [parse_type("::Integer")],
         optional: [parse_type("::String")],
         rest: Types::Name.new_instance(name: :String),
@@ -119,7 +119,7 @@ proc {|a, b=1, *c, d|
 
   def test_zip3
     with_factory do
-      type = Params.new(
+      type = Params.build(
         required: [parse_type("::Integer")],
         optional: [parse_type("::Object")],
         rest: parse_type("::String"),
@@ -139,7 +139,7 @@ proc {|a, b=1, *c, d|
 
   def test_zip4
     with_factory do
-      type = Params.new(
+      type = Params.build(
         required: [parse_type("::Integer")],
         optional: [parse_type("::Object")],
         rest: parse_type("::String"),
@@ -159,7 +159,7 @@ proc {|a, b=1, *c, d|
 
   def test_zip_missing_required_params
     with_factory do
-      type = Params.new(
+      type = Params.build(
         required: [parse_type("::Integer"), parse_type("::Object")],
         optional: [],
         rest: nil,
@@ -178,7 +178,7 @@ proc {|a, b=1, *c, d|
 
   def test_zip_with_extra_params
     with_factory do
-      type = Params.new(
+      type = Params.build(
         required: [parse_type("::Object")],
         optional: [],
         rest: nil,
@@ -199,7 +199,7 @@ proc {|a, b=1, *c, d|
 
   def test_zip_expand_array
     with_factory do
-      type = Params.new(
+      type = Params.build(
         required: [parse_type("::Array[::Integer]")],
         optional: [],
         rest: nil,
@@ -226,7 +226,7 @@ proc {|a, b=1, *c, d|
 
   def test_zip_expand_tuple
     with_factory do
-      type = Params.new(
+      type = Params.build(
         required: [parse_type("[::Symbol, ::Integer]")],
         optional: [],
         rest: nil,
@@ -348,7 +348,7 @@ proc {|a, b=1, *c|
   end
 
   def param_type(required: [], optional: [], rest: nil, required_keywords: {}, optional_keywords: {}, rest_keywords: nil)
-    Steep::Interface::Function::Params.new(
+    Steep::Interface::Function::Params.build(
       required: required.map {|s| parse_type(s) },
       optional: optional.map {|t| parse_type(t) },
       rest: rest&.yield_self {|t| parse_type(t) },

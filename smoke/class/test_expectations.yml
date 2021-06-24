@@ -4,13 +4,13 @@
   - range:
       start:
         line: 8
-        character: 9
+        character: 10
       end:
         line: 8
-        character: 12
+        character: 11
     severity: ERROR
-    message: Method parameters are incompatible with declaration `() -> ::String`
-    code: Ruby::MethodArityMismatch
+    message: The method parameter is incompatible with the declaration `() -> ::String`
+    code: Ruby::MethodParameterMismatch
   - range:
       start:
         line: 13
@@ -113,8 +113,5 @@
         line: 10
         character: 11
     severity: ERROR
-    message: |-
-      Cannot find method `initialize` of type `::IncompatibleChild` with compatible arity
-      Method types:
-        def initialize: (name: ::String) -> untyped
-    code: Ruby::IncompatibleArguments
+    message: 'More keyword arguments are required: name'
+    code: Ruby::InsufficientKeywordArguments
