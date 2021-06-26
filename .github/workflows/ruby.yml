@@ -12,8 +12,9 @@ jobs:
     strategy:
       matrix:
         container_tag:
-        - 2.6.5-bionic
-        - 2.7.0-bionic
+        - 2.6
+        - 2.7
+        - 3.0
         task:
         - test
         - test:output
