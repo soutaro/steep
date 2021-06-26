@@ -332,6 +332,23 @@ module Steep
         end
       end
 
+      class ImplicitBreakValueMismatch < Base
+        attr_reader :jump_type
+        attr_reader :result
+
+        include ResultPrinter
+
+        def initialize(node:, jump_type:, result:)
+          super(node: node)
+          @jump_type = jump_type
+          @result = result
+        end
+
+        def header_line
+          "Breaking without a value may result an error because a value of type `#{jump_type}` is expected"
+        end
+      end
+
       class UnexpectedJump < Base
         def header_line
           "Cannot jump from here"
