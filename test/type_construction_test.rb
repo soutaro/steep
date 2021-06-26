@@ -6997,9 +6997,8 @@ RUBY
           end
 
           assert_any!(errors) do |error|
-            assert_instance_of Diagnostic::Ruby::BreakTypeMismatch, error
-            assert_equal parse_type("nil"), error.actual
-            assert_equal parse_type("::String"), error.expected
+            assert_instance_of Diagnostic::Ruby::ImplicitBreakValueMismatch, error
+            assert_equal parse_type("::String"), error.jump_type
           end
         end
       end
@@ -7685,6 +7684,31 @@ RUBY
       with_standard_construction(checker, source) do |construction, typing|
         type, _ = construction.synthesize(source.node)
         assert_no_error typing
+      end
+    end
+  end
+
+  def test_break_without_value_to_block
+    with_checker(<<RBS) do |checker|
+class NextTest
+  def foo: () { (String) -> Integer } -> String
+end
+RBS
+      source = parse_ruby(<<RUBY)
+NextTest.new.foo do |x|
+  break
+end
+RUBY
+
+      with_standard_construction(checker, source) do |construction, typing|
+        construction.synthesize(source.node)
+
+        assert_typing_error(typing, size: 1) do |errors|
+          assert_any!(errors) do |error|
+            assert_instance_of Diagnostic::Ruby::ImplicitBreakValueMismatch, error
+            assert_equal parse_type("::String"), error.jump_type
+          end
+        end
       end
     end
   end
