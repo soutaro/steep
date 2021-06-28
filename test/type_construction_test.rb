@@ -7712,4 +7712,33 @@ RUBY
       end
     end
   end
+
+  def test_issue_389
+    with_checker(<<RBS) do |checker|
+class Object
+  def x1: () { (untyped) -> untyped } -> void
+  def x2: () { (untyped) -> void } -> void
+  def x3: () { (untyped) -> Symbol } -> void
+end
+RBS
+      source = parse_ruby(<<RUBY)
+# @type var kind: :instance | :singleton
+kind = :instance
+
+tap do
+  kind = :singleton
+end
+
+x1 { kind = :instance }
+x2 { kind = :instance }
+x3 { kind = :instance }
+RUBY
+
+      with_standard_construction(checker, source) do |construction, typing|
+        construction.synthesize(source.node)
+
+        assert_no_error typing
+      end
+    end
+  end
 end

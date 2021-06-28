@@ -720,8 +720,17 @@ module Steep
             when :__skip__
               add_typing(node, type: AST::Builtin.any_type)
             else
-              if !hint || hint.is_a?(AST::Types::Void)
-                hint = context.lvar_env.declared_types[name]&.type
+              if declared_type = context.lvar_env.declared_types[name]&.type
+                case hint
+                when nil
+                  hint = declared_type
+                else
+                  if check_relation(sub_type: declared_type, super_type: hint).success?
+                    # declared_type is compatible with hint and more specific to hint.
+                    # This typically happens when hint is untyped, top, or void.
+                    hint = declared_type
+                  end
+                end
               end
 
               rhs_result = synthesize(rhs, hint: hint)
