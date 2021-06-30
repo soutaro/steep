@@ -36,7 +36,7 @@ module Steep
 
           any_error ||= !errors.empty?
 
-          formatter = Diagnostic::LSPFormatter.new
+          formatter = Diagnostic::LSPFormatter.new({})
           diagnostics = errors.group_by {|e| e.location.buffer }.transform_values do |errors|
             errors.map {|error| formatter.format(error) }
           end

@@ -399,7 +399,6 @@ RUBY
         Process.waitpid(pid)
         assert_equal 0, $?.exitstatus
       end
-
     end
   end
 
