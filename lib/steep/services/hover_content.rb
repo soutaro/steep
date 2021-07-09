@@ -6,6 +6,9 @@ module Steep
       MethodCallContent = Struct.new(:node, :method_name, :type, :definition, :location, keyword_init: true)
       DefinitionContent = Struct.new(:node, :method_name, :method_type, :definition, :location, keyword_init: true) do
       TypeAliasContent = Struct.new(:location, :decl, keyword_init: true)
+      ClassContent = Struct.new(:location, :decl, keyword_init: true)
+      InterfaceContent = Struct.new(:location, :decl, keyword_init: true)
+
         def comment_string
           if comments = definition&.comments
             comments.map {|c| c.string.chomp }.uniq.join("\n----\n")
@@ -75,6 +78,25 @@ module Steep
             TypeAliasContent.new(
               location: location,
               decl: alias_decl
+            )
+          when RBS::Types::ClassInstance, RBS::Types::ClassSingleton
+            if hd == :name
+              env = service.latest_env
+              class_decl = env.class_decls[type.name]&.decls[0]&.decl or raise
+              location = tail[0].location[:name]
+              ClassContent.new(
+                location: location,
+                decl: class_decl
+              )
+            end
+          when RBS::Types::Interface
+            env = service.latest_env
+            interface_decl = env.interface_decls[type.name]&.decl or raise
+            location = type.location
+
+            InterfaceContent.new(
+              location: location,
+              decl: interface_decl
             )
           end
         end
