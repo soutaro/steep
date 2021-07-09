@@ -756,7 +756,11 @@ module Steep
           yield_self do
             var = node.children[0]
             if (type = context.lvar_env[var])
-              add_typing node, type: type
+              if type.is_a?(AST::Types::Name::Interface) && type.name.kind == :interface
+                add_typing node, type: AST::Types::Intersection.build(types: [type, AST::Builtin::Object.instance_type])
+              else
+                add_typing node, type: type
+              end
             else
               fallback_to_any(node)
             end

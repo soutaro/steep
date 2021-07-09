@@ -5958,6 +5958,29 @@ end
     end
   end
 
+
+  def test_return_union_with_interface
+    with_checker(<<-RBS) do |checker|
+interface _Foo1
+  def to_s: () -> String
+end
+interface _Foo2
+  def to_s: () -> (_Foo1 | Integer)
+end
+    RBS
+      source = parse_ruby(<<-RUBY)
+# @type var x: _Foo2
+x = nil
+x.to_s == 1
+      RUBY
+
+      with_standard_construction(checker, source) do |construction, typing|
+        construction.synthesize(source.node)
+        assert_no_error typing
+      end
+    end
+  end
+
   def test_flow_sensitive_and
     with_checker(<<-RBS) do |checker|
 class Fun
