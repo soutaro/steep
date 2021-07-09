@@ -3514,7 +3514,7 @@ module Steep
     end
 
     def current_namespace
-      module_context&.current_namespace || AST::Namespace.root
+      module_context&.current_namespace || RBS::Namespace.root
     end
 
     def nested_namespace_for_module(module_name)
