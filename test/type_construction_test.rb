@@ -186,6 +186,23 @@ x.f
     end
   end
 
+  def test_method_call_from_object
+    with_checker do |checker|
+      source = parse_ruby(<<-EOF)
+# @type var x: _C
+x = (_ = nil)
+x.to_s
+      EOF
+
+      with_standard_construction(checker, source) do |construction, typing|
+        construction.synthesize(source.node)
+
+        assert_no_error typing
+        assert_equal parse_type("::String"), typing.type_of(node: source.node)
+      end
+    end
+  end
+
   def test_method_call_with_argument
     with_checker do |checker|
       source = parse_ruby(<<-EOF)
