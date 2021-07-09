@@ -86,7 +86,7 @@ module Steep
           relation = Subtyping::Relation.new(sub_type: type, super_type: declared_type)
           constraints = Subtyping::Constraints.new(unknowns: Set.new)
           subtyping.check(relation, constraints: constraints, self_type: self_type, instance_type: instance_type, class_type: class_type).else do |result|
-            yield declared_type, type, result
+            yield declared_type, type, result if block_given?
           end
         end
 
