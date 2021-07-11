@@ -5961,17 +5961,51 @@ end
 
   def test_return_union_with_interface
     with_checker(<<-RBS) do |checker|
+class Foo2
+  def foo: () -> String
+end
 interface _Foo1
   def to_s: () -> String
 end
 interface _Foo2
-  def to_s: () -> (_Foo1 | Integer)
+  def foo: () -> (_Foo1 | String)
 end
     RBS
       source = parse_ruby(<<-RUBY)
+class Foo2
+  def foo
+    "1"
+  end
+end
 # @type var x: _Foo2
-x = nil
-x.to_s == 1
+x = Foo2.new
+x.foo.to_s + "1"
+      RUBY
+
+      with_standard_construction(checker, source) do |construction, typing|
+        construction.synthesize(source.node)
+        assert_no_error typing
+      end
+    end
+  end
+
+  def test_method_call_with_interface
+    with_checker(<<-RBS) do |checker|
+class Foo1
+  def foo: (Integer | _Foo2) -> String
+end
+interface _Foo2
+  def to_s: () -> (String)
+end
+    RBS
+      source = parse_ruby(<<-RUBY)
+class Foo1
+  def foo(a)
+    a.to_s
+  end
+end
+x = Foo1.new
+x.foo(1) + "1"
       RUBY
 
       with_standard_construction(checker, source) do |construction, typing|
