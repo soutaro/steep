@@ -318,7 +318,7 @@ RBS
       hover = HoverContent.new(service: service)
       hover.content_for(path: Pathname("hello.rbs"), line: 6, column: 13).tap do |content|
         assert_instance_of HoverContent::InterfaceContent, content
-        assert_instance_of RBS::Location::WithChildren, content.location
+        assert_instance_of RBS::Location, content.location
         assert_equal content.location.start_line, 6
         assert_equal content.location.start_column, 12
         assert_instance_of RBS::AST::Declarations::Interface, content.decl

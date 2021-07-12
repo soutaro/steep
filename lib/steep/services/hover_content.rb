@@ -92,7 +92,7 @@ module Steep
           when RBS::Types::Interface
             env = service.latest_env
             interface_decl = env.interface_decls[type.name]&.decl or raise
-            location = type.location
+            location = type.location[:name]
 
             InterfaceContent.new(
               location: location,
