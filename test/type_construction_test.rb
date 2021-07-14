@@ -7741,4 +7741,24 @@ RUBY
       end
     end
   end
+
+  def test_break_from_loop
+    with_checker(<<RBS) do |checker|
+class Object
+  def loop: () { () -> void } -> bot
+end
+RBS
+      source = parse_ruby(<<RUBY)
+loop do
+  break
+end
+RUBY
+
+      with_standard_construction(checker, source) do |construction, typing|
+        construction.synthesize(source.node)
+
+        assert_no_error typing
+      end
+    end
+  end
 end

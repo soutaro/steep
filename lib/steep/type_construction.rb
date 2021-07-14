@@ -1161,14 +1161,16 @@ module Steep
                   )
                 end
               else
-                check_relation(sub_type: AST::Builtin.nil_type, super_type: break_type).else do |result|
-                  typing.add_error(
-                    Diagnostic::Ruby::ImplicitBreakValueMismatch.new(
-                      node: node,
-                      jump_type: break_type,
-                      result: result
+                unless break_type.is_a?(AST::Types::Bot)
+                  check_relation(sub_type: AST::Builtin.nil_type, super_type: break_type).else do |result|
+                    typing.add_error(
+                      Diagnostic::Ruby::ImplicitBreakValueMismatch.new(
+                        node: node,
+                        jump_type: break_type,
+                        result: result
+                      )
                     )
-                  )
+                  end
                 end
               end
             else
