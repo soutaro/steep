@@ -45,7 +45,9 @@ module Steep
 
         def ==(other)
           other.is_a?(Union) &&
-            Set.new(other.types) == Set.new(types)
+           other.types.all? do |typ1|
+            types.any? { |typ2| typ1 == typ2 }
+           end
         end
 
         def hash
