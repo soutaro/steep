@@ -107,7 +107,27 @@ module Steep
 #{comment}
 
 ```rbs
-#{content.decl.type}
+#{retrieve_decl_information(content.decl)}
+```
+          MD
+        when Services::HoverContent::InterfaceContent
+          comment = content.decl.comment&.string || ''
+
+          <<-MD
+#{comment}
+
+```rbs
+#{retrieve_decl_information(content.decl)}
+```
+          MD
+        when Services::HoverContent::ClassContent
+          comment = content.decl.comment&.string || ''
+
+          <<-MD
+#{comment}
+
+```rbs
+#{retrieve_decl_information(content.decl)}
 ```
           MD
         when Services::HoverContent::VariableContent
@@ -187,6 +207,59 @@ HOVER
           end
         end
       end
+
+      def name_and_params(name, params)
+        if params.empty?
+          "#{name}"
+        else
+          ps = params.each.map do |param|
+            s = ""
+            if param.skip_validation
+              s << "unchecked "
+            end
+            case param.variance
+            when :invariant
+              # nop
+            when :covariant
+              s << "out "
+            when :contravariant
+              s << "in "
+            end
+            s + param.name.to_s
+          end
+
+          "#{name}[#{ps.join(", ")}]"
+        end
+      end
+
+      def name_and_args(name, args)
+        if name && args
+          if args.empty?
+            "#{name}"
+          else
+            "#{name}[#{args.join(", ")}]"
+          end
+        end
+      end
+
+      def retrieve_decl_information(decl)
+        case decl
+        when RBS::AST::Declarations::Class
+          super_class = if super_class = decl.super_class
+                          " < #{name_and_args(super_class.name, super_class.args)}"
+                        end
+          "class #{name_and_params(decl.name, decl.type_params)}#{super_class}"
+        when RBS::AST::Declarations::Module
+          self_type = unless decl.self_types.empty?
+                        " : #{decl.self_types.join(", ")}"
+                      end
+          "module #{name_and_params(decl.name, decl.type_params)}#{self_type}"
+        when RBS::AST::Declarations::Alias
+          "type #{decl.name} = #{decl.type}"
+        when RBS::AST::Declarations::Interface
+          "interface #{name_and_params(decl.name, decl.type_params)}"
+        end
+    end
 
       def format_completion_item(item)
         range = LanguageServer::Protocol::Interface::Range.new(

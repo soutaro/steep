@@ -218,9 +218,9 @@ RBS
     end
   end
 
-  def test_hover_on_rbs
+  def test_hover_alias_on_rbs
     in_tmpdir do
-      service = typecheck_service()
+      service = typecheck_service
 
       service.update(
         changes: {
@@ -242,6 +242,86 @@ RBS
 
         assert_equal content.location.start_line, 4
         assert_equal content.location.start_column, 10
+      end
+    end
+  end
+
+  def test_hover_class_singleton_on_rbs
+    in_tmpdir do
+      service = typecheck_service
+
+      service.update(
+        changes: {
+          Pathname("hello.rbs") => [ContentChange.string(<<RBS)]
+class C
+  def foo: () -> singleton(String)
+end
+RBS
+        }
+      ) {}
+
+      hover = HoverContent.new(service: service)
+      hover.content_for(path: Pathname("hello.rbs"), line: 2, column: 28).tap do |content|
+        assert_instance_of HoverContent::ClassContent, content
+        assert_instance_of RBS::Location, content.location
+        assert_equal content.location.start_line, 2
+        assert_equal content.location.start_column, 27
+        assert_instance_of RBS::AST::Declarations::Class, content.decl
+      end
+    end
+  end
+
+  def test_hover_class_instance_on_rbs
+    in_tmpdir do
+      service = typecheck_service
+
+      service.update(
+        changes: {
+          Pathname("hello.rbs") => [ContentChange.string(<<RBS)]
+class Hoge end
+class Qux
+  @foo: Hoge
+end
+RBS
+        }
+      ) {}
+
+      hover = HoverContent.new(service: service)
+      hover.content_for(path: Pathname("hello.rbs"), line: 3, column: 9).tap do |content|
+        assert_instance_of HoverContent::ClassContent, content
+        assert_instance_of RBS::Location, content.location
+        assert_equal content.location.start_line, 3
+        assert_equal content.location.start_column, 8
+        assert_instance_of RBS::AST::Declarations::Class, content.decl
+      end
+    end
+  end
+
+  def test_hover_interface_on_rbs
+    in_tmpdir do
+      service = typecheck_service()
+
+      service.update(
+        changes: {
+          Pathname("hello.rbs") => [ContentChange.string(<<RBS)]
+interface _Fooable
+  def foo: () -> nil
+end
+
+class Foo
+  def foo: (_Fooable) -> singleton(String)
+end
+RBS
+        }
+      ) {}
+
+      hover = HoverContent.new(service: service)
+      hover.content_for(path: Pathname("hello.rbs"), line: 6, column: 13).tap do |content|
+        assert_instance_of HoverContent::InterfaceContent, content
+        assert_instance_of RBS::Location, content.location
+        assert_equal content.location.start_line, 6
+        assert_equal content.location.start_column, 12
+        assert_instance_of RBS::AST::Declarations::Interface, content.decl
       end
     end
   end

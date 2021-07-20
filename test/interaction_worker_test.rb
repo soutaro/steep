@@ -173,7 +173,7 @@ RUBY
     end
   end
 
-  def test_handle_hover_job_success_on_rbs
+  def test_handle_alias_hover_job_success_on_rbs
     in_tmpdir do
       project = Project.new(steepfile_path: current_dir + "Steepfile")
       Project::DSL.parse(project, <<EOF)
@@ -205,7 +205,7 @@ RBS
 
 
 ```rbs
-::Integer | ::String
+type ::foo = ::Integer | ::String
 ```
 "
       assert_equal({ kind: "markdown", value: expected_value }, response[:contents])
@@ -213,6 +213,88 @@ RBS
     end
   end
 
+  def test_handle_interface_hover_job_success_on_rbs
+    in_tmpdir do
+      project = Project.new(steepfile_path: current_dir + "Steepfile")
+      Project::DSL.parse(project, <<EOF)
+target :lib do
+  check "lib"
+  signature "sig"
+end
+EOF
+
+      worker = InteractionWorker.new(project: project, reader: worker_reader, writer: worker_writer)
+
+      worker.service.update(
+        changes: {
+          Pathname("sig/hello.rbs") => [ContentChange.string(<<RBS)]
+# here is your comments
+interface _Fooable
+  def foo: () -> nil
+end
+
+class Test
+  def foo: (_Fooable) -> nil
+end
+RBS
+        }
+      ) {}
+
+      response = worker.process_hover(InteractionWorker::HoverJob.new(path: Pathname("sig/hello.rbs"), line: 7, column: 13))
+
+      response = response.attributes
+      expected_value = "here is your comments
+
+
+```rbs
+interface ::_Fooable
+```
+"
+      assert_equal({ kind: "markdown", value: expected_value }, response[:contents])
+      assert_equal({ start: { line: 6, character: 12 }, end: { line: 6, character: 20 }}, response[:range])
+    end
+  end
+
+  def test_handle_class_hover_job_success_on_rbs
+    in_tmpdir do
+      project = Project.new(steepfile_path: current_dir + "Steepfile")
+      Project::DSL.parse(project, <<EOF)
+target :lib do
+  check "lib"
+  signature "sig"
+end
+EOF
+
+      worker = InteractionWorker.new(project: project, reader: worker_reader, writer: worker_writer)
+
+      worker.service.update(
+        changes: {
+          Pathname("sig/hello.rbs") => [ContentChange.string(<<RBS)]
+# here is your comments
+class Foo [T] < Parent[T] end
+class Parent [in T] end
+module Hoge end
+class Qux
+  @foo: Foo[Hoge]
+end
+RBS
+        }
+      ) {}
+
+      response = worker.process_hover(InteractionWorker::HoverJob.new(path: Pathname("sig/hello.rbs"), line: 6, column: 10))
+
+      response = response.attributes
+      expected_value = "here is your comments
+
+
+```rbs
+class ::Foo[T] < ::Parent[T]
+```
+"
+      assert_equal({ kind: "markdown", value: expected_value }, response[:contents])
+      assert_equal({ start: { line: 5, character: 8 }, end: { line: 5, character: 11 }}, response[:range])
+    end
+  end
 
   def test_handle_hover_invalid
     in_tmpdir do
