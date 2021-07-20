@@ -473,7 +473,11 @@ module FactoryHelper
 
   def parse_type(string, factory: self.factory, variables: [])
     type = RBS::Parser.parse_type(string, variables: variables)
-    factory.type(type)
+    type = factory.type(type)
+    if type.is_a?(Steep::AST::Types::Name::Interface) && type.name.kind == :interface
+      type = Steep::AST::Types::Intersection.build(types: [type, Steep::AST::Builtin::Object.instance_type])
+    end
+    type
   end
 
   def parse_ruby(string, factory: self.factory)

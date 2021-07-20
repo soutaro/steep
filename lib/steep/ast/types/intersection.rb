@@ -43,7 +43,8 @@ module Steep
         end
 
         def ==(other)
-          other.is_a?(Intersection) && other.types == types
+          (other.is_a?(Intersection) && other.types == types) ||
+          types.any? { |typ| typ == other }
         end
 
         def hash

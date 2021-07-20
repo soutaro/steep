@@ -186,6 +186,23 @@ x.f
     end
   end
 
+  def test_method_call_from_object
+    with_checker do |checker|
+      source = parse_ruby(<<-EOF)
+# @type var x: _C
+x = (_ = nil)
+x.to_s
+      EOF
+
+      with_standard_construction(checker, source) do |construction, typing|
+        construction.synthesize(source.node)
+
+        assert_no_error typing
+        assert_equal parse_type("::String"), typing.type_of(node: source.node)
+      end
+    end
+  end
+
   def test_method_call_with_argument
     with_checker do |checker|
       source = parse_ruby(<<-EOF)
@@ -734,7 +751,7 @@ end
         construction.synthesize(source.node)
 
         assert_any typing.errors do |error|
-          error.is_a?(Diagnostic::Ruby::ReturnTypeMismatch) && error.expected == parse_type("::_X") && error.actual == parse_type("::_A")
+          error.is_a?(Diagnostic::Ruby::ReturnTypeMismatch) && parse_type("::_X") == error.expected && parse_type("::_A") == error.actual
         end
       end
     end
@@ -5932,6 +5949,63 @@ when WithName
 when WithEmail
   x.email
 end
+      RUBY
+
+      with_standard_construction(checker, source) do |construction, typing|
+        construction.synthesize(source.node)
+        assert_no_error typing
+      end
+    end
+  end
+
+
+  def test_return_union_with_interface
+    with_checker(<<-RBS) do |checker|
+class Foo2
+  def foo: () -> String
+end
+interface _Foo1
+  def to_s: () -> String
+end
+interface _Foo2
+  def foo: () -> (_Foo1 | String)
+end
+    RBS
+      source = parse_ruby(<<-RUBY)
+class Foo2
+  def foo
+    "1"
+  end
+end
+# @type var x: _Foo2
+x = Foo2.new
+x.foo.to_s + "1"
+      RUBY
+
+      with_standard_construction(checker, source) do |construction, typing|
+        construction.synthesize(source.node)
+        assert_no_error typing
+      end
+    end
+  end
+
+  def test_method_call_with_interface
+    with_checker(<<-RBS) do |checker|
+class Foo1
+  def foo: (Integer | _Foo2) -> String
+end
+interface _Foo2
+  def to_s: () -> (String)
+end
+    RBS
+      source = parse_ruby(<<-RUBY)
+class Foo1
+  def foo(a)
+    a.to_s
+  end
+end
+x = Foo1.new
+x.foo(1) + "1"
       RUBY
 
       with_standard_construction(checker, source) do |construction, typing|
