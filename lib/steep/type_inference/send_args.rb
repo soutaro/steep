@@ -578,8 +578,12 @@ module Steep
 
                   break
                 end
-              when PositionalArgs::UnexpectedArg, PositionalArgs::MissingArg
+              when PositionalArgs::UnexpectedArg
                 errors << value
+              when PositionalArgs::MissingArg
+                if node.type != :csend
+                  errors << value
+                end
               end
             end
           end

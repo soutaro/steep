@@ -7576,6 +7576,27 @@ end
     end
   end
 
+  def test_missing_args_with_csend
+    with_checker(<<-RBS) do |checker|
+module MissingArgs
+  class Foo
+    def csend: (Integer) -> void
+  end
+end
+    RBS
+
+      source = parse_ruby(<<-'RUBY')
+MissingArgs::Foo.new&.csend
+      RUBY
+
+      with_standard_construction(checker, source) do |construction, typing|
+        type, _ = construction.synthesize(source.node)
+
+        assert_no_error typing
+      end
+    end
+  end
+
   def test_ruby3_endless_def
     with_checker(<<-RBS) do |checker|
 module Ruby3
