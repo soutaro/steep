@@ -61,6 +61,7 @@ module Steep
           hover_for_source(column, line, path, target)
         when (_, targets = project.targets_for_path(path))
           target = targets[0]
+          return unless target
           service = self.service.signature_services[target.name]
           _buffer, decls = service.latest_env.buffers_decls.find do |buffer, _|
             Pathname(buffer.name) == path

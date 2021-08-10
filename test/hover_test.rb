@@ -68,6 +68,8 @@ RUBY
         assert_equal [3,8]...[3, 24], [content.location.line,content.location.column]...[content.location.last_line, content.location.last_column]
         assert_equal "::Array[(::Integer | ::String)]", content.type.to_s
       end
+
+      assert_nil hover.content_for(path: Pathname("nothing.rb"), line: 0, column: 0)
     end
   end
 
