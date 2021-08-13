@@ -368,11 +368,13 @@ EOF
         worker = Server::InteractionWorker.new(project: project, reader: worker_reader, writer: worker_writer, queue: [])
 
         worker.service.update(
-          changes: {
-            Pathname("lib/hello.rbs") => [ContentChange.string(<<RUBY)]
-class Foo
+          changes:{
+          Pathname("sig/hello.rbs") => [ContentChange.string(<<RBS)]
+class Hoge end
+class Qux
+  @foo: Hoge
 end
-RUBY
+RBS
           }
         ) {}
 
@@ -380,13 +382,79 @@ RUBY
           InteractionWorker::CompletionJob.new(
             path: Pathname("sig/hello.rbs"),
             line: 3,
-            column: 0,
+            column: 9,
             trigger: nil
           )
         )
 
-        assert_nil response
+        assert_instance_of LanguageServer::Protocol::Interface::CompletionList, response
+      end
+    end
+  end
+
+  def test_relative_name_in_context
+    in_tmpdir do
+      in_tmpdir do
+        project = Project.new(steepfile_path: current_dir + "Steepfile")
+        Project::DSL.parse(project, <<EOF)
+target :lib do
+  check "lib"
+  signature "sig"
+end
+EOF
+        worker = Server::InteractionWorker.new(project: project, reader: worker_reader, writer: worker_writer, queue: [])
+
+        worker.service.update(
+          changes: {
+            Pathname("lib/hello.rbs") => [ContentChange.string(<<RUBY)]
+class Foo
+  class Bar
+    class Baz
+    end
+  end
+end
+RUBY
+          }
+        ) {}
+
+        foo_bar_baz = RBS::Namespace.parse("::Foo::Bar::Baz")
+        foo_bar = RBS::Namespace.parse("::Foo::Bar")
+        foo = RBS::Namespace.parse("::Foo")
+        # TypeName("Baz")
+
+        assert_equal(
+          TypeName("Baz"),
+          worker.relative_name_in_context(
+            TypeName("::Foo::Bar::Baz"),
+            [foo_bar_baz, foo_bar, foo]
+          )
+        )
+
+        assert_equal(
+          TypeName("Bar::Baz"),
+          worker.relative_name_in_context(
+            TypeName("::Foo::Bar::Baz"),
+            [foo]
+          )
+        )
+
+        assert_equal(
+          TypeName("::Foo::Bar::Baz"),
+          worker.relative_name_in_context(
+            TypeName("::Foo::Bar::Baz"),
+            []
+          )
+        )
+
+        assert_equal(
+          TypeName("::Foo::Bar::Baz"),
+          worker.relative_name_in_context(
+            TypeName("::Foo::Bar::Baz"),
+            [RBS::Namespace.parse("::RBS")]
+          )
+        )
       end
     end
   end
 end
+
