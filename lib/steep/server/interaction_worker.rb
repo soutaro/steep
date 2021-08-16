@@ -285,10 +285,7 @@ HOVER
 
           LanguageServer::Protocol::Interface::CompletionItem.new(
             label: "#{name}",
-            documentation: LSP::Interface::MarkupContent.new(
-              kind: LSP::Constant::MarkupKind::MARKDOWN,
-              value: class_decl.comment&.string || ''
-            ),
+            documentation:  format_comment(class_decl.comment),
             text_edit: LanguageServer::Protocol::Interface::TextEdit.new(
               range: range,
               new_text: name
@@ -305,10 +302,7 @@ HOVER
               range: range,
               new_text: name
             ),
-            documentation: LSP::Interface::MarkupContent.new(
-              kind: LSP::Constant::MarkupKind::MARKDOWN,
-              value: alias_decl.comment&.string || ''
-            ),
+            documentation: format_comment(alias_decl.comment),
             # https://github.com/microsoft/vscode-languageserver-node/blob/6d78fc4d25719b231aba64a721a606f58b9e0a5f/client/src/common/client.ts#L624-L650
             kind: LSP::Constant::CompletionItemKind::FIELD,
             insert_text_format: LSP::Constant::InsertTextFormat::SNIPPET
@@ -322,12 +316,18 @@ HOVER
               range: range,
               new_text: name
             ),
-            documentation: LSP::Interface::MarkupContent.new(
-              kind: LSP::Constant::MarkupKind::MARKDOWN,
-              value: interface_decl.comment&.string || ''
-            ),
+            documentation: format_comment(interface_decl.comment),
             kind: LanguageServer::Protocol::Constant::CompletionItemKind::INTERFACE,
             insert_text_format: LanguageServer::Protocol::Constant::InsertTextFormat::SNIPPET
+          )
+        end
+      end
+
+      def format_comment(comment)
+        if comment
+          LSP::Interface::MarkupContent.new(
+            kind: LSP::Constant::MarkupKind::MARKDOWN,
+            value: comment.string
           )
         end
       end

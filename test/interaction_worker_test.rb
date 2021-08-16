@@ -372,7 +372,7 @@ EOF
           Pathname("sig/hello.rbs") => [ContentChange.string(<<RBS)]
 class Hoge end
 class Qux
-  @foo: Hoge
+  @foo: H
 end
 RBS
           }
@@ -388,6 +388,17 @@ RBS
         )
 
         assert_instance_of LanguageServer::Protocol::Interface::CompletionList, response
+        assert_equal 2, response.items.size
+
+        response.items[0].tap do |item|
+          assert_equal "Hash", item.label
+          assert_instance_of LanguageServer::Protocol::Interface::MarkupContent, item.documentation
+        end
+
+        response.items[1].tap do |item|
+          assert_equal "Hoge", item.label
+          refute_operator item.attributes, :key?, :documentation
+        end
       end
     end
   end
