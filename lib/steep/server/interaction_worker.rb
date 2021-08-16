@@ -7,6 +7,8 @@ module Steep
       HoverJob = Struct.new(:id, :path, :line, :column, keyword_init: true)
       CompletionJob = Struct.new(:id, :path, :line, :column, :trigger, keyword_init: true)
 
+      LSP = LanguageServer::Protocol
+
       attr_reader :service
 
       def initialize(project:, reader:, writer:, queue: Queue.new)
@@ -182,29 +184,151 @@ HOVER
         Steep.logger.tagged("#response_to_completion") do
           Steep.measure "Generating response" do
             Steep.logger.info "path: #{job.path}, line: #{job.line}, column: #{job.column}, trigger: #{job.trigger}"
+            case
+            when target = project.target_for_source_path(job.path)
+              file = service.source_files[job.path] or return
+              subtyping = service.signature_services[target.name].current_subtyping or return
 
-            target = project.target_for_source_path(job.path) or return
-            file = service.source_files[job.path] or return
-            subtyping = service.signature_services[target.name].current_subtyping or return
+              provider = Services::CompletionProvider.new(source_text: file.content, path: job.path, subtyping: subtyping)
+              items = begin
+                        provider.run(line: job.line, column: job.column)
+                      rescue Parser::SyntaxError
+                        []
+                      end
 
-            provider = Services::CompletionProvider.new(source_text: file.content, path: job.path, subtyping: subtyping)
-            items = begin
-                      provider.run(line: job.line, column: job.column)
-                    rescue Parser::SyntaxError
-                      []
-                    end
+              completion_items = items.map do |item|
+                format_completion_item(item)
+              end
 
-            completion_items = items.map do |item|
-              format_completion_item(item)
+              Steep.logger.debug "items = #{completion_items.inspect}"
+
+              LSP::Interface::CompletionList.new(
+                is_incomplete: false,
+                items: completion_items
+              )
+            when (_, targets = project.targets_for_path(job.path))
+              target = targets[0] or return
+              sig_service = service.signature_services[target.name]
+              relative_path = job.path
+              buffer = RBS::Buffer.new(name: relative_path, content: sig_service.files[relative_path].content)
+              pos = buffer.loc_to_pos([job.line, job.column])
+              prefix = buffer.content[0...pos].reverse[/\A[\w\d]*/].reverse
+
+              case sig_service.status
+              when Steep::Services::SignatureService::SyntaxErrorStatus, Steep::Services::SignatureService::AncestorErrorStatus
+                return
+              end
+
+              decls = sig_service.files[relative_path].decls
+              locator = RBS::Locator.new(decls: decls)
+
+              hd, tail = locator.find2(line: job.line, column: job.column)
+
+              namespace = []
+              tail.each do |t|
+                case t
+                when RBS::AST::Declarations::Module, RBS::AST::Declarations::Class
+                  namespace << t.name.to_namespace
+                end
+              end
+              context = []
+
+              namespace.each do |ns|
+                context.map! { |n| ns + n }
+                context << ns
+              end
+
+              context.map!(&:absolute!)
+
+              class_items = sig_service.latest_env.class_decls.keys.map { |type_name|
+                format_completion_item_for_rbs(sig_service, type_name, context, job, prefix)
+              }.compact
+
+              alias_items = sig_service.latest_env.alias_decls.keys.map { |type_name|
+                format_completion_item_for_rbs(sig_service, type_name, context, job, prefix)
+              }.compact
+
+              interface_items = sig_service.latest_env.interface_decls.keys.map {|type_name|
+                format_completion_item_for_rbs(sig_service, type_name, context, job, prefix)
+              }.compact
+
+              completion_items = class_items + alias_items + interface_items
+
+              LSP::Interface::CompletionList.new(
+                is_incomplete: false,
+                items: completion_items
+              )
             end
-
-            Steep.logger.debug "items = #{completion_items.inspect}"
-
-            LSP::Interface::CompletionList.new(
-              is_incomplete: false,
-              items: completion_items
-            )
           end
+        end
+      end
+
+      def format_completion_item_for_rbs(sig_service, type_name, context, job, prefix)
+        range = LanguageServer::Protocol::Interface::Range.new(
+          start: LanguageServer::Protocol::Interface::Position.new(
+            line: job.line - 1,
+            character: job.column - prefix.size
+          ),
+          end: LanguageServer::Protocol::Interface::Position.new(
+            line: job.line - 1,
+            character: job.column - prefix.size
+          )
+        )
+
+        name = relative_name_in_context(type_name, context).to_s
+
+        return unless name.start_with?(prefix)
+
+        case type_name.kind
+        when :class
+          class_decl = sig_service.latest_env.class_decls[type_name]&.decls[0]&.decl or raise
+
+          LanguageServer::Protocol::Interface::CompletionItem.new(
+            label: "#{name}",
+            documentation:  format_comment(class_decl.comment),
+            text_edit: LanguageServer::Protocol::Interface::TextEdit.new(
+              range: range,
+              new_text: name
+            ),
+            kind: LSP::Constant::CompletionItemKind::CLASS,
+            insert_text_format: LSP::Constant::InsertTextFormat::SNIPPET
+
+          )
+        when :alias
+          alias_decl = sig_service.latest_env.alias_decls[type_name]&.decl or raise
+          LanguageServer::Protocol::Interface::CompletionItem.new(
+            label: "#{name}",
+            text_edit: LanguageServer::Protocol::Interface::TextEdit.new(
+              range: range,
+              new_text: name
+            ),
+            documentation: format_comment(alias_decl.comment),
+            # https://github.com/microsoft/vscode-languageserver-node/blob/6d78fc4d25719b231aba64a721a606f58b9e0a5f/client/src/common/client.ts#L624-L650
+            kind: LSP::Constant::CompletionItemKind::FIELD,
+            insert_text_format: LSP::Constant::InsertTextFormat::SNIPPET
+          )
+        when :interface
+          interface_decl = sig_service.latest_env.interface_decls[type_name]&.decl or raise
+
+          LanguageServer::Protocol::Interface::CompletionItem.new(
+            label: "#{name}",
+            text_edit: LanguageServer::Protocol::Interface::TextEdit.new(
+              range: range,
+              new_text: name
+            ),
+            documentation: format_comment(interface_decl.comment),
+            kind: LanguageServer::Protocol::Constant::CompletionItemKind::INTERFACE,
+            insert_text_format: LanguageServer::Protocol::Constant::InsertTextFormat::SNIPPET
+          )
+        end
+      end
+
+      def format_comment(comment)
+        if comment
+          LSP::Interface::MarkupContent.new(
+            kind: LSP::Constant::MarkupKind::MARKDOWN,
+            value: comment.string
+          )
         end
       end
 
@@ -380,6 +504,17 @@ HOVER
         end
 
         params.join(", ")
+      end
+
+      def relative_name_in_context(type_name, context)
+        context.each do |namespace|
+          if (type_name.to_s == namespace.to_type_name.to_s || type_name.namespace.to_s == "::")
+            return RBS::TypeName.new(namespace: RBS::Namespace.empty, name: type_name.name)
+          elsif type_name.to_s.start_with?(namespace.to_s)
+            return TypeName(type_name.to_s.sub(namespace.to_type_name.to_s, '')).relative!
+          end
+        end
+        type_name
       end
     end
   end

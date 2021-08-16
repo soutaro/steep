@@ -54,25 +54,29 @@ module Steep
       end
 
       def content_for(path:, line:, column:)
+        target_for_code, targets_for_sigs = project.targets_for_path(path)
+
         case
-        when target = project.target_for_source_path(path)
+        when target = target_for_code
           Steep.logger.info "target #{target}"
 
           hover_for_source(column, line, path, target)
-        when (_, targets = project.targets_for_path(path))
-          target = targets[0]
+
+        when target = targets_for_sigs[0]
           service = self.service.signature_services[target.name]
+
           _buffer, decls = service.latest_env.buffers_decls.find do |buffer, _|
             Pathname(buffer.name) == path
           end
+
+          return if decls.nil?
 
           locator = RBS::Locator.new(decls: decls)
           hd, tail = locator.find2(line: line, column: column)
 
           case type = tail[0]
           when RBS::Types::Alias
-            env = service.latest_env
-            alias_decl = env.alias_decls[type.name]&.decl or raise
+            alias_decl = service.latest_env.alias_decls[type.name]&.decl or raise
 
             location = tail[0].location
             TypeAliasContent.new(
