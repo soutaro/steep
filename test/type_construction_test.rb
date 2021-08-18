@@ -7665,6 +7665,30 @@ RUBY
     end
   end
 
+  def test_ruby3_numbered_parameter4
+    with_checker(<<RBS) do |checker|
+module Ruby3
+  class Foo
+    def foo: (Integer) -> void
+           | () { (Integer) -> void } -> void
+  end
+end
+RBS
+
+      source = parse_ruby(<<RUBY)
+Ruby3::Foo.new().foo do
+  _1
+end
+RUBY
+
+      with_standard_construction(checker, source) do |construction, typing|
+        type, _ = construction.synthesize(source.node)
+
+        assert_no_error typing
+      end
+    end
+  end
+
   def test_type_check_def_without_decl
     with_checker(<<RBS) do |checker|
 RBS
