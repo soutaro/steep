@@ -661,7 +661,7 @@ module Steep
 
           unless missing_keywords.empty?
             diagnostics << Diagnostic::Ruby::InsufficientKeywordArguments.new(
-              node: kwargs_node || node,
+              node: node,
               method_name: method_name,
               method_type: method_type,
               missing_keywords: missing_keywords
