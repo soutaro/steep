@@ -7665,6 +7665,40 @@ RUBY
     end
   end
 
+  def test_ruby3_numbered_parameter4
+    with_checker(<<RBS) do |checker|
+module Ruby3
+  class Foo
+    def foo: (Integer) { (Integer) -> void } -> void
+
+    def bar: (foo: Integer) { (Integer) -> void } -> void
+  end
+end
+RBS
+
+      source = parse_ruby(<<RUBY)
+Ruby3::Foo.new().foo { _1 }
+Ruby3::Foo.new().bar { _1 }
+RUBY
+
+      with_standard_construction(checker, source) do |construction, typing|
+        type, _ = construction.synthesize(source.node)
+
+        assert_typing_error(typing, size: 2) do |errors|
+          assert_any!(errors) do |error|
+            assert_instance_of Diagnostic::Ruby::InsufficientPositionalArguments, error
+            assert_equal "foo", error.location.source
+          end
+
+          assert_any!(errors) do |error|
+            assert_instance_of Diagnostic::Ruby::InsufficientKeywordArguments, error
+            assert_equal "bar", error.location.source
+          end
+        end
+      end
+    end
+  end
+
   def test_type_check_def_without_decl
     with_checker(<<RBS) do |checker|
 RBS
@@ -7758,6 +7792,40 @@ RUBY
         construction.synthesize(source.node)
 
         assert_no_error typing
+      end
+    end
+  end
+
+  def test_missing_args_with_csend
+    with_checker(<<-RBS) do |checker|
+ module MissingArgs
+   class Foo
+     def csend: (Integer) -> void
+
+     def csendkw: (foo: Integer) -> void
+   end
+ end
+    RBS
+
+      source = parse_ruby(<<-'RUBY')
+MissingArgs::Foo.new&.csend
+MissingArgs::Foo.new&.csendkw
+      RUBY
+
+      with_standard_construction(checker, source) do |construction, typing|
+        type, _ = construction.synthesize(source.node)
+
+        assert_typing_error(typing, size: 2) do |errors|
+          assert_any!(errors) do |error|
+            assert_instance_of Diagnostic::Ruby::InsufficientPositionalArguments, error
+            assert_equal "csend", error.location.source
+          end
+
+          assert_any!(errors) do |error|
+            assert_instance_of Diagnostic::Ruby::InsufficientKeywordArguments, error
+            assert_equal "csendkw", error.location.source
+          end
+        end
       end
     end
   end
