@@ -64,10 +64,10 @@
   - range:
       start:
         line: 37
-        character: 0
+        character: 4
       end:
-        line: 41
-        character: 3
+        line: 37
+        character: 7
     severity: ERROR
     message: |-
       Cannot allow method body have type `(::Integer | ::String)` because declared as type `::String`

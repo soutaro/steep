@@ -471,7 +471,7 @@ module Steep
         include ResultPrinter
 
         def initialize(node:, expected:, actual:, result:)
-          super(node: node)
+          super(node: node, location: node.loc.name)
           @expected = expected
           @actual = actual
           @result = result

@@ -14,10 +14,10 @@
   - range:
       start:
         line: 13
-        character: 2
+        character: 6
       end:
-        line: 15
-        character: 5
+        line: 13
+        character: 10
     severity: ERROR
     message: |-
       Cannot allow method body have type `::Integer` because declared as type `::String`
@@ -29,10 +29,10 @@
   - range:
       start:
         line: 22
-        character: 2
+        character: 11
       end:
-        line: 24
-        character: 5
+        line: 22
+        character: 14
     severity: ERROR
     message: |-
       Cannot allow method body have type `::String` because declared as type `::Integer`

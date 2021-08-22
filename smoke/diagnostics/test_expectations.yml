@@ -233,10 +233,10 @@
   - range:
       start:
         line: 3
-        character: 2
+        character: 6
       end:
-        line: 5
-        character: 5
+        line: 3
+        character: 9
     severity: ERROR
     message: |-
       Cannot allow method body have type `::String` because declared as type `::Integer`
