@@ -275,6 +275,34 @@ module Steep
         end
       end
 
+      class MixinClassError < Base
+        attr_reader :member
+        attr_reader :type_name
+
+        def initialize(location:, member:, type_name:)
+          super(location: location)
+          @member = member
+          @type_name = type_name
+        end
+
+        def header_line
+          "Cannot #{mixin_name} a class `#{member.name}` in the definition of `#{type_name}`"
+        end
+
+        private
+
+        def mixin_name
+          case member
+          when RBS::AST::Members::Prepend
+            "prepend"
+          when RBS::AST::Members::Include
+            "include"
+          when RBS::AST::Members::Extend
+            "extend"
+          end
+        end
+      end
+
       class UnexpectedError < Base
         attr_reader :message
 
@@ -364,6 +392,12 @@ module Steep
             name: error.type_name,
             param: error.param,
             location: error.location
+          )
+        when RBS::MixinClassError
+          Diagnostic::Signature::MixinClassError.new(
+            location: error.location,
+            type_name: error.type_name,
+            member: error.member,
           )
         else
           raise error

@@ -229,3 +229,15 @@
     severity: ERROR
     message: Cannot find type `ZZZ`
     code: RBS::UnknownTypeName
+- file: mixin-class-error.rbs
+  diagnostics:
+  - range:
+      start:
+        line: 5
+        character: 2
+      end:
+        line: 5
+        character: 13
+    severity: ERROR
+    message: Cannot include a class `::Foo` in the definition of `::Bar`
+    code: RBS::MixinClassError

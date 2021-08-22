@@ -1,0 +1,6 @@
+class Foo
+end
+
+class Bar
+  include Foo
+end
