@@ -16,9 +16,9 @@
                | (::int, ::int, ::Integer) -> ::Integer
                | (::int, ::int, ::Array[::Integer]) -> ::Array[::Integer]
                | (::int, ::int, nil) -> nil
-               | (::Range[::Integer], ::Integer) -> ::Integer
-               | (::Range[::Integer], ::Array[::Integer]) -> ::Array[::Integer]
-               | (::Range[::Integer], nil) -> nil
+               | (::Range[(::Integer | nil)], ::Integer) -> ::Integer
+               | (::Range[(::Integer | nil)], ::Array[::Integer]) -> ::Array[::Integer]
+               | (::Range[(::Integer | nil)], nil) -> nil
     code: Ruby::UnresolvedOverloading
   - range:
       start:

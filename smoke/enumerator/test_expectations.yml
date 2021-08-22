@@ -102,7 +102,7 @@
       Cannot find compatible overloading of method `with_object` of type `::Enumerator[::Integer, ::Array[::Integer]]`
       Method types:
         def with_object: [U] (U) { (::Integer, U) -> untyped } -> U
-                       | [U] (U) -> ::Enumerator[[::Integer, U], ::Array[::Integer]]
+                       | [U] (U) -> ::Enumerator[[::Integer, U], U]
     code: Ruby::UnresolvedOverloading
   - range:
       start:
