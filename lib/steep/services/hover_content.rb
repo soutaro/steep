@@ -128,8 +128,8 @@ module Steep
           when :send
             receiver, method_name, *_ = node.children
 
-
-            result_node = if parents[0]&.type == :block
+            result_node = case parents[0]&.type
+                          when :block, :numblock
                             parents[0]
                           else
                             node
