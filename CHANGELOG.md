@@ -2,6 +2,20 @@
 
 ## master
 
+## 0.45.0 (2021-08-22)
+
+* Fix error reporting on `RBS::MixinClassError` ([\#411](https://github.com/soutaro/steep/pull/411))
+* Compact error reporting for method body type mismatch ([\#414](https://github.com/soutaro/steep/pull/414))
+* Fix NoMethodError with csend/numblock ([\#412](https://github.com/soutaro/steep/pull/412))
+* LSP completion for RBS files ([\#404](https://github.com/soutaro/steep/pull/404)) 
+* Allow break without value from bot methods ([\#398](https://github.com/soutaro/steep/pull/398))
+* Type check on lvar assignments ([\#390](https://github.com/soutaro/steep/pull/390))
+* Assign different error code to break without value ([\#387](https://github.com/soutaro/steep/pull/387))
+* Support Ruby3 Keyword Arguments ([\#386](https://github.com/soutaro/steep/pull/386))
+* LSP hover for RBS files ([\#385](https://github.com/soutaro/steep/pull/385), [\#397](https://github.com/soutaro/steep/pull/397)) 
+* Fix FileLoader to skip files not matching to the given pattern ([\#382](https://github.com/soutaro/steep/pull/382))
+* Ruby3 support for numbered block parameters and end-less def ([\#381](https://github.com/soutaro/steep/pull/381))
+
 ## 0.44.1 (2021-04-23)
 
 * Disable goto declaration and goto type declaration (because they are not implemented) ([#377](https://github.com/soutaro/steep/pull/377))
