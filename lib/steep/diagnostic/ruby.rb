@@ -94,13 +94,17 @@ module Steep
 
         def initialize(node:, method_name:, method_type:)
           send = case node.type
-                 when :send
+                 when :send, :csend
                    node
-                 when :block
+                 when :block, :numblock
                    node.children[0]
                  end
 
-          loc = send.loc.selector.with(end_pos: send.loc.expression.end_pos)
+          loc = if send
+                  send.loc.selector.with(end_pos: send.loc.expression.end_pos)
+                else
+                  node.loc.expression
+                end
 
           super(node: node, location: loc)
           @method_name = method_name
@@ -143,7 +147,21 @@ module Steep
         attr_reader :missing_keywords
 
         def initialize(node:, method_name:, method_type:, missing_keywords:)
-          super(node: node)
+          send = case node.type
+                 when :send, :csend
+                   node
+                 when :block, :numblock
+                   node.children[0]
+                 end
+
+          loc = if send
+                  send.loc.selector.with(end_pos: send.loc.expression.end_pos)
+                else
+                  node.loc.expression
+                end
+
+          super(node: node, location: loc)
+
           @method_name = method_name
           @method_type = method_type
           @missing_keywords = missing_keywords
