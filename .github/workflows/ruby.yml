@@ -15,6 +15,7 @@ jobs:
         - "2.6"
         - "2.7"
         - "3.0"
+        - "master-nightly-focal"
         task:
         - test
         - test:output
