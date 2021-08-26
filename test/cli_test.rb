@@ -24,6 +24,30 @@ class CLITest < Minitest::Test
     end
   end
 
+  def test_jobs_count
+    sub_test = -> (command, args) do
+      in_tmpdir do
+        (current_dir + "Steepfile").write(<<-EOF)
+target :app do
+  check "foo.rb"
+end
+        EOF
+
+        (current_dir + "foo.rb").write(<<-EOF)
+1 + 2
+        EOF
+
+        stdout, status = sh(*steep, command, *args)
+
+        assert_predicate status, :success?, stdout
+        assert_match /No type error detected\./, stdout
+      end
+    end
+    sub_test.call("check", %w(-j 1))
+    sub_test.call("check", %w(-j 0))
+    sub_test.call("check", %w(-j -1))
+  end
+
   def test_check_success
     in_tmpdir do
       (current_dir + "Steepfile").write(<<-EOF)

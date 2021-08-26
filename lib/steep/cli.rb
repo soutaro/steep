@@ -70,7 +70,7 @@ module Steep
       default = physical_processor_count + modifier
       command.jobs_count = default
       opts.on("-j N", "--jobs=N", "Specify the number of type check workers (defaults: #{default})") do |count|
-        command.jobs_count = Integer(count)
+        command.jobs_count = Integer(count) if Integer(count) > 0
       end
     end
 
