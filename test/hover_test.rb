@@ -124,6 +124,30 @@ RUBY
     end
   end
 
+  def test_hover_numblock
+    in_tmpdir do
+      service = typecheck_service()
+
+      service.update(
+        changes: {
+          Pathname("hello.rb") => [ContentChange.string(<<RUBY)]
+[1,2,3].map { _1.to_s }
+RUBY
+        }
+      ) {}
+
+      hover = HoverContent.new(service: service)
+
+      hover.content_for(path: Pathname("hello.rb"), line: 1, column: 9).tap do |content|
+        assert_instance_of HoverContent::MethodCallContent, content
+        assert_equal [1,0]...[1, 23], [content.location.line,content.location.column]...[content.location.last_line, content.location.last_column]
+        assert_equal HoverContent::InstanceMethodName.new(TypeName("::Array"), :map), content.method_name
+        assert_equal "::Array[::String]", content.type.to_s
+        assert_instance_of RBS::Definition::Method, content.definition
+      end
+    end
+  end
+
   def test_hover_def
     in_tmpdir do
       service = typecheck_service()
