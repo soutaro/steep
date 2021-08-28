@@ -30,16 +30,27 @@ module Steep
       end
 
       def self.construct_env_loader(options:, project:)
-        repo = RBS::Repository.new(no_stdlib: options.vendor_path)
-        options.repository_paths.each do |path|
+        repo = RBS::Repository.new(no_stdlib: options.paths.customized_stdlib?)
+
+        if options.paths.stdlib_root
+          repo.add(project.absolute_path(options.paths.stdlib_root))
+        end
+
+        options.paths.repo_paths.each do |path|
           repo.add(project.absolute_path(path))
         end
 
-        loader = RBS::EnvironmentLoader.new(
-          core_root: options.vendor_path ? nil : RBS::EnvironmentLoader::DEFAULT_CORE_ROOT,
-          repository: repo
-        )
-        loader.add(path: options.vendor_path) if options.vendor_path
+        core_root_path =
+          if options.paths.customized_core?
+            if options.paths.core_root
+              project.absolute_path(options.paths.core_root)
+            end
+          else
+            RBS::EnvironmentLoader::DEFAULT_CORE_ROOT
+          end
+
+        loader = RBS::EnvironmentLoader.new(core_root: core_root_path, repository: repo)
+
         options.libraries.each do |lib|
           name, version = lib.split(/:/, 2)
           loader.add(library: name, version: version)

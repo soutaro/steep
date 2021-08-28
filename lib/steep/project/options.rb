@@ -1,20 +1,28 @@
 module Steep
   class Project
     class Options
+      PathOptions = Struct.new(:core_root, :stdlib_root, :repo_paths, keyword_init: true) do
+        def customized_stdlib?
+          stdlib_root != nil
+        end
+
+        def customized_core?
+          core_root != nil
+        end
+      end
+
       attr_accessor :allow_fallback_any
       attr_accessor :allow_missing_definitions
       attr_accessor :allow_unknown_constant_assignment
       attr_accessor :allow_unknown_method_calls
-      attr_accessor :vendor_path
+
       attr_reader :libraries
-      attr_reader :repository_paths
+      attr_accessor :paths
 
       def initialize
         apply_default_typing_options!
-        self.vendor_path = nil
-
+        @paths = PathOptions.new(repo_paths: [])
         @libraries = []
-        @repository_paths = []
       end
 
       def apply_default_typing_options!

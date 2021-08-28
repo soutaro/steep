@@ -7,7 +7,8 @@ module Steep
         attr_reader :libraries
         attr_reader :signatures
         attr_reader :ignored_sources
-        attr_reader :vendor_dir
+        attr_reader :stdlib_root
+        attr_reader :core_root
         attr_reader :strictness_level
         attr_reader :typing_option_hash
         attr_reader :repo_paths
@@ -18,9 +19,10 @@ module Steep
           @libraries = libraries
           @signatures = signatures
           @ignored_sources = ignored_sources
-          @vendor_dir = nil
           @strictness_level = :default
           @typing_option_hash = {}
+          @core_root = nil
+          @stdlib_root = nil
           @repo_paths = []
         end
 
@@ -30,10 +32,11 @@ module Steep
           @libraries = other.libraries.dup
           @signatures = other.signatures.dup
           @ignored_sources = other.ignored_sources.dup
-          @vendor_dir = other.vendor_dir
           @strictness_level = other.strictness_level
           @typing_option_hash = other.typing_option_hash
           @repo_paths = other.repo_paths.dup
+          @core_root = other.core_root
+          @stdlib_root = other.stdlib_root
         end
 
         def check(*args)
@@ -68,15 +71,16 @@ module Steep
         end
 
         def no_builtin!(value = true)
-          Steep.logger.error "`no_builtin!` in Steepfile is deprecated and ignored. Use `vendor` instead."
+          Steep.logger.error "`#no_builtin!` in Steepfile is deprecated and ignored. Use `#stdlib_path` instead."
         end
 
         def vendor(dir = "vendor/sigs", stdlib: nil, gems: nil)
-          if stdlib || gems
-            Steep.logger.warn { "#vendor with stdlib: or gems: keyword is deprecated." }
-          end
+          Steep.logger.error "`#vendor` in Steepfile is deprecated and ignored. Use `#stdlib_path` instead."
+        end
 
-          @vendor_dir = Pathname(dir)
+        def stdlib_path(core_root:, stdlib_root:)
+          @core_root = core_root ? Pathname(core_root) : core_root
+          @stdlib_root = stdlib_root ? Pathname(stdlib_root) : stdlib_root
         end
 
         def repo_path(*paths)
@@ -129,8 +133,11 @@ module Steep
           signature_pattern: signature_pattern,
           options: Options.new.tap do |options|
             options.libraries.push(*target.libraries)
-            options.repository_paths.push(*target.repo_paths)
-            options.vendor_path = target.vendor_dir
+            options.paths = Options::PathOptions.new(
+              core_root: target.core_root,
+              stdlib_root: target.stdlib_root,
+              repo_paths: target.repo_paths
+            )
 
             case target.strictness_level
             when :strict
