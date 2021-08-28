@@ -13,6 +13,7 @@ module Steep
 
       attr_reader :libraries
       attr_accessor :paths
+      attr_accessor :collection_lock
 
       def initialize
         @paths = PathOptions.new(repo_paths: [])

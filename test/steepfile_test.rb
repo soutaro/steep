@@ -131,4 +131,80 @@ RUBY
       end
     end
   end
+
+  def test_collection_implicit
+    in_tmpdir do
+      current_dir.join('rbs_collection.yaml').write('')
+      current_dir.join('rbs_collection.lock.yaml').write(<<YAML)
+sources: []
+path: '.gem_rbs_collection'
+gems:
+  - name: pathname
+    source:
+      type: stdlib
+YAML
+      project = Project.new(steepfile_path: current_dir + "Steepfile")
+
+      Project::DSL.parse(project, <<EOF)
+target :app do
+end
+EOF
+
+      project.targets[0].tap do |target|
+        assert target.options.collection_lock
+        assert target.options.collection_lock.gem('pathname')
+      end
+    end
+  end
+
+  def test_collection_explicit
+    in_tmpdir do
+      current_dir.join('my-rbs_collection.yaml').write('')
+      current_dir.join('my-rbs_collection.lock.yaml').write(<<YAML)
+sources: []
+path: '.gem_rbs_collection'
+gems:
+  - name: pathname
+    source:
+      type: stdlib
+YAML
+      project = Project.new(steepfile_path: current_dir + "Steepfile")
+
+      Project::DSL.parse(project, <<EOF)
+target :app do
+  collection_config 'my-rbs_collection.yaml'
+end
+EOF
+
+      project.targets[0].tap do |target|
+        assert target.options.collection_lock
+        assert target.options.collection_lock.gem('pathname')
+      end
+    end
+  end
+
+  def test_disable_collection
+    in_tmpdir do
+      current_dir.join('rbs_collection.yaml').write('')
+      current_dir.join('rbs_collection.lock.yaml').write(<<YAML)
+sources: []
+path: '.gem_rbs_collection'
+gems:
+  - name: pathname
+    source:
+      type: stdlib
+YAML
+      project = Project.new(steepfile_path: current_dir + "Steepfile")
+
+      Project::DSL.parse(project, <<EOF)
+target :app do
+  disable_collection
+end
+EOF
+
+      project.targets[0].tap do |target|
+        assert_nil target.options.collection_lock
+      end
+    end
+  end
 end
