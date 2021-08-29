@@ -1,5 +1,7 @@
 target :test do
-  signature "."
-  check "."
+  check "*.rb"
+  signature "*.rbs"
   library "tsort"
+
+  configure_code_diagnostics(Steep::Diagnostic::Ruby.all_error)
 end
