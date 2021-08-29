@@ -10,8 +10,9 @@ module Steep
         attr_reader :stdlib_root
         attr_reader :core_root
         attr_reader :repo_paths
+        attr_reader :code_diagnostics_config
 
-        def initialize(name, sources: [], libraries: [], signatures: [], ignored_sources: [], repo_paths: [])
+        def initialize(name, sources: [], libraries: [], signatures: [], ignored_sources: [], repo_paths: [], code_diagnostics_config: {})
           @name = name
           @sources = sources
           @libraries = libraries
@@ -20,6 +21,7 @@ module Steep
           @core_root = nil
           @stdlib_root = nil
           @repo_paths = []
+          @code_diagnostics_config = code_diagnostics_config
         end
 
         def initialize_copy(other)
@@ -31,6 +33,7 @@ module Steep
           @repo_paths = other.repo_paths.dup
           @core_root = other.core_root
           @stdlib_root = other.stdlib_root
+          @code_diagnostics_config = other.code_diagnostics_config.dup
         end
 
         def check(*args)
@@ -78,6 +81,35 @@ module Steep
 
         def repo_path(*paths)
           @repo_paths.push(*paths.map {|s| Pathname(s) })
+        end
+
+        # Configure the code diagnostics printing setup.
+        #
+        # Yields a hash, and the update the hash in the block.
+        #
+        # ```rb
+        # D = Steep::Diagnostic
+        #
+        # configure_code_diagnostics do |hash|
+        #   # Assign one of :error, :warning, :information, :hint or :nil to error classes.
+        #   hash[D::Ruby::UnexpectedPositionalArgument] = :error
+        # end
+        # ```
+        #
+        # Passing a hash is also allowed.
+        #
+        # ```rb
+        # D = Steep::Diagnostic
+        #
+        # configure_code_diagnostics(D::Ruby.lenient)
+        # ```
+        #
+        def configure_code_diagnostics(hash = nil)
+          if hash
+            code_diagnostics_config.merge!(hash)
+          end
+
+          yield code_diagnostics_config if block_given?
         end
       end
 
@@ -135,7 +167,8 @@ module Steep
               stdlib_root: target.stdlib_root,
               repo_paths: target.repo_paths
             )
-          end
+          end,
+          code_diagnostics_config: target.code_diagnostics_config
         ).tap do |target|
           project.targets << target
         end

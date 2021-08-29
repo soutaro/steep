@@ -108,4 +108,29 @@ EOF
       end
     end
   end
+
+  def test_diagnostics
+    in_tmpdir do
+      project = Project.new(steepfile_path: current_dir + "Steepfile")
+
+      Project::DSL.parse(project, <<RUBY)
+target :app do
+  repo_path "vendor/rbs/internal"
+
+  configure_code_diagnostics(
+    {
+      Steep::Diagnostic::Ruby::FallbackAny => :warning
+    }
+  )
+end
+RUBY
+
+      project.targets[0].tap do |target|
+        assert_equal(
+          { Diagnostic::Ruby::FallbackAny => :warning },
+          target.code_diagnostics_config
+        )
+      end
+    end
+  end
 end

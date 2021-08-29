@@ -181,7 +181,7 @@ module Steep
             Steep.logger.info { "Processing TypeCheckCodeJob for guid=#{job.guid}, path=#{job.path}" }
             service.typecheck_source(path: project.relative_path(job.path)) do |path, diagnostics|
               target = project.target_for_source_path(path)
-              formatter = Diagnostic::LSPFormatter.new({})
+              formatter = Diagnostic::LSPFormatter.new(target&.code_diagnostics_config || {})
 
               writer.write(
                 method: :"textDocument/publishDiagnostics",
