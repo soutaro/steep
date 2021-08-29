@@ -18,7 +18,8 @@ target :app do
   typing_options :strict
   check "app"
   ignore "app/views"
-  vendor
+
+  stdlib_path(core_root: "vendor/rbs/core", stdlib_root: "vendor/rbs/stdlib")
 
   signature "sig", "sig-private"
 
@@ -27,6 +28,7 @@ target :app do
 end
 
 target :Gemfile, template: :gemfile do
+  stdlib_path(core_root: false, stdlib_root: false)
 end
 EOF
 
@@ -38,7 +40,8 @@ EOF
         assert_equal ["app/views"], target.source_pattern.ignores
         assert_equal ["sig", "sig-private"], target.signature_pattern.patterns
         assert_equal ["set", "strong_json"], target.options.libraries
-        assert_equal Pathname("vendor/sigs"), target.options.vendor_path
+        assert_equal Pathname("vendor/rbs/core"), target.options.paths.core_root
+        assert_equal Pathname("vendor/rbs/stdlib"), target.options.paths.stdlib_root
         assert_equal false, target.options.allow_missing_definitions
       end
 
@@ -48,7 +51,8 @@ EOF
         assert_equal [], target.source_pattern.ignores
         assert_equal [], target.signature_pattern.patterns
         assert_equal ["gemfile"], target.options.libraries
-        assert_nil target.options.vendor_path
+        assert_equal false, target.options.paths.core_root
+        assert_equal false, target.options.paths.stdlib_root
         assert_equal true, target.options.allow_missing_definitions
       end
     end
@@ -62,7 +66,6 @@ EOF
 target :app do
   check "app"
   ignore "app/views"
-  vendor
 
   typing_options :strict,
                  allow_missing_definitions: true,
@@ -102,7 +105,9 @@ target :app do
   repo_path "vendor/rbs/internal"
 end
 EOF
-      assert_equal [Pathname("vendor/rbs/internal")], project.targets[0].options.repository_paths
+      project.targets[0].tap do |target|
+        assert_equal [Pathname("vendor/rbs/internal")], target.options.paths.repo_paths
+      end
     end
   end
 end
