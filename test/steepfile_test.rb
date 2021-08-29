@@ -15,7 +15,6 @@ class SteepfileTest < Minitest::Test
 
       Project::DSL.parse(project, <<EOF)
 target :app do
-  typing_options :strict
   check "app"
   ignore "app/views"
 
@@ -62,7 +61,10 @@ EOF
     in_tmpdir do
       project = Project.new(steepfile_path: current_dir + "Steepfile")
 
-      Project::DSL.parse(project, <<RUBY)
+      begin
+        Steep.log_output = StringIO.new
+
+        Project::DSL.parse(project, <<RUBY)
 target :app do
   check "app"
   ignore "app/views"
@@ -73,14 +75,10 @@ target :app do
 end
 RUBY
 
-      assert_equal 1, project.targets.size
-
-      target = project.targets[0]
-
-      assert_operator target.options, :allow_missing_definitions
-      assert_operator target.options, :allow_fallback_any
-      refute_operator target.options, :allow_unknown_constant_assignment
-      refute_operator target.options, :allow_unknown_method_calls
+        assert_match(/\[Steepfile\] \[target=app\] #typing_options is deprecated and has no effect as of version 0\.45\.0/, Steep.log_output.string)
+      ensure
+        Steep.log_output = STDERR
+      end
     end
   end
 

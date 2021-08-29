@@ -181,7 +181,7 @@ module Steep
             Steep.logger.info { "Processing TypeCheckCodeJob for guid=#{job.guid}, path=#{job.path}" }
             service.typecheck_source(path: project.relative_path(job.path)) do |path, diagnostics|
               if target = project.target_for_source_path(path)
-                diagnostics = diagnostics.select {|diagnostic| target.options.error_to_report?(diagnostic) }
+                diagnostics = diagnostics.select {|diagnostic| true }
               end
 
               formatter = Diagnostic::LSPFormatter.new()
