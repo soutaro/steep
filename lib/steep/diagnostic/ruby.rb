@@ -700,6 +700,57 @@ module Steep
           "SyntaxError: #{message}"
         end
       end
+
+      ALL = ObjectSpace.each_object(Class).with_object([]) do |klass, array|
+        if klass < Base
+          array << klass
+        end
+      end
+
+      def self.all_error
+        @all_error ||= ALL.each.with_object({}) do |klass, hash|
+          hash[klass] = LSPFormatter::ERROR
+        end.freeze
+      end
+
+      def self.default
+        @default ||= all_error.merge(
+          {
+            ImplicitBreakValueMismatch => :warning,
+            FallbackAny => :information,
+            ElseOnExhaustiveCase => :warning,
+            UnknownConstantAssigned => :warning,
+            MethodDefinitionMissing => :information
+          }
+        ).freeze
+      end
+
+      def self.strict
+        @strict ||= all_error.merge(
+          {
+            NoMethod => nil,
+            ImplicitBreakValueMismatch => nil,
+            FallbackAny => nil,
+            ElseOnExhaustiveCase => nil,
+            UnknownConstantAssigned => nil,
+            MethodDefinitionMissing => nil
+          }
+        ).freeze
+      end
+
+      def self.lenient
+        @lenient ||= all_error.merge(
+          {
+            NoMethod => nil,
+            ImplicitBreakValueMismatch => nil,
+            FallbackAny => nil,
+            ElseOnExhaustiveCase => nil,
+            UnknownConstantAssigned => nil,
+            MethodDefinitionMissing => nil,
+            UnexpectedJump => nil
+          }
+        ).freeze
+      end
     end
   end
 end

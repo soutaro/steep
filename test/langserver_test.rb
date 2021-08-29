@@ -24,7 +24,6 @@ class LangserverTest < Minitest::Test
 target :app do
   check "lib"
   signature "sig"
-  typing_options :strict
 end
 EOF
 

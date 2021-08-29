@@ -6,12 +6,14 @@ module Steep
 
       attr_reader :source_pattern
       attr_reader :signature_pattern
+      attr_reader :code_diagnostics_config
 
-      def initialize(name:, options:, source_pattern:, signature_pattern:)
+      def initialize(name:, options:, source_pattern:, signature_pattern:, code_diagnostics_config:)
         @name = name
         @options = options
         @source_pattern = source_pattern
         @signature_pattern = signature_pattern
+        @code_diagnostics_config = code_diagnostics_config
 
         @source_files = {}
         @signature_files = {}

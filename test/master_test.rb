@@ -575,7 +575,6 @@ end
 target :lib do
   check "lib"
   signature "sig"
-  typing_options :strict
 end
       EOF
 
@@ -637,7 +636,6 @@ end
 target :lib do
   check "lib"
   signature "sig"
-  typing_options :strict
 end
       EOF
 
@@ -688,7 +686,6 @@ x.ab
 target :lib do
   check "lib"
   signature "sig"
-  typing_options :strict
 end
       EOF
 

@@ -2,7 +2,7 @@ all_sigs = Pathname.glob("*.rbs")
 
 all_sigs.each do |path|
   target path.basename(".rbs").to_s.to_sym do
-    typing_options :strict
     signature path.to_s
+    configure_code_diagnostics(Steep::Diagnostic::Ruby.all_error)
   end
 end

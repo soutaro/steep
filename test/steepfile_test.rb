@@ -15,7 +15,6 @@ class SteepfileTest < Minitest::Test
 
       Project::DSL.parse(project, <<EOF)
 target :app do
-  typing_options :strict
   check "app"
   ignore "app/views"
 
@@ -42,7 +41,6 @@ EOF
         assert_equal ["set", "strong_json"], target.options.libraries
         assert_equal Pathname("vendor/rbs/core"), target.options.paths.core_root
         assert_equal Pathname("vendor/rbs/stdlib"), target.options.paths.stdlib_root
-        assert_equal false, target.options.allow_missing_definitions
       end
 
       project.targets.find {|target| target.name == :Gemfile }.tap do |target|
@@ -53,7 +51,6 @@ EOF
         assert_equal ["gemfile"], target.options.libraries
         assert_equal false, target.options.paths.core_root
         assert_equal false, target.options.paths.stdlib_root
-        assert_equal true, target.options.allow_missing_definitions
       end
     end
   end
@@ -62,7 +59,10 @@ EOF
     in_tmpdir do
       project = Project.new(steepfile_path: current_dir + "Steepfile")
 
-      Project::DSL.parse(project, <<RUBY)
+      begin
+        Steep.log_output = StringIO.new
+
+        Project::DSL.parse(project, <<RUBY)
 target :app do
   check "app"
   ignore "app/views"
@@ -73,14 +73,10 @@ target :app do
 end
 RUBY
 
-      assert_equal 1, project.targets.size
-
-      target = project.targets[0]
-
-      assert_operator target.options, :allow_missing_definitions
-      assert_operator target.options, :allow_fallback_any
-      refute_operator target.options, :allow_unknown_constant_assignment
-      refute_operator target.options, :allow_unknown_method_calls
+        assert_match(/\[Steepfile\] \[target=app\] #typing_options is deprecated and has no effect as of version 0\.46\.0/, Steep.log_output.string)
+      ensure
+        Steep.log_output = STDERR
+      end
     end
   end
 
@@ -107,6 +103,28 @@ end
 EOF
       project.targets[0].tap do |target|
         assert_equal [Pathname("vendor/rbs/internal")], target.options.paths.repo_paths
+      end
+    end
+  end
+
+  def test_diagnostics
+    in_tmpdir do
+      project = Project.new(steepfile_path: current_dir + "Steepfile")
+
+      Project::DSL.parse(project, <<RUBY)
+target :app do
+  repo_path "vendor/rbs/internal"
+
+  configure_code_diagnostics(
+    {
+      Steep::Diagnostic::Ruby::FallbackAny => :warning
+    }
+  )
+end
+RUBY
+
+      project.targets[0].tap do |target|
+        assert_equal :warning, target.code_diagnostics_config[Diagnostic::Ruby::FallbackAny]
       end
     end
   end

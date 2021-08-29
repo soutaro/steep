@@ -1,6 +1,7 @@
 target :test do
-  typing_options :strict
   check "*.rb"
   signature "*.rbs"
   library "set"
+
+  configure_code_diagnostics(Steep::Diagnostic::Ruby.all_error)
 end

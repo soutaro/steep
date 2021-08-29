@@ -55,6 +55,21 @@ module Steep
             end
           end
         end
+
+        def keep_diagnostic?(diagnostic)
+          severity = diagnostic[:severity]
+
+          case self.severity_level
+          when nil, :hint
+            true
+          when :error
+            severity <= LanguageServer::Protocol::Constant::DiagnosticSeverity::ERROR
+          when :warning
+            severity <= LanguageServer::Protocol::Constant::DiagnosticSeverity::WARNING
+          when :information
+            severity <= LanguageServer::Protocol::Constant::DiagnosticSeverity::INFORMATION
+          end
+        end
       end
     end
   end

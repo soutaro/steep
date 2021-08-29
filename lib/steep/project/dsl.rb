@@ -9,21 +9,19 @@ module Steep
         attr_reader :ignored_sources
         attr_reader :stdlib_root
         attr_reader :core_root
-        attr_reader :strictness_level
-        attr_reader :typing_option_hash
         attr_reader :repo_paths
+        attr_reader :code_diagnostics_config
 
-        def initialize(name, sources: [], libraries: [], signatures: [], ignored_sources: [], repo_paths: [])
+        def initialize(name, sources: [], libraries: [], signatures: [], ignored_sources: [], repo_paths: [], code_diagnostics_config: {})
           @name = name
           @sources = sources
           @libraries = libraries
           @signatures = signatures
           @ignored_sources = ignored_sources
-          @strictness_level = :default
-          @typing_option_hash = {}
           @core_root = nil
           @stdlib_root = nil
           @repo_paths = []
+          @code_diagnostics_config = code_diagnostics_config
         end
 
         def initialize_copy(other)
@@ -32,11 +30,10 @@ module Steep
           @libraries = other.libraries.dup
           @signatures = other.signatures.dup
           @ignored_sources = other.ignored_sources.dup
-          @strictness_level = other.strictness_level
-          @typing_option_hash = other.typing_option_hash
           @repo_paths = other.repo_paths.dup
           @core_root = other.core_root
           @stdlib_root = other.stdlib_root
+          @code_diagnostics_config = other.code_diagnostics_config.dup
         end
 
         def check(*args)
@@ -51,9 +48,8 @@ module Steep
           libraries.push(*args)
         end
 
-        def typing_options(level = @strictness_level, **hash)
-          @strictness_level = level
-          @typing_option_hash = hash
+        def typing_options(level = nil, **hash)
+          Steep.logger.error "#typing_options is deprecated and has no effect as of version 0.46.0"
         end
 
         def signature(*args)
@@ -86,6 +82,35 @@ module Steep
         def repo_path(*paths)
           @repo_paths.push(*paths.map {|s| Pathname(s) })
         end
+
+        # Configure the code diagnostics printing setup.
+        #
+        # Yields a hash, and the update the hash in the block.
+        #
+        # ```rb
+        # D = Steep::Diagnostic
+        #
+        # configure_code_diagnostics do |hash|
+        #   # Assign one of :error, :warning, :information, :hint or :nil to error classes.
+        #   hash[D::Ruby::UnexpectedPositionalArgument] = :error
+        # end
+        # ```
+        #
+        # Passing a hash is also allowed.
+        #
+        # ```rb
+        # D = Steep::Diagnostic
+        #
+        # configure_code_diagnostics(D::Ruby.lenient)
+        # ```
+        #
+        def configure_code_diagnostics(hash = nil)
+          if hash
+            code_diagnostics_config.merge!(hash)
+          end
+
+          yield code_diagnostics_config if block_given?
+        end
       end
 
       attr_reader :project
@@ -111,7 +136,9 @@ module Steep
       end
 
       def self.parse(project, code, filename: "Steepfile")
-        self.new(project: project).instance_eval(code, filename)
+        Steep.logger.tagged filename do
+          self.new(project: project).instance_eval(code, filename)
+        end
       end
 
       def target(name, template: nil, &block)
@@ -119,10 +146,12 @@ module Steep
                    self.class.templates[template]&.dup&.update(name: name) or
                      raise "Unknown template: #{template}, available templates: #{@@templates.keys.join(", ")}"
                  else
-                   TargetDSL.new(name)
+                   TargetDSL.new(name, code_diagnostics_config: Diagnostic::Ruby.default.dup)
                  end
 
-        target.instance_eval(&block) if block_given?
+        Steep.logger.tagged "target=#{name}" do
+          target.instance_eval(&block) if block_given?
+        end
 
         source_pattern = Pattern.new(patterns: target.sources, ignores: target.ignored_sources, ext: ".rb")
         signature_pattern = Pattern.new(patterns: target.signatures, ext: ".rbs")
@@ -138,16 +167,8 @@ module Steep
               stdlib_root: target.stdlib_root,
               repo_paths: target.repo_paths
             )
-
-            case target.strictness_level
-            when :strict
-              options.apply_strict_typing_options!
-            when :lenient
-              options.apply_lenient_typing_options!
-            end
-
-            options.merge!(target.typing_option_hash)
-          end
+          end,
+          code_diagnostics_config: target.code_diagnostics_config
         ).tap do |target|
           project.targets << target
         end

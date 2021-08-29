@@ -508,6 +508,73 @@ EOF
     end
   end
 
+  def test_handle_job_typecheck_code_diagnostics
+    in_tmpdir do
+      project = Project.new(steepfile_path: current_dir + "Steepfile")
+      Project::DSL.parse(project, <<EOF)
+D = Steep::Diagnostic
+
+target :lib do
+  check "lib"
+  signature "sig"
+
+  configure_code_diagnostics do |hash|
+    hash[D::Ruby::UnexpectedPositionalArgument] = :error
+    hash[D::Ruby::UnknownConstantAssigned] = :information
+    hash[D::Ruby::NoMethod] = nil
+  end
+end
+EOF
+
+      worker = Server::TypeCheckWorker.new(
+        project: project,
+        assignment: assignment,
+        commandline_args: [],
+        reader: worker_reader,
+        writer: worker_writer
+      )
+
+      worker.load_files(project: worker.project, commandline_args: [])
+      worker.instance_variable_set(:@current_type_check_guid, "guid")
+
+      {}.tap do |changes|
+        changes[Pathname("lib/hello.rb")] = [Services::ContentChange.string(<<EOF)]
+Hello.new.world(10)
+UnKnownConStant = 123
+"hello".world()
+EOF
+        changes[Pathname("sig/hello.rbs")] = [Services::ContentChange.string(<<EOF)]
+class Hello
+  def world: () -> void
+end
+EOF
+        worker.handle_job(TypeCheckWorker::StartTypeCheckJob.new(guid: "guid", changes: changes))
+      end
+
+      job = TypeCheckWorker::TypeCheckCodeJob.new(guid: "guid", path: current_dir + "lib/hello.rb")
+      worker.handle_job(job)
+
+      message = master_reader.read do |response|
+        if response[:method] == "textDocument/publishDiagnostics" &&
+          response[:params][:uri] == "file://#{current_dir + "lib/hello.rb"}"
+          break response
+        end
+      end
+
+      assert_instance_of Hash, message
+
+      assert_any!(message[:params][:diagnostics], size: 2) do |diagnostic|
+        assert_equal "Ruby::UnexpectedPositionalArgument", diagnostic[:code]
+        assert_equal 1, diagnostic[:severity]
+      end
+
+      assert_any!(message[:params][:diagnostics], size: 2) do |diagnostic|
+        assert_equal "Ruby::UnknownConstantAssigned", diagnostic[:code]
+        assert_equal 3, diagnostic[:severity]
+      end
+    end
+  end
+
   def test_handle_job_validate_lib_signature_skip
     in_tmpdir do
       project = Project.new(steepfile_path: current_dir + "Steepfile")

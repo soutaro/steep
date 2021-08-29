@@ -144,7 +144,7 @@ module Steep
           if job.guid == current_type_check_guid
             Steep.logger.info { "Processing ValidateAppSignature for guid=#{job.guid}, path=#{job.path}" }
             service.validate_signature(path: project.relative_path(job.path)) do |path, diagnostics|
-              formatter = Diagnostic::LSPFormatter.new()
+              formatter = Diagnostic::LSPFormatter.new({})
 
               writer.write(
                 method: :"textDocument/publishDiagnostics",
@@ -162,13 +162,13 @@ module Steep
           if job.guid == current_type_check_guid
             Steep.logger.info { "Processing ValidateLibrarySignature for guid=#{job.guid}, path=#{job.path}" }
             service.validate_signature(path: job.path) do |path, diagnostics|
-              formatter = Diagnostic::LSPFormatter.new()
+              formatter = Diagnostic::LSPFormatter.new({})
 
               writer.write(
                 method: :"textDocument/publishDiagnostics",
                 params: LSP::Interface::PublishDiagnosticsParams.new(
                   uri: URI.parse(job.path.to_s).tap {|uri| uri.scheme = "file"},
-                  diagnostics: diagnostics.map {|diagnostic| formatter.format(diagnostic) }.uniq
+                  diagnostics: diagnostics.map {|diagnostic| formatter.format(diagnostic) }.uniq.compact
                 )
               )
             end
@@ -180,17 +180,14 @@ module Steep
           if job.guid == current_type_check_guid
             Steep.logger.info { "Processing TypeCheckCodeJob for guid=#{job.guid}, path=#{job.path}" }
             service.typecheck_source(path: project.relative_path(job.path)) do |path, diagnostics|
-              if target = project.target_for_source_path(path)
-                diagnostics = diagnostics.select {|diagnostic| target.options.error_to_report?(diagnostic) }
-              end
-
-              formatter = Diagnostic::LSPFormatter.new()
+              target = project.target_for_source_path(path)
+              formatter = Diagnostic::LSPFormatter.new(target&.code_diagnostics_config || {})
 
               writer.write(
                 method: :"textDocument/publishDiagnostics",
                 params: LSP::Interface::PublishDiagnosticsParams.new(
                   uri: URI.parse(job.path.to_s).tap {|uri| uri.scheme = "file"},
-                  diagnostics: diagnostics.map {|diagnostic| formatter.format(diagnostic) }.uniq
+                  diagnostics: diagnostics.map {|diagnostic| formatter.format(diagnostic) }.uniq.compact
                 )
               )
             end
