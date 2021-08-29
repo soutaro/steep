@@ -8,6 +8,7 @@ module Steep
       attr_reader :command_line_patterns
       attr_accessor :with_expectations_path
       attr_accessor :save_expectations_path
+      attr_accessor :severity_level
 
       include Utils::DriverHelper
       include Utils::JobsCount
@@ -16,6 +17,7 @@ module Steep
         @stdout = stdout
         @stderr = stderr
         @command_line_patterns = []
+        @severity_level = :warning
       end
 
       def run
@@ -70,6 +72,7 @@ module Steep
           case
           when response[:method] == "textDocument/publishDiagnostics"
             ds = response[:params][:diagnostics]
+            ds.select! {|d| keep_diagnostic?(d) }
             if ds.empty?
               stdout.print "."
             else

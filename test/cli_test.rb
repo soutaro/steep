@@ -86,6 +86,35 @@ end
     end
   end
 
+  def test_check_failure_severity_level
+    in_tmpdir do
+      (current_dir + "Steepfile").write(<<-EOF)
+D = Steep::Diagnostic
+target :app do
+  check "foo.rb"
+
+  configure_code_diagnostics do |hash|
+    hash[D::Ruby::NoMethod] = :warning
+    hash[D::Ruby::UnresolvedOverloading] = :information
+  end
+end
+      EOF
+
+      (current_dir + "foo.rb").write(<<-EOF)
+1 + "2"
+1.no_method_error
+      EOF
+
+      stdout, status = sh(*steep, "check", "--severity-level=warning")
+
+      refute_predicate status, :success?, stdout
+      assert_match /Detected 1 problem from 1 file/, stdout
+
+      assert_match /Ruby::NoMethod/, stdout
+      refute_match /Ruby::UnresolvedOverloading/, stdout
+    end
+  end
+
   def test_check_expectations_success
     in_tmpdir do
       (current_dir + "Steepfile").write(<<-EOF)

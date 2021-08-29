@@ -99,6 +99,9 @@ module Steep
           opts.on("--save-expectations[=PATH]", "Save expectations with current type check result to PATH (or steep_expectations.yml)") do |path|
             check.save_expectations_path = Pathname(path || "steep_expectations.yml")
           end
+          opts.on("--severity-level=LEVEL", /^error|warning|information|hint$/, "Specify the minimum diagnostic severity to be recognized as an error (defaults: warning): error, warning, information, or hint") do |level|
+            check.severity_level = level.to_sym
+          end
           handle_jobs_option check, opts
           handle_logging_options opts
         end.parse!(argv)
@@ -155,6 +158,9 @@ module Steep
       Drivers::Watch.new(stdout: stdout, stderr: stderr).tap do |command|
         OptionParser.new do |opts|
           opts.banner = "Usage: steep watch [options] [dirs]"
+          opts.on("--severity-level=LEVEL", /^error|warning|information|hint$/, "Specify the minimum diagnostic severity to be recognized as an error (defaults: warning): error, warning, information, or hint") do |level|
+            command.severity_level = level.to_sym
+          end
           handle_jobs_option command, opts
           handle_logging_options opts
         end.parse!(argv)

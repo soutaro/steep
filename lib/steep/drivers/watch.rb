@@ -5,6 +5,7 @@ module Steep
       attr_reader :stdout
       attr_reader :stderr
       attr_reader :queue
+      attr_accessor :severity_level
 
       include Utils::DriverHelper
       include Utils::JobsCount
@@ -16,6 +17,7 @@ module Steep
         @stdout = stdout
         @stderr = stderr
         @queue = Thread::Queue.new
+        @severity_level = :warning
       end
 
       def watching?(changed_path, files:, dirs:)
@@ -126,6 +128,7 @@ module Steep
               printer = DiagnosticPrinter.new(stdout: stdout, buffer: buffer)
 
               diagnostics = response[:params][:diagnostics]
+              diagnostics.filter! {|d| keep_diagnostic?(d) }
 
               unless diagnostics.empty?
                 diagnostics.each do |diagnostic|
