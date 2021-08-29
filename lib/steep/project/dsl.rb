@@ -146,7 +146,7 @@ module Steep
                    self.class.templates[template]&.dup&.update(name: name) or
                      raise "Unknown template: #{template}, available templates: #{@@templates.keys.join(", ")}"
                  else
-                   TargetDSL.new(name)
+                   TargetDSL.new(name, code_diagnostics_config: Diagnostic::Ruby.default.dup)
                  end
 
         Steep.logger.tagged "target=#{name}" do
