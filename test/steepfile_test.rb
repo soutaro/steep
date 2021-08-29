@@ -41,7 +41,6 @@ EOF
         assert_equal ["set", "strong_json"], target.options.libraries
         assert_equal Pathname("vendor/rbs/core"), target.options.paths.core_root
         assert_equal Pathname("vendor/rbs/stdlib"), target.options.paths.stdlib_root
-        assert_equal false, target.options.allow_missing_definitions
       end
 
       project.targets.find {|target| target.name == :Gemfile }.tap do |target|
@@ -52,7 +51,6 @@ EOF
         assert_equal ["gemfile"], target.options.libraries
         assert_equal false, target.options.paths.core_root
         assert_equal false, target.options.paths.stdlib_root
-        assert_equal true, target.options.allow_missing_definitions
       end
     end
   end
@@ -75,7 +73,7 @@ target :app do
 end
 RUBY
 
-        assert_match(/\[Steepfile\] \[target=app\] #typing_options is deprecated and has no effect as of version 0\.45\.0/, Steep.log_output.string)
+        assert_match(/\[Steepfile\] \[target=app\] #typing_options is deprecated and has no effect as of version 0\.46\.0/, Steep.log_output.string)
       ensure
         Steep.log_output = STDERR
       end
@@ -126,10 +124,7 @@ end
 RUBY
 
       project.targets[0].tap do |target|
-        assert_equal(
-          { Diagnostic::Ruby::FallbackAny => :warning },
-          target.code_diagnostics_config
-        )
+        assert_equal :warning, target.code_diagnostics_config[Diagnostic::Ruby::FallbackAny]
       end
     end
   end
