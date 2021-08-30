@@ -2,17 +2,32 @@
 
 ## master
 
+## 0.46.0 (2021-08-30)
+
+This release updates Steepfile DSL syntax, introducing `stdlib_path` and `configure_code_diagnostics` syntax (methods).
+
+* `stdlib_path` allows configuring core/stdlib RBS file locations.
+* `configure_code_diagnostics` allows configuring _severity_ of each type errors.
+
+See the PRs for the explanation of these methods.
+You can try `steep init` to generate updated `Steepfile` template.
+
+* Flexible diagnostics configuration ([\#422](https://github.com/soutaro/steep/pull/422), [\#423](https://github.com/soutaro/steep/pull/423))
+* Revise Steepfile _path_ DSL ([\#421](https://github.com/soutaro/steep/pull/421))
+* Avoid to stop process by invalid jobs_count ([\#419](https://github.com/soutaro/steep/pull/419))
+* Fix `Steep::Typing::UnknownNodeError` when hover method with numblock ([\#415](https://github.com/soutaro/steep/pull/415))
+
 ## 0.45.0 (2021-08-22)
 
 * Fix error reporting on `RBS::MixinClassError` ([\#411](https://github.com/soutaro/steep/pull/411))
 * Compact error reporting for method body type mismatch ([\#414](https://github.com/soutaro/steep/pull/414))
 * Fix NoMethodError with csend/numblock ([\#412](https://github.com/soutaro/steep/pull/412))
-* LSP completion for RBS files ([\#404](https://github.com/soutaro/steep/pull/404)) 
+* LSP completion for RBS files ([\#404](https://github.com/soutaro/steep/pull/404))
 * Allow break without value from bot methods ([\#398](https://github.com/soutaro/steep/pull/398))
 * Type check on lvar assignments ([\#390](https://github.com/soutaro/steep/pull/390))
 * Assign different error code to break without value ([\#387](https://github.com/soutaro/steep/pull/387))
 * Support Ruby3 Keyword Arguments ([\#386](https://github.com/soutaro/steep/pull/386))
-* LSP hover for RBS files ([\#385](https://github.com/soutaro/steep/pull/385), [\#397](https://github.com/soutaro/steep/pull/397)) 
+* LSP hover for RBS files ([\#385](https://github.com/soutaro/steep/pull/385), [\#397](https://github.com/soutaro/steep/pull/397))
 * Fix FileLoader to skip files not matching to the given pattern ([\#382](https://github.com/soutaro/steep/pull/382))
 * Ruby3 support for numbered block parameters and end-less def ([\#381](https://github.com/soutaro/steep/pull/381))
 

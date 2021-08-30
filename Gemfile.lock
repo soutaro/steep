@@ -1,7 +1,7 @@
 PATH
   remote: .
   specs:
-    steep (0.45.0)
+    steep (0.46.0)
       activesupport (>= 5.1)
       language_server-protocol (>= 3.15, < 4.0)
       listen (~> 3.0)
