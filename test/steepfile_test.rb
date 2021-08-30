@@ -73,7 +73,10 @@ target :app do
 end
 RUBY
 
-        assert_match(/\[Steepfile\] \[target=app\] #typing_options is deprecated and has no effect as of version 0\.46\.0/, Steep.log_output.string)
+        assert_match(/\[Steepfile\] \[target=app\] #typing_options is deprecated and has no effect as of version 0\.46\.0\. Update your Steepfile as follows for \(almost\) equivalent setting:/, Steep.log_output.string)
+        assert_match(/configure_code_diagnostics\(D::Ruby\.strict\)/, Steep.log_output.string)
+        assert_match(/hash\[D::Ruby::MethodDefinitionMissing\] = nil/, Steep.log_output.string)
+        assert_match(/hash\[D::Ruby::FallbackAny\] = nil/, Steep.log_output.string)
       ensure
         Steep.log_output = STDERR
       end
