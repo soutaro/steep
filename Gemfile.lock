@@ -35,7 +35,7 @@ GEM
     ffi (1.15.3)
     i18n (1.8.10)
       concurrent-ruby (~> 1.0)
-    language_server-protocol (3.16.0.2)
+    language_server-protocol (3.16.0.3)
     listen (3.7.0)
       rb-fsevent (~> 0.10, >= 0.10.3)
       rb-inotify (~> 0.9, >= 0.9.10)
