@@ -49,7 +49,51 @@ module Steep
         end
 
         def typing_options(level = nil, **hash)
-          Steep.logger.error "#typing_options is deprecated and has no effect as of version 0.46.0"
+          Steep.logger.error "#typing_options is deprecated and has no effect as of version 0.46.0. Update your Steepfile as follows for (almost) equivalent setting:"
+
+          messages = []
+
+          messages << "# D = Steep::Diagnostic                          # Define a constant to shorten namespace"
+
+          case level
+          when :strict
+            messages << "configure_code_diagnostics(D::Ruby.strict)       # :strict"
+          when :default
+            messages << "configure_code_diagnostics(D::Ruby.default)      # :default"
+          when :lenient
+            messages << "configure_code_diagnostics(D::Ruby.lenient)      # :lenient"
+          end
+
+          messages.each do |msg|
+            Steep.logger.error "  #{msg}"
+          end
+
+          config = []
+
+          if hash[:allow_missing_definitions]
+            config << "hash[D::Ruby::MethodDefinitionMissing] = nil   # allow_missing_definitions"
+          end
+
+          if hash[:allow_fallback_any]
+            config << "hash[D::Ruby::FallbackAny] = nil               # allow_fallback_any"
+          end
+
+          if hash[:allow_unknown_constant_assignment]
+            config << "hash[D::Ruby::UnknownConstantAssigned] = nil   # allow_unknown_constant_assignment"
+          end
+
+          if hash[:allow_unknown_method_calls]
+            config << "hash[D::Ruby::NoMethod] = nil                  # allow_unknown_method_calls"
+          end
+
+          unless config.empty?
+            Steep.logger.error "  configure_code_diagnostics do |hash|"
+            config.each do |c|
+              Steep.logger.error "    #{c}"
+            end
+            Steep.logger.error "  end"
+          end
+
         end
 
         def signature(*args)
