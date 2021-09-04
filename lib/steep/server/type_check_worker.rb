@@ -265,7 +265,7 @@ module Steep
       end
 
       def goto(job)
-        path = Pathname(encode_uri(job.params[:textDocument][:uri]))
+        path = Pathname(decode_uri(job.params[:textDocument][:uri]))
         line = job.params[:position][:line] + 1
         column = job.params[:position][:character]
 
