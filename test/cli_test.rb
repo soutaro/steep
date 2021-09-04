@@ -258,6 +258,25 @@ end
     end
   end
 
+  def test_check_with_multibyte_filename
+    in_tmpdir do
+      (current_dir + "Steepfile").write(<<-EOF)
+target :app do
+  check "テスト.rb"
+end
+      EOF
+
+      (current_dir + "テスト.rb").write(<<-EOF)
+1+2
+      EOF
+
+      stdout, status = sh(*steep, "check")
+
+      assert_predicate status, :success?, stdout
+      assert_match /No type error detected\./, stdout
+    end
+  end
+
   def test_check_unknown
     in_tmpdir do
       (current_dir + "Steepfile").write(<<-EOF)

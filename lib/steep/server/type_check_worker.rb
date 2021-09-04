@@ -38,6 +38,7 @@ module Steep
       end
 
       include ChangeBuffer
+      include Steep::Utils::URIHelper
 
       def initialize(project:, reader:, writer:, assignment:, commandline_args:)
         super(project: project, reader: reader, writer: writer)
@@ -86,10 +87,10 @@ module Steep
           queue << StartTypeCheckJob.new(guid: guid, changes: changes)
         end
 
-        priority_paths = Set.new(params[:priority_uris].map {|uri| Pathname(URI.parse(uri).path) })
-        library_paths = params[:library_uris].map {|uri| Pathname(URI.parse(uri).path) }
-        signature_paths = params[:signature_uris].map {|uri| Pathname(URI.parse(uri).path) }
-        code_paths = params[:code_uris].map {|uri| Pathname(URI.parse(uri).path) }
+        priority_paths = Set.new(params[:priority_uris].map {|uri| Pathname(decode_uri(uri)) })
+        library_paths = params[:library_uris].map {|uri| Pathname(decode_uri(uri)) }
+        signature_paths = params[:signature_uris].map {|uri| Pathname(decode_uri(uri)) }
+        code_paths = params[:code_uris].map {|uri| Pathname(decode_uri(uri)) }
 
         library_paths.each do |path|
           if priority_paths.include?(path)
@@ -149,7 +150,7 @@ module Steep
               writer.write(
                 method: :"textDocument/publishDiagnostics",
                 params: LSP::Interface::PublishDiagnosticsParams.new(
-                  uri: URI.parse(job.path.to_s).tap {|uri| uri.scheme = "file"},
+                  uri: encode_uri(job.path.to_s),
                   diagnostics: diagnostics.map {|diagnostic| formatter.format(diagnostic) }.uniq
                 )
               )
@@ -167,7 +168,7 @@ module Steep
               writer.write(
                 method: :"textDocument/publishDiagnostics",
                 params: LSP::Interface::PublishDiagnosticsParams.new(
-                  uri: URI.parse(job.path.to_s).tap {|uri| uri.scheme = "file"},
+                  uri: encode_uri(job.path.to_s),
                   diagnostics: diagnostics.map {|diagnostic| formatter.format(diagnostic) }.uniq.compact
                 )
               )
@@ -186,7 +187,7 @@ module Steep
               writer.write(
                 method: :"textDocument/publishDiagnostics",
                 params: LSP::Interface::PublishDiagnosticsParams.new(
-                  uri: URI.parse(job.path.to_s).tap {|uri| uri.scheme = "file"},
+                  uri: encode_uri(job.path.to_s),
                   diagnostics: diagnostics.map {|diagnostic| formatter.format(diagnostic) }.uniq.compact
                 )
               )
@@ -236,7 +237,7 @@ module Steep
               location: symbol.location.yield_self do |location|
                 path = Pathname(location.buffer.name)
                 {
-                  uri: URI.parse(project.absolute_path(path).to_s).tap {|uri| uri.scheme = "file" },
+                  uri: encode_uri(project.absolute_path(path)),
                   range: {
                     start: { line: location.start_line - 1, character: location.start_column },
                     end: { line: location.end_line - 1, character: location.end_column }
@@ -264,7 +265,7 @@ module Steep
       end
 
       def goto(job)
-        path = Pathname(URI.parse(job.params[:textDocument][:uri]).path)
+        path = Pathname(encode_uri(job.params[:textDocument][:uri]))
         line = job.params[:position][:line] + 1
         column = job.params[:position][:character]
 
@@ -291,7 +292,7 @@ module Steep
           path = project.absolute_path(path)
 
           {
-            uri: URI.parse(path.to_s).tap {|uri| uri.scheme = "file" }.to_s,
+            uri: encode_uri(path).to_s,
             range: loc.as_lsp_range
           }
         end

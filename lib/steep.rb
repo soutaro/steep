@@ -21,6 +21,8 @@ require "terminal-table"
 
 require "rbs"
 
+require "steep/utils/uri_helper.rb"
+
 require "steep/equatable"
 require "steep/method_name"
 require "steep/ast/types/helper"
