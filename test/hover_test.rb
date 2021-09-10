@@ -350,6 +350,25 @@ RBS
     end
   end
 
+  def test_hover_comment_on_rbs
+    in_tmpdir do
+      service = typecheck_service()
+
+      service.update(
+        changes: {
+          Pathname("hello.rbs") => [ContentChange.string(<<RBS)]
+# Comment
+class Foo
+end
+RBS
+        }
+      ) {}
+
+      hover = HoverContent.new(service: service)
+      assert_nil hover.content_for(path: Pathname("hello.rbs"), line: 1, column: 4)
+    end
+  end
+
   def test_hover_on_syntax_error
     in_tmpdir do
       service = typecheck_service()

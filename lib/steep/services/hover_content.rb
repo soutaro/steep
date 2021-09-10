@@ -74,6 +74,9 @@ module Steep
           locator = RBS::Locator.new(decls: decls)
           hd, tail = locator.find2(line: line, column: column)
 
+          # Maybe hover on comment
+          return if tail.nil?
+
           case type = tail[0]
           when RBS::Types::Alias
             alias_decl = service.latest_env.alias_decls[type.name]&.decl or raise
