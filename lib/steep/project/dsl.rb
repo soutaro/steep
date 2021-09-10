@@ -11,8 +11,12 @@ module Steep
         attr_reader :core_root
         attr_reader :repo_paths
         attr_reader :code_diagnostics_config
+        attr_reader :project
+        attr_reader :collection_config_path
 
-        def initialize(name, sources: [], libraries: [], signatures: [], ignored_sources: [], repo_paths: [], code_diagnostics_config: {})
+        NONE = Object.new.freeze
+
+        def initialize(name, sources: [], libraries: [], signatures: [], ignored_sources: [], repo_paths: [], code_diagnostics_config: {}, project: nil, collection_config_path: NONE)
           @name = name
           @sources = sources
           @libraries = libraries
@@ -22,6 +26,15 @@ module Steep
           @stdlib_root = nil
           @repo_paths = []
           @code_diagnostics_config = code_diagnostics_config
+          @project = project
+          @collection_config_path =
+            case collection_config_path
+            when NONE
+              path = project&.absolute_path(RBS::Collection::Config::PATH)
+              path&.exist? ? path : nil
+            else
+              collection_config_path
+            end
         end
 
         def initialize_copy(other)
@@ -34,6 +47,8 @@ module Steep
           @core_root = other.core_root
           @stdlib_root = other.stdlib_root
           @code_diagnostics_config = other.code_diagnostics_config.dup
+          @project = other.project
+          @collection_config_path = other.collection_config_path
         end
 
         def check(*args)
@@ -100,13 +115,14 @@ module Steep
           signatures.push(*args)
         end
 
-        def update(name: self.name, sources: self.sources, libraries: self.libraries, ignored_sources: self.ignored_sources, signatures: self.signatures)
+        def update(name: self.name, sources: self.sources, libraries: self.libraries, ignored_sources: self.ignored_sources, signatures: self.signatures, project: self.project)
           self.class.new(
             name,
             sources: sources,
             libraries: libraries,
             signatures: signatures,
-            ignored_sources: ignored_sources
+            ignored_sources: ignored_sources,
+            project: project,
           )
         end
 
@@ -155,6 +171,14 @@ module Steep
 
           yield code_diagnostics_config if block_given?
         end
+
+        def collection_config(path)
+          @collection_config_path = project.absolute_path(path)
+        end
+
+        def disable_collection
+          @collection_config_path = nil
+        end
       end
 
       attr_reader :project
@@ -187,10 +211,10 @@ module Steep
 
       def target(name, template: nil, &block)
         target = if template
-                   self.class.templates[template]&.dup&.update(name: name) or
+                   self.class.templates[template]&.dup&.update(name: name, project: project) or
                      raise "Unknown template: #{template}, available templates: #{@@templates.keys.join(", ")}"
                  else
-                   TargetDSL.new(name, code_diagnostics_config: Diagnostic::Ruby.default.dup)
+                   TargetDSL.new(name, code_diagnostics_config: Diagnostic::Ruby.default.dup, project: project)
                  end
 
         Steep.logger.tagged "target=#{name}" do
@@ -199,6 +223,8 @@ module Steep
 
         source_pattern = Pattern.new(patterns: target.sources, ignores: target.ignored_sources, ext: ".rb")
         signature_pattern = Pattern.new(patterns: target.signatures, ext: ".rbs")
+
+        collection_lock = target.collection_config_path&.then { |p| RBS::Collection::Config.lockfile_of(p) }
 
         Project::Target.new(
           name: target.name,
@@ -211,6 +237,7 @@ module Steep
               stdlib_root: target.stdlib_root,
               repo_paths: target.repo_paths
             )
+            options.collection_lock = collection_lock
           end,
           code_diagnostics_config: target.code_diagnostics_config
         ).tap do |target|

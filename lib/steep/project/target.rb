@@ -57,6 +57,7 @@ module Steep
           name, version = lib.split(/:/, 2)
           loader.add(library: name, version: version)
         end
+        loader.add_collection(options.collection_lock) if options.collection_lock
 
         loader
       end
