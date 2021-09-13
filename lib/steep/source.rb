@@ -71,7 +71,11 @@ module Steep
 
       mapping = {}.compare_by_identity
 
-      construct_mapping(node: node, annotations: annotations, mapping: mapping)
+      if node
+        construct_mapping(node: node, annotations: annotations, mapping: mapping)
+      else
+        Steep.logger.fatal { "#{path} is empty source code" }
+      end
 
       annotations.each do |annot|
         mapping[node] ||= []

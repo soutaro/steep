@@ -341,6 +341,12 @@ end
     end
   end
 
+  def test_empty_source
+    with_factory do |factory|
+      Steep::Source.parse("", path: Pathname("foo.rb"), factory: factory)
+    end
+  end
+
   def test_empty_clauses
     with_factory do |factory|
       source = Steep::Source.parse(<<-EOF, path: Pathname("foo.rb"), factory: factory)
