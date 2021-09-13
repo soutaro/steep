@@ -3,5 +3,5 @@ class NumberLike
 end
 
 class Integer
-  overload def `+`: (NumberLike) -> NumberLike
+  def `+`: (NumberLike) -> NumberLike | ...
 end

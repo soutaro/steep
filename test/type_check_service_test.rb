@@ -167,7 +167,7 @@ RUBY
         assert_any!(file.errors, size: 1) do |error|
           assert_instance_of Diagnostic::Ruby::SyntaxError, error
           assert_equal " @type self: Array[", error.location.source
-          assert_equal "Syntax error caused by token `$end`", error.message
+          assert_equal "Syntax error caused by token `pEOF`", error.message
         end
       end
 
