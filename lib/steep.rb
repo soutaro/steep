@@ -213,7 +213,7 @@ module Steep
     end
 
     def percentile(p)
-      slowests(count - count * p / 100r).last&.last || 0
+      slowests([count * p / 100r, 1].max).last&.last || 0
     end
   end
 
