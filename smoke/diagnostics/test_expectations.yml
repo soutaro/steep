@@ -95,8 +95,8 @@
         line: 7
         character: 21
     severity: ERROR
-    message: 'The method parameter has different kind from the declaration `(size:
-      ::Integer, name: ::String) -> void`'
+    message: 'The method parameter has different kind from the declaration `(name:
+      ::String, size: ::Integer) -> void`'
     code: Ruby::DifferentMethodParameterKind
   - range:
       start:
@@ -106,8 +106,8 @@
         line: 7
         character: 29
     severity: ERROR
-    message: 'The method parameter has different kind from the declaration `(size:
-      ::Integer, name: ::String) -> void`'
+    message: 'The method parameter has different kind from the declaration `(name:
+      ::String, size: ::Integer) -> void`'
     code: Ruby::DifferentMethodParameterKind
 - file: else_on_exhaustive_case.rb
   diagnostics:
