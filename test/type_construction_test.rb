@@ -4442,6 +4442,29 @@ EOF
     end
   end
 
+  def test_hash_with_kwargs
+    with_checker <<EOF do |checker|
+class WithKwargs
+  type t = { a: Integer }
+  def self.call: (t) -> void
+end
+
+EOF
+
+      source = parse_ruby(<<EOF)
+WithKwargs.call(a: "123")
+WithKwargs.call(a: 123)
+EOF
+
+      with_standard_construction(checker, source) do |construction, typing|
+        construction.synthesize(source.node)
+
+        assert_equal 1, typing.errors.size
+        assert_instance_of Diagnostic::Ruby::ArgumentTypeMismatch, typing.errors[0]
+      end
+    end
+  end
+
   def test_polymorphic_method
     with_checker <<-EOF do |checker|
 interface _Ref[X]

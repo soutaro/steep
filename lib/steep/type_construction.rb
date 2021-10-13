@@ -3798,7 +3798,7 @@ module Steep
     # `record_type` can be nil when the keys are not specified.
     #
     def type_hash_record(hash_node, record_type)
-      raise unless hash_node.type == :hash
+      raise unless hash_node.type == :hash || hash_node.type == :kwargs
 
       constr = self
 
