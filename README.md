@@ -8,7 +8,7 @@ Install via RubyGems.
 
 ### Requirements
 
-Steep requires Ruby 2.6.
+Steep requires Ruby 2.6 or later.
 
 ## Usage
 
