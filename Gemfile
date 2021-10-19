@@ -8,7 +8,7 @@ gem "without_steep_types", path: "test/gems/without_steep_types"
 
 gem "rake"
 gem "minitest", "~> 5.0"
-gem "racc", "~> 1.4"
+gem "racc", "~> 1.6"
 gem "minitest-hooks"
 gem "stackprof"
 gem "rbs", "1.7.0.beta.2"
