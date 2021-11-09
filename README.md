@@ -126,6 +126,7 @@ end
 
 class Phone
   # @dynamic country, number
+  attr_reader :country, :number
 
   def initialize(country:, number:)
     @country = country
