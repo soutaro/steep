@@ -153,6 +153,7 @@ module Steep
         end
 
         def uniform_type
+          return nil unless positional_params
           if positional_params.each.any? {|param| param.is_a?(Interface::Function::Params::PositionalParams::Rest) }
             AST::Types::Intersection.build(types: positional_params.each.map(&:type))
           end
