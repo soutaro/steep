@@ -131,7 +131,7 @@ module Steep
         else
           leadings = leading_params.map {|param| param.type || AST::Types::Any.new }
           optionals = optional_params.map {|param| param.type || AST::Types::Any.new }
-          rest = rest_param&.yield_self {|param| param.type.args[0] }
+          rest = rest_param&.yield_self {|param| param.type&.args&.[](0) || AST::Types::Any.new }
         end
 
         Interface::Function::Params.build(

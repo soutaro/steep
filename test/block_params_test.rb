@@ -262,6 +262,27 @@ proc {|a, b=1, *c, d|
     with_factory do |factory|
       src = parse_ruby(<<-EOR)
 proc {|a, b=1, *c, d|
+}
+      EOR
+
+      block = src.node
+      annots = src.annotations(block: block, factory: factory, current_module: Namespace.root)
+      params = BlockParams.from_node(block.children[1], annotations: annots)
+
+      param_type = params.params_type()
+      assert_equal [parse_type("untyped")], param_type.required
+      assert_equal [parse_type("untyped")], param_type.optional
+      assert_equal parse_type("untyped"), param_type.rest
+      assert_equal({}, param_type.required_keywords)
+      assert_equal({}, param_type.optional_keywords)
+      assert_nil param_type.rest_keywords
+    end
+  end
+
+  def test_param_type_with_annotation
+    with_factory do |factory|
+      src = parse_ruby(<<-EOR)
+proc {|a, b=1, *c, d|
   # @type var a: String
   # @type var c: Array[Symbol]
   foo()
