@@ -383,7 +383,7 @@ HOVER
         when RBS::AST::Declarations::Interface
           "interface #{name_and_params(decl.name, decl.type_params)}"
         end
-    end
+      end
 
       def format_completion_item(item)
         range = LanguageServer::Protocol::Interface::Range.new(
@@ -402,18 +402,18 @@ HOVER
           LanguageServer::Protocol::Interface::CompletionItem.new(
             label: item.identifier,
             kind: LanguageServer::Protocol::Constant::CompletionItemKind::VARIABLE,
-            detail: "#{item.identifier}: #{item.type}",
+            detail: item.type.to_s,
             text_edit: LanguageServer::Protocol::Interface::TextEdit.new(
               range: range,
-              new_text: "#{item.identifier}"
+              new_text: item.identifier
             )
           )
         when Services::CompletionProvider::MethodNameItem
-          label = "def #{item.identifier}: #{item.method_type}"
           method_type_snippet = method_type_to_snippet(item.method_type)
           LanguageServer::Protocol::Interface::CompletionItem.new(
-            label: label,
+            label: item.identifier,
             kind: LanguageServer::Protocol::Constant::CompletionItemKind::METHOD,
+            detail: item.method_type.to_s,
             text_edit: LanguageServer::Protocol::Interface::TextEdit.new(
               new_text: "#{item.identifier}#{method_type_snippet}",
               range: range
@@ -423,14 +423,14 @@ HOVER
             sort_text: item.inherited? ? 'z' : 'a' # Ensure language server puts non-inherited methods before inherited methods
           )
         when Services::CompletionProvider::InstanceVariableItem
-          label = "#{item.identifier}: #{item.type}"
           LanguageServer::Protocol::Interface::CompletionItem.new(
-            label: label,
+            label: item.identifier,
             kind: LanguageServer::Protocol::Constant::CompletionItemKind::FIELD,
+            detail: item.type.to_s,
             text_edit: LanguageServer::Protocol::Interface::TextEdit.new(
               range: range,
               new_text: item.identifier,
-              ),
+            ),
             insert_text_format: LanguageServer::Protocol::Constant::InsertTextFormat::SNIPPET
           )
         end
