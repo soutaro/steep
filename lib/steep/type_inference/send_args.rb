@@ -99,19 +99,7 @@ module Steep
           PositionalArgs.new(args: args, index: index, positional_params: positional_params, uniform: uniform)
         end
 
-        def uniform!
-          update(uniform: true)
-        end
-
         def next()
-          if uniform
-            if node
-              return [node, uniform_type, update(index: index+1)]
-            else
-              return
-            end
-          end
-
           case
           when !node && param.is_a?(Interface::Function::Params::PositionalParams::Required)
             [
