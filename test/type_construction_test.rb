@@ -7852,4 +7852,28 @@ MissingArgs::Foo.new&.csendkw
       end
     end
   end
+
+  def test_splat_arg_no_param
+    with_checker(<<-RBS) do |checker|
+class EachNoParam
+  def each: () -> void
+end
+    RBS
+
+      source = parse_ruby(<<-'RUBY')
+a = [1,2,3]
+EachNoParam.new.each(*a)
+      RUBY
+
+      with_standard_construction(checker, source) do |construction, typing|
+        type, _ = construction.synthesize(source.node)
+
+        assert_typing_error(typing, size: 1) do |errors|
+          assert_any!(errors) do |error|
+            assert_instance_of Diagnostic::Ruby::UnexpectedPositionalArgument, error
+          end
+        end
+      end
+    end
+  end
 end
