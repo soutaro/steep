@@ -172,7 +172,7 @@ class AnnotationParsingTest < Minitest::Test
       end
 
       assert_equal "@type break: Array<Integer.class>", exn.source
-      assert_instance_of RBS::Parser::SyntaxError, exn.cause
+      assert_instance_of RBS::ParsingError, exn.cause
     end
   end
 end

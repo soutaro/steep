@@ -25,7 +25,7 @@ module Steep
         @location = location
 
         message = case exn
-                  when RBS::Parser::SyntaxError
+                  when RBS::ParsingError
                     Diagnostic::Signature::SyntaxError.parser_syntax_error_message(exn)
                   else
                     exn.message

@@ -254,7 +254,7 @@ end
 
       stdout, status = sh(*steep, "check")
       refute_predicate status, :success?, stdout
-      assert_match /Syntax error caused by token `ErrorToken`/, stdout.force_encoding(Encoding::ASCII_8BIT)
+      assert_match /Syntax error: cannot start a declaration, token=/, stdout.force_encoding(Encoding::ASCII_8BIT)
     end
   end
 
