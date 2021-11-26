@@ -32,8 +32,8 @@ GEM
       zeitwerk (~> 2.3)
     ast (2.4.2)
     concurrent-ruby (1.1.9)
-    ffi (1.15.3)
-    i18n (1.8.10)
+    ffi (1.15.4)
+    i18n (1.8.11)
       concurrent-ruby (~> 1.0)
     language_server-protocol (3.16.0.3)
     listen (3.7.0)
@@ -43,22 +43,21 @@ GEM
     minitest-hooks (1.5.0)
       minitest (> 5.3)
     parallel (1.21.0)
-    parser (3.0.2.0)
+    parser (3.0.3.0)
       ast (~> 2.4.1)
-    racc (1.6.0)
     rainbow (3.0.0)
     rake (13.0.6)
     rb-fsevent (0.11.0)
     rb-inotify (0.10.1)
       ffi (~> 1.0)
-    rbs (1.7.0)
+    rbs (1.7.1)
     stackprof (0.2.17)
     terminal-table (3.0.2)
       unicode-display_width (>= 1.1.1, < 3)
     tzinfo (2.0.4)
       concurrent-ruby (~> 1.0)
     unicode-display_width (2.1.0)
-    zeitwerk (2.4.2)
+    zeitwerk (2.5.1)
 
 PLATFORMS
   ruby
@@ -66,9 +65,7 @@ PLATFORMS
 DEPENDENCIES
   minitest (~> 5.0)
   minitest-hooks
-  racc (~> 1.6)
   rake
-  rbs (= 1.7.0)
   stackprof
   steep!
   with_steep_types!
