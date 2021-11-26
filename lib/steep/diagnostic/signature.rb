@@ -38,25 +38,16 @@ module Steep
         end
 
         def self.parser_syntax_error_message(exception)
-          value = if exception.error_value.is_a?(RBS::Parser::LocatedValue)
-                    exception.error_value.value
-                  else
-                    exception.error_value
-                  end
-          string = value.to_s
+          string = exception.location.source.to_s
           unless string.empty?
             string = " (#{string})"
           end
 
-          "Syntax error caused by token `#{exception.token_str}`#{string}"
+          "Syntax error caused by token `#{exception.token_type}`#{string}"
         end
 
         def header_line
-          if exception.is_a?(RBS::Parser::SyntaxError)
-            SyntaxError.parser_syntax_error_message(exception)
-          else
-            exception.message
-          end
+          exception.message
         end
       end
 
@@ -318,10 +309,8 @@ module Steep
 
       def self.from_rbs_error(error, factory:)
         case error
-        when RBS::Parser::SemanticsError, RBS::Parser::LexerError
+        when RBS::ParsingError
           Diagnostic::Signature::SyntaxError.new(error, location: error.location)
-        when RBS::Parser::SyntaxError
-          Diagnostic::Signature::SyntaxError.new(error, location: error.error_value.location)
         when RBS::DuplicatedDeclarationError
           Diagnostic::Signature::DuplicatedDeclaration.new(
             type_name: error.name,
