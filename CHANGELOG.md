@@ -2,6 +2,14 @@
 
 ## master
 
+## 0.47.0 (2021-11-30)
+
+This update contains update for RBS 1.7.
+
+* RBS 1.7 ([#455](https://github.com/soutaro/steep/pull/455))
+* Bug fixes related to `SendArgs` ([#444](https://github.com/soutaro/steep/pull/444), [#449](https://github.com/soutaro/steep/pull/449), [#451](https://github.com/soutaro/steep/pull/451))
+* LSP completion item formatting improvement ([#442](https://github.com/soutaro/steep/pull/442))
+
 ## 0.46.0 (2021-08-30)
 
 This release updates Steepfile DSL syntax, introducing `stdlib_path` and `configure_code_diagnostics` syntax (methods).
