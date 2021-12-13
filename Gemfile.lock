@@ -43,7 +43,7 @@ GEM
     minitest-hooks (1.5.0)
       minitest (> 5.3)
     parallel (1.21.0)
-    parser (3.0.3.1)
+    parser (3.0.3.2)
       ast (~> 2.4.1)
     rainbow (3.0.0)
     rake (13.0.6)
