@@ -39,7 +39,7 @@ GEM
     listen (3.7.0)
       rb-fsevent (~> 0.10, >= 0.10.3)
       rb-inotify (~> 0.9, >= 0.9.10)
-    minitest (5.14.4)
+    minitest (5.15.0)
     minitest-hooks (1.5.0)
       minitest (> 5.3)
     parallel (1.21.0)
@@ -63,7 +63,7 @@ PLATFORMS
   ruby
 
 DEPENDENCIES
-  minitest (~> 5.0)
+  minitest (~> 5.15)
   minitest-hooks
   rake
   stackprof
