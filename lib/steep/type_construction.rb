@@ -2387,7 +2387,7 @@ module Steep
             raise "#synthesize should return an instance of Pair: #{pair.class}, node=#{node.inspect}"
           end
         end
-      rescue RBS::ErrorBase => exn
+      rescue RBS::BaseError => exn
         Steep.logger.warn { "Unexpected RBS error: #{exn.message}" }
         exn.backtrace.each {|loc| Steep.logger.warn "  #{loc}" }
         typing.add_error(Diagnostic::Ruby::UnexpectedError.new(node: node, error: exn))
