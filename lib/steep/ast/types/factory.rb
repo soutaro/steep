@@ -135,7 +135,7 @@ module Steep
             )
           when Name::Alias
             type.args.empty? or raise "alias type with args is not supported"
-            RBS::Types::Alias.new(name: type.name, location: nil)
+            RBS::Types::Alias.new(name: type.name, args: type.args, location: nil)
           when Union
             RBS::Types::Union.new(
               types: type.types.map {|ty| type_1(ty) },
