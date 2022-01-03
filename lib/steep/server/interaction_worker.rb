@@ -338,7 +338,7 @@ HOVER
         else
           ps = params.each.map do |param|
             s = ""
-            if param.skip_validation
+            if param.unchecked?
               s << "unchecked "
             end
             case param.variance
