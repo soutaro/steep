@@ -34,7 +34,7 @@ EOF
 
   def reporter
     -> ((path, diagnostics)) {
-      formatter = Diagnostic::LSPFormatter.new({})
+      formatter = Diagnostic::LSPFormatter.new({}, **{})
       reported_diagnostics[path] = diagnostics.map {|diagnostic| formatter.format(diagnostic) }.uniq
     }
   end
