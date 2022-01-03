@@ -144,7 +144,7 @@ module Steep
           if job.guid == current_type_check_guid
             Steep.logger.info { "Processing ValidateAppSignature for guid=#{job.guid}, path=#{job.path}" }
             service.validate_signature(path: project.relative_path(job.path)) do |path, diagnostics|
-              formatter = Diagnostic::LSPFormatter.new({})
+              formatter = Diagnostic::LSPFormatter.new({}, **{})
 
               writer.write(
                 method: :"textDocument/publishDiagnostics",
@@ -162,7 +162,7 @@ module Steep
           if job.guid == current_type_check_guid
             Steep.logger.info { "Processing ValidateLibrarySignature for guid=#{job.guid}, path=#{job.path}" }
             service.validate_signature(path: job.path) do |path, diagnostics|
-              formatter = Diagnostic::LSPFormatter.new({})
+              formatter = Diagnostic::LSPFormatter.new({}, **{})
 
               writer.write(
                 method: :"textDocument/publishDiagnostics",
