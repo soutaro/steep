@@ -57,6 +57,7 @@ require "steep/interface/substitution"
 require "steep/interface/interface"
 
 require "steep/subtyping/check"
+require "steep/subtyping/cache"
 require "steep/subtyping/result"
 require "steep/subtyping/relation"
 require "steep/subtyping/trace"

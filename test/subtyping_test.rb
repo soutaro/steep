@@ -506,7 +506,7 @@ end
       )
 
       # Not cached because the relation has free variables
-      assert_empty checker.cache
+      assert_predicate checker.cache, :no_subtype_cache?
     end
 
     with_checker do |checker|
@@ -519,9 +519,16 @@ end
       )
 
       # Cached because the relation does not have free variables
-      assert_operator checker.cache,
-                      :key?,
-                      [parse_relation("::Integer", "::Object", checker: checker), parse_type("self", checker: checker)]
+      assert_operator(
+        checker.cache.subtypes,
+        :key?,
+        [
+          parse_relation("::Integer", "::Object", checker: checker),
+          parse_type("self", checker: checker),
+          nil,
+          nil
+        ]
+      )
     end
   end
 

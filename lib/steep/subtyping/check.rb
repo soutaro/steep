@@ -6,7 +6,7 @@ module Steep
 
       def initialize(factory:)
         @factory = factory
-        @cache = {}
+        @cache = Cache.new()
       end
 
       def each_ancestor(ancestors, &block)
@@ -101,7 +101,7 @@ module Steep
       def check(relation, constraints:, self_type:, instance_type:, class_type:, assumption: Set.new, trace: Trace.new)
         Steep.logger.tagged "#{relation.sub_type} <: #{relation.super_type}" do
           prefix = trace.size
-          cached = cache[[relation, self_type, instance_type, class_type]]
+          cached = cache[relation, self_type, instance_type, class_type]
           if cached && constraints.empty?
             if cached.success?
               cached
@@ -127,7 +127,7 @@ module Steep
                 end
 
                 Steep.logger.debug "result=#{result.class}"
-                cache[[relation, self_type]] = result if cacheable?(relation)
+                cache[relation, self_type, instance_type, class_type] = result if cacheable?(relation)
               end
             end
           end
