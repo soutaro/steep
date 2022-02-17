@@ -2,6 +2,12 @@
 
 ## master
 
+## 0.47.1 (2022-02-17)
+
+This update lets Steep run with Active Support 7.
+
+* Fix ActiveSupport requirement in `lib/steep.rb` ([#484](https://github.com/soutaro/steep/pull/484))
+
 ## 0.47.0 (2021-11-30)
 
 This update contains update for RBS 1.7.
