@@ -8,7 +8,7 @@ PATH
       parallel (>= 1.0.0)
       parser (>= 3.0)
       rainbow (>= 2.2.2, < 4.0)
-      rbs (>= 1.7.0)
+      rbs (~> 1.7.0)
       terminal-table (>= 2, < 4)
 
 PATH
