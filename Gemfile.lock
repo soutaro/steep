@@ -50,7 +50,7 @@ GEM
     rb-inotify (0.10.1)
       ffi (~> 1.0)
     rbs (1.7.1)
-    stackprof (0.2.17)
+    stackprof (0.2.18)
     terminal-table (3.0.2)
       unicode-display_width (>= 1.1.1, < 3)
     tzinfo (2.0.4)
