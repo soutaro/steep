@@ -3,10 +3,50 @@ module Steep
     class Check
       attr_reader :factory
       attr_reader :cache
+      attr_reader :assumptions
 
       def initialize(factory:)
         @factory = factory
         @cache = Cache.new()
+      end
+
+      def with_context(self_type:, instance_type:, class_type:, constraints:)
+        @self_type = self_type
+        @instance_type = instance_type
+        @class_type = class_type
+        @constraints = constraints
+        @assumptions = Set[]
+
+        yield
+      ensure
+        @self_type = nil
+        @instance_type = nil
+        @class_type = nil
+        @constraints = nil
+        @assumptions = nil
+      end
+
+      def push_assumption(relation)
+        assumptions << relation
+        yield
+      ensure
+        assumptions.delete(relation)
+      end
+
+      def self_type
+        @self_type || raise
+      end
+
+      def instance_type
+        @instance_type || raise
+      end
+
+      def class_type
+        @class_type || raise
+      end
+
+      def constraints
+        @constraints || raise
       end
 
       def each_ancestor(ancestors, &block)
@@ -98,7 +138,13 @@ module Steep
         end
       end
 
-      def check(relation, constraints:, self_type:, instance_type:, class_type:, assumption: Set.new)
+      def check(relation, constraints:, self_type:, instance_type:, class_type:)
+        with_context(self_type: self_type, instance_type: instance_type, class_type: class_type, constraints: constraints) do
+          check_type(relation)
+        end
+      end
+
+      def check_type(relation)
         relation.type!
 
         Steep.logger.tagged "#{relation.sub_type} <: #{relation.super_type}" do
@@ -106,20 +152,14 @@ module Steep
           if cached && constraints.empty?
             cached
           else
-            if assumption.member?(relation)
+            if assumptions.member?(relation)
               success(relation)
             else
-              assumption = assumption + Set[relation]
-              check0(
-                relation,
-                self_type: self_type,
-                instance_type: instance_type,
-                class_type: class_type,
-                assumption: assumption,
-                constraints: constraints
-              ).tap do |result|
-                Steep.logger.debug "result=#{result.class}"
-                cache[relation, self_type, instance_type, class_type] = result if cacheable?(relation)
+              push_assumption(relation) do
+                check_type0(relation).tap do |result|
+                  Steep.logger.debug "result=#{result.class}"
+                  cache[relation, self_type, instance_type, class_type] = result if cacheable?(relation)
+                end
               end
             end
           end
@@ -154,9 +194,9 @@ module Steep
 
       include Result::Helper
 
-      def check0(relation, self_type:, class_type:, instance_type:, assumption:, constraints:)
+      def check_type0(relation)
         case
-        when same_type?(relation, assumption: assumption)
+        when same_type?(relation)
           success(relation)
 
         when relation.sub_type.is_a?(AST::Types::Any) || relation.super_type.is_a?(AST::Types::Any)
@@ -176,67 +216,39 @@ module Steep
 
         when relation.super_type.is_a?(AST::Types::Boolean)
           Expand(relation) do
-            check(
-              Relation.new(sub_type: relation.sub_type, super_type: AST::Types::Union.build(types: [AST::Builtin.true_type, AST::Builtin.false_type])),
-              self_type: self_type,
-              instance_type: instance_type,
-              class_type: class_type,
-              assumption: assumption,
-              constraints: constraints
+            check_type(
+              Relation.new(
+                sub_type: relation.sub_type,
+                super_type: AST::Types::Union.build(types: [AST::Builtin.true_type, AST::Builtin.false_type])
+              )
             )
           end
 
         when relation.sub_type.is_a?(AST::Types::Boolean)
           Expand(relation) do
-            check(
+            check_type(
               Relation.new(
                 sub_type: AST::Types::Union.build(types: [AST::Builtin.true_type, AST::Builtin.false_type]),
                 super_type: relation.super_type
-              ),
-              self_type: self_type,
-              instance_type: instance_type,
-              class_type: class_type,
-              assumption: assumption,
-              constraints: constraints
+              )
             )
           end
 
         when relation.sub_type.is_a?(AST::Types::Self) && !self_type.is_a?(AST::Types::Self)
           Expand(relation) do
-            check(
-              Relation.new(sub_type: self_type, super_type: relation.super_type),
-              self_type: self_type,
-              instance_type: instance_type,
-              class_type: class_type,
-              assumption: assumption,
-              constraints: constraints
-            )
+            check_type(Relation.new(sub_type: self_type, super_type: relation.super_type))
           end
 
         when relation.sub_type.is_a?(AST::Types::Instance) && !instance_type.is_a?(AST::Types::Instance)
           Expand(relation) do
-            check(
-              Relation.new(sub_type: instance_type, super_type: relation.super_type),
-              self_type: self_type,
-              instance_type: instance_type,
-              class_type: class_type,
-              assumption: assumption,
-              constraints: constraints
-            )
+            check_type(Relation.new(sub_type: instance_type, super_type: relation.super_type))
           end
 
         when relation.super_type.is_a?(AST::Types::Instance) && !instance_type.is_a?(AST::Types::Instance)
           All(relation) do |result|
             rel = Relation.new(sub_type: relation.sub_type, super_type: instance_type)
             result.add(rel, rel.flip) do |r|
-              check(
-                r,
-                self_type: self_type,
-                instance_type: instance_type,
-                class_type: class_type,
-                assumption: assumption,
-                constraints: constraints
-              )
+              check_type(r)
             end
           end.tap do
             Steep.logger.error { "`T <: instance` doesn't hold generally, but testing it with `#{relation} && #{relation.flip}` for compatibility"}
@@ -244,28 +256,14 @@ module Steep
 
         when relation.sub_type.is_a?(AST::Types::Class) && !instance_type.is_a?(AST::Types::Class)
           Expand(relation) do
-            check(
-              Relation.new(sub_type: class_type, super_type: relation.super_type),
-              self_type: self_type,
-              instance_type: instance_type,
-              class_type: class_type,
-              assumption: assumption,
-              constraints: constraints
-            )
+            check_type(Relation.new(sub_type: class_type, super_type: relation.super_type))
           end
 
         when relation.super_type.is_a?(AST::Types::Class) && !instance_type.is_a?(AST::Types::Class)
           All(relation) do |result|
             rel = Relation.new(sub_type: relation.sub_type, super_type: class_type)
             result.add(rel, rel.flip) do |r|
-              check(
-                r,
-                self_type: self_type,
-                instance_type: instance_type,
-                class_type: class_type,
-                assumption: assumption,
-                constraints: constraints
-              )
+              check_type(r)
             end
           end.tap do
             Steep.logger.error { "`T <: class` doesn't hold generally, but testing with `#{relation} && |- #{relation.flip}` for compatibility"}
@@ -273,26 +271,12 @@ module Steep
 
         when alias?(relation.sub_type)
           Expand(relation) do
-            check(
-              Relation.new(sub_type: expand_alias(relation.sub_type), super_type: relation.super_type),
-              self_type: self_type,
-              instance_type: instance_type,
-              class_type: class_type,
-              assumption: assumption,
-              constraints: constraints
-            )
+            check_type(Relation.new(sub_type: expand_alias(relation.sub_type), super_type: relation.super_type))
           end
 
         when alias?(relation.super_type)
           Expand(relation) do
-            check(
-              Relation.new(super_type: expand_alias(relation.super_type), sub_type: relation.sub_type),
-              self_type: self_type,
-              instance_type: instance_type,
-              class_type: class_type,
-              assumption: assumption,
-              constraints: constraints
-            )
+            check_type(Relation.new(super_type: expand_alias(relation.super_type), sub_type: relation.sub_type))
           end
 
         when relation.super_type.is_a?(AST::Types::Var) && constraints.unknown?(relation.super_type.name)
@@ -308,14 +292,7 @@ module Steep
             relation.sub_type.types.each do |sub_type|
               rel = Relation.new(sub_type: sub_type, super_type: relation.super_type)
               result.add(rel) do
-                check(
-                  rel,
-                  self_type: self_type,
-                  instance_type: instance_type,
-                  class_type: class_type,
-                  assumption: assumption,
-                  constraints: constraints
-                )
+                check_type(rel)
               end
             end
           end
@@ -325,14 +302,7 @@ module Steep
             relation.super_type.types.each do |super_type|
               rel = Relation.new(sub_type: relation.sub_type, super_type: super_type)
               result.add(rel) do
-                check(
-                  rel,
-                  self_type: self_type,
-                  instance_type: instance_type,
-                  class_type: class_type,
-                  assumption: assumption,
-                  constraints: constraints
-                )
+                check_type(rel)
               end
             end
           end
@@ -342,14 +312,7 @@ module Steep
             relation.sub_type.types.each do |sub_type|
               rel = Relation.new(sub_type: sub_type, super_type: relation.super_type)
               result.add(rel) do
-                check(
-                  rel,
-                  self_type: self_type,
-                  instance_type: instance_type,
-                  class_type: class_type,
-                  assumption: assumption,
-                  constraints: constraints
-                )
+                check_type(rel)
               end
             end
           end
@@ -358,14 +321,7 @@ module Steep
           All(relation) do |result|
             relation.super_type.types.each do |super_type|
               result.add(Relation.new(sub_type: relation.sub_type, super_type: super_type)) do |rel|
-                check(
-                  rel,
-                  self_type: self_type,
-                  instance_type: instance_type,
-                  class_type: class_type,
-                  assumption: assumption,
-                  constraints: constraints
-                )
+                check_type(rel)
               end
             end
           end
@@ -375,27 +331,13 @@ module Steep
 
         when relation.super_type.is_a?(AST::Types::Name::Interface)
           Expand(relation) do
-            check_interface(
-              relation.map {|type| factory.interface(type, private: false) },
-              self_type: self_type,
-              instance_type: instance_type,
-              class_type: class_type,
-              assumption: assumption,
-              constraints: constraints
-            )
+            check_interface(relation.map {|type| factory.interface(type, private: false) })
           end
 
         when relation.sub_type.is_a?(AST::Types::Name::Base) && relation.super_type.is_a?(AST::Types::Name::Base)
           if relation.sub_type.name == relation.super_type.name && relation.sub_type.class == relation.super_type.class
             if arg_type?(relation.sub_type) && arg_type?(relation.super_type)
-              check_type_arg(
-                relation,
-                self_type: self_type,
-                instance_type: instance_type,
-                class_type: class_type,
-                assumption: assumption,
-                constraints: constraints
-              )
+              check_type_arg(relation)
             else
               Success(relation)
             end
@@ -414,14 +356,7 @@ module Steep
               Any(relation) do |result|
                 possible_sub_types.each do |sub_type|
                   result.add(Relation.new(sub_type: sub_type, super_type: relation.super_type)) do |rel|
-                    check(
-                      rel,
-                      self_type: self_type,
-                      instance_type: instance_type,
-                      class_type: class_type,
-                      assumption: assumption,
-                      constraints: constraints
-                    )
+                    check_type(rel)
                   end
                 end
               end
@@ -438,29 +373,13 @@ module Steep
 
           All(relation) do |result|
             result.add(relation.map {|p| p.type }) do |rel|
-              check_function(
-                name,
-                rel,
-                self_type: self_type,
-                instance_type: instance_type,
-                class_type: class_type,
-                constraints: constraints,
-                assumption: assumption
-              )
+              check_function(name, rel)
             end
 
             result.add(relation.map {|p| p.block }) do |rel|
               check_block_given(name, rel) do
                 Expand(rel.map {|b| b.type }) do |rel|
-                  check_function(
-                    name,
-                    rel.flip,
-                    self_type: self_type,
-                    instance_type: instance_type,
-                    class_type: class_type,
-                    constraints: constraints,
-                    assumption: assumption
-                  )
+                  check_function(name, rel.flip)
                 end
               end
             end
@@ -473,14 +392,7 @@ module Steep
             All(relation) do |result|
               pairs.each do |t1, t2|
                 result.add(Relation.new(sub_type: t1, super_type: t2)) do |rel|
-                  check(
-                    rel,
-                    self_type: self_type,
-                    instance_type: instance_type,
-                    class_type: class_type,
-                    assumption: assumption,
-                    constraints: constraints
-                  )
+                  check_type(rel)
                 end
               end
             end
@@ -496,14 +408,7 @@ module Steep
                 location: relation.sub_type.location
               )
 
-            check(
-              Relation.new(sub_type: tuple_element_type, super_type: relation.super_type.args[0]),
-              self_type: self_type,
-              instance_type: instance_type,
-              class_type: class_type,
-              assumption: assumption,
-              constraints: constraints
-            )
+            check_type(Relation.new(sub_type: tuple_element_type, super_type: relation.super_type.args[0]))
           end
 
         when relation.sub_type.is_a?(AST::Types::Record) && relation.super_type.is_a?(AST::Types::Record)
@@ -515,28 +420,14 @@ module Steep
               )
 
               result.add(rel) do
-                check(
-                  rel,
-                  self_type: self_type,
-                  instance_type: instance_type,
-                  class_type: class_type,
-                  assumption: assumption,
-                  constraints: constraints
-                )
+                check_type(rel)
               end
             end
           end
 
         when relation.sub_type.is_a?(AST::Types::Record) && relation.super_type.is_a?(AST::Types::Name::Base)
           Expand(relation) do
-            check_interface(
-              relation.map {|type| factory.interface(type, private: false) },
-              self_type: self_type,
-              instance_type: instance_type,
-              class_type: class_type,
-              assumption: assumption,
-              constraints: constraints
-            )
+            check_interface(relation.map {|type| factory.interface(type, private: false) })
           end
 
         when relation.super_type.is_a?(AST::Types::Literal)
@@ -557,14 +448,7 @@ module Steep
 
         when relation.sub_type.is_a?(AST::Types::Literal)
           Expand(relation) do
-            check(
-              Relation.new(sub_type: relation.sub_type.back_type, super_type: relation.super_type),
-              self_type: self_type,
-              instance_type: instance_type,
-              class_type: class_type,
-              assumption: assumption,
-              constraints: constraints
-            )
+            check_type(Relation.new(sub_type: relation.sub_type.back_type, super_type: relation.super_type))
           end
 
         else
@@ -596,7 +480,7 @@ module Steep
         end
       end
 
-      def check_type_arg(relation, self_type:, instance_type:, class_type:, assumption:, constraints:)
+      def check_type_arg(relation)
         sub_args = relation.sub_type.args
         sup_args = relation.super_type.args
 
@@ -608,104 +492,31 @@ module Steep
             case sup_param.variance
             when :covariant
               result.add(Relation.new(sub_type: sub_arg, super_type: sup_arg)) do |rel|
-                check(
-                  rel,
-                  self_type: self_type,
-                  instance_type: instance_type,
-                  class_type: class_type,
-                  assumption: assumption,
-                  constraints: constraints
-                )
+                check_type(rel)
               end
             when :contravariant
               result.add(Relation.new(sub_type: sup_arg, super_type: sub_arg)) do |rel|
-                check(
-                  rel,
-                  self_type: self_type,
-                  instance_type: instance_type,
-                  class_type: class_type,
-                  assumption: assumption,
-                  constraints: constraints
-                )
+                check_type(rel)
               end
             when :invariant
               rel = Relation.new(sub_type: sub_arg, super_type: sup_arg)
               result.add(rel, rel.flip) do |rel|
-                check(
-                  rel,
-                  self_type: self_type,
-                  instance_type: instance_type,
-                  class_type: class_type,
-                  assumption: assumption,
-                  constraints: constraints
-                )
+                check_type(rel)
               end
             end
           end
         end
       end
 
-      def success_all?(collection, &block)
-        results = collection.map do |obj|
-          result = yield(obj)
-
-          if result.failure?
-            return result
-          end
-
-          result
-        end
-
-        results[0]
-      end
-
-      def success_any?(collection, &block)
-        results = collection.map do |obj|
-          result = yield(obj)
-
-          if result.success?
-            return result
-          end
-
-          result
-        end
-
-        results[0]
-      end
-
-      def extract_nominal_pairs(relation)
-        sub_type = relation.sub_type
-        super_type = relation.super_type
-
-        case
-        when sub_type.is_a?(AST::Types::Name::Instance) && super_type.is_a?(AST::Types::Name::Instance)
-          if sub_type.name == super_type.name && sub_type.args.size == super_type.args.size
-            sub_type.args.zip(super_type.args)
-          end
-        when sub_type.is_a?(AST::Types::Name::Interface) && super_type.is_a?(AST::Types::Name::Interface)
-          if sub_type.name == super_type.name && sub_type.args.size == super_type.args.size
-            sub_type.args.zip(super_type.args)
-          end
-        when sub_type.is_a?(AST::Types::Name::Alias) && super_type.is_a?(AST::Types::Name::Alias)
-          if sub_type.name == super_type.name && sub_type.args.size == super_type.args.size
-            sub_type.args.zip(super_type.args)
-          end
-        when sub_type.is_a?(AST::Types::Name::Singleton) && super_type.is_a?(AST::Types::Name::Singleton)
-          if sub_type.name == super_type.name
-            []
-          end
-        end
-      end
-
-      def same_type?(relation, assumption:)
-        if assumption.include?(relation) && assumption.include?(relation.flip)
+      def same_type?(relation)
+        if assumptions.include?(relation) && assumptions.include?(relation.flip)
           return true
         end
 
         relation.sub_type == relation.super_type
       end
 
-      def check_interface(relation, self_type:, instance_type:, class_type:, assumption:, constraints:)
+      def check_interface(relation)
         relation.interface!
 
         sub_interface, super_interface = relation
@@ -721,22 +532,14 @@ module Steep
         All(relation) do |result|
           method_pairs.each do |method_name, method_relation|
             result.add(relation) do
-              check_method(
-                method_name,
-                method_relation,
-                self_type: self_type,
-                instance_type: instance_type,
-                class_type: class_type,
-                assumption: assumption,
-                constraints: constraints
-              )
+              check_method(method_name, method_relation)
             end
           end
         end
       end
 
-      def check_method(name, relation, self_type:, instance_type:, class_type:, assumption:, constraints:)
-        relation.method? || raise
+      def check_method(name, relation)
+        relation.method!
 
         sub_method, super_method = relation
 
@@ -746,15 +549,7 @@ module Steep
               Any(rel) do |any|
                 sub_method.method_types.each do |sub_type|
                   any.add(Relation.new(sub_type: sub_type, super_type: super_type)) do |rel|
-                    check_generic_method_type(
-                      name,
-                      rel,
-                      self_type: self_type,
-                      instance_type: instance_type,
-                      class_type: class_type,
-                      assumption: assumption,
-                      constraints: constraints
-                    )
+                    check_generic_method_type(name, rel)
                   end
                 end
               end
@@ -763,22 +558,14 @@ module Steep
         end
       end
 
-      def check_generic_method_type(name, relation, self_type:, instance_type:, class_type:, assumption:, constraints:)
+      def check_generic_method_type(name, relation)
         relation.method!
 
         sub_type, super_type = relation
 
         case
         when sub_type.type_params.empty? && super_type.type_params.empty?
-          check_method_type(
-            name,
-            relation,
-            self_type: self_type,
-            instance_type: instance_type,
-            class_type: class_type,
-            assumption: assumption,
-            constraints: constraints
-          )
+          check_method_type(name, relation)
 
         when !sub_type.type_params.empty? && super_type.type_params.empty?
           # Check if super_type is an instance of sub_type.
@@ -808,15 +595,7 @@ module Steep
                 end
               end
 
-              check_method_type(
-                name,
-                Relation.new(sub_type: sub_type_.subst(subst), super_type: super_type),
-                self_type: self_type,
-                instance_type: instance_type,
-                class_type: class_type,
-                assumption: assumption,
-                constraints: constraints
-              )
+              check_method_type(name, Relation.new(sub_type: sub_type_.subst(subst), super_type: super_type))
             end
           end
 
@@ -830,15 +609,7 @@ module Steep
               constraints.add_var(*sub_args)
 
               rel_ = Relation.new(sub_type: sub_type_, super_type: super_type)
-              result = check_method_type(
-                name,
-                rel_,
-                self_type: self_type,
-                instance_type: instance_type,
-                class_type: class_type,
-                assumption: assumption,
-                constraints: constraints
-              )
+              result = check_method_type(name, rel_)
 
               if result.success? && sub_args.map(&:name).none? {|var| constraints.has_constraint?(var) }
                 result
@@ -858,15 +629,7 @@ module Steep
 
             constraints.add_var(*args)
 
-            check_method_type(
-              name,
-              Relation.new(sub_type: sub_type_, super_type: super_type_),
-              self_type: self_type,
-              instance_type: instance_type,
-              class_type: class_type,
-              assumption: assumption,
-              constraints: constraints
-            )
+            check_method_type(name, Relation.new(sub_type: sub_type_, super_type: super_type_))
           end
 
         else
@@ -874,36 +637,20 @@ module Steep
         end
       end
 
-      def check_method_type(name, relation, self_type:, instance_type:, class_type:, assumption:, constraints:)
+      def check_method_type(name, relation)
         relation.method!
 
         sub_type, super_type = relation
 
         All(relation) do |result|
           result.add(Relation.new(sub_type: sub_type.type, super_type: super_type.type)) do |rel|
-            check_function(
-              name,
-              rel,
-              self_type: self_type,
-              instance_type: instance_type,
-              class_type: class_type,
-              assumption: assumption,
-              constraints: constraints
-            )
+            check_function(name, rel)
           end
 
           result.add(Relation.new(sub_type: sub_type.block, super_type: super_type.block)) do |rel|
             check_block_given(name, rel) do
               Expand(Relation.new(sub_type: super_type.block.type, super_type: sub_type.block.type)) do |rel|
-                check_function(
-                  name,
-                  rel,
-                  self_type: self_type,
-                  instance_type: instance_type,
-                  class_type: class_type,
-                  assumption: assumption,
-                  constraints: constraints
-                )
+                check_function(name, rel)
               end
             end
           end
@@ -927,36 +674,21 @@ module Steep
         end
       end
 
-      def check_function(name, relation, self_type:, instance_type:, class_type:, assumption:, constraints:)
+      def check_function(name, relation)
         relation.function!
 
         All(relation) do |result|
           result.add(relation.map {|fun| fun.params }) do |rel|
-            check_method_params(
-              name,
-              rel,
-              self_type: self_type,
-              instance_type: instance_type,
-              class_type: class_type,
-              assumption: assumption,
-              constraints: constraints
-            )
+            check_method_params(name, rel)
           end
 
           result.add(relation.map {|fun| fun.return_type }) do |rel|
-            check(
-              rel,
-              self_type: self_type,
-              instance_type: instance_type,
-              class_type: class_type,
-              assumption: assumption,
-              constraints: constraints
-            )
+            check_type(rel)
           end
         end
       end
 
-      def check_method_params(name, relation, self_type:, instance_type:, class_type:, assumption:, constraints:)
+      def check_method_params(name, relation)
         relation.params!
         pairs = match_params(name, relation)
 
@@ -966,14 +698,7 @@ module Steep
             All(relation) do |result|
               pairs.each do |(sub_type, super_type)|
                 result.add(Relation.new(sub_type: super_type, super_type: sub_type)) do |rel|
-                  check(
-                    rel,
-                    self_type: self_type,
-                    instance_type: instance_type,
-                    class_type: class_type,
-                    assumption: assumption,
-                    constraints: constraints
-                  )
+                  check_type(rel)
                 end
               end
 

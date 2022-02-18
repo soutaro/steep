@@ -1119,7 +1119,7 @@ module Rails end
         for_module = construction.for_module(source.node)
 
         assert_nil for_module.module_context.implement_name
-        assert_nil for_module.module_context.instance_type
+        assert_equal parse_type("::BasicObject"), for_module.module_context.instance_type
         assert_equal parse_type("::Module"), for_module.module_context.module_type
       end
     end
@@ -4704,6 +4704,70 @@ end
       with_standard_construction(checker, source) do |construction, typing|
         construction.synthesize(source.node)
         assert_empty typing.errors
+      end
+    end
+  end
+
+  def test_module_no_rbs
+    with_checker do |checker|
+      source = parse_ruby(<<-EOF)
+module SampleModule
+  def foo
+    self.hello()
+  end
+
+  self.world()
+end
+      EOF
+
+      with_standard_construction(checker, source) do |construction, typing|
+        construction.synthesize(source.node)
+
+        assert_typing_error(typing, size: 2) do |errors|
+          assert_any!(errors) do |error|
+            assert_instance_of Diagnostic::Ruby::NoMethod, error
+            assert_equal :hello, error.method
+            assert_equal AST::Builtin::BasicObject.instance_type, error.type
+          end
+
+          assert_any!(errors) do |error|
+            assert_instance_of Diagnostic::Ruby::NoMethod, error
+            assert_equal :world, error.method
+            assert_equal AST::Builtin::Module.instance_type, error.type
+          end
+        end
+      end
+    end
+  end
+
+  def test_class_no_rbs
+    with_checker do |checker|
+      source = parse_ruby(<<-EOF)
+class SampleClass < String
+  def foo
+    self.hello()
+  end
+
+  self.world()
+end
+      EOF
+
+      with_standard_construction(checker, source) do |construction, typing|
+        construction.synthesize(source.node)
+
+        assert_typing_error(typing, size: 2) do |errors|
+          assert_any!(errors) do |error|
+            assert_instance_of Diagnostic::Ruby::NoMethod, error
+            assert_equal :hello, error.method
+            assert_equal AST::Builtin::String.instance_type, error.type
+          end
+
+          assert_any!(errors) do |error|
+            assert_instance_of Diagnostic::Ruby::NoMethod, error
+            assert_equal :world, error.method
+            assert_equal AST::Builtin::String.module_type, error.type
+          end
+        end
       end
     end
   end

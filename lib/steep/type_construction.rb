@@ -332,7 +332,10 @@ module Steep
       module_context = default_module_context(implement_module_name, const_env: module_const_env, current_namespace: new_namespace)
 
       unless implement_module_name
-        module_context = module_context.update(module_type: AST::Builtin::Module.instance_type)
+        module_context = module_context.update(
+          module_type: AST::Builtin::Module.instance_type,
+          instance_type: AST::Builtin::BasicObject.instance_type
+        )
       end
 
       if implement_module_name

@@ -439,7 +439,13 @@ end
     class_type = parse_type(class_type, checker: checker) if class_type.is_a?(String)
 
     relation = parse_relation(sub_type, super_type, checker: checker)
-    result = checker.check(relation, self_type: self_type, instance_type: instance_type, class_type: class_type, constraints: constraints)
+    result = checker.check(
+      relation,
+      self_type: self_type || :dummy_self_type,
+      instance_type: instance_type || :dummy_instance_type,
+      class_type: class_type || :dummy_class_type,
+      constraints: constraints
+    )
 
     assert_predicate result, :success?, message {
       str = ""
@@ -461,9 +467,9 @@ end
     relation = parse_relation(sub_type, super_type, checker: checker)
     result = checker.check(
       relation,
-      self_type: self_type,
-      instance_type: instance_type,
-      class_type: class_type,
+      self_type: self_type || :dummy_self_type,
+      instance_type: instance_type || :dummy_instance_type,
+      class_type: class_type || :dummy_class_type,
       constraints: constraints
     )
 
@@ -533,9 +539,9 @@ end
           sub_type: AST::Types::Name.new_instance(name: :"::Object"),
           super_type: AST::Types::Var.new(name: :foo)
         ),
-        self_type: parse_type("self", checker: checker),
-        instance_type: nil,
-        class_type: nil,
+        self_type: AST::Types::Self.new,
+        instance_type: AST::Types::Instance.new,
+        class_type: AST::Types::Class.new,
         constraints: Subtyping::Constraints.empty
       )
 
@@ -546,9 +552,9 @@ end
     with_checker do |checker|
       checker.check(
         parse_relation("::Integer", "::Object", checker: checker),
-        self_type: parse_type("self", checker: checker),
-        instance_type: nil,
-        class_type: nil,
+        self_type: AST::Types::Self.new,
+        instance_type: AST::Types::Instance.new,
+        class_type: AST::Types::Class.new,
         constraints: Subtyping::Constraints.empty
       )
 
@@ -558,9 +564,9 @@ end
         :key?,
         [
           parse_relation("::Integer", "::Object", checker: checker),
-          parse_type("self", checker: checker),
-          nil,
-          nil
+          AST::Types::Self.new,
+          AST::Types::Instance.new,
+          AST::Types::Class.new,
         ]
       )
     end
