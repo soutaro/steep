@@ -26,20 +26,32 @@ module Steep
       end
 
       module ResultPrinter
-        def print_result_to(io, level: 1)
-          printer = Drivers::TracePrinter.new(io)
-          printer.print result.trace, level: level
-        end
-
-        def trace_lines
-          StringIO.new.tap do |io|
-            print_result_to(io)
-          end.string.chomp
+        def relation_message(relation)
+          case
+          when relation.type?
+            relation.to_s
+          when relation.method?
+            if relation.super_type.is_a?(Interface::MethodType) && relation.sub_type.is_a?(Interface::MethodType)
+              relation.to_s
+            end
+          when relation.interface?
+            nil
+          when relation.block?
+            nil
+          when relation.function?
+            nil
+          when relation.params?
+            nil
+          end
         end
 
         def detail_lines
           StringIO.new.tap do |io|
-            print_result_to(io)
+            result.failure_path&.reverse_each.map do |result|
+              relation_message(result.relation)
+            end.compact.each.with_index(1) do |message, index|
+              io.puts "#{"  " * (index)}#{message}"
+            end
           end.string.chomp
         end
       end
@@ -440,7 +452,7 @@ module Steep
           super(node: node)
           @interface_method = interface_method
           @annotation_method = annotation_method
-          @result = result
+          @result = relation
         end
       end
 

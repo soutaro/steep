@@ -1573,8 +1573,7 @@ module Steep
                 instance_type: module_context.instance_type,
                 class_type: module_context.module_type
               ) do |error|
-                case error
-                when Subtyping::Result::Failure
+                if error
                   const_type = type_env.get(const: const_name)
                   typing.add_error(
                     Diagnostic::Ruby::IncompatibleAssignment.new(
@@ -1584,7 +1583,7 @@ module Steep
                       result: error
                     )
                   )
-                when nil
+                else
                   typing.add_error(
                     Diagnostic::Ruby::UnknownConstantAssigned.new(
                       node: node,
@@ -2411,6 +2410,7 @@ module Steep
 
     def type_ivasgn(name, rhs, node)
       rhs_type = synthesize(rhs, hint: type_env.get(ivar: name) { fallback_to_any(node) }).type
+
       ivar_type = type_env.assign(
         ivar: name,
         type: rhs_type,
@@ -2418,8 +2418,7 @@ module Steep
         instance_type: module_context.instance_type,
         class_type: module_context.module_type
       ) do |error|
-        case error
-        when Subtyping::Result::Failure
+        if error
           type = type_env.get(ivar: name)
           typing.add_error(
             Diagnostic::Ruby::IncompatibleAssignment.new(
@@ -2429,7 +2428,7 @@ module Steep
               result: error
             )
           )
-        when nil
+        else
           fallback_to_any node
         end
       end
@@ -2473,8 +2472,7 @@ module Steep
         instance_type: module_context.instance_type,
         class_type: module_context.module_type
       ) do |error|
-        case error
-        when Subtyping::Result::Failure
+        if error
           var_type = type_env.get(ivar: ivar)
           typing.add_error(
             Diagnostic::Ruby::IncompatibleAssignment.new(
@@ -2484,7 +2482,7 @@ module Steep
               result: error
             )
           )
-        when nil
+        else
           fallback_to_any node
         end
       end
@@ -3155,8 +3153,7 @@ module Steep
                                       super_type: method_type.block.type.return_type,
                                       constraints: constraints)
 
-              case result
-              when Subtyping::Result::Success
+              if result.success?
                 s = constraints.solution(
                   checker,
                   self_type: self_type,
@@ -3171,8 +3168,7 @@ module Steep
                 if break_type = block_annotations.break_type
                   return_type = union_type(break_type, return_type)
                 end
-
-              when Subtyping::Result::Failure
+              else
                 errors << Diagnostic::Ruby::BlockBodyTypeMismatch.new(
                   node: node,
                   expected: method_type.block.type.return_type,

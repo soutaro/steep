@@ -71,7 +71,7 @@ class TypeEnvTest < Minitest::Test
           instance_type: parse_type("instance"),
           class_type: parse_type("class")
         ) do |error|
-          assert_instance_of Subtyping::Result::Failure, error
+          assert_predicate error, :failure?
         end
         assert_equal AST::Types::Name.new_instance(name: "::Numeric"), ivar_type
       end
@@ -139,7 +139,7 @@ class TypeEnvTest < Minitest::Test
           instance_type: parse_type("instance"),
           class_type: parse_type("class")
         ) do |error|
-          assert_instance_of Subtyping::Result::Failure, error
+          assert_predicate error, :failure?
         end
         assert_equal AST::Types::Name.new_instance(name: "::Numeric"), type
       end
@@ -166,7 +166,7 @@ class TypeEnvTest < Minitest::Test
           instance_type: parse_type("instance"),
           class_type: parse_type("class")
         ) do |error|
-          assert_instance_of Subtyping::Result::Failure, error
+          assert_predicate error, :failure?
         end
         assert_equal AST::Types::Name.new_singleton(name: "::Regexp"), type
       end
@@ -227,7 +227,7 @@ class TypeEnvTest < Minitest::Test
           instance_type: parse_type("instance"),
           class_type: parse_type("class")
         ) do |error|
-          assert_instance_of Subtyping::Result::Failure, error
+          assert_predicate error, :failure?
         end
         assert_equal AST::Types::Name.new_instance(name: "::String"), type
       end
@@ -284,7 +284,7 @@ class TypeEnvTest < Minitest::Test
           class_type: parse_type("class")
         ) do |name, relation, error|
           assert_equal name, :"@x"
-          assert_instance_of Subtyping::Result::Failure, error
+          assert_predicate error, :failure?
         end
 
         assert_equal AST::Types::Name.new_instance(name: "::Regexp"), type_env.get(ivar: :"@x") { raise }
@@ -344,7 +344,7 @@ class TypeEnvTest < Minitest::Test
           class_type: parse_type("class")
         ) do |name, relation, error|
           assert_equal name, :"$x"
-          assert_instance_of Subtyping::Result::Failure, error
+          assert_predicate error, :failure?
         end
 
         assert_equal AST::Types::Name.new_instance(name: "::Regexp"), type_env.get(gvar: :"$x") { raise }
@@ -405,7 +405,7 @@ class TypeEnvTest < Minitest::Test
           class_type: parse_type("class")
         ) do |name, relation, error|
           assert_equal name, TypeName("FOO")
-          assert_instance_of Subtyping::Result::Failure, error
+          assert_predicate error, :failure?
         end
 
         assert_equal AST::Types::Name.new_instance(name: "::Regexp"),
@@ -422,7 +422,7 @@ class TypeEnvTest < Minitest::Test
           class_type: parse_type("class")
         ) do |name, relation, error|
           assert_equal name, TypeName("String")
-          assert_instance_of Subtyping::Result::Failure, error
+          assert_predicate error, :failure?
         end
 
         assert_equal AST::Types::Name.new_instance(name: "::Regexp"),

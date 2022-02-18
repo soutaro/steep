@@ -23,6 +23,66 @@ module Steep
         "#{sub_type} <: #{super_type}"
       end
 
+      def to_ary
+        [sub_type, super_type]
+      end
+
+      def type?
+        !interface? && !method? && !function? && !params? && !block?
+      end
+
+      def interface?
+        sub_type.is_a?(Interface::Interface) && super_type.is_a?(Interface::Interface)
+      end
+
+      def method?
+        (sub_type.is_a?(Interface::Interface::Entry) || sub_type.is_a?(Interface::MethodType)) &&
+          (super_type.is_a?(Interface::Interface::Entry) || super_type.is_a?(Interface::MethodType))
+      end
+
+      def function?
+        sub_type.is_a?(Interface::Function) && super_type.is_a?(Interface::Function)
+      end
+
+      def params?
+        sub_type.is_a?(Interface::Function::Params) && super_type.is_a?(Interface::Function::Params)
+      end
+
+      def block?
+        (sub_type.is_a?(Interface::Block) || !sub_type) &&
+          (!super_type || super_type.is_a?(Interface::Block))
+      end
+
+      def assert_type(type)
+        unless __send__(:"#{type}?")
+          raise "#{type}? is expected but: sub_type=#{sub_type.class}, super_type=#{super_type.class}"
+        end
+      end
+
+      def type!
+        assert_type(:type)
+      end
+
+      def interface!
+        assert_type(:interface)
+      end
+
+      def method!
+        assert_type(:method)
+      end
+
+      def function!
+        assert_type(:function)
+      end
+
+      def params!
+        assert_type(:params)
+      end
+
+      def block!
+        assert_type(:block)
+      end
+
       def map
         self.class.new(
           sub_type: yield(sub_type),

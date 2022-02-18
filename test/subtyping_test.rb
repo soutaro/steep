@@ -398,6 +398,41 @@ end
     end
   end
 
+  def print_result(result, output, prefix: "  ")
+    mark = result.success? ? "👍" : "🤦"
+
+    buffer = "#{prefix}#{mark} "
+    case result
+    when Subtyping::Result::Success
+      buffer << "(success) #{result.relation}"
+      output.puts(buffer)
+    when Subtyping::Result::Skip
+      buffer << "(skip) #{result.relation}"
+      output.puts(buffer)
+    when Subtyping::Result::Failure
+      buffer << "(#{result.error.message}) #{result.relation}"
+      output.puts(buffer)
+    when Subtyping::Result::All
+      buffer << "(all) #{result.relation} (#{result.branches.size} branches)"
+      output.puts(buffer)
+      result.branches.each do |b|
+        print_result(b, output, prefix: prefix + "  ")
+      end
+    when Subtyping::Result::Any
+      buffer << "(any) #{result.relation} (#{result.branches.size} branches)"
+      output.puts(buffer)
+      result.branches.each do |b|
+        print_result(b, output, prefix: prefix + "  ")
+      end
+    when Subtyping::Result::Expand
+      buffer << "(expand) #{result.relation}"
+      output.puts(buffer)
+      print_result(result.child, output, prefix: prefix + "  ")
+    else
+      raise
+    end
+  end
+
   def assert_success_check(checker, sub_type, super_type, self_type: parse_type("self", checker: checker), instance_type: parse_type("instance", checker: checker), class_type: parse_type("class", checker: checker), constraints: Constraints.empty)
     self_type = parse_type(self_type, checker: checker) if self_type.is_a?(String)
     instance_type = parse_type(instance_type, checker: checker) if instance_type.is_a?(String)
@@ -406,14 +441,14 @@ end
     relation = parse_relation(sub_type, super_type, checker: checker)
     result = checker.check(relation, self_type: self_type, instance_type: instance_type, class_type: class_type, constraints: constraints)
 
-    assert result.instance_of?(Subtyping::Result::Success), message {
+    assert_predicate result, :success?, message {
       str = ""
       str << "Expected subtyping check succeed but failed: #{relation.sub_type} <: #{relation.super_type}\n"
       str << "Trace:\n"
-      result.trace.each do |*xs|
-        str << "  #{xs.join(", ")}\n"
-      end
-      str
+
+      io = StringIO.new()
+      print_result(result, io)
+      str << io.string
     }
     yield result if block_given?
   end
@@ -432,18 +467,17 @@ end
       constraints: constraints
     )
 
-    assert result.instance_of?(Subtyping::Result::Failure), message {
+    assert_predicate result, :failure?, message {
       str = ""
       str << "Expected subtyping check fail but succeeded: #{relation.sub_type} <: #{relation.super_type}\n"
-      if result.respond_to? :trace
-        str << "Trace:\n"
-        result.trace.each do |*xs|
-          str << "  #{xs.join(", ")}\n"
-        end
-      end
+      str << "Trace:\n"
+      io = StringIO.new()
+      print_result(result, io)
+      str << io.string
       str
     }
-    yield result if block_given?
+
+    yield result.failure_path&.first if block_given?
   end
 
   def test_union
@@ -543,14 +577,18 @@ interface _B[A]
 end
     EOS
 
-      assert_success_check checker,
-                           "::_A",
-                           parse_type("::_B[X]", checker: checker, variables: [:X]),
-                           constraints: Constraints.new(unknowns: [:X]) do |result|
-        assert_operator result.constraints, :unknown?, :X
-        assert_instance_of AST::Types::Top, result.constraints.upper_bound(:X)
-        assert_equal parse_type("::Integer", checker: checker), result.constraints.lower_bound(:X)
-      end
+      constraints = Constraints.new(unknowns: [:X])
+
+      assert_success_check(
+        checker,
+        "::_A",
+        parse_type("::_B[X]", checker: checker, variables: [:X]),
+        constraints: constraints
+      )
+
+      assert_operator constraints, :unknown?, :X
+      assert_instance_of AST::Types::Top, constraints.upper_bound(:X)
+      assert_equal parse_type("::Integer", checker: checker), constraints.lower_bound(:X)
     end
 
     with_checker <<-EOS do |checker|
@@ -563,14 +601,18 @@ interface _B[A]
 end
     EOS
 
-      assert_success_check checker,
-                           "::_A",
-                           parse_type("::_B[X]", checker: checker, variables: [:X]),
-                           constraints: Constraints.new(unknowns: [:X]) do |result|
-        assert_operator result.constraints, :unknown?, :X
-        assert_equal "::Integer", result.constraints.upper_bound(:X).to_s
-        assert_instance_of AST::Types::Bot, result.constraints.lower_bound(:X)
-      end
+      constraints = Constraints.new(unknowns: [:X])
+
+      assert_success_check(
+        checker,
+        "::_A",
+        parse_type("::_B[X]", checker: checker, variables: [:X]),
+        constraints: constraints
+      )
+
+      assert_operator constraints, :unknown?, :X
+      assert_equal "::Integer", constraints.upper_bound(:X).to_s
+      assert_instance_of AST::Types::Bot, constraints.lower_bound(:X)
     end
 
     with_checker <<-EOS do |checker|
@@ -583,14 +625,16 @@ interface _B[A]
 end
     EOS
 
-      assert_success_check checker,
-                           "::_A",
-                           parse_type("::_B[X]", checker: checker, variables: [:X]),
-                           constraints: Constraints.new(unknowns: [:X]) do |result|
-        assert_operator result.constraints, :unknown?, :X
-        assert_equal "::Integer", result.constraints.upper_bound(:X).to_s
-        assert_equal "::Integer", result.constraints.lower_bound(:X).to_s
-      end
+      constraints = Constraints.new(unknowns: [:X])
+      assert_success_check(
+        checker,
+        "::_A",
+        parse_type("::_B[X]", checker: checker, variables: [:X]),
+        constraints: constraints
+      )
+      assert_operator constraints, :unknown?, :X
+      assert_equal "::Integer", constraints.upper_bound(:X).to_s
+      assert_equal "::Integer", constraints.lower_bound(:X).to_s
     end
   end
 
@@ -607,24 +651,26 @@ interface _B
 end
     EOS
 
-      assert_success_check checker,
-                           parse_type("::_A[T]", checker: checker, variables: [:T]),
-                           "::_B",
-                           constraints: Constraints.new(unknowns: [:T]) do |result|
-        assert_equal "::String", result.constraints.upper_bound(:T).to_s
-        assert_equal "::String", result.constraints.lower_bound(:T).to_s
+      constraints = Constraints.new(unknowns: [:T])
+      assert_success_check(
+        checker,
+        parse_type("::_A[T]", checker: checker, variables: [:T]),
+        "::_B",
+        constraints: constraints
+      )
+      assert_equal "::String", constraints.upper_bound(:T).to_s
+      assert_equal "::String", constraints.lower_bound(:T).to_s
 
-        variance = Subtyping::VariableVariance.new(covariants: Set[:T], contravariants: Set[:T])
-        s = result.constraints.solution(
-          checker,
-          variance: variance,
-          variables: Set[:T],
-          self_type: parse_type("self", checker: checker),
-          instance_type: parse_type("instance", checker: checker),
-          class_type: parse_type("class", checker: checker)
-        )
-        assert_equal "::String", s[:T].to_s
-      end
+      variance = Subtyping::VariableVariance.new(covariants: Set[:T], contravariants: Set[:T])
+      s = constraints.solution(
+        checker,
+        variance: variance,
+        variables: Set[:T],
+        self_type: parse_type("self", checker: checker),
+        instance_type: parse_type("instance", checker: checker),
+        class_type: parse_type("class", checker: checker)
+      )
+      assert_equal "::String", s[:T].to_s
     end
   end
 
@@ -668,14 +714,16 @@ type json = String | Integer | Array[json] | Hash[String, json]
       assert_success_check checker, "{ foo: ::String }", "{ foo: ::String, bar: ::Integer? }"
       assert_fail_check checker, "{ foo: ::String, bar: ::Symbol }", "{ foo: ::String, bar: ::Integer? }"
 
-      assert_success_check checker,
-                           "{ foo: ::Integer }",
-                           parse_type("{ foo: X }", checker: checker, variables: [:X]),
-                           constraints: Constraints.new(unknowns: [:X]) do |result|
-        assert_operator result.constraints, :unknown?, :X
-        assert_equal parse_type("top", checker: checker), result.constraints.upper_bound(:X)
-        assert_equal "::Integer", result.constraints.lower_bound(:X).to_s
-      end
+      constraints = Constraints.new(unknowns: [:X])
+      assert_success_check(
+        checker,
+        "{ foo: ::Integer }",
+        parse_type("{ foo: X }", checker: checker, variables: [:X]),
+        constraints: constraints
+      )
+      assert_operator constraints, :unknown?, :X
+      assert_equal parse_type("top", checker: checker), constraints.upper_bound(:X)
+      assert_equal "::Integer", constraints.lower_bound(:X).to_s
 
       assert_success_check checker, "{ foo: ::Integer, bar: bool }", "::Hash[:foo | :bar, ::Integer | bool]"
     end
@@ -829,13 +877,16 @@ end
       assert_success_check checker, "::Collection[::String]", "::Collection[::Object]"
       assert_fail_check checker, "::Collection[::Object]", "::Collection[::String]"
 
-      assert_success_check(checker,
-                           "::Collection[::String]",
-                           parse_type("::Collection[X]", checker: checker, variables: [:X]),
-                           constraints: Constraints.new(unknowns: [:X])) do |result|
-        assert_operator result.constraints, :unknown?, :X
-        assert_instance_of AST::Types::Top, result.constraints.upper_bound(:X)
-        assert_equal parse_type("::String", checker: checker), result.constraints.lower_bound(:X)
+      Constraints.new(unknowns: [:X]).tap do |constraints|
+        assert_success_check(
+          checker,
+          "::Collection[::String]",
+          parse_type("::Collection[X]", checker: checker, variables: [:X]),
+          constraints: constraints
+        )
+        assert_operator constraints, :unknown?, :X
+        assert_instance_of AST::Types::Top, constraints.upper_bound(:X)
+        assert_equal parse_type("::String", checker: checker), constraints.lower_bound(:X)
       end
 
       assert_success_check checker, "::SuperCollection[::String]", "::Collection[::String]"

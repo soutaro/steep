@@ -582,7 +582,7 @@ module TypeConstructionHelper
   def assert_typing_error(typing, size: nil)
     assert_instance_of Typing, typing
 
-    messages = typing.errors.map {|e| e.to_s }
+    messages = typing.errors.map {|e| e.header_line }
 
     if size
       assert_equal size, messages.size, "errors=#{messages.inspect}"
