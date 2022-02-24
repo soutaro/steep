@@ -7966,4 +7966,56 @@ ints = [1, [2, nil]]
       end
     end
   end
+
+  def test_bounded_generics
+    with_checker(<<-RBS) do |checker|
+class Q[T < _Pushable]
+  attr_reader queue: T
+
+  def push: [S < _ToStr] (S) -> S
+end
+
+interface _Pushable
+  def push: (String) -> void
+end
+
+interface _ToStr
+  def to_str: () -> String
+end
+    RBS
+
+      source = parse_ruby(<<-'RUBY')
+class Q
+  def push(obj)
+    queue.push(obj.to_str)
+    obj
+  end
+end
+
+# @type var q: Q[Array[String]]
+q = Q.new()
+q.push("") + ""
+      RUBY
+
+      with_standard_construction(checker, source) do |construction, typing|
+        type, _ = construction.synthesize(source.node)
+
+        assert_typing_error(typing, size: 3) do |errors|
+          assert_any!(errors) do |error|
+            assert_instance_of Diagnostic::Ruby::NoMethod, error
+            assert_equal :to_str, error.method
+          end
+
+          assert_any!(errors) do |error|
+            assert_instance_of Diagnostic::Ruby::NoMethod, error
+            assert_equal :push, error.method
+          end
+
+          assert_any!(errors) do |error|
+            assert_instance_of Diagnostic::Ruby::MethodDefinitionMissing, error
+          end
+        end
+      end
+    end
+  end
 end
