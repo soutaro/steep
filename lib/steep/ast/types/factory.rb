@@ -58,7 +58,7 @@ module Steep
             Name::Interface.new(name: type_name, args: args, location: nil)
           when RBS::Types::Alias
             type_name = type.name
-            Name::Alias.new(name: type_name, args: [], location: nil)
+            Name::Alias.new(name: type_name, location: nil)
           when RBS::Types::Union
             Union.build(types: type.types.map {|ty| type(ty) }, location: nil)
           when RBS::Types::Intersection
@@ -134,8 +134,7 @@ module Steep
               location: nil
             )
           when Name::Alias
-            type.args.empty? or raise "alias type with args is not supported"
-            RBS::Types::Alias.new(name: type.name, location: nil)
+            RBS::Types::Alias.new(name: type.name, args: [], location: nil)
           when Union
             RBS::Types::Union.new(
               types: type.types.map {|ty| type_1(ty) },

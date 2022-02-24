@@ -87,7 +87,6 @@ class TypeFactoryTest < Minitest::Test
       factory.type(parse_type("Super::duper")).yield_self do |type|
         assert_instance_of Types::Name::Alias, type
         assert_equal "Super::duper", type.name.to_s
-        assert_equal [], type.args
       end
 
       factory.type(parse_type("Integer | nil")).yield_self do |type|

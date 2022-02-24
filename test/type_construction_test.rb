@@ -4462,8 +4462,11 @@ EOF
       with_standard_construction(checker, source) do |construction, typing|
         construction.synthesize(source.node)
 
-        assert_equal 1, typing.errors.size
-        assert_instance_of Diagnostic::Ruby::ArgumentTypeMismatch, typing.errors[0]
+        assert_typing_error(typing, size: 1) do
+          assert_any!(typing.errors) do |error|
+            assert_instance_of Diagnostic::Ruby::ArgumentTypeMismatch, error
+          end
+        end
       end
     end
   end
