@@ -1,0 +1,3 @@
+module NonregularTypeAlias
+  type t[T, S] = ^() -> t[String, Integer]
+end
