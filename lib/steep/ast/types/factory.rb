@@ -210,7 +210,9 @@ module Steep
           alpha_vars = []
           alpha_types = []
 
-          method_type.type_params.map do |name|
+          method_type.type_params.map do |type_param|
+            name = type_param.name
+
             if fvs.include?(name)
               type = Types::Var.fresh(name)
               alpha_vars << name
@@ -262,10 +264,14 @@ module Steep
               type = RBS::Types::Variable.new(name: name, location: nil),
               alpha_vars << name
               alpha_types << type
-              type_params << type.name
-            else
-              type_params << name
             end
+
+            type_params << RBS::AST::TypeParam.new(
+              name: name,
+              variance: :invariant,
+              upper_bound: nil,
+              location: nil
+            )
           end
           subst = Interface::Substitution.build(alpha_vars, alpha_types)
 
