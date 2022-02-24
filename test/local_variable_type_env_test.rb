@@ -85,7 +85,7 @@ EOF
       node = dig(source.node, 0)
 
       type_env.assign(:x, node: node, type: parse_type("::Symbol")) do |declared_type, assigned_type, result|
-        assert_instance_of Subtyping::Result::Failure, result
+        assert_predicate result, :failure?
         assert_equal declared_type, parse_type("::Integer | ::String")
         assert_equal assigned_type, parse_type("::Symbol")
       end.tap do |env|
@@ -154,7 +154,7 @@ EOF
         assert_equal :x, name
         assert_equal parse_type("::Symbol"), inner_type
         assert_equal parse_type("::Integer | ::String"), outer_type
-        assert_instance_of Subtyping::Result::Failure, result
+        assert_predicate result, :failure?
       end
     end
   end
@@ -223,7 +223,7 @@ EOF
         new_env.assign(:x, node: dig(source.node, 1, 2), type: parse_type("::String")) do |declared_type, assigned_type, result|
           assert_equal parse_type("::Integer"), declared_type
           assert_equal parse_type("::String"), assigned_type
-          assert_instance_of Subtyping::Result::Failure, result
+          assert_predicate result, :failure?
         end
       end
     end
@@ -291,7 +291,7 @@ EOF
           assert_equal :x, var
           assert_equal parse_type("::Integer"), out_type
           assert_equal parse_type("::Integer | ::String"), in_type
-          assert_instance_of Subtyping::Result::Failure, result
+          assert_predicate result, :failure?
         end
       end
     end
