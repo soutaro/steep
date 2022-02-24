@@ -14,6 +14,7 @@ module Steep
         @writer = writer
         @skip_job = false
         @shutdown = false
+        @skip_jobs_after_shutdown = nil
       end
 
       def skip_jobs_after_shutdown!(flag = true)

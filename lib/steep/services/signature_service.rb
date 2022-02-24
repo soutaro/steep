@@ -224,7 +224,7 @@ module Steep
           Steep.measure "Loading new decls" do
             updated_files.each_value do |content|
               case decls = content.decls
-              when RBS::ErrorBase
+              when RBS::BaseError
                 errors << content.decls
               else
                 begin
@@ -283,7 +283,7 @@ module Steep
       def rescue_rbs_error(errors)
         begin
           yield
-        rescue RBS::ErrorBase => exn
+        rescue RBS::BaseError => exn
           errors << exn
         end
       end

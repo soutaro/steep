@@ -58,7 +58,7 @@ module Steep
             Name::Interface.new(name: type_name, args: args, location: nil)
           when RBS::Types::Alias
             type_name = type.name
-            Name::Alias.new(name: type_name, args: [], location: nil)
+            Name::Alias.new(name: type_name, location: nil)
           when RBS::Types::Union
             Union.build(types: type.types.map {|ty| type(ty) }, location: nil)
           when RBS::Types::Intersection
@@ -134,8 +134,7 @@ module Steep
               location: nil
             )
           when Name::Alias
-            type.args.empty? or raise "alias type with args is not supported"
-            RBS::Types::Alias.new(name: type.name, location: nil)
+            RBS::Types::Alias.new(name: type.name, args: [], location: nil)
           when Union
             RBS::Types::Union.new(
               types: type.types.map {|ty| type_1(ty) },
@@ -211,7 +210,9 @@ module Steep
           alpha_vars = []
           alpha_types = []
 
-          method_type.type_params.map do |name|
+          method_type.type_params.map do |type_param|
+            name = type_param.name
+
             if fvs.include?(name)
               type = Types::Var.fresh(name)
               alpha_vars << name
@@ -263,10 +264,14 @@ module Steep
               type = RBS::Types::Variable.new(name: name, location: nil),
               alpha_vars << name
               alpha_types << type
-              type_params << type.name
-            else
-              type_params << name
             end
+
+            type_params << RBS::AST::TypeParam.new(
+              name: name,
+              variance: :invariant,
+              upper_bound: nil,
+              location: nil
+            )
           end
           subst = Interface::Substitution.build(alpha_vars, alpha_types)
 
@@ -302,7 +307,7 @@ module Steep
 
         def unfold(type_name)
           type_name.yield_self do |type_name|
-            type(definition_builder.expand_alias(type_name))
+            type(definition_builder.expand_alias1(type_name))
           end
         end
 

@@ -280,7 +280,7 @@ module Steep
       def validate_one_alias(name)
         rescue_validation_errors(name) do
           Steep.logger.debug "Validating alias `#{name}`..."
-          builder.expand_alias(name).tap do |type|
+          builder.expand_alias1(name).tap do |type|
             validate_type(type)
           end
         end
@@ -294,7 +294,7 @@ module Steep
 
       def rescue_validation_errors(type_name = nil)
         yield
-      rescue RBS::ErrorBase => exn
+      rescue RBS::BaseError => exn
         @errors << Diagnostic::Signature.from_rbs_error(exn, factory: factory)
       end
     end

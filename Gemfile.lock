@@ -8,7 +8,7 @@ PATH
       parallel (>= 1.0.0)
       parser (>= 3.0)
       rainbow (>= 2.2.2, < 4.0)
-      rbs (>= 1.7.0)
+      rbs (~> 2.2.0)
       terminal-table (>= 2, < 4)
 
 PATH
@@ -49,7 +49,7 @@ GEM
     rb-fsevent (0.11.1)
     rb-inotify (0.10.1)
       ffi (~> 1.0)
-    rbs (1.7.1)
+    rbs (2.2.2)
     stackprof (0.2.18)
     terminal-table (3.0.2)
       unicode-display_width (>= 1.1.1, < 3)

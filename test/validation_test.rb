@@ -546,4 +546,17 @@ EOF
       end
     end
   end
+
+  def test_generic_alias_skip
+    with_checker <<~RBS do |checker|
+type list[T] = nil
+             | [ T, list[T] ]
+    RBS
+
+      validator = Validator.new(checker: checker)
+      validator.validate_alias
+
+      refute_operator validator, :has_error?
+    end
+  end
 end

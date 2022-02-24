@@ -109,7 +109,10 @@ module Steep
         class Interface < Applying
         end
 
-        class Alias < Applying
+        class Alias < Base
+          def to_s
+            name.to_s
+          end
         end
       end
     end
