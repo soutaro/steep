@@ -280,7 +280,7 @@ module Steep
       def validate_one_alias(name)
         rescue_validation_errors(name) do
           Steep.logger.debug "Validating alias `#{name}`..."
-          builder.expand_alias(name).tap do |type|
+          builder.expand_alias1(name).tap do |type|
             validate_type(type)
           end
         end

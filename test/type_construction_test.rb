@@ -7946,4 +7946,24 @@ EachNoParam.new.each(*a)
       end
     end
   end
+
+  def test_generic_alias_skip
+    with_checker(<<-RBS) do |checker|
+type list[T] = nil
+             | [ T, list[T] ]
+    RBS
+
+      source = parse_ruby(<<-'RUBY')
+# @type var ints: list[Integer]
+ints = [1, [2, nil]]
+      RUBY
+
+      with_standard_construction(checker, source) do |construction, typing|
+        type, _ = construction.synthesize(source.node)
+
+        assert_no_error typing
+        puts type
+      end
+    end
+  end
 end

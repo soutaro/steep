@@ -307,7 +307,7 @@ module Steep
 
         def unfold(type_name)
           type_name.yield_self do |type_name|
-            type(definition_builder.expand_alias(type_name))
+            type(definition_builder.expand_alias1(type_name))
           end
         end
 
