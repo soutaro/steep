@@ -7947,7 +7947,7 @@ EachNoParam.new.each(*a)
     end
   end
 
-  def test_generic_alias_skip
+  def test_generic_alias_error
     with_checker(<<-RBS) do |checker|
 type list[T] = nil
              | [ T, list[T] ]
@@ -7955,14 +7955,17 @@ type list[T] = nil
 
       source = parse_ruby(<<-'RUBY')
 # @type var ints: list[Integer]
-ints = [1, [2, nil]]
+ints = ["1", ["2", nil]]
       RUBY
 
       with_standard_construction(checker, source) do |construction, typing|
         type, _ = construction.synthesize(source.node)
 
-        assert_no_error typing
-        puts type
+        assert_typing_error(typing, size: 1) do
+          assert_any!(typing.errors) do |error|
+            assert_instance_of Diagnostic::Ruby::IncompatibleAssignment, error
+          end
+        end
       end
     end
   end
@@ -8015,6 +8018,50 @@ q.push("") + ""
             assert_instance_of Diagnostic::Ruby::MethodDefinitionMissing, error
           end
         end
+      end
+    end
+  end
+
+  def test_generic_alias
+    with_checker(<<-RBS) do |checker|
+type list[out A] = [A, list[A]] | nil
+
+class A
+  def car: [X] (list[X]) -> X?
+
+  def cdr: [X] (list[X]) -> list[X]?
+end
+    RBS
+
+      source = parse_ruby(<<-'RUBY')
+class A
+  def car(list)
+    if list
+      list[0]
+    end
+  end
+
+  def cdr(list)
+    if list
+      list[1]
+    end
+  end
+end 
+
+# @type var a: list[Integer]
+a = [1, [2, [3, nil]]]
+
+car = A.new.car(a)
+cdr = A.new.cdr(a)
+      RUBY
+
+      with_standard_construction(checker, source) do |construction, typing|
+        type, _, context = construction.synthesize(source.node)
+
+        assert_no_error(typing)
+
+        assert_equal parse_type("::Integer?"), context.lvar_env[:car]
+        assert_equal parse_type("::list[::Integer]?"), context.lvar_env[:cdr]
       end
     end
   end

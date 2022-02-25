@@ -142,6 +142,30 @@ class TypeFactoryTest < Minitest::Test
     end
   end
 
+  def test_alias_type
+    with_factory() do |factory|
+      factory.type(parse_type("foo")).yield_self do |type|
+        assert_instance_of Types::Name::Alias, type
+        assert_equal TypeName("foo"), type.name
+        assert_equal [], type.args
+      end
+
+      factory.type(parse_type("foo[untyped]")).yield_self do |type|
+        assert_instance_of Types::Name::Alias, type
+        assert_equal TypeName("foo"), type.name
+        assert_equal [Types::Any.new], type.args
+      end
+
+      parse_type("foo").tap do |type|
+        assert_equal type, factory.type_1(factory.type(type))
+      end
+
+      parse_type("foo[untyped]").tap do |type|
+        assert_equal type, factory.type_1(factory.type(type))
+      end
+    end
+  end
+
   def test_type_1
     with_factory() do |factory|
       parse_type("void").yield_self do |type|
@@ -558,15 +582,40 @@ type size = :S | :M | :L
     EOF
 
       factory.type(parse_type("::name")).tap do |type|
-        unfolded = factory.unfold(type.name)
+        unfolded = factory.unfold(type.name, [])
 
         assert_equal factory.type(parse_type("::String")), unfolded
       end
 
       factory.type(parse_type("::size")).tap do |type|
-        unfolded = factory.unfold(type.name)
+        unfolded = factory.unfold(type.name, [])
 
         assert_equal factory.type(parse_type(":S | :M | :L")), unfolded
+      end
+    end
+  end
+
+  def test_expand_alias
+    with_factory({ "foo.rbs" => <<-EOF }) do |factory|
+type list[A] = nil | [A, list[A]]
+    EOF
+
+      factory.type(parse_type("::list[::String]")).tap do |type|
+        assert_equal(
+          factory.type(parse_type("nil | [::String, ::list[::String]]")),
+          factory.expand_alias(type)
+        )
+      end
+    end
+  end
+
+  def test_deep_expand_alias
+    with_factory({ "foo.rbs" => <<-EOF }) do |factory|
+type list[A] = nil | [A, list[A]]
+    EOF
+
+      factory.type(parse_type("::list[::String]")).tap do |type|
+        puts factory.deep_expand_alias(type)
       end
     end
   end

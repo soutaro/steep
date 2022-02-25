@@ -91,15 +91,65 @@ type a = Array
 
     with_checker <<-EOF do |checker|
 type a = X::Y::Z
+
+type b = no_such_type
     EOF
 
       validator = Validator.new(checker: checker)
       validator.validate_alias
 
       assert_operator validator, :has_error?
-      assert_any validator.each_error do |error|
-        error.is_a?(Diagnostic::Signature::UnknownTypeName) &&
-          error.name == parse_type("::X::Y::Z").name
+
+      assert_any! validator.each_error do |error|
+        assert_instance_of Diagnostic::Signature::UnknownTypeName, error
+        assert_equal TypeName("::X::Y::Z"), error.name
+      end
+
+      assert_any! validator.each_error do |error|
+        assert_instance_of Diagnostic::Signature::UnknownTypeName, error
+        assert_equal TypeName("::no_such_type"), error.name
+      end
+    end
+  end
+
+  def test_generic_alias
+    with_checker <<-EOF do |checker|
+type list[T] = [T, list[T] | nil]
+             | nil
+    EOF
+
+      validator = Validator.new(checker: checker)
+      validator.validate_alias
+
+      refute_operator validator, :has_error?
+    end
+
+    with_checker <<-EOF do |checker|
+type broken[T] = Array[broken[Array[T]]]
+    EOF
+
+      validator = Validator.new(checker: checker)
+      validator.validate_alias
+
+      assert_operator validator, :has_error?
+      assert_any!(validator.each_error, size: 1) do |error|
+        assert_instance_of Diagnostic::Signature::NonregularTypeAlias, error
+        assert_equal TypeName("::broken"), error.type_name
+        assert_equal parse_type("::broken[::Array[T]]", variables: [:T]), error.nonregular_type
+      end
+    end
+
+    with_checker <<-EOF do |checker|
+type broken[T] = broken[Array[T]]
+    EOF
+
+      validator = Validator.new(checker: checker)
+      validator.validate_alias
+
+      assert_operator validator, :has_error?
+      assert_any! validator.each_error, size: 1 do |error|
+        assert_instance_of Diagnostic::Signature::RecursiveTypeAlias, error
+        assert_equal [TypeName("::broken")], error.alias_names
       end
     end
   end
@@ -544,19 +594,6 @@ EOF
           assert_instance_of Diagnostic::Signature::InstanceVariableTypeError, error
         end
       end
-    end
-  end
-
-  def test_generic_alias_skip
-    with_checker <<~RBS do |checker|
-type list[T] = nil
-             | [ T, list[T] ]
-    RBS
-
-      validator = Validator.new(checker: checker)
-      validator.validate_alias
-
-      refute_operator validator, :has_error?
     end
   end
 end

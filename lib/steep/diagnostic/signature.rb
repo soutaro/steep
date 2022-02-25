@@ -307,6 +307,34 @@ module Steep
         end
       end
 
+      class RecursiveTypeAlias < Base
+        attr_reader :alias_names
+
+        def initialize(alias_names:, location:)
+          @alias_names = alias_names
+          super(location: location)
+        end
+
+        def header_line
+          "Type aliases cannot be *directly recursive*: #{alias_names.join(", ")}"
+        end
+      end
+
+      class NonregularTypeAlias < Base
+        attr_reader :type_name
+        attr_reader :nonregular_type
+
+        def initialize(type_name:, nonregular_type:, location:)
+          @type_name = type_name
+          @nonregular_type = nonregular_type
+          @location = location
+        end
+
+        def header_line
+          "Type alias #{type_name} is defined *non-regular*: #{nonregular_type}"
+        end
+      end
+
       def self.from_rbs_error(error, factory:)
         case error
         when RBS::ParsingError
@@ -387,6 +415,17 @@ module Steep
             location: error.location,
             type_name: error.type_name,
             member: error.member,
+          )
+        when RBS::RecursiveTypeAliasError
+          Diagnostic::Signature::RecursiveTypeAlias.new(
+            alias_names: error.alias_names,
+            location: error.location
+          )
+        when RBS::NonregularTypeAliasError
+          Diagnostic::Signature::NonregularTypeAlias.new(
+            type_name: error.diagnostic.type_name,
+            nonregular_type: factory.type(error.diagnostic.nonregular_type),
+            location: error.location
           )
         else
           raise error

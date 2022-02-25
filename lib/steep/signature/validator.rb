@@ -277,18 +277,18 @@ module Steep
         end
       end
 
-      def validate_one_alias(name)
+      def validate_one_alias(name, entry = env.alias_decls[name])
         rescue_validation_errors(name) do
           Steep.logger.debug "Validating alias `#{name}`..."
-          builder.expand_alias1(name).tap do |type|
-            validate_type(type)
+          validator.validate_type_alias(entry: entry) do |type|
+            validate_type(entry.decl.type)
           end
         end
       end
 
       def validate_alias
         env.alias_decls.each do |name, entry|
-          validate_one_alias(name)
+          validate_one_alias(name, entry)
         end
       end
 

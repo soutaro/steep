@@ -103,6 +103,31 @@
     message: The variance of type parameter `A` is covariant, but used in incompatible
       position here
     code: RBS::InvalidVarianceAnnotation
+- file: mixin-class-error.rbs
+  diagnostics:
+  - range:
+      start:
+        line: 5
+        character: 2
+      end:
+        line: 5
+        character: 13
+    severity: ERROR
+    message: Cannot include a class `::Foo` in the definition of `::Bar`
+    code: RBS::MixinClassError
+- file: nonregular-type-alias.rbs
+  diagnostics:
+  - range:
+      start:
+        line: 2
+        character: 2
+      end:
+        line: 2
+        character: 42
+    severity: ERROR
+    message: 'Type alias ::NonregularTypeAlias::t is defined *non-regular*: ::NonregularTypeAlias::t[::String,
+      ::Integer]'
+    code: RBS::NonregularTypeAlias
 - file: recursive-alias.rbs
   diagnostics:
   - range:
@@ -151,6 +176,38 @@
     message: 'Circular inheritance/mix-in is detected: ::Baz <: ::Foo <: ::Bar <:
       ::Baz'
     code: RBS::RecursiveAncestor
+- file: recursive-type-alias.rbs
+  diagnostics:
+  - range:
+      start:
+        line: 1
+        character: 0
+      end:
+        line: 1
+        character: 14
+    severity: ERROR
+    message: 'Type aliases cannot be *directly recursive*: ::foo'
+    code: RBS::RecursiveTypeAlias
+  - range:
+      start:
+        line: 2
+        character: 0
+      end:
+        line: 2
+        character: 14
+    severity: ERROR
+    message: 'Type aliases cannot be *directly recursive*: ::bar'
+    code: RBS::RecursiveTypeAlias
+  - range:
+      start:
+        line: 3
+        character: 0
+      end:
+        line: 3
+        character: 14
+    severity: ERROR
+    message: 'Type aliases cannot be *directly recursive*: ::baz'
+    code: RBS::RecursiveTypeAlias
 - file: superclass-mismatch.rbs
   diagnostics:
   - range:
@@ -229,15 +286,3 @@
     severity: ERROR
     message: Cannot find type `ZZZ`
     code: RBS::UnknownTypeName
-- file: mixin-class-error.rbs
-  diagnostics:
-  - range:
-      start:
-        line: 5
-        character: 2
-      end:
-        line: 5
-        character: 13
-    severity: ERROR
-    message: Cannot include a class `::Foo` in the definition of `::Bar`
-    code: RBS::MixinClassError

@@ -58,7 +58,8 @@ module Steep
             Name::Interface.new(name: type_name, args: args, location: nil)
           when RBS::Types::Alias
             type_name = type.name
-            Name::Alias.new(name: type_name, location: nil)
+            args = type.args.map {|arg| type(arg) }
+            Name::Alias.new(name: type_name, args: args, location: nil)
           when RBS::Types::Union
             Union.build(types: type.types.map {|ty| type(ty) }, location: nil)
           when RBS::Types::Intersection
@@ -134,7 +135,11 @@ module Steep
               location: nil
             )
           when Name::Alias
-            RBS::Types::Alias.new(name: type.name, args: [], location: nil)
+            RBS::Types::Alias.new(
+              name: type.name,
+              args: type.args.map {|arg| type_1(arg) },
+              location: nil
+            )
           when Union
             RBS::Types::Union.new(
               types: type.types.map {|ty| type_1(ty) },
@@ -305,16 +310,19 @@ module Steep
           end
         end
 
-        def unfold(type_name)
-          type_name.yield_self do |type_name|
-            type(definition_builder.expand_alias1(type_name))
-          end
+        def unfold(type_name, args)
+          type(
+            definition_builder.expand_alias2(
+              type_name,
+              args.empty? ? args : args.map {|t| type_1(t) }
+            )
+          )
         end
 
         def expand_alias(type)
           unfolded = case type
                      when AST::Types::Name::Alias
-                       unfold(type.name)
+                       unfold(type.name, type.args)
                      else
                        type
                      end
