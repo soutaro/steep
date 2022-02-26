@@ -77,7 +77,7 @@ module Steep
       end
 
       def to_s
-        type_params = !self.type_params.empty? ? "[#{self.type_params.map{|x| "#{x}" }.join(", ")}] " : ""
+        type_params = !self.type_params.empty? ? "[#{self.type_params.join(", ")}] " : ""
         params = type.params.to_s
         return_type = type.return_type
         block = self.block ? " #{self.block}" : ""
