@@ -27,6 +27,26 @@ class TypeFactoryTest < Minitest::Test
                     "Expected: { #{types.join(" | ")} } is a subset of { #{c.method_types.join(" | ")} }"
   end
 
+  def assert_method_type(string, type)
+    regexp = Regexp.escape(string)
+
+    ("a".."z").each do |name|
+      pat = /\\\(#{name}\\\)/
+
+      regexp = regexp.sub(pat) do |s|
+        c = "(?<#{name}>\\d+)"
+        "\\(#{c}\\)"
+      end
+
+      regexp = regexp.gsub(pat) do |s|
+        c = "\\k<#{name}>"
+        "\\(#{c}\\)"
+      end
+    end
+
+    assert_match(/\A#{regexp}\Z/, type.to_s)
+  end
+
   Types = Steep::AST::Types
   Interface = Steep::Interface
 
@@ -263,7 +283,10 @@ class TypeFactoryTest < Minitest::Test
       end
 
       factory.method_type(parse_method_type("[X] (X) -> void"), self_type: self_type, method_decls: Set[]).yield_self do |type|
-        assert_match(/\[X\((\d+)\)\] \(X\(\1\)\) -> void/, type.to_s)
+        assert_method_type(
+          "[X(a)] (X(a)) -> void",
+          type
+        )
       end
     end
   end
@@ -665,7 +688,10 @@ end
           assert_equal type, interface.type
 
           method = interface.methods[:foo]
-          assert_match(/\{ \[Y\(\d+\)\] \(::Array\[Y\], Y\(\d+\)\) -> void \}/, method.to_s)
+          assert_method_type(
+            "{ [Y(a)] (::Array[Y], Y(a)) -> void }",
+            method
+          )
         end
       end
     end
