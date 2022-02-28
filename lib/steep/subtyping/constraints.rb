@@ -178,6 +178,12 @@ module Steep
         Set.new(dictionary.keys)
       end
 
+      def unknown!(var)
+        unless unknown?(var)
+          dictionary[var] = [Set.new, Set.new]
+        end
+      end
+
       def empty?
         dictionary.keys.empty?
       end

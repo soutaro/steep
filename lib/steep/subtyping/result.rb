@@ -35,7 +35,11 @@ module Steep
 
       class Skip < Base
         def success?
-          raise "The test is skipped: #{relation}"
+          false
+        end
+
+        def failure?
+          false
         end
 
         def failure_path(path = [])
@@ -216,6 +220,34 @@ module Steep
 
           def message
             "Method #{name} requires uncheckable polymorphic subtyping"
+          end
+        end
+
+        class UnsatisfiedConstraints
+          attr_reader :error
+
+          def initialize(error)
+            @error = error
+          end
+
+          def var
+            error.var
+          end
+
+          def sub_type
+            error.sub_type
+          end
+
+          def super_type
+            error.super_type
+          end
+
+          def result
+            error.result
+          end
+
+          def message
+            "A constraint on #{var} cannot be solved: #{sub_type} <: #{super_type}"
           end
         end
 
