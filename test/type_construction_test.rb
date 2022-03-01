@@ -1063,7 +1063,8 @@ end
         self_type: nil,
         type_env: type_env,
         lvar_env: lvar_env,
-        call_context: MethodCall::TopLevelContext.new
+        call_context: MethodCall::TopLevelContext.new,
+        variable_context: Context::TypeVariableContext.empty
       )
       typing = Typing.new(source: source, root_context: context)
 
@@ -1163,7 +1164,8 @@ class Steep end
         self_type: nil,
         type_env: type_env,
         lvar_env: lvar_env,
-        call_context: MethodCall::ModuleContext.new(type_name: TypeName("::Steep"))
+        call_context: MethodCall::ModuleContext.new(type_name: TypeName("::Steep")),
+        variable_context: Context::TypeVariableContext.empty
       )
       typing = Typing.new(source: source, root_context: context)
 
@@ -7991,6 +7993,10 @@ end
 class Q
   def push(obj)
     queue.push(obj.to_str)
+
+    # @type var x: _ToStr
+    x = obj
+
     obj
   end
 end
@@ -8003,16 +8009,16 @@ q.push("") + ""
       with_standard_construction(checker, source) do |construction, typing|
         type, _ = construction.synthesize(source.node)
 
-        assert_typing_error(typing, size: 3) do |errors|
-          assert_any!(errors) do |error|
-            assert_instance_of Diagnostic::Ruby::NoMethod, error
-            assert_equal :to_str, error.method
-          end
-
-          assert_any!(errors) do |error|
-            assert_instance_of Diagnostic::Ruby::NoMethod, error
-            assert_equal :push, error.method
-          end
+        assert_typing_error(typing, size: 1) do |errors|
+          # assert_any!(errors) do |error|
+          #   assert_instance_of Diagnostic::Ruby::NoMethod, error
+          #   assert_equal :to_str, error.method
+          # end
+          #
+          # assert_any!(errors) do |error|
+          #   assert_instance_of Diagnostic::Ruby::NoMethod, error
+          #   assert_equal :push, error.method
+          # end
 
           assert_any!(errors) do |error|
             assert_instance_of Diagnostic::Ruby::MethodDefinitionMissing, error

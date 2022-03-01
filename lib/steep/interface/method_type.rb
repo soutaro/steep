@@ -95,11 +95,9 @@ module Steep
       # Returns a new method type which can be used for the method implementation type of both `self` and `other`.
       #
       def unify_overload(other)
-        type_params = []
-        s1 = Substitution.build(self.type_params)
-        type_params.push(*s1.dictionary.values.map(&:name))
-        s2 = Substitution.build(other.type_params)
-        type_params.push(*s2.dictionary.values.map(&:name))
+        type_params_1, s1 = TypeParam.rename(self.type_params)
+        type_params_2, s2 = TypeParam.rename(other.type_params)
+        type_params = type_params_1 + type_params_2
 
         block = case
                 when self.block && other.block

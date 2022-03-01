@@ -564,7 +564,8 @@ module TypeConstructionHelper
       self_type: self_type,
       type_env: type_env,
       lvar_env: lvar_env,
-      call_context: TypeInference::MethodCall::TopLevelContext.new()
+      call_context: TypeInference::MethodCall::TopLevelContext.new(),
+      variable_context: Context::TypeVariableContext.empty
     )
     typing = Typing.new(source: source, root_context: context)
 

@@ -29,7 +29,7 @@ module Steep
         name.hash ^ upper_bound.hash ^ variance.hash ^ unchecked.hash
       end
 
-      def self.rename(params, conflicting_names)
+      def self.rename(params, conflicting_names = params.map(&:name))
         unless conflicting_names.empty?
           new_names = conflicting_names.map {|n| AST::Types::Var.fresh_name(n) }
           hash = conflicting_names.zip(new_names).to_h
