@@ -21,6 +21,12 @@ module Steep
           @type_name_resolver ||= RBS::TypeNameResolver.from_env(definition_builder.env)
         end
 
+        def type_opt(type)
+          if type
+            type(type)
+          end
+        end
+
         def type(type)
           ty = type_cache[type] and return ty
 

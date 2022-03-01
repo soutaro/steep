@@ -174,9 +174,7 @@ module Steep
           Steep.logger.tagged "#{name}" do
             builder.build_instance(name).tap do |definition|
               upper_bounds = definition.type_params_decl.each.with_object({}) do |param, bounds|
-                if param.upper_bound
-                  bounds[param.name] = factory.type(param.upper_bound)
-                end
+                bounds[param.name] = factory.type_opt(param.upper_bound)
               end
 
               checker.push_variable_bounds(upper_bounds) do
@@ -290,9 +288,7 @@ module Steep
             definition = builder.build_interface(name)
 
             upper_bounds = definition.type_params_decl.each.with_object({}) do |param, bounds|
-              if param.upper_bound
-                bounds[param.name] = factory.type(param.upper_bound)
-              end
+              bounds[param.name] = factory.type_opt(param.upper_bound)
             end
 
             checker.push_variable_bounds(upper_bounds) do
@@ -345,9 +341,7 @@ module Steep
         rescue_validation_errors(name) do
           Steep.logger.debug "Validating alias `#{name}`..."
           upper_bounds = entry.decl.type_params.each.with_object({}) do |param, bounds|
-            if param.upper_bound
-              bounds[param.name] = factory.type(param.upper_bound)
-            end
+            bounds[param.name] = factory.type_opt(param.upper_bound)
           end
 
           validator.validate_type_alias(entry: entry) do |type|

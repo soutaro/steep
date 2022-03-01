@@ -118,14 +118,12 @@ module Steep
         end
 
         def [](name)
-          table[name]&.upper_bound
+          table[name].upper_bound
         end
 
         def upper_bounds
           table.each_value.with_object({}) do |type_param, bounds|
-            if ub = type_param.upper_bound
-              bounds[type_param.name] = ub
-            end
+            bounds[type_param.name] = type_param.upper_bound
           end
         end
 
