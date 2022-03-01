@@ -596,4 +596,147 @@ EOF
       end
     end
   end
+
+  def test_validate_type_application
+    with_checker <<-EOF do |checker|
+class Foo[X < Numeric]
+end
+
+interface _Bar[X < Module]
+end
+
+type baz[T < Object] = T
+    EOF
+      Validator.new(checker: checker).tap do |validator|
+        validator.validate_type(factory.type_1(parse_type("::Foo[::Integer]")))
+        assert_predicate validator, :no_error?
+      end
+
+      Validator.new(checker: checker).tap do |validator|
+        validator.validate_type(factory.type_1(parse_type("::Foo[::String]")))
+        refute_predicate validator, :no_error?
+        assert_any!(validator.each_error, size: 1) do |error|
+          assert_instance_of Diagnostic::Signature::UnsatisfiableTypeApplication, error
+          assert_equal "::Foo[::String]", error.location.source
+        end
+      end
+
+      Validator.new(checker: checker).tap do |validator|
+        validator.validate_type(factory.type_1(parse_type("::_Bar[singleton(::Integer)]")))
+        assert_predicate validator, :no_error?
+      end
+
+      Validator.new(checker: checker).tap do |validator|
+        validator.validate_type(factory.type_1(parse_type("::_Bar[::String]")))
+        refute_predicate validator, :no_error?
+        assert_any!(validator.each_error, size: 1) do |error|
+          assert_instance_of Diagnostic::Signature::UnsatisfiableTypeApplication, error
+          assert_equal "::_Bar[::String]", error.location.source
+        end
+      end
+
+      Validator.new(checker: checker).tap do |validator|
+        validator.validate_type(factory.type_1(parse_type("::baz[singleton(::Integer)]")))
+        assert_predicate validator, :no_error?
+      end
+
+      Validator.new(checker: checker).tap do |validator|
+        validator.validate_type(factory.type_1(parse_type("::baz[::BasicObject]")))
+        refute_predicate validator, :no_error?
+        assert_any!(validator.each_error, size: 1) do |error|
+          assert_instance_of Diagnostic::Signature::UnsatisfiableTypeApplication, error
+          assert_equal "::baz[::BasicObject]", error.location.source
+        end
+      end
+    end
+  end
+
+  def test_validate_type_application_class_decl
+    with_checker <<-EOF do |checker|
+type x[A < Numeric] = A
+
+class Foo[X < Integer]
+  def f: () -> x[X]
+end
+
+class Bar[X0 < String]
+  def f: () -> x[X0]
+end
+    EOF
+
+      Validator.new(checker: checker).tap do |validator|
+        validator.validate_one_class(TypeName("::Foo"))
+        assert_predicate validator, :no_error?
+      end
+
+      Validator.new(checker: checker).tap do |validator|
+        validator.validate_one_class(TypeName("::Bar"))
+        refute_predicate validator, :no_error?
+
+        assert_any!(validator.each_error, size: 1) do |error|
+          assert_instance_of Diagnostic::Signature::UnsatisfiableTypeApplication, error
+          assert_equal "Type application of `::x` doesn't satisfy the constraints: X0 <: ::Numeric", error.header_line
+          assert_equal "x[X0]", error.location.source
+        end
+      end
+    end
+  end
+
+  def test_validate_type_application_interface_decl
+    with_checker <<-EOF do |checker|
+type x[A < Numeric] = A
+
+interface _Foo[X < Integer]
+  def f: () -> x[X]
+end
+
+interface _Bar[X < String]
+  def f: () -> x[X]
+end
+    EOF
+
+      Validator.new(checker: checker).tap do |validator|
+        validator.validate_one_interface(TypeName("::_Foo"))
+        assert_predicate validator, :no_error?
+      end
+
+      Validator.new(checker: checker).tap do |validator|
+        validator.validate_one_interface(TypeName("::_Bar"))
+        refute_predicate validator, :no_error?
+
+        assert_any!(validator.each_error, size: 1) do |error|
+          assert_instance_of Diagnostic::Signature::UnsatisfiableTypeApplication, error
+          assert_equal "Type application of `::x` doesn't satisfy the constraints: X <: ::Numeric", error.header_line
+          assert_equal "x[X]", error.location.source
+        end
+      end
+    end
+  end
+
+  def test_validate_type_application_alias_decl
+    with_checker <<-EOF do |checker|
+type x[A < Numeric] = A
+
+type foo[X < Integer] = x[X]
+
+type bar[X < String] = x[X]
+    EOF
+
+      Validator.new(checker: checker).tap do |validator|
+        validator.validate_one_alias(TypeName("::foo"))
+        assert_predicate validator, :no_error?
+      end
+
+      Validator.new(checker: checker).tap do |validator|
+        validator.validate_one_alias(TypeName("::bar"))
+        refute_predicate validator, :no_error?
+
+        assert_any!(validator.each_error, size: 1) do |error|
+          assert_instance_of Diagnostic::Signature::UnsatisfiableTypeApplication, error
+          assert_equal "Type application of `::x` doesn't satisfy the constraints: X <: ::Numeric", error.header_line
+          assert_equal "x[X]", error.location.source
+        end
+      end
+    end
+  end
 end

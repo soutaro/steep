@@ -101,6 +101,23 @@ module Steep
         end
       end
 
+      class UnsatisfiableTypeApplication < Base
+        attr_reader :type_name
+        attr_reader :type_arg
+        attr_reader :type_param
+
+        def initialize(type_name:, type_arg:, type_param:, location:)
+          super(location: location)
+          @type_name = type_name
+          @type_arg = type_arg
+          @type_param = type_param
+        end
+
+        def header_line
+          "Type application of `#{type_name}` doesn't satisfy the constraints: #{type_arg} <: #{type_param.upper_bound}"
+        end
+      end
+
       class InvalidMethodOverload < Base
         attr_reader :class_name
         attr_reader :method_name

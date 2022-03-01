@@ -176,7 +176,7 @@ module Steep
         relation.type!
 
         Steep.logger.tagged "#{relation.sub_type} <: #{relation.super_type}" do
-          cached = cache[relation, self_type, instance_type, class_type]
+          cached = cache[relation, @self_type, @instance_type, @class_type]
           if cached && constraints.empty?
             cached
           else
@@ -186,7 +186,7 @@ module Steep
               push_assumption(relation) do
                 check_type0(relation).tap do |result|
                   Steep.logger.debug "result=#{result.class}"
-                  cache[relation, self_type, instance_type, class_type] = result if cacheable?(relation)
+                  cache[relation, @self_type, @instance_type, @class_type] = result if cacheable?(relation)
                 end
               end
             end

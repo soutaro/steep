@@ -32,8 +32,8 @@ module Steep
           end
         end
 
-        def self.fresh(name)
-          new(name: fresh_name(name))
+        def self.fresh(name, location: nil)
+          new(name: fresh_name(name), location: location)
         end
 
         def to_s

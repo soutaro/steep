@@ -58,7 +58,65 @@ module Steep
 
       def validate_type(type)
         Steep.logger.debug "#{Location.to_string type.location}: Validating #{type}..."
+
         validator.validate_type type, context: [RBS::Namespace.root]
+
+        name, type_params, type_args =
+          case type
+          when RBS::Types::ClassInstance
+            [
+              type.name,
+              builder.build_instance(type.name).type_params_decl,
+              type.args
+            ]
+          when RBS::Types::Interface
+            [
+              type.name,
+              builder.build_interface(type.name).type_params_decl,
+              type.args
+            ]
+          when RBS::Types::Alias
+            entry = env.alias_decls[type.name]
+
+            [
+              type.name,
+              entry.decl.type_params,
+              type.args
+            ]
+          end
+
+        if name && type_params && type_args
+          if type_params.size == type_args.size
+            type_params.zip(type_args).each do |param, arg|
+              if param.upper_bound
+                upper_bound_type = factory.type(param.upper_bound)
+                arg_type = factory.type(arg)
+
+                constraints = Subtyping::Constraints.empty
+
+                checker.check(
+                  Subtyping::Relation.new(sub_type: arg_type, super_type: upper_bound_type),
+                  self_type: nil,
+                  class_type: nil,
+                  instance_type: nil,
+                  constraints: constraints
+                ).else do |result|
+                  @errors << Diagnostic::Signature::UnsatisfiableTypeApplication.new(
+                    type_name: type.name,
+                    type_arg: arg_type,
+                    type_param: Interface::TypeParam.new(
+                      name: param.name,
+                      upper_bound: upper_bound_type,
+                      variance: param.variance,
+                      unchecked: param.unchecked?
+                    ),
+                    location: type.location
+                  )
+                end
+              end
+            end
+          end
+        end
       end
 
       def ancestor_to_type(ancestor)
@@ -115,58 +173,54 @@ module Steep
 
           Steep.logger.tagged "#{name}" do
             builder.build_instance(name).tap do |definition|
-              definition.instance_variables.each do |name, var|
-                if parent = var.parent_variable
-                  var_type = checker.factory.type(var.type)
-                  parent_type = checker.factory.type(parent.type)
+              upper_bounds = definition.type_params_decl.each.with_object({}) do |param, bounds|
+                if param.upper_bound
+                  bounds[param.name] = factory.type(param.upper_bound)
+                end
+              end
 
-                  relation = Subtyping::Relation.new(sub_type: var_type, super_type: parent_type)
-                  result1 = checker.check(
+              checker.push_variable_bounds(upper_bounds) do
+                definition.instance_variables.each do |name, var|
+                  if parent = var.parent_variable
+                    var_type = checker.factory.type(var.type)
+                    parent_type = checker.factory.type(parent.type)
+
+                    relation = Subtyping::Relation.new(sub_type: var_type, super_type: parent_type)
+                    result1 = checker.check(relation, self_type: nil, instance_type: nil, class_type: nil, constraints: Subtyping::Constraints.empty)
+                    result2 = checker.check(relation.flip, self_type: nil, instance_type: nil, class_type: nil, constraints: Subtyping::Constraints.empty)
+
+                    unless result1.success? and result2.success?
+                      @errors << Diagnostic::Signature::InstanceVariableTypeError.new(
+                        name: name,
+                        location: var.type.location,
+                        var_type: var_type,
+                        parent_type: parent_type
+                      )
+                    end
+                  end
+                end
+
+                ancestors = builder.ancestor_builder.one_instance_ancestors(name)
+                mixin_constraints(definition, ancestors.included_modules, immediate_self_types: ancestors.self_types).each do |relation, ancestor|
+                  checker.check(
                     relation,
                     self_type: AST::Types::Self.new,
                     instance_type: AST::Types::Instance.new,
                     class_type: AST::Types::Class.new,
                     constraints: Subtyping::Constraints.empty
-                  )
-                  result2 = checker.check(
-                    relation.flip,
-                    self_type: AST::Types::Self.new,
-                    instance_type: AST::Types::Instance.new,
-                    class_type: AST::Types::Class.new,
-                    constraints: Subtyping::Constraints.empty
-                  )
-
-                  unless result1.success? and result2.success?
-                    @errors << Diagnostic::Signature::InstanceVariableTypeError.new(
+                  ).else do
+                    @errors << Diagnostic::Signature::ModuleSelfTypeError.new(
                       name: name,
-                      location: var.type.location,
-                      var_type: var_type,
-                      parent_type: parent_type
+                      location: ancestor.source&.location || raise,
+                      ancestor: ancestor,
+                      relation: relation
                     )
                   end
                 end
-              end
 
-              ancestors = builder.ancestor_builder.one_instance_ancestors(name)
-              mixin_constraints(definition, ancestors.included_modules, immediate_self_types: ancestors.self_types).each do |relation, ancestor|
-                checker.check(
-                  relation,
-                  self_type: AST::Types::Self.new,
-                  instance_type: AST::Types::Instance.new,
-                  class_type: AST::Types::Class.new,
-                  constraints: Subtyping::Constraints.empty
-                ).else do
-                  @errors << Diagnostic::Signature::ModuleSelfTypeError.new(
-                    name: name,
-                    location: ancestor.source&.location || raise,
-                    ancestor: ancestor,
-                    relation: relation
-                  )
+                definition.each_type do |type|
+                  validate_type type
                 end
-              end
-
-              definition.each_type do |type|
-                validate_type type
               end
             end
 
@@ -233,8 +287,18 @@ module Steep
         rescue_validation_errors(name) do
           Steep.logger.debug "Validating interface `#{name}`..."
           Steep.logger.tagged "#{name}" do
-            builder.build_interface(name).each_type do |type|
-              validate_type type
+            definition = builder.build_interface(name)
+
+            upper_bounds = definition.type_params_decl.each.with_object({}) do |param, bounds|
+              if param.upper_bound
+                bounds[param.name] = factory.type(param.upper_bound)
+              end
+            end
+
+            checker.push_variable_bounds(upper_bounds) do
+              definition.each_type do |type|
+                validate_type type
+              end
             end
           end
         end
@@ -280,8 +344,16 @@ module Steep
       def validate_one_alias(name, entry = env.alias_decls[name])
         rescue_validation_errors(name) do
           Steep.logger.debug "Validating alias `#{name}`..."
+          upper_bounds = entry.decl.type_params.each.with_object({}) do |param, bounds|
+            if param.upper_bound
+              bounds[param.name] = factory.type(param.upper_bound)
+            end
+          end
+
           validator.validate_type_alias(entry: entry) do |type|
-            validate_type(entry.decl.type)
+            checker.push_variable_bounds(upper_bounds) do
+              validate_type(entry.decl.type)
+            end
           end
         end
       end
