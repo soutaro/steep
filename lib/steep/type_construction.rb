@@ -414,7 +414,15 @@ module Steep
 
       if implement_module_name
         definition = checker.factory.definition_builder.build_instance(implement_module_name.name)
-        variable_context = TypeInference::Context::TypeVariableContext.new(definition.type_params_decl)
+        type_params = definition.type_params_decl.map do |param|
+          Interface::TypeParam.new(
+            name: param.name,
+            upper_bound: checker.factory.type_opt(param.upper_bound),
+            variance: param.variance,
+            unchecked: param.unchecked?
+          )
+        end
+        variable_context = TypeInference::Context::TypeVariableContext.new(type_params)
       else
         variable_context = TypeInference::Context::TypeVariableContext.empty
       end
