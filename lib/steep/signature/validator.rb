@@ -167,6 +167,52 @@ module Steep
         relations
       end
 
+      def each_method_type(definition)
+        type_name = definition.type_name
+
+        definition.methods.each_value do |method|
+          if method.defined_in == type_name
+            method.method_types.each do |method_type|
+              yield method_type
+            end
+          end
+        end
+      end
+
+      def each_variable_type(definition)
+        type_name = definition.type_name
+
+        definition.instance_variables.each_value do |var|
+          if var.declared_in == type_name
+            yield var.type
+          end
+        end
+
+        definition.class_variables.each_value do |var|
+          if var.declared_in == type_name
+            yield var.type
+          end
+        end
+      end
+
+      def validate_definition_type(definition)
+        each_method_type(definition) do |method_type|
+          upper_bounds = method_type.type_params.each.with_object({}) do |param, hash|
+            hash[param.name] = factory.type_opt(param.upper_bound)
+          end
+
+          checker.push_variable_bounds(upper_bounds) do
+            method_type.each_type do |type|
+              validate_type(type)
+            end
+          end
+        end
+
+        each_variable_type(definition) do |type|
+          validate_type(type)
+        end
+      end
+
       def validate_one_class(name)
         rescue_validation_errors(name) do
           Steep.logger.debug { "Validating class definition `#{name}`..." }
@@ -216,9 +262,7 @@ module Steep
                   end
                 end
 
-                definition.each_type do |type|
-                  validate_type type
-                end
+                validate_definition_type(definition)
               end
             end
 
@@ -273,9 +317,7 @@ module Steep
                 end
               end
 
-              definition.each_type do |type|
-                validate_type type
-              end
+              validate_definition_type(definition)
             end
           end
         end
@@ -292,9 +334,7 @@ module Steep
             end
 
             checker.push_variable_bounds(upper_bounds) do
-              definition.each_type do |type|
-                validate_type type
-              end
+              validate_definition_type(definition)
             end
           end
         end
