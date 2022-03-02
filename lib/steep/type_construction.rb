@@ -535,10 +535,12 @@ module Steep
     end
 
     def with_sclass_constr(node, type)
-      constr = for_sclass(node, type)
-
-      constr.checker.push_variable_bounds(constr.variable_context.upper_bounds) do
-        yield constr
+      if constr = for_sclass(node, type)
+        constr.checker.push_variable_bounds(constr.variable_context.upper_bounds) do
+          yield constr
+        end
+      else
+        yield nil
       end
     end
 
