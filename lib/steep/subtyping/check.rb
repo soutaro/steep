@@ -308,8 +308,18 @@ module Steep
           end
 
         when relation.super_type.is_a?(AST::Types::Var) && constraints.unknown?(relation.super_type.name)
-          constraints.add(relation.super_type.name, sub_type: relation.sub_type)
-          Success(relation)
+          if ub = variable_upper_bound(relation.super_type.name)
+            Expand(relation) do
+              check_type(Relation.new(sub_type: relation.sub_type, super_type: ub))
+            end.tap do |result|
+              if result.success?
+                constraints.add(relation.super_type.name, sub_type: relation.sub_type)
+              end
+            end
+          else
+            constraints.add(relation.super_type.name, sub_type: relation.sub_type)
+            Success(relation)
+          end
 
         when relation.sub_type.is_a?(AST::Types::Var) && constraints.unknown?(relation.sub_type.name)
           constraints.add(relation.sub_type.name, super_type: relation.super_type)

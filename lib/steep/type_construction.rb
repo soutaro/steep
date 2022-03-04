@@ -3142,339 +3142,345 @@ module Steep
         class_type: module_context.module_type,
         variance: variance
       )
+
+      upper_bounds = {}
+
       type_params.each do |param|
         if ub = param.upper_bound
           constraints.add(param.name, super_type: ub, skip: true)
+          upper_bounds[param.name] = ub
         end
       end
 
-      errors = []
+      checker.push_variable_bounds(upper_bounds) do
+        errors = []
 
-      args = TypeInference::SendArgs.new(node: node, arguments: arguments, method_name: method_name, method_type: method_type)
-      es = args.each do |arg|
-        case arg
-        when TypeInference::SendArgs::PositionalArgs::NodeParamPair
-          _, constr = constr.type_check_argument(
-            arg.node,
-            type: arg.param.type,
-            receiver_type: receiver_type,
-            constraints: constraints,
-            errors: errors
-          )
-
-        when TypeInference::SendArgs::PositionalArgs::NodeTypePair
-          _, constr = bypass_splat(arg.node) do |n|
-            constr.type_check_argument(
-              n,
-              type: arg.node_type,
+        args = TypeInference::SendArgs.new(node: node, arguments: arguments, method_name: method_name, method_type: method_type)
+        es = args.each do |arg|
+          case arg
+          when TypeInference::SendArgs::PositionalArgs::NodeParamPair
+            _, constr = constr.type_check_argument(
+              arg.node,
+              type: arg.param.type,
               receiver_type: receiver_type,
               constraints: constraints,
-              report_node: arg.node,
               errors: errors
             )
-          end
 
-        when TypeInference::SendArgs::PositionalArgs::UnexpectedArg
-          _, constr = bypass_splat(arg.node) do |n|
-            constr.synthesize(n)
-          end
-
-        when TypeInference::SendArgs::PositionalArgs::SplatArg
-          arg_type, _ = constr
-                          .with_child_typing(range: arg.node.loc.expression.begin_pos ... arg.node.loc.expression.end_pos)
-                          .try_tuple_type!(arg.node.children[0])
-          arg.type = arg_type
-
-        when TypeInference::SendArgs::PositionalArgs::MissingArg
-          # ignore
-
-        when TypeInference::SendArgs::KeywordArgs::ArgTypePairs
-          arg.pairs.each do |node, type|
-            _, constr = bypass_splat(node) do |node|
+          when TypeInference::SendArgs::PositionalArgs::NodeTypePair
+            _, constr = bypass_splat(arg.node) do |n|
               constr.type_check_argument(
-                node,
-                type: type,
+                n,
+                type: arg.node_type,
                 receiver_type: receiver_type,
                 constraints: constraints,
+                report_node: arg.node,
                 errors: errors
               )
             end
-          end
 
-        when TypeInference::SendArgs::KeywordArgs::UnexpectedKeyword
-          if arg.node.type == :pair
-            arg.node.children.each do |nn|
-              _, constr = constr.synthesize(nn)
-            end
-          else
+          when TypeInference::SendArgs::PositionalArgs::UnexpectedArg
             _, constr = bypass_splat(arg.node) do |n|
               constr.synthesize(n)
             end
-          end
 
-        when TypeInference::SendArgs::KeywordArgs::SplatArg
-          type, _ = bypass_splat(arg.node) do |sp_node|
-            if sp_node.type == :hash
-              pair = constr.type_hash_record(sp_node, nil) and break pair
+          when TypeInference::SendArgs::PositionalArgs::SplatArg
+            arg_type, _ = constr
+                            .with_child_typing(range: arg.node.loc.expression.begin_pos ... arg.node.loc.expression.end_pos)
+                            .try_tuple_type!(arg.node.children[0])
+            arg.type = arg_type
+
+          when TypeInference::SendArgs::PositionalArgs::MissingArg
+            # ignore
+
+          when TypeInference::SendArgs::KeywordArgs::ArgTypePairs
+            arg.pairs.each do |node, type|
+              _, constr = bypass_splat(node) do |node|
+                constr.type_check_argument(
+                  node,
+                  type: type,
+                  receiver_type: receiver_type,
+                  constraints: constraints,
+                  errors: errors
+                )
+              end
             end
 
-            constr.synthesize(sp_node)
+          when TypeInference::SendArgs::KeywordArgs::UnexpectedKeyword
+            if arg.node.type == :pair
+              arg.node.children.each do |nn|
+                _, constr = constr.synthesize(nn)
+              end
+            else
+              _, constr = bypass_splat(arg.node) do |n|
+                constr.synthesize(n)
+              end
+            end
+
+          when TypeInference::SendArgs::KeywordArgs::SplatArg
+            type, _ = bypass_splat(arg.node) do |sp_node|
+              if sp_node.type == :hash
+                pair = constr.type_hash_record(sp_node, nil) and break pair
+              end
+
+              constr.synthesize(sp_node)
+            end
+
+            arg.type = type
+
+          when TypeInference::SendArgs::KeywordArgs::MissingKeyword
+            # ignore
+          else
+            raise arg.inspect
           end
 
-          arg.type = type
-
-        when TypeInference::SendArgs::KeywordArgs::MissingKeyword
-          # ignore
-        else
-          raise arg.inspect
+          constr
         end
 
-        constr
-      end
+        errors.push(*es)
 
-      errors.push(*es)
+        if block_params
+          # block is given
+          block_annotations = source.annotations(block: node, factory: checker.factory, current_module: current_namespace)
+          block_params_ = TypeInference::BlockParams.from_node(block_params, annotations: block_annotations)
 
-      if block_params
-        # block is given
-        block_annotations = source.annotations(block: node, factory: checker.factory, current_module: current_namespace)
-        block_params_ = TypeInference::BlockParams.from_node(block_params, annotations: block_annotations)
+          if method_type.block
+            # Method accepts block
+            pairs = method_type.block && block_params_&.zip(method_type.block.type.params)
 
-        if method_type.block
-          # Method accepts block
-          pairs = method_type.block && block_params_&.zip(method_type.block.type.params)
-
-          if pairs
-            # Block parameters are compatible with the block type
-            block_constr = constr.for_block(
-              block_params: block_params_,
-              block_param_hint: method_type.block.type.params,
-              block_type_hint: method_type.block.type.return_type,
-              block_annotations: block_annotations,
-              node_type_hint: method_type.type.return_type
-            )
-            block_constr = block_constr.with_new_typing(
-              block_constr.typing.new_child(
-                range: block_constr.typing.block_range(node)
+            if pairs
+              # Block parameters are compatible with the block type
+              block_constr = constr.for_block(
+                block_params: block_params_,
+                block_param_hint: method_type.block.type.params,
+                block_type_hint: method_type.block.type.return_type,
+                block_annotations: block_annotations,
+                node_type_hint: method_type.type.return_type
               )
-            )
+              block_constr = block_constr.with_new_typing(
+                block_constr.typing.new_child(
+                  range: block_constr.typing.block_range(node)
+                )
+              )
 
-            block_constr.typing.add_context_for_body(node, context: block_constr.context)
+              block_constr.typing.add_context_for_body(node, context: block_constr.context)
 
-            pairs.each do |param, type|
-              _, block_constr = block_constr.synthesize(param.node, hint: param.type || type)
+              pairs.each do |param, type|
+                _, block_constr = block_constr.synthesize(param.node, hint: param.type || type)
 
-              if param.type
-                check_relation(sub_type: type, super_type: param.type, constraints: constraints).else do |result|
-                  error = Diagnostic::Ruby::IncompatibleAssignment.new(
-                    node: param.node,
-                    lhs_type: param.type,
-                    rhs_type: type,
+                if param.type
+                  check_relation(sub_type: type, super_type: param.type, constraints: constraints).else do |result|
+                    error = Diagnostic::Ruby::IncompatibleAssignment.new(
+                      node: param.node,
+                      lhs_type: param.type,
+                      rhs_type: type,
+                      result: result
+                    )
+                    errors << error
+                  end
+                end
+              end
+
+              method_type, solved, s = apply_solution(errors, node: node, method_type: method_type) {
+                constraints.solution(
+                  checker,
+                  variables: method_type.type.params.free_variables + method_type.block.type.params.free_variables,
+                  context: ccontext
+                )
+              }
+
+              if solved
+                # Ready for type check the body of the block
+                block_constr = block_constr.update_lvar_env {|env| env.subst(s) }
+                if block_body
+                  block_body_type = block_constr.synthesize_block(
+                    node: node,
+                    block_body: block_body,
+                    block_type_hint: method_type.block.type.return_type
+                  )
+                else
+                  block_body_type = AST::Builtin.nil_type
+                end
+
+                result = check_relation(sub_type: block_body_type,
+                                        super_type: method_type.block.type.return_type,
+                                        constraints: constraints)
+
+                if result.success?
+                  # Successfully type checked the body
+                  method_type, solved, _ = apply_solution(errors, node: node, method_type: method_type) do
+                    constraints.solution(checker, variables: type_param_names, context: ccontext)
+                  end
+                  method_type = eliminate_vars(method_type, type_param_names) unless solved
+
+                  return_type = method_type.type.return_type
+                  if break_type = block_annotations.break_type
+                    return_type = union_type(break_type, return_type)
+                  end
+                else
+                  # The block body has incompatible type
+                  errors << Diagnostic::Ruby::BlockBodyTypeMismatch.new(
+                    node: node,
+                    expected: method_type.block.type.return_type,
+                    actual: block_body_type,
                     result: result
                   )
+
+                  method_type = eliminate_vars(method_type, type_param_names)
+                  return_type = method_type.type.return_type
+                end
+
+                block_constr.typing.save!
+              else
+                # Failed to infer the type of block parameters
+                constr.type_block_without_hint(node: node, block_annotations: block_annotations, block_params: block_params_, block_body: block_body) do |error|
                   errors << error
                 end
-              end
-            end
-
-            method_type, solved, s = apply_solution(errors, node: node, method_type: method_type) {
-              constraints.solution(
-                checker,
-                variables: method_type.type.params.free_variables + method_type.block.type.params.free_variables,
-                context: ccontext
-              )
-            }
-
-            if solved
-              # Ready for type check the body of the block
-              block_constr = block_constr.update_lvar_env {|env| env.subst(s) }
-              if block_body
-                block_body_type = block_constr.synthesize_block(
-                  node: node,
-                  block_body: block_body,
-                  block_type_hint: method_type.block.type.return_type
-                )
-              else
-                block_body_type = AST::Builtin.nil_type
-              end
-
-              result = check_relation(sub_type: block_body_type,
-                                      super_type: method_type.block.type.return_type,
-                                      constraints: constraints)
-
-              if result.success?
-                # Successfully type checked the body
-                method_type, solved, _ = apply_solution(errors, node: node, method_type: method_type) do
-                  constraints.solution(checker, variables: type_param_names, context: ccontext)
-                end
-                method_type = eliminate_vars(method_type, type_param_names) unless solved
-
-                return_type = method_type.type.return_type
-                if break_type = block_annotations.break_type
-                  return_type = union_type(break_type, return_type)
-                end
-              else
-                # The block body has incompatible type
-                errors << Diagnostic::Ruby::BlockBodyTypeMismatch.new(
-                  node: node,
-                  expected: method_type.block.type.return_type,
-                  actual: block_body_type,
-                  result: result
-                )
 
                 method_type = eliminate_vars(method_type, type_param_names)
                 return_type = method_type.type.return_type
               end
-
-              block_constr.typing.save!
             else
-              # Failed to infer the type of block parameters
-              constr.type_block_without_hint(node: node, block_annotations: block_annotations, block_params: block_params_, block_body: block_body) do |error|
-                errors << error
-              end
+              # Block parameters are unsupported syntax
+              errors << Diagnostic::Ruby::UnsupportedSyntax.new(
+                node: block_params,
+                message: "Unsupported block params pattern, probably masgn?"
+              )
 
-              method_type = eliminate_vars(method_type, type_param_names)
+              method_type, solved, _ = apply_solution(errors, node: node, method_type: method_type) {
+                constraints.solution(checker, variables: type_param_names, context: ccontext)
+              }
+              method_type = eliminate_vars(method_type, type_param_names) unless solved
+
               return_type = method_type.type.return_type
             end
           else
-            # Block parameters are unsupported syntax
-            errors << Diagnostic::Ruby::UnsupportedSyntax.new(
-              node: block_params,
-              message: "Unsupported block params pattern, probably masgn?"
-            )
-
-            method_type, solved, _ = apply_solution(errors, node: node, method_type: method_type) {
-              constraints.solution(checker, variables: type_param_names, context: ccontext)
-            }
-            method_type = eliminate_vars(method_type, type_param_names) unless solved
-
-            return_type = method_type.type.return_type
-          end
-        else
-          # Block is given but method doesn't accept
-          #
-          constr.type_block_without_hint(node: node, block_annotations: block_annotations, block_params: block_params_, block_body: block_body) do |error|
-            errors << error
-          end
-
-          errors << Diagnostic::Ruby::UnexpectedBlockGiven.new(
-            node: node,
-            method_type: method_type
-          )
-
-          method_type = eliminate_vars(method_type, type_param_names)
-          return_type = method_type.type.return_type
-        end
-      else
-        # Block syntax is not given
-        arg = args.block_pass_arg
-
-        case
-        when arg.compatible?
-          if arg.node
-            # Block pass (&block) is given
-            node_type, constr = constr.synthesize(arg.node, hint: arg.node_type)
-
-            nil_given =
-              constr.check_relation(sub_type: node_type, super_type: AST::Builtin.nil_type).success? &&
-                !node_type.is_a?(AST::Types::Any)
-
-            if nil_given
-              # nil is given ==> no block arg node is given
-              method_type, solved, _ = apply_solution(errors, node: node, method_type: method_type) {
-                constraints.solution(checker, variables: method_type.free_variables, context: ccontext)
-              }
-              method_type = eliminate_vars(method_type, type_param_names) unless solved
-
-              # Passing no block
-              errors << Diagnostic::Ruby::RequiredBlockMissing.new(
-                node: node,
-                method_type: method_type
-              )
-            else
-              # non-nil value is given
-              constr.check_relation(sub_type: node_type, super_type: arg.node_type, constraints: constraints).else do |result|
-                errors << Diagnostic::Ruby::BlockTypeMismatch.new(
-                  node: arg.node,
-                  expected: arg.node_type,
-                  actual: node_type,
-                  result: result
-                )
-              end
-
-              method_type, solved, _ = apply_solution(errors, node: node, method_type: method_type) {
-                constraints.solution(checker, variables: method_type.free_variables, context: ccontext)
-              }
-              method_type = eliminate_vars(method_type, type_param_names) unless solved
+            # Block is given but method doesn't accept
+            #
+            constr.type_block_without_hint(node: node, block_annotations: block_annotations, block_params: block_params_, block_body: block_body) do |error|
+              errors << error
             end
-          else
-            # Block is not given
-            method_type, solved, _ = apply_solution(errors, node: node, method_type: method_type) {
-              constraints.solution(checker, variables: method_type.free_variables, context: ccontext)
-            }
-            method_type = eliminate_vars(method_type, type_param_names) unless solved
-          end
 
-          return_type = method_type.type.return_type
-
-        when arg.block_missing?
-          # Block is required but not given
-          method_type, solved, _ = apply_solution(errors, node: node, method_type: method_type) {
-            constraints.solution(checker, variables: method_type.free_variables, context: ccontext)
-          }
-
-          method_type = eliminate_vars(method_type, type_param_names) unless solved
-          return_type = method_type.type.return_type
-
-          errors << Diagnostic::Ruby::RequiredBlockMissing.new(
-            node: node,
-            method_type: method_type
-          )
-
-        when arg.unexpected_block?
-          # Unexpected block is given
-          method_type, solved, _ = apply_solution(errors, node: node, method_type: method_type) {
-            constraints.solution(checker, variables: method_type.free_variables, context: ccontext)
-          }
-          method_type = eliminate_vars(method_type, type_param_names) unless solved
-          return_type = method_type.type.return_type
-
-          node_type, constr = constr.synthesize(arg.node)
-
-          unless constr.check_relation(sub_type: node_type, super_type: AST::Builtin.nil_type).success?
             errors << Diagnostic::Ruby::UnexpectedBlockGiven.new(
               node: node,
               method_type: method_type
             )
+
+            method_type = eliminate_vars(method_type, type_param_names)
+            return_type = method_type.type.return_type
+          end
+        else
+          # Block syntax is not given
+          arg = args.block_pass_arg
+
+          case
+          when arg.compatible?
+            if arg.node
+              # Block pass (&block) is given
+              node_type, constr = constr.synthesize(arg.node, hint: arg.node_type)
+
+              nil_given =
+                constr.check_relation(sub_type: node_type, super_type: AST::Builtin.nil_type).success? &&
+                  !node_type.is_a?(AST::Types::Any)
+
+              if nil_given
+                # nil is given ==> no block arg node is given
+                method_type, solved, _ = apply_solution(errors, node: node, method_type: method_type) {
+                  constraints.solution(checker, variables: method_type.free_variables, context: ccontext)
+                }
+                method_type = eliminate_vars(method_type, type_param_names) unless solved
+
+                # Passing no block
+                errors << Diagnostic::Ruby::RequiredBlockMissing.new(
+                  node: node,
+                  method_type: method_type
+                )
+              else
+                # non-nil value is given
+                constr.check_relation(sub_type: node_type, super_type: arg.node_type, constraints: constraints).else do |result|
+                  errors << Diagnostic::Ruby::BlockTypeMismatch.new(
+                    node: arg.node,
+                    expected: arg.node_type,
+                    actual: node_type,
+                    result: result
+                  )
+                end
+
+                method_type, solved, _ = apply_solution(errors, node: node, method_type: method_type) {
+                  constraints.solution(checker, variables: method_type.free_variables, context: ccontext)
+                }
+                method_type = eliminate_vars(method_type, type_param_names) unless solved
+              end
+            else
+              # Block is not given
+              method_type, solved, _ = apply_solution(errors, node: node, method_type: method_type) {
+                constraints.solution(checker, variables: method_type.free_variables, context: ccontext)
+              }
+              method_type = eliminate_vars(method_type, type_param_names) unless solved
+            end
+
+            return_type = method_type.type.return_type
+
+          when arg.block_missing?
+            # Block is required but not given
+            method_type, solved, _ = apply_solution(errors, node: node, method_type: method_type) {
+              constraints.solution(checker, variables: method_type.free_variables, context: ccontext)
+            }
+
+            method_type = eliminate_vars(method_type, type_param_names) unless solved
+            return_type = method_type.type.return_type
+
+            errors << Diagnostic::Ruby::RequiredBlockMissing.new(
+              node: node,
+              method_type: method_type
+            )
+
+          when arg.unexpected_block?
+            # Unexpected block is given
+            method_type, solved, _ = apply_solution(errors, node: node, method_type: method_type) {
+              constraints.solution(checker, variables: method_type.free_variables, context: ccontext)
+            }
+            method_type = eliminate_vars(method_type, type_param_names) unless solved
+            return_type = method_type.type.return_type
+
+            node_type, constr = constr.synthesize(arg.node)
+
+            unless constr.check_relation(sub_type: node_type, super_type: AST::Builtin.nil_type).success?
+              errors << Diagnostic::Ruby::UnexpectedBlockGiven.new(
+                node: node,
+                method_type: method_type
+              )
+            end
           end
         end
+
+        call = if errors.empty?
+                 TypeInference::MethodCall::Typed.new(
+                   node: node,
+                   context: context.method_context,
+                   receiver_type: receiver_type,
+                   method_name: method_name,
+                   actual_method_type: method_type,
+                   return_type: return_type || method_type.type.return_type,
+                   method_decls: method_type.method_decls
+                 )
+               else
+                 TypeInference::MethodCall::Error.new(
+                   node: node,
+                   context: context.method_context,
+                   receiver_type: receiver_type,
+                   method_name: method_name,
+                   return_type: return_type || method_type.type.return_type,
+                   method_decls: method_type.method_decls,
+                   errors: errors
+                 )
+               end
+
+        [
+          call,
+          constr
+        ]
       end
-
-      call = if errors.empty?
-               TypeInference::MethodCall::Typed.new(
-                 node: node,
-                 context: context.method_context,
-                 receiver_type: receiver_type,
-                 method_name: method_name,
-                 actual_method_type: method_type,
-                 return_type: return_type || method_type.type.return_type,
-                 method_decls: method_type.method_decls
-               )
-             else
-               TypeInference::MethodCall::Error.new(
-                 node: node,
-                 context: context.method_context,
-                 receiver_type: receiver_type,
-                 method_name: method_name,
-                 return_type: return_type || method_type.type.return_type,
-                 method_decls: method_type.method_decls,
-                 errors: errors
-               )
-             end
-
-      [
-        call,
-        constr
-      ]
     end
 
     def type_check_argument(node, receiver_type:, type:, constraints:, report_node: node, errors:)

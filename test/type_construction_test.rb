@@ -8007,7 +8007,7 @@ q.push("") + ""
       RUBY
 
       with_standard_construction(checker, source) do |construction, typing|
-        type, _ = construction.synthesize(source.node)
+        construction.synthesize(source.node)
 
         assert_typing_error(typing, size: 1) do |errors|
           assert_any!(errors) do |error|
@@ -8047,7 +8047,7 @@ q.push(1)
         assert_equal parse_type("untyped"), type
         assert_typing_error(typing, size: 1) do |errors|
           assert_any!(errors) do |error|
-            assert_instance_of Diagnostic::Ruby::UnsatisfiableConstraint, error
+            assert_instance_of Diagnostic::Ruby::ArgumentTypeMismatch, error
           end
         end
       end

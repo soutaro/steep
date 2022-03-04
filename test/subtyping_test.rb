@@ -1041,7 +1041,7 @@ type c = a | b
       end
 
       interface _B
-        def f: [X < Integer] (X) -> Numeric
+        def f: [X < Integer] (Numeric) -> X
       end
     RBS
 
