@@ -36,6 +36,10 @@ class Array[A]
   def []: (Integer) -> A
   def []=: (Integer, A) -> A
 end
+
+interface _Indexable[T]
+  def []: (Integer) -> T
+end
   EOB
 
   def test_bounds
@@ -90,6 +94,27 @@ end
       assert_equal string, subst[:a]
       assert_equal integer, subst[:b]
       assert_equal object, subst[:c]
+    end
+  end
+
+  def test_subst_with_skip_constraints
+    with_checker do |checker|
+      constraints = Subtyping::Constraints.new(unknowns: [:X])
+      constraints.add(:X, super_type: parse_type("::_Indexable[::Integer]"), skip: true)
+      constraints.add(:X, super_type: parse_type("::Array[::Integer]"), skip: false)
+
+      variance = Subtyping::VariableVariance.new(covariants: Set[], contravariants: Set[])
+
+      subst = constraints.solution(
+        checker,
+        self_type: AST::Types::Self.new,
+        instance_type: AST::Types::Instance.new,
+        class_type: AST::Types::Class.new,
+        variance: variance,
+        variables: Set[:X]
+      )
+
+      assert_equal parse_type("::Array[::Integer]"), subst[:X]
     end
   end
 

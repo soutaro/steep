@@ -3095,18 +3095,58 @@ module Steep
       end
     end
 
+    def apply_solution(errors, node:, method_type:)
+      subst = yield
+
+      [
+        method_type.subst(subst),
+        true,
+        subst
+      ]
+
+    rescue Subtyping::Constraints::UnsatisfiableConstraint => exn
+      errors << Diagnostic::Ruby::UnsatisfiableConstraint.new(
+        node: node,
+        method_type: method_type,
+        var: exn.var,
+        sub_type: exn.sub_type,
+        super_type: exn.super_type,
+        result: exn.result
+      )
+      [method_type, false, Interface::Substitution.empty]
+    end
+
+    def eliminate_vars(type, variables, to: AST::Builtin.any_type)
+      if variables.empty?
+        type
+      else
+        subst = Interface::Substitution.build(variables, Array.new(variables.size, to))
+        type.subst(subst)
+      end
+    end
+
     def try_method_type(node, receiver_type:, method_name:, method_type:, arguments:, block_params:, block_body:, topdown_hint:)
-      fresh_types = method_type.type_params.map {|x| AST::Types::Var.fresh(x.name, location: x.location) }
-      fresh_vars = Set.new(fresh_types.map(&:name))
-      instantiation = Interface::Substitution.build(method_type.type_params.map(&:name), fresh_types)
+      type_params, instantiation = Interface::TypeParam.rename(method_type.type_params)
+      type_param_names = type_params.map(&:name)
 
       constr = self
 
       method_type = method_type.instantiate(instantiation)
 
-      constraints = Subtyping::Constraints.new(unknowns: fresh_types.map(&:name))
       variance = Subtyping::VariableVariance.from_method_type(method_type)
       occurence = Subtyping::VariableOccurence.from_method_type(method_type)
+      constraints = Subtyping::Constraints.new(unknowns: type_params.map(&:name))
+      ccontext = Subtyping::Constraints::Context.new(
+        self_type: self_type,
+        instance_type: module_context.instance_type,
+        class_type: module_context.module_type,
+        variance: variance
+      )
+      type_params.each do |param|
+        if ub = param.upper_bound
+          constraints.add(param.name, super_type: ub, skip: true)
+        end
+      end
 
       errors = []
 
@@ -3200,50 +3240,52 @@ module Steep
         block_params_ = TypeInference::BlockParams.from_node(block_params, annotations: block_annotations)
 
         if method_type.block
+          # Method accepts block
           pairs = method_type.block && block_params_&.zip(method_type.block.type.params)
 
           if pairs
-            begin
-              block_constr = constr.for_block(
-                block_params: block_params_,
-                block_param_hint: method_type.block.type.params,
-                block_type_hint: method_type.block.type.return_type,
-                block_annotations: block_annotations,
-                node_type_hint: method_type.type.return_type
+            # Block parameters are compatible with the block type
+            block_constr = constr.for_block(
+              block_params: block_params_,
+              block_param_hint: method_type.block.type.params,
+              block_type_hint: method_type.block.type.return_type,
+              block_annotations: block_annotations,
+              node_type_hint: method_type.type.return_type
+            )
+            block_constr = block_constr.with_new_typing(
+              block_constr.typing.new_child(
+                range: block_constr.typing.block_range(node)
               )
-              block_constr = block_constr.with_new_typing(
-                block_constr.typing.new_child(
-                  range: block_constr.typing.block_range(node)
-                )
-              )
+            )
 
-              block_constr.typing.add_context_for_body(node, context: block_constr.context)
+            block_constr.typing.add_context_for_body(node, context: block_constr.context)
 
-              pairs.each do |param, type|
-                _, block_constr = block_constr.synthesize(param.node, hint: param.type || type)
+            pairs.each do |param, type|
+              _, block_constr = block_constr.synthesize(param.node, hint: param.type || type)
 
-                if param.type
-                  check_relation(sub_type: type, super_type: param.type, constraints: constraints).else do |result|
-                    error = Diagnostic::Ruby::IncompatibleAssignment.new(
-                      node: param.node,
-                      lhs_type: param.type,
-                      rhs_type: type,
-                      result: result
-                    )
-                    errors << error
-                  end
+              if param.type
+                check_relation(sub_type: type, super_type: param.type, constraints: constraints).else do |result|
+                  error = Diagnostic::Ruby::IncompatibleAssignment.new(
+                    node: param.node,
+                    lhs_type: param.type,
+                    rhs_type: type,
+                    result: result
+                  )
+                  errors << error
                 end
               end
+            end
 
-              s = constraints.solution(
+            method_type, solved, s = apply_solution(errors, node: node, method_type: method_type) {
+              constraints.solution(
                 checker,
-                self_type: self_type,
-                instance_type: module_context.instance_type,
-                class_type: module_context.module_type,
-                variance: variance,
-                variables: method_type.type.params.free_variables + method_type.block.type.params.free_variables
+                variables: method_type.type.params.free_variables + method_type.block.type.params.free_variables,
+                context: ccontext
               )
-              method_type = method_type.subst(s)
+            }
+
+            if solved
+              # Ready for type check the body of the block
               block_constr = block_constr.update_lvar_env {|env| env.subst(s) }
               if block_body
                 block_body_type = block_constr.synthesize_block(
@@ -3260,21 +3302,18 @@ module Steep
                                       constraints: constraints)
 
               if result.success?
-                s = constraints.solution(
-                  checker,
-                  self_type: self_type,
-                  instance_type: module_context.instance_type,
-                  class_type: module_context.module_type,
-                  variance: variance,
-                  variables: fresh_vars
-                )
-                method_type = method_type.subst(s)
+                # Successfully type checked the body
+                method_type, solved, _ = apply_solution(errors, node: node, method_type: method_type) do
+                  constraints.solution(checker, variables: type_param_names, context: ccontext)
+                end
+                method_type = eliminate_vars(method_type, type_param_names) unless solved
 
                 return_type = method_type.type.return_type
                 if break_type = block_annotations.break_type
                   return_type = union_type(break_type, return_type)
                 end
               else
+                # The block body has incompatible type
                 errors << Diagnostic::Ruby::BlockBodyTypeMismatch.new(
                   node: node,
                   expected: method_type.block.type.return_type,
@@ -3282,44 +3321,33 @@ module Steep
                   result: result
                 )
 
+                method_type = eliminate_vars(method_type, type_param_names)
                 return_type = method_type.type.return_type
               end
 
               block_constr.typing.save!
-
-            rescue Subtyping::Constraints::UnsatisfiableConstraint => exn
-              errors << Diagnostic::Ruby::UnsatisfiableConstraint.new(
-                node: node,
-                method_type: method_type,
-                var: exn.var,
-                sub_type: exn.sub_type,
-                super_type: exn.super_type,
-                result: exn.result
-              )
-
+            else
+              # Failed to infer the type of block parameters
               constr.type_block_without_hint(node: node, block_annotations: block_annotations, block_params: block_params_, block_body: block_body) do |error|
                 errors << error
               end
 
-              s = Interface::Substitution.build(method_type.free_variables,
-                                                Array.new(method_type.free_variables.size, AST::Builtin.any_type))
-              method_type = method_type.subst(s)
+              method_type = eliminate_vars(method_type, type_param_names)
+              return_type = method_type.type.return_type
             end
           else
+            # Block parameters are unsupported syntax
             errors << Diagnostic::Ruby::UnsupportedSyntax.new(
               node: block_params,
               message: "Unsupported block params pattern, probably masgn?"
             )
 
-            s = constraints.solution(
-              checker,
-              variance: variance,
-              variables: fresh_vars,
-              self_type: self_type,
-              instance_type: module_context.instance_type,
-              class_type: module_context.module_type
-            )
-            method_type = method_type.subst(s)
+            method_type, solved, _ = apply_solution(errors, node: node, method_type: method_type) {
+              constraints.solution(checker, variables: type_param_names, context: ccontext)
+            }
+            method_type = eliminate_vars(method_type, type_param_names) unless solved
+
+            return_type = method_type.type.return_type
           end
         else
           # Block is given but method doesn't accept
@@ -3332,82 +3360,70 @@ module Steep
             node: node,
             method_type: method_type
           )
+
+          method_type = eliminate_vars(method_type, type_param_names)
+          return_type = method_type.type.return_type
         end
       else
+        # Block syntax is not given
         arg = args.block_pass_arg
 
         case
         when arg.compatible?
           if arg.node
-            subst = constraints.solution(
-              checker,
-              self_type: self_type,
-              instance_type: module_context.instance_type,
-              class_type: module_context.module_type,
-              variance: variance,
-              variables: occurence.params
-            )
+            # Block pass (&block) is given
+            node_type, constr = constr.synthesize(arg.node, hint: arg.node_type)
 
-            block_type = arg.node_type.subst(subst)
-
-            node_type, constr = constr.synthesize(arg.node, hint: block_type)
-            nil_block =
+            nil_given =
               constr.check_relation(sub_type: node_type, super_type: AST::Builtin.nil_type).success? &&
                 !node_type.is_a?(AST::Types::Any)
 
-            unless nil_block
-              constr.check_relation(sub_type: node_type, super_type: block_type, constraints: constraints).else do |result|
-                errors << Diagnostic::Ruby::BlockTypeMismatch.new(
-                  node: arg.node,
-                  expected: block_type,
-                  actual: node_type,
-                  result: result
-                )
-              end
-            end
+            if nil_given
+              # nil is given ==> no block arg node is given
+              method_type, solved, _ = apply_solution(errors, node: node, method_type: method_type) {
+                constraints.solution(checker, variables: method_type.free_variables, context: ccontext)
+              }
+              method_type = eliminate_vars(method_type, type_param_names) unless solved
 
-            subst = constraints.solution(
-              checker,
-              self_type: self_type,
-              instance_type: module_context.instance_type,
-              class_type: module_context.module_type,
-              variance: variance,
-              variables: method_type.free_variables
-            )
-
-            method_type = method_type.subst(subst)
-
-            if nil_block && arg.block.required?
               # Passing no block
               errors << Diagnostic::Ruby::RequiredBlockMissing.new(
                 node: node,
                 method_type: method_type
               )
+            else
+              # non-nil value is given
+              constr.check_relation(sub_type: node_type, super_type: arg.node_type, constraints: constraints).else do |result|
+                errors << Diagnostic::Ruby::BlockTypeMismatch.new(
+                  node: arg.node,
+                  expected: arg.node_type,
+                  actual: node_type,
+                  result: result
+                )
+              end
+
+              method_type, solved, _ = apply_solution(errors, node: node, method_type: method_type) {
+                constraints.solution(checker, variables: method_type.free_variables, context: ccontext)
+              }
+              method_type = eliminate_vars(method_type, type_param_names) unless solved
             end
           else
-            subst = constraints.solution(
-              checker,
-              self_type: self_type,
-              instance_type: module_context.instance_type,
-              class_type: module_context.module_type,
-              variance: variance,
-              variables: method_type.free_variables
-            )
-
-            method_type = method_type.subst(subst)
+            # Block is not given
+            method_type, solved, _ = apply_solution(errors, node: node, method_type: method_type) {
+              constraints.solution(checker, variables: method_type.free_variables, context: ccontext)
+            }
+            method_type = eliminate_vars(method_type, type_param_names) unless solved
           end
 
-        when arg.block_missing?
-          subst = constraints.solution(
-            checker,
-            self_type: self_type,
-            instance_type: module_context.instance_type,
-            class_type: module_context.module_type,
-            variance: variance,
-            variables: method_type.free_variables
-          )
+          return_type = method_type.type.return_type
 
-          method_type = method_type.subst(subst)
+        when arg.block_missing?
+          # Block is required but not given
+          method_type, solved, _ = apply_solution(errors, node: node, method_type: method_type) {
+            constraints.solution(checker, variables: method_type.free_variables, context: ccontext)
+          }
+
+          method_type = eliminate_vars(method_type, type_param_names) unless solved
+          return_type = method_type.type.return_type
 
           errors << Diagnostic::Ruby::RequiredBlockMissing.new(
             node: node,
@@ -3415,16 +3431,12 @@ module Steep
           )
 
         when arg.unexpected_block?
-          subst = constraints.solution(
-            checker,
-            self_type: self_type,
-            instance_type: module_context.instance_type,
-            class_type: module_context.module_type,
-            variance: variance,
-            variables: method_type.free_variables
-          )
-
-          method_type = method_type.subst(subst)
+          # Unexpected block is given
+          method_type, solved, _ = apply_solution(errors, node: node, method_type: method_type) {
+            constraints.solution(checker, variables: method_type.free_variables, context: ccontext)
+          }
+          method_type = eliminate_vars(method_type, type_param_names) unless solved
+          return_type = method_type.type.return_type
 
           node_type, constr = constr.synthesize(arg.node)
 

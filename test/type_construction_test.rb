@@ -8010,18 +8010,44 @@ q.push("") + ""
         type, _ = construction.synthesize(source.node)
 
         assert_typing_error(typing, size: 1) do |errors|
-          # assert_any!(errors) do |error|
-          #   assert_instance_of Diagnostic::Ruby::NoMethod, error
-          #   assert_equal :to_str, error.method
-          # end
-          #
-          # assert_any!(errors) do |error|
-          #   assert_instance_of Diagnostic::Ruby::NoMethod, error
-          #   assert_equal :push, error.method
-          # end
-
           assert_any!(errors) do |error|
             assert_instance_of Diagnostic::Ruby::MethodDefinitionMissing, error
+          end
+        end
+      end
+    end
+  end
+
+  def test_bounded_generics_apply
+    with_checker(<<-RBS) do |checker|
+class Q[T < _Pushable]
+  attr_reader queue: T
+
+  def push: [S < _ToStr] (S) -> S
+end
+
+interface _Pushable
+  def push: (String) -> void
+end
+
+interface _ToStr
+  def to_str: () -> String
+end
+    RBS
+
+      source = parse_ruby(<<-'RUBY')
+# @type var q: Q[Array[String]]
+q = Q.new()
+q.push(1)
+      RUBY
+
+      with_standard_construction(checker, source) do |construction, typing|
+        type, _ = construction.synthesize(source.node)
+
+        assert_equal parse_type("untyped"), type
+        assert_typing_error(typing, size: 1) do |errors|
+          assert_any!(errors) do |error|
+            assert_instance_of Diagnostic::Ruby::UnsatisfiableConstraint, error
           end
         end
       end
@@ -8068,6 +8094,198 @@ cdr = A.new.cdr(a)
 
         assert_equal parse_type("::Integer?"), context.lvar_env[:car]
         assert_equal parse_type("::list[::Integer]?"), context.lvar_env[:cdr]
+      end
+    end
+  end
+
+  def test_send_solution_block_body_type_check_failure
+    with_checker(<<-RBS) do |checker|
+class Solution[X]
+  def foo: [A] () { () -> Integer } -> [X, A]
+end
+    RBS
+
+      source = parse_ruby(<<-'RUBY')
+class Solution
+  def bar
+    z = foo { "foo" }
+    1+2
+  end
+end
+      RUBY
+
+      with_standard_construction(checker, source) do |construction, typing|
+        type, _ = construction.synthesize(source.node)
+
+        assert_equal parse_type("[X, untyped]", variables: [:X]), typing.context_at(line: 4, column: 5).lvar_env[:z]
+      end
+    end
+  end
+
+  def test_send_solution_block_body_type_check_failure
+    with_checker(<<-RBS) do |checker|
+class Solution[X]
+  def foo: [A, B] (B) { (B) -> Integer } -> [X, A]
+end
+    RBS
+
+      source = parse_ruby(<<-'RUBY')
+class Solution
+  def bar
+    z = foo(true) {|x|
+      # @type var x: Integer
+      "foo"
+    }
+    1+2
+  end
+end
+      RUBY
+
+      with_standard_construction(checker, source) do |construction, typing|
+        type, _ = construction.synthesize(source.node)
+
+        assert_equal parse_type("[X, untyped]", variables: [:X]), typing.context_at(line: 6, column: 5).lvar_env[:z]
+      end
+    end
+  end
+
+  def test_send_solution_block_parameter_unsupported
+    with_checker(<<-RBS) do |checker|
+class Solution[X]
+  def foo: [A] () { () -> Integer } -> [X, A]
+end
+    RBS
+
+      source = parse_ruby(<<-'RUBY')
+class Solution
+  def bar
+    z = foo() {|(a, (b, c))| "foo" }
+    1+2
+  end
+end
+      RUBY
+
+      with_standard_construction(checker, source) do |construction, typing|
+        type, _ = construction.synthesize(source.node)
+
+        assert_equal parse_type("[X, untyped]", variables: [:X]), typing.context_at(line: 4, column: 5).lvar_env[:z]
+      end
+    end
+  end
+
+  def test_send_solution_block_pass
+    with_checker(<<-RBS) do |checker|
+class Solution[X]
+  def foo: [A] () { () -> A } -> [X, A]
+end
+    RBS
+
+      source = parse_ruby(<<-'RUBY')
+block = -> { "foo" }
+Solution.new.foo(&block)
+      RUBY
+
+      with_standard_construction(checker, source) do |construction, typing|
+        type, _ = construction.synthesize(source.node)
+        assert_equal parse_type("[untyped, ::String]", variables: [:X]), type
+      end
+    end
+  end
+
+  def test_send_solution_block_pass_nil
+    with_checker(<<-RBS) do |checker|
+class Solution[X]
+  def foo: [A] (^(A) -> A) { () -> void } -> [X, A]
+end
+    RBS
+
+      source = parse_ruby(<<-'RUBY')
+block = -> (x) do
+  # @type var x: Integer
+  ""
+end
+Solution.new.foo(block, &nil)
+      RUBY
+
+      with_standard_construction(checker, source) do |construction, typing|
+        type, _ = construction.synthesize(source.node)
+        assert_equal parse_type("[untyped, untyped]", variables: [:X]), type
+
+        assert_typing_error(typing, size: 2) do |errors|
+          assert_any!(errors) do |error|
+            assert_instance_of Diagnostic::Ruby::RequiredBlockMissing, error
+          end
+
+          assert_any!(errors) do |error|
+            assert_instance_of Diagnostic::Ruby::UnsatisfiableConstraint, error
+          end
+        end
+      end
+    end
+  end
+
+  def test_send_solution_block_pass_error
+    with_checker(<<-RBS) do |checker|
+class Solution[X]
+  def foo: [A] () { (A) -> A } -> [X, A]
+end
+    RBS
+
+      source = parse_ruby(<<-'RUBY')
+block = -> (x) do
+  # @type var x: Integer
+  "foo"
+end
+Solution.new.foo(10, &block)
+      RUBY
+
+      with_standard_construction(checker, source) do |construction, typing|
+        type, _ = construction.synthesize(source.node)
+        assert_equal parse_type("[untyped, untyped]", variables: [:X]), type
+      end
+    end
+  end
+
+  def test_send_solution_required_block_is_missing
+    with_checker(<<-RBS) do |checker|
+class Solution[X]
+  def foo: [A] (^(A) -> A) { () -> void } -> [X, A]
+end
+    RBS
+
+      source = parse_ruby(<<-'RUBY')
+block = -> (x) do
+  # @type var x: Integer
+  "foo"
+end
+Solution.new.foo(block)
+      RUBY
+
+      with_standard_construction(checker, source) do |construction, typing|
+        type, _ = construction.synthesize(source.node)
+        assert_equal parse_type("[untyped, untyped]", variables: [:X]), type
+      end
+    end
+  end
+
+  def test_send_solution_unexpected_block_is_given
+    with_checker(<<-RBS) do |checker|
+class Solution[X]
+  def foo: [A] (^(A) -> A) -> [X, A]
+end
+    RBS
+
+      source = parse_ruby(<<-'RUBY')
+block = -> (x) do
+  # @type var x: Integer
+  "foo"
+end
+Solution.new.foo(block, &block)
+      RUBY
+
+      with_standard_construction(checker, source) do |construction, typing|
+        type, _ = construction.synthesize(source.node)
+        assert_equal parse_type("[untyped, untyped]", variables: [:X]), type
       end
     end
   end

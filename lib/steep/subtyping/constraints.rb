@@ -80,7 +80,7 @@ module Steep
         @vars = Set.new
 
         unknowns.each do |var|
-          dictionary[var] = [Set.new, Set.new]
+          dictionary[var] = [Set.new, Set.new, Set.new]
         end
       end
 
@@ -101,8 +101,8 @@ module Steep
         end
       end
 
-      def add(var, sub_type: nil, super_type: nil)
-        subs, supers = dictionary[var]
+      def add(var, sub_type: nil, super_type: nil, skip: false)
+        subs, supers, skips = dictionary[var]
 
         if sub_type.is_a?(AST::Types::Logic::Base)
           sub_type = AST::Builtin.bool_type
@@ -113,11 +113,15 @@ module Steep
         end
 
         if super_type && !super_type.is_a?(AST::Types::Top)
-          supers << eliminate_variable(super_type, to: AST::Types::Top.new)
+          type = eliminate_variable(super_type, to: AST::Types::Top.new)
+          supers << type
+          skips << type if skip
         end
 
         if sub_type && !sub_type.is_a?(AST::Types::Bot)
-          subs << eliminate_variable(sub_type, to: AST::Types::Bot.new)
+          type = eliminate_variable(sub_type, to: AST::Types::Bot.new)
+          subs << type
+          skips << type if skip
         end
 
         super_fvs = supers.each.with_object(Set.new) do |type, fvs|
@@ -180,7 +184,7 @@ module Steep
 
       def unknown!(var)
         unless unknown?(var)
-          dictionary[var] = [Set.new, Set.new]
+          dictionary[var] = [Set.new, Set.new, Set.new]
         end
       end
 
@@ -188,8 +192,10 @@ module Steep
         dictionary.keys.empty?
       end
 
-      def upper_bound(var)
-        _, upper_bound = dictionary[var]
+      def upper_bound(var, skip: false)
+        _, upper_bound, skips = dictionary[var]
+        upper_bound -= skips if skip
+
         case upper_bound.size
         when 0
           AST::Types::Top.new
@@ -200,8 +206,9 @@ module Steep
         end
       end
 
-      def lower_bound(var)
-        lower_bound, _ = dictionary[var]
+      def lower_bound(var, skip: false)
+        lower_bound, _, skips = dictionary[var]
+        lower_bound -= skips if skip
 
         case lower_bound.size
         when 0
@@ -213,40 +220,61 @@ module Steep
         end
       end
 
-      def solution(checker, variance:, variables:, self_type:, instance_type:, class_type:)
+      Context = Struct.new(:variance, :self_type, :instance_type, :class_type, keyword_init: true)
+
+      def solution(checker, variance: nil, variables:, self_type: nil, instance_type: nil, class_type: nil, context: nil)
+        if context
+          raise if variance
+          raise if self_type
+          raise if instance_type
+          raise if class_type
+
+          variance = context.variance
+          self_type = context.self_type
+          instance_type = context.instance_type
+          class_type = context.class_type
+        end
+
         vars = []
         types = []
 
         dictionary.each_key do |var|
           if variables.include?(var)
             if has_constraint?(var)
-              upper_bound = upper_bound(var)
-              lower_bound = lower_bound(var)
-              relation = Relation.new(sub_type: lower_bound, super_type: upper_bound)
+              relation = Relation.new(
+                sub_type: lower_bound(var, skip: false),
+                super_type: upper_bound(var, skip: false)
+              )
 
               checker.check(relation, self_type: self_type, instance_type: instance_type, class_type: class_type, constraints: self.class.empty).yield_self do |result|
                 if result.success?
                   vars << var
 
-                  type = case
-                         when variance.contravariant?(var)
-                           upper_bound
-                         when variance.covariant?(var)
-                           lower_bound
-                         else
-                           if lower_bound.level.join > upper_bound.level.join
-                             upper_bound
-                           else
-                             lower_bound
-                           end
-                         end
+                  upper_bound = upper_bound(var, skip: true)
+                  lower_bound = lower_bound(var, skip: true)
+
+                  type =
+                    case
+                    when variance.contravariant?(var)
+                      upper_bound
+                    when variance.covariant?(var)
+                      lower_bound
+                    else
+                      if lower_bound.level.join > upper_bound.level.join
+                        upper_bound
+                      else
+                        lower_bound
+                      end
+                    end
 
                   types << type
                 else
-                  raise UnsatisfiableConstraint.new(var: var,
-                                                    sub_type: lower_bound,
-                                                    super_type: upper_bound,
-                                                    result: result)
+                  raise UnsatisfiableConstraint.new(
+                    var: var,
+                    sub_type: result.relation.sub_type,
+                    super_type: result.relation.super_type,
+                    result: result
+                  )
                 end
               end
             else
@@ -260,7 +288,9 @@ module Steep
       end
 
       def has_constraint?(var)
-        lower, upper = dictionary[var]
+        lower, upper, skips = dictionary[var]
+        lower -= skips
+        upper -= skips
         !lower.empty? || !upper.empty?
       end
 
