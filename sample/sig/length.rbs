@@ -1,0 +1,34 @@
+# LengthCalculator shows three different method types having the same implementation.
+#
+# * It receives two objects.
+# * It calls the `#size` method of the objects, and compare the return values.
+# * It returns one of the objects which has bigger `#size` value.
+#
+class LengthCalculator
+  interface _Sized
+    def size: () -> Integer
+  end
+
+  # *Untyped* version -- all (static) type information is lost.
+  #
+  # You can pass any object, even if the object doesn't have `#size` method.
+  #
+  def max0: (untyped, untyped) -> untyped
+
+  # *Subtyping* version -- with constraints on arguments, but the return type is inaccurate.
+  #
+  # You can type check if the object has `#size` method of the expected type.
+  # However, the return type also has `_Sized` type, which drops other methods than `#size`.
+  #
+  def max1: (_Sized, _Sized) -> _Sized
+
+  # *Generics* version -- the most advanced one in Steep/RBS
+  #
+  # You can type check if the object has `#size` method of the expected type.
+  # And the return type is the one given as arguments.
+  #
+  # Note that the type system of Steep cannot ensure the given two objects have the same type.
+  # Passing `String` and `Array[String]` will infer the return type `String | Array[String]`.
+  #
+  def max2: [T < _Sized] (T, T) -> T
+end
