@@ -538,22 +538,6 @@ end
   def test_caching
     with_checker do |checker|
       checker.check(
-        Subtyping::Relation.new(
-          sub_type: AST::Types::Name.new_instance(name: :"::Object"),
-          super_type: AST::Types::Var.new(name: :foo)
-        ),
-        self_type: AST::Types::Self.new,
-        instance_type: AST::Types::Instance.new,
-        class_type: AST::Types::Class.new,
-        constraints: Subtyping::Constraints.empty
-      )
-
-      # Not cached because the relation has free variables
-      assert_predicate checker.cache, :no_subtype_cache?
-    end
-
-    with_checker do |checker|
-      checker.check(
         parse_relation("::Integer", "::Object", checker: checker),
         self_type: AST::Types::Self.new,
         instance_type: AST::Types::Instance.new,
@@ -570,6 +554,7 @@ end
           AST::Types::Self.new,
           AST::Types::Instance.new,
           AST::Types::Class.new,
+          {}
         ]
       )
     end
@@ -1049,6 +1034,18 @@ type c = a | b
 
       assert_fail_check(checker, "::_A", "::_B") do |result|
         assert_instance_of Failure::UnknownPairError, result.error
+      end
+    end
+  end
+
+  def test_cache
+    with_checker do |checker|
+      checker.push_variable_bounds({ X: parse_type("::Integer", checker: checker) }) do
+        assert_success_check(checker, AST::Types::Var.new(name: :X), "::Object")
+      end
+
+      checker.push_variable_bounds({ X: parse_type("::BasicObject", checker: checker) }) do
+        assert_fail_check(checker, AST::Types::Var.new(name: :X), "::Object")
       end
     end
   end

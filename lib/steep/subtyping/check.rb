@@ -176,7 +176,8 @@ module Steep
         relation.type!
 
         Steep.logger.tagged "#{relation.sub_type} <: #{relation.super_type}" do
-          cached = cache[relation, @self_type, @instance_type, @class_type]
+          bounds = cache_bounds(relation)
+          cached = cache[relation, @self_type, @instance_type, @class_type, bounds]
           if cached && constraints.empty?
             cached
           else
@@ -186,10 +187,19 @@ module Steep
               push_assumption(relation) do
                 check_type0(relation).tap do |result|
                   Steep.logger.debug "result=#{result.class}"
-                  cache[relation, @self_type, @instance_type, @class_type] = result if cacheable?(relation)
+                  cache[relation, @self_type, @instance_type, @class_type, bounds] = result
                 end
               end
             end
+          end
+        end
+      end
+
+      def cache_bounds(relation)
+        vars = relation.sub_type.free_variables + relation.super_type.free_variables
+        vars.each.with_object({}) do |var, hash|
+          if upper_bound = variable_upper_bound(var)
+            hash[var] = upper_bound
           end
         end
       end
