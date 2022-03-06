@@ -56,6 +56,39 @@ module Steep
         validate_alias
       end
 
+      def validate_type_application_constraints(type_name, type_params, type_args, location:)
+        if type_params.size == type_args.size
+          type_params.zip(type_args).each do |param, arg|
+            if param.upper_bound
+              upper_bound_type = factory.type(param.upper_bound)
+              arg_type = factory.type(arg)
+
+              constraints = Subtyping::Constraints.empty
+
+              checker.check(
+                Subtyping::Relation.new(sub_type: arg_type, super_type: upper_bound_type),
+                self_type: nil,
+                class_type: nil,
+                instance_type: nil,
+                constraints: constraints
+              ).else do |result|
+                @errors << Diagnostic::Signature::UnsatisfiableTypeApplication.new(
+                  type_name: type_name,
+                  type_arg: arg_type,
+                  type_param: Interface::TypeParam.new(
+                    name: param.name,
+                    upper_bound: upper_bound_type,
+                    variance: param.variance,
+                    unchecked: param.unchecked?
+                  ),
+                  location: location
+                )
+              end
+            end
+          end
+        end
+      end
+
       def validate_type(type)
         Steep.logger.debug "#{Location.to_string type.location}: Validating #{type}..."
 
@@ -86,35 +119,8 @@ module Steep
           end
 
         if name && type_params && type_args
-          if type_params.size == type_args.size
-            type_params.zip(type_args).each do |param, arg|
-              if param.upper_bound
-                upper_bound_type = factory.type(param.upper_bound)
-                arg_type = factory.type(arg)
-
-                constraints = Subtyping::Constraints.empty
-
-                checker.check(
-                  Subtyping::Relation.new(sub_type: arg_type, super_type: upper_bound_type),
-                  self_type: nil,
-                  class_type: nil,
-                  instance_type: nil,
-                  constraints: constraints
-                ).else do |result|
-                  @errors << Diagnostic::Signature::UnsatisfiableTypeApplication.new(
-                    type_name: type.name,
-                    type_arg: arg_type,
-                    type_param: Interface::TypeParam.new(
-                      name: param.name,
-                      upper_bound: upper_bound_type,
-                      variance: param.variance,
-                      unchecked: param.unchecked?
-                    ),
-                    location: type.location
-                  )
-                end
-              end
-            end
+          if !type_params.empty? && !type_args.empty?
+            validate_type_application_constraints(type.name, type_params, type_args, location: type.location)
           end
         end
       end
@@ -262,6 +268,13 @@ module Steep
                   end
                 end
 
+                ancestors.each_ancestor do |ancestor|
+                  case ancestor
+                  when RBS::Definition::Ancestor::Instance
+                    validate_ancestor_application(name, ancestor)
+                  end
+                end
+
                 validate_definition_type(definition)
               end
             end
@@ -316,10 +329,48 @@ module Steep
                   )
                 end
               end
+              ancestors.each_ancestor do |ancestor|
+                case ancestor
+                when RBS::Definition::Ancestor::Instance
+                  validate_ancestor_application(name, ancestor)
+                end
+              end
 
               validate_definition_type(definition)
             end
           end
+        end
+      end
+
+      def validate_ancestor_application(name, ancestor)
+        unless ancestor.args.empty?
+          definition =
+            case
+            when ancestor.name.class?
+              builder.build_instance(ancestor.name)
+            when ancestor.name.interface?
+              builder.build_interface(ancestor.name)
+            end
+
+          location =
+            if ancestor.source == :super
+              primary_decl = env.class_decls[name].primary.decl
+              if super_class = primary_decl.super_class
+                super_class.location
+              else
+                # Implicit super class (Object): this can be skipped in fact...
+                primary_decl.location[:name]
+              end
+            else
+              ancestor.source.location
+            end
+
+          validate_type_application_constraints(
+            ancestor.name,
+            definition.type_params_decl,
+            ancestor.args,
+            location: location
+          )
         end
       end
 
@@ -335,6 +386,21 @@ module Steep
 
             checker.push_variable_bounds(upper_bounds) do
               validate_definition_type(definition)
+
+              ancestors = builder.ancestor_builder.one_interface_ancestors(name)
+              ancestors.each_ancestor do |ancestor|
+                case ancestor
+                when RBS::Definition::Ancestor::Instance
+                  # Interface ancestor cannot be other than Interface
+                  defn = builder.build_interface(ancestor.name)
+                  validate_type_application_constraints(
+                    ancestor.name,
+                    defn.type_params_decl,
+                    ancestor.args,
+                    location: ancestor.source.location || raise
+                  )
+                end
+              end
             end
           end
         end

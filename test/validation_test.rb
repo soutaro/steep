@@ -682,6 +682,236 @@ end
     end
   end
 
+  def test_validate_type_application_super
+    with_checker <<RBS do |checker|
+class Base[X < Numeric]
+end
+
+class C0 < Base[Integer]
+end
+
+class C1 < Base[String]
+end
+
+class D0[X < Integer] < Base[X]
+end
+
+class D1[X < Object] < Base[X]
+end
+RBS
+
+      Validator.new(checker: checker).tap do |validator|
+        validator.validate_one_class(TypeName("::Base"))
+        assert_predicate validator, :no_error?
+      end
+
+      Validator.new(checker: checker).tap do |validator|
+        validator.validate_one_class(TypeName("::C0"))
+        assert_predicate validator, :no_error?
+      end
+
+      Validator.new(checker: checker).tap do |validator|
+        validator.validate_one_class(TypeName("::C1"))
+        refute_predicate validator, :no_error?
+
+        assert_any!(validator.each_error, size: 1) do |error|
+          assert_instance_of Diagnostic::Signature::UnsatisfiableTypeApplication, error
+          assert_equal "Type application of `::Base` doesn't satisfy the constraints: ::String <: ::Numeric", error.header_line
+          assert_equal "Base[String]", error.location.source
+        end
+      end
+
+      Validator.new(checker: checker).tap do |validator|
+        validator.validate_one_class(TypeName("::D0"))
+        assert_predicate validator, :no_error?
+      end
+
+      Validator.new(checker: checker).tap do |validator|
+        validator.validate_one_class(TypeName("::D1"))
+        refute_predicate validator, :no_error?
+
+        assert_any!(validator.each_error, size: 1) do |error|
+          assert_instance_of Diagnostic::Signature::UnsatisfiableTypeApplication, error
+          assert_equal "Type application of `::Base` doesn't satisfy the constraints: X <: ::Numeric", error.header_line
+          assert_equal "Base[X]", error.location.source
+        end
+      end
+    end
+  end
+
+  def test_validate_type_application_mixin
+    with_checker <<RBS do |checker|
+module M[X < Numeric]
+end
+
+module N[X < Numeric]
+end
+
+interface _I[X < Numeric]
+end
+
+class C0
+  include M[Integer]
+
+  include _I[Integer]
+
+  extend N[Integer]
+
+  include _I[Integer]
+end
+
+class C1
+  include M[String]
+
+  include _I[String]
+
+  extend N[String]
+
+  extend _I[String]
+end
+
+class D0[X < Integer]
+  include M[X]
+
+  include _I[X]
+end
+
+class D1[X < Object]
+  include M[X]
+
+  include _I[X]
+end
+RBS
+
+      Validator.new(checker: checker).tap do |validator|
+        validator.validate_one_class(TypeName("::M"))
+        assert_predicate validator, :no_error?
+      end
+
+      Validator.new(checker: checker).tap do |validator|
+        validator.validate_one_class(TypeName("::N"))
+        assert_predicate validator, :no_error?
+      end
+
+      Validator.new(checker: checker).tap do |validator|
+        validator.validate_one_class(TypeName("::C0"))
+        assert_predicate validator, :no_error?
+      end
+
+      Validator.new(checker: checker).tap do |validator|
+        validator.validate_one_class(TypeName("::C1"))
+        refute_predicate validator, :no_error?
+
+        assert_any!(validator.each_error, size: 4) do |error|
+          assert_instance_of Diagnostic::Signature::UnsatisfiableTypeApplication, error
+          assert_equal "Type application of `::M` doesn't satisfy the constraints: ::String <: ::Numeric", error.header_line
+          assert_equal "include M[String]", error.location.source
+        end
+
+        assert_any!(validator.each_error, size: 4) do |error|
+          assert_instance_of Diagnostic::Signature::UnsatisfiableTypeApplication, error
+          assert_equal "Type application of `::_I` doesn't satisfy the constraints: ::String <: ::Numeric", error.header_line
+          assert_equal "include _I[String]", error.location.source
+        end
+
+        assert_any!(validator.each_error, size: 4) do |error|
+          assert_instance_of Diagnostic::Signature::UnsatisfiableTypeApplication, error
+          assert_equal "Type application of `::N` doesn't satisfy the constraints: ::String <: ::Numeric", error.header_line
+          assert_equal "extend N[String]", error.location.source
+        end
+
+        assert_any!(validator.each_error, size: 4) do |error|
+          assert_instance_of Diagnostic::Signature::UnsatisfiableTypeApplication, error
+          assert_equal "Type application of `::_I` doesn't satisfy the constraints: ::String <: ::Numeric", error.header_line
+          assert_equal "extend _I[String]", error.location.source
+        end
+      end
+
+      Validator.new(checker: checker).tap do |validator|
+        validator.validate_one_class(TypeName("::D0"))
+        assert_predicate validator, :no_error?
+      end
+
+      Validator.new(checker: checker).tap do |validator|
+        validator.validate_one_class(TypeName("::D1"))
+        refute_predicate validator, :no_error?
+
+        assert_any!(validator.each_error, size: 2) do |error|
+          assert_instance_of Diagnostic::Signature::UnsatisfiableTypeApplication, error
+          assert_equal "Type application of `::M` doesn't satisfy the constraints: X <: ::Numeric", error.header_line
+          assert_equal "include M[X]", error.location.source
+        end
+
+        assert_any!(validator.each_error, size: 2) do |error|
+          assert_instance_of Diagnostic::Signature::UnsatisfiableTypeApplication, error
+          assert_equal "Type application of `::_I` doesn't satisfy the constraints: X <: ::Numeric", error.header_line
+          assert_equal "include _I[X]", error.location.source
+        end
+      end
+    end
+  end
+
+  def test_validate_type_application_interface
+    with_checker <<RBS do |checker|
+interface _A[X < Numeric]
+end
+
+interface _I0
+  include _A[Integer]
+end
+
+interface _I1
+  include _A[String]
+end
+
+interface _J0[X < Integer]
+  include _A[X]
+end
+
+interface _J1[X < Object]
+  include _A[X]
+end
+RBS
+
+      Validator.new(checker: checker).tap do |validator|
+        validator.validate_one_interface(TypeName("::_A"))
+        assert_predicate validator, :no_error?
+      end
+
+      Validator.new(checker: checker).tap do |validator|
+        validator.validate_one_interface(TypeName("::_I0"))
+        assert_predicate validator, :no_error?
+      end
+
+      Validator.new(checker: checker).tap do |validator|
+        validator.validate_one_interface(TypeName("::_I1"))
+        refute_predicate validator, :no_error?
+
+        assert_any!(validator.each_error, size: 1) do |error|
+          assert_instance_of Diagnostic::Signature::UnsatisfiableTypeApplication, error
+          assert_equal "Type application of `::_A` doesn't satisfy the constraints: ::String <: ::Numeric", error.header_line
+          assert_equal "include _A[String]", error.location.source
+        end
+      end
+
+      Validator.new(checker: checker).tap do |validator|
+        validator.validate_one_interface(TypeName("::_J0"))
+        assert_predicate validator, :no_error?
+      end
+
+      Validator.new(checker: checker).tap do |validator|
+        validator.validate_one_interface(TypeName("::_J1"))
+        refute_predicate validator, :no_error?
+
+        assert_any!(validator.each_error, size: 1) do |error|
+          assert_instance_of Diagnostic::Signature::UnsatisfiableTypeApplication, error
+          assert_equal "Type application of `::_A` doesn't satisfy the constraints: X <: ::Numeric", error.header_line
+          assert_equal "include _A[X]", error.location.source
+        end
+      end
+    end
+  end
+
   def test_validate_type_application_method
     with_checker <<-EOF do |checker|
 type x[A < Numeric] = A
