@@ -2,6 +2,15 @@
 
 ## master
 
+## 0.48.0 (2022-03-07)
+
+Steep supports all of the new features of RBS 2. 🎉
+It now requires RBS >= 2.2 and support all of the features.
+
+* Update RBS ([\#495](https://github.com/soutaro/steep/pull/495))
+* Support generic type aliases ([\#496](https://github.com/soutaro/steep/pull/496))
+* Support bounded generics ([\#499](https://github.com/soutaro/steep/pull/499))
+
 ## 0.47.1 (2022-02-17)
 
 This update lets Steep run with Active Support 7.
