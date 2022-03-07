@@ -8289,4 +8289,38 @@ Solution.new.foo(block, &block)
       end
     end
   end
+
+  def test_return_no_value
+    with_checker(<<-RBS) do |checker|
+class ReturnNoValue
+  def foo: () -> Integer
+
+  def bar: () -> String?
+end
+    RBS
+
+      source = parse_ruby(<<-'RUBY')
+class ReturnNoValue
+  def foo
+    return
+  end
+
+  def bar
+    return
+  end
+end
+      RUBY
+
+      with_standard_construction(checker, source) do |construction, typing|
+        construction.synthesize(source.node)
+
+        assert_typing_error(typing, size: 1) do
+          assert_any!(typing.errors) do |error|
+            assert_instance_of Diagnostic::Ruby::ReturnTypeMismatch, error
+            assert_equal "The method cannot return a value of type `nil` because declared as type `::Integer`", error.header_line
+          end
+        end
+      end
+    end
+  end
 end
