@@ -8323,4 +8323,25 @@ end
       end
     end
   end
+
+  def test_context_typing_bool
+    with_checker(<<-RBS) do |checker|
+    RBS
+
+      source = parse_ruby(<<-'RUBY')
+flag = false
+
+while flag
+  flag = false
+end 
+
+      RUBY
+
+      with_standard_construction(checker, source) do |construction, typing|
+        type, _, _ = construction.synthesize(source.node)
+
+        assert_no_error typing
+      end
+    end
+  end
 end
