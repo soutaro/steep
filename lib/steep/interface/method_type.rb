@@ -132,17 +132,12 @@ module Steep
       # Returns nil if self and other are incompatible.
       #
       def |(other)
-        self_type_params = Set.new(self.type_params)
-        other_type_params = Set.new(other.type_params)
-
-        unless (common_type_params = (self_type_params & other_type_params).to_a).empty?
-          fresh_types = common_type_params.map {|name| AST::Types::Var.fresh(name) }
-          fresh_names = fresh_types.map(&:name)
-          subst = Substitution.build(common_type_params, fresh_types)
-          other = other.instantiate(subst)
-          type_params = (self_type_params + (other_type_params - common_type_params + Set.new(fresh_names))).to_a
+        if other.type_params.empty?
+          type_params = self.type_params
         else
-          type_params = (self_type_params + other_type_params).to_a
+          other_params, s2 = TypeParam.rename(other.type_params)
+          other = other.instantiate(s2)
+          type_params = self.type_params + other_params
         end
 
         params = self.type.params & other.type.params or return
@@ -180,17 +175,12 @@ module Steep
       # Returns nil if self and other are incompatible.
       #
       def &(other)
-        self_type_params = Set.new(self.type_params)
-        other_type_params = Set.new(other.type_params)
-
-        unless (common_type_params = (self_type_params & other_type_params).to_a).empty?
-          fresh_types = common_type_params.map {|name| AST::Types::Var.fresh(name) }
-          fresh_names = fresh_types.map(&:name)
-          subst = Substitution.build(common_type_params, fresh_types)
-          other = other.subst(subst)
-          type_params = (self_type_params + (other_type_params - common_type_params + Set.new(fresh_names))).to_a
+        if other.type_params.empty?
+          type_params = self.type_params
         else
-          type_params = (self_type_params + other_type_params).to_a
+          other_params, s2 = TypeParam.rename(other.type_params)
+          other = other.instantiate(s2)
+          type_params = self.type_params + other_params
         end
 
         params = self.type.params | other.type.params

@@ -171,6 +171,33 @@ module TestHelper
 
     copy
   end
+
+  # Assert `#to_s` of a method type `type` is compatible with `string`.
+  #
+  # The `string` can contain notation for *fresh* type variables, like `X(a)`.
+  #
+  # ```
+  # assert_method_type("[X(a)] (X(a)) -> X(a)", ...) => compatible with [X(0)] (X(0)) -> X0
+  # ```
+  def assert_method_type(string, type)
+    regexp = Regexp.escape(string)
+
+    ("a".."z").each do |name|
+      pat = /\\\(#{name}\\\)/
+
+      regexp = regexp.sub(pat) do |s|
+        c = "(?<#{name}>\\d+)"
+        "\\(#{c}\\)"
+      end
+
+      regexp = regexp.gsub(pat) do |s|
+        c = "\\k<#{name}>"
+        "\\(#{c}\\)"
+      end
+    end
+
+    assert_match(/\A#{regexp}\Z/, type.to_s)
+  end
 end
 
 module TypeErrorAssertions

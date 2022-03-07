@@ -385,9 +385,12 @@ class InterfaceTest < Minitest::Test
   end
 
   def test_method_type_union_poly
-    skip
-    assert_equal parse_method_type("[A, A_1, B] (Array[A] & Hash[A_1, B]) -> (String | Symbol)"),
-                 parse_method_type("[A] (Array[A]) -> String") | parse_method_type("[A, B] (Hash[A, B]) -> Symbol")
+    with_factory do
+      assert_method_type(
+        "[A, A(n), B(m)] ((Array[A] & Hash[A(n), B(m)])) -> (String | Symbol)",
+        parse_method_type("[A] (Array[A]) -> String") | parse_method_type("[A, B] (Hash[A, B]) -> Symbol")
+      )
+    end
   end
 
   def test_method_type_intersection
@@ -410,8 +413,15 @@ class InterfaceTest < Minitest::Test
 
       assert_equal parse_method_type("() ?{ (String & Integer) -> (Integer | Float) } -> (String & Symbol)"),
                    parse_method_type("() ?{ (String) -> Integer } -> String") & parse_method_type("() { (Integer) -> Float } -> Symbol")
+    end
+  end
 
-
+  def test_method_type_intersection_poly
+    with_factory do
+      assert_method_type(
+        "[A, A(i) < Array[Integer]] ((A | A(i))) -> (A & Integer)",
+        parse_method_type("[A] (A) -> A") & parse_method_type("[A < Array[Integer]] (A) -> Integer")
+      )
     end
   end
 
@@ -441,10 +451,11 @@ class InterfaceTest < Minitest::Test
   end
 
   def test_method_type_params_poly
-    skip "Skip testing MethodType#+ for polymorphic types, which requires equality modulo universal quantifiers"
     with_factory do |factory|
-      assert_equal parse_method_type("[A] () ?{ (String) -> A } -> (String | A)").to_s,
-                   (parse_method_type("() -> String") + parse_method_type("[A] { (String) -> A } -> A")).to_s
+      assert_method_type(
+        "[A(n)] () ?{ (String) -> A(n) } -> (String | A(n))",
+        parse_method_type("() -> String") + parse_method_type("[A] { (String) -> A } -> A")
+      )
     end
   end
 end

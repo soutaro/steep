@@ -27,26 +27,6 @@ class TypeFactoryTest < Minitest::Test
                     "Expected: { #{types.join(" | ")} } is a subset of { #{c.method_types.join(" | ")} }"
   end
 
-  def assert_method_type(string, type)
-    regexp = Regexp.escape(string)
-
-    ("a".."z").each do |name|
-      pat = /\\\(#{name}\\\)/
-
-      regexp = regexp.sub(pat) do |s|
-        c = "(?<#{name}>\\d+)"
-        "\\(#{c}\\)"
-      end
-
-      regexp = regexp.gsub(pat) do |s|
-        c = "\\k<#{name}>"
-        "\\(#{c}\\)"
-      end
-    end
-
-    assert_match(/\A#{regexp}\Z/, type.to_s)
-  end
-
   Types = Steep::AST::Types
   Interface = Steep::Interface
 
