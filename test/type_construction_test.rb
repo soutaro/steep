@@ -8333,8 +8333,34 @@ flag = false
 
 while flag
   flag = false
-end 
+end
+      RUBY
 
+      with_standard_construction(checker, source) do |construction, typing|
+        type, _, _ = construction.synthesize(source.node)
+
+        assert_no_error typing
+      end
+    end
+  end
+
+  def test_proc_type_case
+    with_checker(<<-RBS) do |checker|
+class ProcTypeCase
+  def foo: (String | ^() -> String) -> String
+end
+    RBS
+
+      source = parse_ruby(<<-'RUBY')
+class ProcTypeCase
+  def foo(callback)
+    if callback.is_a?(Proc)
+      callback = callback[]
+    end
+    
+    callback
+  end
+end
       RUBY
 
       with_standard_construction(checker, source) do |construction, typing|

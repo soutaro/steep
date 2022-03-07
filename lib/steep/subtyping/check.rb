@@ -483,6 +483,9 @@ module Steep
             check_interface(relation.map {|type| factory.interface(type, private: false) })
           end
 
+        when relation.sub_type.is_a?(AST::Types::Proc) && AST::Builtin::Proc.instance_type?(relation.super_type)
+          Success(relation)
+
         when relation.super_type.is_a?(AST::Types::Literal)
           case
           when relation.super_type.value == true && AST::Builtin::TrueClass.instance_type?(relation.sub_type)
