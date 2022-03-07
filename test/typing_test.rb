@@ -17,14 +17,17 @@ class TypingTest < Minitest::Test
   end
 
   def context
-    @context ||= Context.new(method_context: nil,
-                             block_context: nil,
-                             break_context: nil,
-                             module_context: nil,
-                             self_type: parse_type("::Object"),
-                             type_env: nil,
-                             lvar_env: nil,
-                             call_context: Steep::TypeInference::MethodCall::TopLevelContext.new)
+    @context ||= Context.new(
+      method_context: nil,
+      block_context: nil,
+      break_context: nil,
+      module_context: nil,
+      self_type: parse_type("::Object"),
+      type_env: nil,
+      lvar_env: nil,
+      call_context: Steep::TypeInference::MethodCall::TopLevelContext.new,
+      variable_context: Context::TypeVariableContext.empty
+    )
   end
 
   def test_1

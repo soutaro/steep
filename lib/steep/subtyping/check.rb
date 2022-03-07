@@ -8,6 +8,7 @@ module Steep
       def initialize(factory:)
         @factory = factory
         @cache = Cache.new()
+        @bounds = []
       end
 
       def with_context(self_type:, instance_type:, class_type:, constraints:)
@@ -31,6 +32,33 @@ module Steep
         yield
       ensure
         assumptions.delete(relation)
+      end
+
+      def push_variable_bounds(params)
+        case params
+        when Array
+          b = params.each.with_object({}) do |param, hash|
+            hash[param.name] = param.upper_bound
+          end
+        when Hash
+          b = params
+        end
+
+        @bounds.push(b)
+        yield
+
+      ensure
+        @bounds.pop
+      end
+
+      def variable_upper_bound(name)
+        @bounds.reverse_each do |hash|
+          if hash.key?(name)
+            return hash[name]
+          end
+        end
+
+        nil
       end
 
       def self_type
@@ -148,7 +176,8 @@ module Steep
         relation.type!
 
         Steep.logger.tagged "#{relation.sub_type} <: #{relation.super_type}" do
-          cached = cache[relation, self_type, instance_type, class_type]
+          bounds = cache_bounds(relation)
+          cached = cache[relation, @self_type, @instance_type, @class_type, bounds]
           if cached && constraints.empty?
             cached
           else
@@ -158,10 +187,19 @@ module Steep
               push_assumption(relation) do
                 check_type0(relation).tap do |result|
                   Steep.logger.debug "result=#{result.class}"
-                  cache[relation, self_type, instance_type, class_type] = result if cacheable?(relation)
+                  cache[relation, @self_type, @instance_type, @class_type, bounds] = result
                 end
               end
             end
+          end
+        end
+      end
+
+      def cache_bounds(relation)
+        vars = relation.sub_type.free_variables + relation.super_type.free_variables
+        vars.each.with_object({}) do |var, hash|
+          if upper_bound = variable_upper_bound(var)
+            hash[var] = upper_bound
           end
         end
       end
@@ -280,8 +318,18 @@ module Steep
           end
 
         when relation.super_type.is_a?(AST::Types::Var) && constraints.unknown?(relation.super_type.name)
-          constraints.add(relation.super_type.name, sub_type: relation.sub_type)
-          Success(relation)
+          if ub = variable_upper_bound(relation.super_type.name)
+            Expand(relation) do
+              check_type(Relation.new(sub_type: relation.sub_type, super_type: ub))
+            end.tap do |result|
+              if result.success?
+                constraints.add(relation.super_type.name, sub_type: relation.sub_type)
+              end
+            end
+          else
+            constraints.add(relation.super_type.name, sub_type: relation.sub_type)
+            Success(relation)
+          end
 
         when relation.sub_type.is_a?(AST::Types::Var) && constraints.unknown?(relation.sub_type.name)
           constraints.add(relation.sub_type.name, super_type: relation.super_type)
@@ -324,6 +372,11 @@ module Steep
                 check_type(rel)
               end
             end
+          end
+
+        when relation.sub_type.is_a?(AST::Types::Var) && ub = variable_upper_bound(relation.sub_type.name)
+          Expand(relation) do
+            check_type(Relation.new(sub_type: ub, super_type: relation.super_type))
           end
 
         when relation.super_type.is_a?(AST::Types::Var) || relation.sub_type.is_a?(AST::Types::Var)
@@ -558,6 +611,18 @@ module Steep
         end
       end
 
+      def check_type_application(result, type_params, type_args)
+        raise unless type_params.size == type_args.size
+
+        rels = type_params.zip(type_args).filter_map do |(param, arg)|
+          if ub = param.upper_bound
+            Relation.new(sub_type: arg, super_type: ub.subst(sub))
+          end
+        end
+
+        result.add(*rels) {|rel| check_type(rel) } and yield
+      end
+
       def check_generic_method_type(name, relation)
         relation.method!
 
@@ -570,32 +635,49 @@ module Steep
         when !sub_type.type_params.empty? && super_type.type_params.empty?
           # Check if super_type is an instance of sub_type.
           Expand(relation) do
-            sub_args = sub_type.type_params.map {|x| AST::Types::Var.fresh(x) }
-            sub_type_ = sub_type.instantiate(Interface::Substitution.build(sub_type.type_params, sub_args))
+            sub_args = sub_type.type_params.map {|param| AST::Types::Var.fresh(param.name) }
+            sub_type_ = sub_type.instantiate(Interface::Substitution.build(sub_type.type_params.map(&:name), sub_args))
 
-            constraints.add_var(*sub_args)
+            sub_args.each do |s|
+              constraints.unknown!(s.name)
+            end
 
-            rel = Relation.new(sub_type: sub_type_, super_type: super_type)
-
-            match_method_type(name, rel) do |pairs|
-              subst = pairs.each.with_object(Interface::Substitution.empty) do |(sub, sup), subst|
-                case
-                when sub.is_a?(AST::Types::Var) && sub_args.include?(sub)
-                  if subst.key?(sub.name) && subst[sub.name] != sup
-                    return Failure(rel, Result::Failure::PolyMethodSubtyping.new(name: name))
-                  else
-                    subst.add!(sub.name, sup)
-                  end
-                when sup.is_a?(AST::Types::Var) && sub_args.include?(sup)
-                  if subst.key?(sup.name) && subst[sup.name] != sub
-                    return Failure(rel, Result::Failure::PolyMethodSubtyping.new(name: name))
-                  else
-                    subst.add!(sup.name, sub)
+            relation = Relation.new(sub_type: sub_type_, super_type: super_type)
+            All(relation) do |result|
+              sub_args.zip(sub_type.type_params).each do |(arg, param)|
+                if ub = param.upper_bound
+                  result.add(Relation.new(sub_type: arg, super_type: ub)) do |rel|
+                    check_type(rel)
                   end
                 end
               end
 
-              check_method_type(name, Relation.new(sub_type: sub_type_.subst(subst), super_type: super_type))
+              match_method_type(name, relation) do |pairs|
+                rels =
+                  pairs.each.with_object([]) do |(sub, sup), rels|
+                    rels << Relation.new(sub_type: sub, super_type: sup)
+                    rels << Relation.new(sub_type: sup, super_type: sub)
+                  end
+
+                result.add(*rels) do |rel|
+                  check_type(rel)
+                end
+
+                result.add(Relation.new(sub_type: sub_type_, super_type: super_type)) do |rel|
+                  check_method_type(
+                    name,
+                    Relation.new(sub_type: sub_type_, super_type: super_type)
+                  )
+                end
+              end
+
+              result.add(relation) do |rel|
+                check_constraints(
+                  relation,
+                  variables: sub_args.map(&:name),
+                  variance: VariableVariance.from_method_type(sub_type_)
+                )
+              end
             end
           end
 
@@ -603,10 +685,12 @@ module Steep
           # Check if sub_type is an instance of super_type && no constraints on type variables (any).
           Expand(relation) do
             match_method_type(name, relation) do
-              sub_args = sub_type.type_params.map {|x| AST::Types::Var.fresh(x) }
-              sub_type_ = sub_type.instantiate(Interface::Substitution.build(sub_type.type_params, sub_args))
+              sub_args = sub_type.type_params.map {|param| AST::Types::Var.fresh(param.name) }
+              sub_type_ = sub_type.instantiate(Interface::Substitution.build(sub_type.type_params.map(&:name), sub_args))
 
-              constraints.add_var(*sub_args)
+              sub_args.each do |arg|
+                constraints.unknown!(arg.name)
+              end
 
               rel_ = Relation.new(sub_type: sub_type_, super_type: super_type)
               result = check_method_type(name, rel_)
@@ -620,21 +704,64 @@ module Steep
           end
 
         when super_type.type_params.size == sub_type.type_params.size
-          # Check if they have the same type arity
-          Expand(relation) do
-            args = sub_type.type_params.map {|x| AST::Types::Var.fresh(x) }
+          # If they have the same arity, run the normal F-sub subtyping checking.
+          All(relation) do |result|
+            args = sub_type.type_params.map {|type_param| AST::Types::Var.fresh(type_param.name) }
+            args.each {|arg| constraints.unknown!(arg.name) }
 
-            sub_type_ = sub_type.instantiate(Interface::Substitution.build(sub_type.type_params, args))
-            super_type_ = super_type.instantiate(Interface::Substitution.build(super_type.type_params, args))
+            upper_bounds = {}
+            relations = []
 
-            constraints.add_var(*args)
+            args.zip(sub_type.type_params, super_type.type_params).each do |arg, sub_param, sup_param|
+              sub_ub = sub_param.upper_bound
+              sup_ub = sup_param.upper_bound
 
-            check_method_type(name, Relation.new(sub_type: sub_type_, super_type: super_type_))
+              case
+              when sub_ub && sup_ub
+                upper_bounds[arg.name] = sub_ub
+                relations << Relation.new(sub_type: sub_ub, super_type: sup_ub)
+              when sub_ub && !sup_ub
+                upper_bounds[arg.name] = sub_ub
+              when !sub_ub && sup_ub
+                result.add(
+                  Failure(relation, Result::Failure::PolyMethodSubtyping.new(name: name))
+                )
+              when !sub_ub && !sup_ub
+                # no constraints
+              end
+            end
+
+            push_variable_bounds(upper_bounds) do
+              sub_type_ = sub_type.instantiate(Interface::Substitution.build(sub_type.type_params.map(&:name), args))
+              super_type_ = super_type.instantiate(Interface::Substitution.build(super_type.type_params.map(&:name), args))
+
+              result.add(*relations) {|rel| check_type(rel) }
+              result.add(Relation.new(sub_type: sub_type_, super_type: super_type_)) do |rel|
+                check_method_type(name, rel)
+              end
+            end
           end
 
         else
           Failure(relation, Result::Failure::PolyMethodSubtyping.new(name: name))
         end
+      end
+
+      def check_constraints(relation, variables:, variance:)
+        checker = Check.new(factory: factory)
+
+        constraints.solution(
+          checker,
+          variance: variance,
+          variables: variables,
+          self_type: self_type,
+          instance_type: instance_type,
+          class_type: class_type
+        )
+
+        Success(relation)
+      rescue Constraints::UnsatisfiableConstraint => error
+        Failure(relation, Result::Failure::UnsatisfiedConstraints.new(error))
       end
 
       def check_method_type(name, relation)
@@ -712,6 +839,10 @@ module Steep
         end
       end
 
+      # ```rbs
+      # (Symbol, Relation[MethodType]) -> (Array[[Symbol, Symbol]] | Result::t)
+      # [A] (Symbol, Relation[MethodType]) { (Array[[Symbol, Symbol]]) -> A } -> (A | Result::t)
+      # ````
       def match_method_type(name, relation)
         relation.method!
 

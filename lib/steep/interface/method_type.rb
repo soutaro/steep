@@ -77,7 +77,7 @@ module Steep
       end
 
       def to_s
-        type_params = !self.type_params.empty? ? "[#{self.type_params.map{|x| "#{x}" }.join(", ")}] " : ""
+        type_params = !self.type_params.empty? ? "[#{self.type_params.join(", ")}] " : ""
         params = type.params.to_s
         return_type = type.return_type
         block = self.block ? " #{self.block}" : ""
@@ -95,11 +95,9 @@ module Steep
       # Returns a new method type which can be used for the method implementation type of both `self` and `other`.
       #
       def unify_overload(other)
-        type_params = []
-        s1 = Substitution.build(self.type_params)
-        type_params.push(*s1.dictionary.values.map(&:name))
-        s2 = Substitution.build(other.type_params)
-        type_params.push(*s2.dictionary.values.map(&:name))
+        type_params_1, s1 = TypeParam.rename(self.type_params)
+        type_params_2, s2 = TypeParam.rename(other.type_params)
+        type_params = type_params_1 + type_params_2
 
         block = case
                 when self.block && other.block
@@ -134,17 +132,12 @@ module Steep
       # Returns nil if self and other are incompatible.
       #
       def |(other)
-        self_type_params = Set.new(self.type_params)
-        other_type_params = Set.new(other.type_params)
-
-        unless (common_type_params = (self_type_params & other_type_params).to_a).empty?
-          fresh_types = common_type_params.map {|name| AST::Types::Var.fresh(name) }
-          fresh_names = fresh_types.map(&:name)
-          subst = Substitution.build(common_type_params, fresh_types)
-          other = other.instantiate(subst)
-          type_params = (self_type_params + (other_type_params - common_type_params + Set.new(fresh_names))).to_a
+        if other.type_params.empty?
+          type_params = self.type_params
         else
-          type_params = (self_type_params + other_type_params).to_a
+          other_params, s2 = TypeParam.rename(other.type_params)
+          other = other.instantiate(s2)
+          type_params = self.type_params + other_params
         end
 
         params = self.type.params & other.type.params or return
@@ -182,17 +175,12 @@ module Steep
       # Returns nil if self and other are incompatible.
       #
       def &(other)
-        self_type_params = Set.new(self.type_params)
-        other_type_params = Set.new(other.type_params)
-
-        unless (common_type_params = (self_type_params & other_type_params).to_a).empty?
-          fresh_types = common_type_params.map {|name| AST::Types::Var.fresh(name) }
-          fresh_names = fresh_types.map(&:name)
-          subst = Substitution.build(common_type_params, fresh_types)
-          other = other.subst(subst)
-          type_params = (self_type_params + (other_type_params - common_type_params + Set.new(fresh_names))).to_a
+        if other.type_params.empty?
+          type_params = self.type_params
         else
-          type_params = (self_type_params + other_type_params).to_a
+          other_params, s2 = TypeParam.rename(other.type_params)
+          other = other.instantiate(s2)
+          type_params = self.type_params + other_params
         end
 
         params = self.type.params | other.type.params

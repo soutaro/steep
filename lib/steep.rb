@@ -50,6 +50,7 @@ require "steep/ast/types/factory"
 
 require "steep/range_extension"
 
+require "steep/interface/type_param"
 require "steep/interface/function"
 require "steep/interface/block"
 require "steep/interface/method_type"

@@ -263,7 +263,34 @@ class TypeFactoryTest < Minitest::Test
       end
 
       factory.method_type(parse_method_type("[X] (X) -> void"), self_type: self_type, method_decls: Set[]).yield_self do |type|
-        assert_match(/\[X\((\d+)\)\] \(X\(\1\)\) -> void/, type.to_s)
+        assert_method_type(
+          "[X(a)] (X(a)) -> void",
+          type
+        )
+      end
+    end
+  end
+
+  def test_bounded_method_type
+    with_factory() do |factory|
+      self_type = factory.type(parse_type("::Array[X]", variables: [:X]))
+
+      factory.method_type(parse_method_type("[A < Integer] (A) -> void"), self_type: self_type, method_decls: Set[]).yield_self do |type|
+        assert_equal "[A < Integer] (A) -> void", type.to_s
+      end
+
+      factory.method_type(parse_method_type("[X < Integer] () -> X"), self_type: self_type, method_decls: Set[]).yield_self do |type|
+        assert_method_type(
+          "[X(n) < Integer] () -> X(n)",
+          type
+        )
+      end
+
+      factory.method_type(parse_method_type("[X < Integer, Y < Array[X]] (Y) -> X"), self_type: self_type, method_decls: Set[]).yield_self do |type|
+        assert_method_type(
+          "[X(n) < Integer, Y < Array[X(n)]] (Y) -> X(n)",
+          type
+        )
       end
     end
   end
@@ -665,7 +692,10 @@ end
           assert_equal type, interface.type
 
           method = interface.methods[:foo]
-          assert_match(/\{ \[Y\(\d+\)\] \(::Array\[Y\], Y\(\d+\)\) -> void \}/, method.to_s)
+          assert_method_type(
+            "{ [Y(a)] (::Array[Y], Y(a)) -> void }",
+            method
+          )
         end
       end
     end

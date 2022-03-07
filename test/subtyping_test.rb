@@ -30,7 +30,10 @@ class String
   def self.try_convert: (untyped) -> String
 end
 
-class Integer
+class Numeric
+end
+
+class Integer < Numeric
   def to_int: -> Integer
   def self.sqrt: (Integer) -> Integer
 end
@@ -241,8 +244,7 @@ end
     EOS
 
       assert_fail_check checker, "::_A", "::_B" do |result|
-        assert_instance_of Failure::PolyMethodSubtyping, result.error
-        assert_equal :foo, result.error.name
+        assert_instance_of Failure::UnsatisfiedConstraints, result.error
       end
 
       assert_fail_check checker, "::_B", "::_A" do |result|
@@ -456,6 +458,7 @@ end
       print_result(result, io)
       str << io.string
     }
+  ensure
     yield result if block_given?
   end
 
@@ -535,22 +538,6 @@ end
   def test_caching
     with_checker do |checker|
       checker.check(
-        Subtyping::Relation.new(
-          sub_type: AST::Types::Name.new_instance(name: :"::Object"),
-          super_type: AST::Types::Var.new(name: :foo)
-        ),
-        self_type: AST::Types::Self.new,
-        instance_type: AST::Types::Instance.new,
-        class_type: AST::Types::Class.new,
-        constraints: Subtyping::Constraints.empty
-      )
-
-      # Not cached because the relation has free variables
-      assert_predicate checker.cache, :no_subtype_cache?
-    end
-
-    with_checker do |checker|
-      checker.check(
         parse_relation("::Integer", "::Object", checker: checker),
         self_type: AST::Types::Self.new,
         instance_type: AST::Types::Instance.new,
@@ -567,6 +554,7 @@ end
           AST::Types::Self.new,
           AST::Types::Instance.new,
           AST::Types::Class.new,
+          {}
         ]
       )
     end
@@ -967,6 +955,98 @@ type c = a | b
 
       assert_success_check checker, "singleton(::Integer)", "class", class_type: "singleton(::Integer)"
       assert_fail_check checker, "singleton(::Object)", "class", class_type: "singleton(::Integer)"
+    end
+  end
+
+  def type_params(checker, **params)
+    params.map do |name, upper_bound|
+      upper_bound = parse_type(upper_bound, checker: checker) if upper_bound.is_a?(String)
+
+      Interface::TypeParam.new(
+        name: name,
+        upper_bound: upper_bound,
+        variance: :invariant,
+        unchecked: false
+      )
+    end
+  end
+
+  def test_type_var_bounded
+    with_checker do |checker|
+      checker.push_variable_bounds(type_params(checker, X: "::String")) do
+        assert_success_check checker, AST::Types::Var.new(name: :X), "::String"
+
+        assert_fail_check checker, AST::Types::Var.new(name: :X), "::Integer"
+        assert_fail_check checker, "::String", AST::Types::Var.new(name: :X)
+      end
+    end
+  end
+
+  def test_method_type_bounded
+    with_checker <<~RBS do |checker|
+      interface _A
+        def f: [X < Numeric] (X) -> X
+      end
+
+      interface _B
+        def f: (Integer) -> Integer
+      end
+
+      interface _C
+        def f: (String) -> String
+      end
+    RBS
+
+      assert_success_check(checker, "::_A", "::_B")
+
+      assert_fail_check checker, "::_B", "::_A" do |result|
+        assert_instance_of Failure::PolyMethodSubtyping, result.error
+        assert_equal :f, result.error.name
+      end
+
+      assert_fail_check checker, "::_A", "::_C" do |result|
+        assert_instance_of Failure::UnsatisfiedConstraints, result.error
+
+        assert_match /X\(\d+\)/, result.error.var.to_s
+        assert_equal parse_type("::String", checker: checker), result.error.sub_type
+        assert_equal parse_type("::Numeric & ::String", checker: checker), result.error.super_type
+      end
+
+      assert_fail_check checker, "::_C", "::_A" do |result|
+        assert_instance_of Failure::PolyMethodSubtyping, result.error
+        assert_equal :f, result.error.name
+      end
+    end
+  end
+
+  def test_method_type_bounded_2
+    with_checker <<~RBS do |checker|
+      interface _A
+        def f: [X < Numeric] (X) -> X
+      end
+
+      interface _B
+        def f: [X < Integer] (Numeric) -> X
+      end
+    RBS
+
+      assert_success_check(checker, "::_B", "::_A")
+
+      assert_fail_check(checker, "::_A", "::_B") do |result|
+        assert_instance_of Failure::UnknownPairError, result.error
+      end
+    end
+  end
+
+  def test_cache
+    with_checker do |checker|
+      checker.push_variable_bounds({ X: parse_type("::Integer", checker: checker) }) do
+        assert_success_check(checker, AST::Types::Var.new(name: :X), "::Object")
+      end
+
+      checker.push_variable_bounds({ X: parse_type("::BasicObject", checker: checker) }) do
+        assert_fail_check(checker, AST::Types::Var.new(name: :X), "::Object")
+      end
     end
   end
 end

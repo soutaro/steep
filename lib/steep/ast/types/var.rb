@@ -21,15 +21,19 @@ module Steep
 
         alias eql? ==
 
-        def self.fresh(name)
+        def self.fresh_name(name)
           @mutex ||= Mutex.new
 
           @mutex.synchronize do
             @max ||= 0
             @max += 1
 
-            new(name: :"#{name}(#{@max})")
+            :"#{name}(#{@max})"
           end
+        end
+
+        def self.fresh(name, location: nil)
+          new(name: fresh_name(name), location: location)
         end
 
         def to_s
@@ -52,8 +56,15 @@ module Steep
           [0]
         end
 
+        def update(name: self.name, location: self.location)
+          self.class.new(
+            name: name,
+            location: location
+          )
+        end
+
         def with_location(new_location)
-          self.class.new(name: name, location: new_location)
+          update(location: new_location)
         end
       end
     end
