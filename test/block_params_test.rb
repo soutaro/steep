@@ -20,7 +20,7 @@ class BlockParamsTest < Minitest::Test
 
   def test_1
     with_factory do
-      block_params("proc {|a, b = 1, *c, d| }") do |params, args|
+      block_params("proc {|a, b = 1, *c, d, &e| }") do |params, args|
         assert_equal [
                        BlockParams::Param.new(var: args[0].children[0],
                                               type: nil,
@@ -47,6 +47,10 @@ class BlockParamsTest < Minitest::Test
                                               node: args[3])
                      ],
                      params.trailing_params
+        assert_equal(
+          BlockParams::Param.new(var: args[4].children[0], type: nil, value: nil, node: args[4]),
+          params.block_param
+        )
       end
     end
   end
@@ -57,9 +61,10 @@ class BlockParamsTest < Minitest::Test
 # @type var a: Integer
 a = 10
 
-proc {|a, b=1, *c, d|
+proc {|a, b=1, *c, d, &e|
   # @type var a: String
   # @type var c: Array[Symbol]
+  # @type var e: ^() -> void
   foo()
 }
       EOR
@@ -73,6 +78,15 @@ proc {|a, b=1, *c, d|
       assert_equal [BlockParams::Param.new(var: args[1].children[0], type: nil, value: parse_ruby("1").node, node: args[1])], params.optional_params
       assert_equal BlockParams::Param.new(var: args[2].children[0], type: parse_type("::Array[::Symbol]"), value: nil, node: args[2]), params.rest_param
       assert_equal [BlockParams::Param.new(var: args[3].children[0], type: nil, value: nil, node: args[3])], params.trailing_params
+      assert_equal(
+        BlockParams::Param.new(
+          var: args[4].children[0],
+          type: parse_type("^() -> void"),
+          value: nil,
+          node: args[4]
+        ),
+        params.block_param
+      )
     end
   end
 
@@ -88,7 +102,7 @@ proc {|a, b=1, *c, d|
       )
 
       block_params("proc {|a, b=1, *c| }") do |params, args|
-        zip = params.zip(type)
+        zip = params.zip(type, nil)
         assert_equal [params.params[0], parse_type("Integer")], zip[0]
         assert_equal [params.params[1], parse_type("nil")], zip[1]
         assert_equal [params.params[2], parse_type("::Array[untyped]")], zip[2]
@@ -108,7 +122,7 @@ proc {|a, b=1, *c, d|
       )
 
       block_params("proc {|a, b, *c| }") do |params, args|
-        zip = params.zip(type)
+        zip = params.zip(type, nil)
 
         assert_equal [params.params[0], parse_type("::Integer")], zip[0]
         assert_equal [params.params[1], parse_type("::String")], zip[1]
@@ -129,7 +143,7 @@ proc {|a, b=1, *c, d|
       )
 
       block_params("proc {|x, *y| }") do |params|
-        zip = params.zip(type)
+        zip = params.zip(type, nil)
 
         assert_equal [params.params[0], parse_type("::Integer")], zip[0]
         assert_equal [params.params[1], parse_type("::Array[::Object | ::String]")], zip[1]
@@ -149,7 +163,7 @@ proc {|a, b=1, *c, d|
       )
 
       block_params("proc {|x| }") do |params|
-        zip = params.zip(type)
+        zip = params.zip(type, nil)
 
         assert_equal 1, zip.size
         assert_equal [params.params[0], parse_type("::Integer")], zip[0]
@@ -169,7 +183,7 @@ proc {|a, b=1, *c, d|
       )
 
       block_params("proc { }") do |params|
-        zip = params.zip(type)
+        zip = params.zip(type, nil)
 
         assert_empty zip
       end
@@ -188,7 +202,7 @@ proc {|a, b=1, *c, d|
       )
 
       block_params("proc {|x, y| }") do |params|
-        zip = params.zip(type)
+        zip = params.zip(type, nil)
 
         assert_equal 2, zip.size
         assert_equal [params.params[0], parse_type("::Object")], zip[0]
@@ -209,7 +223,7 @@ proc {|a, b=1, *c, d|
       )
 
       block_params("proc {|x,y,*z| }") do |params|
-        zip = params.zip(type)
+        zip = params.zip(type, nil)
 
         assert_equal [params.params[0], parse_type("::Integer | nil")], zip[0]
         assert_equal [params.params[1], parse_type("::Integer | nil")], zip[1]
@@ -217,7 +231,7 @@ proc {|a, b=1, *c, d|
       end
 
       block_params("proc {|x,| }") do |params|
-        zip = params.zip(type)
+        zip = params.zip(type, nil)
 
         assert_equal [params.params[0], parse_type("::Integer | nil")], zip[0]
       end
@@ -236,7 +250,7 @@ proc {|a, b=1, *c, d|
       )
 
       block_params("proc {|x,y,*z| }") do |params|
-        zip = params.zip(type)
+        zip = params.zip(type, nil)
 
         assert_equal [params.params[0], parse_type("::Symbol")], zip[0]
         assert_equal [params.params[1], parse_type("::Integer")], zip[1]
@@ -244,13 +258,13 @@ proc {|a, b=1, *c, d|
       end
 
       block_params("proc {|x,| }") do |params|
-        zip = params.zip(type)
+        zip = params.zip(type, nil)
 
         assert_equal [params.params[0], parse_type("::Symbol")], zip[0]
       end
 
       block_params("proc {|x, *y| }") do |params|
-        zip = params.zip(type)
+        zip = params.zip(type, nil)
 
         assert_equal [params.params[0], parse_type("::Symbol")], zip[0]
         assert_equal [params.params[1], parse_type("::Array[::Integer]")], zip[1]
@@ -377,5 +391,41 @@ proc {|a, b=1, *c|
       optional_keywords: optional_keywords.transform_values {|t| parse_type(t) },
       rest_keywords: rest_keywords&.yield_self {|t| parse_type(t) }
     )
+  end
+
+  def test_zip_block
+    with_factory do
+      block_params("proc {|&proc| }") do |params|
+        params.zip(
+          Params.empty,
+          Steep::Interface::Block.new(
+            type: parse_type("^() -> void").type,
+            optional: false
+          )
+        ).tap do |zip|
+          assert_equal 1, zip.size
+          assert_equal [params.block_param, parse_type("^() -> void")], zip[0]
+        end
+
+        params.zip(
+          Params.empty,
+          Steep::Interface::Block.new(
+            type: parse_type("^() -> void").type,
+            optional: true
+          )
+        ).tap do |zip|
+          assert_equal 1, zip.size
+          assert_equal [params.block_param, parse_type("^() -> void | nil")], zip[0]
+        end
+
+        params.zip(
+          Params.empty,
+          nil
+        ).tap do |zip|
+          assert_equal 1, zip.size
+          assert_equal [params.block_param, parse_type("nil")], zip[0]
+        end
+      end
+    end
   end
 end

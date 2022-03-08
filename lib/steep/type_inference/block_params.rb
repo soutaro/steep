@@ -29,12 +29,14 @@ module Steep
       attr_reader :optional_params
       attr_reader :rest_param
       attr_reader :trailing_params
+      attr_reader :block_param
 
-      def initialize(leading_params:, optional_params:, rest_param:, trailing_params:)
+      def initialize(leading_params:, optional_params:, rest_param:, trailing_params:, block_param:)
         @leading_params = leading_params
         @optional_params = optional_params
         @rest_param = rest_param
         @trailing_params = trailing_params
+        @block_param = block_param
       end
 
       def params
@@ -43,6 +45,7 @@ module Steep
           params.push(*optional_params)
           params.push rest_param if rest_param
           params.push(*trailing_params)
+          params.push(block_param) if block_param
         end
       end
 
@@ -51,6 +54,7 @@ module Steep
         optional_params = []
         rest_param = nil
         trailing_params = []
+        block_param = nil
 
         default_params = leading_params
 
@@ -72,6 +76,9 @@ module Steep
           when :restarg
             default_params = trailing_params
             rest_param = Param.new(var: var, type: type, value: nil, node: arg)
+          when :blockarg
+            block_param = Param.new(var: var, type: type, value: nil, node: arg)
+            break
           end
         end
 
@@ -79,7 +86,8 @@ module Steep
           leading_params: leading_params,
           optional_params: optional_params,
           rest_param: rest_param,
-          trailing_params: trailing_params
+          trailing_params: trailing_params,
+          block_param: block_param
         )
       end
 
@@ -141,7 +149,7 @@ module Steep
         )
       end
 
-      def zip(params_type)
+      def zip(params_type, block)
         if trailing_params.any?
           Steep.logger.error "Block definition with trailing required parameters are not supported yet"
         end
@@ -202,6 +210,26 @@ module Steep
                 array = AST::Builtin::Array.instance_type(union)
                 zip << [rest_param, array]
               end
+            end
+          end
+
+          if block_param
+            if block
+              proc_type =
+                if block.optional?
+                  AST::Types::Union.build(
+                    types: [
+                      AST::Types::Proc.new(type: block.type, block: nil),
+                      AST::Builtin.nil_type
+                    ]
+                  )
+                else
+                  AST::Types::Proc.new(type: block.type, block: nil)
+                end
+
+              zip << [block_param, proc_type]
+            else
+              zip << [block_param, AST::Builtin.nil_type]
             end
           end
         end
