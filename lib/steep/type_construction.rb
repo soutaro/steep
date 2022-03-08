@@ -1005,7 +1005,7 @@ module Steep
           yield_self do
             send_node, params, body = node.children
             if send_node.type == :lambda
-              type_lambda(node, block_params: params, block_body: body, type_hint: hint)
+              type_lambda(node, params_node: params, body_node: body, type_hint: hint)
             else
               type_send(node, send_node: send_node, block_params: params, block_body: body, unwrap: send_node.type == :csend)
             end
@@ -1024,7 +1024,7 @@ module Steep
             params = Parser::AST::Node.new(:args, arg_nodes)
 
             if send_node.type == :lambda
-              type_lambda(node, block_params: params, block_body: body, type_hint: hint)
+              type_lambda(node, params_node: params, body_node: body, type_hint: hint)
             else
               type_send(node, send_node: send_node, block_params: params, block_body: body, unwrap: send_node.type == :csend)
             end
@@ -2727,20 +2727,22 @@ module Steep
       end
     end
 
-    def type_lambda(node, block_params:, block_body:, type_hint:)
+    def type_lambda(node, params_node:, body_node:, type_hint:)
       block_annotations = source.annotations(block: node, factory: checker.factory, current_module: current_namespace)
-      params = TypeInference::BlockParams.from_node(block_params, annotations: block_annotations)
+      params = TypeInference::BlockParams.from_node(params_node, annotations: block_annotations)
 
       case type_hint
       when AST::Types::Proc
         params_hint = type_hint.type.params
         return_hint = type_hint.type.return_type
+        block_hint = type_hint.block
       end
 
       block_constr = for_block(
         block_params: params,
         block_param_hint: params_hint,
         block_type_hint: return_hint,
+        block_block_hint: block_hint,
         block_annotations: block_annotations,
         node_type_hint: nil
       )
@@ -2751,10 +2753,30 @@ module Steep
         _, block_constr = block_constr.synthesize(param.node, hint: param.type)
       end
 
-      if block_body
+      block =
+        if block_param = params.block_param
+          if block_param_type = block_param.type
+            case block_param_type
+            when AST::Types::Proc
+              Interface::Block.new(type: block_param_type.type, optional: false)
+            when AST::Types::Union
+              if block_param_type.types.size == 2
+                if block_param_type.types.find {|t| t.is_a?(AST::Types::Nil) }
+                  if proc_type = block_param_type.types.find {|t| t.is_a?(AST::Types::Proc) }
+                    Interface::Block.new(type: proc_type.type, optional: true)
+                  end
+                end
+              end
+            end
+          else
+            type_hint.block
+          end
+        end
+
+      if body_node
         return_type = block_constr.synthesize_block(
           node: node,
-          block_body: block_body,
+          block_body: body_node,
           block_type_hint: return_hint
         )
 
@@ -2782,7 +2804,7 @@ module Steep
           return_type: return_type,
           location: nil
         ),
-        block: nil
+        block: block
       )
 
       add_typing node, type: block_type
@@ -3249,7 +3271,7 @@ module Steep
 
           if method_type.block
             # Method accepts block
-            pairs = method_type.block && block_params_&.zip(method_type.block.type.params)
+            pairs = method_type.block && block_params_&.zip(method_type.block.type.params, nil)
 
             if pairs
               # Block parameters are compatible with the block type
@@ -3257,6 +3279,7 @@ module Steep
                 block_params: block_params_,
                 block_param_hint: method_type.block.type.params,
                 block_type_hint: method_type.block.type.return_type,
+                block_block_hint: nil,
                 block_annotations: block_annotations,
                 node_type_hint: method_type.type.return_type
               )
@@ -3506,13 +3529,14 @@ module Steep
             message: "Unsupported block params pattern, probably masgn?"
           )
         )
-        block_params = TypeInference::BlockParams.new(leading_params: [], optional_params: [], rest_param: nil, trailing_params: [])
+        block_params = TypeInference::BlockParams.new(leading_params: [], optional_params: [], rest_param: nil, trailing_params: [], block_param: nil)
       end
 
       block_constr = for_block(
         block_params: block_params,
         block_param_hint: nil,
         block_type_hint: AST::Builtin.any_type,
+        block_block_hint: nil,
         block_annotations: block_annotations,
         node_type_hint: AST::Builtin.any_type
       )
@@ -3539,8 +3563,8 @@ module Steep
       end
     end
 
-    def for_block(block_params:, block_param_hint:, block_type_hint:, block_annotations:, node_type_hint:)
-      block_param_pairs = block_param_hint && block_params.zip(block_param_hint)
+    def for_block(block_params:, block_param_hint:, block_type_hint:, block_block_hint:, block_annotations:, node_type_hint:)
+      block_param_pairs = block_param_hint && block_params.zip(block_param_hint, block_block_hint)
 
       param_types_hash = {}
       if block_param_pairs

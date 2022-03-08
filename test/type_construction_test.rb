@@ -6975,19 +6975,42 @@ RUBY
     end
   end
 
-  def test_proc_with_block
-    skip "Lambda cannot have proc type with block yet..."
-
+  def test_proc_with_block_hint
     with_checker() do |checker|
       source = parse_ruby(<<RUBY)
 # @type var f: ^(Integer) { (String) -> void } -> Array[String]
-f = -> (n, &b) { b["foo"]; ["bar"] }
+f = -> (n, &b) do
+  b["foo"]
+  ["bar"]
+end
 RUBY
 
       with_standard_construction(checker, source) do |construction, typing|
         construction.synthesize(source.node)
 
         assert_no_error typing
+      end
+    end
+  end
+
+  def test_proc_with_block_annotation
+    with_checker() do |checker|
+      source = parse_ruby(<<RUBY)
+-> (n, &b) do
+  # @type var n: Integer
+  # @type var b: nil | ^(Integer) -> String
+  
+  if b
+    b[n]
+  end
+end
+RUBY
+
+      with_standard_construction(checker, source) do |construction, typing|
+        type, _, _, = construction.synthesize(source.node)
+
+        assert_no_error typing
+        assert_equal parse_type("^(::Integer) ?{ (::Integer) -> ::String } -> ::String?"), type
       end
     end
   end
@@ -8359,6 +8382,32 @@ class ProcTypeCase
     end
     
     callback
+  end
+end
+      RUBY
+
+      with_standard_construction(checker, source) do |construction, typing|
+        type, _, _ = construction.synthesize(source.node)
+
+        assert_no_error typing
+      end
+    end
+  end
+
+  def test_lambda_with_block
+    with_checker(<<-RBS) do |checker|
+class LambdaWithBlock
+  def foo: () { (String) -> void } -> void
+end
+    RBS
+
+      source = parse_ruby(<<-'RUBY')
+class LambdaWithBlock
+  def foo(&block)
+    # @type var foo: ^() { (Integer) -> void } -> void
+    foo = -> (&block) do
+      block[123]
+    end
   end
 end
       RUBY
