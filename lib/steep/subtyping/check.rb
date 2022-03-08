@@ -347,7 +347,7 @@ module Steep
 
         when relation.super_type.is_a?(AST::Types::Union)
           Any(relation) do |result|
-            relation.super_type.types.each do |super_type|
+            relation.super_type.types.sort_by {|ty| (path = hole_path(ty)) ? -path.size : 1 }.each do |super_type|
               rel = Relation.new(sub_type: relation.sub_type, super_type: super_type)
               result.add(rel) do
                 check_type(rel)
@@ -357,7 +357,7 @@ module Steep
 
         when relation.sub_type.is_a?(AST::Types::Intersection)
           Any(relation) do |result|
-            relation.sub_type.types.each do |sub_type|
+            relation.sub_type.types.sort_by {|ty| (path = hole_path(ty)) ? -path.size : 1 }.each do |sub_type|
               rel = Relation.new(sub_type: sub_type, super_type: relation.super_type)
               result.add(rel) do
                 check_type(rel)
@@ -973,6 +973,24 @@ module Steep
 
       def expand_alias(type, &block)
         factory.expand_alias(type, &block)
+      end
+
+      # Returns the shortest type paths for one of the _unknown_ type variables.
+      # Returns nil if there is no path.
+      def hole_path(type, path = [])
+        case type
+        when AST::Types::Var
+          if constraints.unknown?(type.name)
+            [type]
+          else
+            nil
+          end
+        else
+          paths = type.each_child.map do |ty|
+            hole_path(ty, path)&.unshift(ty)
+          end
+          paths.compact.min_by(&:size)
+        end
       end
     end
   end

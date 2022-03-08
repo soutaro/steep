@@ -90,6 +90,15 @@ module Steep
         def block_required?
           block && !block.optional?
         end
+
+        def each_child(&block)
+          if block_given?
+            type.each_child(&block)
+            self.block&.type&.each_child(&block)
+          else
+            enum_for :each_child
+          end
+        end
       end
     end
   end

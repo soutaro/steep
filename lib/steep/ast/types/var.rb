@@ -52,6 +52,8 @@ module Steep
           @fvs ||= Set.new([name])
         end
 
+        include Helper::NoChild
+
         def level
           [0]
         end

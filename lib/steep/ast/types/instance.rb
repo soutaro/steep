@@ -26,6 +26,8 @@ module Steep
           @fvs = Set.new([self])
         end
 
+        include Helper::NoChild
+
         def to_s
           "instance"
         end

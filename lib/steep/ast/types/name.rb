@@ -72,6 +72,10 @@ module Steep
             end
           end
 
+          def each_child(&block)
+            args.each(&block)
+          end
+
           include Helper::ChildrenLevel
 
           def level
@@ -98,6 +102,8 @@ module Steep
           def with_location(new_location)
             self.class.new(name: name, location: new_location)
           end
+
+          include Helper::NoChild
         end
 
         class Instance < Applying

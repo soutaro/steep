@@ -8419,4 +8419,26 @@ end
       end
     end
   end
+
+  def test_flat_map
+    with_checker(<<-RBS) do |checker|
+class FlatMap
+  def flat_map: [A] () { (String) -> (A | Array[A]) } -> Array[A]
+end
+    RBS
+
+      source = parse_ruby(<<-'RUBY')
+# @type var a: FlatMap
+a = _ = nil 
+a.flat_map {|s| [s] }
+      RUBY
+
+      with_standard_construction(checker, source) do |construction, typing|
+        type, _, _ = construction.synthesize(source.node)
+
+        assert_no_error typing
+        assert_equal parse_type("::Array[::String]"), type
+      end
+    end
+  end
 end

@@ -70,6 +70,10 @@ module Steep
           end
         end
 
+        def each_child(&block)
+          types.each(&block)
+        end
+
         include Helper::ChildrenLevel
 
         def level

@@ -30,6 +30,8 @@ module Steep
           @fvs = Set.new([self])
         end
 
+        include Helper::NoChild
+
         def level
           [0]
         end
