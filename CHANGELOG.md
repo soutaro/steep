@@ -2,6 +2,14 @@
 
 ## master
 
+## 0.49.0 (2022-03-08)
+
+* Better typing for `#flat_map` ([\#504](https://github.com/soutaro/steep/pull/504))
+* Support lambdas (`->`) with block ([\#503](https://github.com/soutaro/steep/pull/503))
+* Let proc type be `::Proc` class instance ([\#502](https://github.com/soutaro/steep/pull/502))
+* Disable contextual typing on `bool` type ([\#501](https://github.com/soutaro/steep/pull/501))
+* Type check `return` without value ([\#500](https://github.com/soutaro/steep/pull/500))
+
 ## 0.48.0 (2022-03-07)
 
 Steep supports all of the new features of RBS 2. 🎉
