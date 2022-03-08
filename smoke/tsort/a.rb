@@ -8,5 +8,5 @@ each_node = -> (&b) { g.each_key(&b) }
 # @type var each_child: ^(Integer) { (Integer) -> void } -> void
 each_child = -> (n, &b) { g[n].each(&b) }
 
-# @type var xs: Array[String]
+# @type var xs: Array[Integer]
 xs = TSort.tsort(each_node, each_child)
