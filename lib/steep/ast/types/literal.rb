@@ -31,6 +31,8 @@ module Steep
 
         include Helper::NoFreeVariables
 
+        include Helper::NoChild
+
         def level
           [0]
         end

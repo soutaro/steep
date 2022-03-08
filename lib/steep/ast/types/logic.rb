@@ -13,6 +13,8 @@ module Steep
             @fvs ||= Set[]
           end
 
+          include Helper::NoChild
+
           def hash
             self.class.hash
           end

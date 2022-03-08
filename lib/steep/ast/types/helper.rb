@@ -21,6 +21,14 @@ module Steep
             @fvs ||= Set.new
           end
         end
+
+        module NoChild
+          def each_child(&block)
+            unless block
+              enum_for :each_child
+            end
+          end
+        end
       end
     end
   end

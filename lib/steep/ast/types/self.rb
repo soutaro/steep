@@ -22,6 +22,8 @@ module Steep
           "self"
         end
 
+        include Helper::NoChild
+
         def subst(s)
           s.self_type or raise "Unexpected substitution: #{inspect}"
         end

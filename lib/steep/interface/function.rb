@@ -952,6 +952,10 @@ module Steep
         )
       end
 
+      def each_child(&block)
+        each_type(&block)
+      end
+
       def each_type(&block)
         if block_given?
           params.each_type(&block)
