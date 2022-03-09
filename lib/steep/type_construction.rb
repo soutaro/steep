@@ -2731,6 +2731,8 @@ module Steep
       block_annotations = source.annotations(block: node, factory: checker.factory, current_module: current_namespace)
       params = TypeInference::BlockParams.from_node(params_node, annotations: block_annotations)
 
+      type_hint = deep_expand_alias(type_hint) if type_hint
+
       case type_hint
       when AST::Types::Proc
         params_hint = type_hint.type.params
