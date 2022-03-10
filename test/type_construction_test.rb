@@ -8461,6 +8461,32 @@ end
     end
   end
 
+  def test_lambda_with_block_non_proc_arg
+    with_checker(<<-RBS) do |checker|
+    RBS
+
+      source = parse_ruby(<<-'RUBY')
+foo = -> (&block) do
+  # @type var block: Integer
+  block+1
+end
+      RUBY
+
+      with_standard_construction(checker, source) do |construction, typing|
+        type, _, _ = construction.synthesize(source.node)
+
+        assert_equal parse_type("^() { () -> untyped } -> ::Integer"), type
+
+        assert_typing_error(typing, size: 1) do |errors|
+          assert_any!(errors) do |error|
+            assert_instance_of Diagnostic::Ruby::ProcTypeExpected, error
+            assert_equal parse_type("::Integer"), error.type
+          end
+        end
+      end
+    end
+  end
+
   def test_flat_map
     with_checker(<<-RBS) do |checker|
 class FlatMap

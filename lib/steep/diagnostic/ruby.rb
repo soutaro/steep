@@ -669,6 +669,19 @@ module Steep
         end
       end
 
+      class ProcTypeExpected < Base
+        attr_reader :type
+
+        def initialize(node:, type:)
+          super(node: node)
+          @type = type
+        end
+
+        def header_line
+          "Proc type is expected but `#{type.to_s}` is specified"
+        end
+      end
+
       class UnsupportedSyntax < Base
         attr_reader :message
 
