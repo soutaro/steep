@@ -2771,7 +2771,7 @@ module Steep
               end
             end
           else
-            type_hint.block
+            block_hint
           end
         end
 

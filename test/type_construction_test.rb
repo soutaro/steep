@@ -8438,6 +8438,29 @@ foo = -> (&block) { block[80]; 123 }
     end
   end
 
+  def test_lambda_with_block_non_proc
+    with_checker(<<-RBS) do |checker|
+    RBS
+
+      source = parse_ruby(<<-'RUBY')
+# @type var foo: Integer
+foo = -> (&block) do
+  block
+end
+      RUBY
+
+      with_standard_construction(checker, source) do |construction, typing|
+        type, _, _ = construction.synthesize(source.node)
+
+        assert_typing_error(typing, size: 1) do |errors|
+          assert_any!(errors) do |error|
+            assert_instance_of Diagnostic::Ruby::IncompatibleAssignment, error
+          end
+        end
+      end
+    end
+  end
+
   def test_flat_map
     with_checker(<<-RBS) do |checker|
 class FlatMap
