@@ -332,6 +332,18 @@
     severity: ERROR
     message: Type `::Integer` does not have method `foo`
     code: Ruby::NoMethod
+- file: proc_type_expected.rb
+  diagnostics:
+  - range:
+      start:
+        line: 1
+        character: 4
+      end:
+        line: 1
+        character: 10
+    severity: ERROR
+    message: Proc type is expected but `::Integer` is specified
+    code: Ruby::ProcTypeExpected
 - file: required_block_missing.rb
   diagnostics:
   - range:

@@ -2727,9 +2727,23 @@ module Steep
       end
     end
 
+    def optional_proc?(type)
+      if type.is_a?(AST::Types::Union)
+        if type.types.size == 2
+          if type.types.find {|t| t.is_a?(AST::Types::Nil) }
+            if proc_type = type.types.find {|t| t.is_a?(AST::Types::Proc) }
+              proc_type
+            end
+          end
+        end
+      end
+    end
+
     def type_lambda(node, params_node:, body_node:, type_hint:)
       block_annotations = source.annotations(block: node, factory: checker.factory, current_module: current_namespace)
       params = TypeInference::BlockParams.from_node(params_node, annotations: block_annotations)
+
+      type_hint = deep_expand_alias(type_hint) if type_hint
 
       case type_hint
       when AST::Types::Proc
@@ -2749,6 +2763,13 @@ module Steep
 
       block_constr.typing.add_context_for_body(node, context: block_constr.context)
 
+      default_proc_function =
+        Interface::Function.new(
+          params: Interface::Function::Params.empty,
+          return_type: AST::Builtin.any_type,
+          location: nil
+        )
+
       params.params.each do |param|
         _, block_constr = block_constr.synthesize(param.node, hint: param.type)
       end
@@ -2759,17 +2780,29 @@ module Steep
             case block_param_type
             when AST::Types::Proc
               Interface::Block.new(type: block_param_type.type, optional: false)
-            when AST::Types::Union
-              if block_param_type.types.size == 2
-                if block_param_type.types.find {|t| t.is_a?(AST::Types::Nil) }
-                  if proc_type = block_param_type.types.find {|t| t.is_a?(AST::Types::Proc) }
-                    Interface::Block.new(type: proc_type.type, optional: true)
-                  end
-                end
+            else
+              if proc_type = optional_proc?(block_param_type)
+                Interface::Block.new(type: proc_type.type, optional: true)
+              else
+                block_constr.typing.add_error(
+                  Diagnostic::Ruby::ProcTypeExpected.new(
+                    node: block_param.node,
+                    type: block_param_type
+                  )
+                )
+
+                Interface::Block.new(
+                  type: Interface::Function.new(
+                    params: Interface::Function::Params.empty,
+                    return_type: AST::Builtin.any_type,
+                    location: nil
+                  ),
+                  optional: false
+                )
               end
             end
           else
-            type_hint.block
+            block_hint
           end
         end
 
