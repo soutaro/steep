@@ -215,7 +215,7 @@ module Steep
 
           errors.each do |notification|
             path = Pathname(URI.parse(notification[:uri]).path)
-            buffer = RBS::Buffer.new(name: project.relative_path(path), content: project.absolute_path(path).read)
+            buffer = RBS::Buffer.new(name: project.relative_path(path), content: path.read)
             printer = DiagnosticPrinter.new(buffer: buffer, stdout: stdout)
 
             notification[:diagnostics].each do |diag|
