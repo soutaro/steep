@@ -660,7 +660,7 @@ class Foo[X < Integer]
 end
 
 class Bar[X0 < String]
-  def f: () -> x[X0]
+  def f: () -> Array[x[X0]]
 end
     EOF
 
@@ -728,6 +728,63 @@ RBS
 
       Validator.new(checker: checker).tap do |validator|
         validator.validate_one_class(TypeName("::D1"))
+        refute_predicate validator, :no_error?
+
+        assert_any!(validator.each_error, size: 1) do |error|
+          assert_instance_of Diagnostic::Signature::UnsatisfiableTypeApplication, error
+          assert_equal "Type application of `::Base` doesn't satisfy the constraints: X <: ::Numeric", error.header_line
+          assert_equal "Base[X]", error.location.source
+        end
+      end
+    end
+  end
+
+  def test_validate_type_application_module_self
+    with_checker <<RBS do |checker|
+class Base[X < Numeric]
+end
+
+module M1 : Base[Integer]
+end
+
+module M2 : Base[String]
+end
+
+module M3[X < Integer] : Base[X]
+end
+
+module M4[X < String] : Base[X]
+end
+RBS
+
+      Validator.new(checker: checker).tap do |validator|
+        validator.validate_one_class(TypeName("::Base"))
+        assert_predicate validator, :no_error?
+      end
+
+      Validator.new(checker: checker).tap do |validator|
+        validator.validate_one_class(TypeName("::M1"))
+        assert_predicate validator, :no_error?
+      end
+
+      Validator.new(checker: checker).tap do |validator|
+        validator.validate_one_class(TypeName("::M2"))
+        refute_predicate validator, :no_error?
+
+        assert_any!(validator.each_error, size: 1) do |error|
+          assert_instance_of Diagnostic::Signature::UnsatisfiableTypeApplication, error
+          assert_equal "Type application of `::Base` doesn't satisfy the constraints: ::String <: ::Numeric", error.header_line
+          assert_equal "Base[String]", error.location.source
+        end
+      end
+
+      Validator.new(checker: checker).tap do |validator|
+        validator.validate_one_class(TypeName("::M3"))
+        assert_predicate validator, :no_error?
+      end
+
+      Validator.new(checker: checker).tap do |validator|
+        validator.validate_one_class(TypeName("::M4"))
         refute_predicate validator, :no_error?
 
         assert_any!(validator.each_error, size: 1) do |error|
