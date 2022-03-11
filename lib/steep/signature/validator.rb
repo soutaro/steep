@@ -89,11 +89,7 @@ module Steep
         end
       end
 
-      def validate_type(type)
-        Steep.logger.debug "#{Location.to_string type.location}: Validating #{type}..."
-
-        validator.validate_type type, context: [RBS::Namespace.root]
-
+      def validate_type_application(type)
         name, type_params, type_args =
           case type
           when RBS::Types::ClassInstance
@@ -123,6 +119,17 @@ module Steep
             validate_type_application_constraints(type.name, type_params, type_args, location: type.location)
           end
         end
+
+        type.each_type do |child|
+          validate_type_application(child)
+        end
+      end
+
+      def validate_type(type)
+        Steep.logger.debug "#{Location.to_string type.location}: Validating #{type}..."
+
+        validator.validate_type type, context: [RBS::Namespace.root]
+        validate_type_application(type)
       end
 
       def ancestor_to_type(ancestor)

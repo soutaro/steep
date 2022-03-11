@@ -660,7 +660,7 @@ class Foo[X < Integer]
 end
 
 class Bar[X0 < String]
-  def f: () -> x[X0]
+  def f: () -> Array[x[X0]]
 end
     EOF
 
