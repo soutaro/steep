@@ -2,6 +2,13 @@
 
 ## master
 
+## 0.49.1 (2022-03-11)
+
+* Fix lambda typing ([\#506](https://github.com/soutaro/steep/pull/506))
+* Validate type descendants ([\#507](https://github.com/soutaro/steep/pull/507))
+* Fix print error with absolute path ([\#508](https://github.com/soutaro/steep/pull/508))
+* Skip non-target ruby code on `steep stats` ([\#509](https://github.com/soutaro/steep/pull/509))
+
 ## 0.49.0 (2022-03-08)
 
 * Better typing for `#flat_map` ([\#504](https://github.com/soutaro/steep/pull/504))
