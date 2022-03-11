@@ -269,6 +269,8 @@ module Steep
       end
 
       def typecheck_source(path:, target: project.target_for_source_path(path), &block)
+        return unless target
+
         Steep.logger.tagged "#typecheck_source(path=#{path})" do
           Steep.measure "typecheck" do
             signature_service = signature_services[target.name]
