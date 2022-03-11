@@ -214,8 +214,8 @@ module Steep
           total = errors.sum {|notification| notification[:diagnostics].size }
 
           errors.each do |notification|
-            path = project.relative_path(Pathname(URI.parse(notification[:uri]).path))
-            buffer = RBS::Buffer.new(name: path, content: path.read)
+            path = Pathname(URI.parse(notification[:uri]).path)
+            buffer = RBS::Buffer.new(name: project.relative_path(path), content: project.absolute_path(path).read)
             printer = DiagnosticPrinter.new(buffer: buffer, stdout: stdout)
 
             notification[:diagnostics].each do |diag|
