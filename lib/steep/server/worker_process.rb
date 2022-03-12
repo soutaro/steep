@@ -18,13 +18,13 @@ module Steep
         @index = index
       end
 
-      def self.spawn_worker(type, name:, steepfile:, options: [], delay_shutdown: false, index: nil)
+      def self.spawn_worker(type, name:, steepfile:, steep_command: "steep", options: [], delay_shutdown: false, index: nil)
         log_level = %w(debug info warn error fatal unknown)[Steep.logger.level]
         command = case type
                   when :interaction
-                    ["steep", "worker", "--interaction", "--name=#{name}", "--log-level=#{log_level}", "--steepfile=#{steepfile}", *options]
+                    [steep_command, "worker", "--interaction", "--name=#{name}", "--log-level=#{log_level}", "--steepfile=#{steepfile}", *options]
                   when :typecheck
-                    ["steep", "worker", "--typecheck", "--name=#{name}", "--log-level=#{log_level}", "--steepfile=#{steepfile}", *options]
+                    [steep_command, "worker", "--typecheck", "--name=#{name}", "--log-level=#{log_level}", "--steepfile=#{steepfile}", *options]
                   else
                     raise "Unknown type: #{type}"
                   end
@@ -42,11 +42,12 @@ module Steep
         new(reader: reader, writer: writer, stderr: stderr, wait_thread: thread, name: name, index: index)
       end
 
-      def self.spawn_typecheck_workers(steepfile:, args:, count: [Etc.nprocessors - 1, 1].max, delay_shutdown: false)
+      def self.spawn_typecheck_workers(steepfile:, args:, steep_command: "steep", count: [Etc.nprocessors - 1, 1].max, delay_shutdown: false)
         count.times.map do |i|
           spawn_worker(:typecheck,
                        name: "typecheck@#{i}",
                        steepfile: steepfile,
+                       steep_command: steep_command,
                        options: ["--max-index=#{count}", "--index=#{i}", *args],
                        delay_shutdown: delay_shutdown,
                        index: i)
