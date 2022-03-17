@@ -89,7 +89,7 @@ module Steep
               end
 
               LSP::Interface::Hover.new(
-                contents: { kind: "markdown", value: format_hover(content) },
+                contents: { kind: "markdown", value: format_hover(content)&.gsub(/<!--(?~-->)-->/, "") },
                 range: range
               )
             end

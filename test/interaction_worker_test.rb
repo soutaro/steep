@@ -296,6 +296,45 @@ class ::Foo[T] < ::Parent[T]
     end
   end
 
+  def test_handle_class_hover_strip_html_comment
+    in_tmpdir do
+      project = Project.new(steepfile_path: current_dir + "Steepfile")
+      Project::DSL.parse(project, <<EOF)
+target :lib do
+  check "lib"
+  signature "sig"
+end
+EOF
+
+      worker = InteractionWorker.new(project: project, reader: worker_reader, writer: worker_writer)
+
+      worker.service.update(
+        changes: {
+          Pathname("sig/hello.rbs") => [ContentChange.string(<<RBS)]
+# <!-- HTML comment here -->
+# This is comment content
+class Foo[T] end
+
+type hello = Foo[String]
+RBS
+        }
+      ) {}
+
+      response = worker.process_hover(InteractionWorker::HoverJob.new(path: Pathname("sig/hello.rbs"), line: 5, column: 15))
+
+      response = response.attributes
+      expected_value = "
+This is comment content
+
+
+```rbs
+class ::Foo[T]
+```
+"
+      assert_equal({ kind: "markdown", value: expected_value }, response[:contents])
+    end
+  end
+
   def test_handle_hover_invalid
     in_tmpdir do
       project = Project.new(steepfile_path: current_dir + "Steepfile")
