@@ -19,12 +19,16 @@ module Steep
       end
 
       def self.spawn_worker(type, name:, steepfile:, options: [], delay_shutdown: false, index: nil)
-        log_level = %w(debug info warn error fatal unknown)[Steep.logger.level]
+        args = ["--name=#{name}", "--steepfile=#{steepfile}"]
+        args << (%w(debug info warn error fatal unknown)[Steep.logger.level].yield_self {|log_level| "--log-level=#{log_level}" })
+        if Steep.log_output.is_a?(String)
+          args << "--log-output=#{Steep.log_output}"
+        end
         command = case type
                   when :interaction
-                    ["steep", "worker", "--interaction", "--name=#{name}", "--log-level=#{log_level}", "--steepfile=#{steepfile}", *options]
+                    ["steep", "worker", "--interaction", *args, *options]
                   when :typecheck
-                    ["steep", "worker", "--typecheck", "--name=#{name}", "--log-level=#{log_level}", "--steepfile=#{steepfile}", *options]
+                    ["steep", "worker", "--typecheck", *args, *options]
                   else
                     raise "Unknown type: #{type}"
                   end
