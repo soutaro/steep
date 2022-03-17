@@ -271,7 +271,7 @@ HOVER
           ),
           end: LanguageServer::Protocol::Interface::Position.new(
             line: job.line - 1,
-            character: job.column - prefix.size
+            character: job.column
           )
         )
 
