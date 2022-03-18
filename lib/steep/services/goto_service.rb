@@ -21,10 +21,11 @@ module Steep
       end
       TypeNameQuery = Struct.new(:name, keyword_init: true)
 
-      attr_reader :type_check
+      attr_reader :type_check, :assignment
 
-      def initialize(type_check:)
+      def initialize(type_check:, assignment:)
         @type_check = type_check
+        @assignment = assignment
       end
 
       def project
@@ -78,7 +79,17 @@ module Steep
           end
         end
 
-        locations.uniq
+        # Drop un-assigned paths here.
+        # The path assignment makes sense only for `.rbs` files, because un-assigned `.rb` files are already skipped since they are not type checked.
+        #
+        locations.uniq.select do |loc|
+          case loc
+          when RBS::Location
+            assignment =~ loc.name
+          else
+            true
+          end
+        end
       end
 
       def test_ast_location(loc, line:, column:)
