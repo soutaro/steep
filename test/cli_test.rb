@@ -48,6 +48,31 @@ end
     sub_test.call("check", %w(-j -1))
   end
 
+  def test_steep_command_option
+    in_tmpdir do
+      (current_dir + "Steepfile").write(<<-EOF)
+target :app do
+  check "foo.rb"
+end
+        EOF
+
+      (current_dir + "foo.rb").write(<<-EOF)
+1 + 2
+        EOF
+
+      (current_dir + "wrap-steep.sh").write(<<-EOF)
+echo "This is Wrap!"
+steep $@
+        EOF
+      FileUtils.chmod("u+x", current_dir + "wrap-steep.sh")
+
+      stdout, status = sh(*steep, "check", "--steep-command=./wrap-steep.sh")
+
+      assert_predicate status, :success?, stdout
+      assert_match /No type error detected\./, stdout
+    end
+  end
+
   def test_check_success
     in_tmpdir do
       (current_dir + "Steepfile").write(<<-EOF)

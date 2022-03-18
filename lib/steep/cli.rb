@@ -72,6 +72,11 @@ module Steep
       opts.on("-j N", "--jobs=N", "Specify the number of type check workers (defaults: #{default})") do |count|
         command.jobs_count = Integer(count) if Integer(count) > 0
       end
+
+      command.steep_command = "steep"
+      opts.on("--steep-command=COMMAND", "Specify command to exec Steep CLI for worker (defaults: steep)") do |cmd|
+        command.steep_command = cmd
+      end
     end
 
     def process_init
