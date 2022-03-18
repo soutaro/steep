@@ -268,7 +268,7 @@ module Steep
         line = job.params[:position][:line] + 1
         column = job.params[:position][:character]
 
-        goto_service = Services::GotoService.new(type_check: service)
+        goto_service = Services::GotoService.new(type_check: service, assignment: assignment)
         locations =
           case
           when job.definition?
