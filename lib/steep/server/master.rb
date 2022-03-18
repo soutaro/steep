@@ -739,7 +739,7 @@ module Steep
                       { kind: "end" }
                     else
                       progress_string = ("▮"*(percentage/5)) + ("▯"*(20 - percentage/5))
-                      { kind: "report", percentage: percentage, message: "#{progress_string} (#{percentage}%)" }
+                      { kind: "report", percentage: percentage, message: "#{progress_string}" }
                     end
 
             job_queue << SendMessageJob.to_client(

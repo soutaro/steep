@@ -12,6 +12,10 @@ class GotoServiceTest < Minitest::Test
     @dir ||= Pathname(Dir.mktmpdir)
   end
 
+  def assignment
+    Services::PathAssignment.all
+  end
+
   def project
     @project ||= Project.new(steepfile_path: dir + "Steepfile").tap do |project|
       Project::DSL.parse(project, <<EOF)
@@ -54,7 +58,7 @@ end
 RUBY
     end
 
-    service = Services::GotoService.new(type_check: type_check)
+    service = Services::GotoService.new(type_check: type_check, assignment: assignment)
 
     service.definition(path: dir + "sig/customer.rbs", line: 2, column: 4).tap do |locations|
     end
@@ -80,7 +84,7 @@ Customer::SIZE + 2
 RUBY
     end
 
-    service = Services::GotoService.new(type_check: type_check)
+    service = Services::GotoService.new(type_check: type_check, assignment: assignment)
 
     service.query_at(path: dir + "lib/customer.rb", line: 1, column: 10).tap do |qs|
       assert_equal 1, qs.size
@@ -130,7 +134,7 @@ Customer::SIZE + 2
 RUBY
     end
 
-    service = Services::GotoService.new(type_check: type_check)
+    service = Services::GotoService.new(type_check: type_check, assignment: assignment)
 
     service.query_at(path: dir + "sig/customer.rbs", line: 1, column: 10).tap do |qs|
       assert_equal 1, qs.size
@@ -173,7 +177,7 @@ end
 RUBY
     end
 
-    service = Services::GotoService.new(type_check: type_check)
+    service = Services::GotoService.new(type_check: type_check, assignment: assignment)
 
     service.query_at(path: dir + "sig/customer.rbs", line: 2, column: 7).tap do |qs|
       assert_equal 1, qs.size
@@ -237,7 +241,7 @@ end
 RBS
     end
 
-    service = Services::GotoService.new(type_check: type_check)
+    service = Services::GotoService.new(type_check: type_check, assignment: assignment)
 
     service.query_at(path: dir + "sig/customer.rbs", line: 2, column: 16).tap do |qs|
       assert_equal 1, qs.size
@@ -276,7 +280,7 @@ Customer.no_method_error()
 RUBY
     end
 
-    service = Services::GotoService.new(type_check: type_check)
+    service = Services::GotoService.new(type_check: type_check, assignment: assignment)
 
     service.query_at(path: dir + "lib/main.rb", line: 1, column: 16).tap do |qs|
       assert_equal 1, qs.size
@@ -326,7 +330,7 @@ RUBY
     type_check.source_files.each_key do |path|
       type_check.typecheck_source(path: path) {}
     end
-    service = Services::GotoService.new(type_check: type_check)
+    service = Services::GotoService.new(type_check: type_check, assignment: assignment)
 
     service.constant_definition_in_ruby(TypeName("::Customer"), locations: []).tap do |locs|
       assert_equal 1, locs.size
@@ -420,7 +424,7 @@ RUBY
     type_check.source_files.each_key do |path|
       type_check.typecheck_source(path: path) {}
     end
-    service = Services::GotoService.new(type_check: type_check)
+    service = Services::GotoService.new(type_check: type_check, assignment: assignment)
 
     service.method_locations(MethodName("::Customer#foo"), locations: [], in_ruby: true, in_rbs: true).tap do |locs|
       assert_equal 2, locs.size
@@ -493,7 +497,7 @@ end
 RBS
     end
 
-    service = Services::GotoService.new(type_check: type_check)
+    service = Services::GotoService.new(type_check: type_check, assignment: assignment)
 
     service.type_name_locations(TypeName("::Customer")).tap do |locs|
       assert_equal 2, locs.size
@@ -554,7 +558,7 @@ Baz.new(123)
 RBS
     end
 
-    service = Services::GotoService.new(type_check: type_check)
+    service = Services::GotoService.new(type_check: type_check, assignment: assignment)
 
     service.definition(path: dir + "lib/test.rb", line: 1, column: 6).tap do |locs|
       assert_any!(locs) do |loc|
@@ -612,7 +616,7 @@ Baz.new(123)
 RBS
     end
 
-    service = Services::GotoService.new(type_check: type_check)
+    service = Services::GotoService.new(type_check: type_check, assignment: assignment)
 
     service.implementation(path: dir + "lib/test.rb", line: 12, column: 6).tap do |locs|
       assert_any!(locs, size: 1) do |loc|
@@ -639,11 +643,46 @@ end
 RBS
     end
 
-    service = Services::GotoService.new(type_check: type_check)
+    service = Services::GotoService.new(type_check: type_check, assignment: assignment)
 
     service.definition(path: dir + "lib/test.rb", line: 1, column: 4).tap do |locs|
       assert_any!(locs, size: 1) do |loc|
         assert_equal Pathname("array.rbs"), Pathname(loc.buffer.name).basename
+      end
+    end
+  end
+
+  def test_goto_definition_wrt_assignment
+    type_check = type_check_service do |changes|
+      changes[Pathname("sig/a.rbs")] = [ContentChange.string(<<RBS)]
+class Customer
+end
+RBS
+      changes[Pathname("sig/b.rbs")] = [ContentChange.string(<<RBS)]
+class Customer
+end
+RBS
+      changes[Pathname("lib/customer.rb")] = [ContentChange.string(<<RUBY)]
+class Customer
+end
+RUBY
+    end
+
+    a = Services::PathAssignment.new(index: 0, max_index: 1)
+    a.cache[Pathname("sig/a.rbs")] = 0
+    a.cache[Pathname("sig/b.rbs")] = 1
+    Services::GotoService.new(type_check: type_check, assignment: a).tap do |service|
+      service.definition(path: dir + "lib/customer.rb", line: 1, column: 10).tap do |locs|
+        assert_equal [Pathname("sig/a.rbs")], locs.map(&:name)
+      end
+    end
+
+    b = Services::PathAssignment.new(index: 0, max_index: 1)
+    b.cache[Pathname("sig/a.rbs")] = 1
+    b.cache[Pathname("sig/b.rbs")] = 0
+    Services::GotoService.new(type_check: type_check, assignment: b).tap do |service|
+      service.definition(path: dir + "lib/customer.rb", line: 1, column: 10).tap do |locs|
+        assert_equal [Pathname("sig/b.rbs")], locs.map(&:name)
       end
     end
   end

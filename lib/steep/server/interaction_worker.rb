@@ -89,7 +89,7 @@ module Steep
               end
 
               LSP::Interface::Hover.new(
-                contents: { kind: "markdown", value: format_hover(content) },
+                contents: { kind: "markdown", value: format_hover(content)&.gsub(/<!--(?~-->)-->/, "") },
                 range: range
               )
             end
@@ -271,7 +271,7 @@ HOVER
           ),
           end: LanguageServer::Protocol::Interface::Position.new(
             line: job.line - 1,
-            character: job.column - prefix.size
+            character: job.column
           )
         )
 
