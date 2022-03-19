@@ -182,11 +182,21 @@ module Steep
             service.typecheck_source(path: project.relative_path(job.path)) do |path, diagnostics|
               target = project.target_for_source_path(path)
               formatter = Diagnostic::LSPFormatter.new(target&.code_diagnostics_config || {})
+              path = if Gem.win_platform?
+                       # FIXME: Sometimes drive letter is missing, using base_dir
+                       if job.path.to_s.start_with?(%r{/[a-z](:|%3A)/}i)
+                         job.path
+                       else
+                         "/#{project.base_dir.to_s.split("/").first}/#{job.path}"
+                       end
+                     else
+                       job.path
+                     end
 
               writer.write(
                 method: :"textDocument/publishDiagnostics",
                 params: LSP::Interface::PublishDiagnosticsParams.new(
-                  uri: URI.parse(job.path.to_s).tap {|uri| uri.scheme = "file"},
+                  uri: URI.parse(path.to_s).tap {|uri| uri.scheme = "file"},
                   diagnostics: diagnostics.map {|diagnostic| formatter.format(diagnostic) }.uniq.compact
                 )
               )
