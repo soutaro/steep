@@ -879,6 +879,11 @@ module Steep
           !has_positional? && !has_keywords?
         end
 
+        # Returns true if all arguments are non-required.
+        def optional?
+          required.empty? && required_keywords.empty?
+        end
+
         # self + params returns a new params for overloading.
         #
         def +(other)
