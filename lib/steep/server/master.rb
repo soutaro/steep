@@ -52,7 +52,6 @@ module Steep
           [library_paths, signature_paths, code_paths].any? do |paths|
             if Gem.win_platform?
               # FIXME: Sometimes drive letter is missing, so comparing without drive letter.
-              #   Maybe language_server-protocol bug?
               paths.any? {|p| p.to_s.split("/", 2)[1] == path.to_s.split("/", 2)[1]}
             else
               paths.include?(path)
