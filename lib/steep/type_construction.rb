@@ -2275,13 +2275,10 @@ module Steep
               type, constr = synthesize(rhs, hint: hint)
               constr.ivasgn(asgn, type)
             when :send
-              rhs_ = node.updated(:send,
-                                  [
-                                    asgn.children[0],
-                                    :"#{asgn.children[1]}=",
-                                    asgn.children[2],
-                                    rhs
-                                  ])
+              children = asgn.children.dup
+              children[1] = :"#{children[1]}="
+              send_arg_nodes = [*children, rhs]
+              rhs_ = node.updated(:send, send_arg_nodes)
               node_type = case node.type
                           when :or_asgn
                             :or
