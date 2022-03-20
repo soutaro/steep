@@ -3945,6 +3945,20 @@ module Steep
       constr.add_typing(node, type: AST::Types::Tuple.new(types: element_types))
     end
 
+    def try_convert(type, method)
+      interface = checker.factory.interface(type, private: false)
+      if entry = interface.methods[method]
+        method_type = entry.method_types.find do |method_type|
+          method_type.type.params.optional?
+        end
+
+        method_type.type.return_type
+      end
+    rescue => exn
+      Steep.log_error(exn, message: "Unexpected error when converting #{type.to_s} with #{method}")
+      nil
+    end
+
     def try_array_type(node, hint)
       element_hint = hint ? hint.args[0] : nil
 
@@ -3955,8 +3969,14 @@ module Steep
         case child.type
         when :splat
           type, constr = constr.synthesize(child.children[0], hint: hint)
-          if AST::Builtin::Array.instance_type?(type)
+
+          type = try_convert(type, :to_a) || type
+
+          case
+          when AST::Builtin::Array.instance_type?(type)
             element_types << type.args[0]
+          when type.is_a?(AST::Types::Tuple)
+            element_types.push(*type.types)
           else
             element_types.push(*flatten_array_elements(type))
           end
