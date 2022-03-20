@@ -9,4 +9,6 @@ gem "without_steep_types", path: "test/gems/without_steep_types"
 gem "rake"
 gem "minitest", "~> 5.15"
 gem "minitest-hooks"
-gem "stackprof" unless Gem.win_platform?
+group :stackprof, optional: true do
+  gem "stackprof"
+end
