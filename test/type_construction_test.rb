@@ -8508,4 +8508,25 @@ a.flat_map {|s| [s] }
       end
     end
   end
+
+  def test_to_proc_syntax_optional_arg
+    with_checker(<<-RBS) do |checker|
+class OptionalArgMethod
+  def foo: (?untyped, *untyped, ?a: untyped, **untyped) -> String
+         | () -> Integer
+end
+    RBS
+
+      source = parse_ruby(<<-'RUBY')
+[OptionalArgMethod.new].map(&:foo)
+      RUBY
+
+      with_standard_construction(checker, source) do |construction, typing|
+        type, _, _ = construction.synthesize(source.node)
+
+        assert_no_error typing
+        assert_equal parse_type("::Array[::String]"), type
+      end
+    end
+  end
 end

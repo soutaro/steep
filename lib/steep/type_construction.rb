@@ -2348,11 +2348,11 @@ module Steep
                   interface = calculate_interface(param_type, private: true)
                   method = interface.methods[value.children[0]]
                   if method
-                    return_types = method.method_types.select {|method_type|
-                      method_type.type.params.empty?
-                    }.map {|method_type|
-                      method_type.type.return_type
-                    }
+                    return_types = method.method_types.filter_map do |method_type|
+                      if method_type.type.params.optional?
+                        method_type.type.return_type
+                      end
+                    end
 
                     unless return_types.empty?
                       type = AST::Types::Proc.new(
@@ -2360,7 +2360,7 @@ module Steep
                           params: Interface::Function::Params.empty.with_first_param(
                             Interface::Function::Params::PositionalParams::Required.new(param_type)
                           ),
-                          return_type: AST::Types::Union.build(types: return_types),
+                          return_type: return_types[0],
                           location: nil
                         ),
                         block: nil
