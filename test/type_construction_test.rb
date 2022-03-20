@@ -8564,4 +8564,31 @@ end
       end
     end
   end
+
+  def test_splat_in_array
+    with_checker(<<-RBS) do |checker|
+class Range[T]
+  def to_a: () -> Array[T]
+end
+    RBS
+
+      source = parse_ruby(<<-'RUBY')
+a = [*'0'..'9']
+b = [*123]
+
+# @type var x: [Integer, String]
+x = [1, "a"]
+c = [*x]
+      RUBY
+
+      with_standard_construction(checker, source) do |construction, typing|
+        _, constr = construction.synthesize(source.node)
+
+        assert_no_error typing
+        assert_equal parse_type("::Array[::String]"), constr.context.lvar_env[:a]
+        assert_equal parse_type("::Array[::Integer]"), constr.context.lvar_env[:b]
+        assert_equal parse_type("::Array[::Integer | ::String]"), constr.context.lvar_env[:c]
+      end
+    end
+  end
 end
