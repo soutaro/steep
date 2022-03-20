@@ -111,6 +111,7 @@ module Steep
           typing, signature = type_check_path(target: target, path: relative_path, content: source.content, line: line, column: column)
           if typing
             node, *parents = typing.source.find_nodes(line: line, column: column)
+
             if node
               case node.type
               when :const, :casgn
@@ -136,7 +137,10 @@ module Steep
                 end
               when :send
                 if test_ast_location(node.location.selector, line: line, column: column)
-                  node = parents[0] if parents[0]&.type == :block
+                  if (parent = parents[0]) && parent.type == :block && parent.children[0] == node
+                    node = parents[0]
+                  end
+
                   case call = typing.call_of(node: node)
                   when TypeInference::MethodCall::Typed, TypeInference::MethodCall::Error
                     call.method_decls.each do |decl|

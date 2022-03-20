@@ -652,6 +652,24 @@ RBS
     end
   end
 
+  def test_method_block_inner
+    type_check = type_check_service do |changes|
+      changes[Pathname("lib/test.rb")] = [ContentChange.string(<<RBS)]
+[].each do |x|
+  nil.to_s
+end
+RBS
+    end
+
+    service = Services::GotoService.new(type_check: type_check, assignment: assignment)
+
+    service.definition(path: dir + "lib/test.rb", line: 2, column: 8).tap do |locs|
+      assert_any!(locs, size: 1) do |loc|
+        assert_equal Pathname("nil_class.rbs"), Pathname(loc.buffer.name).basename
+      end
+    end
+  end
+
   def test_goto_definition_wrt_assignment
     type_check = type_check_service do |changes|
       changes[Pathname("sig/a.rbs")] = [ContentChange.string(<<RBS)]
