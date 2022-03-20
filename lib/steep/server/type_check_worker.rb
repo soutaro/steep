@@ -135,6 +135,21 @@ module Steep
       end
 
       def handle_job(job)
+        job_path = if job.respond_to?(:path)
+                     if Gem.win_platform?
+                       # FIXME: Sometimes drive letter is missing, using base_dir
+                       if job.path.to_s.start_with?(%r{/[a-z](:|%3A)/}i)
+                         job.path.to_s
+                       else
+                         "/#{project.base_dir.to_s.split("/").first}/#{job.path}"
+                       end
+                     else
+                       job.path.to_s
+                     end
+                   else
+                     nil
+                   end
+
         case job
         when StartTypeCheckJob
           Steep.logger.info { "Processing StartTypeCheckJob for guid=#{job.guid}" }
@@ -149,7 +164,7 @@ module Steep
               writer.write(
                 method: :"textDocument/publishDiagnostics",
                 params: LSP::Interface::PublishDiagnosticsParams.new(
-                  uri: URI.parse(job.path.to_s).tap {|uri| uri.scheme = "file"},
+                  uri: URI.parse(job_path).tap {|uri| uri.scheme = "file"},
                   diagnostics: diagnostics.map {|diagnostic| formatter.format(diagnostic) }.uniq
                 )
               )
@@ -167,7 +182,7 @@ module Steep
               writer.write(
                 method: :"textDocument/publishDiagnostics",
                 params: LSP::Interface::PublishDiagnosticsParams.new(
-                  uri: URI.parse(job.path.to_s).tap {|uri| uri.scheme = "file"},
+                  uri: URI.parse(job_path).tap {|uri| uri.scheme = "file"},
                   diagnostics: diagnostics.map {|diagnostic| formatter.format(diagnostic) }.uniq.compact
                 )
               )
@@ -186,7 +201,7 @@ module Steep
               writer.write(
                 method: :"textDocument/publishDiagnostics",
                 params: LSP::Interface::PublishDiagnosticsParams.new(
-                  uri: URI.parse(job.path.to_s).tap {|uri| uri.scheme = "file"},
+                  uri: URI.parse(job_path).tap {|uri| uri.scheme = "file"},
                   diagnostics: diagnostics.map {|diagnostic| formatter.format(diagnostic) }.uniq.compact
                 )
               )
