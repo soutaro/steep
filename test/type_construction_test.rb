@@ -2083,6 +2083,41 @@ a ||= a + "foo"
     end
   end
 
+  def test_or_and_asgn_method
+    with_checker(<<-RBS) do |checker|
+class OrAndAsgn
+  def or_asgn: () -> Integer
+  def and_asgn: () -> Integer
+  def var=: (Integer) -> Integer
+end
+RBS
+      source = parse_ruby(<<-'EOF')
+class OrAndAsgn
+  def or_asgn
+    self.var ||= 1
+  end
+
+  def and_asgn
+    self.var &&= 2
+  end
+
+  def var=(a)
+    a
+  end
+end
+EOF
+
+      with_standard_construction(checker, source) do |construction, typing|
+        construction.synthesize(source.node)
+        assert_equal 2, typing.errors.size
+        assert_all typing.errors do |error|
+          assert_equal :var, error.method
+          error.is_a?(Diagnostic::Ruby::NoMethod)
+        end
+      end
+    end
+  end
+
   def test_next
     with_checker do |checker|
       source = parse_ruby(<<-'EOF')
