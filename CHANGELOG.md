@@ -2,6 +2,16 @@
 
 ## master
 
+# 0.50.0 (2022-03-22)
+
+* CLI option for override steep command at spawn worker ([\#511](https://github.com/soutaro/steep/pull/511))
+* LSP related improvements for Sublime LSP ([\#513](https://github.com/soutaro/steep/pull/513))
+* Support Windows environment ([\#514](https://github.com/soutaro/steep/pull/514))
+* Let `&:foo` proc work with methods with optional parameters ([\#516](https://github.com/soutaro/steep/pull/516))
+* Fix unexpected error when or-asgn/and-asgn ([\#517](https://github.com/soutaro/steep/pull/517))
+* Fix goto-definition from method call inside block ([\#518](https://github.com/soutaro/steep/pull/518))
+* Better splat in array typing ([\#519](https://github.com/soutaro/steep/pull/519))
+
 ## 0.49.1 (2022-03-11)
 
 * Fix lambda typing ([\#506](https://github.com/soutaro/steep/pull/506))
