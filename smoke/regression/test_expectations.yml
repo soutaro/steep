@@ -1,4 +1,28 @@
 ---
+- file: array.rb
+  diagnostics:
+  - range:
+      start:
+        line: 1
+        character: 6
+      end:
+        line: 1
+        character: 9
+    severity: ERROR
+    message: 'Cannot find the declaration of class: `Foo`'
+    code: Ruby::UnknownConstant
+- file: hash.rb
+  diagnostics:
+  - range:
+      start:
+        line: 1
+        character: 6
+      end:
+        line: 1
+        character: 9
+    severity: ERROR
+    message: 'Cannot find the declaration of class: `Foo`'
+    code: Ruby::UnknownConstant
 - file: issue_332.rb
   diagnostics:
   - range:

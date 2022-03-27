@@ -76,6 +76,16 @@
   diagnostics:
   - range:
       start:
+        line: 1
+        character: 6
+      end:
+        line: 1
+        character: 7
+    severity: ERROR
+    message: 'Cannot find the declaration of class: `A`'
+    code: Ruby::UnknownConstant
+  - range:
+      start:
         line: 4
         character: 6
       end:
@@ -89,3 +99,23 @@
             ::Object <: ::Integer
               ::BasicObject <: ::Integer
     code: Ruby::MethodBodyTypeMismatch
+  - range:
+      start:
+        line: 9
+        character: 6
+      end:
+        line: 9
+        character: 7
+    severity: ERROR
+    message: 'Cannot find the declaration of class: `B`'
+    code: Ruby::UnknownConstant
+  - range:
+      start:
+        line: 18
+        character: 6
+      end:
+        line: 18
+        character: 7
+    severity: ERROR
+    message: 'Cannot find the declaration of class: `C`'
+    code: Ruby::UnknownConstant
