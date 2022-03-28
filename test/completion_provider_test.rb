@@ -1,6 +1,7 @@
 require_relative "test_helper"
 
 class CompletionProviderTest < Minitest::Test
+  include TestHelper
   include FactoryHelper
   include SubtypingHelper
 
@@ -44,7 +45,14 @@ Arr
       EOR
 
         provider.run(line: 1, column: 3).tap do |items|
-          assert_equal [:Array], items.map(&:identifier)
+          assert_any! items do |item|
+            assert_instance_of CompletionProvider::MethodNameItem, item
+            assert_equal :Array, item.identifier
+          end
+          assert_any! items do |item|
+            assert_instance_of CompletionProvider::ConstantItem, item
+            assert_equal :Array, item.identifier
+          end
         end
       end
     end
@@ -61,6 +69,23 @@ self.cl
         end
 
         provider.run(line: 1, column: 5).tap do |items|
+          assert_equal [:class, :is_a?, :itself, :nil?, :tap, :to_s], items.map(&:identifier).sort
+        end
+      end
+    end
+  end
+
+  def test_on_method_identifier_colon2
+    with_checker do
+      CompletionProvider.new(source_text: <<-EOR, path: Pathname("foo.rb"), subtyping: checker).tap do |provider|
+self::cl
+      EOR
+
+        provider.run(line: 1, column: 8).tap do |items|
+          assert_equal [:class], items.map(&:identifier)
+        end
+
+        provider.run(line: 1, column: 6).tap do |items|
           assert_equal [:class, :is_a?, :itself, :nil?, :tap, :to_s], items.map(&:identifier).sort
         end
       end
@@ -164,13 +189,37 @@ end
       EOR
 
         provider.run(line: 3, column: 0).tap do |items|
-          assert_equal [:@foo1, :@foo2, :class, :gets, :is_a?, :itself, :nil?, :puts, :require, :tap, :to_s, :world],
-                       items.map(&:identifier).sort
+          items.grep(CompletionProvider::InstanceVariableItem).tap do |items|
+            assert_equal [:@foo1, :@foo2], items.map(&:identifier)
+          end
+          items.grep(CompletionProvider::LocalVariableItem).tap do |items|
+            assert_empty items
+          end
+          items.grep(CompletionProvider::MethodNameItem).tap do |items|
+            assert_equal [:class, :gets, :is_a?, :itself, :nil?, :puts, :require, :tap, :to_s, :world],
+                         items.map(&:identifier).sort
+          end
+          items.grep(CompletionProvider::ConstantItem).tap do |items|
+            assert_equal [:Array, :BasicObject, :Class, :FalseClass, :Float, :Hash, :Hello, :Integer, :Module, :NilClass, :Numeric, :Object, :Proc, :Range, :Regexp, :String, :Symbol, :TrueClass],
+                         items.map(&:identifier).sort
+          end
         end
 
         provider.run(line: 5, column: 0).tap do |items|
-          assert_equal [:attr_reader, :block_given?, :class, :gets, :is_a?, :itself, :new, :nil?, :puts, :require, :tap, :to_s],
-                       items.map(&:identifier).sort
+          items.grep(CompletionProvider::InstanceVariableItem).tap do |items|
+            assert_empty items
+          end
+          items.grep(CompletionProvider::LocalVariableItem).tap do |items|
+            assert_empty items
+          end
+          items.grep(CompletionProvider::MethodNameItem).tap do |items|
+            assert_equal [:attr_reader, :block_given?, :class, :gets, :is_a?, :itself, :new, :nil?, :puts, :require, :tap, :to_s],
+                         items.map(&:identifier).sort
+          end
+          items.grep(CompletionProvider::ConstantItem).tap do |items|
+            assert_equal [:Array, :BasicObject, :Class, :FalseClass, :Float, :Hash, :Hello, :Integer, :Module, :NilClass, :Numeric, :Object, :Proc, :Range, :Regexp, :String, :Symbol, :TrueClass],
+                         items.map(&:identifier).sort
+          end
         end
       end
     end
@@ -233,6 +282,104 @@ require()
       EOR
 
         provider.run(line: 1, column: 8)
+      end
+    end
+  end
+
+  def test_on_const
+    with_checker <<EOF do
+class Hello
+  class World
+  end
+end
+EOF
+      CompletionProvider.new(source_text: <<-EOR, path: Pathname("foo.rb"), subtyping: checker).tap do |provider|
+Hello::W
+      EOR
+
+        provider.run(line: 1, column: 8).tap do |items|
+          assert_equal [:World], items.map(&:identifier)
+        end
+      end
+    end
+  end
+
+  def test_on_colon2_parent
+    with_checker <<EOF do
+class Hello
+  class World
+  end
+end
+EOF
+      CompletionProvider.new(source_text: <<-EOR, path: Pathname("foo.rb"), subtyping: checker).tap do |provider|
+Hello::
+      EOR
+
+        provider.run(line: 1, column: 7).tap do |items|
+          items.grep(CompletionProvider::MethodNameItem).tap do |items|
+            assert_equal [:attr_reader, :block_given?, :class, :is_a?, :itself, :new, :nil?, :tap, :to_s],
+                         items.map(&:identifier).sort
+          end
+          items.grep(CompletionProvider::ConstantItem).tap do |items|
+            assert_equal [:World],
+                         items.map(&:identifier).sort
+          end
+        end
+      end
+    end
+  end
+
+  def test_on_colon2_root
+    with_checker <<EOF do
+class Hello
+  class World
+  end
+end
+EOF
+      CompletionProvider.new(source_text: <<-EOR, path: Pathname("foo.rb"), subtyping: checker).tap do |provider|
+::
+      EOR
+
+        provider.run(line: 1, column: 2).tap do |items|
+          items.grep(CompletionProvider::MethodNameItem).tap do |items|
+            assert_empty items
+          end
+          items.grep(CompletionProvider::ConstantItem).tap do |items|
+            assert_equal [:Array, :BasicObject, :Class, :FalseClass, :Float, :Hash, :Hello, :Integer, :Module, :NilClass, :Numeric, :Object, :Proc, :Range, :Regexp, :String, :Symbol, :TrueClass],
+                         items.map(&:identifier).sort
+          end
+        end
+      end
+    end
+  end
+
+  def test_on_colon2_call
+    with_checker <<EOF do
+class Hello
+  class World
+  end
+end
+EOF
+      CompletionProvider.new(source_text: <<-EOR, path: Pathname("foo.rb"), subtyping: checker).tap do |provider|
+Hello::
+bar()
+      EOR
+
+        # provider.run(line: 1, column: 7).tap do |items|
+        #   assert_equal [:World], items.map(&:identifier)
+        # end
+
+        provider.run(line: 1, column: 7).tap do |items|
+          items.grep(CompletionProvider::ConstantItem).tap do |items|
+            assert_equal [:World],
+                         items.map(&:identifier).sort
+          end
+
+          items.grep(CompletionProvider::MethodNameItem).tap do |items|
+            assert_equal [:attr_reader, :block_given?, :class, :is_a?, :itself, :new, :nil?, :tap, :to_s],
+                         items.map(&:identifier).sort
+          end
+        end
       end
     end
   end

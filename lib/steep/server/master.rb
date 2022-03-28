@@ -501,7 +501,7 @@ module Steep
                         partialResult: true
                       },
                       completion_provider: LSP::Interface::CompletionOptions.new(
-                        trigger_characters: [".", "@"],
+                        trigger_characters: [".", "@", ":"],
                         work_done_progress: true
                       ),
                       workspace_symbol_provider: true,

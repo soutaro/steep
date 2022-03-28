@@ -10,6 +10,7 @@ module Steep
 
       InstanceVariableItem = Struct.new(:identifier, :range, :type, keyword_init: true)
       LocalVariableItem = Struct.new(:identifier, :range, :type, keyword_init: true)
+      ConstantItem = Struct.new(:identifier, :range, :type, :full_name, keyword_init: true)
       MethodNameItem = Struct.new(:identifier, :range, :receiver_type, :method_type, :method_decls, keyword_init: true) do
         def comment
           case method_decls.size
@@ -92,6 +93,15 @@ module Steep
             source_text[index-1] = " "
             type_check!(source_text, line: line, column: column)
             items_for_atmark(position: position)
+          when ":"
+            if source_text[index-2] == ":"
+              source_text[index-1] = " "
+              source_text[index-2] = " "
+              type_check!(source_text, line: line, column: column)
+              items_for_colon2(position: position)
+            else
+              []
+            end
           else
             []
           end
@@ -170,8 +180,25 @@ module Steep
                                          prefix: prefix,
                                          position: position,
                                          items: items)
+          constant_items_for_context(context, prefix: prefix, position: position, items: items)
 
-        when node.type == :send && at_end?(position, of: node.loc.dot)
+        when node.type == :const && node.children[0] && at_end?(position, of: node.loc)
+          # Foo::Ba ← (const)
+          parent_node = node.children[0]
+          parent_type = typing.type_of(node: parent_node)
+
+          if parent_type
+            prefix = node.children[1].to_s
+
+            method_items_for_receiver_type(parent_type,
+                                           include_private: false,
+                                           prefix: prefix,
+                                           position: position,
+                                           items: items)
+            constant_items_for_context(context, parent: parent_node, prefix: prefix, position: position, items: items)
+          end
+
+        when node.type == :send && at_end?(position, of: node.loc.dot) && node.loc.dot.source == "."
           # foo.← ba
           receiver_type = case (type = typing.type_of(node: node.children[0]))
                           when AST::Types::Self
@@ -186,6 +213,10 @@ module Steep
                                          position: position,
                                          items: items)
 
+        when node.type == :send && at_end?(position, of: node.loc.dot) && node.loc.dot.source == "::"
+          # foo::← ba
+          items.push(*items_for_colon2(position: position))
+
         when node.type == :ivar && at_end?(position, of: node.loc)
           # @fo ←
           instance_variable_items_for_context(context, position: position, prefix: node.children[0].to_s, items: items)
@@ -198,6 +229,7 @@ module Steep
                                          items: items)
           local_variable_items_for_context(context, position: position, prefix: "", items: items)
           instance_variable_items_for_context(context, position: position, prefix: "", items: items)
+          constant_items_for_context(context, position: position, prefix: "", items: items)
         end
 
         items
@@ -234,6 +266,31 @@ module Steep
         else
           []
         end
+      end
+
+      def items_for_colon2(position:)
+        # :: ←
+        shift_pos = position-2
+        node, *_ = source.find_nodes(line: shift_pos.line, column: shift_pos.column)
+        node ||= source.node
+
+        items = []
+        case node&.type
+        when :const
+          # Constant:: ←
+          context = typing.context_at(line: position.line, column: position.column)
+          constant_items_for_context(context, parent: node, position: position, items: items, prefix: "")
+        when nil
+          # :: ←
+          context = typing.context_at(line: position.line, column: position.column)
+          constant_items_for_context(context, parent: nil, position: position, items: items, prefix: "")
+        end
+
+        if node
+          items.push(*items_for_dot(position: position - 1))
+        end
+
+        items
       end
 
       def items_for_atmark(position:)
@@ -286,6 +343,30 @@ module Steep
             items << LocalVariableItem.new(identifier: name,
                                            range: range,
                                            type: type)
+          end
+        end
+      end
+
+      def constant_items_for_context(context, parent: nil, position:, prefix:, items:)
+        range = range_for(position, prefix: prefix)
+
+        if parent
+          case parent.type
+          when :const
+            const_name = typing.source_index.reference(constant_node: parent)
+            consts = context.module_context.const_env.children(const_name)
+          end
+        else
+          consts = context.module_context.const_env.constants
+        end
+
+        if consts
+          consts.each do |name, tuple|
+            type, full_name, _ = tuple
+
+            if name.to_s.start_with?(prefix)
+              items << ConstantItem.new(identifier: name, range: range, type: type, full_name: full_name)
+            end
           end
         end
       end
