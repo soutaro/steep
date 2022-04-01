@@ -13,7 +13,7 @@ class BlockParamsTest < Minitest::Test
   def block_params(src)
     source = parse_ruby(src)
     args = source.node.children[1]
-    annotations = source.annotations(block: source.node, factory: factory, current_module: Namespace.root)
+    annotations = source.annotations(block: source.node, factory: factory, context: nil)
     params = BlockParams.from_node(args, annotations: annotations)
     yield params, args.children
   end
@@ -70,7 +70,7 @@ proc {|a, b=1, *c, d, &e|
       EOR
 
       block = src.node.children.last
-      annots = src.annotations(block: block, factory: factory, current_module: Namespace.root)
+      annots = src.annotations(block: block, factory: factory, context: nil)
       params = BlockParams.from_node(block.children[1], annotations: annots)
       args = block.children[1].children
 
@@ -280,7 +280,7 @@ proc {|a, b=1, *c, d|
       EOR
 
       block = src.node
-      annots = src.annotations(block: block, factory: factory, current_module: Namespace.root)
+      annots = src.annotations(block: block, factory: factory, context: nil)
       params = BlockParams.from_node(block.children[1], annotations: annots)
 
       param_type = params.params_type()
@@ -304,7 +304,7 @@ proc {|a, b=1, *c, d|
       EOR
 
       block = src.node
-      annots = src.annotations(block: block, factory: factory, current_module: Namespace.root)
+      annots = src.annotations(block: block, factory: factory, context: nil)
       params = BlockParams.from_node(block.children[1], annotations: annots)
 
       param_type = params.params_type()
@@ -329,7 +329,7 @@ proc {|a, b=1, *c|
       EOR
 
       block = src.node
-      annots = src.annotations(block: block, factory: factory, current_module: Namespace.root)
+      annots = src.annotations(block: block, factory: factory, context: nil)
       params = BlockParams.from_node(block.children[1], annotations: annots)
 
       yield_self do

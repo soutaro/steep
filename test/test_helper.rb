@@ -563,9 +563,9 @@ module TypeConstructionHelper
   def with_standard_construction(checker, source)
     self_type = parse_type("::Object")
 
-    annotations = source.annotations(block: source.node, factory: checker.factory, current_module: Namespace.root)
+    annotations = source.annotations(block: source.node, factory: checker.factory, context: nil)
     resolver = RBS::Resolver::ConstantResolver.new(builder: factory.definition_builder)
-    const_env = ConstantEnv.new(factory: factory, context: [Namespace.root], resolver: resolver)
+    const_env = ConstantEnv.new(factory: factory, context: nil, resolver: resolver)
     type_env = TypeEnv.build(annotations: annotations,
                              subtyping: checker,
                              const_env: const_env,
@@ -584,7 +584,6 @@ module TypeConstructionHelper
         instance_type: AST::Builtin::Object.instance_type,
         module_type: AST::Builtin::Object.module_type,
         implement_name: nil,
-        current_namespace: Namespace.root,
         const_env: const_env,
         class_name: AST::Builtin::Object.module_name,
         instance_definition: checker.factory.definition_builder.build_instance(AST::Builtin::Object.module_name),

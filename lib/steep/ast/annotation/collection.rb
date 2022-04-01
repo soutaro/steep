@@ -4,7 +4,7 @@ module Steep
       class Collection
         attr_reader :annotations
         attr_reader :factory
-        attr_reader :current_module
+        attr_reader :context
 
         attr_reader :var_type_annotations
         attr_reader :const_type_annotations
@@ -19,10 +19,10 @@ module Steep
         attr_reader :dynamic_annotations
         attr_reader :break_type_annotation
 
-        def initialize(annotations:, factory:, current_module:)
+        def initialize(annotations:, factory:, context:)
           @annotations = annotations
           @factory = factory
-          @current_module = current_module
+          @context = context
 
           @var_type_annotations = {}
           @method_type_annotations = {}
@@ -64,7 +64,7 @@ module Steep
 
         def absolute_type(type)
           if type
-            factory.absolute_type(type, namespace: current_module)
+            factory.absolute_type(type, context: context)
           end
         end
 
@@ -140,7 +140,7 @@ module Steep
         end
 
         def merge_block_annotations(annotations)
-          if annotations.current_module != current_module || annotations.factory != factory
+          if annotations.context != context || annotations.factory != factory
             raise "Cannot merge another annotation: self=#{self}, other=#{annotations}"
           end
 
@@ -148,9 +148,11 @@ module Steep
             annotation.is_a?(BlockType) || annotation.is_a?(BreakType)
           end
 
-          self.class.new(annotations: retained_annotations + annotations.annotations,
-                         factory: factory,
-                         current_module: current_module)
+          self.class.new(
+            annotations: retained_annotations + annotations.annotations,
+            factory: factory,
+            context: context
+          )
         end
 
         def any?(&block)

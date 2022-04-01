@@ -4,7 +4,6 @@ module Steep
       attr_reader :context
       attr_reader :factory
       attr_reader :resolver
-      attr_reader :resolver_context
 
       # ConstantEnv receives an TypeName as a context, not a Namespace, because this is a simulation of Ruby.
       # Any namespace is a module or class.
@@ -12,16 +11,12 @@ module Steep
         @cache = {}
         @factory = factory
         @context = context
-        @resolver_context = context.
-          reject {|ns| ns == RBS::Namespace.root }.
-          reverse_each.
-          inject(nil) {|context, ns| [context, ns ? ns.to_type_name : false] }
         @resolver = resolver
       end
 
       def resolve(name)
         decompose_constant(
-          resolver.resolve(name, context: resolver_context)
+          resolver.resolve(name, context: context)
         )
       end
 
@@ -32,7 +27,7 @@ module Steep
       end
 
       def constants
-        resolver.constants(resolver_context).transform_values {|c| decompose_constant(c) }
+        resolver.constants(context).transform_values {|c| decompose_constant(c) }
       end
 
       def resolve_child(module_name, constant_name)

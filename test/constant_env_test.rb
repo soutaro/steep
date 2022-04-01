@@ -48,7 +48,7 @@ end
   end
 
   def test_from_module
-    with_constant_env({ "foo.rbs" => <<-EOS }, context: [Namespace("::A")]) do |env|
+    with_constant_env({ "foo.rbs" => <<-EOS }, context: [nil, TypeName("::A")]) do |env|
 module A end
 module A::String end
     EOS

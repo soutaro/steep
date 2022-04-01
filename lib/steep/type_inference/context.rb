@@ -48,26 +48,23 @@ module Steep
         attr_reader :defined_module_methods
         attr_reader :const_env
         attr_reader :implement_name
-        attr_reader :namespaces
-        attr_reader :current_namespace
         attr_reader :class_name
         attr_reader :instance_definition
         attr_reader :module_definition
 
-        def initialize(instance_type:, module_type:, implement_name:, current_namespace:, const_env:, class_name:, instance_definition: nil, module_definition: nil)
+        def initialize(instance_type:, module_type:, implement_name:, const_env:, class_name:, instance_definition: nil, module_definition: nil)
           @instance_type = instance_type
           @module_type = module_type
           @defined_instance_methods = Set.new
           @defined_module_methods = Set.new
           @implement_name = implement_name
-          @current_namespace = current_namespace
           @const_env = const_env
           @class_name = class_name
           @instance_definition = instance_definition
           @module_definition = module_definition
         end
 
-        def const_context
+        def nesting
           const_env.context
         end
 
@@ -83,7 +80,6 @@ module Steep
           instance_type: self.instance_type,
           module_type: self.module_type,
           implement_name: self.implement_name,
-          current_namespace: self.current_namespace,
           const_env: self.const_env,
           class_name: self.class_name,
           instance_definition: self.instance_definition,
@@ -93,7 +89,6 @@ module Steep
             instance_type: instance_type,
             module_type: module_type,
             implement_name: implement_name,
-            current_namespace: current_namespace,
             const_env: const_env,
             class_name: class_name,
             instance_definition: instance_definition,

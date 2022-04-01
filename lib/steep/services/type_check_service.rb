@@ -338,10 +338,10 @@ module Steep
       end
 
       def self.type_check(source:, subtyping:)
-        annotations = source.annotations(block: source.node, factory: subtyping.factory, current_module: RBS::Namespace.root)
+        annotations = source.annotations(block: source.node, factory: subtyping.factory, context: nil)
         const_env = TypeInference::ConstantEnv.new(
           factory: subtyping.factory,
-          context: [RBS::Namespace.root],
+          context: nil,
           resolver: RBS::Resolver::ConstantResolver.new(builder: subtyping.factory.definition_builder)
         )
         type_env = TypeInference::TypeEnv.build(annotations: annotations,
@@ -361,7 +361,6 @@ module Steep
             instance_type: AST::Builtin::Object.instance_type,
             module_type: AST::Builtin::Object.module_type,
             implement_name: nil,
-            current_namespace: RBS::Namespace.root,
             const_env: const_env,
             class_name: AST::Builtin::Object.module_name,
             instance_definition: subtyping.factory.definition_builder.build_instance(AST::Builtin::Object.module_name),

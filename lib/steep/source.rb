@@ -283,11 +283,11 @@ module Steep
       node.updated(nil, children)
     end
 
-    def annotations(block:, factory:, current_module:)
+    def annotations(block:, factory:, context:)
       AST::Annotation::Collection.new(
         annotations: (mapping[block] || []).map(&:annotation),
         factory: factory,
-        current_module: current_module
+        context: context
       )
     end
 

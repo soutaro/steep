@@ -1033,10 +1033,11 @@ end
     EOF
       source = parse_ruby("module Steep; class Names::Module; end; end")
 
-      annotations = source.annotations(block: source.node, factory: checker.factory, current_module: Namespace.root)
+      context = [nil, TypeName("::Steep")]
+      annotations = source.annotations(block: source.node, factory: checker.factory, context: context)
       const_env = ConstantEnv.new(
         factory: factory,
-        context: [Namespace.root],
+        context: [nil, TypeName("::Steep")],
         resolver: RBS::Resolver::ConstantResolver.new(builder: factory.definition_builder)
       )
       type_env = TypeEnv.build(annotations: annotations,
@@ -1054,7 +1055,6 @@ end
         instance_type: parse_type("::Steep"),
         module_type: parse_type("singleton(::Steep)"),
         implement_name: nil,
-        current_namespace: Namespace.parse("::Steep"),
         const_env: const_env,
         class_name: nil
       )
@@ -1138,8 +1138,9 @@ class Steep end
     EOS
       source = parse_ruby("class Steep; module Printable; end; end")
 
-      annotations = source.annotations(block: source.node, factory: checker.factory, current_module: Namespace.root)
-      const_env = ConstantEnv.new(factory: factory, context: [Namespace.root], resolver: RBS::Resolver::ConstantResolver.new(builder: factory.definition_builder))
+      context = [nil, TypeName("::Steep")]
+      annotations = source.annotations(block: source.node, factory: checker.factory, context: context)
+      const_env = ConstantEnv.new(factory: factory, context: [nil, TypeName("::Steep")], resolver: RBS::Resolver::ConstantResolver.new(builder: factory.definition_builder))
       type_env = TypeEnv.build(annotations: annotations,
                                subtyping: checker,
                                const_env: const_env,
@@ -1155,7 +1156,6 @@ class Steep end
         instance_type: parse_type("::Steep"),
         module_type: parse_type("singleton(::Steep)"),
         implement_name: nil,
-        current_namespace: Namespace.parse("::Steep"),
         const_env: const_env,
         class_name: TypeName("::Steep")
       )
@@ -1488,8 +1488,7 @@ end
 class A::String < Object
   def foo
     # @type var x: String
-    x = ::A::String.new
-    x = String.new
+    x = ""
 
     # @type var y: ::String
     y = ""

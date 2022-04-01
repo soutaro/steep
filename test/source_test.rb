@@ -46,7 +46,7 @@ Foo::Bar.new
       # toplevel
       source.annotations(block: source.node,
                          factory: factory,
-                         current_module: nil).yield_self do |annotations|
+                         context: nil).yield_self do |annotations|
         assert_any annotations do |a|
           a.is_a?(A::VarType) && a.name == :x1 && a.type == T::Any.new
         end
@@ -55,7 +55,7 @@ Foo::Bar.new
       # module
       source.annotations(block: dig(source.node, 0),
                          factory: factory,
-                         current_module: Namespace.parse("::Foo")).yield_self do |annotations|
+                         context: [nil, TypeName("::Foo")]).yield_self do |annotations|
         assert_any annotations do |a|
           a == A::VarType.new(name: :x2, type: T::Any.new)
         end
@@ -67,7 +67,7 @@ Foo::Bar.new
 
       source.annotations(block: dig(source.node, 0, 1),
                          factory: factory,
-                         current_module: Namespace.parse("::Foo::Bar")).yield_self do |annotations|
+                         context: [nil, TypeName("::Foo::Bar")]).yield_self do |annotations|
         assert_equal 5, annotations.size
         assert_equal parse_type("::String"), annotations.instance_type
         assert_equal parse_type("singleton(::String)"), annotations.module_type
@@ -77,7 +77,7 @@ Foo::Bar.new
       # def
       source.annotations(block: dig(source.node, 0, 1, 2, 0),
                          factory: factory,
-                         current_module: Namespace.parse("::Foo::Bar")).yield_self do |annotations|
+                         context: [nil, TypeName("::Foo::Bar")]).yield_self do |annotations|
         assert_equal 2, annotations.size
         assert_equal T::Any.new, annotations.var_type(lvar: :x4)
         assert_equal T::Any.new, annotations.return_type
@@ -86,7 +86,7 @@ Foo::Bar.new
       # block
       source.annotations(block: dig(source.node, 0, 1, 2, 0, 2),
                          factory: factory,
-                         current_module: Namespace.parse("::Foo::Bar")).yield_self do |annotations|
+                         context: [nil, TypeName("::Foo::Bar")]).yield_self do |annotations|
         assert_equal 2, annotations.size
         assert_equal T::Any.new, annotations.var_type(lvar: :x5)
         assert_equal parse_type("::Integer"), annotations.block_type
@@ -108,19 +108,19 @@ end
       source = Steep::Source.parse(code, path: Pathname("foo.rb"), factory: factory)
 
       source.node.yield_self do |node|
-        annotations = source.annotations(block: node, factory: factory, current_module: Namespace.root)
+        annotations = source.annotations(block: node, factory: factory, context: nil)
         assert_nil annotations.var_type(lvar: :x)
         assert_nil annotations.var_type(lvar: :y)
       end
 
       source.node.children[1].yield_self do |node|
-        annotations = source.annotations(block: node, factory: factory, current_module: Namespace.root)
+        annotations = source.annotations(block: node, factory: factory, context: nil)
         refute_nil annotations.var_type(lvar: :x)
         assert_nil annotations.var_type(lvar: :y)
       end
 
       source.node.children[2].yield_self do |node|
-        annotations = source.annotations(block: node, factory: factory, current_module: Namespace.root)
+        annotations = source.annotations(block: node, factory: factory, context: nil)
         assert_nil annotations.var_type(lvar: :x)
         refute_nil annotations.var_type(lvar: :y)
       end
@@ -140,19 +140,19 @@ end
       EOF
 
       source.node.yield_self do |node|
-        annotations = source.annotations(block: node, factory: factory, current_module: Namespace.root)
+        annotations = source.annotations(block: node, factory: factory, context: nil)
         assert_nil annotations.var_type(lvar: :x)
         assert_nil annotations.var_type(lvar: :y)
       end
 
       source.node.children[1].yield_self do |node|
-        annotations = source.annotations(block: node, factory: factory, current_module: Namespace.root)
+        annotations = source.annotations(block: node, factory: factory, context: nil)
         assert_nil annotations.var_type(lvar: :x)
         refute_nil annotations.var_type(lvar: :y)
       end
 
       source.node.children[2].yield_self do |node|
-        annotations = source.annotations(block: node, factory: factory, current_module: Namespace.root)
+        annotations = source.annotations(block: node, factory: factory, context: nil)
         refute_nil annotations.var_type(lvar: :x)
         assert_nil annotations.var_type(lvar: :y)
       end
@@ -172,19 +172,19 @@ end
       EOF
 
       source.node.yield_self do |node|
-        annotations = source.annotations(block: node, factory: factory, current_module: Namespace.root)
+        annotations = source.annotations(block: node, factory: factory, context: nil)
         assert_nil annotations.var_type(lvar: :x)
         assert_nil annotations.var_type(lvar: :y)
       end
 
       dig(source.node, 1).yield_self do |node|
-        annotations = source.annotations(block: node, factory: factory, current_module: Namespace.root)
+        annotations = source.annotations(block: node, factory: factory, context: nil)
         refute_nil annotations.var_type(lvar: :x)
         assert_nil annotations.var_type(lvar: :y)
       end
 
       dig(source.node, 2, 1).yield_self do |node|
-        annotations = source.annotations(block: node, factory: factory, current_module: Namespace.root)
+        annotations = source.annotations(block: node, factory: factory, context: nil)
         assert_nil annotations.var_type(lvar: :x)
         refute_nil annotations.var_type(lvar: :y)
       end
@@ -198,7 +198,7 @@ x + 1 if foo
 y + "foo" unless bar
       EOF
 
-      source.annotations(block: source.node, factory: factory, current_module: Namespace.root)
+      source.annotations(block: source.node, factory: factory, context: nil)
     end
   end
 
@@ -208,7 +208,7 @@ y + "foo" unless bar
 x = if test then 1 else 2 end
       EOF
 
-      source.annotations(block: source.node, factory: factory, current_module: Namespace.root)
+      source.annotations(block: source.node, factory: factory, context: nil)
     end
   end
 
@@ -221,12 +221,12 @@ while foo
 end
       EOF
       source.node.yield_self do |node|
-        annotations = source.annotations(block: node, factory: factory, current_module: Namespace.root)
+        annotations = source.annotations(block: node, factory: factory, context: nil)
         assert_nil annotations.var_type(lvar: :x)
       end
 
       source.node.children[1].yield_self do |node|
-        annotations = source.annotations(block: node, factory: factory, current_module: Namespace.root)
+        annotations = source.annotations(block: node, factory: factory, context: nil)
         refute_nil annotations.var_type(lvar: :x)
       end
     end
@@ -242,12 +242,12 @@ end
       EOF
 
       source.node.yield_self do |node|
-        annotations = source.annotations(block: node, factory: factory, current_module: Namespace.root)
+        annotations = source.annotations(block: node, factory: factory, context: nil)
         assert_nil annotations.var_type(lvar: :x)
       end
 
       source.node.children[1].yield_self do |node|
-        annotations = source.annotations(block: node, factory: factory, current_module: Namespace.root)
+        annotations = source.annotations(block: node, factory: factory, context: nil)
         refute_nil annotations.var_type(lvar: :x)
       end
     end
@@ -260,7 +260,7 @@ x + 1 while foo
 y + "foo" until bar
       EOF
 
-      source.annotations(block: source.node, factory: factory, current_module: Namespace.root)
+      source.annotations(block: source.node, factory: factory, context: nil)
     end
   end
 
@@ -275,12 +275,12 @@ end while foo()
       EOF
 
       source.node.yield_self do |node|
-        annotations = source.annotations(block: node, factory: factory, current_module: Namespace.root)
+        annotations = source.annotations(block: node, factory: factory, context: nil)
         assert_nil annotations.var_type(lvar: :x)
       end
 
       source.node.children[1].yield_self do |node|
-        annotations = source.annotations(block: node, factory: factory, current_module: Namespace.root)
+        annotations = source.annotations(block: node, factory: factory, context: nil)
         refute_nil annotations.var_type(lvar: :x)
       end
     end
@@ -297,12 +297,12 @@ end until foo()
       EOF
 
       source.node.yield_self do |node|
-        annotations = source.annotations(block: node, factory: factory, current_module: Namespace.root)
+        annotations = source.annotations(block: node, factory: factory, context: nil)
         assert_nil annotations.var_type(lvar: :x)
       end
 
       source.node.children[1].yield_self do |node|
-        annotations = source.annotations(block: node, factory: factory, current_module: Namespace.root)
+        annotations = source.annotations(block: node, factory: factory, context: nil)
         refute_nil annotations.var_type(lvar: :x)
       end
     end
@@ -322,19 +322,19 @@ end
       EOF
 
       source.node.yield_self do |node|
-        annotations = source.annotations(block: node, factory: factory, current_module: Namespace.root)
+        annotations = source.annotations(block: node, factory: factory, context: nil)
         assert_nil annotations.var_type(lvar: :x)
         assert_nil annotations.var_type(lvar: :y)
       end
 
       source.node.children[1].children.last.yield_self do |node|
-        annotations = source.annotations(block: node, factory: factory, current_module: Namespace.root)
+        annotations = source.annotations(block: node, factory: factory, context: nil)
         refute_nil annotations.var_type(lvar: :x)
         assert_nil annotations.var_type(lvar: :y)
       end
 
       source.node.children[2].yield_self do |node|
-        annotations = source.annotations(block: node, factory: factory, current_module: Namespace.root)
+        annotations = source.annotations(block: node, factory: factory, context: nil)
         assert_nil annotations.var_type(lvar: :x)
         refute_nil annotations.var_type(lvar: :y)
       end
@@ -382,19 +382,19 @@ end
       EOF
 
       source.node.yield_self do |node|
-        annotations = source.annotations(block: node, factory: factory, current_module: Namespace.root)
+        annotations = source.annotations(block: node, factory: factory, context: nil)
         assert_nil annotations.var_type(lvar: :x)
         assert_nil annotations.var_type(lvar: :y)
       end
 
       source.node.children[0].children[1].yield_self do |node|
-        annotations = source.annotations(block: node, factory: factory, current_module: Namespace.root)
+        annotations = source.annotations(block: node, factory: factory, context: nil)
         refute_nil annotations.var_type(lvar: :x)
         assert_nil annotations.var_type(lvar: :y)
       end
 
       source.node.children[0].children.last.yield_self do |node|
-        annotations = source.annotations(block: node, factory: factory, current_module: Namespace.root)
+        annotations = source.annotations(block: node, factory: factory, context: nil)
         assert_nil annotations.var_type(lvar: :x)
         refute_nil annotations.var_type(lvar: :y)
       end
@@ -407,7 +407,7 @@ end
 x + 1 rescue foo
     EOF
 
-      source.annotations(block: source.node, factory: factory, current_module: Namespace.root)
+      source.annotations(block: source.node, factory: factory, context: nil)
     end
   end
 
@@ -417,7 +417,7 @@ x + 1 rescue foo
 a = test() ? foo : bar
       EOF
 
-      source.annotations(block: source.node, factory: factory, current_module: Namespace.root)
+      source.annotations(block: source.node, factory: factory, context: nil)
     end
   end
 
@@ -433,7 +433,7 @@ end
       EOF
       def_node = dig(source.node, 2)
 
-      annotations = source.annotations(block: def_node, factory: factory, current_module: Namespace.parse("::A"))
+      annotations = source.annotations(block: def_node, factory: factory, context: [nil, TypeName("::A")])
       assert_equal parse_type("::Integer"), annotations.var_type(lvar: :x)
     end
   end
@@ -546,7 +546,7 @@ end
 
       source.without_unrelated_defs(line: 6, column: 0).tap do |source|
         block = dig(source.node, 2, 2)
-        annots = source.annotations(block: block, factory: factory, current_module: nil)
+        annots = source.annotations(block: block, factory: factory, context: nil)
 
         refute_nil annots.implement_module_annotation
       end

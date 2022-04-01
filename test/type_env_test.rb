@@ -12,7 +12,7 @@ class TypeEnvTest < Minitest::Test
 
   def test_ivar_without_annotation
     with_checker do |checker|
-      const_env = ConstantEnv.new(factory: checker.factory, context: [], resolver: RBS::Resolver::ConstantResolver.new(builder: checker.factory.definition_builder))
+      const_env = ConstantEnv.new(factory: checker.factory, context: nil, resolver: RBS::Resolver::ConstantResolver.new(builder: checker.factory.definition_builder))
       type_env = TypeEnv.new(subtyping: checker, const_env: const_env)
 
       # If no annotation is given to ivar, assign yields the block with nil and returns `any`
@@ -37,7 +37,7 @@ class TypeEnvTest < Minitest::Test
 
   def test_ivar_with_annotation
     with_checker do |checker|
-      const_env = ConstantEnv.new(factory: checker.factory, context: [], resolver: RBS::Resolver::ConstantResolver.new(builder: checker.factory.definition_builder))
+      const_env = ConstantEnv.new(factory: checker.factory, context: nil, resolver: RBS::Resolver::ConstantResolver.new(builder: checker.factory.definition_builder))
       type_env = TypeEnv.new(subtyping: checker, const_env: const_env)
 
       type_env.set(ivar: :"@x", type: AST::Types::Name.new_instance(name: "::Numeric"))
@@ -80,7 +80,7 @@ class TypeEnvTest < Minitest::Test
 
   def test_gvar_without_annotation
     with_checker do |checker|
-      const_env = ConstantEnv.new(factory: checker.factory, context: [], resolver: RBS::Resolver::ConstantResolver.new(builder: checker.factory.definition_builder))
+      const_env = ConstantEnv.new(factory: checker.factory, context: nil, resolver: RBS::Resolver::ConstantResolver.new(builder: checker.factory.definition_builder))
       type_env = TypeEnv.new(subtyping: checker, const_env: const_env)
 
       # If no annotation is given to ivar, assign yields the block with nil and returns `any`
@@ -105,7 +105,7 @@ class TypeEnvTest < Minitest::Test
 
   def test_gvar_with_annotation
     with_checker do |checker|
-      const_env = ConstantEnv.new(factory: checker.factory, context: [], resolver: RBS::Resolver::ConstantResolver.new(builder: checker.factory.definition_builder))
+      const_env = ConstantEnv.new(factory: checker.factory, context: nil, resolver: RBS::Resolver::ConstantResolver.new(builder: checker.factory.definition_builder))
       type_env = TypeEnv.new(subtyping: checker, const_env: const_env)
 
       type_env.set(gvar: :"$x", type: AST::Types::Name.new_instance(name: "::Numeric"))
@@ -148,7 +148,7 @@ class TypeEnvTest < Minitest::Test
 
   def test_const_without_annotation
     with_checker do |checker|
-      const_env = ConstantEnv.new(factory: checker.factory, context: [RBS::Namespace.root], resolver: RBS::Resolver::ConstantResolver.new(builder: checker.factory.definition_builder))
+      const_env = ConstantEnv.new(factory: checker.factory, context: nil, resolver: RBS::Resolver::ConstantResolver.new(builder: checker.factory.definition_builder))
       type_env = TypeEnv.new(subtyping: checker, const_env: const_env)
 
       # When constant type is known from const env
@@ -162,7 +162,7 @@ class TypeEnvTest < Minitest::Test
 
   def test_const_with_annotation
     with_checker do |checker|
-      const_env = ConstantEnv.new(factory: checker.factory, context: [], resolver: RBS::Resolver::ConstantResolver.new(builder: checker.factory.definition_builder))
+      const_env = ConstantEnv.new(factory: checker.factory, context: nil, resolver: RBS::Resolver::ConstantResolver.new(builder: checker.factory.definition_builder))
       type_env = TypeEnv.new(subtyping: checker, const_env: const_env)
 
       type_env.set(const: TypeName("Regexp"), type: AST::Types::Name.new_instance(name: "::String"))
@@ -176,7 +176,7 @@ class TypeEnvTest < Minitest::Test
 
   def test_with_annotation_ivar
     with_checker do |checker|
-      const_env = ConstantEnv.new(factory: checker.factory, context: [], resolver: RBS::Resolver::ConstantResolver.new(builder: checker.factory.definition_builder))
+      const_env = ConstantEnv.new(factory: checker.factory, context: nil, resolver: RBS::Resolver::ConstantResolver.new(builder: checker.factory.definition_builder))
       original_env = TypeEnv.new(subtyping: checker, const_env: const_env)
 
       union_type = AST::Types::Union.build(types: [
@@ -236,7 +236,7 @@ class TypeEnvTest < Minitest::Test
 
   def test_with_annotation_gvar
     with_checker do |checker|
-      const_env = ConstantEnv.new(factory: checker.factory, context: [], resolver: RBS::Resolver::ConstantResolver.new(builder: checker.factory.definition_builder))
+      const_env = ConstantEnv.new(factory: checker.factory, context: nil, resolver: RBS::Resolver::ConstantResolver.new(builder: checker.factory.definition_builder))
       original_env = TypeEnv.new(subtyping: checker, const_env: const_env)
 
       union_type = AST::Types::Union.build(types: [
@@ -296,7 +296,7 @@ class TypeEnvTest < Minitest::Test
 
   def test_with_annotation_const
     with_checker do |checker|
-      const_env = ConstantEnv.new(factory: checker.factory, context: [RBS::Namespace.root], resolver: RBS::Resolver::ConstantResolver.new(builder: checker.factory.definition_builder))
+      const_env = ConstantEnv.new(factory: checker.factory, context: nil, resolver: RBS::Resolver::ConstantResolver.new(builder: checker.factory.definition_builder))
       original_env = TypeEnv.new(subtyping: checker, const_env: const_env)
 
       union_type = AST::Types::Union.build(types: [
@@ -379,7 +379,7 @@ class X end
 class Y end
 $foo: String
     RBS
-      const_env = ConstantEnv.new(factory: checker.factory, context: [], resolver: RBS::Resolver::ConstantResolver.new(builder: checker.factory.definition_builder))
+      const_env = ConstantEnv.new(factory: checker.factory, context: nil, resolver: RBS::Resolver::ConstantResolver.new(builder: checker.factory.definition_builder))
 
       annotations = AST::Annotation::Collection.new(annotations: [
         AST::Annotation::VarType.new(name: :x, type: AST::Types::Name.new_instance(name: :X)),
@@ -390,7 +390,7 @@ $foo: String
         AST::Annotation::Dynamic.new(names: [
           AST::Annotation::Dynamic::Name.new(name: :path, kind: :instance)
         ])
-      ], factory: checker.factory, current_module: RBS::Namespace.root)
+      ], factory: checker.factory, context: nil)
 
       env = TypeInference::TypeEnv.build(annotations: annotations,
                                          signatures: factory.env,

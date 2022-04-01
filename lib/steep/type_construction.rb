@@ -130,7 +130,7 @@ module Steep
     end
 
     def for_new_method(method_name, node, args:, self_type:, definition:)
-      annots = source.annotations(block: node, factory: checker.factory, current_module: current_namespace)
+      annots = source.annotations(block: node, factory: checker.factory, context: nesting)
       type_env = TypeInference::TypeEnv.new(subtyping: checker, const_env: module_context&.const_env || self.type_env.const_env)
 
       self.type_env.const_types.each do |name, type|
@@ -295,9 +295,9 @@ module Steep
       end
     end
 
-    def default_module_context(implement_module_name, const_env:, current_namespace:)
+    def default_module_context(implement_module_name, const_env:)
       if implement_module_name
-        module_name = checker.factory.absolute_type_name(implement_module_name.name, namespace: current_namespace)
+        module_name = checker.factory.absolute_type_name(implement_module_name.name, context: const_env.context)
         module_args = implement_module_name.args.map {|name| AST::Types::Var.new(name: name) }
 
         instance_def = checker.factory.definition_builder.build_instance(module_name)
@@ -310,7 +310,6 @@ module Steep
           instance_type: instance_type,
           module_type: module_type,
           implement_name: implement_module_name,
-          current_namespace: current_namespace,
           const_env: const_env,
           class_name: module_name,
           instance_definition: instance_def,
@@ -321,7 +320,6 @@ module Steep
           instance_type: nil,
           module_type: nil,
           implement_name: nil,
-          current_namespace: current_namespace,
           const_env: self.module_context.const_env,
           class_name: self.module_context.class_name,
           module_definition: nil,
@@ -331,20 +329,18 @@ module Steep
     end
 
     def for_module(node, new_module_name)
-      new_namespace = new_module_name&.to_namespace
-
-      const_context = [new_namespace] + self.module_context.const_env.context
+      new_nesting = [nesting, new_module_name || false]
 
       module_const_env = TypeInference::ConstantEnv.new(
         factory: checker.factory,
-        context: const_context,
+        context: new_nesting,
         resolver: self.module_context.const_env.resolver
       )
 
-      annots = source.annotations(block: node, factory: checker.factory, current_module: new_namespace)
+      annots = source.annotations(block: node, factory: checker.factory, context: new_nesting)
 
       implement_module_name = implement_module(module_name: new_module_name, annotations: annots)
-      module_context = default_module_context(implement_module_name, const_env: module_const_env, current_namespace: new_namespace)
+      module_context = default_module_context(implement_module_name, const_env: module_const_env)
 
       unless implement_module_name
         module_context = module_context.update(
@@ -449,17 +445,17 @@ module Steep
     end
 
     def for_class(node, new_class_name, super_class_name)
-      new_namespace = new_class_name&.to_namespace || current_namespace
-      annots = source.annotations(block: node, factory: checker.factory, current_module: new_namespace)
+      new_nesting = [nesting, new_class_name || false]
+      annots = source.annotations(block: node, factory: checker.factory, context: new_nesting)
 
       class_const_env = TypeInference::ConstantEnv.new(
         factory: checker.factory,
-        context: [new_class_name&.to_namespace] + self.module_context.const_env.context,
+        context: new_nesting,
         resolver: self.module_context.const_env.resolver
       )
 
       implement_module_name = implement_module(module_name: new_class_name, super_name: super_class_name, annotations: annots)
-      module_context = default_module_context(implement_module_name, const_env: class_const_env, current_namespace: new_namespace)
+      module_context = default_module_context(implement_module_name, const_env: class_const_env)
 
       if implement_module_name
         if super_class_name && implement_module_name.name == absolute_name(super_class_name)
@@ -548,7 +544,7 @@ module Steep
     end
 
     def for_sclass(node, type)
-      annots = source.annotations(block: node, factory: checker.factory, current_module: current_namespace)
+      annots = source.annotations(block: node, factory: checker.factory, context: nesting)
 
       instance_type = if type.is_a?(AST::Types::Self)
                         context.self_type
@@ -596,7 +592,6 @@ module Steep
         instance_type: annots.instance_type || instance_type,
         module_type: annots.self_type || annots.module_type || module_type,
         implement_name: nil,
-        current_namespace: current_namespace,
         const_env: self.module_context.const_env,
         class_name: self.module_context.class_name,
         module_definition: module_definition,
@@ -637,7 +632,7 @@ module Steep
     end
 
     def for_branch(node, truthy_vars: Set.new, type_case_override: nil, break_context: context.break_context)
-      annots = source.annotations(block: node, factory: checker.factory, current_module: current_namespace)
+      annots = source.annotations(block: node, factory: checker.factory, context: nesting)
 
       lvar_env = context.lvar_env
 
@@ -1638,7 +1633,7 @@ module Steep
                   node: node,
                   lhs_type: constant_type,
                   rhs_type: value_type,
-                  result: result.failure_path[0].error
+                  result: result
                 )
               )
 
@@ -2766,7 +2761,7 @@ module Steep
     end
 
     def type_lambda(node, params_node:, body_node:, type_hint:)
-      block_annotations = source.annotations(block: node, factory: checker.factory, current_module: current_namespace)
+      block_annotations = source.annotations(block: node, factory: checker.factory, context: nesting)
       params = TypeInference::BlockParams.from_node(params_node, annotations: block_annotations)
 
       type_hint = deep_expand_alias(type_hint) if type_hint
@@ -2923,7 +2918,7 @@ module Steep
 
           constr = synthesize_children(node, skips: skips)
           if block_params
-            block_annotations = source.annotations(block: node, factory: checker.factory, current_module: current_namespace)
+            block_annotations = source.annotations(block: node, factory: checker.factory, context: nesting)
 
             constr.type_block_without_hint(
               node: node,
@@ -2944,7 +2939,7 @@ module Steep
 
         constr = synthesize_children(node, skips: skips)
         if block_params
-          block_annotations = source.annotations(block: node, factory: checker.factory, current_module: current_namespace)
+          block_annotations = source.annotations(block: node, factory: checker.factory, context: nesting)
 
           constr.type_block_without_hint(
             node: node,
@@ -3325,7 +3320,7 @@ module Steep
 
         if block_params
           # block is given
-          block_annotations = source.annotations(block: node, factory: checker.factory, current_module: current_namespace)
+          block_annotations = source.annotations(block: node, factory: checker.factory, context: nesting)
           block_params_ = TypeInference::BlockParams.from_node(block_params, annotations: block_annotations)
 
           if method_type.block
@@ -3667,8 +3662,7 @@ module Steep
       if implements = block_annotations.implement_module_annotation
         module_context = default_module_context(
           implements.name,
-          const_env: self.module_context.const_env,
-          current_namespace: current_namespace
+          const_env: self.module_context.const_env
         )
 
         self_type = module_context.module_type
@@ -3722,30 +3716,25 @@ module Steep
       end
     end
 
-    def current_namespace
-      module_context&.current_namespace || RBS::Namespace.root
+    def nesting
+      module_context&.nesting
     end
 
-    def nested_namespace_for_module(module_name)
-      if module_name.namespace.relative?
-        (current_namespace + module_name.namespace).append(module_name.name)
-      else
-        module_name.to_namespace
+    def absolute_nested_module_name(module_name)
+      n = nesting
+      while n && !n[1]
+        n = n[0]
       end
-    end
 
-    def absolute_name(module_name)
-      if current_namespace
-        module_name.with_prefix(current_namespace)
-      else
+      if n
         module_name.absolute!
+      else
+        n + module_name
       end
     end
 
-    def absolute_type(type)
-      if type
-        checker.builder.absolute_type(type, current: current_namespace)
-      end
+    def absolute_name(name)
+      checker.factory.absolute_type_name(name, context: nesting)
     end
 
     def union_type(*types)
