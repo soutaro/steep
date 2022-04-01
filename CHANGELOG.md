@@ -2,7 +2,13 @@
 
 ## master
 
-# 0.50.0 (2022-03-22)
+## 0.51.0 (2022-04-01)
+
+* Completion for constant ([\#524](https://github.com/soutaro/steep/pull/524))
+* Better hover/completion message ([\#525](https://github.com/soutaro/steep/pull/525))
+* Show available commands when using `--help` ([\#523](https://github.com/soutaro/steep/pull/523))
+
+## 0.50.0 (2022-03-22)
 
 * CLI option for override steep command at spawn worker ([\#511](https://github.com/soutaro/steep/pull/511))
 * LSP related improvements for Sublime LSP ([\#513](https://github.com/soutaro/steep/pull/513))
