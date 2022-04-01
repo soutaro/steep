@@ -44,18 +44,6 @@ module Steep
           merge!(original_env: env.gvar_types, override_env: gvar_types, self_type: self_type, instance_type: instance_type, class_type: class_type, &block)
 
           const_types.each do |name, annotated_type|
-            original_type = self.const_types[name] || const_env.lookup(name)
-            if original_type
-              assert_annotation(
-                name,
-                original_type: original_type,
-                annotated_type: annotated_type,
-                self_type: self_type,
-                instance_type: instance_type,
-                class_type: class_type,
-                &block
-              )
-            end
             env.const_types[name] = annotated_type
           end
         end
@@ -70,14 +58,8 @@ module Steep
           if const_types.key?(const)
             const_types[const]
           else
-            const_env.lookup(const).yield_self do |type|
-              if type
-                type
-              else
-                yield
-                AST::Types::Any.new
-              end
-            end
+            yield
+            AST::Types::Any.new
           end
         else
           lookup_dictionary(ivar: ivar, gvar: gvar) do |var_name, dictionary|
@@ -105,40 +87,20 @@ module Steep
       # @type method assign: (const: TypeName, type: AST::Type) { (Subtyping::Result::Failure | nil) -> void } -> AST::Type
       #                    | (gvar: Symbol, type: AST::Type) { (Subtyping::Result::Failure | nil) -> void } -> AST::Type
       #                    | (ivar: Symbol, type: AST::Type) { (Subtyping::Result::Failure | nil) -> void } -> AST::Type
-      def assign(const: nil, gvar: nil, ivar: nil, type:, self_type:, instance_type:, class_type:, &block)
-        case
-        when const
-          yield_self do
-            const_type = const_types[const] || const_env.lookup(const)
-            if const_type
-              assert_assign(
-                var_type: const_type,
-                lhs_type: type,
-                self_type: self_type,
-                instance_type: instance_type,
-                class_type: class_type,
-                &block
-              )
-            else
-              yield nil
-              AST::Types::Any.new
-            end
-          end
-        else
-          lookup_dictionary(ivar: ivar, gvar: gvar) do |var_name, dictionary|
-            if dictionary.key?(var_name)
-              assert_assign(
-                var_type: dictionary[var_name],
-                lhs_type: type,
-                self_type: self_type,
-                instance_type: instance_type,
-                class_type: class_type,
-                &block
-              )
-            else
-              yield nil
-              AST::Types::Any.new
-            end
+      def assign(gvar: nil, ivar: nil, type:, self_type:, instance_type:, class_type:, &block)
+        lookup_dictionary(ivar: ivar, gvar: gvar) do |var_name, dictionary|
+          if dictionary.key?(var_name)
+            assert_assign(
+              var_type: dictionary[var_name],
+              lhs_type: type,
+              self_type: self_type,
+              instance_type: instance_type,
+              class_type: class_type,
+              &block
+            )
+          else
+            yield nil
+            AST::Types::Any.new
           end
         end
       end

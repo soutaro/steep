@@ -3,6 +3,16 @@
   diagnostics:
   - range:
       start:
+        line: 1
+        character: 6
+      end:
+        line: 1
+        character: 7
+    severity: ERROR
+    message: 'Cannot find the declaration of class: `A`'
+    code: Ruby::UnknownConstant
+  - range:
+      start:
         line: 6
         character: 4
       end:
@@ -52,6 +62,16 @@
     code: Ruby::UnexpectedYield
 - file: b.rb
   diagnostics:
+  - range:
+      start:
+        line: 1
+        character: 6
+      end:
+        line: 1
+        character: 9
+    severity: ERROR
+    message: 'Cannot find the declaration of class: `Foo`'
+    code: Ruby::UnknownConstant
   - range:
       start:
         line: 4

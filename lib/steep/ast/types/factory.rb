@@ -18,7 +18,7 @@ module Steep
         end
 
         def type_name_resolver
-          @type_name_resolver ||= RBS::TypeNameResolver.from_env(definition_builder.env)
+          @type_name_resolver ||= RBS::Resolver::TypeNameResolver.new(definition_builder.env)
         end
 
         def type_opt(type)
@@ -810,15 +810,15 @@ module Steep
           @env ||= definition_builder.env
         end
 
-        def absolute_type(type, namespace:)
+        def absolute_type(type, context:)
           absolute_type = type_1(type).map_type_name do |name|
-            absolute_type_name(name, namespace: namespace) || name.absolute!
+            absolute_type_name(name, context: context) || name.absolute!
           end
           type(absolute_type)
         end
 
-        def absolute_type_name(type_name, namespace:)
-          type_name_resolver.resolve(type_name, context: namespace.ascend)
+        def absolute_type_name(type_name, context:)
+          type_name_resolver.resolve(type_name, context: context)
         end
 
         def instance_type(type_name, args: nil, location: nil)

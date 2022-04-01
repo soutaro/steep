@@ -408,6 +408,16 @@ HOVER
               new_text: item.identifier
             )
           )
+        when Services::CompletionProvider::ConstantItem
+          LanguageServer::Protocol::Interface::CompletionItem.new(
+            label: item.identifier,
+            kind: LanguageServer::Protocol::Constant::CompletionItemKind::CONSTANT,
+            detail: item.type.to_s,
+            text_edit: LanguageServer::Protocol::Interface::TextEdit.new(
+              range: range,
+              new_text: item.identifier
+            )
+          )
         when Services::CompletionProvider::MethodNameItem
           method_type_snippet = method_type_to_snippet(item.method_type)
           LanguageServer::Protocol::Interface::CompletionItem.new(

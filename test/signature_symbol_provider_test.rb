@@ -54,32 +54,36 @@ RBS
       provider = SignatureSymbolProvider.new(project: project, assignment: assignment)
       provider.indexes << index
 
-      assert_any! provider.query_symbol("") do |symbol|
-        assert_equal 'Class1', symbol.name
-        assert_equal "", symbol.container_name
-        assert_equal LSP::Constant::SymbolKind::CLASS, symbol.kind
-        assert_equal Pathname("sig/a.rbs"), symbol.location.buffer.name
+      provider.query_symbol("").tap do |symbols|
+        symbols.find {|s| s.name == "Class1" }.tap do |symbol|
+          assert_equal "", symbol.container_name
+          assert_equal LSP::Constant::SymbolKind::CLASS, symbol.kind
+          assert_equal Pathname("sig/a.rbs"), symbol.location.buffer.name
+        end
       end
 
-      assert_any! provider.query_symbol("") do |symbol|
-        assert_equal 'Module1', symbol.name
-        assert_equal "Class1", symbol.container_name
-        assert_equal LSP::Constant::SymbolKind::MODULE, symbol.kind
-        assert_equal Pathname("sig/a.rbs"), symbol.location.buffer.name
+      provider.query_symbol("").tap do |symbols|
+        symbols.find {|s| s.name == "Module1" }.tap do |symbol|
+          assert_equal "Class1", symbol.container_name
+          assert_equal LSP::Constant::SymbolKind::MODULE, symbol.kind
+          assert_equal Pathname("sig/a.rbs"), symbol.location.buffer.name
+        end
       end
 
-      assert_any! provider.query_symbol("") do |symbol|
-        assert_equal '_Interface1', symbol.name
-        assert_equal "Class1::Module1", symbol.container_name
-        assert_equal LSP::Constant::SymbolKind::INTERFACE, symbol.kind
-        assert_equal Pathname("sig/a.rbs"), symbol.location.buffer.name
+      provider.query_symbol("").tap do |symbols|
+        symbols.find {|s| s.name == "_Interface1" }.tap do |symbol|
+          assert_equal "Class1::Module1", symbol.container_name
+          assert_equal LSP::Constant::SymbolKind::INTERFACE, symbol.kind
+          assert_equal Pathname("sig/a.rbs"), symbol.location.buffer.name
+        end
       end
 
-      assert_any! provider.query_symbol("") do |symbol|
-        assert_equal 'alias1', symbol.name
-        assert_equal "Class1::Module1", symbol.container_name
-        assert_equal LSP::Constant::SymbolKind::ENUM, symbol.kind
-        assert_equal Pathname("sig/a.rbs"), symbol.location.buffer.name
+      provider.query_symbol("").tap do |symbols|
+        symbols.find {|s| s.name == "alias1" }.tap do |symbol|
+          assert_equal "Class1::Module1", symbol.container_name
+          assert_equal LSP::Constant::SymbolKind::ENUM, symbol.kind
+          assert_equal Pathname("sig/a.rbs"), symbol.location.buffer.name
+        end
       end
 
       assert_any! provider.query_symbol("class1") do |symbol|
@@ -131,6 +135,8 @@ RBS
       provider.indexes << index
 
       provider.query_symbol("").tap do |symbols|
+        symbols = symbols.select {|s| s.container_name == "Class1" }
+
         assert_any! symbols do |symbol|
           assert_equal "#foo", symbol.name
           assert_equal "Class1", symbol.container_name
@@ -231,15 +237,15 @@ RBS
       provider.indexes << index
 
       provider.query_symbol("").tap do |symbols|
-        assert_any! symbols do |symbol|
-          assert_equal "VERSION", symbol.name
+        symbols.find {|s| s.name == "VERSION" }.tap do |symbol|
+          refute_nil symbol
           assert_equal "Steep", symbol.container_name
           assert_equal LSP::Constant::SymbolKind::CONSTANT, symbol.kind
           assert_equal Pathname("a.rbs"), symbol.location.buffer.name.basename
         end
 
-        assert_any! symbols do |symbol|
-          assert_equal "$SteepError", symbol.name
+        symbols.find {|s| s.name == "$SteepError" }.tap do |symbol|
+          refute_nil symbol
           assert_nil symbol.container_name
           assert_equal LSP::Constant::SymbolKind::VARIABLE, symbol.kind
           assert_equal Pathname("a.rbs"), symbol.location.buffer.name.basename

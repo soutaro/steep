@@ -520,7 +520,7 @@ target :lib do
 
   configure_code_diagnostics do |hash|
     hash[D::Ruby::UnexpectedPositionalArgument] = :error
-    hash[D::Ruby::UnknownConstantAssigned] = :information
+    hash[D::Ruby::UnknownConstant] = :information
     hash[D::Ruby::NoMethod] = nil
   end
 end
@@ -569,7 +569,7 @@ EOF
       end
 
       assert_any!(message[:params][:diagnostics], size: 2) do |diagnostic|
-        assert_equal "Ruby::UnknownConstantAssigned", diagnostic[:code]
+        assert_equal "Ruby::UnknownConstant", diagnostic[:code]
         assert_equal 3, diagnostic[:severity]
       end
     end

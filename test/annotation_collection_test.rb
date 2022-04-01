@@ -30,7 +30,7 @@ class AnnotationCollectionTest < Minitest::Test
         ])
       ],
       factory: factory,
-      current_module: current_module)
+      context: [nil, current_module])
   end
 
   RBIS = {
@@ -45,7 +45,7 @@ EOF
 
   def test_types
     with_factory RBIS do |factory|
-      annotations = new_collection(current_module: Namespace("::Person"), factory: factory)
+      annotations = new_collection(current_module: TypeName("::Person"), factory: factory)
 
       assert_equal parse_type("::Person::Object"), annotations.var_type(lvar: :x)
       assert_nil annotations.var_type(lvar: :y)
@@ -69,7 +69,7 @@ EOF
 
   def test_dynamics
     with_factory do |factory|
-      annotations = new_collection(current_module: Namespace("::Person"), factory: factory)
+      annotations = new_collection(current_module: TypeName("::Person"), factory: factory)
 
       assert_equal [:foo, :baz], annotations.instance_dynamics
       assert_equal [:bar, :baz], annotations.module_dynamics
@@ -78,7 +78,7 @@ EOF
 
   def test_merge_block_annotations
     with_factory RBIS do |factory|
-      namespace = Namespace("::Person")
+      namespace = TypeName("::Person")
       current_annotations = new_collection(current_module: namespace, factory: factory)
 
       block_annotations = Annotation::Collection.new(
@@ -87,7 +87,7 @@ EOF
           Annotation::BreakType.new(type: parse_type("String"))
         ],
         factory: factory,
-        current_module: namespace
+        context: [nil, namespace]
       )
 
       new_annotations = current_annotations.merge_block_annotations(block_annotations)

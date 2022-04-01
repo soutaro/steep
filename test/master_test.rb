@@ -559,8 +559,34 @@ end
         ui.save_file(project.absolute_path(Pathname("lib/bar.rb")))
 
         finally_holds do
-          assert_equal [], ui.diagnostics_for(project.absolute_path(Pathname("lib/foo.rb")))
-          assert_equal [], ui.diagnostics_for(project.absolute_path(Pathname("lib/bar.rb")))
+          assert_equal(
+            [
+              {
+                range: {
+                  start: { line: 0, character: 6 },
+                  end: { line: 0, character: 9 }
+                },
+                severity: 2,
+                code: "Ruby::UnknownConstant",
+                message: "Cannot find the declaration of class: `Foo`"
+              }
+            ],
+            ui.diagnostics_for(project.absolute_path(Pathname("lib/foo.rb")))
+          )
+          assert_equal(
+            [
+              {
+                range: {
+                  start: { line: 0, character: 6 },
+                  end: { line: 0, character: 9 }
+                },
+                severity: 2,
+                code: "Ruby::UnknownConstant",
+                message: "Cannot find the declaration of class: `Bar`"
+              }
+            ],
+            ui.diagnostics_for(project.absolute_path(Pathname("lib/bar.rb")))
+          )
         end
       end
 
@@ -605,7 +631,20 @@ end
         ui.save_file(project.absolute_path(Pathname("lib/foo.rb")))
 
         finally_holds do
-          assert_empty ui.diagnostics_for(project.absolute_path(Pathname("lib/foo.rb")))
+          assert_equal(
+            [
+              {
+                range: {
+                  start: { line: 0, character: 6 },
+                  end: { line: 0, character: 9 }
+                },
+                severity: 2,
+                code: "Ruby::UnknownConstant",
+                message: "Cannot find the declaration of class: `Foo`"
+              }
+            ],
+            ui.diagnostics_for(project.absolute_path(Pathname("lib/foo.rb")))
+          )
         end
 
         ui.open_file(project.absolute_path(Pathname("sig/foo.rbs")))

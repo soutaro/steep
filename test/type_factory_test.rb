@@ -642,7 +642,10 @@ type list[A] = nil | [A, list[A]]
     EOF
 
       factory.type(parse_type("::list[::String]")).tap do |type|
-        puts factory.deep_expand_alias(type)
+        assert_equal(
+          factory.type(parse_type("nil | [::String, ::list[::String]]")),
+          factory.deep_expand_alias(type)
+        )
       end
     end
   end
@@ -660,19 +663,19 @@ end
     EOF
 
       factory.type(parse_type("Bar")).tap do |type|
-        factory.absolute_type(type, namespace: RBS::Namespace.parse("::Foo")) do |absolute_type|
+        factory.absolute_type(type, context: [nil, TypeName("::Foo")]) do |absolute_type|
           assert_equal factory.type(parse_type("::Foo::Bar")), absolute_type
         end
       end
 
       factory.type(parse_type("Bar")).tap do |type|
-        factory.absolute_type(type, namespace: RBS::Namespace.root) do |absolute_type|
+        factory.absolute_type(type, context: nil) do |absolute_type|
           assert_equal factory.type(parse_type("::Bar")), absolute_type
         end
       end
 
       factory.type(parse_type("Baz")).tap do |type|
-        factory.absolute_type(type, namespace: Namespace("::Foo")) do |absolute_type|
+        factory.absolute_type(type, context: [nil, ("::Foo")]) do |absolute_type|
           assert_equal factory.type(parse_type("::Baz")), absolute_type
         end
       end

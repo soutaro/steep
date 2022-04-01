@@ -24,8 +24,18 @@
         line: 6
         character: 5
     severity: ERROR
-    message: Cannot detect the type of the expression
-    code: Ruby::FallbackAny
+    message: 'Cannot find the declaration of constant: `B`'
+    code: Ruby::UnknownConstant
+  - range:
+      start:
+        line: 8
+        character: 7
+      end:
+        line: 8
+        character: 8
+    severity: ERROR
+    message: 'Cannot find the declaration of module: `X`'
+    code: Ruby::UnknownConstant
   - range:
       start:
         line: 14
@@ -49,8 +59,8 @@
         line: 16
         character: 9
     severity: ERROR
-    message: Cannot detect the type of the expression
-    code: Ruby::FallbackAny
+    message: 'Cannot find the declaration of constant: `B`'
+    code: Ruby::UnknownConstant
   - range:
       start:
         line: 23
@@ -69,23 +79,18 @@
   - range:
       start:
         line: 26
-        character: 4
-      end:
-        line: 26
-        character: 10
-    severity: ERROR
-    message: Cannot detect the type of the expression
-    code: Ruby::FallbackAny
-  - range:
-      start:
-        line: 26
-        character: 4
+        character: 0
       end:
         line: 26
         character: 15
     severity: ERROR
-    message: Cannot detect the type of the expression
-    code: Ruby::FallbackAny
+    message: |-
+      Cannot assign a value of type `::Integer` to a variable of type `::String`
+        ::Integer <: ::String
+          ::Numeric <: ::String
+            ::Object <: ::String
+              ::BasicObject <: ::String
+    code: Ruby::IncompatibleAssignment
   - range:
       start:
         line: 27
@@ -125,5 +130,5 @@
         line: 5
         character: 8
     severity: ERROR
-    message: Cannot find the declaration of constant `Baz2`
-    code: Ruby::UnknownConstantAssigned
+    message: 'Cannot find the declaration of constant: `Baz2`'
+    code: Ruby::UnknownConstant

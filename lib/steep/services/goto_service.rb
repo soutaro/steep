@@ -116,10 +116,8 @@ module Steep
               case node.type
               when :const, :casgn
                 if test_ast_location(node.location.name, line: line, column: column)
-                  if module_context = typing.context_at(line: line, column: column).module_context
-                    const_env = module_context.const_env
-                    const = const_env.lookup_constant(module_name_from_node(node))
-                    queries << ConstantQuery.new(name: const.name, from: :ruby)
+                  if name = typing.source_index.reference(constant_node: node)
+                    queries << ConstantQuery.new(name: name, from: :ruby)
                   end
                 end
               when :def, :defs
@@ -247,8 +245,8 @@ module Steep
             entry = typing.source_index.entry(constant: name)
             entry.definitions.each do |node|
               case node.type
-              when :class, :module
-                locations << node.children[0].location.expression
+              when :const
+                locations << node.location.expression
               when :casgn
                 parent = node.children[0]
                 location =

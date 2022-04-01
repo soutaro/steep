@@ -283,11 +283,11 @@ module Steep
       node.updated(nil, children)
     end
 
-    def annotations(block:, factory:, current_module:)
+    def annotations(block:, factory:, context:)
       AST::Annotation::Collection.new(
         annotations: (mapping[block] || []).map(&:annotation),
         factory: factory,
-        current_module: current_module
+        context: context
       )
     end
 
@@ -302,6 +302,8 @@ module Steep
     end
 
     def find_nodes(line:, column:, node: self.node, position: nil, parents: [])
+      return [] unless node
+
       position ||= (line-1).times.sum do |i|
         node.location.expression.source_buffer.source_line(i+1).size + 1
       end + column
@@ -345,22 +347,26 @@ module Steep
     end
 
     def without_unrelated_defs(line:, column:)
-      nodes = find_nodes(line: line, column: column) || []
-      defs = Set[].compare_by_identity.merge(nodes.select {|node| node.type == :def || node.type == :defs })
+      if node
+        nodes = find_nodes(line: line, column: column) || []
+        defs = Set[].compare_by_identity.merge(nodes.select {|node| node.type == :def || node.type == :defs })
 
-      node_ = Source.delete_defs(node, defs)
+        node_ = Source.delete_defs(node, defs)
 
-      mapping = {}.compare_by_identity
+        mapping = {}.compare_by_identity
 
-      annotations = self.mapping.values.flatten
-      Source.construct_mapping(node: node_, annotations: annotations, mapping: mapping)
+        annotations = self.mapping.values.flatten
+        Source.construct_mapping(node: node_, annotations: annotations, mapping: mapping)
 
-      annotations.each do |annot|
-        mapping[node] ||= []
-        mapping[node] << annot
+        annotations.each do |annot|
+          mapping[node] ||= []
+          mapping[node] << annot
+        end
+
+        Source.new(path: path, node: node_, mapping: mapping)
+      else
+        self
       end
-
-      Source.new(path: path, node: node_, mapping: mapping)
     end
 
     def compact_siblings(node)
