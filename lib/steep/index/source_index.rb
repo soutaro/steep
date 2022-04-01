@@ -16,7 +16,7 @@ module Steep
 
         def add_definition(node)
           case node.type
-          when :casgn, :class, :module
+          when :casgn, :const
             @definitions << node
           else
             raise "Unexpected constant definition: #{node.type}"
@@ -143,6 +143,23 @@ module Steep
           method_index[method] ||= MethodEntry.new(name: method)
         else
           raise
+        end
+      end
+
+      def reference(constant_node: nil)
+        case
+        when constant_node
+          constant_index.each do |name, entry|
+            if entry.references.include?(constant_node)
+              return name
+            end
+
+            if entry.definitions.include?(constant_node)
+              return name
+            end
+          end
+
+          nil
         end
       end
     end

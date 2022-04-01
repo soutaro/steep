@@ -561,8 +561,8 @@ module TypeConstructionHelper
     self_type = parse_type("::Object")
 
     annotations = source.annotations(block: source.node, factory: checker.factory, current_module: Namespace.root)
-    const_env = ConstantEnv.new(factory: factory,
-                                context: [Namespace.root])
+    resolver = RBS::Resolver::ConstantResolver.new(builder: factory.definition_builder)
+    const_env = ConstantEnv.new(factory: factory, context: [Namespace.root], resolver: resolver)
     type_env = TypeEnv.build(annotations: annotations,
                              subtyping: checker,
                              const_env: const_env,

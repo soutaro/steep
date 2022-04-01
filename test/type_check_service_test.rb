@@ -181,6 +181,10 @@ RUBY
     service = Services::TypeCheckService.new(project: project)
 
     {
+      Pathname("lib.rbs") => [ContentChange.string(<<RBS)],
+class Account
+end
+RBS
       Pathname("lib/no_error.rb") => [ContentChange.string(<<RUBY)],
 class Account
 end
@@ -217,10 +221,10 @@ RUBY
       # Account is not defined.
       service.update_and_check(changes: changes, assignment: assignment, &reporter)
 
-      assert_equal "Ruby::FallbackAny", reported_diagnostics.dig(Pathname("lib/a.rb"), 0, :code)
+      assert_equal "Ruby::UnknownConstant", reported_diagnostics.dig(Pathname("lib/a.rb"), 0, :code)
       service.diagnostics[Pathname("lib/a.rb")].tap do |errors|
         assert_equal 1, errors.size
-        assert_instance_of Diagnostic::Ruby::FallbackAny, errors[0]
+        assert_instance_of Diagnostic::Ruby::UnknownConstant, errors[0]
       end
 
       reported_diagnostics.clear

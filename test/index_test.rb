@@ -43,7 +43,7 @@ HelloWorld.new()
           assert_instance_of SourceIndex::ConstantEntry, entry
 
           assert_node_set entry.definitions,
-                          [[1, 0], [2, 3]]
+                          [[1, 6], [1, 16]]
 
           assert_node_set entry.references,
                           [[4, 0], [4, 10]],
@@ -80,7 +80,7 @@ end
           assert_instance_of SourceIndex::ConstantEntry, entry
 
           assert_node_set entry.definitions,
-                          [[1, 0], [2, 3]]
+                          [[1, 7], [1, 17]]
         end
       end
     end

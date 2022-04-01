@@ -1,12 +1,9 @@
 module Steep
   module ModuleHelper
-    def module_name_from_node(node)
-      case node.type
-      when :const, :casgn
-        namespace = namespace_from_node(node.children[0]) or return
-        name = node.children[1]
-        RBS::TypeName.new(name: name, namespace: namespace)
-      end
+    def module_name_from_node(parent_node, constant_name)
+      namespace = namespace_from_node(parent_node) or return
+      name = constant_name
+      RBS::TypeName.new(name: name, namespace: namespace)
     end
 
     def namespace_from_node(node)

@@ -42,17 +42,8 @@ end
     sigs["builtin.rbs"] = BUILTIN
 
     with_factory(sigs, nostdlib: true) do |factory|
-      env = ConstantEnv.new(factory: factory, context: context)
+      env = ConstantEnv.new(factory: factory, context: context, resolver: RBS::Resolver::ConstantResolver.new(builder: factory.definition_builder))
       yield env
-    end
-  end
-
-  def test_from_toplevel
-    with_constant_env(context: [RBS::Namespace.root]) do |env|
-      assert_equal parse_type("singleton(::BasicObject)"),
-                   env.lookup(TypeName("BasicObject"))
-      assert_equal parse_type("singleton(::Kernel)"),
-                   env.lookup(TypeName("Kernel"))
     end
   end
 
@@ -61,8 +52,8 @@ end
 module A end
 module A::String end
     EOS
-      assert_equal parse_type("singleton(::A::String)"), env.lookup(TypeName("String"))
-      assert_equal parse_type("singleton(::String)"), env.lookup(TypeName("::String"))
+      assert_equal TypeName("::A::String"), env.resolve(:String)[1]
+      assert_equal TypeName("::String"), env.toplevel(:String)[1]
     end
   end
 end
