@@ -12,3 +12,4 @@ gem "minitest-hooks"
 group :stackprof, optional: true do
   gem "stackprof"
 end
+gem 'minitest-slow_test'

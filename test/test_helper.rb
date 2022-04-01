@@ -10,7 +10,10 @@ require "pp"
 require "open3"
 require "tmpdir"
 require 'minitest/hooks/test'
+require 'minitest/slow_test'
 require "lsp_double"
+
+Minitest::SlowTest.long_test_time = 5
 
 Rainbow.enabled = false
 
