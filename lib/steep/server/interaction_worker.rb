@@ -327,7 +327,7 @@ HOVER
         if comment
           LSP::Interface::MarkupContent.new(
             kind: LSP::Constant::MarkupKind::MARKDOWN,
-            value: comment.string
+            value: comment.string.gsub(/<!--(?~-->)-->/, "")
           )
         end
       end
@@ -428,7 +428,7 @@ HOVER
               new_text: "#{item.identifier}#{method_type_snippet}",
               range: range
             ),
-            documentation: item.comment&.string,
+            documentation: format_comment(item.comment),
             insert_text_format: LanguageServer::Protocol::Constant::InsertTextFormat::SNIPPET,
             sort_text: item.inherited? ? 'z' : 'a' # Ensure language server puts non-inherited methods before inherited methods
           )
