@@ -22,6 +22,17 @@ module Steep
             decl.primary.decl.is_a?(RBS::AST::Declarations::Module)
           end
         end
+
+        def comments
+          case
+          when decl = env.class_decls[full_name]
+            decl.decls.filter_map {|d| d.decl.comment }
+          when comment = env.constant_decls[full_name]&.decl&.comment
+            [comment]
+          else
+            []
+          end
+        end
       end
       MethodNameItem = Struct.new(:identifier, :range, :receiver_type, :method_type, :method_decls, keyword_init: true) do
         def comment

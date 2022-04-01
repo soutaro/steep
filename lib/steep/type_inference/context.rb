@@ -170,6 +170,10 @@ module Steep
           variable_context: variable_context
         )
       end
+
+      def env
+        type_env.subtyping.factory.env
+      end
     end
   end
 end

@@ -175,6 +175,21 @@ HOVER
           end
 
           string
+        when Services::HoverContent::ConstantContent
+          ss = []
+          if content.class_or_module?
+            ss << ["```rbs", retrieve_decl_information(content.decl.primary.decl), "```"].join("\n")
+          end
+
+          if content.constant?
+            ss << ["```rbs", "#{content.full_name}: #{content.type}", "```"].join("\n")
+          end
+
+          if s = content.comment_string
+            ss << s
+          end
+
+          ss.join("\n\n----\n\n")
         when Services::HoverContent::TypeContent
           "`#{content.type}`"
         end
@@ -332,6 +347,15 @@ HOVER
         end
       end
 
+      def format_comments(comments)
+        unless comments.empty?
+          LSP::Interface::MarkupContent.new(
+            kind: LSP::Constant::MarkupKind::MARKDOWN,
+            value: comments.map(&:string).join("\n----\n").gsub(/<!--(?~-->)-->/, "")
+          )
+        end
+      end
+
       def name_and_params(name, params)
         if params.empty?
           "#{name}"
@@ -421,6 +445,7 @@ HOVER
             label: item.identifier,
             kind: kind,
             detail: detail,
+            documentation: format_comments(item.comments),
             text_edit: LanguageServer::Protocol::Interface::TextEdit.new(
               range: range,
               new_text: item.identifier
