@@ -10,7 +10,19 @@ module Steep
 
       InstanceVariableItem = Struct.new(:identifier, :range, :type, keyword_init: true)
       LocalVariableItem = Struct.new(:identifier, :range, :type, keyword_init: true)
-      ConstantItem = Struct.new(:identifier, :range, :type, :full_name, keyword_init: true)
+      ConstantItem = Struct.new(:env, :identifier, :range, :type, :full_name, keyword_init: true) do
+        def class?
+          if decl = env.class_decls[full_name]
+            decl.primary.decl.is_a?(RBS::AST::Declarations::Class)
+          end
+        end
+
+        def module?
+          if decl = env.class_decls[full_name]
+            decl.primary.decl.is_a?(RBS::AST::Declarations::Module)
+          end
+        end
+      end
       MethodNameItem = Struct.new(:identifier, :range, :receiver_type, :method_type, :method_decls, keyword_init: true) do
         def comment
           case method_decls.size
@@ -60,6 +72,10 @@ module Steep
         Steep.measure "typechecking" do
           @typing = TypeCheckService.type_check(source: source, subtyping: subtyping)
         end
+      end
+
+      def env
+        subtyping.factory.env
       end
 
       def run(line:, column:)
@@ -365,7 +381,7 @@ module Steep
             type, full_name, _ = tuple
 
             if name.to_s.start_with?(prefix)
-              items << ConstantItem.new(identifier: name, range: range, type: type, full_name: full_name)
+              items << ConstantItem.new(env: env, identifier: name, range: range, type: type, full_name: full_name)
             end
           end
         end

@@ -409,10 +409,18 @@ HOVER
             )
           )
         when Services::CompletionProvider::ConstantItem
+          case
+          when item.class? || item.module?
+            kind = LanguageServer::Protocol::Constant::CompletionItemKind::CLASS
+            detail = item.full_name.to_s
+          else
+            kind = LanguageServer::Protocol::Constant::CompletionItemKind::CONSTANT
+            detail = item.type.to_s
+          end
           LanguageServer::Protocol::Interface::CompletionItem.new(
             label: item.identifier,
-            kind: LanguageServer::Protocol::Constant::CompletionItemKind::CONSTANT,
-            detail: item.type.to_s,
+            kind: kind,
+            detail: detail,
             text_edit: LanguageServer::Protocol::Interface::TextEdit.new(
               range: range,
               new_text: item.identifier
