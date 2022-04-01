@@ -23,6 +23,14 @@ module Steep
 
     def process_global_options
       OptionParser.new do |opts|
+        opts.banner = <<~USAGE
+          Usage: steep [options]
+
+          available commands: #{CLI.available_commands.join(', ')}
+
+          Options:
+        USAGE
+
         opts.on("--version") do
           process_version
           exit 0
