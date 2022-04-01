@@ -5,16 +5,42 @@ module Steep
       VariableContent = Struct.new(:node, :name, :type, :location, keyword_init: true)
       MethodCallContent = Struct.new(:node, :method_name, :type, :definition, :location, keyword_init: true)
       DefinitionContent = Struct.new(:node, :method_name, :method_type, :definition, :location, keyword_init: true) do
-      TypeAliasContent = Struct.new(:location, :decl, keyword_init: true)
-      ClassContent = Struct.new(:location, :decl, keyword_init: true)
-      InterfaceContent = Struct.new(:location, :decl, keyword_init: true)
-
         def comment_string
           if comments = definition&.comments
             comments.map {|c| c.string.chomp }.uniq.join("\n----\n")
           end
         end
       end
+      ConstantContent = Struct.new(:location, :full_name, :type, :decl, keyword_init: true) do
+        def comment_string
+          if class_or_module?
+            comments = decl.decls.filter_map {|d| d.decl.comment&.string }
+            unless comments.empty?
+              return comments.join("\n----\n")
+            end
+          end
+
+          if constant?
+            if comment = decl.decl.comment
+              return comment.string
+            end
+          end
+
+          nil
+        end
+
+        def constant?
+          decl.is_a?(RBS::Environment::SingleEntry)
+        end
+
+        def class_or_module?
+          decl.is_a?(RBS::Environment::MultiEntry)
+        end
+      end
+
+      TypeAliasContent = Struct.new(:location, :decl, keyword_init: true)
+      ClassContent = Struct.new(:location, :decl, keyword_init: true)
+      InterfaceContent = Struct.new(:location, :decl, keyword_init: true)
 
       InstanceMethodName = Struct.new(:class_name, :method_name)
       SingletonMethodName = Struct.new(:class_name, :method_name)
@@ -188,6 +214,28 @@ module Steep
                 method_type: method_context.method_type,
                 definition: method_context.method,
                 location: node.loc.expression
+              )
+            end
+          when :const, :casgn
+            context = typing.context_at(line: line, column: column)
+
+            type = typing.type_of(node: node)
+            const_name = typing.source_index.reference(constant_node: node)
+
+            if const_name
+              decl = context.env.class_decls[const_name] || context.env.constant_decls[const_name]
+
+              ConstantContent.new(
+                location: node.location.name,
+                full_name: const_name,
+                type: type,
+                decl: decl
+              )
+            else
+              TypeContent.new(
+                node: node,
+                type: type,
+                location: node.location.expression
               )
             end
           else

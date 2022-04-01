@@ -175,6 +175,21 @@ HOVER
           end
 
           string
+        when Services::HoverContent::ConstantContent
+          ss = []
+          if content.class_or_module?
+            ss << ["```rbs", retrieve_decl_information(content.decl.primary.decl), "```"].join("\n")
+          end
+
+          if content.constant?
+            ss << ["```rbs", "#{content.full_name}: #{content.type}", "```"].join("\n")
+          end
+
+          if s = content.comment_string
+            ss << s
+          end
+
+          ss.join("\n\n----\n\n")
         when Services::HoverContent::TypeContent
           "`#{content.type}`"
         end
@@ -327,7 +342,16 @@ HOVER
         if comment
           LSP::Interface::MarkupContent.new(
             kind: LSP::Constant::MarkupKind::MARKDOWN,
-            value: comment.string
+            value: comment.string.gsub(/<!--(?~-->)-->/, "")
+          )
+        end
+      end
+
+      def format_comments(comments)
+        unless comments.empty?
+          LSP::Interface::MarkupContent.new(
+            kind: LSP::Constant::MarkupKind::MARKDOWN,
+            value: comments.map(&:string).join("\n----\n").gsub(/<!--(?~-->)-->/, "")
           )
         end
       end
@@ -409,10 +433,19 @@ HOVER
             )
           )
         when Services::CompletionProvider::ConstantItem
+          case
+          when item.class? || item.module?
+            kind = LanguageServer::Protocol::Constant::CompletionItemKind::CLASS
+            detail = item.full_name.to_s
+          else
+            kind = LanguageServer::Protocol::Constant::CompletionItemKind::CONSTANT
+            detail = item.type.to_s
+          end
           LanguageServer::Protocol::Interface::CompletionItem.new(
             label: item.identifier,
-            kind: LanguageServer::Protocol::Constant::CompletionItemKind::CONSTANT,
-            detail: item.type.to_s,
+            kind: kind,
+            detail: detail,
+            documentation: format_comments(item.comments),
             text_edit: LanguageServer::Protocol::Interface::TextEdit.new(
               range: range,
               new_text: item.identifier
@@ -428,7 +461,7 @@ HOVER
               new_text: "#{item.identifier}#{method_type_snippet}",
               range: range
             ),
-            documentation: item.comment&.string,
+            documentation: format_comment(item.comment),
             insert_text_format: LanguageServer::Protocol::Constant::InsertTextFormat::SNIPPET,
             sort_text: item.inherited? ? 'z' : 'a' # Ensure language server puts non-inherited methods before inherited methods
           )
