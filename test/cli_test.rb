@@ -540,4 +540,80 @@ end
       refute_predicate status, :success?, stdout
     end
   end
+
+  def test_binstub_generate
+    in_tmpdir do
+      (current_dir + "Gemfile").write(<<GEMFILE)
+source 'https://rubygems.org'
+
+gem 'steep', path: "#{Bundler.root}"
+GEMFILE
+
+      push_env({ "BUNDLE_GEMFILE" => nil }) do
+        sh!("bundle", "install")
+        stdout = sh!("bundle", "exec", "steep", "binstub")
+        assert_equal "Successfully generated executable bin/steep 🎉\n", stdout
+        assert_equal <<'EOF', (current_dir + "bin/steep").read
+#!/usr/bin/env bash
+
+BINSTUB_DIR=$(cd $(dirname $0); pwd)
+GEMFILE=${BINSTUB_DIR}/../Gemfile
+
+STEEP="bundle exec --gemfile=${GEMFILE} steep"
+
+if type "rbenv" > /dev/null 2>&1; then
+  STEEP="rbenv exec ${STEEP}"
+else
+  if type "rvm" > /dev/null 2>&1; then
+    STEEP="rvm ${REPO_ROOT} do ${STEEP}"
+  fi
+fi
+
+exec $STEEP $@
+EOF
+      end
+    end
+  end
+
+  def test_binstub_skip
+    in_tmpdir do
+      (current_dir + "Gemfile").write(<<GEMFILE)
+source 'https://rubygems.org'
+
+gem 'steep', path: "#{Bundler.root}"
+GEMFILE
+
+      (current_dir + "bin").mkdir
+      (current_dir + "bin/steep").write("# test")
+
+      push_env({ "BUNDLE_GEMFILE" => nil }) do
+        sh!("bundle", "install")
+        stdout = sh!("bundle", "exec", "steep", "binstub")
+
+        assert_equal "⚠️ bin/steep already exists. Bye! 👋\n", stdout
+        assert_equal "# test", (current_dir + "bin/steep").read
+      end
+    end
+  end
+
+  def test_binstub_force
+    in_tmpdir do
+      (current_dir + "Gemfile").write(<<GEMFILE)
+source 'https://rubygems.org'
+
+gem 'steep', path: "#{Bundler.root}"
+GEMFILE
+
+      (current_dir + "bin").mkdir
+      (current_dir + "bin/steep").write("# test")
+
+      push_env({ "BUNDLE_GEMFILE" => nil }) do
+        sh!("bundle", "install")
+        stdout = sh!("bundle", "exec", "steep", "binstub", "--force")
+
+        assert_equal "bin/steep already exists. Overwriting...\nSuccessfully generated executable bin/steep 🎉\n", stdout
+        refute_equal "# test", (current_dir + "bin/steep").read
+      end
+    end
+  end
 end

@@ -18,7 +18,7 @@ module Steep
     end
 
     def self.available_commands
-      [:init, :check, :validate, :annotations, :version, :project, :watch, :langserver, :stats]
+      [:init, :check, :validate, :annotations, :version, :project, :watch, :langserver, :stats, :binstub]
     end
 
     def process_global_options
@@ -206,6 +206,75 @@ module Steep
 
         command.vendor_dir = Pathname(argv[0] || "vendor/sigs")
       end.run
+    end
+
+    def process_binstub
+      path = Pathname("bin/steep")
+      force = false
+
+      OptionParser.new do |opts|
+        opts.banner = <<BANNER
+Usage: steep binstub [options]
+
+Generate a binstub to execute Steep with setting up Bundler and rbenv/rvm.
+Use the executable for LSP integration setup.
+
+Options:
+BANNER
+        handle_logging_options opts
+
+        opts.on("-o PATH", "--output=PATH", "The path of the executable file (defaults to `bin/steep`)") do |v|
+          path = Pathname(v)
+        end
+
+        opts.on("--[no-]force", "Overwrite file (defaults to false)") do
+          force = true
+        end
+      end.parse!(argv)
+
+      path.parent.mkpath
+
+      gemfile_path =
+        if defined?(Bundler)
+          Bundler.default_gemfile.relative_path_from(Pathname.pwd + path.parent)
+        else
+          Pathname("../Gemfile")
+        end
+
+      if path.file?
+        if force
+          stdout.puts Rainbow("#{path} already exists. Overwriting...").yellow
+        else
+          stdout.puts Rainbow(''"⚠️ #{path} already exists. Bye! 👋").red
+          return 0
+        end
+      end
+
+      template = <<TEMPLATE
+#!/usr/bin/env bash
+
+BINSTUB_DIR=$(cd $(dirname $0); pwd)
+GEMFILE=${BINSTUB_DIR}/#{gemfile_path}
+
+STEEP="bundle exec --gemfile=${GEMFILE} steep"
+
+if type "rbenv" > /dev/null 2>&1; then
+  STEEP="rbenv exec ${STEEP}"
+else
+  if type "rvm" > /dev/null 2>&1; then
+    STEEP="rvm ${REPO_ROOT} do ${STEEP}"
+  fi
+fi
+
+exec $STEEP $@
+TEMPLATE
+
+      path.write(template)
+      path.chmod(0755)
+
+      stdout.puts Rainbow("Successfully generated executable #{path} 🎉").blue
+
+      0
     end
 
     def process_version
