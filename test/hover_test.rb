@@ -242,6 +242,38 @@ RBS
     end
   end
 
+  def test_hover_heredoc
+    in_tmpdir do
+      service = typecheck_service()
+
+      service.update(
+        changes: {
+          Pathname("hello.rb") => [ContentChange.string(<<'RUBY')],
+s = [<<HELLO, <<WORLD]
+#{Hello}
+HELLO
+World
+WORLD
+RUBY
+          Pathname("hello.rbs") => [ContentChange.string(<<RBS)]
+# Hello world!
+class Hello
+end
+RBS
+        }
+      ) {}
+
+      hover = HoverContent.new(service: service)
+
+      hover.content_for(path: Pathname("hello.rb"), line: 2, column: 4).tap do |content|
+        assert_instance_of HoverContent::ConstantContent, content
+      end
+      hover.content_for(path: Pathname("hello.rb"), line: 4, column: 4).tap do |content|
+        assert_instance_of HoverContent::TypeContent, content
+      end
+    end
+  end
+
   def test_hover_alias_on_rbs
     in_tmpdir do
       service = typecheck_service
