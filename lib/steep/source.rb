@@ -301,13 +301,42 @@ module Steep
       end
     end
 
-    def find_nodes(line:, column:, node: self.node, position: nil, parents: [])
-      return [] unless node
+    def each_heredoc_node(node = self.node, parents = [], &block)
+      if block
+        case node.type
+        when :dstr, :str
+          if node.location.is_a?(Parser::Source::Map::Heredoc)
+            yield [node, *parents]
+          end
+        end
 
-      position ||= (line-1).times.sum do |i|
-        node.location.expression.source_buffer.source_line(i+1).size + 1
-      end + column
+        parents.unshift(node)
+        Source.each_child_node(node) do |child|
+          each_heredoc_node(child, parents, &block)
+        end
+        parents.shift()
+      else
+        enum_for :each_heredoc_node, node
+      end
+    end
 
+    def find_heredoc_nodes(line, column, position)
+      each_heredoc_node() do |nodes|
+        node = nodes[0]
+
+        range = node.location.heredoc_body&.yield_self do |r|
+          r.begin_pos..r.end_pos
+        end
+
+        if range && (range === position)
+          return nodes
+        end
+      end
+
+      nil
+    end
+
+    def find_nodes_loc(node, position, parents)
       range = node.location.expression&.yield_self do |r|
         r.begin_pos..r.end_pos
       end
@@ -317,11 +346,29 @@ module Steep
           parents.unshift node
 
           Source.each_child_node(node) do |child|
-            ns = find_nodes(line: line, column: column, node: child, position: position, parents: parents) and return ns
+            ns = find_nodes_loc(child, position, parents) and return ns
           end
 
           parents
         end
+      end
+    end
+
+    def find_nodes(line:, column:)
+      return [] unless node
+
+      position = (line-1).times.sum do |i|
+        node.location.expression.source_buffer.source_line(i+1).size + 1
+      end + column
+
+      if nodes = find_heredoc_nodes(line, column, position)
+        Source.each_child_node(nodes[0]) do |child|
+          find_nodes_loc(child, position, nodes) and break
+        end
+
+        nodes
+      else
+        find_nodes_loc(node, position, [])
       end
     end
 
