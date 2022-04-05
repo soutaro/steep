@@ -2744,6 +2744,10 @@ module Steep
           end
         end
 
+        if node
+          _, constr = add_typing(node, type: AST::Builtin.any_type)
+        end
+
         [AST::Builtin.any_type, constr, nil]
       end
     end
