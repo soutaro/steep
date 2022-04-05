@@ -7061,7 +7061,7 @@ RUBY
 -> (n, &b) do
   # @type var n: Integer
   # @type var b: nil | ^(Integer) -> String
-  
+
   if b
     b[n]
   end
@@ -8169,7 +8169,7 @@ class A
       list[1]
     end
   end
-end 
+end
 
 # @type var a: list[Integer]
 a = [1, [2, [3, nil]]]
@@ -8448,7 +8448,7 @@ class ProcTypeCase
     if callback.is_a?(Proc)
       callback = callback[]
     end
-    
+
     callback
   end
 end
@@ -8564,7 +8564,7 @@ end
 
       source = parse_ruby(<<-'RUBY')
 # @type var a: FlatMap
-a = _ = nil 
+a = _ = nil
 a.flat_map {|s| [s] }
       RUBY
 
@@ -8621,6 +8621,57 @@ c = [*x]
         assert_equal parse_type("::Array[::String]"), constr.context.lvar_env[:a]
         assert_equal parse_type("::Array[::Integer]"), constr.context.lvar_env[:b]
         assert_equal parse_type("::Array[::Integer | ::String]"), constr.context.lvar_env[:c]
+      end
+    end
+  end
+
+  def test_case_const_unexpected_error
+    with_checker(<<-RBS) do |checker|
+class UnexpectedErrorTest
+  def foo: () -> void
+end
+      RBS
+
+      source = parse_ruby(<<-'RUBY')
+class UnexpectedErrorTest
+  def foo
+    field = _ = 123
+    case field.label
+    when Object::FOO
+    end
+  end
+end
+      RUBY
+
+      with_standard_construction(checker, source) do |construction, typing|
+        construction.synthesize(source.node)
+
+        assert_typing_error(typing, size: 1) do |errors|
+          assert_any!(errors) do |error|
+            assert_instance_of Diagnostic::Ruby::UnknownConstant, error
+          end
+        end
+      end
+    end
+  end
+
+  def test_const_one_error
+    with_checker(<<-RBS) do |checker|
+    RBS
+
+      source = parse_ruby(<<-'RUBY')
+X::Y::Z
+      RUBY
+
+      with_standard_construction(checker, source) do |construction, typing|
+        construction.synthesize(source.node)
+
+        assert_typing_error(typing, size: 1) do |errors|
+          assert_any!(errors) do |error|
+            assert_instance_of Diagnostic::Ruby::UnknownConstant, error
+            assert_equal :X, error.name
+          end
+        end
       end
     end
   end

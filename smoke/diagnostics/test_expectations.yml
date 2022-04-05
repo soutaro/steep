@@ -559,16 +559,6 @@
     code: Ruby::UnknownConstant
   - range:
       start:
-        line: 4
-        character: 7
-      end:
-        line: 4
-        character: 10
-    severity: ERROR
-    message: 'Cannot find the declaration of constant: `BAR`'
-    code: Ruby::UnknownConstant
-  - range:
-      start:
         line: 6
         character: 4
       end:

@@ -2731,6 +2731,14 @@ module Steep
 
               return [type, constr, name]
             end
+          when AST::Types::Any
+            # Couldn't detect the type of the parent constant
+            # Skip reporting error for this node.
+            if node
+              _, constr = add_typing(node, type: parent_type)
+            end
+
+            return [parent_type, constr, nil]
           end
         end
 
@@ -2742,6 +2750,10 @@ module Steep
               Diagnostic::Ruby::UnknownConstant.new(node: node, name: constant_name)
             )
           end
+        end
+
+        if node
+          _, constr = add_typing(node, type: AST::Builtin.any_type)
         end
 
         [AST::Builtin.any_type, constr, nil]
