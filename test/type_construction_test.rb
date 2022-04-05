@@ -8654,4 +8654,25 @@ end
       end
     end
   end
+
+  def test_const_one_error
+    with_checker(<<-RBS) do |checker|
+    RBS
+
+      source = parse_ruby(<<-'RUBY')
+X::Y::Z
+      RUBY
+
+      with_standard_construction(checker, source) do |construction, typing|
+        construction.synthesize(source.node)
+
+        assert_typing_error(typing, size: 1) do |errors|
+          assert_any!(errors) do |error|
+            assert_instance_of Diagnostic::Ruby::UnknownConstant, error
+            assert_equal :X, error.name
+          end
+        end
+      end
+    end
+  end
 end
