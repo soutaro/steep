@@ -2,6 +2,12 @@
 
 ## master
 
+## 0.52.0 (2022-04-05)
+
+* Add `steep binstub` command ([\#527](https://github.com/soutaro/steep/pull/527))
+* Let hover and completion work in heredoc ([\#528](https://github.com/soutaro/steep/pull/528))
+* Better constant typing ([\#529](https://github.com/soutaro/steep/pull/529))
+
 ## 0.51.0 (2022-04-01)
 
 * Completion for constant ([\#524](https://github.com/soutaro/steep/pull/524))
