@@ -8577,6 +8577,53 @@ a.flat_map {|s| [s] }
     end
   end
 
+  def test_filter_map
+    with_checker(<<-RBS) do |checker|
+class FilterMap
+  def filter_map: [A] () { (String) -> (A | nil | false) } -> Array[A]
+end
+    RBS
+
+      source = parse_ruby(<<-'RUBY')
+# @type var a: FilterMap
+a = _ = nil
+a.filter_map do |s|
+  if s
+    s.size
+  end
+end
+      RUBY
+
+      with_standard_construction(checker, source) do |construction, typing|
+        type, _, _ = construction.synthesize(source.node)
+
+        assert_no_error typing
+        assert_equal parse_type("::Array[::Integer]"), type
+      end
+    end
+  end
+
+  def test_filter_map_compact
+    with_checker(<<-RBS) do |checker|
+class Array[unchecked out Element]
+  def filter_map: [A] () { (Element) -> (A | nil | false) } -> Array[A]
+end
+    RBS
+
+      source = parse_ruby(<<-'RUBY')
+a = ["1", nil]
+a.filter_map(&:itself)
+      RUBY
+
+      with_standard_construction(checker, source) do |construction, typing|
+        type, _, _ = construction.synthesize(source.node)
+
+        assert_no_error typing
+        assert_equal parse_type("::Array[::String]"), type
+      end
+    end
+  end
+
   def test_to_proc_syntax_optional_arg
     with_checker(<<-RBS) do |checker|
 class OptionalArgMethod
