@@ -347,7 +347,7 @@ module Steep
 
         when relation.super_type.is_a?(AST::Types::Union)
           Any(relation) do |result|
-            relation.super_type.types.sort_by {|ty| (path = hole_path(ty)) ? -path.size : 1 }.each do |super_type|
+            relation.super_type.types.sort_by {|ty| (path = hole_path(ty)) ? -path.size : -Float::INFINITY }.each do |super_type|
               rel = Relation.new(sub_type: relation.sub_type, super_type: super_type)
               result.add(rel) do
                 check_type(rel)
@@ -357,7 +357,7 @@ module Steep
 
         when relation.sub_type.is_a?(AST::Types::Intersection)
           Any(relation) do |result|
-            relation.sub_type.types.sort_by {|ty| (path = hole_path(ty)) ? -path.size : 1 }.each do |sub_type|
+            relation.sub_type.types.sort_by {|ty| (path = hole_path(ty)) ? -path.size : -Float::INFINITY }.each do |sub_type|
               rel = Relation.new(sub_type: sub_type, super_type: relation.super_type)
               result.add(rel) do
                 check_type(rel)
