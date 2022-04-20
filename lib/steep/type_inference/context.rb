@@ -171,6 +171,10 @@ module Steep
         )
       end
 
+      def factory
+        type_env.subtyping.factory
+      end
+
       def env
         type_env.subtyping.factory.env
       end
