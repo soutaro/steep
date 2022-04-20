@@ -201,13 +201,15 @@ RBS
       response = worker.process_hover(InteractionWorker::HoverJob.new(path: Pathname("sig/hello.rbs"), line: 5, column: 11))
 
       response = response.attributes
-      expected_value = "here is your comments
-
-
+      expected_value = <<MD.chomp
 ```rbs
 type ::foo = ::Integer | ::String
 ```
-"
+
+----
+
+here is your comments
+MD
       assert_equal({ kind: "markdown", value: expected_value }, response[:contents])
       assert_equal({ start: { line: 4, character: 10 }, end: { line: 4, character: 13 }}, response[:range])
     end
@@ -243,13 +245,15 @@ RBS
       response = worker.process_hover(InteractionWorker::HoverJob.new(path: Pathname("sig/hello.rbs"), line: 7, column: 13))
 
       response = response.attributes
-      expected_value = "here is your comments
-
-
+      expected_value = <<MD.chomp
 ```rbs
 interface ::_Fooable
 ```
-"
+
+----
+
+here is your comments
+MD
       assert_equal({ kind: "markdown", value: expected_value }, response[:contents])
       assert_equal({ start: { line: 6, character: 12 }, end: { line: 6, character: 20 }}, response[:range])
     end
@@ -284,13 +288,15 @@ RBS
       response = worker.process_hover(InteractionWorker::HoverJob.new(path: Pathname("sig/hello.rbs"), line: 6, column: 10))
 
       response = response.attributes
-      expected_value = "here is your comments
-
-
+      expected_value = <<MD.chomp
 ```rbs
 class ::Foo[T] < ::Parent[T]
 ```
-"
+
+----
+
+here is your comments
+MD
       assert_equal({ kind: "markdown", value: expected_value }, response[:contents])
       assert_equal({ start: { line: 5, character: 8 }, end: { line: 5, character: 11 }}, response[:range])
     end
@@ -323,14 +329,15 @@ RBS
       response = worker.process_hover(InteractionWorker::HoverJob.new(path: Pathname("sig/hello.rbs"), line: 5, column: 15))
 
       response = response.attributes
-      expected_value = "
-This is comment content
-
-
+      expected_value = <<MD.chomp
 ```rbs
 class ::Foo[T]
 ```
-"
+
+----
+
+This is comment content
+MD
       assert_equal({ kind: "markdown", value: expected_value }, response[:contents])
     end
   end

@@ -78,8 +78,7 @@ module Steep
           Steep.measure "Generating hover response" do
             Steep.logger.info { "path=#{job.path}, line=#{job.line}, column=#{job.column}" }
 
-            hover = Services::HoverContent.new(service: service)
-            content = hover.content_for(path: job.path, line: job.line, column: job.column)
+            content = Services::HoverProvider.content_for(service: service, path: job.path, line: job.line, column: job.column)
             if content
               range = content.location.yield_self do |location|
                 lsp_range = location.as_lsp_range
@@ -89,7 +88,10 @@ module Steep
               end
 
               LSP::Interface::Hover.new(
-                contents: { kind: "markdown", value: format_hover(content)&.gsub(/<!--(?~-->)-->/, "") },
+                contents: {
+                  kind: "markdown",
+                  value: LSPFormatter.format_hover_content(content).to_s
+                },
                 range: range
               )
             end
@@ -97,101 +99,6 @@ module Steep
             Steep.log_error exn, message: "Failed to compute hover: #{exn.inspect}"
             nil
           end
-        end
-      end
-
-      def format_hover(content)
-        case content
-        when Services::HoverContent::TypeAliasContent
-          comment = content.decl.comment&.string || ''
-
-          <<-MD
-#{comment}
-
-```rbs
-#{retrieve_decl_information(content.decl)}
-```
-          MD
-        when Services::HoverContent::InterfaceContent
-          comment = content.decl.comment&.string || ''
-
-          <<-MD
-#{comment}
-
-```rbs
-#{retrieve_decl_information(content.decl)}
-```
-          MD
-        when Services::HoverContent::ClassContent
-          comment = content.decl.comment&.string || ''
-
-          <<-MD
-#{comment}
-
-```rbs
-#{retrieve_decl_information(content.decl)}
-```
-          MD
-        when Services::HoverContent::VariableContent
-          "`#{content.name}`: `#{content.type.to_s}`"
-        when Services::HoverContent::MethodCallContent
-          method_name = case content.method_name
-                        when Services::HoverContent::InstanceMethodName
-                          "#{content.method_name.class_name}##{content.method_name.method_name}"
-                        when Services::HoverContent::SingletonMethodName
-                          "#{content.method_name.class_name}.#{content.method_name.method_name}"
-                        else
-                          nil
-                        end
-
-          if method_name
-            string = <<HOVER
-```
-#{method_name} ~> #{content.type}
-```
-HOVER
-            if content.definition
-              if content.definition.comments
-                string << "\n----\n\n#{content.definition.comments.map(&:string).join("\n\n")}"
-              end
-
-              string << "\n----\n\n#{content.definition.method_types.map {|x| "- `#{x}`\n" }.join()}"
-            end
-          else
-            "`#{content.type}`"
-          end
-        when Services::HoverContent::DefinitionContent
-          string = <<HOVER
-```
-def #{content.method_name}: #{content.method_type}
-```
-HOVER
-          if (comment = content.comment_string)
-            string << "\n----\n\n#{comment}\n"
-          end
-
-          if content.definition.method_types.size > 1
-            string << "\n----\n\n#{content.definition.method_types.map {|x| "- `#{x}`\n" }.join()}"
-          end
-
-          string
-        when Services::HoverContent::ConstantContent
-          ss = []
-          if content.class_or_module?
-            ss << ["```rbs", retrieve_decl_information(content.decl.primary.decl), "```"].join("\n")
-          end
-
-          if content.constant?
-            ss << ["```rbs", "#{content.full_name}: #{content.type}", "```"].join("\n")
-          end
-
-          if s = content.comment_string
-            ss << s
-          end
-
-          ss.join("\n\n----\n\n")
-        when Services::HoverContent::TypeContent
-          "`#{content.type}`"
         end
       end
 
@@ -353,59 +260,6 @@ HOVER
             kind: LSP::Constant::MarkupKind::MARKDOWN,
             value: comments.map(&:string).join("\n----\n").gsub(/<!--(?~-->)-->/, "")
           )
-        end
-      end
-
-      def name_and_params(name, params)
-        if params.empty?
-          "#{name}"
-        else
-          ps = params.each.map do |param|
-            s = ""
-            if param.unchecked?
-              s << "unchecked "
-            end
-            case param.variance
-            when :invariant
-              # nop
-            when :covariant
-              s << "out "
-            when :contravariant
-              s << "in "
-            end
-            s + param.name.to_s
-          end
-
-          "#{name}[#{ps.join(", ")}]"
-        end
-      end
-
-      def name_and_args(name, args)
-        if name && args
-          if args.empty?
-            "#{name}"
-          else
-            "#{name}[#{args.join(", ")}]"
-          end
-        end
-      end
-
-      def retrieve_decl_information(decl)
-        case decl
-        when RBS::AST::Declarations::Class
-          super_class = if super_class = decl.super_class
-                          " < #{name_and_args(super_class.name, super_class.args)}"
-                        end
-          "class #{name_and_params(decl.name, decl.type_params)}#{super_class}"
-        when RBS::AST::Declarations::Module
-          self_type = unless decl.self_types.empty?
-                        " : #{decl.self_types.join(", ")}"
-                      end
-          "module #{name_and_params(decl.name, decl.type_params)}#{self_type}"
-        when RBS::AST::Declarations::Alias
-          "type #{decl.name} = #{decl.type}"
-        when RBS::AST::Declarations::Interface
-          "interface #{name_and_params(decl.name, decl.type_params)}"
         end
       end
 
