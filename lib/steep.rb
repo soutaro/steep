@@ -112,6 +112,7 @@ require "steep/services/stats_calculator"
 require "steep/services/file_loader"
 require "steep/services/goto_service"
 
+require "steep/server/lsp_formatter"
 require "steep/project"
 require "steep/project/pattern"
 require "steep/project/options"
