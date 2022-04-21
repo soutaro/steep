@@ -26,6 +26,7 @@ jobs:
     - uses: actions/checkout@v3
     - name: Run test
       run: |
+        git config --global --add safe.directory /__w/steep/steep
         ruby -v
         gem install bundler
         bundle install --jobs 4 --retry 3
