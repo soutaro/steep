@@ -49,7 +49,10 @@ module Steep
             builder.push do |s|
               case call
               when TypeInference::MethodCall::Typed
-                s << "```rbs\n#{call.actual_method_type.to_s}\n```\n\n"
+                mt = call.actual_method_type.with(
+                  type: call.actual_method_type.type.with(return_type: call.return_type)
+                )
+                s << "```rbs\n#{mt.to_s}\n```\n\n"
               when TypeInference::MethodCall::Error
                 s << "```rbs\n( ??? ) -> #{call.return_type.to_s}\n```\n\n"
               end
