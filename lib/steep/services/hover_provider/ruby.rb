@@ -99,7 +99,7 @@ module Steep
 
               return VariableContent.new(node: node, name: var_name, type: type, location: node.location.name)
 
-            when :send
+            when :send, :csend
               result_node =
                 case parents[0]&.type
                 when :block, :numblock
