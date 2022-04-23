@@ -68,6 +68,47 @@ EOM
     end
   end
 
+  def test_ruby_hover_method_call_csend
+    with_factory do
+      typing = type_check(<<RUBY)
+""&.gsub(/foo/, "bar")
+RUBY
+
+      call = typing.call_of(node: typing.source.node)
+
+      content = Services::HoverProvider::Ruby::MethodCallContent.new(
+        node: nil,
+        method_call: call,
+        location: nil
+      )
+
+      comment = Server::LSPFormatter.format_hover_content(content)
+      assert_equal <<EOM.chomp, comment
+```rbs
+((::Regexp | ::string), ::string) -> (::String | nil)
+```
+
+- `::String#gsub`
+
+----
+
+**::String#gsub**
+
+```rbs
+(::Regexp | ::string pattern, ::string replacement) -> ::String
+```
+
+Returns a copy of `self` with all occurrences of the given `pattern` replaced.
+
+See [Substitution Methods](#class-String-label-Substitution+Methods).
+
+Returns an Enumerator if no `replacement` and no block given.
+
+Related: String#sub, String#sub!, String#gsub!.
+EOM
+    end
+  end
+
   def test_ruby_hover_method_def
     with_factory do
       content = Services::HoverProvider::Ruby::DefinitionContent.new(
