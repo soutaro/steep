@@ -7,6 +7,12 @@ class Steep::Server::LSPFormatterTest < Minitest::Test
 
   include Steep
 
+  def type_check(content)
+    source = Source.parse(content, path: Pathname("a.rb"), factory: factory)
+    subtyping = Subtyping::Check.new(factory: factory)
+    Services::TypeCheckService.type_check(source: source, subtyping: subtyping)
+  end
+
   def test_ruby_hover_variable
     with_factory do
       content = Services::HoverProvider::Ruby::VariableContent.new(
@@ -23,19 +29,33 @@ class Steep::Server::LSPFormatterTest < Minitest::Test
 
   def test_ruby_hover_method_call
     with_factory do
+      typing = type_check(<<RUBY)
+"".gsub(/foo/, "bar")
+RUBY
+
+      call = typing.call_of(node: typing.source.node)
+
       content = Services::HoverProvider::Ruby::MethodCallContent.new(
         node: nil,
-        method_name: MethodName("::String#gsub"),
-        type: parse_type("::String"),
-        definition: factory.definition_builder.build_instance(TypeName("::String")).methods[:gsub],
+        method_call: call,
         location: nil
       )
 
       comment = Server::LSPFormatter.format_hover_content(content)
       assert_equal <<EOM.chomp, comment
-`::String#gsub` ⇒ `::String`
+```rbs
+((::Regexp | ::string), ::string) -> ::String
+```
+
+- `::String#gsub`
 
 ----
+
+**::String#gsub**
+
+```rbs
+(::Regexp | ::string pattern, ::string replacement) -> ::String
+```
 
 Returns a copy of `self` with all occurrences of the given `pattern` replaced.
 
@@ -44,13 +64,6 @@ See [Substitution Methods](#class-String-label-Substitution+Methods).
 Returns an Enumerator if no `replacement` and no block given.
 
 Related: String#sub, String#sub!, String#gsub!.
-
-----
-
-- `(::Regexp | ::string pattern, ::string replacement) -> ::String`
-- `(::Regexp | ::string pattern, ::Hash[::String, ::String] hash) -> ::String`
-- `(::Regexp | ::string pattern) { (::String match) -> ::_ToS } -> ::String`
-- `(::Regexp | ::string pattern) -> ::Enumerator[::String, self]`
 EOM
     end
   end

@@ -22,11 +22,17 @@ module Steep
 
         def <<(string)
           if string
-            s = string.rstrip.gsub(/<!--(?~-->)-->/, "").gsub(/\A([ \t]*\n)+/, "")
+            s = string.rstrip.gsub(/^[ \t]*<!--(?~-->)-->\n/, "").gsub(/\A([ \t]*\n)+/, "")
             unless @array.include?(s)
               @array << s
             end
           end
+        end
+
+        def push
+          s = ""
+          yield s
+          self << s
         end
       end
 
@@ -38,23 +44,36 @@ module Steep
           "`#{content.name}`: `#{content.type.to_s}`"
 
         when HoverProvider::Ruby::MethodCallContent
-          method_name = content.method_name&.to_s
+          CommentBuilder.build do |builder|
+            call = content.method_call
+            builder.push do |s|
+              case call
+              when TypeInference::MethodCall::Typed
+                s << "```rbs\n#{call.actual_method_type.to_s}\n```\n\n"
+              when TypeInference::MethodCall::Error
+                s << "```rbs\n( ??? ) -> #{call.return_type.to_s}\n```\n\n"
+              end
 
-          if method_name
-            CommentBuilder.build do |builder|
-              builder << "`#{method_name}` ⇒ `#{content.type}`"
-
-              if content.definition
-                content.definition.comments.each do |comment|
-                  builder << comment.string
-                end
-
-                builder << to_list(content.definition.method_types) {|type| "`#{type.to_s}`" }
+              s << to_list(call.method_decls) do |decl|
+                "`#{decl.method_name}`"
               end
             end
-          else
-            "`#{content.type}`"
+
+            call.method_decls.each do |decl|
+              if comment = decl.method_def.comment
+                builder << <<EOM
+**#{decl.method_name.to_s}**
+
+```rbs
+#{decl.method_type}
+```
+
+#{decl.method_def.comment.string.gsub(/\A([ \t]*\n)+/, "")}
+EOM
+              end
+            end
           end
+
         when HoverProvider::Ruby::DefinitionContent
           CommentBuilder.build do |builder|
             builder << <<EOM
