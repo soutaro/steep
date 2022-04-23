@@ -4,7 +4,7 @@ module Steep
       class Ruby
         TypeContent = Struct.new(:node, :type, :location, keyword_init: true)
         VariableContent = Struct.new(:node, :name, :type, :location, keyword_init: true)
-        MethodCallContent = Struct.new(:node, :method_name, :type, :definition, :location, keyword_init: true)
+        MethodCallContent = Struct.new(:node, :method_call, :location, keyword_init: true)
         DefinitionContent = Struct.new(:node, :method_name, :method_type, :definition, :location, keyword_init: true)
         ConstantContent = Struct.new(:location, :full_name, :type, :decl, keyword_init: true) do
           def comments
@@ -61,60 +61,6 @@ module Steep
           nil
         end
 
-        def method_call_content(node, parents, typing:, line:, column:)
-          receiver, method_name, *_ = node.children
-
-          result_node =
-            case parents[0]&.type
-            when :block, :numblock
-              parents[0]
-            else
-              node
-            end
-
-          context = typing.context_at(line: line, column: column)
-
-          receiver_type =
-            if receiver
-              typing.type_of(node: receiver)
-            else
-              context.self_type
-            end
-
-          factory = context.type_env.subtyping.factory
-          method_name, definition =
-            case receiver_type
-            when AST::Types::Name::Instance
-              method_definition = method_definition_for(factory, receiver_type.name, instance_method: method_name)
-              if method_definition&.defined_in
-                owner_name = method_definition.defined_in
-                [
-                  InstanceMethodName.new(type_name: owner_name, method_name: method_name),
-                  method_definition
-                ]
-              end
-            when AST::Types::Name::Singleton
-              method_definition = method_definition_for(factory, receiver_type.name, singleton_method: method_name)
-              if method_definition&.defined_in
-                owner_name = method_definition.defined_in
-                [
-                  SingletonMethodName.new(type_name: owner_name, method_name: method_name),
-                  method_definition
-                ]
-              end
-            else
-              nil
-            end
-
-          MethodCallContent.new(
-            node: node,
-            method_name: method_name,
-            type: typing.type_of(node: result_node),
-            definition: definition,
-            location: node.location.selector
-          )
-        end
-
         def method_name_from_method(context, builder:)
           defined_in = context.method.defined_in
           method_name = context.name
@@ -144,21 +90,45 @@ module Steep
               context = typing.context_at(line: line, column: column)
               var_type = context.lvar_env[var_name] || AST::Types::Any.new(location: nil)
 
-              VariableContent.new(node: node, name: var_name, type: var_type, location: node.location.name)
+              return VariableContent.new(node: node, name: var_name, type: var_type, location: node.location.name)
+
             when :lvasgn
               var_name, rhs = node.children
               context = typing.context_at(line: line, column: column)
               type = context.lvar_env[var_name] || typing.type_of(node: rhs)
 
-              VariableContent.new(node: node, name: var_name, type: type, location: node.location.name)
-            when :send
-              method_call_content(node, parents, typing: typing, line: line, column: column)
+              return VariableContent.new(node: node, name: var_name, type: type, location: node.location.name)
+
+            when :send, :csend
+              result_node =
+                case parents[0]&.type
+                when :block, :numblock
+                  if node == parents[0].children[0]
+                    parents[0]
+                  else
+                    node
+                  end
+                else
+                  node
+                end
+
+              case call = typing.call_of(node: result_node)
+              when TypeInference::MethodCall::Typed, TypeInference::MethodCall::Error
+                unless call.method_decls.empty?
+                  return MethodCallContent.new(
+                    node: result_node,
+                    method_call: call,
+                    location: node.location.selector
+                  )
+                end
+              end
+
             when :def, :defs
               context = typing.context_at(line: line, column: column)
               method_context = context.method_context
 
               if method_context && method_context.method
-                DefinitionContent.new(
+                return DefinitionContent.new(
                   node: node,
                   method_name: method_name_from_method(method_context, builder: context.factory.definition_builder),
                   method_type: method_context.method_type,
@@ -166,6 +136,7 @@ module Steep
                   location: node.loc.name
                 )
               end
+
             when :const, :casgn
               context = typing.context_at(line: line, column: column)
 
@@ -175,28 +146,20 @@ module Steep
               if const_name
                 decl = context.env.class_decls[const_name] || context.env.constant_decls[const_name]
 
-                ConstantContent.new(
+                return ConstantContent.new(
                   location: node.location.name,
                   full_name: const_name,
                   type: type,
                   decl: decl
                 )
-              else
-                TypeContent.new(
-                  node: node,
-                  type: type,
-                  location: node.location.expression
-                )
               end
-            else
-              type = typing.type_of(node: node)
-
-              TypeContent.new(
-                node: node,
-                type: type,
-                location: node.location.expression
-              )
             end
+
+            TypeContent.new(
+              node: node,
+              type: typing.type_of(node: node),
+              location: node.location.expression
+            )
           end
         end
       end
