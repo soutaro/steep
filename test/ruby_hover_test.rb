@@ -136,6 +136,13 @@ RUBY
         assert_instance_of TypeInference::MethodCall::Typed, content.method_call
         assert_equal "::Array[::String]", content.method_call.return_type.to_s
       end
+
+      hover.content_for(target: target, path: Pathname("hello.rb"), line: 1, column: 21).tap do |content|
+        assert_instance_of HoverProvider::Ruby::MethodCallContent, content
+        assert_equal [1,19]...[1,23], [content.location.line,content.location.column]...[content.location.last_line, content.location.last_column]
+        assert_instance_of TypeInference::MethodCall::Typed, content.method_call
+        assert_equal "::String", content.method_call.return_type.to_s
+      end
     end
   end
 
