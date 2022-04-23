@@ -139,7 +139,7 @@ RUBY
         assert_equal [5, 7]...[5, 11], [content.location.line,content.location.column]...[content.location.last_line, content.location.last_column]
         assert_instance_of TypeInference::MethodCall::Typed, content.method_call
         assert_equal [MethodName("::Array#join")], content.method_call.method_decls.map(&:method_name)
-        assert_equal "::String", content.method_call.return_type.to_s
+        assert_equal "(::String | nil)", content.method_call.return_type.to_s
       end
     end
   end

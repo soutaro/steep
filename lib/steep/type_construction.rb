@@ -2910,6 +2910,11 @@ module Steep
               call = call.with_return_type(typing.type_of(node: arguments.last))
             end
           end
+
+          if node.type == :csend || ((node.type == :block || node.type == :numblock) && node.children[0].type == :csend)
+            optional_type = AST::Types::Union.build(types: [call.return_type, AST::Builtin.nil_type])
+            call = call.with_return_type(optional_type)
+          end
         else
           error = Diagnostic::Ruby::UnresolvedOverloading.new(
             node: node,

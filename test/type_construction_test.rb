@@ -3468,6 +3468,7 @@ EOF
 
         assert_equal parse_type("::Integer?"), pair.type
         assert_equal parse_type("::Integer?"), pair.context.lvar_env[:z]
+        assert_equal parse_type("::Integer?"), typing.call_of(node: dig(source.node, 1, 1)).return_type
       end
     end
   end
