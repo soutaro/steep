@@ -431,7 +431,8 @@ module Steep
               case defined_in
               when RBS::BuiltinNames::BasicObject.name,
                 RBS::BuiltinNames::TrueClass.name,
-                RBS::BuiltinNames::FalseClass.name
+                RBS::BuiltinNames::FalseClass.name,
+                AST::Builtin::NilClass.module_name
                 return method_type.with(
                   type: method_type.type.with(
                     return_type: AST::Types::Logic::Not.new(location: method_type.type.return_type.location)
