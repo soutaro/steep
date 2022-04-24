@@ -254,7 +254,8 @@ BANNER
 #!/usr/bin/env bash
 
 BINSTUB_DIR=$(cd $(dirname $0); pwd)
-GEMFILE=${BINSTUB_DIR}/#{gemfile_path}
+GEMFILE=$(readlink -f ${BINSTUB_DIR}/#{gemfile_path})
+GEMFILE_DIR=$(dirname ${GEMFILE})
 
 STEEP="bundle exec --gemfile=${GEMFILE} steep"
 
@@ -262,7 +263,7 @@ if type "rbenv" > /dev/null 2>&1; then
   STEEP="rbenv exec ${STEEP}"
 else
   if type "rvm" > /dev/null 2>&1; then
-    STEEP="rvm ${REPO_ROOT} do ${STEEP}"
+    STEEP="rvm ${GEMFILE_DIR} do ${STEEP}"
   fi
 fi
 
