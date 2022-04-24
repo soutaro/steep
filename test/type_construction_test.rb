@@ -8723,4 +8723,28 @@ X::Y::Z
       end
     end
   end
+
+  def test_flow_sensitive_not
+    with_checker(<<-RBS) do |checker|
+class String
+  def empty?: () -> bool
+end
+
+class NilClass
+  def !: () -> true
+end
+    RBS
+
+      source = parse_ruby(<<-'RUBY')
+doc = 1 ? "" : nil
+doc = (2 ? "" : nil) if !doc || doc.empty?
+      RUBY
+
+      with_standard_construction(checker, source) do |construction, typing|
+        construction.synthesize(source.node)
+
+        assert_no_error(typing)
+      end
+    end
+  end
 end
