@@ -2,6 +2,13 @@
 
 ## master
 
+## 0.52.1 (2022-04-25)
+
+* Better union type inference (it type checks `Array#filter_map` now!) ([\#531](https://github.com/soutaro/steep/pull/531))
+* Improve method call hover message ([\#537](https://github.com/soutaro/steep/pull/537), [\#538](https://github.com/soutaro/steep/pull/538))
+* Make `NilClass#!` a special method to improve flow-sensitive typing ([\#539](https://github.com/soutaro/steep/pull/539))
+* Fix `steep binstub` ([\#540](https://github.com/soutaro/steep/pull/540), [\#541](https://github.com/soutaro/steep/pull/541))
+
 ## 0.52.0 (2022-04-05)
 
 * Add `steep binstub` command ([\#527](https://github.com/soutaro/steep/pull/527))
