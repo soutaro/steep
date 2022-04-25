@@ -210,6 +210,7 @@ module Steep
 
     def process_binstub
       path = Pathname("bin/steep")
+      root_path = Pathname.pwd
       force = false
 
       OptionParser.new do |opts|
@@ -227,21 +228,28 @@ BANNER
           path = Pathname(v)
         end
 
+        opts.on("--root=PATH", "The repository root path (defaults to `.`)") do |v|
+          root_path = (Pathname.pwd + v).cleanpath
+        end
+
         opts.on("--[no-]force", "Overwrite file (defaults to false)") do
           force = true
         end
       end.parse!(argv)
 
-      path.parent.mkpath
+      binstub_path = (Pathname.pwd + path).cleanpath
+      bindir_path = binstub_path.parent
+
+      bindir_path.mkpath
 
       gemfile_path =
         if defined?(Bundler)
-          Bundler.default_gemfile.relative_path_from(Pathname.pwd + path.parent)
+          Bundler.default_gemfile.relative_path_from(bindir_path)
         else
           Pathname("../Gemfile")
         end
 
-      if path.file?
+      if binstub_path.file?
         if force
           stdout.puts Rainbow("#{path} already exists. Overwriting...").yellow
         else
@@ -255,7 +263,7 @@ BANNER
 
 BINSTUB_DIR=$(cd $(dirname $0); pwd)
 GEMFILE=$(readlink -f ${BINSTUB_DIR}/#{gemfile_path})
-GEMFILE_DIR=$(dirname ${GEMFILE})
+ROOT_DIR=$(readlink -f ${BINSTUB_DIR}/#{root_path.relative_path_from(bindir_path)})
 
 STEEP="bundle exec --gemfile=${GEMFILE} steep"
 
@@ -263,15 +271,15 @@ if type "rbenv" > /dev/null 2>&1; then
   STEEP="rbenv exec ${STEEP}"
 else
   if type "rvm" > /dev/null 2>&1; then
-    STEEP="rvm ${GEMFILE_DIR} do ${STEEP}"
+    STEEP="rvm ${ROOT_DIR} do ${STEEP}"
   fi
 fi
 
 exec $STEEP $@
 TEMPLATE
 
-      path.write(template)
-      path.chmod(0755)
+      binstub_path.write(template)
+      binstub_path.chmod(0755)
 
       stdout.puts Rainbow("Successfully generated executable #{path} 🎉").blue
 
