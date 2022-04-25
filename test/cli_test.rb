@@ -558,7 +558,7 @@ GEMFILE
 
 BINSTUB_DIR=$(cd $(dirname $0); pwd)
 GEMFILE=$(readlink -f ${BINSTUB_DIR}/../Gemfile)
-GEMFILE_DIR=$(dirname ${GEMFILE})
+ROOT_DIR=$(readlink -f ${BINSTUB_DIR}/..)
 
 STEEP="bundle exec --gemfile=${GEMFILE} steep"
 
@@ -566,12 +566,16 @@ if type "rbenv" > /dev/null 2>&1; then
   STEEP="rbenv exec ${STEEP}"
 else
   if type "rvm" > /dev/null 2>&1; then
-    STEEP="rvm ${GEMFILE_DIR} do ${STEEP}"
+    STEEP="rvm ${ROOT_DIR} do ${STEEP}"
   fi
 fi
 
 exec $STEEP $@
 EOF
+
+        assert_equal <<EOM, sh!("bin/steep", "version")
+#{Steep::VERSION}
+EOM
       end
     end
   end
