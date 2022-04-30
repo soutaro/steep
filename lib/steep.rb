@@ -21,6 +21,8 @@ require "terminal-table"
 
 require "rbs"
 
+require "steep/shims/filter_map"
+
 require "steep/equatable"
 require "steep/method_name"
 require "steep/ast/types/helper"
