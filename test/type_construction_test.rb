@@ -8673,6 +8673,32 @@ c = [*x]
     end
   end
 
+  def test_to_a_untyped
+    with_checker(<<-RBS) do |checker|
+    RBS
+
+      source = parse_ruby(<<-'RUBY')
+# @type var a: untyped
+a = _ = nil
+[*a]
+
+# @type var b: top
+b = _ = nil
+[*b]
+
+# @type var c: bot
+c = _ = nil 
+[*c]
+      RUBY
+
+      with_standard_construction(checker, source) do |construction, typing|
+        _, constr = construction.synthesize(source.node)
+
+        assert_no_error typing
+      end
+    end
+  end
+
   def test_case_const_unexpected_error
     with_checker(<<-RBS) do |checker|
 class UnexpectedErrorTest
