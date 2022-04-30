@@ -8747,4 +8747,27 @@ doc = (2 ? "" : nil) if !doc || doc.empty?
       end
     end
   end
+
+  def test_super_class_not_const
+    with_checker(<<-RBS) do |checker|
+module SuperClassNotConst
+  class Foo
+  end 
+end
+    RBS
+
+      source = parse_ruby(<<-'RUBY')
+module SuperClassNotConst
+  class Foo < Class.new
+  end
+end
+      RUBY
+
+      with_standard_construction(checker, source) do |construction, typing|
+        construction.synthesize(source.node)
+
+        assert_no_error(typing)
+      end
+    end
+  end
 end

@@ -1498,13 +1498,18 @@ module Steep
             end
 
             if super_node
-              _, constr, super_name = constr.synthesize_constant(super_node, super_node.children[0], super_node.children[1]) do
-                typing.add_error(
-                  Diagnostic::Ruby::UnknownConstant.new(node: super_node, name: super_node.children[1]).class!
-                )
-              end
-              if super_name
-                typing.source_index.add_reference(constant: super_name, ref: super_node)
+              if super_node.type == :const
+                _, constr, super_name = constr.synthesize_constant(super_node, super_node.children[0], super_node.children[1]) do
+                  typing.add_error(
+                    Diagnostic::Ruby::UnknownConstant.new(node: super_node, name: super_node.children[1]).class!
+                  )
+                end
+
+                if super_name
+                  typing.source_index.add_reference(constant: super_name, ref: super_node)
+                end
+              else
+                _, constr = synthesize(super_node, hint: nil, condition: false)
               end
             end
 
