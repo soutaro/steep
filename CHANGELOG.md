@@ -2,6 +2,12 @@
 
 ## master
 
+## 0.52.2 (2022-05-02)
+
+* Handle class declaration with non-const super class ([\#546](https://github.com/soutaro/steep/pull/546))
+* Remove `#to_a` error message ([\#545](https://github.com/soutaro/steep/pull/545))
+* Add `#filter_map` shim ([\#544](https://github.com/soutaro/steep/pull/544))
+
 ## 0.52.1 (2022-04-25)
 
 * Better union type inference (it type checks `Array#filter_map` now!) ([\#531](https://github.com/soutaro/steep/pull/531))
