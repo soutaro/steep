@@ -3986,6 +3986,11 @@ module Steep
     end
 
     def try_convert(type, method)
+      case type
+      when AST::Types::Any, AST::Types::Bot, AST::Types::Top, AST::Types::Var
+        return
+      end
+
       interface = checker.factory.interface(type, private: false)
       if entry = interface.methods[method]
         method_type = entry.method_types.find do |method_type|
