@@ -51,7 +51,7 @@ GEM
     rb-fsevent (0.11.1)
     rb-inotify (0.10.1)
       ffi (~> 1.0)
-    rbs (2.3.2)
+    rbs (2.4.0)
     stackprof (0.2.19)
     terminal-table (3.0.2)
       unicode-display_width (>= 1.1.1, < 3)
