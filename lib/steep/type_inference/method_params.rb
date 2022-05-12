@@ -315,6 +315,7 @@ module Steep
             when Interface::Function::Params::PositionalParams::Rest
               rest_types << param.type
               positional_params = nil
+              args.shift
               break
             when nil
               has_error = true

@@ -8796,4 +8796,30 @@ end
       end
     end
   end
+
+  def test_keyword_param_methods
+    with_checker(<<-RBS) do |checker|
+module KeywordParamMethod
+  class Foo
+    def bar: (*String, name: Symbol) -> void
+  end 
+end
+    RBS
+
+      source = parse_ruby(<<-'RUBY')
+module KeywordParamMethod
+  class Foo
+    def bar(*args, name:)
+    end
+  end
+end
+      RUBY
+
+      with_standard_construction(checker, source) do |construction, typing|
+        construction.synthesize(source.node)
+
+        assert_no_error(typing)
+      end
+    end
+  end
 end
