@@ -1645,6 +1645,28 @@ a, *b, c = x
     end
   end
 
+  def test_masgn_splat_unnamed
+    with_checker do |checker|
+      source = parse_ruby(<<-RUBY)
+# @type var x: Array[Integer]
+x = []
+a, *, c = x
+      RUBY
+
+
+      with_standard_construction(checker, source) do |construction, typing|
+        type, _, context = construction.synthesize(source.node)
+
+        assert_no_error typing
+
+        assert_equal parse_type("::Array[::Integer]"), type
+        assert_equal parse_type("::Integer?"), context.lvar_env[:a]
+        assert_nil context.lvar_env[:b]
+        assert_equal parse_type("::Integer?"), context.lvar_env[:c]
+      end
+    end
+  end
+
   def test_masgn_optional
     with_checker do |checker|
       source = parse_ruby(<<-EOF)
@@ -1697,17 +1719,16 @@ a, @b = _ = nil
       EOF
 
       with_standard_construction(checker, source) do |construction, typing|
-        construction.synthesize(source.node)
-
-        assert_equal 1, typing.errors.size
+        type, constr, context = construction.synthesize(source.node)
 
         assert_all!(typing.errors) do |error|
           assert_instance_of Diagnostic::Ruby::FallbackAny, error
         end
+
+        assert_equal parse_type("untyped"), context.lvar_env[:a]
       end
     end
   end
-
 
   def test_union_send_error
     with_checker do |checker|
