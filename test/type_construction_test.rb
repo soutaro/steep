@@ -1697,17 +1697,16 @@ a, @b = _ = nil
       EOF
 
       with_standard_construction(checker, source) do |construction, typing|
-        construction.synthesize(source.node)
-
-        assert_equal 1, typing.errors.size
+        type, constr, context = construction.synthesize(source.node)
 
         assert_all!(typing.errors) do |error|
           assert_instance_of Diagnostic::Ruby::FallbackAny, error
         end
+
+        assert_equal parse_type("untyped"), context.lvar_env[:a]
       end
     end
   end
-
 
   def test_union_send_error
     with_checker do |checker|

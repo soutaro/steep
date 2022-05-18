@@ -2684,7 +2684,31 @@ module Steep
         unless rhs_type.is_a?(AST::Types::Any)
           Steep.logger.error("Unsupported masgn rhs type: array or tuple is supported (#{rhs_type})")
         end
-        _, constr = constr.fallback_to_any(lhs)
+
+        untyped = AST::Builtin.any_type
+
+        constr = lhs.children.inject(constr) do |constr, assignment|
+          case assignment.type
+          when :lvasgn
+            _, constr = constr.lvasgn(assignment, untyped)
+          when :ivasgn
+            _, constr = constr.ivasgn(assignment, untyped)
+          when :splat
+            case assignment.children[0]&.type
+            when :lvasgn
+              _, constr = constr.lvasgn(assignment.children[0], untyped)
+            when :ivasgn
+              _, constr = constr.ivasgn(assignment.children[0], untyped)
+            when nil
+              # foo, * = bar
+            else
+              raise
+            end
+          end
+
+          constr
+        end
+
         add_typing(node, type: rhs_type, constr: constr)
       end
     end
