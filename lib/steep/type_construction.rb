@@ -2662,11 +2662,13 @@ module Steep
           when :ivasgn
             _, constr = constr.ivasgn(assignment, element_type)
           when :splat
-            case assignment.children[0].type
+            case assignment.children[0]&.type
             when :lvasgn
               _, constr = constr.lvasgn(assignment.children[0], unwrap_rhs_type)
             when :ivasgn
               _, constr = constr.ivasgn(assignment.children[0], unwrap_rhs_type)
+            when nil
+              # foo, * = bar
             else
               raise
             end

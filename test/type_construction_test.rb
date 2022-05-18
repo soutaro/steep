@@ -1645,6 +1645,28 @@ a, *b, c = x
     end
   end
 
+  def test_masgn_splat_unnamed
+    with_checker do |checker|
+      source = parse_ruby(<<-RUBY)
+# @type var x: Array[Integer]
+x = []
+a, *, c = x
+      RUBY
+
+
+      with_standard_construction(checker, source) do |construction, typing|
+        type, _, context = construction.synthesize(source.node)
+
+        assert_no_error typing
+
+        assert_equal parse_type("::Array[::Integer]"), type
+        assert_equal parse_type("::Integer?"), context.lvar_env[:a]
+        assert_nil context.lvar_env[:b]
+        assert_equal parse_type("::Integer?"), context.lvar_env[:c]
+      end
+    end
+  end
+
   def test_masgn_optional
     with_checker do |checker|
       source = parse_ruby(<<-EOF)
