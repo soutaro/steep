@@ -24,7 +24,7 @@ class TypeFactoryTest < Minitest::Test
 
     assert_operator Set.new(types),
                     :subset?, Set.new(c.method_types),
-                    "Expected: { #{types.join(" | ")} } is a subset of { #{c.method_types.join(" | ")} }"
+                    "Expected: \n{ #{types.join(" | ")} }\n is a subset of \n{ #{c.method_types.join(" | ")} }"
   end
 
   Types = Steep::AST::Types
@@ -454,6 +454,14 @@ FOO
                                     "(0, ::Integer) -> ::Integer",
                                     "(1, ::String) -> ::String",
                                     "(::int, (::Integer | ::String)) -> (::Integer | ::String)"
+
+          assert_overload_including interface.methods[:fetch],
+                                    "(0) -> ::Integer",
+                                    "(1) -> ::String",
+                                    "[T] (0, T default) -> (::Integer | T)",
+                                    "[T] (1, T default) -> (::String | T)",
+                                    "[T] (0) { (::Integer) -> T } -> (::Integer | T)",
+                                    "[T] (1) { (::Integer) -> T } -> (::String | T)"
         end
       end
     end

@@ -674,6 +674,57 @@ module Steep
                   )
                 end
 
+                array_interface.methods[:fetch] = array_interface.methods[:fetch].yield_self do |fetch|
+                  Interface::Interface::Entry.new(
+                    method_types: type.types.flat_map.with_index {|elem_type, index|
+                      [
+                        Interface::MethodType.new(
+                          type_params: [],
+                          type: Interface::Function.new(
+                            params: Interface::Function::Params.build(required: [AST::Types::Literal.new(value: index)]),
+                            return_type: elem_type,
+                            location: nil
+                          ),
+                          block: nil,
+                          method_decls: Set[]
+                        ),
+                        Interface::MethodType.new(
+                          type_params: [Interface::TypeParam.new(name: :T, upper_bound: nil, variance: :invariant, unchecked: false)],
+                          type: Interface::Function.new(
+                            params: Interface::Function::Params.build(
+                              required: [
+                                AST::Types::Literal.new(value: index),
+                                AST::Types::Var.new(name: :T)
+                              ]
+                            ),
+                            return_type: AST::Types::Union.build(types: [elem_type, AST::Types::Var.new(name: :T)]),
+                            location: nil
+                          ),
+                          block: nil,
+                          method_decls: Set[]
+                        ),
+                        Interface::MethodType.new(
+                          type_params: [Interface::TypeParam.new(name: :T, upper_bound: nil, variance: :invariant, unchecked: false)],
+                          type: Interface::Function.new(
+                            params: Interface::Function::Params.build(required: [AST::Types::Literal.new(value: index)]),
+                            return_type: AST::Types::Union.build(types: [elem_type, AST::Types::Var.new(name: :T)]),
+                            location: nil
+                          ),
+                          block: Interface::Block.new(
+                            type: Interface::Function.new(
+                              params: Interface::Function::Params.build(required: [AST::Builtin::Integer.instance_type]),
+                              return_type: AST::Types::Var.new(name: :T),
+                              location: nil
+                            ),
+                            optional: false
+                          ),
+                          method_decls: Set[]
+                        )
+                      ]
+                    } + fetch.method_types
+                  )
+                end
+
                 array_interface.methods[:first] = array_interface.methods[:first].yield_self do |first|
                   Interface::Interface::Entry.new(
                     method_types: [
