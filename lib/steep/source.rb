@@ -406,8 +406,8 @@ module Steep
         Source.construct_mapping(node: node_, annotations: annotations, mapping: mapping)
 
         annotations.each do |annot|
-          mapping[node] ||= []
-          mapping[node] << annot
+          mapping[node_] ||= []
+          mapping[node_] << annot
         end
 
         Source.new(path: path, node: node_, mapping: mapping)

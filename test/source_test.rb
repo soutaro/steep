@@ -552,4 +552,24 @@ end
       end
     end
   end
+
+  def test_delete_defs_toplevel
+    with_factory do |factory|
+      source = Steep::Source.parse(<<-EOF, path: Pathname("foo.rb"), factory: factory)
+class Foo
+  def foo
+  end
+end
+
+# @type var t: [Integer, String]
+t = [10, ""]
+      EOF
+
+      source.without_unrelated_defs(line: 6, column: 0).tap do |source|
+        annots = source.annotations(block: source.node, factory: factory, context: nil)
+
+        refute_nil annots.var_type_annotations[:t]
+      end
+    end
+  end
 end
