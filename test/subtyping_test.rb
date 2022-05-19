@@ -41,6 +41,7 @@ end
 class Array[A]
   def `[]`: (Integer) -> A
   def `[]=`: (Integer, A) -> A
+  def fetch: (Integer) -> A
 end
 
 class Hash[A, B]
@@ -48,6 +49,7 @@ class Hash[A, B]
   def `[]=`: (A, B) -> B
   def keys: -> Array[A]
   def values: -> Array[B]
+  def fetch: (A) -> B
 end
 
 class Symbol
