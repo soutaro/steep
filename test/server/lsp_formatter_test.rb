@@ -68,6 +68,45 @@ EOM
     end
   end
 
+  def test_ruby_hover_method_call_special
+    with_factory do
+      typing = type_check(<<RUBY)
+[1, nil].compact
+RUBY
+
+      call = typing.call_of(node: typing.source.node)
+
+      content = Services::HoverProvider::Ruby::MethodCallContent.new(
+        node: nil,
+        method_call: call,
+        location: nil
+      )
+
+      comment = Server::LSPFormatter.format_hover_content(content)
+      assert_equal <<EOM.chomp, comment
+**💡 Custom typing rule applies**
+
+```rbs
+() -> ::Array[::Integer]
+```
+
+- `::Array#compact`
+
+----
+
+**::Array#compact**
+
+```rbs
+() -> ::Array[Elem]
+```
+
+Returns a new Array containing all non-`nil` elements from `self`:
+    a = [nil, 0, nil, 1, nil, 2, nil]
+    a.compact # => [0, 1, 2]
+EOM
+    end
+  end
+
   def test_ruby_hover_method_call_csend
     with_factory do
       typing = type_check(<<RUBY)

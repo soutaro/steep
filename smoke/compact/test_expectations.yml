@@ -1,0 +1,18 @@
+---
+- file: b.rb
+  diagnostics:
+  - range:
+      start:
+        line: 2
+        character: 0
+      end:
+        line: 2
+        character: 28
+    severity: ERROR
+    message: |-
+      Cannot assign a value of type `::Array[(::String | bool | nil)]` to a variable of type `::Array[(::String | bool)]`
+        ::Array[(::String | bool | nil)] <: ::Array[(::String | bool)]
+          (::String | bool | nil) <: (::String | bool)
+            nil <: (::String | bool)
+              nil <: ::String
+    code: Ruby::IncompatibleAssignment

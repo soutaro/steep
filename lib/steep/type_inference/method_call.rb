@@ -79,11 +79,14 @@ module Steep
         attr_reader :actual_method_type
         attr_reader :method_decls
 
-        def initialize(node:, context:, method_name:, receiver_type:, actual_method_type:, method_decls:, return_type: actual_method_type.return_type)
+        def initialize(node:, context:, method_name:, receiver_type:, actual_method_type:, method_decls:, return_type:)
           super(node: node, context: context, method_name: method_name, receiver_type: receiver_type, return_type: return_type)
           @actual_method_type = actual_method_type
           @method_decls = method_decls
         end
+      end
+
+      class Special < Typed
       end
 
       class Untyped < Base

@@ -3140,13 +3140,61 @@ module Steep
       end
     end
 
+    SPECIAL_METHOD_NAMES = {
+      array_compact: Set[
+        MethodName("::Array#compact"),
+        MethodName("::Enumerable#compact")
+      ]
+    }
+
+    def try_special_method(node, receiver_type:, method_name:, method_type:, arguments:, block_params:, block_body:)
+      decls = method_type.method_decls
+
+      case
+      when decl = decls.find {|decl| SPECIAL_METHOD_NAMES[:array_compact].include?(decl.method_name) }
+        if arguments.empty? && !block_params
+          # compact
+          return_type = method_type.type.return_type
+          if AST::Builtin::Array.instance_type?(return_type)
+            elem = return_type.args[0]
+            type = AST::Builtin::Array.instance_type(unwrap(elem))
+
+            _, constr = add_typing(node, type: type)
+            call = TypeInference::MethodCall::Special.new(
+              node: node,
+              context: constr.context.method_context,
+              method_name: decl.method_name,
+              receiver_type: receiver_type,
+              actual_method_type: method_type.with(type: method_type.type.with(return_type: type)),
+              return_type: type,
+              method_decls: decls
+            )
+
+            return [call, constr]
+          end
+        end
+      end
+
+      nil
+    end
+
     def type_method_call(node, method_name:, receiver_type:, method:, arguments:, block_params:, block_body:, topdown_hint:)
       node_range = node.loc.expression.yield_self {|l| l.begin_pos..l.end_pos }
 
       results = method.method_types.map do |method_type|
         Steep.logger.tagged method_type.to_s do
           typing.new_child(node_range) do |child_typing|
-            self.with_new_typing(child_typing).try_method_type(
+            constr = self.with_new_typing(child_typing)
+
+            constr.try_special_method(
+              node,
+              receiver_type: receiver_type,
+              method_name: method_name,
+              method_type: method_type,
+              arguments: arguments,
+              block_params: block_params,
+              block_body: block_body
+            ) || constr.try_method_type(
               node,
               receiver_type: receiver_type,
               method_name: method_name,
