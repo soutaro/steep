@@ -8646,6 +8646,36 @@ a.filter_map(&:itself)
     end
   end
 
+  def test_compact
+    with_checker(<<-RBS) do |checker|
+class Array[unchecked out Element]
+  def compact: () -> Array[Element]
+end
+
+class Array2 < Array[String?]
+end
+    RBS
+
+      source = parse_ruby(<<-'RUBY')
+# @type var result: Array[String]
+result = _ = nil
+
+a = ["1", nil]
+result = a.compact
+
+# @type var b: Array2
+b = _ = nil
+result = b.compact
+      RUBY
+
+      with_standard_construction(checker, source) do |construction, typing|
+        type, _, _ = construction.synthesize(source.node)
+
+        assert_no_error typing
+      end
+    end
+  end
+
   def test_to_proc_syntax_optional_arg
     with_checker(<<-RBS) do |checker|
 class OptionalArgMethod

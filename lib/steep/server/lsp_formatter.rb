@@ -48,6 +48,18 @@ module Steep
             call = content.method_call
             builder.push do |s|
               case call
+              when TypeInference::MethodCall::Special
+                mt = call.actual_method_type.with(
+                  type: call.actual_method_type.type.with(return_type: call.return_type)
+                )
+                s << <<-EOM
+**💡 Custom typing rule applies**
+
+```rbs
+#{mt.to_s}
+```
+
+                EOM
               when TypeInference::MethodCall::Typed
                 mt = call.actual_method_type.with(
                   type: call.actual_method_type.type.with(return_type: call.return_type)
