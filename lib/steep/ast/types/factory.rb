@@ -763,11 +763,11 @@ module Steep
 
           when Record
             yield_self do
-              key_type = type.elements.keys.map {|value| Literal.new(value: value, location: nil) }.yield_self do |types|
+              all_key_type = type.elements.keys.map {|value| Literal.new(value: value, location: nil) }.yield_self do |types|
                 Union.build(types: types, location: nil)
               end
-              value_type = Union.build(types: type.elements.values, location: nil)
-              hash_type = Builtin::Hash.instance_type(key_type, value_type)
+              all_value_type = Union.build(types: type.elements.values, location: nil)
+              hash_type = Builtin::Hash.instance_type(all_key_type, all_value_type)
 
               interface(hash_type, private: private, self_type: self_type).tap do |hash_interface|
                 hash_interface.methods[:[]] = hash_interface.methods[:[]].yield_self do |ref|
@@ -816,6 +816,54 @@ module Steep
                         block: nil,
                         method_decls: Set[]
                       )
+                    } + update.method_types
+                  )
+                end
+
+                hash_interface.methods[:fetch] = hash_interface.methods[:fetch].yield_self do |update|
+                  Interface::Interface::Entry.new(
+                    method_types: type.elements.flat_map {|key_value, value_type|
+                      key_type = Literal.new(value: key_value, location: nil)
+
+                      [
+                        Interface::MethodType.new(
+                          type_params: [],
+                          type: Interface::Function.new(
+                            params: Interface::Function::Params.build(required: [key_type]),
+                            return_type: value_type,
+                            location: nil
+                          ),
+                          block: nil,
+                          method_decls: Set[]
+                        ),
+                        Interface::MethodType.new(
+                          type_params: [Interface::TypeParam.new(name: :T, upper_bound: nil, variance: :invariant, unchecked: false)],
+                          type: Interface::Function.new(
+                            params: Interface::Function::Params.build(required: [key_type, AST::Types::Var.new(name: :T)]),
+                            return_type: AST::Types::Union.build(types: [value_type, AST::Types::Var.new(name: :T)]),
+                            location: nil
+                          ),
+                          block: nil,
+                          method_decls: Set[]
+                        ),
+                        Interface::MethodType.new(
+                          type_params: [Interface::TypeParam.new(name: :T, upper_bound: nil, variance: :invariant, unchecked: false)],
+                          type: Interface::Function.new(
+                            params: Interface::Function::Params.build(required: [key_type]),
+                            return_type: AST::Types::Union.build(types: [value_type, AST::Types::Var.new(name: :T)]),
+                            location: nil
+                          ),
+                          block: Interface::Block.new(
+                            type: Interface::Function.new(
+                              params: Interface::Function::Params.build(required: [all_key_type]),
+                              return_type: AST::Types::Var.new(name: :T),
+                              location: nil
+                            ),
+                            optional: false
+                          ),
+                          method_decls: Set[]
+                        )
+                      ]
                     } + update.method_types
                   )
                 end

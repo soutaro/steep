@@ -477,10 +477,23 @@ FOO
                                     "(1) -> ::Integer",
                                     "(:foo) -> ::String",
                                     "(\"baz\") -> bool"
+
           assert_overload_including interface.methods[:[]=],
                                     "(1, ::Integer) -> ::Integer",
                                     "(:foo, ::String) -> ::String",
                                     "(\"baz\", bool) -> bool"
+
+          assert_overload_including interface.methods[:fetch],
+                                    "(1) -> ::Integer",
+                                    "(:foo) -> ::String",
+                                    "(\"baz\") -> bool",
+                                    "[T] (1, T default) -> (::Integer | T)",
+                                    "[T] (:foo, T default) -> (::String | T)",
+                                    "[T] (\"baz\", T default) -> (bool | T)",
+                                    "[T] (1) { ((1 | :foo | \"baz\")) -> T } -> (::Integer | T)",
+                                    "[T] (:foo) { ((1 | :foo | \"baz\")) -> T } -> (::String | T)",
+                                    "[T] (\"baz\") { ((1 | :foo | \"baz\")) -> T } -> (bool | T)"
+
         end
       end
     end
