@@ -361,6 +361,8 @@ class Array[unchecked out A]
   def each_with_object: [B] (B) { (A, B) -> untyped } -> B
   def map: [X] { (A) -> X } -> Array[X]
 
+  def fetch: (Integer) -> A
+
   def first: () -> A?
   def last: () -> A?
 end
@@ -369,6 +371,7 @@ class Hash[A, B]
   def `[]`: (A) -> B
   def `[]=`: (A, B) -> B
   def each: { ([A, B]) -> void } -> self
+  def fetch: (A) -> B
 end
 
 class NilClass
