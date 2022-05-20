@@ -2,6 +2,13 @@
 
 ## master
 
+## 1.0.0 (2022-05-20)
+
+* Add special typing rule for `Array#compact` ([\#555](https://github.com/soutaro/steep/pull/555))
+* Add custom method type of `#fetch` on tuples and records ([\#554](https://github.com/soutaro/steep/pull/554))
+* Better `masgn` ([\#553](https://github.com/soutaro/steep/pull/553))
+* Fix method parameter type checking ([\#552](https://github.com/soutaro/steep/pull/552))
+
 ## 0.52.2 (2022-05-02)
 
 * Handle class declaration with non-const super class ([\#546](https://github.com/soutaro/steep/pull/546))
