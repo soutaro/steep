@@ -71,7 +71,7 @@ module Steep
         end
 
         Steep.logger.tagged "frontend" do
-          begin
+          catch do |tag|
             reader.read do |request|
               Steep.logger.info "Received message from master: #{request[:method]}(#{request[:id]})"
               case request[:method]
@@ -80,14 +80,13 @@ module Steep
                 @skip_job = skip_jobs_after_shutdown?
                 queue.close
               when "exit"
-                break
+                throw tag
               else
                 handle_request(request) unless @shutdown
               end
             end
-          ensure
-            thread.join
           end
+          thread.join
         end
       end
     end
