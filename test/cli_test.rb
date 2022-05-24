@@ -566,7 +566,9 @@ if type "rbenv" > /dev/null 2>&1; then
   STEEP="rbenv exec ${STEEP}"
 else
   if type "rvm" > /dev/null 2>&1; then
-    STEEP="rvm ${ROOT_DIR} do ${STEEP}"
+    if [ -e ${ROOT_DIR}/.ruby-version ]; then
+      STEEP="rvm ${ROOT_DIR} do ${STEEP}"
+    fi
   fi
 fi
 
