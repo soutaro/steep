@@ -8,7 +8,6 @@ on:
 
 jobs:
   test:
-    runs-on: "ubuntu-latest"
     strategy:
       matrix:
         container_tag:
@@ -20,6 +19,10 @@ jobs:
         - test
         - test:output
         - build
+        os:
+        - "ubuntu-latest"
+        - "windows-latest"
+    runs-on: ${{ matrix.os }}
     container:
       image: rubylang/ruby:${{ matrix.container_tag }}
     steps:

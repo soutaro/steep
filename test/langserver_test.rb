@@ -9,7 +9,7 @@ class LangserverTest < Minitest::Test
   end
 
   def langserver_command(steepfile=nil)
-    "#{__dir__}/../exe/steep langserver --log-level=error".tap do |s|
+    "#{RUBY_PATH} #{__dir__}/../exe/steep langserver --log-level=error".tap do |s|
       if steepfile
         s << " --steepfile=#{steepfile}"
       end
@@ -48,8 +48,8 @@ RBS
         lsp.start do
           finally_holds do
             lsp.synchronize_ui do
-              assert_equal [], lsp.diagnostics["file://#{current_dir}/lib/hello.rb"]
-              assert_equal [], lsp.diagnostics["file://#{current_dir}/sig/hello.rbs"]
+              assert_equal [], lsp.diagnostics["#{file_scheme}#{current_dir}/lib/hello.rb"]
+              assert_equal [], lsp.diagnostics["#{file_scheme}#{current_dir}/sig/hello.rbs"]
             end
           end
 
@@ -63,8 +63,8 @@ RUBY
 
           finally_holds do
             lsp.synchronize_ui do
-              assert_equal 1, lsp.diagnostics["file://#{current_dir}/lib/hello.rb"].size
-              assert_equal [], lsp.diagnostics["file://#{current_dir}/sig/hello.rbs"]
+              assert_equal 1, lsp.diagnostics["#{file_scheme}#{current_dir}/lib/hello.rb"].size
+              assert_equal [], lsp.diagnostics["#{file_scheme}#{current_dir}/sig/hello.rbs"]
             end
           end
 

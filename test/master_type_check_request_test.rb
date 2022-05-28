@@ -1,4 +1,4 @@
-require "test_helper"
+require_relative "test_helper"
 
 class MasterTypeCheckRequestTest < Minitest::Test
   include TestHelper
@@ -28,9 +28,9 @@ class MasterTypeCheckRequestTest < Minitest::Test
       assert_equal(
         {
           guid: "guid",
-          library_uris: ["file://#{RBS::EnvironmentLoader::DEFAULT_CORE_ROOT + "object.rbs"}"],
-          signature_uris: ["file://#{current_dir + "sig/user.rbs"}"],
-          code_uris: ["file://#{current_dir + "lib/user.rb"}"],
+          library_uris: ["#{file_scheme}#{RBS::EnvironmentLoader::DEFAULT_CORE_ROOT + "object.rbs"}"],
+          signature_uris: ["#{file_scheme}#{current_dir + "sig/user.rbs"}"],
+          code_uris: ["#{file_scheme}#{current_dir + "lib/user.rb"}"],
           priority_uris: []
         },
         json

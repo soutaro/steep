@@ -1,4 +1,4 @@
-require "test_helper"
+require_relative "test_helper"
 
 module Steep
   class TargetTest < Minitest::Test

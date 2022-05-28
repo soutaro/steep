@@ -1,4 +1,4 @@
-require "test_helper"
+require_relative "test_helper"
 
 class MasterTest < Minitest::Test
   include TestHelper
@@ -401,7 +401,7 @@ end
           method: "textDocument/didChange",
           params: {
             textDocument: {
-              uri: "file://#{current_dir + "lib/customer.rb"}"
+              uri: "#{file_scheme}#{current_dir + "lib/customer.rb"}"
             }
           }
         }
@@ -449,7 +449,7 @@ end
           method: "textDocument/didSave",
           params: {
             textDocument: {
-              uri: "file://#{current_dir + "lib/customer.rb"}"
+              uri: "#{file_scheme}#{current_dir + "lib/customer.rb"}"
             }
           }
         }
@@ -490,7 +490,7 @@ end
           method: "textDocument/didOpen",
           params: {
             textDocument: {
-              uri: "file://#{current_dir + "lib/customer.rb"}"
+              uri: "#{file_scheme}#{current_dir + "lib/customer.rb"}"
             }
           }
         }
@@ -503,7 +503,7 @@ end
           method: "textDocument/didClose",
           params: {
             textDocument: {
-              uri: "file://#{current_dir + "lib/customer.rb"}"
+              uri: "#{file_scheme}#{current_dir + "lib/customer.rb"}"
             }
           }
         }

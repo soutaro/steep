@@ -1,4 +1,4 @@
-require "test_helper"
+require_relative "../test_helper"
 
 class Steep::Server::LSPFormatterTest < Minitest::Test
   include TestHelper

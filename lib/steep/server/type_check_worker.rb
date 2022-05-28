@@ -236,7 +236,7 @@ module Steep
               location: symbol.location.yield_self do |location|
                 path = Pathname(location.buffer.name)
                 {
-                  uri: URI.parse(project.absolute_path(path).to_s).tap {|uri| uri.scheme = "file" },
+                  uri: Steep::PathHelper.to_uri(project.absolute_path(path)),
                   range: {
                     start: { line: location.start_line - 1, character: location.start_column },
                     end: { line: location.end_line - 1, character: location.end_column }
@@ -291,7 +291,7 @@ module Steep
           path = project.absolute_path(path)
 
           {
-            uri: URI.parse(path.to_s).tap {|uri| uri.scheme = "file" }.to_s,
+            uri: Steep::PathHelper.to_uri(path.to_s).to_s,
             range: loc.as_lsp_range
           }
         end
