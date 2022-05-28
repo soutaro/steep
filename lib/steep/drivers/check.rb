@@ -139,7 +139,7 @@ module Steep
         missing_count = 0
 
         ns = notifications.each.with_object({}) do |notification, hash|
-          path = project.relative_path(Pathname(URI.parse(notification[:uri]).path))
+          path = project.relative_path(Steep::PathHelper.to_pathname(notification[:uri]))
           hash[path] = notification[:diagnostics]
         end
 
@@ -186,7 +186,7 @@ module Steep
                        end
 
         ns = notifications.each.with_object({}) do |notification, hash|
-          path = project.relative_path(Pathname(URI.parse(notification[:uri]).path))
+          path = project.relative_path(Steep::PathHelper.to_pathname(notification[:uri]))
           hash[path] = notification[:diagnostics]
         end
 
@@ -215,7 +215,7 @@ module Steep
           total = errors.sum {|notification| notification[:diagnostics].size }
 
           errors.each do |notification|
-            path = Pathname(URI.parse(notification[:uri]).path)
+            path = Steep::PathHelper.to_pathname(notification[:uri])
             buffer = RBS::Buffer.new(name: project.relative_path(path), content: path.read)
             printer = DiagnosticPrinter.new(buffer: buffer, stdout: stdout)
 
