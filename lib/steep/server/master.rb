@@ -21,25 +21,21 @@ module Steep
         end
 
         def uri(path)
-          path_str = path.to_s
-          path_str.sub!(/^([a-zA-Z]):/, "/\\1:/") if path.to_s.start_with?(/^[a-zA-Z]:/)
-          URI.parse(path_str).tap do |uri|
-            uri.scheme = "file"
-          end
+          Steep::PathHelper.to_uri(path)
         end
 
         def as_json(assignment:)
           {
             guid: guid,
-            library_uris: library_paths.grep(assignment).map { |path| uri(path).to_s },
-            signature_uris: signature_paths.grep(assignment).map { |path| uri(path).to_s },
-            code_uris: code_paths.grep(assignment).map { |path| uri(path).to_s },
-            priority_uris: priority_paths.map { |path| uri(path).to_s },
+            library_uris: library_paths.grep(assignment).map {|path| uri(path).to_s },
+            signature_uris: signature_paths.grep(assignment).map {|path| uri(path).to_s },
+            code_uris: code_paths.grep(assignment).map {|path| uri(path).to_s },
+            priority_uris: priority_paths.map {|path| uri(path).to_s }
           }
         end
 
         def total
-          all_paths.size
+          library_paths.size + signature_paths.size + code_paths.size
         end
 
         def percentage
@@ -52,7 +48,12 @@ module Steep
 
         def checking_path?(path)
           [library_paths, signature_paths, code_paths].any? do |paths|
-            paths.include?(path)
+            if Gem.win_platform?
+              # FIXME: Sometimes drive letter is missing, so comparing without drive letter.
+              paths.any? {|p| p.to_s.split("/", 2)[1] == path.to_s.split("/", 2)[1]}
+            else
+              paths.include?(path)
+            end
           end
         end
 
@@ -141,7 +142,7 @@ module Steep
           @project = project
           @priority_paths = Set[]
           @changed_paths = Set[]
-          @target_paths = project.targets.each.map { |target| TargetPaths.new(project: project, target: target) }
+          @target_paths = project.targets.each.map {|target| TargetPaths.new(project: project, target: target) }
         end
 
         def load(command_line_args:)
@@ -165,11 +166,11 @@ module Steep
         end
 
         def push_changes(path)
-          return if target_paths.any? { |paths| paths.library_path?(path) }
+          return if target_paths.any? {|paths| paths.library_path?(path) }
 
-          target_paths.each { |paths| paths << path }
+          target_paths.each {|paths| paths << path }
 
-          if target_paths.any? { |paths| paths.code_path?(path) || paths.signature_path?(path) }
+          if target_paths.any? {|paths| paths.code_path?(path) || paths.signature_path?(path) }
             changed_paths << path
           end
         end
@@ -177,7 +178,7 @@ module Steep
         def update_priority(open: nil, close: nil)
           path = open || close
 
-          target_paths.each { |paths| paths << path }
+          target_paths.each {|paths| paths << path }
 
           case
           when open
@@ -204,7 +205,7 @@ module Steep
                 request.code_paths.merge(paths.code_paths)
               end
             else
-              updated_paths = target_paths.select { |paths| changed_paths.intersect?(paths.all_paths) }
+              updated_paths = target_paths.select {|paths| changed_paths.intersect?(paths.all_paths) }
 
               updated_paths.each do |paths|
                 case
@@ -286,7 +287,7 @@ module Steep
         end
 
         def completed?
-          handlers.each_value.all? { |handler| handler.completed? }
+          handlers.each_value.all? {|handler| handler.completed? }
         end
 
         def <<(handler)
@@ -409,10 +410,10 @@ module Steep
               case job
               when ReceiveMessageJob
                 src = if job.source == :client
-                    :client
-                  else
-                    job.source.name
-                  end
+                        :client
+                      else
+                        job.source.name
+                      end
                 Steep.logger.tagged("ReceiveMessageJob(#{src}/#{job.message[:method]}/#{job.message[:id]})") do
                   if job.response? && result_controller.process_response(job.message)
                     # nop
@@ -453,7 +454,7 @@ module Steep
       def each_worker(&block)
         if block_given?
           yield interaction_worker if interaction_worker
-          typecheck_workers.each(&block)
+          typecheck_workers.each &block
         else
           enum_for :each_worker
         end
@@ -490,54 +491,60 @@ module Steep
                       text_document_sync: LSP::Interface::TextDocumentSyncOptions.new(
                         change: LSP::Constant::TextDocumentSyncKind::INCREMENTAL,
                         save: LSP::Interface::SaveOptions.new(include_text: false),
-                        open_close: true,
+                        open_close: true
                       ),
                       hover_provider: {
                         workDoneProgress: true,
                         partialResults: true,
-                        partialResult: true,
+                        partialResult: true
                       },
                       completion_provider: LSP::Interface::CompletionOptions.new(
                         trigger_characters: [".", "@", ":"],
-                        work_done_progress: true,
+                        work_done_progress: true
                       ),
                       workspace_symbol_provider: true,
                       definition_provider: true,
                       declaration_provider: false,
                       implementation_provider: true,
-                      type_definition_provider: false,
-                    ),
-                  ),
-                },
+                      type_definition_provider: false
+                    )
+                  )
+                }
               )
             end
           end
+
         when "initialized"
           if typecheck_automatically
             if request = controller.make_request(include_unchanged: true)
               start_type_check(request, last_request: nil, start_progress: request.total > 10)
             end
           end
+
         when "textDocument/didChange"
           broadcast_notification(message)
           path = pathname(message[:params][:textDocument][:uri])
           controller.push_changes(path)
+
         when "textDocument/didSave"
           if typecheck_automatically
             if request = controller.make_request(last_request: current_type_check_request)
               start_type_check(
                 request,
                 last_request: current_type_check_request,
-                start_progress: request.total > 10,
+                start_progress: request.total > 10
               )
             end
           end
+
         when "textDocument/didOpen"
           path = pathname(message[:params][:textDocument][:uri])
           controller.update_priority(open: path)
+
         when "textDocument/didClose"
           path = pathname(message[:params][:textDocument][:uri])
           controller.update_priority(close: path)
+
         when "textDocument/hover", "textDocument/completion"
           if interaction_worker
             result_controller << send_request(method: message[:method], params: message[:params], worker: interaction_worker) do |handler|
@@ -545,12 +552,13 @@ module Steep
                 job_queue << SendMessageJob.to_client(
                   message: {
                     id: message[:id],
-                    result: response[:result],
-                  },
+                    result: response[:result]
+                  }
                 )
               end
             end
           end
+
         when "workspace/symbol"
           result_controller << group_request do |group|
             typecheck_workers.each do |worker|
@@ -562,6 +570,7 @@ module Steep
               job_queue << SendMessageJob.to_client(message: { id: message[:id], result: result })
             end
           end
+
         when "workspace/executeCommand"
           case message[:params][:command]
           when "steep/stats"
@@ -575,12 +584,13 @@ module Steep
                 job_queue << SendMessageJob.to_client(
                   message: {
                     id: message[:id],
-                    result: stats,
-                  },
+                    result: stats
+                  }
                 )
               end
             end
           end
+
         when "textDocument/definition", "textDocument/implementation"
           result_controller << group_request do |group|
             typecheck_workers.each do |worker|
@@ -592,25 +602,27 @@ module Steep
               job_queue << SendMessageJob.to_client(
                 message: {
                   id: message[:id],
-                  result: links,
-                },
+                  result: links
+                }
               )
             end
           end
+
         when "$/typecheck"
           request = controller.make_request(
             guid: message[:params][:guid],
             last_request: current_type_check_request,
-            include_unchanged: true,
+            include_unchanged: true
           )
 
           if request
             start_type_check(
               request,
               last_request: current_type_check_request,
-              start_progress: true,
+              start_progress: true
             )
           end
+
         when "shutdown"
           result_controller << group_request do |group|
             each_worker do |worker|
@@ -621,6 +633,7 @@ module Steep
               job_queue << SendMessageJob.to_client(message: { id: message[:id], result: nil })
             end
           end
+
         when "exit"
           broadcast_notification(message)
         end
@@ -641,7 +654,7 @@ module Steep
             when "$/typecheck/progress"
               on_type_check_update(
                 guid: message[:params][:guid],
-                path: Pathname(message[:params][:path]),
+                path: Pathname(message[:params][:path])
               )
             else
               # Forward other notifications
@@ -661,9 +674,9 @@ module Steep
                 method: "$/progress",
                 params: {
                   token: last_request.guid,
-                  value: { kind: "end" },
-                },
-              },
+                  value: { kind: "end" }
+                }
+              }
             )
           end
 
@@ -677,8 +690,8 @@ module Steep
                 message: {
                   id: fresh_request_id,
                   method: "window/workDoneProgress/create",
-                  params: { token: request.guid },
-                },
+                  params: { token: request.guid }
+                }
               )
             end
 
@@ -687,17 +700,17 @@ module Steep
                 method: "$/progress",
                 params: {
                   token: request.guid,
-                  value: { kind: "begin", title: "Type checking", percentage: 0 },
-                },
-              },
+                  value: { kind: "begin", title: "Type checking", percentage: 0 }
+                }
+              }
             )
 
             if request.finished?
               job_queue << SendMessageJob.to_client(
                 message: {
                   method: "$/progress",
-                  params: { token: request.guid, value: { kind: "end" } },
-                },
+                  params: { token: request.guid, value: { kind: "end" } }
+                }
               )
             end
           else
@@ -712,8 +725,8 @@ module Steep
               worker,
               message: {
                 method: "$/typecheck/start",
-                params: request.as_json(assignment: assignment),
-              },
+                params: request.as_json(assignment: assignment)
+              }
             )
           end
         end
@@ -726,17 +739,17 @@ module Steep
             Steep.logger.info { "Request updated: checked=#{path}, unchecked=#{current.unchecked_paths.size}" }
             percentage = current.percentage
             value = if percentage == 100
-                { kind: "end" }
-              else
-                progress_string = ("▮" * (percentage / 5)) + ("▯" * (20 - percentage / 5))
-                { kind: "report", percentage: percentage, message: "#{progress_string}" }
-              end
+                      { kind: "end" }
+                    else
+                      progress_string = ("▮"*(percentage/5)) + ("▯"*(20 - percentage/5))
+                      { kind: "report", percentage: percentage, message: "#{progress_string}" }
+                    end
 
             job_queue << SendMessageJob.to_client(
               message: {
                 method: "$/progress",
-                params: { token: current.guid, value: value },
-              },
+                params: { token: current.guid, value: value }
+              }
             )
 
             @current_type_check_request = nil if current.finished?
