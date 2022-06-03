@@ -8235,7 +8235,7 @@ end
     end
   end
 
-  def test_send_solution_block_body_type_check_failure
+  def test_send_solution_block_body_type_check_failure_with_annotation
     with_checker(<<-RBS) do |checker|
 class Solution[X]
   def foo: [A, B] (B) { (B) -> Integer } -> [X, A]
