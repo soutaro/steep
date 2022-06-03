@@ -3309,7 +3309,7 @@ module Steep
       method_type = method_type.instantiate(instantiation)
 
       variance = Subtyping::VariableVariance.from_method_type(method_type)
-      occurence = Subtyping::VariableOccurence.from_method_type(method_type)
+      occurrence = Subtyping::VariableOccurrence.from_method_type(method_type)
       constraints = Subtyping::Constraints.new(unknowns: type_params.map(&:name))
       ccontext = Subtyping::Constraints::Context.new(
         self_type: self_type,

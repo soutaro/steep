@@ -5067,7 +5067,7 @@ a + 1
     end
   end
 
-  def test_and_occurence
+  def test_and_occurrence
     with_checker do |checker|
       source = parse_ruby(<<EOF)
 (x = [1,nil][0]) && x + 1
@@ -5086,7 +5086,7 @@ EOF
     end
   end
 
-  def test_or_occurence
+  def test_or_occurrence
     with_checker do |checker|
       source = parse_ruby(<<EOF)
 x = [1,nil][0]
