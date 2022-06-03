@@ -4072,6 +4072,38 @@ EOF
     end
   end
 
+  def test_super_missing_required_block
+    with_checker <<-EOF do |checker|
+class TestSuper
+  def initialize: () { () -> nil } -> nil
+end
+
+class TestSuperChild < TestSuper
+  def initialize: -> void
+end
+    EOF
+      source = parse_ruby(<<EOF)
+class TestSuperChild
+  def initialize
+    super
+    super()
+  end
+end
+EOF
+
+      with_standard_construction(checker, source) do |construction, typing|
+        construction.synthesize(source.node)
+
+        assert_typing_error(typing, size: 1) do |errors|
+          assert_all!(errors) do |error|
+            assert_instance_of Diagnostic::Ruby::RequiredBlockMissing, error
+            assert_equal "super", error.location.source
+          end
+        end
+      end
+    end
+  end
+
   def test_empty_array_is_error
     with_checker do |checker|
       source = parse_ruby(<<EOF)
