@@ -3049,7 +3049,7 @@ EOF
     end
   end
 
-  def test_rescue_bidning_typing
+  def test_rescue_binding_typing
     with_checker do |checker|
       source = parse_ruby(<<EOF)
 # @type const E: singleton(String)
