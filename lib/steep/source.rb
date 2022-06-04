@@ -39,7 +39,7 @@ module Steep
     end
 
     def self.new_parser
-      ::Parser::Ruby30.new(Builder.new).tap do |parser|
+      ::Parser::Ruby31.new(Builder.new).tap do |parser|
         parser.diagnostics.all_errors_are_fatal = true
         parser.diagnostics.ignore_warnings = true
       end
