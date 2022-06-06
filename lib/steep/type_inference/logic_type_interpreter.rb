@@ -132,9 +132,12 @@ module Steep
               end
             end
           when AST::Types::Logic::Not
-            receiver, * = value_node.children
-            receiver_type = typing.type_of(node: receiver)
-            falsy_env, truthy_env = eval(env: env, type: receiver_type, node: receiver)
+            case value_node.type
+            when :send
+              receiver, * = value_node.children
+              receiver_type = typing.type_of(node: receiver)
+              falsy_env, truthy_env = eval(env: env, type: receiver_type, node: receiver)
+            end
           end
         else
           _, vars = decompose_value(node)
