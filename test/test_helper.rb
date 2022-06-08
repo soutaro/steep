@@ -367,7 +367,7 @@ class Array[unchecked out A]
   def last: () -> A?
 end
 
-class Hash[A, B]
+class Hash[unchecked out A, unchecked out B]
   def `[]`: (A) -> B
   def `[]=`: (A, B) -> B
   def each: { ([A, B]) -> void } -> self

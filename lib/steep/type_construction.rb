@@ -3144,6 +3144,9 @@ module Steep
       array_compact: Set[
         MethodName("::Array#compact"),
         MethodName("::Enumerable#compact")
+      ],
+      hash_compact: Set[
+        MethodName("::Hash#compact")
       ]
     }
 
@@ -3158,6 +3161,29 @@ module Steep
           if AST::Builtin::Array.instance_type?(return_type)
             elem = return_type.args[0]
             type = AST::Builtin::Array.instance_type(unwrap(elem))
+
+            _, constr = add_typing(node, type: type)
+            call = TypeInference::MethodCall::Special.new(
+              node: node,
+              context: constr.context.method_context,
+              method_name: decl.method_name,
+              receiver_type: receiver_type,
+              actual_method_type: method_type.with(type: method_type.type.with(return_type: type)),
+              return_type: type,
+              method_decls: decls
+            )
+
+            return [call, constr]
+          end
+        end
+      when decl = decls.find {|decl| SPECIAL_METHOD_NAMES[:hash_compact].include?(decl.method_name) }
+        if arguments.empty? && !block_params
+          # compact
+          return_type = method_type.type.return_type
+          if AST::Builtin::Hash.instance_type?(return_type)
+            key = return_type.args[0]
+            value = return_type.args[1]
+            type = AST::Builtin::Hash.instance_type(key, unwrap(value))
 
             _, constr = add_typing(node, type: type)
             call = TypeInference::MethodCall::Special.new(
