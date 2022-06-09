@@ -391,7 +391,6 @@ RUBY
 RUBY
 
         finally_holds do
-          assert_includes output, "Type checking updated files..."
           assert_includes output, "app/lib/foo.rb:2:2: [error] Type `::Integer` does not have method `__second_error__`"
           refute_includes output, "app/models/person.rb"
         end

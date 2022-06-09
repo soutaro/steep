@@ -629,4 +629,4 @@ module TypeConstructionHelper
   end
 end
 
-TestHelper.timeout = ENV["CI"] ? 50 : 10
+TestHelper.timeout = ENV["CI"] ? 50 : 15
