@@ -8646,7 +8646,7 @@ a.filter_map(&:itself)
     end
   end
 
-  def test_compact
+  def test_array_compact
     with_checker(<<-RBS) do |checker|
 class Array[unchecked out Element]
   def compact: () -> Array[Element]
@@ -8664,6 +8664,36 @@ a = ["1", nil]
 result = a.compact
 
 # @type var b: Array2
+b = _ = nil
+result = b.compact
+      RUBY
+
+      with_standard_construction(checker, source) do |construction, typing|
+        type, _, _ = construction.synthesize(source.node)
+
+        assert_no_error typing
+      end
+    end
+  end
+
+  def test_hash_compact
+    with_checker(<<-RBS) do |checker|
+class Hash[unchecked out K, unchecked out V]
+  def compact: () -> Hash[K, V]
+end
+
+class Hash2 < Hash[Symbol, String?]
+end
+    RBS
+
+      source = parse_ruby(<<-'RUBY')
+# @type var result: Hash[Symbol, String]
+result = _ = nil
+
+a = {foo: "1", bar: nil}
+result = a.compact
+
+# @type var b: Hash2
 b = _ = nil
 result = b.compact
       RUBY
