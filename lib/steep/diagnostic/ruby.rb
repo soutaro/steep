@@ -296,7 +296,7 @@ module Steep
         attr_reader :method_type
 
         def initialize(node:, method_type:)
-          super(node: node, location: node.loc.selector)
+          super(node: node, location: (node.type == :super || node.type == :zsuper) ? node.loc.keyword : node.loc.selector)
           @method_type = method_type
         end
 

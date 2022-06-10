@@ -4072,6 +4072,170 @@ EOF
     end
   end
 
+  def test_super_missing_required_block
+    with_checker <<-EOF do |checker|
+class TestSuper
+  def initialize: () { () -> nil } -> nil
+end
+
+class TestSuperChild < TestSuper
+  def initialize: -> void
+end
+    EOF
+      source = parse_ruby(<<EOF)
+class TestSuperChild
+  def initialize
+    super
+    super()
+  end
+end
+EOF
+
+      with_standard_construction(checker, source) do |construction, typing|
+        construction.synthesize(source.node)
+
+        assert_typing_error(typing, size: 1) do |errors|
+          assert_all!(errors) do |error|
+            assert_instance_of Diagnostic::Ruby::RequiredBlockMissing, error
+            assert_equal "super", error.location.source
+          end
+        end
+      end
+    end
+  end
+
+  def test_super_correct_block
+    with_checker <<-EOF do |checker|
+class TestSuper
+  def initialize: () { () -> nil } -> nil
+end
+
+class TestSuperChild < TestSuper
+  def initialize: () { () -> nil } -> nil
+end
+    EOF
+      source = parse_ruby(<<EOF)
+class TestSuperChild < TestSuper
+  def initialize
+    super do
+    end
+    super() {}
+  end
+end
+EOF
+
+      with_standard_construction(checker, source) do |construction, typing|
+        construction.synthesize(source.node)
+
+        assert_no_error typing
+      end
+    end
+  end
+
+  def test_super_wrong_block
+    with_checker <<-EOF do |checker|
+class TestSuper
+  def initialize: () { () -> nil } -> nil
+end
+
+class TestSuperChild < TestSuper
+  def initialize: () { () -> nil } -> nil
+end
+    EOF
+      source = parse_ruby(<<EOF)
+class TestSuperChild
+  def initialize
+    super { 42 }
+    super() { 42 }
+  end
+end
+EOF
+
+      with_standard_construction(checker, source) do |construction, typing|
+        construction.synthesize(source.node)
+
+        assert_typing_error(typing, size: 2) do |errors|
+          assert_all!(errors) do |error|
+            assert_instance_of Diagnostic::Ruby::BlockBodyTypeMismatch, error
+            assert_equal "{ 42 }", error.location.source
+          end
+        end
+      end
+    end
+  end
+
+  def test_issue_512
+    with_checker <<-EOF do |checker|
+module Issue512
+  class TestSuper
+    def foo: () -> Integer
+    def bar: () { (Integer) -> void } -> Integer
+  end
+
+  class TestSuperChild < TestSuper
+    def foo: () -> Integer
+    def bar: () { (Integer) -> void } -> Integer
+  end
+end
+    EOF
+
+      source = parse_ruby(<<-'RUBY')
+module Issue512
+  class TestSuperChild
+    def foo
+      super + 3
+      super() + 1
+    end
+
+    def bar
+      super do
+      end + 1
+      super() {} + 2
+    end
+  end
+end
+      RUBY
+
+      with_standard_construction(checker, source) do |construction, typing|
+        type, _ = construction.synthesize(source.node)
+
+        assert_no_error typing
+      end
+    end
+  end
+
+  def test_super_missing_super
+    with_checker <<-EOF do |checker|
+class TestSuper
+end
+
+class TestSuperChild < TestSuper
+  def bar: () { () -> nil } -> nil
+end
+    EOF
+      source = parse_ruby(<<EOF)
+class TestSuperChild
+  def bar
+    super
+    super {} + 1
+    super() {} + 2
+  end
+end
+EOF
+
+      with_standard_construction(checker, source) do |construction, typing|
+        construction.synthesize(source.node)
+
+        assert_typing_error(typing, size: 3) do |errors|
+          assert_all!(errors) do |error|
+            assert_instance_of Diagnostic::Ruby::UnexpectedSuper, error
+            assert_equal :bar, error.method
+          end
+        end
+      end
+    end
+  end
+
   def test_empty_array_is_error
     with_checker do |checker|
       source = parse_ruby(<<EOF)

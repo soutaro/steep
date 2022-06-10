@@ -3093,6 +3093,15 @@ module Steep
                                                          private: private,
                                                          self_type: AST::Types::Self.new)
 
+                         if send_node.type == :super || send_node.type == :zsuper
+                            method_name = method_context.name
+                            unless method_context.super_method
+                              return fallback_to_any(send_node) do
+                                Diagnostic::Ruby::UnexpectedSuper.new(node: send_node, method: method_name)
+                              end
+                            end
+                         end
+
                          constr.type_send_interface(node,
                                                     interface: interface,
                                                     receiver: receiver,
