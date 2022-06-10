@@ -575,7 +575,7 @@ EOF
     end
   end
 
-  def test_handle_job_validate_lib_signature_skip
+  def test_handle_job_typecheck_skip
     in_tmpdir do
       project = Project.new(steepfile_path: current_dir + "Steepfile")
       Project::DSL.parse(project, <<EOF)
