@@ -1,6 +1,6 @@
 require "test_helper"
 
-class SourceIndexTest < Minitest::Test
+class IndexTest < Minitest::Test
   include TestHelper
   include FactoryHelper
   include SubtypingHelper
