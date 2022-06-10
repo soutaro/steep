@@ -1,4 +1,4 @@
-require "test_helper"
+require_relative "test_helper"
 
 class CLITest < Minitest::Test
   include ShellHelper
@@ -13,7 +13,13 @@ class CLITest < Minitest::Test
   end
 
   def steep
-    ["bundle", "exec", "--gemfile=#{__dir__}/../Gemfile", "#{__dir__}/../exe/steep"]
+    [
+      "bundle",
+      "exec",
+      "--gemfile=#{__dir__}/../Gemfile",
+      RUBY_PATH,
+      "#{__dir__}/../exe/steep"
+    ]
   end
 
   def test_version
@@ -54,19 +60,27 @@ end
 target :app do
   check "foo.rb"
 end
-        EOF
+      EOF
 
       (current_dir + "foo.rb").write(<<-EOF)
 1 + 2
-        EOF
+      EOF
 
-      (current_dir + "wrap-steep.sh").write(<<-EOF)
+      if Gem.win_platform?
+        (current_dir + "wrap-steep.bat").write(<<-EOF)
+@echo off
+ECHO "This is Wrap!"
+steep %*
+        EOF
+        stdout, status = sh(*steep, "check", "--steep-command=./wrap-steep.bat")
+      else
+        (current_dir + "wrap-steep.sh").write(<<-EOF)
 echo "This is Wrap!"
 steep $@
         EOF
-      FileUtils.chmod("u+x", current_dir + "wrap-steep.sh")
-
-      stdout, status = sh(*steep, "check", "--steep-command=./wrap-steep.sh")
+        FileUtils.chmod("u+x", current_dir + "wrap-steep.sh")
+        stdout, status = sh(*steep, "check", "--steep-command=./wrap-steep.sh")
+      end
 
       assert_predicate status, :success?, stdout
       assert_match /No type error detected\./, stdout
@@ -367,8 +381,10 @@ RUBY
 1.__first_error__
 RUBY
 
+      skip "Using IO.pipe in spawn is not supported on Windows" if Gem.win_platform?
+
       r, w = IO.pipe
-      pid = spawn(*steep.push("watch", "app/lib"), out: w, chdir: current_dir.to_s)
+      pid = spawn(*steep, "watch", "app/lib", out: w, chdir: current_dir.to_s)
       w.close
 
       output = ""
@@ -425,6 +441,8 @@ end
 
 "hello" + 3
 RUBY
+
+      skip "Using IO.pipe in spawn is not supported on Windows" if Gem.win_platform?
 
       r, w = IO.pipe
       pid = spawn(*steep.push("watch", "app/models/person.rb"), out: w, chdir: current_dir.to_s)
@@ -575,7 +593,7 @@ fi
 exec $STEEP $@
 EOF
 
-        assert_equal <<EOM, sh!("bin/steep", "version")
+        assert_equal <<EOM, sh!(RUBY_PATH, "#{__dir__}/../exe/steep", "version")
 #{Steep::VERSION}
 EOM
       end

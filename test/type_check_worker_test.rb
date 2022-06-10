@@ -1,4 +1,4 @@
-require "test_helper"
+require_relative "test_helper"
 
 class TypeCheckWorkerTest < Minitest::Test
   include TestHelper
@@ -140,7 +140,7 @@ EOF
           params: LSP::DidChangeTextDocumentParams.new(
             text_document: LSP::VersionedTextDocumentIdentifier.new(
               version: 1,
-              uri: "file://#{current_dir}/lib/hello.rb"
+              uri: "#{file_scheme}#{current_dir}/lib/hello.rb"
             ).to_hash,
             content_changes: [
               LSP::TextDocumentContentChangeEvent.new(
@@ -186,10 +186,10 @@ EOF
           method: "$/typecheck/start",
           params: {
             guid: "guid1",
-            priority_uris: ["file://#{current_dir}/lib/hello.rb"],
-            signature_uris: ["file://#{current_dir}/sig/hello.rbs"],
-            code_uris: ["file://#{current_dir}/lib/hello.rb"],
-            library_uris: ["file://#{RBS::EnvironmentLoader::DEFAULT_CORE_ROOT + "object.rbs"}"]
+            priority_uris: ["#{file_scheme}#{current_dir}/lib/hello.rb"],
+            signature_uris: ["#{file_scheme}#{current_dir}/sig/hello.rbs"],
+            code_uris: ["#{file_scheme}#{current_dir}/lib/hello.rb"],
+            library_uris: ["#{file_scheme}#{RBS::EnvironmentLoader::DEFAULT_CORE_ROOT + "object.rbs"}"]
           }
         }
       )
@@ -306,7 +306,7 @@ EOF
 
       master_reader.read {|response| break response }.tap do |message|
         assert_equal "textDocument/publishDiagnostics", message[:method]
-        assert_equal "file://#{current_dir + "sig/hello.rbs"}", message[:params][:uri]
+        assert_equal "#{file_scheme}#{current_dir + "sig/hello.rbs"}", message[:params][:uri]
       end
 
       master_reader.read {|response| break response }.tap do |message|
@@ -402,7 +402,7 @@ EOF
 
       master_reader.read {|response| break response }.tap do |message|
         assert_equal "textDocument/publishDiagnostics", message[:method]
-        assert_equal "file://#{RBS::EnvironmentLoader::DEFAULT_CORE_ROOT + "object.rbs"}", message[:params][:uri]
+        assert_equal "#{file_scheme}#{RBS::EnvironmentLoader::DEFAULT_CORE_ROOT + "object.rbs"}", message[:params][:uri]
       end
 
       master_reader.read {|response| break response }.tap do |message|
@@ -497,7 +497,7 @@ EOF
 
       master_reader.read {|response| break response }.tap do |message|
         assert_equal "textDocument/publishDiagnostics", message[:method]
-        assert_equal "file://#{current_dir + "lib/hello.rb"}", message[:params][:uri]
+        assert_equal "#{file_scheme}#{current_dir + "lib/hello.rb"}", message[:params][:uri]
       end
 
       master_reader.read {|response| break response }.tap do |message|
@@ -556,7 +556,7 @@ EOF
 
       message = master_reader.read do |response|
         if response[:method] == "textDocument/publishDiagnostics" &&
-          response[:params][:uri] == "file://#{current_dir + "lib/hello.rb"}"
+          response[:params][:uri] == "#{file_scheme}#{current_dir + "lib/hello.rb"}"
           break response
         end
       end
@@ -647,12 +647,12 @@ RBS
       symbols = worker.workspace_symbol_result("")
 
       symbols.find {|symbol| symbol.name == "NewClassName" }.tap do |symbol|
-        assert_equal "file://#{current_dir}/sig/foo.rbs", symbol.location[:uri].to_s
+        assert_equal "#{file_scheme}#{current_dir}/sig/foo.rbs", symbol.location[:uri].to_s
         assert_equal "", symbol.container_name
       end
 
       symbols.find {|symbol| symbol.name == "#new_class_method" }.tap do |symbol|
-        assert_equal "file://#{current_dir}/sig/foo.rbs", symbol.location[:uri].to_s
+        assert_equal "#{file_scheme}#{current_dir}/sig/foo.rbs", symbol.location[:uri].to_s
         assert_equal "NewClassName", symbol.container_name
       end
     end
@@ -763,13 +763,13 @@ RUBY
       TypeCheckWorker::GotoJob.definition(
         id: Time.now.to_i,
         params: {
-          textDocument: { uri: "file://#{current_dir}/lib/main.rb" },
+          textDocument: { uri: "#{file_scheme}#{current_dir}/lib/main.rb" },
           position: { line: 0, character: 14 }
         }
       ).tap do |job|
         worker.goto(job).tap do |locations|
           assert_any!(locations, size: 1) do |loc|
-            assert_equal "file://#{current_dir}/sig/customer.rbs", loc[:uri]
+            assert_equal "#{file_scheme}#{current_dir}/sig/customer.rbs", loc[:uri]
             assert_equal(
               {
                 start: { line: 0, character: 6 },
@@ -784,7 +784,7 @@ RUBY
       TypeCheckWorker::GotoJob.implementation(
         id: Time.now.to_i,
         params: {
-          textDocument: { uri: "file://#{current_dir}/lib/main.rb" },
+          textDocument: { uri: "#{file_scheme}#{current_dir}/lib/main.rb" },
           position: { line: 0, character: 14 }
         }
       ).tap do |job|

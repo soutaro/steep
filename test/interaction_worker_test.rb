@@ -1,4 +1,4 @@
-require "test_helper"
+require_relative "test_helper"
 
 class InteractionWorkerTest < Minitest::Test
   include TestHelper
@@ -81,7 +81,7 @@ EOF
           params: LSP::Interface::DidChangeTextDocumentParams.new(
             text_document: {
               version: 1,
-              uri: "file://#{current_dir}/lib/hello.rb"
+              uri: "#{file_scheme}#{current_dir}/lib/hello.rb"
             },
             content_changes: [
               {
@@ -127,7 +127,7 @@ EOF
         {
           method: "textDocument/hover",
           params: {
-            textDocument: { uri: "file://#{current_dir}/lib/hello.rb" },
+            textDocument: { uri: "#{file_scheme}#{current_dir}/lib/hello.rb" },
             position: { line: 1, character: 2 }
           }
         }

@@ -24,6 +24,14 @@ class LSPDouble
     @default_timeout = TestHelper.timeout
   end
 
+  def file_scheme
+    if Gem.win_platform?
+      "file:///"
+    else
+      "file://"
+    end
+  end
+
   def next_request_id
     @next_request_id += 1
   end
@@ -121,7 +129,7 @@ class LSPDouble
     send_notification(method: "textDocument/didOpen",
                       params: {
                         textDocument: {
-                          uri: "file://#{path}"
+                          uri: "#{file_scheme}#{path}"
                         }
                       })
   end
@@ -130,7 +138,7 @@ class LSPDouble
     send_notification(method: "textDocument/didClose",
                       params: {
                         textDocument: {
-                          uri: "file://#{path}"
+                          uri: "#{file_scheme}#{path}"
                         }
                       })
   end
@@ -140,7 +148,7 @@ class LSPDouble
       method: "textDocument/didChange",
       params: {
         textDocument: {
-          uri: "file://#{path}",
+          uri: "#{file_scheme}#{path}",
           version: version
         },
         contentChanges: [
@@ -156,7 +164,7 @@ class LSPDouble
     send_notification(
       method: "textDocument/didSave",
       params: {
-        textDocument: { uri: "file://#{path}" }
+        textDocument: { uri: "#{file_scheme}#{path}" }
       }
     )
   end
@@ -166,7 +174,7 @@ class LSPDouble
       id: next_request_id,
       method: "textDocument/hover",
       params: {
-        textDocument: { uri: "file://#{path}" },
+        textDocument: { uri: "#{file_scheme}#{path}" },
         position: { line: line, character: character }
       }
     ) do |response|
@@ -179,7 +187,7 @@ class LSPDouble
       id: next_request_id,
       method: "textDocument/completion",
       params: {
-        textDocument: { uri: "file://#{path}" },
+        textDocument: { uri: "#{file_scheme}#{path}" },
         position: { line: line, character: character },
         context: { triggerKind: kind, triggerCharacter: trigger_character }
       }
@@ -199,6 +207,6 @@ class LSPDouble
   end
 
   def diagnostics_for(path)
-    diagnostics["file://#{path}"]
+    diagnostics["#{file_scheme}#{path}"]
   end
 end

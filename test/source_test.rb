@@ -1,4 +1,4 @@
-require "test_helper"
+require_relative "test_helper"
 
 class SourceTest < Minitest::Test
   A = Steep::AST::Annotation

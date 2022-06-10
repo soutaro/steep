@@ -21,9 +21,7 @@ module Steep
         end
 
         def uri(path)
-          URI.parse(path.to_s).tap do |uri|
-            uri.scheme = "file"
-          end
+          Steep::PathHelper.to_uri(path)
         end
 
         def as_json(assignment:)
@@ -41,7 +39,7 @@ module Steep
         end
 
         def percentage
-          checked_paths.size * 100 / total
+          checked_paths.size * 100 / all_paths.size
         end
 
         def all_paths
@@ -463,7 +461,7 @@ module Steep
       end
 
       def pathname(uri)
-        Pathname(URI.parse(uri).path)
+        Steep::PathHelper.to_pathname(uri)
       end
 
       def work_done_progress_supported?

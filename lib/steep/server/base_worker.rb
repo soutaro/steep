@@ -69,6 +69,7 @@ module Steep
             end
           end
         end
+        thread.abort_on_exception = true
 
         Steep.logger.tagged "frontend" do
           begin

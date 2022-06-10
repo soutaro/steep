@@ -53,8 +53,7 @@ module Steep
         when "textDocument/hover"
           id = request[:id]
 
-          uri = URI.parse(request[:params][:textDocument][:uri])
-          path = project.relative_path(Pathname(uri.path))
+          path = project.relative_path(Steep::PathHelper.to_pathname(request[:params][:textDocument][:uri]))
           line = request[:params][:position][:line]+1
           column = request[:params][:position][:character]
 
@@ -64,8 +63,7 @@ module Steep
           id = request[:id]
 
           params = request[:params]
-          uri = URI.parse(params[:textDocument][:uri])
-          path = project.relative_path(Pathname(uri.path))
+          path = project.relative_path(Steep::PathHelper.to_pathname(params[:textDocument][:uri]))
           line, column = params[:position].yield_self {|hash| [hash[:line]+1, hash[:character]] }
           trigger = params.dig(:context, :triggerCharacter)
 

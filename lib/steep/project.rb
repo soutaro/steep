@@ -16,22 +16,10 @@ module Steep
       steepfile_path.parent
     end
 
-    def relative_path(orig_path)
-      path = if Gem.win_platform?
-               path_str = URI.decode_www_form_component(
-                 orig_path.to_s.delete_prefix("/")
-               )
-               unless path_str.start_with?(%r{[a-z]:/}i)
-                 # FIXME: Sometimes drive letter is missing, taking from base_dir
-                 path_str = base_dir.to_s.split("/")[0] + "/" + path_str
-               end
-               Pathname.new(
-                 path_str
-               )
-             else
-               orig_path
-             end
+    def relative_path(path)
       path.relative_path_from(base_dir)
+    rescue ArgumentError
+      path
     end
 
     def absolute_path(path)

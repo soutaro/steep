@@ -86,10 +86,10 @@ module Steep
           queue << StartTypeCheckJob.new(guid: guid, changes: changes)
         end
 
-        priority_paths = Set.new(params[:priority_uris].map {|uri| Pathname(URI.parse(uri).path) })
-        library_paths = params[:library_uris].map {|uri| Pathname(URI.parse(uri).path) }
-        signature_paths = params[:signature_uris].map {|uri| Pathname(URI.parse(uri).path) }
-        code_paths = params[:code_uris].map {|uri| Pathname(URI.parse(uri).path) }
+        priority_paths = Set.new(params[:priority_uris].map {|uri| Steep::PathHelper.to_pathname(uri) })
+        library_paths = params[:library_uris].map {|uri| Steep::PathHelper.to_pathname(uri) }
+        signature_paths = params[:signature_uris].map {|uri| Steep::PathHelper.to_pathname(uri) }
+        code_paths = params[:code_uris].map {|uri| Steep::PathHelper.to_pathname(uri) }
 
         library_paths.each do |path|
           if priority_paths.include?(path)
@@ -135,21 +135,6 @@ module Steep
       end
 
       def handle_job(job)
-        job_path = if job.respond_to?(:path)
-                     if Gem.win_platform?
-                       # FIXME: Sometimes drive letter is missing, using base_dir
-                       if job.path.to_s.start_with?(%r{/[a-z](:|%3A)/}i)
-                         job.path.to_s
-                       else
-                         "/#{project.base_dir.to_s.split("/").first}/#{job.path}"
-                       end
-                     else
-                       job.path.to_s
-                     end
-                   else
-                     nil
-                   end
-
         case job
         when StartTypeCheckJob
           Steep.logger.info { "Processing StartTypeCheckJob for guid=#{job.guid}" }
@@ -164,7 +149,7 @@ module Steep
               writer.write(
                 method: :"textDocument/publishDiagnostics",
                 params: LSP::Interface::PublishDiagnosticsParams.new(
-                  uri: URI.parse(job_path).tap {|uri| uri.scheme = "file"},
+                  uri: Steep::PathHelper.to_uri(job.path),
                   diagnostics: diagnostics.map {|diagnostic| formatter.format(diagnostic) }.uniq
                 )
               )
@@ -182,7 +167,7 @@ module Steep
               writer.write(
                 method: :"textDocument/publishDiagnostics",
                 params: LSP::Interface::PublishDiagnosticsParams.new(
-                  uri: URI.parse(job_path).tap {|uri| uri.scheme = "file"},
+                  uri: Steep::PathHelper.to_uri(job.path),
                   diagnostics: diagnostics.map {|diagnostic| formatter.format(diagnostic) }.uniq.compact
                 )
               )
@@ -201,7 +186,7 @@ module Steep
               writer.write(
                 method: :"textDocument/publishDiagnostics",
                 params: LSP::Interface::PublishDiagnosticsParams.new(
-                  uri: URI.parse(job_path).tap {|uri| uri.scheme = "file"},
+                  uri: Steep::PathHelper.to_uri(job.path),
                   diagnostics: diagnostics.map {|diagnostic| formatter.format(diagnostic) }.uniq.compact
                 )
               )
@@ -251,7 +236,7 @@ module Steep
               location: symbol.location.yield_self do |location|
                 path = Pathname(location.buffer.name)
                 {
-                  uri: URI.parse(project.absolute_path(path).to_s).tap {|uri| uri.scheme = "file" },
+                  uri: Steep::PathHelper.to_uri(project.absolute_path(path)),
                   range: {
                     start: { line: location.start_line - 1, character: location.start_column },
                     end: { line: location.end_line - 1, character: location.end_column }
@@ -279,7 +264,7 @@ module Steep
       end
 
       def goto(job)
-        path = Pathname(URI.parse(job.params[:textDocument][:uri]).path)
+        path = Steep::PathHelper.to_pathname(job.params[:textDocument][:uri])
         line = job.params[:position][:line] + 1
         column = job.params[:position][:character]
 
@@ -306,7 +291,7 @@ module Steep
           path = project.absolute_path(path)
 
           {
-            uri: URI.parse(path.to_s).tap {|uri| uri.scheme = "file" }.to_s,
+            uri: Steep::PathHelper.to_uri(path.to_s).to_s,
             range: loc.as_lsp_range
           }
         end

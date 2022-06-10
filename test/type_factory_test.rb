@@ -1,4 +1,4 @@
-require "test_helper"
+require_relative "test_helper"
 
 class TypeFactoryTest < Minitest::Test
   def parse_type(str, variables: [])

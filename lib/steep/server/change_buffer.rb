@@ -40,7 +40,7 @@ module Steep
 
       def collect_changes(request)
         push_buffer do |changes|
-          path = project.relative_path(Pathname(URI.parse(request[:params][:textDocument][:uri]).path))
+          path = project.relative_path(Steep::PathHelper.to_pathname(request[:params][:textDocument][:uri]))
           version = request[:params][:textDocument][:version]
           Steep.logger.info { "Updating source: path=#{path}, version=#{version}..." }
 

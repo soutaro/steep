@@ -35,7 +35,7 @@ module Steep
       def implementation(path:, line:, column:)
         locations = []
 
-        relative_path = project.relative_path(path)
+        # relative_path = project.relative_path(path)
 
         queries = query_at(path: path, line: line, column: column)
         queries.uniq!
@@ -108,7 +108,7 @@ module Steep
         case
         when target = type_check.source_file?(relative_path)
           source = type_check.source_files[relative_path]
-          typing, signature = type_check_path(target: target, path: relative_path, content: source.content, line: line, column: column)
+          typing, _signature = type_check_path(target: target, path: relative_path, content: source.content, line: line, column: column)
           if typing
             node, *parents = typing.source.find_nodes(line: line, column: column)
 

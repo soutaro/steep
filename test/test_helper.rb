@@ -11,7 +11,9 @@ require "open3"
 require "tmpdir"
 require 'minitest/hooks/test'
 require 'minitest/slow_test'
-require "lsp_double"
+require 'rbconfig'
+
+require_relative "lsp_double"
 
 Minitest::SlowTest.long_test_time = 5
 
@@ -32,6 +34,14 @@ end
 module TestHelper
   class <<self
     attr_accessor :timeout
+  end
+
+  def file_scheme
+    if Gem.win_platform?
+      "file:///"
+    else
+      "file://"
+    end
   end
 
   def assert_any(collection, &block)
@@ -629,4 +639,6 @@ module TypeConstructionHelper
   end
 end
 
-TestHelper.timeout = ENV["CI"] ? 50 : 10
+TestHelper.timeout = ENV["CI"] ? 50 : 25
+
+RUBY_PATH = File.join(RbConfig::CONFIG["bindir"], RbConfig::CONFIG["ruby_install_name"] + RbConfig::CONFIG["EXEEXT"])
