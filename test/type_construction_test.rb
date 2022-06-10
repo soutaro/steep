@@ -5877,6 +5877,21 @@ a+1
     end
   end
 
+  def test_logic_not2
+    with_checker(<<-RBS) do |checker|
+    RBS
+      source = parse_ruby(<<-RUBY)
+a = !Object.new
+a || true
+      RUBY
+
+      with_standard_construction(checker, source) do |construction, typing|
+        construction.synthesize(source.node)
+        assert_no_error typing
+      end
+    end
+  end
+
   def test_logic_and
     with_checker(<<-RBS) do |checker|
     RBS
