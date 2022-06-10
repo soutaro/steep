@@ -28,7 +28,7 @@ Gem::Specification.new do |spec|
 
   spec.required_ruby_version = '>= 2.6.0'
 
-  spec.add_runtime_dependency "parser", ">= 3.0"
+  spec.add_runtime_dependency "parser", ">= 3.1"
   spec.add_runtime_dependency "activesupport", ">= 5.1"
   spec.add_runtime_dependency "rainbow", ">= 2.2.2", "< 4.0"
   spec.add_runtime_dependency "listen", "~> 3.0"

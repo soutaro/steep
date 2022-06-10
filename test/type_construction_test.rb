@@ -8903,4 +8903,21 @@ end
       end
     end
   end
+
+  def test_ruby31_shorthand_hash
+    with_checker do |checker|
+      source = parse_ruby(<<RUBY)
+x = 1
+{ x: }
+RUBY
+
+      with_standard_construction(checker, source) do |construction, typing|
+        type, _ = construction.synthesize(source.node)
+
+        assert_equal parse_type("::Hash[::Symbol, ::Integer]"), type
+
+        assert_no_error typing
+      end
+    end
+  end
 end
