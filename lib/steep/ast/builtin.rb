@@ -16,7 +16,7 @@ module Steep
               args << Builtin.any_type
             end
           end
-          arity == args.size or raise "Mulformed instance type: name=#{module_name}, args=#{args}"
+          arity == args.size or raise "Malformed instance type: name=#{module_name}, args=#{args}"
 
           Types::Name::Instance.new(name: module_name, args: args)
         end
@@ -28,7 +28,7 @@ module Steep
         def instance_type?(type, args: nil)
           if type.is_a?(Types::Name::Instance)
             if args
-              arity == args.size or raise "Mulformed instance type: name=#{module_name}, args=#{args}"
+              arity == args.size or raise "Malformed instance type: name=#{module_name}, args=#{args}"
               type.name == module_name && type.args == args
             else
               type.name == module_name && type.args.size == arity

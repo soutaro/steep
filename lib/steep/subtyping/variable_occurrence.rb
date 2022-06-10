@@ -1,6 +1,6 @@
 module Steep
   module Subtyping
-    class VariableOccurence
+    class VariableOccurrence
       attr_reader :params
       attr_reader :returns
 
@@ -42,8 +42,8 @@ module Steep
       end
 
       def self.from_method_type(method_type)
-        self.new.tap do |occurence|
-          occurence.add_method_type(method_type)
+        self.new.tap do |occurrence|
+          occurrence.add_method_type(method_type)
         end
       end
     end
