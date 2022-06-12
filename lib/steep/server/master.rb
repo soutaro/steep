@@ -48,12 +48,7 @@ module Steep
 
         def checking_path?(path)
           [library_paths, signature_paths, code_paths].any? do |paths|
-            if Gem.win_platform?
-              # FIXME: Sometimes drive letter is missing, so comparing without drive letter.
-              paths.any? {|p| p.to_s.split("/", 2)[1] == path.to_s.split("/", 2)[1]}
-            else
-              paths.include?(path)
-            end
+            paths.include?(path)
           end
         end
 
