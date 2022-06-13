@@ -9099,4 +9099,26 @@ RUBY
       end
     end
   end
+
+  def test_module_annotation_merge_error
+    with_checker do |checker|
+      source = parse_ruby(<<RUBY)
+module Mod
+
+  ->(){}
+
+end
+RUBY
+
+      with_standard_construction(checker, source) do |construction, typing|
+        type, _ = construction.synthesize(source.node)
+
+        assert_typing_error(typing, size: 1) do |errors|
+          errors[0].tap do |error|
+            assert_instance_of Diagnostic::Ruby::UnknownConstant, error
+          end
+        end
+      end
+    end
+  end
 end
