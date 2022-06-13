@@ -9176,4 +9176,44 @@ RUBY
       end
     end
   end
+
+  def test_anonymouse_block_forwarding
+    with_checker(<<RBS) do |checker|
+$TEST: bool
+RBS
+      source = parse_ruby(<<RUBY)
+def foo
+  $TEST
+end
+RUBY
+
+      with_standard_construction(checker, source) do |construction, typing|
+        type, _ = construction.synthesize(source.node)
+
+        assert_no_error(typing)
+      end
+    end
+  end
+
+  def test_const_inline_annotation
+    with_checker(<<RBS) do |checker|
+module A end
+RBS
+      source = parse_ruby(<<RUBY)
+module A
+  # @type const X: String
+
+  def foo
+    X + ""
+  end
+end
+RUBY
+
+      with_standard_construction(checker, source) do |construction, typing|
+        type, _ = construction.synthesize(source.node)
+
+        assert_no_error(typing)
+      end
+    end
+  end
 end

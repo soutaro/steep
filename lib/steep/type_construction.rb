@@ -131,11 +131,13 @@ module Steep
 
     def for_new_method(method_name, node, args:, self_type:, definition:)
       annots = source.annotations(block: node, factory: checker.factory, context: nesting)
-      type_env = TypeInference::TypeEnv.new(subtyping: checker, const_env: module_context&.const_env || self.type_env.const_env)
-
-      self.type_env.const_types.each do |name, type|
-        type_env.set(const: name, type: type)
-      end
+      type_env = TypeInference::TypeEnv.build(
+        annotations: annots,
+        subtyping: checker,
+        const_env: module_context&.const_env || self.type_env.const_env,
+        signatures: checker.factory.env
+      )
+      type_env.merge_const_types(self.type_env)
 
       definition_method_type = if definition
                                  definition.methods[method_name]&.yield_self do |method|
