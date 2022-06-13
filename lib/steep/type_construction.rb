@@ -2299,7 +2299,8 @@ module Steep
           yield_self do
             value = node.children[0]
 
-            if hint.is_a?(AST::Types::Proc) && value.type == :sym
+            case
+            when hint.is_a?(AST::Types::Proc) && value && value.type == :sym
               if hint.one_arg?
                 # Assumes Symbol#to_proc implementation
                 param_type = hint.type.params.required[0]
@@ -2333,9 +2334,18 @@ module Steep
               else
                 Steep.logger.error "Passing multiple args through Symbol#to_proc is not supported yet"
               end
+            when value == nil
+              type = AST::Types::Proc.new(
+                type: method_context.method_type.block.type,
+                location: nil,
+                block: nil
+              )
+              if method_context.method_type.block.optional?
+                type = AST::Types::Union.build(types: [type, AST::Builtin.nil_type])
+              end
             end
 
-            type ||= synthesize(node.children[0], hint: hint).type
+            type ||= synthesize(value, hint: hint).type
 
             add_typing node, type: type
           end

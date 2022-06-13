@@ -9121,4 +9121,26 @@ RUBY
       end
     end
   end
+
+  def test_anonymouse_block_forwarding
+    with_checker(<<RBS) do |checker|
+class AnonBlockForwarding
+  def foo: () { (String) -> void } -> void
+end
+RBS
+      source = parse_ruby(<<RUBY)
+class AnonBlockForwarding
+  def foo(&)
+    ["a", "b"].each(&)
+  end
+end
+RUBY
+
+      with_standard_construction(checker, source) do |construction, typing|
+        type, _ = construction.synthesize(source.node)
+
+        assert_no_error(typing)
+      end
+    end
+  end
 end
