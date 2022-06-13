@@ -320,7 +320,7 @@ module Steep
           instance_type: nil,
           module_type: nil,
           implement_name: nil,
-          const_env: self.module_context.const_env,
+          const_env: const_env,
           class_name: self.module_context.class_name,
           module_definition: nil,
           instance_definition: nil
