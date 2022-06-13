@@ -335,6 +335,9 @@ module Steep
         SourceFile.with_syntax_error(path: path, content: text, error: error)
       rescue EncodingError => exn
         SourceFile.no_data(path: path, content: "")
+      rescue RuntimeError => exn
+        Steep.log_error(exn)
+        SourceFile.no_data(path: path, content: text)
       end
 
       def self.type_check(source:, subtyping:)

@@ -474,4 +474,32 @@ RBS
       reported_diagnostics.clear
     end
   end
+
+  def test_signature_error_unknown_outer_module
+    # Recovering from syntax error test
+    service = Services::TypeCheckService.new(project: project)
+
+    {
+      Pathname("lib.rbs") => [ContentChange.string(<<RBS)],
+class Foo::Bar::Baz
+end
+RBS
+      Pathname("lib/a.rb") => [ContentChange.string(<<RUBY)],
+1+2
+RUBY
+    }.tap do |changes|
+      service.update_and_check(changes: changes, assignment: assignment, &reporter)
+
+      reported_diagnostics[Pathname("lib.rbs")].tap do |errors|
+        assert_any!(errors, size: 1) do |error|
+          assert_equal "RBS::UnknownTypeName", error[:code]
+          assert_equal "Cannot find type `::Foo::Bar`", error[:message]
+        end
+      end
+
+      reported_diagnostics[Pathname("lib/a.rb")].tap do |errors|
+        assert_empty errors
+      end
+    end
+  end
 end
