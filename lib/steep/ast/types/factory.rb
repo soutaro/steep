@@ -9,6 +9,12 @@ module Steep
 
         attr_reader :type_interface_cache
 
+        def inspect
+          s = "#<%s:%#018x " % [self.class, object_id]
+          s << "@definition_builder=#<%s:%#018x>" % [definition_builder.class, definition_builder.object_id]
+          s + ">"
+        end
+
         def initialize(builder:)
           @definition_builder = builder
 
