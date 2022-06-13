@@ -462,7 +462,7 @@ end
         refute_empty typing.errors
         assert_incompatible_assignment typing.errors[0],
                                        lhs_type: parse_type("::_C"),
-                                       rhs_type: parse_type("::_A | ::_C") do |error|
+                                       rhs_type: parse_type("::_A") do |error|
           assert_equal :optarg, error.node.type
           assert_equal :y, error.node.children[0]
         end
@@ -493,7 +493,7 @@ end
         refute_empty typing.errors
         assert_incompatible_assignment typing.errors[0],
                                        lhs_type: parse_type("::_C"),
-                                       rhs_type: parse_type("::_A | ::_C") do |error|
+                                       rhs_type: parse_type("::_A") do |error|
           assert_equal :kwoptarg, error.node.type
           assert_equal :y, error.node.children[0]
         end
@@ -9140,6 +9140,39 @@ RUBY
         type, _ = construction.synthesize(source.node)
 
         assert_no_error(typing)
+      end
+    end
+  end
+
+  def test_optional_parameter_value_with_wrong_type
+    with_checker(<<RBS) do |checker|
+class OptionalParamValues
+  def foo: (?String, ?foo: String) -> void
+end
+RBS
+      source = parse_ruby(<<RUBY)
+class OptionalParamValues
+  def foo(x = 123, foo: true)
+  end
+end
+RUBY
+
+      with_standard_construction(checker, source) do |construction, typing|
+        type, _ = construction.synthesize(source.node)
+
+        assert_typing_error(typing, size: 2) do |errors|
+          assert_any!(errors) do |error|
+            assert_instance_of Diagnostic::Ruby::IncompatibleAssignment, error
+            assert_equal "Cannot assign a value of type `::Integer` to an expression of type `::String`", error.header_line
+          end
+        end
+
+        assert_typing_error(typing, size: 2) do |errors|
+          assert_any!(errors) do |error|
+            assert_instance_of Diagnostic::Ruby::IncompatibleAssignment, error
+            assert_equal "Cannot assign a value of type `bool` to an expression of type `::String`", error.header_line
+          end
+        end
       end
     end
   end
