@@ -73,6 +73,12 @@ module Steep
         end
       end
 
+      def merge_const_types(env)
+        env.const_types.each do |name, type|
+          const_types[name] = type unless const_types.key?(name)
+        end
+      end
+
       def set(const: nil, gvar: nil, ivar: nil, type:)
         case
         when const
