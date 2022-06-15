@@ -766,172 +766,146 @@ end
       main_thread.join
     end
   end
-end
 
-{
-  :processId => 18977,
-  :clientInfo => {
-    :name => "Visual Studio Code",
-    :version => "1.54.3"
-  },
-  :locale => "ja",
-  :rootPath => "/Users/soutaro/src/rubyci",
-  :rootUri => "file:///Users/soutaro/src/rubyci",
-  :capabilities => {
-    :workspace => {
-      :applyEdit => true,
-      :workspaceEdit => {
-        :documentChanges => true,
-        :resourceOperations => ["create", "rename", "delete"],
-        :failureHandling => "textOnlyTransactional",
-        :normalizesLineEndings => true,
-        :changeAnnotationSupport => {
-          :groupsOnLabel => true
-        }
-      },
-      :didChangeConfiguration => { :dynamicRegistration => true },
-      :didChangeWatchedFiles => { :dynamicRegistration => true },
-      :symbol => {
-        :dynamicRegistration => true,
-        :symbolKind => {
-          :valueSet => [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26]
-        },
-        :tagSupport => { :valueSet => [1] }
-      },
-      :codeLens => { :refreshSupport => true },
-      :executeCommand => { :dynamicRegistration => true },
-      :configuration => true,
-      :workspaceFolders => true,
-      :semanticTokens => { :refreshSupport => true },
-      :fileOperations => {
-        :dynamicRegistration => true,
-        :didCreate => true,
-        :didRename => true,
-        :didDelete => true,
-        :willCreate => true,
-        :willRename => true,
-        :willDelete => true
-      }
-    },
-    :textDocument => {
-      :publishDiagnostics => {
-        :relatedInformation => true,
-        :versionSupport => false,
-        :tagSupport => { :valueSet => [1, 2] },
-        :codeDescriptionSupport => true,
-        :dataSupport => true
-      },
-      :synchronization => {
-        :dynamicRegistration => true,
-        :willSave => true,
-        :willSaveWaitUntil => true,
-        :didSave => true
-      },
-      :completion => {
-        :dynamicRegistration => true,
-        :contextSupport => true,
-        :completionItem => {
-          :snippetSupport => true,
-          :commitCharactersSupport => true,
-          :documentationFormat => ["markdown", "plaintext"],
-          :deprecatedSupport => true,
-          :preselectSupport => true,
-          :tagSupport => { :valueSet => [1] },
-          :insertReplaceSupport => true,
-          :resolveSupport => {
-            :properties => ["documentation", "detail", "additionalTextEdits"]
-          },
-          :insertTextModeSupport => { :valueSet => [1, 2] }
-        },
-        :completionItemKind => {
-          :valueSet => [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25]
-        }
-      },
-      :hover => {
-        :dynamicRegistration => true,
-        :contentFormat => ["markdown", "plaintext"]
-      },
-      :signatureHelp => {
-        :dynamicRegistration => true,
-        :signatureInformation => {
-          :documentationFormat => ["markdown", "plaintext"],
-          :parameterInformation => { :labelOffsetSupport => true },
-          :activeParameterSupport => true
-        },
-        :contextSupport => true
-      },
-      :definition => {
-        :dynamicRegistration => true,
-        :linkSupport => true
-      },
-      :references => { :dynamicRegistration => true },
-      :documentHighlight => { :dynamicRegistration => true },
-      :documentSymbol => {
-        :dynamicRegistration => true,
-        :symbolKind => {
-          :valueSet => [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26]
-        },
-        :hierarchicalDocumentSymbolSupport => true,
-        :tagSupport => { :valueSet => [1] },
-        :labelSupport => true
-      },
-      :codeAction => {
-        :dynamicRegistration => true,
-        :isPreferredSupport => true,
-        :disabledSupport => true,
-        :dataSupport => true,
-        :resolveSupport => { :properties => ["edit"] },
-        :codeActionLiteralSupport => {
-          :codeActionKind => {
-            :valueSet => ["", "quickfix", "refactor", "refactor.extract", "refactor.inline", "refactor.rewrite", "source", "source.organizeImports"]
+  def test_untitled_file_notifications
+    in_tmpdir do
+      steepfile = current_dir + "Steepfile"
+      steepfile.write(<<-EOF)
+target :lib do
+  check "lib"
+  signature "sig"
+end
+      EOF
+
+      project = Project.new(steepfile_path: steepfile)
+      Project::DSL.parse(project, steepfile.read)
+
+      worker = Server::WorkerProcess.new(reader: nil, writer: nil, stderr: nil, wait_thread: nil, name: "test", index: 0)
+
+      master = Server::Master.new(
+        project: project,
+        reader: worker_reader,
+        writer: worker_writer,
+        interaction_worker: Object.new,
+        typecheck_workers: [worker]
+      )
+
+      assert_empty master.controller.changed_paths
+
+      master.process_message_from_client(
+        {
+          method: "textDocument/didOpen",
+          params: {
+            textDocument: {
+              uri: "untitled:Untitled-1"
+            }
           }
-        },
-        :honorsChangeAnnotations => false
-      },
-      :codeLens => { :dynamicRegistration => true },
-      :formatting => { :dynamicRegistration => true },
-      :rangeFormatting => { :dynamicRegistration => true },
-      :onTypeFormatting => { :dynamicRegistration => true },
-      :rename => {
-        :dynamicRegistration => true,
-        :prepareSupport => true,
-        :prepareSupportDefaultBehavior => 1,
-        :honorsChangeAnnotations => true
-      },
-      :documentLink => {
-        :dynamicRegistration => true,
-        :tooltipSupport => true
-      },
-      :typeDefinition => { :dynamicRegistration => true, :linkSupport => true },
-      :implementation => { :dynamicRegistration => true, :linkSupport => true },
-      :colorProvider => { :dynamicRegistration => true },
-      :foldingRange => { :dynamicRegistration => true, :rangeLimit => 5000, :lineFoldingOnly => true },
-      :declaration => { :dynamicRegistration => true, :linkSupport => true },
-      :selectionRange => { :dynamicRegistration => true },
-      :callHierarchy => { :dynamicRegistration => true },
-      :semanticTokens => {
-        :dynamicRegistration => true,
-        :tokenTypes => ["namespace", "type", "class", "enum", "interface", "struct", "typeParameter", "parameter", "variable", "property", "enumMember", "event", "function", "method", "macro", "keyword", "modifier", "comment", "string", "number", "regexp", "operator"],
-        :tokenModifiers => ["declaration", "definition", "readonly", "static", "deprecated", "abstract", "async", "modification", "documentation", "defaultLibrary"],
-        :formats => ["relative"],
-        :requests => { :range => true, :full => { :delta => true } },
-        :multilineTokenSupport => false,
-        :overlappingTokenSupport => false
-      },
-      :linkedEditingRange => { :dynamicRegistration => true }
-    },
-    :window => {
-      :showMessage => {
-        :messageActionItem => { :additionalPropertiesSupport => true }
-      },
-      :showDocument => { :support => true },
-      :workDoneProgress => true
-    },
-    :general => {
-      :regularExpressions => { :engine => "ECMAScript", :version => "ES2020" },
-      :markdown => { :parser => "marked", :version => "1.1.0" }
-    }
-  },
-  :trace => "off",
-  :workspaceFolders => [{ :uri => "file:///Users/soutaro/src/rubyci", :name => "rubyci" }]
-}
+        }
+      )
+
+      master.process_message_from_client(
+        {
+          method: "textDocument/didChange",
+          params: {
+            textDocument: {
+              uri: "untitled:Untitled-1"
+            }
+          }
+        }
+      )
+
+      master.process_message_from_client(
+        {
+          method: "textDocument/didSave",
+          params: {
+            textDocument: {
+              uri: "untitled:Untitled-1"
+            }
+          }
+        }
+      )
+
+      master.process_message_from_client(
+        {
+          method: "textDocument/didClose",
+          params: {
+            textDocument: {
+              uri: "untitled:Untitled-1"
+            }
+          }
+        }
+      )
+
+      jobs = flush_queue(master.job_queue)
+      assert_empty jobs
+
+      master.process_message_from_client(
+        {
+          method: "textDocument/hover",
+          id: "hover_id",
+          params: {
+            textDocument: {
+              uri: "untitled:Untitled-1"
+            }
+          }
+        }
+      )
+
+      assert_equal(
+        [Master::SendMessageJob.to_client(message: { id: "hover_id", result: nil })],
+        flush_queue(master.job_queue)
+      )
+
+      master.process_message_from_client(
+        {
+          method: "textDocument/completion",
+          id: "completion_id",
+          params: {
+            textDocument: {
+              uri: "untitled:Untitled-1"
+            }
+          }
+        }
+      )
+
+      assert_equal(
+        [Master::SendMessageJob.to_client(message: { id: "completion_id", result: nil })],
+        flush_queue(master.job_queue)
+      )
+
+      master.process_message_from_client(
+        {
+          method: "textDocument/definition",
+          id: "definition_id",
+          params: {
+            textDocument: {
+              uri: "untitled:Untitled-1"
+            }
+          }
+        }
+      )
+
+      assert_equal(
+        [Master::SendMessageJob.to_client(message: { id: "definition_id", result: [] })],
+        flush_queue(master.job_queue)
+      )
+
+      master.process_message_from_client(
+        {
+          method: "textDocument/implementation",
+          id: "implementation_id",
+          params: {
+            textDocument: {
+              uri: "untitled:Untitled-1"
+            }
+          }
+        }
+      )
+
+      assert_equal(
+        [Master::SendMessageJob.to_client(message: { id: "implementation_id", result: [] })],
+        flush_queue(master.job_queue)
+      )
+    end
+  end
+end
