@@ -517,40 +517,54 @@ module Steep
           end
 
         when "textDocument/didChange"
-          broadcast_notification(message)
-          path = pathname(message[:params][:textDocument][:uri])
-          controller.push_changes(path)
+          if path = pathname(message[:params][:textDocument][:uri])
+            broadcast_notification(message)
+            controller.push_changes(path)
+          end
 
         when "textDocument/didSave"
-          if typecheck_automatically
-            if request = controller.make_request(last_request: current_type_check_request)
-              start_type_check(
-                request,
-                last_request: current_type_check_request,
-                start_progress: request.total > 10
-              )
+          if path = pathname(message[:params][:textDocument][:uri])
+            if typecheck_automatically
+              if request = controller.make_request(last_request: current_type_check_request)
+                start_type_check(
+                  request,
+                  last_request: current_type_check_request,
+                  start_progress: request.total > 10
+                )
+              end
             end
           end
 
         when "textDocument/didOpen"
-          path = pathname(message[:params][:textDocument][:uri])
-          controller.update_priority(open: path)
+          if path = pathname(message[:params][:textDocument][:uri])
+            controller.update_priority(open: path)
+          end
 
         when "textDocument/didClose"
-          path = pathname(message[:params][:textDocument][:uri])
-          controller.update_priority(close: path)
+          if path = pathname(message[:params][:textDocument][:uri])
+            controller.update_priority(close: path)
+          end
 
         when "textDocument/hover", "textDocument/completion"
           if interaction_worker
-            result_controller << send_request(method: message[:method], params: message[:params], worker: interaction_worker) do |handler|
-              handler.on_completion do |response|
-                job_queue << SendMessageJob.to_client(
-                  message: {
-                    id: message[:id],
-                    result: response[:result]
-                  }
-                )
+            if path = pathname(message[:params][:textDocument][:uri])
+              result_controller << send_request(method: message[:method], params: message[:params], worker: interaction_worker) do |handler|
+                handler.on_completion do |response|
+                  job_queue << SendMessageJob.to_client(
+                    message: {
+                      id: message[:id],
+                      result: response[:result]
+                    }
+                  )
+                end
               end
+            else
+              job_queue << SendMessageJob.to_client(
+                message: {
+                  id: message[:id],
+                  result: nil
+                }
+              )
             end
           end
 
@@ -587,20 +601,29 @@ module Steep
           end
 
         when "textDocument/definition", "textDocument/implementation"
-          result_controller << group_request do |group|
-            typecheck_workers.each do |worker|
-              group << send_request(method: message[:method], params: message[:params], worker: worker)
-            end
+          if path = pathname(message[:params][:textDocument][:uri])
+            result_controller << group_request do |group|
+              typecheck_workers.each do |worker|
+                group << send_request(method: message[:method], params: message[:params], worker: worker)
+              end
 
-            group.on_completion do |handlers|
-              links = handlers.flat_map(&:result)
-              job_queue << SendMessageJob.to_client(
-                message: {
-                  id: message[:id],
-                  result: links
-                }
-              )
+              group.on_completion do |handlers|
+                links = handlers.flat_map(&:result)
+                job_queue << SendMessageJob.to_client(
+                  message: {
+                    id: message[:id],
+                    result: links
+                  }
+                )
+              end
             end
+          else
+            job_queue << SendMessageJob.to_client(
+              message: {
+                id: message[:id],
+                result: []
+              }
+            )
           end
 
         when "$/typecheck"

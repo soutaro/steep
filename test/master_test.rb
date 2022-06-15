@@ -766,4 +766,146 @@ end
       main_thread.join
     end
   end
+
+  def test_untitled_file_notifications
+    in_tmpdir do
+      steepfile = current_dir + "Steepfile"
+      steepfile.write(<<-EOF)
+target :lib do
+  check "lib"
+  signature "sig"
+end
+      EOF
+
+      project = Project.new(steepfile_path: steepfile)
+      Project::DSL.parse(project, steepfile.read)
+
+      worker = Server::WorkerProcess.new(reader: nil, writer: nil, stderr: nil, wait_thread: nil, name: "test", index: 0)
+
+      master = Server::Master.new(
+        project: project,
+        reader: worker_reader,
+        writer: worker_writer,
+        interaction_worker: Object.new,
+        typecheck_workers: [worker]
+      )
+
+      assert_empty master.controller.changed_paths
+
+      master.process_message_from_client(
+        {
+          method: "textDocument/didOpen",
+          params: {
+            textDocument: {
+              uri: "untitled:Untitled-1"
+            }
+          }
+        }
+      )
+
+      master.process_message_from_client(
+        {
+          method: "textDocument/didChange",
+          params: {
+            textDocument: {
+              uri: "untitled:Untitled-1"
+            }
+          }
+        }
+      )
+
+      master.process_message_from_client(
+        {
+          method: "textDocument/didSave",
+          params: {
+            textDocument: {
+              uri: "untitled:Untitled-1"
+            }
+          }
+        }
+      )
+
+      master.process_message_from_client(
+        {
+          method: "textDocument/didClose",
+          params: {
+            textDocument: {
+              uri: "untitled:Untitled-1"
+            }
+          }
+        }
+      )
+
+      jobs = flush_queue(master.job_queue)
+      assert_empty jobs
+
+      master.process_message_from_client(
+        {
+          method: "textDocument/hover",
+          id: "hover_id",
+          params: {
+            textDocument: {
+              uri: "untitled:Untitled-1"
+            }
+          }
+        }
+      )
+
+      assert_equal(
+        [Master::SendMessageJob.to_client(message: { id: "hover_id", result: nil })],
+        flush_queue(master.job_queue)
+      )
+
+      master.process_message_from_client(
+        {
+          method: "textDocument/completion",
+          id: "completion_id",
+          params: {
+            textDocument: {
+              uri: "untitled:Untitled-1"
+            }
+          }
+        }
+      )
+
+      assert_equal(
+        [Master::SendMessageJob.to_client(message: { id: "completion_id", result: nil })],
+        flush_queue(master.job_queue)
+      )
+
+      master.process_message_from_client(
+        {
+          method: "textDocument/definition",
+          id: "definition_id",
+          params: {
+            textDocument: {
+              uri: "untitled:Untitled-1"
+            }
+          }
+        }
+      )
+
+      assert_equal(
+        [Master::SendMessageJob.to_client(message: { id: "definition_id", result: [] })],
+        flush_queue(master.job_queue)
+      )
+
+      master.process_message_from_client(
+        {
+          method: "textDocument/implementation",
+          id: "implementation_id",
+          params: {
+            textDocument: {
+              uri: "untitled:Untitled-1"
+            }
+          }
+        }
+      )
+
+      assert_equal(
+        [Master::SendMessageJob.to_client(message: { id: "implementation_id", result: [] })],
+        flush_queue(master.job_queue)
+      )
+    end
+  end
 end
