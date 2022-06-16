@@ -9216,4 +9216,38 @@ RUBY
       end
     end
   end
+
+  def test_issue_583
+    with_checker <<-EOF do |checker|
+module Issue583
+  class TestArray[unchecked out Elem] < Object
+    def to_h: () -> Hash[untyped, untyped]
+      | [T, S] () { (Elem) -> [ T, S ] } -> Hash[T, S]
+  end
+
+  class TestClass
+    def register_block: (TestArray[::String]) { (String) -> void } -> ::Hash[::String, ^(String) -> void]
+  end
+end
+    EOF
+
+      source = parse_ruby(<<-'RUBY')
+module Issue583
+  class TestClass
+    def register_block(field_names, &block)
+      field_names.to_h do |field_name|
+        [field_name, block]
+      end
+    end
+  end
+end
+      RUBY
+
+      with_standard_construction(checker, source) do |construction, typing|
+        type, _ = construction.synthesize(source.node)
+
+        assert_no_error typing
+      end
+    end
+  end
 end
