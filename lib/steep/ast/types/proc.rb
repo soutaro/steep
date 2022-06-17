@@ -45,6 +45,8 @@ module Steep
           end
         end
 
+        include Helper::ChildrenLevel
+
         def level
           children = type.params.each_type.to_a + [type.return_type]
           if block
