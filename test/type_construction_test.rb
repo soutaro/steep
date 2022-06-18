@@ -5921,6 +5921,30 @@ end
     end
   end
 
+  def test_assign_untyped_singleton_class
+    with_checker do |checker|
+      source = parse_ruby(<<-'RUBY')
+# @type var unknown: untyped
+unknown = BasicObject.new
+_sclass = class << unknown
+  self
+end
+      RUBY
+
+      with_standard_construction(checker, source) do |construction, typing|
+        _, _, context = construction.synthesize(source.node)
+
+        assert_typing_error typing, size: 1 do |errors|
+          assert_all!(typing.errors) do |error|
+            assert_instance_of Diagnostic::Ruby::UnsupportedSyntax, error
+          end
+        end
+
+        assert_equal parse_type("nil"), context.lvar_env[:_sclass]
+      end
+    end
+  end
+
   def test_block_param_masgn
     with_checker(<<-RBS) do |checker|
 class BlockParamTuple
