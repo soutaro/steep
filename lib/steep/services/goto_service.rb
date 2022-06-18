@@ -57,8 +57,6 @@ module Steep
       def definition(path:, line:, column:)
         locations = []
 
-        relative_path = project.relative_path(path)
-
         queries = query_at(path: path, line: line, column: column)
         queries.uniq!
 

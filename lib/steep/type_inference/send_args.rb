@@ -528,7 +528,6 @@ module Steep
       def each
         if block_given?
           errors = []
-          positional_count = 0
 
           positional_arg.tap do |args|
             while (value, args = args.next())
@@ -615,7 +614,7 @@ module Steep
             end
           end
 
-          pass = block_pass_arg
+          # pass = block_pass_arg
           # if pass.node
           #   yield pass
           # end

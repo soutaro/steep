@@ -142,7 +142,7 @@ module Steep
               decls = sig_service.files[relative_path].decls
               locator = RBS::Locator.new(decls: decls)
 
-              hd, tail = locator.find2(line: job.line, column: job.column)
+              _hd, tail = locator.find2(line: job.line, column: job.column)
 
               namespace = []
               tail.each do |t|
