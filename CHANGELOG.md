@@ -2,6 +2,38 @@
 
 ## master
 
+## 1.0.1 (2022-06-16)
+
+This is the first patch release for Steep 1.0.
+However, this release includes one non-trivial type system update, [\#570](https://github.com/soutaro/steep/pull/570), which adds a special typing rule for `Hash#compact` like `Array#compact`.
+The change will make type checking more permissive and precise, so no new error won't be reported with the fix.
+
+### Type checker
+
+* Support shorthand hash for Ruby 3.1 ([\#567](https://github.com/soutaro/steep/pull/567))
+* Fix super and zsuper with block ([\#568](https://github.com/soutaro/steep/pull/568))
+* Apply logic-type evaluation only if the node is `:send` ([\#569](https://github.com/soutaro/steep/pull/569))
+* Add support for `Hash#compact` ([\#570](https://github.com/soutaro/steep/pull/570))
+* Use given `const_env` when making a new `ModuleContext` ([\#575](https://github.com/soutaro/steep/pull/575))
+* Graceful, hopefully, error handling with undefined outer module ([\#576](https://github.com/soutaro/steep/pull/576))
+* Type check anonymous block forwarding ([\#577](https://github.com/soutaro/steep/pull/577))
+* Incompatible default value is a type error ([\#578](https://github.com/soutaro/steep/pull/578))
+* Load `ChildrenLevel` helper in `AST::Types::Proc` ([\#584](https://github.com/soutaro/steep/pull/584))
+* Type check `gvar` and `gvasgn` in methods([\#579](https://github.com/soutaro/steep/pull/579))
+* Avoid `UnexpectedError` when assigning untyped singleton class ([\#586](https://github.com/soutaro/steep/pull/586))
+
+### Tool
+
+* Improve Windows support ([\#561](https://github.com/soutaro/steep/pull/561), [\#573](https://github.com/soutaro/steep/pull/573))
+* Test if `.ruby-version` exists before `rvm do` in binstub ([\#558](https://github.com/soutaro/steep/pull/558))
+* Fix typo ([\#564](https://github.com/soutaro/steep/pull/564))
+* Ignore `untitled:` URIs in LSP ([\#580](https://github.com/soutaro/steep/pull/580))
+
+### Miscellaneous
+
+* Fix test name ([\#565](https://github.com/soutaro/steep/pull/565), [\#566](https://github.com/soutaro/steep/pull/566), [\#585](https://github.com/soutaro/steep/pull/585))
+* Remove some unused code except tests ([\#587](https://github.com/soutaro/steep/pull/587))
+
 ## 1.0.0 (2022-05-20)
 
 * Add special typing rule for `Array#compact` ([\#555](https://github.com/soutaro/steep/pull/555))
