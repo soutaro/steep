@@ -3587,10 +3587,12 @@ module Steep
 
             case node.children[0].type
             when :super, :zsuper
-              errors << Diagnostic::Ruby::UnexpectedSuper.new(
-                node: node.children[0],
-                method: method_name
-              )
+              unless method_context.super_method
+                errors << Diagnostic::Ruby::UnexpectedSuper.new(
+                  node: node.children[0],
+                  method: method_name
+                )
+              end
             else
               errors << Diagnostic::Ruby::UnexpectedBlockGiven.new(
                 node: node,

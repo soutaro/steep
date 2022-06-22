@@ -4125,16 +4125,44 @@ EOF
   def test_super_correct_block
     with_checker <<-EOF do |checker|
 class TestSuper
-  def initialize: () { () -> nil } -> nil
+  def foo: () { () -> nil } -> nil
 end
 
 class TestSuperChild < TestSuper
-  def initialize: () { () -> nil } -> nil
+  def foo: () { () -> nil } -> nil
 end
     EOF
       source = parse_ruby(<<EOF)
 class TestSuperChild < TestSuper
-  def initialize
+  def foo
+    super do
+    end
+    super() {}
+  end
+end
+EOF
+
+      with_standard_construction(checker, source) do |construction, typing|
+        construction.synthesize(source.node)
+
+        assert_no_error typing
+      end
+    end
+  end
+
+  def test_super_correct_block_called_on_no_block_method
+    with_checker <<-EOF do |checker|
+class TestSuper
+  def foo: () { () -> nil } -> nil
+end
+
+class TestSuperChild < TestSuper
+  def foo: () -> nil
+end
+    EOF
+      source = parse_ruby(<<EOF)
+class TestSuperChild < TestSuper
+  def foo
     super do
     end
     super() {}
@@ -4257,12 +4285,12 @@ EOF
   def test_super_with_block_called_on_no_super_definition
     with_checker <<-EOF do |checker|
 class TestNoSuper
-  def initialize: () -> void
+  def foo: () -> void
 end
     EOF
       source = parse_ruby(<<EOF)
 class TestNoSuper
-  def initialize
+  def foo
     super do
     end
     super() do
@@ -4279,7 +4307,7 @@ EOF
         assert_typing_error(typing, size: 3) do |errors|
           assert_all!(errors) do |error|
             assert_instance_of Diagnostic::Ruby::UnexpectedSuper, error
-            assert_equal :initialize, error.method
+            assert_equal :foo, error.method
           end
         end
       end
