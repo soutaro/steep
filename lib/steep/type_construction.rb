@@ -1579,8 +1579,7 @@ module Steep
                     message: "sclass receiver must be instance type or singleton type, but type given `#{type}`"
                   )
                 )
-                constr.add_typing(node, type: AST::Builtin.nil_type)
-                return
+                return constr.add_typing(node, type: AST::Builtin.nil_type)
               end
 
               constructor.typing.add_context_for_node(node, context: constructor.context)
