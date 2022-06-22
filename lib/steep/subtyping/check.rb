@@ -421,9 +421,6 @@ module Steep
         when relation.sub_type.is_a?(AST::Types::Proc) && relation.super_type.is_a?(AST::Types::Proc)
           name = :__proc__
 
-          sub_type = relation.sub_type
-          super_type = relation.super_type
-
           All(relation) do |result|
             result.add(relation.map {|p| p.type }) do |rel|
               check_function(name, rel)

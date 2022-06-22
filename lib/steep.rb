@@ -67,7 +67,6 @@ require "steep/subtyping/cache"
 require "steep/subtyping/relation"
 require "steep/subtyping/constraints"
 require "steep/subtyping/variable_variance"
-require "steep/subtyping/variable_occurrence"
 
 require "steep/diagnostic/helper"
 require "steep/diagnostic/ruby"

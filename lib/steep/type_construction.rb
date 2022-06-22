@@ -2838,13 +2838,6 @@ module Steep
 
       block_constr.typing.add_context_for_body(node, context: block_constr.context)
 
-      default_proc_function =
-        Interface::Function.new(
-          params: Interface::Function::Params.empty,
-          return_type: AST::Builtin.any_type,
-          location: nil
-        )
-
       params.params.each do |param|
         _, block_constr = block_constr.synthesize(param.node, hint: param.type)
       end
@@ -3355,7 +3348,6 @@ module Steep
       method_type = method_type.instantiate(instantiation)
 
       variance = Subtyping::VariableVariance.from_method_type(method_type)
-      occurrence = Subtyping::VariableOccurrence.from_method_type(method_type)
       constraints = Subtyping::Constraints.new(unknowns: type_params.map(&:name))
       ccontext = Subtyping::Constraints::Context.new(
         self_type: self_type,

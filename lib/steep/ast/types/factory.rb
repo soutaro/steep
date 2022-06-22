@@ -288,8 +288,6 @@ module Steep
           fvs = self_type.free_variables()
 
           type_params = []
-          alpha_vars = []
-          alpha_types = []
 
           conflicting_names = method_type.type_params.each.with_object([]) do |param, names|
             names << params.name if fvs.include?(param.name)

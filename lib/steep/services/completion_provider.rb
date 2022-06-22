@@ -157,7 +157,7 @@ module Steep
       end
 
       def items_for_trigger(position:)
-        node, *parents = source.find_nodes(line: position.line, column: position.column)
+        node, *_parents = source.find_nodes(line: position.line, column: position.column)
         node ||= source.node
 
         return [] unless node
@@ -265,7 +265,7 @@ module Steep
       def items_for_dot(position:)
         # foo. ←
         shift_pos = position-1
-        node, *parents = source.find_nodes(line: shift_pos.line, column: shift_pos.column)
+        node, *_parents = source.find_nodes(line: shift_pos.line, column: shift_pos.column)
         node ||= source.node
 
         return [] unless node
@@ -355,7 +355,7 @@ module Steep
             end
           end
         end
-      rescue RuntimeError => exn
+      rescue RuntimeError => _exn
         # nop
       end
 

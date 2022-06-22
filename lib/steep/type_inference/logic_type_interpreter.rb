@@ -198,7 +198,6 @@ module Steep
 
           [truthy_types, falsy_types]
         else
-          value_type = typing.type_of(node: value_node)
           types = [arg_type]
 
           case value_node.type

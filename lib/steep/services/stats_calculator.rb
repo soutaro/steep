@@ -39,7 +39,6 @@ module Steep
           typed = 0
           untyped = 0
           errors = 0
-          total = 0
           typing.method_calls.each_value do |call|
             case call
             when TypeInference::MethodCall::Typed

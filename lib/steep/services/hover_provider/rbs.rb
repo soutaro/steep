@@ -26,7 +26,7 @@ module Steep
           return if decls.nil?
 
           loc_key, path = ::RBS::Locator.new(decls: decls).find2(line: line, column: column) || return
-          head, *tail = path
+          head, *_tail = path
 
           case head
           when ::RBS::Types::Alias
