@@ -264,6 +264,24 @@ module Steep
         end
       end
 
+      class ClassVariableDuplicationError < Base
+        attr_reader :class_name
+        attr_reader :other_class_name
+        attr_reader :variable_name
+
+        def initialize(class_name:, other_class_name:, variable_name:, location:)
+          super(location: location)
+
+          @class_name = class_name
+          @other_class_name = other_class_name
+          @variable_name = variable_name
+        end
+
+        def header_line
+          "Class variable definition `#{variable_name}` in `#{class_name}` may be overtaken by `#{other_class_name}`"
+        end
+      end
+
       class InstanceVariableTypeError < Base
         attr_reader :name
         attr_reader :variable
