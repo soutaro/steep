@@ -597,6 +597,42 @@ EOF
     end
   end
 
+  def test_validate_class_variables
+    with_checker <<-EOF do |checker|
+class A
+  @@foo: Integer
+end
+
+class B < A
+  @@foo: Integer?
+end
+
+class C < B
+end
+    EOF
+      Validator.new(checker: checker).tap do |validator|
+        validator.validate_one_class(TypeName("::A"))
+
+        assert_predicate validator, :no_error?
+      end
+
+      Validator.new(checker: checker).tap do |validator|
+        validator.validate_one_class(TypeName("::C"))
+
+        assert_predicate validator, :no_error?
+      end
+
+      Validator.new(checker: checker).tap do |validator|
+        validator.validate_one_class(TypeName("::B"))
+
+        assert_predicate validator, :has_error?
+        assert_any!(validator.each_error, size: 1) do |error|
+          assert_instance_of Diagnostic::Signature::ClassVariableDuplicationError, error
+        end
+      end
+    end
+  end
+
   def test_validate_type_application
     with_checker <<-EOF do |checker|
 class Foo[X < Numeric]
