@@ -2304,6 +2304,24 @@ x = $HOGE
     end
   end
 
+  def test_gvar3
+    with_checker(<<RBS) do |checker|
+$TEST: bool
+RBS
+      source = parse_ruby(<<RUBY)
+def foo
+  $TEST
+end
+RUBY
+
+      with_standard_construction(checker, source) do |construction, typing|
+        type, _ = construction.synthesize(source.node)
+
+        assert_no_error(typing)
+      end
+    end
+  end
+
   def test_ivar
     with_checker <<-EOF do |checker|
 class A
@@ -9197,24 +9215,6 @@ RUBY
             assert_equal "Cannot assign a value of type `bool` to an expression of type `::String`", error.header_line
           end
         end
-      end
-    end
-  end
-
-  def test_anonymouse_block_forwarding
-    with_checker(<<RBS) do |checker|
-$TEST: bool
-RBS
-      source = parse_ruby(<<RUBY)
-def foo
-  $TEST
-end
-RUBY
-
-      with_standard_construction(checker, source) do |construction, typing|
-        type, _ = construction.synthesize(source.node)
-
-        assert_no_error(typing)
       end
     end
   end
