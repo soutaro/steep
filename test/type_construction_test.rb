@@ -4254,6 +4254,38 @@ EOF
     end
   end
 
+  def test_super_with_block_called_on_no_super_definition
+    with_checker <<-EOF do |checker|
+class TestNoSuper
+  def initialize: () -> void
+end
+    EOF
+      source = parse_ruby(<<EOF)
+class TestNoSuper
+  def initialize
+    super do
+    end
+    super() do
+    end
+    super(42) do
+    end
+  end
+end
+EOF
+
+      with_standard_construction(checker, source) do |construction, typing|
+        construction.synthesize(source.node)
+
+        assert_typing_error(typing, size: 3) do |errors|
+          assert_all!(errors) do |error|
+            assert_instance_of Diagnostic::Ruby::UnexpectedSuper, error
+            assert_equal :initialize, error.method
+          end
+        end
+      end
+    end
+  end
+
   def test_empty_array_is_error
     with_checker do |checker|
       source = parse_ruby(<<EOF)
