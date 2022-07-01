@@ -79,7 +79,7 @@ module Steep
         file_paths = Set.new(dirs.select(&:file?).map(&:realpath))
 
         listener = Listen.to(*watch_paths.map(&:to_s)) do |modified, added, removed|
-          stdout.puts Rainbow("🔬 Type checking updated files...").bold
+          stdout.print Rainbow("🔬 Type checking updated files...").bold
 
           version = Time.now.to_i
           Steep.logger.tagged "watch" do
@@ -112,6 +112,8 @@ module Steep
           end
 
           client_writer.write(method: "$/typecheck", params: { guid: nil })
+          
+          stdout.puts Rainbow("done!").bold
         end.tap(&:start)
 
         begin
