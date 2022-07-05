@@ -17,14 +17,15 @@ class TypingTest < Minitest::Test
   end
 
   def context
+    resolver = RBS::Resolver::ConstantResolver.new(builder: factory.definition_builder)
+    constant_env = Steep::TypeInference::ConstantEnv.new(factory: factory, context: nil, resolver: )
     @context ||= Context.new(
       method_context: nil,
       block_context: nil,
       break_context: nil,
       module_context: nil,
       self_type: parse_type("::Object"),
-      type_env: nil,
-      lvar_env: nil,
+      type_env: TypeEnv.new(constant_env),
       call_context: Steep::TypeInference::MethodCall::TopLevelContext.new,
       variable_context: Context::TypeVariableContext.empty
     )

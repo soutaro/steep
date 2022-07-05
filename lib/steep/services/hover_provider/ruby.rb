@@ -49,6 +49,8 @@ module Steep
             else
               methods[singleton_method]
             end
+          else
+            raise "One of the instance_method or singleton_method is required"
           end
         end
 
@@ -88,14 +90,14 @@ module Steep
             when :lvar
               var_name = node.children[0]
               context = typing.context_at(line: line, column: column)
-              var_type = context.lvar_env[var_name] || AST::Types::Any.new(location: nil)
+              var_type = context.type_env[var_name] || AST::Types::Any.new(location: nil)
 
               return VariableContent.new(node: node, name: var_name, type: var_type, location: node.location.name)
 
             when :lvasgn
               var_name, rhs = node.children
               context = typing.context_at(line: line, column: column)
-              type = context.lvar_env[var_name] || typing.type_of(node: rhs)
+              type = context.type_env[var_name] || typing.type_of(node: rhs)
 
               return VariableContent.new(node: node, name: var_name, type: type, location: node.location.name)
 

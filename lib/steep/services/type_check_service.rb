@@ -342,21 +342,22 @@ module Steep
 
       def self.type_check(source:, subtyping:)
         annotations = source.annotations(block: source.node, factory: subtyping.factory, context: nil)
+
+        definition = subtyping.factory.definition_builder.build_instance(AST::Builtin::Object.module_name)
+
         const_env = TypeInference::ConstantEnv.new(
           factory: subtyping.factory,
           context: nil,
           resolver: RBS::Resolver::ConstantResolver.new(builder: subtyping.factory.definition_builder)
         )
-        type_env = TypeInference::TypeEnv.build(annotations: annotations,
-                                                subtyping: subtyping,
-                                                const_env: const_env,
-                                                signatures: subtyping.factory.env)
-        lvar_env = TypeInference::LocalVariableTypeEnv.empty(
-          subtyping: subtyping,
-          self_type: AST::Builtin::Object.instance_type,
-          instance_type: AST::Builtin::Object.instance_type,
-          class_type: AST::Builtin::Object.module_type
-        ).annotate(annotations)
+        type_env = TypeInference::TypeEnv.new(const_env)
+        type_env = TypeInference::TypeEnvBuilder.new(
+          TypeInference::TypeEnvBuilder::Command::ImportConstantAnnotations.new(annotations),
+          TypeInference::TypeEnvBuilder::Command::ImportGlobalDeclarations.new(subtyping.factory),
+          TypeInference::TypeEnvBuilder::Command::ImportInstanceVariableDefinition.new(definition, subtyping.factory),
+          TypeInference::TypeEnvBuilder::Command::ImportInstanceVariableAnnotations.new(annotations),
+          TypeInference::TypeEnvBuilder::Command::ImportLocalVariableAnnotations.new(annotations)
+        ).build(type_env)
 
         context = TypeInference::Context.new(
           block_context: nil,
@@ -364,7 +365,7 @@ module Steep
             instance_type: AST::Builtin::Object.instance_type,
             module_type: AST::Builtin::Object.module_type,
             implement_name: nil,
-            const_env: const_env,
+            nesting: nil,
             class_name: AST::Builtin::Object.module_name,
             instance_definition: subtyping.factory.definition_builder.build_instance(AST::Builtin::Object.module_name),
             module_definition: subtyping.factory.definition_builder.build_singleton(AST::Builtin::Object.module_name)
@@ -373,7 +374,6 @@ module Steep
           break_context: nil,
           self_type: AST::Builtin::Object.instance_type,
           type_env: type_env,
-          lvar_env: lvar_env,
           call_context: TypeInference::MethodCall::TopLevelContext.new,
           variable_context: TypeInference::Context::TypeVariableContext.empty
         )

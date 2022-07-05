@@ -399,7 +399,7 @@ module Steep
           when AST::Types::Boolean
             [type, type]
           else
-            [type, nil]
+            [type, AST::Types::Bot.new()]
           end
         end
 
