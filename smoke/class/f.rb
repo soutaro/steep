@@ -6,4 +6,5 @@ d = (_ = nil)
 
 e = d
 
+e = _ = nil
 d = e
