@@ -67,6 +67,7 @@ DEPENDENCIES
   minitest-hooks
   minitest-slow_test
   rake
+  rbs (~> 2.5.1)
   stackprof
   steep!
   with_steep_types!

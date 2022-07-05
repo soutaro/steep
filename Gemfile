@@ -13,3 +13,4 @@ group :stackprof, optional: true do
   gem "stackprof"
 end
 gem 'minitest-slow_test'
+gem "rbs", "~> 2.5.1"
