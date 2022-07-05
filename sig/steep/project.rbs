@@ -1,0 +1,19 @@
+module Steep
+  class Project
+    attr_reader targets: untyped
+
+    attr_reader steepfile_path: untyped
+
+    def initialize: (steepfile_path: untyped) -> void
+
+    def base_dir: () -> untyped
+
+    def relative_path: (untyped path) -> untyped
+
+    def absolute_path: (untyped path) -> untyped
+
+    def target_for_source_path: (untyped path) -> untyped
+
+    def targets_for_path: (untyped path) -> (::Array[untyped | ::Array[untyped]] | ::Array[nil | untyped])
+  end
+end

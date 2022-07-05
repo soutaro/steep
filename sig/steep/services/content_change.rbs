@@ -1,0 +1,35 @@
+module Steep
+  module Services
+    class ContentChange
+      class Position
+        attr_reader line: untyped
+
+        attr_reader column: untyped
+
+        def initialize: (line: untyped, column: untyped) -> void
+
+        def ==: (untyped other) -> untyped
+
+        alias eql? ==
+
+        def hash: () -> untyped
+      end
+
+      attr_reader range: untyped
+
+      attr_reader text: untyped
+
+      def initialize: (text: untyped, ?range: untyped?) -> void
+
+      def ==: (untyped other) -> untyped
+
+      alias eql? ==
+
+      def hash: () -> untyped
+
+      def self.string: (untyped string) -> untyped
+
+      def apply_to: (untyped text) -> untyped
+    end
+  end
+end

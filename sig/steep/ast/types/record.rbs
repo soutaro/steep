@@ -1,0 +1,38 @@
+module Steep
+  module AST
+    module Types
+      class Record
+        type loc = RBS::Location[untyped, untyped]
+
+        type key = Symbol | String | Integer
+
+        attr_reader location: loc?
+
+        attr_reader elements: Hash[key, t]
+
+        def initialize: (elements: Hash[key, t], ?location: loc?) -> void
+
+        def ==: (untyped other) -> bool
+
+        def hash: () -> Integer
+
+        alias eql? ==
+
+        def subst: (Interface::Substitution s) -> self
+
+        def to_s: () -> ::String
+
+        def free_variables: () -> Set[Symbol]
+
+        include Helper::ChildrenLevel
+
+        def each_child: () { (t) -> void } -> void
+                      | () -> Enumerator[t, void]
+
+        def level: () -> Integer
+
+        def with_location: (loc new_location) -> self
+      end
+    end
+  end
+end

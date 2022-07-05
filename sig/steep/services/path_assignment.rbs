@@ -1,0 +1,21 @@
+module Steep
+  module Services
+    class PathAssignment
+      attr_reader index: untyped
+
+      attr_reader max_index: untyped
+
+      attr_reader cache: untyped
+
+      def initialize: (index: untyped, max_index: untyped) -> void
+
+      def self.all: () -> untyped
+
+      def =~: (untyped path) -> untyped
+
+      alias === =~
+
+      def self.index_for: (path: untyped, max_index: untyped) -> untyped
+    end
+  end
+end

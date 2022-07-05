@@ -1,0 +1,91 @@
+module Steep
+  module Services
+    class SignatureService
+      attr_reader status: untyped
+
+      class SyntaxErrorStatus
+        attr_reader files: untyped
+
+        attr_reader changed_paths: untyped
+
+        attr_reader diagnostics: untyped
+
+        attr_reader last_builder: untyped
+
+        def initialize: (files: untyped, changed_paths: untyped, diagnostics: untyped, last_builder: untyped) -> void
+
+        def rbs_index: () -> untyped
+      end
+
+      class AncestorErrorStatus
+        attr_reader files: untyped
+
+        attr_reader changed_paths: untyped
+
+        attr_reader diagnostics: untyped
+
+        attr_reader last_builder: untyped
+
+        def initialize: (files: untyped, changed_paths: untyped, diagnostics: untyped, last_builder: untyped) -> void
+
+        def rbs_index: () -> untyped
+      end
+
+      class LoadedStatus
+        attr_reader files: untyped
+
+        attr_reader builder: untyped
+
+        def initialize: (files: untyped, builder: untyped) -> void
+
+        def subtyping: () -> untyped
+
+        def rbs_index: () -> untyped
+      end
+
+      FileStatus: untyped
+
+      def initialize: (env: untyped) -> void
+
+      def self.load_from: (untyped loader) -> untyped
+
+      def env_rbs_paths: () -> untyped
+
+      def each_rbs_path: () { (untyped) -> untyped } -> untyped
+
+      def files: () -> untyped
+
+      def pending_changed_paths: () -> untyped
+
+      def latest_env: () -> untyped
+
+      def latest_builder: () -> untyped
+
+      def latest_rbs_index: () -> untyped
+
+      def current_subtyping: () -> (untyped | nil)
+
+      def apply_changes: (untyped files, untyped changes) -> untyped
+
+      def update: (untyped changes) -> untyped
+
+      def update_env: (untyped updated_files, paths: untyped) -> untyped
+
+      def rescue_rbs_error: (untyped errors) { () -> untyped } -> untyped
+
+      def update_builder: (ancestor_builder: untyped, paths: untyped) -> untyped
+
+      def type_names: (paths: untyped, env: untyped) -> untyped
+
+      def const_decls: (paths: untyped, env: untyped) -> untyped
+
+      def global_decls: (paths: untyped, ?env: untyped) -> untyped
+
+      def type_name_from_decl: (untyped decl, set: untyped) -> untyped
+
+      def add_descendants: (graph: untyped, names: untyped, set: untyped) -> untyped
+
+      def add_nested_decls: (env: untyped, names: untyped, set: untyped) -> untyped
+    end
+  end
+end

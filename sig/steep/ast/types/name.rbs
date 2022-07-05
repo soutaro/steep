@@ -1,0 +1,71 @@
+module Steep
+  module AST
+    module Types
+      module Name
+        class Base
+          attr_reader location: untyped
+
+          attr_reader name: untyped
+
+          def initialize: (name: untyped, ?location: untyped?) -> void
+
+          include Helper::NoFreeVariables
+
+          def subst: (untyped s) -> self
+
+          def level: () -> ::Array[0]
+        end
+
+        class Applying < Base
+          attr_reader args: untyped
+
+          def initialize: (name: untyped, args: untyped, ?location: untyped?) -> void
+
+          def ==: (untyped other) -> untyped
+
+          alias eql? ==
+
+          def hash: () -> untyped
+
+          def to_s: () -> ::String
+
+          def with_location: (untyped new_location) -> untyped
+
+          def subst: (untyped s) -> (untyped | self)
+
+          def free_variables: () -> untyped
+
+          def each_child: () ?{ () -> untyped } -> untyped
+
+          include Helper::ChildrenLevel
+
+          def level: () -> untyped
+        end
+
+        class Singleton < Base
+          def ==: (untyped other) -> untyped
+
+          alias eql? ==
+
+          def hash: () -> untyped
+
+          def to_s: () -> ::String
+
+          def with_location: (untyped new_location) -> untyped
+
+          include Helper::NoChild
+        end
+
+        class Instance < Applying
+          def to_module: () -> untyped
+        end
+
+        class Interface < Applying
+        end
+
+        class Alias < Applying
+        end
+      end
+    end
+  end
+end

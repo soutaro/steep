@@ -1,0 +1,155 @@
+module Steep
+  module Subtyping
+    module Result
+      type t = Skip | Expand | All | Any | Success | Failure
+
+      class Base
+        attr_reader relation: Relation
+
+        def initialize: (Relation relation) -> void
+
+        def failure?: () -> bool
+
+        def then: [A] () { (self) -> A } -> A
+
+        def else: [A] () { (self) -> A } -> A
+
+        def failure_path: (?untyped path) -> untyped
+      end
+
+      class Skip < Base
+        def success?: () -> false
+
+        def failure?: () -> false
+
+        def failure_path: (?untyped path) -> untyped
+      end
+
+      class Expand < Base
+        attr_reader child: untyped
+
+        def initialize: (untyped relation) { (untyped) -> untyped } -> void
+
+        def success?: () -> untyped
+
+        def failure_path: (?untyped path) -> (untyped | nil)
+      end
+
+      class All < Base
+        attr_reader branches: untyped
+
+        def initialize: (untyped relation) -> void
+
+        # Returns `false` if no future `#add` changes the result.
+        def add: (*untyped relations) { (untyped) -> untyped } -> untyped
+
+        def success?: () -> untyped
+
+        def failure?: () -> untyped
+
+        def failure_path: (?untyped path) -> (untyped | nil)
+      end
+
+      class Any < Base
+        attr_reader branches: untyped
+
+        def initialize: (untyped relation) -> void
+
+        # Returns `false` if no future `#add` changes the result.
+        def add: (*untyped relations) { (untyped) -> untyped } -> untyped
+
+        def success?: () -> untyped
+
+        def failure_path: (?untyped path) -> (untyped | nil)
+      end
+
+      class Success < Base
+        def success?: () -> true
+
+        def failure_path: (?untyped path) -> nil
+      end
+
+      class Failure < Base
+        class MethodMissingError
+          attr_reader name: untyped
+
+          def initialize: (name: untyped) -> void
+
+          def message: () -> ::String
+        end
+
+        class BlockMismatchError
+          attr_reader name: untyped
+
+          def initialize: (name: untyped) -> void
+
+          def message: () -> ::String
+        end
+
+        class ParameterMismatchError
+          attr_reader name: untyped
+
+          def initialize: (name: untyped) -> void
+
+          def message: () -> ::String
+        end
+
+        class UnknownPairError
+          attr_reader relation: untyped
+
+          def initialize: (relation: untyped) -> void
+
+          def message: () -> ::String
+        end
+
+        class PolyMethodSubtyping
+          attr_reader name: untyped
+
+          def initialize: (name: untyped) -> void
+
+          def message: () -> ::String
+        end
+
+        class UnsatisfiedConstraints
+          attr_reader error: untyped
+
+          def initialize: (untyped error) -> void
+
+          def var: () -> untyped
+
+          def sub_type: () -> untyped
+
+          def super_type: () -> untyped
+
+          def result: () -> untyped
+
+          def message: () -> ::String
+        end
+
+        attr_reader error: untyped
+
+        def initialize: (untyped relation, untyped error) -> void
+
+        def success?: () -> false
+
+        def failure_path: (?untyped path) -> untyped
+      end
+
+      module Helper
+        def Skip: (untyped relation) -> untyped
+
+        def Expand: (untyped relation) { () -> untyped } -> untyped
+
+        def All: (untyped relation) { () -> untyped } -> untyped
+
+        def Any: (untyped relation) { () -> untyped } -> untyped
+
+        def Success: (untyped relation) -> untyped
+
+        alias success Success
+
+        def Failure: (untyped relation, ?untyped? error) { () -> untyped } -> untyped
+      end
+    end
+  end
+end

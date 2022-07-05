@@ -1,0 +1,52 @@
+module Steep
+  module TypeInference
+    class BlockParams
+      class Param
+        attr_reader var: Symbol
+
+        attr_reader type: AST::Types::t
+
+        attr_reader value: untyped
+
+        attr_reader node: Parser::AST::Node
+
+        def initialize: (var: Symbol, type: AST::Types::t, value: untyped, node: Parser::AST::Node) -> void
+
+        def ==: (untyped other) -> bool
+
+        alias eql? ==
+
+        def hash: () -> Integer
+      end
+
+      attr_reader leading_params: untyped
+
+      attr_reader optional_params: untyped
+
+      attr_reader rest_param: untyped
+
+      attr_reader trailing_params: untyped
+
+      attr_reader block_param: untyped
+
+      def initialize: (leading_params: untyped, optional_params: untyped, rest_param: untyped, trailing_params: untyped, block_param: untyped) -> void
+
+      def params: () -> untyped
+
+      def self.from_node: (untyped node, annotations: untyped) -> (nil | untyped)
+
+      def params_type: (?hint: untyped?) -> untyped
+
+      def params_type0: (hint: untyped) -> (nil | untyped)
+
+      def zip: (untyped params_type, untyped block) -> untyped
+
+      def expandable_params?: (untyped params_type) -> (untyped | nil)
+
+      def expandable?: () -> untyped
+
+      def each: () { (Param) -> void } -> void
+              | () -> Enumerator[Param, void]
+    end
+  end
+end

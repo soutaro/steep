@@ -1,0 +1,32 @@
+module Steep
+  module Services
+    module HoverProvider
+      class Ruby
+        TypeContent: untyped
+
+        VariableContent: untyped
+
+        MethodCallContent: untyped
+
+        DefinitionContent: untyped
+
+        ConstantContent: untyped
+
+        attr_reader service: TypeCheckService
+
+        def initialize: (service: TypeCheckService) -> void
+
+        def project: () -> Project
+
+        def method_definition_for: (AST::Types::Factory factory, ::RBS::TypeName type_name, singleton_method: Symbol) -> ::RBS::Definition::Method
+                                 | (AST::Types::Factory factory, ::RBS::TypeName type_name, instance_method: Symbol) -> ::RBS::Definition::Method
+
+        def typecheck: (Project::Target target, path: Pathname, content: String, line: Integer, column: Integer) -> Typing?
+
+        def method_name_from_method: (TypeInference::Context::MethodContext context, builder: ::RBS::DefinitionBuilder) -> method_name
+
+        def content_for: (target: Project::Target, path: Pathname, line: Integer, column: Integer) -> untyped?
+      end
+    end
+  end
+end

@@ -1,0 +1,19 @@
+module Steep
+  module AST
+    module Types
+      module Helper
+        module ChildrenLevel
+          def level_of_children: (untyped children) -> untyped
+        end
+
+        module NoFreeVariables
+          def free_variables: () -> untyped
+        end
+
+        module NoChild
+          def each_child: () ?{ () -> untyped } -> (untyped | nil)
+        end
+      end
+    end
+  end
+end

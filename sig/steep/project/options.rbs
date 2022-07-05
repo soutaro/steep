@@ -1,0 +1,15 @@
+module Steep
+  class Project
+    class Options
+      PathOptions: untyped
+
+      attr_reader libraries: untyped
+
+      attr_accessor paths: untyped
+
+      attr_accessor collection_lock: untyped
+
+      def initialize: () -> void
+    end
+  end
+end

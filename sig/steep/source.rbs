@@ -1,0 +1,55 @@
+module Steep
+  class Source
+    class LocatedAnnotation
+      attr_reader line: untyped
+
+      attr_reader annotation: untyped
+
+      attr_reader source: untyped
+
+      def initialize: (line: untyped, source: untyped, annotation: untyped) -> void
+
+      def ==: (untyped other) -> untyped
+    end
+
+    attr_reader path: untyped
+
+    attr_reader node: untyped
+
+    attr_reader mapping: untyped
+
+    def initialize: (path: untyped, node: untyped, mapping: untyped) -> void
+
+    class Builder
+      def string_value: (untyped token) -> untyped
+    end
+
+    def self.new_parser: () -> untyped
+
+    def self.parse: (untyped source_code, path: untyped, factory: untyped) -> untyped
+
+    def self.construct_mapping: (node: untyped, annotations: untyped, mapping: untyped, ?line_range: untyped?) -> untyped
+
+    def self.each_child_node: (untyped node) { (untyped) -> untyped } -> untyped
+
+    def self.map_child_nodes: (untyped node) { (untyped) -> untyped } -> untyped
+
+    def annotations: (block: Parser::AST::Node, factory: AST::Types::Factory, context: RBS::Resolver::context) -> AST::Annotation::Collection
+
+    def each_annotation: () { (untyped, untyped) -> untyped } -> untyped
+
+    def each_heredoc_node: (?untyped node, ?untyped parents) { (untyped) -> untyped } -> untyped
+
+    def find_heredoc_nodes: (untyped line, untyped column, untyped position) -> (untyped | nil)
+
+    def find_nodes_loc: (untyped node, untyped position, untyped parents) -> untyped
+
+    def find_nodes: (line: untyped, column: untyped) -> (::Array[untyped] | untyped)
+
+    def self.delete_defs: (untyped node, untyped allow_list) -> untyped
+
+    def without_unrelated_defs: (line: untyped, column: untyped) -> (untyped | self)
+
+    def compact_siblings: (untyped node) -> untyped
+  end
+end

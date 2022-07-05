@@ -1,0 +1,85 @@
+module Steep
+  module TypeInference
+    # TypeEnv is the one-stop class to manage type of variables.
+    #
+    #
+    class TypeEnv
+      type local_variable_entry = [AST::Types::t, AST::Types::t?]
+
+      attr_reader local_variable_types: Hash[Symbol, local_variable_entry]
+
+      attr_reader instance_variable_types: Hash[Symbol, AST::Types::t]
+
+      attr_reader global_types: Hash[Symbol, AST::Types::t]
+
+      attr_reader constant_types: Hash[RBS::TypeName, AST::Types::t]
+
+      attr_reader constant_env: ConstantEnv
+
+      def initialize: (
+          ConstantEnv,
+          ?local_variable_types: Hash[Symbol, local_variable_entry],
+          ?instance_variable_types: Hash[Symbol, AST::Types::t],
+          ?global_types: Hash[Symbol, AST::Types::t],
+          ?constant_types: Hash[RBS::TypeName, AST::Types::t]
+        ) -> void
+
+      def update: (
+          ?local_variable_types: Hash[Symbol, local_variable_entry],
+          ?instance_variable_types: Hash[Symbol, AST::Types::t],
+          ?global_types: Hash[Symbol, AST::Types::t],
+          ?constant_types: Hash[RBS::TypeName, AST::Types::t]
+        ) -> TypeEnv
+
+      def merge: (
+          ?local_variable_types: Hash[Symbol, local_variable_entry],
+          ?instance_variable_types: Hash[Symbol, AST::Types::t],
+          ?global_types: Hash[Symbol, AST::Types::t],
+          ?constant_types: Hash[RBS::TypeName, AST::Types::t]
+        ) -> TypeEnv
+
+      # Returns type of `name`.
+      #
+      def []: (Symbol name) -> AST::Types::t?
+
+      def assignment: (Symbol name, AST::Types::t) -> local_variable_entry
+
+      def enforced_type: (Symbol name) -> AST::Types::t?
+
+      # Returns type of constant of `const_name`, or `const_name` under `mod_name`.
+      #
+      # Returns `nil` if no such constant found.
+      #
+      def constant: (Symbol const_name, bool toplevel) -> ConstantEnv::constant_tuple?
+                  | (RBS::TypeName mod_name, Symbol const_name) -> ConstantEnv::constant_tuple?
+
+      def annotated_constant: (RBS::TypeName) -> AST::Types::t?
+
+      # _Pin_ the local variables if array is given.
+      # When `nil` is given, all local variables are _pinned_.
+      #
+      def pin_local_variables: (Array[Symbol]? names) -> Hash[Symbol, local_variable_entry]
+
+      # _Unpin_ the local variables if array is given.
+      # When `nil` is given, all local variables are _unpinned_.
+      #
+      def unpin_local_variables: (Array[Symbol]? names) -> TypeEnv
+
+      def to_s: () -> String
+
+      # Apply the substitution to the type of local variables.
+      #
+      def subst: (Interface::Substitution) -> TypeEnv
+
+      def join: (*TypeEnv) -> TypeEnv
+
+      private
+
+      def local_variable_name?: (Symbol) -> bool
+
+      def instance_variable_name?: (Symbol) -> bool
+
+      def global_name?: (Symbol) -> bool
+    end
+  end
+end

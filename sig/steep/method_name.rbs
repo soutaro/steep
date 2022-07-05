@@ -1,0 +1,21 @@
+module Steep
+  type method_name = InstanceMethodName | SingletonMethodName
+                   
+  class InstanceMethodName
+    attr_reader type_name: RBS::TypeName
+    attr_reader method_name: Symbol
+
+    def initialize: (type_name: RBS::TypeName, method_name: Symbol) -> void
+  end
+
+  class SingletonMethodName
+    attr_reader type_name: RBS::TypeName
+    attr_reader method_name: Symbol
+
+    def initialize: (type_name: RBS::TypeName, method_name: Symbol) -> void
+  end
+
+  module ::Kernel
+    def MethodName: (String string) -> (InstanceMethodName | SingletonMethodName)
+  end
+end

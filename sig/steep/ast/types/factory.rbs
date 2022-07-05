@@ -1,0 +1,75 @@
+module Steep
+  module AST
+    module Types
+      class Factory
+        attr_reader definition_builder: RBS::DefinitionBuilder
+
+        attr_reader type_name_cache: untyped
+
+        attr_reader type_cache: untyped
+
+        attr_reader type_interface_cache: untyped
+
+        def inspect: () -> String
+
+        def initialize: (builder: RBS::DefinitionBuilder) -> void
+
+        def type_name_resolver: () -> untyped
+
+        def type_opt: (untyped `type`) -> (untyped | nil)
+
+        def type: (untyped `type`) -> untyped
+
+        def type_1: (untyped `type`) -> untyped
+
+        def function_1: (untyped func) -> untyped
+
+        def params: (untyped `type`) -> untyped
+
+        def type_param: (untyped type_param) -> untyped
+
+        def type_param_1: (untyped type_param) -> untyped
+
+        def method_type: (untyped method_type, self_type: untyped, method_decls: untyped, ?subst2: untyped?) { (untyped) -> untyped } -> untyped
+
+        def method_type_1: (untyped method_type, self_type: untyped) { (untyped) -> untyped } -> untyped
+
+        class InterfaceCalculationError < StandardError
+          attr_reader type: untyped
+
+          def initialize: (type: untyped, message: untyped) -> void
+        end
+
+        def unfold: (RBS::TypeName type_name, Array[t] args) -> t
+
+        def expand_alias: (t `type`) -> t
+                        | [A] (t) { (t) -> A } -> A
+
+        def deep_expand_alias: (t `type`, ?recursive: Set[t]) -> t
+                             | [A] (t `type`, ?recursive: Set[t]) { (t) -> A }-> A
+
+        def flatten_union: (untyped `type`, ?untyped acc) -> untyped
+
+        def unwrap_optional: (Types::t `type`) -> [Types::t, Types::t]
+
+        NilClassName: untyped
+
+        def setup_primitives: (untyped method_name, untyped method_def, untyped method_type) -> untyped
+
+        def interface: (untyped `type`, private: untyped, ?self_type: untyped) -> untyped
+
+        def module_name?: (untyped type_name) -> untyped
+
+        def class_name?: (untyped type_name) -> untyped
+
+        def env: () -> RBS::Environment
+
+        def absolute_type: (untyped `type`, context: untyped) -> untyped
+
+        def absolute_type_name: (untyped type_name, context: untyped) -> untyped
+
+        def instance_type: (RBS::TypeName type_name, ?args: Array[t]?, ?location: untyped?) -> t
+      end
+    end
+  end
+end

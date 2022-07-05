@@ -1,0 +1,37 @@
+module Steep
+  module AST
+    module Types
+      type t = Any | Boolean | Bot | Nil |  Top | Void | Literal
+           | Class | Instance | Self
+           | Intersection  | Record | Tuple | Union
+           | Name::Alias | Name::Instance | Name::Interface | Name::Singleton
+           | Proc | Var | Logic::Base
+
+      class Masked
+        attr_reader location: untyped
+
+        attr_reader type: untyped
+
+        attr_reader mask: untyped
+
+        def initialize: (type: untyped, mask: untyped, location: untyped) -> void
+
+        def ==: (untyped other) -> untyped
+
+        alias eql? ==
+
+        def hash: () -> untyped
+
+        def to_json: (*untyped a) -> untyped
+
+        def to_s: (?::Integer level) -> ::String
+
+        def free_variables: () -> untyped
+
+        def each_type: () { (untyped) -> untyped } -> untyped
+
+        def sub: (untyped s) -> untyped
+      end
+    end
+  end
+end

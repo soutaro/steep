@@ -1,0 +1,29 @@
+module Steep
+  module AST
+    module Types
+      class Instance
+        attr_reader location: untyped
+
+        def initialize: (?location: untyped?) -> void
+
+        def ==: (untyped other) -> untyped
+
+        def hash: () -> untyped
+
+        alias eql? ==
+
+        def subst: (untyped s) -> untyped
+
+        def free_variables: () -> untyped
+
+        include Helper::NoChild
+
+        def to_s: () -> "instance"
+
+        def level: () -> ::Array[0]
+
+        def with_location: (untyped new_location) -> untyped
+      end
+    end
+  end
+end

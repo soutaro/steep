@@ -1,0 +1,101 @@
+module Steep
+  module TypeInference
+    class Context
+      class MethodContext
+        attr_reader name: untyped
+
+        attr_reader method: untyped
+
+        attr_reader method_type: untyped
+
+        attr_reader return_type: untyped
+
+        attr_reader constructor: untyped
+
+        attr_reader super_method: untyped
+
+        def initialize: (name: untyped, method: untyped, method_type: untyped, return_type: untyped, constructor: untyped, super_method: untyped) -> void
+
+        def block_type: () -> untyped
+      end
+
+      class BlockContext
+        attr_reader body_type: untyped
+
+        def initialize: (body_type: untyped) -> void
+      end
+
+      class BreakContext
+        attr_reader break_type: untyped
+
+        attr_reader next_type: untyped
+
+        def initialize: (break_type: untyped, next_type: untyped) -> void
+      end
+
+      class ModuleContext
+        attr_reader instance_type: AST::Types::t
+
+        attr_reader module_type: AST::Types::t
+
+        attr_reader defined_instance_methods: untyped
+
+        attr_reader defined_module_methods: untyped
+
+        attr_reader nesting: RBS::Resolver::context
+
+        attr_reader implement_name: untyped
+
+        attr_reader class_name: RBS::TypeName
+
+        attr_reader instance_definition: RBS::Definition
+
+        attr_reader module_definition: RBS::Definition
+
+        def initialize: (instance_type: untyped, module_type: untyped, implement_name: untyped, class_name: untyped, nesting: untyped, ?instance_definition: untyped?, ?module_definition: untyped?) -> void
+
+        def class_variables: () -> (untyped | nil)
+
+        def update: (?instance_type: untyped, ?module_type: untyped, ?implement_name: untyped, ?class_name: untyped, ?instance_definition: untyped, ?module_definition: untyped, ?nesting: untyped) -> untyped
+      end
+
+      class TypeVariableContext
+        attr_reader table: untyped
+
+        attr_reader type_params: untyped
+
+        def initialize: (untyped type_params, ?parent_context: untyped?) -> void
+
+        def []: (untyped name) -> untyped
+
+        def upper_bounds: () -> untyped
+
+        def self.empty: () -> untyped
+      end
+
+      attr_reader call_context: untyped
+
+      attr_reader method_context: untyped
+
+      attr_reader block_context: untyped
+
+      attr_reader break_context: untyped
+
+      attr_reader module_context: untyped
+
+      attr_reader self_type: AST::Types::t
+
+      attr_reader type_env: TypeEnv
+
+      attr_reader variable_context: untyped
+
+      def initialize: (method_context: untyped, block_context: untyped, break_context: untyped, module_context: untyped, self_type: untyped, type_env: TypeEnv, call_context: untyped, variable_context: untyped) -> void
+
+      def with: (?method_context: untyped, ?block_context: untyped, ?break_context: untyped, ?module_context: untyped, ?self_type: untyped, ?type_env: TypeEnv, ?call_context: untyped, ?variable_context: untyped) -> untyped
+
+      def factory: () -> AST::Types::Factory
+
+      def env: () -> RBS::Environment
+    end
+  end
+end

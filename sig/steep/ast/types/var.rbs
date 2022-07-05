@@ -1,0 +1,37 @@
+module Steep
+  module AST
+    module Types
+      class Var
+        attr_reader name: untyped
+
+        attr_reader location: untyped
+
+        def initialize: (name: untyped, ?location: untyped?) -> void
+
+        def ==: (untyped other) -> untyped
+
+        def hash: () -> untyped
+
+        alias eql? ==
+
+        def self.fresh_name: (untyped name) -> untyped
+
+        def self.fresh: (untyped name, ?location: untyped?) -> untyped
+
+        def to_s: () -> untyped
+
+        def subst: (untyped s) -> (untyped | self)
+
+        def free_variables: () -> untyped
+
+        include Helper::NoChild
+
+        def level: () -> ::Array[0]
+
+        def update: (?name: untyped, ?location: untyped) -> untyped
+
+        def with_location: (untyped new_location) -> untyped
+      end
+    end
+  end
+end
