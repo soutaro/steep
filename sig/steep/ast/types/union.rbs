@@ -1,0 +1,38 @@
+module Steep
+  module AST
+    module Types
+      class Union
+        attr_reader types: Array[t]
+
+        type loc = RBS::Location[untyped, untyped]
+
+        attr_reader location: loc?
+
+        def initialize: (types: Array[t], ?location: loc?) -> void
+
+        def self.build: (types: Array[t], ?location: loc?) -> t
+
+        def ==: (untyped other) -> bool
+
+        def hash: () -> Integer
+
+        alias eql? ==
+
+        def subst: (Interface::Substitution s) -> Union
+
+        def to_s: () -> ::String
+
+        def free_variables: () -> Set[Symbol]
+
+        def each_child: () { (t) -> void } -> void
+                      | () -> Enumerator[t, void]
+
+        include Helper::ChildrenLevel
+
+        def level: () -> Integer
+
+        def with_location: (loc new_location) -> Union
+      end
+    end
+  end
+end

@@ -1,0 +1,75 @@
+module Steep
+  module AST
+    module Annotation
+      class Collection
+        attr_reader annotations: untyped
+
+        attr_reader factory: Types::Factory
+
+        attr_reader context: RBS::Resolver::context
+
+        attr_reader var_type_annotations: Hash[Symbol, VarType]
+
+        attr_reader const_type_annotations: Hash[RBS::TypeName, ConstType]
+
+        attr_reader ivar_type_annotations: Hash[Symbol, IvarType]
+
+        attr_reader method_type_annotations: untyped
+
+        attr_reader block_type_annotation: untyped
+
+        attr_reader return_type_annotation: untyped
+
+        attr_reader self_type_annotation: untyped
+
+        attr_reader instance_type_annotation: untyped
+
+        attr_reader module_type_annotation: untyped
+
+        attr_reader implement_module_annotation: untyped
+
+        attr_reader dynamic_annotations: untyped
+
+        attr_reader break_type_annotation: untyped
+
+        def initialize: (annotations: untyped, factory: untyped, context: untyped) -> void
+
+        def absolute_type: (untyped `type`) -> (untyped | nil)
+
+        def var_type: (?lvar: untyped?, ?ivar: untyped?, ?const: untyped?) -> untyped
+
+        def method_type: (untyped name) -> (untyped | nil)
+
+        def block_type: () -> untyped
+
+        def return_type: () -> untyped
+
+        def self_type: () -> untyped
+
+        def instance_type: () -> untyped
+
+        def module_type: () -> untyped
+
+        def break_type: () -> untyped
+
+        def lvar_types: () -> untyped
+
+        def ivar_types: () -> untyped
+
+        def const_types: () -> untyped
+
+        def instance_dynamics: () -> untyped
+
+        def module_dynamics: () -> untyped
+
+        def merge_block_annotations: (untyped annotations) -> untyped
+
+        def any?: () { () -> untyped } -> untyped
+
+        def size: () -> untyped
+
+        def include?: (untyped obj) -> untyped
+      end
+    end
+  end
+end

@@ -1,0 +1,33 @@
+module Steep
+  module AST
+    module Types
+      class Tuple
+        attr_reader types: untyped
+
+        attr_reader location: untyped
+
+        def initialize: (types: untyped, ?location: untyped?) -> void
+
+        def ==: (untyped other) -> untyped
+
+        def hash: () -> untyped
+
+        alias eql? ==
+
+        def subst: (untyped s) -> untyped
+
+        def to_s: () -> ::String
+
+        def free_variables: () -> untyped
+
+        include Helper::ChildrenLevel
+
+        def each_child: () ?{ () -> untyped } -> untyped
+
+        def level: () -> untyped
+
+        def with_location: (untyped new_location) -> untyped
+      end
+    end
+  end
+end

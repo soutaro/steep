@@ -1,0 +1,74 @@
+module Steep
+  module TypeInference
+    class MethodCall
+      class MethodDecl
+        attr_reader method_name: method_name
+
+        attr_reader method_def: RBS::AST::Members::MethodDefinition
+
+        def initialize: (method_name: untyped, method_def: untyped) -> void
+
+        def hash: () -> untyped
+
+        def ==: (untyped other) -> untyped
+
+        alias eql? ==
+
+        def method_type: () -> untyped
+      end
+
+      MethodContext: untyped
+
+      ModuleContext: untyped
+
+      TopLevelContext: untyped
+
+      UnknownContext: untyped
+
+      class Base
+        attr_reader node: untyped
+
+        attr_reader context: untyped
+
+        attr_reader method_name: untyped
+
+        attr_reader return_type: untyped
+
+        attr_reader receiver_type: untyped
+
+        def initialize: (node: untyped, context: untyped, method_name: untyped, receiver_type: untyped, return_type: untyped) -> void
+
+        def with_return_type: (untyped new_type) -> untyped
+      end
+
+      class Typed < Base
+        attr_reader actual_method_type: untyped
+
+        attr_reader method_decls: untyped
+
+        def initialize: (node: untyped, context: untyped, method_name: untyped, receiver_type: untyped, actual_method_type: untyped, method_decls: untyped, return_type: untyped) -> void
+      end
+
+      class Special < Typed
+      end
+
+      class Untyped < Base
+        def initialize: (node: untyped, context: untyped, method_name: untyped) -> void
+      end
+
+      class NoMethodError < Base
+        attr_reader error: untyped
+
+        def initialize: (node: untyped, context: untyped, method_name: untyped, receiver_type: untyped, error: untyped) -> void
+      end
+
+      class Error < Base
+        attr_reader errors: untyped
+
+        attr_reader method_decls: untyped
+
+        def initialize: (node: untyped, context: untyped, method_name: untyped, receiver_type: untyped, errors: untyped, ?method_decls: untyped, ?return_type: untyped) -> void
+      end
+    end
+  end
+end

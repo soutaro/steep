@@ -1,0 +1,17 @@
+module Steep
+  module Services
+    class StatsCalculator
+      SuccessStats: untyped
+
+      ErrorStats: untyped
+
+      attr_reader service: untyped
+
+      def initialize: (service: untyped) -> void
+
+      def project: () -> untyped
+
+      def calc_stats: (untyped target, file: untyped) -> untyped
+    end
+  end
+end

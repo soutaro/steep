@@ -1,0 +1,126 @@
+module Steep
+  module AST
+    module Annotation
+      type t = ReturnType | BlockType | SelfType | InstanceType | ModuleType | BreakType
+             | MethodType | VarType | ConstType | IvarType
+             | Implements | Dynamic
+
+      type loc = RBS::Location[untyped, untyped]
+
+      class Named
+        attr_reader name: Symbol
+
+        attr_reader type: Types::t
+
+        attr_reader location: loc?
+
+        def initialize: (name: Symbol, type: Types::t, ?location: loc?) -> void
+
+        def ==: (untyped other) -> bool
+      end
+
+      class Typed
+        attr_reader type: Types::t
+
+        attr_reader annotation: untyped
+
+        attr_reader location: loc?
+
+        def initialize: (type: Types::t, ?location: loc?) -> void
+
+        def ==: (untyped other) -> bool
+      end
+
+      class ReturnType < Typed
+      end
+
+      class BlockType < Typed
+      end
+
+      class SelfType < Typed
+      end
+
+      class InstanceType < Typed
+      end
+
+      class ModuleType < Typed
+      end
+
+      class BreakType < Typed
+      end
+
+      class MethodType < Named
+      end
+
+      class VarType < Named
+      end
+
+      class ConstType < Named
+        attr_reader name: RBS::TypeName
+
+        attr_reader type: Types::t
+
+        attr_reader location: loc?
+
+        def initialize: (name: RBS::TypeName, type: untyped, ?location: loc?) -> void
+
+        def ==: (untyped other) -> bool
+      end
+
+      class IvarType < Named
+      end
+
+      class Implements
+        class Module
+          attr_reader name: RBS::TypeName
+
+          attr_reader args: Array[Types::t]
+
+          def initialize: (name: RBS::TypeName, args: Array[Types::t]) -> void
+
+          def ==: (untyped other) -> bool
+
+          alias eql? ==
+
+          def hash: () -> Integer
+        end
+
+        attr_reader location: loc?
+
+        attr_reader name: Module
+
+        def initialize: (name: Module, ?location: loc?) -> void
+
+        def ==: (untyped other) -> bool
+      end
+
+      class Dynamic
+        class Name
+          type kind = :instance | :module_instance | :module
+
+          attr_reader kind: kind
+
+          attr_reader name: Symbol
+
+          attr_reader location: loc?
+
+          def initialize: (name: Symbol, kind: kind, ?location: loc?) -> void
+
+          def instance_method?: () -> bool
+
+          def module_method?: () -> bool
+
+          def ==: (untyped other) -> bool
+        end
+
+        attr_reader location: loc?
+
+        attr_reader names: Array[Name]
+
+        def initialize: (names: Array[Name], ?location: loc?) -> void
+
+        def ==: (untyped other) -> bool
+      end
+    end
+  end
+end

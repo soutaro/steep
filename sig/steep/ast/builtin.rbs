@@ -1,0 +1,69 @@
+module Steep
+  module AST
+    module Builtin
+      class Type
+        attr_reader module_name: RBS::TypeName
+
+        attr_reader arity: Integer
+
+        def initialize: (String module_name, ?arity: ::Integer) -> void
+
+        def instance_type: (*Types::t args, ?fill_untyped: bool) -> Types::Name::Instance
+
+        def module_type: () -> Types::Name::Singleton
+
+        def instance_type?: (Types::t `type`, ?args: Array[Types::t]?) -> bool
+
+        def module_type?: (Types::t `type`) -> bool
+      end
+
+      Object: Type
+
+      BasicObject: Type
+
+      Array: Type
+
+      Range: Type
+
+      Hash: Type
+
+      Module: Type
+
+      Class: Type
+
+      Integer: Type
+
+      Float: Type
+
+      String: Type
+
+      Symbol: Type
+
+      TrueClass: Type
+
+      FalseClass: Type
+
+      Regexp: Type
+
+      NilClass: Type
+
+      Proc: Type
+
+      def self.nil_type: () -> Types::Nil
+
+      def self.any_type: () -> Types::Any
+
+      def self.bool_type: () -> Types::Boolean
+
+      def self.bottom_type: () -> Types::Bot
+
+      def self.top_type: () -> Types::Top
+
+      def self.optional: (Types::t `type`) -> Types::Union
+
+      def self.true_type: () -> Types::Literal
+
+      def self.false_type: () -> Types::Literal
+    end
+  end
+end

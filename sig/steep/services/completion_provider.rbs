@@ -1,0 +1,123 @@
+module Steep
+  module Services
+    class CompletionProvider
+      class Position
+        attr_reader line: Integer
+
+        attr_reader column: Integer
+
+        def initialize: (line: Integer, column: Integer) -> void
+
+        def -: (Integer) -> Position
+      end
+
+      class Range
+        attr_reader start: Position
+
+        attr_reader end: Position
+
+        def initialize: (start: Position, end: Position) -> void
+      end
+
+      class InstanceVariableItem
+        attr_reader identifier: Symbol
+
+        attr_reader range: Range
+
+        attr_reader type: AST::Types::t
+
+        def initialize: (identifier: Symbol, range: Range, type: AST::Types::t) -> void
+      end
+
+      class LocalVariableItem
+        attr_reader identifier: Symbol
+
+        attr_reader range: Range
+
+        attr_reader type: AST::Types::t
+
+        def initialize: (identifier: Symbol, range: Range, type: AST::Types::t) -> void
+      end
+
+      class ConstantItem
+        attr_reader env: RBS::Environment
+
+        attr_reader identifier: Symbol
+
+        attr_reader range: Range
+
+        attr_reader type: AST::Types::t
+
+        attr_reader full_name: RBS::TypeName
+
+        def initialize: (env: RBS::Environment, identifier: Symbol, range: Range, type: AST::Types::t, full_name: RBS::TypeName) -> void
+      end
+
+      class MethodNameItem
+        attr_reader identifier: Symbol
+
+        attr_reader range: Range
+
+        attr_reader receiver_type: AST::Types::t
+
+        attr_reader method_type: untyped
+
+        attr_reader method_decls: Array[TypeInference::MethodCall::MethodDecl]
+
+        def initialize: (identifier: Symbol, range: Range, method_type: untyped, method_decls: Array[TypeInference::MethodCall::MethodDecl]) -> void
+
+        def comment: () -> RBS::AST::Comment?
+
+        def inherited?: () -> bool
+      end
+
+      attr_reader source_text: untyped
+
+      attr_reader path: untyped
+
+      attr_reader subtyping: untyped
+
+      attr_reader modified_text: untyped
+
+      attr_reader source: untyped
+
+      attr_reader typing: Typing
+
+      def initialize: (source_text: untyped, path: untyped, subtyping: untyped) -> void
+
+      def type_check!: (untyped text, line: untyped, column: untyped) -> untyped
+
+      def env: () -> untyped
+
+      def run: (line: untyped, column: untyped) -> untyped
+
+      def range_from_loc: (untyped loc) -> untyped
+
+      def at_end?: (untyped pos, of: untyped) -> (untyped | nil)
+
+      def range_for: (untyped position, ?prefix: ::String) -> untyped
+
+      def items_for_trigger: (position: untyped) -> (::Array[untyped] | untyped)
+
+      def items_for_dot: (position: Position) -> ::Array[MethodNameItem]
+
+      def items_for_colon2: (position: untyped) -> untyped
+
+      def items_for_atmark: (position: untyped) -> (::Array[untyped] | untyped)
+
+      def method_items_for_receiver_type: (untyped `type`, include_private: untyped, prefix: untyped, position: untyped, items: untyped) -> untyped
+
+      def word_name?: (String name) -> void
+
+      def local_variable_items_for_context: (TypeInference::Context context, position: Position, prefix: String, items: Array[LocalVariableItem]) -> void
+
+      def constant_items_for_context: (TypeInference::Context context, position: Position, prefix: String, items: Array[ConstantItem], ?parent: Parser::AST::Node?) -> void
+
+      def instance_variable_items_for_context: (TypeInference::Context context, position: Position, prefix: String, items: Array[InstanceVariableItem]) -> void
+
+      def index_for: (untyped string, line: untyped, column: untyped) -> untyped
+
+      def disallowed_method?: (Symbol name) -> bool
+    end
+  end
+end

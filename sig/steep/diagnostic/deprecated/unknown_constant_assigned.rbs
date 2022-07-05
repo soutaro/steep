@@ -1,0 +1,15 @@
+module Steep
+  module Diagnostic
+    module Ruby
+      class UnknownConstantAssigned < Base
+        attr_reader context: untyped
+
+        attr_reader name: untyped
+
+        def initialize: (node: untyped, context: untyped, name: untyped) -> void
+
+        def header_line: () -> ::String
+      end
+    end
+  end
+end

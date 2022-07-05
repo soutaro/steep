@@ -1,0 +1,13 @@
+module Steep
+  module Services
+    class FileLoader
+      attr_reader base_dir: untyped
+
+      def initialize: (base_dir: untyped) -> void
+
+      def each_path_in_patterns: (untyped pattern, ?untyped commandline_patterns) { (untyped) -> untyped } -> untyped
+
+      def load_changes: (untyped pattern, ?untyped command_line_patterns, changes: untyped) -> untyped
+    end
+  end
+end

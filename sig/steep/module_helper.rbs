@@ -1,0 +1,7 @@
+module Steep
+  module ModuleHelper
+    def module_name_from_node: (Parser::AST::Node? parent_node, Symbol constant_name) -> RBS::TypeName?
+
+    def namespace_from_node: (Parser::AST::Node? node) -> RBS::Namespace?
+  end
+end

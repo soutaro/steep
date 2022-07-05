@@ -1,0 +1,51 @@
+module Steep
+  module Subtyping
+    class Relation
+      attr_reader sub_type: untyped
+
+      attr_reader super_type: untyped
+
+      def initialize: (sub_type: untyped, super_type: untyped) -> void
+
+      def hash: () -> untyped
+
+      def ==: (untyped other) -> untyped
+
+      alias eql? ==
+
+      def to_s: () -> ::String
+
+      def to_ary: () -> ::Array[untyped]
+
+      def type?: () -> untyped
+
+      def interface?: () -> untyped
+
+      def method?: () -> untyped
+
+      def function?: () -> untyped
+
+      def params?: () -> untyped
+
+      def block?: () -> untyped
+
+      def assert_type: (untyped `type`) -> (untyped | nil)
+
+      def type!: () -> untyped
+
+      def interface!: () -> untyped
+
+      def method!: () -> untyped
+
+      def function!: () -> untyped
+
+      def params!: () -> untyped
+
+      def block!: () -> untyped
+
+      def map: () { (untyped) -> untyped } -> untyped
+
+      def flip: () -> untyped
+    end
+  end
+end

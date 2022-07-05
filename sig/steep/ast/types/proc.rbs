@@ -1,0 +1,45 @@
+module Steep
+  module AST
+    module Types
+      class Proc
+        attr_reader location: untyped
+
+        attr_reader type: untyped
+
+        attr_reader block: untyped
+
+        def initialize: (type: untyped, block: untyped, ?location: untyped) -> void
+
+        def ==: (untyped other) -> untyped
+
+        def hash: () -> untyped
+
+        alias eql? ==
+
+        def subst: (untyped s) -> untyped
+
+        def to_s: () -> ::String
+
+        def free_variables: () -> untyped
+
+        include Helper::ChildrenLevel
+
+        def level: () -> untyped
+
+        def closed?: () -> untyped
+
+        def with_location: (untyped new_location) -> untyped
+
+        def map_type: () ?{ () -> untyped } -> untyped
+
+        def one_arg?: () -> untyped
+
+        def back_type: () -> untyped
+
+        def block_required?: () -> untyped
+
+        def each_child: () ?{ () -> untyped } -> untyped
+      end
+    end
+  end
+end

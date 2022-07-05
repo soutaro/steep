@@ -1,0 +1,245 @@
+module Steep
+  class TypeConstruction
+    class Pair
+      attr_reader type: AST::Types::t
+
+      attr_reader constr: TypeConstruction
+
+      def initialize: (type: AST::Types::t, constr: TypeConstruction) -> void
+
+      def with: (?type: AST::Types::t, ?constr: TypeConstruction) -> Pair
+
+      def +: (Pair other) -> Pair
+
+      def context: () -> TypeInference::Context
+
+      def to_ary: () -> [AST::Types::t, TypeConstruction, TypeInference::Context]
+    end
+
+    attr_reader checker: Subtyping::Check
+
+    attr_reader source: Source
+
+    attr_reader annotations: AST::Annotation::Collection
+
+    attr_reader typing: Typing
+
+    attr_reader context: TypeInference::Context
+
+    def module_context: () -> TypeInference::Context::ModuleContext?
+
+    def method_context: () -> TypeInference::Context::MethodContext?
+
+    def block_context: () -> TypeInference::Context::BlockContext?
+
+    def break_context: () -> TypeInference::Context::BreakContext?
+
+    def self_type: () -> untyped
+
+    def variable_context: () -> untyped
+
+    def initialize: (checker: untyped, source: untyped, annotations: untyped, typing: untyped, context: untyped) -> void
+
+    def with_new_typing: (untyped typing) -> untyped
+
+    def with_updated_context: (?type_env: TypeInference::TypeEnv) -> TypeConstruction
+
+    def with: (?annotations: untyped, ?context: TypeInference::Context, ?typing: untyped) -> TypeConstruction
+
+    def update_context: () { (TypeInference::Context) -> TypeInference::Context } -> TypeConstruction
+
+    def update_type_env: () { (TypeInference::TypeEnv) -> TypeInference::TypeEnv } -> TypeConstruction
+
+    def check_relation: (sub_type: AST::Types::t, super_type: AST::Types::t, ?constraints: Subtyping::Constraints) -> Subtyping::Result::Base
+
+    # This is a variation of `#check_relation` method.
+    # It checks if given subtyping relation `sub_type <: super_type` holds or not, and returns truthy when *doesn't* hold.
+    #
+    # * Returns `nil` if holds
+    # * Returns subclass of `Result::Base` if the subtyping doesn't hold
+    #
+    # This allow you writing a subtyping check as:
+    #
+    # ```ruby
+    # if relation = no_subtyping?(sub_type: type1, super_type: type2)
+    #   # Implement error reporting
+    # end
+    # ```
+    #
+    def no_subtyping?: (sub_type: AST::Types::t, super_type: AST::Types::t, ?constraints: Subtyping::Constraints) -> Subtyping::Result::Base?
+
+    def for_new_method: (Symbol method_name, Parser::AST::Node node, args: Array[Parser::AST::Node], self_type: untyped, definition: RBS::Definition?) -> TypeConstruction
+
+    def with_method_constr: (untyped method_name, untyped node, args: untyped, self_type: untyped, definition: untyped) { (untyped) -> untyped } -> untyped
+
+    def implement_module: (module_name: untyped, annotations: untyped, ?super_name: untyped?) -> untyped
+
+    def default_module_context: (untyped implement_module_name, nesting: untyped) -> untyped
+
+    def for_module: (untyped node, untyped new_module_name) -> untyped
+
+    def with_module_constr: (untyped node, untyped module_name) { (untyped) -> untyped } -> untyped
+
+    def for_class: (untyped node, untyped new_class_name, untyped super_class_name) -> untyped
+
+    def with_class_constr: (untyped node, untyped new_class_name, untyped super_class_name) { (untyped) -> untyped } -> untyped
+
+    def with_sclass_constr: [A] (Parser::AST::Node node, AST::Types::t `type`) { (TypeConstruction?) -> A } -> A
+
+    def for_sclass: (Parser::AST::Node node, AST::Types::t `type`) -> TypeConstruction?
+
+    def for_branch: (Parser::AST::Node node, ?break_context: TypeInference::Context::BreakContext?) -> untyped
+
+    def add_typing: (untyped node, type: untyped, ?constr: untyped) -> untyped
+
+    def add_call: (untyped call) -> untyped
+
+    def synthesize: (Parser::AST::Node node, ?hint: untyped?, ?condition: bool) -> Pair
+
+    def check: (Parser::AST::Node node, untyped `type`, ?constraints: untyped) { (untyped, untyped, untyped) -> untyped } -> bool
+
+    def masgn_lhs?: (untyped lhs) -> untyped
+
+    def lvasgn: (untyped node, untyped `type`) -> untyped
+
+    def ivasgn: (Parser::AST::Node node, untyped rhs_type) -> Pair
+
+    def type_masgn: (untyped node) -> untyped
+
+    def constant_typename: (Parser::AST::Node parent, Symbol name) -> RBS::TypeName?
+
+    def synthesize_constant: (Parser::AST::Node node, Parser::AST::Node? parent_node, Symbol constant_name) { () -> void } -> [AST::Types::t, TypeConstruction, RBS::TypeName?]
+
+    def optional_proc?: (untyped `type`) -> (untyped | nil | nil | nil | nil)
+
+    def type_lambda: (Parser::AST::Node node, params_node: Parser::AST::Node, body_node: Parser::AST::Node, type_hint: AST::Types::t?) -> Pair
+
+    def synthesize_children: (Parser::AST::Node node, ?skips: Array[Parser::AST::Node]) -> TypeConstruction
+
+    def type_send_interface: (untyped node, interface: untyped, receiver: untyped, receiver_type: untyped, method_name: untyped, arguments: untyped, block_params: untyped, block_body: untyped) -> untyped
+
+    def type_send: (untyped node, send_node: untyped, block_params: untyped, block_body: untyped, ?unwrap: bool) -> untyped
+
+    def calculate_interface: (untyped `type`, private: untyped, ?self_type: untyped) -> untyped
+
+    def expand_self: (untyped `type`) -> untyped
+
+    SPECIAL_METHOD_NAMES: { array_compact: untyped, hash_compact: untyped }
+
+    def try_special_method: (untyped node, receiver_type: untyped, method_name: untyped, method_type: untyped, arguments: untyped, block_params: untyped, block_body: untyped) -> (::Array[untyped] | nil)
+
+    def type_method_call: (untyped node, method_name: untyped, receiver_type: untyped, method: untyped, arguments: untyped, block_params: untyped, block_body: untyped, topdown_hint: untyped) -> (nil | ::Array[untyped])
+
+    def inspect: () -> ::String
+
+    def with_child_typing: (range: untyped) { (untyped) -> untyped } -> untyped
+
+    # Bypass :splat and :kwsplat
+    def bypass_splat: (untyped node) { (untyped) -> untyped } -> untyped
+
+    # Solve a constraint in the block and return a substitution if succeeds.
+    #
+    # * When the constraint has a solution, `#apply_solution` returns a tuple of substituted `MethodType`, `true`, and the substitution.
+    # * When the constraint doesn't have a solution, `#apply_solution` returns a tuple of the original `MethodType`, `false`, and empty substitution.
+    #
+    def apply_solution: (
+        Array[Diagnostic::Ruby::Base] errors,
+        node: Parser::AST::Node,
+        method_type: Interface::MethodType
+      ) {
+        () -> Interface::Substitution
+      } -> [Interface::MethodType, bool, Interface::Substitution]
+
+    def eliminate_vars: (untyped `type`, untyped variables, ?to: untyped) -> untyped
+
+    def try_method_type: (untyped node, receiver_type: untyped, method_name: untyped, method_type: untyped, arguments: untyped, block_params: untyped, block_body: untyped, topdown_hint: untyped) -> untyped
+
+    def type_check_argument: (untyped node, receiver_type: untyped, type: untyped, constraints: untyped, errors: untyped, ?report_node: untyped) -> untyped
+
+    def type_block_without_hint: (node: untyped, block_annotations: untyped, block_params: untyped, block_body: untyped) { () -> untyped } -> untyped
+
+    def for_block: (
+        Parser::AST::Node body_node,
+        block_params: TypeInference::BlockParams,
+        block_param_hint: TypeInference::MethodParams?,
+        block_type_hint: AST::Types::t?,
+        block_block_hint: AST::Types::t?,
+        block_annotations: AST::Annotation::Collection,
+        node_type_hint: AST::Types::t?
+      ) -> TypeConstruction
+
+    def synthesize_block: (node: Parser::AST::Node, block_type_hint: untyped?, block_body: Parser::AST::Node) -> AST::Types::t
+
+    def each_child_node: (Parser::AST::Node node) { (Parser::AST::Node) -> void } -> void
+                       | (Parser::AST::Node node) -> Enumerator[Parser::AST::Node, void]
+
+    def nesting: () -> untyped
+
+    def absolute_nested_module_name: (untyped module_name) -> untyped
+
+    def absolute_name: (untyped name) -> untyped
+
+    def union_type: (*untyped types) -> untyped
+
+    def validate_method_definitions: (untyped node, untyped module_name) -> (nil | untyped)
+
+    def fallback_to_any: (Parser::AST::Node node) ?{ () -> Diagnostic::Ruby::Base } -> Pair
+
+    def self_class?: (untyped node) -> untyped
+
+    def namespace_module?: (untyped node) -> (false | untyped)
+
+    def type_any_rec: (untyped node) -> untyped
+
+    def unwrap: (untyped `type`) -> untyped
+
+    def deep_expand_alias: (AST::Types::t `type`) -> AST::Types::t
+                         | [A] (AST::Types::t) { (AST::Types::t) -> A } -> A
+
+    def flatten_union: (untyped `type`) -> untyped
+
+    def select_flatten_types: (untyped `type`) { () -> untyped } -> untyped
+
+    def partition_flatten_types: (AST::Types::t `type`) { (AST::Types::t) -> boolish } -> [Array[AST::Types::t], Array[AST::Types::t]]
+
+    def flatten_array_elements: (untyped `type`) -> untyped
+
+    def expand_alias: (AST::Types::t `type`) -> AST::Types::t
+                    | [A] (AST::Types::t) { (AST::Types::t) -> A } -> A
+
+    def test_literal_type: (untyped literal, untyped hint) -> (untyped | nil)
+
+    def to_instance_type: (untyped `type`, ?args: untyped?) -> untyped
+
+    def try_tuple_type!: (untyped node, ?hint: untyped?) -> untyped
+
+    def try_tuple_type: (untyped node, untyped hint) -> (nil | untyped)
+
+    def try_convert: (untyped `type`, untyped method) -> untyped
+
+    def try_array_type: (untyped node, untyped hint) -> untyped
+
+    # Returns a record type if `hash_node` can have a record type.
+    #
+    # You can give a hint through `record_type` by passing a `AST::Types::Record` object.
+    # If you pass `nil`, then we know the type is expected to be a record, but the detail is not given.
+    #
+    # Returns `nil` when the `hash_node` cannot have a record type.
+    #
+    def type_hash_record: (Parser::AST::Node hash_node, AST::Types::Record? record_type) -> Pair?
+
+    # Give hash_node a type based on hint.
+    #
+    # * When hint is Record type, it may have record type.
+    # * When hint is union type, it tries recursively with the union cases.
+    # * Otherwise, it tries to be a hash instance.
+    #
+    def type_hash: (untyped hash_node, hint: untyped) -> untyped
+
+    # Returns the first one from elements of `types` that returns a type `t` where `t <: hint`.
+    #
+    def pick_one_of: (Array[AST::Types::t] types, range: untyped) { (AST::Types::t hint, TypeConstruction) -> Pair? } -> Pair?
+
+    def save_typing: () -> untyped
+  end
+end
