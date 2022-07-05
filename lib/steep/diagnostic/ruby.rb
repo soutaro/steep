@@ -7,7 +7,7 @@ module Steep
         attr_reader :node
         attr_reader :location
 
-        def initialize(node:, location: node.location.expression)
+        def initialize(node:, location: node&.location&.expression)
           @node = node
           @location = location
         end
@@ -71,6 +71,8 @@ module Steep
         end
 
         def header_line
+          node = node() or raise
+
           element = case node.type
                     when :ivasgn, :lvasgn, :gvasgn, :cvasgn
                       "a variable"
@@ -387,6 +389,7 @@ module Steep
 
       class UnexpectedJumpValue < Base
         def header_line
+          node = node() or raise
           "The value given to #{node.type} will be ignored"
         end
       end
@@ -452,7 +455,7 @@ module Steep
           super(node: node)
           @interface_method = interface_method
           @annotation_method = annotation_method
-          @result = relation
+          @result = result
         end
       end
 
@@ -578,6 +581,32 @@ module Steep
 
       autoload :UnknownConstantAssigned, "steep/diagnostic/deprecated/unknown_constant_assigned"
 
+      class UnknownInstanceVariable < Base
+        attr_reader :name
+
+        def initialize(node:, name:)
+          super(node: node, location: node.loc.name)
+          @name = name
+        end
+
+        def header_line
+          "Cannot find the declaration of instance variable: `#{name}`"
+        end
+      end
+
+      class UnknownGlobalVariable < Base
+        attr_reader :name
+
+        def initialize(node:, name:)
+          super(node: node, location: node.loc.name)
+          @name = name
+        end
+
+        def header_line
+          "Cannot find the declaration of global variable: `#{name}`"
+        end
+      end
+
       class FallbackAny < Base
         def initialize(node:)
           super(node: node)
@@ -617,7 +646,7 @@ module Steep
         attr_reader :relation
 
         def initialize(node:, var_name:, result:, relation:)
-          super(node: node)
+          super(node: node, location: node.location.expression)
           @var_name = var_name
           @result = result
           @relation = relation
@@ -700,6 +729,7 @@ module Steep
           if message
             message
           else
+            node = node() or raise
             "Syntax `#{node.type}` is not supported in Steep"
           end
         end

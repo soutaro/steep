@@ -5,8 +5,6 @@ module Steep
       attr_reader :factory
       attr_reader :resolver
 
-      # ConstantEnv receives an TypeName as a context, not a Namespace, because this is a simulation of Ruby.
-      # Any namespace is a module or class.
       def initialize(factory:, context:, resolver:)
         @cache = {}
         @factory = factory

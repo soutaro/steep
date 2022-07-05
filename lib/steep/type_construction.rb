@@ -30,6 +30,11 @@ module Steep
       end
     end
 
+    def inspect
+      s = "#<%s:%#018x " % [self.class, object_id]
+      s + ">"
+    end
+
     include ModuleHelper
 
     attr_reader :checker
@@ -59,10 +64,6 @@ module Steep
       context.self_type
     end
 
-    def type_env
-      context.type_env
-    end
-
     def variable_context
       context.variable_context
     end
@@ -85,9 +86,9 @@ module Steep
       )
     end
 
-    def with_updated_context(lvar_env: self.context.lvar_env)
-      if lvar_env != self.context.lvar_env
-        with(context: self.context.with(lvar_env: lvar_env))
+    def with_updated_context(type_env: self.context.type_env)
+      unless type_env.equal?(self.context.type_env)
+        with(context: self.context.with(type_env: type_env))
       else
         self
       end
@@ -111,8 +112,8 @@ module Steep
       with(context: yield(self.context))
     end
 
-    def update_lvar_env
-      with_updated_context(lvar_env: yield(context.lvar_env))
+    def update_type_env
+      with_updated_context(type_env: yield(context.type_env))
     end
 
     def check_relation(sub_type:, super_type:, constraints: Subtyping::Constraints.empty)
@@ -129,16 +130,15 @@ module Steep
       end
     end
 
+    def no_subtyping?(sub_type:, super_type:, constraints: Subtyping::Constraints.empty)
+      result = check_relation(sub_type: sub_type, super_type: super_type, constraints: constraints)
+      if result.failure?
+        result
+      end
+    end
+
     def for_new_method(method_name, node, args:, self_type:, definition:)
       annots = source.annotations(block: node, factory: checker.factory, context: nesting)
-      type_env = TypeInference::TypeEnv.build(
-        annotations: annots,
-        subtyping: checker,
-        const_env: module_context&.const_env || self.type_env.const_env,
-        signatures: checker.factory.env
-      )
-      type_env.merge_const_types(self.type_env)
-
       definition_method_type = if definition
                                  definition.methods[method_name]&.yield_self do |method|
                                    method.method_types
@@ -191,27 +191,6 @@ module Steep
         super_method: super_method
       )
 
-      if definition
-        definition.instance_variables.each do |name, decl|
-          type_env.set(ivar: name, type: checker.factory.type(decl.type))
-        end
-      end
-
-      type_env = type_env.with_annotations(
-        ivar_types: annots.ivar_types,
-        const_types: annots.const_types,
-        self_type: annots.self_type || self_type,
-        instance_type: module_context.instance_type,
-        class_type: module_context.module_type
-      )
-
-      lvar_env = TypeInference::LocalVariableTypeEnv.empty(
-        subtyping: checker,
-        self_type: annots.self_type || self_type,
-        instance_type: module_context.instance_type,
-        class_type: module_context.module_type
-      )
-
       method_params =
         if method_type
           TypeInference::MethodParams.build(node: node, method_type: method_type)
@@ -219,17 +198,32 @@ module Steep
           TypeInference::MethodParams.empty(node: node)
         end
 
-      method_params.each_param do |param|
-        lvar_env = lvar_env.assign(param.name, type: param.var_type, node: param.node) {
-          raise "Unexpected assignment error: #{param.name}"
-        }
+      local_variable_types = method_params.each_param.with_object({}) do |param, hash|
+        if param.name
+          hash[param.name] = context.type_env.assignment(param.name, param.var_type)
+        end
       end
+      type_env = context.type_env.update(local_variable_types: local_variable_types)
+
+      type_env = TypeInference::TypeEnvBuilder.new(
+        TypeInference::TypeEnvBuilder::Command::ImportLocalVariableAnnotations.new(annots).merge!.on_duplicate! do |name, original, annotated|
+          param = method_params.each_param.find {|param| param.name == name }
+          if result = no_subtyping?(sub_type: original, super_type: annotated)
+            typing.add_error Diagnostic::Ruby::IncompatibleAnnotation.new(
+              node: param.node,
+              var_name: name,
+              result: result,
+              relation: result.relation
+            )
+          end
+        end,
+        TypeInference::TypeEnvBuilder::Command::ImportInstanceVariableDefinition.new(definition, checker.factory),
+        TypeInference::TypeEnvBuilder::Command::ImportInstanceVariableAnnotations.new(annots).merge!
+      ).build(type_env)
 
       method_params.errors.each do |error|
         typing.add_error error
       end
-
-      lvar_env = lvar_env.annotate(annots)
 
       call_context = case self_type
                      when nil
@@ -257,7 +251,6 @@ module Steep
           break_context: nil,
           self_type: annots.self_type || self_type,
           type_env: type_env,
-          lvar_env: lvar_env,
           call_context: call_context,
           variable_context: variable_context
         ),
@@ -297,9 +290,9 @@ module Steep
       end
     end
 
-    def default_module_context(implement_module_name, const_env:)
+    def default_module_context(implement_module_name, nesting:)
       if implement_module_name
-        module_name = checker.factory.absolute_type_name(implement_module_name.name, context: const_env.context)
+        module_name = checker.factory.absolute_type_name(implement_module_name.name, context: nesting)
         module_args = implement_module_name.args.map {|name| AST::Types::Var.new(name: name) }
 
         instance_def = checker.factory.definition_builder.build_instance(module_name)
@@ -312,7 +305,7 @@ module Steep
           instance_type: instance_type,
           module_type: module_type,
           implement_name: implement_module_name,
-          const_env: const_env,
+          nesting: nesting,
           class_name: module_name,
           instance_definition: instance_def,
           module_definition: module_def
@@ -322,7 +315,7 @@ module Steep
           instance_type: nil,
           module_type: nil,
           implement_name: nil,
-          const_env: const_env,
+          nesting: nesting,
           class_name: self.module_context.class_name,
           module_definition: nil,
           instance_definition: nil
@@ -333,16 +326,10 @@ module Steep
     def for_module(node, new_module_name)
       new_nesting = [nesting, new_module_name || false]
 
-      module_const_env = TypeInference::ConstantEnv.new(
-        factory: checker.factory,
-        context: new_nesting,
-        resolver: self.module_context.const_env.resolver
-      )
-
       annots = source.annotations(block: node, factory: checker.factory, context: new_nesting)
 
       implement_module_name = implement_module(module_name: new_module_name, annotations: annots)
-      module_context = default_module_context(implement_module_name, const_env: module_const_env)
+      module_context = default_module_context(implement_module_name, nesting: new_nesting)
 
       unless implement_module_name
         module_context = module_context.update(
@@ -393,18 +380,6 @@ module Steep
         module_context = module_context.update(module_type: annots.self_type)
       end
 
-      module_type_env = TypeInference::TypeEnv.build(annotations: annots,
-                                                     subtyping: checker,
-                                                     const_env: module_const_env,
-                                                     signatures: checker.factory.env)
-
-      lvar_env = TypeInference::LocalVariableTypeEnv.empty(
-        subtyping: checker,
-        self_type: module_context.module_type,
-        instance_type: module_context.instance_type,
-        class_type: module_context.module_type
-      ).annotate(annots)
-
       if implement_module_name
         definition = checker.factory.definition_builder.build_instance(implement_module_name.name)
         type_params = definition.type_params_decl.map do |param|
@@ -420,6 +395,20 @@ module Steep
         variable_context = TypeInference::Context::TypeVariableContext.empty
       end
 
+      module_const_env = TypeInference::ConstantEnv.new(
+        factory: checker.factory,
+        context: new_nesting,
+        resolver: context.type_env.constant_env.resolver
+      )
+
+      module_type_env = TypeInference::TypeEnvBuilder.new(
+        TypeInference::TypeEnvBuilder::Command::ImportGlobalDeclarations.new(checker.factory),
+        TypeInference::TypeEnvBuilder::Command::ImportLocalVariableAnnotations.new(annots),
+        TypeInference::TypeEnvBuilder::Command::ImportInstanceVariableDefinition.new(module_context.module_definition, checker.factory),
+        TypeInference::TypeEnvBuilder::Command::ImportInstanceVariableAnnotations.new(annots).merge!,
+        TypeInference::TypeEnvBuilder::Command::ImportConstantAnnotations.new(annots)
+      ).build(TypeInference::TypeEnv.new(module_const_env))
+
       self.class.new(
         checker: checker,
         source: source,
@@ -432,7 +421,6 @@ module Steep
           module_context: module_context,
           self_type: module_context.module_type,
           type_env: module_type_env,
-          lvar_env: lvar_env,
           call_context: TypeInference::MethodCall::ModuleContext.new(type_name: module_context.class_name),
           variable_context: variable_context
         )
@@ -453,11 +441,11 @@ module Steep
       class_const_env = TypeInference::ConstantEnv.new(
         factory: checker.factory,
         context: new_nesting,
-        resolver: self.module_context.const_env.resolver
+        resolver: context.type_env.constant_env.resolver
       )
 
       implement_module_name = implement_module(module_name: new_class_name, super_name: super_class_name, annotations: annots)
-      module_context = default_module_context(implement_module_name, const_env: class_const_env)
+      module_context = default_module_context(implement_module_name, nesting: new_nesting)
 
       if implement_module_name
         if super_class_name && implement_module_name.name == absolute_name(super_class_name)
@@ -494,17 +482,13 @@ module Steep
       end
       variable_context = TypeInference::Context::TypeVariableContext.new(type_params)
 
-      class_type_env = TypeInference::TypeEnv.build(annotations: annots,
-                                                    subtyping: checker,
-                                                    const_env: class_const_env,
-                                                    signatures: checker.factory.env)
-
-      lvar_env = TypeInference::LocalVariableTypeEnv.empty(
-        subtyping: checker,
-        self_type: module_context.module_type,
-        instance_type: module_context.instance_type,
-        class_type: module_context.module_type
-      ).annotate(annots)
+      singleton_definition = checker.factory.definition_builder.build_singleton(module_context.class_name)
+      class_type_env = TypeInference::TypeEnvBuilder.new(
+        TypeInference::TypeEnvBuilder::Command::ImportGlobalDeclarations.new(checker.factory),
+        TypeInference::TypeEnvBuilder::Command::ImportConstantAnnotations.new(annots),
+        TypeInference::TypeEnvBuilder::Command::ImportLocalVariableAnnotations.new(annots),
+        TypeInference::TypeEnvBuilder::Command::ImportInstanceVariableDefinition.new(singleton_definition, checker.factory),
+      ).build(TypeInference::TypeEnv.new(class_const_env))
 
       class_body_context = TypeInference::Context.new(
         method_context: nil,
@@ -513,7 +497,6 @@ module Steep
         break_context: nil,
         self_type: module_context.module_type,
         type_env: class_type_env,
-        lvar_env: lvar_env,
         call_context: TypeInference::MethodCall::ModuleContext.new(type_name: module_context.class_name),
         variable_context: variable_context
       )
@@ -580,6 +563,8 @@ module Steep
                             when AST::Types::Name::Instance
                               type_name = instance_type.name
                               checker.factory.definition_builder.build_instance(type_name)
+                            else
+                              return
                             end
 
       module_definition = case module_type
@@ -594,23 +579,20 @@ module Steep
         instance_type: annots.instance_type || instance_type,
         module_type: annots.self_type || annots.module_type || module_type,
         implement_name: nil,
-        const_env: self.module_context.const_env,
+        nesting: nesting,
         class_name: self.module_context.class_name,
         module_definition: module_definition,
         instance_definition: instance_definition
       )
 
-      type_env = TypeInference::TypeEnv.build(annotations: annots,
-                                              subtyping: checker,
-                                              const_env: self.module_context.const_env,
-                                              signatures: checker.factory.env)
-
-      lvar_env = TypeInference::LocalVariableTypeEnv.empty(
-        subtyping: checker,
-        self_type: module_context.module_type,
-        instance_type: module_context.instance_type,
-        class_type: module_context.module_type
-      ).annotate(annots)
+      singleton_definition = checker.factory.definition_builder.build_singleton(module_context.class_name)
+      type_env =
+        TypeInference::TypeEnvBuilder.new(
+          TypeInference::TypeEnvBuilder::Command::ImportGlobalDeclarations.new(checker.factory),
+          TypeInference::TypeEnvBuilder::Command::ImportConstantAnnotations.new(annots),
+          TypeInference::TypeEnvBuilder::Command::ImportLocalVariableAnnotations.new(annots),
+          TypeInference::TypeEnvBuilder::Command::ImportInstanceVariableDefinition.new(instance_definition, checker.factory)
+        ).build(TypeInference::TypeEnv.new(context.type_env.constant_env))
 
       body_context = TypeInference::Context.new(
         method_context: nil,
@@ -619,7 +601,6 @@ module Steep
         break_context: nil,
         self_type: module_context.module_type,
         type_env: type_env,
-        lvar_env: lvar_env,
         call_context: TypeInference::MethodCall::ModuleContext.new(type_name: module_context.class_name),
         variable_context: TypeInference::Context::TypeVariableContext.empty  # Assuming `::Class` and `::Module` don't have type params
       )
@@ -633,39 +614,15 @@ module Steep
       )
     end
 
-    def for_branch(node, truthy_vars: Set.new, type_case_override: nil, break_context: context.break_context)
+    def for_branch(node, break_context: context.break_context)
       annots = source.annotations(block: node, factory: checker.factory, context: nesting)
 
-      lvar_env = context.lvar_env
-
-      unless truthy_vars.empty?
-        lvar_env = lvar_env.yield_self do |env|
-          decls = env.declared_types.each.with_object({}) do |(name, entry), hash|
-            if truthy_vars.include?(name)
-              hash[name] = entry.update(type: unwrap(entry.type))
-            else
-              hash[name] = entry
-            end
-          end
-
-          assignments = env.assigned_types.each.with_object({}) do |(name, entry), hash|
-            if truthy_vars.include?(name)
-              hash[name] = entry.update(type: unwrap(entry.type))
-            else
-              hash[name] = entry
-            end
-          end
-
-          env.update(declared_types: decls, assigned_types: assignments)
-        end
-      end
-
-      if type_case_override
-        lvar_env = type_case_override.inject(lvar_env) do |lvar_env, (name, type)|
-          lvar_env.assign!(name, node: node, type: type) do |declared_type, assigned_type, result|
-            relation = Subtyping::Relation.new(sub_type: assigned_type, super_type: declared_type)
+      type_env = TypeInference::TypeEnvBuilder.new(
+        TypeInference::TypeEnvBuilder::Command::ImportLocalVariableAnnotations.new(annots).merge!.on_duplicate! do |name, outer_type, annotation_type|
+          relation = Subtyping::Relation.new(sub_type: annotation_type, super_type: outer_type)
+          if result = no_subtyping?(sub_type: annotation_type, super_type: outer_type)
             typing.add_error(
-              Diagnostic::Ruby::IncompatibleTypeCase.new(
+              Diagnostic::Ruby::IncompatibleAnnotation.new(
                 node: node,
                 var_name: name,
                 relation: relation,
@@ -674,53 +631,11 @@ module Steep
             )
           end
         end
+      ).build(context.type_env)
+
+      update_context do |context|
+        context.with(type_env: type_env, break_context: break_context)
       end
-
-      lvar_env = lvar_env.annotate(annots) do |var, outer_type, inner_type, result|
-        relation = Subtyping::Relation.new(sub_type: inner_type, super_type: outer_type)
-        typing.add_error(
-          Diagnostic::Ruby::IncompatibleAnnotation.new(
-            node: node,
-            var_name: var,
-            relation: relation,
-            result: result
-          )
-        )
-      end
-
-      type_env = context.type_env
-
-      if type_case_override
-        type_env = type_env.with_annotations(
-          self_type: self_type,
-          instance_type: module_context.instance_type,
-          class_type: module_context.module_type
-        )
-      end
-
-      type_env = type_env.with_annotations(
-        ivar_types: annots.ivar_types,
-        const_types: annots.const_types,
-        gvar_types: {},
-        self_type: self_type,
-        instance_type: module_context.instance_type,
-        class_type: module_context.module_type
-      ) do |var, relation, result|
-        typing.add_error(
-          Diagnostic::Ruby::IncompatibleAnnotation.new(
-            node: node,
-            var_name: var,
-            relation: relation,
-            result: result
-          )
-        )
-      end
-
-      update_context {|context|
-        context.with(type_env: type_env,
-                     break_context: break_context,
-                     lvar_env: lvar_env)
-      }
     end
 
     def add_typing(node, type:, constr: self)
@@ -776,8 +691,7 @@ module Steep
 
         when :lvasgn
           yield_self do
-            var, rhs = node.children
-            name = var
+            name, rhs = node.children
 
             case name
             when :_, :__any__
@@ -787,42 +701,56 @@ module Steep
             when :__skip__
               add_typing(node, type: AST::Builtin.any_type)
             else
-              if declared_type = context.lvar_env.declared_types[name]&.type
-                case hint
-                when nil
-                  hint = declared_type
-                else
-                  if check_relation(sub_type: declared_type, super_type: hint).success?
-                    # declared_type is compatible with hint and more specific to hint.
-                    # This typically happens when hint is untyped, top, or void.
-                    hint = declared_type
+              if enforced_type = context.type_env.enforced_type(name)
+                case
+                when hint == nil
+                  hint = enforced_type
+                when check_relation(sub_type: enforced_type, super_type: hint).success?
+                  # enforced_type is compatible with hint and more specific to hint.
+                  # This typically happens when hint is untyped, top, or void.
+                  hint = enforced_type
+                end
+              end
+
+              if rhs
+                rhs_type, rhs_constr, rhs_context = synthesize(rhs, hint: hint).to_ary
+
+                constr = rhs_constr.update_type_env do |type_env|
+                  entry = type_env.assignment(name, rhs_type)
+
+                  if enforced_type = entry[1]
+                    if result = no_subtyping?(sub_type: rhs_type, super_type: enforced_type)
+                      typing.add_error(
+                        Diagnostic::Ruby::IncompatibleAssignment.new(
+                          node: node,
+                          lhs_type: enforced_type,
+                          rhs_type: rhs_type,
+                          result: result
+                        )
+                      )
+
+                      entry[0] = enforced_type
+                    end
+
+                    if rhs_type.is_a?(AST::Types::Any)
+                      entry[0] = enforced_type
+                    end
                   end
+
+                  type_env.merge(local_variable_types: { name => entry })
                 end
+
+                constr.add_typing(node, type: rhs_type)
+              else
+                add_typing(node, type: enforced_type || AST::Builtin.any_type)
               end
-
-              rhs_result = synthesize(rhs, hint: hint)
-
-              constr = rhs_result.constr.update_lvar_env do |lvar_env|
-                lvar_env.assign(name, node: node, type: rhs_result.type) do |declared_type, actual_type, result|
-                  typing.add_error(
-                    Diagnostic::Ruby::IncompatibleAssignment.new(
-                      node: node,
-                      lhs_type: declared_type,
-                      rhs_type: actual_type,
-                      result: result
-                    )
-                  )
-                end
-              end
-
-              constr.add_typing(node, type: rhs_result.type)
             end
           end
 
         when :lvar
           yield_self do
             var = node.children[0]
-            if (type = context.lvar_env[var])
+            if (type = context.type_env[var])
               add_typing node, type: type
             else
               fallback_to_any(node)
@@ -831,17 +759,21 @@ module Steep
 
         when :ivasgn
           name = node.children[0]
-          value = node.children[1]
+          rhs = node.children[1]
 
-          type_ivasgn(name, value, node)
+          rhs_type, constr = synthesize(rhs, hint: context.type_env[name])
+
+          constr.ivasgn(node, rhs_type)
 
         when :ivar
           yield_self do
             name = node.children[0]
-            type = type_env.get(ivar: name) do
+
+            if type = context.type_env[name]
+              add_typing(node, type: type)
+            else
               fallback_to_any node
             end
-            add_typing(node, type: type)
           end
 
         when :send
@@ -862,22 +794,22 @@ module Steep
 
         when :csend
           yield_self do
-            pair = if self_class?(node)
-                     module_type = expand_alias(module_context.module_type)
-                     type = if module_type.is_a?(AST::Types::Name::Singleton)
-                              AST::Types::Name::Singleton.new(name: module_type.name)
-                            else
-                              module_type
-                            end
-                     add_typing(node, type: type)
-                   else
-                     type_send(node, send_node: node, block_params: nil, block_body: nil, unwrap: true)
-                   end
+            send_type, constr =
+              if self_class?(node)
+                module_type = expand_alias(module_context.module_type)
+                type = if module_type.is_a?(AST::Types::Name::Singleton)
+                         AST::Types::Name::Singleton.new(name: module_type.name)
+                       else
+                         module_type
+                       end
+                add_typing(node, type: type).to_ary
+              else
+                type_send(node, send_node: node, block_params: nil, block_body: nil, unwrap: true).to_ary
+              end
 
-            lvar_env = context.lvar_env.join(pair.context.lvar_env, context.lvar_env)
-            add_typing(node,
-                       type: union_type(pair.type, AST::Builtin.nil_type),
-                       constr: pair.constr.with_updated_context(lvar_env: lvar_env))
+            constr
+              .update_type_env { context.type_env.join(constr.context.type_env, context.type_env) }
+              .add_typing(node, type: union_type(send_type, AST::Builtin.nil_type))
           end
 
         when :match_with_lvasgn
@@ -1311,7 +1243,7 @@ module Steep
 
             node.children.each do |arg|
               if arg.is_a?(Symbol)
-                type = context.lvar_env[arg]
+                type = context.type_env[arg]
 
                 if type
                   _, constr = add_typing(node, type: type)
@@ -1341,7 +1273,7 @@ module Steep
         when :arg, :kwarg
           yield_self do
             var = node.children[0]
-            type = context.lvar_env[var]
+            type = context.type_env[var]
 
             if type
               add_typing(node, type: type)
@@ -1356,7 +1288,7 @@ module Steep
             var = node.children[0]
             rhs = node.children[1]
 
-            var_type = context.lvar_env[var]
+            var_type = context.type_env[var]
 
             if var_type
               type, constr = check(rhs, var_type) do |expected_type, actual_type, result|
@@ -1379,9 +1311,10 @@ module Steep
         when :restarg
           yield_self do
             var = node.children[0]
-            type = context.lvar_env[var]
+            type = context.type_env[var]
+
             unless type
-              if context&.method_context&.method_type
+              if context.method_context&.method_type
                 Steep.logger.error { "Unknown variable: #{node}" }
               end
               typing.add_error Diagnostic::Ruby::FallbackAny.new(node: node)
@@ -1394,9 +1327,9 @@ module Steep
         when :kwrestarg
           yield_self do
             var = node.children[0]
-            type = context.lvar_env[var]
+            type = context.type_env[var]
             unless type
-              if context&.method_context&.method_type
+              if context.method_context&.method_type
                 Steep.logger.error { "Unknown variable: #{node}" }
               end
               typing.add_error Diagnostic::Ruby::FallbackAny.new(node: node)
@@ -1569,7 +1502,7 @@ module Steep
 
         when :sclass
           yield_self do
-            type, constr = synthesize(node.children[0])
+            type, constr = synthesize(node.children[0]).to_ary
 
             with_sclass_constr(node, type) do |constructor|
               unless constructor
@@ -1739,136 +1672,151 @@ module Steep
 
         when :and
           yield_self do
-            left, right = node.children
+            left_node, right_node = node.children
 
-            left_type, constr = synthesize(left, hint: hint, condition: true)
+            left_type, constr, left_context = synthesize(left_node, hint: hint, condition: true).to_ary
 
             interpreter = TypeInference::LogicTypeInterpreter.new(subtyping: checker, typing: typing)
-            truthy_env, falsey_env = interpreter.eval(env: constr.context.lvar_env, type: left_type, node: left)
+            left_truthy_env, left_falsy_env = interpreter.eval(env: left_context.type_env, type: left_type, node: left_node)
 
             if left_type.is_a?(AST::Types::Logic::Env)
               left_type = left_type.type
             end
 
-            right_type, constr = constr
-                                   .update_lvar_env { truthy_env }
-                                   .tap {|constr| typing.add_context_for_node(right, context: constr.context) }
-                                   .for_branch(right)
-                                   .synthesize(right, hint: hint, condition: true)
+            right_type, constr, right_context =
+              constr
+                .update_type_env { left_truthy_env }
+                .tap {|constr| typing.add_context_for_node(right_node, context: constr.context) }
+                .for_branch(right_node)
+                .synthesize(right_node, hint: hint, condition: true).to_ary
 
-            truthy_env, _ = interpreter.eval(env: constr.context.lvar_env, type: right_type, node: right)
+            right_truthy_env, right_falsy_env = interpreter.eval(env: right_context.type_env, type: right_type, node: right_node)
 
-            env = if right_type.is_a?(AST::Types::Bot)
-                    falsey_env
-                  else
-                    context.lvar_env.join(falsey_env, constr.context.lvar_env)
-                  end
+            env =
+              if right_type.is_a?(AST::Types::Bot)
+                left_falsy_env
+              else
+                context.type_env.join(left_falsy_env, right_context.type_env)
+              end
 
-            type = case
-                   when check_relation(sub_type: left_type, super_type: AST::Types::Boolean.new).success?
-                     union_type(left_type, right_type)
-                   else
-                     union_type(right_type, AST::Builtin.nil_type)
-                   end
+            type =
+              case
+              when check_relation(sub_type: left_type, super_type: AST::Types::Boolean.new).success?
+                union_type(left_type, right_type)
+              else
+                union_type(right_type, AST::Builtin.nil_type)
+              end
 
-            type = AST::Types::Logic::Env.new(truthy: truthy_env, falsy: env, type: type) if condition
+            if condition
+              type = AST::Types::Logic::Env.new(
+                truthy: right_truthy_env,
+                falsy: context.type_env.join(left_falsy_env, right_falsy_env),
+                type: type
+              )
+            end
 
-            add_typing(node,
-                       type: type,
-                       constr: constr.update_lvar_env { env })
+            constr.update_type_env { env }.add_typing(node, type: type)
           end
 
         when :or
           yield_self do
-            left, right = node.children
+            left_node, right_node = node.children
 
-            left_type, constr = synthesize(left, hint: hint, condition: true)
+            left_type, constr, left_context = synthesize(left_node, hint: hint, condition: true).to_ary
 
             interpreter = TypeInference::LogicTypeInterpreter.new(subtyping: checker, typing: typing)
-            truthy_env, falsey_env = interpreter.eval(env: constr.context.lvar_env, type: left_type, node: left)
+            left_truthy_env, left_falsy_env = interpreter.eval(env: left_context.type_env, type: left_type, node: left_node)
 
             if left_type.is_a?(AST::Types::Logic::Env)
               left_type = left_type.type
             end
             left_type, _ = checker.factory.unwrap_optional(left_type)
 
-            right_type, constr = constr
-                                   .update_lvar_env { falsey_env }
-                                   .tap {|constr| typing.add_context_for_node(right, context: constr.context) }
-                                   .for_branch(right)
-                                   .synthesize(right, hint: left_type, condition: true)
+            right_type, constr, right_context =
+              constr
+                .update_type_env { left_falsy_env }
+                .tap {|constr| typing.add_context_for_node(right_node, context: constr.context) }
+                .for_branch(right_node)
+                .synthesize(right_node, hint: left_type, condition: true).to_ary
 
-            _, falsey_env = interpreter.eval(env: falsey_env, type: right_type, node: right)
+            right_truthy_env, right_falsy_env = interpreter.eval(env: left_falsy_env, type: right_type, node: right_node)
 
             env = if right_type.is_a?(AST::Types::Bot)
-                    truthy_env
+                    left_truthy_env
                   else
-                    context.lvar_env.join(truthy_env, constr.context.lvar_env)
+                    context.type_env.join(left_truthy_env, right_context.type_env)
                   end
 
-            type = case
-                   when check_relation(sub_type: left_type, super_type: AST::Builtin.bool_type).success? && !left_type.is_a?(AST::Types::Any)
-                     AST::Builtin.bool_type
-                   else
-                     union_type(left_type, right_type)
-                   end
+            type =
+              case
+              when check_relation(sub_type: left_type, super_type: AST::Builtin.bool_type).success? && !left_type.is_a?(AST::Types::Any)
+                AST::Builtin.bool_type
+              else
+                union_type(left_type, right_type)
+              end
 
-            type = AST::Types::Logic::Env.new(truthy: env, falsy: falsey_env, type: type) if condition
+            if condition
+              type = AST::Types::Logic::Env.new(
+                truthy: context.type_env.join(left_truthy_env, right_truthy_env),
+                falsy: right_falsy_env,
+                type: type
+              )
+            end
 
-            add_typing(node,
-                       type: type,
-                       constr: constr.update_lvar_env { env })
+            constr.update_type_env { env }.add_typing(node, type: type)
           end
 
         when :if
-          cond, true_clause, false_clause = node.children
+          yield_self do
+            cond, true_clause, false_clause = node.children
 
-          cond_type, constr = synthesize(cond, condition: true)
-          interpreter = TypeInference::LogicTypeInterpreter.new(subtyping: checker, typing: constr.typing)
-          truthy_env, falsey_env = interpreter.eval(env: constr.context.lvar_env, type: cond_type, node: cond)
+            cond_type, constr = synthesize(cond, condition: true).to_ary
+            interpreter = TypeInference::LogicTypeInterpreter.new(subtyping: checker, typing: constr.typing)
+            truthy_env, falsy_env = interpreter.eval(env: constr.context.type_env, type: cond_type, node: cond)
 
-          if true_clause
-            true_pair = constr
-                          .update_lvar_env { truthy_env }
-                          .for_branch(true_clause)
-                          .tap {|constr| typing.add_context_for_node(true_clause, context: constr.context) }
-                          .synthesize(true_clause, hint: hint)
-          end
-
-          if false_clause
-            false_pair = constr
-                           .update_lvar_env { falsey_env }
-                           .for_branch(false_clause)
-                           .tap {|constr| typing.add_context_for_node(false_clause, context: constr.context) }
-                           .synthesize(false_clause, hint: hint)
-          end
-
-          constr = constr.update_lvar_env do |env|
-            envs = []
-
-            if true_pair
-              unless true_pair.type.is_a?(AST::Types::Bot)
-                envs << true_pair.context.lvar_env
-              end
-            else
-              envs << truthy_env
+            if true_clause
+              true_pair =
+                constr
+                  .update_type_env { truthy_env }
+                  .for_branch(true_clause)
+                  .tap {|constr| typing.add_context_for_node(true_clause, context: constr.context) }
+                  .synthesize(true_clause, hint: hint)
             end
 
-            if false_pair
-              unless false_pair.type.is_a?(AST::Types::Bot)
-                envs << false_pair.context.lvar_env
-              end
-            else
-              envs << falsey_env
+            if false_clause
+              false_pair =
+                constr
+                  .update_type_env { falsy_env }
+                  .for_branch(false_clause)
+                  .tap {|constr| typing.add_context_for_node(false_clause, context: constr.context) }
+                  .synthesize(false_clause, hint: hint)
             end
 
-            env.join(*envs)
-          end
+            constr = constr.update_type_env do |env|
+              envs = []
 
-          add_typing(node,
-                     type: union_type(true_pair&.type || AST::Builtin.nil_type,
-                                      false_pair&.type || AST::Builtin.nil_type),
-                     constr: constr)
+              if true_pair
+                unless true_pair.type.is_a?(AST::Types::Bot)
+                  envs << true_pair.context.type_env
+                end
+              else
+                envs << truthy_env
+              end
+
+              if false_pair
+                unless false_pair.type.is_a?(AST::Types::Bot)
+                  envs << false_pair.context.type_env
+                end
+              else
+                envs << falsy_env
+              end
+
+              env.join(*envs)
+            end
+
+            node_type = union_type(true_pair&.type || AST::Builtin.nil_type, false_pair&.type || AST::Builtin.nil_type)
+            add_typing(node, type: node_type, constr: constr)
+          end
 
         when :case
           yield_self do
@@ -1878,9 +1826,9 @@ module Steep
             interpreter = TypeInference::LogicTypeInterpreter.new(subtyping: checker, typing: typing)
 
             if cond
-              branch_pairs = []
+              branch_results = []
 
-              cond_type, constr = constr.synthesize(cond)
+              cond_type, constr = constr.synthesize(cond).to_ary
               _, cond_vars = interpreter.decompose_value(cond)
               unless cond_vars.empty?
                 first_var = cond_vars.to_a[0]
@@ -1892,35 +1840,46 @@ module Steep
 
               when_constr = constr
               whens.each do |clause|
+                # @type var tests: Array[Parser::AST::Node]
+                # @type var body: Parser::AST::Node?
                 *tests, body = clause.children
 
                 test_constr = when_constr
+                # @type var test_envs: Array[TypeInference::TypeEnv]
                 test_envs = []
 
                 tests.each do |test|
                   test_node = test.updated(:send, [test, :===, var_node])
-                  test_type, test_constr = test_constr.synthesize(test_node, condition: true)
-                  truthy_env, falsy_env = interpreter.eval(type: test_type, node: test_node, env: test_constr.context.lvar_env)
-                  truthy_env = cond_vars.inject(truthy_env) do |env, var|
-                    env.assign!(var, node: test_node, type: env[first_var])
-                  end
-                  falsy_env = cond_vars.inject(falsy_env) do |env, var|
-                    env.assign!(var, node: test_node, type: env[first_var])
-                  end
+                  test_type, test_constr = test_constr.synthesize(test_node, condition: true).to_ary
+                  truthy_env, falsy_env = interpreter.eval(type: test_type, node: test_node, env: test_constr.context.type_env)
 
                   test_envs << truthy_env
-                  test_constr = test_constr.update_lvar_env { falsy_env }
+
+                  test_constr = test_constr.update_type_env { falsy_env }
                 end
 
-                body_constr = when_constr.update_lvar_env {|env| env.except(cond_vars).join(*test_envs) }
+                body_constr = when_constr.update_type_env {|env| env.join(*test_envs) }
 
                 if body
-                  branch_pairs << body_constr
-                                    .for_branch(body)
-                                    .tap {|constr| typing.add_context_for_node(body, context: constr.context) }
-                                    .synthesize(body, hint: hint)
+                  # @type var assignments: Hash[Symbol, TypeInference::TypeEnv::local_variable_entry]
+
+                  if first_var
+                    var_type = body_constr.context.type_env[first_var] or raise
+                    assignments = cond_vars.each_with_object({}) do |var, hash|
+                      hash[var] = body_constr.context.type_env.assignment(var, var_type)
+                    end
+                  else
+                    assignments = {}
+                  end
+
+                  branch_results <<
+                    body_constr
+                      .update_type_env {|env| env.merge(local_variable_types: assignments) }
+                      .for_branch(body)
+                      .tap {|constr| typing.add_context_for_node(body, context: constr.context) }
+                      .synthesize(body, hint: hint)
                 else
-                  branch_pairs << Pair.new(type: AST::Builtin.nil_type, constr: body_constr)
+                  branch_results << Pair.new(type: AST::Builtin.nil_type, constr: body_constr)
                 end
 
                 when_constr = test_constr
@@ -1931,13 +1890,13 @@ module Steep
                 end_pos = node.loc.end.begin_pos
                 typing.add_context(begin_pos..end_pos, context: when_constr.context)
 
-                branch_pairs << when_constr.synthesize(els, hint: hint)
+                branch_results << when_constr.synthesize(els, hint: hint)
               end
 
-              types = branch_pairs.map(&:type)
-              constrs = branch_pairs.map(&:constr)
+              types = branch_results.map(&:type)
+              constrs = branch_results.map(&:constr)
 
-              if when_constr.context.lvar_env[cond_vars.first].is_a?(AST::Types::Bot)
+              if first_var && when_constr.context.type_env[first_var].is_a?(AST::Types::Bot)
                 # Exhaustive
                 if els
                   typing.add_error Diagnostic::Ruby::ElseOnExhaustiveCase.new(node: els, type: cond_type)
@@ -1949,49 +1908,52 @@ module Steep
                 end
               end
             else
-              branch_pairs = []
+              branch_results = []
 
-              when_constr = constr
+              condition_constr = constr
               clause_constr = constr
 
-              whens.each do |clause|
-                *tests, body = clause.children
+              whens.each do |when_clause|
+                when_clause_constr = condition_constr
+                body_envs = []
 
-                test_constr = when_constr
+                *tests, body = when_clause.children
 
                 tests.each do |test|
-                  test_type, test_constr = test_constr.synthesize(test, condition: true)
-                  truthy_env, falsy_env = interpreter.eval(env: test_constr.context.lvar_env, type: test_type, node: test)
-                  clause_constr = clause_constr.update_lvar_env { truthy_env }
-                  test_constr = test_constr.update_lvar_env { falsy_env }
+                  test_type, condition_constr = condition_constr.synthesize(test, condition: true).to_ary
+                  truthy_env, falsy_env = interpreter.eval(env: condition_constr.context.type_env, type: test_type, node: test)
+
+                  condition_constr = condition_constr.update_type_env { falsy_env }
+                  body_envs << truthy_env
                 end
 
-                when_constr = test_constr
-
                 if body
-                  branch_pairs << clause_constr
-                                    .for_branch(body)
-                                    .tap {|constr| typing.add_context_for_node(body, context: constr.context) }
-                                    .synthesize(body, hint: hint)
+                  branch_results <<
+                    when_clause_constr
+                      .for_branch(body)
+                      .update_type_env {|env| env.join(*body_envs) }
+                      .tap {|constr| typing.add_context_for_node(body, context: constr.context) }
+                      .synthesize(body, hint: hint)
                 else
-                  branch_pairs << Pair.new(type: AST::Builtin.nil_type, constr: clause_constr)
+                  branch_results << Pair.new(type: AST::Builtin.nil_type, constr: when_clause_constr)
                 end
               end
 
               if els
-                branch_pairs << when_constr.synthesize(els, hint: hint)
+                branch_results << condition_constr.synthesize(els, hint: hint)
               end
 
-              types = branch_pairs.map(&:type)
-              constrs = branch_pairs.map(&:constr)
+              types = branch_results.map(&:type)
+              constrs = branch_results.map(&:constr)
 
               unless els
                 types << AST::Builtin.nil_type
               end
             end
 
-            constr = constr.update_lvar_env do |env|
-              env.join(*constrs.map {|c| c.context.lvar_env })
+            constr = constr.update_type_env do |env|
+              envs = constrs.map {|c| c.context.type_env }
+              env.join(*envs)
             end
 
             add_typing(node, type: union_type(*types), constr: constr)
@@ -2002,15 +1964,19 @@ module Steep
             body, *resbodies, else_node = node.children
             body_pair = synthesize(body, hint: hint) if body
 
+            # @type var body_constr: TypeConstruction
             body_constr = if body_pair
-                            self.update_lvar_env do |env|
-                              env.join(env, body_pair.context.lvar_env)
+                            update_type_env do |env|
+                              env.join(env, body_pair.context.type_env)
                             end
                           else
                             self
                           end
 
             resbody_pairs = resbodies.map do |resbody|
+              # @type var exn_classes: Parser::AST::Node
+              # @type var assignment: Parser::AST::Node?
+              # @type var body: Parser::AST::Node?
               exn_classes, assignment, body = resbody.children
 
               if exn_classes
@@ -2031,25 +1997,29 @@ module Steep
                 end
               end
 
-              type_override = {}
+              resbody_construction = body_constr.for_branch(resbody).update_type_env do |env|
+                # @type var assignments: Hash[Symbol, TypeInference::TypeEnv::local_variable_entry]
+                assignments = {}
 
-              case
-              when exn_classes && var_name
-                instance_types = exn_types.map do |type|
-                  type = expand_alias(type)
-                  case
-                  when type.is_a?(AST::Types::Name::Singleton)
-                    to_instance_type(type)
-                  else
-                    AST::Builtin.any_type
+                case
+                when exn_classes && var_name && exn_types
+                  instance_types = exn_types.map do |type|
+                    type = expand_alias(type)
+                    case
+                    when type.is_a?(AST::Types::Name::Singleton)
+                      to_instance_type(type)
+                    else
+                      AST::Builtin.any_type
+                    end
                   end
-                end
-                type_override[var_name] = AST::Types::Union.build(types: instance_types)
-              when var_name
-                type_override[var_name] = AST::Builtin.any_type
-              end
 
-              resbody_construction = body_constr.for_branch(resbody, type_case_override: type_override)
+                  assignments[var_name] = env.assignment(var_name, AST::Types::Union.build(types: instance_types))
+                when var_name
+                  assignments[var_name] = env.assignment(var_name, AST::Builtin.any_type)
+                end
+
+                env.merge(local_variable_types: assignments)
+              end
 
               if body
                 resbody_construction.synthesize(body, hint: hint)
@@ -2059,17 +2029,18 @@ module Steep
             end
 
             resbody_types = resbody_pairs.map(&:type)
-            resbody_envs = resbody_pairs.map {|pair| pair.context.lvar_env }
+            resbody_envs = resbody_pairs.map {|pair| pair.context.type_env }
+
+            else_constr = body_pair&.constr || self
 
             if else_node
-              else_pair = (body_pair&.constr || self).for_branch(else_node).synthesize(else_node, hint: hint)
-              add_typing(node,
-                         type: union_type(*[else_pair.type, *resbody_types].compact),
-                         constr: update_lvar_env {|env| env.join(*resbody_envs, env) })
+              else_type, else_constr = else_constr.for_branch(else_node).synthesize(else_node, hint: hint)
+              else_constr
+                .update_type_env {|env| env.join(*resbody_envs, env) }
+                .add_typing(node, type: union_type(else_type, *resbody_types))
             else
-              add_typing(node,
-                         type: union_type(*[body_pair&.type, *resbody_types].compact),
-                         constr: update_lvar_env {|env| env.join(*resbody_envs, (body_pair&.constr || self).context.lvar_env) })
+              update_type_env {|env| env.join(*resbody_envs, else_constr.context.type_env) }
+                .add_typing(node, type: union_type(*[body_pair&.type, *resbody_types].compact))
             end
           end
 
@@ -2097,7 +2068,7 @@ module Steep
           yield_self do
             asgn, collection, body = node.children
 
-            collection_type, constr = synthesize(collection)
+            collection_type, constr, collection_context = synthesize(collection).to_ary
             collection_type = expand_self(collection_type)
 
             var_type = case collection_type
@@ -2110,24 +2081,32 @@ module Steep
                            method_type.block.type.params.first_param&.type
                          end
                        end
+            var_name = asgn.children[0]
 
             if var_type
               if body
-                body_constr = constr.with_updated_context(
-                  lvar_env: constr.context.lvar_env.assign(asgn.children[0], node: asgn, type: var_type)
-                )
+                body_constr = constr.update_type_env do |type_env|
+                  assign = type_env.assignment(var_name, var_type)
+                  type_env = type_env.merge(local_variable_types: { var_name => assign })
+                  pins = type_env.pin_local_variables(nil)
+                  type_env.merge(local_variable_types: pins)
+                end
 
                 typing.add_context_for_body(node, context: body_constr.context)
-                _, _, body_context = body_constr.synthesize(body)
+                _, _, body_context = body_constr.synthesize(body).to_ary
 
-                constr = constr.update_lvar_env {|env| env.join(constr.context.lvar_env, body_context.lvar_env) }
+                constr = constr.update_type_env do |env|
+                  env.join(collection_context.type_env, body_context.type_env)
+                end
               else
                 constr = self
               end
 
               add_typing(node, type: collection_type, constr: constr)
             else
-              fallback_to_any(node) do
+              constr = synthesize_children(node, skips: [collection])
+
+              constr.fallback_to_any(node) do
                 Diagnostic::Ruby::NoMethod.new(
                   node: node,
                   method: :each,
@@ -2139,10 +2118,10 @@ module Steep
         when :while, :until
           yield_self do
             cond, body = node.children
-            cond_type, constr = synthesize(cond, condition: true)
+            cond_type, constr = synthesize(cond, condition: true).to_ary
 
             interpreter = TypeInference::LogicTypeInterpreter.new(subtyping: checker, typing: typing)
-            truthy_env, falsy_env = interpreter.eval(env: constr.context.lvar_env, node: cond, type: cond_type)
+            truthy_env, falsy_env = interpreter.eval(env: constr.context.type_env, node: cond, type: cond_type)
 
             case node.type
             when :while
@@ -2152,19 +2131,19 @@ module Steep
             end
 
             if body
-              _, body_constr = constr
-                                 .update_lvar_env { body_env.pin_assignments }
-                                 .for_branch(body,
-                                             break_context: TypeInference::Context::BreakContext.new(
-                                               break_type: nil,
-                                               next_type: nil
-                                             ))
-                                 .tap {|constr| typing.add_context_for_node(body, context: constr.context) }
-                                 .synthesize(body)
+              pins = body_env.pin_local_variables(nil)
+              body_env = body_env.merge(local_variable_types: pins)
 
-              constr = constr.update_lvar_env {|env| env.join(exit_env, body_constr.context.lvar_env) }
+              _, body_constr =
+                constr
+                  .update_type_env { body_env }
+                  .for_branch(body, break_context: TypeInference::Context::BreakContext.new(break_type: nil, next_type: nil))
+                  .tap {|constr| typing.add_context_for_node(body, context: constr.context) }
+                  .synthesize(body).to_ary
+
+              constr = constr.update_type_env {|env| env.join(exit_env, body_constr.context.type_env) }
             else
-              constr = constr.update_lvar_env { exit_env }
+              constr = constr.update_type_env { exit_env }
             end
 
             add_typing(node, type: AST::Builtin.nil_type, constr: constr)
@@ -2174,21 +2153,18 @@ module Steep
           yield_self do
             cond, body = node.children
 
-            cond_pair = synthesize(cond)
+            _, cond_constr, = synthesize(cond).to_ary
 
             if body
-              for_loop = cond_pair.constr
-                           .update_lvar_env {|env| env.pin_assignments }
-                           .for_branch(body,
-                                       break_context: TypeInference::Context::BreakContext.new(
-                                         break_type: nil,
-                                         next_type: nil
-                                       ))
+              for_loop =
+                cond_constr
+                  .update_type_env {|env| env.merge(local_variable_types: env.pin_local_variables(nil)) }
+                  .for_branch(body, break_context: TypeInference::Context::BreakContext.new(break_type: nil, next_type: nil))
 
               typing.add_context_for_node(body, context: for_loop.context)
-              body_pair = for_loop.synthesize(body)
+              _, body_constr, body_context = for_loop.synthesize(body)
 
-              constr = cond_pair.constr.update_lvar_env {|env| env.join(env, body_pair.context.lvar_env) }
+              constr = cond_constr.update_type_env {|env| env.join(env, body_context.type_env) }
 
               add_typing(node, type: AST::Builtin.nil_type, constr: constr)
             else
@@ -2269,30 +2245,40 @@ module Steep
         when :gvasgn
           yield_self do
             name, rhs = node.children
-            type = type_env.get(gvar: name) do
-              fallback_to_any node
+            lhs_type = context.type_env[name]
+
+            rhs_type, constr = synthesize(rhs, hint: lhs_type).to_ary
+
+            if lhs_type
+              result = constr.check_relation(sub_type: rhs_type, super_type: lhs_type)
+
+              if result.failure?
+                constr.typing.add_error(
+                  Diagnostic::Ruby::IncompatibleAssignment.new(
+                    node: node,
+                    lhs_type: lhs_type,
+                    rhs_type: rhs_type,
+                    result: result
+                  )
+                )
+              end
+            else
+              constr.typing.add_error(Diagnostic::Ruby::UnknownGlobalVariable.new(node: node, name: name))
             end
 
-            check(rhs, type) do |_, rhs_type, result|
-              typing.add_error(
-                Diagnostic::Ruby::IncompatibleAssignment.new(
-                  node: node,
-                  lhs_type: type,
-                  rhs_type: rhs_type,
-                  result: result
-                )
-              )
-            end
+            constr.add_typing(node, type: rhs_type)
           end
 
         when :gvar
           yield_self do
             name = node.children.first
-            type = type_env.get(gvar: name) do
-              typing.add_error Diagnostic::Ruby::FallbackAny.new(node: node)
+            if type = context.type_env[name]
+              add_typing(node, type: type)
+            else
+              fallback_to_any(node) do
+                Diagnostic::Ruby::UnknownGlobalVariable.new(node: node, name: name)
+              end
             end
-
-            add_typing(node, type: type)
           end
 
         when :block_pass
@@ -2462,33 +2448,6 @@ module Steep
       end
     end
 
-    def type_ivasgn(name, rhs, node)
-      rhs_type = synthesize(rhs, hint: type_env.get(ivar: name) { fallback_to_any(node) }).type
-
-      ivar_type = type_env.assign(
-        ivar: name,
-        type: rhs_type,
-        self_type: self_type,
-        instance_type: module_context.instance_type,
-        class_type: module_context.module_type
-      ) do |error|
-        if error
-          type = type_env.get(ivar: name)
-          typing.add_error(
-            Diagnostic::Ruby::IncompatibleAssignment.new(
-              node: node,
-              lhs_type: type,
-              rhs_type: rhs_type,
-              result: error
-            )
-          )
-        else
-          fallback_to_any node
-        end
-      end
-      add_typing(node, type: ivar_type)
-    end
-
     def masgn_lhs?(lhs)
       lhs.children.all? do |a|
         asgn_type = if a.type == :splat
@@ -2502,46 +2461,42 @@ module Steep
 
     def lvasgn(node, type)
       name = node.children[0]
-      env = context.lvar_env.assign(name, node: node, type: type) do |declared_type, type, result|
-        typing.add_error(
-          Diagnostic::Ruby::IncompatibleAssignment.new(
-            node: node,
-            lhs_type: declared_type,
-            rhs_type: type,
-            result: result
-          )
-        )
-      end
-
-      add_typing(node, type: type, constr: with_updated_context(lvar_env: env))
-    end
-
-    def ivasgn(node, type)
-      ivar = node.children[0]
-
-      type_env.assign(
-        ivar: ivar,
-        type: type,
-        self_type: self_type,
-        instance_type: module_context.instance_type,
-        class_type: module_context.module_type
-      ) do |error|
-        if error
-          var_type = type_env.get(ivar: ivar)
+      assignment = context.type_env.assignment(name, type)
+      if enforced_type = assignment[1]
+        if result = no_subtyping?(sub_type: assignment[0], super_type: enforced_type)
           typing.add_error(
             Diagnostic::Ruby::IncompatibleAssignment.new(
               node: node,
-              lhs_type: var_type,
-              rhs_type: type,
-              result: error
+              lhs_type: assignment[1],
+              rhs_type: assignment[0],
+              result: result
             )
           )
-        else
-          fallback_to_any node
+
+          assignment[0] = enforced_type
         end
       end
 
-      add_typing(node, type: type)
+      update_type_env {|env| env.merge(local_variable_types: { name => assignment }) }
+        .add_typing(node, type: type)
+    end
+
+    def ivasgn(node, rhs_type)
+      name = node.children[0]
+
+      lhs_type = context.type_env[name]
+
+      if lhs_type
+        if (result = check_relation(sub_type: rhs_type, super_type: lhs_type)).failure?
+          typing.add_error(
+            Diagnostic::Ruby::IncompatibleAssignment.new(node: node, lhs_type: lhs_type, rhs_type: rhs_type, result: result)
+          )
+        end
+      else
+        typing.add_error(Diagnostic::Ruby::UnknownInstanceVariable.new(node: node, name: name))
+      end
+
+      add_typing(node, type: rhs_type)
     end
 
     def type_masgn(node)
@@ -2655,7 +2610,7 @@ module Steep
         end
 
         unless falseys.empty?
-          constr = constr.update_lvar_env {|lvar_env| self.context.lvar_env.join(lvar_env, self.context.lvar_env)}
+          constr = constr.update_type_env {|type_env| self.context.type_env.join(type_env, self.context.type_env)}
         end
 
         add_typing(node, type: rhs_type, constr: constr)
@@ -2728,7 +2683,7 @@ module Steep
     def synthesize_constant(node, parent_node, constant_name)
       const_name = module_name_from_node(parent_node, constant_name)
 
-      if const_name && type = type_env.get(const: const_name) { break }
+      if const_name && type = context.type_env.annotated_constant(const_name)
         # const-type annotation wins
         if node
           constr = synthesize_children(node)
@@ -2742,7 +2697,7 @@ module Steep
         when !parent_node
           constr = self
 
-          if (type, name = module_context.const_env.resolve(constant_name))
+          if (type, name = context.type_env.constant(constant_name, false))
             if node
               _, constr = add_typing(node, type: type)
             end
@@ -2752,7 +2707,7 @@ module Steep
         when parent_node.type == :cbase
           _, constr = add_typing(parent_node, type: AST::Builtin.nil_type)
 
-          if (type, name = constr.module_context.const_env.toplevel(constant_name))
+          if (type, name = constr.context.type_env.constant(constant_name, true))
             if node
               _, constr = constr.add_typing(node, type: type)
             end
@@ -2760,12 +2715,12 @@ module Steep
             return [type, constr, name]
           end
         else
-          parent_type, constr = synthesize(parent_node)
+          parent_type, constr = synthesize(parent_node).to_ary
           parent_type = deep_expand_alias(parent_type)
 
           case parent_type
           when AST::Types::Name::Singleton
-            if (type, name = module_context.const_env.resolve_child(parent_type.name, constant_name))
+            if (type, name = constr.context.type_env.constant(parent_type.name, constant_name))
               if node
                 _, constr = add_typing(node, type: type)
               end
@@ -2827,6 +2782,7 @@ module Steep
       end
 
       block_constr = for_block(
+        body_node,
         block_params: params,
         block_param_hint: params_hint,
         block_type_hint: return_hint,
@@ -3277,7 +3233,7 @@ module Steep
 
       [
         call,
-        update_lvar_env { constr.context.lvar_env }
+        update_type_env { constr.context.type_env }
       ]
     end
 
@@ -3463,6 +3419,7 @@ module Steep
             if pairs
               # Block parameters are compatible with the block type
               block_constr = constr.for_block(
+                block_body,
                 block_params: block_params_,
                 block_param_hint: method_type.block.type.params,
                 block_type_hint: method_type.block.type.return_type,
@@ -3479,7 +3436,7 @@ module Steep
               block_constr.typing.add_context_for_body(node, context: block_constr.context)
 
               pairs.each do |param, type|
-                _, block_constr = block_constr.synthesize(param.node, hint: param.type || type)
+                _, block_constr = block_constr.synthesize(param.node, hint: param.type || type).to_ary
 
                 if param.type
                   check_relation(sub_type: type, super_type: param.type, constraints: constraints).else do |result|
@@ -3504,7 +3461,8 @@ module Steep
 
               if solved
                 # Ready for type check the body of the block
-                block_constr = block_constr.update_lvar_env {|env| env.subst(s) }
+                block_constr = block_constr.update_type_env {|env| env.subst(s) }
+
                 if block_body
                   block_body_type = block_constr.synthesize_block(
                     node: node,
@@ -3720,6 +3678,7 @@ module Steep
       end
 
       block_constr = for_block(
+        block_body,
         block_params: block_params,
         block_param_hint: nil,
         block_type_hint: AST::Builtin.any_type,
@@ -3750,7 +3709,7 @@ module Steep
       end
     end
 
-    def for_block(block_params:, block_param_hint:, block_type_hint:, block_block_hint:, block_annotations:, node_type_hint:)
+    def for_block(body_node, block_params:, block_param_hint:, block_type_hint:, block_block_hint:, block_annotations:, node_type_hint:)
       block_param_pairs = block_param_hint && block_params.zip(block_param_hint, block_block_hint)
 
       param_types_hash = {}
@@ -3766,14 +3725,31 @@ module Steep
         end
       end
 
-      decls = param_types_hash.each.with_object({}) do |(name, type), hash|
-        hash[name] = TypeInference::LocalVariableTypeEnv::Entry.new(type: type)
+      param_types = param_types_hash.each.with_object({}) do |pair, hash|
+        # @type var hash: Hash[Symbol, [AST::Types::t, AST::Types::t?]]
+        name, type = pair
+        hash[name] = [type, nil]
       end
-      lvar_env = context.lvar_env
-                   .pin_assignments
-                   .except(decls.keys)
-                   .update(assigned_types: decls)
-                   .annotate(block_annotations)
+
+      pins = context.type_env.pin_local_variables(nil)
+
+      type_env = context.type_env
+      type_env = type_env.merge(local_variable_types: pins)
+      type_env = type_env.merge(local_variable_types: param_types)
+      type_env = TypeInference::TypeEnvBuilder.new(
+        TypeInference::TypeEnvBuilder::Command::ImportLocalVariableAnnotations.new(block_annotations).merge!.on_duplicate! do |name, outer_type, inner_type|
+          next if outer_type.is_a?(AST::Types::Var) || inner_type.is_a?(AST::Types::Var)
+
+          if result = no_subtyping?(sub_type: outer_type, super_type: inner_type)
+            typing.add_error Diagnostic::Ruby::IncompatibleAnnotation.new(
+              node: body_node,
+              var_name: name,
+              result: result,
+              relation: result.relation
+            )
+          end
+        end
+      ).build(type_env)
 
       break_type = if block_annotations.break_type
                      union_type(node_type_hint, block_annotations.break_type)
@@ -3793,10 +3769,7 @@ module Steep
       module_context = self.module_context
 
       if implements = block_annotations.implement_module_annotation
-        module_context = default_module_context(
-          implements.name,
-          const_env: self.module_context.const_env
-        )
+        module_context = default_module_context(implements.name, nesting: nesting)
 
         self_type = module_context.module_type
       end
@@ -3816,8 +3789,7 @@ module Steep
           module_context: module_context,
           break_context: break_context,
           self_type: self_type,
-          type_env: type_env.dup,
-          lvar_env: lvar_env,
+          type_env: type_env,
           call_context: self.context.call_context,
           variable_context: variable_context
         )
@@ -4146,20 +4118,15 @@ module Steep
       constr.add_typing(node, type: AST::Builtin::Array.instance_type(element_type))
     end
 
-    # Try to give record type to hash_node.
-    #
-    # Returns nil when it cannot have a record type.
-    # `record_type` can be nil when the keys are not specified.
-    #
     def type_hash_record(hash_node, record_type)
       raise unless hash_node.type == :hash || hash_node.type == :kwargs
 
       constr = self
 
       if record_type
-        elements = record_type.elements.dup
+        hints = record_type.elements.dup
       else
-        elements = {}
+        hints = {}
       end
 
       elems = {}
@@ -4174,7 +4141,18 @@ module Steep
             key = key_node.children[0]
 
             _, constr = constr.synthesize(key_node, hint: AST::Types::Literal.new(value: key))
-            value_type, constr = constr.synthesize(value_node, hint: elements[key])
+
+            value_type, constr = constr.synthesize(value_node, hint: hints[key])
+
+            if hints.key?(key)
+              hint_type = hints[key]
+              case
+              when value_type.is_a?(AST::Types::Any)
+                value_type = hints[key]
+              when hint_type.is_a?(AST::Types::Var)
+                value_type = value_type
+              end
+            end
 
             elems[key] = value_type
           else
@@ -4277,11 +4255,11 @@ module Steep
     def pick_one_of(types, range:)
       types.each do |type|
         with_child_typing(range: range) do |constr|
-          type_, constr = yield type, constr
-
-          constr.check_relation(sub_type: type_, super_type: type).then do
-            constr = constr.save_typing
-            return Pair.new(type: type, constr: constr)
+          if (type_, constr = yield(type, constr))
+            constr.check_relation(sub_type: type_, super_type: type).then do
+              constr = constr.save_typing
+              return Pair.new(type: type, constr: constr)
+            end
           end
         end
       end
