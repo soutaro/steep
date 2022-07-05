@@ -1,0 +1,112 @@
+---
+sources:
+- name: ruby/gem_rbs_collection
+  remote: https://github.com/ruby/gem_rbs_collection.git
+  revision: main
+  repo_dir: gems
+path: ".gem_rbs_collection"
+gems:
+- name: set
+  version: '0'
+  source:
+    type: stdlib
+- name: rbs
+  version: 2.6.0
+  source:
+    type: rubygems
+- name: activesupport
+  version: '6.0'
+  source:
+    type: git
+    name: ruby/gem_rbs_collection
+    revision: cd6db41310b911e1df3476246257510673f01b8a
+    remote: https://github.com/ruby/gem_rbs_collection.git
+    repo_dir: gems
+- name: ast
+  version: '2.4'
+  source:
+    type: git
+    name: ruby/gem_rbs_collection
+    revision: cd6db41310b911e1df3476246257510673f01b8a
+    remote: https://github.com/ruby/gem_rbs_collection.git
+    repo_dir: gems
+- name: i18n
+  version: '1.10'
+  source:
+    type: git
+    name: ruby/gem_rbs_collection
+    revision: cd6db41310b911e1df3476246257510673f01b8a
+    remote: https://github.com/ruby/gem_rbs_collection.git
+    repo_dir: gems
+- name: listen
+  version: '3.2'
+  source:
+    type: git
+    name: ruby/gem_rbs_collection
+    revision: cd6db41310b911e1df3476246257510673f01b8a
+    remote: https://github.com/ruby/gem_rbs_collection.git
+    repo_dir: gems
+- name: minitest
+  version: '0'
+  source:
+    type: stdlib
+- name: parallel
+  version: '1.20'
+  source:
+    type: git
+    name: ruby/gem_rbs_collection
+    revision: cd6db41310b911e1df3476246257510673f01b8a
+    remote: https://github.com/ruby/gem_rbs_collection.git
+    repo_dir: gems
+- name: rainbow
+  version: '3.0'
+  source:
+    type: git
+    name: ruby/gem_rbs_collection
+    revision: cd6db41310b911e1df3476246257510673f01b8a
+    remote: https://github.com/ruby/gem_rbs_collection.git
+    repo_dir: gems
+- name: logger
+  version: '0'
+  source:
+    type: stdlib
+- name: pathname
+  version: '0'
+  source:
+    type: stdlib
+- name: json
+  version: '0'
+  source:
+    type: stdlib
+- name: optparse
+  version: '0'
+  source:
+    type: stdlib
+- name: rubygems
+  version: '0'
+  source:
+    type: stdlib
+- name: tsort
+  version: '0'
+  source:
+    type: stdlib
+- name: monitor
+  version: '0'
+  source:
+    type: stdlib
+- name: date
+  version: '0'
+  source:
+    type: stdlib
+- name: singleton
+  version: '0'
+  source:
+    type: stdlib
+- name: mutex_m
+  version: '0'
+  source:
+    type: stdlib
+- name: time
+  version: '0'
+  source:
+    type: stdlib
