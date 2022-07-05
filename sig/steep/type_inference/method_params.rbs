@@ -1,0 +1,104 @@
+module Steep
+  module TypeInference
+    class MethodParams
+      class BaseParameter
+        attr_reader name: Symbol
+
+        attr_reader type: untyped
+
+        attr_reader node: Parser::AST::Node
+
+        def initialize: (name: Symbol, type: untyped, node: Parser::AST::Node) -> void
+
+        def optional?: () -> bool
+
+        def value: () -> Parser::AST::Node
+
+        def var_type: () -> AST::Types::t
+
+        def untyped?: () -> bool
+
+        def ==: (untyped other) -> untyped
+
+        alias eql? ==
+
+        def hash: () -> Integer
+      end
+
+      class PositionalParameter < BaseParameter
+      end
+
+      class KeywordParameter < BaseParameter
+      end
+
+      class BaseRestParameter
+        attr_reader name: Symbol
+
+        attr_reader type: untyped
+
+        attr_reader node: Parser::AST::Node
+
+        def initialize: (name: Symbol, type: untyped, node: Parser::AST::Node) -> void
+
+        def ==: (untyped other) -> bool
+
+        alias eql? ==
+
+        def hash: () -> Integer
+        
+        def var_type: () -> AST::Types::t
+      end
+
+      class PositionalRestParameter < BaseRestParameter
+        def var_type: () -> AST::Types::t
+      end
+
+      class KeywordRestParameter < BaseRestParameter
+        def var_type: () -> AST::Types::t
+      end
+
+      class BlockParameter
+        attr_reader name: untyped
+
+        attr_reader type: untyped
+
+        attr_reader node: untyped
+
+        def initialize: (name: untyped, type: untyped, node: untyped, optional: untyped) -> void
+
+        def optional?: () -> (true | false)
+
+        def var_type: () -> AST::Types::t
+
+        def ==: (untyped other) -> untyped
+
+        alias eql? ==
+
+        def hash: () -> untyped
+      end
+
+      attr_reader args: untyped
+
+      attr_reader method_type: untyped
+
+      attr_reader params: untyped
+
+      attr_reader errors: untyped
+
+      def initialize: (args: untyped, method_type: untyped) -> void
+
+      def []: (untyped name) -> untyped
+
+      def size: () -> Integer
+
+      def each_param: () { (BaseParameter | BaseRestParameter | BlockParameter) -> void } -> void
+                    | () -> Enumerator[BaseParameter | BaseRestParameter | BlockParameter, void]
+
+      def each: () { (Symbol, BaseRestParameter | BaseRestParameter | BlockParameter) -> void } -> void
+
+      def self.empty: (node: Parser::AST::Node) -> MethodParams
+
+      def self.build: (node: Parser::AST::Node, method_type: untyped) -> MethodParams
+    end
+  end
+end

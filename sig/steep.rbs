@@ -1,0 +1,31 @@
+module Steep
+  def self.logger: () -> Logger
+
+  def self.new_logger: (untyped output, untyped prev_level) -> untyped
+
+  def self.log_output: () -> untyped
+
+  def self.log_output=: (untyped output) -> untyped
+
+  def self.measure: (untyped message, ?level: ::Symbol) { () -> untyped } -> untyped
+
+  def self.log_error: (untyped exn, ?message: ::String) -> untyped
+
+  class Sampler
+    def initialize: () -> void
+
+    def sample: (untyped message) { () -> untyped } -> untyped
+
+    def count: () -> untyped
+
+    def total: () -> untyped
+
+    def slowests: (untyped num) -> untyped
+
+    def average: () -> (untyped | 0)
+
+    def percentile: (untyped p) -> untyped
+  end
+
+  def self.measure2: (untyped message, ?level: ::Symbol) { (untyped) -> untyped } -> untyped
+end

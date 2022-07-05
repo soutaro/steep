@@ -1,0 +1,93 @@
+module Steep
+  module Subtyping
+    class Check
+      attr_reader factory: AST::Types::Factory
+
+      attr_reader cache: untyped
+
+      attr_reader assumptions: untyped
+
+      def initialize: (factory: untyped) -> void
+
+      def with_context: (self_type: untyped, instance_type: untyped, class_type: untyped, constraints: untyped) { () -> untyped } -> untyped
+
+      def push_assumption: (untyped relation) { () -> untyped } -> untyped
+
+      def push_variable_bounds: (untyped params) { () -> untyped } -> untyped
+
+      def variable_upper_bound: (untyped name) -> (untyped | nil)
+
+      def self_type: () -> untyped
+
+      def instance_type: () -> untyped
+
+      def class_type: () -> untyped
+
+      def constraints: () -> untyped
+
+      def each_ancestor: (untyped ancestors) { (untyped) -> untyped } -> untyped
+
+      def instance_super_types: (untyped type_name, args: untyped) -> untyped
+
+      def singleton_super_types: (untyped type_name) -> untyped
+
+      def check: (untyped relation, constraints: untyped, self_type: untyped, instance_type: untyped, class_type: untyped) -> untyped
+
+      def check_type: (untyped relation) -> untyped
+
+      def cache_bounds: (untyped relation) -> untyped
+
+      def alias?: (untyped `type`) -> untyped
+
+      def cacheable?: (untyped relation) -> untyped
+
+      def true_type?: (untyped `type`) -> untyped
+
+      def false_type?: (untyped `type`) -> untyped
+
+      include Result::Helper
+
+      def check_type0: (untyped relation) -> untyped
+
+      def definition_for_type: (untyped `type`) -> untyped
+
+      def arg_type?: (untyped `type`) -> untyped
+
+      def check_type_arg: (untyped relation) -> untyped
+
+      def same_type?: (untyped relation) -> (true | untyped)
+
+      def check_interface: (untyped relation) -> untyped
+
+      def check_method: (untyped name, untyped relation) -> untyped
+
+      def check_type_application: (untyped result, untyped type_params, untyped type_args) { () -> untyped } -> untyped
+
+      def check_generic_method_type: (untyped name, untyped relation) -> untyped
+
+      def check_constraints: (untyped relation, variables: untyped, variance: untyped) -> untyped
+
+      def check_method_type: (untyped name, untyped relation) -> untyped
+
+      def check_block_given: (untyped name, untyped relation) { () -> untyped } -> untyped
+
+      def check_function: (untyped name, untyped relation) -> untyped
+
+      def check_method_params: (untyped name, untyped relation) -> untyped
+
+      # ```rbs
+      # (Symbol, Relation[MethodType]) -> (Array[[Symbol, Symbol]] | Result::t)
+      # [A] (Symbol, Relation[MethodType]) { (Array[[Symbol, Symbol]]) -> A } -> (A | Result::t)
+      # ````
+      def match_method_type: (untyped name, untyped relation) { (untyped) -> untyped } -> untyped
+
+      def match_params: (untyped name, untyped relation) -> untyped
+
+      def expand_alias: (untyped `type`) { () -> untyped } -> untyped
+
+      # Returns the shortest type paths for one of the _unknown_ type variables.
+      # Returns nil if there is no path.
+      def hole_path: (untyped `type`, ?untyped path) -> untyped
+    end
+  end
+end

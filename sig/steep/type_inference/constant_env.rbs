@@ -1,0 +1,27 @@
+module Steep
+  module TypeInference
+    class ConstantEnv
+      type constant_tuple = [untyped, RBS::TypeName, RBS::Constant::constant_entry]
+
+      attr_reader context: RBS::Resolver::context
+
+      attr_reader factory: AST::Types::Factory
+
+      attr_reader resolver: RBS::Resolver::ConstantResolver
+
+      def initialize: (factory: AST::Types::Factory, context: RBS::Resolver::context, resolver: RBS::Resolver::ConstantResolver) -> void
+
+      def resolve: (Symbol name) -> constant_tuple?
+
+      def toplevel: (Symbol name) -> constant_tuple?
+
+      def constants: () -> Hash[Symbol, constant_tuple]
+
+      def resolve_child: (RBS::TypeName module_name, Symbol constant_name) -> constant_tuple?
+
+      def children: (RBS::TypeName module_name) -> Hash[Symbol, constant_tuple]
+
+      def decompose_constant: (RBS::Constant? constant) -> constant_tuple?
+    end
+  end
+end

@@ -1,0 +1,45 @@
+module Steep
+  module Services
+    class GotoService
+      include ModuleHelper
+
+      module SourceHelper
+        def from_ruby?: () -> untyped
+
+        def from_rbs?: () -> untyped
+      end
+
+      ConstantQuery: untyped
+
+      MethodQuery: untyped
+
+      TypeNameQuery: untyped
+
+      attr_reader type_check: untyped
+
+      attr_reader assignment: untyped
+
+      def initialize: (type_check: untyped, assignment: untyped) -> void
+
+      def project: () -> untyped
+
+      def implementation: (path: untyped, line: untyped, column: untyped) -> untyped
+
+      def definition: (path: untyped, line: untyped, column: untyped) -> untyped
+
+      def test_ast_location: (untyped loc, line: untyped, column: untyped) -> (false | true)
+
+      def query_at: (path: untyped, line: untyped, column: untyped) -> untyped
+
+      def type_check_path: (target: untyped, path: untyped, content: untyped, line: untyped, column: untyped) -> untyped
+
+      def constant_definition_in_rbs: (untyped name, locations: untyped) -> untyped
+
+      def constant_definition_in_ruby: (untyped name, locations: untyped) -> untyped
+
+      def method_locations: (untyped name, in_ruby: untyped, in_rbs: untyped, locations: untyped) -> untyped
+
+      def type_name_locations: (untyped name, ?locations: untyped) -> untyped
+    end
+  end
+end

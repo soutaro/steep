@@ -39,15 +39,9 @@ module Steep
           type = guess_type_from_method(node) || type
         end
 
-        if type.is_a?(AST::Types::Logic::Base)
-          vars.each do |var_name|
-            var_type = truthy_env[var_name]
-            truthy_type, falsy_type = factory.unwrap_optional(var_type)
-            falsy_type ||= AST::Builtin.nil_type
-            truthy_env = truthy_env.assign!(var_name, node: node, type: truthy_type) {|_, type, _| type }
-            falsy_env = truthy_env.assign!(var_name, node: node, type: falsy_type) {|_, type, _| type }
-          end
+        truthy_type, falsy_type = factory.unwrap_optional(type)
 
+        if type.is_a?(AST::Types::Logic::Base)
           case type
           when AST::Types::Logic::Env
             truthy_env = type.truthy
@@ -58,15 +52,18 @@ module Steep
               receiver = value_node.children[0]
 
               if receiver
+                receiver_type = typing.type_of(node: receiver)
                 _, receiver_vars = decompose_value(receiver)
 
-                receiver_vars.each do |receiver_var|
-                  var_type = env[receiver_var]
-                  truthy_type, falsy_type = factory.unwrap_optional(var_type)
+                truthy_receiver, falsy_receiver = factory.unwrap_optional(receiver_type)
 
-                  truthy_env = truthy_env.assign!(receiver_var, node: node, type: falsy_type || AST::Builtin.nil_type)
-                  falsy_env = falsy_env.assign!(receiver_var, node: node, type: truthy_type)
-                end
+                truthy_env, falsy_env = update_type_env(
+                  receiver_vars,
+                  truthy_type: falsy_receiver,
+                  truthy_env: truthy_env,
+                  falsy_type: truthy_receiver,
+                  falsy_env: falsy_env
+                )
               end
             end
           when AST::Types::Logic::ReceiverIsArg
@@ -76,21 +73,23 @@ module Steep
 
               if receiver
                 _, receiver_vars = decompose_value(receiver)
+
+                receiver_type = typing.type_of(node: receiver)
                 arg_type = typing.type_of(node: arg)
 
                 if arg_type.is_a?(AST::Types::Name::Singleton)
-                  receiver_vars.each do |var_name|
-                    case var_name
-                    when :_, :__any__, :__skip__
-                      # skip
-                    else
-                      var_type = env[var_name]
-                      truthy_type, falsy_type = type_case_select(var_type, arg_type.name)
+                  truthy_type, falsy_type = type_case_select(receiver_type, arg_type.name)
 
-                      truthy_env = truthy_env.assign!(var_name, node: node, type: truthy_type)
-                      falsy_env = falsy_env.assign!(var_name, node: node, type: falsy_type)
+                  var_names = receiver_vars.select do |name|
+                    case name
+                    when :_, :__any__, :__skip__
+                      false
+                    else
+                      true
                     end
                   end
+
+                  truthy_env, falsy_env = update_type_env(var_names, truthy_type: truthy_type, falsy_type: falsy_type, truthy_env: truthy_env, falsy_env: falsy_env)
                 end
               end
             end
@@ -98,19 +97,23 @@ module Steep
             case value_node.type
             when :send
               receiver, _, arg = value_node.children
+              arg_type = typing.type_of(node: arg)
 
               if receiver
                 _, arg_vars = decompose_value(arg)
                 receiver_type = factory.deep_expand_alias(typing.type_of(node: receiver))
 
                 if receiver_type.is_a?(AST::Types::Name::Singleton)
-                  arg_vars.each do |var_name|
-                    var_type = env[var_name]
-                    truthy_type, falsy_type = type_case_select(var_type, receiver_type.name)
+                  truthy_type, falsy_type = type_case_select(arg_type, receiver_type.name)
 
-                    truthy_env = truthy_env.assign!(var_name, node: node, type: truthy_type)
-                    falsy_env = falsy_env.assign!(var_name, node: node, type: falsy_type)
-                  end
+                  truthy_env, falsy_env =
+                    update_type_env(
+                      arg_vars,
+                      truthy_type: truthy_type,
+                      truthy_env: truthy_env,
+                      falsy_type: falsy_type,
+                      falsy_env: falsy_env
+                    )
                 end
               end
             end
@@ -120,15 +123,20 @@ module Steep
               receiver, _, arg = value_node.children
 
               if receiver
+                receiver_value, _ = decompose_value(receiver)
                 _, arg_vars = decompose_value(arg)
+                arg_type = factory.expand_alias(typing.type_of(node: arg))
 
-                arg_vars.each do |var_name|
-                  var_type = factory.deep_expand_alias(env[var_name])
-                  truthy_types, falsy_types = literal_var_type_case_select(receiver, var_type)
+                truthy_types, falsy_types = literal_var_type_case_select(receiver_value, arg_type)
 
-                  truthy_env = truthy_env.assign!(var_name, node: node, type: AST::Types::Union.build(types: truthy_types, location: nil))
-                  falsy_env = falsy_env.assign!(var_name, node: node, type: AST::Types::Union.build(types: falsy_types, location: nil))
-                end
+                truthy_env, falsy_env =
+                  update_type_env(
+                    arg_vars,
+                    truthy_type: AST::Types::Union.build(types: truthy_types),
+                    truthy_env: truthy_env,
+                    falsy_type: AST::Types::Union.build(types: falsy_types),
+                    falsy_env: falsy_env
+                  )
               end
             end
           when AST::Types::Logic::Not
@@ -140,23 +148,31 @@ module Steep
             end
           end
         else
-          _, vars = decompose_value(node)
-
-          vars.each do |var_name|
-            var_type = env[var_name]
-            truthy_type, falsy_type = factory.unwrap_optional(var_type)
-
-            if falsy_type
-              truthy_env = truthy_env.assign!(var_name, node: node, type: truthy_type)
-              falsy_env = falsy_env.assign!(var_name, node: node, type: falsy_type)
-            else
-              truthy_env = truthy_env.assign!(var_name, node: node, type: truthy_type)
-              falsy_env = falsy_env.assign!(var_name, node: node, type: truthy_type)
-            end
-          end
+          truthy_env, falsy_env = update_type_env(
+            vars,
+            truthy_type: truthy_type,
+            falsy_type: falsy_type,
+            truthy_env: truthy_env,
+            falsy_env: falsy_env
+          )
         end
 
         [truthy_env, falsy_env]
+      end
+
+      def update_type_env(variables, truthy_type:, falsy_type:, truthy_env:, falsy_env:)
+        truthy_hash = {}
+        falsy_hash = {}
+
+        variables.each do |name|
+          truthy_hash[name] = truthy_env.assignment(name, truthy_type)
+          falsy_hash[name] = falsy_env.assignment(name, falsy_type)
+        end
+
+        [
+          truthy_env.merge(local_variable_types: truthy_hash),
+          falsy_env.merge(local_variable_types: falsy_hash)
+        ]
       end
 
       def decompose_value(node)
@@ -164,10 +180,8 @@ module Steep
         when :lvar
           [node, Set[node.children[0]]]
         when :masgn
-          lhs, rhs = node.children
-          lhs_vars = lhs.children.select {|m| m.type == :lvasgn }.map {|m| m.children[0] }
-          val, vars = decompose_value(rhs)
-          [val, vars + lhs_vars]
+          _, rhs = node.children
+          decompose_value(rhs)
         when :lvasgn
           var, rhs = node.children
           val, vars = decompose_value(rhs)

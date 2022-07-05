@@ -11,6 +11,7 @@ jobs:
     strategy:
       matrix:
         container_tag:
+        - "2.6"
         - "2.7"
         - "3.0"
         - "3.1"
@@ -24,6 +25,10 @@ jobs:
       image: rubylang/ruby:${{ matrix.container_tag }}
     steps:
     - uses: actions/checkout@v3
+    - name: Reset bundler
+      run: |
+        rm Gemfile.lock
+      if: contains(matrix.container_tag, '2.6')
     - name: Run test
       run: |
         git config --global --add safe.directory /__w/steep/steep

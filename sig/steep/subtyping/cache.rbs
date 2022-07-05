@@ -1,0 +1,17 @@
+module Steep
+  module Subtyping
+    class Cache
+      attr_reader subtypes: untyped
+
+      def initialize: () -> void
+
+      def subtype: (untyped relation, untyped self_type, untyped instance_type, untyped class_type, untyped bounds) -> untyped
+
+      def []: (untyped relation, untyped self_type, untyped instance_type, untyped class_type, untyped bounds) -> untyped
+
+      def []=: (untyped relation, untyped self_type, untyped instance_type, untyped class_type, untyped bounds, untyped value) -> untyped
+
+      def no_subtype_cache?: () -> untyped
+    end
+  end
+end

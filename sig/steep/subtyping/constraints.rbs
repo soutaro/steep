@@ -1,0 +1,93 @@
+module Steep
+  module Subtyping
+    class Constraints
+      class UnsatisfiedInvariantError < StandardError
+        attr_reader constraints: untyped
+
+        attr_reader reason: untyped
+
+        def initialize: (reason: untyped, constraints: untyped) -> void
+
+        class VariablesUnknownsNotDisjoint
+          attr_reader vars: untyped
+
+          def initialize: (vars: untyped) -> void
+
+          def message: () -> ::String
+        end
+
+        class VariablesFreeVariablesNotDisjoint
+          attr_reader var: untyped
+
+          attr_reader lower_bound: untyped
+
+          attr_reader upper_bound: untyped
+
+          def initialize: (?var: untyped?, ?lower_bound: untyped?, ?upper_bound: untyped?) -> void
+
+          def message: () -> ::String
+        end
+
+        class UnknownsFreeVariableNotDisjoint
+          attr_reader var: untyped
+
+          attr_reader upper_bound: untyped
+
+          attr_reader lower_bound: untyped
+
+          def initialize: (var: untyped, lower_bound: untyped, upper_bound: untyped) -> void
+
+          def message: () -> ::String
+        end
+      end
+
+      class UnsatisfiableConstraint < StandardError
+        attr_reader var: untyped
+
+        attr_reader sub_type: untyped
+
+        attr_reader super_type: untyped
+
+        attr_reader result: untyped
+
+        def initialize: (var: untyped, sub_type: untyped, super_type: untyped, result: untyped) -> void
+      end
+
+      attr_reader dictionary: untyped
+
+      attr_reader vars: untyped
+
+      def initialize: (unknowns: untyped) -> void
+
+      def self.empty: () -> untyped
+
+      def add_var: (*untyped vars) -> untyped
+
+      def add: (untyped var, ?sub_type: untyped?, ?super_type: untyped?, ?skip: bool) -> untyped
+
+      def eliminate_variable: (untyped `type`, to: untyped) -> untyped
+
+      def unknown?: (untyped var) -> untyped
+
+      def unknowns: () -> untyped
+
+      def unknown!: (untyped var) -> (untyped | nil)
+
+      def empty?: () -> untyped
+
+      def upper_bound: (untyped var, ?skip: bool) -> untyped
+
+      def lower_bound: (untyped var, ?skip: bool) -> untyped
+
+      Context: untyped
+
+      def solution: (untyped checker, variables: untyped, ?variance: untyped?, ?self_type: untyped?, ?instance_type: untyped?, ?class_type: untyped?, ?context: untyped?) -> untyped
+
+      def has_constraint?: (untyped var) -> untyped
+
+      def each: () { (untyped, untyped, untyped) -> untyped } -> untyped
+
+      def to_s: () -> ::String
+    end
+  end
+end

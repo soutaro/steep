@@ -1,16 +1,20 @@
 module Steep
   module Services
     class CompletionProvider
-      Position = Struct.new(:line, :column, keyword_init: true) do
+      Position = _ = Struct.new(:line, :column, keyword_init: true) do
+        # @implements Position
         def -(size)
           Position.new(line: line, column: column - size)
         end
       end
-      Range = Struct.new(:start, :end, keyword_init: true)
 
-      InstanceVariableItem = Struct.new(:identifier, :range, :type, keyword_init: true)
-      LocalVariableItem = Struct.new(:identifier, :range, :type, keyword_init: true)
-      ConstantItem = Struct.new(:env, :identifier, :range, :type, :full_name, keyword_init: true) do
+      Range = _ = Struct.new(:start, :end, keyword_init: true)
+
+      InstanceVariableItem = _ = Struct.new(:identifier, :range, :type, keyword_init: true)
+      LocalVariableItem = _ = Struct.new(:identifier, :range, :type, keyword_init: true)
+      ConstantItem = _ = Struct.new(:env, :identifier, :range, :type, :full_name, keyword_init: true) do
+        # @implements ConstantItem
+
         def class?
           if decl = env.class_decls[full_name]
             decl.primary.decl.is_a?(RBS::AST::Declarations::Class)
@@ -34,20 +38,23 @@ module Steep
           end
         end
       end
-      MethodNameItem = Struct.new(:identifier, :range, :receiver_type, :method_type, :method_decls, keyword_init: true) do
+      MethodNameItem = _ = Struct.new(:identifier, :range, :receiver_type, :method_type, :method_decls, keyword_init: true) do
+        # @implements MethodNameItem
+
         def comment
           case method_decls.size
           when 0
             nil
           when 1
-            method_decls.to_a.first.method_def&.comment
+            method = method_decls.to_a.first or raise
+            method.method_def&.comment
           else
             nil
           end
         end
 
         def inherited?
-          case receiver_type
+          case receiver_type = receiver_type()
           when AST::Types::Name::Instance, AST::Types::Name::Singleton, AST::Types::Name::Interface
             method_decls.any? do |decl|
               decl.method_name.type_name != receiver_type.name
@@ -365,11 +372,11 @@ module Steep
 
       def local_variable_items_for_context(context, position:, prefix:, items:)
         range = range_for(position, prefix: prefix)
-        context.lvar_env.each do |name, type|
+        context.type_env.local_variable_types.each do |name, pair|
+          type, _ = pair
+
           if name.to_s.start_with?(prefix)
-            items << LocalVariableItem.new(identifier: name,
-                                           range: range,
-                                           type: type)
+            items << LocalVariableItem.new(identifier: name, range: range, type: type)
           end
         end
       end
@@ -381,10 +388,10 @@ module Steep
           case parent.type
           when :const
             const_name = typing.source_index.reference(constant_node: parent)
-            consts = context.module_context.const_env.children(const_name)
+            consts = context.type_env.constant_env.children(const_name)
           end
         else
-          consts = context.module_context.const_env.constants
+          consts = context.type_env.constant_env.constants
         end
 
         if consts
@@ -400,7 +407,7 @@ module Steep
 
       def instance_variable_items_for_context(context, position:, prefix:, items:)
         range = range_for(position, prefix: prefix)
-        context.type_env.ivar_types.map do |name, type|
+        context.type_env.instance_variable_types.each do |name, type|
           if name.to_s.start_with?(prefix)
             items << InstanceVariableItem.new(identifier: name,
                                               range: range,

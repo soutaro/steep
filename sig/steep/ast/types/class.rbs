@@ -1,0 +1,29 @@
+module Steep
+  module AST
+    module Types
+      class Class
+        attr_reader location: untyped
+
+        def initialize: (?location: untyped?) -> void
+
+        def to_s: () -> "class"
+
+        def ==: (untyped other) -> untyped
+
+        def hash: () -> untyped
+
+        alias eql? ==
+
+        def subst: (untyped s) -> untyped
+
+        def free_variables: () -> untyped
+
+        include Helper::NoChild
+
+        def level: () -> ::Array[0]
+
+        def with_location: (untyped new_location) -> untyped
+      end
+    end
+  end
+end

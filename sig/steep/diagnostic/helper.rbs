@@ -1,0 +1,9 @@
+module Steep
+  module Diagnostic
+    module Helper
+      def error_name: () -> untyped
+
+      def full_message: () -> ::String
+    end
+  end
+end

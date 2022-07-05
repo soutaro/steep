@@ -1,0 +1,67 @@
+module Steep
+  class Typing
+    class UnknownNodeError < StandardError
+      attr_reader op: untyped
+
+      attr_reader node: untyped
+
+      def initialize: (untyped op, node: untyped) -> void
+    end
+
+    attr_reader source: untyped
+
+    attr_reader errors: untyped
+
+    attr_reader typing: untyped
+
+    attr_reader parent: untyped
+
+    attr_reader parent_last_update: untyped
+
+    attr_reader last_update: untyped
+
+    attr_reader should_update: untyped
+
+    attr_reader contexts: untyped
+
+    attr_reader root_context: untyped
+
+    attr_reader method_calls: untyped
+
+    attr_reader source_index: untyped
+
+    def initialize: (source: untyped, root_context: untyped, ?parent: untyped?, ?parent_last_update: untyped, ?contexts: untyped?, ?source_index: untyped?) -> void
+
+    def add_error: (untyped error) -> untyped
+
+    def add_typing: (untyped node, untyped `type`, untyped _context) -> untyped
+
+    def add_call: (untyped node, untyped call) -> untyped
+
+    def add_context: (untyped range, context: untyped) -> untyped
+
+    def has_type?: (untyped node) -> untyped
+
+    def type_of: (node: Parser::AST::Node) -> AST::Types::t
+
+    def call_of: (node: untyped) -> untyped
+
+    def add_context_for_node: (untyped node, context: untyped) -> untyped
+
+    def block_range: (untyped node) -> ::Range[untyped]
+
+    def add_context_for_body: (untyped node, context: untyped) -> untyped
+
+    def context_at: (line: Integer, column: Integer) -> TypeInference::Context
+
+    def dump: (untyped io) -> untyped
+
+    def self.summary: (untyped node) -> ::String
+
+    def new_child: (untyped range) { (untyped) -> untyped } -> untyped
+
+    def each_typing: () { () -> untyped } -> untyped
+
+    def save!: () -> untyped
+  end
+end

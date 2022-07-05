@@ -11,16 +11,6 @@ PATH
       rbs (>= 2.3.2)
       terminal-table (>= 2, < 4)
 
-PATH
-  remote: test/gems/with_steep_types
-  specs:
-    with_steep_types (1.0.0)
-
-PATH
-  remote: test/gems/without_steep_types
-  specs:
-    without_steep_types (1.0.0)
-
 GEM
   remote: https://rubygems.org/
   specs:
@@ -57,7 +47,7 @@ GEM
       unicode-display_width (>= 1.1.1, < 3)
     tzinfo (2.0.4)
       concurrent-ruby (~> 1.0)
-    unicode-display_width (2.1.0)
+    unicode-display_width (2.2.0)
 
 PLATFORMS
   ruby
@@ -67,10 +57,9 @@ DEPENDENCIES
   minitest-hooks
   minitest-slow_test
   rake
+  rbs (~> 2.5.1)
   stackprof
   steep!
-  with_steep_types!
-  without_steep_types!
 
 BUNDLED WITH
    2.3.8

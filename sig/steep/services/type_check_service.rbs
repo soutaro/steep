@@ -1,0 +1,93 @@
+module Steep
+  module Services
+    class TypeCheckService
+      attr_reader project: untyped
+
+      attr_reader signature_validation_diagnostics: untyped
+
+      attr_reader source_files: untyped
+
+      attr_reader signature_services: untyped
+
+      class SourceFile
+        attr_reader path: untyped
+
+        attr_reader target: untyped
+
+        attr_reader content: untyped
+
+        attr_reader node: untyped
+
+        attr_reader typing: untyped
+
+        attr_reader errors: untyped
+
+        def initialize: (path: untyped, node: untyped, content: untyped, typing: untyped, errors: untyped) -> void
+
+        def self.with_syntax_error: (path: untyped, content: untyped, error: untyped) -> untyped
+
+        def self.with_typing: (path: untyped, content: untyped, typing: untyped, node: untyped) -> untyped
+
+        def self.no_data: (path: untyped, content: untyped) -> untyped
+
+        def update_content: (untyped content) -> untyped
+
+        def diagnostics: () -> untyped
+      end
+
+      class TargetRequest
+        attr_reader target: untyped
+
+        attr_reader source_paths: untyped
+
+        def initialize: (target: untyped) -> void
+
+        def signature_updated!: (?bool value) -> self
+
+        def signature_updated?: () -> untyped
+
+        def empty?: () -> untyped
+
+        def ==: (untyped other) -> untyped
+
+        alias eql? ==
+
+        def hash: () -> untyped
+      end
+
+      def initialize: (project: untyped) -> void
+
+      def signature_diagnostics: () -> untyped
+
+      def has_diagnostics?: () -> untyped
+
+      def diagnostics: () -> untyped
+
+      def each_diagnostics: () { (untyped) -> untyped } -> untyped
+
+      def update: (changes: untyped) -> untyped
+
+      def update_and_check: (changes: untyped, assignment: untyped) ?{ () -> untyped } -> untyped
+
+      def validate_signature: (path: untyped) { (untyped) -> untyped } -> untyped
+
+      def typecheck_source: (path: untyped, ?target: untyped) { (untyped) -> untyped } -> (nil | untyped)
+
+      def update_signature: (changes: untyped, requests: untyped) -> untyped
+
+      def update_sources: (changes: untyped, requests: untyped) -> untyped
+
+      def type_check_file: (target: untyped, subtyping: untyped, path: untyped, text: untyped) -> untyped
+
+      def self.type_check: (source: Source, subtyping: Subtyping::Check) -> Typing
+
+      def source_file?: (Pathname path) -> (untyped | nil)
+
+      def signature_file?: (Pathname path) -> untyped
+
+      def app_signature_file?: (Pathname path) -> untyped
+
+      def lib_signature_file?: (Pathname path) -> untyped
+    end
+  end
+end

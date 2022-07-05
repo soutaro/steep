@@ -1,0 +1,29 @@
+module Steep
+  module AST
+    module Types
+      class Bot
+        attr_reader location: untyped
+
+        def initialize: (?location: untyped?) -> void
+
+        def ==: (untyped other) -> untyped
+
+        def hash: () -> untyped
+
+        alias eql? ==
+
+        def subst: (untyped s) -> self
+
+        def to_s: () -> "bot"
+
+        include Helper::NoFreeVariables
+
+        include Helper::NoChild
+
+        def level: () -> ::Array[2]
+
+        def with_location: (untyped new_location) -> untyped
+      end
+    end
+  end
+end

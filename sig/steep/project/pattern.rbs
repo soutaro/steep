@@ -1,0 +1,25 @@
+module Steep
+  class Project
+    class Pattern
+      attr_reader patterns: untyped
+
+      attr_reader ignores: untyped
+
+      attr_reader prefixes: untyped
+
+      attr_reader ignore_prefixes: untyped
+
+      attr_reader ext: untyped
+
+      def initialize: (patterns: untyped, ext: untyped, ?ignores: untyped) -> void
+
+      def =~: (untyped path) -> untyped
+
+      def match?: (untyped path) -> untyped
+
+      def ignore?: (untyped path) -> untyped
+
+      def test_string: (untyped path, untyped patterns, untyped prefixes) -> untyped
+    end
+  end
+end

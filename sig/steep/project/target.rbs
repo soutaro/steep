@@ -1,0 +1,25 @@
+module Steep
+  class Project
+    class Target
+      attr_reader name: untyped
+
+      attr_reader options: untyped
+
+      attr_reader source_pattern: untyped
+
+      attr_reader signature_pattern: untyped
+
+      attr_reader code_diagnostics_config: untyped
+
+      def initialize: (name: untyped, options: untyped, source_pattern: untyped, signature_pattern: untyped, code_diagnostics_config: untyped) -> void
+
+      def possible_source_file?: (untyped path) -> untyped
+
+      def possible_signature_file?: (untyped path) -> untyped
+
+      def new_env_loader: (project: untyped) -> untyped
+
+      def self.construct_env_loader: (options: untyped, project: untyped) -> untyped
+    end
+  end
+end

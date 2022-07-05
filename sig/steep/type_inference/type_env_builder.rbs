@@ -1,0 +1,77 @@
+module Steep
+  module TypeInference
+    class TypeEnvBuilder
+      module Command
+        interface _Base
+          def call: (TypeEnv) -> TypeEnv
+        end
+
+        class RBSBase
+          attr_reader environment: RBS::Environment
+
+          attr_reader factory: AST::Types::Factory
+
+          def initialize: (AST::Types::Factory) -> void
+        end
+
+        class AnnotationsBase
+          attr_reader annotations: AST::Annotation::Collection
+
+          def initialize: (AST::Annotation::Collection) -> void
+        end
+
+        # Insert local variable annotations.
+        #
+        # * When _merge mode_ is on, adds and overwrite local variables.
+        # * When _merge mode_ is off, it wipes all existing local variables and adds from annotations.
+        #
+        class ImportLocalVariableAnnotations < AnnotationsBase
+          include _Base
+
+          attr_reader on_duplicate: (^(Symbol, AST::Types::t, AST::Types::t) -> void)?
+
+          @merge: bool
+
+          # Set _merge mode_ `on`.
+          def merge!: (?bool) -> self
+
+          def on_duplicate!: () { (Symbol name, AST::Types::t original, AST::Types::t annotation) -> void } -> self
+        end
+
+        # Insert global variable types into type environment from `RBS::Environment`.
+        #
+        class ImportGlobalDeclarations < RBSBase
+          def merge!: (?bool) -> self
+
+          @merge: bool
+
+          include _Base
+        end
+
+        class ImportInstanceVariableAnnotations < AnnotationsBase
+          include _Base
+        end
+
+        class ImportInstanceVariableDefinition
+          attr_reader definition: RBS::Definition?
+
+          attr_reader factory: AST::Types::Factory
+
+          def initialize: (RBS::Definition?, AST::Types::Factory) -> void
+
+          include _Base
+        end
+
+        class ImportConstantAnnotations < AnnotationsBase
+          include _Base
+        end
+      end
+
+      attr_reader commands: Array[Command::_Base]
+
+      def initialize: (*Command::_Base) -> void
+
+      def build: (TypeEnv) -> TypeEnv
+    end
+  end
+end

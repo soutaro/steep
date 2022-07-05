@@ -1,0 +1,29 @@
+module Steep
+  module Diagnostic
+    class LSPFormatter
+      LSP: untyped
+
+      attr_reader config: untyped
+
+      attr_reader default_severity: untyped
+
+      ERROR: :error
+
+      WARNING: :warning
+
+      INFORMATION: :information
+
+      HINT: :hint
+
+      def initialize: (?::Hash[untyped, untyped] config, ?default_severity: untyped) -> void
+
+      def validate_class: (untyped klass) -> (untyped | nil)
+
+      def validate_severity: (untyped klass, untyped severity) -> untyped
+
+      def format: (untyped diagnostic) -> untyped
+
+      def severity_for: (untyped diagnostic) -> untyped
+    end
+  end
+end

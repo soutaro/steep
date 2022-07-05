@@ -569,7 +569,6 @@ module TypeConstructionHelper
   TypeConstruction = Steep::TypeConstruction
   Annotation = Steep::AST::Annotation
   Context = Steep::TypeInference::Context
-  LocalVariableTypeEnv = Steep::TypeInference::LocalVariableTypeEnv
   AST = Steep::AST
   TypeInference = Steep::TypeInference
 
@@ -579,16 +578,14 @@ module TypeConstructionHelper
     annotations = source.annotations(block: source.node, factory: checker.factory, context: nil)
     resolver = RBS::Resolver::ConstantResolver.new(builder: factory.definition_builder)
     const_env = ConstantEnv.new(factory: factory, context: nil, resolver: resolver)
-    type_env = TypeEnv.build(annotations: annotations,
-                             subtyping: checker,
-                             const_env: const_env,
-                             signatures: checker.factory.env)
-    lvar_env = LocalVariableTypeEnv.empty(
-      subtyping: checker,
-      self_type: self_type,
-      instance_type: AST::Builtin::Object.instance_type,
-      class_type: AST::Builtin::Object.module_type,
-    ).annotate(annotations)
+
+    rbs_env = checker.factory.env
+    type_env = Steep::TypeInference::TypeEnvBuilder.new(
+      Steep::TypeInference::TypeEnvBuilder::Command::ImportGlobalDeclarations.new(checker.factory),
+      Steep::TypeInference::TypeEnvBuilder::Command::ImportInstanceVariableAnnotations.new(annotations),
+      Steep::TypeInference::TypeEnvBuilder::Command::ImportConstantAnnotations.new(annotations),
+      Steep::TypeInference::TypeEnvBuilder::Command::ImportLocalVariableAnnotations.new(annotations)
+    ).build(TypeEnv.new(const_env))
 
     context = Context.new(
       block_context: nil,
@@ -597,7 +594,7 @@ module TypeConstructionHelper
         instance_type: AST::Builtin::Object.instance_type,
         module_type: AST::Builtin::Object.module_type,
         implement_name: nil,
-        const_env: const_env,
+        nesting: nil,
         class_name: AST::Builtin::Object.module_name,
         instance_definition: checker.factory.definition_builder.build_instance(AST::Builtin::Object.module_name),
         module_definition: checker.factory.definition_builder.build_singleton(AST::Builtin::Object.module_name)
@@ -605,7 +602,6 @@ module TypeConstructionHelper
       break_context: nil,
       self_type: self_type,
       type_env: type_env,
-      lvar_env: lvar_env,
       call_context: TypeInference::MethodCall::TopLevelContext.new(),
       variable_context: Context::TypeVariableContext.empty
     )

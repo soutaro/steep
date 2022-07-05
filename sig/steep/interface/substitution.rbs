@@ -1,0 +1,53 @@
+module Steep
+  module Interface
+    class Substitution
+      class InvalidSubstitutionError < StandardError
+        attr_reader vars_size: untyped
+
+        attr_reader types_size: untyped
+
+        def initialize: (vars_size: untyped, types_size: untyped) -> void
+      end
+
+      attr_reader dictionary: untyped
+
+      attr_reader instance_type: untyped
+
+      attr_reader module_type: untyped
+
+      attr_reader self_type: untyped
+
+      def initialize: (dictionary: untyped, instance_type: untyped, module_type: untyped, self_type: untyped) -> void
+
+      def self.empty: () -> untyped
+
+      def empty?: () -> untyped
+
+      INSTANCE_TYPE: untyped
+
+      CLASS_TYPE: untyped
+
+      SELF_TYPE: untyped
+
+      def domain: () -> untyped
+
+      def to_s: () -> ::String
+
+      def []: (untyped key) -> untyped
+
+      def key?: (untyped var) -> untyped
+
+      def self.build: (untyped vars, ?untyped? types, ?instance_type: untyped, ?module_type: untyped, ?self_type: untyped) -> untyped
+
+      def except: (untyped vars) -> untyped
+
+      def except!: (untyped vars) -> self
+
+      def merge!: (untyped s, ?overwrite: bool) -> self
+
+      def merge: (untyped s) -> untyped
+
+      def add!: (untyped v, untyped ty) -> untyped
+    end
+  end
+end

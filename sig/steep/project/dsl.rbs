@@ -1,0 +1,94 @@
+module Steep
+  class Project
+    class DSL
+      class TargetDSL
+        attr_reader name: untyped
+
+        attr_reader sources: untyped
+
+        attr_reader libraries: untyped
+
+        attr_reader signatures: untyped
+
+        attr_reader ignored_sources: untyped
+
+        attr_reader stdlib_root: untyped
+
+        attr_reader core_root: untyped
+
+        attr_reader repo_paths: untyped
+
+        attr_reader code_diagnostics_config: untyped
+
+        attr_reader project: untyped
+
+        attr_reader collection_config_path: untyped
+
+        NONE: untyped
+
+        def initialize: (untyped name, ?sources: untyped, ?libraries: untyped, ?signatures: untyped, ?ignored_sources: untyped, ?repo_paths: untyped, ?code_diagnostics_config: ::Hash[untyped, untyped], ?project: untyped?, ?collection_config_path: untyped) -> void
+
+        def initialize_copy: (untyped other) -> untyped
+
+        def check: (*untyped args) -> untyped
+
+        def ignore: (*untyped args) -> untyped
+
+        def library: (*untyped args) -> untyped
+
+        def typing_options: (?untyped? level, **untyped hash) -> untyped
+
+        def signature: (*untyped args) -> untyped
+
+        def update: (?name: untyped, ?sources: untyped, ?libraries: untyped, ?ignored_sources: untyped, ?signatures: untyped, ?project: untyped) -> untyped
+
+        def no_builtin!: (?bool value) -> untyped
+
+        def vendor: (?::String dir, ?stdlib: untyped?, ?gems: untyped?) -> untyped
+
+        def stdlib_path: (core_root: untyped, stdlib_root: untyped) -> untyped
+
+        def repo_path: (*untyped paths) -> untyped
+
+        # Configure the code diagnostics printing setup.
+        #
+        # Yields a hash, and the update the hash in the block.
+        #
+        # ```rb
+        # D = Steep::Diagnostic
+        #
+        # configure_code_diagnostics do |hash|
+        #   # Assign one of :error, :warning, :information, :hint or :nil to error classes.
+        #   hash[D::Ruby::UnexpectedPositionalArgument] = :error
+        # end
+        # ```
+        #
+        # Passing a hash is also allowed.
+        #
+        # ```rb
+        # D = Steep::Diagnostic
+        #
+        # configure_code_diagnostics(D::Ruby.lenient)
+        # ```
+        #
+        def configure_code_diagnostics: (?untyped? hash) { (untyped) -> untyped } -> untyped
+
+        def collection_config: (untyped path) -> untyped
+
+        def disable_collection: () -> untyped
+      end
+
+      attr_reader project: untyped
+
+      def self.templates: () -> untyped
+
+      def initialize: (project: untyped) -> void
+
+      def self.register_template: (untyped name, untyped target) -> untyped
+
+      def self.parse: (untyped project, untyped code, ?filename: ::String) -> untyped
+
+      def target: (untyped name, ?template: untyped?) ?{ () -> untyped } -> untyped
+    end
+  end
+end

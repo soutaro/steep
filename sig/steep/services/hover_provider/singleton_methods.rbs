@@ -1,0 +1,11 @@
+module Steep
+  module Services
+    module HoverProvider
+      module SingletonMethods
+        def content_for: (service: untyped, path: untyped, line: untyped, column: untyped) -> untyped
+      end
+
+      extend SingletonMethods
+    end
+  end
+end

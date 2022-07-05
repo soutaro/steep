@@ -1,0 +1,17 @@
+module Parser
+  module AST
+    module Node
+      attr_reader type: Symbol
+
+      attr_reader children: Array[untyped]
+
+      def initialize: (Symbol `type`, Array[untyped] children) -> void
+
+      def updated: (?Symbol?, ?Array[untyped]?) -> Node
+
+      attr_reader location: Source::Map
+
+      alias loc location
+    end
+  end
+end

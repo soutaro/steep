@@ -1,0 +1,71 @@
+module Steep
+  module AST
+    module Types
+      module Logic
+        type loc = RBS::Location[untyped, untyped]
+
+        class Base
+          attr_reader location: untyped
+
+          def subst: (untyped s) -> self
+
+          def free_variables: () -> untyped
+
+          include Helper::NoChild
+
+          def hash: () -> untyped
+
+          def ==: (untyped other) -> untyped
+
+          alias eql? ==
+
+          def to_s: () -> ::String
+        end
+
+        class Not < Base
+          def initialize: (?location: untyped?) -> void
+        end
+
+        class ReceiverIsNil < Base
+          def initialize: (?location: untyped?) -> void
+        end
+
+        class ReceiverIsNotNil < Base
+          def initialize: (?location: untyped?) -> void
+        end
+
+        class ReceiverIsArg < Base
+          def initialize: (?location: untyped?) -> void
+        end
+
+        class ArgIsReceiver < Base
+          def initialize: (?location: untyped?) -> void
+        end
+
+        class ArgEqualsReceiver < Base
+          def initialize: (?location: untyped?) -> void
+        end
+
+        class Env < Base
+          attr_reader truthy: TypeInference::TypeEnv
+
+          attr_reader falsy: TypeInference::TypeEnv
+
+          attr_reader type: t
+
+          def initialize: (truthy: TypeInference::TypeEnv, falsy: TypeInference::TypeEnv, type: t, ?location: loc?) -> void
+
+          def ==: (untyped other) -> bool
+
+          alias eql? ==
+
+          def hash: () -> Integer
+
+          def inspect: () -> ::String
+
+          alias to_s inspect
+        end
+      end
+    end
+  end
+end

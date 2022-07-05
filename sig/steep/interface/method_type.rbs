@@ -1,0 +1,55 @@
+module Steep
+  module Interface
+    class MethodType
+      attr_reader type_params: untyped
+
+      attr_reader type: untyped
+
+      attr_reader block: untyped
+
+      attr_reader method_decls: untyped
+
+      def initialize: (type_params: untyped, type: untyped, block: untyped, method_decls: untyped) -> void
+
+      def ==: (untyped other) -> untyped
+
+      alias eql? ==
+
+      def hash: () -> untyped
+
+      def free_variables: () -> untyped
+
+      def subst: (untyped s) -> (self | untyped)
+
+      def each_type: () { (untyped) -> untyped } -> untyped
+
+      def instantiate: (untyped s) -> untyped
+
+      def with: (?type_params: untyped, ?type: untyped, ?block: untyped, ?method_decls: untyped) -> untyped
+
+      def to_s: () -> ::String
+
+      def map_type: () ?{ () -> untyped } -> untyped
+
+      # Returns a new method type which can be used for the method implementation type of both `self` and `other`.
+      #
+      def unify_overload: (untyped other) -> untyped
+
+      def +: (untyped other) -> untyped
+
+      # Returns a method type which is a super-type of both self and other.
+      #   self <: (self | other) && other <: (self | other)
+      #
+      # Returns nil if self and other are incompatible.
+      #
+      def |: (untyped other) -> (nil | untyped)
+
+      # Returns a method type which is a sub-type of both self and other.
+      #   (self & other) <: self && (self & other) <: other
+      #
+      # Returns nil if self and other are incompatible.
+      #
+      def &: (untyped other) -> (nil | untyped)
+    end
+  end
+end

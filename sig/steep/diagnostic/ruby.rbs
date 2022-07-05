@@ -1,0 +1,477 @@
+module Steep
+  module Diagnostic
+    module Ruby
+      type location = Parser::Source::Range | Parser::Source::Range
+
+      class Base
+        include Helper
+
+        attr_reader node: Parser::AST::Node?
+
+        attr_reader location: location?
+
+        def initialize: (node: Parser::AST::Node?, ?location: location?) -> void
+
+        def header_line: () -> String
+
+        def detail_lines: () -> String?
+
+        def diagnostic_code: () -> ::String
+      end
+
+      interface _DiagnosticWithResult
+        def result: () -> Subtyping::Result::Base
+      end
+
+      module ResultPrinter : _DiagnosticWithResult
+        def relation_message: (untyped relation) -> untyped
+
+        def detail_lines: () -> untyped
+      end
+
+      class IncompatibleAssignment < Base
+        attr_reader lhs_type: untyped
+
+        attr_reader rhs_type: untyped
+
+        attr_reader result: untyped
+
+        include ResultPrinter
+
+        def initialize: (node: untyped, lhs_type: untyped, rhs_type: untyped, result: untyped) -> void
+
+        def header_line: () -> ::String
+      end
+
+      class UnexpectedPositionalArgument < Base
+        attr_reader node: untyped
+
+        attr_reader method_type: untyped
+
+        attr_reader method_name: untyped
+
+        def initialize: (node: untyped, method_name: untyped, method_type: untyped) -> void
+
+        def header_line: () -> "Unexpected positional argument"
+      end
+
+      class InsufficientPositionalArguments < Base
+        attr_reader node: untyped
+
+        attr_reader method_name: untyped
+
+        attr_reader method_type: untyped
+
+        def initialize: (node: untyped, method_name: untyped, method_type: untyped) -> void
+
+        def header_line: () -> "More positional arguments are required"
+      end
+
+      class UnexpectedKeywordArgument < Base
+        attr_reader node: untyped
+
+        attr_reader method_name: untyped
+
+        attr_reader method_type: untyped
+
+        def initialize: (node: untyped, method_name: untyped, method_type: untyped) -> void
+
+        def header_line: () -> "Unexpected keyword argument"
+      end
+
+      class InsufficientKeywordArguments < Base
+        attr_reader node: untyped
+
+        attr_reader method_name: untyped
+
+        attr_reader method_type: untyped
+
+        attr_reader missing_keywords: untyped
+
+        def initialize: (node: untyped, method_name: untyped, method_type: untyped, missing_keywords: untyped) -> void
+
+        def header_line: () -> ::String
+      end
+
+      class UnresolvedOverloading < Base
+        attr_reader node: untyped
+
+        attr_reader receiver_type: untyped
+
+        attr_reader method_name: untyped
+
+        attr_reader method_types: untyped
+
+        def initialize: (node: untyped, receiver_type: untyped, method_name: untyped, method_types: untyped) -> void
+
+        def header_line: () -> ::String
+
+        def detail_lines: () -> untyped
+      end
+
+      class ArgumentTypeMismatch < Base
+        attr_reader node: untyped
+
+        attr_reader expected: untyped
+
+        attr_reader actual: untyped
+
+        attr_reader receiver_type: untyped
+
+        attr_reader result: untyped
+
+        include ResultPrinter
+
+        def initialize: (node: untyped, receiver_type: untyped, expected: untyped, actual: untyped, result: untyped) -> void
+
+        def header_line: () -> ::String
+      end
+
+      class NoMethod < Base
+        attr_reader type: untyped
+
+        attr_reader method: untyped
+
+        def initialize: (node: untyped, type: untyped, method: untyped) -> void
+
+        def header_line: () -> ::String
+      end
+
+      class ReturnTypeMismatch < Base
+        attr_reader expected: untyped
+
+        attr_reader actual: untyped
+
+        attr_reader result: untyped
+
+        include ResultPrinter
+
+        def initialize: (node: untyped, expected: untyped, actual: untyped, result: untyped) -> void
+
+        def header_line: () -> ::String
+      end
+
+      class UnexpectedBlockGiven < Base
+        attr_reader method_type: untyped
+
+        def initialize: (node: untyped, method_type: untyped) -> void
+
+        def header_line: () -> "The method cannot be called with a block"
+      end
+
+      class RequiredBlockMissing < Base
+        attr_reader method_type: untyped
+
+        def initialize: (node: untyped, method_type: untyped) -> void
+
+        def header_line: () -> "The method cannot be called without a block"
+      end
+
+      class BlockTypeMismatch < Base
+        attr_reader expected: untyped
+
+        attr_reader actual: untyped
+
+        attr_reader result: untyped
+
+        include ResultPrinter
+
+        def initialize: (node: untyped, expected: untyped, actual: untyped, result: untyped) -> void
+
+        def header_line: () -> ::String
+      end
+
+      class BlockBodyTypeMismatch < Base
+        attr_reader expected: untyped
+
+        attr_reader actual: untyped
+
+        attr_reader result: untyped
+
+        include ResultPrinter
+
+        def initialize: (node: untyped, expected: untyped, actual: untyped, result: untyped) -> void
+
+        def header_line: () -> ::String
+      end
+
+      class BreakTypeMismatch < Base
+        attr_reader expected: untyped
+
+        attr_reader actual: untyped
+
+        attr_reader result: untyped
+
+        include ResultPrinter
+
+        def initialize: (node: untyped, expected: untyped, actual: untyped, result: untyped) -> void
+
+        def header_line: () -> ::String
+      end
+
+      class ImplicitBreakValueMismatch < Base
+        attr_reader jump_type: untyped
+
+        attr_reader result: untyped
+
+        include ResultPrinter
+
+        def initialize: (node: untyped, jump_type: untyped, result: untyped) -> void
+
+        def header_line: () -> ::String
+      end
+
+      class UnexpectedJump < Base
+        def header_line: () -> "Cannot jump from here"
+      end
+
+      class UnexpectedJumpValue < Base
+        def header_line: () -> ::String
+      end
+
+      class MethodArityMismatch < Base
+        attr_reader method_type: untyped
+
+        def initialize: (node: untyped, method_type: untyped) -> void
+
+        def header_line: () -> ::String
+      end
+
+      class MethodParameterMismatch < Base
+        attr_reader method_param: untyped
+
+        attr_reader method_type: untyped
+
+        def initialize: (method_param: untyped, method_type: untyped) -> void
+
+        def header_line: () -> ::String
+      end
+
+      class DifferentMethodParameterKind < Base
+        attr_reader method_param: untyped
+
+        attr_reader method_type: untyped
+
+        def initialize: (method_param: untyped, method_type: untyped) -> void
+
+        def header_line: () -> ::String
+      end
+
+      class IncompatibleMethodTypeAnnotation < Base
+        attr_reader interface_method: untyped
+
+        attr_reader annotation_method: untyped
+
+        attr_reader result: untyped
+
+        include ResultPrinter
+
+        def initialize: (node: untyped, interface_method: untyped, annotation_method: untyped, result: untyped) -> void
+      end
+
+      class MethodReturnTypeAnnotationMismatch < Base
+        attr_reader method_type: untyped
+
+        attr_reader annotation_type: untyped
+
+        attr_reader result: untyped
+
+        include ResultPrinter
+
+        def initialize: (node: untyped, method_type: untyped, annotation_type: untyped, result: untyped) -> void
+
+        def header_line: () -> ::String
+      end
+
+      class MethodBodyTypeMismatch < Base
+        attr_reader expected: untyped
+
+        attr_reader actual: untyped
+
+        attr_reader result: untyped
+
+        include ResultPrinter
+
+        def initialize: (node: untyped, expected: untyped, actual: untyped, result: untyped) -> void
+
+        def header_line: () -> ::String
+      end
+
+      class UnexpectedYield < Base
+        def header_line: () -> "No block given for `yield`"
+      end
+
+      class UnexpectedSuper < Base
+        attr_reader method: untyped
+
+        def initialize: (node: untyped, method: untyped) -> void
+
+        def header_line: () -> ::String
+      end
+
+      class MethodDefinitionMissing < Base
+        attr_reader module_name: untyped
+
+        attr_reader kind: untyped
+
+        attr_reader missing_method: untyped
+
+        def initialize: (node: untyped, module_name: untyped, kind: untyped, missing_method: untyped) -> void
+
+        def header_line: () -> ::String
+      end
+
+      class UnexpectedDynamicMethod < Base
+        attr_reader module_name: untyped
+
+        attr_reader method_name: untyped
+
+        def initialize: (node: untyped, module_name: untyped, method_name: untyped) -> void
+
+        def header_line: () -> ::String
+      end
+
+      class UnknownConstant < Base
+        attr_reader name: untyped
+
+        attr_reader kind: untyped
+
+        def initialize: (node: untyped, name: untyped) -> void
+
+        def class!: () -> self
+
+        def module!: () -> self
+
+        def header_line: () -> ::String
+      end
+
+      class UnknownInstanceVariable < Base
+        attr_reader name: Symbol
+
+        def initialize: (node: Parser::AST::Node, name: Symbol) -> void
+
+        def header_line: () -> ::String
+      end
+
+      class UnknownGlobalVariable < Base
+        attr_reader name: untyped
+
+        def initialize: (node: untyped, name: untyped) -> void
+
+        def header_line: () -> ::String
+      end
+
+      class FallbackAny < Base
+        def initialize: (node: untyped) -> void
+
+        def header_line: () -> "Cannot detect the type of the expression"
+      end
+
+      class UnsatisfiableConstraint < Base
+        attr_reader method_type: untyped
+
+        attr_reader var: untyped
+
+        attr_reader sub_type: untyped
+
+        attr_reader super_type: untyped
+
+        attr_reader result: untyped
+
+        def initialize: (node: untyped, method_type: untyped, var: untyped, sub_type: untyped, super_type: untyped, result: untyped) -> void
+
+        include ResultPrinter
+
+        def header_line: () -> ::String
+      end
+
+      class IncompatibleAnnotation < Base
+        attr_reader result: Subtyping::Result::Base
+
+        attr_reader relation: Subtyping::Relation
+
+        attr_reader var_name: Symbol
+
+        def initialize: (node: Parser::AST::Node, var_name: Symbol, result: Subtyping::Result::Base, relation: Subtyping::Relation) -> void
+
+        include ResultPrinter
+
+        def header_line: () -> ::String
+      end
+
+      class IncompatibleTypeCase < Base
+        attr_reader var_name: untyped
+
+        attr_reader result: untyped
+
+        attr_reader relation: untyped
+
+        def initialize: (node: untyped, var_name: untyped, result: untyped, relation: untyped) -> void
+
+        include ResultPrinter
+
+        def header_line: () -> ::String
+      end
+
+      class ElseOnExhaustiveCase < Base
+        attr_reader type: untyped
+
+        def initialize: (node: untyped, type: untyped) -> void
+
+        def header_line: () -> "The branch is unreachable because the condition is exhaustive"
+      end
+
+      class UnexpectedSplat < Base
+        attr_reader type: untyped
+
+        def initialize: (node: untyped, type: untyped) -> void
+
+        def header_line: () -> "Hash splat is given with object other than `Hash[X, Y]`"
+      end
+
+      class ProcTypeExpected < Base
+        attr_reader type: untyped
+
+        def initialize: (node: untyped, type: untyped) -> void
+
+        def header_line: () -> ::String
+      end
+
+      class UnsupportedSyntax < Base
+        attr_reader message: untyped
+
+        def initialize: (node: untyped, ?message: untyped?) -> void
+
+        def header_line: () -> (untyped | ::String)
+      end
+
+      class UnexpectedError < Base
+        attr_reader message: untyped
+
+        attr_reader error: untyped
+
+        def initialize: (node: untyped, error: untyped) -> void
+
+        def header_line: () -> ::String
+      end
+
+      class SyntaxError < Base
+        attr_reader message: untyped
+
+        def initialize: (message: untyped, location: untyped) -> void
+
+        def header_line: () -> ::String
+      end
+
+      ALL: untyped
+
+      def self.all_error: () -> untyped
+
+      def self.default: () -> untyped
+
+      def self.strict: () -> untyped
+
+      def self.lenient: () -> untyped
+    end
+  end
+end
