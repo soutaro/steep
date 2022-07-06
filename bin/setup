@@ -5,3 +5,4 @@ set -vx
 
 bundle install
 
+bundle install --gemfile=Gemfile.steep
