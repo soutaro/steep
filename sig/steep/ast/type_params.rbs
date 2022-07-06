@@ -1,11 +1,11 @@
-module Steep
-  module AST
-    class TypeParams
-      attr_reader location: untyped
+# module Steep
+#   module AST
+#     class TypeParams
+#       attr_reader location: untyped
 
-      attr_reader variables: untyped
+#       attr_reader variables: untyped
 
-      def initialize: (variables: untyped, ?location: untyped?) -> void
-    end
-  end
-end
+#       def initialize: (variables: untyped, ?location: untyped?) -> void
+#     end
+#   end
+# end

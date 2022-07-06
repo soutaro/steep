@@ -26,25 +26,29 @@ module Steep
         end
       end
 
-      MethodContext = Struct.new(:method_name, keyword_init: true) do
+      MethodContext = _ = Struct.new(:method_name, keyword_init: true) do
+        # @implements MethodContext
+
         def to_s
           "@#{method_name}"
         end
       end
 
-      ModuleContext = Struct.new(:type_name, keyword_init: true) do
+      ModuleContext = _ = Struct.new(:type_name, keyword_init: true) do
+        # @implements ModuleContext
+
         def to_s
           "@#{type_name}@"
         end
       end
 
-      TopLevelContext = Class.new() do
+      TopLevelContext = _ = Class.new() do
         def to_s
           "@<main>"
         end
       end
 
-      UnknownContext = Class.new() do
+      UnknownContext = _ = Class.new() do
         def to_s
           "@<unknown>"
         end

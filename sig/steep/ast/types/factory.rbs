@@ -18,9 +18,9 @@ module Steep
 
         def type_opt: (untyped `type`) -> (untyped | nil)
 
-        def type: (untyped `type`) -> untyped
+        def type: (RBS::Types::t `type`) -> AST::Types::t
 
-        def type_1: (untyped `type`) -> untyped
+        def type_1: (AST::Types::t `type`) -> RBS::Types::t
 
         def function_1: (untyped func) -> untyped
 
@@ -30,7 +30,8 @@ module Steep
 
         def type_param_1: (untyped type_param) -> untyped
 
-        def method_type: (untyped method_type, self_type: untyped, method_decls: untyped, ?subst2: untyped?) { (untyped) -> untyped } -> untyped
+        def method_type: (RBS::MethodType method_type, self_type: AST::Types::t, method_decls: untyped, ?subst2: Interface::Substitution?) -> Interface::MethodType
+                       | [A] (RBS::MethodType method_type, self_type: AST::Types::t, method_decls: untyped, ?subst2: Interface::Substitution?) { (Interface::MethodType) -> A } -> A
 
         def method_type_1: (untyped method_type, self_type: untyped) { (untyped) -> untyped } -> untyped
 

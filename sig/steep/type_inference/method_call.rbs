@@ -4,70 +4,102 @@ module Steep
       class MethodDecl
         attr_reader method_name: method_name
 
-        attr_reader method_def: RBS::AST::Members::MethodDefinition
+        attr_reader method_def: RBS::Definition::Method::TypeDef
 
-        def initialize: (method_name: untyped, method_def: untyped) -> void
+        def initialize: (method_name: method_name, method_def: RBS::Definition::Method::TypeDef) -> void
 
-        def hash: () -> untyped
+        def hash: () -> Integer
 
-        def ==: (untyped other) -> untyped
+        def ==: (untyped other) -> bool
 
         alias eql? ==
 
-        def method_type: () -> untyped
+        def method_type: () -> RBS::MethodType
       end
 
-      MethodContext: untyped
+      class MethodContext
+        attr_reader method_name: method_name
 
-      ModuleContext: untyped
+        def initialize: (method_name: method_name) -> void
 
-      TopLevelContext: untyped
+        def to_s: () -> String
+      end
 
-      UnknownContext: untyped
+      class ModuleContext
+        attr_reader type_name: RBS::TypeName
+
+        def initialize: (type_name: RBS::TypeName) -> void
+
+        def to_s: () -> String
+      end
+
+      class TopLevelContext
+        def to_s: () -> String
+      end
+
+      class UnknownContext
+        def to_s: () -> String
+      end
+
+      type context = MethodContext | ModuleContext | TopLevelContext | UnknownContext
 
       class Base
-        attr_reader node: untyped
+        attr_reader node: Parser::AST::Node
 
-        attr_reader context: untyped
+        attr_reader context: context
 
-        attr_reader method_name: untyped
+        attr_reader method_name: method_name
 
-        attr_reader return_type: untyped
+        attr_reader return_type: AST::Types::t
 
-        attr_reader receiver_type: untyped
+        attr_reader receiver_type: AST::Types::t
 
-        def initialize: (node: untyped, context: untyped, method_name: untyped, receiver_type: untyped, return_type: untyped) -> void
+        def initialize: (node: Parser::AST::Node, context: context, method_name: method_name, receiver_type: AST::Types::t, return_type: AST::Types::t) -> void
 
-        def with_return_type: (untyped new_type) -> untyped
+        def with_return_type: (AST::Types::t new_type) -> self
       end
 
       class Typed < Base
-        attr_reader actual_method_type: untyped
+        attr_reader actual_method_type: Interface::MethodType
 
-        attr_reader method_decls: untyped
+        attr_reader method_decls: Array[MethodDecl]
 
-        def initialize: (node: untyped, context: untyped, method_name: untyped, receiver_type: untyped, actual_method_type: untyped, method_decls: untyped, return_type: untyped) -> void
+        def initialize: (node: Parser::AST::Node, context: context, method_name: method_name, receiver_type: AST::Types::t, actual_method_type: Interface::MethodType, method_decls: Array[MethodDecl], return_type: AST::Types::t) -> void
       end
 
       class Special < Typed
       end
 
       class Untyped < Base
-        def initialize: (node: untyped, context: untyped, method_name: untyped) -> void
+        def initialize: (node: Parser::AST::Node, context: context, method_name: method_name) -> void
       end
 
       class NoMethodError < Base
-        attr_reader error: untyped
+        attr_reader error: Diagnostic::Ruby::NoMethod
 
-        def initialize: (node: untyped, context: untyped, method_name: untyped, receiver_type: untyped, error: untyped) -> void
+        def initialize: (
+          node: Parser::AST::Node,
+          context: context,
+          method_name: method_name,
+          receiver_type: AST::Types::t,
+          error: Diagnostic::Ruby::NoMethod
+        ) -> void
       end
 
       class Error < Base
-        attr_reader errors: untyped
+        attr_reader errors: Array[Diagnostic::Ruby::Base]
 
-        attr_reader method_decls: untyped
+        attr_reader method_decls: Set[MethodDecl]
 
-        def initialize: (node: untyped, context: untyped, method_name: untyped, receiver_type: untyped, errors: untyped, ?method_decls: untyped, ?return_type: untyped) -> void
+        def initialize: (
+          node: Parser::AST::Node,
+          context: context,
+          method_name: method_name,
+          receiver_type: AST::Types::t,
+          errors: Array[Diagnostic::Ruby::Base],
+          ?method_decls: Set[MethodDecl],
+          ?return_type: AST::Types::t
+        ) -> void
       end
     end
   end

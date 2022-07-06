@@ -1,0 +1,253 @@
+module Steep
+  module Interface
+    class Function
+      class Params
+        module Utils
+          def union: (*AST::Types::t types, ?null: bool) -> AST::Types::t
+
+          def intersection: (*AST::Types::t types) -> AST::Types::t
+        end
+
+        class PositionalParams
+          class Base
+            attr_reader type: untyped
+
+            def initialize: (untyped `type`) -> void
+
+            def ==: (untyped other) -> untyped
+
+            alias eql? ==
+
+            def hash: () -> untyped
+
+            def subst: (untyped s) -> untyped
+
+            def var_type: () -> untyped
+
+            def map_type: () { (untyped) -> untyped } -> untyped
+          end
+
+          class Required < Base
+          end
+
+          class Optional < Base
+          end
+
+          class Rest < Base
+          end
+
+          attr_reader head: untyped
+
+          attr_reader tail: untyped
+
+          def initialize: (head: untyped, tail: untyped) -> void
+
+          def self.required: (untyped `type`, ?untyped? tail) -> untyped
+
+          def self.optional: (untyped `type`, ?untyped? tail) -> untyped
+
+          def self.rest: (untyped `type`, ?untyped? tail) -> untyped
+
+          def to_ary: () -> ::Array[untyped]
+
+          def map: () { (untyped) -> untyped } -> untyped
+
+          def map_type: () { () -> untyped } -> untyped
+
+          def subst: (untyped s) -> untyped
+
+          def ==: (untyped other) -> untyped
+
+          alias eql? ==
+
+          def hash: () -> untyped
+
+          def each: () { (untyped) -> untyped } -> untyped
+
+          def each_type: () { (untyped) -> untyped } -> untyped
+
+          def size: () -> untyped
+
+          def self.build: (required: untyped, optional: untyped, rest: untyped) -> untyped
+
+          extend Utils
+
+          # Calculates xs + ys.
+          # Never fails.
+          def self.merge_for_overload: (untyped xs, untyped ys) -> untyped
+
+          # xs | ys
+          def self.merge_for_union: (untyped xs, untyped ys) -> untyped
+
+          # Calculates xs & ys.
+          # Raises when failed.
+          #
+          def self.merge_for_intersection: (untyped xs, untyped ys) -> untyped
+        end
+
+        class KeywordParams
+          attr_reader requireds: untyped
+
+          attr_reader optionals: untyped
+
+          attr_reader rest: untyped
+
+          def initialize: (?requireds: ::Hash[untyped, untyped], ?optionals: ::Hash[untyped, untyped], ?rest: untyped?) -> void
+
+          def ==: (untyped other) -> untyped
+
+          alias eql? ==
+
+          def hash: () -> untyped
+
+          def update: (?requireds: untyped, ?optionals: untyped, ?rest: untyped) -> untyped
+
+          def empty?: () -> untyped
+
+          def each: () { (untyped, untyped) -> untyped } -> untyped
+
+          def each_type: () { (untyped) -> untyped } -> untyped
+
+          def map_type: () { () -> untyped } -> untyped
+
+          def subst: (untyped s) -> untyped
+
+          def size: () -> untyped
+
+          def keywords: () -> untyped
+
+          include Utils
+
+          # For overloading
+          def +: (untyped other) -> untyped
+
+          # For union
+          def |: (untyped other) -> untyped
+
+          # For intersection
+          def &: (untyped other) -> (nil | untyped)
+        end
+
+        def required: () -> untyped
+
+        def optional: () -> untyped
+
+        def rest: () -> untyped
+
+        attr_reader positional_params: untyped
+
+        attr_reader keyword_params: untyped
+
+        def self.build: (?required: untyped, ?optional: untyped, ?rest: untyped?, ?required_keywords: ::Hash[untyped, untyped], ?optional_keywords: ::Hash[untyped, untyped], ?rest_keywords: untyped?) -> untyped
+
+        def initialize: (positional_params: untyped, keyword_params: untyped) -> void
+
+        def update: (?positional_params: untyped, ?keyword_params: untyped) -> untyped
+
+        def first_param: () -> untyped
+
+        def with_first_param: (untyped param) -> untyped
+
+        def has_positional?: () -> (true | false)
+
+        def self.empty: () -> untyped
+
+        def ==: (untyped other) -> untyped
+
+        alias eql? ==
+
+        def hash: () -> untyped
+
+        def flat_unnamed_params: () -> (untyped | ::Array[untyped])
+
+        def flat_keywords: () -> untyped
+
+        def required_keywords: () -> untyped
+
+        def optional_keywords: () -> untyped
+
+        def rest_keywords: () -> untyped
+
+        def has_keywords?: () -> untyped
+
+        def each_positional_param: () { () -> untyped } -> (untyped | nil | untyped)
+
+        def without_keywords: () -> untyped
+
+        def drop_first: () -> untyped
+
+        def each_type: () { () -> untyped } -> untyped
+
+        def free_variables: () -> untyped
+
+        def closed?: () -> untyped
+
+        def subst: (untyped s) -> untyped
+
+        def size: () -> untyped
+
+        def to_s: () -> ::String
+
+        def map_type: () { () -> untyped } -> untyped
+
+        def empty?: () -> untyped
+
+        # Returns true if all arguments are non-required.
+        def optional?: () -> untyped
+
+        # self + params returns a new params for overloading.
+        #
+        def +: (untyped other) -> untyped
+
+        # Returns the intersection between self and other.
+        # Returns nil if the intersection cannot be computed.
+        #
+        #   (self & other) <: self
+        #   (self & other) <: other
+        #
+        # `self & other` accept `arg` if `arg` is acceptable for both of `self` and `other`.
+        #
+        def &: (untyped other) -> (nil | untyped)
+
+        # Returns the union between self and other.
+        #
+        #    self <: (self | other)
+        #   other <: (self | other)
+        #
+        # `self | other` accept `arg` if `self` accepts `arg` or `other` accepts `arg`.
+        #
+        def |: (untyped other) -> (nil | untyped)
+      end
+
+      attr_reader params: untyped
+
+      attr_reader return_type: untyped
+
+      attr_reader location: untyped
+
+      def initialize: (params: untyped, return_type: untyped, location: untyped) -> void
+
+      def ==: (untyped other) -> untyped
+
+      alias eql? ==
+
+      def hash: () -> untyped
+
+      def free_variables: () -> untyped
+
+      def subst: (untyped s) -> untyped
+
+      def each_child: () { () -> untyped } -> untyped
+
+      def each_type: () { (untyped) -> untyped } -> untyped
+
+      def map_type: () { (untyped) -> untyped } -> untyped
+
+      def with: (?params: untyped, ?return_type: untyped) -> untyped
+
+      def to_s: () -> ::String
+
+      def closed?: () -> untyped
+    end
+  end
+end

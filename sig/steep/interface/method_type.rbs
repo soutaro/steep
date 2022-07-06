@@ -1,7 +1,7 @@
 module Steep
   module Interface
     class MethodType
-      attr_reader type_params: untyped
+      attr_reader type_params: Array[TypeParam]
 
       attr_reader type: untyped
 

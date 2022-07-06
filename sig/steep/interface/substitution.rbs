@@ -37,7 +37,7 @@ module Steep
 
       def key?: (untyped var) -> untyped
 
-      def self.build: (untyped vars, ?untyped? types, ?instance_type: untyped, ?module_type: untyped, ?self_type: untyped) -> untyped
+      def self.build: (untyped vars, ?untyped? types, ?instance_type: untyped, ?module_type: untyped, ?self_type: untyped) -> Substitution
 
       def except: (untyped vars) -> untyped
 
