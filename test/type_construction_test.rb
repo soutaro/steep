@@ -9275,4 +9275,22 @@ end
       end
     end
   end
+
+  def test_method_purity_attribute
+    with_checker(<<RBS) do |checker|
+class HelloPure
+  attr_reader hello: String
+end
+RBS
+      source = parse_ruby(<<RUBY)
+HelloPure.new.hello
+RUBY
+
+      with_standard_construction(checker, source) do |construction, typing|
+        type, _ = construction.synthesize(source.node)
+
+        assert_no_error(typing)
+      end
+    end
+  end
 end

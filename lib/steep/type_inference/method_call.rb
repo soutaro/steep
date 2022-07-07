@@ -88,6 +88,17 @@ module Steep
           @actual_method_type = actual_method_type
           @method_decls = method_decls
         end
+
+        def pure?
+          method_decls.all? do |method_decl|
+            case member = method_decl.method_def.member
+            when RBS::AST::Members::MethodDefinition
+              member.annotations.any? {|annotation| annotation.string == "pure" }
+            when RBS::AST::Members::Attribute
+              true
+            end
+          end
+        end
       end
 
       class Special < Typed

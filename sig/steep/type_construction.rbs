@@ -40,7 +40,7 @@ module Steep
 
     def initialize: (checker: untyped, source: untyped, annotations: untyped, typing: untyped, context: untyped) -> void
 
-    def with_new_typing: (untyped typing) -> untyped
+    def with_new_typing: (Typing typing) -> TypeConstruction
 
     def with_updated_context: (?type_env: TypeInference::TypeEnv) -> TypeConstruction
 
@@ -116,7 +116,7 @@ module Steep
 
     def synthesize_children: (Parser::AST::Node node, ?skips: Array[Parser::AST::Node]) -> TypeConstruction
 
-    def type_send_interface: (untyped node, interface: untyped, receiver: untyped, receiver_type: untyped, method_name: untyped, arguments: untyped, block_params: untyped, block_body: untyped) -> untyped
+    def type_send_interface: (Parser::AST::Node node, interface: Interface::Interface, receiver: Parser::AST::Node, receiver_type: AST::Types::t, method_name: Symbol, arguments: Array[Parser::AST::Node], block_params: Parser::AST::Node?, block_body: Parser::AST::Node?) -> Pair
 
     def type_send: (untyped node, send_node: untyped, block_params: untyped, block_body: untyped, ?unwrap: bool) -> untyped
 
@@ -128,7 +128,16 @@ module Steep
 
     def try_special_method: (untyped node, receiver_type: untyped, method_name: untyped, method_type: untyped, arguments: untyped, block_params: untyped, block_body: untyped) -> (::Array[untyped] | nil)
 
-    def type_method_call: (untyped node, method_name: untyped, receiver_type: untyped, method: untyped, arguments: untyped, block_params: untyped, block_body: untyped, topdown_hint: untyped) -> (nil | ::Array[untyped])
+    def type_method_call: (
+      Parser::AST::Node node,
+      method_name: Symbol,
+      receiver_type: AST::Types::t,
+      method: Interface::Interface::Entry,
+      arguments: Array[Parser::AST::Node],
+      block_params: Parser::AST::Node?,
+      block_body: Parser::AST::Node?,
+      topdown_hint: untyped
+    ) -> [TypeInference::MethodCall::t, TypeConstruction]?
 
     def inspect: () -> ::String
 
@@ -152,7 +161,7 @@ module Steep
 
     def eliminate_vars: (untyped `type`, untyped variables, ?to: untyped) -> untyped
 
-    def try_method_type: (untyped node, receiver_type: untyped, method_name: untyped, method_type: untyped, arguments: untyped, block_params: untyped, block_body: untyped, topdown_hint: untyped) -> untyped
+    def try_method_type: (Parser::AST::Node node, receiver_type: AST::Types::t, method_name: Symbol, method_type: Interface::MethodType, arguments: Array[Parser::AST::Node], block_params: Parser::AST::Node?, block_body: Parser::AST::Node?, topdown_hint: untyped) -> [TypeInference::MethodCall::t, TypeConstruction]
 
     def type_check_argument: (untyped node, receiver_type: untyped, type: untyped, constraints: untyped, errors: untyped, ?report_node: untyped) -> untyped
 
@@ -241,5 +250,25 @@ module Steep
     def pick_one_of: (Array[AST::Types::t] types, range: untyped) { (AST::Types::t hint, TypeConstruction) -> Pair? } -> Pair?
 
     def save_typing: () -> untyped
+
+    def pure_send?: (TypeInference::MethodCall::Typed call, Parser::AST::Node receiver, Array[Parser::AST::Node] arguments) -> bool
+
+    # Returns true if given node is known as _pure_.
+    #
+    # 1. _value nodes_ are _pure_
+    # 2. Nodes already known as _pure_ are _pure_
+    # 
+    def known_pure_node?: (Parser::AST::Node) -> bool
+
+    # Returns true if given node is a _value node_.
+    #
+    # Value node is:
+    #
+    # * Local variables,
+    # * Constants,
+    # * Literals,
+    # * Hash and Array of value nodes
+    #
+    def value_node?: (Parser::AST::Node) -> bool
   end
 end

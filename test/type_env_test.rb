@@ -45,4 +45,22 @@ class TypeEnvTest < Minitest::Test
       assert_equal parse_type("::String"), env.enforced_type(:x)
     end
   end
+
+  def test_add_pure_node
+    with_factory do
+      env = TypeEnv.new(constant_env)
+
+      node1 = parse_ruby("array[1].foo").node
+      node2 = parse_ruby("array[1]").node
+
+      env = env.add_pure_node(node1, parse_type("::Integer"))
+
+      assert_equal parse_type("::Integer"), env[node1]
+
+      env = env.add_pure_node(node2, parse_type("::Foo"))
+
+      assert_equal parse_type("::Foo"), env[node2]
+      assert_nil env[node1]
+    end
+  end
 end

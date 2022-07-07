@@ -165,13 +165,13 @@ module Steep
         falsy_hash = {}
 
         variables.each do |name|
-          truthy_hash[name] = truthy_env.assignment(name, truthy_type)
-          falsy_hash[name] = falsy_env.assignment(name, falsy_type)
+          truthy_hash[name] = truthy_type
+          falsy_hash[name] = falsy_type
         end
 
         [
-          truthy_env.merge(local_variable_types: truthy_hash),
-          falsy_env.merge(local_variable_types: falsy_hash)
+          truthy_env.assign_local_variables(truthy_hash),
+          falsy_env.assign_local_variables(falsy_hash)
         ]
       end
 

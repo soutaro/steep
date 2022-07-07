@@ -1,0 +1,23 @@
+module Steep
+  module Interface
+    class Interface
+      class Entry
+        attr_reader method_types: untyped
+
+        def initialize: (method_types: untyped) -> void
+
+        def to_s: () -> ::String
+      end
+
+      attr_reader type: untyped
+
+      attr_reader methods: untyped
+
+      def initialize: (type: untyped, private: untyped) -> void
+
+      def private?: () -> untyped
+
+      def public?: () -> untyped
+    end
+  end
+end

@@ -200,10 +200,10 @@ module Steep
 
       local_variable_types = method_params.each_param.with_object({}) do |param, hash|
         if param.name
-          hash[param.name] = context.type_env.assignment(param.name, param.var_type)
+          hash[param.name] = param.var_type
         end
       end
-      type_env = context.type_env.update(local_variable_types: local_variable_types)
+      type_env = context.type_env.assign_local_variables(local_variable_types)
 
       type_env = TypeInference::TypeEnvBuilder.new(
         TypeInference::TypeEnvBuilder::Command::ImportLocalVariableAnnotations.new(annots).merge!.on_duplicate! do |name, original, annotated|
@@ -716,9 +716,9 @@ module Steep
                 rhs_type, rhs_constr, rhs_context = synthesize(rhs, hint: hint).to_ary
 
                 constr = rhs_constr.update_type_env do |type_env|
-                  entry = type_env.assignment(name, rhs_type)
+                  var_type = rhs_type
 
-                  if enforced_type = entry[1]
+                  if enforced_type = type_env.enforced_type(name)
                     if result = no_subtyping?(sub_type: rhs_type, super_type: enforced_type)
                       typing.add_error(
                         Diagnostic::Ruby::IncompatibleAssignment.new(
@@ -729,15 +729,15 @@ module Steep
                         )
                       )
 
-                      entry[0] = enforced_type
+                      var_type = enforced_type
                     end
 
                     if rhs_type.is_a?(AST::Types::Any)
-                      entry[0] = enforced_type
+                      var_type = enforced_type
                     end
                   end
 
-                  type_env.merge(local_variable_types: { name => entry })
+                  type_env.assign_local_variable(name, var_type, enforced_type)
                 end
 
                 constr.add_typing(node, type: rhs_type)
@@ -1861,12 +1861,12 @@ module Steep
                 body_constr = when_constr.update_type_env {|env| env.join(*test_envs) }
 
                 if body
-                  # @type var assignments: Hash[Symbol, TypeInference::TypeEnv::local_variable_entry]
+                  # @type var assignments: Hash[Symbol, AST::Types::t]
 
                   if first_var
                     var_type = body_constr.context.type_env[first_var] or raise
                     assignments = cond_vars.each_with_object({}) do |var, hash|
-                      hash[var] = body_constr.context.type_env.assignment(var, var_type)
+                      hash[var] = var_type
                     end
                   else
                     assignments = {}
@@ -1874,7 +1874,7 @@ module Steep
 
                   branch_results <<
                     body_constr
-                      .update_type_env {|env| env.merge(local_variable_types: assignments) }
+                      .update_type_env {|env| env.assign_local_variables(assignments) }
                       .for_branch(body)
                       .tap {|constr| typing.add_context_for_node(body, context: constr.context) }
                       .synthesize(body, hint: hint)
@@ -2086,8 +2086,7 @@ module Steep
             if var_type
               if body
                 body_constr = constr.update_type_env do |type_env|
-                  assign = type_env.assignment(var_name, var_type)
-                  type_env = type_env.merge(local_variable_types: { var_name => assign })
+                  type_env = type_env.assign_local_variables({ var_name => var_type })
                   pins = type_env.pin_local_variables(nil)
                   type_env.merge(local_variable_types: pins)
                 end
@@ -2461,23 +2460,23 @@ module Steep
 
     def lvasgn(node, type)
       name = node.children[0]
-      assignment = context.type_env.assignment(name, type)
-      if enforced_type = assignment[1]
-        if result = no_subtyping?(sub_type: assignment[0], super_type: enforced_type)
+
+      if enforced_type = context.type_env.enforced_type(name)
+        if result = no_subtyping?(sub_type: type, super_type: enforced_type)
           typing.add_error(
             Diagnostic::Ruby::IncompatibleAssignment.new(
               node: node,
-              lhs_type: assignment[1],
-              rhs_type: assignment[0],
+              lhs_type: enforced_type,
+              rhs_type: type,
               result: result
             )
           )
 
-          assignment[0] = enforced_type
+          type = enforced_type
         end
       end
 
-      update_type_env {|env| env.merge(local_variable_types: { name => assignment }) }
+      update_type_env {|env| env.assign_local_variable(name, type, enforced_type) }
         .add_typing(node, type: type)
     end
 
@@ -2880,6 +2879,28 @@ module Steep
       constr
     end
 
+    def pure_send?(call, receiver, arguments)
+      return false unless call.pure?
+
+    end
+
+    def value_node?(node)
+      case node.type
+      when :lvar
+        true
+      when :const
+        true
+      when :true, :false, :int, :float, :str
+        true
+      when :array
+        node.children.all? {|node| value_node?(node) }
+      when :splat
+        false
+      else
+        false
+      end
+    end
+
     def type_send_interface(node, interface:, receiver:, receiver_type:, method_name:, arguments:, block_params:, block_body:)
       method = interface.methods[method_name]
 
@@ -2896,9 +2917,14 @@ module Steep
         if call && constr
           case method_name.to_s
           when "[]=", /\w=\Z/
-            if typing.has_type?(arguments.last)
-              call = call.with_return_type(typing.type_of(node: arguments.last))
+            last_arg = arguments.last or raise
+            if typing.has_type?(last_arg)
+              call = call.with_return_type(typing.type_of(node: last_arg))
             end
+          end
+
+          if call.is_a?(TypeInference::MethodCall::Typed)
+            pp pure?: pure_send?(call, node)
           end
 
           if node.type == :csend || ((node.type == :block || node.type == :numblock) && node.children[0].type == :csend)
@@ -3428,9 +3454,7 @@ module Steep
                 node_type_hint: method_type.type.return_type
               )
               block_constr = block_constr.with_new_typing(
-                block_constr.typing.new_child(
-                  range: block_constr.typing.block_range(node)
-                )
+                block_constr.typing.new_child(block_constr.typing.block_range(node))
               )
 
               block_constr.typing.add_context_for_body(node, context: block_constr.context)

@@ -1,0 +1,11 @@
+module Steep
+  module NodeHelper
+    def each_child_node: (Parser::AST::Node) -> Enumerator[Parser::AST::Node, void]
+                       | (Parser::AST::Node) { (Parser::AST::Node) -> void } -> void
+
+    def each_descendant_node: (Parser::AST::Node) -> Enumerator[Parser::AST::Node, void]
+                            | (Parser::AST::Node) { (Parser::AST::Node) -> void } -> void
+
+    def value_node?: (Parser::AST::Node) -> bool
+  end
+end

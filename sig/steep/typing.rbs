@@ -58,10 +58,11 @@ module Steep
 
     def self.summary: (untyped node) -> ::String
 
-    def new_child: (untyped range) { (untyped) -> untyped } -> untyped
+    def new_child: [A] (Range[Integer] range) { (Typing) -> A } -> A
+                 | (Range[Integer]) -> Typing
 
     def each_typing: () { () -> untyped } -> untyped
 
-    def save!: () -> untyped
+    def save!: () -> void
   end
 end
