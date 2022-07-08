@@ -191,15 +191,17 @@ module Steep
         )
       end
 
-      def join(*envs)
-        env = envs.inject do |env1, env2|
-          names = Set[].merge(env1.local_variable_types.keys).merge(env2.local_variable_types.keys)
+      def join(env0, *envs)
+        types = envs.inject(env0.local_variable_types) do |lvar_types, env|
+          names = Set[].merge(lvar_types.keys).merge(env.local_variable_types.keys)
+
+          # @type var local_variables: Hash[Symbol, local_variable_entry]
           local_variables = {}
 
           names.each do |name|
             _, original_enforced_type = local_variable_types[name]
-            type1, _ = env1.local_variable_types[name]
-            type2, _ = env2.local_variable_types[name]
+            type1, _ = lvar_types[name]
+            type2, _ = env.local_variable_types[name]
 
             type =
               case
@@ -209,15 +211,17 @@ module Steep
                 AST::Types::Union.build(types: [type1, AST::Builtin.nil_type])
               when type2
                 AST::Types::Union.build(types: [type2, AST::Builtin.nil_type])
+              else
+                raise
               end
 
             local_variables[name] = [type, original_enforced_type]
           end
 
-          env1.update(local_variable_types: local_variables)
+          local_variables
         end
 
-        update(local_variable_types: env.local_variable_types)
+        update(local_variable_types: types)
       end
 
       def add_pure_call(node, call, type)

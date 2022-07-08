@@ -10,6 +10,8 @@ module Steep
 
         def failure?: () -> bool
 
+        def success?: () -> bool
+
         def then: [A] () { (self) -> A } -> A
 
         def else: [A] () { (self) -> A } -> A

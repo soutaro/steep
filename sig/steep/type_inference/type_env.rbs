@@ -89,7 +89,25 @@ module Steep
       #
       def subst: (Interface::Substitution) -> TypeEnv
 
-      def join: (*TypeEnv) -> TypeEnv
+      # Returns a `TypeEnv` such that:
+      #
+      # * All of the given environments are result of the type checking of branches from `self`,
+      # * All of the branches meet at one point, with the returned `TypeEnv`
+      #
+      # See the example below:
+      # 
+      # ```ruby
+      # if foo()         # The original environment `self` is for after the evaluation of `foo()`
+      #   a = bar()      # One environment `env1` can be given from after the evaluation of `bar()`
+      # else
+      #   b = baz()      # Another environment `env2` is from after the evaluation of `baz`
+      # end
+      #
+      # ???              # How is the environment for here is `self.merge(env1, env2)`
+      #                  # The environment has both optional types of `a` and `b`
+      # ```
+      #
+      def join: (TypeEnv, *TypeEnv) -> TypeEnv
 
       def add_pure_call: (Parser::AST::Node, MethodCall::Typed, AST::Types::t) -> TypeEnv
 
