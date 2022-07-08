@@ -1831,14 +1831,7 @@ module Steep
               branch_results = []
 
               cond_type, constr = constr.synthesize(cond).to_ary
-              _, cond_vars = interpreter.decompose_value(cond)
-              unless cond_vars.empty?
-                first_var = cond_vars.to_a[0]
-                var_node = cond.updated(:lvar, [first_var])
-              else
-                first_var = nil
-                var_node = cond
-              end
+              cond_value_node, cond_vars = interpreter.decompose_value(cond)
 
               when_constr = constr
               whens.each do |clause|
@@ -1851,7 +1844,7 @@ module Steep
                 test_envs = []
 
                 tests.each do |test|
-                  test_node = test.updated(:send, [test, :===, var_node])
+                  test_node = test.updated(:send, [test, :===, cond])
                   test_type, test_constr = test_constr.synthesize(test_node, condition: true).to_ary
                   truthy_env, falsy_env = interpreter.eval(type: test_type, node: test_node, env: test_constr.context.type_env)
 
@@ -1863,20 +1856,8 @@ module Steep
                 body_constr = when_constr.update_type_env {|env| env.join(*test_envs) }
 
                 if body
-                  # @type var assignments: Hash[Symbol, AST::Types::t]
-
-                  if first_var
-                    var_type = body_constr.context.type_env[first_var] or raise
-                    assignments = cond_vars.each_with_object({}) do |var, hash|
-                      hash[var] = var_type
-                    end
-                  else
-                    assignments = {}
-                  end
-
                   branch_results <<
                     body_constr
-                      .update_type_env {|env| env.assign_local_variables(assignments) }
                       .for_branch(body)
                       .tap {|constr| typing.add_context_for_node(body, context: constr.context) }
                       .synthesize(body, hint: hint)
@@ -1898,7 +1879,8 @@ module Steep
               types = branch_results.map(&:type)
               constrs = branch_results.map(&:constr)
 
-              if first_var && when_constr.context.type_env[first_var].is_a?(AST::Types::Bot)
+              cond_type = when_constr.context.type_env[cond_value_node]
+              if cond_type.is_a?(AST::Types::Bot)
                 # Exhaustive
                 if els
                   typing.add_error Diagnostic::Ruby::ElseOnExhaustiveCase.new(node: els, type: cond_type)

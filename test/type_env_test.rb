@@ -7,6 +7,7 @@ class TypeEnvTest < Minitest::Test
   include FactoryHelper
   include SubtypingHelper
 
+  MethodCall = TypeInference::MethodCall
   ConstantEnv = TypeInference::ConstantEnv
   TypeEnv = TypeInference::TypeEnv
 
@@ -22,10 +23,7 @@ class TypeEnvTest < Minitest::Test
     with_factory do
       env = TypeEnv.new(constant_env)
 
-      assignment = env.assignment(:x, parse_type("::String"))
-      assert_equal [parse_type("::String"), nil], assignment
-
-      env = env.merge(local_variable_types: { x: assignment })
+      env = env.assign_local_variables({ :x => parse_type("::String") })
 
       assert_equal parse_type("::String"), env[:x]
       assert_nil env.enforced_type(:x)
@@ -36,8 +34,7 @@ class TypeEnvTest < Minitest::Test
     with_factory do
       env = TypeEnv.new(constant_env)
 
-      assignment = env.assignment(:x, parse_type("::String"))
-      env = env.merge(local_variable_types: { x: assignment })
+      env = env.assign_local_variable(:x, parse_type("::String"), nil)
       pin = env.pin_local_variables(nil)
       env = env.merge(local_variable_types: pin)
 
@@ -51,15 +48,36 @@ class TypeEnvTest < Minitest::Test
       env = TypeEnv.new(constant_env)
 
       node1 = parse_ruby("array[1].foo").node
+      call1 = MethodCall::Typed.new(
+        node: node1,
+        context: MethodCall::TopLevelContext.new,
+        method_name: MethodName("::Integer#foo"),
+        receiver_type: parse_type("::Integer"),
+        actual_method_type: parse_method_type("() -> (::String | ::Integer)"),
+        method_decls: [],
+        return_type: parse_type("::String | ::Integer")
+      )
+
       node2 = parse_ruby("array[1]").node
+      call2 = MethodCall::Typed.new(
+        node: node1,
+        context: MethodCall::TopLevelContext.new,
+        method_name: MethodName("::Array#[]"),
+        receiver_type: parse_type("::Array[::Integer]"),
+        actual_method_type: parse_method_type("(::Integer) -> ::Integer"),
+        method_decls: [],
+        return_type: parse_type("::Integer")
+      )
 
-      env = env.add_pure_node(node1, parse_type("::Integer"))
-
+      env = env.add_pure_call(node1, call1, parse_type("::Integer"))
       assert_equal parse_type("::Integer"), env[node1]
 
-      env = env.add_pure_node(node2, parse_type("::Foo"))
+      env = env.replace_pure_call_type(node1, parse_type("::String"))
+      assert_equal parse_type("::String"), env[node1]
 
-      assert_equal parse_type("::Foo"), env[node2]
+      env = env.add_pure_call(node2, call2, parse_type("::Integer"))
+
+      assert_equal parse_type("::Integer"), env[node2]
       assert_nil env[node1]
     end
   end

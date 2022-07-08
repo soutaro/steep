@@ -7078,7 +7078,13 @@ EOF
   end
 
   def test_type_case_case_selector
-    with_checker do |checker|
+    with_checker(<<-RBS) do |checker|
+class Array[unchecked out Elem]
+  %a{pure}
+  def []: (Integer) -> Elem
+        | ...
+end
+      RBS
       source = parse_ruby(<<RUBY)
 x = ["foo", 2, :baz]
 
@@ -9322,6 +9328,118 @@ RUBY
             assert_equal :+, error.method
           end
         end
+      end
+    end
+  end
+
+  def test_method_flow_sensitive_is_a
+    with_checker(<<RBS) do |checker|
+class TestClass
+  attr_accessor value: String | Integer
+end
+RBS
+      source = parse_ruby(<<RUBY)
+object = TestClass.new
+
+if object.value.is_a?(String)
+  object.value + ""
+end
+RUBY
+
+      with_standard_construction(checker, source) do |construction, typing|
+        type, _, context = construction.synthesize(source.node)
+
+        assert_no_error typing
+      end
+    end
+  end
+
+  def test_method_flow_sensitive_nilp
+    with_checker(<<RBS) do |checker|
+class TestClass
+  attr_accessor value: String?
+end
+RBS
+      source = parse_ruby(<<RUBY)
+object = TestClass.new
+
+unless object.value.nil?
+  object.value + ""
+end
+RUBY
+
+      with_standard_construction(checker, source) do |construction, typing|
+        type, _, context = construction.synthesize(source.node)
+
+        assert_no_error typing
+      end
+    end
+  end
+
+  def test_method_flow_sensitive_arg_is_receiver
+    with_checker(<<RBS) do |checker|
+class TestClass
+  attr_accessor value: String?
+end
+RBS
+      source = parse_ruby(<<RUBY)
+object = TestClass.new
+
+case x = object.value
+when String
+  object.value + ""
+end
+RUBY
+
+      with_standard_construction(checker, source) do |construction, typing|
+        type, _, context = construction.synthesize(source.node)
+
+        assert_no_error typing
+      end
+    end
+  end
+
+  def test_method_flow_sensitive_arg_equals_receiver
+    with_checker(<<RBS) do |checker|
+class TestClass
+  attr_accessor value: String?
+end
+RBS
+      source = parse_ruby(<<RUBY)
+object = TestClass.new
+
+case x = object.value
+when "hello"
+  object.value + ""
+end
+RUBY
+
+      with_standard_construction(checker, source) do |construction, typing|
+        type, _, context = construction.synthesize(source.node)
+
+        assert_no_error typing
+      end
+    end
+  end
+
+  def test_method_flow_sensitive_not
+    with_checker(<<RBS) do |checker|
+class TestClass
+  attr_accessor value: String?
+end
+RBS
+      source = parse_ruby(<<RUBY)
+object = TestClass.new
+
+unless !object.value
+  object.value + ""
+end
+RUBY
+
+      with_standard_construction(checker, source) do |construction, typing|
+        type, _, context = construction.synthesize(source.node)
+
+        assert_no_error typing
       end
     end
   end

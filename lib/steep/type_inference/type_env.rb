@@ -92,8 +92,13 @@ module Steep
             raise "Unexpected variable name: #{name}"
           end
         when Parser::AST::Node
-          if (call, type = pure_method_calls[name])
-            type
+          case name.type
+          when :lvar
+            self[name.children[0]]
+          when :send
+            if (call, type = pure_method_calls[name])
+              type
+            end
           end
         end
       end
@@ -192,13 +197,12 @@ module Steep
       end
 
       def join(env0, *envs)
-        types = envs.inject(env0.local_variable_types) do |lvar_types, env|
-          names = Set[].merge(lvar_types.keys).merge(env.local_variable_types.keys)
+        lvar_types = env0.local_variable_types.dup
+        pure_calls = env0.pure_method_calls.dup
 
-          # @type var local_variables: Hash[Symbol, local_variable_entry]
-          local_variables = {}
-
-          names.each do |name|
+        envs.each do |env|
+          lvar_names = Set[].merge(lvar_types.keys).merge(env.local_variable_types.keys)
+          lvar_names.each do |name|
             _, original_enforced_type = local_variable_types[name]
             type1, _ = lvar_types[name]
             type2, _ = env.local_variable_types[name]
@@ -215,13 +219,38 @@ module Steep
                 raise
               end
 
-            local_variables[name] = [type, original_enforced_type]
+            lvar_types[name] = [type, original_enforced_type]
           end
 
-          local_variables
+          pure_nodes = Set[].merge(pure_calls.keys).merge(env.pure_method_calls.keys)
+          pure_nodes.each do |node|
+            call1, type1 = pure_calls[node]
+            call2, type2 = env.pure_method_calls[node]
+
+            call =
+              case
+              when call1 && call2
+                # Assuming call1 and call2 are identical
+                call1.with_return_type(
+                  AST::Types::Union.build(types: [type1, type2])
+                )
+              when call1
+                call1.with_return_type(
+                  AST::Types::Union.build(types: [type1, AST::Builtin.nil_type])
+                )
+              when call2
+                call2.with_return_type(
+                  AST::Types::Union.build(types: [type2, AST::Builtin.nil_type])
+                )
+              else
+                raise
+              end
+
+            pure_calls[node] = [call, call.return_type]
+          end
         end
 
-        update(local_variable_types: types)
+        update(local_variable_types: lvar_types, pure_method_calls: pure_calls)
       end
 
       def add_pure_call(node, call, type)

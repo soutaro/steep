@@ -59,15 +59,15 @@ module Steep
           if value_node.type == :send && env.pure_method_calls.key?(value_node)
             truthy_env = env.replace_pure_call_type(value_node, truthy_type)
             falsy_env = env.replace_pure_call_type(value_node, falsy_type)
-          else
-            truthy_env, falsy_env = update_type_env(
-              vars,
-              truthy_type: truthy_type,
-              falsy_type: falsy_type,
-              truthy_env: truthy_env,
-              falsy_env: falsy_env
-            )
           end
+
+          truthy_env, falsy_env = update_type_env(
+            vars,
+            truthy_type: truthy_type,
+            falsy_type: falsy_type,
+            truthy_env: truthy_env,
+            falsy_env: falsy_env
+          )
         end
 
         [truthy_env, falsy_env]
@@ -78,18 +78,18 @@ module Steep
         when AST::Types::Logic::ReceiverIsNil
           if receiver
             receiver_type = typing.type_of(node: receiver)
-            _, receiver_vars = decompose_value(receiver)
+            receiver_value_node, receiver_vars = decompose_value(receiver)
 
             truthy_receiver, falsy_receiver = factory.unwrap_optional(receiver_type)
 
             [
-              assign_vars(env, vars: receiver_vars, type: AST::Builtin.nil_type),
-              assign_vars(env, vars: receiver_vars, type: truthy_receiver)
+              assign_vars(env, node: receiver_value_node, vars: receiver_vars, type: AST::Builtin.nil_type),
+              assign_vars(env, node: receiver_value_node, vars: receiver_vars, type: truthy_receiver)
             ]
           end
         when AST::Types::Logic::ReceiverIsArg
           if receiver && (arg = arguments[0])
-            _, receiver_vars = decompose_value(receiver)
+            receiver_value_node, receiver_vars = decompose_value(receiver)
 
             receiver_type = typing.type_of(node: receiver)
             arg_type = factory.deep_expand_alias(typing.type_of(node: arg))
@@ -107,14 +107,14 @@ module Steep
               end
 
               [
-                assign_vars(env, vars: var_names, type: truthy_type),
-                assign_vars(env, vars: var_names, type: falsy_type)
+                assign_vars(env, node: receiver_value_node, vars: var_names, type: truthy_type),
+                assign_vars(env, node: receiver_value_node, vars: var_names, type: falsy_type)
               ]
             end
           end
         when AST::Types::Logic::ArgIsReceiver
           if receiver && (arg = arguments[0])
-            _, arg_vars = decompose_value(arg)
+            arg_value_node, arg_vars = decompose_value(arg)
 
             receiver_type = factory.deep_expand_alias(typing.type_of(node: receiver))
             arg_type = typing.type_of(node: arg)
@@ -123,22 +123,22 @@ module Steep
               truthy_type, falsy_type = type_case_select(arg_type, receiver_type.name)
 
               [
-                assign_vars(env, vars: arg_vars, type: truthy_type),
-                assign_vars(env, vars: arg_vars, type: falsy_type),
+                assign_vars(env, vars: arg_vars, node: arg_value_node, type: truthy_type),
+                assign_vars(env, vars: arg_vars, node: arg_value_node, type: falsy_type),
               ]
             end
           end
         when AST::Types::Logic::ArgEqualsReceiver
           if receiver && (arg = arguments[0])
             receiver_value, _ = decompose_value(receiver)
-            _, arg_vars = decompose_value(arg)
+            arg_value_node, arg_vars = decompose_value(arg)
 
             arg_type = factory.expand_alias(typing.type_of(node: arg))
             truthy_types, falsy_types = literal_var_type_case_select(receiver_value, arg_type)
 
             [
-              assign_vars(env, vars: arg_vars, type: AST::Types::Union.build(types: truthy_types)),
-              assign_vars(env, vars: arg_vars, type: AST::Types::Union.build(types: falsy_types))
+              assign_vars(env, vars: arg_vars, node: arg_value_node, type: AST::Types::Union.build(types: truthy_types)),
+              assign_vars(env, vars: arg_vars, node: arg_value_node, type: AST::Types::Union.build(types: falsy_types))
             ]
           end
         when AST::Types::Logic::Not
@@ -151,7 +151,13 @@ module Steep
         end
       end
 
-      def assign_vars(env, vars:, type:)
+      def assign_vars(env, vars:, type:, node: nil)
+        if node
+          if env.pure_method_calls.key?(node)
+            env = env.replace_pure_call_type(node, type)
+          end
+        end
+
         local_vars = vars.each_with_object({}) do |name, hash|
           hash[name] = type
         end
