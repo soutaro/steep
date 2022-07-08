@@ -1,6 +1,6 @@
 module Steep
   type method_name = InstanceMethodName | SingletonMethodName
-                   
+
   class InstanceMethodName
     attr_reader type_name: RBS::TypeName
     attr_reader method_name: Symbol
@@ -15,7 +15,12 @@ module Steep
     def initialize: (type_name: RBS::TypeName, method_name: Symbol) -> void
   end
 
-  module ::Kernel
+  class ::Object
+    # Returns method name corresponding to given `string`.
+    #
+    # * `ClassName#method_name` syntax returns an `InstanceMethodName` object
+    # * `ClassName.method_name` syntax returns a `SingletonMethodName` object
+    # 
     def MethodName: (String string) -> (InstanceMethodName | SingletonMethodName)
   end
 end

@@ -2862,9 +2862,14 @@ module Steep
       constr
     end
 
+    KNOWN_PURE_METHODS = Set[
+      MethodName("::Array#[]"),
+      MethodName("::Hash#[]")
+    ]
+
     def pure_send?(call, receiver, arguments)
       return false unless call.node.type == :send || call.node.type == :csend
-      return false unless call.pure?
+      return false unless call.pure? || KNOWN_PURE_METHODS.intersect?(Set.new(call.method_decls.map(&:method_name)))
 
       [receiver, *arguments].all? do |node|
         !node || value_node?(node) || context.type_env[node]

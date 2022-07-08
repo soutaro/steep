@@ -43,18 +43,18 @@ module Steep
 
       type context = MethodContext | ModuleContext | TopLevelContext | UnknownContext
 
-      class Base[METHOD_NAME < Object]
+      class Base
         attr_reader node: Parser::AST::Node
 
         attr_reader context: context
 
-        attr_reader method_name: METHOD_NAME
+        attr_reader method_name: Symbol
 
         attr_reader return_type: AST::Types::t
 
         attr_reader receiver_type: AST::Types::t
 
-        def initialize: (node: Parser::AST::Node, context: context, method_name: METHOD_NAME, receiver_type: AST::Types::t, return_type: AST::Types::t) -> void
+        def initialize: (node: Parser::AST::Node, context: context, method_name: Symbol, receiver_type: AST::Types::t, return_type: AST::Types::t) -> void
 
         def with_return_type: (AST::Types::t new_type) -> self
 
@@ -67,10 +67,10 @@ module Steep
 
       type t = Typed | Special | Untyped | NoMethodError | Error
 
-      class Typed < Base[method_name]
+      class Typed < Base
         attr_reader actual_method_type: Interface::MethodType
 
-        attr_reader method_decls: Array[MethodDecl]
+        attr_reader method_decls: Set[MethodDecl]
 
         def initialize: (node: Parser::AST::Node, context: context, method_name: method_name, receiver_type: AST::Types::t, actual_method_type: Interface::MethodType, method_decls: Array[MethodDecl], return_type: AST::Types::t) -> void
 
@@ -88,11 +88,11 @@ module Steep
       class Special < Typed
       end
 
-      class Untyped < Base[Symbol]
+      class Untyped < Base
         def initialize: (node: Parser::AST::Node, context: context, method_name: Symbol) -> void
       end
 
-      class NoMethodError < Base[Symbol]
+      class NoMethodError < Base
         attr_reader error: Diagnostic::Ruby::NoMethod
 
         def initialize: (
@@ -104,7 +104,7 @@ module Steep
         ) -> void
       end
 
-      class Error < Base[Symbol]
+      class Error < Base
         attr_reader errors: Array[Diagnostic::Ruby::Base]
 
         attr_reader method_decls: Set[MethodDecl]

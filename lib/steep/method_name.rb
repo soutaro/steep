@@ -13,7 +13,7 @@ module Steep
     end
   end
 
-  module ::Kernel
+  class ::Object
     def MethodName(string)
       case string
       when /#/

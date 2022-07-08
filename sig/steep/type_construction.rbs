@@ -128,6 +128,8 @@ module Steep
 
     SPECIAL_METHOD_NAMES: { array_compact: untyped, hash_compact: untyped }
 
+    KNOWN_PURE_METHODS: Set[method_name]
+
     def try_special_method: (untyped node, receiver_type: untyped, method_name: untyped, method_type: untyped, arguments: untyped, block_params: untyped, block_body: untyped) -> (::Array[untyped] | nil)
 
     def type_method_call: (

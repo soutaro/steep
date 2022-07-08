@@ -7078,13 +7078,7 @@ EOF
   end
 
   def test_type_case_case_selector
-    with_checker(<<-RBS) do |checker|
-class Array[unchecked out Elem]
-  %a{pure}
-  def []: (Integer) -> Elem
-        | ...
-end
-      RBS
+    with_checker() do |checker|
       source = parse_ruby(<<RUBY)
 x = ["foo", 2, :baz]
 
@@ -9433,6 +9427,44 @@ object = TestClass.new
 
 unless !object.value
   object.value + ""
+end
+RUBY
+
+      with_standard_construction(checker, source) do |construction, typing|
+        type, _, context = construction.synthesize(source.node)
+
+        assert_no_error typing
+      end
+    end
+  end
+
+  def test_method_flow_sensitive_array_aref
+    with_checker(<<RBS) do |checker|
+RBS
+      source = parse_ruby(<<RUBY)
+array = [1, nil]
+
+if array[0]
+  array[0] + 1
+end
+RUBY
+
+      with_standard_construction(checker, source) do |construction, typing|
+        type, _, context = construction.synthesize(source.node)
+
+        assert_no_error typing
+      end
+    end
+  end
+
+  def test_method_flow_sensitive_hash_aref
+    with_checker(<<RBS) do |checker|
+RBS
+      source = parse_ruby(<<RUBY)
+hash = { name: "hoge", email: nil }
+
+if hash[:name]
+  hash[:name] + ""
 end
 RUBY
 
