@@ -11,11 +11,27 @@ module Steep
 
       def eval: (env: TypeEnv, type: AST::Types::t, node: Parser::AST::Node) -> [TypeEnv, TypeEnv]
 
+      def evaluate_method_call: (env: TypeEnv, type: AST::Types::Logic::Base, receiver: Parser::AST::Node?, arguments: Array[Parser::AST::Node]) -> [TypeEnv, TypeEnv]?
+
+      # Returns a pair of a node and set of local variable names.
+      #
+      # * The returned node is called _value node_ that is a node the value of given `node` can be taken from
+      # * The local variable names are local variables that have the same value of the _value node_.
+      #
+      # ```ruby
+      # a = 123   # `123` is the _value node_
+      #           # :a is included in the set because `a` has the same value of _value node_
+      #
+      # c = b = a  # `a` is the _value node_, a set of { :b, :c } will be returned
+      # ```
+      #
       def decompose_value: (Parser::AST::Node node) -> [Parser::AST::Node, Set[Symbol]]
 
       private
 
       def update_type_env: (Enumerable[Symbol] variables, truthy_type: AST::Types::t, falsy_type: AST::Types::t, truthy_env: TypeEnv, falsy_env: TypeEnv) -> [TypeEnv, TypeEnv]
+
+      def assign_vars: (TypeEnv, vars: Enumerable[Symbol], type: AST::Types::t) -> TypeEnv
 
       def guess_type_from_method: (Parser::AST::Node node) -> (AST::Types::Logic::ReceiverIsArg | AST::Types::Logic::ReceiverIsNil | AST::Types::Logic::Not | AST::Types::Logic::ArgIsReceiver | nil)
 
