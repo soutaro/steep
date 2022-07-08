@@ -38,7 +38,7 @@ module Steep
 
     def self_type: () -> untyped
 
-    def variable_context: () -> untyped
+    def variable_context: () -> TypeInference::Context::TypeVariableContext
 
     def initialize: (checker: untyped, source: untyped, annotations: untyped, typing: untyped, context: untyped) -> void
 
@@ -250,24 +250,13 @@ module Steep
 
     def save_typing: () -> untyped
 
+    # Returns `true` if a method call can be identified as _pure_.
+    #
+    # * The `node` is not a call with call
+    # * It always calls _pure_ method
+    # * The `receiver` is _pure_
+    # * All of the arguments are _pure_
+    #
     def pure_send?: (TypeInference::MethodCall::Typed call, Parser::AST::Node receiver, Array[Parser::AST::Node] arguments) -> bool
-
-    # Returns true if given node is known as _pure_.
-    #
-    # 1. _value nodes_ are _pure_
-    # 2. Nodes already known as _pure_ are _pure_
-    #
-    def known_pure_node?: (Parser::AST::Node) -> bool
-
-    # Returns true if given node is a _value node_.
-    #
-    # Value node is:
-    #
-    # * Local variables,
-    # * Constants,
-    # * Literals,
-    # * Hash and Array of value nodes
-    #
-    def value_node?: (Parser::AST::Node) -> bool
   end
 end

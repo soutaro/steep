@@ -2000,7 +2000,6 @@ module Steep
               end
 
               resbody_construction = body_constr.for_branch(resbody).update_type_env do |env|
-                # @type var assignments: Hash[Symbol, TypeInference::TypeEnv::local_variable_entry]
                 assignments = {}
 
                 case
@@ -2015,12 +2014,12 @@ module Steep
                     end
                   end
 
-                  assignments[var_name] = env.assignment(var_name, AST::Types::Union.build(types: instance_types))
+                  assignments[var_name] = AST::Types::Union.build(types: instance_types)
                 when var_name
-                  assignments[var_name] = env.assignment(var_name, AST::Builtin.any_type)
+                  assignments[var_name] = AST::Builtin.any_type
                 end
 
-                env.merge(local_variable_types: assignments)
+                env.assign_local_variables(assignments)
               end
 
               if body
@@ -2882,27 +2881,11 @@ module Steep
     end
 
     def pure_send?(call, receiver, arguments)
+      return false unless call.node.type == :send || call.node.type == :csend
       return false unless call.pure?
 
       [receiver, *arguments].all? do |node|
-        value_node?(node) || context.type_env[node]
-      end
-    end
-
-    def value_node?(node)
-      case node.type
-      when :lvar
-        true
-      when :const
-        true
-      when :true, :false, :int, :float, :str
-        true
-      when :array
-        node.children.all? {|node| value_node?(node) }
-      when :splat
-        false
-      else
-        false
+        !node || value_node?(node) || context.type_env[node]
       end
     end
 
