@@ -30,6 +30,8 @@ module Steep
       end
     end
 
+    include NodeHelper
+
     def inspect
       s = "#<%s:%#018x " % [self.class, object_id]
       s + ">"
@@ -2882,6 +2884,9 @@ module Steep
     def pure_send?(call, receiver, arguments)
       return false unless call.pure?
 
+      [receiver, *arguments].all? do |node|
+        value_node?(node) || context.type_env[node]
+      end
     end
 
     def value_node?(node)
@@ -2915,6 +2920,10 @@ module Steep
                                         topdown_hint: true)
 
         if call && constr
+          if (pure_call, type = constr.context.type_env.pure_method_calls[node])
+            call = pure_call.with_return_type(type)
+          end
+
           case method_name.to_s
           when "[]=", /\w=\Z/
             last_arg = arguments.last or raise
@@ -2924,7 +2933,15 @@ module Steep
           end
 
           if call.is_a?(TypeInference::MethodCall::Typed)
-            pp pure?: pure_send?(call, node)
+            if pure_send?(call, receiver, arguments)
+              constr = constr.update_type_env do |env|
+                env.add_pure_call(node, call, call.return_type)
+              end
+            else
+              constr = constr.update_type_env do |env|
+                env.invalidate_pure_node(receiver)
+              end
+            end
           end
 
           if node.type == :csend || ((node.type == :block || node.type == :numblock) && node.children[0].type == :csend)
@@ -3830,18 +3847,6 @@ module Steep
         body_type
       else
         AST::Builtin.nil_type
-      end
-    end
-
-    def each_child_node(node)
-      if block_given?
-        node.children.each do |child|
-          if child.is_a?(::AST::Node)
-            yield child
-          end
-        end
-      else
-        enum_for :each_child_node, node
       end
     end
 

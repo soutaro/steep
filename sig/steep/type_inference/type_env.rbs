@@ -9,7 +9,7 @@ module Steep
 
       attr_reader local_variable_types: Hash[Symbol, local_variable_entry]
 
-      attr_reader pure_node_types: Hash[Parser::AST::Node, AST::Types::t]
+      attr_reader pure_method_calls: Hash[Parser::AST::Node, [MethodCall::Typed, AST::Types::t]]
 
       attr_reader instance_variable_types: Hash[Symbol, AST::Types::t]
 
@@ -27,7 +27,7 @@ module Steep
           ?instance_variable_types: Hash[Symbol, AST::Types::t],
           ?global_types: Hash[Symbol, AST::Types::t],
           ?constant_types: Hash[RBS::TypeName, AST::Types::t],
-          ?pure_node_types: Hash[Parser::AST::Node, AST::Types::t]
+          ?pure_method_calls: Hash[Parser::AST::Node, [MethodCall::Typed, AST::Types::t]]
         ) -> void
 
       def update: (
@@ -35,7 +35,7 @@ module Steep
           ?instance_variable_types: Hash[Symbol, AST::Types::t],
           ?global_types: Hash[Symbol, AST::Types::t],
           ?constant_types: Hash[RBS::TypeName, AST::Types::t],
-          ?pure_node_types: Hash[Parser::AST::Node, AST::Types::t]
+          ?pure_method_calls: Hash[Parser::AST::Node, [MethodCall::Typed, AST::Types::t]]
         ) -> TypeEnv
 
       def merge: (
@@ -43,7 +43,7 @@ module Steep
           ?instance_variable_types: Hash[Symbol, AST::Types::t],
           ?global_types: Hash[Symbol, AST::Types::t],
           ?constant_types: Hash[RBS::TypeName, AST::Types::t],
-          ?pure_node_types: Hash[Parser::AST::Node, AST::Types::t]
+          ?pure_method_calls: Hash[Parser::AST::Node, [MethodCall::Typed, AST::Types::t]]
         ) -> TypeEnv
 
       # Returns type of `name`.
@@ -91,7 +91,9 @@ module Steep
 
       def join: (*TypeEnv) -> TypeEnv
 
-      def add_pure_node: (Parser::AST::Node, AST::Types::t) -> TypeEnv
+      def add_pure_call: (Parser::AST::Node, MethodCall::Typed, AST::Types::t) -> TypeEnv
+
+      def replace_pure_call_type: (Parser::AST::Node, AST::Types::t) -> TypeEnv
 
       def invalidate_pure_node: (Parser::AST::Node) -> TypeEnv
 

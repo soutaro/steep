@@ -43,7 +43,7 @@ module Steep
 
       type context = MethodContext | ModuleContext | TopLevelContext | UnknownContext
 
-      class Base[METHOD_NAME]
+      class Base[METHOD_NAME < Object]
         attr_reader node: Parser::AST::Node
 
         attr_reader context: context
@@ -57,6 +57,12 @@ module Steep
         def initialize: (node: Parser::AST::Node, context: context, method_name: METHOD_NAME, receiver_type: AST::Types::t, return_type: AST::Types::t) -> void
 
         def with_return_type: (AST::Types::t new_type) -> self
+
+        def ==: (untyped other) -> bool
+
+        alias eql? ==
+
+        def hash: () -> Integer
       end
 
       type t = Typed | Special | Untyped | NoMethodError | Error
@@ -68,7 +74,15 @@ module Steep
 
         def initialize: (node: Parser::AST::Node, context: context, method_name: method_name, receiver_type: AST::Types::t, actual_method_type: Interface::MethodType, method_decls: Array[MethodDecl], return_type: AST::Types::t) -> void
 
+        def update: (?node: Parser::AST::Node, ?return_type: AST::Types::t) -> self
+
         def pure?: () -> bool
+
+        def ==: (untyped other) -> bool
+
+        alias eql? ==
+
+        def hash: () -> Integer
       end
 
       class Special < Typed

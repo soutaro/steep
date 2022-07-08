@@ -148,13 +148,18 @@ module Steep
             end
           end
         else
-          truthy_env, falsy_env = update_type_env(
-            vars,
-            truthy_type: truthy_type,
-            falsy_type: falsy_type,
-            truthy_env: truthy_env,
-            falsy_env: falsy_env
-          )
+          if value_node.type == :send && env.pure_method_calls.key?(value_node)
+            truthy_env = env.replace_pure_call_type(value_node, truthy_type)
+            falsy_env = env.replace_pure_call_type(value_node, falsy_type)
+          else
+            truthy_env, falsy_env = update_type_env(
+              vars,
+              truthy_type: truthy_type,
+              falsy_type: falsy_type,
+              truthy_env: truthy_env,
+              falsy_env: falsy_env
+            )
+          end
         end
 
         [truthy_env, falsy_env]

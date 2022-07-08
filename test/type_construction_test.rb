@@ -9279,17 +9279,49 @@ end
   def test_method_purity_attribute
     with_checker(<<RBS) do |checker|
 class HelloPure
-  attr_reader hello: String
+  attr_reader email: String?
 end
 RBS
       source = parse_ruby(<<RUBY)
-HelloPure.new.hello
+hello = HelloPure.new
+
+if hello.email
+  hello.email + ""
+end
 RUBY
 
       with_standard_construction(checker, source) do |construction, typing|
         type, _ = construction.synthesize(source.node)
 
         assert_no_error(typing)
+      end
+    end
+  end
+
+  def test_method_purity_attribute2
+    with_checker(<<RBS) do |checker|
+class HelloPure
+  attr_accessor email: String?
+end
+RBS
+      source = parse_ruby(<<RUBY)
+hello = HelloPure.new
+
+if hello.email
+  hello.email = nil
+  hello.email + ""
+end
+RUBY
+
+      with_standard_construction(checker, source) do |construction, typing|
+        type, _, context = construction.synthesize(source.node)
+
+        assert_typing_error(typing, size: 1) do |errors|
+          errors[0].tap do |error|
+            assert_instance_of Diagnostic::Ruby::NoMethod, error
+            assert_equal :+, error.method
+          end
+        end
       end
     end
   end

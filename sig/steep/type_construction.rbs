@@ -16,6 +16,8 @@ module Steep
       def to_ary: () -> [AST::Types::t, TypeConstruction, TypeInference::Context]
     end
 
+    include NodeHelper
+
     attr_reader checker: Subtyping::Check
 
     attr_reader source: Source
@@ -179,9 +181,6 @@ module Steep
 
     def synthesize_block: (node: Parser::AST::Node, block_type_hint: untyped?, block_body: Parser::AST::Node) -> AST::Types::t
 
-    def each_child_node: (Parser::AST::Node node) { (Parser::AST::Node) -> void } -> void
-                       | (Parser::AST::Node node) -> Enumerator[Parser::AST::Node, void]
-
     def nesting: () -> untyped
 
     def absolute_nested_module_name: (untyped module_name) -> untyped
@@ -257,7 +256,7 @@ module Steep
     #
     # 1. _value nodes_ are _pure_
     # 2. Nodes already known as _pure_ are _pure_
-    # 
+    #
     def known_pure_node?: (Parser::AST::Node) -> bool
 
     # Returns true if given node is a _value node_.
