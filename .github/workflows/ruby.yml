@@ -27,7 +27,7 @@ jobs:
     - uses: actions/checkout@v3
     - name: Reset bundler
       run: |
-        rm Gemfile.lock
+        rm Gemfile.lock Gemfile.steep.lock
       if: contains(matrix.container_tag, '2.6')
     - name: Run test
       run: |

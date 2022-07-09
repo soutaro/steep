@@ -12,7 +12,6 @@ module Steep
 
         def hash
           method_name.hash
-          # RBS::MethodType doesn't have #hash
         end
 
         def ==(other)
@@ -26,30 +25,53 @@ module Steep
         end
       end
 
-      MethodContext = Struct.new(:method_name, keyword_init: true) do
+      MethodContext = _ = Struct.new(:method_name, keyword_init: true) do
+        # @implements MethodContext
+
         def to_s
           "@#{method_name}"
         end
       end
 
-      ModuleContext = Struct.new(:type_name, keyword_init: true) do
+      ModuleContext = _ = Struct.new(:type_name, keyword_init: true) do
+        # @implements ModuleContext
+
         def to_s
           "@#{type_name}@"
         end
       end
 
-      TopLevelContext = Class.new() do
+      TopLevelContext = _ = Class.new() do
         def to_s
           "@<main>"
         end
-      end
 
-      UnknownContext = Class.new() do
-        def to_s
-          "@<unknown>"
+        def ==(other)
+          other.is_a?(TopLevelContext)
+        end
+
+        alias eql? ==
+
+        def hash
+          self.class.hash
         end
       end
 
+      UnknownContext = _ = Class.new() do
+        def to_s
+          "@<unknown>"
+        end
+
+        def ==(other)
+          other.is_a?(UnknownContext)
+        end
+
+        alias eql? ==
+
+        def hash
+          self.class.hash
+        end
+      end
 
       class Base
         attr_reader :node
@@ -73,6 +95,21 @@ module Steep
             end
           end
         end
+
+        def ==(other)
+          other.is_a?(Base) &&
+            other.node == node &&
+            other.context == context &&
+            other.method_name == method_name &&
+            other.return_type == return_type &&
+            other.receiver_type == receiver_type
+        end
+
+        alias eql? ==
+
+        def hash
+          node.hash ^ context.hash ^ method_name.hash ^ return_type.hash ^ receiver_type.hash
+        end
       end
 
       class Typed < Base
@@ -83,6 +120,43 @@ module Steep
           super(node: node, context: context, method_name: method_name, receiver_type: receiver_type, return_type: return_type)
           @actual_method_type = actual_method_type
           @method_decls = method_decls
+        end
+
+        def pure?
+          method_decls.all? do |method_decl|
+            case member = method_decl.method_def.member
+            when RBS::AST::Members::MethodDefinition
+              member.annotations.any? {|annotation| annotation.string == "pure" }
+            when RBS::AST::Members::Attribute
+              # The attribute writer is not pure
+              !method_decl.method_name.method_name.end_with?("=")
+            end
+          end
+        end
+
+        def update(node: self.node, return_type: self.return_type)
+          _ = self.class.new(
+            node: node,
+            return_type: return_type,
+            context: context,
+            method_name: method_name,
+            receiver_type: receiver_type,
+            actual_method_type: actual_method_type,
+            method_decls: method_decls
+          )
+        end
+
+        def ==(other)
+          super &&
+          other.is_a?(Typed) &&
+            other.actual_method_type == actual_method_type &&
+            other.method_decls == method_decls
+        end
+
+        alias eql? ==
+
+        def hash
+          super ^ actual_method_type.hash ^ method_decls.hash
         end
       end
 

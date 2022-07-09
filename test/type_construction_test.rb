@@ -7078,7 +7078,7 @@ EOF
   end
 
   def test_type_case_case_selector
-    with_checker do |checker|
+    with_checker() do |checker|
       source = parse_ruby(<<RUBY)
 x = ["foo", 2, :baz]
 
@@ -9270,6 +9270,206 @@ end
 
       with_standard_construction(checker, source) do |construction, typing|
         type, _ = construction.synthesize(source.node)
+
+        assert_no_error typing
+      end
+    end
+  end
+
+  def test_method_purity_attribute
+    with_checker(<<RBS) do |checker|
+class HelloPure
+  attr_reader email: String?
+end
+RBS
+      source = parse_ruby(<<RUBY)
+hello = HelloPure.new
+
+if hello.email
+  hello.email + ""
+end
+RUBY
+
+      with_standard_construction(checker, source) do |construction, typing|
+        type, _ = construction.synthesize(source.node)
+
+        assert_no_error(typing)
+      end
+    end
+  end
+
+  def test_method_purity_attribute2
+    with_checker(<<RBS) do |checker|
+class HelloPure
+  attr_accessor email: String?
+end
+RBS
+      source = parse_ruby(<<RUBY)
+hello = HelloPure.new
+
+if hello.email
+  hello.email = nil
+  hello.email + ""
+end
+RUBY
+
+      with_standard_construction(checker, source) do |construction, typing|
+        type, _, context = construction.synthesize(source.node)
+
+        assert_typing_error(typing, size: 1) do |errors|
+          errors[0].tap do |error|
+            assert_instance_of Diagnostic::Ruby::NoMethod, error
+            assert_equal :+, error.method
+          end
+        end
+      end
+    end
+  end
+
+  def test_method_flow_sensitive_is_a
+    with_checker(<<RBS) do |checker|
+class TestClass
+  attr_accessor value: String | Integer
+end
+RBS
+      source = parse_ruby(<<RUBY)
+object = TestClass.new
+
+if object.value.is_a?(String)
+  object.value + ""
+end
+RUBY
+
+      with_standard_construction(checker, source) do |construction, typing|
+        type, _, context = construction.synthesize(source.node)
+
+        assert_no_error typing
+      end
+    end
+  end
+
+  def test_method_flow_sensitive_nilp
+    with_checker(<<RBS) do |checker|
+class TestClass
+  attr_accessor value: String?
+end
+RBS
+      source = parse_ruby(<<RUBY)
+object = TestClass.new
+
+unless object.value.nil?
+  object.value + ""
+end
+RUBY
+
+      with_standard_construction(checker, source) do |construction, typing|
+        type, _, context = construction.synthesize(source.node)
+
+        assert_no_error typing
+      end
+    end
+  end
+
+  def test_method_flow_sensitive_arg_is_receiver
+    with_checker(<<RBS) do |checker|
+class TestClass
+  attr_accessor value: String?
+end
+RBS
+      source = parse_ruby(<<RUBY)
+object = TestClass.new
+
+case x = object.value
+when String
+  object.value + ""
+end
+RUBY
+
+      with_standard_construction(checker, source) do |construction, typing|
+        type, _, context = construction.synthesize(source.node)
+
+        assert_no_error typing
+      end
+    end
+  end
+
+  def test_method_flow_sensitive_arg_equals_receiver
+    with_checker(<<RBS) do |checker|
+class TestClass
+  attr_accessor value: String?
+end
+RBS
+      source = parse_ruby(<<RUBY)
+object = TestClass.new
+
+case x = object.value
+when "hello"
+  object.value + ""
+end
+RUBY
+
+      with_standard_construction(checker, source) do |construction, typing|
+        type, _, context = construction.synthesize(source.node)
+
+        assert_no_error typing
+      end
+    end
+  end
+
+  def test_method_flow_sensitive_not
+    with_checker(<<RBS) do |checker|
+class TestClass
+  attr_accessor value: String?
+end
+RBS
+      source = parse_ruby(<<RUBY)
+object = TestClass.new
+
+unless !object.value
+  object.value + ""
+end
+RUBY
+
+      with_standard_construction(checker, source) do |construction, typing|
+        type, _, context = construction.synthesize(source.node)
+
+        assert_no_error typing
+      end
+    end
+  end
+
+  def test_method_flow_sensitive_array_aref
+    with_checker(<<RBS) do |checker|
+RBS
+      source = parse_ruby(<<RUBY)
+array = [1, nil]
+
+if array[0]
+  array[0] + 1
+end
+RUBY
+
+      with_standard_construction(checker, source) do |construction, typing|
+        type, _, context = construction.synthesize(source.node)
+
+        assert_no_error typing
+      end
+    end
+  end
+
+  def test_method_flow_sensitive_hash_aref
+    with_checker(<<RBS) do |checker|
+RBS
+      source = parse_ruby(<<RUBY)
+hash = { name: "hoge", email: nil }
+
+if hash[:name]
+  hash[:name] + ""
+end
+RUBY
+
+      with_standard_construction(checker, source) do |construction, typing|
+        type, _, context = construction.synthesize(source.node)
 
         assert_no_error typing
       end

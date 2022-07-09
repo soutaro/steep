@@ -1,6 +1,6 @@
 module Parser
   module AST
-    module Node
+    class Node
       attr_reader type: Symbol
 
       attr_reader children: Array[untyped]

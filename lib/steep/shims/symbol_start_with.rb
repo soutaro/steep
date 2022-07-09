@@ -5,6 +5,10 @@ module Shims
     def start_with?(*args)
       to_s.start_with?(*args)
     end
+
+    def end_with?(*args)
+      to_s.end_with?(*args)
+    end
   end
 
   unless Symbol.method_defined?(:start_with?)

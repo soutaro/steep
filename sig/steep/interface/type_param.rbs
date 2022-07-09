@@ -1,0 +1,35 @@
+module Steep
+  module Interface
+    class TypeParam
+      type loc = RBS::Location[untyped, untyped]
+
+      type variance = RBS::AST::TypeParam::variance
+
+      attr_reader name: Symbol
+
+      attr_reader upper_bound: AST::Types::t?
+
+      attr_reader variance: variance
+
+      attr_reader unchecked: bool
+
+      attr_reader location: loc?
+
+      def initialize: (name: Symbol, upper_bound: AST::Types::t?, variance: variance, unchecked: bool, ?location: loc?) -> void
+
+      def ==: (untyped other) -> bool
+
+      alias eql? ==
+
+      def hash: () -> Integer
+
+      def self.rename: (Array[TypeParam] params, ?Array[Symbol] conflicting_names) -> [Array[TypeParam], Substitution]
+
+      def to_s: () -> String
+
+      def update: (?name: Symbol, ?upper_bound: AST::Types::t?, ?variance: variance, ?unchecked: bool, ?location: loc?) -> TypeParam
+
+      def subst: (Substitution s) -> TypeParam
+    end
+  end
+end
