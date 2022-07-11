@@ -9475,4 +9475,46 @@ RUBY
       end
     end
   end
+
+  def test_method_flow_sensitive_array_aref
+    with_checker(<<RBS) do |checker|
+RBS
+      source = parse_ruby(<<RUBY)
+array = [1, nil]
+
+if array[0]
+  array[0] + 1
+end
+RUBY
+
+      with_standard_construction(checker, source) do |construction, typing|
+        type, _, context = construction.synthesize(source.node)
+
+        assert_no_error typing
+      end
+    end
+  end
+
+  def test_method_type_refinements_if
+    with_checker(<<-RBS) do |checker|
+class RefinementIf
+  attr_reader value: String
+end
+      RBS
+      source = parse_ruby(<<RUBY)
+ref = RefinementIf.new
+
+if _ = 123
+  ref.value + ""
+end
+ref.value + ""
+RUBY
+
+      with_standard_construction(checker, source) do |construction, typing|
+        type, _, context = construction.synthesize(source.node)
+
+        assert_no_error typing
+      end
+    end
+  end
 end

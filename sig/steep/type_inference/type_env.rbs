@@ -9,7 +9,7 @@ module Steep
 
       attr_reader local_variable_types: Hash[Symbol, local_variable_entry]
 
-      attr_reader pure_method_calls: Hash[Parser::AST::Node, [MethodCall::Typed, AST::Types::t]]
+      attr_reader pure_method_calls: Hash[Parser::AST::Node, [MethodCall::Typed, AST::Types::t?]]
 
       attr_reader instance_variable_types: Hash[Symbol, AST::Types::t]
 
@@ -27,7 +27,7 @@ module Steep
           ?instance_variable_types: Hash[Symbol, AST::Types::t],
           ?global_types: Hash[Symbol, AST::Types::t],
           ?constant_types: Hash[RBS::TypeName, AST::Types::t],
-          ?pure_method_calls: Hash[Parser::AST::Node, [MethodCall::Typed, AST::Types::t]]
+          ?pure_method_calls: Hash[Parser::AST::Node, [MethodCall::Typed, AST::Types::t?]]
         ) -> void
 
       def update: (
@@ -35,7 +35,7 @@ module Steep
           ?instance_variable_types: Hash[Symbol, AST::Types::t],
           ?global_types: Hash[Symbol, AST::Types::t],
           ?constant_types: Hash[RBS::TypeName, AST::Types::t],
-          ?pure_method_calls: Hash[Parser::AST::Node, [MethodCall::Typed, AST::Types::t]]
+          ?pure_method_calls: Hash[Parser::AST::Node, [MethodCall::Typed, AST::Types::t?]]
         ) -> TypeEnv
 
       def merge: (
@@ -43,7 +43,7 @@ module Steep
           ?instance_variable_types: Hash[Symbol, AST::Types::t],
           ?global_types: Hash[Symbol, AST::Types::t],
           ?constant_types: Hash[RBS::TypeName, AST::Types::t],
-          ?pure_method_calls: Hash[Parser::AST::Node, [MethodCall::Typed, AST::Types::t]]
+          ?pure_method_calls: Hash[Parser::AST::Node, [MethodCall::Typed, AST::Types::t?]]
         ) -> TypeEnv
 
       # Returns type of `name`.
@@ -95,7 +95,7 @@ module Steep
       # * All of the branches meet at one point, with the returned `TypeEnv`
       #
       # See the example below:
-      # 
+      #
       # ```ruby
       # if foo()         # The original environment `self` is for after the evaluation of `foo()`
       #   a = bar()      # One environment `env1` can be given from after the evaluation of `bar()`
@@ -107,7 +107,7 @@ module Steep
       #                  # The environment has both optional types of `a` and `b`
       # ```
       #
-      def join: (TypeEnv, *TypeEnv) -> TypeEnv
+      def join: (*TypeEnv) -> TypeEnv
 
       def add_pure_call: (Parser::AST::Node, MethodCall::Typed, AST::Types::t) -> TypeEnv
 
@@ -116,6 +116,8 @@ module Steep
       def invalidate_pure_node: (Parser::AST::Node) -> TypeEnv
 
       private
+
+      def pure_node_invalidation: (Enumerable[Parser::AST::Node] invalidated_nodes) -> Hash[Parser::AST::Node, [MethodCall::Typed, AST::Types::t?]]
 
       def invalidated_pure_nodes: (Parser::AST::Node) -> Set[Parser::AST::Node]
 

@@ -78,7 +78,119 @@ class TypeEnvTest < Minitest::Test
       env = env.add_pure_call(node2, call2, parse_type("::Integer"))
 
       assert_equal parse_type("::Integer"), env[node2]
-      assert_nil env[node1]
+      assert_equal parse_type("::String | ::Integer"), env[node1]
+    end
+  end
+
+  def test_join_local_vars_assignments
+    with_factory do
+      env = TypeEnv.new(constant_env)
+      env = env.assign_local_variable(:a, parse_type("::Integer | ::Symbol | nil"), nil)
+
+      env1 =
+        env.assign_local_variable(:a, parse_type("::Integer"), nil)
+          .assign_local_variable(:b, parse_type("::String"), nil)
+
+      env2 =
+        env.assign_local_variable(:a, parse_type("nil"), nil)
+          .assign_local_variable(:c, parse_type("bool"), nil)
+
+      env_ = env.join(env1, env2)
+
+      assert_equal parse_type("::Integer | nil"), env_[:a]
+      assert_equal parse_type("::String | nil"), env_[:b]
+      assert_equal parse_type("bool | nil"), env_[:c]
+    end
+  end
+
+  def test_join_local_vars_enforced
+    with_factory do
+      # # @type var a: Integer | Symbol | nil
+      # a = ...
+      #
+      # if ...
+      #   # @type var b: String?
+      #   a = 123
+      #   b = "foo"
+      # else
+      #   # @type var c: bool | Symbol
+      #   a = nil
+      #   c = true
+      # end
+      #
+      env = TypeEnv.new(constant_env)
+      env = env.assign_local_variable(:a, parse_type("::Integer | ::Symbol | nil"), parse_type("::Integer | ::Symbol | nil"))
+
+      env1 =
+        env.assign_local_variables({ a: parse_type("::Integer") })
+          .assign_local_variable(:b, parse_type("::String"), parse_type("::String | nil"))
+
+      env2 =
+        env.assign_local_variables({ a: parse_type("nil") })
+          .assign_local_variable(:c, parse_type("bool"), parse_type("bool | ::Symbol"))
+
+      env_ = env.join(env1, env2)
+
+      assert_equal parse_type("::Integer | nil"), env_[:a]
+      assert_equal parse_type("::String | nil"), env_[:b]
+      assert_equal parse_type("bool | nil"), env_[:c]
+
+      assert_equal parse_type("::Integer | ::Symbol | nil"), env_.enforced_type(:a)
+      assert_nil env_.enforced_type(:b)
+      assert_nil env_.enforced_type(:c)
+    end
+  end
+
+  def test_join_calls_invalidate
+    with_factory do
+      # a = [1, nil].sample(2)
+      # b = [:foo, nil].sample(2)
+      #
+      # if a[0] && b[1]
+      #   if ...
+      #     a = ["foo"]
+      #   end
+      #
+      #   a[0]     # Integer | nil is expected here
+      #   b[1]     # Symbol is expected here
+      # end
+      #
+
+      node1 = parse_ruby("a = nil; a[0]").node.children[1]
+      call1 = MethodCall::Typed.new(
+        node: node1,
+        context: MethodCall::TopLevelContext.new,
+        method_name: MethodName("::Array#[]"),
+        receiver_type: parse_type("::Array[::Integer | nil]"),
+        actual_method_type: parse_method_type("(::Integer) -> ::Integer?"),
+        method_decls: [],
+        return_type: parse_type("::Integer | nil")
+      )
+      node2 = parse_ruby("b = nil; b[0]").node.children[1]
+      call2 = MethodCall::Typed.new(
+        node: node2,
+        context: MethodCall::TopLevelContext.new,
+        method_name: MethodName("::Array#[]"),
+        receiver_type: parse_type("::Array[::Symbol | nil]"),
+        actual_method_type: parse_method_type("(::Integer) -> ::Symbol?"),
+        method_decls: [],
+        return_type: parse_type("::Symbol | nil")
+      )
+
+      env = TypeEnv.new(constant_env)
+      env =
+        env.assign_local_variables({ a: parse_type("::Array[::Integer | nil]"), b: parse_type("::Array[::Symbol | nil]") })
+          .add_pure_call(node1, call1, parse_type("::Integer"))
+          .add_pure_call(node2, call2, parse_type("::Symbol"))
+
+      env1 =
+        env.assign_local_variables({ a: parse_type("::Array[::String]") })
+
+      env_ = env.join(env, env1)
+
+      assert_equal parse_type("::Array[::String] | ::Array[::Integer | nil]"), env_[:a]
+      assert_equal parse_type("::Integer | nil"), env_[node1]
+      assert_equal parse_type("::Symbol"), env_[node2]
     end
   end
 end
