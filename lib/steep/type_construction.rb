@@ -1853,10 +1853,7 @@ module Steep
                   test_constr = test_constr.update_type_env { falsy_env }
                 end
 
-                pp test_envs: test_envs.map(&:to_s), env: when_constr.context.type_env.to_s
                 body_constr = when_constr.update_type_env {|env| env.join(*test_envs) }
-
-                pp body_constr: body_constr.context.type_env.to_s
 
                 if body
                   branch_results <<
@@ -2894,7 +2891,9 @@ module Steep
 
         if call && constr
           if (pure_call, type = constr.context.type_env.pure_method_calls[node])
-            call = pure_call.with_return_type(type)
+            if type
+              call = pure_call.with_return_type(type)
+            end
           end
 
           case method_name.to_s
