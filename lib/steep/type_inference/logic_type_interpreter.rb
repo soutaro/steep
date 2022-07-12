@@ -152,17 +152,22 @@ module Steep
       end
 
       def assign_vars(env, vars:, type:, node: nil)
+        # @type var pure_call_types: Hash[Parser::AST::Node, AST::Types::t]
+        pure_call_types = {}
+        # @type var local_variable_types: Hash[Symbol, AST::Types::t]
+        local_variable_types = {}
+
         if node
           if env.pure_method_calls.key?(node)
-            env = env.replace_pure_call_type(node, type)
+            pure_call_types[node] = type
           end
         end
 
-        local_vars = vars.each_with_object({}) do |name, hash|
-          hash[name] = type
+        vars.each do |name|
+          local_variable_types[name] = type
         end
 
-        env.assign_local_variables(local_vars)
+        env.refine_types(local_variable_types: local_variable_types, pure_call_types: pure_call_types)
       end
 
       def update_type_env(variables, truthy_type:, falsy_type:, truthy_env:, falsy_env:)

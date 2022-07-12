@@ -1853,7 +1853,10 @@ module Steep
                   test_constr = test_constr.update_type_env { falsy_env }
                 end
 
+                pp test_envs: test_envs.map(&:to_s), env: when_constr.context.type_env.to_s
                 body_constr = when_constr.update_type_env {|env| env.join(*test_envs) }
+
+                pp body_constr: body_constr.context.type_env.to_s
 
                 if body
                   branch_results <<

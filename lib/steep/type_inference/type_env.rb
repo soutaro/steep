@@ -131,6 +131,16 @@ module Steep
         )
       end
 
+      def refine_local_variable_types(refinements)
+        updates = {}
+
+        refinements.each do |name, type|
+          updates[name] = [type, enforced_type(name)]
+        end
+
+        merge(local_variable_types: updates)
+      end
+
       def constant(arg1, arg2)
         if arg1.is_a?(RBS::TypeName) && arg2.is_a?(Symbol)
           constant_env.resolve_child(arg1, arg2)
