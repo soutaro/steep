@@ -193,4 +193,82 @@ class TypeEnvTest < Minitest::Test
       assert_equal parse_type("::Symbol"), env_[node2]
     end
   end
+
+  def test_refinements_branches_0
+    with_factory do
+      # array = ["string", 123, nil].shuffle
+      # case x = array[0]
+      # when String, Integer
+      #   # x: String | Integer
+      #   # array[0]: String | Integer
+      # else
+      #   # x: nil
+      #   # array[0]: nil
+      # end
+
+      node = parse_ruby("a = nil; array[0]").node.children[1]
+      call = MethodCall::Typed.new(
+        node: node,
+        context: MethodCall::TopLevelContext.new,
+        method_name: MethodName("::Array#[]"),
+        receiver_type: parse_type("::Array[::String?]"),
+        actual_method_type: parse_method_type("(::Integer) -> ::String?"),
+        method_decls: [],
+        return_type: parse_type("::String?")
+      )
+
+      env = TypeEnv.new(constant_env)
+
+      # array = ["string", nil].shuffle
+      env =
+        env.assign_local_variables({ array: parse_type("::Array[::String | ::Integer | nil]") })
+          .add_pure_call(node, call, nil)
+
+      # Truthy branch by `String === x`
+      env1_t =
+        env.refine_types(
+          local_variable_types: { x: parse_type("::String") },
+          pure_call_types: { node => parse_type("::String") }
+        )
+
+      # Falsy branch by `String === x`
+      env1_f =
+        env.refine_types(
+          local_variable_types: { x: parse_type("::Integer?") },
+          pure_call_types: { node => parse_type("::Integer?") }
+        )
+
+      # Truthy branch by `Integer === x`
+      env2_t =
+        env1_f.refine_types(
+          local_variable_types: { x: parse_type("::Integer") },
+          pure_call_types: { node => parse_type("::Integer") }
+        )
+
+      # Falsy branch by `Integer === x`
+      env2_f =
+        env1_f.refine_types(
+          local_variable_types: { x: parse_type("nil") },
+          pure_call_types: { node => parse_type("nil") }
+        )
+
+      # Body of `when String, Integer`
+      env_body = env.join(env1_t, env2_t)
+
+      # Body of `else`
+      env_else = env2_f
+
+      # After case-when
+      env_after = env.join(env_body, env_else)
+
+      assert_equal parse_type("::String | ::Integer"), env_body[:x]
+      assert_equal parse_type("::String | ::Integer"), env_body[node]
+
+      assert_equal parse_type("nil"), env_else[:x]
+      assert_equal parse_type("nil"), env_else[node]
+
+      assert_equal parse_type("::String | ::Integer | nil"), env_after[:x]
+      assert_equal parse_type("::String | ::Integer | nil"), env_after[node]
+    end
+  end
 end

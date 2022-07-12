@@ -131,14 +131,26 @@ module Steep
         )
       end
 
-      def refine_local_variable_types(refinements)
-        updates = {}
+      def refine_types(local_variable_types: {}, pure_call_types: {})
+        local_variable_updates = {}
 
-        refinements.each do |name, type|
-          updates[name] = [type, enforced_type(name)]
+        local_variable_types.each do |name, type|
+          local_variable_updates[name] = [type, enforced_type(name)]
         end
 
-        merge(local_variable_types: updates)
+        invalidated_nodes = Set.new(pure_method_calls.each_key)
+        local_variable_types.each_key do |name|
+          invalidated_nodes.merge(invalidated_pure_nodes(Parser::AST::Node.new(:lvar, [name])))
+        end
+
+        pure_call_updates = pure_node_invalidation(invalidated_nodes)
+
+        pure_call_types.each do |node, type|
+          call, _ = pure_call_updates[node]
+          pure_call_updates[node] = [call, type]
+        end
+
+        merge(local_variable_types: local_variable_updates, pure_method_calls: pure_call_updates)
       end
 
       def constant(arg1, arg2)
@@ -220,7 +232,19 @@ module Steep
             .transform_values {|types| AST::Types::Union.build(types: types) }
             .reject {|var, type| self[var] == type }
 
-        assign_local_variables(assignments)
+        common_pure_nodes = envs
+          .map {|env| Set.new(env.pure_method_calls.each_key) }
+          .inject(Set.new(pure_method_calls.each_key)) {|s1, s2| s1.intersection(s2) }
+
+        pure_call_updates = common_pure_nodes.each_with_object({}) do |node, hash|
+          pairs = envs.map {|env| env.pure_method_calls[node] }
+          refined_type = AST::Types::Union.build(types: pairs.map {|pair| pair[1] || pair[0].return_type })
+          call, _ = (pure_method_calls[node] or raise)
+
+          hash[node] = [call, refined_type]
+        end
+
+        assign_local_variables(assignments).merge(pure_method_calls: pure_call_updates)
       end
 
       def add_pure_call(node, call, type)

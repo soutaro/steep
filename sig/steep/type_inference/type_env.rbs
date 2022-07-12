@@ -2,6 +2,26 @@ module Steep
   module TypeInference
     # TypeEnv is the one-stop class to manage type of variables.
     #
+    # ### Local variables primitive operations
+    #
+    # * Assigning to a local variable
+    # * Adding local variable type enforcement
+    # * Refine local variable types
+    # * Resetting refinements
+    #
+    # ### Pure calls primitive operations
+    #
+    # * Adding pure calls
+    # * Removing pure calls
+    # * Refine pure call types
+    # * Resetting pure call refinements
+    #
+    # ### Branch operations
+    #
+    # * Start branching with refinements
+    # * Merge branches
+    #
+    #
     class TypeEnv
       include NodeHelper
 
@@ -65,9 +85,9 @@ module Steep
       # Refines types of local variables and pure calls.
       #
       # * Receives types of updated local variables and pure calls.
-      # * The local variable types will be 
+      # * The local variable types will be
       #
-      def refine_types: (local_variable_types: Hash[Symbol, AST::Types::t], pure_call_types: Hash[Parser::AST::Node, AST::Types::t]) -> TypeEnv
+      def refine_types: (?local_variable_types: Hash[Symbol, AST::Types::t], ?pure_call_types: Hash[Parser::AST::Node, AST::Types::t]) -> TypeEnv
 
       def enforced_type: (Symbol name) -> AST::Types::t?
 
@@ -116,7 +136,7 @@ module Steep
       #
       def join: (*TypeEnv) -> TypeEnv
 
-      def add_pure_call: (Parser::AST::Node, MethodCall::Typed, AST::Types::t) -> TypeEnv
+      def add_pure_call: (Parser::AST::Node, MethodCall::Typed, AST::Types::t?) -> TypeEnv
 
       def replace_pure_call_type: (Parser::AST::Node, AST::Types::t) -> TypeEnv
 
