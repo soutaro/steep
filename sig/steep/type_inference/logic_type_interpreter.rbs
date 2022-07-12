@@ -31,7 +31,7 @@ module Steep
 
       def update_type_env: (Enumerable[Symbol] variables, truthy_type: AST::Types::t, falsy_type: AST::Types::t, truthy_env: TypeEnv, falsy_env: TypeEnv) -> [TypeEnv, TypeEnv]
 
-      def assign_vars: (TypeEnv, ?node: Parser::AST::Node?, vars: Enumerable[Symbol], type: AST::Types::t) -> TypeEnv
+      def refine_vars: (TypeEnv, ?node: Parser::AST::Node?, vars: Enumerable[Symbol], type: AST::Types::t) -> TypeEnv
 
       def guess_type_from_method: (Parser::AST::Node node) -> (AST::Types::Logic::ReceiverIsArg | AST::Types::Logic::ReceiverIsNil | AST::Types::Logic::Not | AST::Types::Logic::ArgIsReceiver | nil)
 

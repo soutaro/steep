@@ -33,7 +33,7 @@ module Steep
 
         pure_method_calls.each do |node, pair|
           call, type = pair
-          array << "`#{node.loc.expression.source.lines[0]}`: #{type}"
+          array << "`#{node.loc.expression.source.lines[0]}`: #{type || call.return_type}"
         end
 
         "{ #{array.join(", ")} }"
@@ -97,7 +97,7 @@ module Steep
             self[name.children[0]]
           when :send
             if (call, type = pure_method_calls[name])
-              type
+              type || call.return_type
             end
           end
         end
@@ -108,7 +108,7 @@ module Steep
       end
 
       def assign_local_variables(assignments)
-        local_variable_types = local_variable_types().dup
+        local_variable_types = {}
         invalidated_nodes = Set[]
 
         assignments.each do |name, new_type|
@@ -116,24 +116,41 @@ module Steep
           invalidated_nodes.merge(invalidated_pure_nodes(::Parser::AST::Node.new(:lvar, [name])))
         end
 
-        pure_calls = pure_method_calls().reject do |node, _|
-          invalidated_nodes.include?(node)
-        end
+        invalidation = pure_node_invalidation(invalidated_nodes)
 
-        update(
+        merge(
           local_variable_types: local_variable_types,
-          pure_method_calls: pure_calls
+          pure_method_calls: invalidation
         )
       end
 
       def assign_local_variable(name, var_type, enforced_type)
-        local_variable_types = local_variable_types().dup
-        local_variable_types[name] = [var_type, enforced_type]
+        merge(
+          local_variable_types: { name => [var_type, enforced_type] },
+          pure_method_calls: pure_node_invalidation(invalidated_pure_nodes(::Parser::AST::Node.new(:lvar, [name])))
+        )
+      end
 
-        invalidated_nodes = invalidated_pure_nodes(::Parser::AST::Node.new(:lvar, [name]))
-        pure_calls = pure_method_calls().reject {|node, _| invalidated_nodes.include?(node) }
+      def refine_types(local_variable_types: {}, pure_call_types: {})
+        local_variable_updates = {}
 
-        update(local_variable_types: local_variable_types, pure_method_calls: pure_calls)
+        local_variable_types.each do |name, type|
+          local_variable_updates[name] = [type, enforced_type(name)]
+        end
+
+        invalidated_nodes = Set.new(pure_method_calls.each_key)
+        local_variable_types.each_key do |name|
+          invalidated_nodes.merge(invalidated_pure_nodes(Parser::AST::Node.new(:lvar, [name])))
+        end
+
+        pure_call_updates = pure_node_invalidation(invalidated_nodes)
+
+        pure_call_types.each do |node, type|
+          call, _ = pure_call_updates[node]
+          pure_call_updates[node] = [call, type]
+        end
+
+        merge(local_variable_types: local_variable_updates, pure_method_calls: pure_call_updates)
       end
 
       def constant(arg1, arg2)
@@ -196,61 +213,38 @@ module Steep
         )
       end
 
-      def join(env0, *envs)
-        lvar_types = env0.local_variable_types.dup
-        pure_calls = env0.pure_method_calls.dup
-
-        envs.each do |env|
-          lvar_names = Set[].merge(lvar_types.keys).merge(env.local_variable_types.keys)
-          lvar_names.each do |name|
-            _, original_enforced_type = local_variable_types[name]
-            type1, _ = lvar_types[name]
-            type2, _ = env.local_variable_types[name]
-
-            type =
-              case
-              when type1 && type2
-                AST::Types::Union.build(types: [type1, type2])
-              when type1
-                AST::Types::Union.build(types: [type1, AST::Builtin.nil_type])
-              when type2
-                AST::Types::Union.build(types: [type2, AST::Builtin.nil_type])
-              else
-                raise
-              end
-
-            lvar_types[name] = [type, original_enforced_type]
-          end
-
-          pure_nodes = Set[].merge(pure_calls.keys).merge(env.pure_method_calls.keys)
-          pure_nodes.each do |node|
-            call1, type1 = pure_calls[node]
-            call2, type2 = env.pure_method_calls[node]
-
-            call =
-              case
-              when call1 && call2
-                # Assuming call1 and call2 are identical
-                call1.with_return_type(
-                  AST::Types::Union.build(types: [type1, type2])
-                )
-              when call1
-                call1.with_return_type(
-                  AST::Types::Union.build(types: [type1, AST::Builtin.nil_type])
-                )
-              when call2
-                call2.with_return_type(
-                  AST::Types::Union.build(types: [type2, AST::Builtin.nil_type])
-                )
-              else
-                raise
-              end
-
-            pure_calls[node] = [call, call.return_type]
+      def join(*envs)
+        # @type var all_lvar_types: Hash[Symbol, Array[AST::Types::t]]
+        all_lvar_types = envs.each_with_object({}) do |env, hash|
+          env.local_variable_types.each_key do |name|
+            hash[name] = []
           end
         end
 
-        update(local_variable_types: lvar_types, pure_method_calls: pure_calls)
+        envs.each do |env|
+          all_lvar_types.each_key do |name|
+            all_lvar_types[name] << (env[name] || AST::Builtin.nil_type)
+          end
+        end
+
+        assignments =
+          all_lvar_types
+            .transform_values {|types| AST::Types::Union.build(types: types) }
+            .reject {|var, type| self[var] == type }
+
+        common_pure_nodes = envs
+          .map {|env| Set.new(env.pure_method_calls.each_key) }
+          .inject(Set.new(pure_method_calls.each_key)) {|s1, s2| s1.intersection(s2) }
+
+        pure_call_updates = common_pure_nodes.each_with_object({}) do |node, hash|
+          pairs = envs.map {|env| env.pure_method_calls[node] }
+          refined_type = AST::Types::Union.build(types: pairs.map {|pair| pair[1] || pair[0].return_type })
+          call, _ = (pure_method_calls[node] or raise)
+
+          hash[node] = [call, refined_type]
+        end
+
+        assign_local_variables(assignments).merge(pure_method_calls: pure_call_updates)
       end
 
       def add_pure_call(node, call, type)
@@ -258,13 +252,11 @@ module Steep
           return self
         end
 
-        invalidated_nodes = invalidated_pure_nodes(node)
-        pure_method_calls = self.pure_method_calls.reject do |node, _|
-          invalidated_nodes.include?(node)
-        end
-        pure_method_calls[node] = [call, type]
+        update =
+          pure_node_invalidation(invalidated_pure_nodes(node))
+            .merge!({ node => [call, type] })
 
-        update(pure_method_calls: pure_method_calls)
+        merge(pure_method_calls: update)
       end
 
       def replace_pure_call_type(node, type)
@@ -278,20 +270,27 @@ module Steep
       end
 
       def invalidate_pure_node(node)
-        invalidated_nodes = invalidated_pure_nodes(node)
+        merge(pure_method_calls: pure_node_invalidation(invalidated_pure_nodes(node)))
+      end
 
-        pure_method_calls = self.pure_method_calls.reject do |node, _|
-          invalidated_nodes.include?(node)
+      def pure_node_invalidation(invalidated_nodes)
+        # @type var invalidation: Hash[Parser::AST::Node, [MethodCall::Typed, AST::Types::t?]]
+        invalidation = {}
+
+        invalidated_nodes.each do |node|
+          if (call, _ = pure_method_calls[node])
+            invalidation[node] = [call, nil]
+          end
         end
 
-        update(pure_method_calls: pure_method_calls)
+        invalidation
       end
 
       def invalidated_pure_nodes(invalidated_node)
         invalidated_nodes = Set[]
 
         pure_method_calls.each_key do |pure_node|
-          descendants = @pure_node_descendants[invalidated_node] ||= each_descendant_node(pure_node).to_set
+          descendants = @pure_node_descendants[pure_node] ||= each_descendant_node(pure_node).to_set
           if descendants.member?(invalidated_node)
             invalidated_nodes << pure_node
           end

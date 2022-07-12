@@ -2,6 +2,26 @@ module Steep
   module TypeInference
     # TypeEnv is the one-stop class to manage type of variables.
     #
+    # ### Local variables primitive operations
+    #
+    # * Assigning to a local variable
+    # * Adding local variable type enforcement
+    # * Refine local variable types
+    # * Resetting refinements
+    #
+    # ### Pure calls primitive operations
+    #
+    # * Adding pure calls
+    # * Removing pure calls
+    # * Refine pure call types
+    # * Resetting pure call refinements
+    #
+    # ### Branch operations
+    #
+    # * Start branching with refinements
+    # * Merge branches
+    #
+    #
     class TypeEnv
       include NodeHelper
 
@@ -9,7 +29,7 @@ module Steep
 
       attr_reader local_variable_types: Hash[Symbol, local_variable_entry]
 
-      attr_reader pure_method_calls: Hash[Parser::AST::Node, [MethodCall::Typed, AST::Types::t]]
+      attr_reader pure_method_calls: Hash[Parser::AST::Node, [MethodCall::Typed, AST::Types::t?]]
 
       attr_reader instance_variable_types: Hash[Symbol, AST::Types::t]
 
@@ -27,7 +47,7 @@ module Steep
           ?instance_variable_types: Hash[Symbol, AST::Types::t],
           ?global_types: Hash[Symbol, AST::Types::t],
           ?constant_types: Hash[RBS::TypeName, AST::Types::t],
-          ?pure_method_calls: Hash[Parser::AST::Node, [MethodCall::Typed, AST::Types::t]]
+          ?pure_method_calls: Hash[Parser::AST::Node, [MethodCall::Typed, AST::Types::t?]]
         ) -> void
 
       def update: (
@@ -35,7 +55,7 @@ module Steep
           ?instance_variable_types: Hash[Symbol, AST::Types::t],
           ?global_types: Hash[Symbol, AST::Types::t],
           ?constant_types: Hash[RBS::TypeName, AST::Types::t],
-          ?pure_method_calls: Hash[Parser::AST::Node, [MethodCall::Typed, AST::Types::t]]
+          ?pure_method_calls: Hash[Parser::AST::Node, [MethodCall::Typed, AST::Types::t?]]
         ) -> TypeEnv
 
       def merge: (
@@ -43,7 +63,7 @@ module Steep
           ?instance_variable_types: Hash[Symbol, AST::Types::t],
           ?global_types: Hash[Symbol, AST::Types::t],
           ?constant_types: Hash[RBS::TypeName, AST::Types::t],
-          ?pure_method_calls: Hash[Parser::AST::Node, [MethodCall::Typed, AST::Types::t]]
+          ?pure_method_calls: Hash[Parser::AST::Node, [MethodCall::Typed, AST::Types::t?]]
         ) -> TypeEnv
 
       # Returns type of `name`.
@@ -61,6 +81,13 @@ module Steep
       # Invalidates related nodes.
       #
       def assign_local_variable: (Symbol name, AST::Types::t type, AST::Types::t? enforced_type) -> TypeEnv
+
+      # Refines types of local variables and pure calls.
+      #
+      # * Receives types of updated local variables and pure calls.
+      # * The local variable types will be
+      #
+      def refine_types: (?local_variable_types: Hash[Symbol, AST::Types::t], ?pure_call_types: Hash[Parser::AST::Node, AST::Types::t]) -> TypeEnv
 
       def enforced_type: (Symbol name) -> AST::Types::t?
 
@@ -95,7 +122,7 @@ module Steep
       # * All of the branches meet at one point, with the returned `TypeEnv`
       #
       # See the example below:
-      # 
+      #
       # ```ruby
       # if foo()         # The original environment `self` is for after the evaluation of `foo()`
       #   a = bar()      # One environment `env1` can be given from after the evaluation of `bar()`
@@ -107,15 +134,17 @@ module Steep
       #                  # The environment has both optional types of `a` and `b`
       # ```
       #
-      def join: (TypeEnv, *TypeEnv) -> TypeEnv
+      def join: (*TypeEnv) -> TypeEnv
 
-      def add_pure_call: (Parser::AST::Node, MethodCall::Typed, AST::Types::t) -> TypeEnv
+      def add_pure_call: (Parser::AST::Node, MethodCall::Typed, AST::Types::t?) -> TypeEnv
 
       def replace_pure_call_type: (Parser::AST::Node, AST::Types::t) -> TypeEnv
 
       def invalidate_pure_node: (Parser::AST::Node) -> TypeEnv
 
       private
+
+      def pure_node_invalidation: (Enumerable[Parser::AST::Node] invalidated_nodes) -> Hash[Parser::AST::Node, [MethodCall::Typed, AST::Types::t?]]
 
       def invalidated_pure_nodes: (Parser::AST::Node) -> Set[Parser::AST::Node]
 

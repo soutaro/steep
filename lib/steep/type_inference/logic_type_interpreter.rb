@@ -56,18 +56,8 @@ module Steep
             end
           end
         else
-          if value_node.type == :send && env.pure_method_calls.key?(value_node)
-            truthy_env = env.replace_pure_call_type(value_node, truthy_type)
-            falsy_env = env.replace_pure_call_type(value_node, falsy_type)
-          end
-
-          truthy_env, falsy_env = update_type_env(
-            vars,
-            truthy_type: truthy_type,
-            falsy_type: falsy_type,
-            truthy_env: truthy_env,
-            falsy_env: falsy_env
-          )
+          truthy_env = refine_vars(truthy_env, vars: vars, type: truthy_type, node: value_node)
+          falsy_env = refine_vars(falsy_env, vars: vars, type: falsy_type, node: value_node)
         end
 
         [truthy_env, falsy_env]
@@ -83,8 +73,8 @@ module Steep
             truthy_receiver, falsy_receiver = factory.unwrap_optional(receiver_type)
 
             [
-              assign_vars(env, node: receiver_value_node, vars: receiver_vars, type: AST::Builtin.nil_type),
-              assign_vars(env, node: receiver_value_node, vars: receiver_vars, type: truthy_receiver)
+              refine_vars(env, node: receiver_value_node, vars: receiver_vars, type: AST::Builtin.nil_type),
+              refine_vars(env, node: receiver_value_node, vars: receiver_vars, type: truthy_receiver)
             ]
           end
         when AST::Types::Logic::ReceiverIsArg
@@ -107,8 +97,8 @@ module Steep
               end
 
               [
-                assign_vars(env, node: receiver_value_node, vars: var_names, type: truthy_type),
-                assign_vars(env, node: receiver_value_node, vars: var_names, type: falsy_type)
+                refine_vars(env, node: receiver_value_node, vars: var_names, type: truthy_type),
+                refine_vars(env, node: receiver_value_node, vars: var_names, type: falsy_type)
               ]
             end
           end
@@ -123,8 +113,8 @@ module Steep
               truthy_type, falsy_type = type_case_select(arg_type, receiver_type.name)
 
               [
-                assign_vars(env, vars: arg_vars, node: arg_value_node, type: truthy_type),
-                assign_vars(env, vars: arg_vars, node: arg_value_node, type: falsy_type),
+                refine_vars(env, vars: arg_vars, node: arg_value_node, type: truthy_type),
+                refine_vars(env, vars: arg_vars, node: arg_value_node, type: falsy_type),
               ]
             end
           end
@@ -137,8 +127,8 @@ module Steep
             truthy_types, falsy_types = literal_var_type_case_select(receiver_value, arg_type)
 
             [
-              assign_vars(env, vars: arg_vars, node: arg_value_node, type: AST::Types::Union.build(types: truthy_types)),
-              assign_vars(env, vars: arg_vars, node: arg_value_node, type: AST::Types::Union.build(types: falsy_types))
+              refine_vars(env, vars: arg_vars, node: arg_value_node, type: AST::Types::Union.build(types: truthy_types)),
+              refine_vars(env, vars: arg_vars, node: arg_value_node, type: AST::Types::Union.build(types: falsy_types))
             ]
           end
         when AST::Types::Logic::Not
@@ -151,24 +141,29 @@ module Steep
         end
       end
 
-      def assign_vars(env, vars:, type:, node: nil)
+      def refine_vars(env, vars:, type:, node: nil)
+        # @type var pure_call_types: Hash[Parser::AST::Node, AST::Types::t]
+        pure_call_types = {}
+        # @type var local_variable_types: Hash[Symbol, AST::Types::t]
+        local_variable_types = {}
+
         if node
           if env.pure_method_calls.key?(node)
-            env = env.replace_pure_call_type(node, type)
+            pure_call_types[node] = type
           end
         end
 
-        local_vars = vars.each_with_object({}) do |name, hash|
-          hash[name] = type
+        vars.each do |name|
+          local_variable_types[name] = type
         end
 
-        env.assign_local_variables(local_vars)
+        env.refine_types(local_variable_types: local_variable_types, pure_call_types: pure_call_types)
       end
 
       def update_type_env(variables, truthy_type:, falsy_type:, truthy_env:, falsy_env:)
         [
-          assign_vars(truthy_env, vars: variables, type: truthy_type),
-          assign_vars(falsy_env, vars: variables, type: falsy_type)
+          refine_vars(truthy_env, vars: variables, type: truthy_type),
+          refine_vars(falsy_env, vars: variables, type: falsy_type)
         ]
       end
 

@@ -2869,7 +2869,7 @@ module Steep
 
     def pure_send?(call, receiver, arguments)
       return false unless call.node.type == :send || call.node.type == :csend
-      return false unless call.pure? || KNOWN_PURE_METHODS.intersect?(Set.new(call.method_decls.map(&:method_name)))
+      return false unless call.pure? || KNOWN_PURE_METHODS.superset?(Set.new(call.method_decls.map(&:method_name)))
 
       [receiver, *arguments].all? do |node|
         !node || value_node?(node) || context.type_env[node]
@@ -2891,7 +2891,9 @@ module Steep
 
         if call && constr
           if (pure_call, type = constr.context.type_env.pure_method_calls[node])
-            call = pure_call.with_return_type(type)
+            if type
+              call = pure_call.with_return_type(type)
+            end
           end
 
           case method_name.to_s
