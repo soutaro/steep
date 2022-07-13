@@ -9517,4 +9517,28 @@ RUBY
       end
     end
   end
+
+  def test_assignment_in_block
+    with_checker(<<-RBS) do |checker|
+      RBS
+      source = parse_ruby(<<RUBY)
+# @type var a: String?
+a = nil
+
+tap do |x|
+  a = ""
+end
+
+if a
+  a + ""
+end
+RUBY
+
+      with_standard_construction(checker, source) do |construction, typing|
+        type, _, context = construction.synthesize(source.node)
+
+        assert_no_error typing
+      end
+    end
+  end
 end

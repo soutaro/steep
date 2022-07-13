@@ -126,7 +126,7 @@ module Steep
 
       def assign_local_variable(name, var_type, enforced_type)
         merge(
-          local_variable_types: { name => [var_type, enforced_type] },
+          local_variable_types: { name => [enforced_type || var_type, enforced_type] },
           pure_method_calls: pure_node_invalidation(invalidated_pure_nodes(::Parser::AST::Node.new(:lvar, [name])))
         )
       end
