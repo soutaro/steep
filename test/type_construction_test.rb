@@ -3606,7 +3606,7 @@ EOF
   def test_case_exhaustive
     with_checker do |checker|
       source = parse_ruby(<<-RUBY)
-# @type var x: String | Integer
+# @type var x: String | Integer | Symbol | nil
 x = ""
 
 y = case x
@@ -3614,6 +3614,10 @@ y = case x
       3
     when Integer
       4
+    when Symbol
+      5
+    when nil
+      6
     end
       RUBY
 
@@ -9508,6 +9512,30 @@ if _ = 123
   ref.value + ""
 end
 ref.value + ""
+RUBY
+
+      with_standard_construction(checker, source) do |construction, typing|
+        type, _, context = construction.synthesize(source.node)
+
+        assert_no_error typing
+      end
+    end
+  end
+
+  def test_assignment_in_block
+    with_checker(<<-RBS) do |checker|
+      RBS
+      source = parse_ruby(<<RUBY)
+# @type var a: String?
+a = nil
+
+tap do |x|
+  a = ""
+end
+
+if a
+  a + ""
+end
 RUBY
 
       with_standard_construction(checker, source) do |construction, typing|

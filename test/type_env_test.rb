@@ -133,7 +133,7 @@ class TypeEnvTest < Minitest::Test
 
       assert_equal parse_type("::Integer | nil"), env_[:a]
       assert_equal parse_type("::String | nil"), env_[:b]
-      assert_equal parse_type("bool | nil"), env_[:c]
+      assert_equal parse_type("bool | ::Symbol | nil"), env_[:c]
 
       assert_equal parse_type("::Integer | ::Symbol | nil"), env_.enforced_type(:a)
       assert_nil env_.enforced_type(:b)

@@ -405,6 +405,39 @@ RBS
     end
   end
 
+  def test_hover_on_pure_calls
+    in_tmpdir do
+      service = typecheck_service()
+
+      service.update(
+        changes: {
+          Pathname("hello.rbs") => [ContentChange.string(<<RBS)],
+# Hello world!
+class Hello
+  attr_reader name: String?
+end
+RBS
+          Pathname("hello.rb") => [ContentChange.string(<<RUBY)]
+hello = Hello.new
+
+if hello.name
+  hello.name
+end
+RUBY
+        }
+      ) {}
+
+      target = service.project.targets.find {|target| target.name == :lib }
+      hover = HoverProvider::Ruby.new(service: service)
+
+      hover.content_for(target: target, path: Pathname("hello.rb"), line: 4, column: 10).tap do |content|
+        assert_instance_of HoverProvider::Ruby::MethodCallContent, content
+        assert_equal [4,8]...[4,12], [content.location.line,content.location.column]...[content.location.last_line, content.location.last_column]
+        assert_instance_of TypeInference::MethodCall::Typed, content.method_call
+      end
+    end
+  end
+
   def test_hover_on_syntax_error
     in_tmpdir do
       service = typecheck_service()

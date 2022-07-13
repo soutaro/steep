@@ -171,8 +171,13 @@ module Steep
 
     def type_block_without_hint: (node: untyped, block_annotations: untyped, block_params: untyped, block_body: untyped) { () -> untyped } -> untyped
 
+    # Returns a Pair of
+    #
+    # * TypeConstruction to type check the block, and
+    # * Set of local variable names to unpin after type checking the block
+    #
     def for_block: (
-        Parser::AST::Node body_node,
+        Parser::AST::Node? body_node,
         block_params: TypeInference::BlockParams,
         block_param_hint: TypeInference::MethodParams?,
         block_type_hint: AST::Types::t?,
@@ -181,11 +186,11 @@ module Steep
         node_type_hint: AST::Types::t?
       ) -> TypeConstruction
 
-    def synthesize_block: (node: Parser::AST::Node, block_type_hint: untyped?, block_body: Parser::AST::Node) -> AST::Types::t
+    # Synthesize the block body and returns a Pair of after evaluating the body.
+    #
+    def synthesize_block: (node: Parser::AST::Node, block_type_hint: AST::Types::t?, block_body: Parser::AST::Node) -> Pair
 
-    def nesting: () -> untyped
-
-    def absolute_nested_module_name: (untyped module_name) -> untyped
+    def nesting: () -> RBS::Resolver::context
 
     def absolute_name: (untyped name) -> untyped
 
