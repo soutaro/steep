@@ -3826,19 +3826,6 @@ module Steep
       module_context&.nesting
     end
 
-    def absolute_nested_module_name(module_name)
-      n = nesting
-      while n && !n[1]
-        n = n[0]
-      end
-
-      if n
-        module_name.absolute!
-      else
-        n + module_name
-      end
-    end
-
     def absolute_name(name)
       checker.factory.absolute_type_name(name, context: nesting)
     end

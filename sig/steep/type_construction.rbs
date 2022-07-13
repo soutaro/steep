@@ -183,9 +183,7 @@ module Steep
 
     def synthesize_block: (node: Parser::AST::Node, block_type_hint: untyped?, block_body: Parser::AST::Node) -> AST::Types::t
 
-    def nesting: () -> untyped
-
-    def absolute_nested_module_name: (untyped module_name) -> untyped
+    def nesting: () -> RBS::Resolver::context
 
     def absolute_name: (untyped name) -> untyped
 
