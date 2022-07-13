@@ -3606,7 +3606,7 @@ EOF
   def test_case_exhaustive
     with_checker do |checker|
       source = parse_ruby(<<-RUBY)
-# @type var x: String | Integer
+# @type var x: String | Integer | Symbol | nil
 x = ""
 
 y = case x
@@ -3614,6 +3614,10 @@ y = case x
       3
     when Integer
       4
+    when Symbol
+      5
+    when nil
+      6
     end
       RUBY
 

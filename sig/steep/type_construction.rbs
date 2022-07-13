@@ -177,7 +177,7 @@ module Steep
     # * Set of local variable names to unpin after type checking the block
     #
     def for_block: (
-        Parser::AST::Node body_node,
+        Parser::AST::Node? body_node,
         block_params: TypeInference::BlockParams,
         block_param_hint: TypeInference::MethodParams?,
         block_type_hint: AST::Types::t?,

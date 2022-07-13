@@ -34,7 +34,7 @@ module Steep
 
     def add_error: (untyped error) -> untyped
 
-    def add_typing: (untyped node, untyped `type`, untyped _context) -> untyped
+    def add_typing: (Parser::AST::Node node, AST::Types::t `type`, TypeInference::Context _context) -> untyped
 
     def add_call: (untyped node, untyped call) -> untyped
 
