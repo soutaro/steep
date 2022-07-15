@@ -13,6 +13,10 @@ require 'minitest/hooks/test'
 require 'minitest/slow_test'
 require 'rbconfig'
 
+unless Minitest.seed
+  Minitest.seed = Time.now.to_i
+end
+
 require_relative "lsp_double"
 
 Minitest::SlowTest.long_test_time = 5
