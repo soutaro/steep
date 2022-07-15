@@ -9,9 +9,23 @@ module Steep
 
       def initialize: (subtyping: Subtyping::Check, typing: Typing) -> void
 
-      def eval: (env: TypeEnv, type: AST::Types::t, node: Parser::AST::Node) -> [TypeEnv, TypeEnv]
+      def eval: (env: TypeEnv, node: Parser::AST::Node) -> [TypeEnv, TypeEnv, Set[Symbol | Parser::AST::Node], AST::Types::t, AST::Types::t]
 
-      def evaluate_method_call: (env: TypeEnv, type: AST::Types::Logic::Base, receiver: Parser::AST::Node?, arguments: Array[Parser::AST::Node]) -> [TypeEnv, TypeEnv]?
+      def evaluate_node: (env: TypeEnv, node: Parser::AST::Node, refined_objects: Set[Symbol | Parser::AST::Node]) -> [AST::Types::t, AST::Types::t, TypeEnv, TypeEnv]
+
+      def evaluate_method_call: (env: TypeEnv, type: AST::Types::Logic::Base, receiver: Parser::AST::Node?, arguments: Array[Parser::AST::Node], refined_objects: Set[Symbol | Parser::AST::Node]) -> [TypeEnv, TypeEnv]?
+
+      # Apply type refinement to `node` as `truthy_type` and `falsy_type`.
+      #
+      # This is done by top-down manner.
+      #
+      # Assignes given two types to the node when:
+      #
+      # * `node` is a `lvar`
+      # * `node` is a `lvasgn`
+      # * `node` is a _pure_ method call
+      #
+      def refine_node_type: (env: TypeEnv, node: Parser::AST::Node, truthy_type: AST::Types::t, falsy_type: AST::Types::t, refined_objects: Set[Symbol | Parser::AST::Node]) -> [TypeEnv, TypeEnv]
 
       # Returns a pair of a node and set of local variable names.
       #
@@ -29,10 +43,6 @@ module Steep
 
       private
 
-      def update_type_env: (Enumerable[Symbol] variables, truthy_type: AST::Types::t, falsy_type: AST::Types::t, truthy_env: TypeEnv, falsy_env: TypeEnv) -> [TypeEnv, TypeEnv]
-
-      def refine_vars: (TypeEnv, ?node: Parser::AST::Node?, vars: Enumerable[Symbol], type: AST::Types::t) -> TypeEnv
-
       def guess_type_from_method: (Parser::AST::Node node) -> (AST::Types::Logic::ReceiverIsArg | AST::Types::Logic::ReceiverIsNil | AST::Types::Logic::Not | AST::Types::Logic::ArgIsReceiver | nil)
 
       # Decompose to given type to truthy and falsy types.
@@ -48,7 +58,7 @@ module Steep
       # end
       # ```
       #
-      def literal_var_type_case_select: (Parser::AST::Node value_node, AST::Types::t arg_type) -> [Array[AST::Types::t], Array[AST::Types::t]]
+      def literal_var_type_case_select: (Parser::AST::Node value_node, AST::Types::t arg_type) -> [Array[AST::Types::t], Array[AST::Types::t]]?
 
       def type_case_select: (AST::Types::t `type`, RBS::TypeName klass) -> [AST::Types::t, AST::Types::t]
 
