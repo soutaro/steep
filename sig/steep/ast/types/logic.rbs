@@ -22,30 +22,37 @@ module Steep
           def to_s: () -> ::String
         end
 
+        # A type for `!` (not) operator results.
         class Not < Base
           def initialize: (?location: untyped?) -> void
         end
 
+        # A type for `foo.nil?` call results.
         class ReceiverIsNil < Base
           def initialize: (?location: untyped?) -> void
         end
 
+        #
         class ReceiverIsNotNil < Base
           def initialize: (?location: untyped?) -> void
         end
 
+        # A type for `receiver.is_a?(C)` call results.
         class ReceiverIsArg < Base
           def initialize: (?location: untyped?) -> void
         end
 
+        # A type for `Class#===` call results.
         class ArgIsReceiver < Base
           def initialize: (?location: untyped?) -> void
         end
 
+        # A type for `Object#===` call results.
         class ArgEqualsReceiver < Base
           def initialize: (?location: untyped?) -> void
         end
 
+        # A type with truthy/falsy type environment.
         class Env < Base
           attr_reader truthy: TypeInference::TypeEnv
 

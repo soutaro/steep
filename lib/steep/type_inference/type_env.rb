@@ -138,7 +138,7 @@ module Steep
           local_variable_updates[name] = [type, enforced_type(name)]
         end
 
-        invalidated_nodes = Set.new(pure_method_calls.each_key)
+        invalidated_nodes = Set.new(pure_call_types.each_key)
         local_variable_types.each_key do |name|
           invalidated_nodes.merge(invalidated_pure_nodes(Parser::AST::Node.new(:lvar, [name])))
         end

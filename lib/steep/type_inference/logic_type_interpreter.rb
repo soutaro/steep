@@ -29,142 +29,163 @@ module Steep
         end
       end
 
-      def eval(env:, type:, node:)
-        value_node, vars = decompose_value(node)
+      def eval(env:, node:)
+        objects = Set[]
+        truthy_type, falsy_type, truthy_env, falsy_env = evaluate_node(env: env, node: node, refined_objects: objects)
 
-        truthy_env = env
-        falsy_env = env
+        [truthy_env, falsy_env, objects, truthy_type, falsy_type]
+      end
 
-        if type.is_a?(AST::Types::Any)
-          type = guess_type_from_method(node) || type
+      def evaluate_node(env:, node:, refined_objects:)
+        type = typing.type_of(node: node)
+
+        if type.is_a?(AST::Types::Logic::Env)
+          truthy_env = type.truthy
+          falsy_env = type.falsy
+
+          return [AST::Types::Boolean.new, AST::Types::Boolean.new, truthy_env, falsy_env]
+        end
+
+        case node.type
+        when :lvar
+          name = node.children[0]
+          refined_objects << name
+          truthy_type, falsy_type = factory.unwrap_optional(type)
+          return [
+            truthy_type,
+            falsy_type,
+            env.refine_types(local_variable_types: { name => truthy_type }),
+            env.refine_types(local_variable_types: { name => falsy_type })
+          ]
+        when :lvasgn
+          name, rhs = node.children
+          truthy_type, falsy_type, truthy_env, falsy_env = evaluate_node(env: env, node: rhs, refined_objects: refined_objects)
+
+          return [
+            truthy_type,
+            falsy_type,
+            truthy_env.refine_types(local_variable_types: { name => truthy_type }),
+            falsy_env.refine_types(local_variable_types: { name => falsy_type })
+          ]
+        when :begin
+          last_node = node.children.last or raise
+          return evaluate_node(env: env, node: last_node, refined_objects: refined_objects)
+        when :send
+          if type.is_a?(AST::Types::Any)
+            type = guess_type_from_method(node) || type
+          end
+
+          case type
+          when AST::Types::Logic::Base
+            receiver, _, *arguments = node.children
+            truthy_env, falsy_env = evaluate_method_call(env: env, type: type, receiver: receiver, arguments: arguments, refined_objects: refined_objects)
+
+            if truthy_env && falsy_env
+              return [AST::Builtin.true_type, AST::Builtin.false_type, truthy_env, falsy_env]
+            end
+          else
+            if env[node]
+              truthy_type, falsy_type = factory.unwrap_optional(type)
+
+              refined_objects << node
+              return [
+                truthy_type,
+                falsy_type,
+                env.refine_types(pure_call_types: { node => truthy_type }),
+                env.refine_types(pure_call_types: { node => falsy_type })
+              ]
+            end
+          end
         end
 
         truthy_type, falsy_type = factory.unwrap_optional(type)
-
-        if type.is_a?(AST::Types::Logic::Base)
-          case type
-          when AST::Types::Logic::Env
-            truthy_env = type.truthy
-            falsy_env = type.falsy
-          else
-            if value_node.type == :send
-              receiver, _, *arguments = value_node.children
-              if (te, fe = evaluate_method_call(env: env, type: type, receiver: receiver, arguments: arguments))
-                truthy_env = te
-                falsy_env = fe
-              end
-            end
-          end
-        else
-          truthy_env = refine_vars(truthy_env, vars: vars, type: truthy_type, node: value_node)
-          falsy_env = refine_vars(falsy_env, vars: vars, type: falsy_type, node: value_node)
-        end
-
-        [truthy_env, falsy_env]
+        return [truthy_type, falsy_type, env, env]
       end
 
-      def evaluate_method_call(env:, type:, receiver:, arguments:)
+      def refine_node_type(env:, node:, truthy_type:, falsy_type:, refined_objects:)
+        case node.type
+        when :lvar
+          name = node.children[0]
+
+          refined_objects << name
+          [
+            env.refine_types(local_variable_types: { name => truthy_type }),
+            env.refine_types(local_variable_types: { name => falsy_type })
+          ]
+        when :lvasgn
+          name, rhs = node.children
+
+          truthy_env, falsy_env = refine_node_type(env: env, node: rhs, truthy_type: truthy_type, falsy_type: falsy_type, refined_objects: refined_objects)
+          refined_objects << name
+          [
+            truthy_env.refine_types(local_variable_types: { name => truthy_type }),
+            falsy_env.refine_types(local_variable_types: { name => falsy_type })
+          ]
+        when :send
+          if env[node]
+            refined_objects << node
+            [
+              env.refine_types(pure_call_types: { node => truthy_type }),
+              env.refine_types(pure_call_types: { node => falsy_type })
+            ]
+          else
+            [env, env]
+          end
+        when :begin
+          last_node = node.children.last or raise
+          refine_node_type(env: env, node: last_node, truthy_type: truthy_type, falsy_type: falsy_type, refined_objects: refined_objects)
+        else
+          [env, env]
+        end
+      end
+
+      def evaluate_method_call(env:, type:, receiver:, arguments:, refined_objects:)
         case type
         when AST::Types::Logic::ReceiverIsNil
-          if receiver
+          if receiver && arguments.size.zero?
             receiver_type = typing.type_of(node: receiver)
-            receiver_value_node, receiver_vars = decompose_value(receiver)
-
             truthy_receiver, falsy_receiver = factory.unwrap_optional(receiver_type)
-
-            [
-              refine_vars(env, node: receiver_value_node, vars: receiver_vars, type: AST::Builtin.nil_type),
-              refine_vars(env, node: receiver_value_node, vars: receiver_vars, type: truthy_receiver)
-            ]
+            refine_node_type(env: env, node: receiver, truthy_type: falsy_receiver, falsy_type: truthy_receiver, refined_objects: refined_objects)
           end
         when AST::Types::Logic::ReceiverIsArg
           if receiver && (arg = arguments[0])
-            receiver_value_node, receiver_vars = decompose_value(receiver)
-
             receiver_type = typing.type_of(node: receiver)
             arg_type = factory.deep_expand_alias(typing.type_of(node: arg))
 
             if arg_type.is_a?(AST::Types::Name::Singleton)
               truthy_type, falsy_type = type_case_select(receiver_type, arg_type.name)
-
-              var_names = receiver_vars.select do |name|
-                case name
-                when :_, :__any__, :__skip__
-                  false
-                else
-                  true
-                end
-              end
-
-              [
-                refine_vars(env, node: receiver_value_node, vars: var_names, type: truthy_type),
-                refine_vars(env, node: receiver_value_node, vars: var_names, type: falsy_type)
-              ]
+              refine_node_type(env: env, node: receiver, truthy_type: truthy_type, falsy_type: falsy_type, refined_objects: refined_objects)
             end
           end
         when AST::Types::Logic::ArgIsReceiver
           if receiver && (arg = arguments[0])
-            arg_value_node, arg_vars = decompose_value(arg)
-
             receiver_type = factory.deep_expand_alias(typing.type_of(node: receiver))
             arg_type = typing.type_of(node: arg)
 
             if receiver_type.is_a?(AST::Types::Name::Singleton)
               truthy_type, falsy_type = type_case_select(arg_type, receiver_type.name)
-
-              [
-                refine_vars(env, vars: arg_vars, node: arg_value_node, type: truthy_type),
-                refine_vars(env, vars: arg_vars, node: arg_value_node, type: falsy_type),
-              ]
+              refine_node_type(env: env, node: arg, truthy_type: truthy_type, falsy_type: falsy_type, refined_objects: refined_objects)
             end
           end
         when AST::Types::Logic::ArgEqualsReceiver
           if receiver && (arg = arguments[0])
-            receiver_value, _ = decompose_value(receiver)
-            arg_value_node, arg_vars = decompose_value(arg)
-
             arg_type = factory.expand_alias(typing.type_of(node: arg))
-            truthy_types, falsy_types = literal_var_type_case_select(receiver_value, arg_type)
-
-            [
-              refine_vars(env, vars: arg_vars, node: arg_value_node, type: AST::Types::Union.build(types: truthy_types)),
-              refine_vars(env, vars: arg_vars, node: arg_value_node, type: AST::Types::Union.build(types: falsy_types))
-            ]
+            if (truthy_types, falsy_types = literal_var_type_case_select(receiver, arg_type))
+              refine_node_type(
+                env: env,
+                node: arg,
+                truthy_type: AST::Types::Union.build(types: truthy_types),
+                falsy_type: AST::Types::Union.build(types: falsy_types),
+                refined_objects: refined_objects
+              )
+            end
           end
         when AST::Types::Logic::Not
           if receiver
-            receiver_type = typing.type_of(node: receiver)
-            truthy_env, falsy_env = eval(env: env, type: receiver_type, node: receiver)
-
+            truthy_type, falsy_type, truthy_env, falsy_env = evaluate_node(env: env, node: receiver, refined_objects: refined_objects)
             [falsy_env, truthy_env]
           end
         end
-      end
-
-      def refine_vars(env, vars:, type:, node: nil)
-        # @type var pure_call_types: Hash[Parser::AST::Node, AST::Types::t]
-        pure_call_types = {}
-        # @type var local_variable_types: Hash[Symbol, AST::Types::t]
-        local_variable_types = {}
-
-        if node
-          if env.pure_method_calls.key?(node)
-            pure_call_types[node] = type
-          end
-        end
-
-        vars.each do |name|
-          local_variable_types[name] = type
-        end
-
-        env.refine_types(local_variable_types: local_variable_types, pure_call_types: pure_call_types)
-      end
-
-      def update_type_env(variables, truthy_type:, falsy_type:, truthy_env:, falsy_env:)
-        [
-          refine_vars(truthy_env, vars: variables, type: truthy_type),
-          refine_vars(falsy_env, vars: variables, type: falsy_type)
-        ]
       end
 
       def decompose_value(node)
@@ -193,13 +214,18 @@ module Steep
       def literal_var_type_case_select(value_node, arg_type)
         case arg_type
         when AST::Types::Union
+          # @type var truthy_types: Array[AST::Types::t]
           truthy_types = []
+          # @type var falsy_types: Array[AST::Types::t]
           falsy_types = []
 
           arg_type.types.each do |type|
-            ts, fs = literal_var_type_case_select(value_node, type)
-            truthy_types.push(*ts)
-            falsy_types.push(*fs)
+            if (ts, fs = literal_var_type_case_select(value_node, type))
+              truthy_types.push(*ts)
+              falsy_types.push(*fs)
+            else
+              return
+            end
           end
 
           [truthy_types, falsy_types]
@@ -222,11 +248,11 @@ module Steep
                 (type.is_a?(AST::Types::Literal) && type.value == false)
             end
           when :int, :str, :sym
-            types.each_with_object([[], []]) do |type, pair|
-              true_types, false_types = pair
+            # @type var pairs: [Array[AST::Types::t], Array[AST::Types::t]]
+            pairs = [[], []]
 
-              true_types or raise
-              false_types or raise
+            types.each_with_object(pairs) do |type, pair|
+              true_types, false_types = pair
 
               case
               when type.is_a?(AST::Types::Literal)
@@ -240,8 +266,6 @@ module Steep
                 false_types << type
               end
             end
-          else
-            [[arg_type], [arg_type]]
           end
         end
       end

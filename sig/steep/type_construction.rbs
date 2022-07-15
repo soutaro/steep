@@ -96,7 +96,7 @@ module Steep
 
     def add_call: (untyped call) -> untyped
 
-    def synthesize: (Parser::AST::Node node, ?hint: untyped?, ?condition: bool) -> Pair
+    def synthesize: (Parser::AST::Node node, ?hint: AST::Types::t?, ?condition: bool) -> Pair
 
     def check: (Parser::AST::Node node, untyped `type`, ?constraints: untyped) { (untyped, untyped, untyped) -> untyped } -> bool
 
