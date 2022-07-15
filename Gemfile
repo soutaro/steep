@@ -11,3 +11,8 @@ group :stackprof, optional: true do
 end
 gem 'minitest-slow_test'
 gem "rbs", "~> 2.5.1"
+
+group :ide, optional: true do
+  gem "ruby-debug-ide"
+  gem "debase", ">= 0.2.5.beta2"
+end
