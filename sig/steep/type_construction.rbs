@@ -92,7 +92,7 @@ module Steep
 
     def for_branch: (Parser::AST::Node node, ?break_context: TypeInference::Context::BreakContext?) -> untyped
 
-    def add_typing: (untyped node, type: untyped, ?constr: untyped) -> untyped
+    def add_typing: (Parser::AST::Node node, type: AST::Types::t, ?constr: TypeConstruction) -> Pair
 
     def add_call: (untyped call) -> untyped
 
@@ -102,11 +102,13 @@ module Steep
 
     def masgn_lhs?: (untyped lhs) -> untyped
 
-    def lvasgn: (untyped node, untyped `type`) -> untyped
+    def lvasgn: (Parser::AST::Node node, AST::Types::t) -> Pair
 
-    def ivasgn: (Parser::AST::Node node, untyped rhs_type) -> Pair
+    def ivasgn: (Parser::AST::Node node, AST::Types::t rhs_type) -> Pair
 
-    def type_masgn: (untyped node) -> untyped
+    def type_masgn: (Parser::AST::Node node) -> Pair
+
+    def type_masgn_type: (Parser::AST::Node mlhs_node, AST::Types::t? rhs_type, masgn: TypeInference::MultipleAssignment, optional: bool) -> TypeConstruction?
 
     def constant_typename: (Parser::AST::Node parent, Symbol name) -> RBS::TypeName?
 
@@ -204,7 +206,7 @@ module Steep
 
     def namespace_module?: (untyped node) -> (false | untyped)
 
-    def type_any_rec: (untyped node) -> untyped
+    def type_any_rec: (Parser::AST::Node node) -> Pair
 
     def unwrap: (untyped `type`) -> untyped
 
@@ -226,11 +228,23 @@ module Steep
 
     def to_instance_type: (untyped `type`, ?args: untyped?) -> untyped
 
-    def try_tuple_type!: (untyped node, ?hint: untyped?) -> untyped
+    def try_tuple_type!: (Parser::AST::Node node, ?hint: AST::Types::t?) -> Pair
 
-    def try_tuple_type: (untyped node, untyped hint) -> (nil | untyped)
+    def try_tuple_type: (Parser::AST::Node node, AST::Types::Tuple? hint) -> (nil | untyped)
 
-    def try_convert: (untyped `type`, untyped method) -> untyped
+    # Try to convert a object of `type` with zero-arity method `method`.
+    #
+    # Returns `nil` when
+    #
+    # 1. The `type` cannot be converted to an interface, or
+    # 2. There is no that `conversion` method defined
+    #
+    # ```ruby
+    # try_convert(`::Object`, :to_s)        # Returns `::String`
+    # try_convert(`::String`, :to_ary)      # Returns nil
+    # ```
+    #
+    def try_convert: (AST::Types::t `type`, Symbol method) -> AST::Types::t?
 
     def try_array_type: (untyped node, untyped hint) -> untyped
 
