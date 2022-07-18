@@ -437,6 +437,23 @@ module Steep
         def header_line: () -> ::String
       end
 
+      # The `#to_ary` of RHS of multiple assignment is called, but returns not tuple nor Array.
+      #
+      # ```ruby
+      # a, b = foo()
+      #        ^^^^^ 
+      # ```
+      #
+      class MultipleAssignmentConversionError < Base
+        attr_reader original_type: AST::Types::t
+
+        attr_reader returned_type: AST::Types::t
+
+        def initialize: (node: Parser::AST::Node, original_type: AST::Types::t, returned_type: AST::Types::t) -> void
+
+        def header_line: () -> ::String
+      end
+
       class UnsupportedSyntax < Base
         attr_reader message: untyped
 

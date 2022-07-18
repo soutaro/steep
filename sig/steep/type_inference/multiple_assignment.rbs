@@ -1,0 +1,76 @@
+module Steep
+  module TypeInference
+    # This class provides an abstraction for multiple assignments.
+    #
+    class MultipleAssignment
+      type node_type_pair = [Parser::AST::Node, AST::Types::t]
+
+      # Encapsulate assignments included in one `masgn` node
+      #
+      # ```ruby
+      #   a, *b, c = rhs
+      # # ^          Leading assignments
+      # #    ^^      Splat assignment
+      # #        ^   Trailing assignments
+      # ```
+      #
+      class Assignments
+        attr_reader rhs_type: AST::Types::t
+
+        attr_reader optional: bool
+
+        # Assignments before `*` assignment
+        attr_reader leading_assignments: Array[node_type_pair]
+
+        # Assignments after `*` assignment
+        #
+        # Empty if there is no splat assignment.
+        #
+        attr_reader trailing_assignments: Array[node_type_pair]
+
+        # Splat assignment if present
+        attr_reader splat_assignment: node_type_pair?
+
+        def initialize: (
+          rhs_type: AST::Types::t,
+          optional: bool,
+          leading_assignments: Array[node_type_pair],
+          trailing_assignments: Array[node_type_pair],
+          splat_assignment: node_type_pair?
+        ) -> void
+
+        def each: () { (node_type_pair) -> void } -> void
+                | () -> Enumerator[node_type_pair, void]
+      end
+
+      def initialize: () -> void
+
+      # Receives multiple assignment left hand side, right hand side type, and `optional` flag, and returns Assignments object
+      #
+      # This implements a case analysis on `rhs_type`:
+      #
+      # 1. If `rhs_type` is tuple, it returns an Assignments object with corresponding assignments
+      # 2. If `rhs_type` is an array, it returns an Assignments object with corresponding assignments
+      # 3. If `rhs_type` is `untyped`, it returns an Assignments with `untyped` type
+      # 4. It returns `nil` otherwise
+      #
+      def expand: (Parser::AST::Node mlhs, AST::Types::t rhs_type, bool optional) -> Assignments?
+
+      # Returns a type hint for multiple assignment right hand side
+      #
+      # It constructs a structure of tuple types, based on the assignment lhs, and variable types.
+      # 
+      def hint_for_mlhs: (Parser::AST::Node mlhs, TypeEnv env) -> AST::Types::t?
+
+      private
+
+      def expand_tuple: (Array[Parser::AST::Node] assignments, AST::Types::t rhs_type, Array[AST::Types::t] types, bool optional) -> Assignments
+
+      def expand_array: (Array[Parser::AST::Node] assignments, AST::Types::Name::Instance rhs_type, bool optional) -> Assignments
+
+      def expand_any: (Array[Parser::AST::Node] assignments, AST::Types::t rhs_type, AST::Types::t element_type, bool optional) -> Assignments
+
+      def expand_else: (Array[Parser::AST::Node] assignments, AST::Types::t rhs_type, bool optional) -> Assignments
+    end
+  end
+end

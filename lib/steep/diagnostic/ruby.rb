@@ -717,6 +717,22 @@ module Steep
         end
       end
 
+      class MultipleAssignmentConversionError < Base
+        attr_reader :original_type, :returned_type
+
+        def initialize(node:, original_type:, returned_type:)
+          super(node: node)
+
+          @node = node
+          @original_type = original_type
+          @returned_type = returned_type
+        end
+
+        def header_line
+          "Cannot convert `#{original_type}` to Array or tuple (`#to_ary` returns `#{returned_type}`)"
+        end
+      end
+
       class UnsupportedSyntax < Base
         attr_reader :message
 
