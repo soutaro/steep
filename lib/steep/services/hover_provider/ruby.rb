@@ -2,20 +2,34 @@ module Steep
   module Services
     module HoverProvider
       class Ruby
-        TypeContent = Struct.new(:node, :type, :location, keyword_init: true)
-        VariableContent = Struct.new(:node, :name, :type, :location, keyword_init: true)
-        MethodCallContent = Struct.new(:node, :method_call, :location, keyword_init: true)
-        DefinitionContent = Struct.new(:node, :method_name, :method_type, :definition, :location, keyword_init: true)
-        ConstantContent = Struct.new(:location, :full_name, :type, :decl, keyword_init: true) do
+        TypeContent = _ = Struct.new(:node, :type, :location, keyword_init: true)
+        VariableContent = _ = Struct.new(:node, :name, :type, :location, keyword_init: true)
+        MethodCallContent = _ = Struct.new(:node, :method_call, :location, keyword_init: true)
+        DefinitionContent = _ = Struct.new(:node, :method_name, :method_type, :definition, :location, keyword_init: true)
+        ConstantContent = _ = Struct.new(:location, :full_name, :type, :decl, keyword_init: true) do
+          # @implements ConstantContent
+
           def comments
             case
-            when class_or_module?
-              decl.decls.filter_map {|d| d.decl.comment }
-            when constant?
+            when decl = class_decl
+              decl.decls.map {|d| d.decl.comment }
+            when decl = constant_decl
               [decl.decl.comment]
             else
-              []
+              raise
             end.compact
+          end
+
+          def class_decl
+            if (decl = decl()).is_a?(::RBS::Environment::MultiEntry)
+              decl
+            end
+          end
+
+          def constant_decl
+            if (decl = decl()).is_a?(::RBS::Environment::SingleEntry)
+              decl
+            end
           end
 
           def constant?
@@ -74,6 +88,8 @@ module Steep
               InstanceMethodName.new(type_name: defined_in, method_name: method_name)
             when builder.build_singleton(defined_in).methods.key?(method_name)
               SingletonMethodName.new(type_name: defined_in, method_name: method_name)
+            else
+              raise
             end
           else
             InstanceMethodName.new(type_name: defined_in, method_name: method_name)
@@ -85,7 +101,7 @@ module Steep
           typing = typecheck(target, path: path, content: file.content, line: line, column: column) or return
           node, *parents = typing.source.find_nodes(line: line, column: column)
 
-          if node
+          if node && parents
             case node.type
             when :lvar
               var_name = node.children[0]
@@ -97,7 +113,7 @@ module Steep
             when :lvasgn
               var_name, rhs = node.children
               context = typing.context_at(line: line, column: column)
-              type = context.type_env[var_name] || typing.type_of(node: rhs)
+              type = context.type_env[var_name] || typing.type_of(node: node)
 
               return VariableContent.new(node: node, name: var_name, type: type, location: node.location.name)
 

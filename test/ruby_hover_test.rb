@@ -72,6 +72,40 @@ RUBY
     end
   end
 
+  def test_assignment
+    in_tmpdir do
+      service = typecheck_service()
+
+      service.update(
+        changes: {
+          Pathname("hello.rb") => [ContentChange.string(<<RUBY)]
+module FooBarBaz
+  # @type var child: String?
+  parent, child = [1, "foo"]
+end
+RUBY
+        }
+      ) {}
+
+      target = service.project.targets.find {|target| target.name == :lib }
+      hover = HoverProvider::Ruby.new(service: service)
+
+      hover.content_for(target: target, path: Pathname("hello.rb"), line: 3, column: 4).tap do |content|
+        assert_instance_of HoverProvider::Ruby::VariableContent, content
+        assert_equal [3, 2]...[3, 8], [content.location.line,content.location.column]...[content.location.last_line, content.location.last_column]
+        assert_equal :parent, content.name
+        assert_equal "::Integer", content.type.to_s
+      end
+
+      hover.content_for(target: target, path: Pathname("hello.rb"), line: 3, column: 13).tap do |content|
+        assert_instance_of HoverProvider::Ruby::VariableContent, content
+        assert_equal [3, 10]...[3, 15], [content.location.line,content.location.column]...[content.location.last_line, content.location.last_column]
+        assert_equal :child, content.name
+        assert_equal "(::String | nil)", content.type.to_s
+      end
+    end
+  end
+
   def test_method_call
     in_tmpdir do
       service = typecheck_service()
