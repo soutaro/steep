@@ -2,15 +2,92 @@ module Steep
   module Services
     module HoverProvider
       class Ruby
-        TypeContent: untyped
+        class TypeContent
+          attr_reader node: Parser::AST::Node
 
-        VariableContent: untyped
+          attr_reader type: AST::Types::t
 
-        MethodCallContent: untyped
+          attr_reader location: Parser::Source::Range
 
-        DefinitionContent: untyped
+          def initialize: (node: Parser::AST::Node, type: AST::Types::t, location: Parser::Source::Range) -> void
+        end
 
-        ConstantContent: untyped
+        # Hover content for a local variable, references or assignments
+        #
+        # ```ruby
+        #   a = 123
+        # # ^^^^        Hover popups
+        # # ^           Location covers
+        #
+        #   a + 1
+        # # ^           Hover popups
+        # # ^           Location covers
+        # ```
+        class VariableContent
+          attr_reader node: Parser::AST::Node
+
+          attr_reader name: Symbol
+
+          attr_reader type: AST::Types::t
+
+          attr_reader location: Parser::Source::Range
+
+          def initialize: (node: Parser::AST::Node, name: Symbol, type: AST::Types::t, location: Parser::Source::Range) -> void
+        end
+
+        class MethodCallContent
+          attr_reader node: Parser::AST::Node
+
+          attr_reader method_call: TypeInference::MethodCall::t
+
+          attr_reader location: Parser::Source::Range
+
+          def initialize: (node: Parser::AST::Node, method_call: TypeInference::MethodCall::t, location: Parser::Source::Range) -> void
+        end
+
+        class DefinitionContent
+          attr_reader node: Parser::AST::Node
+
+          attr_reader method_name: method_name
+
+          attr_reader method_type: Interface::MethodType
+
+          attr_reader definition: ::RBS::Definition::Method
+
+          attr_reader location: Parser::Source::Range
+
+          def initialize: (node: Parser::AST::Node, method_name: method_name, method_type: Interface::MethodType, definition: ::RBS::Definition::Method, location: Parser::Source::Range) -> void
+        end
+
+        class ConstantContent
+          attr_reader location: Parser::Source::Range
+
+          attr_reader full_name: ::RBS::TypeName
+
+          attr_reader type: AST::Types::t
+
+          type decl = ::RBS::Environment::ClassEntry
+                    | ::RBS::Environment::ModuleEntry
+                    | ::RBS::Environment::SingleEntry[::RBS::TypeName, ::RBS::AST::Declarations::Constant]
+
+          attr_reader decl: decl
+
+          attr_reader class_decl(): ::RBS::Environment::ClassEntry | ::RBS::Environment::ModuleEntry | nil
+
+          attr_reader constant_decl(): ::RBS::Environment::SingleEntry[::RBS::TypeName, ::RBS::AST::Declarations::Constant]?
+
+          def initialize: (location: Parser::Source::Range, full_name: ::RBS::TypeName, type: AST::Types::t, decl: decl) -> void
+
+          def comments: () -> Array[::RBS::AST::Comment]
+
+          # Returns true if `decl` is a class/module definition
+          def class_or_module?: () -> bool
+
+          # Returns true if `decl` is a constant definition
+          def constant?: () -> bool
+        end
+
+        type content = TypeContent | VariableContent | MethodCallContent | DefinitionContent | ConstantContent
 
         attr_reader service: TypeCheckService
 
@@ -25,7 +102,7 @@ module Steep
 
         def method_name_from_method: (TypeInference::Context::MethodContext context, builder: ::RBS::DefinitionBuilder) -> method_name
 
-        def content_for: (target: Project::Target, path: Pathname, line: Integer, column: Integer) -> untyped?
+        def content_for: (target: Project::Target, path: Pathname, line: Integer, column: Integer) -> content?
       end
     end
   end

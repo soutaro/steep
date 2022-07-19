@@ -8,7 +8,7 @@ module Steep
       def initialize: (untyped op, node: untyped) -> void
     end
 
-    attr_reader source: untyped
+    attr_reader source: Source
 
     attr_reader errors: untyped
 

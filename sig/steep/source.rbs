@@ -44,7 +44,7 @@ module Steep
 
     def find_nodes_loc: (untyped node, untyped position, untyped parents) -> untyped
 
-    def find_nodes: (line: untyped, column: untyped) -> (::Array[untyped] | untyped)
+    def find_nodes: (line: Integer, column: Integer) -> ::Array[Parser::AST::Node]?
 
     def self.delete_defs: (untyped node, untyped allow_list) -> untyped
 
