@@ -1057,4 +1057,27 @@ type bar[X < String] = x[X]
       end
     end
   end
+
+  def test_validate_generic_declaration_dependents
+    with_checker <<-RBS do |checker|
+interface _MinimalSet[S]
+  def +: (S) -> S
+end
+
+class ArraySet
+  def +: (ArraySet) -> ArraySet
+end
+
+class SetValueExtractor[S < _MinimalSet[S]]
+end
+
+Test: SetValueExtractor[ArraySet]
+    RBS
+
+      Validator.new(checker: checker).tap do |validator|
+        validator.validate_const
+        assert_predicate validator, :no_error?
+      end
+    end
+  end
 end

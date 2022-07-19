@@ -58,9 +58,14 @@ module Steep
 
       def validate_type_application_constraints(type_name, type_params, type_args, location:)
         if type_params.size == type_args.size
+          subst = Interface::Substitution.build(
+            type_params.map(&:name),
+            type_args.map {|type| factory.type(type) }
+          )
+
           type_params.zip(type_args).each do |param, arg|
             if param.upper_bound
-              upper_bound_type = factory.type(param.upper_bound)
+              upper_bound_type = factory.type(param.upper_bound).subst(subst)
               arg_type = factory.type(arg)
 
               constraints = Subtyping::Constraints.empty
