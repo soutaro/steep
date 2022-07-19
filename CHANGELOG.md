@@ -2,6 +2,18 @@
 
 ## master
 
+### Type checker
+
+* Fix type application validation ([#607](https://github.com/soutaro/steep/pull/607); backport from 1.0.2)
+
+## 1.0.2 (2022-07-19)
+
+This is another patch release for Steep 1.0.
+
+### Type checker
+
+* Fix type application validation ([#607](https://github.com/soutaro/steep/pull/607))
+
 ## 1.0.1 (2022-06-16)
 
 This is the first patch release for Steep 1.0.
