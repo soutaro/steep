@@ -43,6 +43,8 @@ module Steep
 
       private
 
+      def evaluate_assignment: (Parser::AST::Node node, TypeEnv env, AST::Types::t rhs_type, refined_objects: Set[Symbol | Parser::AST::Node]) -> TypeEnv
+
       def guess_type_from_method: (Parser::AST::Node node) -> (AST::Types::Logic::ReceiverIsArg | AST::Types::Logic::ReceiverIsNil | AST::Types::Logic::Not | AST::Types::Logic::ArgIsReceiver | nil)
 
       # Decompose to given type to truthy and falsy types.
@@ -63,6 +65,8 @@ module Steep
       def type_case_select: (AST::Types::t `type`, RBS::TypeName klass) -> [AST::Types::t, AST::Types::t]
 
       def type_case_select0: (AST::Types::t `type`, RBS::TypeName klass) -> [Array[AST::Types::t], Array[AST::Types::t]]
+
+      def try_convert: (AST::Types::t, Symbol) -> AST::Types::t?
     end
   end
 end

@@ -39,27 +39,31 @@ class LogicTypeInterpreterTest < Minitest::Test
     end
   end
 
-  # def test_masgn
-  #   with_checker do |checker|
-  #     source = parse_ruby("a, b = @x")
+  def test_masgn
+    with_checker do |checker|
+      source = parse_ruby("a, b = @x")
 
-  #     pp source.node
+      typing = Typing.new(source: source, root_context: nil)
+      typing.add_typing(dig(source.node), parse_type("[::String, ::Integer]?"), nil)
+      typing.add_typing(dig(source.node, 1), parse_type("[::String, ::Integer]?"), nil)
 
-  #     typing = Typing.new(source: source, root_context: nil)
-  #     typing.add_typing(dig(source.node), parse_type("::String?"), nil)
-  #     typing.add_typing(dig(source.node, 1), parse_type("::String?"), nil)
+      env =
+        type_env
+          .assign_local_variable(:a, parse_type("::String?"), nil)
+          .assign_local_variable(:b, parse_type("::Integer?"), nil)
+          .merge(instance_variable_types: { :@x => parse_type("[::String, ::Integer]?") })
 
-  #     env = type_env.assign_local_variable(:a, parse_type("::String?"), nil)
+      interpreter = LogicTypeInterpreter.new(subtyping: checker, typing: typing)
+      truthy_env, falsy_env, symbols, truthy_type, falsy_type = interpreter.eval(env: env, node: source.node)
 
-  #     interpreter = LogicTypeInterpreter.new(subtyping: checker, typing: typing)
-  #     truthy_env, falsy_env, truthy_type, falsy_type = interpreter.eval(env: env, node: source.node)
-
-  #     assert_equal parse_type("::String"), truthy_type
-  #     assert_equal parse_type("nil"), falsy_type
-  #     assert_equal parse_type("::String"), truthy_env[:a]
-  #     assert_equal parse_type("nil"), falsy_env[:a]
-  #   end
-  # end
+      assert_equal parse_type("[::String, ::Integer]"), truthy_type
+      assert_equal parse_type("nil"), falsy_type
+      assert_equal parse_type("::String"), truthy_env[:a]
+      assert_equal parse_type("::Integer"), truthy_env[:b]
+      assert_equal parse_type("nil"), falsy_env[:a]
+      assert_equal parse_type("nil"), falsy_env[:b]
+    end
+  end
 
   def test_pure_call
     with_checker(<<-RBS) do |checker|

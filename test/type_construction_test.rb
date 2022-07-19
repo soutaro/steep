@@ -1548,6 +1548,24 @@ a, @b, c = tuple
     end
   end
 
+  def test_masgn_nested_tuple
+    with_checker do |checker|
+      source = parse_ruby(<<-EOF)
+a, (b, c) = 1, [true, "hello"]
+      EOF
+
+      with_standard_construction(checker, source) do |construction, typing|
+        pair = construction.synthesize(source.node)
+
+        assert_no_error typing
+
+        assert_equal parse_type("::Integer"), pair.context.type_env[:a]
+        assert_equal parse_type("bool"), pair.context.type_env[:b]
+        assert_equal parse_type("::String"), pair.context.type_env[:c]
+      end
+    end
+  end
+
   def test_masgn_tuple_array
     with_checker do |checker|
       source = parse_ruby(<<-EOF)
@@ -1560,7 +1578,7 @@ a, *b, c = [1, 2, "x", :foo]
         assert_no_error typing
 
         assert_equal parse_type("::Integer"), context.type_env[:a]
-        assert_equal parse_type("::Array[::Integer | ::String]"), context.type_env[:b]
+        assert_equal parse_type("[::Integer, ::String]"), context.type_env[:b]
         assert_equal parse_type("::Symbol"), context.type_env[:c]
       end
     end
@@ -1593,23 +1611,6 @@ a, @b, c = x
             assert_equal parse_type("::Integer?"), error.rhs_type
           end
         end
-      end
-    end
-  end
-
-  def test_masgn_union
-    with_checker do |checker|
-      source = parse_ruby(<<-RUBY)
-# @type var x: Array[Integer] | Array[String]
-x = (_ = nil)
-a, b = x
-      RUBY
-
-
-      with_standard_construction(checker, source) do |construction, typing|
-        construction.synthesize(source.node)
-
-        assert_no_error typing
       end
     end
   end
@@ -1678,14 +1679,82 @@ a, b = x = tuple
     end
   end
 
-  def test_masgn_optional_conditional
-    skip "masgn in conditional!!"
+  def test_masgn_to_ary
+    with_checker(<<-RBS) do |checker|
+class WithToAry
+  def to_ary: () -> [Integer, String, bool]
+end
+      RBS
+      source = parse_ruby(<<-EOF)
+x = (a, b = WithToAry.new())
+      EOF
 
+      with_standard_construction(checker, source) do |construction, typing|
+        _, _, context = construction.synthesize(source.node)
+
+        assert_no_error typing
+
+        assert_equal parse_type("::Integer"), context.type_env[:a]
+        assert_equal parse_type("::String"), context.type_env[:b]
+        assert_equal parse_type("::WithToAry"), context.type_env[:x]
+      end
+    end
+  end
+
+  def test_masgn_to_ary_error
+    with_checker(<<-RBS) do |checker|
+class WithToAry
+  def to_ary: () -> Integer
+end
+      RBS
+      source = parse_ruby(<<-EOF)
+x = (a, b = WithToAry.new())
+      EOF
+
+      with_standard_construction(checker, source) do |construction, typing|
+        _, _, context = construction.synthesize(source.node)
+
+        assert_typing_error(typing, size: 1) do |errors|
+          errors[0].tap do |error|
+            assert_instance_of Diagnostic::Ruby::MultipleAssignmentConversionError, error
+            assert_equal parse_type("::WithToAry"), error.original_type
+            assert_equal parse_type("::Integer"), error.returned_type
+            assert_equal "WithToAry.new()", error.location.source
+          end
+        end
+
+        assert_equal parse_type("untyped"), context.type_env[:a]
+        assert_equal parse_type("untyped"), context.type_env[:b]
+        assert_equal parse_type("::WithToAry"), context.type_env[:x]
+      end
+    end
+  end
+
+  def test_masgn_no_conversion
+    with_checker(<<-RBS) do |checker|
+      RBS
+      source = parse_ruby(<<-EOF)
+x = (a, b = 123)
+      EOF
+
+      with_standard_construction(checker, source) do |construction, typing|
+        _, _, context = construction.synthesize(source.node)
+
+        assert_no_error typing
+
+        assert_equal parse_type("::Integer"), context.type_env[:a]
+        assert_equal parse_type("nil"), context.type_env[:b]
+        assert_equal parse_type("::Integer"), context.type_env[:x]
+      end
+    end
+  end
+
+  def test_masgn_optional_conditional
     with_checker do |checker|
       source = parse_ruby(<<-RUBY)
 # @type var tuple: [Integer, String]?
 tuple = _ = nil
-if (a, b = x = tuple)
+if x = (a, b = tuple)
   a + 1
   b + "a"
 else
@@ -1786,6 +1855,8 @@ a, @b = 3
 
       with_standard_construction(checker, source) do |construction, typing|
         construction.synthesize(source.node)
+
+        assert_typing_error(typing, size: 1)
 
         assert_equal 1, typing.errors.size
         assert_any typing.errors do |error|

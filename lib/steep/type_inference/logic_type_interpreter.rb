@@ -60,12 +60,20 @@ module Steep
         when :lvasgn
           name, rhs = node.children
           truthy_type, falsy_type, truthy_env, falsy_env = evaluate_node(env: env, node: rhs, refined_objects: refined_objects)
-
           return [
             truthy_type,
             falsy_type,
-            truthy_env.refine_types(local_variable_types: { name => truthy_type }),
-            falsy_env.refine_types(local_variable_types: { name => falsy_type })
+            evaluate_assignment(node, truthy_env, truthy_type, refined_objects: refined_objects),
+            evaluate_assignment(node, falsy_env, falsy_type, refined_objects: refined_objects)
+          ]
+        when :masgn
+          lhs, rhs = node.children
+          truthy_type, falsy_type, truthy_env, falsy_env = evaluate_node(env: env, node: rhs, refined_objects: refined_objects)
+          return [
+            truthy_type,
+            falsy_type,
+            evaluate_assignment(node, truthy_env, truthy_type, refined_objects: refined_objects),
+            evaluate_assignment(node, falsy_env, falsy_type, refined_objects: refined_objects)
           ]
         when :begin
           last_node = node.children.last or raise
@@ -100,6 +108,37 @@ module Steep
 
         truthy_type, falsy_type = factory.unwrap_optional(type)
         return [truthy_type, falsy_type, env, env]
+      end
+
+      def evaluate_assignment(assignment_node, env, rhs_type, refined_objects:)
+        case assignment_node.type
+        when :lvasgn
+          name, _ = assignment_node.children
+          refined_objects << name
+          env.refine_types(local_variable_types: { name => rhs_type })
+        when :masgn
+          lhs, _ = assignment_node.children
+
+          masgn = MultipleAssignment.new()
+          assignments = masgn.expand(lhs, rhs_type, false)
+          unless assignments
+            rhs_type_converted = try_convert(rhs_type, :to_ary)
+            rhs_type_converted ||= try_convert(rhs_type, :to_a)
+            rhs_type_converted ||= AST::Types::Tuple.new(types: [rhs_type])
+            assignments = masgn.expand(lhs, rhs_type_converted, false)
+          end
+
+          assignments or raise
+
+          assignments.each do |pair|
+            node, type = pair
+            env = evaluate_assignment(node, env, type, refined_objects: refined_objects)
+          end
+
+          env
+        else
+          env
+        end
       end
 
       def refine_node_type(env:, node:, truthy_type:, falsy_type:, refined_objects:)
@@ -330,6 +369,25 @@ module Steep
             ]
           end
         end
+      end
+
+      def try_convert(type, method)
+        case type
+        when AST::Types::Any, AST::Types::Bot, AST::Types::Top, AST::Types::Var
+          return
+        end
+
+        interface = factory.interface(type, private: false, self_type: type)
+        if entry = interface.methods[method]
+          method_type = entry.method_types.find do |method_type|
+            method_type.type.params.optional?
+          end
+
+          method_type.type.return_type if method_type
+        end
+      rescue => exn
+        Steep.log_error(exn, message: "Unexpected error when converting #{type.to_s} with #{method}")
+        nil
       end
     end
   end
