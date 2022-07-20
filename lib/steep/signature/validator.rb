@@ -324,6 +324,25 @@ module Steep
                 end
               end
 
+              definition.class_variables.each do |name, var|
+                if var.declared_in == definition.type_name
+                  if (parent = var.parent_variable) && var.declared_in != parent.declared_in
+                    class_var = definition.entry.decls.flat_map {|decl| decl.decl.members }.find do |member|
+                      member.is_a?(RBS::AST::Members::ClassVariable) && member.name == name
+                    end
+
+                    if class_var
+                      @errors << Diagnostic::Signature::ClassVariableDuplicationError.new(
+                        class_name: definition.type_name,
+                        other_class_name: parent.declared_in,
+                        variable_name: name,
+                        location: class_var.location[:name]
+                      )
+                    end
+                  end
+                end
+              end
+
               ancestors = builder.ancestor_builder.one_singleton_ancestors(name)
               mixin_constraints(definition, ancestors.extended_modules, immediate_self_types: ancestors.self_types).each do |relation, ancestor|
                 checker.check(
