@@ -2731,6 +2731,10 @@ module Steep
         )
 
         if expected_block_type = block_constr.block_context.body_type
+          type_vars = expected_block_type.free_variables
+          subst = Interface::Substitution.build(type_vars, type_vars.map { AST::Builtin.any_type })
+          expected_block_type = expected_block_type.subst(subst)
+
           check_relation(sub_type: return_type, super_type: expected_block_type).else do |result|
             block_constr.typing.add_error(
               Diagnostic::Ruby::BlockBodyTypeMismatch.new(

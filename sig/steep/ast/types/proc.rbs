@@ -4,41 +4,42 @@ module Steep
       class Proc
         attr_reader location: untyped
 
-        attr_reader type: untyped
+        attr_reader type: Interface::Function
 
-        attr_reader block: untyped
+        attr_reader block: Interface::Block?
 
-        def initialize: (type: untyped, block: untyped, ?location: untyped) -> void
+        def initialize: (type: Interface::Function, block: Interface::Block?, ?location: untyped) -> void
 
-        def ==: (untyped other) -> untyped
+        def ==: (untyped other) -> bool
 
-        def hash: () -> untyped
+        def hash: () -> Integer
 
         alias eql? ==
 
-        def subst: (untyped s) -> untyped
+        def subst: (Interface::Substitution s) -> Proc
 
         def to_s: () -> ::String
 
-        def free_variables: () -> untyped
+        def free_variables: () -> Set[Symbol]
 
         include Helper::ChildrenLevel
 
-        def level: () -> untyped
+        def level: () -> Array[Integer]
 
-        def closed?: () -> untyped
+        def closed?: () -> bool
 
-        def with_location: (untyped new_location) -> untyped
+        def with_location: (untyped new_location) -> Proc
 
-        def map_type: () ?{ () -> untyped } -> untyped
+        def map_type: () { (AST::Types::t) -> AST::Types::t } -> Proc
 
-        def one_arg?: () -> untyped
+        def one_arg?: () -> bool
 
-        def back_type: () -> untyped
+        def back_type: () -> AST::Types::t
 
-        def block_required?: () -> untyped
+        def block_required?: () -> bool
 
-        def each_child: () ?{ () -> untyped } -> untyped
+        def each_child: () { (AST::Types::t) -> void } -> void
+                      | () -> Enumerator[AST::Types::t, void]
       end
     end
   end
