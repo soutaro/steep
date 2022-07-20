@@ -9616,4 +9616,24 @@ RUBY
       end
     end
   end
+
+  def test_issue_595_generics_type_inference
+    with_checker(<<-RBS) do |checker|
+class ConfigurationReader
+  def read: [T](T, ^() -> T) -> T
+end
+      RBS
+      source = parse_ruby(<<-RUBY)
+reader = ConfigurationReader.new
+reader.read("123", -> () { 123 })
+      RUBY
+
+      with_standard_construction(checker, source) do |construction, typing|
+        type, _, context = construction.synthesize(source.node)
+
+        assert_no_error typing
+        assert_equal parse_type("::Integer | ::String"), type
+      end
+    end
+  end
 end
