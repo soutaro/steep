@@ -2888,6 +2888,17 @@ module Steep
           )
         end
 
+        if node.type == :block
+          send_node = node.children[0]
+          case send_node.type
+          when :super, :zsuper
+            method_name = method_context.name
+            return fallback_to_any(send_node) do
+              Diagnostic::Ruby::UnexpectedSuper.new(node: send_node, method: method_name)
+            end
+          end
+        end
+
         constr.add_call(
           TypeInference::MethodCall::NoMethodError.new(
             node: node,
@@ -3462,10 +3473,20 @@ module Steep
               errors << error
             end
 
-            errors << Diagnostic::Ruby::UnexpectedBlockGiven.new(
-              node: node,
-              method_type: method_type
-            )
+            case node.children[0].type
+            when :super, :zsuper
+              unless method_context.super_method
+                errors << Diagnostic::Ruby::UnexpectedSuper.new(
+                  node: node.children[0],
+                  method: method_name
+                )
+              end
+            else
+              errors << Diagnostic::Ruby::UnexpectedBlockGiven.new(
+                node: node,
+                method_type: method_type
+              )
+            end
 
             method_type = eliminate_vars(method_type, type_param_names)
             return_type = method_type.type.return_type
