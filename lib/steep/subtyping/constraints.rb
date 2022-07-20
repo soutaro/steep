@@ -169,6 +169,18 @@ module Steep
           else
             type
           end
+        when AST::Types::Tuple
+          AST::Types::Tuple.new(
+            types: type.types.map {|ty| eliminate_variable(ty, to: AST::Builtin.any_type) },
+            location: type.location
+          )
+        when AST::Types::Record
+          AST::Types::Record.new(
+            elements: type.elements.transform_values {|ty| eliminate_variable(ty, to: AST::Builtin.any_type) },
+            location: type.location
+          )
+        when AST::Types::Proc
+          type.map_type {|ty| eliminate_variable(ty, to: AST::Builtin.any_type) }
         else
           type
         end

@@ -65,7 +65,7 @@ module Steep
 
       def add: (untyped var, ?sub_type: untyped?, ?super_type: untyped?, ?skip: bool) -> untyped
 
-      def eliminate_variable: (untyped `type`, to: untyped) -> untyped
+      def eliminate_variable: (AST::Types::t `type`, to: AST::Types::t) -> AST::Types::t
 
       def unknown?: (untyped var) -> untyped
 
