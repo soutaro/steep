@@ -124,10 +124,10 @@ module Steep
           skips << type if skip
         end
 
-        super_fvs = supers.each.with_object(Set.new) do |type, fvs|
+        super_fvs = supers.each_with_object(Set.new) do |type, fvs|
           fvs.merge(type.free_variables)
         end
-        sub_fvs = subs.each.with_object(Set.new) do |type, fvs|
+        sub_fvs = subs.each_with_object(Set.new) do |type, fvs|
           fvs.merge(type.free_variables)
         end
 
@@ -205,34 +205,36 @@ module Steep
       end
 
       def upper_bound(var, skip: false)
-        _, upper_bound, skips = dictionary[var]
-        upper_bound -= skips if skip
+        if skip
+          upper_bound = upper_bound_types(var)
+        else
+          _, upper_bound, _ = dictionary[var]
+        end
 
         case upper_bound.size
         when 0
           AST::Types::Top.new
         when 1
-          upper_bound.first
+          upper_bound.first || raise
         else
           AST::Types::Intersection.build(types: upper_bound.to_a)
         end
       end
 
       def lower_bound(var, skip: false)
-        lower_bound, _, skips = dictionary[var]
-        lower_bound -= skips if skip
+        lower_bound = lower_bound_types(var)
 
         case lower_bound.size
         when 0
           AST::Types::Bot.new
         when 1
-          lower_bound.first
+          lower_bound.first || raise
         else
           AST::Types::Union.build(types: lower_bound.to_a)
         end
       end
 
-      Context = Struct.new(:variance, :self_type, :instance_type, :class_type, keyword_init: true)
+      Context = _ = Struct.new(:variance, :self_type, :instance_type, :class_type, keyword_init: true)
 
       def solution(checker, variance: nil, variables:, self_type: nil, instance_type: nil, class_type: nil, context: nil)
         if context
@@ -300,16 +302,13 @@ module Steep
       end
 
       def has_constraint?(var)
-        lower, upper, skips = dictionary[var]
-        lower -= skips
-        upper -= skips
-        !lower.empty? || !upper.empty?
+        !upper_bound_types(var).empty? || !lower_bound_types(var).empty?
       end
 
       def each
         if block_given?
           dictionary.each_key do |var|
-            yield var, lower_bound(var), upper_bound(var)
+            yield [var, lower_bound(var), upper_bound(var)]
           end
         else
           enum_for :each
@@ -322,6 +321,24 @@ module Steep
         end
 
         "#{unknowns.to_a.join(",")}/#{vars.to_a.join(",")} |- { #{strings.join(", ")} }"
+      end
+
+      def lower_bound_types(var_name)
+        lower, _, _ = dictionary[var_name]
+        lower
+      end
+
+      def upper_bound_types(var_name)
+        _, upper, skips = dictionary[var_name]
+
+        case
+        when upper.empty?
+          skips
+        when skips.empty?
+          upper
+        else
+          upper - skips
+        end
       end
     end
   end
