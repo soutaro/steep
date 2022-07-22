@@ -1155,35 +1155,30 @@ module Steep
           value = node.children[0]
 
           if break_context
-            if break_type = break_context.break_type
-              if value
-                check(value, break_type) do |break_type, actual_type, result|
+            break_type = (break_context || raise).break_type
+
+            if value
+              check(value, break_type) do |break_type, actual_type, result|
+                typing.add_error(
+                  Diagnostic::Ruby::BreakTypeMismatch.new(
+                    node: node,
+                    expected: break_type,
+                    actual: actual_type,
+                    result: result
+                  )
+                )
+              end
+            else
+              unless break_type.is_a?(AST::Types::Bot)
+                check_relation(sub_type: AST::Builtin.nil_type, super_type: break_type).else do |result|
                   typing.add_error(
-                    Diagnostic::Ruby::BreakTypeMismatch.new(
+                    Diagnostic::Ruby::ImplicitBreakValueMismatch.new(
                       node: node,
-                      expected: break_type,
-                      actual: actual_type,
+                      jump_type: break_type,
                       result: result
                     )
                   )
                 end
-              else
-                unless break_type.is_a?(AST::Types::Bot)
-                  check_relation(sub_type: AST::Builtin.nil_type, super_type: break_type).else do |result|
-                    typing.add_error(
-                      Diagnostic::Ruby::ImplicitBreakValueMismatch.new(
-                        node: node,
-                        jump_type: break_type,
-                        result: result
-                      )
-                    )
-                  end
-                end
-              end
-            else
-              if value
-                synthesize(value)
-                typing.add_error Diagnostic::Ruby::UnexpectedJumpValue.new(node: node)
               end
             end
           else
@@ -2120,7 +2115,7 @@ module Steep
               _, body_constr =
                 constr
                   .update_type_env { body_env }
-                  .for_branch(body, break_context: TypeInference::Context::BreakContext.new(break_type: nil, next_type: nil))
+                  .for_branch(body, break_context: TypeInference::Context::BreakContext.new(break_type: hint || AST::Builtin.nil_type, next_type: nil))
                   .tap {|constr| typing.add_context_for_node(body, context: constr.context) }
                   .synthesize(body).to_ary
 
@@ -2142,7 +2137,7 @@ module Steep
               for_loop =
                 cond_constr
                   .update_type_env {|env| env.merge(local_variable_types: env.pin_local_variables(nil)) }
-                  .for_branch(body, break_context: TypeInference::Context::BreakContext.new(break_type: nil, next_type: nil))
+                  .for_branch(body, break_context: TypeInference::Context::BreakContext.new(break_type: hint || AST::Builtin.nil_type, next_type: nil))
 
               typing.add_context_for_node(body, context: for_loop.context)
               _, body_constr, body_context = for_loop.synthesize(body)
@@ -3647,10 +3642,10 @@ module Steep
         block_body,
         block_params: block_params,
         block_param_hint: nil,
-        block_type_hint: AST::Builtin.any_type,
+        block_type_hint: nil,
         block_block_hint: nil,
         block_annotations: block_annotations,
-        node_type_hint: AST::Builtin.any_type
+        node_type_hint: nil
       )
 
       block_constr.typing.add_context_for_body(node, context: block_constr.context)
@@ -3724,11 +3719,11 @@ module Steep
                    end
 
       block_context = TypeInference::Context::BlockContext.new(
-        body_type: block_annotations.block_type || block_type_hint || AST::Builtin.any_type
+        body_type: block_annotations.block_type || block_type_hint
       )
       break_context = TypeInference::Context::BreakContext.new(
-        break_type: break_type,
-        next_type: block_context.body_type
+        break_type: break_type || AST::Builtin.any_type,
+        next_type: block_context.body_type || AST::Builtin.any_type
       )
 
       self_type = self.self_type

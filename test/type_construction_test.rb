@@ -1940,10 +1940,7 @@ end
       with_standard_construction(checker, source) do |construction, typing|
         construction.synthesize(source.node)
 
-        assert_equal 1, typing.errors.size
-        assert_any typing.errors do |error|
-          error.is_a?(Diagnostic::Ruby::UnexpectedJumpValue)
-        end
+        assert_no_error typing
       end
     end
   end
