@@ -9699,7 +9699,7 @@ reader.read("123", -> () { 123 })
 module Issue610
   class Foo
     def ok: [T] (T) { () -> ^(::Integer) -> T } -> T
-    def ng: [T < Integer] (T) { () -> ^(T) -> T } -> T
+    def ng: [T] (T) { () -> ^(T) -> T } -> T
   end
 end
       RBS
@@ -9711,7 +9711,12 @@ ng = Issue610::Foo.new.ng(123) do -> (x) { x + 1 } end
       with_standard_construction(checker, source) do |construction, typing|
         type, _, context = construction.synthesize(source.node)
 
-        assert_no_error typing
+        assert_typing_error(typing, size: 1) do |errors|
+          errors[0].tap do |error|
+            assert_instance_of Diagnostic::Ruby::NoMethod, error
+            assert_equal :+, error.method
+          end
+        end
 
         assert_equal parse_type("::Integer"), context.type_env[:ok]
         assert_equal parse_type("::Integer"), context.type_env[:ng]
