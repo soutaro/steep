@@ -3700,6 +3700,7 @@ module Steep
       type_env = TypeInference::TypeEnvBuilder.new(
         TypeInference::TypeEnvBuilder::Command::ImportLocalVariableAnnotations.new(block_annotations).merge!.on_duplicate! do |name, outer_type, inner_type|
           next if outer_type.is_a?(AST::Types::Var) || inner_type.is_a?(AST::Types::Var)
+          next unless body_node
 
           if result = no_subtyping?(sub_type: outer_type, super_type: inner_type)
             typing.add_error Diagnostic::Ruby::IncompatibleAnnotation.new(
