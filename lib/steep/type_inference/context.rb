@@ -29,6 +29,10 @@ module Steep
         def initialize(body_type:)
           @body_type = body_type
         end
+
+        def subst(s)
+          BlockContext.new(body_type: body_type&.subst(s))
+        end
       end
 
       class BreakContext
@@ -38,6 +42,10 @@ module Steep
         def initialize(break_type:, next_type:)
           @break_type = break_type
           @next_type = next_type
+        end
+
+        def subst(s)
+          BreakContext.new(break_type: break_type.subst(s), next_type: next_type&.subst(s))
         end
       end
 

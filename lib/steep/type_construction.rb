@@ -3407,6 +3407,13 @@ module Steep
               if solved
                 # Ready for type check the body of the block
                 block_constr = block_constr.update_type_env {|env| env.subst(s) }
+                block_constr = block_constr.update_context {|context|
+                  context.with(
+                    type_env: context.type_env.subst(s),
+                    block_context: context.block_context&.subst(s),
+                    break_context: context.break_context&.subst(s)
+                  )
+                }
 
                 block_body_type = block_constr.synthesize_block(
                   node: node,
