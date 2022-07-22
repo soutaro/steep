@@ -3243,6 +3243,15 @@ module Steep
 
       constr = self
 
+      constr = constr.with(
+        context: context.with(
+          variable_context: TypeInference::Context::TypeVariableContext.new(
+            type_params,
+            parent_context: context.variable_context
+          )
+        )
+      )
+
       method_type = method_type.instantiate(instantiation)
 
       variance = Subtyping::VariableVariance.from_method_type(method_type)
@@ -3597,6 +3606,12 @@ module Steep
                    errors: errors
                  )
                end
+
+        constr = constr.with(
+          context: constr.context.with(
+            variable_context: context.variable_context
+          )
+        )
 
         [
           call,
