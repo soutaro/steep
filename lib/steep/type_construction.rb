@@ -3408,15 +3408,11 @@ module Steep
                 # Ready for type check the body of the block
                 block_constr = block_constr.update_type_env {|env| env.subst(s) }
 
-                if block_body
-                  block_body_type = block_constr.synthesize_block(
-                    node: node,
-                    block_body: block_body,
-                    block_type_hint: method_type.block.type.return_type
-                  )
-                else
-                  block_body_type = AST::Builtin.nil_type
-                end
+                block_body_type = block_constr.synthesize_block(
+                  node: node,
+                  block_body: block_body,
+                  block_type_hint: method_type.block.type.return_type
+                )
 
                 result = check_relation(sub_type: block_body_type,
                                         super_type: method_type.block.type.return_type,
