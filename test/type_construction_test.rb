@@ -9696,4 +9696,29 @@ reader.read("123", -> () { 123 })
       end
     end
   end
+
+  def test_issue_610_type_param_block_param
+    with_checker(<<-RBS) do |checker|
+module Issue610
+  class Foo
+    def ok: [T] (T) { () -> ^(::Integer) -> T } -> T
+    def ng: [T < Integer] (T) { () -> ^(T) -> T } -> T
+  end
+end
+      RBS
+      source = parse_ruby(<<-RUBY)
+ok = Issue610::Foo.new.ok(123) do -> (x) { x + 1 } end
+ng = Issue610::Foo.new.ng(123) do -> (x) { x + 1 } end
+      RUBY
+
+      with_standard_construction(checker, source) do |construction, typing|
+        type, _, context = construction.synthesize(source.node)
+
+        assert_no_error typing
+
+        assert_equal parse_type("::Integer"), context.type_env[:ok]
+        assert_equal parse_type("::Integer"), context.type_env[:ng]
+      end
+    end
+  end
 end
