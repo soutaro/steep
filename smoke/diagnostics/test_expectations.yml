@@ -489,8 +489,10 @@
         line: 2
         character: 10
     severity: ERROR
-    message: The value given to break will be ignored
-    code: Ruby::UnexpectedJumpValue
+    message: |-
+      Cannot break with a value of type `::Integer` because type `nil` is assumed
+        ::Integer <: nil
+    code: Ruby::BreakTypeMismatch
 - file: unexpected_keyword.rb
   diagnostics:
   - range:
