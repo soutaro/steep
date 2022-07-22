@@ -1,35 +1,35 @@
 module Steep
   module Interface
     class Block
-      attr_reader type: untyped
+      attr_reader type: Function
 
-      attr_reader optional: untyped
+      attr_reader optional: bool
 
-      def initialize: (type: untyped, optional: untyped) -> void
+      def initialize: (type: Function, optional: bool) -> void
 
-      def optional?: () -> untyped
+      def optional?: () -> bool
 
-      def required?: () -> untyped
+      def required?: () -> bool
 
-      def to_optional: () -> untyped
+      def to_optional: () -> Block
 
-      def ==: (untyped other) -> untyped
+      def ==: (untyped other) -> bool
 
       alias eql? ==
 
-      def hash: () -> untyped
+      def hash: () -> Integer
 
-      def closed?: () -> untyped
+      def closed?: () -> bool
 
-      def subst: (untyped s) -> untyped
+      def subst: (Substitution s) -> Block
 
-      def free_variables: () -> untyped
+      def free_variables: () -> Set[Symbol]
 
       def to_s: () -> ::String
 
-      def map_type: () { () -> untyped } -> untyped
+      def map_type: () { (AST::Types::t) -> AST::Types::t } -> Block
 
-      def +: (untyped other) -> untyped
+      def +: (Block other) -> Block
     end
   end
 end

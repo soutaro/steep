@@ -3,9 +3,9 @@ module Steep
     class MethodType
       attr_reader type_params: Array[TypeParam]
 
-      attr_reader type: untyped
+      attr_reader type: Function
 
-      attr_reader block: untyped
+      attr_reader block: Block
 
       attr_reader method_decls: untyped
 
@@ -15,21 +15,21 @@ module Steep
 
       alias eql? ==
 
-      def hash: () -> untyped
+      def hash: () -> Integer
 
-      def free_variables: () -> untyped
+      def free_variables: () -> Set[Symbol]
 
-      def subst: (untyped s) -> (self | untyped)
+      def subst: (Substitution s) -> MethodType
 
       def each_type: () { (untyped) -> untyped } -> untyped
 
-      def instantiate: (untyped s) -> untyped
+      def instantiate: (Substitution s) -> MethodType
 
-      def with: (?type_params: untyped, ?type: untyped, ?block: untyped, ?method_decls: untyped) -> untyped
+      def with: (?type_params: untyped, ?type: untyped, ?block: untyped, ?method_decls: untyped) -> MethodType
 
       def to_s: () -> ::String
 
-      def map_type: () ?{ () -> untyped } -> untyped
+      def map_type: () { (AST::Types::t) -> AST::Types::t } -> MethodType
 
       # Returns a new method type which can be used for the method implementation type of both `self` and `other`.
       #

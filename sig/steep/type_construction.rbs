@@ -183,20 +183,22 @@ module Steep
         block_params: TypeInference::BlockParams,
         block_param_hint: TypeInference::MethodParams?,
         block_type_hint: AST::Types::t?,
-        block_block_hint: AST::Types::t?,
+        block_block_hint: Interface::Block?,
         block_annotations: AST::Annotation::Collection,
         node_type_hint: AST::Types::t?
       ) -> TypeConstruction
 
-    # Synthesize the block body and returns a Pair of after evaluating the body.
+    # Synthesize the block body and returns the type of the body
     #
-    def synthesize_block: (node: Parser::AST::Node, block_type_hint: AST::Types::t?, block_body: Parser::AST::Node) -> Pair
+    # The constructor can be discarded because it cannot change anything outer than block.
+    #
+    def synthesize_block: (node: Parser::AST::Node, block_type_hint: AST::Types::t?, block_body: Parser::AST::Node?) -> AST::Types::t
 
     def nesting: () -> RBS::Resolver::context
 
     def absolute_name: (untyped name) -> untyped
 
-    def union_type: (*untyped types) -> untyped
+    def union_type: (*AST::Types::t types) -> AST::Types::t
 
     def validate_method_definitions: (untyped node, untyped module_name) -> (nil | untyped)
 

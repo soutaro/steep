@@ -53,41 +53,59 @@ module Steep
         def initialize: (var: untyped, sub_type: untyped, super_type: untyped, result: untyped) -> void
       end
 
-      attr_reader dictionary: untyped
+      class Context
+        attr_reader variance: untyped
 
-      attr_reader vars: untyped
+        attr_reader self_type: AST::Types::t
 
-      def initialize: (unknowns: untyped) -> void
+        attr_reader instance_type: AST::Types::t
 
-      def self.empty: () -> untyped
+        attr_reader class_type: AST::Types::t
 
-      def add_var: (*untyped vars) -> untyped
+        def initialize: (variance: untyped, self_type: AST::Types::t, instance_type: AST::Types::t, class_type: AST::Types::t) -> void
+      end
 
-      def add: (untyped var, ?sub_type: untyped?, ?super_type: untyped?, ?skip: bool) -> untyped
+      attr_reader dictionary: Hash[Symbol, [Set[AST::Types::t], Set[AST::Types::t], Set[AST::Types::t]]]
+
+      attr_reader vars: Set[Symbol]
+
+      def initialize: (unknowns: _Each[Symbol]) -> void
+
+      def self.empty: () -> Constraints
+
+      def add_var: (*Symbol vars) -> void
+
+      def add: (Symbol var, ?sub_type: untyped?, ?super_type: untyped?, ?skip: bool) -> untyped
 
       def eliminate_variable: (AST::Types::t `type`, to: AST::Types::t) -> AST::Types::t
 
-      def unknown?: (untyped var) -> untyped
+      def unknown?: (Symbol var) -> bool
 
-      def unknowns: () -> untyped
+      def unknowns: () -> Set[Symbol]
 
-      def unknown!: (untyped var) -> (untyped | nil)
+      def unknown!: (Symbol var) -> void
 
-      def empty?: () -> untyped
+      def empty?: () -> bool
 
-      def upper_bound: (untyped var, ?skip: bool) -> untyped
+      def upper_bound: (Symbol var, ?skip: bool) -> AST::Types::t
 
-      def lower_bound: (untyped var, ?skip: bool) -> untyped
+      def lower_bound: (Symbol var, ?skip: bool) -> AST::Types::t
 
-      Context: untyped
+      def solution: (Check checker, variables: Enumerable[Symbol], variance: VariableVariance, self_type: AST::Types::t, instance_type: AST::Types::t, class_type: AST::Types::t) -> Interface::Substitution
+                  | (Check checker, variables: Enumerable[Symbol], context: Context) -> Interface::Substitution
 
-      def solution: (untyped checker, variables: untyped, ?variance: untyped?, ?self_type: untyped?, ?instance_type: untyped?, ?class_type: untyped?, ?context: untyped?) -> untyped
+      def has_constraint?: (Symbol var) -> bool
 
-      def has_constraint?: (untyped var) -> untyped
-
-      def each: () { (untyped, untyped, untyped) -> untyped } -> untyped
+      def each: () { ([Symbol, AST::Types::t, AST::Types::t]) -> void } -> void
+              | () -> Enumerator[[Symbol, AST::Types::t, AST::Types::t], void]
 
       def to_s: () -> ::String
+
+      private
+
+      def lower_bound_types: (Symbol var_name) -> Set[AST::Types::t]
+
+      def upper_bound_types: (Symbol var_name) -> Set[AST::Types::t]
     end
   end
 end
