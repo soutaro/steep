@@ -20,17 +20,31 @@ module Steep
       end
 
       class BlockContext
-        attr_reader body_type: untyped
+        # The type of block itself
+        #
+        # Returns `nil` if no type is specified.
+        #
+        attr_reader body_type: AST::Types::t?
 
-        def initialize: (body_type: untyped) -> void
+        def initialize: (body_type: AST::Types::t?) -> void
+
+        def subst: (Interface::Substitution) -> BlockContext
       end
 
       class BreakContext
-        attr_reader break_type: untyped
+        # Type of arguments to `break` statement
+        #
+        attr_reader break_type: AST::Types::t
 
-        attr_reader next_type: untyped
+        # Type of arguments to `next` statement
+        #
+        # `nil` means the passed value will be ignored.
+        #
+        attr_reader next_type: AST::Types::t?
 
-        def initialize: (break_type: untyped, next_type: untyped) -> void
+        def initialize: (break_type: AST::Types::t, next_type: AST::Types::t?) -> void
+
+        def subst: (Interface::Substitution) -> BreakContext
       end
 
       class ModuleContext
@@ -60,26 +74,30 @@ module Steep
       end
 
       class TypeVariableContext
-        attr_reader table: untyped
+        attr_reader table: Hash[Symbol, Interface::TypeParam]
 
-        attr_reader type_params: untyped
+        attr_reader type_params: Array[Interface::TypeParam]
 
-        def initialize: (untyped type_params, ?parent_context: untyped?) -> void
+        def initialize: (Array[Interface::TypeParam] type_params, ?parent_context: TypeVariableContext?) -> void
 
-        def []: (untyped name) -> untyped
+        def []: (Symbol name) -> AST::Types::t?
 
-        def upper_bounds: () -> untyped
+        def upper_bounds: () -> Hash[Symbol, AST::Types::t]
 
-        def self.empty: () -> untyped
+        def self.empty: () -> TypeVariableContext
       end
 
       attr_reader call_context: untyped
 
       attr_reader method_context: untyped
 
-      attr_reader block_context: untyped
+      # BlockContext for current execution point
+      #
+      # `nil` when not in iterator block.
+      #
+      attr_reader block_context: BlockContext?
 
-      attr_reader break_context: untyped
+      attr_reader break_context: BreakContext?
 
       attr_reader module_context: untyped
 
@@ -87,11 +105,29 @@ module Steep
 
       attr_reader type_env: TypeEnv
 
-      attr_reader variable_context: untyped
+      attr_reader variable_context: TypeVariableContext
 
-      def initialize: (method_context: untyped, block_context: untyped, break_context: untyped, module_context: untyped, self_type: untyped, type_env: TypeEnv, call_context: untyped, variable_context: untyped) -> void
+      def initialize: (
+        method_context: untyped,
+        block_context: BlockContext?,
+        break_context: BreakContext?,
+        module_context: untyped,
+        self_type: untyped,
+        type_env: TypeEnv,
+        call_context: untyped,
+        variable_context: TypeVariableContext
+      ) -> void
 
-      def with: (?method_context: untyped, ?block_context: untyped, ?break_context: untyped, ?module_context: untyped, ?self_type: untyped, ?type_env: TypeEnv, ?call_context: untyped, ?variable_context: untyped) -> untyped
+      def with: (
+        ?method_context: untyped,
+        ?block_context: BlockContext?,
+        ?break_context: BreakContext?,
+        ?module_context: untyped,
+        ?self_type: untyped,
+        ?type_env: TypeEnv,
+        ?call_context: untyped,
+        ?variable_context: untyped
+      ) -> Context
 
       def factory: () -> AST::Types::Factory
 

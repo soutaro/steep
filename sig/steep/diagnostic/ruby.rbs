@@ -128,11 +128,11 @@ module Steep
       end
 
       class NoMethod < Base
-        attr_reader type: untyped
+        attr_reader type: AST::Types::t
 
-        attr_reader method: untyped
+        attr_reader method: Symbol
 
-        def initialize: (node: untyped, type: untyped, method: untyped) -> void
+        def initialize: (node: Parser::AST::Node, type: AST::Types::t, method: Symbol) -> void
 
         def header_line: () -> ::String
       end
@@ -441,7 +441,7 @@ module Steep
       #
       # ```ruby
       # a, b = foo()
-      #        ^^^^^ 
+      #        ^^^^^
       # ```
       #
       class MultipleAssignmentConversionError < Base
