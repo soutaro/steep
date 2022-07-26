@@ -2,15 +2,30 @@
 
 ## master
 
-### Type checker
+## 1.1.0.pre.1 (2022-07-26)
 
+### Type checker core
+
+* Type refinement with method calls ([#590](https://github.com/soutaro/steep/issues/590))
+* Better multiple assignment type checking ([\#605](https://github.com/soutaro/steep/pull/605))
+* Fix generics issues around proc types ([\#609](https://github.com/soutaro/steep/pull/609), [\#611](https://github.com/soutaro/steep/pull/611))
 * Fix type application validation ([#607](https://github.com/soutaro/steep/pull/607); backport from 1.0.2)
+* Add class variable validation ([\#593](https://github.com/soutaro/steep/pull/593))
+* Fix type application validation ([\#607](https://github.com/soutaro/steep/pull/607))
+
+### Commandline tool
+
+* Appends "done!" to the watch output when the type check is complete ([\#596](https://github.com/soutaro/steep/pull/596))
+
+### Language server
+
+* Fix hover on multiple assignment ([\#606](https://github.com/soutaro/steep/pull/606))
 
 ## 1.0.2 (2022-07-19)
 
 This is another patch release for Steep 1.0.
 
-### Type checker
+### Type checker core
 
 * Fix type application validation ([#607](https://github.com/soutaro/steep/pull/607))
 
@@ -20,7 +35,7 @@ This is the first patch release for Steep 1.0.
 However, this release includes one non-trivial type system update, [\#570](https://github.com/soutaro/steep/pull/570), which adds a special typing rule for `Hash#compact` like `Array#compact`.
 The change will make type checking more permissive and precise, so no new error won't be reported with the fix.
 
-### Type checker
+### Type checker core
 
 * Support shorthand hash for Ruby 3.1 ([\#567](https://github.com/soutaro/steep/pull/567))
 * Fix super and zsuper with block ([\#568](https://github.com/soutaro/steep/pull/568))
@@ -34,7 +49,7 @@ The change will make type checking more permissive and precise, so no new error 
 * Type check `gvar` and `gvasgn` in methods([\#579](https://github.com/soutaro/steep/pull/579))
 * Avoid `UnexpectedError` when assigning untyped singleton class ([\#586](https://github.com/soutaro/steep/pull/586))
 
-### Tool
+### Commandline tool
 
 * Improve Windows support ([\#561](https://github.com/soutaro/steep/pull/561), [\#573](https://github.com/soutaro/steep/pull/573))
 * Test if `.ruby-version` exists before `rvm do` in binstub ([\#558](https://github.com/soutaro/steep/pull/558))
