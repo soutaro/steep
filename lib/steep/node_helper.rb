@@ -40,7 +40,7 @@ module Steep
       when :dstr
         each_child_node(node).all? {|child| value_node?(child)}
       when :begin
-        each_child_node(node).all? {|child| value_node?(node) }
+        each_child_node(node).all? {|child| value_node?(child) }
       else
         false
       end

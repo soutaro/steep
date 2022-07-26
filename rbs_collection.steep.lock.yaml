@@ -11,7 +11,7 @@ gems:
   source:
     type: stdlib
 - name: rbs
-  version: 2.6.0
+  version: 2.5.1
   source:
     type: rubygems
 - name: activesupport
@@ -19,7 +19,7 @@ gems:
   source:
     type: git
     name: ruby/gem_rbs_collection
-    revision: cd6db41310b911e1df3476246257510673f01b8a
+    revision: 933f7176968d8620224c0b22baefadbd7d77ef27
     remote: https://github.com/ruby/gem_rbs_collection.git
     repo_dir: gems
 - name: ast
@@ -27,7 +27,7 @@ gems:
   source:
     type: git
     name: ruby/gem_rbs_collection
-    revision: cd6db41310b911e1df3476246257510673f01b8a
+    revision: 933f7176968d8620224c0b22baefadbd7d77ef27
     remote: https://github.com/ruby/gem_rbs_collection.git
     repo_dir: gems
 - name: i18n
@@ -35,7 +35,7 @@ gems:
   source:
     type: git
     name: ruby/gem_rbs_collection
-    revision: cd6db41310b911e1df3476246257510673f01b8a
+    revision: 933f7176968d8620224c0b22baefadbd7d77ef27
     remote: https://github.com/ruby/gem_rbs_collection.git
     repo_dir: gems
 - name: listen
@@ -43,19 +43,15 @@ gems:
   source:
     type: git
     name: ruby/gem_rbs_collection
-    revision: cd6db41310b911e1df3476246257510673f01b8a
+    revision: 933f7176968d8620224c0b22baefadbd7d77ef27
     remote: https://github.com/ruby/gem_rbs_collection.git
     repo_dir: gems
-- name: minitest
-  version: '0'
-  source:
-    type: stdlib
 - name: parallel
   version: '1.20'
   source:
     type: git
     name: ruby/gem_rbs_collection
-    revision: cd6db41310b911e1df3476246257510673f01b8a
+    revision: 933f7176968d8620224c0b22baefadbd7d77ef27
     remote: https://github.com/ruby/gem_rbs_collection.git
     repo_dir: gems
 - name: rainbow
@@ -63,7 +59,7 @@ gems:
   source:
     type: git
     name: ruby/gem_rbs_collection
-    revision: cd6db41310b911e1df3476246257510673f01b8a
+    revision: 933f7176968d8620224c0b22baefadbd7d77ef27
     remote: https://github.com/ruby/gem_rbs_collection.git
     repo_dir: gems
 - name: logger
