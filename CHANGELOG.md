@@ -2,6 +2,12 @@
 
 ## master
 
+## 1.1.0 (2022-07-27)
+
+### Type checker core
+
+* Fix `#each_child_node` ([#612](https://github.com/soutaro/steep/pull/612))
+
 ## 1.1.0.pre.1 (2022-07-26)
 
 ### Type checker core
