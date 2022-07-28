@@ -112,6 +112,8 @@ module Steep
         invalidated_nodes = Set[]
 
         assignments.each do |name, new_type|
+          local_variable_name!(name)
+
           local_variable_types[name] = [new_type, enforced_type(name)]
           invalidated_nodes.merge(invalidated_pure_nodes(::Parser::AST::Node.new(:lvar, [name])))
         end
@@ -125,6 +127,7 @@ module Steep
       end
 
       def assign_local_variable(name, var_type, enforced_type)
+        local_variable_name!(name)
         merge(
           local_variable_types: { name => [enforced_type || var_type, enforced_type] },
           pure_method_calls: pure_node_invalidation(invalidated_pure_nodes(::Parser::AST::Node.new(:lvar, [name])))
@@ -135,6 +138,7 @@ module Steep
         local_variable_updates = {}
 
         local_variable_types.each do |name, type|
+          local_variable_name!(name)
           local_variable_updates[name] = [type, enforced_type(name)]
         end
 
@@ -175,6 +179,8 @@ module Steep
         local_variable_types.each.with_object({}) do |pair, hash|
           name, entry = pair
 
+          local_variable_name!(name)
+
           if names.nil? || names.include?(name)
             type, enforced_type = entry
             unless enforced_type
@@ -189,6 +195,8 @@ module Steep
 
         local_var_types = local_variable_types.each.with_object({}) do |pair, hash|
           name, entry = pair
+
+          local_variable_name!(name)
 
           if names.nil? || names.include?(name)
             type, _ = entry
@@ -300,7 +308,11 @@ module Steep
       end
 
       def local_variable_name?(name)
-        name.start_with?(/[a-z_]/)
+        name.start_with?(/[a-z_]/) && name != :_ && name != :__skip__ && name != :__any__
+      end
+
+      def local_variable_name!(name)
+        local_variable_name?(name) || raise("#{name} is not a local variable")
       end
 
       def instance_variable_name?(name)

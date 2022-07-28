@@ -9738,4 +9738,33 @@ ng = Issue610::Foo.new.ng(123) do -> (x) { x + 1 } end
       end
     end
   end
+
+  def test_lvar_special
+    with_checker(<<-RBS) do |checker|
+      RBS
+      source = parse_ruby(<<-RUBY)
+_ = 123
+_ + 1
+
+__skip__ = 123
+__skip__ + 123
+
+__any__ = :foo
+__any__ + 123
+
+_, __any__ = [123, :foo]
+
+[1,2,3].each do |_|
+end
+
+-> (_) { 123 }
+      RUBY
+
+      with_standard_construction(checker, source) do |construction, typing|
+        type, _, context = construction.synthesize(source.node)
+
+        assert_no_error typing
+      end
+    end
+  end
 end

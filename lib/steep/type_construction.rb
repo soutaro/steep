@@ -37,6 +37,8 @@ module Steep
       s + ">"
     end
 
+    SPECIAL_LVAR_NAMES = Set[:_, :__any__, :__skip__]
+
     include ModuleHelper
 
     attr_reader :checker
@@ -202,7 +204,9 @@ module Steep
 
       local_variable_types = method_params.each_param.with_object({}) do |param, hash|
         if param.name
-          hash[param.name] = param.var_type
+          unless SPECIAL_LVAR_NAMES.include?(param.name)
+            hash[param.name] = param.var_type
+          end
         end
       end
       type_env = context.type_env.assign_local_variables(local_variable_types)
@@ -752,10 +756,15 @@ module Steep
         when :lvar
           yield_self do
             var = node.children[0]
-            if (type = context.type_env[var])
-              add_typing node, type: type
+
+            if SPECIAL_LVAR_NAMES.include?(var)
+              add_typing node, type: AST::Builtin.any_type
             else
-              fallback_to_any(node)
+              if (type = context.type_env[var])
+                add_typing node, type: type
+              else
+                fallback_to_any(node)
+              end
             end
           end
 
@@ -1240,13 +1249,17 @@ module Steep
 
             node.children.each do |arg|
               if arg.is_a?(Symbol)
-                type = context.type_env[arg]
-
-                if type
-                  _, constr = add_typing(node, type: type)
+                if SPECIAL_LVAR_NAMES === arg
+                  _, constr = add_typing(node, type: AST::Builtin.any_type)
                 else
-                  type = AST::Builtin.any_type
-                  _, constr = lvasgn(node, type)
+                  type = context.type_env[arg]
+
+                  if type
+                    _, constr = add_typing(node, type: type)
+                  else
+                    type = AST::Builtin.any_type
+                    _, constr = lvasgn(node, type)
+                  end
                 end
               else
                 _, constr = constr.synthesize(arg)
@@ -1270,13 +1283,18 @@ module Steep
         when :arg, :kwarg
           yield_self do
             var = node.children[0]
-            type = context.type_env[var]
 
-            if type
-              add_typing(node, type: type)
+            if SPECIAL_LVAR_NAMES.include?(var)
+              add_typing(node, type: AST::Builtin.any_type)
             else
-              type = AST::Builtin.any_type
-              lvasgn(node, type)
+              type = context.type_env[var]
+
+              if type
+                add_typing(node, type: type)
+              else
+                type = AST::Builtin.any_type
+                lvasgn(node, type)
+              end
             end
           end
 
@@ -2440,23 +2458,27 @@ module Steep
     def lvasgn(node, type)
       name = node.children[0]
 
-      if enforced_type = context.type_env.enforced_type(name)
-        if result = no_subtyping?(sub_type: type, super_type: enforced_type)
-          typing.add_error(
-            Diagnostic::Ruby::IncompatibleAssignment.new(
-              node: node,
-              lhs_type: enforced_type,
-              rhs_type: type,
-              result: result
+      if SPECIAL_LVAR_NAMES.include?(name)
+        add_typing(node, type: AST::Builtin.any_type)
+      else
+        if enforced_type = context.type_env.enforced_type(name)
+          if result = no_subtyping?(sub_type: type, super_type: enforced_type)
+            typing.add_error(
+              Diagnostic::Ruby::IncompatibleAssignment.new(
+                node: node,
+                lhs_type: enforced_type,
+                rhs_type: type,
+                result: result
+              )
             )
-          )
 
-          type = enforced_type
+            type = enforced_type
+          end
         end
-      end
 
-      update_type_env {|env| env.assign_local_variable(name, type, enforced_type) }
-        .add_typing(node, type: type)
+        update_type_env {|env| env.assign_local_variable(name, type, enforced_type) }
+          .add_typing(node, type: type)
+      end
     end
 
     def ivasgn(node, rhs_type)
