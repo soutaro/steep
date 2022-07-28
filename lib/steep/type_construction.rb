@@ -1844,8 +1844,21 @@ module Steep
             if cond
               branch_results = []
 
-              cond_type, constr = constr.synthesize(cond).to_ary
-              cond_value_node, cond_vars = interpreter.decompose_value(cond)
+              cond_type, constr = constr.synthesize(cond)
+              _, cond_vars = interpreter.decompose_value(cond)
+
+              var_name = :"_a#{SecureRandom.base64(4)}"
+              var_cond, value_node = extract_outermost_call(cond, var_name)
+              if value_node
+                unless constr.context.type_env[value_node]
+                  constr = constr.update_type_env do |env|
+                    env.assign_local_variable(var_name, cond_type, nil)
+                  end
+                  cond = var_cond
+                else
+                  value_node = nil
+                end
+              end
 
               when_constr = constr
               whens.each do |clause|
@@ -1893,7 +1906,11 @@ module Steep
               types = branch_results.map(&:type)
               constrs = branch_results.map(&:constr)
 
-              cond_type = when_constr.context.type_env[cond_value_node]
+              cond_type = when_constr.context.type_env[var_name]
+              cond_type ||= when_constr.context.type_env[cond_vars.first || raise] unless cond_vars.empty?
+              cond_type ||= when_constr.context.type_env[value_node] if value_node
+              cond_type ||= typing.type_of(node: node.children[0])
+
               if cond_type.is_a?(AST::Types::Bot)
                 # Exhaustive
                 if els
@@ -4234,6 +4251,36 @@ module Steep
     def save_typing
       typing.save!
       with_new_typing(typing.parent)
+    end
+
+    def extract_outermost_call(node, var_name)
+      case node.type
+      when :lvasgn
+        name, rhs = node.children
+        rhs, value_node = extract_outermost_call(rhs, var_name)
+        if value_node
+          [node.updated(nil, [name, rhs]), value_node]
+        else
+          [node, value_node]
+        end
+      when :begin
+        *children, last = node.children
+        last, value_node = extract_outermost_call(last, var_name)
+        if value_node
+          [node.updated(nil, children.push(last)), value_node]
+        else
+          [node, value_node]
+        end
+      when :lvar
+        [node, nil]
+      else
+        if value_node?(node)
+          [node, nil]
+        else
+          var_node = node.updated(:lvar, [var_name])
+          [var_node, node]
+        end
+      end
     end
   end
 end
