@@ -150,6 +150,8 @@ module Steep
 
       def local_variable_name?: (Symbol) -> bool
 
+      def local_variable_name!: (Symbol) -> void
+
       def instance_variable_name?: (Symbol) -> bool
 
       def global_name?: (Symbol) -> bool

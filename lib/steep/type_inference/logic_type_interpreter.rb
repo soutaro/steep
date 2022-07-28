@@ -114,8 +114,12 @@ module Steep
         case assignment_node.type
         when :lvasgn
           name, _ = assignment_node.children
-          refined_objects << name
-          env.refine_types(local_variable_types: { name => rhs_type })
+          if TypeConstruction::SPECIAL_LVAR_NAMES.include?(name)
+            env
+          else
+            refined_objects << name
+            env.refine_types(local_variable_types: { name => rhs_type })
+          end
         when :masgn
           lhs, _ = assignment_node.children
 
@@ -146,20 +150,31 @@ module Steep
         when :lvar
           name = node.children[0]
 
-          refined_objects << name
-          [
-            env.refine_types(local_variable_types: { name => truthy_type }),
-            env.refine_types(local_variable_types: { name => falsy_type })
-          ]
+          if TypeConstruction::SPECIAL_LVAR_NAMES.include?(name)
+            [env, env]
+          else
+            refined_objects << name
+            [
+              env.refine_types(local_variable_types: { name => truthy_type }),
+              env.refine_types(local_variable_types: { name => falsy_type })
+            ]
+          end
+
         when :lvasgn
           name, rhs = node.children
 
           truthy_env, falsy_env = refine_node_type(env: env, node: rhs, truthy_type: truthy_type, falsy_type: falsy_type, refined_objects: refined_objects)
-          refined_objects << name
-          [
-            truthy_env.refine_types(local_variable_types: { name => truthy_type }),
-            falsy_env.refine_types(local_variable_types: { name => falsy_type })
-          ]
+
+          if TypeConstruction::SPECIAL_LVAR_NAMES.include?(name)
+            [truthy_env, falsy_env]
+          else
+            refined_objects << name
+            [
+              truthy_env.refine_types(local_variable_types: { name => truthy_type }),
+              falsy_env.refine_types(local_variable_types: { name => falsy_type })
+            ]
+          end
+
         when :send
           if env[node]
             refined_objects << node
