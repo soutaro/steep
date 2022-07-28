@@ -16,6 +16,8 @@ module Steep
       def to_ary: () -> [AST::Types::t, TypeConstruction, TypeInference::Context]
     end
 
+    SPECIAL_LVAR_NAMES: Set[Symbol]
+
     include NodeHelper
 
     attr_reader checker: Subtyping::Check
