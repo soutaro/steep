@@ -9758,12 +9758,36 @@ _, __any__ = [123, :foo]
 end
 
 -> (_) { 123 }
+RUBY
+      with_standard_construction(checker, source) do |construction, typing|
+        type, _, context = construction.synthesize(source.node)
+
+        assert_no_error typing
+      end
+    end
+  end
+
+  def test_type_narrowing_assignment
+    with_checker(<<-RBS) do |checker|
+class NarrowingAssignmentTest
+  def foo: () -> (Integer | String)
+end
+      RBS
+      source = parse_ruby(<<-RUBY)
+case value = NarrowingAssignmentTest.new.foo()
+when Integer
+  "hello"
+when String
+  value
+end
       RUBY
 
       with_standard_construction(checker, source) do |construction, typing|
         type, _, context = construction.synthesize(source.node)
 
         assert_no_error typing
+
+        assert_equal parse_type("::String"), type
       end
     end
   end
