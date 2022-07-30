@@ -6,6 +6,8 @@ module Steep
     def each_descendant_node: (Parser::AST::Node) -> Enumerator[Parser::AST::Node, void]
                             | (Parser::AST::Node) { (Parser::AST::Node) -> void } -> void
 
+    # Returns true if given node is a syntactic-value node
+    #
     def value_node?: (Parser::AST::Node) -> bool
   end
 end
