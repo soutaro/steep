@@ -1,0 +1,3 @@
+module Steep
+  VERSION: String
+end
