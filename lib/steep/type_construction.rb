@@ -1830,7 +1830,7 @@ module Steep
               env.join(*envs)
             end
 
-            node_type = union_type(true_pair&.type || AST::Builtin.nil_type, false_pair&.type || AST::Builtin.nil_type)
+            node_type = union_type_unify(true_pair&.type || AST::Builtin.nil_type, false_pair&.type || AST::Builtin.nil_type)
             add_typing(node, type: node_type, constr: constr)
           end
 
@@ -1971,7 +1971,7 @@ module Steep
               env.join(*envs)
             end
 
-            add_typing(node, type: union_type(*types), constr: constr)
+            add_typing(node, type: union_type_unify(*types), constr: constr)
           end
 
         when :rescue
@@ -2570,7 +2570,11 @@ module Steep
         type.is_a?(AST::Types::Nil) || (type.is_a?(AST::Types::Literal) && type.value == false)
       end
 
-      truthy_rhs_type = AST::Types::Union.build(types: truthys)
+      truthy_rhs_type = union_type_unify(*truthys)
+      if truthy_rhs_type.is_a?(AST::Types::Union)
+        tup = union_of_tuple_to_tuple_of_union(truthy_rhs_type)
+        truthy_rhs_type = tup if tup
+      end
       optional = !falsys.empty?
 
       if truthy_rhs_type.is_a?(AST::Types::Tuple) || AST::Builtin::Array.instance_type?(truthy_rhs_type) || truthy_rhs_type.is_a?(AST::Types::Any)
@@ -3828,6 +3832,44 @@ module Steep
       AST::Types::Union.build(types: types)
     end
 
+    def union_type_unify(*types)
+      types.inject do |type1, type2|
+        unless no_subtyping?(sub_type: type1, super_type: type2)
+          next type2
+        end
+
+        unless no_subtyping?(sub_type: type2, super_type: type1)
+          next type1
+        end
+
+        union_type(type1, type2)
+      end
+    end
+
+    def union_of_tuple_to_tuple_of_union(type)
+      if type.types.all? {|ty| ty.is_a?(AST::Types::Tuple) }
+        # @type var tuples: Array[AST::Types::Tuple]
+        tuples = _ = type.types
+
+        max = tuples.map {|tup| tup.types.size }.max or raise
+
+        # @type var tuple_types_array: Array[Array[AST::Types::t]]
+        tuple_types_array = tuples.map do |tup|
+          if tup.types.size == max
+            tup.types
+          else
+            tup.types + Array.new(max - tup.types.size, AST::Builtin.nil_type)
+          end
+        end
+
+        # @type var tuple_elems_array: Array[Array[AST::Types::t]]
+        tuple_elems_array = tuple_types_array.transpose
+        AST::Types::Tuple.new(
+          types: tuple_elems_array.map {|types| union_type_unify(*types) }
+        )
+      end
+    end
+
     def validate_method_definitions(node, module_name)
       module_name_1 = module_name.name
       member_decl_count = checker.factory.env.class_decls[module_name_1].decls.count {|d| d.decl.each_member.count > 0 }
@@ -4030,25 +4072,26 @@ module Steep
       synthesize(node, hint: hint)
     end
 
-    def try_tuple_type(node, hint)
-      if hint
-        if node.children.size != hint.types.size
-          return
-        end
-      end
+    def try_tuple_type(array_node, hint)
+      raise unless array_node.type == :array
 
       constr = self
+      # @type var element_types: Array[AST::Types::t]
       element_types = []
 
-      each_child_node(node).with_index do |child, index|
-        child_hint = if hint
-                       hint.types[index]
-                     end
+      array_node.children.each_with_index do |child, index|
+        return if child.type == :splat
+
+        child_hint =
+          if hint
+            hint.types[index]
+          end
+
         type, constr = constr.synthesize(child, hint: child_hint)
         element_types << type
       end
 
-      constr.add_typing(node, type: AST::Types::Tuple.new(types: element_types))
+      constr.add_typing(array_node, type: AST::Types::Tuple.new(types: element_types))
     end
 
     def try_convert(type, method)
@@ -4057,7 +4100,7 @@ module Steep
         return
       end
 
-      interface = checker.factory.interface(type, private: false, self_type: self_type)
+      interface = checker.factory.interface(type, private: false, self_type: type)
       if entry = interface.methods[method]
         method_type = entry.method_types.find do |method_type|
           method_type.type.params.optional?
