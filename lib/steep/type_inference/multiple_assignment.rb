@@ -177,7 +177,12 @@ module Steep
           AST::Types::Tuple.new(types: types)
         when :lvasgn, :ivasgn, :gvasgn
           name = mlhs.children[0]
-          env[name] || AST::Builtin.any_type
+          
+          unless TypeConstruction::SPECIAL_LVAR_NAMES.include?(name)
+            env[name] || AST::Builtin.any_type
+          else
+            AST::Builtin.any_type
+          end
         when :splat
           return
         else

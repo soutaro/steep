@@ -37,6 +37,8 @@ module Steep
       s + ">"
     end
 
+    SPECIAL_LVAR_NAMES = Set[:_, :__any__, :__skip__]
+
     include ModuleHelper
 
     attr_reader :checker
@@ -202,7 +204,9 @@ module Steep
 
       local_variable_types = method_params.each_param.with_object({}) do |param, hash|
         if param.name
-          hash[param.name] = param.var_type
+          unless SPECIAL_LVAR_NAMES.include?(param.name)
+            hash[param.name] = param.var_type
+          end
         end
       end
       type_env = context.type_env.assign_local_variables(local_variable_types)
@@ -752,10 +756,15 @@ module Steep
         when :lvar
           yield_self do
             var = node.children[0]
-            if (type = context.type_env[var])
-              add_typing node, type: type
+
+            if SPECIAL_LVAR_NAMES.include?(var)
+              add_typing node, type: AST::Builtin.any_type
             else
-              fallback_to_any(node)
+              if (type = context.type_env[var])
+                add_typing node, type: type
+              else
+                fallback_to_any(node)
+              end
             end
           end
 
@@ -1240,13 +1249,17 @@ module Steep
 
             node.children.each do |arg|
               if arg.is_a?(Symbol)
-                type = context.type_env[arg]
-
-                if type
-                  _, constr = add_typing(node, type: type)
+                if SPECIAL_LVAR_NAMES === arg
+                  _, constr = add_typing(node, type: AST::Builtin.any_type)
                 else
-                  type = AST::Builtin.any_type
-                  _, constr = lvasgn(node, type)
+                  type = context.type_env[arg]
+
+                  if type
+                    _, constr = add_typing(node, type: type)
+                  else
+                    type = AST::Builtin.any_type
+                    _, constr = lvasgn(node, type)
+                  end
                 end
               else
                 _, constr = constr.synthesize(arg)
@@ -1270,13 +1283,18 @@ module Steep
         when :arg, :kwarg
           yield_self do
             var = node.children[0]
-            type = context.type_env[var]
 
-            if type
-              add_typing(node, type: type)
+            if SPECIAL_LVAR_NAMES.include?(var)
+              add_typing(node, type: AST::Builtin.any_type)
             else
-              type = AST::Builtin.any_type
-              lvasgn(node, type)
+              type = context.type_env[var]
+
+              if type
+                add_typing(node, type: type)
+              else
+                type = AST::Builtin.any_type
+                lvasgn(node, type)
+              end
             end
           end
 
@@ -1826,8 +1844,21 @@ module Steep
             if cond
               branch_results = []
 
-              cond_type, constr = constr.synthesize(cond).to_ary
-              cond_value_node, cond_vars = interpreter.decompose_value(cond)
+              cond_type, constr = constr.synthesize(cond)
+              _, cond_vars = interpreter.decompose_value(cond)
+
+              var_name = :"_a#{SecureRandom.base64(4)}"
+              var_cond, value_node = extract_outermost_call(cond, var_name)
+              if value_node
+                unless constr.context.type_env[value_node]
+                  constr = constr.update_type_env do |env|
+                    env.assign_local_variable(var_name, cond_type, nil)
+                  end
+                  cond = var_cond
+                else
+                  value_node = nil
+                end
+              end
 
               when_constr = constr
               whens.each do |clause|
@@ -1875,7 +1906,11 @@ module Steep
               types = branch_results.map(&:type)
               constrs = branch_results.map(&:constr)
 
-              cond_type = when_constr.context.type_env[cond_value_node]
+              cond_type = when_constr.context.type_env[var_name]
+              cond_type ||= when_constr.context.type_env[cond_vars.first || raise] unless cond_vars.empty?
+              cond_type ||= when_constr.context.type_env[value_node] if value_node
+              cond_type ||= typing.type_of(node: node.children[0])
+
               if cond_type.is_a?(AST::Types::Bot)
                 # Exhaustive
                 if els
@@ -2440,23 +2475,27 @@ module Steep
     def lvasgn(node, type)
       name = node.children[0]
 
-      if enforced_type = context.type_env.enforced_type(name)
-        if result = no_subtyping?(sub_type: type, super_type: enforced_type)
-          typing.add_error(
-            Diagnostic::Ruby::IncompatibleAssignment.new(
-              node: node,
-              lhs_type: enforced_type,
-              rhs_type: type,
-              result: result
+      if SPECIAL_LVAR_NAMES.include?(name)
+        add_typing(node, type: AST::Builtin.any_type)
+      else
+        if enforced_type = context.type_env.enforced_type(name)
+          if result = no_subtyping?(sub_type: type, super_type: enforced_type)
+            typing.add_error(
+              Diagnostic::Ruby::IncompatibleAssignment.new(
+                node: node,
+                lhs_type: enforced_type,
+                rhs_type: type,
+                result: result
+              )
             )
-          )
 
-          type = enforced_type
+            type = enforced_type
+          end
         end
-      end
 
-      update_type_env {|env| env.assign_local_variable(name, type, enforced_type) }
-        .add_typing(node, type: type)
+        update_type_env {|env| env.assign_local_variable(name, type, enforced_type) }
+          .add_typing(node, type: type)
+      end
     end
 
     def ivasgn(node, rhs_type)
@@ -3689,6 +3728,8 @@ module Steep
         end
       end
 
+      param_types_hash.delete_if {|name, _| SPECIAL_LVAR_NAMES.include?(name) }
+
       param_types = param_types_hash.each.with_object({}) do |pair, hash|
         # @type var hash: Hash[Symbol, [AST::Types::t, AST::Types::t?]]
         name, type = pair
@@ -4212,6 +4253,36 @@ module Steep
     def save_typing
       typing.save!
       with_new_typing(typing.parent)
+    end
+
+    def extract_outermost_call(node, var_name)
+      case node.type
+      when :lvasgn
+        name, rhs = node.children
+        rhs, value_node = extract_outermost_call(rhs, var_name)
+        if value_node
+          [node.updated(nil, [name, rhs]), value_node]
+        else
+          [node, value_node]
+        end
+      when :begin
+        *children, last = node.children
+        last, value_node = extract_outermost_call(last, var_name)
+        if value_node
+          [node.updated(nil, children.push(last)), value_node]
+        else
+          [node, value_node]
+        end
+      when :lvar
+        [node, nil]
+      else
+        if value_node?(node)
+          [node, nil]
+        else
+          var_node = node.updated(:lvar, [var_name])
+          [var_node, node]
+        end
+      end
     end
   end
 end

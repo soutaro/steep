@@ -9738,4 +9738,59 @@ ng = Issue610::Foo.new.ng(123) do -> (x) { x + 1 } end
       end
     end
   end
+
+  def test_lvar_special
+    with_checker(<<-RBS) do |checker|
+      RBS
+      source = parse_ruby(<<-RUBY)
+_ = 123
+_ + 1
+
+__skip__ = 123
+__skip__ + 123
+
+__any__ = :foo
+__any__ + 123
+
+_, __any__ = [123, :foo]
+
+[1,2,3].each do |_|
+  [2].each do
+  end
+end
+
+-> (_) { 123 }
+RUBY
+      with_standard_construction(checker, source) do |construction, typing|
+        type, _, context = construction.synthesize(source.node)
+
+        assert_no_error typing
+      end
+    end
+  end
+
+  def test_type_narrowing_assignment
+    with_checker(<<-RBS) do |checker|
+class NarrowingAssignmentTest
+  def foo: () -> (Integer | String)
+end
+      RBS
+      source = parse_ruby(<<-RUBY)
+case value = NarrowingAssignmentTest.new.foo()
+when Integer
+  "hello"
+when String
+  value
+end
+      RUBY
+
+      with_standard_construction(checker, source) do |construction, typing|
+        type, _, context = construction.synthesize(source.node)
+
+        assert_no_error typing
+
+        assert_equal parse_type("::String"), type
+      end
+    end
+  end
 end

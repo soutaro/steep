@@ -16,6 +16,8 @@ module Steep
       def to_ary: () -> [AST::Types::t, TypeConstruction, TypeInference::Context]
     end
 
+    SPECIAL_LVAR_NAMES: Set[Symbol]
+
     include NodeHelper
 
     attr_reader checker: Subtyping::Check
@@ -281,5 +283,18 @@ module Steep
     # * All of the arguments are _pure_
     #
     def pure_send?: (TypeInference::MethodCall::Typed call, Parser::AST::Node receiver, Array[Parser::AST::Node] arguments) -> bool
+
+    # Transform given `node` to a node that has a local variable instead of the outer most call/non-value node
+    #
+    # Returns a pair of transformed node and the outer most call/non-value node if present.
+    #
+    # ```rb
+    # x = y = foo()   # Call `#transform_value_node` with the node and var_name `:__foo__`
+    #                 # => Returns [x = y = __foo__, foo()]
+    # ```
+    #
+    # This is typically used for transforming assginment node for case condition.
+    #
+    def extract_outermost_call: (Parser::AST::Node node, Symbol) -> [Parser::AST::Node, Parser::AST::Node?]
   end
 end
