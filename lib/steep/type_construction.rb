@@ -2570,7 +2570,11 @@ module Steep
         type.is_a?(AST::Types::Nil) || (type.is_a?(AST::Types::Literal) && type.value == false)
       end
 
-      truthy_rhs_type = AST::Types::Union.build(types: truthys)
+      truthy_rhs_type = union_type_unify(*truthys)
+      if truthy_rhs_type.is_a?(AST::Types::Union)
+        tup = union_of_tuple_to_tuple_of_union(truthy_rhs_type)
+        truthy_rhs_type = tup if tup
+      end
       optional = !falsys.empty?
 
       if truthy_rhs_type.is_a?(AST::Types::Tuple) || AST::Builtin::Array.instance_type?(truthy_rhs_type) || truthy_rhs_type.is_a?(AST::Types::Any)
@@ -3839,6 +3843,30 @@ module Steep
         end
 
         union_type(type1, type2)
+      end
+    end
+
+    def union_of_tuple_to_tuple_of_union(type)
+      if type.types.all? {|ty| ty.is_a?(AST::Types::Tuple) }
+        # @type var tuples: Array[AST::Types::Tuple]
+        tuples = _ = type.types
+
+        max = tuples.map {|tup| tup.types.size }.max or raise
+
+        # @type var tuple_types_array: Array[Array[AST::Types::t]]
+        tuple_types_array = tuples.map do |tup|
+          if tup.types.size == max
+            tup.types
+          else
+            tup.types + Array.new(max - tup.types.size, AST::Builtin.nil_type)
+          end
+        end
+
+        # @type var tuple_elems_array: Array[Array[AST::Types::t]]
+        tuple_elems_array = tuple_types_array.transpose
+        AST::Types::Tuple.new(
+          types: tuple_elems_array.map {|types| union_type_unify(*types) }
+        )
       end
     end
 

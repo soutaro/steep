@@ -9836,4 +9836,28 @@ end
       end
     end
   end
+
+  def test_masgn_union_tuple
+    with_checker(<<-RBS) do |checker|
+      RBS
+      source = parse_ruby(<<-RUBY)
+x, y =
+  if 123
+    ["String", 123]
+  else
+    [nil, nil]
+  end
+      RUBY
+
+      with_standard_construction(checker, source) do |construction, typing|
+        type, _, context = construction.synthesize(source.node)
+
+        assert_no_error typing
+
+        assert_equal parse_type("[::String?, ::Integer?]"), type
+        assert_equal parse_type("::String?"), context.type_env[:x]
+        assert_equal parse_type("::Integer?"), context.type_env[:y]
+      end
+    end
+  end
 end
