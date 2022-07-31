@@ -202,6 +202,25 @@ module Steep
 
     def union_type: (*AST::Types::t types) -> AST::Types::t
 
+    # Returns union type of given types
+    #
+    # If one of the types is a subtype of another type, the _subtype_ will be ignored.
+    #
+    # ```ruby
+    # union_type(`String`, `Object`)   # => `Object`
+    # union_type(`String`, `Integer`)   # => `String | Integer`
+    # ```
+    #
+    def union_type_unify: (*AST::Types::t types) -> AST::Types::t
+
+    # Translate a union of tuple types to a tuple of union types
+    #
+    # * ([A, B] | [C, D, E]) => [A | C, B | D, E?]
+    #
+    # Returns `nil` if the translation cannot apply.
+    #
+    def union_of_tuple_to_tuple_of_union: (AST::Types::Union) -> AST::Types::Tuple?
+
     def validate_method_definitions: (untyped node, untyped module_name) -> (nil | untyped)
 
     def fallback_to_any: (Parser::AST::Node node) ?{ () -> Diagnostic::Ruby::Base } -> Pair

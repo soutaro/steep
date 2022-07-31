@@ -9793,4 +9793,47 @@ end
       end
     end
   end
+
+  def test_type_if_union_unify
+    with_checker(<<-RBS) do |checker|
+      RBS
+      source = parse_ruby(<<-RUBY)
+if _ = 123
+  Object.new
+else
+  String.new
+end
+      RUBY
+
+      with_standard_construction(checker, source) do |construction, typing|
+        type, _, context = construction.synthesize(source.node)
+
+        assert_no_error typing
+
+        assert_equal parse_type("::Object"), type
+      end
+    end
+  end
+
+  def test_type_case_union_unify
+    with_checker(<<-RBS) do |checker|
+      RBS
+      source = parse_ruby(<<-RUBY)
+case x = 123
+when String
+  Object.new
+else
+  String.new
+end
+      RUBY
+
+      with_standard_construction(checker, source) do |construction, typing|
+        type, _, context = construction.synthesize(source.node)
+
+        assert_no_error typing
+
+        assert_equal parse_type("::Object"), type
+      end
+    end
+  end
 end
