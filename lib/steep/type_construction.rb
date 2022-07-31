@@ -3728,6 +3728,8 @@ module Steep
         end
       end
 
+      param_types_hash.delete_if {|name, _| SPECIAL_LVAR_NAMES.include?(name) }
+
       param_types = param_types_hash.each.with_object({}) do |pair, hash|
         # @type var hash: Hash[Symbol, [AST::Types::t, AST::Types::t?]]
         name, type = pair
