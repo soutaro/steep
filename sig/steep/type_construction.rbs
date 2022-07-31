@@ -251,9 +251,26 @@ module Steep
 
     def to_instance_type: (untyped `type`, ?args: untyped?) -> untyped
 
-    def try_tuple_type!: (Parser::AST::Node node, ?hint: AST::Types::t?) -> Pair
+    def try_tuple_type!: (Parser::AST::Node node, ?hint: AST::Types::Tuple?) -> Pair
 
-    def try_tuple_type: (Parser::AST::Node node, AST::Types::Tuple? hint) -> (nil | untyped)
+    # Try to give `array_node` a tuple type
+    #
+    # * If `hint` is given, the array element would receive a hint of element of `hint` type.
+    # * If `hint` it not given, `array_node` is assumed to have a tuple type, but no assumption on element types.
+    #
+    # Returns `nil` when `array_node` includes `*` (splat) node.
+    #
+    # ```ruby
+    # try_tuple_type(`[1, 2]`, nil)               # => `[Integer, Integer, Integer]`
+    # try_tuple_type(`[1]`, `[Integer, Integer]`) # => `[Integer]`
+    # try_tuple_type(`[1, 2]`, `[Integer]`)       # => `[Integer, Integer]`
+    # try_tuple_type(`[1, *]`, `[Integer]`)       # => nil
+    # ```
+    #
+    # Note that `typing` will be updated even when it returns `nil`.
+    # You probably should try `with_new_typing` to make the result _atomic_.
+    #
+    def try_tuple_type: (Parser::AST::Node array_node, AST::Types::Tuple? hint) -> Pair?
 
     # Try to convert a object of `type` with zero-arity method `method`.
     #

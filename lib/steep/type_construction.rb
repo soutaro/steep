@@ -4072,25 +4072,26 @@ module Steep
       synthesize(node, hint: hint)
     end
 
-    def try_tuple_type(node, hint)
-      if hint
-        if node.children.size != hint.types.size
-          return
-        end
-      end
+    def try_tuple_type(array_node, hint)
+      raise unless array_node.type == :array
 
       constr = self
+      # @type var element_types: Array[AST::Types::t]
       element_types = []
 
-      each_child_node(node).with_index do |child, index|
-        child_hint = if hint
-                       hint.types[index]
-                     end
+      array_node.children.each_with_index do |child, index|
+        return if child.type == :splat
+
+        child_hint =
+          if hint
+            hint.types[index]
+          end
+
         type, constr = constr.synthesize(child, hint: child_hint)
         element_types << type
       end
 
-      constr.add_typing(node, type: AST::Types::Tuple.new(types: element_types))
+      constr.add_typing(array_node, type: AST::Types::Tuple.new(types: element_types))
     end
 
     def try_convert(type, method)
