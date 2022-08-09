@@ -441,23 +441,39 @@ module Steep
           end
 
         when relation.sub_type.is_a?(AST::Types::Proc) && relation.super_type.is_a?(AST::Types::Proc)
-          name = :__proc__
+          yield_self do
+            name = :__proc__
 
-          All(relation) do |result|
-            result.add(relation.map {|p| p.type }) do |rel|
-              check_function(name, rel)
-            end
+            sub_type = relation.sub_type
+            super_type = relation.super_type
 
-            result.add(relation.map {|p| p.block }) do |rel|
-              case ret = expand_block_given(name, rel)
-              when Relation
-                Expand(rel.map {|b| b.type }) do |rel|
-                  check_function(name, rel.flip)
+            All(relation) do |result|
+              result.add(Relation(sub_type.type, super_type.type)) do |rel|
+                check_function(name, rel)
+              end
+
+              case
+              when sub_type.self_type.nil? && super_type.self_type.nil?
+                # nop
+              when (sub_self = sub_type.self_type) && (super_self = super_type.self_type)
+                result.add_result(check_type(Relation(super_self, sub_self)))
+              when (sub_self = sub_type.self_type).is_a?(AST::Types::Top) && super_type.self_type.nil?
+                # nop
+              else
+                result.add_result(Failure(relation, Result::Failure::SelfBindingMismatch.new))
+              end
+
+              result.add(Relation(sub_type.block, super_type.block)) do |rel|
+                case ret = expand_block_given(name, rel)
+                when Relation
+                  Expand(rel.map {|b| b.type }) do |rel|
+                    check_function(name, rel.flip)
+                  end
+                when Result::Base
+                  ret
+                when true
+                  nil
                 end
-              when Result::Base
-                ret
-              when true
-                nil
               end
             end
           end

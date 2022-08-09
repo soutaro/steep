@@ -926,6 +926,19 @@ type c = a | b
     end
   end
 
+  def test_proc_type_with_self_binding
+    with_checker do |checker|
+      assert_success_check checker, "^() [self: ::String] -> void", "^() [self: ::String] -> void"
+      assert_success_check checker, "^() [self: ::Object] -> void", "^() [self: ::String] -> void"
+
+      assert_fail_check checker, "^() [self: ::String] -> void", "^() -> void"
+      assert_fail_check checker, "^() -> void", "^() [self: ::String] -> void"
+      assert_fail_check checker, "^() [self: ::String] -> void", "^() [self: ::Object] -> void"
+
+      assert_success_check checker, "^() [self: top] -> void", "^() -> void"
+    end
+  end
+
   def test_self_type
     with_checker do |checker|
       assert_success_check checker, "self", "::Integer", self_type: "::Integer"

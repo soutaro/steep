@@ -259,6 +259,12 @@ module Steep
           end
         end
 
+        class SelfBindingMismatch
+          def message
+            "Self binding is incompatible"
+          end
+        end
+
         attr_reader :error
 
         def initialize(relation, error)
