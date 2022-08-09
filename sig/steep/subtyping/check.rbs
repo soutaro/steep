@@ -99,6 +99,13 @@ module Steep
       #
       def expand_block_given: (Symbol name, Relation[Interface::Block?] relation) -> (Relation[Interface::Block] | true | Result::t)
 
+      # Receives a subtyping relation between self bindings `S <: S'` that is included in procs or blocks as:
+      #
+      # *             `^() [self: S] -> T <: ^() [self: S'] -> T`           (proc)
+      # * `() { () [self: S'] -> T } -> T <: () { () [self: S] -> T } -> T` (block in method type)
+      #
+      def check_self_type_binding: (Relation[untyped], AST::Types::t? sub_self, AST::Types::t? super_self) -> Result::t?
+
       def check_function: (Symbol name, Relation[Interface::Function] relation) -> Result::t
 
       def check_method_params: (Symbol name, Relation[Interface::Function::Params] relation) -> Result::t

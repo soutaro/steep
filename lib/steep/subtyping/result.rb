@@ -99,7 +99,11 @@ module Steep
         end
 
         def add_result(result)
-          add(result.relation) { result }
+          if result
+            add(result.relation) { result }
+          else
+            success?
+          end
         end
 
         def success?

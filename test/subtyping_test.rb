@@ -361,6 +361,27 @@ end
     end
   end
 
+  def test_interface_block_self
+    with_checker <<-EOS do |checker|
+interface _A[X]
+  def foo: () { () [self: X] -> void } -> void
+end
+
+interface _B
+  def foo: () { () -> void } -> void
+end
+    EOS
+
+      assert_success_check checker, "::_A[::Integer]", "::_A[::Object]"
+      assert_fail_check checker, "::_A[::Object]", "::_A[::Integer]"
+
+      assert_fail_check checker, "::_B", "::_A[::Object]"
+      assert_fail_check checker, "::_A[::Object]", "::_B"
+
+      assert_success_check checker, "::_B", "::_A[top]"
+    end
+  end
+
   def test_literal
     with_checker do |checker|
       assert_success_check checker, "123", "::Integer"
@@ -930,6 +951,8 @@ type c = a | b
     with_checker do |checker|
       assert_success_check checker, "^() [self: ::String] -> void", "^() [self: ::String] -> void"
       assert_success_check checker, "^() [self: ::Object] -> void", "^() [self: ::String] -> void"
+
+      assert_success_check checker, "^() { () [self: ::String] -> void } -> void", "^() { () [self: ::Object] -> void } -> void"
 
       assert_fail_check checker, "^() [self: ::String] -> void", "^() -> void"
       assert_fail_check checker, "^() -> void", "^() [self: ::String] -> void"

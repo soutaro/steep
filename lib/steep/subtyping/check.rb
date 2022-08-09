@@ -452,22 +452,14 @@ module Steep
                 check_function(name, rel)
               end
 
-              case
-              when sub_type.self_type.nil? && super_type.self_type.nil?
-                # nop
-              when (sub_self = sub_type.self_type) && (super_self = super_type.self_type)
-                result.add_result(check_type(Relation(super_self, sub_self)))
-              when (sub_self = sub_type.self_type).is_a?(AST::Types::Top) && super_type.self_type.nil?
-                # nop
-              else
-                result.add_result(Failure(relation, Result::Failure::SelfBindingMismatch.new))
-              end
+              result.add_result check_self_type_binding(relation, sub_type.self_type, super_type.self_type)
 
               result.add(Relation(sub_type.block, super_type.block)) do |rel|
                 case ret = expand_block_given(name, rel)
                 when Relation
-                  Expand(rel.map {|b| b.type }) do |rel|
-                    check_function(name, rel.flip)
+                  All(ret) do |result|
+                    result.add_result check_self_type_binding(ret, ret.super_type.self_type, ret.sub_type.self_type)
+                    result.add(ret.map {|b| b.type }) {|r| check_function(name, r.flip) }
                   end
                 when Result::Base
                   ret
@@ -817,8 +809,11 @@ module Steep
 
             case ret
             when Relation
-              Expand(ret) do
-                check_function(name, Relation(ret.super_type.type, ret.sub_type.type))
+              All(ret) do |result|
+                result.add_result(check_self_type_binding(ret, ret.super_type.self_type, ret.sub_type.self_type))
+                result.add(Relation(ret.super_type.type, ret.sub_type.type)) do |rel|
+                  check_function(name, rel)
+                end
               end
             when Result::Base
               ret
@@ -857,6 +852,23 @@ module Steep
           result.add(relation.map {|fun| fun.return_type }) do |rel|
             check_type(rel)
           end
+        end
+      end
+
+      def check_self_type_binding(relation, sub_self, super_self)
+        case
+        when sub_self.nil? && super_self.nil?
+          nil
+        when sub_self && super_self
+          # ^() [self: T] -> void <: ^() [self: S] -> void                              ==> S <: T
+          # () { () [self: S] -> void } -> void <: () { () [self: T] -> void } -> void  ==> S <: T
+          check_type(Relation(super_self, sub_self))
+        when sub_self.is_a?(AST::Types::Top) && super_self.nil?
+          # ^() [self: top] -> void <: ^() -> void                              ==> OK
+          # () { () -> void } -> void <: () { () [self: top] -> void } -> void  ==> OK
+          nil
+        else
+          Failure(relation, Result::Failure::SelfBindingMismatch.new)
         end
       end
 
