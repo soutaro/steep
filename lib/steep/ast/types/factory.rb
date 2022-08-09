@@ -487,7 +487,7 @@ module Steep
             end
 
           when Name::Instance
-            Interface::Interface.new(type: self_type, private: private).tap do |interface|
+            Interface::Shape.new(type: self_type, private: private).tap do |interface|
               definition = definition_builder.build_instance(type.name)
 
               instance_type = Name::Instance.new(name: type.name,
@@ -507,7 +507,7 @@ module Steep
                 Steep.logger.tagged "method = #{name}" do
                   next if method.private? && !private
 
-                  interface.methods[name] = Interface::Interface::Entry.new(
+                  interface.methods[name] = Interface::Shape::Entry.new(
                     method_types: method.defs.map do |type_def|
                       method_name = InstanceMethodName.new(type_name: type_def.implemented_in || type_def.defined_in, method_name: name)
                       decl = TypeInference::MethodCall::MethodDecl.new(method_name: method_name, method_def: type_def)
@@ -526,7 +526,7 @@ module Steep
             end
 
           when Name::Interface
-            Interface::Interface.new(type: self_type, private: private).tap do |interface|
+            Interface::Shape.new(type: self_type, private: private).tap do |interface|
               type_name = type.name
               definition = definition_builder.build_interface(type_name)
 
@@ -537,7 +537,7 @@ module Steep
               )
 
               definition.methods.each do |name, method|
-                interface.methods[name] = Interface::Interface::Entry.new(
+                interface.methods[name] = Interface::Shape::Entry.new(
                   method_types: method.defs.map do |type_def|
                     decls = Set[TypeInference::MethodCall::MethodDecl.new(
                       method_name: InstanceMethodName.new(type_name: type_def.implemented_in || type_def.defined_in, method_name: name),
@@ -550,7 +550,7 @@ module Steep
             end
 
           when Name::Singleton
-            Interface::Interface.new(type: self_type, private: private).tap do |interface|
+            Interface::Shape.new(type: self_type, private: private).tap do |interface|
               definition = definition_builder.build_singleton(type.name)
 
               instance_type = Name::Instance.new(name: type.name,
@@ -566,7 +566,7 @@ module Steep
               definition.methods.each do |name, method|
                 next if !private && method.private?
 
-                interface.methods[name] = Interface::Interface::Entry.new(
+                interface.methods[name] = Interface::Shape::Entry.new(
                   method_types: method.defs.map do |type_def|
                     decl = TypeInference::MethodCall::MethodDecl.new(
                       method_name: SingletonMethodName.new(type_name: type_def.implemented_in || type_def.defined_in,
@@ -601,7 +601,7 @@ module Steep
             yield_self do
               interfaces = type.types.map {|ty| interface(ty, private: private, self_type: self_type) }
               interfaces.inject do |interface1, interface2|
-                Interface::Interface.new(type: self_type, private: private).tap do |interface|
+                Interface::Shape.new(type: self_type, private: private).tap do |interface|
                   common_methods = Set.new(interface1.methods.keys) & Set.new(interface2.methods.keys)
                   common_methods.each do |name|
                     types1 = interface1.methods[name].method_types
@@ -620,7 +620,7 @@ module Steep
                       end
 
                       unless method_types.empty?
-                        interface.methods[name] = Interface::Interface::Entry.new(method_types: method_types.keys)
+                        interface.methods[name] = Interface::Shape::Entry.new(method_types: method_types.keys)
                       end
                     end
                   end
@@ -632,7 +632,7 @@ module Steep
             yield_self do
               interfaces = type.types.map {|ty| interface(ty, private: private, self_type: self_type) }
               interfaces.inject do |interface1, interface2|
-                Interface::Interface.new(type: self_type, private: private).tap do |interface|
+                Interface::Shape.new(type: self_type, private: private).tap do |interface|
                   interface.methods.merge!(interface1.methods)
                   interface.methods.merge!(interface2.methods)
                 end
@@ -645,7 +645,7 @@ module Steep
               array_type = Builtin::Array.instance_type(element_type)
               interface(array_type, private: private, self_type: self_type).tap do |array_interface|
                 array_interface.methods[:[]] = array_interface.methods[:[]].yield_self do |aref|
-                  Interface::Interface::Entry.new(
+                  Interface::Shape::Entry.new(
                     method_types: type.types.map.with_index {|elem_type, index|
                       Interface::MethodType.new(
                         type_params: [],
@@ -662,7 +662,7 @@ module Steep
                 end
 
                 array_interface.methods[:[]=] = array_interface.methods[:[]=].yield_self do |update|
-                  Interface::Interface::Entry.new(
+                  Interface::Shape::Entry.new(
                     method_types: type.types.map.with_index {|elem_type, index|
                       Interface::MethodType.new(
                         type_params: [],
@@ -679,7 +679,7 @@ module Steep
                 end
 
                 array_interface.methods[:fetch] = array_interface.methods[:fetch].yield_self do |fetch|
-                  Interface::Interface::Entry.new(
+                  Interface::Shape::Entry.new(
                     method_types: type.types.flat_map.with_index {|elem_type, index|
                       [
                         Interface::MethodType.new(
@@ -730,7 +730,7 @@ module Steep
                 end
 
                 array_interface.methods[:first] = array_interface.methods[:first].yield_self do |first|
-                  Interface::Interface::Entry.new(
+                  Interface::Shape::Entry.new(
                     method_types: [
                       Interface::MethodType.new(
                         type_params: [],
@@ -747,7 +747,7 @@ module Steep
                 end
 
                 array_interface.methods[:last] = array_interface.methods[:last].yield_self do |last|
-                  Interface::Interface::Entry.new(
+                  Interface::Shape::Entry.new(
                     method_types: [
                       Interface::MethodType.new(
                         type_params: [],
@@ -775,7 +775,7 @@ module Steep
 
               interface(hash_type, private: private, self_type: self_type).tap do |hash_interface|
                 hash_interface.methods[:[]] = hash_interface.methods[:[]].yield_self do |ref|
-                  Interface::Interface::Entry.new(
+                  Interface::Shape::Entry.new(
                     method_types: type.elements.map {|key_value, value_type|
                       key_type = Literal.new(value: key_value, location: nil)
 
@@ -801,7 +801,7 @@ module Steep
                 end
 
                 hash_interface.methods[:[]=] = hash_interface.methods[:[]=].yield_self do |update|
-                  Interface::Interface::Entry.new(
+                  Interface::Shape::Entry.new(
                     method_types: type.elements.map {|key_value, value_type|
                       key_type = Literal.new(value: key_value, location: nil)
                       Interface::MethodType.new(
@@ -825,7 +825,7 @@ module Steep
                 end
 
                 hash_interface.methods[:fetch] = hash_interface.methods[:fetch].yield_self do |update|
-                  Interface::Interface::Entry.new(
+                  Interface::Shape::Entry.new(
                     method_types: type.elements.flat_map {|key_value, value_type|
                       key_type = Literal.new(value: key_value, location: nil)
 
@@ -883,12 +883,12 @@ module Steep
                 method_decls: Set[]
               )
 
-              interface.methods[:call] = Interface::Interface::Entry.new(method_types: [method_type])
+              interface.methods[:call] = Interface::Shape::Entry.new(method_types: [method_type])
 
               if type.block_required?
                 interface.methods.delete(:[])
               else
-                interface.methods[:[]] = Interface::Interface::Entry.new(method_types: [method_type.with(block: nil)])
+                interface.methods[:[]] = Interface::Shape::Entry.new(method_types: [method_type.with(block: nil)])
               end
             end
 

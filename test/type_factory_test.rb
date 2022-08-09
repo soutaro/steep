@@ -331,7 +331,7 @@ end
 FOO
       factory.type(parse_type("::Foo[::String]")).yield_self do |type|
         factory.interface(type, private: true).yield_self do |interface|
-          assert_instance_of Steep::Interface::Interface, interface
+          assert_instance_of Steep::Interface::Shape, interface
           assert_equal type, interface.type
 
           assert_overload_with interface.methods[:klass], "() -> singleton(::Foo)"
@@ -341,7 +341,7 @@ FOO
         end
 
         factory.interface(type, private: false).yield_self do |interface|
-          assert_instance_of Steep::Interface::Interface, interface
+          assert_instance_of Steep::Interface::Shape, interface
           assert_equal type, interface.type
 
           assert_overload_with interface.methods[:klass], "() -> singleton(::Foo)"
@@ -361,7 +361,7 @@ end
 FOO
       factory.type(parse_type("::_Each2[::String, ::Array[::String]]")).yield_self do |type|
         factory.interface(type, private: true).yield_self do |interface|
-          assert_instance_of Steep::Interface::Interface, interface
+          assert_instance_of Steep::Interface::Shape, interface
           assert_equal type, interface.type
 
           assert_equal "{ () { (::String) -> void } -> ::Array[::String] }", interface.methods[:each].to_s
@@ -380,7 +380,7 @@ end
 FOO
       factory.type(parse_type("singleton(::People)")).yield_self do |type|
         factory.interface(type, private: true).yield_self do |interface|
-          assert_instance_of Steep::Interface::Interface, interface
+          assert_instance_of Steep::Interface::Shape, interface
           assert_equal type, interface.type
 
           assert_overload_with interface.methods[:new], "[X] () -> ::People[X]"
@@ -402,7 +402,7 @@ FOO
 
       factory.type(parse_type("::Subject[bool]")).yield_self do |type|
         factory.interface(type, private: true).yield_self do |interface|
-          assert_instance_of Steep::Interface::Interface, interface
+          assert_instance_of Steep::Interface::Shape, interface
           assert_equal type, interface.type
 
           assert_overload_with interface.methods[:bar], "() -> bool"
@@ -411,7 +411,7 @@ FOO
 
       factory.type(parse_type("singleton(::Subject)")).yield_self do |type|
         factory.interface(type, private: true).yield_self do |interface|
-          assert_instance_of Steep::Interface::Interface, interface
+          assert_instance_of Steep::Interface::Shape, interface
           assert_equal type, interface.type
 
           assert_overload_with interface.methods[:foo], "() -> void"
@@ -425,7 +425,7 @@ FOO
     with_factory() do |factory|
       factory.type(parse_type("3")).yield_self do |type|
         factory.interface(type, private: false).yield_self do |interface|
-          assert_instance_of Steep::Interface::Interface, interface
+          assert_instance_of Steep::Interface::Shape, interface
           assert_equal type, interface.type
 
           assert_overload_including interface.methods[:+], "(::Integer) -> ::Integer", "(::Float) -> ::Float"
@@ -443,7 +443,7 @@ FOO
     with_factory() do |factory|
       factory.type(parse_type("[::Integer, ::String]")).yield_self do |type|
         factory.interface(type, private: false).yield_self do |interface|
-          assert_instance_of Steep::Interface::Interface, interface
+          assert_instance_of Steep::Interface::Shape, interface
 
           assert_overload_including interface.methods[:[]],
                                     "(0) -> ::Integer",
@@ -471,7 +471,7 @@ FOO
     with_factory() do |factory|
       factory.type(parse_type("{ 1 => ::Integer, :foo => ::String, \"baz\" => bool }")).yield_self do |type|
         factory.interface(type, private: false).yield_self do |interface|
-          assert_instance_of Steep::Interface::Interface, interface
+          assert_instance_of Steep::Interface::Shape, interface
 
           assert_overload_including interface.methods[:[]],
                                     "(1) -> ::Integer",
@@ -503,7 +503,7 @@ FOO
     with_factory() do |factory|
       factory.type(parse_type("::Integer | ::String")).yield_self do |type|
         factory.interface(type, private: false).yield_self do |interface|
-          assert_instance_of Steep::Interface::Interface, interface
+          assert_instance_of Steep::Interface::Shape, interface
 
           interface.methods[:to_s].yield_self do |entry|
             assert_overload_with entry, "() -> ::String"
@@ -542,7 +542,7 @@ end
     RBS
       factory.type(parse_type("::_I1 | ::_I2")).tap do |type|
         factory.interface(type, private: false).tap do |interface|
-          assert_instance_of Steep::Interface::Interface, interface
+          assert_instance_of Steep::Interface::Shape, interface
 
           assert_equal Set[:g, :foo], Set.new(interface.methods.keys)
           assert_overload_with interface.methods[:g], "() -> void"
@@ -568,7 +568,7 @@ end
     RBS
       factory.type(parse_type("::_I1 & ::_I2")).tap do |type|
         factory.interface(type, private: false).tap do |interface|
-          assert_instance_of Steep::Interface::Interface, interface
+          assert_instance_of Steep::Interface::Shape, interface
 
           assert_equal Set[:f, :g, :h], Set.new(interface.methods.keys)
           assert_overload_with interface.methods[:f], "() -> void"
@@ -583,7 +583,7 @@ end
     with_factory() do |factory|
       factory.type(parse_type("^(String) -> Integer")).yield_self do |type|
         factory.interface(type, private: false).yield_self do |interface|
-          assert_instance_of Steep::Interface::Interface, interface
+          assert_instance_of Steep::Interface::Shape, interface
 
           interface.methods[:call].yield_self do |entry|
             assert_overload_with entry, "(String) -> Integer"
@@ -597,7 +597,7 @@ end
 
       factory.type(parse_type("^(String) { (Object) -> Symbol } -> Integer")).yield_self do |type|
         factory.interface(type, private: false).yield_self do |interface|
-          assert_instance_of Steep::Interface::Interface, interface
+          assert_instance_of Steep::Interface::Shape, interface
 
           interface.methods[:call].yield_self do |entry|
             assert_overload_with entry, "(String) { (Object) -> Symbol } -> Integer"
@@ -609,7 +609,7 @@ end
 
       factory.type(parse_type("^(String) ?{ (Object) -> Symbol } -> Integer")).yield_self do |type|
         factory.interface(type, private: false).yield_self do |interface|
-          assert_instance_of Steep::Interface::Interface, interface
+          assert_instance_of Steep::Interface::Shape, interface
 
           interface.methods[:call].yield_self do |entry|
             assert_overload_with entry, "(String) ?{ (Object) -> Symbol } -> Integer"
@@ -712,7 +712,7 @@ end
 
       factory.type(parse_type("::Hello[::Array[Y]]", variables: [:Y])).tap do |type|
         factory.interface(type, private: true).yield_self do |interface|
-          assert_instance_of Steep::Interface::Interface, interface
+          assert_instance_of Steep::Interface::Shape, interface
           assert_equal type, interface.type
 
           method = interface.methods[:foo]
@@ -743,7 +743,7 @@ end
 
       factory.type(parse_type("::WithBuiltinMethods")).tap do |type|
         factory.interface(type, private: true).tap do |interface|
-          assert_instance_of Steep::Interface::Interface, interface
+          assert_instance_of Steep::Interface::Shape, interface
 
           interface.methods[:is_a?].tap do |is_a|
             assert_instance_of Types::Logic::ReceiverIsArg, is_a.method_types[0].type.return_type
@@ -769,7 +769,7 @@ end
 
       factory.type(parse_type("::WithCustomMethods")).tap do |type|
         factory.interface(type, private: true).tap do |interface|
-          assert_instance_of Steep::Interface::Interface, interface
+          assert_instance_of Steep::Interface::Shape, interface
 
           interface.methods[:is_a?].tap do |is_a|
             assert_instance_of Types::Boolean, is_a.method_types[0].type.return_type

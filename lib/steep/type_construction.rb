@@ -885,7 +885,7 @@ module Steep
                   synthesize(child)
                 end
 
-                super_method = Interface::Interface::Entry.new(
+                super_method = Interface::Shape::Entry.new(
                   method_types: method_context.super_method.method_types.map {|method_type|
                     decl = TypeInference::MethodCall::MethodDecl.new(
                       method_name: InstanceMethodName.new(type_name: super_def.implemented_in || super_def.defined_in,

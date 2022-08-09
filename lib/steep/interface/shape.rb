@@ -1,6 +1,6 @@
 module Steep
   module Interface
-    class Interface
+    class Shape
       class Entry
         attr_reader :method_types
 
