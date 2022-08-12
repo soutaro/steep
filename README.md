@@ -207,9 +207,9 @@ You can find examples in `smoke` directory.
 
 ## IDEs
 
-Steep implements some of the Language Server Protocol features. You can use Steep with VSCode and its plugin.
-
-- https://github.com/soutaro/steep-vscode
+Steep implements some of the Language Server Protocol features. 
+- For **VSCode** please install [the plugin](https://github.com/soutaro/steep-vscode)
+- For **SublimeText** please install [LSP](https://github.com/sublimelsp/LSP) package and follow [instructions](https://lsp.sublimetext.io/language_servers/#steep)
 
 Other LSP supporting tools may work with Steep where it starts the server as `steep langserver`.
 
