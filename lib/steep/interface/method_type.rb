@@ -38,7 +38,7 @@ module Steep
 
       def subst(s)
         return self if s.empty?
-        return self if free_variables.disjoint?(s.domain)
+        return self if each_type.none? {|t| s.apply?(t) }
 
         if type_params.any? {|param| s.key?(param.name) }
           s_ = s.except(type_params.map(&:name))

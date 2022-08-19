@@ -2950,6 +2950,8 @@ module Steep
     end
 
     def type_send(node, send_node:, block_params:, block_body:, unwrap: false)
+      # @type var constr: TypeConstruction
+
       case send_node.type
       when :super, :zsuper
         receiver = nil
@@ -2998,54 +3000,6 @@ module Steep
                          )
                        )
 
-                     when AST::Types::Var
-                       if interface = calculate_interface(receiver_type, private: false)
-                         constr.type_send_interface(
-                           node,
-                           interface: interface,
-                           receiver: receiver,
-                           receiver_type: receiver_type,
-                           method_name: method_name,
-                           arguments: arguments,
-                           block_params: block_params,
-                           block_body: block_body
-                         )
-                       else
-                         constr = constr.synthesize_children(node, skips: [receiver])
-                         constr.add_call(
-                           TypeInference::MethodCall::NoMethodError.new(
-                             node: node,
-                             context: context.method_context,
-                             method_name: method_name,
-                             receiver_type: receiver_type,
-                             error: Diagnostic::Ruby::NoMethod.new(node: node, method: method_name, type: receiver_type)
-                           )
-                         )
-                       end
-                     when AST::Types::Void, AST::Types::Bot, AST::Types::Top
-                       constr = constr.synthesize_children(node, skips: [receiver])
-                       constr.add_call(
-                         TypeInference::MethodCall::NoMethodError.new(
-                           node: node,
-                           context: context.method_context,
-                           method_name: method_name,
-                           receiver_type: receiver_type,
-                           error: Diagnostic::Ruby::NoMethod.new(node: node, method: method_name, type: receiver_type)
-                         )
-                       )
-
-                     when AST::Types::Self
-                        interface = calculate_interface(receiver_type, private: private) or raise
-                        constr.type_send_interface(
-                          node,
-                          interface: interface,
-                          receiver: receiver,
-                          receiver_type: receiver_type,
-                          method_name: method_name,
-                          arguments: arguments,
-                          block_params: block_params,
-                          block_body: block_body
-                        )
                      else
                        if interface = calculate_interface(receiver_type, private: private)
                          constr.type_send_interface(
