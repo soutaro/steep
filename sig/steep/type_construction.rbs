@@ -30,17 +30,17 @@ module Steep
 
     attr_reader context: TypeInference::Context
 
-    def module_context: () -> TypeInference::Context::ModuleContext?
+    %a{pure} def module_context: () -> TypeInference::Context::ModuleContext?
 
-    def method_context: () -> TypeInference::Context::MethodContext?
+    %a{pure} def method_context: () -> TypeInference::Context::MethodContext?
 
-    def block_context: () -> TypeInference::Context::BlockContext?
+    %a{pure} def block_context: () -> TypeInference::Context::BlockContext?
 
-    def break_context: () -> TypeInference::Context::BreakContext?
+    %a{pure} def break_context: () -> TypeInference::Context::BreakContext?
 
-    def self_type: () -> untyped
+    %a{pure} def self_type: () -> AST::Types::t
 
-    def variable_context: () -> TypeInference::Context::TypeVariableContext
+    %a{pure} def variable_context: () -> TypeInference::Context::TypeVariableContext
 
     def initialize: (checker: untyped, source: untyped, annotations: untyped, typing: untyped, context: untyped) -> void
 
@@ -122,7 +122,7 @@ module Steep
 
     def synthesize_children: (Parser::AST::Node node, ?skips: Array[Parser::AST::Node]) -> TypeConstruction
 
-    def type_send_interface: (Parser::AST::Node node, interface: Interface::Shape?, receiver: Parser::AST::Node, receiver_type: AST::Types::t, method_name: Symbol, arguments: Array[Parser::AST::Node], block_params: Parser::AST::Node?, block_body: Parser::AST::Node?) -> Pair
+    def type_send_interface: (Parser::AST::Node node, interface: Interface::Shape, receiver: Parser::AST::Node, receiver_type: AST::Types::t, method_name: Symbol, arguments: Array[Parser::AST::Node], block_params: Parser::AST::Node?, block_body: Parser::AST::Node?) -> Pair
 
     def type_send: (untyped node, send_node: untyped, block_params: untyped, block_body: untyped, ?unwrap: bool) -> untyped
 
@@ -134,6 +134,7 @@ module Steep
     # * Returns Shape::Entry instead of Shape, if `method_name` is given
     #
     def calculate_interface: (AST::Types::t `type`, private: bool) -> Interface::Shape?
+                           | (AST::Types::t `type`, Symbol method_name, private: bool) -> Interface::Shape::Entry?
 
     def expand_self: (untyped `type`) -> untyped
 

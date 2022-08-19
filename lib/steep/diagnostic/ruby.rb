@@ -512,7 +512,11 @@ module Steep
         end
 
         def header_line
-          "No superclass method `#{method}` defined"
+          if method
+            "No superclass method `#{method}` defined"
+          else
+            "`super` is not allowed from outside of method"
+          end
         end
       end
 

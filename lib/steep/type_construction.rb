@@ -1634,7 +1634,6 @@ module Steep
                 }
                 add_typing(node, type: union_type(*types))
               else
-
                 fallback_to_any(node) do
                   Diagnostic::Ruby::UnexpectedSuper.new(node: node, method: method_context.name)
                 end
@@ -2951,8 +2950,32 @@ module Steep
     end
 
     def type_send(node, send_node:, block_params:, block_body:, unwrap: false)
-      receiver, method_name, *arguments = send_node.children
-      recv_type, constr = receiver ? synthesize(receiver) : [AST::Types::Self.new, self]
+      case send_node.type
+      when :super, :zsuper
+        receiver = nil
+        method_name = method_context&.name
+        arguments = send_node.children
+
+        if method_name.nil? || method_context&.super_method.nil?
+          return fallback_to_any(send_node) do
+            Diagnostic::Ruby::UnexpectedSuper.new(
+              node: send_node,
+              method: method_context&.name
+            )
+          end
+        end
+
+        recv_type = AST::Types::Self.instance
+        constr = self
+      else
+        receiver, method_name, *arguments = send_node.children
+        if receiver
+          recv_type, constr = synthesize(receiver)
+        else
+          recv_type = AST::Types::Self.instance
+          constr = self
+        end
+      end
 
       if unwrap
         recv_type = unwrap(recv_type)
@@ -2999,7 +3022,7 @@ module Steep
                            )
                          )
                        end
-                     when AST::Types::Void, AST::Types::Bot, AST::Types::Top, AST::Types::Var
+                     when AST::Types::Void, AST::Types::Bot, AST::Types::Top
                        constr = constr.synthesize_children(node, skips: [receiver])
                        constr.add_call(
                          TypeInference::MethodCall::NoMethodError.new(
@@ -3012,37 +3035,41 @@ module Steep
                        )
 
                      when AST::Types::Self
-                        interface = calculate_interface(receiver_type, private: private)
-
-                        if send_node.type == :super || send_node.type == :zsuper
-                          method_name = method_context.name
-                          unless method_context.super_method
-                            return fallback_to_any(send_node) do
-                              Diagnostic::Ruby::UnexpectedSuper.new(node: send_node, method: method_name)
-                            end
-                          end
-                        end
-
-                        constr.type_send_interface(node,
-                                                  interface: interface,
-                                                  receiver: receiver,
-                                                  receiver_type: receiver_type,
-                                                  method_name: method_name,
-                                                  arguments: arguments,
-                                                  block_params: block_params,
-                                                  block_body: block_body)
-
+                        interface = calculate_interface(receiver_type, private: private) or raise
+                        constr.type_send_interface(
+                          node,
+                          interface: interface,
+                          receiver: receiver,
+                          receiver_type: receiver_type,
+                          method_name: method_name,
+                          arguments: arguments,
+                          block_params: block_params,
+                          block_body: block_body
+                        )
                      else
-                       interface = calculate_interface(receiver_type, private: private)
-
-                       constr.type_send_interface(node,
-                                                  interface: interface,
-                                                  receiver: receiver,
-                                                  receiver_type: receiver_type,
-                                                  method_name: method_name,
-                                                  arguments: arguments,
-                                                  block_params: block_params,
-                                                  block_body: block_body)
+                       if interface = calculate_interface(receiver_type, private: private)
+                         constr.type_send_interface(
+                           node,
+                           interface: interface,
+                           receiver: receiver,
+                           receiver_type: receiver_type,
+                            method_name: method_name,
+                           arguments: arguments,
+                           block_params: block_params,
+                           block_body: block_body
+                         )
+                       else
+                         constr = constr.synthesize_children(node, skips: [receiver])
+                         constr.add_call(
+                           TypeInference::MethodCall::NoMethodError.new(
+                             node: node,
+                             context: context.method_context,
+                             method_name: method_name,
+                             receiver_type: receiver_type,
+                             error: Diagnostic::Ruby::NoMethod.new(node: node, method: method_name, type: receiver_type)
+                           )
+                         )
+                       end
                      end
 
       Pair.new(type: type, constr: constr)
