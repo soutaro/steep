@@ -253,7 +253,9 @@ klasses = [
 
 klasses.each do |klass|
   klass.instance_eval do
-    def self.new(*, **, &) = super
+    def self.new(*_, **__, &___)
+      super
+    end
   end
 end
 
