@@ -107,10 +107,7 @@ module Steep
         if cache.key?(key)
           cache[key]
         else
-          cache[key] =
-            GCCounter.count_objects(type.to_s, /^Steep::Interface/, skip: false) do
-              yield
-            end
+          cache[key] = yield
         end
       end
 

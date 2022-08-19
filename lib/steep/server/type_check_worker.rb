@@ -177,25 +177,23 @@ module Steep
           end
 
         when TypeCheckCodeJob
-          GCCounter.count_objects("TypeCheckCodeJob: #{job.class} :: #{job.path}", /^(Steep)::/, skip: true) do
-            if job.guid == current_type_check_guid
-              Steep.logger.info { "Processing TypeCheckCodeJob for guid=#{job.guid}, path=#{job.path}" }
-              service.typecheck_source(path: project.relative_path(job.path)) do |path, diagnostics|
-                target = project.target_for_source_path(path)
-                formatter = Diagnostic::LSPFormatter.new(target&.code_diagnostics_config || {})
+          if job.guid == current_type_check_guid
+            Steep.logger.info { "Processing TypeCheckCodeJob for guid=#{job.guid}, path=#{job.path}" }
+            service.typecheck_source(path: project.relative_path(job.path)) do |path, diagnostics|
+              target = project.target_for_source_path(path)
+              formatter = Diagnostic::LSPFormatter.new(target&.code_diagnostics_config || {})
 
-                writer.write(
-                  method: :"textDocument/publishDiagnostics",
-                  params: LSP::Interface::PublishDiagnosticsParams.new(
-                    uri: Steep::PathHelper.to_uri(job.path),
-                    diagnostics: diagnostics.map {|diagnostic| formatter.format(diagnostic) }.uniq.compact
-                  )
+              writer.write(
+                method: :"textDocument/publishDiagnostics",
+                params: LSP::Interface::PublishDiagnosticsParams.new(
+                  uri: Steep::PathHelper.to_uri(job.path),
+                  diagnostics: diagnostics.map {|diagnostic| formatter.format(diagnostic) }.uniq.compact
                 )
-              end
+              )
+            end
 
-              typecheck_progress(path: job.path, guid: job.guid)
-            end
-            end
+            typecheck_progress(path: job.path, guid: job.guid)
+          end
 
         when WorkspaceSymbolJob
           writer.write(
