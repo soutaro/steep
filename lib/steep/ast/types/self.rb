@@ -8,6 +8,10 @@ module Steep
           @location = location
         end
 
+        def self.instance
+          @instance ||= new()
+        end
+
         def ==(other)
           other.is_a?(Self)
         end

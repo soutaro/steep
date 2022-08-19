@@ -23,12 +23,6 @@ module Steep
 
       def empty?: () -> untyped
 
-      INSTANCE_TYPE: untyped
-
-      CLASS_TYPE: untyped
-
-      SELF_TYPE: untyped
-
       def domain: () -> untyped
 
       def to_s: () -> ::String
