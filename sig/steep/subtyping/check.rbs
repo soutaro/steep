@@ -1,27 +1,33 @@
 module Steep
   module Subtyping
     class Check
-      attr_reader factory: AST::Types::Factory
+      attr_reader builder: Interface::Builder
 
       attr_reader cache: untyped
 
       attr_reader assumptions: untyped
 
-      def initialize: (factory: untyped) -> void
+      @bounds: Array[Hash[Symbol, AST::Types::t?]]
+
+      def initialize: (builder: Interface::Builder) -> void
+
+      def factory: () -> AST::Types::Factory
 
       def with_context: (self_type: untyped, instance_type: untyped, class_type: untyped, constraints: untyped) { () -> untyped } -> untyped
 
       def push_assumption: (untyped relation) { () -> untyped } -> untyped
 
-      def push_variable_bounds: (untyped params) { () -> untyped } -> untyped
+      def push_variable_bounds: [A] (Array[Interface::TypeParam] | Hash[Symbol, AST::Types::t?] params) { () -> A } -> A
 
-      def variable_upper_bound: (untyped name) -> (untyped | nil)
+      def variable_upper_bound: (Symbol name) -> AST::Types::t?
 
-      def self_type: () -> untyped
+      def variable_upper_bounds: () -> Hash[Symbol, AST::Types::t?]
 
-      def instance_type: () -> untyped
+      def self_type: () -> AST::Types::t
 
-      def class_type: () -> untyped
+      def instance_type: () -> AST::Types::t
+
+      def class_type: () -> AST::Types::t
 
       def constraints: () -> untyped
 
@@ -57,7 +63,7 @@ module Steep
 
       def same_type?: (untyped relation) -> (true | untyped)
 
-      def check_interface: (untyped relation) -> untyped
+      def check_interface: (Relation[Interface::Shape] relation) -> Result::t
 
       def check_method: (untyped name, untyped relation) -> untyped
 

@@ -6335,7 +6335,7 @@ x + ""       # <= error! (x: String | Integer | nil)
 
       with_standard_construction(checker, source) do |construction, typing|
         construction.synthesize(source.node)
-        assert_equal 1, typing.errors.size
+        assert_typing_error typing, size: 1
       end
     end
   end
@@ -9881,6 +9881,22 @@ x, y =
         assert_equal parse_type("[::String?, ::Integer?]"), type
         assert_equal parse_type("::String?"), context.type_env[:x]
         assert_equal parse_type("::Integer?"), context.type_env[:y]
+      end
+    end
+  end
+
+  def test_self_type_call
+    with_checker(<<-RBS) do |checker|
+      RBS
+      source = parse_ruby(<<-RUBY)
+# @type var x: Object
+x = self
+x = x.itself
+      RUBY
+
+      with_standard_construction(checker, source) do |construction, typing|
+        type, _, context = construction.synthesize(source.node)
+        assert_no_error typing
       end
     end
   end

@@ -425,7 +425,8 @@ end
     end
 
     with_factory(paths, nostdlib: !with_stdlib) do |factory|
-      @checker = Steep::Subtyping::Check.new(factory: factory)
+      builder = Steep::Interface::Builder.new(factory)
+      @checker = Steep::Subtyping::Check.new(builder: builder)
       yield @checker
     ensure
       @checker = nil
@@ -530,9 +531,9 @@ module FactoryHelper
     Steep::Source.parse(string, path: Pathname("test.rb"), factory: factory)
   end
 
-  def parse_method_type(string, factory: self.factory, variables: [], self_type: Steep::AST::Types::Self.new)
+  def parse_method_type(string, factory: self.factory, variables: [])
     type = RBS::Parser.parse_method_type(string, variables: variables)
-    factory.method_type type, self_type: self_type, method_decls: Set[]
+    factory.method_type(type, method_decls: Set[])
   end
 end
 

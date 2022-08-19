@@ -49,7 +49,7 @@ module Steep
         end
 
         def hash
-          @hash ||= self.class.hash ^ types.sort_by(&:to_s).hash
+          @hash ||= types.inject(self.class.hash) {|c, type| type.hash ^ c }
         end
 
         alias eql? ==

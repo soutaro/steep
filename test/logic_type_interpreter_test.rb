@@ -19,6 +19,15 @@ class LogicTypeInterpreterTest < Minitest::Test
     TypeInference::TypeEnv.new(const_env)
   end
 
+  def config
+    Interface::Builder::Config.new(
+      resolve_self: true,
+      resolve_class_type: true,
+      resolve_instance_type: true,
+      variable_bounds: {}
+    )
+  end
+
   def test_lvar_assignment
     with_checker do |checker|
       source = parse_ruby("a = @x")
@@ -29,7 +38,7 @@ class LogicTypeInterpreterTest < Minitest::Test
 
       env = type_env.assign_local_variable(:a, parse_type("::String?"), nil)
 
-      interpreter = LogicTypeInterpreter.new(subtyping: checker, typing: typing)
+      interpreter = LogicTypeInterpreter.new(subtyping: checker, typing: typing, config: config)
       truthy_env, falsy_env, _, truthy_type, falsy_type = interpreter.eval(env: env, node: source.node)
 
       assert_equal parse_type("::String"), truthy_type
@@ -53,7 +62,7 @@ class LogicTypeInterpreterTest < Minitest::Test
           .assign_local_variable(:b, parse_type("::Integer?"), nil)
           .merge(instance_variable_types: { :@x => parse_type("[::String, ::Integer]?") })
 
-      interpreter = LogicTypeInterpreter.new(subtyping: checker, typing: typing)
+      interpreter = LogicTypeInterpreter.new(subtyping: checker, typing: typing, config: config)
       truthy_env, falsy_env, symbols, truthy_type, falsy_type = interpreter.eval(env: env, node: source.node)
 
       assert_equal parse_type("[::String, ::Integer]"), truthy_type
@@ -98,7 +107,7 @@ end
         .assign_local_variable(:article, parse_type("::Article"), nil)
         .add_pure_call(dig(node, 1), call, nil)
 
-      interpreter = LogicTypeInterpreter.new(subtyping: checker, typing: typing)
+      interpreter = LogicTypeInterpreter.new(subtyping: checker, typing: typing, config: config)
       truthy_env, falsy_env, _, truthy_type, falsy_type = interpreter.eval(env: env, node: node)
 
       assert_equal parse_type("::String"), truthy_type
@@ -140,7 +149,7 @@ end
       env = type_env
         .assign_local_variable(:email, parse_type("::String?"), nil)
 
-      interpreter = LogicTypeInterpreter.new(subtyping: checker, typing: typing)
+      interpreter = LogicTypeInterpreter.new(subtyping: checker, typing: typing, config: config)
       truthy_env, falsy_env, _, truthy_type, falsy_type = interpreter.eval(env: env, node: node)
 
       assert_equal parse_type("true"), truthy_type
@@ -180,7 +189,7 @@ end
       env = type_env
         .assign_local_variable(:email, parse_type("::String?"), nil)
 
-      interpreter = LogicTypeInterpreter.new(subtyping: checker, typing: typing)
+      interpreter = LogicTypeInterpreter.new(subtyping: checker, typing: typing, config: config)
       truthy_env, falsy_env, _, truthy_type, falsy_type = interpreter.eval(env: env, node: node)
 
       assert_equal parse_type("true"), truthy_type
@@ -221,10 +230,8 @@ end
       env = type_env
         .assign_local_variable(:email, parse_type("::String?"), nil)
 
-      interpreter = LogicTypeInterpreter.new(subtyping: checker, typing: typing)
+      interpreter = LogicTypeInterpreter.new(subtyping: checker, typing: typing, config: config)
       truthy_env, falsy_env, _, truthy_type, falsy_type = interpreter.eval(env: env, node: node)
-
-      pp truthy_env.to_s
 
       assert_equal parse_type("true"), truthy_type
       assert_equal parse_type("false"), falsy_type
@@ -264,7 +271,7 @@ end
       env = type_env
         .assign_local_variable(:email, parse_type("::String?"), nil)
 
-      interpreter = LogicTypeInterpreter.new(subtyping: checker, typing: typing)
+      interpreter = LogicTypeInterpreter.new(subtyping: checker, typing: typing, config: config)
       truthy_env, falsy_env, _, truthy_type, falsy_type = interpreter.eval(env: env, node: node)
 
       assert_equal parse_type("true"), truthy_type
@@ -305,7 +312,7 @@ end
       env = type_env
         .assign_local_variable(:email, parse_type("::String?"), nil)
 
-      interpreter = LogicTypeInterpreter.new(subtyping: checker, typing: typing)
+      interpreter = LogicTypeInterpreter.new(subtyping: checker, typing: typing, config: config)
       truthy_env, falsy_env, _, truthy_type, falsy_type = interpreter.eval(env: env, node: node)
 
       assert_equal parse_type("true"), truthy_type
@@ -317,7 +324,7 @@ end
 
   def test_type_case_select
     with_checker do |checker|
-      interpreter = LogicTypeInterpreter.new(subtyping: checker, typing: nil)
+      interpreter = LogicTypeInterpreter.new(subtyping: checker, typing: nil, config: config)
 
       assert_equal [parse_type("::String"), parse_type("bot")],
                    interpreter.type_case_select(parse_type("::String"), TypeName("::String"))
@@ -332,7 +339,7 @@ end
 
   def test_type_case_select_untyped
     with_checker do |checker|
-      interpreter = LogicTypeInterpreter.new(subtyping: checker, typing: nil)
+      interpreter = LogicTypeInterpreter.new(subtyping: checker, typing: nil, typing: nil, config: config)
 
       assert_equal [parse_type("::String"), parse_type("untyped")],
                    interpreter.type_case_select(parse_type("untyped"), TypeName("::String"))
@@ -341,7 +348,7 @@ end
 
   def test_type_case_select_top
     with_checker do |checker|
-      interpreter = LogicTypeInterpreter.new(subtyping: checker, typing: nil)
+      interpreter = LogicTypeInterpreter.new(subtyping: checker, typing: nil, typing: nil, config: config)
 
       assert_equal [parse_type("::String"), parse_type("top")],
                    interpreter.type_case_select(parse_type("top"), TypeName("::String"))
@@ -359,7 +366,7 @@ end
 class TestChild2 < TestParent
 end
     RBS
-      interpreter = LogicTypeInterpreter.new(subtyping: checker, typing: nil)
+      interpreter = LogicTypeInterpreter.new(subtyping: checker, typing: nil, typing: nil, config: config)
 
       assert_equal [parse_type("::TestChild1"), parse_type("::String")],
                    interpreter.type_case_select(parse_type("::TestChild1 | ::String"), TypeName("::TestParent"))
@@ -381,7 +388,7 @@ type ds = D1 | D2
 type dm = ms | ds
     RBS
 
-      interpreter = LogicTypeInterpreter.new(subtyping: checker, typing: nil)
+      interpreter = LogicTypeInterpreter.new(subtyping: checker, typing: nil, typing: nil, config: config)
 
       assert_equal [parse_type("::M1"), parse_type("::M2 | ::M3")],
                    interpreter.type_case_select(parse_type("::ms"), TypeName("::M1"))

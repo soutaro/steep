@@ -1,0 +1,111 @@
+module Steep
+  module Interface
+    class Builder
+      class Config
+        attr_reader resolve_self: AST::Types::t | true | nil
+
+        attr_reader resolve_class_type: AST::Types::t | true | nil
+
+        attr_reader resolve_instance_type: AST::Types::t | true | nil
+
+        attr_reader variable_bounds: Hash[Symbol, AST::Types::t?]
+
+        def initialize: (
+          resolve_self: AST::Types::t | true | nil,
+          resolve_class_type: AST::Types::t | true | nil,
+          resolve_instance_type: AST::Types::t | true | nil,
+          variable_bounds: Hash[Symbol, AST::Types::t?]
+        ) -> void
+
+        def update: (
+          ?resolve_self: AST::Types::t | true | nil,
+          ?resolve_class_type: AST::Types::t | true | nil,
+          ?resolve_instance_type: AST::Types::t | true | nil,
+          ?variable_bounds: Hash[Symbol, AST::Types::t?]
+        ) -> self
+
+        def ==: (untyped) -> bool
+
+        alias eql? ==
+
+        def hash: () -> Integer
+
+        @subst: Substitution
+
+        %a{pure} def subst: () -> Substitution
+      end
+
+      attr_reader factory: AST::Types::Factory
+
+      type cache_key = [
+        AST::Types::t,   # type
+        bool,            # public_only
+        AST::Types::t | true | nil,   # resolve_self
+        AST::Types::t | true | nil,   # resolve_class_type
+        AST::Types::t | true | nil,   # resolve_instance_type
+        Hash[Symbol, AST::Types::t?]? # variable_bounds
+      ]
+      attr_reader cache: Hash[cache_key, Shape?]
+
+      # No type application (if generic), no self-instance-module resolution
+      attr_reader raw_instance_object_shape_cache: Hash[[RBS::TypeName, bool], Shape]
+
+      attr_reader raw_singleton_object_shape_cache: Hash[[RBS::TypeName, bool], Shape]
+
+      attr_reader raw_interface_object_shape_cache: Hash[[RBS::TypeName, bool], Shape]
+
+      def initialize: (AST::Types::Factory) -> void
+
+      # Calculates the shape of given class, based on `public_only` and Config
+      #
+      # Returns `nil` if a type that cannot calculate Shape is given.
+      #
+      # * `public_only`: If false, returns a shape with private methods.
+      #
+      def shape: (AST::Types::t, public_only: bool, config: Config) -> Shape?
+
+      private
+
+      # Fetch and update cache
+      #
+      # Cache if given type is cacheable:
+      #
+      # * `self`, `instance`, `class` is not cacheable
+      # * Type variables are not cacheable
+      #
+      def fetch_cache: (AST::Types::t, bool public_only, Config) { () -> Shape? } -> Shape?
+
+      def include_self?: (AST::Types::t) -> bool
+
+      def definition_builder: () -> RBS::DefinitionBuilder
+
+      def object_shape: (
+        AST::Types::Name::Instance | AST::Types::Name::Singleton | AST::Types::Name::Interface,
+        bool public_only,
+        boolish keep_self,
+        boolish keep_instance,
+        boolish keep_singleton
+      ) -> Shape
+
+      def raw_object_shape: (
+        AST::Types::Name::Instance | AST::Types::Name::Singleton | AST::Types::Name::Interface,
+        bool public_only,
+        Substitution subst
+      ) -> Shape
+
+      def union_shape: (AST::Types::t, Array[Shape], bool public_only) -> Shape
+
+      def intersection_shape: (AST::Types::t, Array[Shape], bool public_only) -> Shape
+
+      def tuple_shape: (AST::Types::Tuple, bool public_only, Config) -> Shape
+
+      def record_shape: (AST::Types::Record, bool public_only, Config) -> Shape?
+
+      def proc_shape: (AST::Types::Proc, bool public_only, Config) -> Shape?
+
+      def replace_primitive_method: (method_name, RBS::Definition::Method::TypeDef, MethodType) -> MethodType
+
+      def method_name_for: (RBS::Definition::Method::TypeDef, Symbol name) -> method_name
+    end
+  end
+end

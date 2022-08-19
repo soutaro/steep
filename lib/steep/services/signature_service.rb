@@ -48,7 +48,11 @@ module Steep
         end
 
         def subtyping
-          @subtyping ||= Subtyping::Check.new(factory: AST::Types::Factory.new(builder: builder))
+          @subtyping ||= begin
+            factory = AST::Types::Factory.new(builder: builder)
+            interface_builder = Interface::Builder.new(factory)
+            Subtyping::Check.new(builder: interface_builder)
+          end
         end
 
         def rbs_index

@@ -343,9 +343,21 @@ module Steep
 
       def method_items_for_receiver_type(type, include_private:, prefix:, position:, items:)
         range = range_for(position, prefix: prefix)
-        interface = subtyping.factory.interface(type, self_type: type, private: include_private)
+        context = typing.context_at(line: position.line, column: position.column)
 
-        interface.methods.each do |name, method_entry|
+        shape = subtyping.builder.shape(
+          type,
+          public_only: !include_private,
+          config: Interface::Builder::Config.new(
+            resolve_self: context.self_type,
+            resolve_class_type: context.module_context&.module_type,
+            resolve_instance_type: context.module_context&.instance_type,
+            variable_bounds: context.variable_context.upper_bounds
+          )
+        )
+        # factory.shape(type, self_type: type, private: include_private)
+
+        shape.methods.each do |name, method_entry|
           next if disallowed_method?(name)
 
           if name.to_s.start_with?(prefix)
@@ -355,7 +367,7 @@ module Steep
                   identifier: name,
                   range: range,
                   receiver_type: type,
-                  method_type: subtyping.factory.method_type_1(method_type, self_type: type),
+                  method_type: subtyping.factory.method_type_1(method_type),
                   method_decls: method_type.method_decls
                 )
               end

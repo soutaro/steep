@@ -1,0 +1,91 @@
+module Steep
+  module Index
+    class RBSIndex
+      class TypeEntry
+        attr_reader type_name: untyped
+
+        attr_reader declarations: untyped
+
+        attr_reader references: untyped
+
+        def initialize: (type_name: untyped) -> void
+
+        def add_declaration: (untyped decl) -> untyped
+
+        def add_reference: (untyped ref) -> untyped
+      end
+
+      class MethodEntry
+        attr_reader method_name: untyped
+
+        attr_reader declarations: untyped
+
+        attr_reader references: untyped
+
+        def initialize: (method_name: untyped) -> void
+
+        def add_declaration: (untyped decl) -> untyped
+      end
+
+      class ConstantEntry
+        attr_reader const_name: untyped
+
+        attr_reader declarations: untyped
+
+        def initialize: (const_name: untyped) -> void
+
+        def add_declaration: (untyped decl) -> untyped
+      end
+
+      class GlobalEntry
+        attr_reader global_name: untyped
+
+        attr_reader declarations: untyped
+
+        def initialize: (global_name: untyped) -> void
+
+        def add_declaration: (untyped decl) -> untyped
+      end
+
+      attr_reader type_index: untyped
+
+      attr_reader method_index: untyped
+
+      attr_reader const_index: untyped
+
+      attr_reader global_index: untyped
+
+      def initialize: () -> void
+
+      def entry: (?type_name: untyped?, ?method_name: untyped?, ?const_name: untyped?, ?global_name: untyped?) -> untyped
+
+      def each_entry: () { () -> untyped } -> untyped
+
+      def add_type_declaration: (untyped type_name, untyped declaration) -> untyped
+
+      def add_method_declaration: (untyped method_name, untyped member) -> untyped
+
+      def add_constant_declaration: (untyped const_name, untyped decl) -> untyped
+
+      def add_global_declaration: (untyped global_name, untyped decl) -> untyped
+
+      def each_declaration: (?type_name: untyped?, ?method_name: untyped?, ?const_name: untyped?, ?global_name: untyped?) { () -> untyped } -> untyped
+
+      def add_type_reference: (untyped type_name, untyped ref) -> untyped
+
+      def each_reference: (?type_name: untyped?) { () -> untyped } -> untyped
+
+      class Builder
+        attr_reader index: untyped
+
+        def initialize: (index: untyped) -> void
+
+        def member: (untyped type_name, untyped member) -> untyped
+
+        def type_reference: (untyped `type`, from: untyped) -> untyped
+
+        def env: (untyped env) -> untyped
+      end
+    end
+  end
+end

@@ -146,7 +146,7 @@ module Steep
       definition_method_type = if definition
                                  definition.methods[method_name]&.yield_self do |method|
                                    method.method_types
-                                     .map {|method_type| checker.factory.method_type(method_type, self_type: self_type, method_decls: Set[]) }
+                                     .map {|method_type| checker.factory.method_type(method_type, method_decls: Set[]) }
                                      .select {|method_type| method_type.is_a?(Interface::MethodType) }
                                      .inject {|t1, t2| t1 + t2}
                                  end
@@ -892,7 +892,7 @@ module Steep
                                                           method_name: method_context.name),
                       method_def: super_def
                     )
-                    checker.factory.method_type(method_type, self_type: self_type, method_decls: Set[decl])
+                    checker.factory.method_type(method_type, method_decls: Set[decl])
                   }
                 )
 
@@ -1630,7 +1630,7 @@ module Steep
             if method_context&.method
               if method_context.super_method
                 types = method_context.super_method.method_types.map {|method_type|
-                  checker.factory.method_type(method_type, self_type: self_type, method_decls: Set[]).type.return_type
+                  checker.factory.method_type(method_type, method_decls: Set[]).type.return_type
                 }
                 add_typing(node, type: union_type(*types))
               else
@@ -1692,7 +1692,7 @@ module Steep
 
             left_type, constr, left_context = synthesize(left_node, hint: hint, condition: true).to_ary
 
-            interpreter = TypeInference::LogicTypeInterpreter.new(subtyping: checker, typing: typing)
+            interpreter = TypeInference::LogicTypeInterpreter.new(subtyping: checker, typing: typing, config: builder_config)
             left_truthy_env, left_falsy_env = interpreter.eval(env: left_context.type_env, node: left_node)
 
             if left_type.is_a?(AST::Types::Logic::Env)
@@ -1740,7 +1740,7 @@ module Steep
 
             left_type, constr, left_context = synthesize(left_node, hint: hint, condition: true).to_ary
 
-            interpreter = TypeInference::LogicTypeInterpreter.new(subtyping: checker, typing: typing)
+            interpreter = TypeInference::LogicTypeInterpreter.new(subtyping: checker, typing: typing, config: builder_config)
             left_truthy_env, left_falsy_env = interpreter.eval(env: left_context.type_env, node: left_node)
 
             if left_type.is_a?(AST::Types::Logic::Env)
@@ -1787,7 +1787,7 @@ module Steep
             cond, true_clause, false_clause = node.children
 
             cond_type, constr = synthesize(cond, condition: true).to_ary
-            interpreter = TypeInference::LogicTypeInterpreter.new(subtyping: checker, typing: constr.typing)
+            interpreter = TypeInference::LogicTypeInterpreter.new(subtyping: checker, typing: constr.typing, config: builder_config)
             truthy_env, falsy_env = interpreter.eval(env: constr.context.type_env, node: cond)
 
             if true_clause
@@ -1839,7 +1839,7 @@ module Steep
             cond, *whens, els = node.children
 
             constr = self
-            interpreter = TypeInference::LogicTypeInterpreter.new(subtyping: checker, typing: typing)
+            interpreter = TypeInference::LogicTypeInterpreter.new(subtyping: checker, typing: typing, config: builder_config)
 
             if cond
               branch_results = []
@@ -2133,7 +2133,7 @@ module Steep
             cond, body = node.children
             cond_type, constr = synthesize(cond, condition: true).to_ary
 
-            interpreter = TypeInference::LogicTypeInterpreter.new(subtyping: checker, typing: typing)
+            interpreter = TypeInference::LogicTypeInterpreter.new(subtyping: checker, typing: typing, config: builder_config)
             truthy_env, falsy_env = interpreter.eval(env: constr.context.type_env, node: cond)
 
             case node.type
@@ -2307,9 +2307,7 @@ module Steep
                 when AST::Types::Any
                   type = AST::Types::Any.new
                 else
-                  interface = calculate_interface(param_type, private: true)
-                  method = interface.methods[value.children[0]]
-                  if method
+                  if method = calculate_interface(param_type, private: true)&.methods&.[](value.children[0])
                     return_types = method.method_types.filter_map do |method_type|
                       if method_type.type.params.optional?
                         method_type.type.return_type
@@ -2831,7 +2829,7 @@ module Steep
     end
 
     def type_send_interface(node, interface:, receiver:, receiver_type:, method_name:, arguments:, block_params:, block_body:)
-      method = interface.methods[method_name]
+      method = interface&.methods&.[](method_name)
 
       if method
         call, constr = type_method_call(node,
@@ -2878,7 +2876,7 @@ module Steep
         else
           error = Diagnostic::Ruby::UnresolvedOverloading.new(
             node: node,
-            receiver_type: receiver_type,
+            receiver_type: interface.type,
             method_name: method_name,
             method_types: method.method_types
           )
@@ -2943,7 +2941,7 @@ module Steep
             context: context.method_context,
             method_name: method_name,
             receiver_type: receiver_type,
-            error: Diagnostic::Ruby::NoMethod.new(node: node, method: method_name, type: receiver_type)
+            error: Diagnostic::Ruby::NoMethod.new(node: node, method: method_name, type: interface&.type || receiver_type)
           )
         )
       end
@@ -2975,9 +2973,7 @@ module Steep
                        )
 
                      when AST::Types::Var
-                       if upper_bound = variable_context[receiver_type.name]
-                         interface = calculate_interface(upper_bound, private: false)
-
+                       if interface = calculate_interface(receiver_type, private: false)
                          constr.type_send_interface(
                            node,
                            interface: interface,
@@ -3013,47 +3009,28 @@ module Steep
                        )
 
                      when AST::Types::Self
-                       expanded_self = expand_self(receiver_type)
+                        interface = calculate_interface(receiver_type, private: private)
 
-                       if expanded_self.is_a?(AST::Types::Self)
-                         Steep.logger.debug { "`self` type cannot be resolved to concrete type" }
-
-                         constr = constr.synthesize_children(node, skips: [receiver])
-                         constr.add_call(
-                           TypeInference::MethodCall::NoMethodError.new(
-                             node: node,
-                             context: context.method_context,
-                             method_name: method_name,
-                             receiver_type: receiver_type,
-                             error: Diagnostic::Ruby::NoMethod.new(node: node, method: method_name, type: receiver_type)
-                           )
-                         )
-                       else
-                         interface = calculate_interface(expanded_self,
-                                                         private: private,
-                                                         self_type: AST::Types::Self.new)
-
-                         if send_node.type == :super || send_node.type == :zsuper
-                            method_name = method_context.name
-                            unless method_context.super_method
-                              return fallback_to_any(send_node) do
-                                Diagnostic::Ruby::UnexpectedSuper.new(node: send_node, method: method_name)
-                              end
+                        if send_node.type == :super || send_node.type == :zsuper
+                          method_name = method_context.name
+                          unless method_context.super_method
+                            return fallback_to_any(send_node) do
+                              Diagnostic::Ruby::UnexpectedSuper.new(node: send_node, method: method_name)
                             end
-                         end
+                          end
+                        end
 
-                         constr.type_send_interface(node,
-                                                    interface: interface,
-                                                    receiver: receiver,
-                                                    receiver_type: expanded_self,
-                                                    method_name: method_name,
-                                                    arguments: arguments,
-                                                    block_params: block_params,
-                                                    block_body: block_body)
-                       end
+                        constr.type_send_interface(node,
+                                                  interface: interface,
+                                                  receiver: receiver,
+                                                  receiver_type: receiver_type,
+                                                  method_name: method_name,
+                                                  arguments: arguments,
+                                                  block_params: block_params,
+                                                  block_body: block_body)
 
                      else
-                       interface = calculate_interface(receiver_type, private: private, self_type: receiver_type)
+                       interface = calculate_interface(receiver_type, private: private)
 
                        constr.type_send_interface(node,
                                                   interface: interface,
@@ -3068,17 +3045,21 @@ module Steep
       Pair.new(type: type, constr: constr)
     end
 
-    def calculate_interface(type, private:, self_type: type)
-      case type
-      when AST::Types::Self
-        type = self_type
-      when AST::Types::Instance
-        type = module_context.instance_type
-      when AST::Types::Class
-        type = module_context.module_type
-      end
+    def builder_config
+      Interface::Builder::Config.new(
+        resolve_self: self_type,
+        resolve_class_type: module_context.module_type,
+        resolve_instance_type: module_context.instance_type,
+        variable_bounds: variable_context.upper_bounds
+      )
+    end
 
-      checker.factory.interface(type, private: private, self_type: self_type)
+    def calculate_interface(type, private:)
+      checker.builder.shape(
+        type,
+        public_only: !private,
+        config: builder_config
+      )
     end
 
     def expand_self(type)
@@ -3988,19 +3969,12 @@ module Steep
     end
 
     def unwrap(type)
-      expand_alias(type) do |expanded|
-        case
-        when expanded.is_a?(AST::Types::Union)
-          types = expanded.types.reject {|type| type.is_a?(AST::Types::Nil)}
-          AST::Types::Union.build(types: types)
-        else
-          type
-        end
-      end
+      truthy, _ = checker.factory.unwrap_optional(type)
+      truthy
     end
 
-    def deep_expand_alias(type, &block)
-      checker.factory.deep_expand_alias(type, &block)
+    def deep_expand_alias(type)
+      checker.factory.deep_expand_alias(type)
     end
 
     def flatten_union(type)
@@ -4095,22 +4069,15 @@ module Steep
     end
 
     def try_convert(type, method)
-      case type
-      when AST::Types::Any, AST::Types::Bot, AST::Types::Top, AST::Types::Var
-        return
-      end
+      if shape = calculate_interface(type, private: false)
+        if entry = shape.methods[method]
+          method_type = entry.method_types.find do |method_type|
+            method_type.type.params.optional?
+          end
 
-      interface = checker.factory.interface(type, private: false, self_type: type)
-      if entry = interface.methods[method]
-        method_type = entry.method_types.find do |method_type|
-          method_type.type.params.optional?
+          method_type.type.return_type if method_type
         end
-
-        method_type.type.return_type if method_type
       end
-    rescue => exn
-      Steep.log_error(exn, message: "Unexpected error when converting #{type.to_s} with #{method}")
-      nil
     end
 
     def try_array_type(node, hint)

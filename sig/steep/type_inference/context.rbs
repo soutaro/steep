@@ -62,15 +62,33 @@ module Steep
 
         attr_reader class_name: RBS::TypeName
 
-        attr_reader instance_definition: RBS::Definition
+        attr_reader instance_definition: RBS::Definition?
 
-        attr_reader module_definition: RBS::Definition
+        attr_reader module_definition: RBS::Definition?
 
-        def initialize: (instance_type: untyped, module_type: untyped, implement_name: untyped, class_name: untyped, nesting: untyped, ?instance_definition: untyped?, ?module_definition: untyped?) -> void
+        @class_variables: Hash[Symbol, RBS::Types::t]?
 
-        def class_variables: () -> (untyped | nil)
+        def initialize: (
+          instance_type: AST::Types::t,
+          module_type: AST::Types::t,
+          implement_name: untyped,
+          class_name: RBS::TypeName,
+          nesting: RBS::Resolver::context,
+          ?instance_definition: RBS::Definition?,
+          ?module_definition: RBS::Definition?
+        ) -> void
 
-        def update: (?instance_type: untyped, ?module_type: untyped, ?implement_name: untyped, ?class_name: untyped, ?instance_definition: untyped, ?module_definition: untyped, ?nesting: untyped) -> untyped
+        def class_variables: () -> Hash[Symbol, RBS::Types::t]?
+
+        def update: (
+          ?instance_type: AST::Types::t,
+          ?module_type: AST::Types::t,
+          ?implement_name: untyped,
+          ?class_name: RBS::TypeName,
+          ?instance_definition: RBS::Definition?,
+          ?module_definition: RBS::Definition?,
+          ?nesting: RBS::Resolver::context
+        ) -> ModuleContext
       end
 
       class TypeVariableContext
@@ -99,7 +117,7 @@ module Steep
 
       attr_reader break_context: BreakContext?
 
-      attr_reader module_context: untyped
+      attr_reader module_context: ModuleContext?
 
       attr_reader self_type: AST::Types::t
 
@@ -111,7 +129,7 @@ module Steep
         method_context: untyped,
         block_context: BlockContext?,
         break_context: BreakContext?,
-        module_context: untyped,
+        module_context: ModuleContext?,
         self_type: untyped,
         type_env: TypeEnv,
         call_context: untyped,
@@ -122,7 +140,7 @@ module Steep
         ?method_context: untyped,
         ?block_context: BlockContext?,
         ?break_context: BreakContext?,
-        ?module_context: untyped,
+        ?module_context: ModuleContext?,
         ?self_type: untyped,
         ?type_env: TypeEnv,
         ?call_context: untyped,

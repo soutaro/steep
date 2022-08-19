@@ -122,11 +122,13 @@ module Steep
 
     def synthesize_children: (Parser::AST::Node node, ?skips: Array[Parser::AST::Node]) -> TypeConstruction
 
-    def type_send_interface: (Parser::AST::Node node, interface: Interface::Shape, receiver: Parser::AST::Node, receiver_type: AST::Types::t, method_name: Symbol, arguments: Array[Parser::AST::Node], block_params: Parser::AST::Node?, block_body: Parser::AST::Node?) -> Pair
+    def type_send_interface: (Parser::AST::Node node, interface: Interface::Shape?, receiver: Parser::AST::Node, receiver_type: AST::Types::t, method_name: Symbol, arguments: Array[Parser::AST::Node], block_params: Parser::AST::Node?, block_body: Parser::AST::Node?) -> Pair
 
     def type_send: (untyped node, send_node: untyped, block_params: untyped, block_body: untyped, ?unwrap: bool) -> untyped
 
-    def calculate_interface: (untyped `type`, private: untyped, ?self_type: untyped) -> untyped
+    def builder_config: () -> Interface::Builder::Config
+
+    def calculate_interface: (AST::Types::t `type`, private: bool) -> Interface::Shape?
 
     def expand_self: (untyped `type`) -> untyped
 
@@ -231,12 +233,11 @@ module Steep
 
     def type_any_rec: (Parser::AST::Node node) -> Pair
 
-    def unwrap: (untyped `type`) -> untyped
+    def unwrap: (AST::Types::t `type`) -> AST::Types::t
 
-    def deep_expand_alias: (AST::Types::t `type`) -> AST::Types::t
-                         | [A] (AST::Types::t) { (AST::Types::t) -> A } -> A
+    def deep_expand_alias: (AST::Types::t `type`) -> AST::Types::t?
 
-    def flatten_union: (untyped `type`) -> untyped
+    def flatten_union: (AST::Types::t `type`) -> Array[AST::Types::t]
 
     def select_flatten_types: (untyped `type`) { () -> untyped } -> untyped
 

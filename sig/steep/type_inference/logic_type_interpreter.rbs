@@ -7,7 +7,9 @@ module Steep
 
       attr_reader factory (): AST::Types::Factory
 
-      def initialize: (subtyping: Subtyping::Check, typing: Typing) -> void
+      attr_reader config: Interface::Builder::Config
+
+      def initialize: (subtyping: Subtyping::Check, typing: Typing, config: Interface::Builder::Config) -> void
 
       def eval: (env: TypeEnv, node: Parser::AST::Node) -> [TypeEnv, TypeEnv, Set[Symbol | Parser::AST::Node], AST::Types::t, AST::Types::t]
 

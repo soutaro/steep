@@ -2,22 +2,60 @@ module Steep
   module Interface
     class Shape
       class Entry
-        attr_reader method_types: untyped
+        attr_reader method_types: Array[MethodType]
 
-        def initialize: (method_types: untyped) -> void
+        def initialize: (method_types: Array[MethodType]) -> void
 
-        def to_s: () -> ::String
+        def to_s: () -> String
       end
 
-      attr_reader type: untyped
+      class Methods
+        def []=: (Symbol, Entry) -> Entry
 
-      attr_reader methods: untyped
+        def []: (Symbol) -> Entry?
 
-      def initialize: (type: untyped, private: untyped) -> void
+        def key?: (Symbol) -> bool
 
-      def private?: () -> untyped
+        def each: () { ([Symbol, Entry]) -> void } -> void
+                | () -> Enumerator[[Symbol, Entry], void]
 
-      def public?: () -> untyped
+        def each_name: () { (Symbol) -> void } -> void
+                     | () -> Enumerator[Symbol, void]
+
+        include Enumerable[[Symbol, Entry]]
+
+        attr_reader substs: Array[Substitution]
+
+        attr_reader methods: Hash[Symbol, Entry]
+        attr_reader resolved_methods: Hash[Symbol, Entry?]
+
+        def initialize: (substs: Array[Substitution], methods: Hash[Symbol, Entry]) -> void
+
+        @subst: Substitution?
+        def subst: () -> Substitution
+
+        def push_substitution: (Substitution) -> Methods
+
+        def merge!: (Methods other) -> void
+
+        # def +: (Methods other) -> Methods
+      end
+
+      attr_reader type: AST::Types::t
+
+      attr_reader methods: Methods
+
+      @private: bool
+
+      def initialize: (type: AST::Types::t, private: bool, ?methods: Methods?) -> void
+
+      def update: (?type: AST::Types::t, ?methods: Methods) -> self
+
+      def private?: () -> bool
+
+      def public?: () -> bool
+
+      def subst: (Substitution, ?type: AST::Types::t?) -> Shape
     end
   end
 end

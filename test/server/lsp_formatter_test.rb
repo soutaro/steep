@@ -9,7 +9,8 @@ class Steep::Server::LSPFormatterTest < Minitest::Test
 
   def type_check(content)
     source = Source.parse(content, path: Pathname("a.rb"), factory: factory)
-    subtyping = Subtyping::Check.new(factory: factory)
+    builder = Interface::Builder.new(factory)
+    subtyping = Subtyping::Check.new(builder: builder)
     Services::TypeCheckService.type_check(source: source, subtyping: subtyping)
   end
 
@@ -187,7 +188,7 @@ EOM
   def test_ruby_hover_constant_class
     with_factory({ "foo.rbs" => <<RBS }) do
 # ClassHover is a class to do something with String.
-#      
+#
 class ClassHover[A < String] < BasicObject
 end
 RBS

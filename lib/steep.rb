@@ -61,6 +61,7 @@ require "steep/interface/block"
 require "steep/interface/method_type"
 require "steep/interface/substitution"
 require "steep/interface/shape"
+require "steep/interface/builder"
 
 require "steep/subtyping/result"
 require "steep/subtyping/check"

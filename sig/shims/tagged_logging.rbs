@@ -1,0 +1,4 @@
+module ActiveSupport::TaggedLogging
+  def tagged: [A] (*String) { () -> A } -> A
+            | ...
+end
