@@ -1,14 +1,18 @@
 module Steep
   module Subtyping
     class Check
-      attr_reader :factory
+      attr_reader :builder
       attr_reader :cache
       attr_reader :assumptions
 
-      def initialize(factory:)
-        @factory = factory
+      def initialize(builder:)
+        @builder = builder
         @cache = Cache.new()
         @bounds = []
+      end
+
+      def factory
+        builder.factory
       end
 
       def with_context(self_type:, instance_type:, class_type:, constraints:)
@@ -59,6 +63,12 @@ module Steep
         end
 
         nil
+      end
+
+      def variable_upper_bounds
+        @bounds.each_with_object({}) do |bounds, hash|
+          hash.merge!(bounds)
+        end
       end
 
       def self_type
@@ -384,7 +394,15 @@ module Steep
 
         when relation.super_type.is_a?(AST::Types::Name::Interface)
           Expand(relation) do
-            check_interface(relation.map {|type| factory.interface(type, private: false) })
+            check_interface(
+              relation.map {|type|
+                builder.shape(
+                  type,
+                  public_only: true,
+                  config: Interface::Builder::Config.new(resolve_self: true, resolve_instance_type: true, resolve_class_type: true, variable_bounds: variable_upper_bounds)
+                )
+              }
+            )
           end
 
         when relation.sub_type.is_a?(AST::Types::Name::Base) && relation.super_type.is_a?(AST::Types::Name::Base)
@@ -477,7 +495,20 @@ module Steep
 
         when relation.sub_type.is_a?(AST::Types::Record) && relation.super_type.is_a?(AST::Types::Name::Base)
           Expand(relation) do
-            check_interface(relation.map {|type| factory.interface(type, private: false) })
+            check_interface(
+              relation.map {|type|
+                builder.shape(
+                  type,
+                  public_only: true,
+                  config: Interface::Builder::Config.new(
+                    resolve_self: true,
+                    resolve_class_type: true,
+                    resolve_instance_type: true,
+                    variable_bounds: variable_upper_bounds
+                  )
+                )
+              }
+            )
           end
 
         when relation.sub_type.is_a?(AST::Types::Proc) && AST::Builtin::Proc.instance_type?(relation.super_type)
@@ -748,7 +779,7 @@ module Steep
       end
 
       def check_constraints(relation, variables:, variance:)
-        checker = Check.new(factory: factory)
+        checker = Check.new(builder: builder)
 
         constraints.solution(
           checker,

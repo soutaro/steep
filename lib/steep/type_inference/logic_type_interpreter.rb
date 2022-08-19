@@ -3,10 +3,12 @@ module Steep
     class LogicTypeInterpreter
       attr_reader :subtyping
       attr_reader :typing
+      attr_reader :config
 
-      def initialize(subtyping:, typing:)
+      def initialize(subtyping:, typing:, config:)
         @subtyping = subtyping
         @typing = typing
+        @config = config
       end
 
       def factory
@@ -387,22 +389,15 @@ module Steep
       end
 
       def try_convert(type, method)
-        case type
-        when AST::Types::Any, AST::Types::Bot, AST::Types::Top, AST::Types::Var
-          return
-        end
+        if shape = subtyping.builder.shape(type, public_only: true, config: config)
+          if entry = shape.methods[method]
+            method_type = entry.method_types.find do |method_type|
+              method_type.type.params.optional?
+            end
 
-        interface = factory.interface(type, private: false, self_type: type)
-        if entry = interface.methods[method]
-          method_type = entry.method_types.find do |method_type|
-            method_type.type.params.optional?
+            method_type.type.return_type if method_type
           end
-
-          method_type.type.return_type if method_type
         end
-      rescue => exn
-        Steep.log_error(exn, message: "Unexpected error when converting #{type.to_s} with #{method}")
-        nil
       end
     end
   end

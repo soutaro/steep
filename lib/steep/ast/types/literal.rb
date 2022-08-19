@@ -38,7 +38,7 @@ module Steep
         end
 
         def with_location(new_location)
-          self.class.new(location: new_location)
+          _ = self.class.new(value: value, location: new_location)
         end
 
         def back_type

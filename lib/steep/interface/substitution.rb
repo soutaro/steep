@@ -27,9 +27,9 @@ module Steep
 
       def self.empty
         new(dictionary: {},
-            instance_type: INSTANCE_TYPE,
-            module_type: CLASS_TYPE,
-            self_type: SELF_TYPE)
+            instance_type: AST::Types::Instance.instance,
+            module_type: AST::Types::Class.instance,
+            self_type: AST::Types::Self.instance)
       end
 
       def empty?
@@ -39,17 +39,13 @@ module Steep
           self_type.is_a?(AST::Types::Self)
       end
 
-      INSTANCE_TYPE = AST::Types::Instance.new
-      CLASS_TYPE = AST::Types::Class.new
-      SELF_TYPE = AST::Types::Self.new
-
       def domain
         set = Set.new
 
         set.merge(dictionary.keys)
-        set << INSTANCE_TYPE unless instance_type.is_a?(AST::Types::Instance)
-        set << CLASS_TYPE unless instance_type.is_a?(AST::Types::Class)
-        set << SELF_TYPE unless instance_type.is_a?(AST::Types::Self)
+        set << AST::Types::Instance.instance unless instance_type.is_a?(AST::Types::Instance)
+        set << AST::Types::Class.instance unless instance_type.is_a?(AST::Types::Class)
+        set << AST::Types::Instance.instance unless instance_type.is_a?(AST::Types::Self)
 
         set
       end
@@ -76,7 +72,22 @@ module Steep
         dictionary.key?(var)
       end
 
-      def self.build(vars, types = nil, instance_type: AST::Types::Instance.new, module_type: AST::Types::Class.new, self_type: AST::Types::Self.new)
+      def apply?(type)
+        case type
+        when AST::Types::Var
+          key?(type.name)
+        when AST::Types::Self
+          !self_type.is_a?(AST::Types::Self)
+        when AST::Types::Instance
+          !instance_type.is_a?(AST::Types::Instance)
+        when AST::Types::Class
+          !module_type.is_a?(AST::Types::Class)
+        else
+          type.each_child.any? {|t| apply?(t) }
+        end
+      end
+
+      def self.build(vars, types = nil, instance_type: AST::Types::Instance.instance, module_type: AST::Types::Class.instance, self_type: AST::Types::Self.instance)
         types ||= vars.map {|var| AST::Types::Var.fresh(var) }
 
         raise InvalidSubstitutionError.new(vars_size: vars.size, types_size: types.size) unless vars.size == types.size
@@ -90,7 +101,7 @@ module Steep
 
       def except(vars)
         self.class.new(
-          dictionary: dictionary,
+          dictionary: dictionary.dup,
           instance_type: instance_type,
           module_type: module_type,
           self_type: self_type

@@ -302,9 +302,9 @@ module Steep
       end
 
       class UnexpectedSuper < Base
-        attr_reader method: untyped
+        attr_reader method: Symbol?
 
-        def initialize: (node: untyped, method: untyped) -> void
+        def initialize: (node: Parser::AST::Node, method: Symbol?) -> void
 
         def header_line: () -> ::String
       end

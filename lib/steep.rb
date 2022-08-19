@@ -60,7 +60,8 @@ require "steep/interface/function"
 require "steep/interface/block"
 require "steep/interface/method_type"
 require "steep/interface/substitution"
-require "steep/interface/interface"
+require "steep/interface/shape"
+require "steep/interface/builder"
 
 require "steep/subtyping/result"
 require "steep/subtyping/check"
@@ -243,5 +244,72 @@ module Steep
     end
 
     result
+  end
+end
+
+klasses = [
+  # Steep::Interface::MethodType
+]
+
+klasses.each do |klass|
+  klass.instance_eval do
+    def self.new(*_, **__, &___)
+      super
+    end
+  end
+end
+
+module GCCounter
+  module_function
+
+  def count_objects(title, regexp = /^Steep/, skip: false)
+    if ENV["COUNT_GC_OBJECTS"] && !skip
+      unless GC.disable
+        GC.start(immediate_sweep: true, immediate_mark: true, full_mark: true)
+
+        begin
+          yield
+        ensure
+          Steep.logger.fatal "===== #{title} ==============================="
+
+          klasses = []
+
+          ObjectSpace.each_object(Class) do |klass|
+            if (klass.name || "") =~ regexp
+              klasses << klass
+            end
+          end
+
+          before = {}
+
+          klasses.each do |klass|
+            count = ObjectSpace.each_object(klass).count
+            before[klass] = count
+          end
+
+          GC.start(immediate_sweep: true, immediate_mark: true, full_mark: true)
+
+          gceds = []
+
+          klasses.each do |klass|
+            count = ObjectSpace.each_object(klass).count
+            gced = (before[klass] || 0) - count
+
+            gceds << [klass, gced] if gced > 0
+          end
+
+          gceds.sort_by! {|_, count| -count }
+          gceds.each do |klass, count|
+            Steep.logger.fatal { "#{klass.name} => #{count}"}
+          end
+
+          GC.enable
+        end
+      else
+        yield
+      end
+    else
+      yield
+    end
   end
 end

@@ -1,5 +1,5 @@
 module Steep
-  def self.logger: () -> Logger
+  def self.logger: () -> ActiveSupport::TaggedLogging
 
   def self.new_logger: (untyped output, untyped prev_level) -> untyped
 
@@ -29,3 +29,4 @@ module Steep
 
   def self.measure2: (untyped message, ?level: ::Symbol) { (untyped) -> untyped } -> untyped
 end
+

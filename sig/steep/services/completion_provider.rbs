@@ -71,15 +71,15 @@ module Steep
         def inherited?: () -> bool
       end
 
-      attr_reader source_text: untyped
+      attr_reader source_text: String
 
-      attr_reader path: untyped
+      attr_reader path: Pathname
 
-      attr_reader subtyping: untyped
+      attr_reader subtyping: Subtyping::Check
 
-      attr_reader modified_text: untyped
+      attr_reader modified_text: String
 
-      attr_reader source: untyped
+      attr_reader source: Source
 
       attr_reader typing: Typing
 

@@ -76,7 +76,7 @@ module Steep
           name = match[:name]
           type = match[:type]
 
-          method_type = factory.method_type(RBS::Parser.parse_method_type(type), self_type: AST::Types::Self.new, method_decls: Set[])
+          method_type = factory.method_type(RBS::Parser.parse_method_type(type), method_decls: Set[])
 
           AST::Annotation::MethodType.new(name: name.to_sym,
                                           type: method_type,

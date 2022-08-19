@@ -32,12 +32,12 @@ module Steep
       end
 
       def interface?
-        sub_type.is_a?(Interface::Interface) && super_type.is_a?(Interface::Interface)
+        sub_type.is_a?(Interface::Shape) && super_type.is_a?(Interface::Shape)
       end
 
       def method?
-        (sub_type.is_a?(Interface::Interface::Entry) || sub_type.is_a?(Interface::MethodType)) &&
-          (super_type.is_a?(Interface::Interface::Entry) || super_type.is_a?(Interface::MethodType))
+        (sub_type.is_a?(Interface::Shape::Entry) || sub_type.is_a?(Interface::MethodType)) &&
+          (super_type.is_a?(Interface::Shape::Entry) || super_type.is_a?(Interface::MethodType))
       end
 
       def function?

@@ -10,21 +10,21 @@ module Steep
 
         class PositionalParams
           class Base
-            attr_reader type: untyped
+            attr_reader type: AST::Types::t
 
-            def initialize: (untyped `type`) -> void
+            def initialize: (AST::Types::t `type`) -> void
 
-            def ==: (untyped other) -> untyped
+            def ==: (untyped other) -> bool
 
             alias eql? ==
 
-            def hash: () -> untyped
+            def hash: () -> Integer
 
-            def subst: (untyped s) -> untyped
+            def subst: (Substitution s) -> self
 
-            def var_type: () -> untyped
+            def var_type: () -> AST::Types::t
 
-            def map_type: () { (untyped) -> untyped } -> untyped
+            def map_type: () { (AST::Types::t) -> AST::Types::t } -> self
           end
 
           class Required < Base
@@ -36,61 +36,65 @@ module Steep
           class Rest < Base
           end
 
-          attr_reader head: untyped
+          type param = Required | Optional | Rest
 
-          attr_reader tail: untyped
+          attr_reader head: param
 
-          def initialize: (head: untyped, tail: untyped) -> void
+          attr_reader tail: PositionalParams?
 
-          def self.required: (untyped `type`, ?untyped? tail) -> untyped
+          def initialize: (head: param, tail: PositionalParams?) -> void
 
-          def self.optional: (untyped `type`, ?untyped? tail) -> untyped
+          def self.required: (AST::Types::t `type`, ?PositionalParams? tail) -> PositionalParams
 
-          def self.rest: (untyped `type`, ?untyped? tail) -> untyped
+          def self.optional: (AST::Types::t `type`, ?PositionalParams? tail) -> PositionalParams
 
-          def to_ary: () -> ::Array[untyped]
+          def self.rest: (AST::Types::t `type`, ?PositionalParams? tail) -> PositionalParams
 
-          def map: () { (untyped) -> untyped } -> untyped
+          def to_ary: () -> [param, PositionalParams?]
 
-          def map_type: () { () -> untyped } -> untyped
+          def map: () { (param) -> param } -> PositionalParams
 
-          def subst: (untyped s) -> untyped
+          def map_type: () { (AST::Types::t) -> AST::Types::t } -> PositionalParams
 
-          def ==: (untyped other) -> untyped
+          def subst: (Substitution s) -> PositionalParams
+
+          def ==: (untyped other) -> bool
 
           alias eql? ==
 
-          def hash: () -> untyped
+          def hash: () -> Integer
 
-          def each: () { (untyped) -> untyped } -> untyped
+          def each: () { (param) -> void } -> void
+                  | () -> Enumerator[param, void]
 
-          def each_type: () { (untyped) -> untyped } -> untyped
+          def each_type: () { (AST::Types::t) -> void } -> void
+                       | () -> Enumerator[AST::Types::t, void]
 
-          def size: () -> untyped
+          def size: () -> Integer
 
-          def self.build: (required: untyped, optional: untyped, rest: untyped) -> untyped
+          def self.build: (required: Array[AST::Types::t], optional: Array[AST::Types::t], rest: AST::Types::t?) -> PositionalParams
 
           extend Utils
 
           # Calculates xs + ys.
           # Never fails.
-          def self.merge_for_overload: (untyped xs, untyped ys) -> untyped
+          def self.merge_for_overload: (PositionalParams? xs, PositionalParams? ys) -> PositionalParams
 
           # xs | ys
-          def self.merge_for_union: (untyped xs, untyped ys) -> untyped
+          def self.merge_for_union: (PositionalParams? xs, PositionalParams? ys) -> PositionalParams?
 
           # Calculates xs & ys.
           # Raises when failed.
           #
-          def self.merge_for_intersection: (untyped xs, untyped ys) -> untyped
+          def self.merge_for_intersection: (PositionalParams? xs, PositionalParams? ys) -> PositionalParams?
         end
 
         class KeywordParams
-          attr_reader requireds: untyped
+          attr_reader requireds: Hash[Symbol, AST::Types::t]
 
-          attr_reader optionals: untyped
+          attr_reader optionals: Hash[Symbol, AST::Types::t]
 
-          attr_reader rest: untyped
+          attr_reader rest: AST::Types::t?
 
           def initialize: (?requireds: ::Hash[untyped, untyped], ?optionals: ::Hash[untyped, untyped], ?rest: untyped?) -> void
 
@@ -102,19 +106,21 @@ module Steep
 
           def update: (?requireds: untyped, ?optionals: untyped, ?rest: untyped) -> untyped
 
-          def empty?: () -> untyped
+          def empty?: () -> bool
 
-          def each: () { (untyped, untyped) -> untyped } -> untyped
+          def each: () { ([Symbol?, AST::Types::t]) -> void } -> void
+                  | () -> Enumerator[[Symbol?, AST::Types::t], void]
 
-          def each_type: () { (untyped) -> untyped } -> untyped
+          def each_type: () { (AST::Types::t) -> void } -> void
+                       | () -> Enumerator[AST::Types::t, void]
 
-          def map_type: () { () -> untyped } -> untyped
+          def map_type: () { (AST::Types::t) -> AST::Types::t } -> KeywordParams
 
-          def subst: (untyped s) -> untyped
+          def subst: (Substitution s) -> KeywordParams
 
-          def size: () -> untyped
+          def size: () -> Integer
 
-          def keywords: () -> untyped
+          def keywords: () -> Set[Symbol]
 
           include Utils
 
@@ -134,9 +140,9 @@ module Steep
 
         def rest: () -> AST::Types::t?
 
-        attr_reader positional_params: PositionalParams
+        attr_reader positional_params: PositionalParams?
 
-        attr_reader keyword_params: KeywordParams
+        attr_reader keyword_params: KeywordParams?
 
         def self.build: (?required: untyped, ?optional: untyped, ?rest: untyped?, ?required_keywords: ::Hash[untyped, untyped], ?optional_keywords: ::Hash[untyped, untyped], ?rest_keywords: untyped?) -> untyped
 
@@ -176,13 +182,14 @@ module Steep
 
         def drop_first: () -> untyped
 
-        def each_type: () { () -> untyped } -> untyped
+        def each_type: () { (AST::Types::t) -> void } -> void
+                     | () -> Enumerator[AST::Types::t, void]
 
         def free_variables: () -> untyped
 
         def closed?: () -> untyped
 
-        def subst: (untyped s) -> untyped
+        def subst: (Substitution s) -> Params
 
         def size: () -> untyped
 

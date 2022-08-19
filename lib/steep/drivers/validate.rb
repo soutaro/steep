@@ -29,7 +29,9 @@ module Steep
               when Services::SignatureService::SyntaxErrorStatus, Services::SignatureService::AncestorErrorStatus
                 controller.status.diagnostics
               when Services::SignatureService::LoadedStatus
-                check = Subtyping::Check.new(factory: AST::Types::Factory.new(builder: controller.latest_builder))
+                factory = AST::Types::Factory.new(builder: controller.latest_builder)
+                builder = Interface::Builder.new(factory)
+                check = Subtyping::Check.new(builder: builder)
                 Signature::Validator.new(checker: check).tap {|v| v.validate() }.each_error.to_a
               end
             end

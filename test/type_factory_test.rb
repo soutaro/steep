@@ -250,21 +250,21 @@ class TypeFactoryTest < Minitest::Test
     with_factory() do |factory|
       self_type = factory.type(parse_type("::Array[X]", variables: [:X]))
 
-      factory.method_type(parse_method_type("[A] (A) { (A, B) -> nil } -> void"), self_type: self_type, method_decls: Set[]).yield_self do |type|
+      factory.method_type(parse_method_type("[A] (A) { (A, B) -> nil } -> void"), method_decls: Set[]).yield_self do |type|
         assert_equal "[A] (A) { (A, B) -> nil } -> void", type.to_s
       end
 
-      factory.method_type(parse_method_type("[A] (A) -> void"), self_type: self_type, method_decls: Set[]).yield_self do |type|
+      factory.method_type(parse_method_type("[A] (A) -> void"), method_decls: Set[]).yield_self do |type|
         assert_equal "[A] (A) -> void", type.to_s
       end
 
-      factory.method_type(parse_method_type("[A] () ?{ () -> A } -> void"), self_type: self_type, method_decls: Set[]).yield_self do |type|
+      factory.method_type(parse_method_type("[A] () ?{ () -> A } -> void"), method_decls: Set[]).yield_self do |type|
         assert_equal "[A] () ?{ () -> A } -> void", type.to_s
       end
 
-      factory.method_type(parse_method_type("[X] (X) -> void"), self_type: self_type, method_decls: Set[]).yield_self do |type|
+      factory.method_type(parse_method_type("[X] (X) -> void"), method_decls: Set[]).yield_self do |type|
         assert_method_type(
-          "[X(a)] (X(a)) -> void",
+          "[X] (X) -> void",
           type
         )
       end
@@ -275,20 +275,20 @@ class TypeFactoryTest < Minitest::Test
     with_factory() do |factory|
       self_type = factory.type(parse_type("::Array[X]", variables: [:X]))
 
-      factory.method_type(parse_method_type("[A < Integer] (A) -> void"), self_type: self_type, method_decls: Set[]).yield_self do |type|
+      factory.method_type(parse_method_type("[A < Integer] (A) -> void"), method_decls: Set[]).yield_self do |type|
         assert_equal "[A < Integer] (A) -> void", type.to_s
       end
 
-      factory.method_type(parse_method_type("[X < Integer] () -> X"), self_type: self_type, method_decls: Set[]).yield_self do |type|
+      factory.method_type(parse_method_type("[X < Integer] () -> X"), method_decls: Set[]).yield_self do |type|
         assert_method_type(
-          "[X(n) < Integer] () -> X(n)",
+          "[X < Integer] () -> X",
           type
         )
       end
 
-      factory.method_type(parse_method_type("[X < Integer, Y < Array[X]] (Y) -> X"), self_type: self_type, method_decls: Set[]).yield_self do |type|
+      factory.method_type(parse_method_type("[X < Integer, Y < Array[X]] (Y) -> X"), method_decls: Set[]).yield_self do |type|
         assert_method_type(
-          "[X(n) < Integer, Y < Array[X(n)]] (Y) -> X(n)",
+          "[X < Integer, Y < Array[X]] (Y) -> X",
           type
         )
       end
@@ -300,325 +300,18 @@ class TypeFactoryTest < Minitest::Test
       self_type = factory.type(parse_type("::Array[X]", variables: [:X]))
 
       parse_method_type("[A] (A) { (A, B) -> nil } -> void").tap do |original|
-        type = factory.method_type_1(factory.method_type(original, self_type: self_type, method_decls: Set[]),
-                                     self_type: self_type)
+        type = factory.method_type_1(factory.method_type(original, method_decls: Set[]))
         assert_equal original, type
       end
 
       parse_method_type("[A] (A) -> void").tap do |original|
-        type = factory.method_type_1(factory.method_type(original, self_type: self_type, method_decls: Set[]),
-                                     self_type: self_type)
+        type = factory.method_type_1(factory.method_type(original, method_decls: Set[]))
         assert_equal original, type
       end
 
       parse_method_type("[A] () ?{ () -> A } -> void").tap do |original|
-        type = factory.method_type_1(factory.method_type(original, self_type: self_type, method_decls: Set[]),
-                                     self_type: self_type)
+        type = factory.method_type_1(factory.method_type(original, method_decls: Set[]))
         assert_equal original, type
-      end
-    end
-  end
-
-  def test_interface_instance
-    with_factory({ "foo.rbs" => <<FOO}) do |factory|
-class Foo[A]
-  def klass: -> class
-  def get: -> A
-  def set: (A) -> self
-  private
-  def hoge: -> instance
-end
-FOO
-      factory.type(parse_type("::Foo[::String]")).yield_self do |type|
-        factory.interface(type, private: true).yield_self do |interface|
-          assert_instance_of Steep::Interface::Interface, interface
-          assert_equal type, interface.type
-
-          assert_overload_with interface.methods[:klass], "() -> singleton(::Foo)"
-          assert_overload_with interface.methods[:get], "() -> ::String"
-          assert_overload_with interface.methods[:set], "(::String) -> ::Foo[::String]"
-          assert_overload_with interface.methods[:hoge], "() -> ::Foo[untyped]"
-        end
-
-        factory.interface(type, private: false).yield_self do |interface|
-          assert_instance_of Steep::Interface::Interface, interface
-          assert_equal type, interface.type
-
-          assert_overload_with interface.methods[:klass], "() -> singleton(::Foo)"
-          assert_overload_with interface.methods[:get], "() -> ::String"
-          assert_overload_with interface.methods[:set], "(::String) -> ::Foo[::String]"
-          refute_operator interface.methods, :key?, :hoge
-        end
-      end
-    end
-  end
-
-  def test_interface_interface
-    with_factory({ "foo.rbs" => <<FOO }) do |factory|
-interface _Each2[A, B]
-  def each: () { (A) -> void } -> B
-end
-FOO
-      factory.type(parse_type("::_Each2[::String, ::Array[::String]]")).yield_self do |type|
-        factory.interface(type, private: true).yield_self do |interface|
-          assert_instance_of Steep::Interface::Interface, interface
-          assert_equal type, interface.type
-
-          assert_equal "{ () { (::String) -> void } -> ::Array[::String] }", interface.methods[:each].to_s
-        end
-      end
-    end
-  end
-
-  def test_interface_class
-    with_factory({ "foo.rbs" => <<FOO }) do |factory|
-class People[X]
-  def self.all: -> Array[People[::String]]
-  def self.instance: -> instance
-  def self.itself: -> self
-end
-FOO
-      factory.type(parse_type("singleton(::People)")).yield_self do |type|
-        factory.interface(type, private: true).yield_self do |interface|
-          assert_instance_of Steep::Interface::Interface, interface
-          assert_equal type, interface.type
-
-          assert_overload_with interface.methods[:new], "[X] () -> ::People[X]"
-          assert_overload_with interface.methods[:all], "() -> ::Array[::People[::String]]"
-          assert_overload_with interface.methods[:instance], "() -> ::People[untyped]"
-          assert_overload_with interface.methods[:itself], "() -> singleton(::People)"
-        end
-      end
-    end
-  end
-
-  def test_interface_module
-    with_factory({ "foo.rbs" => <<FOO }) do |factory|
-module Subject[X]
-  def self.foo: () -> void
-  def bar: () -> X
-end
-FOO
-
-      factory.type(parse_type("::Subject[bool]")).yield_self do |type|
-        factory.interface(type, private: true).yield_self do |interface|
-          assert_instance_of Steep::Interface::Interface, interface
-          assert_equal type, interface.type
-
-          assert_overload_with interface.methods[:bar], "() -> bool"
-        end
-      end
-
-      factory.type(parse_type("singleton(::Subject)")).yield_self do |type|
-        factory.interface(type, private: true).yield_self do |interface|
-          assert_instance_of Steep::Interface::Interface, interface
-          assert_equal type, interface.type
-
-          assert_overload_with interface.methods[:foo], "() -> void"
-          assert_overload_with interface.methods[:attr_reader], "(*(::String | ::Symbol)) -> ::NilClass"
-        end
-      end
-    end
-  end
-
-  def test_literal_type
-    with_factory() do |factory|
-      factory.type(parse_type("3")).yield_self do |type|
-        factory.interface(type, private: false).yield_self do |interface|
-          assert_instance_of Steep::Interface::Interface, interface
-          assert_equal type, interface.type
-
-          assert_overload_including interface.methods[:+], "(::Integer) -> ::Integer", "(::Float) -> ::Float"
-
-          interface.methods[:yield_self].tap do |method|
-            x = method.method_types[0].type_params[0]
-            assert_includes method.to_s, " [#{x}] () { (3) -> #{x} } -> #{x} "
-          end
-        end
-      end
-    end
-  end
-
-  def test_tuple_type
-    with_factory() do |factory|
-      factory.type(parse_type("[::Integer, ::String]")).yield_self do |type|
-        factory.interface(type, private: false).yield_self do |interface|
-          assert_instance_of Steep::Interface::Interface, interface
-
-          assert_overload_including interface.methods[:[]],
-                                    "(0) -> ::Integer",
-                                    "(1) -> ::String",
-                                    "(::int) -> (::Integer | ::String)"
-
-          assert_overload_including interface.methods[:[]=],
-                                    "(0, ::Integer) -> ::Integer",
-                                    "(1, ::String) -> ::String",
-                                    "(::int, (::Integer | ::String)) -> (::Integer | ::String)"
-
-          assert_overload_including interface.methods[:fetch],
-                                    "(0) -> ::Integer",
-                                    "(1) -> ::String",
-                                    "[T] (0, T default) -> (::Integer | T)",
-                                    "[T] (1, T default) -> (::String | T)",
-                                    "[T] (0) { (::Integer) -> T } -> (::Integer | T)",
-                                    "[T] (1) { (::Integer) -> T } -> (::String | T)"
-        end
-      end
-    end
-  end
-
-  def test_record_type
-    with_factory() do |factory|
-      factory.type(parse_type("{ 1 => ::Integer, :foo => ::String, \"baz\" => bool }")).yield_self do |type|
-        factory.interface(type, private: false).yield_self do |interface|
-          assert_instance_of Steep::Interface::Interface, interface
-
-          assert_overload_including interface.methods[:[]],
-                                    "(1) -> ::Integer",
-                                    "(:foo) -> ::String",
-                                    "(\"baz\") -> bool"
-
-          assert_overload_including interface.methods[:[]=],
-                                    "(1, ::Integer) -> ::Integer",
-                                    "(:foo, ::String) -> ::String",
-                                    "(\"baz\", bool) -> bool"
-
-          assert_overload_including interface.methods[:fetch],
-                                    "(1) -> ::Integer",
-                                    "(:foo) -> ::String",
-                                    "(\"baz\") -> bool",
-                                    "[T] (1, T default) -> (::Integer | T)",
-                                    "[T] (:foo, T default) -> (::String | T)",
-                                    "[T] (\"baz\", T default) -> (bool | T)",
-                                    "[T] (1) { ((1 | :foo | \"baz\")) -> T } -> (::Integer | T)",
-                                    "[T] (:foo) { ((1 | :foo | \"baz\")) -> T } -> (::String | T)",
-                                    "[T] (\"baz\") { ((1 | :foo | \"baz\")) -> T } -> (bool | T)"
-
-        end
-      end
-    end
-  end
-
-  def test_union_type
-    with_factory() do |factory|
-      factory.type(parse_type("::Integer | ::String")).yield_self do |type|
-        factory.interface(type, private: false).yield_self do |interface|
-          assert_instance_of Steep::Interface::Interface, interface
-
-          interface.methods[:to_s].yield_self do |entry|
-            assert_overload_with entry, "() -> ::String"
-          end
-
-          interface.methods[:+].yield_self do |entry|
-            assert_overload_including entry,
-                                      "((::Integer & ::string)) -> (::Integer | ::String)",
-                                      "((::Float & ::string)) -> (::Float | ::String)"
-          end
-
-          assert_nil interface.methods[:floor]
-          assert_nil interface.methods[:end_with?]
-        end
-      end
-    end
-  end
-
-  def test_union_type_methods
-    with_factory({ "foo.rbs" => <<-RBS }) do |factory|
-interface _I1
-  def f: () -> void
-  def g: () -> void
-
-  def foo: (String) -> void
-         | (Symbol) -> String
-end
-
-interface _I2
-  def g: () -> void
-  def h: () -> void
-
-  def foo: () -> void
-         | (Integer) -> Float
-end
-    RBS
-      factory.type(parse_type("::_I1 | ::_I2")).tap do |type|
-        factory.interface(type, private: false).tap do |interface|
-          assert_instance_of Steep::Interface::Interface, interface
-
-          assert_equal Set[:g, :foo], Set.new(interface.methods.keys)
-          assert_overload_with interface.methods[:g], "() -> void"
-          assert_overload_with interface.methods[:foo],
-                               "((::String & ::Integer)) -> (::Float | void)",
-                               "((::Symbol & ::Integer)) -> (::Float | ::String)"
-        end
-      end
-    end
-  end
-
-  def test_intersection_type
-    with_factory({ "foo.rbs" => <<-RBS }) do |factory|
-interface _I1
-  def f: () -> void
-  def g: () -> void
-end
-
-interface _I2
-  def g: (String) -> Integer
-  def h: () -> void
-end
-    RBS
-      factory.type(parse_type("::_I1 & ::_I2")).tap do |type|
-        factory.interface(type, private: false).tap do |interface|
-          assert_instance_of Steep::Interface::Interface, interface
-
-          assert_equal Set[:f, :g, :h], Set.new(interface.methods.keys)
-          assert_overload_with interface.methods[:f], "() -> void"
-          assert_overload_with interface.methods[:g], "(::String) -> ::Integer"
-          assert_overload_with interface.methods[:h], "() -> void"
-        end
-      end
-    end
-  end
-
-  def test_proc_type
-    with_factory() do |factory|
-      factory.type(parse_type("^(String) -> Integer")).yield_self do |type|
-        factory.interface(type, private: false).yield_self do |interface|
-          assert_instance_of Steep::Interface::Interface, interface
-
-          interface.methods[:call].yield_self do |entry|
-            assert_overload_with entry, "(String) -> Integer"
-          end
-
-          interface.methods[:[]].yield_self do |entry|
-            assert_overload_with entry, "(String) -> Integer"
-          end
-        end
-      end
-
-      factory.type(parse_type("^(String) { (Object) -> Symbol } -> Integer")).yield_self do |type|
-        factory.interface(type, private: false).yield_self do |interface|
-          assert_instance_of Steep::Interface::Interface, interface
-
-          interface.methods[:call].yield_self do |entry|
-            assert_overload_with entry, "(String) { (Object) -> Symbol } -> Integer"
-          end
-
-          refute_operator interface.methods, :key?, :[]
-        end
-      end
-
-      factory.type(parse_type("^(String) ?{ (Object) -> Symbol } -> Integer")).yield_self do |type|
-        factory.interface(type, private: false).yield_self do |interface|
-          assert_instance_of Steep::Interface::Interface, interface
-
-          interface.methods[:call].yield_self do |entry|
-            assert_overload_with entry, "(String) ?{ (Object) -> Symbol } -> Integer"
-          end
-
-          interface.methods[:[]].yield_self do |entry|
-            assert_overload_with entry, "(String) -> Integer"
-          end
-        end
       end
     end
   end
@@ -698,94 +391,6 @@ end
       factory.type(parse_type("Baz")).tap do |type|
         factory.absolute_type(type, context: [nil, ("::Foo")]) do |absolute_type|
           assert_equal factory.type(parse_type("::Baz")), absolute_type
-        end
-      end
-    end
-  end
-
-  def test_variable_rename
-    with_factory({ "foo.rbs" => <<-EOF }) do |factory|
-class Hello[X]
-  def foo: [Y] (X, Y) -> void
-end
-    EOF
-
-      factory.type(parse_type("::Hello[::Array[Y]]", variables: [:Y])).tap do |type|
-        factory.interface(type, private: true).yield_self do |interface|
-          assert_instance_of Steep::Interface::Interface, interface
-          assert_equal type, interface.type
-
-          method = interface.methods[:foo]
-          assert_method_type(
-            "{ [Y(a)] (::Array[Y], Y(a)) -> void }",
-            method
-          )
-        end
-      end
-    end
-  end
-
-  def test_expand_specials
-    with_factory({ "foo.rbs" => <<-EOF }) do |factory|
-class WithBuiltinMethods
-end
-
-class WithCustomMethods
-  def is_a?: (Module) -> bool
-
-  alias kind_of? is_a?
-
-  def nil?: () -> bool
-
-  def !: () -> bool
-end
-    EOF
-
-      factory.type(parse_type("::WithBuiltinMethods")).tap do |type|
-        factory.interface(type, private: true).tap do |interface|
-          assert_instance_of Steep::Interface::Interface, interface
-
-          interface.methods[:is_a?].tap do |is_a|
-            assert_instance_of Types::Logic::ReceiverIsArg, is_a.method_types[0].type.return_type
-          end
-
-          interface.methods[:kind_of?].tap do |kind_of|
-            assert_instance_of Types::Logic::ReceiverIsArg, kind_of.method_types[0].type.return_type
-          end
-
-          interface.methods[:instance_of?].tap do |instance_of|
-            assert_instance_of Types::Logic::ReceiverIsArg, instance_of.method_types[0].type.return_type
-          end
-
-          interface.methods[:nil?].tap do |nilp|
-            assert_instance_of Types::Logic::ReceiverIsNil, nilp.method_types[0].type.return_type
-          end
-
-          interface.methods[:!].tap do |unot|
-            assert_instance_of Types::Logic::Not, unot.method_types[0].type.return_type
-          end
-        end
-      end
-
-      factory.type(parse_type("::WithCustomMethods")).tap do |type|
-        factory.interface(type, private: true).tap do |interface|
-          assert_instance_of Steep::Interface::Interface, interface
-
-          interface.methods[:is_a?].tap do |is_a|
-            assert_instance_of Types::Boolean, is_a.method_types[0].type.return_type
-          end
-
-          interface.methods[:kind_of?].tap do |kind_of|
-            assert_instance_of Types::Boolean, kind_of.method_types[0].type.return_type
-          end
-
-          interface.methods[:nil?].tap do |nilp|
-            assert_instance_of Types::Boolean, nilp.method_types[0].type.return_type
-          end
-
-          interface.methods[:!].tap do |unot|
-            assert_instance_of Types::Boolean, unot.method_types[0].type.return_type
-          end
         end
       end
     end

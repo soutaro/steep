@@ -1,0 +1,63 @@
+module Steep
+  module Index
+    class SourceIndex
+      class ConstantEntry
+        attr_reader name: untyped
+
+        attr_reader definitions: untyped
+
+        attr_reader references: untyped
+
+        def initialize: (name: untyped) -> void
+
+        def add_definition: (untyped node) -> untyped
+
+        def add_reference: (untyped node) -> untyped
+
+        def merge!: (untyped other) -> untyped
+      end
+
+      class MethodEntry
+        attr_reader name: untyped
+
+        attr_reader definitions: untyped
+
+        attr_reader references: untyped
+
+        def initialize: (name: untyped) -> void
+
+        def add_definition: (untyped node) -> untyped
+
+        def add_reference: (untyped node) -> untyped
+
+        def merge!: (untyped other) -> untyped
+      end
+
+      attr_reader source: untyped
+
+      attr_reader constant_index: untyped
+
+      attr_reader method_index: untyped
+
+      attr_reader parent: untyped
+
+      attr_reader count: untyped
+
+      attr_reader parent_count: untyped
+
+      def initialize: (source: untyped, ?parent: untyped?) -> void
+
+      def new_child: () -> untyped
+
+      def merge!: (untyped child) -> untyped
+
+      def add_definition: (definition: untyped, ?constant: untyped?, ?method: untyped?) -> untyped
+
+      def add_reference: (ref: untyped, ?constant: untyped?, ?method: untyped?) -> untyped
+
+      def entry: (?constant: untyped?, ?method: untyped?) -> untyped
+
+      def reference: (?constant_node: untyped?) -> untyped
+    end
+  end
+end

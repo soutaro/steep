@@ -1,11 +1,11 @@
 module Steep
   module Subtyping
-    class Relation
-      attr_reader sub_type: untyped
+    class Relation[T]
+      attr_reader sub_type: T
 
-      attr_reader super_type: untyped
+      attr_reader super_type: T
 
-      def initialize: (sub_type: untyped, super_type: untyped) -> void
+      def initialize: (sub_type: T, super_type: T) -> void
 
       def hash: () -> untyped
 
@@ -15,7 +15,7 @@ module Steep
 
       def to_s: () -> ::String
 
-      def to_ary: () -> ::Array[untyped]
+      def to_ary: () -> [T, T]
 
       def type?: () -> untyped
 
@@ -43,9 +43,9 @@ module Steep
 
       def block!: () -> untyped
 
-      def map: () { (untyped) -> untyped } -> untyped
+      def map: [S] () { (T) -> S } -> Relation[S]
 
-      def flip: () -> untyped
+      def flip: () -> Relation[T]
     end
   end
 end

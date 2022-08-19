@@ -8,6 +8,10 @@ module Steep
           @location = location
         end
 
+        def self.instance
+          @instance ||= new()
+        end
+
         def to_s
           "class"
         end

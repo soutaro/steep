@@ -1,0 +1,29 @@
+module Steep
+  module Index
+    class SignatureSymbolProvider
+      LSP: untyped
+
+      SymbolInformation: untyped
+
+      attr_reader project: untyped
+
+      attr_reader indexes: untyped
+
+      attr_reader assignment: untyped
+
+      def initialize: (project: untyped, assignment: untyped) -> void
+
+      def self.test_type_name: (untyped query, untyped type_name) -> untyped
+
+      alias self.test_const_name self.test_type_name
+
+      alias self.test_global_name self.test_type_name
+
+      def self.test_method_name: (untyped query, untyped method_name) -> untyped
+
+      def assigned?: (untyped path) -> untyped
+
+      def query_symbol: (untyped query) -> untyped
+    end
+  end
+end

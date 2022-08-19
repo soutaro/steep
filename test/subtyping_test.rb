@@ -114,7 +114,8 @@ end
 
     paths["builtin.rbs"] = BUILTIN unless nostdlib
     with_factory(paths, nostdlib: true) do |factory|
-      yield Subtyping::Check.new(factory: factory)
+      builder = Interface::Builder.new(factory)
+      yield Subtyping::Check.new(builder: builder)
     end
   end
 

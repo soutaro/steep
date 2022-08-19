@@ -1,0 +1,61 @@
+module Steep
+  module Interface
+    class Shape
+      class Entry
+        attr_reader method_types: Array[MethodType]
+
+        def initialize: (method_types: Array[MethodType]) -> void
+
+        def to_s: () -> String
+      end
+
+      class Methods
+        def []=: (Symbol, Entry) -> Entry
+
+        def []: (Symbol) -> Entry?
+
+        def key?: (Symbol) -> bool
+
+        def each: () { ([Symbol, Entry]) -> void } -> void
+                | () -> Enumerator[[Symbol, Entry], void]
+
+        def each_name: () { (Symbol) -> void } -> void
+                     | () -> Enumerator[Symbol, void]
+
+        include Enumerable[[Symbol, Entry]]
+
+        attr_reader substs: Array[Substitution]
+
+        attr_reader methods: Hash[Symbol, Entry]
+        attr_reader resolved_methods: Hash[Symbol, Entry?]
+
+        def initialize: (substs: Array[Substitution], methods: Hash[Symbol, Entry]) -> void
+
+        @subst: Substitution?
+        def subst: () -> Substitution
+
+        def push_substitution: (Substitution) -> Methods
+
+        def merge!: (Methods other) -> void
+
+        # def +: (Methods other) -> Methods
+      end
+
+      attr_reader type: AST::Types::t
+
+      attr_reader methods: Methods
+
+      @private: bool
+
+      def initialize: (type: AST::Types::t, private: bool, ?methods: Methods?) -> void
+
+      def update: (?type: AST::Types::t, ?methods: Methods) -> self
+
+      def private?: () -> bool
+
+      def public?: () -> bool
+
+      def subst: (Substitution, ?type: AST::Types::t?) -> Shape
+    end
+  end
+end
