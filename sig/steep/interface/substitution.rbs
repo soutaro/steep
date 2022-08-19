@@ -9,39 +9,41 @@ module Steep
         def initialize: (vars_size: untyped, types_size: untyped) -> void
       end
 
-      attr_reader dictionary: untyped
+      attr_reader dictionary: Hash[Symbol, AST::Types::t]
 
-      attr_reader instance_type: untyped
+      attr_reader instance_type: AST::Types::t
 
-      attr_reader module_type: untyped
+      attr_reader module_type: AST::Types::t
 
-      attr_reader self_type: untyped
+      attr_reader self_type: AST::Types::t
 
-      def initialize: (dictionary: untyped, instance_type: untyped, module_type: untyped, self_type: untyped) -> void
+      def initialize: (dictionary: Hash[Symbol, AST::Types::t], instance_type: AST::Types::t, module_type: AST::Types::t, self_type: AST::Types::t) -> void
 
-      def self.empty: () -> untyped
+      def self.empty: () -> instance
 
-      def empty?: () -> untyped
+      def empty?: () -> bool
 
-      def domain: () -> untyped
+      def domain: () -> Set[AST::Types::t | Symbol]
 
       def to_s: () -> ::String
 
-      def []: (untyped key) -> untyped
+      def []: (Symbol key) -> AST::Types::t
 
-      def key?: (untyped var) -> untyped
+      def key?: (Symbol var) -> bool
 
-      def self.build: (untyped vars, ?untyped? types, ?instance_type: untyped, ?module_type: untyped, ?self_type: untyped) -> Substitution
+      def self.build: (Array[Symbol] vars, ?Array[AST::Types::t]? types, ?instance_type: AST::Types::t, ?module_type: AST::Types::t, ?self_type: AST::Types::t) -> Substitution
 
-      def except: (untyped vars) -> untyped
+      def except: (Array[Symbol] vars) -> Substitution
 
-      def except!: (untyped vars) -> self
+      def except!: (Array[Symbol] vars) -> self
 
-      def merge!: (untyped s, ?overwrite: bool) -> self
+      def merge!: (Substitution s, ?overwrite: bool) -> self
 
-      def merge: (untyped s) -> untyped
+      def merge: (Substitution s) -> Substitution
 
-      def add!: (untyped v, untyped ty) -> untyped
+      def apply?: (AST::Types::t) -> bool
+
+      def add!: (Symbol v, AST::Types::t ty) -> self
     end
   end
 end

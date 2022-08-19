@@ -5,13 +5,13 @@ module Steep
 
       attr_reader type: Function
 
-      attr_reader block: Block
+      attr_reader block: Block?
 
-      attr_reader method_decls: untyped
+      attr_reader method_decls: Set[TypeInference::MethodCall::MethodDecl]
 
-      def initialize: (type_params: untyped, type: untyped, block: untyped, method_decls: untyped) -> void
+      def initialize: (type_params: Array[TypeParam], type: Function, block: Block?, method_decls: Set[TypeInference::MethodCall::MethodDecl]) -> void
 
-      def ==: (untyped other) -> untyped
+      def ==: (untyped other) -> bool
 
       alias eql? ==
 
@@ -21,11 +21,12 @@ module Steep
 
       def subst: (Substitution s) -> MethodType
 
-      def each_type: () { (untyped) -> untyped } -> untyped
+      def each_type: () { (AST::Types::t) -> void } -> void
+                   | () -> Enumerator[AST::Types::t, void]
 
       def instantiate: (Substitution s) -> MethodType
 
-      def with: (?type_params: untyped, ?type: untyped, ?block: untyped, ?method_decls: untyped) -> MethodType
+      def with: (?type_params: Array[TypeParam], ?type: Function, ?block: Block?, ?method_decls: Set[TypeInference::MethodCall::MethodDecl]) -> MethodType
 
       def to_s: () -> ::String
 

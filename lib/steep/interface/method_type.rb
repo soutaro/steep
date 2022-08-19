@@ -32,7 +32,7 @@ module Steep
           if block
             set.merge(block.free_variables)
           end
-          set.subtract(type_params)
+          set.subtract(type_params.map(&:name))
         end
       end
 
@@ -40,14 +40,20 @@ module Steep
         return self if s.empty?
         return self if free_variables.disjoint?(s.domain)
 
-        s_ = s.except(type_params)
+        if type_params.any? {|param| s.key?(param.name) }
+          s_ = s.except(type_params.map(&:name))
+        else
+          s_ = s
+        end
 
-        self.class.new(
-          type_params: type_params,
-          type: type.subst(s_),
-          block: block&.subst(s_),
-          method_decls: method_decls
-        )
+        ty = type.subst(s_)
+        bl = block&.subst(s_)
+
+        if ty == type && bl == block
+          self
+        else
+          self.class.new(type_params: type_params, type: ty, block: bl, method_decls: method_decls)
+        end
       end
 
       def each_type(&block)

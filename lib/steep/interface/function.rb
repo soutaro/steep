@@ -37,7 +37,7 @@ module Steep
               if ty == type
                 self
               else
-                self.class.new(ty)
+                _ = self.class.new(ty)
               end
             end
 
@@ -47,7 +47,7 @@ module Steep
 
             def map_type(&block)
               if block_given?
-                self.class.new(yield type)
+                _ = self.class.new(yield type)
               else
                 enum_for(:map_type)
               end
@@ -94,7 +94,7 @@ module Steep
           end
 
           def map_type(&block)
-            if block_given?
+            if block
               map {|param| param.map_type(&block) }
             else
               enum_for :map_type
@@ -123,7 +123,7 @@ module Steep
           end
 
           def each(&block)
-            if block_given?
+            if block
               yield head
               tail&.each(&block)
             else
@@ -411,11 +411,11 @@ module Steep
           end
 
           def each(&block)
-            if block_given?
+            if block
               requireds.each(&block)
               optionals.each(&block)
               if rest
-                yield nil, rest
+                yield [nil, rest]
               end
             else
               enum_for :each
@@ -433,7 +433,7 @@ module Steep
           end
 
           def map_type(&block)
-            if block_given?
+            if block
               rs = requireds.transform_values(&block)
               os = optionals.transform_values(&block)
               r = rest&.yield_self(&block)
@@ -819,7 +819,7 @@ module Steep
         end
 
         def each_type(&block)
-          if block_given?
+          if block
             positional_params&.each_type(&block)
             keyword_params.each_type(&block)
           else
@@ -842,16 +842,19 @@ module Steep
         def subst(s)
           return self if s.empty?
           return self if empty?
-          return self if free_variables.disjoint?(s.domain)
+          return self if each_type.none? {|t| s.apply?(t) }
 
-          pp = positional_params&.subst(s)
-          kp = keyword_params.subst(s)
+          pp = positional_params
+          kp = keyword_params
 
-          if positional_params == pp && keyword_params == kp
-            self
-          else
-            self.class.new(positional_params: pp, keyword_params: kp)
+          if positional_params && positional_params.each_type.any? {|t| s.apply?(t) }
+            pp = positional_params.subst(s)
           end
+          if keyword_params && keyword_params.each_type.any? {|t| s.apply?(t) }
+            kp = keyword_params.subst(s)
+          end
+
+          self.class.new(positional_params: pp, keyword_params: kp)
         end
 
         def size
@@ -950,11 +953,18 @@ module Steep
       def subst(s)
         return self if s.empty?
 
-        Function.new(
-          params: params.subst(s),
-          return_type: return_type.subst(s),
-          location: location
-        )
+        ps = params.subst(s)
+        ret = return_type.subst(s)
+
+        if ps == params && ret == return_type
+          self
+        else
+          Function.new(
+            params: ps,
+            return_type: ret,
+            location: location
+          )
+        end
       end
 
       def each_child(&block)

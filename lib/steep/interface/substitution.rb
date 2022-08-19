@@ -72,6 +72,21 @@ module Steep
         dictionary.key?(var)
       end
 
+      def apply?(type)
+        case type
+        when AST::Types::Var
+          key?(type.name)
+        when AST::Types::Self
+          !self_type.is_a?(AST::Types::Self)
+        when AST::Types::Instance
+          !instance_type.is_a?(AST::Types::Instance)
+        when AST::Types::Class
+          !module_type.is_a?(AST::Types::Class)
+        else
+          type.each_child.any? {|t| apply?(t) }
+        end
+      end
+
       def self.build(vars, types = nil, instance_type: AST::Types::Instance.instance, module_type: AST::Types::Class.instance, self_type: AST::Types::Self.instance)
         types ||= vars.map {|var| AST::Types::Var.fresh(var) }
 
@@ -86,7 +101,7 @@ module Steep
 
       def except(vars)
         self.class.new(
-          dictionary: dictionary,
+          dictionary: dictionary.dup,
           instance_type: instance_type,
           module_type: module_type,
           self_type: self_type
