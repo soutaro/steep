@@ -2085,16 +2085,19 @@ module Steep
             collection_type, constr, collection_context = synthesize(collection).to_ary
             collection_type = expand_self(collection_type)
 
-            var_type = case collection_type
-                       when AST::Types::Any
-                         AST::Types::Any.new
-                       else
-                         each = calculate_interface(collection_type, private: true).methods[:each]
-                         method_type = (each&.method_types || []).find {|type| type.block && type.block.type.params.first_param }
-                         method_type&.yield_self do |method_type|
-                           method_type.block.type.params.first_param&.type
-                         end
-                       end
+            if collection_type.is_a?(AST::Types::Any)
+              var_type = AST::Builtin.any_type
+            else
+              if each = calculate_interface(collection_type, :each, private: true)
+                if method_type = (each.method_types || []).find {|type| type.block && type.block.type.params.first_param }
+                  if block = method_type.block
+                    if first_param = block.type.params.first_param
+                      var_type = first_param.type
+                    end
+                  end
+                end
+              end
+            end
             var_name = asgn.children[0]
 
             if var_type
@@ -3054,12 +3057,20 @@ module Steep
       )
     end
 
-    def calculate_interface(type, private:)
-      checker.builder.shape(
+    def calculate_interface(type, method_name = nil, private:)
+      shape = checker.builder.shape(
         type,
         public_only: !private,
         config: builder_config
       )
+
+      if method_name
+        if shape
+          shape.methods[method_name]
+        end
+      else
+        shape
+      end
     end
 
     def expand_self(type)

@@ -128,6 +128,11 @@ module Steep
 
     def builder_config: () -> Interface::Builder::Config
 
+    # Calculates the shape (interface) of an type
+    #
+    # * Returns `nil` if the type cannot be translated to a shape
+    # * Returns Shape::Entry instead of Shape, if `method_name` is given
+    #
     def calculate_interface: (AST::Types::t `type`, private: bool) -> Interface::Shape?
 
     def expand_self: (untyped `type`) -> untyped
