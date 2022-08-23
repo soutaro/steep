@@ -1,5 +1,7 @@
-PATH
-  remote: ../rbs
+GIT
+  remote: https://github.com/ruby/rbs.git
+  revision: 05406d7e3a02e76a5dd1af3be6601c96226c65fe
+  branch: master
   specs:
     rbs (2.6.0)
 
