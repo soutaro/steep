@@ -10019,4 +10019,38 @@ RUBY
       end
     end
   end
+
+  def test_self_type_incompatible
+    with_checker(<<-RBS) do |checker|
+class TestSelfBinding
+  def foo: () { () [self: String] -> void } -> void
+
+  def bar: () { () [self: Object] -> void } -> void
+end
+      RBS
+      source = parse_ruby(<<RUBY)
+class TestSelfBinding
+  def foo(&block)
+    bar(&block)
+  end
+
+  def bar(&block)
+    foo(&block)
+  end
+end
+RUBY
+
+      with_standard_construction(checker, source) do |construction, typing|
+        type, _ = construction.synthesize(source.node)
+
+        assert_typing_error(typing, size: 1) do |errors|
+          assert_any!(errors) do |error|
+            assert_instance_of Diagnostic::Ruby::BlockTypeMismatch, error
+            assert_equal parse_type("^() [self: ::Object] -> void"), error.expected
+            assert_equal parse_type("^() [self: ::String] -> void"), error.actual
+          end
+        end
+      end
+    end
+  end
 end
