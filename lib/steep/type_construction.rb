@@ -3847,6 +3847,19 @@ module Steep
       type_env = type_env.merge(local_variable_types: pins)
       type_env = type_env.merge(local_variable_types: param_types)
       type_env = TypeInference::TypeEnvBuilder.new(
+        if self_binding = block_annotations.self_type || block_self_hint
+          definition =
+            case self_binding
+            when AST::Types::Name::Instance
+              checker.factory.definition_builder.build_instance(self_binding.name)
+            when AST::Types::Name::Singleton
+              checker.factory.definition_builder.build_singleton(self_binding.name)
+            end
+
+          if definition
+            TypeInference::TypeEnvBuilder::Command::ImportInstanceVariableDefinition.new(definition, checker.factory)
+          end
+        end,
         TypeInference::TypeEnvBuilder::Command::ImportLocalVariableAnnotations.new(block_annotations).merge!.on_duplicate! do |name, outer_type, inner_type|
           next if outer_type.is_a?(AST::Types::Var) || inner_type.is_a?(AST::Types::Var)
           next unless body_node

@@ -9986,10 +9986,15 @@ RUBY
     with_checker(<<-RBS) do |checker|
 class TestSelfBinding
   def self.foo: [A] { () [self: instance] -> A } -> A
+
+  @name: String
 end
       RBS
       source = parse_ruby(<<RUBY)
-TestSelfBinding.foo { self }
+TestSelfBinding.foo {
+  @name = "123"
+  self
+}
 RUBY
 
       with_standard_construction(checker, source) do |construction, typing|
