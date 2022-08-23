@@ -3430,7 +3430,7 @@ module Steep
                 block_type_hint: method_type.block.type.return_type,
                 block_block_hint: nil,
                 block_annotations: block_annotations,
-                block_self_hint: nil,
+                block_self_hint: method_type.block.self_type,
                 node_type_hint: method_type.type.return_type
               )
               block_constr = block_constr.with_new_typing(
@@ -3489,6 +3489,7 @@ module Steep
                 block_constr = block_constr.update_type_env {|env| env.subst(s) }
                 block_constr = block_constr.update_context {|context|
                   context.with(
+                    self_type: method_type.block&.self_type || context.self_type,
                     type_env: context.type_env.subst(s),
                     block_context: context.block_context&.subst(s),
                     break_context: context.break_context&.subst(s)
@@ -3500,6 +3501,18 @@ module Steep
                   block_body: block_body,
                   block_type_hint: method_type.block.type.return_type
                 )
+
+                if method_type.block && method_type.block.self_type
+                  block_body_type = block_body_type.subst(
+                    Interface::Substitution.build(
+                      [],
+                      [],
+                      self_type: method_type.block.self_type,
+                      module_type: singleton_type(method_type.block.self_type) || AST::Builtin.top_type,
+                      instance_type: instance_type(method_type.block.self_type) || AST::Builtin.top_type
+                    )
+                  )
+                end
 
                 result = check_relation(sub_type: block_body_type,
                                         super_type: method_type.block.type.return_type,
@@ -4462,6 +4475,57 @@ module Steep
         else
           var_node = node.updated(:lvar, [var_name])
           [var_node, node]
+        end
+      end
+    end
+
+    def type_name(type)
+      case type
+      when AST::Types::Name::Instance, AST::Types::Name::Singleton
+        type.name
+      when AST::Types::Literal
+        type_name(type.back_type)
+      when AST::Types::Tuple
+        AST::Builtin::Array.module_name
+      when AST::Types::Record
+        AST::Builtin::Hash.module_name
+      when AST::Types::Proc
+        AST::Builtin::Proc.module_name
+      when AST::Types::Boolean, AST::Types::Logic::Base
+        nil
+      end
+    end
+
+    def singleton_type(type)
+      case type
+      when AST::Types::Union
+        AST::Types::Union.build(
+          types: type.types.map {|t| singleton_type(t) or return }
+        )
+      when AST::Types::Intersection
+        AST::Types::Intersection.build(
+          types: type.types.map {|t| singleton_type(t) or return }
+        )
+      else
+        if name = type_name(type)
+          AST::Types::Name::Singleton.new(name: name)
+        end
+      end
+    end
+
+    def instance_type(type)
+      case type
+      when AST::Types::Union
+        AST::Types::Union.build(
+          types: type.types.map {|t| instance_type(t) or return }
+        )
+      when AST::Types::Intersection
+        AST::Types::Intersection.build(
+          types: type.types.map {|t| instance_type(t) or return }
+        )
+      else
+        if name = type_name(type)
+          checker.factory.instance_type(name)
         end
       end
     end

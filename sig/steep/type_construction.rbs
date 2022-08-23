@@ -399,5 +399,11 @@ module Steep
     # This is typically used for transforming assginment node for case condition.
     #
     def extract_outermost_call: (Parser::AST::Node node, Symbol) -> [Parser::AST::Node, Parser::AST::Node?]
+
+    def type_name: (AST::Types::t) -> RBS::TypeName?
+
+    def singleton_type: (AST::Types::t) -> AST::Types::t?
+
+    def instance_type: (AST::Types::t) -> AST::Types::t?
   end
 end

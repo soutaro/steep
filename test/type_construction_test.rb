@@ -9959,4 +9959,64 @@ RUBY
       end
     end
   end
+
+  def test_self_type_binding_block
+    with_checker(<<-RBS) do |checker|
+class Object
+  def instance_eval: [A] { () [self: self] -> A } -> A
+end
+      RBS
+      source = parse_ruby(<<RUBY)
+123.instance_eval do
+  self + 123
+  self
+end
+RUBY
+
+      with_standard_construction(checker, source) do |construction, typing|
+        type, _ = construction.synthesize(source.node)
+
+        assert_equal parse_type("::Integer"), type
+        assert_no_error typing
+      end
+    end
+  end
+
+  def test_self_type_binding_type_parameter
+    with_checker(<<-RBS) do |checker|
+class TestSelfBinding
+  def self.foo: [A] { () [self: instance] -> A } -> A
+end
+      RBS
+      source = parse_ruby(<<RUBY)
+TestSelfBinding.foo { self }
+RUBY
+
+      with_standard_construction(checker, source) do |construction, typing|
+        type, _ = construction.synthesize(source.node)
+
+        assert_equal parse_type("::TestSelfBinding"), type
+        assert_no_error typing
+      end
+    end
+  end
+
+  def test_self_type_binding_generic
+    with_checker(<<-RBS) do |checker|
+class TestSelfBinding
+  def self.foo: [A] (A) { () [self: A] -> A } -> A
+end
+      RBS
+      source = parse_ruby(<<RUBY)
+TestSelfBinding.foo(123) { self + 1 }
+RUBY
+
+      with_standard_construction(checker, source) do |construction, typing|
+        type, _ = construction.synthesize(source.node)
+
+        assert_equal parse_type("::Integer"), type
+        assert_no_error typing
+      end
+    end
+  end
 end

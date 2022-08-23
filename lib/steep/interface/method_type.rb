@@ -60,6 +60,9 @@ module Steep
         if block_given?
           type.each_type(&block)
           self.block&.tap do
+            if block_self = self.block&.self_type
+              yield(block_self)
+            end
             self.block.type.params.each_type(&block)
             yield(self.block.type.return_type)
           end
