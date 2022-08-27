@@ -1,16 +1,23 @@
 module Steep
   module TypeInference
     class BlockParams
+      # Param object represents a block parameter
+      #
+      # * `var` is name of the parameter
+      # * `type` is the type of the parameter, if given through inline annotation
+      # * `value` is the default value node
+      # * `node` is the node of the parameter
+      #
       class Param
         attr_reader var: Symbol
 
-        attr_reader type: AST::Types::t
+        attr_reader type: AST::Types::t?
 
-        attr_reader value: untyped
+        attr_reader value: Parser::AST::Node?
 
         attr_reader node: Parser::AST::Node
 
-        def initialize: (var: Symbol, type: AST::Types::t, value: untyped, node: Parser::AST::Node) -> void
+        def initialize: (var: Symbol, type: AST::Types::t?, value: Parser::AST::Node?, node: Parser::AST::Node) -> void
 
         def ==: (untyped other) -> bool
 
@@ -19,34 +26,68 @@ module Steep
         def hash: () -> Integer
       end
 
-      attr_reader leading_params: untyped
+      # MultipleParam object represents a _multiple_ block parameter
+      #
+      # ```ruby
+      # foo do |(x, y)|
+      #   #     ^^^^^^  This is the multiple block parameter
+      # end
+      # ```
+      #
+      # * `#node` is `:mlhs` node
+      # * Param objects in `#params` don't have `value` because of Ruby syntax rule
+      #
+      class MultipleParam
+        attr_reader node: Parser::AST::Node
 
-      attr_reader optional_params: untyped
+        attr_reader params: Array[Param | MultipleParam]
 
-      attr_reader rest_param: untyped
+        def initialize: (node: Parser::AST::Node, params: Array[Param | MultipleParam]) -> void
 
-      attr_reader trailing_params: untyped
+        def ==: (untyped other) -> bool
 
-      attr_reader block_param: untyped
+        alias eql? ==
 
-      def initialize: (leading_params: untyped, optional_params: untyped, rest_param: untyped, trailing_params: untyped, block_param: untyped) -> void
+        def hash: () -> Integer
+      end
 
-      def params: () -> untyped
+      attr_reader leading_params: Array[Param | MultipleParam]
 
-      def self.from_node: (untyped node, annotations: untyped) -> (nil | untyped)
+      attr_reader optional_params: Array[Param]
 
-      def params_type: (?hint: untyped?) -> untyped
+      attr_reader rest_param: Param?
 
-      def params_type0: (hint: untyped) -> (nil | untyped)
+      attr_reader trailing_params: Array[Param | MultipleParam]
 
-      def zip: (untyped params_type, untyped block) -> untyped
+      attr_reader block_param: Param?
 
-      def expandable_params?: (untyped params_type) -> (untyped | nil)
+      def initialize: (
+        leading_params: Array[Param | MultipleParam],
+        optional_params: Array[Param],
+        rest_param: Param?,
+        trailing_params: Array[Param | MultipleParam],
+        block_param: Param?
+      ) -> void
 
-      def expandable?: () -> untyped
+      def params: () -> Array[Param | MultipleParam]
 
-      def each: () { (Param) -> void } -> void
-              | () -> Enumerator[Param, void]
+      def self.from_node: (Parser::AST::Node node, annotations: AST::Annotation::Collection) -> BlockParams?
+
+      def self.from_multiple: (Parser::AST::Node node, AST::Annotation::Collection) -> MultipleParam
+
+      def params_type: (?hint: Interface::Function::Params?) -> Interface::Function::Params
+
+      def params_type0: (hint: nil) -> Interface::Function::Params
+                      | (hint: Interface::Function::Params?) -> Interface::Function::Params?
+
+      def zip: (Interface::Function::Params params_type, Interface::Block? block) -> Array[[Param, AST::Types::t]]
+
+      def expandable_params?: (Interface::Function::Params params_type) -> bool
+
+      def expandable?: () -> bool
+
+      def each: () { (Param | MultipleParam) -> void } -> void
+              | () -> Enumerator[Param | MultipleParam, void]
     end
   end
 end

@@ -428,4 +428,60 @@ proc {|a, b=1, *c|
       end
     end
   end
+
+  def test_multiple_param_parse
+    with_factory do
+      src = <<-RUBY
+-> ((x, y)) do
+  # @type var y: String
+end
+      RUBY
+      block_params(src) do |params|
+        params.leading_params[0].tap do |param|
+          assert_instance_of BlockParams::MultipleParam, param
+          assert_equal 2, param.params.size
+
+          param.params[0].tap do |param|
+            assert_instance_of BlockParams::Param, param
+            assert_equal :x, param.var
+            assert_nil param.type
+          end
+
+          param.params[1].tap do |param|
+            assert_instance_of BlockParams::Param, param
+            assert_equal :y, param.var
+            assert_equal parse_type("::String"), param.type
+          end
+        end
+      end
+    end
+  end
+
+  def test_multiple_param_zip
+    with_factory do
+      src = <<-RUBY
+-> ((x, y)) do
+  # @type var y: String
+end
+      RUBY
+      block_params(src) do |params|
+        params.zip(
+          Params.build(
+            required: [parse_type("[::Integer, ::String]")],
+            optional: [],
+            rest: nil,
+            required_keywords: {},
+            optional_keywords: {},
+            rest_keywords: nil
+          ),
+          nil
+        ).tap do |zip|
+          assert_equal 1, zip.size
+          zip[0].tap do |pair|
+            assert_equal [params.params[0], parse_type("[::Integer, ::String]")], pair
+          end
+        end
+      end
+    end
+  end
 end
