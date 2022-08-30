@@ -16,7 +16,7 @@ module Steep
 
         def self.fresh_name: (untyped name) -> untyped
 
-        def self.fresh: (untyped name, ?location: untyped?) -> untyped
+        def self.fresh: (Symbol name, ?location: untyped?) -> Var
 
         def to_s: () -> untyped
 

@@ -2876,19 +2876,7 @@ module Steep
             call = call.with_return_type(optional_type)
           end
         else
-          error = Diagnostic::Ruby::UnresolvedOverloading.new(
-            node: node,
-            receiver_type: interface.type,
-            method_name: method_name,
-            method_types: method.method_types
-          )
-          call = TypeInference::MethodCall::Error.new(
-            node: node,
-            context: context.method_context,
-            method_name: method_name,
-            receiver_type: receiver_type,
-            errors: [error]
-          )
+          errors = []
 
           skips = [receiver]
           skips << node.children[0] if node.type == :block
@@ -2902,8 +2890,24 @@ module Steep
               block_params: TypeInference::BlockParams.from_node(block_params, annotations: block_annotations),
               block_annotations: block_annotations,
               block_body: block_body
-            )
+            ) do |error|
+              errors << error
+            end
           end
+
+          errors << Diagnostic::Ruby::UnresolvedOverloading.new(
+            node: node,
+            receiver_type: interface.type,
+            method_name: method_name,
+            method_types: method.method_types
+          )
+          call = TypeInference::MethodCall::Error.new(
+            node: node,
+            context: context.method_context,
+            method_name: method_name,
+            receiver_type: receiver_type,
+            errors: errors
+          )
         end
 
         constr.add_call(call)
@@ -3377,9 +3381,9 @@ module Steep
 
           if method_type.block
             # Method accepts block
-            pairs = method_type.block && block_params_&.zip(method_type.block.type.params, nil)
+            pairs = block_params_&.zip(method_type.block.type.params, nil)
 
-            if pairs
+            if block_params_ && pairs
               # Block parameters are compatible with the block type
               block_constr = constr.for_block(
                 block_body,
@@ -3397,18 +3401,39 @@ module Steep
               block_constr.typing.add_context_for_body(node, context: block_constr.context)
 
               pairs.each do |param, type|
-                _, block_constr = block_constr.synthesize(param.node, hint: param.type || type).to_ary
+                case param
+                when TypeInference::BlockParams::Param
+                  _, block_constr = block_constr.synthesize(param.node, hint: param.type || type).to_ary
 
-                if param.type
-                  check_relation(sub_type: type, super_type: param.type, constraints: constraints).else do |result|
-                    error = Diagnostic::Ruby::IncompatibleAssignment.new(
-                      node: param.node,
-                      lhs_type: param.type,
-                      rhs_type: type,
-                      result: result
-                    )
-                    errors << error
+                  if param.type
+                    check_relation(sub_type: type, super_type: param.type, constraints: constraints).else do |result|
+                      error = Diagnostic::Ruby::IncompatibleAssignment.new(
+                        node: param.node,
+                        lhs_type: param.type,
+                        rhs_type: type,
+                        result: result
+                      )
+                      errors << error
+                    end
                   end
+                when TypeInference::BlockParams::MultipleParam
+                  param.each_param do |p|
+                    _, block_constr = block_constr.synthesize(p.node, hint: p.type || type).to_ary
+
+                    if p.type
+                      check_relation(sub_type: type, super_type: p.type, constraints: constraints).else do |result|
+                        error = Diagnostic::Ruby::IncompatibleAssignment.new(
+                          node: p.node,
+                          lhs_type: p.type,
+                          rhs_type: type,
+                          result: result
+                        )
+                        errors << error
+                      end
+                    end
+                  end
+
+                  _, block_constr = block_constr.add_typing(param.node, type: type)
                 end
               end
 
@@ -3646,14 +3671,19 @@ module Steep
       end
     end
 
-    def type_block_without_hint(node:, block_annotations:, block_params:, block_body:, &block)
+    def type_block_without_hint(node:, block_annotations:, block_params:, block_body:)
       unless block_params
-        typing.add_error(
-          Diagnostic::Ruby::UnsupportedSyntax.new(
-            node: node.children[1],
-            message: "Unsupported block params pattern, probably masgn?"
-          )
-        )
+        Diagnostic::Ruby::UnsupportedSyntax.new(
+          node: node.children[1],
+          message: "Unsupported block params pattern, probably masgn?"
+        ).tap do |error|
+          if block_given?
+            yield error
+          else
+            typing.add_error(error)
+          end
+        end
+
         block_params = TypeInference::BlockParams.new(leading_params: [], optional_params: [], rest_param: nil, trailing_params: [], block_param: nil)
       end
 
@@ -3670,38 +3700,84 @@ module Steep
       block_constr.typing.add_context_for_body(node, context: block_constr.context)
 
       block_params.params.each do |param|
-        _, block_constr = block_constr.synthesize(param.node, hint: param.type)
+        param.each_param do |param|
+          _, block_constr = block_constr.synthesize(param.node, hint: param.type)
+        end
       end
 
       block_type = block_constr.synthesize_block(node: node, block_type_hint: nil, block_body: block_body)
 
       if expected_block_type = block_constr.block_context.body_type
         block_constr.check_relation(sub_type: block_type, super_type: expected_block_type).else do |result|
-          block_constr.typing.add_error(
-            Diagnostic::Ruby::BlockBodyTypeMismatch.new(
-              node: node,
-              expected: expected_block_type,
-              actual: block_type,
-              result: result
-            )
-          )
+          Diagnostic::Ruby::BlockBodyTypeMismatch.new(
+            node: node,
+            expected: expected_block_type,
+            actual: block_type,
+            result: result
+          ).tap do |error|
+            if block_given?
+              yield error
+            else
+              block_constr.typing.add_error(error)
+            end
+          end
         end
+      end
+    end
+
+    def set_up_block_mlhs_params_env(node, type, hash, &block)
+      if arrayish = try_convert_to_array(type)
+        masgn = TypeInference::MultipleAssignment.new()
+        assignments = masgn.expand(node, arrayish, false) or raise "#{arrayish} is expected to be array-ish"
+        assignments.leading_assignments.each do |pair|
+          node, type = pair
+
+          if node.type == :arg
+            hash[node.children[0]] = type
+          else
+            set_up_block_mlhs_params_env(node, type, hash, &block)
+          end
+        end
+      else
+        yield node, type
       end
     end
 
     def for_block(body_node, block_params:, block_param_hint:, block_type_hint:, block_block_hint:, block_annotations:, node_type_hint:)
       block_param_pairs = block_param_hint && block_params.zip(block_param_hint, block_block_hint)
 
+      # @type var param_types_hash: Hash[Symbol, AST::Types::t]
       param_types_hash = {}
       if block_param_pairs
         block_param_pairs.each do |param, type|
-          var_name = param.var
-          param_types_hash[var_name] = type
+          case param
+          when TypeInference::BlockParams::Param
+            var_name = param.var
+            param_types_hash[var_name] = type
+          when TypeInference::BlockParams::MultipleParam
+            set_up_block_mlhs_params_env(param.node, type, param_types_hash) do |error_node, non_array_type|
+              Steep.logger.fatal { "`#{non_array_type}#to_ary` returns non-array-ish type" }
+              annotation_types = param.variable_types()
+              each_descendant_node(error_node) do |n|
+                if n.type == :arg
+                  name = n.children[0]
+                  param_types_hash[name] = annotation_types[name] || AST::Builtin.any_type
+                end
+              end
+            end
+          end
         end
       else
         block_params.each do |param|
-          var_name = param.var
-          param_types_hash[var_name] = param.type || AST::Builtin.any_type
+          case param
+          when TypeInference::BlockParams::Param
+            var_name = param.var
+            param_types_hash[var_name] = param.type || AST::Builtin.any_type
+          when TypeInference::BlockParams::MultipleParam
+            param.each_param do |p|
+              param_types_hash[p.var] = p.type || AST::Builtin.any_type
+            end
+          end
         end
       end
 
@@ -4072,6 +4148,69 @@ module Steep
       end
     end
 
+    def try_convert_to_array(type)
+      if arrayish = arrayish_type?(type, untyped_is: true) || semantically_arrayish_type?(type)
+        arrayish
+      else
+        if converted = try_convert(type, :to_ary)
+          if arrayish_type?(converted, untyped_is: true) || semantically_arrayish_type?(type)
+            converted
+          end
+        else
+          AST::Types::Tuple.new(types: [type])
+        end
+      end
+    end
+
+    def arrayish_type?(type, untyped_is: false)
+      case type
+      when AST::Types::Any
+        if untyped_is
+          type
+        end
+      when AST::Types::Name::Instance
+        if AST::Builtin::Array.instance_type?(type)
+          type
+        end
+      when AST::Types::Tuple
+        type
+      when AST::Types::Name::Alias
+        if t = checker.factory.deep_expand_alias(type)
+          arrayish_type?(t)
+        end
+      end
+    end
+
+    def semantically_arrayish_type?(type)
+      union = AST::Types::Union.build(types: flatten_union(type))
+      if union.is_a?(AST::Types::Union)
+        if tuple = union_of_tuple_to_tuple_of_union(union)
+          return tuple
+        end
+      end
+
+      var = AST::Types::Var.fresh(:Elem)
+      array = AST::Builtin::Array.instance_type(var)
+      constraints = Subtyping::Constraints.new(unknowns: [])
+      constraints.add_var(var.name)
+
+      if (result = check_relation(sub_type: type, super_type: array, constraints: constraints)).success?
+        context = Subtyping::Constraints::Context.new(
+          variance: Subtyping::VariableVariance.from_type(union_type(type, var)),
+          self_type: self_type,
+          instance_type: module_context.instance_type,
+          class_type: module_context.module_type
+        )
+        subst = constraints.solution(
+          checker,
+          variables: type.free_variables + [var.name],
+          context: context
+        )
+
+        type.subst(subst)
+      end
+    end
+
     def try_array_type(node, hint)
       element_hint = hint ? hint.args[0] : nil
 
@@ -4087,6 +4226,7 @@ module Steep
 
           case
           when AST::Builtin::Array.instance_type?(type)
+            type.is_a?(AST::Types::Name::Instance) or raise
             element_types << type.args[0]
           when type.is_a?(AST::Types::Tuple)
             element_types.push(*type.types)

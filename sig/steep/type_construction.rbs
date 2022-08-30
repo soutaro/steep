@@ -181,17 +181,33 @@ module Steep
 
     def type_check_argument: (Parser::AST::Node node, receiver_type: AST::Types::t, type: AST::Types::t, constraints: Subtyping::Constraints, errors: Array[Diagnostic::Ruby::Base], ?report_node: Parser::AST::Node) -> Pair
 
-    def type_block_without_hint: (node: untyped, block_annotations: untyped, block_params: untyped, block_body: untyped) { () -> untyped } -> untyped
+    def type_block_without_hint: (node: Parser::AST::Node, block_annotations: AST::Annotation::Collection, block_params: TypeInference::BlockParams?, block_body: Parser::AST::Node?) ?{ (Diagnostic::Ruby::Base) -> void } -> void
+
+    def set_up_block_mlhs_params_env: (
+      Parser::AST::Node mlhs_node,
+      AST::Types::t type,
+      Hash[Symbol, AST::Types::t]
+    ) { (Parser::AST::Node error_mlhs_node, AST::Types::t type) -> void } -> void
 
     # Returns a Pair of
     #
     # * TypeConstruction to type check the block, and
     # * Set of local variable names to unpin after type checking the block
     #
+    # ### Arguments
+    #
+    # * `body_node` Block body node
+    # * `block_params` BlockParams object
+    # * `block_param_hint` Type hint of the block parameters
+    # * `block_type_hint` Type hint of the block body
+    # * `block_block_hint` Type hint of the block that will be given to the block
+    # * `block_annotations` Annotations given to the block body
+    # * `node_type_hint` Type hint of block call node
+    #
     def for_block: (
         Parser::AST::Node? body_node,
         block_params: TypeInference::BlockParams,
-        block_param_hint: TypeInference::MethodParams?,
+        block_param_hint: Interface::Function::Params?,
         block_type_hint: AST::Types::t?,
         block_block_hint: Interface::Block?,
         block_annotations: AST::Annotation::Collection,
@@ -279,7 +295,7 @@ module Steep
     #
     def try_tuple_type: (Parser::AST::Node array_node, AST::Types::Tuple? hint) -> Pair?
 
-    # Try to convert a object of `type` with zero-arity method `method`.
+    # Try to convert an object of `type` with zero-arity method `method`.
     #
     # Returns `nil` when
     #
@@ -293,7 +309,26 @@ module Steep
     #
     def try_convert: (AST::Types::t `type`, Symbol method) -> AST::Types::t?
 
-    def try_array_type: (untyped node, untyped hint) -> untyped
+    # Try to convert an object of `type` to an Array-ish
+    #
+    # * `untyped` is arrayish
+    #
+    def try_convert_to_array: (AST::Types::t) -> AST::Types::t?
+
+    # Returns a type if given type is arrayish
+    #
+    # * Aliases will be unfolded to arrayish type
+    # * Returns `nil` if given type is not arrayish
+    # * `untyped` is arrayish if `untyped_is:` is `true` (defaults to `false`)
+    #
+    def arrayish_type?: (AST::Types::t, ?untyped_is: bool) -> AST::Types::t?
+
+    # Returns the type is given type is a subtype of Array
+    def semantically_arrayish_type?: (AST::Types::t) -> AST::Types::t?
+
+    # Give an array node a type with hint
+    #
+    def try_array_type: (Parser::AST::Node node, AST::Types::Name::Instance? hint) -> Pair
 
     # Returns a record type if `hash_node` can have a record type.
     #

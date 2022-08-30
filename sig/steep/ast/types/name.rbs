@@ -5,37 +5,38 @@ module Steep
         class Base
           attr_reader location: untyped
 
-          attr_reader name: untyped
+          attr_reader name: RBS::TypeName
 
-          def initialize: (name: untyped, ?location: untyped?) -> void
+          def initialize: (name: RBS::TypeName, ?location: untyped?) -> void
 
           include Helper::NoFreeVariables
 
-          def subst: (untyped s) -> self
+          def subst: (Steep::Interface::Substitution s) -> self
 
           def level: () -> ::Array[0]
         end
 
         class Applying < Base
-          attr_reader args: untyped
+          attr_reader args: Array[t]
 
-          def initialize: (name: untyped, args: untyped, ?location: untyped?) -> void
+          def initialize: (name: RBS::TypeName, args: Array[t], ?location: untyped?) -> void
 
-          def ==: (untyped other) -> untyped
+          def ==: (untyped other) -> bool
 
           alias eql? ==
 
-          def hash: () -> untyped
+          def hash: () -> Integer
 
           def to_s: () -> ::String
 
           def with_location: (untyped new_location) -> untyped
 
-          def subst: (untyped s) -> (untyped | self)
+          def subst: (Steep::Interface::Substitution s) -> self
 
-          def free_variables: () -> untyped
+          def free_variables: () -> Set[Symbol]
 
-          def each_child: () ?{ () -> untyped } -> untyped
+          def each_child: () { (t) -> void } -> void
+                        | () -> Enumerator[t, void]
 
           include Helper::ChildrenLevel
 
@@ -43,11 +44,11 @@ module Steep
         end
 
         class Singleton < Base
-          def ==: (untyped other) -> untyped
+          def ==: (untyped other) -> bool
 
           alias eql? ==
 
-          def hash: () -> untyped
+          def hash: () -> Integer
 
           def to_s: () -> ::String
 
@@ -57,7 +58,7 @@ module Steep
         end
 
         class Instance < Applying
-          def to_module: () -> untyped
+          def to_module: () -> Singleton
         end
 
         class Interface < Applying

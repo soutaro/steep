@@ -23,6 +23,14 @@ module Steep
         def hash
           self.class.hash ^ var.hash ^ type.hash ^ value.hash ^ node.hash
         end
+
+        def each_param(&block)
+          if block
+            yield self
+          else
+            enum_for :each_param
+          end
+        end
       end
 
       class MultipleParam
@@ -45,6 +53,28 @@ module Steep
 
         def hash
           self.class.hash ^ node.hash ^ params.hash
+        end
+
+        def variable_types
+          each_param.with_object({}) do |param, hash|
+            # @type var hash: Hash[Symbol, AST::Types::t?]
+            hash[param.var] = param.type
+          end
+        end
+
+        def each_param(&block)
+          if block
+            params.each do |param|
+              case param
+              when Param
+                yield param
+              when MultipleParam
+                param.each_param(&block)
+              end
+            end
+          else
+            enum_for :each_param
+          end
         end
       end
 
@@ -87,15 +117,13 @@ module Steep
         default_params = leading_params
 
         node.children.each do |arg|
-          if arg.type == :mlhs
+          case
+          when arg.type == :mlhs
+            default_params << from_multiple(arg, annotations)
+          when arg.type == :procarg0 && arg.children.size > 1
             default_params << from_multiple(arg, annotations)
           else
-            var = arg.children.first
-
-            if var.is_a?(::AST::Node)
-              return
-            end
-
+            var = arg.children[0]
             type = annotations.var_type(lvar: var)
 
             case arg.type
