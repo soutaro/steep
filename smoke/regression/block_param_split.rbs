@@ -1,0 +1,3 @@
+module BlockParamSplit
+  type pair[T, S] = [T, S]
+end
