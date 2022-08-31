@@ -635,22 +635,19 @@ module Steep
             when KeywordArgs::UnexpectedKeyword
               diagnostics << Diagnostic::Ruby::UnexpectedKeywordArgument.new(
                 node: error.node,
-                method_type: method_type,
-                method_name: method_name
+                params: method_type.type.params
               )
             when KeywordArgs::MissingKeyword
               missing_keywords.push(*error.keywords)
             when PositionalArgs::UnexpectedArg
               diagnostics << Diagnostic::Ruby::UnexpectedPositionalArgument.new(
                 node: error.node,
-                method_type: method_type,
-                method_name: method_name
+                params: method_type.type.params
               )
             when PositionalArgs::MissingArg
               diagnostics << Diagnostic::Ruby::InsufficientPositionalArguments.new(
                 node: node,
-                method_name: method_name,
-                method_type: method_type
+                params: method_type.type.params
               )
             end
           end
@@ -658,8 +655,7 @@ module Steep
           unless missing_keywords.empty?
             diagnostics << Diagnostic::Ruby::InsufficientKeywordArguments.new(
               node: node,
-              method_name: method_name,
-              method_type: method_type,
+              params: method_type.type.params,
               missing_keywords: missing_keywords
             )
           end
