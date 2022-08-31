@@ -202,13 +202,15 @@ module Steep
 
       attr_reader arguments: Array[Parser::AST::Node]
 
-      attr_reader method_type: Interface::MethodType
+      attr_reader type: Interface::MethodType | AST::Types::Proc
 
-      attr_reader method_name: Symbol
+      def initialize: (node: Parser::AST::Node, arguments: Array[Parser::AST::Node], type: Interface::MethodType | AST::Types::Proc) -> void
 
-      def initialize: (node: Parser::AST::Node, arguments: Array[Parser::AST::Node], method_name: Symbol, method_type: Interface::MethodType) -> void
+      attr_reader params (): Interface::Function::Params
 
-      def positional_params: () -> Interface::Function::Params::PositionalParams
+      attr_reader block (): Interface::Block?
+
+      def positional_params: () -> Interface::Function::Params::PositionalParams?
 
       def keyword_params: () -> Interface::Function::Params::KeywordParams
 

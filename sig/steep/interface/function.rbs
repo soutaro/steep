@@ -144,7 +144,7 @@ module Steep
 
         attr_reader positional_params: PositionalParams?
 
-        attr_reader keyword_params: KeywordParams?
+        attr_reader keyword_params: KeywordParams
 
         def self.build: (?required: untyped, ?optional: untyped, ?rest: untyped?, ?required_keywords: ::Hash[untyped, untyped], ?optional_keywords: ::Hash[untyped, untyped], ?rest_keywords: untyped?) -> untyped
 

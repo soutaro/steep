@@ -3286,7 +3286,7 @@ module Steep
       checker.push_variable_bounds(upper_bounds) do
         errors = []
 
-        args = TypeInference::SendArgs.new(node: node, arguments: arguments, method_name: method_name, method_type: method_type)
+        args = TypeInference::SendArgs.new(node: node, arguments: arguments, type: method_type)
         es = args.each do |arg|
           case arg
           when TypeInference::SendArgs::PositionalArgs::NodeParamPair

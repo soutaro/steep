@@ -485,22 +485,38 @@ module Steep
 
       attr_reader :node
       attr_reader :arguments
-      attr_reader :method_type
-      attr_reader :method_name
+      attr_reader :type
 
-      def initialize(node:, arguments:, method_name:, method_type:)
+      def initialize(node:, arguments:, type:)
         @node = node
         @arguments = arguments
-        @method_type = method_type
-        @method_name = method_name
+        @type = type
+      end
+
+      def params
+        case type
+        when Interface::MethodType
+          type.type.params
+        when AST::Types::Proc
+          type.type.params
+        end
+      end
+
+      def block
+        case type
+        when Interface::MethodType
+          type.block
+        when AST::Types::Proc
+          type.block
+        end
       end
 
       def positional_params
-        method_type.type.params.positional_params
+        params.positional_params
       end
 
       def keyword_params
-        method_type.type.params.keyword_params
+        params.keyword_params
       end
 
       def kwargs_node
@@ -527,7 +543,6 @@ module Steep
 
       def block_pass_arg
         node = arguments.find {|node| node.type == :block_pass }
-        block = method_type.block
 
         BlockPassArg.new(node: node, block: block)
       end
@@ -633,31 +648,18 @@ module Steep
           errors.each do |error|
             case error
             when KeywordArgs::UnexpectedKeyword
-              diagnostics << Diagnostic::Ruby::UnexpectedKeywordArgument.new(
-                node: error.node,
-                params: method_type.type.params
-              )
+              diagnostics << Diagnostic::Ruby::UnexpectedKeywordArgument.new(node: error.node, params: params)
             when KeywordArgs::MissingKeyword
               missing_keywords.push(*error.keywords)
             when PositionalArgs::UnexpectedArg
-              diagnostics << Diagnostic::Ruby::UnexpectedPositionalArgument.new(
-                node: error.node,
-                params: method_type.type.params
-              )
+              diagnostics << Diagnostic::Ruby::UnexpectedPositionalArgument.new(node: error.node, params: params)
             when PositionalArgs::MissingArg
-              diagnostics << Diagnostic::Ruby::InsufficientPositionalArguments.new(
-                node: node,
-                params: method_type.type.params
-              )
+              diagnostics << Diagnostic::Ruby::InsufficientPositionalArguments.new(node: node, params: params)
             end
           end
 
           unless missing_keywords.empty?
-            diagnostics << Diagnostic::Ruby::InsufficientKeywordArguments.new(
-              node: node,
-              params: method_type.type.params,
-              missing_keywords: missing_keywords
-            )
+            diagnostics << Diagnostic::Ruby::InsufficientKeywordArguments.new(node: node, params: params, missing_keywords: missing_keywords)
           end
 
           diagnostics
