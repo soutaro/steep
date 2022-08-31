@@ -88,7 +88,7 @@ module Steep
         end
 
         def following_args
-          args[index..]
+          args[index..] or raise
         end
 
         def param
@@ -115,12 +115,12 @@ module Steep
           when node && node.type != :splat && param.is_a?(Interface::Function::Params::PositionalParams::Required)
             [
               NodeParamPair.new(node: node, param: param),
-              update(index: index+1, positional_params: positional_params.tail)
+              update(index: index+1, positional_params: positional_params&.tail)
             ]
           when node && node.type != :splat && param.is_a?(Interface::Function::Params::PositionalParams::Optional)
             [
               NodeParamPair.new(node: node, param: param),
-              update(index: index+1, positional_params: positional_params.tail)
+              update(index: index+1, positional_params: positional_params&.tail)
             ]
           when node && node.type != :splat && param.is_a?(Interface::Function::Params::PositionalParams::Rest)
             [
@@ -148,6 +148,7 @@ module Steep
         end
 
         def consume(n, node:)
+          # @type var ps: Array[Interface::Function::Params::PositionalParams::param]
           ps = []
           params = consume0(n, node: node, params: positional_params, ps: ps)
           case params
@@ -172,7 +173,7 @@ module Steep
               UnexpectedArg.new(node: node)
             when Interface::Function::Params::PositionalParams::Required, Interface::Function::Params::PositionalParams::Optional
               ps << head
-              consume0(n-1, node: node, params: params.tail, ps: ps)
+              consume0(n-1, node: node, params: params&.tail, ps: ps)
             when Interface::Function::Params::PositionalParams::Rest
               ps << head
               consume0(n-1, node: node, params: params, ps: ps)
@@ -302,6 +303,7 @@ module Steep
         end
 
         def possible_key_type
+          # @type var key_types: Array[AST::Types::t]
           key_types = all_keys.map {|key| AST::Types::Literal.new(value: key) }
           key_types << AST::Builtin::Symbol.instance_type if rest_type
 
@@ -395,9 +397,12 @@ module Steep
         end
 
         def consume_keys(keys, node:)
+          # @type var consumed_keys: Array[Symbol]
           consumed_keys = []
+          # @type var types: Array[AST::Types::t]
           types = []
 
+          # @type var unexpected_keyword: Symbol?
           unexpected_keyword = nil
 
           keys.each do |key|
@@ -466,6 +471,8 @@ module Steep
         end
 
         def node_type
+          raise unless block
+
           type = AST::Types::Proc.new(type: block.type, block: nil)
 
           if block.optional?
@@ -589,7 +596,8 @@ module Steep
                 when nil
                   raise
                 when AST::Types::Record
-                  keys = type.elements.keys
+                  # @type var keys: Array[Symbol]
+                  keys = _ = type.elements.keys
                   ts, args = args.consume_keys(keys, node: a.node)
 
                   case ts

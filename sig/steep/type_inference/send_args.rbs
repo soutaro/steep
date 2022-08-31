@@ -1,0 +1,227 @@
+module Steep
+  module TypeInference
+    class SendArgs
+      class PositionalArgs
+        class NodeParamPair
+          attr_reader node: Parser::AST::Node
+
+          attr_reader param: Interface::Function::Params::PositionalParams::param
+
+          def initialize: (node: Parser::AST::Node, param: Interface::Function::Params::PositionalParams::param) -> void
+
+          include Equatable
+
+          def to_ary: () -> [Parser::AST::Node, Interface::Function::Params::t]
+        end
+
+        class NodeTypePair
+          attr_reader node: Parser::AST::Node
+
+          attr_reader type: AST::Types::t
+
+          def initialize: (node: Parser::AST::Node, type: AST::Types::t) -> void
+
+          include Equatable
+
+          def node_type: () -> AST::Types::t
+        end
+
+        class SplatArg
+          attr_reader node: Parser::AST::Node
+
+          attr_accessor type: AST::Types::t?
+
+          def initialize: (node: Parser::AST::Node) -> void
+
+          include Equatable
+        end
+
+        class UnexpectedArg
+          attr_reader node: Parser::AST::Node
+
+          def initialize: (node: Parser::AST::Node) -> void
+
+          include Equatable
+        end
+
+        class MissingArg
+          attr_reader params: Interface::Function::Params::PositionalParams?
+
+          def initialize: (params: Interface::Function::Params::PositionalParams?) -> void
+
+          include Equatable
+        end
+
+        type arg = NodeParamPair | NodeTypePair | SplatArg | UnexpectedArg | MissingArg
+
+        attr_reader args: Array[Parser::AST::Node]
+
+        attr_reader index: Integer
+
+        attr_reader positional_params: Interface::Function::Params::PositionalParams?
+
+        attr_reader uniform: bool
+
+        def initialize: (args: Array[Parser::AST::Node], index: Integer, positional_params: Interface::Function::Params::PositionalParams?, ?uniform: bool) -> void
+
+        %a{pure} def node: () -> Parser::AST::Node?
+
+        def following_args: () -> Array[Parser::AST::Node]
+
+        def param: () -> Interface::Function::Params::PositionalParams::param?
+
+        def update: (?index: Integer, ?positional_params: Interface::Function::Params::PositionalParams?, ?uniform: bool) -> PositionalArgs
+
+        def next: () -> [arg, PositionalArgs]?
+
+        def uniform_type: () -> AST::Types::t?
+
+        def consume: (Integer n, node: Parser::AST::Node) -> [
+          UnexpectedArg | Array[Interface::Function::Params::PositionalParams::param] | nil,
+          PositionalArgs
+        ]
+
+        def consume0: (
+          Integer n,
+          node: Parser::AST::Node,
+          params: Interface::Function::Params::PositionalParams?,
+          ps: Array[Interface::Function::Params::PositionalParams::param]
+        ) -> (Interface::Function::Params::PositionalParams | UnexpectedArg | nil)
+      end
+
+      class KeywordArgs
+        class ArgTypePairs
+          attr_reader pairs: Array[untyped]
+
+          def initialize: (pairs: Array[untyped]) -> void
+
+          include Equatable
+
+          def []: (Integer index) -> untyped
+
+          def size: () -> Integer
+        end
+
+        class SplatArg
+          attr_reader node: Parser::AST::Node
+
+          attr_accessor type: AST::Types::t?
+
+          def initialize: (node: Parser::AST::Node) -> void
+
+          include Equatable
+        end
+
+        class UnexpectedKeyword
+          attr_reader keyword: Symbol?
+
+          attr_reader node: Parser::AST::Node
+
+          include Equatable
+
+          def initialize: (keyword: Symbol?, node: Parser::AST::Node) -> void
+
+          def key_node: () -> Parser::AST::Node?
+
+          def value_node: () -> Parser::AST::Node?
+        end
+
+        class MissingKeyword
+          attr_reader keywords: Set[Symbol]
+
+          include Equatable
+
+          def initialize: (keywords: Set[Symbol]) -> void
+        end
+
+        type arg = ArgTypePairs | SplatArg | UnexpectedKeyword | MissingKeyword
+
+        attr_reader kwarg_nodes: Array[Parser::AST::Node]
+
+        attr_reader keyword_params: Interface::Function::Params::KeywordParams
+
+        attr_reader index: Integer
+
+        attr_reader consumed_keywords: Set[Symbol]
+
+        def initialize: (
+          kwarg_nodes: Array[Parser::AST::Node],
+          keyword_params: Interface::Function::Params::KeywordParams,
+          ?index: ::Integer,
+          ?consumed_keywords: Set[Symbol]
+        ) -> void
+
+        def update: (?index: Integer, ?consumed_keywords: Set[Symbol]) -> KeywordArgs
+
+        def keyword_pair: () -> Parser::AST::Node?
+
+        def required_keywords: () -> Hash[Symbol, AST::Types::t]
+
+        def optional_keywords: () -> Hash[Symbol, AST::Types::t]
+
+        %a{pure} def rest_type: () -> AST::Types::t?
+
+        def keyword_type: (Symbol key) -> AST::Types::t?
+
+        def all_keys: () -> Array[Symbol]
+
+        def all_values: () -> Array[AST::Types::t]
+
+        def possible_key_type: () -> AST::Types::t
+
+        def possible_value_type: () -> AST::Types::t
+
+        def next: () -> [arg, KeywordArgs]?
+
+        def consume_keys: (Array[Symbol] keys, node: Parser::AST::Node) -> [UnexpectedKeyword | Array[AST::Types::t], KeywordArgs]
+      end
+
+      class BlockPassArg
+        attr_reader node: Parser::AST::Node?
+
+        attr_reader block: Interface::Block?
+
+        def initialize: (node: Parser::AST::Node?, block: Interface::Block?) -> void
+
+        include Equatable
+
+        def no_block?: () -> bool
+
+        def compatible?: () -> bool
+
+        def block_missing?: () -> boolish
+
+        def unexpected_block?: () -> boolish
+
+        def pair: () -> [Parser::AST::Node, Interface::Function]?
+
+        def node_type: () -> AST::Types::t
+      end
+
+      attr_reader node: Parser::AST::Node
+
+      attr_reader arguments: Array[Parser::AST::Node]
+
+      attr_reader method_type: Interface::MethodType
+
+      attr_reader method_name: Symbol
+
+      def initialize: (node: Parser::AST::Node, arguments: Array[Parser::AST::Node], method_name: Symbol, method_type: Interface::MethodType) -> void
+
+      def positional_params: () -> Interface::Function::Params::PositionalParams
+
+      def keyword_params: () -> Interface::Function::Params::KeywordParams
+
+      def kwargs_node: () -> Parser::AST::Node?
+
+      def positional_arg: () -> PositionalArgs
+
+      def keyword_args: () -> KeywordArgs
+
+      def block_pass_arg: () -> BlockPassArg
+
+      def each: () { (PositionalArgs::arg | KeywordArgs::arg) -> void } -> Array[Diagnostic::Ruby::Base]
+              | () -> Enumerator[PositionalArgs::arg | KeywordArgs::arg, Array[Diagnostic::Ruby::Base]]
+    end
+  end
+end

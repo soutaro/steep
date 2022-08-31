@@ -8,6 +8,8 @@ module Steep
           def intersection: (*AST::Types::t types) -> AST::Types::t
         end
 
+        type t = PositionalParams::param | KeywordParams
+
         class PositionalParams
           class Base
             attr_reader type: AST::Types::t
