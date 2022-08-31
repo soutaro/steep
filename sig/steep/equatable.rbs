@@ -1,0 +1,11 @@
+module Steep
+  # Defines equality and `#hash` based on instance variables
+  #
+  module Equatable
+    def ==: (untyped other) -> bool
+
+    def eql?: (untyped other) -> bool
+
+    def hash: () -> Integer
+  end
+end
