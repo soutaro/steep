@@ -44,53 +44,59 @@ module Steep
       end
 
       class UnexpectedPositionalArgument < Base
-        attr_reader node: untyped
+        # Node of argument
+        attr_reader node (): Parser::AST::Node
 
-        attr_reader method_type: untyped
+        attr_reader method_type: Interface::MethodType
 
-        attr_reader method_name: untyped
+        attr_reader method_name: Symbol
 
-        def initialize: (node: untyped, method_name: untyped, method_type: untyped) -> void
+        def initialize: (node: Parser::AST::Node, method_name: Symbol, method_type: Interface::MethodType) -> void
 
-        def header_line: () -> "Unexpected positional argument"
+        def header_line: () -> String
       end
 
       class InsufficientPositionalArguments < Base
-        attr_reader node: untyped
+        # Send/csend node for method calls without blocks
+        # block/numblock node for method calls with blocks
+        attr_reader node (): Parser::AST::Node
 
-        attr_reader method_name: untyped
+        attr_reader method_name: Symbol
 
-        attr_reader method_type: untyped
+        attr_reader method_type: Interface::MethodType
 
-        def initialize: (node: untyped, method_name: untyped, method_type: untyped) -> void
+        def initialize: (node: Parser::AST::Node, method_name: Symbol, method_type: Interface::MethodType) -> void
 
-        def header_line: () -> "More positional arguments are required"
+        def header_line: () -> String
       end
 
       class UnexpectedKeywordArgument < Base
-        attr_reader node: untyped
+        # pair/kwsplat node
+        attr_reader node (): Parser::AST::Node
 
-        attr_reader method_name: untyped
+        attr_reader method_name: Symbol
 
-        attr_reader method_type: untyped
+        attr_reader method_type: Interface::MethodType
 
-        def initialize: (node: untyped, method_name: untyped, method_type: untyped) -> void
+        def initialize: (node: Parser::AST::Node, method_name: Symbol, method_type: Interface::MethodType) -> void
 
-        def header_line: () -> "Unexpected keyword argument"
+        def header_line: () -> String
       end
 
       class InsufficientKeywordArguments < Base
-        attr_reader node: untyped
+        # Send/csend node for method calls without blocks
+        # block/numblock node for method calls with blocks
+        attr_reader node (): Parser::AST::Node
 
-        attr_reader method_name: untyped
+        attr_reader method_name: Symbol
 
-        attr_reader method_type: untyped
+        attr_reader method_type: Interface::MethodType
 
-        attr_reader missing_keywords: untyped
+        attr_reader missing_keywords: Array[Symbol]
 
-        def initialize: (node: untyped, method_name: untyped, method_type: untyped, missing_keywords: untyped) -> void
+        def initialize: (node: Parser::AST::Node, method_name: Symbol, method_type: Interface::MethodType, missing_keywords: Array[Symbol]) -> void
 
-        def header_line: () -> ::String
+        def header_line: () -> String
       end
 
       class UnresolvedOverloading < Base
