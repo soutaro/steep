@@ -23,6 +23,59 @@ module Steep
         def hash
           self.class.hash ^ var.hash ^ type.hash ^ value.hash ^ node.hash
         end
+
+        def each_param(&block)
+          if block
+            yield self
+          else
+            enum_for :each_param
+          end
+        end
+      end
+
+      class MultipleParam
+        attr_reader :node
+
+        attr_reader :params
+
+        def initialize(node:, params:)
+          @params = params
+          @node = node
+        end
+
+        def ==(other)
+          other.is_a?(self.class) &&
+            other.node == node &&
+            other.params == params
+        end
+
+        alias eql? ==
+
+        def hash
+          self.class.hash ^ node.hash ^ params.hash
+        end
+
+        def variable_types
+          each_param.with_object({}) do |param, hash|
+            # @type var hash: Hash[Symbol, AST::Types::t?]
+            hash[param.var] = param.type
+          end
+        end
+
+        def each_param(&block)
+          if block
+            params.each do |param|
+              case param
+              when Param
+                yield param
+              when MultipleParam
+                param.each_param(&block)
+              end
+            end
+          else
+            enum_for :each_param
+          end
+        end
       end
 
       attr_reader :leading_params
@@ -50,35 +103,42 @@ module Steep
       end
 
       def self.from_node(node, annotations:)
+        # @type var leading_params: Array[Param | MultipleParam]
         leading_params = []
+        # @type var optional_params: Array[Param]
         optional_params = []
+        # @type var rest_param: Param?
         rest_param = nil
+        # @type var trailing_params: Array[Param | MultipleParam]
         trailing_params = []
+        # @type var block_param: Param?
         block_param = nil
 
         default_params = leading_params
 
         node.children.each do |arg|
-          var = arg.children.first
+          case
+          when arg.type == :mlhs
+            default_params << from_multiple(arg, annotations)
+          when arg.type == :procarg0 && arg.children.size > 1
+            default_params << from_multiple(arg, annotations)
+          else
+            var = arg.children[0]
+            type = annotations.var_type(lvar: var)
 
-          if var.is_a?(::AST::Node)
-            return
-          end
-
-          type = annotations.var_type(lvar: var)
-
-          case arg.type
-          when :arg, :procarg0
-            default_params << Param.new(var: var, type: type, value: nil, node: arg)
-          when :optarg
-            default_params = trailing_params
-            optional_params << Param.new(var: var, type: type, value: arg.children.last, node: arg)
-          when :restarg
-            default_params = trailing_params
-            rest_param = Param.new(var: var, type: type, value: nil, node: arg)
-          when :blockarg
-            block_param = Param.new(var: var, type: type, value: nil, node: arg)
-            break
+            case arg.type
+            when :arg, :procarg0
+              default_params << Param.new(var: var, type: type, value: nil, node: arg)
+            when :optarg
+              default_params = trailing_params
+              optional_params << Param.new(var: var, type: type, value: arg.children.last, node: arg)
+            when :restarg
+              default_params = trailing_params
+              rest_param = Param.new(var: var, type: type, value: nil, node: arg)
+            when :blockarg
+              block_param = Param.new(var: var, type: type, value: nil, node: arg)
+              break
+            end
           end
         end
 
@@ -160,6 +220,8 @@ module Steep
 
             case
             when AST::Builtin::Array.instance_type?(type)
+              type.is_a?(AST::Types::Name::Instance) or raise
+
               type_arg = type.args[0]
               params.each do |param|
                 unless param == rest_param
@@ -242,7 +304,11 @@ module Steep
             true
           when AST::Types::Name::Base
             AST::Builtin::Array.instance_type?(type)
+          else
+            false
           end
+        else
+          false
         end
       end
 
@@ -254,15 +320,37 @@ module Steep
           true
         when params.size == 1 && params[0].node.type == :arg
           true
+        else
+          false
         end
       end
 
       def each(&block)
-        if block_given?
+        if block
           params.each(&block)
         else
           enum_for :each
         end
+      end
+
+      def self.from_multiple(node, annotations)
+        # @type var params: Array[Param | MultipleParam]
+        params = []
+
+        node.children.each do |child|
+          if child.type == :mlhs
+            params << from_multiple(child, annotations)
+          else
+            var = child.children.first
+
+            raise unless var.is_a?(Symbol)
+            type = annotations.var_type(lvar: var)
+
+            params << Param.new(var: var, node: child, value: nil, type: type)
+          end
+        end
+
+        MultipleParam.new(node: node, params: params)
       end
     end
   end

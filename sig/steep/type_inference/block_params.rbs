@@ -1,52 +1,149 @@
 module Steep
   module TypeInference
+    # Block parameters have the following differences from method parameters:
+    #
+    # * Allows arity mismatch
+    # * Distributing array-ish argument to parameters
+    # * Allows _multiple_ parameter assignments
+    #
+    # ### Allows arity mismatch
+    #
+    # (TBD)
+    #
+    # ### Distributing array-ish argument to parameters
+    #
+    # A block can receive an array(-ish) argument as follows:
+    # Assume `yield [1,2,3]` evaluates to call the block.
+    #
+    # 1. With one parameter `{|x| ... }` (`x` is `[1, 2, 3]`)
+    # 2. With several parameters (splatting) `{|x, y, z| ... }` (`x` is `1`, ...)
+    #
+    # The splatting applies only when one argument that is an array-ish is yielded.
+    #
+    # Because we have another rule which allows parameter omission, Ruby has another rule to avoid ambiguity.
+    #
+    # 3. One parameter with trailing comma splats `{|x,| ... }` (`x` is `1`)
+    #
+    # The parser has `:procarg0` node for case 1 and `arg` nodes for other cases.
+    #
+    # ### Allows _multiple_ parameter assignments
+    #
     class BlockParams
+      # Param object represents a block parameter
+      #
+      # * `var` is name of the parameter
+      # * `type` is the type of the parameter, if given through inline annotation
+      # * `value` is the default value node
+      # * `node` is the node of the parameter
+      #
       class Param
         attr_reader var: Symbol
 
-        attr_reader type: AST::Types::t
+        attr_reader type: AST::Types::t?
 
-        attr_reader value: untyped
+        attr_reader value: Parser::AST::Node?
 
         attr_reader node: Parser::AST::Node
 
-        def initialize: (var: Symbol, type: AST::Types::t, value: untyped, node: Parser::AST::Node) -> void
+        def initialize: (var: Symbol, type: AST::Types::t?, value: Parser::AST::Node?, node: Parser::AST::Node) -> void
 
         def ==: (untyped other) -> bool
 
         alias eql? ==
 
         def hash: () -> Integer
+
+        def each_param: () { (Param) -> void } -> void
+                      | () -> Enumerator[Param, void]
       end
 
-      attr_reader leading_params: untyped
+      # MultipleParam object represents a _multiple_ block parameter
+      #
+      # ```ruby
+      # foo do |(x, y)|
+      #   #     ^^^^^^  This is the multiple block parameter
+      # end
+      # ```
+      #
+      # * `#node` is `:mlhs` node or `:procarg0` node
+      # * Param objects in `#params` don't have `value` because of Ruby syntax rule
+      #
+      class MultipleParam
+        attr_reader node: Parser::AST::Node
 
-      attr_reader optional_params: untyped
+        attr_reader params: Array[Param | MultipleParam]
 
-      attr_reader rest_param: untyped
+        def initialize: (node: Parser::AST::Node, params: Array[Param | MultipleParam]) -> void
 
-      attr_reader trailing_params: untyped
+        def ==: (untyped other) -> bool
 
-      attr_reader block_param: untyped
+        alias eql? ==
 
-      def initialize: (leading_params: untyped, optional_params: untyped, rest_param: untyped, trailing_params: untyped, block_param: untyped) -> void
+        def hash: () -> Integer
 
-      def params: () -> untyped
+        # Returns a hash table that associates variables to its type annotation
+        #
+        def variable_types: () -> Hash[Symbol, AST::Types::t?]
 
-      def self.from_node: (untyped node, annotations: untyped) -> (nil | untyped)
+        # Yields Param objects in `self` and it's `params` recursively
+        #
+        def each_param: () { (Param) -> void } -> void
+                      | () -> Enumerator[Param, void]
+      end
 
-      def params_type: (?hint: untyped?) -> untyped
+      attr_reader leading_params: Array[Param | MultipleParam]
 
-      def params_type0: (hint: untyped) -> (nil | untyped)
+      attr_reader optional_params: Array[Param]
 
-      def zip: (untyped params_type, untyped block) -> untyped
+      attr_reader rest_param: Param?
 
-      def expandable_params?: (untyped params_type) -> (untyped | nil)
+      attr_reader trailing_params: Array[Param | MultipleParam]
 
-      def expandable?: () -> untyped
+      attr_reader block_param: Param?
 
-      def each: () { (Param) -> void } -> void
-              | () -> Enumerator[Param, void]
+      def initialize: (
+        leading_params: Array[Param | MultipleParam],
+        optional_params: Array[Param],
+        rest_param: Param?,
+        trailing_params: Array[Param | MultipleParam],
+        block_param: Param?
+      ) -> void
+
+      def params: () -> Array[Param | MultipleParam]
+
+      def self.from_node: (Parser::AST::Node node, annotations: AST::Annotation::Collection) -> BlockParams?
+
+      def self.from_multiple: (Parser::AST::Node node, AST::Annotation::Collection) -> MultipleParam
+
+      def params_type: (?hint: Interface::Function::Params?) -> Interface::Function::Params
+
+      def params_type0: (hint: nil) -> Interface::Function::Params
+                      | (hint: Interface::Function::Params?) -> Interface::Function::Params?
+
+      def zip: (Interface::Function::Params params_type, Interface::Block? block) -> Array[[Param | MultipleParam, AST::Types::t]]
+
+      # Returns true if given possible block yields are subject to auto expand/splat
+      #
+      # ```rbs
+      # { (Array[String]) -> void }      # true
+      # { ([Integer, String]) -> void }  # true
+      # ```
+      #
+      def expandable_params?: (Interface::Function::Params params_type) -> bool
+
+      # Returns true if the block is defined to expand/splat automatically
+      #
+      # ```ruby
+      # foo {|x, y| ... }   # true  (has multiple parameters)
+      # foo {|x, *x| ... }  # true  (has normal and rest parameters)
+      # foo {|x,| ... }     # true s(:arg, :x) (has one parameter with trailing comma)
+      # foo {|x| ... }      # false s(:procarg0, s(:arg :x))
+      # ```
+      #
+      def expandable?: () -> bool
+
+      def each: () { (Param | MultipleParam) -> void } -> void
+              | () -> Enumerator[Param | MultipleParam, void]
     end
   end
 end

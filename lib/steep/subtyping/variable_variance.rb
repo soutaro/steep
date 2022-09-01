@@ -21,6 +21,15 @@ module Steep
         covariants.member?(var) && contravariants.member?(var)
       end
 
+      def self.from_type(type)
+        covariants = Set.new
+        contravariants = Set.new
+
+        add_type(type, variance: :covariant, covariants: covariants, contravariants: contravariants)
+
+        new(covariants: covariants, contravariants: contravariants)
+      end
+
       def self.from_method_type(method_type)
         covariants = Set.new
         contravariants = Set.new

@@ -13,6 +13,8 @@ module Steep
 
       def invariant?: (untyped var) -> untyped
 
+      def self.from_type: (AST::Types::t) -> VariableVariance
+
       def self.from_method_type: (untyped method_type) -> untyped
 
       def self.add_params: (untyped params, block: untyped, covariants: untyped, contravariants: untyped) -> untyped

@@ -4509,9 +4509,10 @@ EOF
       with_standard_construction(checker, source) do |construction, typing|
         construction.synthesize(source.node)
 
-        assert_equal 1, typing.errors.size
-        assert_any typing.errors do |error|
-          error.is_a?(Diagnostic::Ruby::UnexpectedBlockGiven)
+        assert_typing_error typing, size: 1 do |errors|
+          assert_any!(errors) do |error|
+            assert_instance_of Diagnostic::Ruby::UnexpectedBlockGiven, error
+          end
         end
       end
     end
@@ -6104,14 +6105,14 @@ end
     RBS
       source = parse_ruby(<<-RUBY)
 BlockParamTuple.new.foo do |(x, y)|
+  x + 1
+  y + ""
 end
       RUBY
 
       with_standard_construction(checker, source) do |construction, typing|
         construction.synthesize(source.node)
-
-        assert_equal 1, typing.errors.size
-        assert_instance_of Diagnostic::Ruby::UnsupportedSyntax, typing.errors[0]
+        assert_no_error typing
       end
     end
   end
@@ -6786,29 +6787,29 @@ y = test.bar("foo")      # With a constraint: String <: A
 class SendTest
   def foo: [A] () { (Integer, String) -> A } -> Array[A]
 end
+
+class ::Integer
+  def to_a: () -> [Integer]
+end
 RBS
       source = parse_ruby(<<-RUBY)
 # @type var test: SendTest
 test = _ = nil
 
-test.foo do |(x, y)|
+test.foo do |(x, y), z|
+  x.type_of_x
+  y.type_of_y
+  z.type_of_z
 end
       RUBY
 
       with_standard_construction(checker, source) do |construction, typing|
         _, constr = construction.synthesize(source.node)
 
-        assert_equal 1, typing.errors.size
-
-        dig(source.node, 1).tap do |call_node|
-          call = typing.call_of(node: call_node)
-          assert_instance_of MethodCall::Error, call
-
-          assert_equal parse_type("::Array[untyped]"), call.return_type
-
-          assert_equal 1, call.errors.size
-          assert_instance_of Diagnostic::Ruby::UnsupportedSyntax, call.errors[0]
-        end
+        type_env = typing.context_at(line: 5, column: 10).type_env
+        assert_equal parse_type("::Integer"), type_env[:x]
+        assert_equal parse_type("nil"), type_env[:y]
+        assert_equal parse_type("::String"), type_env[:z]
       end
     end
   end
@@ -7922,10 +7923,9 @@ end
       with_standard_construction(checker, source) do |construction, typing|
         type, _ = construction.synthesize(source.node)
 
-        assert_typing_error(typing, size: 2) do |errors|
+        assert_typing_error(typing, size: 1) do |errors|
           assert_any!(errors) do | error|
-            assert_instance_of Diagnostic::Ruby::UnsupportedSyntax, error
-            assert_equal :args, error.node.type
+            assert_instance_of Diagnostic::Ruby::NoMethod, error
           end
         end
       end

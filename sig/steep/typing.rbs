@@ -10,11 +10,11 @@ module Steep
 
     attr_reader source: Source
 
-    attr_reader errors: untyped
+    attr_reader errors: Array[Diagnostic::Ruby::Base]
 
-    attr_reader typing: untyped
+    attr_reader typing: Hash[Parser::AST::Node, AST::Types::t]
 
-    attr_reader parent: untyped
+    attr_reader parent: Typing?
 
     attr_reader parent_last_update: untyped
 
@@ -32,7 +32,7 @@ module Steep
 
     def initialize: (source: untyped, root_context: untyped, ?parent: untyped?, ?parent_last_update: untyped, ?contexts: untyped?, ?source_index: untyped?) -> void
 
-    def add_error: (untyped error) -> untyped
+    def add_error: (Diagnostic::Ruby::Base error) -> void
 
     def add_typing: (Parser::AST::Node node, AST::Types::t `type`, TypeInference::Context _context) -> untyped
 
