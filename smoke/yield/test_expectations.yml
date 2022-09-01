@@ -35,11 +35,11 @@
         character: 11
     severity: ERROR
     message: |-
-      Cannot assign a value of type `::String` to an expression of type `::Integer`
+      Cannot pass a value of type `::String` as an argument of type `::Integer`
         ::String <: ::Integer
           ::Object <: ::Integer
             ::BasicObject <: ::Integer
-    code: Ruby::IncompatibleAssignment
+    code: Ruby::ArgumentTypeMismatch
   - range:
       start:
         line: 13
@@ -81,8 +81,8 @@
         character: 12
     severity: ERROR
     message: |-
-      Cannot assign a value of type `::String` to an expression of type `::Integer`
+      Cannot pass a value of type `::String` as an argument of type `::Integer`
         ::String <: ::Integer
           ::Object <: ::Integer
             ::BasicObject <: ::Integer
-    code: Ruby::IncompatibleAssignment
+    code: Ruby::ArgumentTypeMismatch
