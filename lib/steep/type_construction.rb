@@ -3247,7 +3247,7 @@ module Steep
       end
     end
 
-    def type_check_args(args, receiver_type, constraints, errors)
+    def type_check_args(args, constraints, errors)
       # @type var constr: TypeConstruction
       constr = self
 
@@ -3257,7 +3257,6 @@ module Steep
           _, constr = constr.type_check_argument(
             arg.node,
             type: arg.param.type,
-            receiver_type: receiver_type,
             constraints: constraints,
             errors: errors
           )
@@ -3267,7 +3266,6 @@ module Steep
             constr.type_check_argument(
               n,
               type: arg.node_type,
-              receiver_type: receiver_type,
               constraints: constraints,
               report_node: arg.node,
               errors: errors
@@ -3290,12 +3288,12 @@ module Steep
           # ignore
 
         when TypeInference::SendArgs::KeywordArgs::ArgTypePairs
-          arg.pairs.each do |node, type|
+          arg.pairs.each do |pair|
+            node, type = pair
             _, constr = bypass_splat(node) do |node|
               constr.type_check_argument(
                 node,
                 type: type,
-                receiver_type: receiver_type,
                 constraints: constraints,
                 errors: errors
               )
@@ -3647,11 +3645,10 @@ module Steep
       end
     end
 
-    def type_check_argument(node, receiver_type:, type:, constraints:, report_node: node, errors:)
+    def type_check_argument(node, type:, constraints:, report_node: node, errors:)
       check(node, type, constraints: constraints) do |expected, actual, result|
         errors << Diagnostic::Ruby::ArgumentTypeMismatch.new(
             node: report_node,
-            receiver_type: receiver_type,
             expected: expected,
             actual: actual,
             result: result

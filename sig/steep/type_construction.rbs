@@ -191,12 +191,11 @@ module Steep
 
     def type_check_args: (
       TypeInference::SendArgs,
-      AST::Types::t receiver_type,
       Subtyping::Constraints,
       Array[Diagnostic::Ruby::Base]
     ) -> TypeConstruction
 
-    def type_check_argument: (Parser::AST::Node node, receiver_type: AST::Types::t, type: AST::Types::t, constraints: Subtyping::Constraints, errors: Array[Diagnostic::Ruby::Base], ?report_node: Parser::AST::Node) -> Pair
+    def type_check_argument: (Parser::AST::Node node, type: AST::Types::t, constraints: Subtyping::Constraints, errors: Array[Diagnostic::Ruby::Base], ?report_node: Parser::AST::Node) -> Pair
 
     def type_block_without_hint: (node: untyped, block_annotations: untyped, block_params: untyped, block_body: untyped) { () -> untyped } -> untyped
 

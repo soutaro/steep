@@ -213,14 +213,12 @@ module Steep
         attr_reader :node
         attr_reader :expected
         attr_reader :actual
-        attr_reader :receiver_type
         attr_reader :result
 
         include ResultPrinter
 
-        def initialize(node:, receiver_type:, expected:, actual:, result:)
+        def initialize(node:, expected:, actual:, result:)
           super(node: node)
-          @receiver_type = receiver_type
           @expected = expected
           @actual = actual
           @result = result

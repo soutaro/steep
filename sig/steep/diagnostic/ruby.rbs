@@ -108,19 +108,17 @@ module Steep
       end
 
       class ArgumentTypeMismatch < Base
-        attr_reader node: untyped
+        attr_reader node (): Parser::AST::Node
 
-        attr_reader expected: untyped
+        attr_reader expected: AST::Types::t
 
-        attr_reader actual: untyped
+        attr_reader actual: AST::Types::t
 
-        attr_reader receiver_type: untyped
-
-        attr_reader result: untyped
+        attr_reader result: Subtyping::Result::t
 
         include ResultPrinter
 
-        def initialize: (node: untyped, receiver_type: untyped, expected: untyped, actual: untyped, result: untyped) -> void
+        def initialize: (node: Parser::AST::Node, expected: AST::Types::t, actual: AST::Types::t, result: Subtyping::Result::t) -> void
 
         def header_line: () -> ::String
       end
