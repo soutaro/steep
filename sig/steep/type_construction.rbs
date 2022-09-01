@@ -90,6 +90,14 @@ module Steep
 
     def with_sclass_constr: [A] (Parser::AST::Node node, AST::Types::t `type`) { (TypeConstruction?) -> A } -> A
 
+    # Returns one-level _meta_ type from given type
+    #
+    # * Returns singleton type of the type name if instance type is given
+    # * Returns `::Class` if singleton type is given
+    # * Returns `nil` otherwise
+    #
+    def meta_type: (AST::Types::t) -> AST::Types::t?
+
     def for_sclass: (Parser::AST::Node node, AST::Types::t `type`) -> TypeConstruction?
 
     def for_branch: (Parser::AST::Node node, ?break_context: TypeInference::Context::BreakContext?) -> untyped

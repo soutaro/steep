@@ -534,6 +534,15 @@ module Steep
       end
     end
 
+    def meta_type(type)
+      case type
+      when AST::Types::Name::Instance
+        type.to_module
+      when AST::Types::Name::Singleton
+        AST::Builtin::Class.instance_type
+      end
+    end
+
     def for_sclass(node, type)
       annots = source.annotations(block: node, factory: checker.factory, context: nesting)
 
@@ -605,7 +614,7 @@ module Steep
         block_context: nil,
         module_context: module_context,
         break_context: nil,
-        self_type: module_context.module_type,
+        self_type: meta_type(annots.self_type || type) || AST::Builtin::Class.module_type,
         type_env: type_env,
         call_context: TypeInference::MethodCall::ModuleContext.new(type_name: module_context.class_name),
         variable_context: TypeInference::Context::TypeVariableContext.empty  # Assuming `::Class` and `::Module` don't have type params
@@ -1600,19 +1609,26 @@ module Steep
         when :yield
           if method_context && method_context.method_type
             if block_type = method_context.block_type
-              block_type.type.params.flat_unnamed_params.map(&:last).zip(node.children).each do |(type, node)|
-                if node && type
-                  check(node, type) do |_, rhs_type, result|
-                    typing.add_error(
-                      Diagnostic::Ruby::IncompatibleAssignment.new(
-                        node: node,
-                        lhs_type: type,
-                        rhs_type: rhs_type,
-                        result: result
-                      )
-                    )
-                  end
-                end
+              type = AST::Types::Proc.new(
+                type: block_type.type,
+                block: nil
+              )
+              args = TypeInference::SendArgs.new(
+                node: node,
+                arguments: node.children,
+                type: type
+              )
+
+              # @type var errors: Array[Diagnostic::Ruby::Base]
+              errors = []
+              constr = type_check_args(
+                args,
+                Subtyping::Constraints.new(unknowns: []),
+                errors
+              )
+
+              errors.each do |error|
+                typing.add_error(error)
               end
 
               add_typing(node, type: block_type.type.return_type)
@@ -3376,7 +3392,6 @@ module Steep
         args = TypeInference::SendArgs.new(node: node, arguments: arguments, type: method_type)
         constr = constr.type_check_args(
           args,
-          receiver_type,
           constraints,
           errors
         )

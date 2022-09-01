@@ -5478,7 +5478,7 @@ RUBY
   def test_singleton_class_in_class_decl
     with_checker <<-RBS do |checker|
 class WithSingleton
-  def self.open: [A] { () -> A } -> A
+  def self.open: [A] { (WithSingleton) -> A } -> A
 end
     RBS
       source = parse_ruby(<<'EOF')
@@ -5532,7 +5532,7 @@ EOF
         construction.synthesize(source.node)
 
         assert_equal 1, typing.errors.size
-        assert_instance_of Diagnostic::Ruby::IncompatibleAssignment, typing.errors[0]
+        assert_instance_of Diagnostic::Ruby::ArgumentTypeMismatch, typing.errors[0]
       end
     end
   end
@@ -5540,13 +5540,13 @@ EOF
   def test_singleton_class_for_object_success
     with_checker <<-'RBS' do |checker|
 class WithSingleton
-  def open: [A] { () -> A } -> A
+  def open: [A] (Integer) { (WithSingleton, Integer) -> A } -> A
 end
     RBS
       source = parse_ruby(<<-'RUBY')
 class <<(WithSingleton.new)
-  def open
-    yield new()
+  def open(i)
+    yield WithSingleton.new(), i+1
   end
 end
       RUBY
@@ -9897,6 +9897,31 @@ x = x.itself
       with_standard_construction(checker, source) do |construction, typing|
         type, _, context = construction.synthesize(source.node)
         assert_no_error typing
+      end
+    end
+  end
+
+  def test_empty_yield
+    with_checker(<<-RBS) do |checker|
+class EmptyYield
+  def foo: () { (Integer) -> void } -> void
+end
+      RBS
+      source = parse_ruby(<<-RUBY)
+class EmptyYield
+  def foo
+    yield
+  end
+end
+      RUBY
+
+      with_standard_construction(checker, source) do |construction, typing|
+        type, _, context = construction.synthesize(source.node)
+        assert_typing_error(typing, size: 1) do |errors|
+          errors[0].tap do |error|
+            assert_instance_of Diagnostic::Ruby::InsufficientPositionalArguments, error
+          end
+        end
       end
     end
   end
