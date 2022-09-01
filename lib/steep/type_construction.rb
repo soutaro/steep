@@ -1598,9 +1598,8 @@ module Steep
           end
 
         when :yield
-          if method_context&.method_type
-            if method_context.block_type
-              block_type = method_context.block_type
+          if method_context && method_context.method_type
+            if block_type = method_context.block_type
               block_type.type.params.flat_unnamed_params.map(&:last).zip(node.children).each do |(type, node)|
                 if node && type
                   check(node, type) do |_, rhs_type, result|
@@ -3196,7 +3195,7 @@ module Steep
     end
 
     def with_child_typing(range:)
-      constr = with_new_typing(typing.new_child(range: range))
+      constr = with_new_typing(typing.new_child(range))
 
       if block_given?
         yield constr
@@ -3248,6 +3247,95 @@ module Steep
       end
     end
 
+    def type_check_args(args, receiver_type, constraints, errors)
+      # @type var constr: TypeConstruction
+      constr = self
+
+      es = args.each do |arg|
+        case arg
+        when TypeInference::SendArgs::PositionalArgs::NodeParamPair
+          _, constr = constr.type_check_argument(
+            arg.node,
+            type: arg.param.type,
+            receiver_type: receiver_type,
+            constraints: constraints,
+            errors: errors
+          )
+
+        when TypeInference::SendArgs::PositionalArgs::NodeTypePair
+          _, constr = bypass_splat(arg.node) do |n|
+            constr.type_check_argument(
+              n,
+              type: arg.node_type,
+              receiver_type: receiver_type,
+              constraints: constraints,
+              report_node: arg.node,
+              errors: errors
+            )
+          end
+
+        when TypeInference::SendArgs::PositionalArgs::UnexpectedArg
+          _, constr = bypass_splat(arg.node) do |n|
+            constr.synthesize(n)
+          end
+
+        when TypeInference::SendArgs::PositionalArgs::SplatArg
+          arg_type, _ =
+            constr
+              .with_child_typing(range: arg.node.loc.expression.begin_pos ... arg.node.loc.expression.end_pos)
+              .try_tuple_type!(arg.node.children[0])
+          arg.type = arg_type
+
+        when TypeInference::SendArgs::PositionalArgs::MissingArg
+          # ignore
+
+        when TypeInference::SendArgs::KeywordArgs::ArgTypePairs
+          arg.pairs.each do |node, type|
+            _, constr = bypass_splat(node) do |node|
+              constr.type_check_argument(
+                node,
+                type: type,
+                receiver_type: receiver_type,
+                constraints: constraints,
+                errors: errors
+              )
+            end
+          end
+
+        when TypeInference::SendArgs::KeywordArgs::UnexpectedKeyword
+          if arg.node.type == :pair
+            arg.node.children.each do |nn|
+              _, constr = constr.synthesize(nn)
+            end
+          else
+            _, constr = bypass_splat(arg.node) do |n|
+              constr.synthesize(n)
+            end
+          end
+
+        when TypeInference::SendArgs::KeywordArgs::SplatArg
+          type, _ = bypass_splat(arg.node) do |sp_node|
+            if sp_node.type == :hash
+              pair = constr.type_hash_record(sp_node, nil) and break pair
+            end
+
+            constr.synthesize(sp_node)
+          end
+
+          arg.type = type
+
+        when TypeInference::SendArgs::KeywordArgs::MissingKeyword
+          # ignore
+        else
+          raise arg.inspect
+        end
+      end
+
+      errors.push(*es)
+
+      constr
+    end
+
     def try_method_type(node, receiver_type:, method_name:, method_type:, arguments:, block_params:, block_body:, topdown_hint:)
       type_params, instantiation = Interface::TypeParam.rename(method_type.type_params)
       type_param_names = type_params.map(&:name)
@@ -3284,91 +3372,16 @@ module Steep
       end
 
       checker.push_variable_bounds(upper_bounds) do
+        # @type var errors: Array[Diagnostic::Ruby::Base]
         errors = []
 
         args = TypeInference::SendArgs.new(node: node, arguments: arguments, type: method_type)
-        es = args.each do |arg|
-          case arg
-          when TypeInference::SendArgs::PositionalArgs::NodeParamPair
-            _, constr = constr.type_check_argument(
-              arg.node,
-              type: arg.param.type,
-              receiver_type: receiver_type,
-              constraints: constraints,
-              errors: errors
-            )
-
-          when TypeInference::SendArgs::PositionalArgs::NodeTypePair
-            _, constr = bypass_splat(arg.node) do |n|
-              constr.type_check_argument(
-                n,
-                type: arg.node_type,
-                receiver_type: receiver_type,
-                constraints: constraints,
-                report_node: arg.node,
-                errors: errors
-              )
-            end
-
-          when TypeInference::SendArgs::PositionalArgs::UnexpectedArg
-            _, constr = bypass_splat(arg.node) do |n|
-              constr.synthesize(n)
-            end
-
-          when TypeInference::SendArgs::PositionalArgs::SplatArg
-            arg_type, _ = constr
-                            .with_child_typing(range: arg.node.loc.expression.begin_pos ... arg.node.loc.expression.end_pos)
-                            .try_tuple_type!(arg.node.children[0])
-            arg.type = arg_type
-
-          when TypeInference::SendArgs::PositionalArgs::MissingArg
-            # ignore
-
-          when TypeInference::SendArgs::KeywordArgs::ArgTypePairs
-            arg.pairs.each do |node, type|
-              _, constr = bypass_splat(node) do |node|
-                constr.type_check_argument(
-                  node,
-                  type: type,
-                  receiver_type: receiver_type,
-                  constraints: constraints,
-                  errors: errors
-                )
-              end
-            end
-
-          when TypeInference::SendArgs::KeywordArgs::UnexpectedKeyword
-            if arg.node.type == :pair
-              arg.node.children.each do |nn|
-                _, constr = constr.synthesize(nn)
-              end
-            else
-              _, constr = bypass_splat(arg.node) do |n|
-                constr.synthesize(n)
-              end
-            end
-
-          when TypeInference::SendArgs::KeywordArgs::SplatArg
-            type, _ = bypass_splat(arg.node) do |sp_node|
-              if sp_node.type == :hash
-                pair = constr.type_hash_record(sp_node, nil) and break pair
-              end
-
-              constr.synthesize(sp_node)
-            end
-
-            arg.type = type
-
-          when TypeInference::SendArgs::KeywordArgs::MissingKeyword
-            # ignore
-          else
-            raise arg.inspect
-          end
-
-          constr
-        end
-
-        errors.push(*es)
+        constr = constr.type_check_args(
+          args,
+          receiver_type,
+          constraints,
+          errors
+        )
 
         if block_params
           # block is given

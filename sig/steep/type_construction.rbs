@@ -157,7 +157,8 @@ module Steep
 
     def inspect: () -> ::String
 
-    def with_child_typing: (range: untyped) { (untyped) -> untyped } -> untyped
+    def with_child_typing: [A] (range: Range[Integer]) { (TypeConstruction) -> A } -> A
+                         | (range: Range[Integer]) -> TypeConstruction
 
     # Bypass :splat and :kwsplat
     def bypass_splat: (untyped node) { (untyped) -> untyped } -> untyped
@@ -177,7 +178,23 @@ module Steep
 
     def eliminate_vars: (untyped `type`, untyped variables, ?to: untyped) -> untyped
 
-    def try_method_type: (Parser::AST::Node node, receiver_type: AST::Types::t, method_name: Symbol, method_type: Interface::MethodType, arguments: Array[Parser::AST::Node], block_params: Parser::AST::Node?, block_body: Parser::AST::Node?, topdown_hint: untyped) -> [TypeInference::MethodCall::t, TypeConstruction]
+    def try_method_type: (
+      Parser::AST::Node node,
+      receiver_type: AST::Types::t,
+      method_name: Symbol,
+      method_type: Interface::MethodType,
+      arguments: Array[Parser::AST::Node],
+      block_params: Parser::AST::Node?,
+      block_body: Parser::AST::Node?,
+      topdown_hint: untyped
+    ) -> [TypeInference::MethodCall::t, TypeConstruction]
+
+    def type_check_args: (
+      TypeInference::SendArgs,
+      AST::Types::t receiver_type,
+      Subtyping::Constraints,
+      Array[Diagnostic::Ruby::Base]
+    ) -> TypeConstruction
 
     def type_check_argument: (Parser::AST::Node node, receiver_type: AST::Types::t, type: AST::Types::t, constraints: Subtyping::Constraints, errors: Array[Diagnostic::Ruby::Base], ?report_node: Parser::AST::Node) -> Pair
 
