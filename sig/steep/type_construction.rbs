@@ -90,6 +90,14 @@ module Steep
 
     def with_sclass_constr: [A] (Parser::AST::Node node, AST::Types::t `type`) { (TypeConstruction?) -> A } -> A
 
+    # Returns one-level _meta_ type from given type
+    #
+    # * Returns singleton type of the type name if instance type is given
+    # * Returns `::Class` if singleton type is given
+    # * Returns `nil` otherwise
+    #
+    def meta_type: (AST::Types::t) -> AST::Types::t?
+
     def for_sclass: (Parser::AST::Node node, AST::Types::t `type`) -> TypeConstruction?
 
     def for_branch: (Parser::AST::Node node, ?break_context: TypeInference::Context::BreakContext?) -> untyped
@@ -157,7 +165,8 @@ module Steep
 
     def inspect: () -> ::String
 
-    def with_child_typing: (range: untyped) { (untyped) -> untyped } -> untyped
+    def with_child_typing: [A] (range: Range[Integer]) { (TypeConstruction) -> A } -> A
+                         | (range: Range[Integer]) -> TypeConstruction
 
     # Bypass :splat and :kwsplat
     def bypass_splat: (untyped node) { (untyped) -> untyped } -> untyped
@@ -177,9 +186,24 @@ module Steep
 
     def eliminate_vars: (untyped `type`, untyped variables, ?to: untyped) -> untyped
 
-    def try_method_type: (Parser::AST::Node node, receiver_type: AST::Types::t, method_name: Symbol, method_type: Interface::MethodType, arguments: Array[Parser::AST::Node], block_params: Parser::AST::Node?, block_body: Parser::AST::Node?, topdown_hint: untyped) -> [TypeInference::MethodCall::t, TypeConstruction]
+    def try_method_type: (
+      Parser::AST::Node node,
+      receiver_type: AST::Types::t,
+      method_name: Symbol,
+      method_type: Interface::MethodType,
+      arguments: Array[Parser::AST::Node],
+      block_params: Parser::AST::Node?,
+      block_body: Parser::AST::Node?,
+      topdown_hint: untyped
+    ) -> [TypeInference::MethodCall::t, TypeConstruction]
 
-    def type_check_argument: (Parser::AST::Node node, receiver_type: AST::Types::t, type: AST::Types::t, constraints: Subtyping::Constraints, errors: Array[Diagnostic::Ruby::Base], ?report_node: Parser::AST::Node) -> Pair
+    def type_check_args: (
+      TypeInference::SendArgs,
+      Subtyping::Constraints,
+      Array[Diagnostic::Ruby::Base]
+    ) -> TypeConstruction
+
+    def type_check_argument: (Parser::AST::Node node, type: AST::Types::t, constraints: Subtyping::Constraints, errors: Array[Diagnostic::Ruby::Base], ?report_node: Parser::AST::Node) -> Pair
 
     def type_block_without_hint: (node: Parser::AST::Node, block_annotations: AST::Annotation::Collection, block_params: TypeInference::BlockParams?, block_body: Parser::AST::Node?) ?{ (Diagnostic::Ruby::Base) -> void } -> void
 

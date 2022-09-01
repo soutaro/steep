@@ -5,6 +5,8 @@ module Steep
         instance_variables.all? do |name|
           other.instance_variable_get(name) == instance_variable_get(name)
         end
+      else
+        false
       end
     end
 

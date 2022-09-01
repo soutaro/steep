@@ -87,13 +87,11 @@ module Steep
 
       class UnexpectedPositionalArgument < Base
         attr_reader :node
-        attr_reader :method_type
-        attr_reader :method_name
+        attr_reader :params
 
-        def initialize(node:, method_name:, method_type:)
+        def initialize(node:, params:)
           super(node: node)
-          @method_name = method_name
-          @method_type = method_type
+          @params = params
         end
 
         def header_line
@@ -103,10 +101,9 @@ module Steep
 
       class InsufficientPositionalArguments < Base
         attr_reader :node
-        attr_reader :method_name
-        attr_reader :method_type
+        attr_reader :params
 
-        def initialize(node:, method_name:, method_type:)
+        def initialize(node:, params:)
           send = case node.type
                  when :send, :csend
                    node
@@ -121,8 +118,7 @@ module Steep
                 end
 
           super(node: node, location: loc)
-          @method_name = method_name
-          @method_type = method_type
+          @params = params
         end
 
         def header_line
@@ -132,10 +128,9 @@ module Steep
 
       class UnexpectedKeywordArgument < Base
         attr_reader :node
-        attr_reader :method_name
-        attr_reader :method_type
+        attr_reader :params
 
-        def initialize(node:, method_name:, method_type:)
+        def initialize(node:, params:)
           loc = case node.type
                 when :pair
                   node.children[0].location.expression
@@ -145,8 +140,7 @@ module Steep
                   raise
                 end
           super(node: node, location: loc)
-          @method_name = method_name
-          @method_type = method_type
+          @params = params
         end
 
         def header_line
@@ -160,7 +154,7 @@ module Steep
         attr_reader :method_type
         attr_reader :missing_keywords
 
-        def initialize(node:, method_name:, method_type:, missing_keywords:)
+        def initialize(node:, params:, missing_keywords:)
           send = case node.type
                  when :send, :csend
                    node
@@ -176,8 +170,7 @@ module Steep
 
           super(node: node, location: loc)
 
-          @method_name = method_name
-          @method_type = method_type
+          @params = params
           @missing_keywords = missing_keywords
         end
 
@@ -220,14 +213,12 @@ module Steep
         attr_reader :node
         attr_reader :expected
         attr_reader :actual
-        attr_reader :receiver_type
         attr_reader :result
 
         include ResultPrinter
 
-        def initialize(node:, receiver_type:, expected:, actual:, result:)
+        def initialize(node:, expected:, actual:, result:)
           super(node: node)
-          @receiver_type = receiver_type
           @expected = expected
           @actual = actual
           @result = result

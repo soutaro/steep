@@ -34,7 +34,7 @@ class ArgsTest < Minitest::Test
 
   def test_positional_single_arg
     parse_args("foo(1)") do |node, args|
-      SendArgs.new(node: node, arguments: args, method_name: method_name, method_type: parse_method_type("(Integer) -> void")).tap do |args|
+      SendArgs.new(node: node, arguments: args, type: parse_method_type("(Integer) -> void")).tap do |args|
         arg = args.positional_arg
 
         pair, arg = arg.next()
@@ -48,7 +48,7 @@ class ArgsTest < Minitest::Test
         assert_nil arg.next()
       end
 
-      SendArgs.new(node: node, arguments: args, method_name: method_name, method_type: parse_method_type("(?Integer) -> void")).tap do |args|
+      SendArgs.new(node: node, arguments: args, type: parse_method_type("(?Integer) -> void")).tap do |args|
         arg = args.positional_arg
 
         pair, arg = arg.next()
@@ -62,7 +62,7 @@ class ArgsTest < Minitest::Test
         assert_nil arg.next()
       end
 
-      SendArgs.new(node: node, arguments: args, method_name: method_name, method_type: parse_method_type("(*Integer) -> void")).tap do |args|
+      SendArgs.new(node: node, arguments: args, type: parse_method_type("(*Integer) -> void")).tap do |args|
         arg = args.positional_arg
 
         pair, arg = arg.next()
@@ -76,7 +76,7 @@ class ArgsTest < Minitest::Test
         assert_nil arg.next()
       end
 
-      SendArgs.new(node: node, arguments: args, method_name: method_name, method_type: parse_method_type("() -> void")).tap do |args|
+      SendArgs.new(node: node, arguments: args, type: parse_method_type("() -> void")).tap do |args|
         arg = args.positional_arg
 
         value, arg = arg.next()
@@ -91,7 +91,7 @@ class ArgsTest < Minitest::Test
 
   def test_positional_no_arg
     parse_args("foo()") do |node, args|
-      SendArgs.new(node: node, arguments: args, method_name: method_name, method_type: parse_method_type("(Integer) -> void")).tap do |args|
+      SendArgs.new(node: node, arguments: args, type: parse_method_type("(Integer) -> void")).tap do |args|
         arg = args.positional_arg
 
         value, arg = arg.next()
@@ -102,19 +102,19 @@ class ArgsTest < Minitest::Test
         assert_nil arg.next
       end
 
-      SendArgs.new(node: node, arguments: args, method_name: method_name, method_type: parse_method_type("(?Integer) -> void")).tap do |args|
+      SendArgs.new(node: node, arguments: args, type: parse_method_type("(?Integer) -> void")).tap do |args|
         arg = args.positional_arg
 
         assert_nil arg.next()
       end
 
-      SendArgs.new(node: node, arguments: args, method_name: method_name, method_type: parse_method_type("(*Integer) -> void")).tap do |args|
+      SendArgs.new(node: node, arguments: args, type: parse_method_type("(*Integer) -> void")).tap do |args|
         arg = args.positional_arg
 
         assert_nil arg.next()
       end
 
-      SendArgs.new(node: node, arguments: args, method_name: method_name, method_type: parse_method_type("() -> void")).tap do |args|
+      SendArgs.new(node: node, arguments: args, type: parse_method_type("() -> void")).tap do |args|
         arg = args.positional_arg
 
         assert_nil arg.next()
@@ -124,7 +124,7 @@ class ArgsTest < Minitest::Test
 
   def test_positional_consume
     parse_args("foo()") do |node, args|
-      SendArgs.new(node: node, arguments: args, method_name: method_name, method_type: parse_method_type("(Integer, ?String, *Symbol) -> void")).tap do |args|
+      SendArgs.new(node: node, arguments: args, type: parse_method_type("(Integer, ?String, *Symbol) -> void")).tap do |args|
         arg = args.positional_arg
         int, str, sym = args.positional_params.each.to_a
 
@@ -149,7 +149,7 @@ class ArgsTest < Minitest::Test
     end
 
     parse_args("foo(*x)") do |node, args|
-      SendArgs.new(node: node, arguments: args, method_name: method_name, method_type: parse_method_type("(Integer) -> void")).tap do |args|
+      SendArgs.new(node: node, arguments: args, type: parse_method_type("(Integer) -> void")).tap do |args|
         arg = args.positional_arg
 
         arg.consume(2, node: args.arguments[0]).tap do |params, arg|
@@ -162,7 +162,7 @@ class ArgsTest < Minitest::Test
 
   def test_positional_rest_arg
     parse_args("foo(*a)") do |node, args|
-      SendArgs.new(node: node, arguments: args, method_name: method_name, method_type: parse_method_type("(Integer, *Symbol) -> void")).tap do |args|
+      SendArgs.new(node: node, arguments: args, type: parse_method_type("(Integer, *Symbol) -> void")).tap do |args|
         arg = args.positional_arg
 
         value, arg = arg.next()
@@ -178,7 +178,7 @@ class ArgsTest < Minitest::Test
 
   def test_keyword_single_keyword_arg
     parse_args("foo(x: a)") do |node, args|
-      SendArgs.new(node: node, arguments: args, method_name: method_name, method_type: parse_method_type("(x: Integer) -> void")).tap do |args|
+      SendArgs.new(node: node, arguments: args, type: parse_method_type("(x: Integer) -> void")).tap do |args|
         kwargs = args.keyword_args
 
         pairs, kwargs = kwargs.next()
@@ -200,7 +200,7 @@ class ArgsTest < Minitest::Test
         assert_nil kwargs.next()
       end
 
-      SendArgs.new(node: node, arguments: args, method_name: method_name, method_type: parse_method_type("(?x: Integer) -> void")).tap do |args|
+      SendArgs.new(node: node, arguments: args, type: parse_method_type("(?x: Integer) -> void")).tap do |args|
         kwargs = args.keyword_args
 
         pairs, kwargs = kwargs.next()
@@ -222,7 +222,7 @@ class ArgsTest < Minitest::Test
         assert_nil kwargs.next()
       end
 
-      SendArgs.new(node: node, arguments: args, method_name: method_name, method_type: parse_method_type("(**Integer) -> void")).tap do |args|
+      SendArgs.new(node: node, arguments: args, type: parse_method_type("(**Integer) -> void")).tap do |args|
         kwargs = args.keyword_args
 
         pairs, kwargs = kwargs.next()
@@ -244,7 +244,7 @@ class ArgsTest < Minitest::Test
         assert_nil kwargs.next()
       end
 
-      SendArgs.new(node: node, arguments: args, method_name: method_name, method_type: parse_method_type("() -> void")).tap do |args|
+      SendArgs.new(node: node, arguments: args, type: parse_method_type("() -> void")).tap do |args|
         kwargs = args.keyword_args
 
         assert_nil kwargs.next()
@@ -254,7 +254,7 @@ class ArgsTest < Minitest::Test
 
   def test_keyword_single_keyword_no_arg
     parse_args("foo()") do |node, args|
-      SendArgs.new(node: node, arguments: args, method_name: method_name, method_type: parse_method_type("(x: Integer) -> void")).tap do |args|
+      SendArgs.new(node: node, arguments: args, type: parse_method_type("(x: Integer) -> void")).tap do |args|
         kwargs = args.keyword_args
 
         value, kwargs = kwargs.next()
@@ -264,19 +264,19 @@ class ArgsTest < Minitest::Test
         assert_nil kwargs.next()
       end
 
-      SendArgs.new(node: node, arguments: args, method_name: method_name, method_type: parse_method_type("(?x: Integer) -> void")).tap do |args|
+      SendArgs.new(node: node, arguments: args, type: parse_method_type("(?x: Integer) -> void")).tap do |args|
         kwargs = args.keyword_args
 
         assert_nil kwargs.next()
       end
 
-      SendArgs.new(node: node, arguments: args, method_name: method_name, method_type: parse_method_type("(**Integer) -> void")).tap do |args|
+      SendArgs.new(node: node, arguments: args, type: parse_method_type("(**Integer) -> void")).tap do |args|
         kwargs = args.keyword_args
 
         assert_nil kwargs.next()
       end
 
-      SendArgs.new(node: node, arguments: args, method_name: method_name, method_type: parse_method_type("() -> void")).tap do |args|
+      SendArgs.new(node: node, arguments: args, type: parse_method_type("() -> void")).tap do |args|
         kwargs = args.keyword_args
 
         assert_nil kwargs.next()
@@ -286,7 +286,7 @@ class ArgsTest < Minitest::Test
 
   def test_keyword_single_rocket_arg
     parse_args("foo(a() => b())") do |node, args|
-      SendArgs.new(node: node, arguments: args, method_name: method_name, method_type: parse_method_type("(x: Integer) -> void")).tap do |args|
+      SendArgs.new(node: node, arguments: args, type: parse_method_type("(x: Integer) -> void")).tap do |args|
         kwargs = args.keyword_args
 
         pairs, kwargs = kwargs.next()
@@ -309,7 +309,7 @@ class ArgsTest < Minitest::Test
         assert_empty kwargs.consumed_keywords
       end
 
-      SendArgs.new(node: node, arguments: args, method_name: method_name, method_type: parse_method_type("(?x: Integer) -> void")).tap do |args|
+      SendArgs.new(node: node, arguments: args, type: parse_method_type("(?x: Integer) -> void")).tap do |args|
         kwargs = args.keyword_args
 
         pairs, kwargs = kwargs.next()
@@ -332,7 +332,7 @@ class ArgsTest < Minitest::Test
         assert_empty kwargs.consumed_keywords
       end
 
-      SendArgs.new(node: node, arguments: args, method_name: method_name, method_type: parse_method_type("(**Integer) -> void")).tap do |args|
+      SendArgs.new(node: node, arguments: args, type: parse_method_type("(**Integer) -> void")).tap do |args|
         kwargs = args.keyword_args
 
         pairs, kwargs = kwargs.next()
@@ -355,7 +355,7 @@ class ArgsTest < Minitest::Test
         assert_empty kwargs.consumed_keywords
       end
 
-      SendArgs.new(node: node, arguments: args, method_name: method_name, method_type: parse_method_type("() -> void")).tap do |args|
+      SendArgs.new(node: node, arguments: args, type: parse_method_type("() -> void")).tap do |args|
         kwargs = args.keyword_args
 
         assert_nil kwargs.next()
@@ -365,7 +365,7 @@ class ArgsTest < Minitest::Test
 
   def test_keyword_splat_arg
     parse_args("foo(**a)") do |node, args|
-      SendArgs.new(node: node, arguments: args, method_name: method_name, method_type: parse_method_type("(x: Integer) -> void")).tap do |args|
+      SendArgs.new(node: node, arguments: args, type: parse_method_type("(x: Integer) -> void")).tap do |args|
         kwargs = args.keyword_args
 
         a, kwargs = kwargs.next()
@@ -381,7 +381,7 @@ class ArgsTest < Minitest::Test
 
   def test_keyword_consume_keys
     parse_args("foo(**args)") do |node, args|
-      SendArgs.new(node: node, arguments: args, method_name: method_name, method_type: parse_method_type("(x: Integer, y: String, **Symbol) -> void")).tap do |args|
+      SendArgs.new(node: node, arguments: args, type: parse_method_type("(x: Integer, y: String, **Symbol) -> void")).tap do |args|
         kwargs = args.keyword_args
 
         kwargs.consume_keys([:x, :z], node: kwargs.keyword_pair).tap do |types, kwargs|
@@ -390,7 +390,7 @@ class ArgsTest < Minitest::Test
         end
       end
 
-      SendArgs.new(node: node, arguments: args, method_name: method_name, method_type: parse_method_type("(x: Integer, y: String) -> void")).tap do |args|
+      SendArgs.new(node: node, arguments: args, type: parse_method_type("(x: Integer, y: String) -> void")).tap do |args|
         kwargs = args.keyword_args
 
         kwargs.consume_keys([:a], node: kwargs.keyword_pair).tap do |types, kwargs|
@@ -409,7 +409,7 @@ class ArgsTest < Minitest::Test
   def test_compat_keyword_positional_arg
     parse_args("foo(bar: baz)") do |node, args|
       # Conversion from kwargs to hash for methods without keyword params still works
-      SendArgs.new(node: node, arguments: args, method_name: method_name, method_type: parse_method_type("(untyped) -> void")).tap do |args|
+      SendArgs.new(node: node, arguments: args, type: parse_method_type("(untyped) -> void")).tap do |args|
         positionals = args.positional_arg
 
         value, positionals = positionals.next()
@@ -427,7 +427,7 @@ class ArgsTest < Minitest::Test
 
   def test_block_pass_arg
     parse_args("foo(&bar)") do |node, args|
-      SendArgs.new(node: node, arguments: args, method_name: method_name, method_type: parse_method_type("() { () -> void } -> void")).tap do |args|
+      SendArgs.new(node: node, arguments: args, type: parse_method_type("() { () -> void } -> void")).tap do |args|
         arg = args.block_pass_arg
 
         assert_operator arg, :compatible?
@@ -440,7 +440,7 @@ class ArgsTest < Minitest::Test
         )
       end
 
-      SendArgs.new(node: node, arguments: args, method_name: method_name, method_type: parse_method_type("() ?{ () -> void } -> void")).tap do |args|
+      SendArgs.new(node: node, arguments: args, type: parse_method_type("() ?{ () -> void } -> void")).tap do |args|
         arg = args.block_pass_arg
 
         assert_operator arg, :compatible?
@@ -453,7 +453,7 @@ class ArgsTest < Minitest::Test
         )
       end
 
-      SendArgs.new(node: node, arguments: args, method_name: method_name, method_type: parse_method_type("() -> void")).tap do |args|
+      SendArgs.new(node: node, arguments: args, type: parse_method_type("() -> void")).tap do |args|
         arg = args.block_pass_arg
 
         refute_operator arg, :compatible?
@@ -461,20 +461,20 @@ class ArgsTest < Minitest::Test
     end
 
     parse_args("foo()") do |node, args|
-      SendArgs.new(node: node, arguments: args, method_name: method_name, method_type: parse_method_type("() { () -> void } -> void")).tap do |args|
+      SendArgs.new(node: node, arguments: args, type: parse_method_type("() { () -> void } -> void")).tap do |args|
         arg = args.block_pass_arg
 
         refute_operator arg, :compatible?
       end
 
-      SendArgs.new(node: node, arguments: args, method_name: method_name, method_type: parse_method_type("() ?{ () -> void } -> void")).tap do |args|
+      SendArgs.new(node: node, arguments: args, type: parse_method_type("() ?{ () -> void } -> void")).tap do |args|
         arg = args.block_pass_arg
 
         assert_operator arg, :compatible?
         assert_nil arg.pair
       end
 
-      SendArgs.new(node: node, arguments: args, method_name: method_name, method_type: parse_method_type("() -> void")).tap do |args|
+      SendArgs.new(node: node, arguments: args, type: parse_method_type("() -> void")).tap do |args|
         arg = args.block_pass_arg
 
         assert_operator arg, :compatible?
@@ -485,7 +485,7 @@ class ArgsTest < Minitest::Test
 
   def test_each_single_args
     parse_args("foo(1, 2, 3)") do |node, args|
-      SendArgs.new(node: node, arguments: args, method_name: method_name, method_type: parse_method_type("(Integer, ?String, *Symbol) -> void")).tap do |args|
+      SendArgs.new(node: node, arguments: args, type: parse_method_type("(Integer, ?String, *Symbol) -> void")).tap do |args|
         types = {}
 
         args.each() do |value|
@@ -506,7 +506,7 @@ class ArgsTest < Minitest::Test
 
   def test_each_missing_arg
     parse_args("foo()") do |node, args|
-      SendArgs.new(node: node, arguments: args, method_name: method_name, method_type: parse_method_type("(Integer) -> void")).tap do |args|
+      SendArgs.new(node: node, arguments: args, type: parse_method_type("(Integer) -> void")).tap do |args|
         args.each() do |value|
           case value
           when SendArgs::PositionalArgs::MissingArg
@@ -521,7 +521,7 @@ class ArgsTest < Minitest::Test
 
   def test_each_splat_tuple
     parse_args("foo(1, *[2, 3], 4)") do |node, args|
-      SendArgs.new(node: node, arguments: args, method_name: method_name, method_type: parse_method_type("(Integer, String, *Symbol) -> void")).tap do |args|
+      SendArgs.new(node: node, arguments: args, type: parse_method_type("(Integer, String, *Symbol) -> void")).tap do |args|
         pairs = {}
 
         args.each() do |value|
@@ -542,7 +542,7 @@ class ArgsTest < Minitest::Test
         assert_equal parse_type("Symbol"), pairs[args.arguments[2]]
       end
 
-      SendArgs.new(node: node, arguments: args, method_name: method_name, method_type: parse_method_type("(Integer, String) -> void")).tap do |args|
+      SendArgs.new(node: node, arguments: args, type: parse_method_type("(Integer, String) -> void")).tap do |args|
         pairs = {}
 
         args.each() do |value|
@@ -567,7 +567,7 @@ class ArgsTest < Minitest::Test
 
   def test_each_splat_array
     parse_args("foo(1, *x, 3)") do |node, args|
-      SendArgs.new(node: node, arguments: args, method_name: method_name, method_type: parse_method_type("(Integer, String, *Symbol) -> void")).tap do |args|
+      SendArgs.new(node: node, arguments: args, type: parse_method_type("(Integer, String, *Symbol) -> void")).tap do |args|
         pairs = {}
 
         args.each() do |value|
@@ -588,7 +588,7 @@ class ArgsTest < Minitest::Test
         assert_equal parse_type("String & Symbol"), pairs[args.arguments[2]]
       end
 
-      SendArgs.new(node: node, arguments: args, method_name: method_name, method_type: parse_method_type("(Integer, String) -> void")).tap do |args|
+      SendArgs.new(node: node, arguments: args, type: parse_method_type("(Integer, String) -> void")).tap do |args|
         pairs = {}
 
         args.each() do |value|
@@ -613,7 +613,7 @@ class ArgsTest < Minitest::Test
 
   def test_each_keyword_arg
     parse_args("foo(a:1, b:2, c: 3)") do |node, args|
-      SendArgs.new(node: node, arguments: args, method_name: method_name, method_type: parse_method_type("(a: String, ?b: Symbol, **bool) -> void")).tap do |args|
+      SendArgs.new(node: node, arguments: args, type: parse_method_type("(a: String, ?b: Symbol, **bool) -> void")).tap do |args|
         pairs = {}
 
         args.each() do |value|
@@ -637,7 +637,7 @@ class ArgsTest < Minitest::Test
     end
 
     parse_args("foo(a:1, b:2)") do |node, args|
-      SendArgs.new(node: node, arguments: args, method_name: method_name, method_type: parse_method_type("() -> void")).tap do |args|
+      SendArgs.new(node: node, arguments: args, type: parse_method_type("() -> void")).tap do |args|
         args.each() do |value|
           case value
           when SendArgs::PositionalArgs::UnexpectedArg
@@ -652,7 +652,7 @@ class ArgsTest < Minitest::Test
 
   def test_each_keyword_arg_splat_record
     parse_args("foo(**x)") do |node, args|
-      SendArgs.new(node: node, arguments: args, method_name: method_name, method_type: parse_method_type("(a: String, ?b: Symbol, **bool) -> void")).tap do |args|
+      SendArgs.new(node: node, arguments: args, type: parse_method_type("(a: String, ?b: Symbol, **bool) -> void")).tap do |args|
         pairs = {}
 
         args.each() do |value|
@@ -669,7 +669,7 @@ class ArgsTest < Minitest::Test
         assert_equal parse_type("{ a: String }"), pairs[dig(args.arguments[0], 0)]
       end
 
-      SendArgs.new(node: node, arguments: args, method_name: method_name, method_type: parse_method_type("(a: String) -> void")).tap do |args|
+      SendArgs.new(node: node, arguments: args, type: parse_method_type("(a: String) -> void")).tap do |args|
         pairs = {}
 
         args.each() do |value|
@@ -692,7 +692,7 @@ class ArgsTest < Minitest::Test
 
   def test_each_keyword_arg_splat_array
     parse_args("foo(**x)") do |node, args|
-      SendArgs.new(node: node, arguments: args, method_name: method_name, method_type: parse_method_type("(a: String, ?b: Symbol, **bool) -> void")).tap do |args|
+      SendArgs.new(node: node, arguments: args, type: parse_method_type("(a: String, ?b: Symbol, **bool) -> void")).tap do |args|
         pairs = {}
 
         errors = args.each() do |value|
@@ -709,7 +709,7 @@ class ArgsTest < Minitest::Test
         assert_equal parse_type("::Hash[::Symbol, String & Symbol & bool]"), pairs[dig(args.arguments[0], 0)]
       end
 
-      SendArgs.new(node: node, arguments: args, method_name: method_name, method_type: parse_method_type("(a: String) -> void")).tap do |args|
+      SendArgs.new(node: node, arguments: args, type: parse_method_type("(a: String) -> void")).tap do |args|
         pairs = {}
 
         args.each() do |value|

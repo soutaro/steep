@@ -2,21 +2,28 @@ module Steep
   module TypeInference
     class Context
       class MethodContext
-        attr_reader name: untyped
+        attr_reader name: Symbol?
 
-        attr_reader method: untyped
+        attr_reader method: RBS::Definition::Method?
 
-        attr_reader method_type: untyped
+        attr_reader method_type: Interface::MethodType?
 
-        attr_reader return_type: untyped
+        attr_reader return_type: AST::Types::t
 
-        attr_reader constructor: untyped
+        attr_reader constructor: bool
 
-        attr_reader super_method: untyped
+        attr_reader super_method: RBS::Definition::Method?
 
-        def initialize: (name: untyped, method: untyped, method_type: untyped, return_type: untyped, constructor: untyped, super_method: untyped) -> void
+        def initialize: (
+          name: Symbol,
+          method: RBS::Definition::Method?,
+          method_type: Interface::MethodType?,
+          return_type: AST::Types::t,
+          constructor: bool,
+          super_method: RBS::Definition::Method?
+        ) -> void
 
-        def block_type: () -> untyped
+        def block_type: () -> Interface::Block?
       end
 
       class BlockContext

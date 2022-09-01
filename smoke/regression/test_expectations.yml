@@ -11,6 +11,18 @@
     severity: ERROR
     message: 'Cannot find the declaration of class: `Foo`'
     code: Ruby::UnknownConstant
+- file: empty_yield.rb
+  diagnostics:
+  - range:
+      start:
+        line: 3
+        character: 4
+      end:
+        line: 3
+        character: 9
+    severity: ERROR
+    message: More positional arguments are required
+    code: Ruby::InsufficientPositionalArguments
 - file: hash.rb
   diagnostics:
   - range:

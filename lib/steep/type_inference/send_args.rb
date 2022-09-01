@@ -88,7 +88,7 @@ module Steep
         end
 
         def following_args
-          args[index..]
+          args[index..] or raise
         end
 
         def param
@@ -115,12 +115,12 @@ module Steep
           when node && node.type != :splat && param.is_a?(Interface::Function::Params::PositionalParams::Required)
             [
               NodeParamPair.new(node: node, param: param),
-              update(index: index+1, positional_params: positional_params.tail)
+              update(index: index+1, positional_params: positional_params&.tail)
             ]
           when node && node.type != :splat && param.is_a?(Interface::Function::Params::PositionalParams::Optional)
             [
               NodeParamPair.new(node: node, param: param),
-              update(index: index+1, positional_params: positional_params.tail)
+              update(index: index+1, positional_params: positional_params&.tail)
             ]
           when node && node.type != :splat && param.is_a?(Interface::Function::Params::PositionalParams::Rest)
             [
@@ -148,6 +148,7 @@ module Steep
         end
 
         def consume(n, node:)
+          # @type var ps: Array[Interface::Function::Params::PositionalParams::param]
           ps = []
           params = consume0(n, node: node, params: positional_params, ps: ps)
           case params
@@ -172,7 +173,7 @@ module Steep
               UnexpectedArg.new(node: node)
             when Interface::Function::Params::PositionalParams::Required, Interface::Function::Params::PositionalParams::Optional
               ps << head
-              consume0(n-1, node: node, params: params.tail, ps: ps)
+              consume0(n-1, node: node, params: params&.tail, ps: ps)
             when Interface::Function::Params::PositionalParams::Rest
               ps << head
               consume0(n-1, node: node, params: params, ps: ps)
@@ -302,6 +303,7 @@ module Steep
         end
 
         def possible_key_type
+          # @type var key_types: Array[AST::Types::t]
           key_types = all_keys.map {|key| AST::Types::Literal.new(value: key) }
           key_types << AST::Builtin::Symbol.instance_type if rest_type
 
@@ -395,9 +397,12 @@ module Steep
         end
 
         def consume_keys(keys, node:)
+          # @type var consumed_keys: Array[Symbol]
           consumed_keys = []
+          # @type var types: Array[AST::Types::t]
           types = []
 
+          # @type var unexpected_keyword: Symbol?
           unexpected_keyword = nil
 
           keys.each do |key|
@@ -466,6 +471,8 @@ module Steep
         end
 
         def node_type
+          raise unless block
+
           type = AST::Types::Proc.new(type: block.type, block: nil)
 
           if block.optional?
@@ -478,22 +485,38 @@ module Steep
 
       attr_reader :node
       attr_reader :arguments
-      attr_reader :method_type
-      attr_reader :method_name
+      attr_reader :type
 
-      def initialize(node:, arguments:, method_name:, method_type:)
+      def initialize(node:, arguments:, type:)
         @node = node
         @arguments = arguments
-        @method_type = method_type
-        @method_name = method_name
+        @type = type
+      end
+
+      def params
+        case type
+        when Interface::MethodType
+          type.type.params
+        when AST::Types::Proc
+          type.type.params
+        end
+      end
+
+      def block
+        case type
+        when Interface::MethodType
+          type.block
+        when AST::Types::Proc
+          type.block
+        end
       end
 
       def positional_params
-        method_type.type.params.positional_params
+        params.positional_params
       end
 
       def keyword_params
-        method_type.type.params.keyword_params
+        params.keyword_params
       end
 
       def kwargs_node
@@ -520,7 +543,6 @@ module Steep
 
       def block_pass_arg
         node = arguments.find {|node| node.type == :block_pass }
-        block = method_type.block
 
         BlockPassArg.new(node: node, block: block)
       end
@@ -589,7 +611,8 @@ module Steep
                 when nil
                   raise
                 when AST::Types::Record
-                  keys = type.elements.keys
+                  # @type var keys: Array[Symbol]
+                  keys = _ = type.elements.keys
                   ts, args = args.consume_keys(keys, node: a.node)
 
                   case ts
@@ -625,35 +648,18 @@ module Steep
           errors.each do |error|
             case error
             when KeywordArgs::UnexpectedKeyword
-              diagnostics << Diagnostic::Ruby::UnexpectedKeywordArgument.new(
-                node: error.node,
-                method_type: method_type,
-                method_name: method_name
-              )
+              diagnostics << Diagnostic::Ruby::UnexpectedKeywordArgument.new(node: error.node, params: params)
             when KeywordArgs::MissingKeyword
               missing_keywords.push(*error.keywords)
             when PositionalArgs::UnexpectedArg
-              diagnostics << Diagnostic::Ruby::UnexpectedPositionalArgument.new(
-                node: error.node,
-                method_type: method_type,
-                method_name: method_name
-              )
+              diagnostics << Diagnostic::Ruby::UnexpectedPositionalArgument.new(node: error.node, params: params)
             when PositionalArgs::MissingArg
-              diagnostics << Diagnostic::Ruby::InsufficientPositionalArguments.new(
-                node: node,
-                method_name: method_name,
-                method_type: method_type
-              )
+              diagnostics << Diagnostic::Ruby::InsufficientPositionalArguments.new(node: node, params: params)
             end
           end
 
           unless missing_keywords.empty?
-            diagnostics << Diagnostic::Ruby::InsufficientKeywordArguments.new(
-              node: node,
-              method_name: method_name,
-              method_type: method_type,
-              missing_keywords: missing_keywords
-            )
+            diagnostics << Diagnostic::Ruby::InsufficientKeywordArguments.new(node: node, params: params, missing_keywords: missing_keywords)
           end
 
           diagnostics

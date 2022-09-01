@@ -1,0 +1,37 @@
+module Steep
+  module TypeInference
+    class ContextArray
+      class Entry
+        attr_reader range: untyped
+
+        attr_reader context: untyped
+
+        attr_reader sub_entries: untyped
+
+        def initialize: (range: untyped, context: untyped) -> void
+      end
+
+      attr_reader buffer: untyped
+
+      attr_reader root: untyped
+
+      def initialize: (buffer: untyped, context: untyped, ?range: untyped) -> void
+
+      def range: () -> untyped
+
+      def self.from_source: (source: untyped, ?range: untyped?, ?context: untyped?) -> untyped
+
+      def insert_context: (untyped range, context: untyped, ?entry: untyped) -> untyped
+
+      def each_entry: () { (untyped) -> untyped } -> untyped
+
+      def context_at: (untyped index, ?entry: untyped) -> (nil | untyped)
+
+      def []: (untyped index) -> untyped
+
+      def at: (line: untyped, column: untyped) -> untyped
+
+      def merge: (untyped subtree) -> untyped
+    end
+  end
+end
