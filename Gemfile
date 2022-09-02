@@ -10,7 +10,7 @@ group :stackprof, optional: true do
   gem "stackprof"
 end
 gem 'minitest-slow_test'
-gem "rbs", "~> 2.5.1"
+gem "rbs", "~> 2.6.0"
 
 group :ide, optional: true do
   gem "ruby-debug-ide"
