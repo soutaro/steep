@@ -2740,8 +2740,9 @@ module Steep
         block_type_hint: return_hint,
         block_block_hint: block_hint,
         block_annotations: block_annotations,
+        block_self_hint: self_hint,
         node_type_hint: nil
-      ).update_context {|con| con.with(self_type: self_hint) }
+      )
 
       block_constr.typing.add_context_for_body(node, context: block_constr.context)
 
@@ -3429,6 +3430,7 @@ module Steep
                 block_type_hint: method_type.block.type.return_type,
                 block_block_hint: nil,
                 block_annotations: block_annotations,
+                block_self_hint: nil,
                 node_type_hint: method_type.type.return_type
               )
               block_constr = block_constr.with_new_typing(
@@ -3730,6 +3732,7 @@ module Steep
         block_type_hint: nil,
         block_block_hint: nil,
         block_annotations: block_annotations,
+        block_self_hint: nil,
         node_type_hint: nil
       )
 
@@ -3779,7 +3782,7 @@ module Steep
       end
     end
 
-    def for_block(body_node, block_params:, block_param_hint:, block_type_hint:, block_block_hint:, block_annotations:, node_type_hint:)
+    def for_block(body_node, block_params:, block_param_hint:, block_type_hint:, block_block_hint:, block_annotations:, node_type_hint:, block_self_hint:)
       block_param_pairs = block_param_hint && block_params.zip(block_param_hint, block_block_hint)
 
       # @type var param_types_hash: Hash[Symbol, AST::Types::t]
@@ -3860,7 +3863,7 @@ module Steep
         next_type: block_context.body_type || AST::Builtin.any_type
       )
 
-      self_type = self.self_type
+      self_type = block_annotations.self_type || block_self_hint || self.self_type
       module_context = self.module_context
 
       if implements = block_annotations.implement_module_annotation

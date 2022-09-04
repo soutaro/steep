@@ -9926,11 +9926,29 @@ end
     end
   end
 
-  def test_proc_with_self_type_binding
+  def test_self_type_binding_proc_with_type_declaration
     with_checker() do |checker|
       source = parse_ruby(<<RUBY)
 # @type var callback: ^() [self: String] -> String
 callback = -> { self + "" }
+RUBY
+
+      with_standard_construction(checker, source) do |construction, typing|
+        type, _ = construction.synthesize(source.node)
+
+        assert_equal parse_type("^() [self: ::String] -> ::String"), type
+        assert_no_error typing
+      end
+    end
+  end
+
+  def test_self_type_binding_proc_with_annotation
+    with_checker() do |checker|
+      source = parse_ruby(<<RUBY)
+callback = -> do
+  # @type self: String
+  self + ""
+end
 RUBY
 
       with_standard_construction(checker, source) do |construction, typing|

@@ -40,17 +40,17 @@ module Steep
 
         def method_type: (untyped name) -> (untyped | nil)
 
-        def block_type: () -> untyped
+        %a{pure} def block_type: () -> Types::t?
 
-        def return_type: () -> untyped
+        %a{pure} def return_type: () -> Types::t?
 
-        def self_type: () -> untyped
+        %a{pure} def self_type: () -> Types::t?
 
-        def instance_type: () -> untyped
+        %a{pure} def instance_type: () -> Types::t?
 
-        def module_type: () -> untyped
+        %a{pure} def module_type: () -> Types::t?
 
-        def break_type: () -> untyped
+        %a{pure} def break_type: () -> Types::t?
 
         def lvar_types: () -> untyped
 

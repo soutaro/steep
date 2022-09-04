@@ -111,7 +111,7 @@ module Steep
 
       def params: () -> Array[Param | MultipleParam]
 
-      def self.from_node: (Parser::AST::Node node, annotations: AST::Annotation::Collection) -> BlockParams?
+      def self.from_node: (Parser::AST::Node node, annotations: AST::Annotation::Collection) -> BlockParams
 
       def self.from_multiple: (Parser::AST::Node node, AST::Annotation::Collection) -> MultipleParam
 

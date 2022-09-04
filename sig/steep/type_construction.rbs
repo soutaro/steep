@@ -235,7 +235,8 @@ module Steep
         block_type_hint: AST::Types::t?,
         block_block_hint: Interface::Block?,
         block_annotations: AST::Annotation::Collection,
-        node_type_hint: AST::Types::t?
+        node_type_hint: AST::Types::t?,
+        block_self_hint: AST::Types::t?
       ) -> TypeConstruction
 
     # Synthesize the block body and returns the type of the body
