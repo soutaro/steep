@@ -277,17 +277,10 @@ module Steep
 
           if block_param
             if block
-              proc_type =
-                if block.optional?
-                  AST::Types::Union.build(
-                    types: [
-                      AST::Types::Proc.new(type: block.type, block: nil),
-                      AST::Builtin.nil_type
-                    ]
-                  )
-                else
-                  AST::Types::Proc.new(type: block.type, block: nil)
-                end
+              proc_type = AST::Types::Proc.new(type: block.type, block: nil, self_type: block.self_type)
+              if block.optional?
+                proc_type = AST::Types::Union.build(types: [proc_type, AST::Builtin.nil_type])
+              end
 
               zip << [block_param, proc_type]
             else

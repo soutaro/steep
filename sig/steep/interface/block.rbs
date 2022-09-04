@@ -3,9 +3,11 @@ module Steep
     class Block
       attr_reader type: Function
 
+      attr_reader self_type: AST::Types::t?
+
       attr_reader optional: bool
 
-      def initialize: (type: Function, optional: bool) -> void
+      def initialize: (type: Function, self_type: AST::Types::t?, optional: bool) -> void
 
       def optional?: () -> bool
 

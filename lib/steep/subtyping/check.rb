@@ -3,7 +3,6 @@ module Steep
     class Check
       attr_reader :builder
       attr_reader :cache
-      attr_reader :assumptions
 
       def initialize(builder:)
         @builder = builder
@@ -71,6 +70,10 @@ module Steep
         end
       end
 
+      def assumptions
+        @assumptions || raise
+      end
+
       def self_type
         @self_type || raise
       end
@@ -88,7 +91,7 @@ module Steep
       end
 
       def each_ancestor(ancestors, &block)
-        if block_given?
+        if block
           if ancestors.super_class
             yield ancestors.super_class
           end
@@ -107,7 +110,8 @@ module Steep
 
         subst = unless args.empty?
                   args_ = args.map {|type| factory.type_1(type) }
-                  RBS::Substitution.build(ancestors.params, args_)
+                  params = ancestors.params or raise
+                  RBS::Substitution.build(params, args_)
                 end
 
         each_ancestor(ancestors).map do |ancestor|
@@ -400,7 +404,7 @@ module Steep
                   type,
                   public_only: true,
                   config: Interface::Builder::Config.new(resolve_self: true, resolve_instance_type: true, resolve_class_type: true, variable_bounds: variable_upper_bounds)
-                )
+                ) or raise
               }
             )
           end
@@ -408,7 +412,7 @@ module Steep
         when relation.sub_type.is_a?(AST::Types::Name::Base) && relation.super_type.is_a?(AST::Types::Name::Base)
           if relation.sub_type.name == relation.super_type.name && relation.sub_type.class == relation.super_type.class
             if arg_type?(relation.sub_type) && arg_type?(relation.super_type)
-              check_type_arg(relation)
+              check_type_arg(_ = relation)
             else
               Success(relation)
             end
@@ -437,17 +441,30 @@ module Steep
           end
 
         when relation.sub_type.is_a?(AST::Types::Proc) && relation.super_type.is_a?(AST::Types::Proc)
-          name = :__proc__
+          yield_self do
+            name = :__proc__
 
-          All(relation) do |result|
-            result.add(relation.map {|p| p.type }) do |rel|
-              check_function(name, rel)
-            end
+            sub_type = relation.sub_type
+            super_type = relation.super_type
 
-            result.add(relation.map {|p| p.block }) do |rel|
-              check_block_given(name, rel) do
-                Expand(rel.map {|b| b.type }) do |rel|
-                  check_function(name, rel.flip)
+            All(relation) do |result|
+              result.add(Relation(sub_type.type, super_type.type)) do |rel|
+                check_function(name, rel)
+              end
+
+              result.add_result check_self_type_binding(relation, sub_type.self_type, super_type.self_type)
+
+              result.add(Relation(sub_type.block, super_type.block)) do |rel|
+                case ret = expand_block_given(name, rel)
+                when Relation
+                  All(ret) do |result|
+                    result.add_result check_self_type_binding(ret, ret.super_type.self_type, ret.sub_type.self_type)
+                    result.add(ret.map {|b| b.type }) {|r| check_function(name, r.flip) }
+                  end
+                when Result::Base
+                  ret
+                when true
+                  nil
                 end
               end
             end
@@ -459,6 +476,7 @@ module Steep
 
             All(relation) do |result|
               pairs.each do |t1, t2|
+                t2 or raise
                 result.add(Relation.new(sub_type: t1, super_type: t2)) do |rel|
                   check_type(rel)
                 end
@@ -506,7 +524,7 @@ module Steep
                     resolve_instance_type: true,
                     variable_bounds: variable_upper_bounds
                   )
-                )
+                ) or raise
               }
             )
           end
@@ -541,15 +559,13 @@ module Steep
       end
 
       def definition_for_type(type)
-        type_name = type.name
-
         case type
         when AST::Types::Name::Instance
-          factory.definition_builder.build_instance(type_name)
+          factory.definition_builder.build_instance(type.name)
         when AST::Types::Name::Singleton
-          factory.definition_builder.build_singleton(type_name)
+          factory.definition_builder.build_singleton(type.name)
         when AST::Types::Name::Interface
-          factory.definition_builder.build_interface(type_name)
+          factory.definition_builder.build_interface(type.name)
         else
           raise
         end
@@ -642,18 +658,6 @@ module Steep
         end
       end
 
-      def check_type_application(result, type_params, type_args)
-        raise unless type_params.size == type_args.size
-
-        rels = type_params.zip(type_args).filter_map do |(param, arg)|
-          if ub = param.upper_bound
-            Relation.new(sub_type: arg, super_type: ub.subst(sub))
-          end
-        end
-
-        result.add(*rels) {|rel| check_type(rel) } and yield
-      end
-
       def check_generic_method_type(name, relation)
         relation.method!
 
@@ -675,7 +679,9 @@ module Steep
 
             relation = Relation.new(sub_type: sub_type_, super_type: super_type)
             All(relation) do |result|
-              sub_args.zip(sub_type.type_params).each do |(arg, param)|
+              sub_args.zip(sub_type.type_params).each do |arg, param|
+                param or raise
+
                 if ub = param.upper_bound
                   result.add(Relation.new(sub_type: arg, super_type: ub)) do |rel|
                     check_type(rel)
@@ -683,23 +689,10 @@ module Steep
                 end
               end
 
-              match_method_type(name, relation) do |pairs|
-                rels =
-                  pairs.each.with_object([]) do |(sub, sup), rels|
-                    rels << Relation.new(sub_type: sub, super_type: sup)
-                    rels << Relation.new(sub_type: sup, super_type: sub)
-                  end
-
-                result.add(*rels) do |rel|
-                  check_type(rel)
-                end
-
-                result.add(Relation.new(sub_type: sub_type_, super_type: super_type)) do |rel|
-                  check_method_type(
-                    name,
-                    Relation.new(sub_type: sub_type_, super_type: super_type)
-                  )
-                end
+              if failure = match_method_type_fails?(name, sub_type_, super_type)
+                result.add_result(failure)
+              else
+                result.add_result(check_method_type(name, Relation(sub_type_, super_type)))
               end
 
               result.add(relation) do |rel|
@@ -714,22 +707,25 @@ module Steep
 
         when sub_type.type_params.empty? && !super_type.type_params.empty?
           # Check if sub_type is an instance of super_type && no constraints on type variables (any).
-          Expand(relation) do
-            match_method_type(name, relation) do
-              sub_args = sub_type.type_params.map {|param| AST::Types::Var.fresh(param.name) }
-              sub_type_ = sub_type.instantiate(Interface::Substitution.build(sub_type.type_params.map(&:name), sub_args))
+          All(relation) do |result|
+            super_args = super_type.type_params.map {|param| AST::Types::Var.fresh(param.name) }
+            super_type_ = super_type.instantiate(Interface::Substitution.build(super_type.type_params.map(&:name), super_args))
 
-              sub_args.each do |arg|
+            if failure = match_method_type_fails?(name, sub_type, super_type_)
+              result.add_result(failure)
+            else
+              super_args.each do |arg|
                 constraints.unknown!(arg.name)
               end
 
-              rel_ = Relation.new(sub_type: sub_type_, super_type: super_type)
-              result = check_method_type(name, rel_)
+              result.add(Relation(sub_type, super_type_)) do |rel_|
+                ret = check_method_type(name, rel_)
 
-              if result.success? && sub_args.map(&:name).none? {|var| constraints.has_constraint?(var) }
-                result
-              else
-                Failure(rel_, Result::Failure::PolyMethodSubtyping.new(name: name))
+                if ret.success? && super_args.map(&:name).none? {|var| constraints.has_constraint?(var) }
+                  ret
+                else
+                  Failure(rel_, Result::Failure::PolyMethodSubtyping.new(name: name))
+                end
               end
             end
           end
@@ -754,9 +750,9 @@ module Steep
               when sub_ub && !sup_ub
                 upper_bounds[arg.name] = sub_ub
               when !sub_ub && sup_ub
-                result.add(
-                  Failure(relation, Result::Failure::PolyMethodSubtyping.new(name: name))
-                )
+                result.add(Relation.new(sub_type: AST::Types::Var.new(name: sub_param.name), super_type: sub_ub)) do |rel|
+                  Failure(rel, Result::Failure::PolyMethodSubtyping.new(name: name))
+                end
               when !sub_ub && !sup_ub
                 # no constraints
               end
@@ -800,33 +796,46 @@ module Steep
 
         sub_type, super_type = relation
 
+        sub_type.type_params.empty? or raise "Expected monomorphic method type: #{sub_type}"
+        super_type.type_params.empty? or raise "Expected monomorphic method type: #{super_type}"
+
         All(relation) do |result|
           result.add(Relation.new(sub_type: sub_type.type, super_type: super_type.type)) do |rel|
             check_function(name, rel)
           end
 
           result.add(Relation.new(sub_type: sub_type.block, super_type: super_type.block)) do |rel|
-            check_block_given(name, rel) do
-              Expand(Relation.new(sub_type: super_type.block.type, super_type: sub_type.block.type)) do |rel|
-                check_function(name, rel)
+            ret = expand_block_given(name, rel)
+
+            case ret
+            when Relation
+              All(ret) do |result|
+                result.add_result(check_self_type_binding(ret, ret.super_type.self_type, ret.sub_type.self_type))
+                result.add(Relation(ret.super_type.type, ret.sub_type.type)) do |rel|
+                  check_function(name, rel)
+                end
               end
+            when Result::Base
+              ret
+            else
+              nil
             end
           end
         end
       end
 
-      def check_block_given(name, relation, &block)
+      def expand_block_given(name, relation, &block)
         relation.block!
 
         sub_block, super_block = relation
 
         case
         when !super_block && !sub_block
-          Success(relation)
+          true
         when super_block && sub_block && super_block.optional? == sub_block.optional?
-          Expand(relation, &block)
+          Relation.new(sub_type: sub_block, super_type: super_block)
         when sub_block&.optional?
-          Success(relation)
+          true
         else
           Failure(relation, Result::Failure::BlockMismatchError.new(name: name))
         end
@@ -846,6 +855,23 @@ module Steep
         end
       end
 
+      def check_self_type_binding(relation, sub_self, super_self)
+        case
+        when sub_self.nil? && super_self.nil?
+          nil
+        when sub_self && super_self
+          # ^() [self: T] -> void <: ^() [self: S] -> void                              ==> S <: T
+          # () { () [self: S] -> void } -> void <: () { () [self: T] -> void } -> void  ==> S <: T
+          check_type(Relation(super_self, sub_self))
+        when sub_self.is_a?(AST::Types::Top) && super_self.nil?
+          # ^() [self: top] -> void <: ^() -> void                              ==> OK
+          # () { () -> void } -> void <: () { () [self: top] -> void } -> void  ==> OK
+          nil
+        else
+          Failure(relation, Result::Failure::SelfBindingMismatch.new)
+        end
+      end
+
       def check_method_params(name, relation)
         relation.params!
         pairs = match_params(name, relation)
@@ -854,7 +880,7 @@ module Steep
         when Array
           unless pairs.empty?
             All(relation) do |result|
-              pairs.each do |(sub_type, super_type)|
+              pairs.each do |sub_type, super_type|
                 result.add(Relation.new(sub_type: super_type, super_type: sub_type)) do |rel|
                   check_type(rel)
                 end
@@ -870,38 +896,25 @@ module Steep
         end
       end
 
-      # ```rbs
-      # (Symbol, Relation[MethodType]) -> (Array[[Symbol, Symbol]] | Result::t)
-      # [A] (Symbol, Relation[MethodType]) { (Array[[Symbol, Symbol]]) -> A } -> (A | Result::t)
-      # ````
-      def match_method_type(name, relation)
-        relation.method!
+      def Relation(sub, sup)
+        Relation.new(sub_type: sub, super_type: sup)
+      end
 
-        sub_type, super_type = relation
-
-        pairs = []
-
-        match_params(name, relation.map {|m| m.type.params }).tap do |param_pairs|
+      def match_method_type_fails?(name, type1, type2)
+        match_params(name, Relation(type1.type.params, type2.type.params)).tap do |param_pairs|
           return param_pairs unless param_pairs.is_a?(Array)
-
-          pairs.push(*param_pairs)
-          pairs.push [sub_type.type.return_type, super_type.type.return_type]
         end
 
-        check_block_given(name, relation.map {|m| m.block }) do |rel|
-          match_params(name, rel.map {|m| m.type.params }).tap do |param_pairs|
+        case result = expand_block_given(name, Relation(type1.block, type2.block))
+        when Result::Base
+          return result
+        when Relation
+          match_params(name, result.map {|m| m.type.params }).tap do |param_pairs|
             return param_pairs unless param_pairs.is_a?(Array)
-
-            pairs.push(*param_pairs)
-            pairs.push [sub_type.type.return_type, super_type.type.return_type]
           end
         end
 
-        if block_given?
-          yield pairs
-        else
-          pairs
-        end
+        nil
       end
 
       def match_params(name, relation)

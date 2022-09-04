@@ -235,7 +235,8 @@ module Steep
         block_type_hint: AST::Types::t?,
         block_block_hint: Interface::Block?,
         block_annotations: AST::Annotation::Collection,
-        node_type_hint: AST::Types::t?
+        node_type_hint: AST::Types::t?,
+        block_self_hint: AST::Types::t?
       ) -> TypeConstruction
 
     # Synthesize the block body and returns the type of the body
@@ -398,5 +399,11 @@ module Steep
     # This is typically used for transforming assginment node for case condition.
     #
     def extract_outermost_call: (Parser::AST::Node node, Symbol) -> [Parser::AST::Node, Parser::AST::Node?]
+
+    def type_name: (AST::Types::t) -> RBS::TypeName?
+
+    def singleton_type: (AST::Types::t) -> AST::Types::t?
+
+    def instance_type: (AST::Types::t) -> AST::Types::t?
   end
 end

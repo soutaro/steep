@@ -69,7 +69,7 @@ module Steep
 
       attr_reader commands: Array[Command::_Base]
 
-      def initialize: (*Command::_Base) -> void
+      def initialize: (*Command::_Base?) -> void
 
       def build: (TypeEnv) -> TypeEnv
     end

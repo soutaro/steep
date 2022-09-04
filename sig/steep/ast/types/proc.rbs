@@ -6,9 +6,11 @@ module Steep
 
         attr_reader type: Interface::Function
 
+        attr_reader self_type: AST::Types::t?
+
         attr_reader block: Interface::Block?
 
-        def initialize: (type: Interface::Function, block: Interface::Block?, ?location: untyped) -> void
+        def initialize: (type: Interface::Function, self_type: AST::Types::t?, block: Interface::Block?, ?location: untyped) -> void
 
         def ==: (untyped other) -> bool
 

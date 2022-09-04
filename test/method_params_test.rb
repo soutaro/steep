@@ -451,12 +451,32 @@ class MethodParamsTest < Minitest::Test
             name: :block,
             type: parse_type("^() -> void").type,
             node: params.args[0],
-            optional: false
+            optional: false,
+            self_type: nil
           ),
           params[:block]
         )
 
         assert_equal parse_type("^() -> void"), params[:block].var_type
+
+        assert_empty params.errors
+      end
+
+      MethodParams.build(node: node, method_type: parse_method_type("() { () [self: self] -> void } -> void")).tap do |params|
+        assert_equal 1, params.size
+
+        assert_equal(
+          MethodParams::BlockParameter.new(
+            name: :block,
+            type: parse_type("^() -> void").type,
+            node: params.args[0],
+            optional: false,
+            self_type: parse_type("self")
+          ),
+          params[:block]
+        )
+
+        assert_equal parse_type("^() [self: self] -> void"), params[:block].var_type
 
         assert_empty params.errors
       end
@@ -469,7 +489,8 @@ class MethodParamsTest < Minitest::Test
             name: :block,
             type: parse_type("^() -> void").type,
             node: params.args[0],
-            optional: true
+            optional: true,
+            self_type: nil
           ),
           params[:block]
         )
@@ -487,7 +508,8 @@ class MethodParamsTest < Minitest::Test
             name: :block,
             type: nil,
             node: params.args[0],
-            optional: false
+            optional: false,
+            self_type: nil
           ),
           params[:block]
         )

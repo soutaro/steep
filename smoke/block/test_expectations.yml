@@ -123,3 +123,15 @@
         def map: [U] () { (::Integer) -> U } -> ::Array[U]
                | () -> ::Enumerator[::Integer, ::Array[untyped]]
     code: Ruby::UnresolvedOverloading
+- file: e.rb
+  diagnostics:
+  - range:
+      start:
+        line: 11
+        character: 2
+      end:
+        line: 11
+        character: 5
+    severity: ERROR
+    message: Type `(::Integer | ::String)` does not have method `foo`
+    code: Ruby::NoMethod

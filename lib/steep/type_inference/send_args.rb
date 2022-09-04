@@ -473,7 +473,7 @@ module Steep
         def node_type
           raise unless block
 
-          type = AST::Types::Proc.new(type: block.type, block: nil)
+          type = AST::Types::Proc.new(type: block.type, block: nil, self_type: block.self_type)
 
           if block.optional?
             type = AST::Types::Union.build(types: [type, AST::Builtin.nil_type])

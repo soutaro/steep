@@ -8,7 +8,7 @@ PATH
       parallel (>= 1.0.0)
       parser (>= 3.1)
       rainbow (>= 2.2.2, < 4.0)
-      rbs (>= 2.3.2)
+      rbs (>= 2.7.0.pre)
       terminal-table (>= 2, < 4)
 
 GEM
@@ -44,7 +44,7 @@ GEM
     rb-fsevent (0.11.1)
     rb-inotify (0.10.1)
       ffi (~> 1.0)
-    rbs (2.5.1)
+    rbs (2.7.0.pre.1)
     ruby-debug-ide (0.7.3)
       rake (>= 0.8.1)
     stackprof (0.2.21)
@@ -63,7 +63,6 @@ DEPENDENCIES
   minitest-hooks
   minitest-slow_test
   rake
-  rbs (~> 2.5.1)
   ruby-debug-ide
   stackprof
   steep!

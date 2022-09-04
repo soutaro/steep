@@ -125,7 +125,7 @@ module Steep
       attr_reader :commands
 
       def initialize(*commands)
-        @commands = commands
+        @commands = commands.compact
       end
 
       def build(type_env)

@@ -423,7 +423,8 @@ module Steep
                       return_type: AST::Types::Var.new(name: :T),
                       location: nil
                     ),
-                    optional: false
+                    optional: false,
+                    self_type: nil
                   ),
                   method_decls: Set[]
                 )
@@ -567,7 +568,8 @@ module Steep
                       return_type: AST::Types::Var.new(name: :T),
                       location: nil
                     ),
-                    optional: false
+                    optional: false,
+                    self_type: nil
                   ),
                   method_decls: Set[]
                 )

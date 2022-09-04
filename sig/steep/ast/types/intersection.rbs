@@ -8,7 +8,7 @@ module Steep
 
         def initialize: (types: untyped, ?location: untyped?) -> void
 
-        def self.build: (types: untyped, ?location: untyped?) -> untyped
+        def self.build: (types: Array[t], ?location: untyped?) -> t
 
         def ==: (untyped other) -> untyped
 

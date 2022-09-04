@@ -15,6 +15,7 @@ module Steep
         def then
           if success?
             yield self
+            self
           else
             self
           end
@@ -23,6 +24,7 @@ module Steep
         def else
           if failure?
             yield self
+            self
           else
             self
           end
@@ -83,7 +85,9 @@ module Steep
           relations.each do |relation|
             if success?
               result = yield(relation)
-              branches << result
+              if result
+                branches << result
+              end
             else
               # Already failed.
               branches << Skip.new(relation)
@@ -92,6 +96,14 @@ module Steep
 
           # No need to test more branches if already failed.
           success?
+        end
+
+        def add_result(result)
+          if result
+            add(result.relation) { result }
+          else
+            success?
+          end
         end
 
         def success?
@@ -104,7 +116,7 @@ module Steep
 
         def failure_path(path = [])
           if failure?
-            r = branches.find(&:failure?)
+            r = branches.find(&:failure?) or raise
             path.unshift(self)
             r.failure_path(path)
           end
@@ -248,6 +260,12 @@ module Steep
 
           def message
             "A constraint on #{var} cannot be solved: #{sub_type} <: #{super_type}"
+          end
+        end
+
+        class SelfBindingMismatch
+          def message
+            "Self binding is incompatible"
           end
         end
 

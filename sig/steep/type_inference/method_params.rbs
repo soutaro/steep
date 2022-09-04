@@ -45,7 +45,7 @@ module Steep
         alias eql? ==
 
         def hash: () -> Integer
-        
+
         def var_type: () -> AST::Types::t
       end
 
@@ -58,23 +58,27 @@ module Steep
       end
 
       class BlockParameter
-        attr_reader name: untyped
+        attr_reader name: Symbol
 
-        attr_reader type: untyped
+        attr_reader type: Interface::Function?
 
-        attr_reader node: untyped
+        attr_reader node: Parser::AST::Node
 
-        def initialize: (name: untyped, type: untyped, node: untyped, optional: untyped) -> void
+        attr_reader self_type: AST::Types::t?
 
-        def optional?: () -> (true | false)
+        def initialize: (name: Symbol, type: Interface::Function?, node: Parser::AST::Node, optional: boolish, self_type: AST::Types::t?) -> void
+
+        @optional: boolish
+
+        def optional?: () -> bool
 
         def var_type: () -> AST::Types::t
 
-        def ==: (untyped other) -> untyped
+        def ==: (untyped other) -> bool
 
         alias eql? ==
 
-        def hash: () -> untyped
+        def hash: () -> Integer
       end
 
       attr_reader args: untyped
@@ -94,7 +98,7 @@ module Steep
       def each_param: () { (BaseParameter | BaseRestParameter | BlockParameter) -> void } -> void
                     | () -> Enumerator[BaseParameter | BaseRestParameter | BlockParameter, void]
 
-      def each: () { (Symbol, BaseRestParameter | BaseRestParameter | BlockParameter) -> void } -> void
+      def each: () { (Symbol, AST::Types::t) -> void } -> void
 
       def self.empty: (node: Parser::AST::Node) -> MethodParams
 

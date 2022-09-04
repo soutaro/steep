@@ -95,12 +95,14 @@ module Steep
         attr_reader :name
         attr_reader :type
         attr_reader :node
+        attr_reader :self_type
 
-        def initialize(name:, type:, node:, optional:)
+        def initialize(name:, type:, node:, optional:, self_type:)
           @name = name
           @type = type
           @node = node
           @optional = optional
+          @self_type = self_type
         end
 
         def optional?
@@ -109,7 +111,7 @@ module Steep
 
         def var_type
           if type
-            proc_type = AST::Types::Proc.new(type: type, block: nil)
+            proc_type = AST::Types::Proc.new(type: type, block: nil, self_type: self_type)
 
             if optional?
               AST::Types::Union.build(types: [proc_type, AST::Builtin.nil_type], location: proc_type.location)
@@ -126,13 +128,14 @@ module Steep
             other.name == name &&
             other.type == type &&
             other.node == node &&
-            other.optional? == optional?
+            other.optional? == optional? &&
+            other.self_type == self_type
         end
 
         alias eql? ==
 
         def hash
-          self.class.hash ^ name.hash ^ type.hash ^ node.hash ^ optional?.hash
+          self.class.hash ^ name.hash ^ type.hash ^ node.hash ^ optional?.hash ^ self_type.hash
         end
       end
 
@@ -199,7 +202,7 @@ module Steep
             params.params[name] = KeywordRestParameter.new(name: name, type: nil, node: arg)
           when :blockarg
             name = arg.children[0]
-            params.params[name] = BlockParameter.new(name: name, type: nil, optional: nil, node: arg)
+            params.params[name] = BlockParameter.new(name: name, type: nil, optional: nil, node: arg, self_type: nil)
           end
         end
 
@@ -465,14 +468,16 @@ module Steep
               name: name,
               type: method_type.block.type,
               optional: method_type.block.optional?,
-              node: arg
+              node: arg,
+              self_type: method_type.block.self_type
             )
           else
             instance.params[name] = BlockParameter.new(
               name: name,
               type: nil,
               optional: nil,
-              node: arg
+              node: arg,
+              self_type: nil
             )
           end
         end

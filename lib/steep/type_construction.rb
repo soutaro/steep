@@ -347,6 +347,8 @@ module Steep
       if implement_module_name
         module_entry = checker.factory.definition_builder.env.class_decls[implement_module_name.name]
 
+        raise unless module_entry.is_a?(RBS::Environment::ModuleEntry)
+
         module_context = module_context.update(
           instance_type: AST::Types::Intersection.build(
             types: [
@@ -1611,7 +1613,8 @@ module Steep
             if block_type = method_context.block_type
               type = AST::Types::Proc.new(
                 type: block_type.type,
-                block: nil
+                block: nil,
+                self_type: block_type.self_type
               )
               args = TypeInference::SendArgs.new(
                 node: node,
@@ -2340,7 +2343,8 @@ module Steep
                           return_type: return_types[0],
                           location: nil
                         ),
-                        block: nil
+                        block: nil,
+                        self_type: nil
                       )
                     end
                   end
@@ -2352,7 +2356,8 @@ module Steep
               type = AST::Types::Proc.new(
                 type: method_context.method_type.block.type,
                 location: nil,
-                block: nil
+                block: nil,
+                self_type: method_context.method_type.block.self_type
               )
               if method_context.method_type.block.optional?
                 type = AST::Types::Union.build(types: [type, AST::Builtin.nil_type])
@@ -2726,6 +2731,7 @@ module Steep
         params_hint = type_hint.type.params
         return_hint = type_hint.type.return_type
         block_hint = type_hint.block
+        self_hint = type_hint.self_type
       end
 
       block_constr = for_block(
@@ -2735,6 +2741,7 @@ module Steep
         block_type_hint: return_hint,
         block_block_hint: block_hint,
         block_annotations: block_annotations,
+        block_self_hint: self_hint,
         node_type_hint: nil
       )
 
@@ -2749,10 +2756,10 @@ module Steep
           if block_param_type = block_param.type
             case block_param_type
             when AST::Types::Proc
-              Interface::Block.new(type: block_param_type.type, optional: false)
+              Interface::Block.new(type: block_param_type.type, optional: false, self_type: block_param_type.self_type)
             else
               if proc_type = optional_proc?(block_param_type)
-                Interface::Block.new(type: proc_type.type, optional: true)
+                Interface::Block.new(type: proc_type.type, optional: true, self_type: proc_type.self_type)
               else
                 block_constr.typing.add_error(
                   Diagnostic::Ruby::ProcTypeExpected.new(
@@ -2767,7 +2774,8 @@ module Steep
                     return_type: AST::Builtin.any_type,
                     location: nil
                   ),
-                  optional: false
+                  optional: false,
+                  self_type: nil
                 )
               end
             end
@@ -2781,6 +2789,10 @@ module Steep
           node: node,
           block_body: body_node,
           block_type_hint: return_hint
+        )
+
+        return_type = return_type.subst(
+          Interface::Substitution.build([], [], self_type: block_constr.self_type)
         )
 
         if expected_block_type = block_constr.block_context.body_type
@@ -2811,7 +2823,8 @@ module Steep
           return_type: return_type,
           location: nil
         ),
-        block: block
+        block: block,
+        self_type: block_annotations.self_type || self_hint
       )
 
       add_typing node, type: block_type
@@ -3418,6 +3431,7 @@ module Steep
                 block_type_hint: method_type.block.type.return_type,
                 block_block_hint: nil,
                 block_annotations: block_annotations,
+                block_self_hint: method_type.block.self_type,
                 node_type_hint: method_type.type.return_type
               )
               block_constr = block_constr.with_new_typing(
@@ -3476,6 +3490,7 @@ module Steep
                 block_constr = block_constr.update_type_env {|env| env.subst(s) }
                 block_constr = block_constr.update_context {|context|
                   context.with(
+                    self_type: method_type.block&.self_type || context.self_type,
                     type_env: context.type_env.subst(s),
                     block_context: context.block_context&.subst(s),
                     break_context: context.break_context&.subst(s)
@@ -3487,6 +3502,18 @@ module Steep
                   block_body: block_body,
                   block_type_hint: method_type.block.type.return_type
                 )
+
+                if method_type.block && method_type.block.self_type
+                  block_body_type = block_body_type.subst(
+                    Interface::Substitution.build(
+                      [],
+                      [],
+                      self_type: method_type.block.self_type,
+                      module_type: singleton_type(method_type.block.self_type) || AST::Builtin.top_type,
+                      instance_type: instance_type(method_type.block.self_type) || AST::Builtin.top_type
+                    )
+                  )
+                end
 
                 result = check_relation(sub_type: block_body_type,
                                         super_type: method_type.block.type.return_type,
@@ -3719,6 +3746,7 @@ module Steep
         block_type_hint: nil,
         block_block_hint: nil,
         block_annotations: block_annotations,
+        block_self_hint: nil,
         node_type_hint: nil
       )
 
@@ -3768,7 +3796,7 @@ module Steep
       end
     end
 
-    def for_block(body_node, block_params:, block_param_hint:, block_type_hint:, block_block_hint:, block_annotations:, node_type_hint:)
+    def for_block(body_node, block_params:, block_param_hint:, block_type_hint:, block_block_hint:, block_annotations:, node_type_hint:, block_self_hint:)
       block_param_pairs = block_param_hint && block_params.zip(block_param_hint, block_block_hint)
 
       # @type var param_types_hash: Hash[Symbol, AST::Types::t]
@@ -3820,6 +3848,19 @@ module Steep
       type_env = type_env.merge(local_variable_types: pins)
       type_env = type_env.merge(local_variable_types: param_types)
       type_env = TypeInference::TypeEnvBuilder.new(
+        if self_binding = block_annotations.self_type || block_self_hint
+          definition =
+            case self_binding
+            when AST::Types::Name::Instance
+              checker.factory.definition_builder.build_instance(self_binding.name)
+            when AST::Types::Name::Singleton
+              checker.factory.definition_builder.build_singleton(self_binding.name)
+            end
+
+          if definition
+            TypeInference::TypeEnvBuilder::Command::ImportInstanceVariableDefinition.new(definition, checker.factory)
+          end
+        end,
         TypeInference::TypeEnvBuilder::Command::ImportLocalVariableAnnotations.new(block_annotations).merge!.on_duplicate! do |name, outer_type, inner_type|
           next if outer_type.is_a?(AST::Types::Var) || inner_type.is_a?(AST::Types::Var)
           next unless body_node
@@ -3849,7 +3890,7 @@ module Steep
         next_type: block_context.body_type || AST::Builtin.any_type
       )
 
-      self_type = self.self_type
+      self_type = block_annotations.self_type || block_self_hint || self.self_type
       module_context = self.module_context
 
       if implements = block_annotations.implement_module_annotation
@@ -4448,6 +4489,57 @@ module Steep
         else
           var_node = node.updated(:lvar, [var_name])
           [var_node, node]
+        end
+      end
+    end
+
+    def type_name(type)
+      case type
+      when AST::Types::Name::Instance, AST::Types::Name::Singleton
+        type.name
+      when AST::Types::Literal
+        type_name(type.back_type)
+      when AST::Types::Tuple
+        AST::Builtin::Array.module_name
+      when AST::Types::Record
+        AST::Builtin::Hash.module_name
+      when AST::Types::Proc
+        AST::Builtin::Proc.module_name
+      when AST::Types::Boolean, AST::Types::Logic::Base
+        nil
+      end
+    end
+
+    def singleton_type(type)
+      case type
+      when AST::Types::Union
+        AST::Types::Union.build(
+          types: type.types.map {|t| singleton_type(t) or return }
+        )
+      when AST::Types::Intersection
+        AST::Types::Intersection.build(
+          types: type.types.map {|t| singleton_type(t) or return }
+        )
+      else
+        if name = type_name(type)
+          AST::Types::Name::Singleton.new(name: name)
+        end
+      end
+    end
+
+    def instance_type(type)
+      case type
+      when AST::Types::Union
+        AST::Types::Union.build(
+          types: type.types.map {|t| instance_type(t) or return }
+        )
+      when AST::Types::Intersection
+        AST::Types::Intersection.build(
+          types: type.types.map {|t| instance_type(t) or return }
+        )
+      else
+        if name = type_name(type)
+          checker.factory.instance_type(name)
         end
       end
     end
