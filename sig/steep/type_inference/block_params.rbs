@@ -70,7 +70,7 @@ module Steep
       #
       class MultipleParam
         attr_reader node: Parser::AST::Node
-
+        
         attr_reader params: Array[Param | MultipleParam]
 
         def initialize: (node: Parser::AST::Node, params: Array[Param | MultipleParam]) -> void

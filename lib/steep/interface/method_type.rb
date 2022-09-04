@@ -149,12 +149,24 @@ module Steep
         params = self.type.params & other.type.params or return
         block = case
                 when self.block && other.block
-                  block_params = self.block.type.params | other.block.type.params
+                  self_type =
+                    case
+                    when (self_self = self.block.self_type) && (other_self = other.block.self_type)
+                      AST::Types::Union.build(types: [self_self, other_self])
+                    when self.block.self_type || other.block.self_type
+                      AST::Types::Bot.new()
+                    else
+                      nil
+                    end
+
+                  block_params = self.block.type.params | other.block.type.params or return
                   block_return_type = AST::Types::Intersection.build(types: [self.block.type.return_type, other.block.type.return_type])
                   block_type = Function.new(params: block_params, return_type: block_return_type, location: nil)
+
                   Block.new(
                     type: block_type,
-                    optional: self.block.optional && other.block.optional
+                    optional: self.block.optional && other.block.optional,
+                    self_type: self_type
                   )
                 when self.block && self.block.optional?
                   self.block
@@ -178,7 +190,7 @@ module Steep
       # Returns a method type which is a sub-type of both self and other.
       #   (self & other) <: self && (self & other) <: other
       #
-      # Returns nil if self and other are incompatible.
+      # Returns `nil`` if self and other are incompatible.
       #
       def &(other)
         if other.type_params.empty?
@@ -189,17 +201,27 @@ module Steep
           type_params = self.type_params + other_params
         end
 
-        params = self.type.params | other.type.params
+        params = self.type.params | other.type.params or return
         block = case
                 when self.block && other.block
+                  self_type =
+                    case
+                    when (self_self = self.block.self_type) && (other_self = other.block.self_type)
+                      AST::Types::Intersection.build(types: [self_self, other_self])
+                    when self.block.self_type || other.block.self_type
+                      AST::Types::Top.new()
+                    else
+                      nil
+                    end
+
                   block_params = self.block.type.params & other.block.type.params or return
                   block_return_type = AST::Types::Union.build(types: [self.block.type.return_type, other.block.type.return_type])
                   block_type = Function.new(params: block_params, return_type: block_return_type, location: nil)
                   Block.new(
                     type: block_type,
-                    optional: self.block.optional || other.block.optional
+                    optional: self.block.optional || other.block.optional,
+                    self_type: self_type
                   )
-
                 else
                   self.block || other.block
                 end

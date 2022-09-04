@@ -10,16 +10,12 @@ gems:
   version: '0'
   source:
     type: stdlib
-- name: rbs
-  version: 2.5.1
-  source:
-    type: rubygems
 - name: activesupport
   version: '6.0'
   source:
     type: git
     name: ruby/gem_rbs_collection
-    revision: 933f7176968d8620224c0b22baefadbd7d77ef27
+    revision: e59b7d94d326a1ac66c6bce8cb82cbabf1734726
     remote: https://github.com/ruby/gem_rbs_collection.git
     repo_dir: gems
 - name: ast
@@ -27,7 +23,7 @@ gems:
   source:
     type: git
     name: ruby/gem_rbs_collection
-    revision: 933f7176968d8620224c0b22baefadbd7d77ef27
+    revision: e59b7d94d326a1ac66c6bce8cb82cbabf1734726
     remote: https://github.com/ruby/gem_rbs_collection.git
     repo_dir: gems
 - name: i18n
@@ -35,7 +31,7 @@ gems:
   source:
     type: git
     name: ruby/gem_rbs_collection
-    revision: 933f7176968d8620224c0b22baefadbd7d77ef27
+    revision: e59b7d94d326a1ac66c6bce8cb82cbabf1734726
     remote: https://github.com/ruby/gem_rbs_collection.git
     repo_dir: gems
 - name: listen
@@ -43,7 +39,7 @@ gems:
   source:
     type: git
     name: ruby/gem_rbs_collection
-    revision: 933f7176968d8620224c0b22baefadbd7d77ef27
+    revision: e59b7d94d326a1ac66c6bce8cb82cbabf1734726
     remote: https://github.com/ruby/gem_rbs_collection.git
     repo_dir: gems
 - name: parallel
@@ -51,7 +47,7 @@ gems:
   source:
     type: git
     name: ruby/gem_rbs_collection
-    revision: 933f7176968d8620224c0b22baefadbd7d77ef27
+    revision: e59b7d94d326a1ac66c6bce8cb82cbabf1734726
     remote: https://github.com/ruby/gem_rbs_collection.git
     repo_dir: gems
 - name: rainbow
@@ -59,33 +55,9 @@ gems:
   source:
     type: git
     name: ruby/gem_rbs_collection
-    revision: 933f7176968d8620224c0b22baefadbd7d77ef27
+    revision: e59b7d94d326a1ac66c6bce8cb82cbabf1734726
     remote: https://github.com/ruby/gem_rbs_collection.git
     repo_dir: gems
-- name: logger
-  version: '0'
-  source:
-    type: stdlib
-- name: pathname
-  version: '0'
-  source:
-    type: stdlib
-- name: json
-  version: '0'
-  source:
-    type: stdlib
-- name: optparse
-  version: '0'
-  source:
-    type: stdlib
-- name: rubygems
-  version: '0'
-  source:
-    type: stdlib
-- name: tsort
-  version: '0'
-  source:
-    type: stdlib
 - name: monitor
   version: '0'
   source:
@@ -98,11 +70,19 @@ gems:
   version: '0'
   source:
     type: stdlib
+- name: logger
+  version: '0'
+  source:
+    type: stdlib
 - name: mutex_m
   version: '0'
   source:
     type: stdlib
 - name: time
+  version: '0'
+  source:
+    type: stdlib
+- name: pathname
   version: '0'
   source:
     type: stdlib

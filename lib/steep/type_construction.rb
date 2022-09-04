@@ -347,6 +347,8 @@ module Steep
       if implement_module_name
         module_entry = checker.factory.definition_builder.env.class_decls[implement_module_name.name]
 
+        raise unless module_entry.is_a?(RBS::Environment::ModuleEntry)
+
         module_context = module_context.update(
           instance_type: AST::Types::Intersection.build(
             types: [

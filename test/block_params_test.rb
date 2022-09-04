@@ -400,7 +400,8 @@ proc {|a, b=1, *c|
           Params.empty,
           Steep::Interface::Block.new(
             type: parse_type("^() -> void").type,
-            optional: false
+            optional: false,
+            self_type: nil
           )
         ).tap do |zip|
           assert_equal 1, zip.size
@@ -411,7 +412,8 @@ proc {|a, b=1, *c|
           Params.empty,
           Steep::Interface::Block.new(
             type: parse_type("^() -> void").type,
-            optional: true
+            optional: true,
+            self_type: nil
           )
         ).tap do |zip|
           assert_equal 1, zip.size

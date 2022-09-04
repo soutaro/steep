@@ -3,25 +3,25 @@ module Steep
     class Check
       attr_reader builder: Interface::Builder
 
-      attr_reader cache: untyped
+      attr_reader cache: Cache
 
-      attr_reader assumptions: untyped
+      @assumptions: Set[Relation[untyped]]?
 
       @bounds: Array[Hash[Symbol, AST::Types::t?]]
+
+      @self_type: AST::Types::t?
+
+      @instance_type: AST::Types::t?
+
+      @class_type: AST::Types::t?
+
+      @constraints: Constraints?
 
       def initialize: (builder: Interface::Builder) -> void
 
       def factory: () -> AST::Types::Factory
 
-      def with_context: (self_type: untyped, instance_type: untyped, class_type: untyped, constraints: untyped) { () -> untyped } -> untyped
-
-      def push_assumption: (untyped relation) { () -> untyped } -> untyped
-
-      def push_variable_bounds: [A] (Array[Interface::TypeParam] | Hash[Symbol, AST::Types::t?] params) { () -> A } -> A
-
-      def variable_upper_bound: (Symbol name) -> AST::Types::t?
-
-      def variable_upper_bounds: () -> Hash[Symbol, AST::Types::t?]
+      def with_context: [A] (self_type: AST::Types::t, instance_type: AST::Types::t, class_type: AST::Types::t, constraints: Constraints) { () -> A } -> A
 
       def self_type: () -> AST::Types::t
 
@@ -29,71 +29,94 @@ module Steep
 
       def class_type: () -> AST::Types::t
 
-      def constraints: () -> untyped
+      def constraints: () -> Constraints
 
-      def each_ancestor: (untyped ancestors) { (untyped) -> untyped } -> untyped
+      def push_variable_bounds: [A] (Array[Interface::TypeParam] | Hash[Symbol, AST::Types::t?] params) { () -> A } -> A
 
-      def instance_super_types: (untyped type_name, args: untyped) -> untyped
+      def variable_upper_bound: (Symbol name) -> AST::Types::t?
 
-      def singleton_super_types: (untyped type_name) -> untyped
+      def variable_upper_bounds: () -> Hash[Symbol, AST::Types::t?]
 
-      def check: (untyped relation, constraints: untyped, self_type: untyped, instance_type: untyped, class_type: untyped) -> untyped
+      def push_assumption: [A] (Relation[untyped] relation) { () -> A } -> A
 
-      def check_type: (untyped relation) -> untyped
+      def assumptions: () -> Set[Relation[untyped]]
 
-      def cache_bounds: (untyped relation) -> untyped
+      def each_ancestor: (RBS::DefinitionBuilder::AncestorBuilder::OneAncestors ancestors) { (RBS::Definition::Ancestor::t) -> void } -> void
+                       | (RBS::DefinitionBuilder::AncestorBuilder::OneAncestors ancestors) -> Enumerator[RBS::Definition::Ancestor::t, void]
 
-      def alias?: (untyped `type`) -> untyped
+      type super_type = AST::Types::Name::Instance | AST::Types::Name::Interface | AST::Types::Name::Singleton
 
-      def cacheable?: (untyped relation) -> untyped
+      def instance_super_types: (RBS::TypeName type_name, args: Array[AST::Types::t]) -> Array[super_type]
 
-      def true_type?: (untyped `type`) -> untyped
+      def singleton_super_types: (RBS::TypeName type_name) -> Array[super_type]
 
-      def false_type?: (untyped `type`) -> untyped
+      def check: (Relation[AST::Types::t] relation, constraints: Constraints, self_type: AST::Types::t, instance_type: AST::Types::t, class_type: AST::Types::t) -> Result::t
+
+      def check_type: (Relation[AST::Types::t] relation) -> Result::t
+
+      def cache_bounds: (Relation[AST::Types::t] relation) -> Hash[Symbol, AST::Types::t?]
+
+      def alias?: (AST::Types::t `type`) -> bool
+
+      def cacheable?: (Relation[AST::Types::t] relation) -> bool
+
+      def true_type?: (AST::Types::t `type`) -> bool
+
+      def false_type?: (AST::Types::t `type`) -> bool
 
       include Result::Helper
 
-      def check_type0: (untyped relation) -> untyped
+      def check_type0: (Relation[AST::Types::t] relation) -> Result::t
 
-      def definition_for_type: (untyped `type`) -> untyped
+      def definition_for_type: (AST::Types::t `type`) -> RBS::Definition
 
-      def arg_type?: (untyped `type`) -> untyped
+      # Returns true if given `type` is with one or more type arguments.
+      #
+      def arg_type?: (AST::Types::t `type`) -> bool
 
-      def check_type_arg: (untyped relation) -> untyped
+      type application_type = AST::Types::Name::Instance | AST::Types::Name::Interface | AST::Types::Name::Alias
 
-      def same_type?: (untyped relation) -> (true | untyped)
+      def check_type_arg: (Relation[application_type] relation) -> untyped
+
+      def same_type?: (Relation[AST::Types::t] relation) -> bool
 
       def check_interface: (Relation[Interface::Shape] relation) -> Result::t
 
-      def check_method: (untyped name, untyped relation) -> untyped
+      def check_method: (Symbol name, Relation[Interface::Shape::Entry] relation) -> Result::t
 
-      def check_type_application: (untyped result, untyped type_params, untyped type_args) { () -> untyped } -> untyped
+      def check_generic_method_type: (Symbol name, Relation[Interface::MethodType] relation) -> Result::t
 
-      def check_generic_method_type: (untyped name, untyped relation) -> untyped
+      def check_constraints: (Relation[untyped] relation, variables: Enumerable[Symbol], variance: VariableVariance) -> Result::t
 
-      def check_constraints: (untyped relation, variables: untyped, variance: untyped) -> untyped
+      def check_method_type: (Symbol name, Relation[Interface::MethodType] relation) -> Result::t
 
-      def check_method_type: (untyped name, untyped relation) -> untyped
+      # Receives subtyping relation of blocks `b <: b'` where `b` and `b'` are expanded from
+      # subtyping relation of two method types `(...) _b_ -> T <: (...) _b'_ -> S`.
+      #
+      # Returns `true` is the relation is satisfied immediately.
+      # Returns a Relation when the given relation can be expanded to relation between Interface::Block.
+      # Returns a failure otherwise.
+      #
+      def expand_block_given: (Symbol name, Relation[Interface::Block?] relation) -> (Relation[Interface::Block] | true | Result::t)
 
-      def check_block_given: (untyped name, untyped relation) { () -> untyped } -> untyped
+      def check_function: (Symbol name, Relation[Interface::Function] relation) -> Result::t
 
-      def check_function: (untyped name, untyped relation) -> untyped
+      def check_method_params: (Symbol name, Relation[Interface::Function::Params] relation) -> Result::t
 
-      def check_method_params: (untyped name, untyped relation) -> untyped
+      # Returns `nil` when given two method_types are structually comparable.
+      # Returns a failure otherwise.
+      #
+      def match_method_type_fails?: (Symbol name, Interface::MethodType method_type1, Interface::MethodType method_type2) -> (nil | Result::t)
 
-      # ```rbs
-      # (Symbol, Relation[MethodType]) -> (Array[[Symbol, Symbol]] | Result::t)
-      # [A] (Symbol, Relation[MethodType]) { (Array[[Symbol, Symbol]]) -> A } -> (A | Result::t)
-      # ````
-      def match_method_type: (untyped name, untyped relation) { (untyped) -> untyped } -> untyped
+      def match_params: (Symbol name, Relation[Interface::Function::Params] relation) -> (Array[[AST::Types::t, AST::Types::t]] | Result::t)
 
-      def match_params: (untyped name, untyped relation) -> untyped
-
-      def expand_alias: (untyped `type`) { () -> untyped } -> untyped
+      def expand_alias: (AST::Types::t `type`) -> AST::Types::t
 
       # Returns the shortest type paths for one of the _unknown_ type variables.
       # Returns nil if there is no path.
-      def hole_path: (untyped `type`, ?untyped path) -> untyped
+      def hole_path: (AST::Types::t `type`, ?Array[AST::Types::t] path) -> Array[AST::Types::t]?
+
+      def Relation: [T < Object] (T sub, T sup) -> Relation[T]
     end
   end
 end

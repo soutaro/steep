@@ -30,6 +30,12 @@ module Steep
           end
         end
 
+        def type_1_opt(type)
+          if type
+            type_1(type)
+          end
+        end
+
         def type(type)
           ty = type_cache[type] and return ty
 
@@ -98,11 +104,16 @@ module Steep
                             return_type: type(type.block.type.return_type),
                             location: type.location
                           ),
-                          optional: !type.block.required
+                          optional: !type.block.required,
+                          self_type: type_opt(type.block.self_type)
                         )
                       end
 
-              Proc.new(type: func, block: block)
+              Proc.new(
+                type: func,
+                block: block,
+                self_type: type_opt(type.self_type)
+              )
             else
               raise "Unexpected type given: #{type}"
             end
@@ -176,11 +187,13 @@ module Steep
             block = if type.block
                       RBS::Types::Block.new(
                         type: function_1(type.block.type),
-                        required: !type.block.optional?
+                        required: !type.block.optional?,
+                        self_type: type_1_opt(type.block.self_type)
                       )
                     end
             RBS::Types::Proc.new(
               type: function_1(type.type),
+              self_type: type_1_opt(type.self_type),
               block: block,
               location: type.location
             )
@@ -252,7 +265,8 @@ module Steep
                     params: params(block.type),
                     return_type: type(block.type.return_type),
                     location: nil
-                  )
+                  ),
+                  self_type: type_opt(block.self_type)
                 )
               end,
               method_decls: Set[]
@@ -266,7 +280,11 @@ module Steep
             type_params: method_type.type_params.map {|param| type_param_1(param) },
             type: function_1(method_type.type),
             block: method_type.block&.yield_self do |block|
-              RBS::Types::Block.new(type: function_1(block.type), required: !block.optional)
+              RBS::Types::Block.new(
+                type: function_1(block.type),
+                required: !block.optional,
+                self_type: type_1_opt(block.self_type)
+              )
             end,
             location: nil
           )

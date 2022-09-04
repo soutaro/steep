@@ -178,7 +178,7 @@ module Steep
 
         def has_keywords?: () -> untyped
 
-        def each_positional_param: () { () -> untyped } -> (untyped | nil | untyped)
+        def each_positional_param: () { (PositionalParams::Base) -> void } -> void
 
         def without_keywords: () -> untyped
 
@@ -197,16 +197,16 @@ module Steep
 
         def to_s: () -> ::String
 
-        def map_type: () { () -> untyped } -> untyped
+        def map_type: () { (AST::Types::t) -> AST::Types::t } -> Params
 
-        def empty?: () -> untyped
+        def empty?: () -> bool
 
         # Returns true if all arguments are non-required.
-        def optional?: () -> untyped
+        def optional?: () -> bool
 
         # self + params returns a new params for overloading.
         #
-        def +: (untyped other) -> untyped
+        def +: (Params other) -> Params
 
         # Returns the intersection between self and other.
         # Returns nil if the intersection cannot be computed.
@@ -216,7 +216,7 @@ module Steep
         #
         # `self & other` accept `arg` if `arg` is acceptable for both of `self` and `other`.
         #
-        def &: (untyped other) -> (nil | untyped)
+        def &: (Params other) -> Params?
 
         # Returns the union between self and other.
         #
@@ -225,34 +225,37 @@ module Steep
         #
         # `self | other` accept `arg` if `self` accepts `arg` or `other` accepts `arg`.
         #
-        def |: (untyped other) -> (nil | untyped)
+        def |: (Params other) -> Params?
       end
 
-      attr_reader params: untyped
+      type location = RBS::Location[untyped, untyped]
+
+      attr_reader params: Params
 
       attr_reader return_type: AST::Types::t
 
-      attr_reader location: untyped
+      attr_reader location: location?
 
-      def initialize: (params: untyped, return_type: untyped, location: untyped) -> void
+      def initialize: (params: Params, return_type: AST::Types::t, location: location?) -> void
 
-      def ==: (untyped other) -> untyped
+      def ==: (untyped other) -> bool
 
       alias eql? ==
 
-      def hash: () -> untyped
+      def hash: () -> Integer
 
       def free_variables: () -> Set[Symbol]
 
       def subst: (Substitution s) -> Function
 
-      def each_child: () { () -> untyped } -> untyped
+      alias each_child each_type
 
-      def each_type: () { (untyped) -> untyped } -> untyped
+      def each_type: () { (AST::Types::t) -> void } -> void
+                   | () -> Enumerator[AST::Types::t, void]
 
-      def map_type: () { (untyped) -> untyped } -> untyped
+      def map_type: () { (AST::Types::t) -> AST::Types::t } -> Function
 
-      def with: (?params: untyped, ?return_type: untyped) -> untyped
+      def with: (?params: Params, ?return_type: AST::Types::t) -> Function
 
       def to_s: () -> ::String
 

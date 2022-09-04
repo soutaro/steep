@@ -1,51 +1,53 @@
 module Steep
   module Subtyping
-    class Relation[T]
-      attr_reader sub_type: T
+    class Relation[out Subject < Object]
+      attr_reader sub_type: Subject
 
-      attr_reader super_type: T
+      attr_reader super_type: Subject
 
-      def initialize: (sub_type: T, super_type: T) -> void
+      def initialize: (sub_type: Subject, super_type: Subject) -> void
 
-      def hash: () -> untyped
+      def hash: () -> Integer
 
-      def ==: (untyped other) -> untyped
+      def ==: (untyped other) -> bool
 
       alias eql? ==
 
       def to_s: () -> ::String
 
-      def to_ary: () -> [T, T]
+      def to_ary: () -> [Subject, Subject]
 
-      def type?: () -> untyped
+      def type?: () -> bool
 
-      def interface?: () -> untyped
+      def interface?: () -> bool
 
-      def method?: () -> untyped
+      def method?: () -> bool
 
-      def function?: () -> untyped
+      def function?: () -> bool
 
-      def params?: () -> untyped
+      def params?: () -> bool
 
-      def block?: () -> untyped
+      def block?: () -> bool
 
-      def assert_type: (untyped `type`) -> (untyped | nil)
+      type relation_type = :type | :interface | :method | :function | :params | :block
 
-      def type!: () -> untyped
+      def assert_type: (relation_type `type`) -> void
 
-      def interface!: () -> untyped
+      def type!: () -> void
 
-      def method!: () -> untyped
+      def interface!: () -> void
 
-      def function!: () -> untyped
+      def method!: () -> void
 
-      def params!: () -> untyped
+      def function!: () -> void
 
-      def block!: () -> untyped
+      def params!: () -> void
 
-      def map: [S] () { (T) -> S } -> Relation[S]
+      def block!: () -> void
 
-      def flip: () -> Relation[T]
+      def map: [T < Object] () { (Subject) -> T } -> Relation[T]
+
+      def flip: () -> Relation[Subject]
     end
   end
 end

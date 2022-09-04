@@ -2,6 +2,10 @@ module Steep
   module AST
     module Types
       class Factory
+        @env: RBS::Environment
+
+        @type_name_resolver: RBS::Resolver::TypeNameResolver
+
         attr_reader definition_builder: RBS::DefinitionBuilder
 
         attr_reader type_cache: Hash[RBS::Types::t, t]
@@ -16,11 +20,13 @@ module Steep
 
         def type_name_resolver: () -> RBS::Resolver::TypeNameResolver
 
-        def type_opt: (RBS::Types::t? `type`) -> t?
-
         def type: (RBS::Types::t `type`) -> t
 
+        def type_opt: (RBS::Types::t? `type`) -> t?
+
         def type_1: (t `type`) -> RBS::Types::t
+
+        def type_1_opt: (t?) -> RBS::Types::t?
 
         def function_1: (Interface::Function func) -> RBS::Types::Function
 
@@ -31,7 +37,7 @@ module Steep
         def type_param_1: (Interface::TypeParam type_param) -> RBS::AST::TypeParam
 
         @method_type_cache: Hash[RBS::MethodType, Interface::MethodType]
-        
+
         def method_type: (RBS::MethodType method_type, method_decls: Set[TypeInference::MethodCall::MethodDecl]) -> Interface::MethodType
 
         def method_type_1: (Interface::MethodType method_type) -> RBS::MethodType

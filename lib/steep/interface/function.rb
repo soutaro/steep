@@ -967,18 +967,16 @@ module Steep
         end
       end
 
-      def each_child(&block)
-        each_type(&block)
-      end
-
       def each_type(&block)
-        if block_given?
+        if block
           params.each_type(&block)
           yield return_type
         else
           enum_for :each_type
         end
       end
+
+      alias each_child each_type
 
       def map_type(&block)
         Function.new(
