@@ -1613,7 +1613,8 @@ module Steep
             if block_type = method_context.block_type
               type = AST::Types::Proc.new(
                 type: block_type.type,
-                block: nil
+                block: nil,
+                self_type: block_type.self_type
               )
               args = TypeInference::SendArgs.new(
                 node: node,
