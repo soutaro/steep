@@ -2342,7 +2342,8 @@ module Steep
                           return_type: return_types[0],
                           location: nil
                         ),
-                        block: nil
+                        block: nil,
+                        self_type: nil
                       )
                     end
                   end
@@ -2354,7 +2355,8 @@ module Steep
               type = AST::Types::Proc.new(
                 type: method_context.method_type.block.type,
                 location: nil,
-                block: nil
+                block: nil,
+                self_type: method_context.method_type.block.self_type
               )
               if method_context.method_type.block.optional?
                 type = AST::Types::Union.build(types: [type, AST::Builtin.nil_type])
@@ -2728,6 +2730,7 @@ module Steep
         params_hint = type_hint.type.params
         return_hint = type_hint.type.return_type
         block_hint = type_hint.block
+        self_hint = type_hint.self_type
       end
 
       block_constr = for_block(
@@ -2738,7 +2741,7 @@ module Steep
         block_block_hint: block_hint,
         block_annotations: block_annotations,
         node_type_hint: nil
-      )
+      ).update_context {|con| con.with(self_type: self_hint) }
 
       block_constr.typing.add_context_for_body(node, context: block_constr.context)
 
@@ -2751,10 +2754,10 @@ module Steep
           if block_param_type = block_param.type
             case block_param_type
             when AST::Types::Proc
-              Interface::Block.new(type: block_param_type.type, optional: false)
+              Interface::Block.new(type: block_param_type.type, optional: false, self_type: block_param_type.self_type)
             else
               if proc_type = optional_proc?(block_param_type)
-                Interface::Block.new(type: proc_type.type, optional: true)
+                Interface::Block.new(type: proc_type.type, optional: true, self_type: proc_type.self_type)
               else
                 block_constr.typing.add_error(
                   Diagnostic::Ruby::ProcTypeExpected.new(
@@ -2769,7 +2772,8 @@ module Steep
                     return_type: AST::Builtin.any_type,
                     location: nil
                   ),
-                  optional: false
+                  optional: false,
+                  self_type: nil
                 )
               end
             end
@@ -2783,6 +2787,10 @@ module Steep
           node: node,
           block_body: body_node,
           block_type_hint: return_hint
+        )
+
+        return_type = return_type.subst(
+          Interface::Substitution.build([], [], self_type: block_constr.self_type)
         )
 
         if expected_block_type = block_constr.block_context.body_type
@@ -2813,7 +2821,8 @@ module Steep
           return_type: return_type,
           location: nil
         ),
-        block: block
+        block: block,
+        self_type: block_annotations.self_type || self_hint
       )
 
       add_typing node, type: block_type
