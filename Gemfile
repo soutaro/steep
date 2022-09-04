@@ -10,7 +10,6 @@ group :stackprof, optional: true do
   gem "stackprof"
 end
 gem 'minitest-slow_test'
-gem "rbs", git: "https://github.com/ruby/rbs.git", branch: "master"
 
 group :ide, optional: true do
   gem "ruby-debug-ide"
