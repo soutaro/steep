@@ -214,80 +214,83 @@ module Steep
           Steep.logger.error "Block definition with trailing required parameters are not supported yet"
         end
 
-        [].tap do |zip|
-          if expandable_params?(params_type) && expandable?
-            type = params_type.required[0]
+        # @type var zip: Array[[Param | MultipleParam, AST::Types::t]]
+        zip = []
 
-            case
-            when AST::Builtin::Array.instance_type?(type)
-              type.is_a?(AST::Types::Name::Instance) or raise
+        if expandable_params?(params_type) && expandable?
+          type = params_type.required[0]
 
-              type_arg = type.args[0]
-              params.each do |param|
-                unless param == rest_param
-                  zip << [param, AST::Types::Union.build(types: [type_arg, AST::Builtin.nil_type])]
-                else
-                  zip << [param, AST::Builtin::Array.instance_type(type_arg)]
-                end
-              end
-            when type.is_a?(AST::Types::Tuple)
-              types = type.types.dup
-              (leading_params + optional_params).each do |param|
-                ty = types.shift
-                if ty
-                  zip << [param, ty]
-                else
-                  zip << [param, AST::Types::Nil.new]
-                end
-              end
+          case
+          when AST::Builtin::Array.instance_type?(type)
+            type.is_a?(AST::Types::Name::Instance) or raise
 
-              if rest_param
-                if types.any?
-                  union = AST::Types::Union.build(types: types)
-                  zip << [rest_param, AST::Builtin::Array.instance_type(union)]
-                else
-                  zip << [rest_param, AST::Types::Nil.new]
-                end
+            type_arg = type.args[0]
+            params.each do |param|
+              unless param == rest_param
+                zip << [param, AST::Types::Union.build(types: [type_arg, AST::Builtin.nil_type])]
+              else
+                zip << [param, AST::Builtin::Array.instance_type(type_arg)]
               end
             end
-          else
-            types = params_type.flat_unnamed_params
-
+          when type.is_a?(AST::Types::Tuple)
+            types = type.types.dup
             (leading_params + optional_params).each do |param|
-              type = types.shift&.last || params_type.rest
-
-              if type
-                zip << [param, type]
+              ty = types.shift
+              if ty
+                zip << [param, ty]
               else
-                zip << [param, AST::Builtin.nil_type]
+                zip << [param, AST::Types::Nil.new]
               end
             end
 
             if rest_param
-              if types.empty?
-                array = AST::Builtin::Array.instance_type(params_type.rest || AST::Builtin.any_type)
-                zip << [rest_param, array]
+              if types.any?
+                union = AST::Types::Union.build(types: types)
+                zip << [rest_param, AST::Builtin::Array.instance_type(union)]
               else
-                union = AST::Types::Union.build(types: types.map(&:last) + [params_type.rest])
-                array = AST::Builtin::Array.instance_type(union)
-                zip << [rest_param, array]
+                zip << [rest_param, AST::Types::Nil.new]
               end
             end
           end
+        else
+          types = params_type.flat_unnamed_params
 
-          if block_param
-            if block
-              proc_type = AST::Types::Proc.new(type: block.type, block: nil, self_type: block.self_type)
-              if block.optional?
-                proc_type = AST::Types::Union.build(types: [proc_type, AST::Builtin.nil_type])
-              end
+          (leading_params + optional_params).each do |param|
+            type = types.shift&.last || params_type.rest
 
-              zip << [block_param, proc_type]
+            if type
+              zip << [param, type]
             else
-              zip << [block_param, AST::Builtin.nil_type]
+              zip << [param, AST::Builtin.nil_type]
+            end
+          end
+
+          if rest_param
+            if types.empty?
+              array = AST::Builtin::Array.instance_type(params_type.rest || AST::Builtin.any_type)
+              zip << [rest_param, array]
+            else
+              union = AST::Types::Union.build(types: types.map(&:last) + [params_type.rest])
+              array = AST::Builtin::Array.instance_type(union)
+              zip << [rest_param, array]
             end
           end
         end
+
+        if block_param
+          if block
+            proc_type = AST::Types::Proc.new(type: block.type, block: nil, self_type: block.self_type)
+            if block.optional?
+              proc_type = AST::Types::Union.build(types: [proc_type, AST::Builtin.nil_type])
+            end
+
+            zip << [block_param, proc_type]
+          else
+            zip << [block_param, AST::Builtin.nil_type]
+          end
+        end
+
+        zip
       end
 
       def expandable_params?(params_type)
