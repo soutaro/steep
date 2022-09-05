@@ -209,7 +209,7 @@ module Steep
         )
       end
 
-      def zip(params_type, block)
+      def zip(params_type, block, factory:)
         if trailing_params.any?
           Steep.logger.error "Block definition with trailing required parameters are not supported yet"
         end
@@ -217,9 +217,7 @@ module Steep
         # @type var zip: Array[[Param | MultipleParam, AST::Types::t]]
         zip = []
 
-        if expandable_params?(params_type) && expandable?
-          type = params_type.required[0]
-
+        if expandable? && (type = expandable_params?(params_type, factory))
           case
           when AST::Builtin::Array.instance_type?(type)
             type.is_a?(AST::Types::Name::Instance) or raise
@@ -293,18 +291,19 @@ module Steep
         zip
       end
 
-      def expandable_params?(params_type)
+      def expandable_params?(params_type, factory)
         if params_type.flat_unnamed_params.size == 1
-          case (type = params_type.required.first)
+          type = params_type.required.first or raise
+          type = factory.deep_expand_alias(type) || type
+
+          case type
           when AST::Types::Tuple
-            true
+            type
           when AST::Types::Name::Base
-            AST::Builtin::Array.instance_type?(type)
-          else
-            false
+            if AST::Builtin::Array.instance_type?(type)
+              type
+            end
           end
-        else
-          false
         end
       end
 

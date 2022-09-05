@@ -70,7 +70,7 @@ module Steep
       #
       class MultipleParam
         attr_reader node: Parser::AST::Node
-        
+
         attr_reader params: Array[Param | MultipleParam]
 
         def initialize: (node: Parser::AST::Node, params: Array[Param | MultipleParam]) -> void
@@ -120,16 +120,21 @@ module Steep
       def params_type0: (hint: nil) -> Interface::Function::Params
                       | (hint: Interface::Function::Params?) -> Interface::Function::Params?
 
-      def zip: (Interface::Function::Params params_type, Interface::Block? block) -> Array[[Param | MultipleParam, AST::Types::t]]
+      def zip: (
+        Interface::Function::Params params_type,
+        Interface::Block? block,
+        factory: AST::Types::Factory
+      ) -> Array[[Param | MultipleParam, AST::Types::t]]
 
       # Returns true if given possible block yields are subject to auto expand/splat
       #
       # ```rbs
-      # { (Array[String]) -> void }      # true
-      # { ([Integer, String]) -> void }  # true
+      # { (Array[String]) -> void }      # Array[String]
+      # { ([Integer, String]) -> void }  # [Integer, String]
+      # { (String) -> void }             # nil
       # ```
       #
-      def expandable_params?: (Interface::Function::Params params_type) -> bool
+      def expandable_params?: (Interface::Function::Params params_type, AST::Types::Factory) -> AST::Types::t?
 
       # Returns true if the block is defined to expand/splat automatically
       #

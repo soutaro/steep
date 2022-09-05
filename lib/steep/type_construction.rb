@@ -3420,7 +3420,7 @@ module Steep
 
           if method_type.block
             # Method accepts block
-            pairs = block_params_&.zip(method_type.block.type.params, nil)
+            pairs = block_params_&.zip(method_type.block.type.params, nil, factory: checker.factory)
 
             if block_params_ && pairs
               # Block parameters are compatible with the block type
@@ -3797,7 +3797,7 @@ module Steep
     end
 
     def for_block(body_node, block_params:, block_param_hint:, block_type_hint:, block_block_hint:, block_annotations:, node_type_hint:, block_self_hint:)
-      block_param_pairs = block_param_hint && block_params.zip(block_param_hint, block_block_hint)
+      block_param_pairs = block_param_hint && block_params.zip(block_param_hint, block_block_hint, factory: checker.factory)
 
       # @type var param_types_hash: Hash[Symbol, AST::Types::t]
       param_types_hash = {}
