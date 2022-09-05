@@ -10058,4 +10058,26 @@ RUBY
       end
     end
   end
+
+  def test_block_splat_alias
+    with_checker(<<-RBS) do |checker|
+type foo = [Integer, String]
+      RBS
+      source = parse_ruby(<<-RUBY)
+# @type var array: Array[foo]
+array = []
+
+array.each do |x, y|
+  x + 1
+  y + ""
+end
+      RUBY
+
+      with_standard_construction(checker, source) do |construction, typing|
+        type, _, context = construction.synthesize(source.node)
+
+        assert_no_error typing
+      end
+    end
+  end
 end
