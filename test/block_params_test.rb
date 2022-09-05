@@ -102,7 +102,7 @@ proc {|a, b=1, *c, d, &e|
       )
 
       block_params("proc {|a, b=1, *c| }") do |params, args|
-        zip = params.zip(type, nil)
+        zip = params.zip(type, nil, factory: factory)
         assert_equal [params.params[0], parse_type("Integer")], zip[0]
         assert_equal [params.params[1], parse_type("nil")], zip[1]
         assert_equal [params.params[2], parse_type("::Array[untyped]")], zip[2]
@@ -122,7 +122,7 @@ proc {|a, b=1, *c, d, &e|
       )
 
       block_params("proc {|a, b, *c| }") do |params, args|
-        zip = params.zip(type, nil)
+        zip = params.zip(type, nil, factory: factory)
 
         assert_equal [params.params[0], parse_type("::Integer")], zip[0]
         assert_equal [params.params[1], parse_type("::String")], zip[1]
@@ -143,7 +143,7 @@ proc {|a, b=1, *c, d, &e|
       )
 
       block_params("proc {|x, *y| }") do |params|
-        zip = params.zip(type, nil)
+        zip = params.zip(type, nil, factory: factory)
 
         assert_equal [params.params[0], parse_type("::Integer")], zip[0]
         assert_equal [params.params[1], parse_type("::Array[::Object | ::String]")], zip[1]
@@ -163,7 +163,7 @@ proc {|a, b=1, *c, d, &e|
       )
 
       block_params("proc {|x| }") do |params|
-        zip = params.zip(type, nil)
+        zip = params.zip(type, nil, factory: factory)
 
         assert_equal 1, zip.size
         assert_equal [params.params[0], parse_type("::Integer")], zip[0]
@@ -183,7 +183,7 @@ proc {|a, b=1, *c, d, &e|
       )
 
       block_params("proc { }") do |params|
-        zip = params.zip(type, nil)
+        zip = params.zip(type, nil, factory: factory)
 
         assert_empty zip
       end
@@ -202,7 +202,7 @@ proc {|a, b=1, *c, d, &e|
       )
 
       block_params("proc {|x, y| }") do |params|
-        zip = params.zip(type, nil)
+        zip = params.zip(type, nil, factory: factory)
 
         assert_equal 2, zip.size
         assert_equal [params.params[0], parse_type("::Object")], zip[0]
@@ -223,7 +223,7 @@ proc {|a, b=1, *c, d, &e|
       )
 
       block_params("proc {|x,y,*z| }") do |params|
-        zip = params.zip(type, nil)
+        zip = params.zip(type, nil, factory: factory)
 
         assert_equal [params.params[0], parse_type("::Integer | nil")], zip[0]
         assert_equal [params.params[1], parse_type("::Integer | nil")], zip[1]
@@ -231,7 +231,7 @@ proc {|a, b=1, *c, d, &e|
       end
 
       block_params("proc {|x,| }") do |params|
-        zip = params.zip(type, nil)
+        zip = params.zip(type, nil, factory: factory)
 
         assert_equal [params.params[0], parse_type("::Integer | nil")], zip[0]
       end
@@ -250,7 +250,7 @@ proc {|a, b=1, *c, d, &e|
       )
 
       block_params("proc {|x,y,*z| }") do |params|
-        zip = params.zip(type, nil)
+        zip = params.zip(type, nil, factory: factory)
 
         assert_equal [params.params[0], parse_type("::Symbol")], zip[0]
         assert_equal [params.params[1], parse_type("::Integer")], zip[1]
@@ -258,13 +258,13 @@ proc {|a, b=1, *c, d, &e|
       end
 
       block_params("proc {|x,| }") do |params|
-        zip = params.zip(type, nil)
+        zip = params.zip(type, nil, factory: factory)
 
         assert_equal [params.params[0], parse_type("::Symbol")], zip[0]
       end
 
       block_params("proc {|x, *y| }") do |params|
-        zip = params.zip(type, nil)
+        zip = params.zip(type, nil, factory: factory)
 
         assert_equal [params.params[0], parse_type("::Symbol")], zip[0]
         assert_equal [params.params[1], parse_type("::Array[::Integer]")], zip[1]
@@ -402,7 +402,8 @@ proc {|a, b=1, *c|
             type: parse_type("^() -> void").type,
             optional: false,
             self_type: nil
-          )
+          ),
+          factory: factory
         ).tap do |zip|
           assert_equal 1, zip.size
           assert_equal [params.block_param, parse_type("^() -> void")], zip[0]
@@ -414,7 +415,8 @@ proc {|a, b=1, *c|
             type: parse_type("^() -> void").type,
             optional: true,
             self_type: nil
-          )
+          ),
+          factory: factory
         ).tap do |zip|
           assert_equal 1, zip.size
           assert_equal [params.block_param, parse_type("^() -> void | nil")], zip[0]
@@ -422,7 +424,8 @@ proc {|a, b=1, *c|
 
         params.zip(
           Params.empty,
-          nil
+          nil,
+          factory: factory
         ).tap do |zip|
           assert_equal 1, zip.size
           assert_equal [params.block_param, parse_type("nil")], zip[0]
@@ -476,7 +479,8 @@ end
             optional_keywords: {},
             rest_keywords: nil
           ),
-          nil
+          nil,
+          factory: factory
         ).tap do |zip|
           assert_equal 1, zip.size
           zip[0].tap do |pair|
