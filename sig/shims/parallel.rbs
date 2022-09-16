@@ -1,0 +1,5 @@
+module Parallel
+  module ProcessorCount
+    def physical_processor_count: () -> Integer
+  end
+end

@@ -1,0 +1,65 @@
+module Steep
+  class CLI
+    interface _JobCommand
+      def jobs_count: () -> Integer
+
+      def jobs_count=: (Integer) -> Integer
+
+      def steep_command: () -> String
+
+      def steep_command=: (String) -> String
+    end
+
+    attr_reader argv: Array[String]
+
+    attr_reader stdout: IO
+
+    attr_reader stdin: IO
+
+    attr_reader stderr: IO
+
+    attr_reader command: untyped
+
+    include Parallel::ProcessorCount
+
+    def initialize: (stdout: IO, stdin: IO, stderr: IO, argv: Array[String]) -> void
+
+    def self.available_commands: () -> Array[Symbol]
+
+    def process_global_options: () -> void
+
+    def setup_command: () -> bool
+
+    def run: () -> Integer
+
+    def handle_logging_options: (OptionParser opts) -> void
+
+    def handle_jobs_option: (_JobCommand command, OptionParser opts, ?::Integer modifier) -> void
+
+    def process_init: () -> Integer
+
+    def process_check: () -> Integer
+
+    def process_stats: () -> Integer
+
+    def process_validate: () -> Integer
+
+    def process_annotations: () -> Integer
+
+    def process_project: () -> Integer
+
+    def process_watch: () -> Integer
+
+    def process_langserver: () -> Integer
+
+    def process_vendor: () -> Integer
+
+    def process_binstub: () -> Integer
+
+    def process_version: () -> Integer
+
+    def process_worker: () -> Integer
+
+    def process_rbs: () -> Integer
+  end
+end

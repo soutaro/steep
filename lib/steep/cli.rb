@@ -18,7 +18,7 @@ module Steep
     end
 
     def self.available_commands
-      [:init, :check, :validate, :annotations, :version, :project, :watch, :langserver, :stats, :binstub]
+      [:init, :check, :validate, :annotations, :version, :project, :watch, :langserver, :stats, :binstub, :rbs]
     end
 
     def process_global_options
@@ -43,7 +43,7 @@ module Steep
     end
 
     def setup_command
-      @command = argv.shift&.to_sym
+      @command = argv.shift&.to_sym || raise
       if CLI.available_commands.include?(@command) || @command == :worker || @command == :vendor
         true
       else
@@ -310,6 +310,14 @@ TEMPLATE
 
         command.commandline_args.push(*argv)
       end.run
+    end
+
+    def process_rbs
+      require "rbs/cli"
+
+      RBS::CLI.new(stdout: stdout, stderr: stderr).run(argv)
+
+      0
     end
   end
 end
