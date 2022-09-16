@@ -11,11 +11,12 @@ module Steep
       end
 
       def pop_buffer
-        changes = {}
-        @mutex.synchronize do
-          changes.merge!(buffered_changes)
+        changes = @mutex.synchronize do
+          copy = buffered_changes.dup
           buffered_changes.clear
+          copy
         end
+        
         if block_given?
           yield changes
         else

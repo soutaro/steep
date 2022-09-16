@@ -1,0 +1,31 @@
+module Steep
+  module Server
+    class BaseWorker
+      LSP: untyped
+
+      attr_reader project: untyped
+
+      attr_reader reader: untyped
+
+      attr_reader writer: untyped
+
+      attr_reader queue: untyped
+
+      ShutdownJob: untyped
+
+      def initialize: (project: untyped, reader: untyped, writer: untyped) -> void
+
+      def skip_jobs_after_shutdown!: (?bool flag) -> untyped
+
+      def skip_jobs_after_shutdown?: () -> untyped
+
+      def skip_job?: () -> untyped
+
+      def handle_request: (untyped request) -> nil
+
+      def handle_job: (untyped job) -> nil
+
+      def run: () -> untyped
+    end
+  end
+end

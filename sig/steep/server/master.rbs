@@ -1,0 +1,201 @@
+module Steep
+  module Server
+    class Master
+      LSP: untyped
+
+      class TypeCheckRequest
+        attr_reader guid: untyped
+
+        attr_reader library_paths: untyped
+
+        attr_reader signature_paths: untyped
+
+        attr_reader code_paths: untyped
+
+        attr_reader priority_paths: untyped
+
+        attr_reader checked_paths: untyped
+
+        def initialize: (guid: untyped) -> void
+
+        def uri: (untyped path) -> untyped
+
+        def as_json: (assignment: untyped) -> { guid: untyped, library_uris: untyped, signature_uris: untyped, code_uris: untyped, priority_uris: untyped }
+
+        def total: () -> untyped
+
+        def percentage: () -> untyped
+
+        def all_paths: () -> untyped
+
+        def checking_path?: (untyped path) -> untyped
+
+        def checked: (untyped path) -> untyped
+
+        def finished?: () -> untyped
+
+        def unchecked_paths: () -> untyped
+
+        def unchecked_code_paths: () -> untyped
+
+        def unchecked_library_paths: () -> untyped
+
+        def unchecked_signature_paths: () -> untyped
+      end
+
+      class TypeCheckController
+        attr_reader project: untyped
+
+        attr_reader priority_paths: untyped
+
+        attr_reader changed_paths: untyped
+
+        attr_reader target_paths: untyped
+
+        class TargetPaths
+          attr_reader project: untyped
+
+          attr_reader target: untyped
+
+          attr_reader code_paths: untyped
+
+          attr_reader signature_paths: untyped
+
+          attr_reader library_paths: untyped
+
+          def initialize: (project: untyped, target: untyped) -> void
+
+          def all_paths: () -> untyped
+
+          def library_path?: (untyped path) -> untyped
+
+          def signature_path?: (untyped path) -> untyped
+
+          def code_path?: (untyped path) -> untyped
+
+          def add: (untyped path) -> (nil | untyped)
+
+          alias << add
+        end
+
+        def initialize: (project: untyped) -> void
+
+        def load: (command_line_args: untyped) -> untyped
+
+        def push_changes: (untyped path) -> (nil | untyped)
+
+        def update_priority: (?open: untyped?, ?close: untyped?) -> untyped
+
+        def make_request: (?guid: untyped, ?last_request: untyped?, ?include_unchanged: bool) -> (nil | untyped)
+      end
+
+      class ResultHandler
+        attr_reader request: untyped
+
+        attr_reader completion_handler: untyped
+
+        attr_reader response: untyped
+
+        def initialize: (request: untyped) -> void
+
+        def process_response: (untyped message) -> (true | false)
+
+        def result: () -> untyped
+
+        def completed?: () -> untyped
+
+        def on_completion: () ?{ () -> untyped } -> untyped
+      end
+
+      class GroupHandler
+        attr_reader request: untyped
+
+        attr_reader handlers: untyped
+
+        attr_reader completion_handler: untyped
+
+        def initialize: () -> void
+
+        def process_response: (untyped message) -> (true | false)
+
+        def completed?: () -> untyped
+
+        def <<: (untyped handler) -> untyped
+
+        def on_completion: () ?{ () -> untyped } -> untyped
+      end
+
+      class ResultController
+        attr_reader handlers: untyped
+
+        def initialize: () -> void
+
+        def <<: (untyped handler) -> untyped
+
+        def request_group: () { (untyped) -> untyped } -> untyped
+
+        def process_response: (untyped message) -> untyped
+      end
+
+      ReceiveMessageJob: untyped
+
+      SendMessageJob: untyped
+
+      attr_reader steepfile: untyped
+
+      attr_reader project: untyped
+
+      attr_reader reader: untyped
+
+      attr_reader writer: untyped
+
+      attr_reader commandline_args: untyped
+
+      attr_reader interaction_worker: untyped
+
+      attr_reader typecheck_workers: untyped
+
+      attr_reader job_queue: untyped
+
+      attr_reader current_type_check_request: untyped
+
+      attr_reader controller: untyped
+
+      attr_reader result_controller: untyped
+
+      attr_reader initialize_params: untyped
+
+      attr_accessor typecheck_automatically: untyped
+
+      def initialize: (project: untyped, reader: untyped, writer: untyped, interaction_worker: untyped, typecheck_workers: untyped, ?queue: untyped) -> void
+
+      def start: () -> untyped
+
+      def each_worker: () { (untyped) -> untyped } -> untyped
+
+      def pathname: (untyped uri) -> untyped
+
+      def work_done_progress_supported?: () -> untyped
+
+      def process_message_from_client: (untyped message) -> untyped
+
+      def process_message_from_worker: (untyped message, worker: untyped) -> untyped
+
+      def start_type_check: (untyped request, last_request: untyped, start_progress: untyped) -> untyped
+
+      def on_type_check_update: (guid: untyped, path: untyped) -> (untyped | nil | nil)
+
+      def broadcast_notification: (untyped message) -> untyped
+
+      def send_notification: (untyped message, worker: untyped) -> untyped
+
+      def fresh_request_id: () -> untyped
+
+      def send_request: (method: untyped, worker: untyped, ?id: untyped, ?params: untyped?) { (untyped) -> untyped } -> untyped
+
+      def group_request: () { (untyped) -> untyped } -> untyped
+
+      def kill: () -> untyped
+    end
+  end
+end

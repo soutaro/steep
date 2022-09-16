@@ -1,0 +1,41 @@
+module Steep
+  module Server
+    class InteractionWorker < BaseWorker
+      include ChangeBuffer
+
+      ApplyChangeJob: untyped
+
+      HoverJob: untyped
+
+      CompletionJob: untyped
+
+      LSP: untyped
+
+      attr_reader service: untyped
+
+      def initialize: (project: untyped, reader: untyped, writer: untyped, ?queue: untyped) -> void
+
+      def handle_job: (untyped job) -> untyped
+
+      def handle_request: (untyped request) -> untyped
+
+      def process_hover: (untyped job) -> untyped
+
+      def process_completion: (untyped job) -> untyped
+
+      def format_completion_item_for_rbs: (untyped sig_service, untyped type_name, untyped context, untyped job, untyped prefix) -> (nil | untyped)
+
+      def format_comment: (untyped comment) -> (untyped | nil)
+
+      def format_comments: (untyped comments) -> (untyped | nil)
+
+      def format_completion_item: (untyped item) -> untyped
+
+      def method_type_to_snippet: (untyped method_type) -> ::String
+
+      def params_to_snippet: (untyped fun) -> untyped
+
+      def relative_name_in_context: (untyped type_name, untyped context) -> untyped
+    end
+  end
+end

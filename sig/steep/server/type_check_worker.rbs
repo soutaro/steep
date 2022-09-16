@@ -1,0 +1,47 @@
+module Steep
+  module Server
+    class TypeCheckWorker < BaseWorker
+      attr_reader project: untyped
+
+      attr_reader assignment: untyped
+
+      attr_reader service: untyped
+
+      attr_reader commandline_args: untyped
+
+      attr_reader current_type_check_guid: untyped
+
+      WorkspaceSymbolJob: untyped
+
+      StatsJob: untyped
+
+      StartTypeCheckJob: untyped
+
+      TypeCheckCodeJob: untyped
+
+      ValidateAppSignatureJob: untyped
+
+      ValidateLibrarySignatureJob: untyped
+
+      GotoJob: untyped
+
+      include ChangeBuffer
+
+      def initialize: (project: untyped, reader: untyped, writer: untyped, assignment: untyped, commandline_args: untyped) -> void
+
+      def handle_request: (untyped request) -> untyped
+
+      def enqueue_typecheck_jobs: (untyped params) -> untyped
+
+      def handle_job: (untyped job) -> untyped
+
+      def typecheck_progress: (guid: untyped, path: untyped) -> untyped
+
+      def workspace_symbol_result: (untyped query) -> untyped
+
+      def stats_result: () -> untyped
+
+      def goto: (untyped job) -> untyped
+    end
+  end
+end

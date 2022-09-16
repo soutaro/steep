@@ -1,0 +1,29 @@
+module Steep
+  module Server
+    module LSPFormatter
+      include Services
+
+      class CommentBuilder
+        def initialize: () -> void
+
+        def self.build: () { (untyped) -> untyped } -> untyped
+
+        def to_s: () -> (untyped | nil)
+
+        def <<: (untyped string) -> (untyped | nil)
+
+        def push: () { (untyped) -> untyped } -> untyped
+      end
+
+      def self?.format_hover_content: (untyped content) -> untyped
+
+      def self?.to_list: (untyped collection) ?{ () -> untyped } -> untyped
+
+      def self?.name_and_args: (untyped name, untyped args) -> ::String
+
+      def self?.name_and_params: (untyped name, untyped params) -> ::String
+
+      def self?.declaration_summary: (untyped decl) -> untyped
+    end
+  end
+end

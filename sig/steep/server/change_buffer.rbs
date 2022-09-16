@@ -1,0 +1,30 @@
+module Steep
+  module Server
+    module ChangeBuffer : _WithProject
+      interface _WithProject
+        def project: () -> Project
+      end
+
+      attr_reader mutex: Thread::Mutex
+
+      attr_reader buffered_changes: Hash[Pathname, Array[Services::ContentChange]]
+
+      # Yields `buffered_changes` to modify with synchronization
+      #
+      def push_buffer: [A] () { (Hash[Pathname, Array[Services::ContentChange]]) -> A } -> A
+
+      # Yields or returns a copy of `buffered_changes` after clearing `buffered_changes` content
+      #
+      def pop_buffer: [A] () { (Hash[Pathname, Array[Services::ContentChange]]) -> A } -> A
+                    | () -> Hash[Pathname, Array[Services::ContentChange]]
+
+      # Load files from `project` to `buffered_changes`
+      #
+      def load_files: (project: Project, commandline_args: Array[String]) -> void
+
+      # Load changes from a request with `DidChangeTextDocumentParams` into `buffered_changes`
+      #
+      def collect_changes: (untyped request) -> void
+    end
+  end
+end

@@ -2,34 +2,36 @@ module Steep
   module Services
     class ContentChange
       class Position
-        attr_reader line: untyped
+        attr_reader line: Integer
 
-        attr_reader column: untyped
+        attr_reader column: Integer
 
-        def initialize: (line: untyped, column: untyped) -> void
+        def initialize: (line: Integer, column: Integer) -> void
 
-        def ==: (untyped other) -> untyped
+        def ==: (untyped other) -> bool
 
         alias eql? ==
 
-        def hash: () -> untyped
+        def hash: () -> Integer
       end
 
-      attr_reader range: untyped
+      type range = [Position, Position]
 
-      attr_reader text: untyped
+      attr_reader range: range?
 
-      def initialize: (text: untyped, ?range: untyped?) -> void
+      attr_reader text: String
 
-      def ==: (untyped other) -> untyped
+      def initialize: (text: String, ?range: range?) -> void
+
+      def ==: (untyped other) -> bool
 
       alias eql? ==
 
-      def hash: () -> untyped
+      def hash: () -> Integer
 
-      def self.string: (untyped string) -> untyped
+      def self.string: (String) -> ContentChange
 
-      def apply_to: (untyped text) -> untyped
+      def apply_to: (String text) -> String
     end
   end
 end
