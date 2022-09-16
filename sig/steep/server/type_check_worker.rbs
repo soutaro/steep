@@ -1,47 +1,135 @@
 module Steep
   module Server
+    # TypeCheckWorker provides two features:
+    #
+    # 1. Type check and validate source code invoked by `$/typecheck/start` notification
+    # 2. Language related features: `workspace/symbol`, `textDocument/definition`, `textDocument/implementation`, and `steep/stats` command
+    #
+    # `$/typecheck/start` notification is delivered to `#enqueue_typecheck_jobs` command that creates *jobs*.
+    #
+    # * `StartTypeCheckJob` applies the pending changes
+    # * `ValidateAppSignatureJob` validates an *application* RBS file
+    # * `ValidateLibrarySignatureJob` validates a *library* RBS file
+    # * `TypeCheckCodeJob` type checks a ruby code
+    #
     class TypeCheckWorker < BaseWorker
-      attr_reader project: untyped
+      attr_reader project: Project
 
-      attr_reader assignment: untyped
+      attr_reader assignment: Services::PathAssignment
 
-      attr_reader service: untyped
+      attr_reader service: Services::TypeCheckService
 
-      attr_reader commandline_args: untyped
+      attr_reader commandline_args: Array[String]
 
-      attr_reader current_type_check_guid: untyped
+      attr_reader current_type_check_guid: String?
 
-      WorkspaceSymbolJob: untyped
+      class WorkspaceSymbolJob
+        attr_reader id: String
 
-      StatsJob: untyped
+        attr_reader query: String
 
-      StartTypeCheckJob: untyped
+        def initialize: (id: String, query: String) -> void
+      end
 
-      TypeCheckCodeJob: untyped
+      class StatsJob
+        attr_reader id: String
 
-      ValidateAppSignatureJob: untyped
+        def initialize: (id: String) -> void
+      end
 
-      ValidateLibrarySignatureJob: untyped
+      class StartTypeCheckJob
+        attr_reader guid: String
 
-      GotoJob: untyped
+        attr_reader changes: ChangeBuffer::changes
+
+        def initialize: (guid: String, changes: ChangeBuffer::changes) -> void
+      end
+
+      class TypeCheckCodeJob
+        attr_reader guid: String
+
+        attr_reader path: Pathname
+
+        def initialize: (guid: String, path: Pathname) -> void
+      end
+
+      class ValidateAppSignatureJob
+        attr_reader guid: String
+
+        attr_reader path: Pathname
+
+        def initialize: (guid: String, path: Pathname) -> void
+      end
+
+      class ValidateLibrarySignatureJob
+        attr_reader guid: String
+
+        attr_reader path: Pathname
+
+        def initialize: (guid: String, path: Pathname) -> void
+      end
+
+      class GotoJob
+        type kind = :implementation | :definition
+
+        attr_reader id: String
+
+        attr_reader kind: kind
+
+        type params = Hash[Symbol, untyped]
+
+        attr_reader params: params
+
+        def initialize: (id: String, params: params, kind: kind) -> void
+
+        def self.implementation: (id: String, params: params) -> GotoJob
+
+        def self.definition: (id: String, params: params) -> GotoJob
+
+        def implementation?: () -> bool
+
+        def definition?: () -> bool
+      end
 
       include ChangeBuffer
 
-      def initialize: (project: untyped, reader: untyped, writer: untyped, assignment: untyped, commandline_args: untyped) -> void
+      def initialize: (
+        project: Project,
+        reader: LanguageServer::Protocol::Transport::Io::Reader,
+        writer: LanguageServer::Protocol::Transport::Io::Writer,
+        assignment: Services::PathAssignment,
+        commandline_args: Array[String]
+      ) -> void
 
-      def handle_request: (untyped request) -> untyped
+      def handle_request: (untyped request) -> void
 
-      def enqueue_typecheck_jobs: (untyped params) -> untyped
+      type type_check_start_params = {
+        guid: String,
+        priority_uris: Array[String],
+        library_uris: Array[String],
+        signature_uris: Array[String],
+        code_uris: Array[String]
+      }
 
-      def handle_job: (untyped job) -> untyped
+      def enqueue_typecheck_jobs: (type_check_start_params) -> void
 
-      def typecheck_progress: (guid: untyped, path: untyped) -> untyped
+      type job = WorkspaceSymbolJob
+               | StartTypeCheckJob
+               | TypeCheckCodeJob
+               | ValidateAppSignatureJob
+               | ValidateLibrarySignatureJob
+               | GotoJob
+               | StatsJob
+
+      def handle_job: (job) -> void
+
+      def typecheck_progress: (guid: String, path: Pathname) -> void
 
       def workspace_symbol_result: (untyped query) -> untyped
 
       def stats_result: () -> untyped
 
-      def goto: (untyped job) -> untyped
+      def goto: (GotoJob job) -> Array[untyped]
     end
   end
 end

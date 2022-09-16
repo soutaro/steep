@@ -1,0 +1,7 @@
+module Steep
+  module PathHelper
+    def self?.to_pathname: (String uri, ?dosish: bool) -> Pathname?
+
+    def self?.to_uri: (Pathname path, ?dosish: bool) -> URI::File
+  end
+end
