@@ -1,0 +1,20 @@
+module LanguageServer
+  module Protocol
+    module Transport
+      module Io
+        class Writer
+          def initialize: (IO) -> void
+
+          def write: (**untyped) -> void
+                   | (Hash[Symbol, untyped]) -> void
+        end
+
+        class Reader
+          def initialize: (IO) -> void
+
+          def read: () { (untyped) -> void } -> bot
+        end
+      end
+    end
+  end
+end

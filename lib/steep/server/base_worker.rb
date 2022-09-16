@@ -6,7 +6,7 @@ module Steep
       attr_reader :project
       attr_reader :reader, :writer, :queue
 
-      ShutdownJob = Struct.new(:id, keyword_init: true)
+      ShutdownJob = _ = Struct.new(:id, keyword_init: true)
 
       def initialize(project:, reader:, writer:)
         @project = project
@@ -14,7 +14,7 @@ module Steep
         @writer = writer
         @skip_job = false
         @shutdown = false
-        @skip_jobs_after_shutdown = nil
+        @skip_jobs_after_shutdown = false
       end
 
       def skip_jobs_after_shutdown!(flag = true)
