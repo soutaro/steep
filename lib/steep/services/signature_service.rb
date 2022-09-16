@@ -63,7 +63,7 @@ module Steep
         end
       end
 
-      FileStatus = Struct.new(:path, :content, :decls, keyword_init: true)
+      FileStatus = _ = Struct.new(:path, :content, :decls, keyword_init: true)
 
       def initialize(env:)
         builder = RBS::DefinitionBuilder.new(env: env)
@@ -100,7 +100,7 @@ module Steep
       end
 
       def pending_changed_paths
-        case status
+        case status = status()
         when LoadedStatus
           Set[]
         when SyntaxErrorStatus, AncestorErrorStatus
@@ -113,7 +113,7 @@ module Steep
       end
 
       def latest_builder
-        case status
+        case status = status()
         when LoadedStatus
           status.builder
         when SyntaxErrorStatus, AncestorErrorStatus
@@ -134,7 +134,8 @@ module Steep
       def apply_changes(files, changes)
         Steep.logger.tagged "#apply_changes" do
           Steep.measure2 "Applying change" do |sampler|
-            changes.each.with_object({}) do |(path, cs), update|
+            changes.each.with_object({}) do |pair, update|
+              path, cs = pair
               sampler.sample "#{path}" do
                 old_text = files[path]&.content
                 content = cs.inject(old_text || "") {|text, change| change.apply_to(text) }
@@ -187,7 +188,7 @@ module Steep
             )
           else
             files = self.files.merge(updates)
-            updated_files = paths.each.with_object({}) do |path, hash|
+            updated_files = paths.each_with_object({}) do |path, hash|
               hash[path] = files[path]
             end
             result =
@@ -232,7 +233,7 @@ module Steep
                 errors << content.decls
               else
                 begin
-                  content.decls.each do |decl|
+                  decls.each do |decl|
                     env << decl
                     new_decls << decl
                   end
@@ -380,7 +381,7 @@ module Steep
       end
 
       def add_nested_decls(env:, names:, set:)
-        tops = names.each.with_object(Set[]) do |name, tops|
+        tops = names.each_with_object(Set[]) do |name, tops|
           unless name.namespace.empty?
             tops << name.namespace.path[0]
           end

@@ -1,93 +1,107 @@
 module Steep
   module Services
     class TypeCheckService
-      attr_reader project: untyped
+      attr_reader project: Project
 
-      attr_reader signature_validation_diagnostics: untyped
+      attr_reader signature_validation_diagnostics: Hash[Symbol, Hash[Pathname, Array[Diagnostic::Signature::Base]]]
 
-      attr_reader source_files: untyped
+      attr_reader source_files: Hash[Pathname, SourceFile]
 
-      attr_reader signature_services: untyped
+      attr_reader signature_services: Hash[Symbol, SignatureService]
 
       class SourceFile
-        attr_reader path: untyped
+        attr_reader path: Pathname
 
-        attr_reader target: untyped
+        attr_reader target: Project::Target
 
-        attr_reader content: untyped
+        attr_reader content: String
 
-        attr_reader node: untyped
+        attr_reader node: Parser::AST::Node | nil | false
 
-        attr_reader typing: untyped
+        attr_reader typing: Typing?
 
-        attr_reader errors: untyped
+        attr_reader errors: Array[Diagnostic::Ruby::Base]?
 
-        def initialize: (path: untyped, node: untyped, content: untyped, typing: untyped, errors: untyped) -> void
+        def initialize: (
+          path: Pathname,
+          node: Parser::AST::Node | nil | false,
+          content: String,
+          typing: Typing?,
+          errors: Array[Diagnostic::Ruby::Base]?
+        ) -> void
 
-        def self.with_syntax_error: (path: untyped, content: untyped, error: untyped) -> untyped
+        def self.with_syntax_error: (path: Pathname, content: String, error: Diagnostic::Ruby::SyntaxError) -> SourceFile
 
-        def self.with_typing: (path: untyped, content: untyped, typing: untyped, node: untyped) -> untyped
+        def self.with_typing: (path: Pathname, content: String, typing: Typing, node: Parser::AST::Node?) -> SourceFile
 
-        def self.no_data: (path: untyped, content: untyped) -> untyped
+        def self.no_data: (path: Pathname, content: String) -> SourceFile
 
-        def update_content: (untyped content) -> untyped
+        def update_content: (String content) -> SourceFile
 
-        def diagnostics: () -> untyped
+        def diagnostics: () -> Array[Diagnostic::Ruby::Base]
       end
 
       class TargetRequest
-        attr_reader target: untyped
+        attr_reader target: Project::Target
 
-        attr_reader source_paths: untyped
+        attr_reader source_paths: Set[Pathname]
 
-        def initialize: (target: untyped) -> void
+        @signature_updated: bool
+
+        def initialize: (target: Project::Target) -> void
 
         def signature_updated!: (?bool value) -> self
 
-        def signature_updated?: () -> untyped
+        def signature_updated?: () -> bool
 
-        def empty?: () -> untyped
+        def empty?: () -> bool
 
-        def ==: (untyped other) -> untyped
+        def ==: (untyped other) -> bool
 
         alias eql? ==
 
-        def hash: () -> untyped
+        def hash: () -> Integer
       end
 
-      def initialize: (project: untyped) -> void
+      def initialize: (project: Project) -> void
 
-      def signature_diagnostics: () -> untyped
+      def signature_diagnostics: () -> Hash[Pathname, Array[Diagnostic::Signature::Base]]
 
-      def has_diagnostics?: () -> untyped
+      def has_diagnostics?: () -> bool
 
-      def diagnostics: () -> untyped
+      def diagnostics: () -> Hash[Pathname, Array[Diagnostic::Ruby::Base | Diagnostic::Signature::Base]]
 
-      def each_diagnostics: () { (untyped) -> untyped } -> untyped
+      def each_diagnostics: () { ([Pathname, Array[Diagnostic::Ruby::Base] | Array[Diagnostic::Signature::Base]]) -> void } -> void
+                          | () -> Enumerator[[Pathname, Array[Diagnostic::Ruby::Base] | Array[Diagnostic::Signature::Base]], void]
 
-      def update: (changes: untyped) -> untyped
+      def update: (changes: Server::ChangeBuffer::changes) -> Hash[Project::Target, TargetRequest]
 
-      def update_and_check: (changes: untyped, assignment: untyped) ?{ () -> untyped } -> untyped
+      def update_and_check: (
+        changes: Server::ChangeBuffer::changes,
+        assignment: PathAssignment
+      ) {
+        ([Pathname, Array[Diagnostic::Signature::Base] | Array[Diagnostic::Ruby::Base]]) -> void
+      } -> void
 
-      def validate_signature: (path: untyped) { (untyped) -> untyped } -> untyped
+      def validate_signature: (path: Pathname) { ([Pathname, Array[Diagnostic::Signature::Base]]) -> void } -> void
 
-      def typecheck_source: (path: untyped, ?target: untyped) { (untyped) -> untyped } -> (nil | untyped)
+      def typecheck_source: (path: Pathname, ?target: Project::Target) { ([Pathname, Array[Diagnostic::Ruby::Base]]) -> void } -> void
 
-      def update_signature: (changes: untyped, requests: untyped) -> untyped
+      def update_signature: (changes: Server::ChangeBuffer::changes, requests: Hash[Project::Target, TargetRequest]) -> void
 
-      def update_sources: (changes: untyped, requests: untyped) -> untyped
+      def update_sources: (changes: Server::ChangeBuffer::changes, requests: Hash[Project::Target, TargetRequest]) -> void
 
-      def type_check_file: (target: untyped, subtyping: untyped, path: untyped, text: untyped) -> untyped
+      def type_check_file: (target: Project::Target, subtyping: Subtyping::Check, path: Pathname, text: String) -> SourceFile
 
       def self.type_check: (source: Source, subtyping: Subtyping::Check) -> Typing
 
-      def source_file?: (Pathname path) -> (untyped | nil)
+      def source_file?: (Pathname path) -> Project::Target?
 
-      def signature_file?: (Pathname path) -> untyped
+      def signature_file?: (Pathname path) -> Array[Symbol]?
 
-      def app_signature_file?: (Pathname path) -> untyped
+      def app_signature_file?: (Pathname path) -> Array[Symbol]?
 
-      def lib_signature_file?: (Pathname path) -> untyped
+      def lib_signature_file?: (Pathname path) -> bool
     end
   end
 end

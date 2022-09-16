@@ -7,7 +7,7 @@ module Steep
 
   def self.log_output=: (untyped output) -> untyped
 
-  def self.measure: (untyped message, ?level: ::Symbol) { () -> untyped } -> untyped
+  def self.measure: [A] (String message, ?level: ::Symbol) { () -> A } -> A
 
   def self.log_error: (untyped exn, ?message: ::String) -> untyped
 

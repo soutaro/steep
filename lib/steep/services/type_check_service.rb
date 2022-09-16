@@ -100,6 +100,7 @@ module Steep
       end
 
       def signature_diagnostics
+        # @type var signature_diagnostics: Hash[Pathname, Array[Diagnostic::Signature::Base]]
         signature_diagnostics = {}
 
         project.targets.each do |target|
