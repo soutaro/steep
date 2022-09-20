@@ -44,7 +44,7 @@ GEM
     rb-fsevent (0.11.1)
     rb-inotify (0.10.1)
       ffi (~> 1.0)
-    rbs (2.7.0.pre.1)
+    rbs (2.7.0.pre.2)
     ruby-debug-ide (0.7.3)
       rake (>= 0.8.1)
     stackprof (0.2.21)
