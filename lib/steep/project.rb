@@ -34,14 +34,12 @@ module Steep
 
     def targets_for_path(path)
       if target = target_for_source_path(path)
-        [target, []]
+        target
       else
-        [
-          nil,
-          targets.select do |target|
-            target.possible_signature_file?(path)
-          end
-        ]
+        ts = targets.select {|target| target.possible_signature_file?(path) }
+        unless ts.empty?
+          ts
+        end
       end
     end
   end

@@ -126,7 +126,7 @@ module Steep
                 is_incomplete: false,
                 items: completion_items
               )
-            when (_, targets = project.targets_for_path(job.path))
+            when (targets = project.targets_for_path(job.path)).is_a?(Array)
               target = targets[0] or return
               sig_service = service.signature_services[target.name]
               relative_path = job.path
