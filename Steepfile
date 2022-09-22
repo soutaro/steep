@@ -23,6 +23,7 @@ target :app do
     'digest',
     "strscan",
     "rubygems",
-    "optparse"
+    "optparse",
+    "securerandom"
   )
 end

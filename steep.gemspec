@@ -36,4 +36,5 @@ Gem::Specification.new do |spec|
   spec.add_runtime_dependency "rbs", ">= 2.7.0.pre"
   spec.add_runtime_dependency "parallel", ">= 1.0.0"
   spec.add_runtime_dependency "terminal-table", ">= 2", "< 4"
+  spec.add_runtime_dependency "securerandom", ">= 0.1"
 end

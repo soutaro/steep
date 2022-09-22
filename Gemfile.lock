@@ -9,6 +9,7 @@ PATH
       parser (>= 3.1)
       rainbow (>= 2.2.2, < 4.0)
       rbs (>= 2.7.0.pre)
+      securerandom (>= 0.1)
       terminal-table (>= 2, < 4)
 
 GEM
@@ -47,6 +48,7 @@ GEM
     rbs (2.7.0.pre.2)
     ruby-debug-ide (0.7.3)
       rake (>= 0.8.1)
+    securerandom (0.2.0)
     stackprof (0.2.21)
     terminal-table (3.0.2)
       unicode-display_width (>= 1.1.1, < 3)
