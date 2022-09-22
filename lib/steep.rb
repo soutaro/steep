@@ -146,7 +146,7 @@ $stderr = STDERR
 
 module Steep
   def self.logger
-    @logger
+    @logger || raise
   end
 
   def self.new_logger(output, prev_level)

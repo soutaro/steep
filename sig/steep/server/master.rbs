@@ -1,201 +1,260 @@
 module Steep
   module Server
     class Master
-      LSP: untyped
+      LSP: singleton(LanguageServer::Protocol)
 
       class TypeCheckRequest
-        attr_reader guid: untyped
+        attr_reader guid: String
 
-        attr_reader library_paths: untyped
+        attr_reader library_paths: Set[Pathname]
 
-        attr_reader signature_paths: untyped
+        attr_reader signature_paths: Set[Pathname]
 
-        attr_reader code_paths: untyped
+        attr_reader code_paths: Set[Pathname]
 
-        attr_reader priority_paths: untyped
+        attr_reader priority_paths: Set[Pathname]
 
-        attr_reader checked_paths: untyped
+        attr_reader checked_paths: Set[Pathname]
 
-        def initialize: (guid: untyped) -> void
+        def initialize: (guid: String) -> void
 
-        def uri: (untyped path) -> untyped
+        def uri: (Pathname path) -> URI::File
 
-        def as_json: (assignment: untyped) -> { guid: untyped, library_uris: untyped, signature_uris: untyped, code_uris: untyped, priority_uris: untyped }
+        def as_json: (assignment: Services::PathAssignment) -> { guid: String, library_uris: Array[String], signature_uris: Array[String], code_uris: Array[String], priority_uris: Array[String] }
 
-        def total: () -> untyped
+        def total: () -> Integer
 
-        def percentage: () -> untyped
+        def percentage: () -> Integer
 
-        def all_paths: () -> untyped
+        def all_paths: () -> Set[Pathname]
 
-        def checking_path?: (untyped path) -> untyped
+        def checking_path?: (Pathname path) -> bool
 
-        def checked: (untyped path) -> untyped
+        def checked: (Pathname path) -> void
 
-        def finished?: () -> untyped
+        def finished?: () -> bool
 
-        def unchecked_paths: () -> untyped
+        def unchecked_paths: () -> Set[Pathname]
 
-        def unchecked_code_paths: () -> untyped
+        def unchecked_code_paths: () -> Set[Pathname]
 
-        def unchecked_library_paths: () -> untyped
+        def unchecked_library_paths: () -> Set[Pathname]
 
-        def unchecked_signature_paths: () -> untyped
+        def unchecked_signature_paths: () -> Set[Pathname]
       end
 
+      # TypeCheckController remembers changed files, keep track of open editors, and make a TypeCheckRequest that contains list of all files to be type checked
+      #
+      # ```rb
+      # controller = TypeCheckController.new(project: project)
+      #
+      # controller.push_changes(file_path)           # Remember that the path is changed
+      # controller.update_priority(open: file_path)  # Remember that an editor opens the path
+      # controller.make_request(...)                 # Make an instance of TypeCheckRequest that contains list of all paths to type check
+      # ```
       class TypeCheckController
-        attr_reader project: untyped
+        attr_reader project: Project
 
-        attr_reader priority_paths: untyped
+        attr_reader priority_paths: Set[Pathname]
 
-        attr_reader changed_paths: untyped
+        attr_reader changed_paths: Set[Pathname]
 
-        attr_reader target_paths: untyped
+        attr_reader target_paths: Array[TargetPaths]
 
         class TargetPaths
-          attr_reader project: untyped
+          attr_reader project: Project
 
-          attr_reader target: untyped
+          attr_reader target: Project::Target
 
-          attr_reader code_paths: untyped
+          attr_reader code_paths: Set[Pathname]
 
-          attr_reader signature_paths: untyped
+          attr_reader signature_paths: Set[Pathname]
 
-          attr_reader library_paths: untyped
+          attr_reader library_paths: Set[Pathname]
 
-          def initialize: (project: untyped, target: untyped) -> void
+          def initialize: (project: Project, target: Project::Target) -> void
 
-          def all_paths: () -> untyped
+          def all_paths: () -> Set[Pathname]
 
-          def library_path?: (untyped path) -> untyped
+          def library_path?: (Pathname path) -> bool
 
-          def signature_path?: (untyped path) -> untyped
+          def signature_path?: (Pathname path) -> bool
 
-          def code_path?: (untyped path) -> untyped
+          def code_path?: (Pathname path) -> bool
 
-          def add: (untyped path) -> (nil | untyped)
+          def add: (Pathname path) -> void
 
           alias << add
         end
 
-        def initialize: (project: untyped) -> void
+        def initialize: (project: Project) -> void
 
-        def load: (command_line_args: untyped) -> untyped
+        def load: (command_line_args: Array[String]) -> void
 
-        def push_changes: (untyped path) -> (nil | untyped)
+        def push_changes: (Pathname path) -> void
 
-        def update_priority: (?open: untyped?, ?close: untyped?) -> untyped
+        def update_priority: (open: Pathname) -> void
+                           | (close: Pathname) -> void
 
-        def make_request: (?guid: untyped, ?last_request: untyped?, ?include_unchanged: bool) -> (nil | untyped)
+        def make_request: (?guid: String, ?last_request: TypeCheckRequest?, ?include_unchanged: bool) -> TypeCheckRequest?
       end
 
+      type lsp_notification = { method: String, params: untyped }
+
+      type lsp_request = { id: String, method: String, params: untyped }
+
+      type lsp_response = { id: String, result: untyped }
+
+      type lsp_message = { method: String, id: String?, params: untyped?, result: untyped? }
+
       class ResultHandler
-        attr_reader request: untyped
+        attr_reader request: lsp_request
 
-        attr_reader completion_handler: untyped
+        attr_reader completion_handler: (^(lsp_response) -> void)?
 
-        attr_reader response: untyped
+        attr_reader response: lsp_response?
+
+        @completed: bool
 
         def initialize: (request: untyped) -> void
 
-        def process_response: (untyped message) -> (true | false)
+        def process_response: (lsp_response message) -> bool
 
         def result: () -> untyped
 
-        def completed?: () -> untyped
+        def completed?: () -> bool
 
-        def on_completion: () ?{ () -> untyped } -> untyped
+        def on_completion: () ?{ (lsp_response) -> void } -> void
       end
 
       class GroupHandler
-        attr_reader request: untyped
+        attr_reader request: lsp_request
 
-        attr_reader handlers: untyped
+        attr_reader handlers: Hash[String, ResultHandler]
 
-        attr_reader completion_handler: untyped
+        attr_reader completion_handler: (^(Array[ResultHandler]) -> void)?
 
         def initialize: () -> void
 
-        def process_response: (untyped message) -> (true | false)
+        def process_response: (lsp_response message) -> bool
 
-        def completed?: () -> untyped
+        def completed?: () -> bool
 
-        def <<: (untyped handler) -> untyped
+        def <<: (ResultHandler handler) -> void
 
-        def on_completion: () ?{ () -> untyped } -> untyped
+        def on_completion: () { (Array[ResultHandler]) -> void } -> void
       end
 
       class ResultController
-        attr_reader handlers: untyped
+        attr_reader handlers: Array[ResultHandler | GroupHandler]
 
         def initialize: () -> void
 
-        def <<: (untyped handler) -> untyped
+        def <<: (ResultHandler | GroupHandler handler) -> void
 
-        def request_group: () { (untyped) -> untyped } -> untyped
+        def request_group: () { (GroupHandler) -> void } -> GroupHandler
 
-        def process_response: (untyped message) -> untyped
+        def process_response: (lsp_response message) -> bool
       end
 
-      ReceiveMessageJob: untyped
+      module MessageUtils : _WithMessage
+        interface _WithMessage
+          def message: () -> untyped
+        end
 
-      SendMessageJob: untyped
+        def request?: () -> bool
 
-      attr_reader steepfile: untyped
+        def notification?: () -> bool
 
-      attr_reader project: untyped
+        def response?: () -> bool
 
-      attr_reader reader: untyped
+        %a{pure} def method: () -> String?
 
-      attr_reader writer: untyped
+        %a{pure} def id: () -> String?
 
-      attr_reader commandline_args: untyped
+        %a{pure} def result: () -> untyped?
 
-      attr_reader interaction_worker: untyped
+        %a{pure} def params: () -> untyped?
+      end
 
-      attr_reader typecheck_workers: untyped
+      class ReceiveMessageJob
+        attr_reader source: WorkerProcess | :client
 
-      attr_reader job_queue: untyped
+        attr_reader message: untyped
 
-      attr_reader current_type_check_request: untyped
+        def initialize: (source: WorkerProcess | :client, message: untyped) -> void
 
-      attr_reader controller: untyped
+        include MessageUtils
+      end
 
-      attr_reader result_controller: untyped
+      class SendMessageJob
+        attr_reader dest: WorkerProcess | :client
+
+        attr_reader message: untyped
+
+        def initialize: (dest: WorkerProcess | :client, message: untyped) -> void
+
+        def self.to_worker: (WorkerProcess, message: untyped) -> SendMessageJob
+
+        def self.to_client: (message: untyped) -> SendMessageJob
+
+        include MessageUtils
+      end
+
+      attr_reader project: Project
+
+      attr_reader reader: LanguageServer::Protocol::Transport::Io::Reader
+
+      attr_reader writer: LanguageServer::Protocol::Transport::Io::Writer
+
+      attr_reader commandline_args: Array[String]
+
+      attr_reader interaction_worker: WorkerProcess
+
+      attr_reader typecheck_workers: Array[WorkerProcess]
+
+      attr_reader job_queue: Thread::Queue
+
+      attr_reader current_type_check_request: TypeCheckRequest?
+
+      attr_reader controller: TypeCheckController
+
+      attr_reader result_controller: ResultController
 
       attr_reader initialize_params: untyped
 
-      attr_accessor typecheck_automatically: untyped
+      attr_accessor typecheck_automatically: bool
 
-      def initialize: (project: untyped, reader: untyped, writer: untyped, interaction_worker: untyped, typecheck_workers: untyped, ?queue: untyped) -> void
+      def initialize: (project: Project, reader: untyped, writer: untyped, interaction_worker: WorkerProcess, typecheck_workers: Array[WorkerProcess], ?queue: Thread::Queue) -> void
 
-      def start: () -> untyped
+      def start: () -> void
 
-      def each_worker: () { (untyped) -> untyped } -> untyped
+      def each_worker: () { (WorkerProcess) -> void } -> void
+                     | () -> Enumerator[WorkerProcess, void]
 
-      def pathname: (untyped uri) -> untyped
+      def pathname: (String uri) -> Pathname?
 
-      def work_done_progress_supported?: () -> untyped
+      def work_done_progress_supported?: () -> bool
 
-      def process_message_from_client: (untyped message) -> untyped
+      def process_message_from_client: (untyped message) -> void
 
-      def process_message_from_worker: (untyped message, worker: untyped) -> untyped
+      def process_message_from_worker: (untyped message, worker: WorkerProcess) -> void
 
-      def start_type_check: (untyped request, last_request: untyped, start_progress: untyped) -> untyped
+      def start_type_check: (TypeCheckRequest request, last_request: TypeCheckRequest?, start_progress: bool) -> void
 
-      def on_type_check_update: (guid: untyped, path: untyped) -> (untyped | nil | nil)
+      def on_type_check_update: (guid: String, path: Pathname) -> void
 
-      def broadcast_notification: (untyped message) -> untyped
+      def broadcast_notification: (lsp_notification message) -> void
 
-      def send_notification: (untyped message, worker: untyped) -> untyped
+      def send_notification: (lsp_notification message, worker: WorkerProcess) -> void
 
-      def fresh_request_id: () -> untyped
+      def fresh_request_id: () -> String
 
-      def send_request: (method: untyped, worker: untyped, ?id: untyped, ?params: untyped?) { (untyped) -> untyped } -> untyped
+      def send_request: (method: String, worker: WorkerProcess, ?id: String, ?params: untyped?) ?{ (ResultHandler) -> void } -> ResultHandler
 
-      def group_request: () { (untyped) -> untyped } -> untyped
+      def group_request: () { (GroupHandler) -> void } -> GroupHandler
 
-      def kill: () -> untyped
+      def kill: () -> void
     end
   end
 end

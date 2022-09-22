@@ -1,4 +1,6 @@
 module ActiveSupport::TaggedLogging
   def tagged: [A] (*String) { () -> A } -> A
             | ...
+
+  def formatter: () -> Formatter
 end
