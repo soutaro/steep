@@ -9,7 +9,7 @@ module Steep
           when Project::Target
             Ruby.new(service: service).content_for(target: target, path: path, line: line, column: column)
           when Array
-            RBS.new(service: service).content_for(target: target, path: path, line: line, column: column)
+            RBS.new(service: service).content_for(target: target[0], path: path, line: line, column: column)
           end
         end
       end
