@@ -78,6 +78,10 @@ module Steep
 
       private
 
+      @subtyping: Subtyping::Check?
+
+      def subtyping: () -> Subtyping::Check
+
       # Fetch and update cache
       #
       # Cache if given type is cacheable:

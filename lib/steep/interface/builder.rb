@@ -329,29 +329,39 @@ module Steep
         end
       end
 
+      def subtyping
+        @subtyping ||= Subtyping::Check.new(builder: self)
+      end
+
       def union_shape(shape_type, shapes, public_only)
         shapes.inject do |shape1, shape2|
           Interface::Shape.new(type: shape_type, private: !public_only).tap do |shape|
             common_methods = Set.new(shape1.methods.each_name) & Set.new(shape2.methods.each_name)
             common_methods.each do |name|
-              types1 = shape1.methods[name]&.method_types or raise
-              types2 = shape2.methods[name]&.method_types or raise
+              Steep.logger.tagged(name.to_s) do
+                types1 = shape1.methods[name]&.method_types or raise
+                types2 = shape2.methods[name]&.method_types or raise
 
-              if types1 == types2
-                shape.methods[name] = (shape1.methods[name] or raise)
-              else
-                method_types = {}
+                if types1 == types2
+                  shape.methods[name] = (shape1.methods[name] or raise)
+                else
+                  method_types = {}
 
-                types1.each do |type1|
-                  types2.each do |type2|
-                    if type = type1 | type2
-                      method_types[type] = true
+                  types1.each do |type1|
+                    types2.each do |type2|
+                      if type1 == type2
+                        method_types[type1] = true
+                      else
+                        if type = MethodType.union(type1, type2, subtyping)
+                          method_types[type] = true
+                        end
+                      end
                     end
                   end
-                end
 
-                unless method_types.empty?
-                  shape.methods[name] = Interface::Shape::Entry.new(method_types: method_types.keys)
+                  unless method_types.empty?
+                    shape.methods[name] = Interface::Shape::Entry.new(method_types: method_types.keys)
+                  end
                 end
               end
             end
@@ -372,7 +382,7 @@ module Steep
         element_type = AST::Types::Union.build(types: tuple.types, location: nil)
         array_type = AST::Builtin::Array.instance_type(element_type)
 
-        array_shape = shape(array_type, public_only: public_only, config: config) or raise
+        array_shape = shape(array_type, public_only: public_only, config: config.no_resolve) or raise
         shape = Shape.new(type: tuple, private: !public_only)
         shape.methods.merge!(array_shape.methods)
 
@@ -508,7 +518,7 @@ module Steep
         shape.methods[:first] = first_entry
         shape.methods[:last] = last_entry
 
-        shape
+        config.resolve_shape(shape, tuple)
       end
 
       def record_shape(record, public_only, config)
