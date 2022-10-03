@@ -291,4 +291,84 @@ end
       )
     end
   end
+
+  def test_union_itself
+    with_factory({ "a.rbs" => <<-RBS }, nostdlib: true) do
+class BasicObject
+end
+
+class Object < BasicObject
+  def itself: () -> self
+end
+
+class Array[T]
+  def []: (Integer) -> T
+
+  def []=: (Integer, T) -> T
+
+  def fetch: (Integer) -> T
+
+  def first: () -> T?
+
+  def last: () -> T?
+end
+
+class Integer
+end
+
+class String
+end
+      RBS
+      builder = Interface::Builder.new(factory)
+
+      type = parse_type("::Array[[::Integer, ::String]] | ::String")
+      shape = builder.shape(
+        type,
+        public_only: true,
+        config: config.update(resolve_self: type)
+      )
+
+      assert_equal(
+        [parse_method_type("() -> (#{type.to_s})")],
+        shape.methods[:itself].method_types
+      )
+    end
+  end
+
+  def test_union_try
+    with_factory({ "a.rbs" => <<-RBS }, nostdlib: true) do
+class BasicObject
+end
+
+class Object < BasicObject
+  def try: [T] () { (self) -> T } -> T
+         | [T] () { () -> T } -> T
+end
+
+class Integer
+end
+
+class String
+end
+
+class Symbol
+end
+      RBS
+      builder = Interface::Builder.new(factory)
+
+      shape = builder.shape(
+        parse_type("::Integer | ::String"),
+        public_only: true,
+        config: config.update(resolve_self: parse_type("::Integer | ::String"))
+      )
+
+      assert_equal(
+        [
+          parse_method_type("[T] () { ((::Integer | ::String)) -> T } -> T"),
+          parse_method_type("[T] () { () -> T } -> T")
+        ],
+        shape.methods[:try].method_types
+      )
+    end
+  end
 end

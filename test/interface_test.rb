@@ -3,9 +3,15 @@ require_relative "test_helper"
 class InterfaceTest < Minitest::Test
   include TestHelper
   include FactoryHelper
-  
+
+  include Steep
+
   def method_params(source)
     parse_method_type(source).type.params
+  end
+
+  def subtyping
+    @subtyping ||= Subtyping::Check.new(builder: Interface::Builder.new(factory))
   end
 
   def test_method_type_params_plus
@@ -57,7 +63,7 @@ class InterfaceTest < Minitest::Test
 
       assert_equal method_params("() -> untyped"),
                    method_params("() -> untyped") + method_params("() -> untyped")
-      
+
       assert_equal method_params("(foo: String | Integer) -> void"),
                    method_params("(foo: String) -> void") + method_params("(foo: Integer) -> untyped")
 
@@ -373,8 +379,7 @@ class InterfaceTest < Minitest::Test
       assert_equal parse_method_type("() { (String | Integer) -> (Integer & Float) } -> (String | Symbol)"),
                    parse_method_type("() { (String) -> Integer } -> String") | parse_method_type("() { (Integer) -> Float } -> Symbol")
 
-      assert_equal parse_method_type("() { (String | Integer, ?String) -> void } -> void"),
-                   parse_method_type("() { (String, String) -> void } -> void") | parse_method_type("() { (Integer) -> void } -> void")
+      assert_nil(parse_method_type("() { (String, String) -> void } -> void") | parse_method_type("() { (Integer) -> void } -> void"))
 
       assert_equal parse_method_type("() { (String | Integer) -> (Integer & Float) } -> (String | Symbol)"),
                    parse_method_type("() ?{ (String) -> Integer } -> String") | parse_method_type("() { (Integer) -> Float } -> Symbol")
@@ -386,10 +391,52 @@ class InterfaceTest < Minitest::Test
 
   def test_method_type_union_poly
     with_factory do
-      assert_method_type(
-        "[A, A(n), B(m)] ((Array[A] & Hash[A(n), B(m)])) -> (String | Symbol)",
-        parse_method_type("[A] (Array[A]) -> String") | parse_method_type("[A, B] (Hash[A, B]) -> Symbol")
+      assert_nil Interface::MethodType.union(
+        parse_method_type("[A] (Array[A]) -> String"),
+        parse_method_type("[A, B] (Hash[A, B]) -> Symbol"),
+        subtyping
       )
+    end
+
+    with_factory do
+      assert_method_type(
+        "[B] () { () -> B } -> (void | B)",
+        Interface::MethodType.union(
+          parse_method_type("[B] () { () -> B } -> void"),
+          parse_method_type("[B] () { () -> B } -> B"),
+          subtyping
+        )
+      )
+    end
+
+    with_factory do
+      assert_method_type(
+        "[A] () { () -> A } -> A",
+        Interface::MethodType.union(
+          parse_method_type("[A] () { () -> A } -> A"),
+          parse_method_type("[B] () { () -> B } -> B"),
+          subtyping
+        )
+      )
+    end
+  end
+
+  def test_method_type_union_poly2
+    with_factory do
+      assert_method_type(
+        "[A] () { ((::String | ::Integer)) -> A } -> A",
+        Interface::MethodType.union(
+          parse_method_type("[A] () { (::String) -> A } -> A"),
+          parse_method_type("[X] () { (::Integer) -> X } -> X"),
+          subtyping
+        )
+      )
+    end
+  end
+
+  def test_method_strict_block_param_compatibility
+    with_factory do
+      assert_nil(parse_method_type("() { (::String) -> void } -> void") | parse_method_type("() { () -> void } -> void"))
     end
   end
 
@@ -419,8 +466,12 @@ class InterfaceTest < Minitest::Test
   def test_method_type_intersection_poly
     with_factory do
       assert_method_type(
-        "[A, A(i) < Array[Integer]] ((A | A(i))) -> (A & Integer)",
-        parse_method_type("[A] (A) -> A") & parse_method_type("[A < Array[Integer]] (A) -> Integer")
+        "[A < ::Array[::Integer]] (A) -> ::Integer",
+        Interface::MethodType.intersection(
+          parse_method_type("[A] (A) -> ::Integer"),
+          parse_method_type("[A < ::Array[::Integer]] (A) -> ::Integer"),
+          subtyping
+        )
       )
     end
   end
