@@ -403,7 +403,12 @@ module Steep
                 builder.shape(
                   type,
                   public_only: true,
-                  config: Interface::Builder::Config.new(resolve_self: true, resolve_instance_type: true, resolve_class_type: true, variable_bounds: variable_upper_bounds)
+                  config: Interface::Builder::Config.new(
+                    resolve_self: type,
+                    resolve_instance_type: factory.try_instance_type(type),
+                    resolve_class_type: factory.try_singleton_type(type),
+                    variable_bounds: variable_upper_bounds
+                  )
                 ) or raise
               }
             )
@@ -519,9 +524,9 @@ module Steep
                   type,
                   public_only: true,
                   config: Interface::Builder::Config.new(
-                    resolve_self: true,
-                    resolve_class_type: true,
-                    resolve_instance_type: true,
+                    resolve_self: type,
+                    resolve_instance_type: factory.try_instance_type(type),
+                    resolve_class_type: factory.try_singleton_type(type),
                     variable_bounds: variable_upper_bounds
                   )
                 ) or raise

@@ -116,7 +116,7 @@ module Steep
           case type
           when AST::Types::Self
             case config.resolve_self
-            when true, nil
+            when nil
               nil
             else
               self_type = config.resolve_self.subst(config.subst)
@@ -124,7 +124,7 @@ module Steep
             end
           when AST::Types::Instance
             case config.resolve_instance_type
-            when true, nil
+            when nil
               nil
             else
               self_type = config.resolve_instance_type.subst(config.subst)
@@ -136,7 +136,7 @@ module Steep
             end
           when AST::Types::Class
             case config.resolve_class_type
-            when true, nil
+            when nil
               nil
             else
               self_type = config.resolve_class_type.subst(config.subst)

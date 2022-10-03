@@ -2,25 +2,25 @@ module Steep
   module Interface
     class Builder
       class Config
-        attr_reader resolve_self: AST::Types::t | true | nil
+        attr_reader resolve_self: AST::Types::t | nil
 
-        attr_reader resolve_class_type: AST::Types::t | true | nil
+        attr_reader resolve_class_type: AST::Types::t | nil
 
-        attr_reader resolve_instance_type: AST::Types::t | true | nil
+        attr_reader resolve_instance_type: AST::Types::t | nil
 
         attr_reader variable_bounds: Hash[Symbol, AST::Types::t?]
 
         def initialize: (
-          resolve_self: AST::Types::t | true | nil,
-          resolve_class_type: AST::Types::t | true | nil,
-          resolve_instance_type: AST::Types::t | true | nil,
+          resolve_self: AST::Types::t | nil,
+          resolve_class_type: AST::Types::t | nil,
+          resolve_instance_type: AST::Types::t | nil,
           variable_bounds: Hash[Symbol, AST::Types::t?]
         ) -> void
 
         def update: (
-          ?resolve_self: AST::Types::t | true | nil,
-          ?resolve_class_type: AST::Types::t | true | nil,
-          ?resolve_instance_type: AST::Types::t | true | nil,
+          ?resolve_self: AST::Types::t | nil,
+          ?resolve_class_type: AST::Types::t | nil,
+          ?resolve_instance_type: AST::Types::t | nil,
           ?variable_bounds: Hash[Symbol, AST::Types::t?]
         ) -> self
 
@@ -40,9 +40,9 @@ module Steep
       type cache_key = [
         AST::Types::t,   # type
         bool,            # public_only
-        AST::Types::t | true | nil,   # resolve_self
-        AST::Types::t | true | nil,   # resolve_class_type
-        AST::Types::t | true | nil,   # resolve_instance_type
+        AST::Types::t | nil,   # resolve_self
+        AST::Types::t | nil,   # resolve_class_type
+        AST::Types::t | nil,   # resolve_instance_type
         Hash[Symbol, AST::Types::t?]? # variable_bounds
       ]
       attr_reader cache: Hash[cache_key, Shape?]
