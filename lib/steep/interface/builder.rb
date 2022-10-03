@@ -21,6 +21,30 @@ module Steep
           )
         end
 
+        def no_resolve
+          if resolve?
+            update(resolve_self: nil, resolve_class_type: nil, resolve_instance_type: nil)
+          else
+            self
+          end
+        end
+
+        def resolve_self?
+          !!resolve_self
+        end
+
+        def resolve_instance_type?
+          !!resolve_instance_type
+        end
+
+        def resolve_class_type?
+          !!resolve_class_type
+        end
+
+        def resolve?
+          resolve_self? || resolve_class_type? || resolve_instance_type?
+        end
+
         def ==(other)
           other.is_a?(Config) &&
             other.resolve_self == resolve_self &&
@@ -37,31 +61,27 @@ module Steep
 
         def subst
           @subst ||= begin
-            self_type =
-              case resolve_self
-              when true, nil
-                AST::Types::Self.instance
-              else
-                resolve_self
-              end
-
-            class_type =
-              case resolve_class_type
-              when true, nil
-                AST::Types::Class.instance
-              else
-                resolve_class_type
-              end
-
-            instance_type =
-              case resolve_instance_type
-              when true, nil
-                AST::Types::Instance.instance
-              else
-                resolve_instance_type
-              end
+            self_type = resolve_self || AST::Types::Self.instance
+            class_type = resolve_class_type || AST::Types::Class.instance
+            instance_type = resolve_instance_type || AST::Types::Instance.instance
 
             Substitution.build([], [], self_type: self_type, module_type: class_type, instance_type: instance_type)
+          end
+        end
+
+        def resolve_shape(shape, type)
+          if resolve?
+            if type.nil? || type == shape.type
+              shape.subst(subst)
+            else
+              shape.subst(subst, type: type)
+            end
+          else
+            if type.nil? || type == shape.type
+              shape
+            else
+              shape.update(type: type)
+            end
           end
         end
       end
@@ -156,7 +176,9 @@ module Steep
             )
           when AST::Types::Name::Alias
             if expanded = factory.deep_expand_alias(type)
-              shape(expanded, public_only: public_only, config: config)&.update(type: type)
+              if shape = shape(expanded, public_only: public_only, config: config)
+                config.resolve_shape(shape, type)
+              end
             end
           when AST::Types::Any, AST::Types::Bot, AST::Types::Void, AST::Types::Top
             nil
@@ -165,11 +187,18 @@ module Steep
               shape(bound, public_only: public_only, config: config)
             end
           when AST::Types::Union
-            shapes = type.types.map {|type| shape(type, public_only: public_only, config: config) or return }
-            union_shape(type, shapes, public_only)
+            shapes = type.types.map do |type|
+              shape(type, public_only: public_only, config: config.no_resolve) or return
+            end
+
+            if shape = union_shape(type, shapes, public_only)
+              config.resolve_shape(shape, nil)
+            end
           when AST::Types::Intersection
-            shapes = type.types.map {|type| shape(type, public_only: public_only, config: config) or return }
-            intersection_shape(type, shapes, public_only)
+            shapes = type.types.map {|type| shape(type, public_only: public_only, config: config.no_resolve) or return }
+            if shape = intersection_shape(type, shapes, public_only)
+              config.resolve_shape(shape, nil)
+            end
           when AST::Types::Tuple
             tuple_shape(type, public_only, config)
           when AST::Types::Record
@@ -177,16 +206,22 @@ module Steep
           when AST::Types::Literal
             shape(type.back_type, public_only: public_only, config: config)&.update(type: type)
           when AST::Types::Boolean, AST::Types::Logic::Base
-            union_shape(
+            shape = union_shape(
               type,
               [
-                object_shape(AST::Builtin::TrueClass.instance_type, public_only, false, false, false),
-                object_shape(AST::Builtin::FalseClass.instance_type, public_only, false, false, false)
+                object_shape(AST::Builtin::TrueClass.instance_type, public_only, true, true, true),
+                object_shape(AST::Builtin::FalseClass.instance_type, public_only, true, true, true)
               ],
               public_only
             )
+
+            if shape
+              config.resolve_shape(shape, nil)
+            end
           when AST::Types::Nil
-            object_shape(AST::Builtin::NilClass.instance_type, public_only, false, false, false)&.update(type: type)
+            if shape = object_shape(AST::Builtin::NilClass.instance_type, public_only, true, true, true)
+              config.resolve_shape(shape, type)
+            end
           when AST::Types::Proc
             proc_shape(type, public_only, config)
           else

@@ -24,6 +24,16 @@ module Steep
           ?variable_bounds: Hash[Symbol, AST::Types::t?]
         ) -> self
 
+        def no_resolve: () -> self
+
+        def resolve?: () -> bool
+
+        def resolve_self?: () -> bool
+
+        def resolve_class_type?: () -> bool
+
+        def resolve_instance_type?: () -> bool
+
         def ==: (untyped) -> bool
 
         alias eql? ==
@@ -32,7 +42,9 @@ module Steep
 
         @subst: Substitution
 
-        %a{pure} def subst: () -> Substitution
+        def subst: () -> Substitution
+
+        def resolve_shape: (Shape, AST::Types::t?) -> Shape
       end
 
       attr_reader factory: AST::Types::Factory
