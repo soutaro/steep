@@ -462,8 +462,8 @@ module ShellHelper
     end
   end
 
-  def sh(*command)
-    Open3.capture2(env_vars, *command, chdir: current_dir.to_s)
+  def sh(*command, **opts)
+    Open3.capture2(env_vars, *command, chdir: current_dir.to_s, **opts)
   end
 
   def sh3(*command)
@@ -474,8 +474,8 @@ module ShellHelper
     Open3.capture2e(env_vars, *command, chdir: current_dir.to_s)
   end
 
-  def sh!(*command)
-    stdout, status = sh(*command)
+  def sh!(*command, **opts)
+    stdout, status = sh(*command, **opts)
     unless status.success?
       raise "Failed to execute: #{command.join(" ")}, #{status.inspect}, stdout=#{stdout.inspect}"
     end
