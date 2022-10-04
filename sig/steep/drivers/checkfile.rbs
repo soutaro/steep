@@ -1,0 +1,20 @@
+module Steep
+  module Drivers
+    class Checkfile
+      LSP: singleton(LanguageServer::Protocol)
+
+      attr_reader stdout: IO
+
+      attr_reader stderr: IO
+
+      attr_reader command_line_args: Array[String]
+
+      include Utils::DriverHelper
+      include Utils::JobsCount
+
+      def initialize: (stdout: IO, stderr: IO) -> void
+
+      def run: () -> Integer
+    end
+  end
+end

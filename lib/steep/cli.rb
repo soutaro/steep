@@ -18,7 +18,7 @@ module Steep
     end
 
     def self.available_commands
-      [:init, :check, :validate, :annotations, :version, :project, :watch, :langserver, :stats, :binstub]
+      [:init, :check, :validate, :annotations, :version, :project, :watch, :langserver, :stats, :binstub, :checkfile]
     end
 
     def process_global_options
@@ -120,6 +120,20 @@ module Steep
         end.parse!(argv)
 
         check.command_line_patterns.push *argv
+      end.run
+    end
+
+    def process_checkfile
+      Drivers::Checkfile.new(stdout: stdout, stderr: stderr).tap do |check|
+        OptionParser.new do |opts|
+          opts.banner = "Usage: steep checkfile [options] [files]"
+
+          opts.on("--steepfile=PATH") {|path| check.steepfile = Pathname(path) }
+          handle_jobs_option check, opts
+          handle_logging_options opts
+        end.parse!(argv)
+
+        check.command_line_args.push *argv
       end.run
     end
 
