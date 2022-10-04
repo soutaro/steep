@@ -648,7 +648,8 @@ end
 
       with_standard_construction(checker, source) do |construction, typing|
         construction.synthesize(source.node)
-        assert_no_error typing
+
+        assert_typing_error(typing, size: 2)
       end
     end
   end
@@ -1841,7 +1842,7 @@ y = x.itself
       with_standard_construction(checker, source) do |construction, typing|
         pair = construction.synthesize(source.node)
 
-        assert_empty typing.errors
+        assert_no_error typing
         assert_equal parse_type("::String | ::Integer"), pair.constr.context.type_env[:y]
       end
     end

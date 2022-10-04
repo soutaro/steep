@@ -349,9 +349,9 @@ module Steep
           type,
           public_only: !include_private,
           config: Interface::Builder::Config.new(
-            resolve_self: context.self_type,
-            resolve_class_type: context.module_context&.module_type,
-            resolve_instance_type: context.module_context&.instance_type,
+            self_type: context.self_type,
+            class_type: context.module_context&.module_type,
+            instance_type: context.module_context&.instance_type,
             variable_bounds: context.variable_context.upper_bounds
           )
         )
