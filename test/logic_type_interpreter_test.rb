@@ -21,9 +21,9 @@ class LogicTypeInterpreterTest < Minitest::Test
 
   def config
     Interface::Builder::Config.new(
-      resolve_self: true,
-      resolve_class_type: true,
-      resolve_instance_type: true,
+      self_type: AST::Builtin::Object.instance_type,
+      class_type: nil,
+      instance_type: nil,
       variable_bounds: {}
     )
   end

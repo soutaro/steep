@@ -23,7 +23,15 @@ module Steep
 
       def hash: () -> Integer
 
-      def self.rename: (Array[TypeParam] params, ?Array[Symbol] conflicting_names) -> [Array[TypeParam], Substitution]
+      # Rename the type parameters to fresh names
+      #
+      # Returns a pair of renamed type parameters and substitution.
+      #
+      # ```rb
+      # TypeParam.rename([`X`, `Y`], [:X, :Y])  # [[`X(0)`, `Y(1)`], `{ X => X(0), Y => Y(1) }`]
+      # ```
+      #
+      def self.rename: (Array[TypeParam] params, ?Array[Symbol] conflicting_names, ?Array[Symbol] new_names) -> [Array[TypeParam], Substitution]
 
       def to_s: () -> String
 

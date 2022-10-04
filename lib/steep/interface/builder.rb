@@ -3,65 +3,69 @@ module Steep
   module Interface
     class Builder
       class Config
-        attr_reader :resolve_self, :resolve_class_type, :resolve_instance_type, :variable_bounds
+        attr_reader :self_type, :class_type, :instance_type, :variable_bounds
+        attr_reader :resolve_self, :resolve_instance, :resolve_class
 
-        def initialize(resolve_self:, resolve_class_type:, resolve_instance_type:, variable_bounds:)
+        def initialize(self_type:, class_type:, instance_type:, resolve_self: true, resolve_class: true, resolve_instance: true, variable_bounds:)
+          @self_type = self_type
+          @class_type = class_type
+          @instance_type = instance_type
           @resolve_self = resolve_self
-          @resolve_class_type = resolve_class_type
-          @resolve_instance_type = resolve_instance_type
+          @resolve_class = resolve_class
+          @resolve_instance = resolve_instance
           @variable_bounds = variable_bounds
         end
 
-        def update(resolve_self: self.resolve_self, resolve_class_type: self.resolve_class_type, resolve_instance_type: self.resolve_instance_type, variable_bounds: self.variable_bounds)
+        def update(self_type: self.self_type, class_type: self.class_type, instance_type: self.instance_type, resolve_self: self.resolve_self, resolve_class: self.resolve_class, resolve_instance: self.resolve_instance, variable_bounds: self.variable_bounds)
           _ = self.class.new(
+            self_type: self_type,
+            class_type: class_type,
+            instance_type: instance_type,
             resolve_self: resolve_self,
-            resolve_class_type: resolve_class_type,
-            resolve_instance_type: resolve_instance_type,
+            resolve_class: resolve_class,
+            resolve_instance: resolve_instance,
             variable_bounds: variable_bounds
           )
         end
 
+        def no_resolve
+          if resolve?
+            @no_resolve ||= update(resolve_self: false, resolve_class: false, resolve_instance: false)
+          else
+            self
+          end
+        end
+
+        def resolve?
+          resolve_self || resolve_class || resolve_instance
+        end
+
         def ==(other)
           other.is_a?(Config) &&
+            other.self_type == self_type &&
+            other.class_type == class_type &&
+            other.instance_type == instance_type &&
             other.resolve_self == resolve_self &&
-            other.resolve_class_type == resolve_class_type &&
-            other.resolve_instance_type == resolve_instance_type &&
+            other.resolve_class == resolve_class &&
+            other.resolve_instance == resolve_instance &&
             other.variable_bounds == variable_bounds
         end
 
         alias eql? ==
 
         def hash
-          resolve_self.hash ^ resolve_class_type.hash ^ resolve_instance_type.hash ^ variable_bounds.hash
+          self_type.hash ^ class_type.hash ^ instance_type.hash ^ resolve_self.hash ^ resolve_class.hash ^ resolve_instance.hash ^ variable_bounds.hash
         end
 
         def subst
           @subst ||= begin
-            self_type =
-              case resolve_self
-              when true, nil
-                AST::Types::Self.instance
-              else
-                resolve_self
-              end
-
-            class_type =
-              case resolve_class_type
-              when true, nil
-                AST::Types::Class.instance
-              else
-                resolve_class_type
-              end
-
-            instance_type =
-              case resolve_instance_type
-              when true, nil
-                AST::Types::Instance.instance
-              else
-                resolve_instance_type
-              end
-
-            Substitution.build([], [], self_type: self_type, module_type: class_type, instance_type: instance_type)
+            Substitution.build(
+              [],
+              [],
+              self_type: self_type,
+              module_type: class_type || AST::Types::Class.instance,
+              instance_type: instance_type || AST::Types::Instance.instance
+            )
           end
         end
       end
@@ -94,9 +98,12 @@ module Steep
         key = [
           type,
           public_only,
-          has_self ? config.resolve_self : nil,
-          has_self ? config.resolve_class_type : nil,
-          has_self ? config.resolve_instance_type : nil,
+          has_self ? config.self_type : nil,
+          has_self ? config.class_type : nil,
+          has_self ? config.instance_type : nil,
+          config.resolve_self,
+          config.resolve_class,
+          config.resolve_instance,
           if config.variable_bounds.each_key.any? {|var| fvs.include?(var)}
             config.variable_bounds.select {|var, _| fvs.include?(var) }
           else
@@ -115,44 +122,25 @@ module Steep
         fetch_cache(type, public_only, config) do
           case type
           when AST::Types::Self
-            case config.resolve_self
-            when true, nil
-              nil
-            else
-              self_type = config.resolve_self.subst(config.subst)
-              shape(self_type, public_only: public_only, config: config.update(resolve_self: nil))
-            end
+            self_type = config.self_type.subst(config.subst)
+            shape(self_type, public_only: public_only, config: config.update(resolve_self: false))
           when AST::Types::Instance
-            case config.resolve_instance_type
-            when true, nil
-              nil
-            else
-              self_type = config.resolve_instance_type.subst(config.subst)
-              shape(
-                self_type,
-                public_only: public_only,
-                config: config.update(resolve_instance_type: nil)
-              )
+            if config.instance_type
+              instance_type = config.instance_type.subst(config.subst)
+              shape(instance_type, public_only: public_only, config: config.update(resolve_instance: false))
             end
           when AST::Types::Class
-            case config.resolve_class_type
-            when true, nil
-              nil
-            else
-              self_type = config.resolve_class_type.subst(config.subst)
-              shape(
-                self_type,
-                public_only: public_only,
-                config: config.update(resolve_class_type: nil)
-              )
+            if config.class_type
+              class_type = config.class_type.subst(config.subst)
+              shape(class_type, public_only: public_only, config: config.update(resolve_class: false))
             end
           when AST::Types::Name::Instance, AST::Types::Name::Interface, AST::Types::Name::Singleton
             object_shape(
               type.subst(config.subst),
               public_only,
-              config.resolve_self.nil?,
-              config.resolve_instance_type.nil?,
-              config.resolve_class_type.nil?
+              !config.resolve_self,
+              !config.resolve_instance,
+              !config.resolve_class
             )
           when AST::Types::Name::Alias
             if expanded = factory.deep_expand_alias(type)
@@ -162,31 +150,109 @@ module Steep
             nil
           when AST::Types::Var
             if bound = config.variable_bounds[type.name]
-              shape(bound, public_only: public_only, config: config)
+              shape(bound, public_only: public_only, config: config)&.update(type: type)
             end
           when AST::Types::Union
-            shapes = type.types.map {|type| shape(type, public_only: public_only, config: config) or return }
-            union_shape(type, shapes, public_only)
+            if include_self?(type)
+              self_var = AST::Types::Var.fresh(:SELF)
+              class_var = AST::Types::Var.fresh(:CLASS)
+              instance_var = AST::Types::Var.fresh(:INSTANCE)
+
+              bounds = config.variable_bounds.merge({ self_var.name => config.self_type, instance_var.name => config.instance_type, class_var.name => config.class_type })
+              type_ = type.subst(Substitution.build([], [], self_type: self_var, instance_type: instance_var, module_type: class_var))
+
+              config_ = config.update(resolve_self: false, resolve_class: true, resolve_instance: true, variable_bounds: bounds)
+
+              shapes = type_.types.map do |type|
+                shape(type, public_only: public_only, config: config_) or return
+              end
+
+              if shape = union_shape(type, shapes, public_only)
+                shape.subst(
+                  Substitution.build(
+                    [self_var.name, class_var.name, instance_var.name],
+                    [AST::Types::Self.instance, AST::Types::Class.instance, AST::Types::Instance.instance],
+                    self_type: type,
+                    instance_type: AST::Builtin.any_type,
+                    module_type: AST::Builtin.any_type
+                  ),
+                  type: type.subst(config.subst)
+                )
+              end
+            else
+              config_ = config.update(resolve_self: false)
+
+              shapes = type.types.map do |type|
+                shape(type, public_only: public_only, config: config_) or return
+              end
+
+              if shape = union_shape(type, shapes, public_only)
+                shape.subst(
+                  Substitution.build(
+                    [], [],
+                    self_type: type,
+                    instance_type: AST::Builtin.any_type,
+                    module_type: AST::Builtin.any_type
+                  )
+                )
+              end
+            end
           when AST::Types::Intersection
-            shapes = type.types.map {|type| shape(type, public_only: public_only, config: config) or return }
-            intersection_shape(type, shapes, public_only)
+            self_var = AST::Types::Var.fresh(:SELF)
+            class_var = AST::Types::Var.fresh(:CLASS)
+            instance_var = AST::Types::Var.fresh(:INSTANCE)
+
+            bounds = config.variable_bounds.merge({ self_var.name => config.self_type, instance_var.name => config.instance_type, class_var.name => config.class_type })
+            type_ = type.subst(Substitution.build([], [], self_type: self_var, instance_type: instance_var, module_type: class_var))
+
+            config_ = config.update(resolve_self: false, resolve_class: true, resolve_instance: true, variable_bounds: bounds)
+
+            shapes = type_.types.map do |type|
+              shape(type, public_only: public_only, config: config_) or return
+            end
+
+            if shape = intersection_shape(type, shapes, public_only)
+              shape.subst(
+                Substitution.build(
+                  [self_var.name, class_var.name, instance_var.name],
+                  [AST::Types::Self.instance, AST::Types::Class.instance, AST::Types::Instance.instance],
+                  self_type: type,
+                  instance_type: AST::Builtin.any_type,
+                  module_type: AST::Builtin.any_type
+                ),
+                type: type.subst(config.subst)
+              )
+            end
+
           when AST::Types::Tuple
             tuple_shape(type, public_only, config)
           when AST::Types::Record
             record_shape(type, public_only, config)
           when AST::Types::Literal
-            shape(type.back_type, public_only: public_only, config: config)&.update(type: type)
+            if shape = shape(type.back_type, public_only: public_only, config: config.update(resolve_self: false))
+              shape.subst(Substitution.build([], [], self_type: type), type: type)
+            end
           when AST::Types::Boolean, AST::Types::Logic::Base
-            union_shape(
+            shape = union_shape(
               type,
               [
-                object_shape(AST::Builtin::TrueClass.instance_type, public_only, false, false, false),
-                object_shape(AST::Builtin::FalseClass.instance_type, public_only, false, false, false)
+                object_shape(AST::Builtin::TrueClass.instance_type, public_only, true, true, true),
+                object_shape(AST::Builtin::FalseClass.instance_type, public_only, true, true, true)
               ],
               public_only
             )
+
+            if shape
+              shape.subst(Substitution.build([], [], self_type: type))
+            end
           when AST::Types::Nil
-            object_shape(AST::Builtin::NilClass.instance_type, public_only, false, false, false)&.update(type: type)
+            if shape = object_shape(AST::Builtin::NilClass.instance_type, public_only, true, !config.resolve_instance, !config.resolve_class)
+              if config.resolve_self
+                shape.subst(Substitution.build([], [], self_type: type), type: type)
+              else
+                shape.update(type: type)
+              end
+            end
           when AST::Types::Proc
             proc_shape(type, public_only, config)
           else
@@ -294,29 +360,39 @@ module Steep
         end
       end
 
+      def subtyping
+        @subtyping ||= Subtyping::Check.new(builder: self)
+      end
+
       def union_shape(shape_type, shapes, public_only)
         shapes.inject do |shape1, shape2|
           Interface::Shape.new(type: shape_type, private: !public_only).tap do |shape|
             common_methods = Set.new(shape1.methods.each_name) & Set.new(shape2.methods.each_name)
             common_methods.each do |name|
-              types1 = shape1.methods[name]&.method_types or raise
-              types2 = shape2.methods[name]&.method_types or raise
+              Steep.logger.tagged(name.to_s) do
+                types1 = shape1.methods[name]&.method_types or raise
+                types2 = shape2.methods[name]&.method_types or raise
 
-              if types1 == types2
-                shape.methods[name] = (shape1.methods[name] or raise)
-              else
-                method_types = {}
+                if types1 == types2
+                  shape.methods[name] = (shape1.methods[name] or raise)
+                else
+                  method_types = {}
 
-                types1.each do |type1|
-                  types2.each do |type2|
-                    if type = type1 | type2
-                      method_types[type] = true
+                  types1.each do |type1|
+                    types2.each do |type2|
+                      if type1 == type2
+                        method_types[type1] = true
+                      else
+                        if type = MethodType.union(type1, type2, subtyping)
+                          method_types[type] = true
+                        end
+                      end
                     end
                   end
-                end
 
-                unless method_types.empty?
-                  shape.methods[name] = Interface::Shape::Entry.new(method_types: method_types.keys)
+                  unless method_types.empty?
+                    shape.methods[name] = Interface::Shape::Entry.new(method_types: method_types.keys)
+                  end
                 end
               end
             end
@@ -337,7 +413,7 @@ module Steep
         element_type = AST::Types::Union.build(types: tuple.types, location: nil)
         array_type = AST::Builtin::Array.instance_type(element_type)
 
-        array_shape = shape(array_type, public_only: public_only, config: config) or raise
+        array_shape = shape(array_type, public_only: public_only, config: config.no_resolve) or raise
         shape = Shape.new(type: tuple, private: !public_only)
         shape.methods.merge!(array_shape.methods)
 
@@ -473,7 +549,14 @@ module Steep
         shape.methods[:first] = first_entry
         shape.methods[:last] = last_entry
 
-        shape
+        shape.subst(
+          Substitution.build(
+            [], [],
+            self_type: config.resolve_self ? tuple : AST::Types::Self.instance,
+            instance_type: AST::Builtin::Array.instance_type(fill_untyped: true),
+            module_type: AST::Builtin::Array.module_type
+          )
+        )
       end
 
       def record_shape(record, public_only, config)
@@ -484,7 +567,7 @@ module Steep
         all_value_type = AST::Types::Union.build(types: record.elements.values, location: nil)
         hash_type = AST::Builtin::Hash.instance_type(all_key_type, all_value_type)
 
-        hash_shape = shape(hash_type, public_only: public_only, config: config) or raise
+        hash_shape = shape(hash_type, public_only: public_only, config: config.no_resolve) or raise
         shape = Shape.new(type: record, private: !public_only)
         shape.methods.merge!(hash_shape.methods)
 
@@ -578,11 +661,18 @@ module Steep
           )
         end
 
-        shape
+        shape.subst(
+          Substitution.build(
+            [], [],
+            self_type: config.resolve_self ? record : AST::Types::Self.instance,
+            instance_type: AST::Builtin::Hash.instance_type(fill_untyped: true),
+            module_type: AST::Builtin::Hash.module_type
+          )
+        )
       end
 
       def proc_shape(proc, public_only, config)
-        proc_shape = shape(AST::Builtin::Proc.instance_type, public_only: public_only, config: config) or raise
+        proc_shape = shape(AST::Builtin::Proc.instance_type, public_only: public_only, config: config.no_resolve) or raise
 
         shape = Shape.new(type: proc, private: !public_only)
         shape.methods.merge!(proc_shape.methods)
@@ -591,7 +681,14 @@ module Steep
           method_types: [MethodType.new(type_params: [], type: proc.type, block: proc.block, method_decls: Set[])]
         )
 
-        shape
+        shape.subst(
+          Substitution.build(
+            [], [],
+            self_type: config.resolve_self ? proc : AST::Types::Self.instance,
+            instance_type: AST::Builtin::Proc.instance_type(fill_untyped: true),
+            module_type: AST::Builtin::Proc.module_type
+          )
+        )
       end
 
       def replace_primitive_method(method_name, method_def, method_type)

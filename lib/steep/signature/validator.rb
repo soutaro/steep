@@ -72,7 +72,7 @@ module Steep
 
               checker.check(
                 Subtyping::Relation.new(sub_type: arg_type, super_type: upper_bound_type),
-                self_type: nil,
+                self_type: AST::Types::Self.instance,
                 class_type: nil,
                 instance_type: nil,
                 constraints: constraints

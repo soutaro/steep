@@ -9,6 +9,8 @@ module Steep
 
       attr_reader method_decls: Set[TypeInference::MethodCall::MethodDecl]
 
+      @fvs: Set[Symbol]
+
       def initialize: (type_params: Array[TypeParam], type: Function, block: Block?, method_decls: Set[TypeInference::MethodCall::MethodDecl]) -> void
 
       def ==: (untyped other) -> bool
@@ -34,23 +36,68 @@ module Steep
 
       # Returns a new method type which can be used for the method implementation type of both `self` and `other`.
       #
-      def unify_overload: (untyped other) -> untyped
+      def unify_overload: (MethodType other) -> MethodType
 
-      def +: (untyped other) -> untyped
+      alias + unify_overload
+
+      def equals_modulo_type_params?: (MethodType other) -> bool
+
+      # Returns a method type which is a super-type of both `type1` and `type2`.
+      #   `type1` <: union(`type1`, `type2`) && `type2` <: union(`type1`, `type2`)
+      #
+      # Returns `nil` if `type1` and `type2` are incompatible.
+      #
+      # This tries to generate the best result for polymorphic methods, but the support is limited.
+      # It works when:
+      #
+      # * `type1` and `type2` are equal modulo type parameters (`[A] () -> A` | `[B] () -> B` → `[A] () -> A`), or
+      # * The type parameter occurences are identical (`[A] (::Integer) -> A` | `[B] (::String) -> B` → `[A] (::Integer & ::String) -> A`)
+      #
+      # Otherwise it fails (returns `nil`).
+      #
+      def self.union: (MethodType type1, MethodType type2, Subtyping::Check) -> MethodType?
+
+      # Returns a method type which is a sub-type of both `type1` and `type2`.
+      #
+      # ```
+      # intersection(type1, type2) <: type1 && intersection(type1, type2) <: type2
+      # ```
+      #
+      # Returns `nil` if `type1` and `type2` are incompatible.
+      #
+      # This tries to generate the best result for polymorphic methods, but the support is limited.
+      # It works when:
+      #
+      # * `type1` and `type2` are equal modulo type parameters (`[A] () -> A` & `[B] () -> B` → `[A] () -> A`), or
+      # * The type parameter occurences are identical (`[A] (::Integer) -> A` & `[B] (::String) -> B` → `[A] (::Integer | ::String) -> A`)
+      #
+      # Otherwise it fails (returns `nil`).
+      #
+      def self.intersection: (MethodType type1, MethodType type2, Subtyping::Check) -> MethodType?
+
+      def self.try_type_params: (
+        MethodType type1,
+        MethodType type2,
+        Subtyping::Check,
+        ^(MethodType, MethodType) -> MethodType?,
+        ^(MethodType original, MethodType generated) -> Subtyping::Relation[MethodType]
+      )  -> MethodType?
 
       # Returns a method type which is a super-type of both self and other.
       #   self <: (self | other) && other <: (self | other)
       #
-      # Returns nil if self and other are incompatible.
+      # * Returns `nil` if self and other are incompatible.
+      # * Ignores all type parameters.
       #
-      def |: (untyped other) -> (nil | untyped)
+      def |: (MethodType other) -> MethodType?
 
       # Returns a method type which is a sub-type of both self and other.
       #   (self & other) <: self && (self & other) <: other
       #
-      # Returns nil if self and other are incompatible.
+      # * Returns `nil` if self and other are incompatible.
+      # * Ignores all type parameters.
       #
-      def &: (untyped other) -> (nil | untyped)
+      def &: (MethodType other) -> MethodType?
     end
   end
 end

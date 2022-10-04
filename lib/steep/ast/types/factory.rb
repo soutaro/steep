@@ -403,6 +403,26 @@ module Steep
 
           AST::Types::Name::Instance.new(location: location, name: type_name, args: args)
         end
+
+        def try_instance_type(type)
+          case type
+          when AST::Types::Name::Instance
+            instance_type(type.name)
+          when AST::Types::Name::Singleton
+            instance_type(type.name)
+          else
+            nil
+          end
+        end
+
+        def try_singleton_type(type)
+          case type
+          when AST::Types::Name::Instance, AST::Types::Name::Singleton
+            AST::Types::Name::Singleton.new(name:type.name)
+          else
+            nil
+          end
+        end
       end
     end
   end

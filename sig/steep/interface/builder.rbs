@@ -2,27 +2,62 @@ module Steep
   module Interface
     class Builder
       class Config
-        attr_reader resolve_self: AST::Types::t | true | nil
+        # Type of `self` type included immediately in the type expression
+        #
+        attr_reader self_type: AST::Types::t
 
-        attr_reader resolve_class_type: AST::Types::t | true | nil
+        # Type of `class` type included immediately in the type expression
+        #
+        attr_reader class_type: AST::Types::t | nil
 
-        attr_reader resolve_instance_type: AST::Types::t | true | nil
+        # Type of `instance` type included immediately in the type expression
+        #
+        attr_reader instance_type: AST::Types::t | nil
+
+        # Resolves `self` types included in shape members
+        #
+        # * `false` only when the type expression is `self`
+        #
+        attr_reader resolve_self: bool
+
+        # Resolves `class` types included in shape members
+        #
+        # * `false` only when the type expression is `class`
+        #
+        attr_reader resolve_class: bool
+
+        # Resolves `instance` types included in shape members
+        #
+        # * `false` only when the type expression is `instance`
+        #
+        attr_reader resolve_instance: bool
 
         attr_reader variable_bounds: Hash[Symbol, AST::Types::t?]
 
         def initialize: (
-          resolve_self: AST::Types::t | true | nil,
-          resolve_class_type: AST::Types::t | true | nil,
-          resolve_instance_type: AST::Types::t | true | nil,
+          self_type: AST::Types::t,
+          class_type: AST::Types::t | nil,
+          instance_type: AST::Types::t | nil,
+          ?resolve_self: bool,
+          ?resolve_class: bool,
+          ?resolve_instance: bool,
           variable_bounds: Hash[Symbol, AST::Types::t?]
         ) -> void
 
         def update: (
-          ?resolve_self: AST::Types::t | true | nil,
-          ?resolve_class_type: AST::Types::t | true | nil,
-          ?resolve_instance_type: AST::Types::t | true | nil,
+          ?self_type: AST::Types::t,
+          ?class_type: AST::Types::t | nil,
+          ?instance_type: AST::Types::t | nil,
+          ?resolve_self: bool,
+          ?resolve_class: bool,
+          ?resolve_instance: bool,
           ?variable_bounds: Hash[Symbol, AST::Types::t?]
         ) -> self
+
+        @no_resolve: self?
+        def no_resolve: () -> self
+
+        def resolve?: () -> bool
 
         def ==: (untyped) -> bool
 
@@ -32,18 +67,20 @@ module Steep
 
         @subst: Substitution
 
-        %a{pure} def subst: () -> Substitution
+        # Substitution for immediate type expressions
+        def subst: () -> Substitution
       end
 
       attr_reader factory: AST::Types::Factory
 
       type cache_key = [
-        AST::Types::t,   # type
-        bool,            # public_only
-        AST::Types::t | true | nil,   # resolve_self
-        AST::Types::t | true | nil,   # resolve_class_type
-        AST::Types::t | true | nil,   # resolve_instance_type
-        Hash[Symbol, AST::Types::t?]? # variable_bounds
+        AST::Types::t,                 # type
+        bool,                          # public_only
+        AST::Types::t | nil,           # self_type
+        AST::Types::t | nil,           # class_type
+        AST::Types::t | nil,           # instance_type
+        bool, bool, bool,              # resolve_self, resolve_class, resolve_instance
+        Hash[Symbol, AST::Types::t?]?  # variable_bounds
       ]
       attr_reader cache: Hash[cache_key, Shape?]
 
@@ -65,6 +102,10 @@ module Steep
       def shape: (AST::Types::t, public_only: bool, config: Config) -> Shape?
 
       private
+
+      @subtyping: Subtyping::Check?
+
+      def subtyping: () -> Subtyping::Check
 
       # Fetch and update cache
       #

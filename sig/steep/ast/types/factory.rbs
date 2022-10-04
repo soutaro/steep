@@ -72,6 +72,10 @@ module Steep
         def absolute_type_name: (RBS::TypeName type_name, context: RBS::Resolver::context) -> RBS::TypeName?
 
         def instance_type: (RBS::TypeName type_name, ?args: Array[t]?, ?location: untyped?) -> t
+
+        def try_singleton_type: (t) -> t?
+
+        def try_instance_type: (t) -> t?
       end
     end
   end

@@ -79,11 +79,11 @@ module Steep
       end
 
       def instance_type
-        @instance_type || raise
+        @instance_type
       end
 
       def class_type
-        @class_type || raise
+        @class_type
       end
 
       def constraints
@@ -403,7 +403,12 @@ module Steep
                 builder.shape(
                   type,
                   public_only: true,
-                  config: Interface::Builder::Config.new(resolve_self: true, resolve_instance_type: true, resolve_class_type: true, variable_bounds: variable_upper_bounds)
+                  config: Interface::Builder::Config.new(
+                    self_type: type,
+                    instance_type: instance_type,
+                    class_type: class_type,
+                    variable_bounds: variable_upper_bounds
+                  )
                 ) or raise
               }
             )
@@ -519,9 +524,9 @@ module Steep
                   type,
                   public_only: true,
                   config: Interface::Builder::Config.new(
-                    resolve_self: true,
-                    resolve_class_type: true,
-                    resolve_instance_type: true,
+                    self_type: type,
+                    instance_type: instance_type,
+                    class_type: class_type,
                     variable_bounds: variable_upper_bounds
                   )
                 ) or raise

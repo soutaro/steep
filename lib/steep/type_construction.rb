@@ -3063,9 +3063,9 @@ module Steep
 
     def builder_config
       Interface::Builder::Config.new(
-        resolve_self: self_type,
-        resolve_class_type: module_context.module_type,
-        resolve_instance_type: module_context.instance_type,
+        self_type: self_type,
+        class_type: module_context.module_type,
+        instance_type: module_context.instance_type,
         variable_bounds: variable_context.upper_bounds
       )
     end
