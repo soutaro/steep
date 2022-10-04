@@ -42,13 +42,35 @@ module Steep
         signature_paths = Set[]
 
         loader = Services::FileLoader.new(base_dir: project.base_dir)
-        unless command_line_args.empty?
-          project.targets.each do |target|
-            loader.each_path_in_patterns(target.source_pattern, all_ruby ? [] : command_line_args) do |path|
-              target_paths << path
+        project.targets.each do |target|
+          ruby_patterns =
+            case
+            when all_ruby
+              []
+            when command_line_args.empty?
+              nil
+            else
+              command_line_args
             end
 
-            loader.each_path_in_patterns(target.signature_pattern, all_rbs ? [] : command_line_args) do |path|
+          if ruby_patterns
+            loader.each_path_in_patterns(target.source_pattern, ruby_patterns) do |path|
+              target_paths << path
+            end
+          end
+
+          rbs_patterns =
+            case
+            when all_rbs
+              []
+            when command_line_args.empty?
+              nil
+            else
+              command_line_args
+            end
+
+          if rbs_patterns
+            loader.each_path_in_patterns(target.signature_pattern, rbs_patterns) do |path|
               signature_paths << path
             end
           end
