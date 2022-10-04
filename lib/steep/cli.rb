@@ -129,6 +129,8 @@ module Steep
           opts.banner = "Usage: steep checkfile [options] [files]"
 
           opts.on("--steepfile=PATH") {|path| check.steepfile = Pathname(path) }
+          opts.on("--all-rbs", "Type check all RBS files") { check.all_rbs = true }
+          opts.on("--all-ruby", "Type check all Ruby files") { check.all_ruby = true }
           handle_jobs_option check, opts
           handle_logging_options opts
         end.parse!(argv)

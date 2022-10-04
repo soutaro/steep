@@ -6,6 +6,7 @@ module Steep
       attr_reader :stdout
       attr_reader :stderr
       attr_reader :command_line_args
+      attr_accessor :all_ruby, :all_rbs
 
       include Utils::DriverHelper
       include Utils::JobsCount
@@ -14,9 +15,14 @@ module Steep
         @stdout = stdout
         @stderr = stderr
         @command_line_args = []
+
+        @all_rbs = false
+        @all_ruby = false
       end
 
       def run
+        return 0 if command_line_args.empty? && !all_rbs && !all_ruby
+
         project = load_config()
 
         client_read, server_write = IO.pipe
@@ -35,11 +41,11 @@ module Steep
 
         loader = Services::FileLoader.new(base_dir: project.base_dir)
         project.targets.each do |target|
-          loader.each_path_in_patterns(target.source_pattern, command_line_args) do |path|
+          loader.each_path_in_patterns(target.source_pattern, all_ruby ? [] : command_line_args) do |path|
             target_paths << path
           end
 
-          loader.each_path_in_patterns(target.signature_pattern, command_line_args) do |path|
+          loader.each_path_in_patterns(target.signature_pattern, all_rbs ? [] : command_line_args) do |path|
             signature_paths << path
           end
         end

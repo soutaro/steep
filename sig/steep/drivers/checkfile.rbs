@@ -12,6 +12,10 @@ module Steep
       include Utils::DriverHelper
       include Utils::JobsCount
 
+      attr_accessor all_rbs: bool
+
+      attr_accessor all_ruby: bool
+
       def initialize: (stdout: IO, stderr: IO) -> void
 
       def run: () -> Integer
