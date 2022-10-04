@@ -28,14 +28,32 @@ module Steep
         server_reader = LanguageServer::Protocol::Transport::Io::Reader.new(server_read)
         server_writer = LanguageServer::Protocol::Transport::Io::Writer.new(server_write)
 
-        files = command_line_args
+        # @type var target_paths: Set[Pathname]
+        target_paths = Set[]
+        # @type var signature_paths: Set[Pathname]
+        signature_paths = Set[]
+
+        loader = Services::FileLoader.new(base_dir: project.base_dir)
+        project.targets.each do |target|
+          loader.each_path_in_patterns(target.source_pattern, command_line_args) do |path|
+            target_paths << path
+          end
+
+          loader.each_path_in_patterns(target.signature_pattern, command_line_args) do |path|
+            signature_paths << path
+          end
+        end
+
+        files = target_paths + signature_paths
 
         count =
           if files.size >= jobs_count
             jobs_count
           else
-            files.size
+            files.size + 2
           end
+
+        Steep.logger.info { "Starting #{count} workers for #{files.size} files..." }
 
         typecheck_workers = Server::WorkerProcess.spawn_typecheck_workers(
           steepfile: project.steepfile_path,
@@ -67,8 +85,11 @@ module Steep
         request_guid = SecureRandom.uuid
         request = Server::Master::TypeCheckRequest.new(guid: request_guid)
 
-        files.each do |path|
-          request.code_paths << project.absolute_path(Pathname(path))
+        target_paths.each do |path|
+          request.code_paths << project.absolute_path(path)
+        end
+        signature_paths.each do |path|
+          request.signature_paths << project.absolute_path(path)
         end
 
         master.start_type_check(request, last_request: nil, start_progress: true)
