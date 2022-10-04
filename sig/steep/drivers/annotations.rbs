@@ -1,0 +1,17 @@
+module Steep
+  module Drivers
+    class Annotations
+      attr_reader command_line_patterns: untyped
+
+      attr_reader stdout: untyped
+
+      attr_reader stderr: untyped
+
+      include Utils::DriverHelper
+
+      def initialize: (stdout: untyped, stderr: untyped) -> void
+
+      def run: () -> 0
+    end
+  end
+end

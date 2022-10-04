@@ -1,0 +1,33 @@
+module Steep
+  module Drivers
+    class Check
+      LSP: untyped
+
+      attr_reader stdout: untyped
+
+      attr_reader stderr: untyped
+
+      attr_reader command_line_patterns: untyped
+
+      attr_accessor with_expectations_path: untyped
+
+      attr_accessor save_expectations_path: untyped
+
+      attr_accessor severity_level: untyped
+
+      include Utils::DriverHelper
+
+      include Utils::JobsCount
+
+      def initialize: (stdout: untyped, stderr: untyped) -> void
+
+      def run: () -> untyped
+
+      def print_expectations: (project: untyped, all_files: untyped, expectations_path: untyped, notifications: untyped) -> untyped
+
+      def save_expectations: (project: untyped, all_files: untyped, expectations_path: untyped, notifications: untyped) -> 0
+
+      def print_result: (project: untyped, notifications: untyped) -> (0 | 1)
+    end
+  end
+end

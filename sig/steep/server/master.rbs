@@ -209,7 +209,7 @@ module Steep
 
       attr_reader commandline_args: Array[String]
 
-      attr_reader interaction_worker: WorkerProcess
+      attr_reader interaction_worker: WorkerProcess?
 
       attr_reader typecheck_workers: Array[WorkerProcess]
 
@@ -225,7 +225,7 @@ module Steep
 
       attr_accessor typecheck_automatically: bool
 
-      def initialize: (project: Project, reader: untyped, writer: untyped, interaction_worker: WorkerProcess, typecheck_workers: Array[WorkerProcess], ?queue: Thread::Queue) -> void
+      def initialize: (project: Project, reader: untyped, writer: untyped, interaction_worker: WorkerProcess?, typecheck_workers: Array[WorkerProcess], ?queue: Thread::Queue) -> void
 
       def start: () -> void
 
