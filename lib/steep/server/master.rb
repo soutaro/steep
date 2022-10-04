@@ -692,6 +692,14 @@ module Steep
             )
           end
 
+        when "$/ping"
+          job_queue << SendMessageJob.to_client(
+            message: {
+                id: message[:id],
+                result: message[:params]
+            }
+          )
+
         when "shutdown"
           result_controller << group_request do |group|
             each_worker do |worker|

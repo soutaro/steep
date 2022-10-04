@@ -16,6 +16,8 @@ module Steep
 
       attr_accessor all_ruby: bool
 
+      attr_reader stdin_input: Hash[Pathname, String]
+
       def initialize: (stdout: IO, stderr: IO) -> void
 
       def run: () -> Integer

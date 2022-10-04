@@ -14,10 +14,13 @@ module Steep
 
     def target_for_source_path: (Pathname path) -> Target?
 
-    # Returns target or array of targets that contains given path
+    # Returns target or array of targets that *can* contain given path
     #
     # * `Target` will return if `path` is a source code
     # * `Array[Target]` will return if `path` is a signature
+    #
+    # `path` can be non-existent file.
+    #
     def targets_for_path: (Pathname path) -> (Target | Array[Target] | nil)
   end
 end

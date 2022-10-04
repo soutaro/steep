@@ -7,6 +7,7 @@ module Steep
       attr_reader :stderr
       attr_reader :command_line_args
       attr_accessor :all_ruby, :all_rbs
+      attr_reader :stdin_input
 
       include Utils::DriverHelper
       include Utils::JobsCount
@@ -18,10 +19,11 @@ module Steep
 
         @all_rbs = false
         @all_ruby = false
+        @stdin_input = {}
       end
 
       def run
-        return 0 if command_line_args.empty? && !all_rbs && !all_ruby
+        return 0 if command_line_args.empty? && !all_rbs && !all_ruby && stdin_input.empty?
 
         project = load_config()
 
@@ -40,13 +42,24 @@ module Steep
         signature_paths = Set[]
 
         loader = Services::FileLoader.new(base_dir: project.base_dir)
-        project.targets.each do |target|
-          loader.each_path_in_patterns(target.source_pattern, all_ruby ? [] : command_line_args) do |path|
-            target_paths << path
-          end
+        unless command_line_args.empty?
+          project.targets.each do |target|
+            loader.each_path_in_patterns(target.source_pattern, all_ruby ? [] : command_line_args) do |path|
+              target_paths << path
+            end
 
-          loader.each_path_in_patterns(target.signature_pattern, all_rbs ? [] : command_line_args) do |path|
+            loader.each_path_in_patterns(target.signature_pattern, all_rbs ? [] : command_line_args) do |path|
+              signature_paths << path
+            end
+          end
+        end
+
+        stdin_input.each_key do |path|
+          case ts = project.targets_for_path(path)
+          when Array
             signature_paths << path
+          when Project::Target
+            target_paths << path
           end
         end
 
@@ -88,7 +101,33 @@ module Steep
         client_writer.write({ method: :initialize, id: initialize_id, params: {} })
         wait_for_response_id(reader: client_reader, id: initialize_id)
 
-        request_guid = SecureRandom.uuid
+        stdin_input.each do |path, content|
+          uri = PathHelper.to_uri(project.absolute_path(path))
+
+          master.broadcast_notification(
+            {
+              method: "textDocument/didChange",
+              params: {
+              textDocument: { uri: uri, version: 0 },
+              contentChanges: [{ text: content }]
+              }
+            }
+          )
+          master.broadcast_notification(
+            {
+              method: "textDocument/didSave",
+              params: {
+                textDocument: { uri: uri }
+              }
+            }
+          )
+        end
+
+        ping_guid = master.fresh_request_id()
+        client_writer.write({ method: "$/ping", id: ping_guid, params: {} })
+        wait_for_response_id(reader: client_reader, id: ping_guid)
+
+        request_guid = master.fresh_request_id()
         request = Server::Master::TypeCheckRequest.new(guid: request_guid)
 
         target_paths.each do |path|
@@ -112,7 +151,7 @@ module Steep
             if path = PathHelper.to_pathname(params[:uri])
               stdout.puts(
                 {
-                  path: path.to_s,
+                  path: project.relative_path(path).to_s,
                   diagnostics: params[:diagnostics]
                 }.to_json
               )
