@@ -43,7 +43,9 @@ module Steep
     end
 
     def setup_command
-      @command = argv.shift&.to_sym
+      return false unless command = argv.shift&.to_sym
+      @command = command
+
       if CLI.available_commands.include?(@command) || @command == :worker || @command == :vendor
         true
       else
