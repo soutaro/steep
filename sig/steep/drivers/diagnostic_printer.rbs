@@ -1,0 +1,25 @@
+module Steep
+  module Drivers
+    class DiagnosticPrinter
+      LSP: untyped
+
+      attr_reader stdout: untyped
+
+      attr_reader buffer: untyped
+
+      def initialize: (stdout: untyped, buffer: untyped) -> void
+
+      def path: () -> untyped
+
+      def color_severity: (untyped string, severity: untyped) -> untyped
+
+      def severity_message: (untyped severity) -> untyped
+
+      def location: (untyped diagnostic) -> untyped
+
+      def print: (untyped diagnostic, ?prefix: ::String, ?source: bool) -> untyped
+
+      def print_source_line: (untyped diagnostic, ?prefix: ::String) -> untyped
+    end
+  end
+end

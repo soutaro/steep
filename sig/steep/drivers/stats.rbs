@@ -1,0 +1,37 @@
+module Steep
+  module Drivers
+    class Stats
+      class CSVPrinter
+        attr_reader io: untyped
+
+        def initialize: (io: untyped) -> void
+
+        def print: (untyped stats_result) -> untyped
+      end
+
+      class TablePrinter
+        attr_reader io: untyped
+
+        def initialize: (io: untyped) -> void
+
+        def print: (untyped stats_result) -> untyped
+      end
+
+      attr_reader stdout: untyped
+
+      attr_reader stderr: untyped
+
+      attr_reader command_line_patterns: untyped
+
+      attr_accessor format: untyped
+
+      include Utils::DriverHelper
+
+      include Utils::JobsCount
+
+      def initialize: (stdout: untyped, stderr: untyped) -> void
+
+      def run: () -> 0
+    end
+  end
+end

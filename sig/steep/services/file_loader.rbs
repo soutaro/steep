@@ -1,13 +1,21 @@
 module Steep
   module Services
     class FileLoader
-      attr_reader base_dir: untyped
+      attr_reader base_dir: Pathname
 
-      def initialize: (base_dir: untyped) -> void
+      def initialize: (base_dir: Pathname) -> void
 
-      def each_path_in_patterns: (untyped pattern, ?untyped commandline_patterns) { (untyped) -> untyped } -> untyped
+      # Yields relative paths included in `pattern` from `base_dir`
+      #
+      def each_path_in_patterns: (Project::Pattern pattern, ?Array[String] commandline_patterns) { (Pathname) -> void } -> void
+                               | (Project::Pattern pattern, ?Array[String] commandline_patterns) -> Enumerator[Pathname, void]
 
-      def load_changes: (untyped pattern, ?untyped command_line_patterns, changes: untyped) -> untyped
+      # Returns changes that represents loading files from file system merged with ones given as `changes:`
+      #
+      # ```
+      # changes = loader.load_changes(target.pattern, command_line_patterns, changes: changes_from_editor)
+      # ```
+      def load_changes: (Project::Pattern pattern, ?Array[String] command_line_patterns, changes: Hash[Pathname, Array[ContentChange]]) -> Hash[Pathname, Array[ContentChange]]
     end
   end
 end

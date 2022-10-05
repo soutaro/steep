@@ -1,0 +1,49 @@
+module Steep
+  module Server
+    class BaseWorker
+      interface _Queue[A]
+        def pop: () -> A?
+
+        def <<: (A) -> A
+
+        def close: () -> void
+      end
+
+      LSP: untyped
+
+      @skip_jobs_after_shutdown: bool
+
+      @skip_job: bool
+
+      @shutdown: bool
+
+      attr_reader project: Project
+
+      attr_reader reader: LanguageServer::Protocol::Transport::Io::Reader
+
+      attr_reader writer: LanguageServer::Protocol::Transport::Io::Writer
+
+      attr_reader queue: _Queue[untyped]
+
+      class ShutdownJob
+        attr_reader id: String
+
+        def initialize: (id: String) -> void
+      end
+
+      def initialize: (project: Project, reader: LanguageServer::Protocol::Transport::Io::Reader, writer: LanguageServer::Protocol::Transport::Io::Writer) -> void
+
+      def skip_jobs_after_shutdown!: (?bool flag) -> void
+
+      def skip_jobs_after_shutdown?: () -> bool
+
+      def skip_job?: () -> bool
+
+      def handle_request: (untyped request) -> void
+
+      def handle_job: (untyped job) -> void
+
+      def run: () -> void
+    end
+  end
+end

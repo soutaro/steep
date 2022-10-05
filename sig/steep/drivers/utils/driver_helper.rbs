@@ -1,0 +1,23 @@
+module Steep
+  module Drivers
+    module Utils
+      module DriverHelper
+        attr_accessor steepfile: Pathname?
+
+        def load_config: (?path: Pathname) -> Project
+
+        def type_check: (Project project) -> void
+
+        def request_id: () -> String
+
+        def wait_for_response_id: (reader: untyped, id: untyped, ?unknown_responses: ::Symbol) -> untyped
+
+        def shutdown_exit: (writer: untyped, reader: untyped) -> untyped
+
+        def wait_for_message: (reader: untyped, ?unknown_messages: ::Symbol) { (untyped) -> untyped } -> untyped
+
+        def keep_diagnostic?: (untyped diagnostic) -> bool
+      end
+    end
+  end
+end

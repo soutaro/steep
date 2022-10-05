@@ -1,91 +1,118 @@
 module Steep
   module Services
     class SignatureService
-      attr_reader status: untyped
+      type status = SyntaxErrorStatus | AncestorErrorStatus | LoadedStatus
+
+      attr_reader status: status
 
       class SyntaxErrorStatus
-        attr_reader files: untyped
+        attr_reader files: Hash[Pathname, FileStatus]
 
-        attr_reader changed_paths: untyped
+        attr_reader changed_paths: Set[Pathname]
 
-        attr_reader diagnostics: untyped
+        attr_reader diagnostics: Array[Diagnostic::Signature::Base]
 
-        attr_reader last_builder: untyped
+        attr_reader last_builder: RBS::DefinitionBuilder
 
-        def initialize: (files: untyped, changed_paths: untyped, diagnostics: untyped, last_builder: untyped) -> void
+        @rbs_index: Index::RBSIndex?
 
-        def rbs_index: () -> untyped
+        def initialize: (files: Hash[Pathname, FileStatus], changed_paths: Set[Pathname], diagnostics: Array[Diagnostic::Signature::Base], last_builder: RBS::DefinitionBuilder) -> void
+
+        def rbs_index: () -> Index::RBSIndex
       end
 
       class AncestorErrorStatus
-        attr_reader files: untyped
+        attr_reader files: Hash[Pathname, FileStatus]
 
-        attr_reader changed_paths: untyped
+        attr_reader changed_paths: Set[Pathname]
 
-        attr_reader diagnostics: untyped
+        attr_reader diagnostics: Array[Diagnostic::Signature::Base]
 
-        attr_reader last_builder: untyped
+        attr_reader last_builder: RBS::DefinitionBuilder
 
-        def initialize: (files: untyped, changed_paths: untyped, diagnostics: untyped, last_builder: untyped) -> void
+        @rbs_index: Index::RBSIndex?
 
-        def rbs_index: () -> untyped
+        def initialize: (files: Hash[Pathname, FileStatus], changed_paths: Set[Pathname], diagnostics: Array[Diagnostic::Signature::Base], last_builder: RBS::DefinitionBuilder) -> void
+
+        def rbs_index: () -> Index::RBSIndex
       end
 
       class LoadedStatus
-        attr_reader files: untyped
+        attr_reader files: Hash[Pathname, FileStatus]
 
-        attr_reader builder: untyped
+        attr_reader builder: RBS::DefinitionBuilder
 
-        def initialize: (files: untyped, builder: untyped) -> void
+        @rbs_index: Index::RBSIndex?
 
-        def subtyping: () -> untyped
+        @subtyping: Subtyping::Check?
 
-        def rbs_index: () -> untyped
+        def initialize: (files: Hash[Pathname, FileStatus], builder: RBS::DefinitionBuilder) -> void
+
+        def subtyping: () -> Subtyping::Check
+
+        def rbs_index: () -> Index::RBSIndex
       end
 
-      FileStatus: untyped
+      class FileStatus
+        attr_reader path: Pathname
 
-      def initialize: (env: untyped) -> void
+        attr_reader content: String
 
-      def self.load_from: (untyped loader) -> untyped
+        attr_reader decls: Array[RBS::AST::Declarations::t] | Diagnostic::Signature::UnexpectedError | RBS::ParsingError
 
-      def env_rbs_paths: () -> untyped
+        def initialize: (
+          path: Pathname,
+          content: String,
+          decls: Array[RBS::AST::Declarations::t] | Diagnostic::Signature::UnexpectedError | RBS::ParsingError
+        ) -> void
+      end
 
-      def each_rbs_path: () { (untyped) -> untyped } -> untyped
+      def initialize: (env: RBS::Environment) -> void
 
-      def files: () -> untyped
+      def self.load_from: (RBS::EnvironmentLoader loader) -> SignatureService
 
-      def pending_changed_paths: () -> untyped
+      @env_rbs_paths: Set[Pathname]?
 
-      def latest_env: () -> untyped
+      def env_rbs_paths: () -> Set[Pathname]
 
-      def latest_builder: () -> untyped
+      def each_rbs_path: () { (Pathname) -> void } -> void
+                       | () -> Enumerator[Pathname, void]
 
-      def latest_rbs_index: () -> untyped
+      def files: () -> Hash[Pathname, FileStatus]
 
-      def current_subtyping: () -> (untyped | nil)
+      def pending_changed_paths: () -> Set[Pathname]
 
-      def apply_changes: (untyped files, untyped changes) -> untyped
+      def latest_env: () -> RBS::Environment
 
-      def update: (untyped changes) -> untyped
+      def latest_builder: () -> RBS::DefinitionBuilder
 
-      def update_env: (untyped updated_files, paths: untyped) -> untyped
+      def latest_rbs_index: () -> Index::RBSIndex
 
-      def rescue_rbs_error: (untyped errors) { () -> untyped } -> untyped
+      def current_subtyping: () -> Subtyping::Check?
 
-      def update_builder: (ancestor_builder: untyped, paths: untyped) -> untyped
+      def apply_changes: (Hash[Pathname, FileStatus] files, Server::ChangeBuffer::changes changes) -> Hash[Pathname, FileStatus]
 
-      def type_names: (paths: untyped, env: untyped) -> untyped
+      def update: (Server::ChangeBuffer::changes changes) -> void
 
-      def const_decls: (paths: untyped, env: untyped) -> untyped
+      def update_env: (
+        Hash[Pathname, FileStatus] updated_files, paths: Set[Pathname]
+      ) -> (RBS::DefinitionBuilder::AncestorBuilder | Array[Diagnostic::Signature::Base])
 
-      def global_decls: (paths: untyped, ?env: untyped) -> untyped
+      def rescue_rbs_error: (Array[RBS::BaseError] errors) { () -> void } -> void
 
-      def type_name_from_decl: (untyped decl, set: untyped) -> untyped
+      def update_builder: (ancestor_builder: RBS::DefinitionBuilder::AncestorBuilder, paths: Set[Pathname]) -> RBS::DefinitionBuilder
 
-      def add_descendants: (graph: untyped, names: untyped, set: untyped) -> untyped
+      def type_names: (paths: Set[Pathname], env: RBS::Environment) -> Set[RBS::TypeName]
 
-      def add_nested_decls: (env: untyped, names: untyped, set: untyped) -> untyped
+      def const_decls: (paths: Set[Pathname], env: RBS::Environment) -> Hash[RBS::TypeName, RBS::Environment::SingleEntry[RBS::TypeName, RBS::AST::Declarations::Constant]]
+
+      def global_decls: (paths: Set[Pathname], ?env: RBS::Environment) -> Hash[Symbol, RBS::Environment::SingleEntry[Symbol, RBS::AST::Declarations::Global]]
+
+      def type_name_from_decl: (RBS::AST::Declarations::t decl, set: Set[RBS::TypeName]) -> void
+
+      def add_descendants: (graph: RBS::AncestorGraph, names: Set[RBS::TypeName], set: Set[RBS::TypeName]) -> void
+
+      def add_nested_decls: (env: RBS::Environment, names: Set[RBS::TypeName], set: Set[RBS::TypeName]) -> void
     end
   end
 end

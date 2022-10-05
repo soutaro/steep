@@ -127,6 +127,7 @@ require "steep/expectations"
 require "steep/drivers/utils/driver_helper"
 require "steep/drivers/utils/jobs_count"
 require "steep/drivers/check"
+require "steep/drivers/checkfile"
 require "steep/drivers/stats"
 require "steep/drivers/validate"
 require "steep/drivers/annotations"
@@ -146,7 +147,7 @@ $stderr = STDERR
 
 module Steep
   def self.logger
-    @logger
+    @logger || raise
   end
 
   def self.new_logger(output, prev_level)

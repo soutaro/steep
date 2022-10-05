@@ -172,6 +172,7 @@ module Steep
 
         def update_priority(open: nil, close: nil)
           path = open || close
+          path or raise
 
           target_paths.each {|paths| paths << path }
 
@@ -263,7 +264,6 @@ module Steep
 
         def initialize()
           @handlers = {}
-          @waiting_handlers = Set[]
           @completion_handler = nil
         end
 
@@ -321,13 +321,61 @@ module Steep
         end
       end
 
-      ReceiveMessageJob = Struct.new(:source, :message, keyword_init: true) do
+      module MessageUtils
+        def request?
+          if method && id
+            true
+          else
+            false
+          end
+        end
+
         def response?
-          message.key?(:id) && !message.key?(:method)
+          if id && !method
+            true
+          else
+            false
+          end
+        end
+
+        def notification?
+          if method && !id
+            true
+          else
+            false
+          end
+        end
+
+        def method
+          message[:method]
+        end
+
+        def id
+          message[:id]
+        end
+
+        def result
+          message[:result]
+        end
+
+        def params
+          message[:params]
         end
       end
 
-      SendMessageJob = Struct.new(:dest, :message, keyword_init: true) do
+      ReceiveMessageJob = _ = Struct.new(:source, :message, keyword_init: true) do
+        # @implements ReceiveMessageJob
+
+        def response?
+          message.key?(:id) && !message.key?(:method)
+        end
+
+        include MessageUtils
+      end
+
+      SendMessageJob = _ = Struct.new(:dest, :message, keyword_init: true) do
+        # @implements SendMessageJob
+
         def self.to_worker(worker, message:)
           new(dest: worker, message: message)
         end
@@ -335,9 +383,10 @@ module Steep
         def self.to_client(message:)
           new(dest: :client, message: message)
         end
+
+        include MessageUtils
       end
 
-      attr_reader :steepfile
       attr_reader :project
       attr_reader :reader, :writer
       attr_reader :commandline_args
@@ -373,6 +422,7 @@ module Steep
         Steep.logger.tagged "master" do
           tags = Steep.logger.formatter.current_tags.dup
 
+          # @type var worker_threads: Array[Thread]
           worker_threads = []
 
           if interaction_worker
@@ -404,7 +454,8 @@ module Steep
             while job = job_queue.deq
               case job
               when ReceiveMessageJob
-                src = if job.source == :client
+                src = case job.source
+                      when :client
                         :client
                       else
                         job.source.name
@@ -447,9 +498,9 @@ module Steep
       end
 
       def each_worker(&block)
-        if block_given?
+        if block
           yield interaction_worker if interaction_worker
-          typecheck_workers.each &block
+          typecheck_workers.each(&block)
         else
           enum_for :each_worker
         end
@@ -460,7 +511,7 @@ module Steep
       end
 
       def work_done_progress_supported?
-        initialize_params&.dig(:capabilities, :window, :workDoneProgress)
+        initialize_params&.dig(:capabilities, :window, :workDoneProgress) ? true : false
       end
 
       def process_message_from_client(message)
@@ -641,6 +692,14 @@ module Steep
             )
           end
 
+        when "$/ping"
+          job_queue << SendMessageJob.to_client(
+            message: {
+                id: message[:id],
+                result: message[:params]
+            }
+          )
+
         when "shutdown"
           result_controller << group_request do |group|
             each_worker do |worker|
@@ -794,9 +853,10 @@ module Steep
       def send_request(method:, id: fresh_request_id(), params: nil, worker:, &block)
         Steep.logger.info "Sending request #{method}(#{id}) to #{worker.name}"
 
+        # @type var message: lsp_request
         message = { method: method, id: id, params: params }
         ResultHandler.new(request: message).tap do |handler|
-          yield handler if block_given?
+          yield handler if block
           job_queue << SendMessageJob.to_worker(worker, message: message)
         end
       end

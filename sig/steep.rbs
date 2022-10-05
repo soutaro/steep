@@ -1,5 +1,5 @@
 module Steep
-  def self.logger: () -> (Logger & _TaggedLogging)
+  def self.logger: () -> (Logger & ActiveSupport::TaggedLogging)
 
   def self.new_logger: (untyped output, untyped prev_level) -> untyped
 
@@ -7,13 +7,11 @@ module Steep
 
   def self.log_output=: (untyped output) -> untyped
 
-  def self.measure: (untyped message, ?level: ::Symbol) { () -> untyped } -> untyped
+  def self.measure: [A] (String message, ?level: ::Symbol) { () -> A } -> A
 
   def self.log_error: (untyped exn, ?message: ::String) -> untyped
 
-  interface _TaggedLogging
-    def tagged: [A] (*String) { () -> A } -> A
-  end
+  self.@logger: ActiveSupport::TaggedLogging?
 
   class Sampler
     def initialize: () -> void

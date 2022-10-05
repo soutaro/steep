@@ -5,9 +5,9 @@ module Steep
 
       attr_reader options: untyped
 
-      attr_reader source_pattern: untyped
+      attr_reader source_pattern: Pattern
 
-      attr_reader signature_pattern: untyped
+      attr_reader signature_pattern: Pattern
 
       attr_reader code_diagnostics_config: untyped
 

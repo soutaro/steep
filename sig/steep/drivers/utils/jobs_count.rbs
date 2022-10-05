@@ -1,0 +1,11 @@
+module Steep
+  module Drivers
+    module Utils
+      module JobsCount
+        attr_accessor jobs_count: Integer
+
+        attr_accessor steep_command: String
+      end
+    end
+  end
+end

@@ -52,13 +52,15 @@ module Steep
 
       def self.spawn_typecheck_workers(steepfile:, args:, steep_command: "steep", count: [Etc.nprocessors - 1, 1].max, delay_shutdown: false)
         count.times.map do |i|
-          spawn_worker(:typecheck,
-                       name: "typecheck@#{i}",
-                       steepfile: steepfile,
-                       steep_command: steep_command,
-                       options: ["--max-index=#{count}", "--index=#{i}", *args],
-                       delay_shutdown: delay_shutdown,
-                       index: i)
+          spawn_worker(
+            :typecheck,
+            name: "typecheck@#{i}",
+            steepfile: steepfile,
+            steep_command: steep_command,
+            options: ["--max-index=#{count}", "--index=#{i}", *args],
+            delay_shutdown: delay_shutdown,
+            index: i
+          )
         end
       end
 

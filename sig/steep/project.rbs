@@ -1,19 +1,26 @@
 module Steep
   class Project
-    attr_reader targets: untyped
+    attr_reader targets: Array[Target]
 
-    attr_reader steepfile_path: untyped
+    attr_reader steepfile_path: Pathname
 
-    def initialize: (steepfile_path: untyped) -> void
+    def initialize: (steepfile_path: Pathname) -> void
 
-    def base_dir: () -> untyped
+    def base_dir: () -> Pathname
 
-    def relative_path: (untyped path) -> untyped
+    def relative_path: (Pathname path) -> Pathname
 
-    def absolute_path: (untyped path) -> untyped
+    def absolute_path: (Pathname path) -> Pathname
 
-    def target_for_source_path: (untyped path) -> untyped
+    def target_for_source_path: (Pathname path) -> Target?
 
-    def targets_for_path: (untyped path) -> (::Array[untyped | ::Array[untyped]] | ::Array[nil | untyped])
+    # Returns target or array of targets that *can* contain given path
+    #
+    # * `Target` will return if `path` is a source code
+    # * `Array[Target]` will return if `path` is a signature
+    #
+    # `path` can be non-existent file.
+    #
+    def targets_for_path: (Pathname path) -> (Target | Array[Target] | nil)
   end
 end

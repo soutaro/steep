@@ -18,7 +18,7 @@ module Steep
     end
 
     def self.available_commands
-      [:init, :check, :validate, :annotations, :version, :project, :watch, :langserver, :stats, :binstub]
+      [:init, :check, :validate, :annotations, :version, :project, :watch, :langserver, :stats, :binstub, :checkfile]
     end
 
     def process_global_options
@@ -120,6 +120,29 @@ module Steep
         end.parse!(argv)
 
         check.command_line_patterns.push *argv
+      end.run
+    end
+
+    def process_checkfile
+      Drivers::Checkfile.new(stdout: stdout, stderr: stderr).tap do |check|
+        OptionParser.new do |opts|
+          opts.banner = "Usage: steep checkfile [options] [files]"
+
+          opts.on("--steepfile=PATH") {|path| check.steepfile = Pathname(path) }
+          opts.on("--all-rbs", "Type check all RBS files") { check.all_rbs = true }
+          opts.on("--all-ruby", "Type check all Ruby files") { check.all_ruby = true }
+          opts.on("--stdin", "Read files to type check from stdin") do
+            while line = stdin.gets()
+              object = JSON.parse(line, symbolize_names: true)
+              Steep.logger.info { "Loading content of `#{object[:path]}` from stdin: #{object[:content].lines[0].chomp}" }
+              check.stdin_input[Pathname(object[:path])] = object[:content]
+            end
+          end
+          handle_jobs_option check, opts
+          handle_logging_options opts
+        end.parse!(argv)
+
+        check.command_line_args.push *argv
       end.run
     end
 

@@ -5,13 +5,15 @@ module Steep
       attr_reader :commandline_args
       attr_reader :current_type_check_guid
 
-      WorkspaceSymbolJob = Struct.new(:query, :id, keyword_init: true)
-      StatsJob = Struct.new(:id, keyword_init: true)
-      StartTypeCheckJob = Struct.new(:guid, :changes, keyword_init: true)
-      TypeCheckCodeJob = Struct.new(:guid, :path, keyword_init: true)
-      ValidateAppSignatureJob = Struct.new(:guid, :path, keyword_init: true)
-      ValidateLibrarySignatureJob = Struct.new(:guid, :path, keyword_init: true)
-      GotoJob = Struct.new(:id, :kind, :params, keyword_init: true) do
+      WorkspaceSymbolJob = _ = Struct.new(:query, :id, keyword_init: true)
+      StatsJob = _ = Struct.new(:id, keyword_init: true)
+      StartTypeCheckJob = _ = Struct.new(:guid, :changes, keyword_init: true)
+      TypeCheckCodeJob = _ = Struct.new(:guid, :path, keyword_init: true)
+      ValidateAppSignatureJob = _ = Struct.new(:guid, :path, keyword_init: true)
+      ValidateLibrarySignatureJob = _ = Struct.new(:guid, :path, keyword_init: true)
+      GotoJob = _ = Struct.new(:id, :kind, :params, keyword_init: true) do
+        # @implements GotoJob
+
         def self.implementation(id:, params:)
           new(
             kind: :implementation,
@@ -86,10 +88,10 @@ module Steep
           queue << StartTypeCheckJob.new(guid: guid, changes: changes)
         end
 
-        priority_paths = Set.new(params[:priority_uris].map {|uri| Steep::PathHelper.to_pathname(uri) })
-        library_paths = params[:library_uris].map {|uri| Steep::PathHelper.to_pathname(uri) }
-        signature_paths = params[:signature_uris].map {|uri| Steep::PathHelper.to_pathname(uri) }
-        code_paths = params[:code_uris].map {|uri| Steep::PathHelper.to_pathname(uri) }
+        priority_paths = Set.new(params[:priority_uris].map {|uri| Steep::PathHelper.to_pathname(uri) || raise })
+        library_paths = params[:library_uris].map {|uri| Steep::PathHelper.to_pathname(uri) || raise }
+        signature_paths = params[:signature_uris].map {|uri| Steep::PathHelper.to_pathname(uri) || raise }
+        code_paths = params[:code_uris].map {|uri| Steep::PathHelper.to_pathname(uri) || raise }
 
         library_paths.each do |path|
           if priority_paths.include?(path)

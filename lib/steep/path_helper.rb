@@ -5,7 +5,7 @@ module Steep
     def to_pathname(uri, dosish: Gem.win_platform?)
       uri = URI.parse(uri)
       if uri.scheme == "file"
-        path = uri.path
+        path = uri.path or raise
         path.sub!(%r{^/([a-zA-Z])(:|%3A)//?}i, '\1:/') if dosish
         Pathname(path)
       end

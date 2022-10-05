@@ -100,6 +100,7 @@ module Steep
       end
 
       def signature_diagnostics
+        # @type var signature_diagnostics: Hash[Pathname, Array[Diagnostic::Signature::Base]]
         signature_diagnostics = {}
 
         project.targets.each do |target|
@@ -191,6 +192,7 @@ module Steep
       def validate_signature(path:, &block)
         Steep.logger.tagged "#validate_signature(path=#{path})" do
           Steep.measure "validation" do
+            # @type var accumulated_diagnostics: Array[Diagnostic::Signature::Base]
             accumulated_diagnostics = []
 
             project.targets.each do |target|

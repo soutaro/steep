@@ -1,0 +1,27 @@
+module Steep
+  module Drivers
+    class Watch
+      attr_reader dirs: untyped
+
+      attr_reader stdout: untyped
+
+      attr_reader stderr: untyped
+
+      attr_reader queue: untyped
+
+      attr_accessor severity_level: untyped
+
+      include Utils::DriverHelper
+
+      include Utils::JobsCount
+
+      LSP: untyped
+
+      def initialize: (stdout: untyped, stderr: untyped) -> void
+
+      def watching?: (untyped changed_path, files: untyped, dirs: untyped) -> untyped
+
+      def run: () -> (1 | 0)
+    end
+  end
+end

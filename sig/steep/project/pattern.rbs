@@ -1,25 +1,25 @@
 module Steep
   class Project
     class Pattern
-      attr_reader patterns: untyped
+      attr_reader patterns: Array[String]
 
-      attr_reader ignores: untyped
+      attr_reader ignores: Array[String]
 
-      attr_reader prefixes: untyped
+      attr_reader prefixes: Array[String]
 
-      attr_reader ignore_prefixes: untyped
+      attr_reader ignore_prefixes: Array[String]
 
-      attr_reader ext: untyped
+      attr_reader ext: String
 
-      def initialize: (patterns: untyped, ext: untyped, ?ignores: untyped) -> void
+      def initialize: (patterns: Array[String], ext: String, ?ignores: Array[String]) -> void
 
-      def =~: (untyped path) -> untyped
+      def =~: (Pathname | String path) -> bool
 
-      def match?: (untyped path) -> untyped
+      def match?: (Pathname path) -> bool
 
-      def ignore?: (untyped path) -> untyped
+      def ignore?: (Pathname path) -> bool
 
-      def test_string: (untyped path, untyped patterns, untyped prefixes) -> untyped
+      def test_string: (Pathname path, Array[String] patterns, Array[String] prefixes) -> bool
     end
   end
 end

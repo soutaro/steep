@@ -1,0 +1,29 @@
+module Steep
+  module Server
+    class WorkerProcess
+      attr_reader reader: untyped
+
+      attr_reader writer: untyped
+
+      attr_reader stderr: untyped
+
+      attr_reader name: untyped
+
+      attr_reader wait_thread: untyped
+
+      attr_reader index: untyped
+
+      def initialize: (reader: untyped, writer: untyped, stderr: untyped, wait_thread: untyped, name: untyped, ?index: untyped?) -> void
+
+      def self.spawn_worker: (untyped `type`, name: untyped, steepfile: untyped, ?steep_command: ::String, ?options: untyped, ?delay_shutdown: bool, ?index: untyped?) -> untyped
+
+      def self.spawn_typecheck_workers: (steepfile: untyped, args: untyped, ?steep_command: ::String, ?count: untyped, ?delay_shutdown: bool) -> untyped
+
+      def <<: (untyped message) -> untyped
+
+      def read: () ?{ () -> untyped } -> untyped
+
+      def kill: () -> untyped
+    end
+  end
+end

@@ -1,0 +1,19 @@
+module Steep
+  module Drivers
+    class Vendor
+      attr_reader stdout: untyped
+
+      attr_reader stderr: untyped
+
+      attr_reader stdin: untyped
+
+      attr_accessor vendor_dir: untyped
+
+      attr_accessor clean_before: untyped
+
+      def initialize: (stdout: untyped, stderr: untyped, stdin: untyped) -> void
+
+      def run: () -> 0
+    end
+  end
+end
