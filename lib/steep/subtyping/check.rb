@@ -191,8 +191,10 @@ module Steep
 
         Steep.logger.tagged "#{relation.sub_type} <: #{relation.super_type}" do
           bounds = cache_bounds(relation)
+          fvs = relation.sub_type.free_variables + relation.super_type.free_variables
           cached = cache[relation, @self_type, @instance_type, @class_type, bounds]
-          if cached && constraints.empty?
+          if cached && fvs.none? {|var| constraints.unknown?(var) }
+            Steep.logger.fatal { { cached: relation.to_s }.inspect }
             cached
           else
             if assumptions.member?(relation)
