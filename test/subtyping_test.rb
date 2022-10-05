@@ -1088,4 +1088,36 @@ type c = a | b
       end
     end
   end
+
+  def test_constraints_caching
+    with_checker do |checker|
+      Subtyping::Constraints.new(unknowns: [:X]).tap do |constraints|
+        assert_success_check(
+          checker,
+          "::Array[::Integer]",
+          parse_type("::Array[X]", variables: [:X], checker: checker),
+          constraints: constraints
+        )
+
+        assert_equal parse_type("::Integer", checker: checker), constraints.upper_bound(:X)
+      end
+
+      Subtyping::Constraints.new(unknowns: [:X]).tap do |constraints|
+        assert_success_check(
+          checker,
+          "::Array[::Integer]",
+          parse_type("::Array[X]", variables: [:X], checker: checker),
+          constraints: constraints
+        )
+
+        assert_equal parse_type("::Integer", checker: checker), constraints.upper_bound(:X)
+      end
+    end
+  end
+
+  def test_selfq
+    with_checker do |checker|
+      assert_success_check(checker, "self | nil", "self | nil")
+    end
+  end
 end
