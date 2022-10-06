@@ -2,6 +2,26 @@
 
 ## master
 
+## 1.2.0.pre.1 (2022-10-06)
+
+### Type checker core
+
+* Support type checking block/proc self type binding ([#637](https://github.com/soutaro/steep/pull/637))
+* Type check multiple assignment on block parameters ([#641](https://github.com/soutaro/steep/pull/641), [#643](https://github.com/soutaro/steep/pull/643))
+* Make more multiple assignments type check ([#630](https://github.com/soutaro/steep/pull/630))
+* Refactor *shape* calculation ([#635](https://github.com/soutaro/steep/pull/635), [#649
+](https://github.com/soutaro/steep/pull/649))
+* Report type errors if argument mismatch on yield ([#640](https://github.com/soutaro/steep/pull/640))
+* Relax caching requirements to cache more results ([#651](https://github.com/soutaro/steep/pull/651))
+
+### Commandline tool
+
+* Add `steep checkfile` command ([#650](https://github.com/soutaro/steep/pull/650))
+
+### Miscellaneous
+
+* Add docs for sublime text integration ([#633](https://github.com/soutaro/steep/pull/633))
+
 ## 1.1.1 (2022-07-31)
 
 ### Type checker core

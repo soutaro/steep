@@ -42,6 +42,10 @@ gems:
     revision: dc7059ea0cdf67f486ca9cea2b01d53f04724652
     remote: https://github.com/ruby/gem_rbs_collection.git
     repo_dir: gems
+- name: minitest
+  version: '0'
+  source:
+    type: stdlib
 - name: parallel
   version: '1.20'
   source:
@@ -58,6 +62,10 @@ gems:
     revision: dc7059ea0cdf67f486ca9cea2b01d53f04724652
     remote: https://github.com/ruby/gem_rbs_collection.git
     repo_dir: gems
+- name: securerandom
+  version: '0'
+  source:
+    type: stdlib
 - name: monitor
   version: '0'
   source:
