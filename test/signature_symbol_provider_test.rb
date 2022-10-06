@@ -220,7 +220,7 @@ EOF
         {
           Pathname("sig/a.rbs") => [Services::ContentChange.string(<<RBS)]
 module Steep
-  VERSION: String
+  DEFAULT_COMMAND: String
   $SteepError: IO
 end
 RBS
@@ -237,7 +237,7 @@ RBS
       provider.indexes << index
 
       provider.query_symbol("").tap do |symbols|
-        symbols.find {|s| s.name == "VERSION" }.tap do |symbol|
+        symbols.find {|s| s.name == "DEFAULT_COMMAND" }.tap do |symbol|
           refute_nil symbol
           assert_equal "Steep", symbol.container_name
           assert_equal LSP::Constant::SymbolKind::CONSTANT, symbol.kind
