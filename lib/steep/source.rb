@@ -73,8 +73,6 @@ module Steep
 
       if node
         construct_mapping(node: node, annotations: annotations, mapping: mapping)
-      else
-        Steep.logger.fatal { "#{path} is empty source code" }
       end
 
       annotations.each do |annot|
