@@ -2,6 +2,13 @@
 
 ## master
 
+## 1.1.1 (2022-07-31)
+
+### Type checker core
+
+* Ignore special local variables -- `_`, `__any__` and `__skip__` ([#617](https://github.com/soutaro/steep/pull/617), [#627](https://github.com/soutaro/steep/pull/627))
+* Fix type narrowing on assignments ([#622](https://github.com/soutaro/steep/pull/622))
+
 ## 1.1.0 (2022-07-27)
 
 ### Type checker core
