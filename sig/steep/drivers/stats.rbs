@@ -1,35 +1,45 @@
 module Steep
   module Drivers
     class Stats
+      type file_stats = {
+        type: String,
+        target: String,
+        path: String,
+        type: String,
+        typed_calls: Integer,
+        untyped_calls: Integer,
+        total_calls: Integer
+      }
+
       class CSVPrinter
-        attr_reader io: untyped
+        attr_reader io: IO
 
-        def initialize: (io: untyped) -> void
+        def initialize: (io: IO) -> void
 
-        def print: (untyped stats_result) -> untyped
+        def print: (Array[file_stats] stats_result) -> void
       end
 
       class TablePrinter
-        attr_reader io: untyped
+        attr_reader io: IO
 
-        def initialize: (io: untyped) -> void
+        def initialize: (io: IO) -> void
 
-        def print: (untyped stats_result) -> untyped
+        def print: (Array[file_stats] stats_result) -> void
       end
 
-      attr_reader stdout: untyped
+      attr_reader stdout: IO
 
-      attr_reader stderr: untyped
+      attr_reader stderr: IO
 
-      attr_reader command_line_patterns: untyped
+      attr_reader command_line_patterns: Array[String]
 
-      attr_accessor format: untyped
+      attr_accessor format: "csv" | "table" | nil
 
       include Utils::DriverHelper
 
       include Utils::JobsCount
 
-      def initialize: (stdout: untyped, stderr: untyped) -> void
+      def initialize: (stdout: IO, stderr: IO) -> void
 
       def run: () -> 0
     end

@@ -24,6 +24,7 @@ target :app do
     "strscan",
     "rubygems",
     "optparse",
-    "securerandom"
+    "securerandom",
+    "csv"
   )
 end
