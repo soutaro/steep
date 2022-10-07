@@ -24,7 +24,7 @@ module Steep
 
     def handle_logging_options: (OptionParser opts) -> void
 
-    def handle_jobs_option: (Drivers::Utils::JobsCount command, OptionParser opts, ?::Integer modifier) -> void
+    def handle_jobs_option: (Drivers::Utils::JobsOption jobs_option, OptionParser opts) -> void
 
     def process_init: () -> Integer
 

@@ -4,15 +4,12 @@ module Steep
       attr_reader :stdout
       attr_reader :stderr
       attr_reader :stdin
-      attr_reader :latest_update_version
       attr_reader :write_mutex
       attr_reader :type_check_queue
       attr_reader :type_check_thread
+      attr_reader :jobs_option
 
       include Utils::DriverHelper
-      include Utils::JobsCount
-
-      TypeCheckRequest = Struct.new(:version, keyword_init: true)
 
       def initialize(stdout:, stderr:, stdin:)
         @stdout = stdout
@@ -20,6 +17,7 @@ module Steep
         @stdin = stdin
         @write_mutex = Mutex.new
         @type_check_queue = Queue.new
+        @jobs_option = Utils::JobsOption.new(jobs_count_modifier: -1)
       end
 
       def writer
@@ -37,8 +35,8 @@ module Steep
       def run
         @project = load_config()
 
-        interaction_worker = Server::WorkerProcess.spawn_worker(:interaction, name: "interaction", steepfile: project.steepfile_path, steep_command: steep_command)
-        typecheck_workers = Server::WorkerProcess.spawn_typecheck_workers(steepfile: project.steepfile_path, args: [], steep_command: steep_command, count: jobs_count)
+        interaction_worker = Server::WorkerProcess.spawn_worker(:interaction, name: "interaction", steepfile: project.steepfile_path, steep_command: jobs_option.steep_command_value)
+        typecheck_workers = Server::WorkerProcess.spawn_typecheck_workers(steepfile: project.steepfile_path, args: [], steep_command: jobs_option.steep_command_value, count: jobs_option.jobs_count_value)
 
         master = Server::Master.new(
           project: project,

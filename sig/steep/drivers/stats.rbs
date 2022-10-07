@@ -35,9 +35,9 @@ module Steep
 
       attr_accessor format: "csv" | "table" | nil
 
-      include Utils::DriverHelper
+      attr_reader jobs_option: Utils::JobsOption
 
-      include Utils::JobsCount
+      include Utils::DriverHelper
 
       def initialize: (stdout: IO, stderr: IO) -> void
 
