@@ -1,0 +1,23 @@
+module Steep
+  module Drivers
+    module Utils
+      class JobsOption
+        attr_accessor jobs_count: Integer?
+
+        attr_accessor steep_command: String?
+
+        attr_reader jobs_count_modifier: Integer
+
+        include Parallel::ProcessorCount
+
+        def initialize: (?jobs_count_modifier: Integer) -> void
+
+        def default_jobs_count: () -> Integer
+
+        def jobs_count_value: () -> Integer
+
+        def steep_command_value: () -> String
+      end
+    end
+  end
+end
