@@ -8,9 +8,9 @@ module Steep
       attr_reader :command_line_args
       attr_accessor :all_ruby, :all_rbs
       attr_reader :stdin_input
+      attr_reader :jobs_option
 
       include Utils::DriverHelper
-      include Utils::JobsCount
 
       def initialize(stdout:, stderr:)
         @stdout = stdout
@@ -20,6 +20,8 @@ module Steep
         @all_rbs = false
         @all_ruby = false
         @stdin_input = {}
+
+        @jobs_option = Utils::JobsOption.new()
       end
 
       def run
@@ -88,10 +90,13 @@ module Steep
         files = target_paths + signature_paths
 
         count =
-          if files.size >= jobs_count
-            jobs_count
+          if jobs_option.jobs_count
+            jobs_option.jobs_count
           else
-            files.size + 2
+            [
+              files.size + 2,
+              jobs_option.default_jobs_count
+            ].min || raise
           end
 
         Steep.logger.info { "Starting #{count} workers for #{files.size} files..." }
@@ -100,7 +105,7 @@ module Steep
           steepfile: project.steepfile_path,
           args: [],
           delay_shutdown: true,
-          steep_command: steep_command,
+          steep_command: jobs_option.steep_command_value,
           count: count
         )
 

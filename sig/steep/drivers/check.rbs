@@ -15,9 +15,9 @@ module Steep
 
       attr_accessor severity_level: untyped
 
-      include Utils::DriverHelper
+      attr_reader jobs_option: Utils::JobsOption
 
-      include Utils::JobsCount
+      include Utils::DriverHelper
 
       def initialize: (stdout: untyped, stderr: untyped) -> void
 

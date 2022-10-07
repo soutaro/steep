@@ -43,7 +43,9 @@ module Steep
     end
 
     def setup_command
-      @command = argv.shift&.to_sym
+      return false unless command = argv.shift&.to_sym
+      @command = command
+
       if CLI.available_commands.include?(@command) || @command == :worker || @command == :vendor
         true
       else
@@ -74,16 +76,13 @@ module Steep
       end
     end
 
-    def handle_jobs_option(command, opts, modifier = 0)
-      default = physical_processor_count + modifier
-      command.jobs_count = default
-      opts.on("-j N", "--jobs=N", "Specify the number of type check workers (defaults: #{default})") do |count|
-        command.jobs_count = Integer(count) if Integer(count) > 0
+    def handle_jobs_option(option, opts)
+      opts.on("-j N", "--jobs=N", "Specify the number of type check workers (defaults: #{option.default_jobs_count})") do |count|
+        option.jobs_count = Integer(count) if Integer(count) > 0
       end
 
-      command.steep_command = "steep"
       opts.on("--steep-command=COMMAND", "Specify command to exec Steep CLI for worker (defaults: steep)") do |cmd|
-        command.steep_command = cmd
+        option.steep_command = cmd
       end
     end
 
@@ -115,7 +114,7 @@ module Steep
           opts.on("--severity-level=LEVEL", /^error|warning|information|hint$/, "Specify the minimum diagnostic severity to be recognized as an error (defaults: warning): error, warning, information, or hint") do |level|
             check.severity_level = level.to_sym
           end
-          handle_jobs_option check, opts
+          handle_jobs_option check.jobs_option, opts
           handle_logging_options opts
         end.parse!(argv)
 
@@ -138,7 +137,7 @@ module Steep
               check.stdin_input[Pathname(object[:path])] = object[:content]
             end
           end
-          handle_jobs_option check, opts
+          handle_jobs_option check.jobs_option, opts
           handle_logging_options opts
         end.parse!(argv)
 
@@ -153,7 +152,7 @@ module Steep
 
           opts.on("--steepfile=PATH") {|path| check.steepfile = Pathname(path) }
           opts.on("--format=FORMAT", "Specify output format: csv, table") {|format| check.format = format }
-          handle_jobs_option check, opts
+          handle_jobs_option check.jobs_option, opts
           handle_logging_options opts
         end.parse!(argv)
 
@@ -197,7 +196,7 @@ module Steep
           opts.on("--severity-level=LEVEL", /^error|warning|information|hint$/, "Specify the minimum diagnostic severity to be recognized as an error (defaults: warning): error, warning, information, or hint") do |level|
             command.severity_level = level.to_sym
           end
-          handle_jobs_option command, opts
+          handle_jobs_option command.jobs_option, opts
           handle_logging_options opts
         end.parse!(argv)
 
@@ -210,7 +209,7 @@ module Steep
       Drivers::Langserver.new(stdout: stdout, stderr: stderr, stdin: stdin).tap do |command|
         OptionParser.new do |opts|
           opts.on("--steepfile=PATH") {|path| command.steepfile = Pathname(path) }
-          handle_jobs_option command, opts, -1
+          handle_jobs_option command.jobs_option, opts
           handle_logging_options opts
         end.parse!(argv)
       end.run

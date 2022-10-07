@@ -6,9 +6,9 @@ module Steep
       attr_reader :stderr
       attr_reader :queue
       attr_accessor :severity_level
+      attr_reader :jobs_option
 
       include Utils::DriverHelper
-      include Utils::JobsCount
 
       LSP = LanguageServer::Protocol
 
@@ -18,6 +18,7 @@ module Steep
         @stderr = stderr
         @queue = Thread::Queue.new
         @severity_level = :warning
+        @jobs_option = Utils::JobsOption.new()
       end
 
       def watching?(changed_path, files:, dirs:)
@@ -41,7 +42,7 @@ module Steep
         server_reader = LanguageServer::Protocol::Transport::Io::Reader.new(server_read)
         server_writer = LanguageServer::Protocol::Transport::Io::Writer.new(server_write)
 
-        typecheck_workers = Server::WorkerProcess.spawn_typecheck_workers(steepfile: project.steepfile_path, args: dirs.map(&:to_s), steep_command: steep_command, count: jobs_count)
+        typecheck_workers = Server::WorkerProcess.spawn_typecheck_workers(steepfile: project.steepfile_path, args: dirs.map(&:to_s), steep_command: jobs_option.steep_command_value, count: jobs_option.jobs_count_value)
 
         master = Server::Master.new(
           project: project,
@@ -51,7 +52,7 @@ module Steep
           typecheck_workers: typecheck_workers
         )
         master.typecheck_automatically = false
-        master.commandline_args.push(*dirs)
+        master.commandline_args.push(*dirs.map(&:to_s))
 
         main_thread = Thread.start do
           master.start()
@@ -99,6 +100,7 @@ module Steep
             end
 
             removed.each do |path|
+              p = Pathname(path)
               if watching?(p, files: file_paths, dirs: dir_paths)
                 client_writer.write(
                   method: "textDocument/didChange",
@@ -112,7 +114,7 @@ module Steep
           end
 
           client_writer.write(method: "$/typecheck", params: { guid: nil })
-          
+
           stdout.puts Rainbow("done!").bold
         end.tap(&:start)
 
@@ -124,8 +126,7 @@ module Steep
           client_reader.read do |response|
             case response[:method]
             when "textDocument/publishDiagnostics"
-              uri = URI.parse(response[:params][:uri])
-              path = project.relative_path(Pathname(uri.path))
+              path = PathHelper.to_pathname(response[:params][:uri]) or break
               buffer = RBS::Buffer.new(content: path.read, name: path)
               printer = DiagnosticPrinter.new(stdout: stdout, buffer: buffer)
 

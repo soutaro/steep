@@ -10,13 +10,14 @@ module Steep
       attr_reader command_line_args: Array[String]
 
       include Utils::DriverHelper
-      include Utils::JobsCount
 
       attr_accessor all_rbs: bool
 
       attr_accessor all_ruby: bool
 
       attr_reader stdin_input: Hash[Pathname, String]
+
+      attr_reader jobs_option: Utils::JobsOption
 
       def initialize: (stdout: IO, stderr: IO) -> void
 

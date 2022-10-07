@@ -1,7 +1,13 @@
 module Steep
   module PathHelper
+    # Receives a String that represents a *file* URI and returns a Pathname
+    #
+    # Returns `nil` when the schema of given URI is not `file://`.
+    #
     def self?.to_pathname: (String uri, ?dosish: bool) -> Pathname?
 
+    # Receives a Pathname and returns a *file* URI
+    # 
     def self?.to_uri: (Pathname path, ?dosish: bool) -> URI::File
   end
 end

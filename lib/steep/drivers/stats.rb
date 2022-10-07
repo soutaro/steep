@@ -100,14 +100,15 @@ module Steep
       attr_reader :stderr
       attr_reader :command_line_patterns
       attr_accessor :format
+      attr_reader :jobs_option
 
       include Utils::DriverHelper
-      include Utils::JobsCount
 
       def initialize(stdout:, stderr:)
         @stdout = stdout
         @stderr = stderr
         @command_line_patterns = []
+        @jobs_option = Utils::JobsOption.new()
       end
 
       def run
@@ -129,8 +130,8 @@ module Steep
           steepfile: project.steepfile_path,
           delay_shutdown: true,
           args: command_line_patterns,
-          steep_command: steep_command,
-          count: jobs_count
+          steep_command: jobs_option.steep_command_value,
+          count: jobs_option.jobs_count_value
         )
 
         master = Server::Master.new(
