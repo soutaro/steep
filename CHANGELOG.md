@@ -2,6 +2,17 @@
 
 ## master
 
+## 1.2.0 (2022-10-08)
+
+### Commandline tool
+
+* Refactor `--jobs` and `--steep-command` option handling ([#654](https://github.com/soutaro/steep/pull/654))
+
+### Miscellaneous
+
+* Delete debug prints ([#653](https://github.com/soutaro/steep/pull/653))
+* Update RBS to 2.7.0 ([#655](https://github.com/soutaro/steep/pull/655))
+
 ## 1.2.0.pre.1 (2022-10-06)
 
 ### Type checker core
