@@ -14,23 +14,16 @@ target :app do
   library(
     "set",
     "pathname",
-    "json",
-    "logger",
     "monitor",
     "tsort",
     "uri",
     'yaml',
-    'dbm',
     'pstore',
     'singleton',
     'shellwords',
-    'fileutils',
     'find',
     'digest',
-    "strscan",
-    "rubygems",
     "optparse",
-    "securerandom",
-    "csv"
+    "securerandom"
   )
 end
