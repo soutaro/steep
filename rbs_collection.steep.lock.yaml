@@ -15,7 +15,7 @@ gems:
   source:
     type: git
     name: ruby/gem_rbs_collection
-    revision: dc7059ea0cdf67f486ca9cea2b01d53f04724652
+    revision: 84a7431af1db405ef827bfdd171a37a1416f6099
     remote: https://github.com/ruby/gem_rbs_collection.git
     repo_dir: gems
 - name: ast
@@ -23,7 +23,7 @@ gems:
   source:
     type: git
     name: ruby/gem_rbs_collection
-    revision: dc7059ea0cdf67f486ca9cea2b01d53f04724652
+    revision: 84a7431af1db405ef827bfdd171a37a1416f6099
     remote: https://github.com/ruby/gem_rbs_collection.git
     repo_dir: gems
 - name: i18n
@@ -31,7 +31,7 @@ gems:
   source:
     type: git
     name: ruby/gem_rbs_collection
-    revision: dc7059ea0cdf67f486ca9cea2b01d53f04724652
+    revision: 84a7431af1db405ef827bfdd171a37a1416f6099
     remote: https://github.com/ruby/gem_rbs_collection.git
     repo_dir: gems
 - name: listen
@@ -39,7 +39,7 @@ gems:
   source:
     type: git
     name: ruby/gem_rbs_collection
-    revision: dc7059ea0cdf67f486ca9cea2b01d53f04724652
+    revision: 84a7431af1db405ef827bfdd171a37a1416f6099
     remote: https://github.com/ruby/gem_rbs_collection.git
     repo_dir: gems
 - name: minitest
@@ -51,7 +51,7 @@ gems:
   source:
     type: git
     name: ruby/gem_rbs_collection
-    revision: dc7059ea0cdf67f486ca9cea2b01d53f04724652
+    revision: 84a7431af1db405ef827bfdd171a37a1416f6099
     remote: https://github.com/ruby/gem_rbs_collection.git
     repo_dir: gems
 - name: rainbow
@@ -59,7 +59,7 @@ gems:
   source:
     type: git
     name: ruby/gem_rbs_collection
-    revision: dc7059ea0cdf67f486ca9cea2b01d53f04724652
+    revision: 84a7431af1db405ef827bfdd171a37a1416f6099
     remote: https://github.com/ruby/gem_rbs_collection.git
     repo_dir: gems
 - name: securerandom
