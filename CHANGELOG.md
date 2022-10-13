@@ -20,8 +20,7 @@
 * Support type checking block/proc self type binding ([#637](https://github.com/soutaro/steep/pull/637))
 * Type check multiple assignment on block parameters ([#641](https://github.com/soutaro/steep/pull/641), [#643](https://github.com/soutaro/steep/pull/643))
 * Make more multiple assignments type check ([#630](https://github.com/soutaro/steep/pull/630))
-* Refactor *shape* calculation ([#635](https://github.com/soutaro/steep/pull/635), [#649
-](https://github.com/soutaro/steep/pull/649))
+* Refactor *shape* calculation ([#635](https://github.com/soutaro/steep/pull/635), [#649](https://github.com/soutaro/steep/pull/649))
 * Report type errors if argument mismatch on yield ([#640](https://github.com/soutaro/steep/pull/640))
 * Relax caching requirements to cache more results ([#651](https://github.com/soutaro/steep/pull/651))
 

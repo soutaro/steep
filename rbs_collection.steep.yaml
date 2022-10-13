@@ -18,3 +18,4 @@ gems:
     ignore: true
   - name: with_steep_types
     ignore: true
+  - name: dbm

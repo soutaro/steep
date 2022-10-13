@@ -15,7 +15,7 @@ gems:
   source:
     type: git
     name: ruby/gem_rbs_collection
-    revision: dc7059ea0cdf67f486ca9cea2b01d53f04724652
+    revision: 84a7431af1db405ef827bfdd171a37a1416f6099
     remote: https://github.com/ruby/gem_rbs_collection.git
     repo_dir: gems
 - name: ast
@@ -23,25 +23,45 @@ gems:
   source:
     type: git
     name: ruby/gem_rbs_collection
-    revision: dc7059ea0cdf67f486ca9cea2b01d53f04724652
+    revision: 84a7431af1db405ef827bfdd171a37a1416f6099
     remote: https://github.com/ruby/gem_rbs_collection.git
     repo_dir: gems
+- name: csv
+  version: '0'
+  source:
+    type: stdlib
+- name: dbm
+  version: '0'
+  source:
+    type: stdlib
+- name: fileutils
+  version: '0'
+  source:
+    type: stdlib
 - name: i18n
   version: '1.10'
   source:
     type: git
     name: ruby/gem_rbs_collection
-    revision: dc7059ea0cdf67f486ca9cea2b01d53f04724652
+    revision: 84a7431af1db405ef827bfdd171a37a1416f6099
     remote: https://github.com/ruby/gem_rbs_collection.git
     repo_dir: gems
+- name: json
+  version: '0'
+  source:
+    type: stdlib
 - name: listen
   version: '3.2'
   source:
     type: git
     name: ruby/gem_rbs_collection
-    revision: dc7059ea0cdf67f486ca9cea2b01d53f04724652
+    revision: 84a7431af1db405ef827bfdd171a37a1416f6099
     remote: https://github.com/ruby/gem_rbs_collection.git
     repo_dir: gems
+- name: logger
+  version: '0'
+  source:
+    type: stdlib
 - name: minitest
   version: '0'
   source:
@@ -51,7 +71,7 @@ gems:
   source:
     type: git
     name: ruby/gem_rbs_collection
-    revision: dc7059ea0cdf67f486ca9cea2b01d53f04724652
+    revision: 84a7431af1db405ef827bfdd171a37a1416f6099
     remote: https://github.com/ruby/gem_rbs_collection.git
     repo_dir: gems
 - name: rainbow
@@ -59,10 +79,14 @@ gems:
   source:
     type: git
     name: ruby/gem_rbs_collection
-    revision: dc7059ea0cdf67f486ca9cea2b01d53f04724652
+    revision: 84a7431af1db405ef827bfdd171a37a1416f6099
     remote: https://github.com/ruby/gem_rbs_collection.git
     repo_dir: gems
 - name: securerandom
+  version: '0'
+  source:
+    type: stdlib
+- name: strscan
   version: '0'
   source:
     type: stdlib
@@ -78,10 +102,6 @@ gems:
   version: '0'
   source:
     type: stdlib
-- name: logger
-  version: '0'
-  source:
-    type: stdlib
 - name: mutex_m
   version: '0'
   source:
@@ -91,6 +111,10 @@ gems:
   source:
     type: stdlib
 - name: pathname
+  version: '0'
+  source:
+    type: stdlib
+- name: forwardable
   version: '0'
   source:
     type: stdlib
