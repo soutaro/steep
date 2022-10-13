@@ -39,7 +39,6 @@ Gem::Specification.new do |spec|
   spec.add_runtime_dependency "securerandom", ">= 0.1"
   spec.add_runtime_dependency "json", ">= 2.1.0"
   spec.add_runtime_dependency "logger", ">= 1.3.0"
-  spec.add_runtime_dependency "dbm", ">= 1.0.0"
   spec.add_runtime_dependency "fileutils", ">= 1.1.0"
   spec.add_runtime_dependency "strscan", ">= 1.0.0"
   spec.add_runtime_dependency "csv", ">= 3.0.9"
