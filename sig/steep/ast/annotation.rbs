@@ -7,14 +7,14 @@ module Steep
 
       type loc = RBS::Location[untyped, untyped]
 
-      class Named
-        attr_reader name: Symbol
+      class Named[T, N]
+        attr_reader name: N
 
-        attr_reader type: Types::t
+        attr_reader type: T
 
         attr_reader location: loc?
 
-        def initialize: (name: Symbol, type: Types::t, ?location: loc?) -> void
+        def initialize: (name: N, type: T, ?location: loc?) -> void
 
         def ==: (untyped other) -> bool
       end
@@ -49,34 +49,25 @@ module Steep
       class BreakType < Typed
       end
 
-      class MethodType < Named
+      class MethodType < Named[Interface::MethodType, Symbol]
       end
 
-      class VarType < Named
+      class VarType < Named[Types::t, Symbol]
       end
 
-      class ConstType < Named
-        attr_reader name: RBS::TypeName
-
-        attr_reader type: Types::t
-
-        attr_reader location: loc?
-
-        def initialize: (name: RBS::TypeName, type: untyped, ?location: loc?) -> void
-
-        def ==: (untyped other) -> bool
+      class ConstType < Named[Types::t, RBS::TypeName]
       end
 
-      class IvarType < Named
+      class IvarType < Named[Types::t, Symbol]
       end
 
       class Implements
         class Module
           attr_reader name: RBS::TypeName
 
-          attr_reader args: Array[Types::t]
+          attr_reader args: Array[Symbol]
 
-          def initialize: (name: RBS::TypeName, args: Array[Types::t]) -> void
+          def initialize: (name: RBS::TypeName, args: Array[Symbol]) -> void
 
           def ==: (untyped other) -> bool
 

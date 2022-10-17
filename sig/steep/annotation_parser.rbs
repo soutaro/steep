@@ -1,0 +1,59 @@
+module Steep
+  class AnnotationParser
+    VAR_NAME: Regexp
+
+    METHOD_NAME: Regexp
+
+    CONST_NAME: Regexp
+
+    DYNAMIC_NAME: Regexp
+
+    IVAR_NAME: Regexp
+
+    attr_reader factory: AST::Types::Factory
+
+    def initialize: (factory: AST::Types::Factory) -> void
+
+    class SyntaxError < StandardError
+      attr_reader source: String
+
+      attr_reader location: untyped
+
+      def initialize: (source: String, location: untyped, ?exn: Exception?) -> void
+    end
+
+    TYPE: Regexp
+
+    COLON: Regexp
+
+    PARAM: Regexp
+
+    TYPE_PARAMS: Regexp
+
+    def parse_type: (String) -> AST::Types::t
+
+    # ```
+    # @type ${keyword} ${name}: ${type}
+    # ```
+    #
+    # Example:
+    #
+    # - `@type const Foo::Bar: String`
+    # - `@type var xyzzy: Array[String]`
+    #
+    def keyword_subject_type: (String keyword, Regexp name) -> Regexp
+
+    # ```
+    # @type ${keyword}: ${type}
+    # ```
+    #
+    # Example:
+    #
+    # - `@type break: String`
+    # - `@type self: Foo`
+    #
+    def keyword_and_type: (String keyword) -> ::Regexp
+
+    def parse: (String src, location: untyped) -> AST::Annotation::t?
+  end
+end
