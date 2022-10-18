@@ -1,55 +1,77 @@
 module Steep
   class Source
     class LocatedAnnotation
-      attr_reader line: untyped
+      attr_reader line: Integer
 
-      attr_reader annotation: untyped
+      attr_reader annotation: AST::Annotation::t
 
-      attr_reader source: untyped
+      attr_reader source: String
 
-      def initialize: (line: untyped, source: untyped, annotation: untyped) -> void
+      def initialize: (line: Integer, source: String, annotation: AST::Annotation::t) -> void
 
-      def ==: (untyped other) -> untyped
+      def ==: (untyped other) -> bool
     end
 
-    attr_reader path: untyped
+    attr_reader path: Pathname
 
-    attr_reader node: untyped
+    attr_reader node: Parser::AST::Node?
 
-    attr_reader mapping: untyped
+    attr_reader mapping: Hash[Parser::AST::Node, Array[LocatedAnnotation]]
 
-    def initialize: (path: untyped, node: untyped, mapping: untyped) -> void
+    def initialize: (path: Pathname, node: Parser::AST::Node?, mapping: Hash[Parser::AST::Node, Array[LocatedAnnotation]]) -> void
 
-    class Builder
+    class Builder < ::Parser::Builders::Default
       def string_value: (untyped token) -> untyped
     end
 
-    def self.new_parser: () -> untyped
+    def self.new_parser: () -> Parser::Ruby31
 
-    def self.parse: (untyped source_code, path: untyped, factory: untyped) -> untyped
+    def self.parse: (String source_code, path: Pathname, factory: AST::Types::Factory) -> Source
 
-    def self.construct_mapping: (node: untyped, annotations: untyped, mapping: untyped, ?line_range: untyped?) -> untyped
+    def self.construct_mapping: (
+      node: Parser::AST::Node,
+      annotations: Array[LocatedAnnotation],
+      mapping: Hash[Parser::AST::Node, Array[LocatedAnnotation]],
+      ?line_range: Range[Integer]?
+    ) -> void
 
-    def self.each_child_node: (untyped node) { (untyped) -> untyped } -> untyped
+    def self.each_child_node: (Parser::AST::Node node) { (Parser::AST::Node) -> void } -> void
 
-    def self.map_child_nodes: (untyped node) { (untyped) -> untyped } -> untyped
+    def self.map_child_nodes: (Parser::AST::Node node) { (Parser::AST::Node) -> Parser::AST::Node } -> Parser::AST::Node
 
     def annotations: (block: Parser::AST::Node, factory: AST::Types::Factory, context: RBS::Resolver::context) -> AST::Annotation::Collection
 
-    def each_annotation: () { (untyped, untyped) -> untyped } -> untyped
+    def each_annotation: () { ([Parser::AST::Node, Array[AST::Annotation::t]]) -> void } -> void
+                       | () -> Enumerator[[Parser::AST::Node, Array[AST::Annotation::t]], void]
 
-    def each_heredoc_node: (?untyped node, ?untyped parents) { (untyped) -> untyped } -> untyped
+    # Yields all heredoc node and its parents under `node` (or `self.node`)
+    #
+    # Yields arrays, inner node first, outer node last -- `[heredoc_node, *outer_node, node]`.
+    #
+    def each_heredoc_node: (?Parser::AST::Node? node, ?Array[Parser::AST::Node] parents) { (Array[Parser::AST::Node]) -> void } -> void
+                         | (?Parser::AST::Node? node, ?Array[Parser::AST::Node] parents) -> Enumerator[Array[Parser::AST::Node], void]
 
-    def find_heredoc_nodes: (untyped line, untyped column, untyped position) -> (untyped | nil)
+    # Returns array of nodes that is located inside heredoc
+    #
+    # ```ruby
+    # content = <<TEXT
+    # #{this or this}
+    # TEXT
+    # ```
+    #
+    # Returns arrays, inner node first, outer node last -- `[*nodes, heredoc_node]`.
+    #
+    def find_heredoc_nodes: (Integer line, Integer column, Integer position) -> Array[Parser::AST::Node]?
 
-    def find_nodes_loc: (untyped node, untyped position, untyped parents) -> untyped
+    # Returns a node and it's outer nodes
+    #
+    def find_nodes_loc: (Parser::AST::Node node, Integer position, Array[Parser::AST::Node] parents) -> Array[Parser::AST::Node]?
 
+    # Returns a node and it's outer nodes
     def find_nodes: (line: Integer, column: Integer) -> ::Array[Parser::AST::Node]?
 
-    def self.delete_defs: (untyped node, untyped allow_list) -> untyped
+    def self.delete_defs: (Parser::AST::Node node, Set[Parser::AST::Node] allow_list) -> Parser::AST::Node
 
-    def without_unrelated_defs: (line: untyped, column: untyped) -> (untyped | self)
-
-    def compact_siblings: (untyped node) -> untyped
+    def without_unrelated_defs: (line: Integer, column: Integer) -> Source
   end
 end

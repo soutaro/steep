@@ -47,15 +47,10 @@ module Steep
 
     def self.parse(source_code, path:, factory:)
       buffer = ::Parser::Source::Buffer.new(path.to_s, 1, source: source_code)
-      node = new_parser().parse(buffer)
+      node, comments = new_parser().parse_with_comments(buffer)
 
+      # @type var annotations: Array[LocatedAnnotation]
       annotations = []
-
-      _, comments, _ = yield_self do
-        buffer = ::Parser::Source::Buffer.new(path.to_s, 1, source: source_code)
-        new_parser().tokenize(buffer)
-      end
-
       buffer = RBS::Buffer.new(name: path, content: source_code)
 
       comments.each do |comment|
@@ -69,7 +64,9 @@ module Steep
         end
       end
 
-      mapping = {}.compare_by_identity
+      # @type var mapping: Hash[Parser::AST::Node, Array[LocatedAnnotation]]
+      mapping = {}
+      mapping.compare_by_identity
 
       if node
         construct_mapping(node: node, annotations: annotations, mapping: mapping)
@@ -86,7 +83,7 @@ module Steep
     def self.construct_mapping(node:, annotations:, mapping:, line_range: nil)
       case node.type
       when :if
-        if node.loc.is_a?(::Parser::Source::Map::Ternary)
+        if node.loc.respond_to?(:question)
           # Skip ternary operator
           each_child_node node do |child|
             construct_mapping(node: child, annotations: annotations, mapping: mapping, line_range: nil)
@@ -200,7 +197,7 @@ module Steep
         last_cond = node.children[-2]
         body = node.children.last
 
-        node.children.take(node.children.size-1) do |child|
+        node.children.take(node.children.size-1).each do |child|
           construct_mapping(node: child, annotations: annotations, mapping: mapping, line_range: nil)
         end
 
@@ -263,7 +260,7 @@ module Steep
 
     def self.each_child_node(node)
       node.children.each do |child|
-        if child.is_a?(::AST::Node)
+        if child.is_a?(Parser::AST::Node)
           yield child
         end
       end
@@ -271,7 +268,7 @@ module Steep
 
     def self.map_child_nodes(node)
       children = node.children.map do |child|
-        if child.is_a?(::AST::Node)
+        if child.is_a?(Parser::AST::Node)
           yield child
         else
           child
@@ -292,7 +289,7 @@ module Steep
     def each_annotation(&block)
       if block_given?
         mapping.each do |node, annots|
-          yield node, annots.map(&:annotation)
+          yield [node, annots.map(&:annotation)]
         end
       else
         enum_for :each_annotation
@@ -301,6 +298,8 @@ module Steep
 
     def each_heredoc_node(node = self.node, parents = [], &block)
       if block
+        return unless node
+
         case node.type
         when :dstr, :str
           if node.location.is_a?(Parser::Source::Map::Heredoc)
@@ -344,7 +343,9 @@ module Steep
           parents.unshift node
 
           Source.each_child_node(node) do |child|
-            ns = find_nodes_loc(child, position, parents) and return ns
+            if ns = find_nodes_loc(child, position, parents)
+              return ns
+            end
           end
 
           parents
@@ -359,12 +360,14 @@ module Steep
         node.location.expression.source_buffer.source_line(i+1).size + 1
       end + column
 
-      if nodes = find_heredoc_nodes(line, column, position)
-        Source.each_child_node(nodes[0]) do |child|
-          find_nodes_loc(child, position, nodes) and break
+      if heredoc_nodes = find_heredoc_nodes(line, column, position)
+        Source.each_child_node(heredoc_nodes[0]) do |child|
+          if nodes = find_nodes_loc(child, position, heredoc_nodes)
+            return nodes
+          end
         end
 
-        nodes
+        return heredoc_nodes
       else
         find_nodes_loc(node, position, [])
       end
@@ -398,7 +401,9 @@ module Steep
 
         node_ = Source.delete_defs(node, defs)
 
-        mapping = {}.compare_by_identity
+        # @type var mapping: Hash[Parser::AST::Node, Array[LocatedAnnotation]]
+        mapping = {}
+        mapping.compare_by_identity
 
         annotations = self.mapping.values.flatten
         Source.construct_mapping(node: node_, annotations: annotations, mapping: mapping)
@@ -411,21 +416,6 @@ module Steep
         Source.new(path: path, node: node_, mapping: mapping)
       else
         self
-      end
-    end
-
-    def compact_siblings(node)
-      case node
-      when :def
-        node.updated(:nil, [])
-      when :defs
-        node.children[0]
-      when :class
-        node.updated(:class, [node.children[0], node.children[1], nil])
-      when :module
-        node.updated(:module, [node.children[0], nil])
-      else
-        node
       end
     end
   end
