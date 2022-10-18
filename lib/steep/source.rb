@@ -1,23 +1,5 @@
 module Steep
   class Source
-    class LocatedAnnotation
-      attr_reader :line
-      attr_reader :annotation
-      attr_reader :source
-
-      def initialize(line:, source:, annotation:)
-        @line = line
-        @source = source
-        @annotation = annotation
-      end
-
-      def ==(other)
-        other.is_a?(LocatedAnnotation) &&
-          other.line == line &&
-          other.annotation == annotation
-      end
-    end
-
     attr_reader :path
     attr_reader :node
     attr_reader :mapping
@@ -49,35 +31,36 @@ module Steep
       buffer = ::Parser::Source::Buffer.new(path.to_s, 1, source: source_code)
       node, comments = new_parser().parse_with_comments(buffer)
 
-      # @type var annotations: Array[LocatedAnnotation]
+      # @type var annotations: Array[AST::Annotation::t]
       annotations = []
       buffer = RBS::Buffer.new(name: path, content: source_code)
+
+      annotation_parser = AnnotationParser.new(factory: factory)
 
       comments.each do |comment|
         src = comment.text.gsub(/\A#\s*/, '')
         location = RBS::Location.new(buffer: buffer,
                                      start_pos: comment.location.expression.begin_pos + 1,
                                      end_pos: comment.location.expression.end_pos)
-        annotation = AnnotationParser.new(factory: factory).parse(src, location: location)
+        annotation = annotation_parser.parse(src, location: location)
         if annotation
-          annotations << LocatedAnnotation.new(line: comment.location.line, source: src, annotation: annotation)
+          annotations << annotation
         end
       end
 
-      # @type var mapping: Hash[Parser::AST::Node, Array[LocatedAnnotation]]
-      mapping = {}
-      mapping.compare_by_identity
+      map = {}
+      map.compare_by_identity
 
       if node
-        construct_mapping(node: node, annotations: annotations, mapping: mapping)
+        construct_mapping(node: node, annotations: annotations, mapping: map)
       end
 
       annotations.each do |annot|
-        mapping[node] ||= []
-        mapping[node] << annot
+        map[node] ||= []
+        map[node] << annot
       end
 
-      new(path: path, node: node, mapping: mapping)
+      new(path: path, node: node, mapping: map)
     end
 
     def self.construct_mapping(node:, annotations:, mapping:, line_range: nil)
@@ -280,7 +263,7 @@ module Steep
 
     def annotations(block:, factory:, context:)
       AST::Annotation::Collection.new(
-        annotations: (mapping[block] || []).map(&:annotation),
+        annotations: (mapping[block] || []),
         factory: factory,
         context: context
       )
@@ -289,7 +272,7 @@ module Steep
     def each_annotation(&block)
       if block_given?
         mapping.each do |node, annots|
-          yield [node, annots.map(&:annotation)]
+          yield [node, annots]
         end
       else
         enum_for :each_annotation
@@ -302,7 +285,7 @@ module Steep
 
         case node.type
         when :dstr, :str
-          if node.location.is_a?(Parser::Source::Map::Heredoc)
+          if node.location.respond_to?(:heredoc_body)
             yield [node, *parents]
           end
         end

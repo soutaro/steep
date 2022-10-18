@@ -17,9 +17,9 @@ module Steep
     class SyntaxError < StandardError
       attr_reader source: String
 
-      attr_reader location: untyped
+      attr_reader location: RBS::Location[untyped, untyped]
 
-      def initialize: (source: String, location: untyped, ?exn: Exception?) -> void
+      def initialize: (source: String, location: RBS::Location[untyped, untyped], ?exn: Exception?) -> void
     end
 
     TYPE: Regexp
@@ -54,6 +54,6 @@ module Steep
     #
     def keyword_and_type: (String keyword) -> ::Regexp
 
-    def parse: (String src, location: untyped) -> AST::Annotation::t?
+    def parse: (String src, location: RBS::Location[untyped, untyped]) -> AST::Annotation::t?
   end
 end

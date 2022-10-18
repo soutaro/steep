@@ -7,12 +7,18 @@ module Steep
 
       type loc = RBS::Location[untyped, untyped]
 
+      module Located
+        attr_reader location: loc?
+
+        %a{pure} def line: () -> Integer?
+      end
+
       class Named[T, N]
         attr_reader name: N
 
         attr_reader type: T
 
-        attr_reader location: loc?
+        include Located
 
         def initialize: (name: N, type: T, ?location: loc?) -> void
 
@@ -22,13 +28,11 @@ module Steep
       class Typed
         attr_reader type: Types::t
 
-        attr_reader annotation: untyped
-
-        attr_reader location: loc?
-
         def initialize: (type: Types::t, ?location: loc?) -> void
 
         def ==: (untyped other) -> bool
+
+        include Located
       end
 
       class ReturnType < Typed
@@ -76,7 +80,7 @@ module Steep
           def hash: () -> Integer
         end
 
-        attr_reader location: loc?
+        include Located
 
         attr_reader name: Module
 
@@ -104,7 +108,7 @@ module Steep
           def ==: (untyped other) -> bool
         end
 
-        attr_reader location: loc?
+        include Located
 
         attr_reader names: Array[Name]
 

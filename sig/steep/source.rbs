@@ -1,24 +1,12 @@
 module Steep
   class Source
-    class LocatedAnnotation
-      attr_reader line: Integer
-
-      attr_reader annotation: AST::Annotation::t
-
-      attr_reader source: String
-
-      def initialize: (line: Integer, source: String, annotation: AST::Annotation::t) -> void
-
-      def ==: (untyped other) -> bool
-    end
-
     attr_reader path: Pathname
 
     attr_reader node: Parser::AST::Node?
 
-    attr_reader mapping: Hash[Parser::AST::Node, Array[LocatedAnnotation]]
+    attr_reader mapping: Hash[Parser::AST::Node, Array[AST::Annotation::t]]
 
-    def initialize: (path: Pathname, node: Parser::AST::Node?, mapping: Hash[Parser::AST::Node, Array[LocatedAnnotation]]) -> void
+    def initialize: (path: Pathname, node: Parser::AST::Node?, mapping: Hash[Parser::AST::Node, Array[AST::Annotation::t]]) -> void
 
     class Builder < ::Parser::Builders::Default
       def string_value: (untyped token) -> untyped
@@ -30,8 +18,8 @@ module Steep
 
     def self.construct_mapping: (
       node: Parser::AST::Node,
-      annotations: Array[LocatedAnnotation],
-      mapping: Hash[Parser::AST::Node, Array[LocatedAnnotation]],
+      annotations: Array[AST::Annotation::t],
+      mapping: Hash[Parser::AST::Node, Array[AST::Annotation::t]],
       ?line_range: Range[Integer]?
     ) -> void
 
