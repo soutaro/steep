@@ -373,17 +373,41 @@ module Steep
           ]
 
         else
+          # There are four possible relations between `type` and `instance_type`
+          #
+          # ```ruby
+          # case object      # object: T
+          # when K           # K: singleton(K)
+          # when ...
+          # end
+          # ````
+          #
+          # 1. T <: K && K <: T (T == K, T = Integer, K = Numeric)
+          # 2. T <: K           (example: T = Integer, K = Numeric)
+          # 3. K <: T           (example: T = Numeric, K = Integer)
+          # 4. none of the above (example: T = String, K = Integer)
+
           relation = Subtyping::Relation.new(sub_type: type, super_type: instance_type)
           if subtyping.check(relation, constraints: Subtyping::Constraints.empty, self_type: AST::Types::Self.new, instance_type: AST::Types::Instance.new, class_type: AST::Types::Class.new).success?
+            # 1 or 2. Satisfies the condition, no narrowing because `type` is already more specific than/equals to `instance_type`
             [
               [type],
               []
             ]
           else
-            [
-              [],
-              [type]
-            ]
+            if subtyping.check(relation.flip, constraints: Subtyping::Constraints.empty, self_type: AST::Types::Self.new, instance_type: AST::Types::Instance.new, class_type: AST::Types::Class.new).success?
+              # 3. Satisfied the condition, narrows to `instance_type`, but cannot remove it from *falsy* list
+              [
+                [instance_type],
+                [type]
+              ]
+            else
+              # 4
+              [
+                [],
+                [type]
+              ]
+            end
           end
         end
       end

@@ -10081,4 +10081,29 @@ end
       end
     end
   end
+
+  def test_type_narrowing_subclass
+    with_checker(<<-RBS) do |checker|
+      RBS
+      source = parse_ruby(<<-RUBY)
+# @type var object: Numeric | String
+object = ""
+
+case object
+when Integer
+  bar = object
+else
+  baz = object
+end
+      RUBY
+
+      with_standard_construction(checker, source) do |construction, typing|
+        type, _, context = construction.synthesize(source.node)
+
+        assert_no_error typing
+        assert_equal parse_type("::Integer | nil"), context.type_env[:bar]
+        assert_equal parse_type("::Numeric | ::String | nil"), context.type_env[:baz]
+      end
+    end
+  end
 end
