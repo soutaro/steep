@@ -1,7 +1,7 @@
 PATH
   remote: .
   specs:
-    steep (1.2.0)
+    steep (1.2.1)
       activesupport (>= 5.1)
       csv (>= 3.0.9)
       fileutils (>= 1.1.0)

@@ -2,6 +2,12 @@
 
 ## master
 
+## 1.2.1 (2022-10-22)
+
+### Type checker core
+
+* Fix type narrowing on case-when ([#662](https://github.com/soutaro/steep/pull/662))
+
 ## 1.2.0 (2022-10-08)
 
 ### Commandline tool
