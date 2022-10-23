@@ -19,7 +19,7 @@ gems:
   source:
     type: git
     name: ruby/gem_rbs_collection
-    revision: 84a7431af1db405ef827bfdd171a37a1416f6099
+    revision: 96e192a6cb7cad12d89a8923fdab3ab8d6054d0b
     remote: https://github.com/ruby/gem_rbs_collection.git
     repo_dir: gems
 - name: ast
@@ -27,7 +27,7 @@ gems:
   source:
     type: git
     name: ruby/gem_rbs_collection
-    revision: 84a7431af1db405ef827bfdd171a37a1416f6099
+    revision: 96e192a6cb7cad12d89a8923fdab3ab8d6054d0b
     remote: https://github.com/ruby/gem_rbs_collection.git
     repo_dir: gems
 - name: csv
@@ -43,7 +43,7 @@ gems:
   source:
     type: git
     name: ruby/gem_rbs_collection
-    revision: 84a7431af1db405ef827bfdd171a37a1416f6099
+    revision: 96e192a6cb7cad12d89a8923fdab3ab8d6054d0b
     remote: https://github.com/ruby/gem_rbs_collection.git
     repo_dir: gems
 - name: json
@@ -55,7 +55,7 @@ gems:
   source:
     type: git
     name: ruby/gem_rbs_collection
-    revision: 84a7431af1db405ef827bfdd171a37a1416f6099
+    revision: 96e192a6cb7cad12d89a8923fdab3ab8d6054d0b
     remote: https://github.com/ruby/gem_rbs_collection.git
     repo_dir: gems
 - name: logger
@@ -71,7 +71,7 @@ gems:
   source:
     type: git
     name: ruby/gem_rbs_collection
-    revision: 84a7431af1db405ef827bfdd171a37a1416f6099
+    revision: 96e192a6cb7cad12d89a8923fdab3ab8d6054d0b
     remote: https://github.com/ruby/gem_rbs_collection.git
     repo_dir: gems
 - name: rainbow
@@ -79,13 +79,21 @@ gems:
   source:
     type: git
     name: ruby/gem_rbs_collection
-    revision: 84a7431af1db405ef827bfdd171a37a1416f6099
+    revision: 96e192a6cb7cad12d89a8923fdab3ab8d6054d0b
     remote: https://github.com/ruby/gem_rbs_collection.git
     repo_dir: gems
 - name: securerandom
   version: '0'
   source:
     type: stdlib
+- name: stackprof
+  version: '0.2'
+  source:
+    type: git
+    name: ruby/gem_rbs_collection
+    revision: 96e192a6cb7cad12d89a8923fdab3ab8d6054d0b
+    remote: https://github.com/ruby/gem_rbs_collection.git
+    repo_dir: gems
 - name: strscan
   version: '0'
   source:
