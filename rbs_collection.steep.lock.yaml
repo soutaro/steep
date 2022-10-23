@@ -10,6 +10,10 @@ gems:
   version: '0'
   source:
     type: stdlib
+- name: rbs
+  version: 2.7.0
+  source:
+    type: rubygems
 - name: dbm
   version: '0'
   source:
@@ -98,6 +102,22 @@ gems:
   version: '0'
   source:
     type: stdlib
+- name: pathname
+  version: '0'
+  source:
+    type: stdlib
+- name: optparse
+  version: '0'
+  source:
+    type: stdlib
+- name: tsort
+  version: '0'
+  source:
+    type: stdlib
+- name: rdoc
+  version: '0'
+  source:
+    type: stdlib
 - name: monitor
   version: '0'
   source:
@@ -115,10 +135,6 @@ gems:
   source:
     type: stdlib
 - name: time
-  version: '0'
-  source:
-    type: stdlib
-- name: pathname
   version: '0'
   source:
     type: stdlib

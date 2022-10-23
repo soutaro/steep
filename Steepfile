@@ -10,7 +10,6 @@ target :app do
     hash[D::Ruby::MethodDefinitionMissing] = :hint
   end
 
-  signature "../rbs/sig", "../rbs/stdlib/rdoc/0"
   library(
     "set",
     "pathname",
