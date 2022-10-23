@@ -38,9 +38,9 @@ module Steep
         end
 
         stdin, stdout, thread = if Gem.win_platform?
-                                  Open3.popen2(*command, new_pgroup: true)
+                                  __skip__ = Open3.popen2(*command, new_pgroup: true)
                                 else
-                                  Open3.popen2(*command, pgroup: true)
+                                  __skip__ = Open3.popen2(*command, pgroup: true)
                                 end
         stderr = nil
 

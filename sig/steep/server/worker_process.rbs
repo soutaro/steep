@@ -1,29 +1,56 @@
 module Steep
   module Server
     class WorkerProcess
-      attr_reader reader: untyped
+      interface _ProcessWaitThread
+        def pid: () -> Integer
+      end
 
-      attr_reader writer: untyped
+      attr_reader reader: LanguageServer::Protocol::Transport::Io::Reader
 
-      attr_reader stderr: untyped
+      attr_reader writer: LanguageServer::Protocol::Transport::Io::Writer
 
-      attr_reader name: untyped
+      attr_reader stderr: IO?
 
-      attr_reader wait_thread: untyped
+      attr_reader name: String
 
-      attr_reader index: untyped
+      attr_reader wait_thread: Thread & _ProcessWaitThread
 
-      def initialize: (reader: untyped, writer: untyped, stderr: untyped, wait_thread: untyped, name: untyped, ?index: untyped?) -> void
+      attr_reader index: Integer?
 
-      def self.spawn_worker: (untyped `type`, name: untyped, steepfile: untyped, ?steep_command: ::String, ?options: untyped, ?delay_shutdown: bool, ?index: untyped?) -> untyped
+      def initialize: (
+        reader: LanguageServer::Protocol::Transport::Io::Reader,
+        writer: LanguageServer::Protocol::Transport::Io::Writer,
+        stderr: IO?,
+        wait_thread: Thread & _ProcessWaitThread,
+        name: String,
+        ?index: Integer?
+      ) -> void
 
-      def self.spawn_typecheck_workers: (steepfile: untyped, args: untyped, ?steep_command: ::String, ?count: untyped, ?delay_shutdown: bool) -> untyped
+      type worker_type = :interaction | :typecheck
 
-      def <<: (untyped message) -> untyped
+      def self.spawn_worker: (
+        worker_type `type`,
+        name: String,
+        steepfile: Pathname,
+        ?steep_command: ::String,
+        ?options: Array[String],
+        ?delay_shutdown: bool,
+        ?index: Integer?
+      ) -> WorkerProcess
 
-      def read: () ?{ () -> untyped } -> untyped
+      def self.spawn_typecheck_workers: (
+        steepfile: Pathname,
+        args: Array[String],
+        ?steep_command: ::String,
+        ?count: Integer,
+        ?delay_shutdown: bool
+      ) -> Array[WorkerProcess]
 
-      def kill: () -> untyped
+      def <<: (untyped message) -> void
+
+      def read: () { (untyped) -> void } -> void
+
+      def kill: () -> void
     end
   end
 end
