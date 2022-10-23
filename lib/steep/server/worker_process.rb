@@ -18,7 +18,7 @@ module Steep
         @index = index
       end
 
-      def self.spawn_worker(type, name:, steepfile:, steep_command: "steep", options: [], delay_shutdown: false, index: nil)
+      def self.start_worker(type, name:, steepfile:, steep_command: "steep", options: [], delay_shutdown: false, index: nil)
         args = ["--name=#{name}", "--steepfile=#{steepfile}"]
         args << (%w(debug info warn error fatal unknown)[Steep.logger.level].yield_self {|log_level| "--log-level=#{log_level}" })
         if Steep.log_output.is_a?(String)
@@ -50,9 +50,9 @@ module Steep
         new(reader: reader, writer: writer, stderr: stderr, wait_thread: thread, name: name, index: index)
       end
 
-      def self.spawn_typecheck_workers(steepfile:, args:, steep_command: "steep", count: [Etc.nprocessors - 1, 1].max, delay_shutdown: false)
+      def self.start_typecheck_workers(steepfile:, args:, steep_command: "steep", count: [Etc.nprocessors - 1, 1].max, delay_shutdown: false)
         count.times.map do |i|
-          spawn_worker(
+          start_worker(
             :typecheck,
             name: "typecheck@#{i}",
             steepfile: steepfile,

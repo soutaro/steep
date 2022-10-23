@@ -1,5 +1,21 @@
 module Steep
   module Server
+    # WorkerProcess class represents a worker process
+    #
+    # Available operations are:
+    #
+    # 1. Sending a LSP message to the process
+    # 2. Receiving a LSP message from the process
+    # 3. Killing the process
+    #
+    # The process may be invoked by
+    #
+    # 1. `#fork` if available, or
+    # 2. `#spawn` otherwise
+    #
+    # `#fork` version is faster because it skips loading libraries.
+    #
+    #
     class WorkerProcess
       interface _ProcessWaitThread
         def pid: () -> Integer
@@ -28,7 +44,7 @@ module Steep
 
       type worker_type = :interaction | :typecheck
 
-      def self.spawn_worker: (
+      def self.start_worker: (
         worker_type `type`,
         name: String,
         steepfile: Pathname,
@@ -38,7 +54,7 @@ module Steep
         ?index: Integer?
       ) -> WorkerProcess
 
-      def self.spawn_typecheck_workers: (
+      def self.start_typecheck_workers: (
         steepfile: Pathname,
         args: Array[String],
         ?steep_command: ::String,
