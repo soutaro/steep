@@ -472,6 +472,38 @@ RUBY
     end
   end
 
+  def test_type_assertion
+    in_tmpdir do
+      service = typecheck_service()
+
+      service.update(
+        changes: {
+          Pathname("hello.rb") => [ContentChange.string(<<'RUBY')],
+foo = [] #: Array[String]
+bar = [] #: Symbol
+RUBY
+          Pathname("hello.rbs") => [ContentChange.string(<<RBS)]
+RBS
+        }
+      ) {}
+
+      target = service.project.targets.find {|target| target.name == :lib }
+      hover = HoverProvider::Ruby.new(service: service)
+
+      hover.content_for(target: target, path: Pathname("hello.rb"), line: 1, column: 13).tap do |content|
+        assert_instance_of HoverProvider::Ruby::TypeContent, content
+      end
+
+      hover.content_for(target: target, path: Pathname("hello.rb"), line: 2, column: 13).tap do |content|
+        assert_instance_of HoverProvider::Ruby::TypeAssertionContent, content
+        assert_equal [2,6]...[2,18], [content.location.line,content.location.column]...[content.location.last_line, content.location.last_column]
+        assert_equal "::Array[untyped]", content.original_type.to_s
+        assert_equal "::Symbol", content.asserted_type.to_s
+        assert_equal "[] #: Symbol", content.location.source
+      end
+    end
+  end
+
   def test_hover_on_syntax_error
     in_tmpdir do
       service = typecheck_service()

@@ -143,6 +143,14 @@ EOM
               builder << comment.string
             end
           end
+        when HoverProvider::Ruby::TypeAssertionContent
+          CommentBuilder.build do |builder|
+            builder << <<-EOM
+`#{content.asserted_type.to_s}`
+
+↑ Converted from `#{content.original_type.to_s}`
+            EOM
+          end
         when HoverProvider::RBS::ClassContent
           CommentBuilder.build do |builder|
             builder << <<EOM

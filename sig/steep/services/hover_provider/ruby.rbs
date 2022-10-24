@@ -35,6 +35,18 @@ module Steep
           def initialize: (node: Parser::AST::Node, name: Symbol, type: AST::Types::t, location: Parser::Source::Range) -> void
         end
 
+        class TypeAssertionContent
+          attr_reader node: Parser::AST::Node
+
+          attr_reader original_type: AST::Types::t
+
+          attr_reader asserted_type: AST::Types::t
+
+          attr_reader location: Parser::Source::Range
+
+          def initialize: (node: Parser::AST::Node, original_type: AST::Types::t, asserted_type: AST::Types::t, location: Parser::Source::Range) -> void
+        end
+
         class MethodCallContent
           attr_reader node: Parser::AST::Node
 
@@ -89,7 +101,7 @@ module Steep
           def constant?: () -> ::RBS::Environment::SingleEntry[::RBS::TypeName, ::RBS::AST::Declarations::Constant]?
         end
 
-        type content = TypeContent | VariableContent | MethodCallContent | DefinitionContent | ConstantContent
+        type content = TypeContent | VariableContent | MethodCallContent | DefinitionContent | ConstantContent | TypeAssertionContent
 
         attr_reader service: TypeCheckService
 
