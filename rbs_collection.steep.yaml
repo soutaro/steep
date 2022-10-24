@@ -15,7 +15,6 @@ gems:
     ignore: true
   - name: set
   - name: rbs
-    ignore: true
   - name: with_steep_types
     ignore: true
   - name: dbm

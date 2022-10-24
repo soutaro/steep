@@ -101,7 +101,7 @@ module Steep
 
         Steep.logger.info { "Starting #{count} workers for #{files.size} files..." }
 
-        typecheck_workers = Server::WorkerProcess.spawn_typecheck_workers(
+        typecheck_workers = Server::WorkerProcess.start_typecheck_workers(
           steepfile: project.steepfile_path,
           args: [],
           delay_shutdown: true,

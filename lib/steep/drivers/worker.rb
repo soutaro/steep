@@ -3,7 +3,6 @@ module Steep
     class Worker
       attr_reader :stdout, :stderr, :stdin
 
-      attr_accessor :steepfile_path
       attr_accessor :worker_type
       attr_accessor :worker_name
       attr_accessor :delay_shutdown

@@ -126,7 +126,7 @@ module Steep
         server_reader = LanguageServer::Protocol::Transport::Io::Reader.new(server_read)
         server_writer = LanguageServer::Protocol::Transport::Io::Writer.new(server_write)
 
-        typecheck_workers = Server::WorkerProcess.spawn_typecheck_workers(
+        typecheck_workers = Server::WorkerProcess.start_typecheck_workers(
           steepfile: project.steepfile_path,
           delay_shutdown: true,
           args: command_line_patterns,
