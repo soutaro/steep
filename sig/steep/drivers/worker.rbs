@@ -7,8 +7,6 @@ module Steep
 
       attr_reader stdin: IO
 
-      attr_accessor steepfile_path: Pathname
-
       attr_accessor worker_type: Symbol
 
       attr_accessor worker_name: String
