@@ -9,21 +9,21 @@ module Parser
 
       public
 
-      def ==: (untyped other) -> untyped
+      def ==: (untyped other) -> bool
 
-      def document?: () -> untyped
+      def document?: () -> bool
 
-      def inline?: () -> untyped
+      def inline?: () -> bool
 
-      def inspect: () -> untyped
+      def inspect: () -> String
 
       alias loc location
 
-      def location: () -> untyped
+      def location: () -> Map
 
-      def text: () -> untyped
+      def text: () -> String
 
-      def type: () -> untyped
+      def type: () -> (:inline | :document)
 
       private
 

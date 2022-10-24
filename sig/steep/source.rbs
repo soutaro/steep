@@ -1,5 +1,7 @@
 module Steep
   class Source
+    extend NodeHelper
+
     attr_reader path: Pathname
 
     attr_reader node: Parser::AST::Node?
@@ -23,9 +25,7 @@ module Steep
       ?line_range: Range[Integer]?
     ) -> void
 
-    def self.each_child_node: (Parser::AST::Node node) { (Parser::AST::Node) -> void } -> void
-
-    def self.map_child_nodes: (Parser::AST::Node node) { (Parser::AST::Node) -> Parser::AST::Node } -> Parser::AST::Node
+    def self.map_child_node: (Parser::AST::Node node, ?Symbol? type) { (Parser::AST::Node) -> Parser::AST::Node } -> Parser::AST::Node
 
     def annotations: (block: Parser::AST::Node, factory: AST::Types::Factory, context: RBS::Resolver::context) -> AST::Annotation::Collection
 
@@ -61,5 +61,11 @@ module Steep
     def self.delete_defs: (Parser::AST::Node node, Set[Parser::AST::Node] allow_list) -> Parser::AST::Node
 
     def without_unrelated_defs: (line: Integer, column: Integer) -> Source
+
+    def self.insert_assertions: (Parser::AST::Node node, Hash[Integer, AST::Assertion::t]) -> Parser::AST::Node
+
+    def self.adjust_location: (Parser::AST::Node) -> Parser::AST::Node
+
+    def self.assertion_node: (Parser::AST::Node, AST::Assertion::AsType) -> Parser::AST::Node
   end
 end

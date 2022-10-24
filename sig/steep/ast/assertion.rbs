@@ -1,0 +1,27 @@
+module Steep
+  module AST
+    module Assertion
+      class Base
+        attr_reader source: String
+
+        attr_reader location: RBS::Location[untyped, untyped]
+
+        def initialize: (String source, RBS::Location[untyped, untyped] location) -> void
+
+        def line: () -> Integer
+      end
+
+      type t = AsType
+
+      class AsType < Base
+        def type: (RBS::Resolver::context, Types::Factory, Array[Symbol] type_vars) -> (Types::t | RBS::ParsingError)
+
+        def type?: (RBS::Resolver::context, Types::Factory, Array[Symbol] type_vars) -> Types::t?
+
+        def type_str: () -> String
+      end
+
+      def self.parse: (String, RBS::Location[untyped, untyped]) -> t?
+    end
+  end
+end

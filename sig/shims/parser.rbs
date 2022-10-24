@@ -5,9 +5,9 @@ module Parser
 
       attr_reader children: Array[untyped]
 
-      def initialize: (Symbol `type`, Array[untyped] children) -> void
+      def initialize: (Symbol `type`, ?Array[untyped] children, ?Hash[Symbol, untyped] properties) -> void
 
-      def updated: (?Symbol?, ?Array[untyped]?) -> Node
+      def updated: (?Symbol?, ?Array[untyped]?, ?Hash[Symbol, untyped]? properties) -> Node
 
       attr_reader location: Source::Map
 

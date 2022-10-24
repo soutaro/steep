@@ -773,6 +773,20 @@ module Steep
         end
       end
 
+      class FalseAssertion < Base
+        attr_reader :node, :assertion_type, :node_type
+
+        def initialize(node:, assertion_type:, node_type:)
+          super(node: node)
+          @assertion_type = assertion_type
+          @node_type = node_type
+        end
+
+        def header_line
+          "Assertion cannot hold: no relationship between infered type (`#{node_type.to_s}`) and asserted type (`#{assertion_type.to_s}`)"
+        end
+      end
+
       ALL = ObjectSpace.each_object(Class).with_object([]) do |klass, array|
         if klass < Base
           array << klass
@@ -792,7 +806,8 @@ module Steep
             FallbackAny => :information,
             ElseOnExhaustiveCase => :warning,
             UnknownConstant => :warning,
-            MethodDefinitionMissing => :information
+            MethodDefinitionMissing => :information,
+            FalseAssertion => :information
           }
         ).freeze
       end
@@ -819,7 +834,8 @@ module Steep
             ElseOnExhaustiveCase => nil,
             UnknownConstant => nil,
             MethodDefinitionMissing => nil,
-            UnexpectedJump => nil
+            UnexpectedJump => nil,
+            FalseAssertion => :hint
           }
         ).freeze
       end

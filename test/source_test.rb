@@ -572,4 +572,82 @@ t = [10, ""]
       end
     end
   end
+
+  def test_assertion_assignment
+    with_factory do |factory|
+      source = Steep::Source.parse(<<-EOF, path: Pathname("foo.rb"), factory: factory)
+x = nil #  : String?
+(y = nil) #: Integer?
+      EOF
+
+      source.node.children[0].tap do |node|
+        assert_equal :lvasgn, node.type
+        assert_equal :assertion, node.children[1].type
+      end
+
+      source.node.children[1].tap do |node|
+        assert_equal :assertion, node.type
+        assert_equal :begin, node.children[0].type
+      end
+    end
+
+    with_factory do |factory|
+      source = Steep::Source.parse(<<-EOF, path: Pathname("foo.rb"), factory: factory)
+@x = nil #  : String?
+@@a = nil #: Integer?
+$a = nil #: Integer?
+C = nil #: Integer?
+x,y = [1,2] #: [Integer, Integer?]
+      EOF
+
+      source.node.children[0].tap do |node|
+        assert_equal :ivasgn, node.type
+        assert_equal :assertion, node.children[1].type
+      end
+
+      source.node.children[1].tap do |node|
+        assert_equal :cvasgn, node.type
+        assert_equal :assertion, node.children[1].type
+      end
+
+      source.node.children[2].tap do |node|
+        assert_equal :gvasgn, node.type
+        assert_equal :assertion, node.children[1].type
+      end
+
+      source.node.children[3].tap do |node|
+        assert_equal :casgn, node.type
+        assert_equal :assertion, node.children[2].type
+      end
+
+      source.node.children[4].tap do |node|
+        assert_equal :masgn, node.type
+        assert_equal :mlhs, node.children[0].type
+        assert_equal :assertion, node.children[1].type
+      end
+    end
+  end
+
+  def test_assertion_voids
+    with_factory do |factory|
+      source = Steep::Source.parse(<<-EOF, path: Pathname("foo.rb"), factory: factory)
+return 123 #: Integer?
+break 123 #: Integer?
+next 123 #: Integer?
+      EOF
+
+      source.node.children[0].tap do |node|
+        assert_equal :return, node.type
+        assert_equal :assertion, node.children[0].type
+      end
+      source.node.children[1].tap do |node|
+        assert_equal :break, node.type
+        assert_equal :assertion, node.children[0].type
+      end
+      source.node.children[2].tap do |node|
+        assert_equal :next, node.type
+        assert_equal :assertion, node.children[0].type
+      end
+    end
+  end
 end
