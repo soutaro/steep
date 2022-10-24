@@ -796,7 +796,10 @@ module Steep
 
           Steep.logger.info "Sending $/typecheck/start notifications"
           typecheck_workers.each do |worker|
-            assignment = Services::PathAssignment.new(max_index: typecheck_workers.size, index: worker.index)
+            assignment = Services::PathAssignment.new(
+              max_index: typecheck_workers.size,
+              index: worker.index || raise
+            )
 
             job_queue << SendMessageJob.to_worker(
               worker,

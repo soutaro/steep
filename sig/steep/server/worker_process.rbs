@@ -49,9 +49,28 @@ module Steep
         name: String,
         steepfile: Pathname,
         ?steep_command: ::String,
-        ?options: Array[String],
+        ?patterns: Array[String],
         ?delay_shutdown: bool,
-        ?index: Integer?
+        ?index: [Integer, Integer]?
+      ) -> WorkerProcess
+
+      def self.fork_worker: (
+        worker_type `type`,
+        name: String,
+        steepfile: Pathname,
+        patterns: Array[String],
+        delay_shutdown: bool,
+        index: [Integer, Integer]?
+      ) -> WorkerProcess
+
+      def self.spawn_worker: (
+        worker_type `type`,
+        name: String,
+        steepfile: Pathname,
+        steep_command: ::String,
+        patterns: Array[String],
+        delay_shutdown: bool,
+        index: [Integer, Integer]?
       ) -> WorkerProcess
 
       def self.start_typecheck_workers: (

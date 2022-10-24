@@ -18,24 +18,96 @@ module Steep
         @index = index
       end
 
-      def self.start_worker(type, name:, steepfile:, steep_command: "steep", options: [], delay_shutdown: false, index: nil)
+      def self.start_worker(type, name:, steepfile:, steep_command: "steep", index: nil, delay_shutdown: false, patterns: [])
+        begin
+          fork_worker(
+            type,
+            name: name,
+            steepfile: steepfile,
+            index: index,
+            delay_shutdown: delay_shutdown,
+            patterns: patterns
+          )
+        rescue NotImplementedError
+          spawn_worker(
+            type,
+            name: name,
+            steepfile: steepfile,
+            steep_command: steep_command,
+            index: index,
+            delay_shutdown: delay_shutdown,
+            patterns: patterns
+          )
+        end
+      end
+
+      def self.fork_worker(type, name:, steepfile:, index:, delay_shutdown:, patterns:)
+        stdin_in, stdin_out = IO.pipe
+        stdout_in, stdout_out = IO.pipe
+
+        worker = Drivers::Worker.new(stdout: stdout_out, stdin: stdin_in, stderr: STDERR)
+
+        worker.steepfile = steepfile
+        worker.worker_type = type
+        worker.worker_name = name
+        worker.delay_shutdown = delay_shutdown
+        if (max, this = index)
+          worker.max_index = max
+          worker.index = this
+        end
+        worker.commandline_args = patterns
+
+        pid = fork do
+          worker.run()
+        end
+
+        pid or raise
+
+        writer = LanguageServer::Protocol::Transport::Io::Writer.new(stdin_out)
+        reader = LanguageServer::Protocol::Transport::Io::Reader.new(stdout_in)
+
+        # @type var wait_thread: Thread & _ProcessWaitThread
+        wait_thread = _ = Thread.new { Process.waitpid(pid) }
+        wait_thread.define_singleton_method(:pid) { pid }
+
+        stdin_in.close
+        stdout_out.close
+
+        new(
+          reader: reader,
+          writer: writer,
+          stderr: STDERR,
+          wait_thread: wait_thread,
+          name: name,
+          index: index&.[](1)
+        )
+      end
+
+      def self.spawn_worker(type, name:, steepfile:, steep_command:, index:, delay_shutdown:, patterns:)
         args = ["--name=#{name}", "--steepfile=#{steepfile}"]
         args << (%w(debug info warn error fatal unknown)[Steep.logger.level].yield_self {|log_level| "--log-level=#{log_level}" })
+
         if Steep.log_output.is_a?(String)
           args << "--log-output=#{Steep.log_output}"
         end
+
+        if (max, this = index)
+          args << "--max-index=#{max}"
+          args << "--index=#{this}"
+        end
+
+        if delay_shutdown
+          args << "--delay-shutdown"
+        end
+
         command = case type
                   when :interaction
-                    [steep_command, "worker", "--interaction", *args, *options]
+                    [steep_command, "worker", "--interaction", *args, *patterns]
                   when :typecheck
-                    [steep_command, "worker", "--typecheck", *args, *options]
+                    [steep_command, "worker", "--typecheck", *args, *patterns]
                   else
                     raise "Unknown type: #{type}"
                   end
-
-        if delay_shutdown
-          command << "--delay-shutdown"
-        end
 
         stdin, stdout, thread = if Gem.win_platform?
                                   __skip__ = Open3.popen2(*command, new_pgroup: true)
@@ -47,7 +119,7 @@ module Steep
         writer = LanguageServer::Protocol::Transport::Io::Writer.new(stdin)
         reader = LanguageServer::Protocol::Transport::Io::Reader.new(stdout)
 
-        new(reader: reader, writer: writer, stderr: stderr, wait_thread: thread, name: name, index: index)
+        new(reader: reader, writer: writer, stderr: stderr, wait_thread: thread, name: name, index: index&.[](1))
       end
 
       def self.start_typecheck_workers(steepfile:, args:, steep_command: "steep", count: [Etc.nprocessors - 1, 1].max, delay_shutdown: false)
@@ -57,9 +129,9 @@ module Steep
             name: "typecheck@#{i}",
             steepfile: steepfile,
             steep_command: steep_command,
-            options: ["--max-index=#{count}", "--index=#{i}", *args],
+            index: [count, i],
+            patterns: args,
             delay_shutdown: delay_shutdown,
-            index: i
           )
         end
       end
