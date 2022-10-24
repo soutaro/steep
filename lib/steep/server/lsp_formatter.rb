@@ -17,6 +17,8 @@ module Steep
         def to_s
           unless @array.empty?
             @array.join("\n\n----\n\n")
+          else
+            ""
           end
         end
 
@@ -83,7 +85,7 @@ module Steep
 #{decl.method_type}
 ```
 
-#{decl.method_def.comment.string.gsub(/\A([ \t]*\n)+/, "")}
+#{comment.string.gsub(/\A([ \t]*\n)+/, "")}
 EOM
               end
             end
@@ -108,10 +110,10 @@ EOM
           end
         when HoverProvider::Ruby::ConstantContent
           CommentBuilder.build do |builder|
-            if content.class_or_module?
+            if decl = content.class_or_module?
               builder << <<EOM
 ```rbs
-#{declaration_summary(content.decl.primary.decl)}
+#{declaration_summary(decl.primary.decl)}
 ```
 EOM
             end

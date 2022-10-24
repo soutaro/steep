@@ -38,7 +38,9 @@ module Steep
         class MethodCallContent
           attr_reader node: Parser::AST::Node
 
-          attr_reader method_call: TypeInference::MethodCall::t
+          type call = TypeInference::MethodCall::Typed | TypeInference::MethodCall::Special | TypeInference::MethodCall::Error
+
+          attr_reader method_call: call
 
           attr_reader location: Parser::Source::Range
 
@@ -81,10 +83,10 @@ module Steep
           def comments: () -> Array[::RBS::AST::Comment]
 
           # Returns true if `decl` is a class/module definition
-          def class_or_module?: () -> bool
+          def class_or_module?: () -> (::RBS::Environment::ClassEntry | ::RBS::Environment::ModuleEntry | nil)
 
           # Returns true if `decl` is a constant definition
-          def constant?: () -> bool
+          def constant?: () -> ::RBS::Environment::SingleEntry[::RBS::TypeName, ::RBS::AST::Declarations::Constant]?
         end
 
         type content = TypeContent | VariableContent | MethodCallContent | DefinitionContent | ConstantContent

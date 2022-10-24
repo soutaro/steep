@@ -33,11 +33,15 @@ module Steep
           end
 
           def constant?
-            decl.is_a?(::RBS::Environment::SingleEntry)
+            if decl.is_a?(::RBS::Environment::SingleEntry)
+              decl
+            end
           end
 
           def class_or_module?
-            decl.is_a?(::RBS::Environment::MultiEntry)
+            if decl.is_a?(::RBS::Environment::MultiEntry)
+              decl
+            end
           end
         end
 
@@ -78,8 +82,9 @@ module Steep
         end
 
         def method_name_from_method(context, builder:)
-          defined_in = context.method.defined_in
-          method_name = context.name
+          context.method or raise
+          defined_in = context.method.defined_in or raise
+          method_name = context.name or raise
 
           case
           when defined_in.class?
