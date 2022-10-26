@@ -150,7 +150,15 @@ module Steep
 
     KNOWN_PURE_METHODS: Set[method_name]
 
-    def try_special_method: (untyped node, receiver_type: untyped, method_name: untyped, method_type: untyped, arguments: untyped, block_params: untyped, block_body: untyped) -> (::Array[untyped] | nil)
+    def try_special_method: (
+      Parser::AST::Node node,
+      receiver_type: AST::Types::t,
+      method_name: Symbol,
+      method_type: Interface::MethodType,
+      arguments: Array[Parser::AST::Node],
+      block_params: Parser::AST::Node?,
+      block_body: Parser::AST::Node?
+    ) -> [TypeInference::MethodCall::t, TypeConstruction]?
 
     def type_method_call: (
       Parser::AST::Node node,
