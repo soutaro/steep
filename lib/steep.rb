@@ -50,7 +50,7 @@ require "steep/ast/types/record"
 require "steep/ast/types/logic"
 require "steep/ast/annotation"
 require "steep/ast/annotation/collection"
-require "steep/ast/assertion"
+require "steep/ast/node/type_assertion"
 require "steep/ast/builtin"
 require "steep/ast/types/factory"
 

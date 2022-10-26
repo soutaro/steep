@@ -35,7 +35,7 @@ module Steep
 
       # @type var annotations: Array[AST::Annotation::t]
       annotations = []
-      # @type var assertions: Hash[Integer, AST::Assertion::t]
+      # @type var assertions: Hash[Integer, AST::Node::TypeAssertion]
       assertions = {}
 
       buffer = RBS::Buffer.new(name: path, content: source_code)
@@ -58,7 +58,7 @@ module Steep
           case
           when annotation = annotation_parser.parse(content, location: location)
             annotations << annotation
-          when assertion = AST::Assertion.parse(content, location)
+          when assertion = AST::Node::TypeAssertion.parse(content, location)
             assertions[assertion.line] = assertion
           end
         end
@@ -423,7 +423,7 @@ module Steep
         end
 
         case
-        when last_assertion.is_a?(AST::Assertion::AsType)
+        when last_assertion.is_a?(AST::Node::TypeAssertion)
           case node.type
           when :lvasgn, :ivasgn, :gvasgn, :cvasgn, :casgn
             # Skip

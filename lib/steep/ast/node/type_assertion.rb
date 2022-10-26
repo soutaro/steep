@@ -1,7 +1,7 @@
 module Steep
   module AST
-    module Assertion
-      class Base
+    module Node
+      class TypeAssertion
         attr_reader :source, :location
 
         def initialize(source, location)
@@ -12,9 +12,7 @@ module Steep
         def line
           location.start_line
         end
-      end
 
-      class AsType < Base
         def type(context, factory, type_vars)
           ty = RBS::Parser.parse_type(type_str, line: location.start_line, column: location.start_column, variables: type_vars)
           ty = factory.type(ty)
@@ -35,12 +33,11 @@ module Steep
         def type_str
           source.delete_prefix(":").lstrip
         end
-      end
 
-      def self.parse(source, location)
-        case source
-        when /\A:\s*(.+)/
-          AsType.new(source, location)
+        def self.parse(source, location)
+          if source =~/\A:\s*(.+)/
+            TypeAssertion.new(source, location)
+          end
         end
       end
     end
