@@ -456,7 +456,7 @@ module Steep
     end
 
     def self.adjust_location(node)
-      if end_pos = node.location.expression.end_pos
+      if end_pos = node.location.expression&.end_pos
         if last_pos = each_child_node(node).map {|node| node.location.expression&.end_pos }.compact.max
           if last_pos > end_pos
             props = { location: node.location.with_expression(node.location.expression.with(end_pos: last_pos)) }
