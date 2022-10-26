@@ -134,7 +134,9 @@ module Steep
             assignments = masgn.expand(lhs, rhs_type_converted, false)
           end
 
-          assignments or raise
+          unless assignments
+            raise "Multiple assignment rhs doesn't look correct: #{rhs_type.to_s} (#{assignment_node.location.expression&.source_line})"
+          end
 
           assignments.each do |pair|
             node, type = pair
