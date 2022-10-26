@@ -1,10 +1,19 @@
 module Steep
   module AST
     module Annotation
+      module Located
+        attr_reader :location
+
+        def line
+          location&.start_line
+        end
+      end
+
       class Named
+        include Located
+
         attr_reader :name
         attr_reader :type
-        attr_reader :location
 
         def initialize(name:, type:, location: nil)
           @name = name
@@ -20,9 +29,9 @@ module Steep
       end
 
       class Typed
+        include Located
+
         attr_reader :type
-        attr_reader :annotation
-        attr_reader :location
 
         def initialize(type:, location: nil)
           @type = type
@@ -68,7 +77,8 @@ module Steep
           end
         end
 
-        attr_reader :location
+        include Located
+
         attr_reader :name
 
         def initialize(name:, location: nil)
@@ -108,7 +118,8 @@ module Steep
           end
         end
 
-        attr_reader :location
+        include Located
+
         attr_reader :names
 
         def initialize(names:, location: nil)

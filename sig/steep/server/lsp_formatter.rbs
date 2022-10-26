@@ -4,26 +4,33 @@ module Steep
       include Services
 
       class CommentBuilder
+        @array: Array[String]
+
         def initialize: () -> void
 
-        def self.build: () { (untyped) -> untyped } -> untyped
+        def self.build: () { (CommentBuilder) -> void } -> String
 
-        def to_s: () -> (untyped | nil)
+        def to_s: () -> String
 
-        def <<: (untyped string) -> (untyped | nil)
+        def <<: (String? string) -> void
 
-        def push: () { (untyped) -> untyped } -> untyped
+        def push: () { (String) -> void } -> void
       end
 
-      def self?.format_hover_content: (untyped content) -> untyped
+      def self?.format_hover_content: (Services::HoverProvider::Ruby::content | Services::HoverProvider::RBS::content) -> untyped
 
-      def self?.to_list: (untyped collection) ?{ () -> untyped } -> untyped
+      def self?.to_list: [A < Object] (Enumerable[A] collection) ?{ (A) -> String } -> String
 
       def self?.name_and_args: (untyped name, untyped args) -> ::String
 
       def self?.name_and_params: (untyped name, untyped params) -> ::String
 
-      def self?.declaration_summary: (untyped decl) -> untyped
+      type summarizable_decl = ::RBS::AST::Declarations::Class
+                             | ::RBS::AST::Declarations::Module
+                             | ::RBS::AST::Declarations::Interface
+                             | ::RBS::AST::Declarations::Alias
+                             
+      def self?.declaration_summary: (summarizable_decl) -> String
     end
   end
 end

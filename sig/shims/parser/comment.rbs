@@ -1,0 +1,33 @@
+module Parser
+  module Source
+    class Comment
+      def self.associate: (untyped ast, untyped comments) -> untyped
+
+      def self.associate_by_identity: (untyped ast, untyped comments) -> untyped
+
+      def self.associate_locations: (untyped ast, untyped comments) -> untyped
+
+      public
+
+      def ==: (untyped other) -> bool
+
+      def document?: () -> bool
+
+      def inline?: () -> bool
+
+      def inspect: () -> String
+
+      alias loc location
+
+      def location: () -> Map
+
+      def text: () -> String
+
+      def type: () -> (:inline | :document)
+
+      private
+
+      def initialize: (untyped range) -> void
+    end
+  end
+end

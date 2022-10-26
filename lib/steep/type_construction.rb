@@ -2446,6 +2446,27 @@ module Steep
 
           add_typing node, type: AST::Builtin.any_type, constr: constr
 
+        when :assertion
+          yield_self do
+            asserted_node, as_type = node.children
+
+            if type = as_type.type?(module_context.nesting, checker.factory, [])
+              actual_type, constr = synthesize(asserted_node, hint: type)
+
+              if result = no_subtyping?(sub_type: type, super_type: actual_type)
+                typing.add_error(
+                  Diagnostic::Ruby::FalseAssertion.new(
+                    node: node,
+                    assertion_type: type,
+                    node_type: actual_type
+                  )
+                )
+              end
+
+              constr.add_typing(node, type: type)
+            end
+          end
+
         else
           typing.add_error(Diagnostic::Ruby::UnsupportedSyntax.new(node: node))
           add_typing(node, type: AST::Builtin.any_type)

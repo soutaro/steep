@@ -335,9 +335,9 @@ end
 
       assert_equal <<-RBS, stdout
 foo.rb:1:0:class:\tclass Foo
-   @dynamic name, email
+  @dynamic name, email
 foo.rb:4:2:def:\tdef hello(x, y)
-   @type var x: Foo[Integer]
+  @type var x: Foo[Integer]
       RBS
     end
   end

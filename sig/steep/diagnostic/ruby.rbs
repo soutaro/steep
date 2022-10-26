@@ -476,6 +476,16 @@ module Steep
         def header_line: () -> ::String
       end
 
+      class FalseAssertion < Base
+        attr_reader assertion_type: AST::Types::t
+
+        attr_reader node_type: AST::Types::t
+
+        def initialize: (node: Parser::AST::Node, assertion_type: AST::Types::t, node_type: AST::Types::t) -> void
+
+        def header_line: () -> String
+      end
+
       ALL: untyped
 
       def self.all_error: () -> untyped

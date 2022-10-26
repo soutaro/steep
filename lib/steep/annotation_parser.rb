@@ -27,7 +27,7 @@ module Steep
         message = case exn
                   when RBS::ParsingError
                     Diagnostic::Signature::SyntaxError.parser_syntax_error_message(exn)
-                  else
+                  when Exception
                     exn.message
                   end
 
@@ -45,16 +45,10 @@ module Steep
       factory.type(RBS::Parser.parse_type(string))
     end
 
-    # @type ${keyword} ${name}: ${type}
-    # Example: @type const Foo::Bar: String
-    #          @type var xyzzy: Array[String]
     def keyword_subject_type(keyword, name)
       /@type\s+#{keyword}\s+(?<name>#{name})#{COLON}#{TYPE}/
     end
 
-    # @type ${keyword}: ${type}
-    # Example: @type break: String
-    #          @type self: Foo
     def keyword_and_type(keyword)
       /@type\s+#{keyword}#{COLON}#{TYPE}/
     end
@@ -63,8 +57,9 @@ module Steep
       case src
       when keyword_subject_type("var", VAR_NAME)
         Regexp.last_match.yield_self do |match|
-          name = match[:name]
-          type = match[:type]
+          match or raise
+          name = match[:name] or raise
+          type = match[:type] or raise
 
           AST::Annotation::VarType.new(name: name.to_sym,
                                        type: parse_type(type),
@@ -73,8 +68,9 @@ module Steep
 
       when keyword_subject_type("method", METHOD_NAME)
         Regexp.last_match.yield_self do |match|
-          name = match[:name]
-          type = match[:type]
+          match or raise
+          name = match[:name] or raise
+          type = match[:type] or raise
 
           method_type = factory.method_type(RBS::Parser.parse_method_type(type), method_decls: Set[])
 
@@ -85,16 +81,18 @@ module Steep
 
       when keyword_subject_type("const", CONST_NAME)
         Regexp.last_match.yield_self do |match|
-          name = match[:name]
-          type = parse_type(match[:type])
+          match or raise
+          name = match[:name] or raise
+          type = parse_type(match[:type] || raise)
 
           AST::Annotation::ConstType.new(name: TypeName(name), type: type, location: location)
         end
 
       when keyword_subject_type("ivar", IVAR_NAME)
         Regexp.last_match.yield_self do |match|
-          name = match[:name]
-          type = parse_type(match[:type])
+          match or raise
+          name = match[:name] or raise
+          type = parse_type(match[:type] || raise)
 
           AST::Annotation::IvarType.new(name: name.to_sym,
                                          type: type,
@@ -103,51 +101,58 @@ module Steep
 
       when keyword_and_type("return")
         Regexp.last_match.yield_self do |match|
-          type = parse_type(match[:type])
+          match or raise
+          type = parse_type(match[:type] || raise)
           AST::Annotation::ReturnType.new(type: type, location: location)
         end
 
       when keyword_and_type("block")
         Regexp.last_match.yield_self do |match|
-          type = parse_type(match[:type])
+          match or raise
+          type = parse_type(match[:type] || raise)
           AST::Annotation::BlockType.new(type: type, location: location)
         end
 
       when keyword_and_type("self")
         Regexp.last_match.yield_self do |match|
-          type = parse_type(match[:type])
+          match or raise
+          type = parse_type(match[:type] || raise)
           AST::Annotation::SelfType.new(type: type, location: location)
         end
 
       when keyword_and_type("instance")
         Regexp.last_match.yield_self do |match|
-          type = parse_type(match[:type])
+          match or raise
+          type = parse_type(match[:type] || raise)
           AST::Annotation::InstanceType.new(type: type, location: location)
         end
 
       when keyword_and_type("module")
         Regexp.last_match.yield_self do |match|
-          type = parse_type(match[:type])
+          match or raise
+          type = parse_type(match[:type] || raise)
           AST::Annotation::ModuleType.new(type: type, location: location)
         end
 
       when keyword_and_type("break")
         Regexp.last_match.yield_self do |match|
-          type = parse_type(match[:type])
+          match or raise
+          type = parse_type(match[:type] || raise)
           AST::Annotation::BreakType.new(type: type, location: location)
         end
 
       when /@dynamic\s+(?<names>(#{DYNAMIC_NAME}\s*,\s*)*#{DYNAMIC_NAME})/
         Regexp.last_match.yield_self do |match|
-          names = match[:names].split(/\s*,\s*/)
+          match or raise
+          names = (match[:names] || raise).split(/\s*,\s*/)
 
           AST::Annotation::Dynamic.new(
             names: names.map {|name|
-              case name
-              when /^self\./
-                AST::Annotation::Dynamic::Name.new(name: name[5..].to_sym, kind: :module)
-              when /^self\?\./
-                AST::Annotation::Dynamic::Name.new(name: name[6..].to_sym, kind: :module_instance)
+              case
+              when name.delete_prefix!("self.")
+                AST::Annotation::Dynamic::Name.new(name: name.to_sym, kind: :module)
+              when name.delete_prefix!("self?.")
+                AST::Annotation::Dynamic::Name.new(name: name.to_sym, kind: :module_instance)
               else
                 AST::Annotation::Dynamic::Name.new(name: name.to_sym, kind: :instance)
               end
@@ -158,7 +163,8 @@ module Steep
 
       when /@implements\s+(?<name>#{CONST_NAME})#{TYPE_PARAMS}$/
         Regexp.last_match.yield_self do |match|
-          type_name = TypeName(match[:name])
+          match or raise
+          type_name = TypeName(match[:name] || raise)
           params = match[:params]&.yield_self {|params| params.split(/,/).map {|param| param.strip.to_sym } } || []
 
           name = AST::Annotation::Implements::Module.new(name: type_name, args: params)

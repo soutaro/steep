@@ -5,13 +5,41 @@ module Parser
 
       attr_reader children: Array[untyped]
 
-      def initialize: (Symbol `type`, Array[untyped] children) -> void
+      def initialize: (Symbol `type`, ?Array[untyped] children, ?Hash[Symbol, untyped] properties) -> void
 
-      def updated: (?Symbol?, ?Array[untyped]?) -> Node
+      def updated: (?Symbol?, ?Array[untyped]?, ?Hash[Symbol, untyped]? properties) -> Node
 
       attr_reader location: Source::Map
 
       alias loc location
+    end
+  end
+
+  class Ruby31
+    def initialize: (untyped builder) -> void
+
+    def parse: (Source::Buffer) -> AST
+
+    def parse_with_comments: (Source::Buffer) -> [AST::Node, Array[Source::Comment]]
+
+    attr_reader diagnostics: untyped
+  end
+
+  module Source
+    class Buffer
+      def initialize: (String file, Integer lineno, source: String) -> void
+    end
+  end
+
+  module Builders
+    class Default
+      attr_accessor self.emit_lambda: bool
+      attr_accessor self.emit_procarg0: bool
+      attr_accessor self.emit_kwargs: bool
+
+      def string_value: (untyped) -> untyped
+
+      def value: (untyped) -> untyped
     end
   end
 end

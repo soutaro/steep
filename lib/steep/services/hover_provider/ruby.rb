@@ -4,6 +4,7 @@ module Steep
       class Ruby
         TypeContent = _ = Struct.new(:node, :type, :location, keyword_init: true)
         VariableContent = _ = Struct.new(:node, :name, :type, :location, keyword_init: true)
+        TypeAssertionContent = _ = Struct.new(:node, :original_type, :asserted_type, :location, keyword_init: true)
         MethodCallContent = _ = Struct.new(:node, :method_call, :location, keyword_init: true)
         DefinitionContent = _ = Struct.new(:node, :method_name, :method_type, :definition, :location, keyword_init: true)
         ConstantContent = _ = Struct.new(:location, :full_name, :type, :decl, keyword_init: true) do
@@ -33,11 +34,15 @@ module Steep
           end
 
           def constant?
-            decl.is_a?(::RBS::Environment::SingleEntry)
+            if decl.is_a?(::RBS::Environment::SingleEntry)
+              decl
+            end
           end
 
           def class_or_module?
-            decl.is_a?(::RBS::Environment::MultiEntry)
+            if decl.is_a?(::RBS::Environment::MultiEntry)
+              decl
+            end
           end
         end
 
@@ -78,8 +83,9 @@ module Steep
         end
 
         def method_name_from_method(context, builder:)
-          defined_in = context.method.defined_in
-          method_name = context.name
+          context.method or raise
+          defined_in = context.method.defined_in or raise
+          method_name = context.name or raise
 
           case
           when defined_in.class?
@@ -170,6 +176,15 @@ module Steep
                   type: type,
                   decl: decl
                 )
+              end
+            when :assertion
+              original_node, _ = node.children
+
+              original_type = typing.type_of(node: original_node)
+              asserted_type = typing.type_of(node: node)
+
+              if original_type != asserted_type
+                return TypeAssertionContent.new(node: node, original_type: original_type, asserted_type: asserted_type, location: node.location.expression)
               end
             end
 

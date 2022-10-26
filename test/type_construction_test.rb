@@ -10099,10 +10099,34 @@ end
 
       with_standard_construction(checker, source) do |construction, typing|
         type, _, context = construction.synthesize(source.node)
-
+        
         assert_no_error typing
         assert_equal parse_type("::Integer | nil"), context.type_env[:bar]
         assert_equal parse_type("::Numeric | ::String | nil"), context.type_env[:baz]
+      end
+    end
+  end
+
+  def test_assertion_as_type
+    with_checker(<<-RBS) do |checker|
+type foo = [Integer, String]
+      RBS
+      source = parse_ruby(<<-RUBY)
+array = [] #: Array[Integer]
+hash = array #: Hash[Symbol, String]
+      RUBY
+
+      with_standard_construction(checker, source) do |construction, typing|
+        type, _, context = construction.synthesize(source.node)
+
+        assert_typing_error(typing, size: 1) do |errors|
+          assert_any!(errors) do |error|
+            assert_instance_of Diagnostic::Ruby::FalseAssertion, error
+          end
+        end
+
+        assert_equal parse_type("::Array[::Integer]"), context.type_env[:array]
+        assert_equal parse_type("::Hash[::Symbol, ::String]"), context.type_env[:hash]
       end
     end
   end

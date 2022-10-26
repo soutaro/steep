@@ -1,0 +1,4 @@
+class Exception
+  def initialize: (String?) -> void
+                | ...
+end
