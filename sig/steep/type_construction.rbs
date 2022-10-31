@@ -32,7 +32,11 @@ module Steep
 
     %a{pure} def module_context: () -> TypeInference::Context::ModuleContext?
 
+    def module_context!: () -> TypeInference::Context::ModuleContext
+
     %a{pure} def method_context: () -> TypeInference::Context::MethodContext?
+
+    def method_context!: () -> TypeInference::Context::MethodContext
 
     %a{pure} def block_context: () -> TypeInference::Context::BlockContext?
 
@@ -130,9 +134,79 @@ module Steep
 
     def synthesize_children: (Parser::AST::Node node, ?skips: Array[Parser::AST::Node]) -> TypeConstruction
 
-    def type_send_interface: (Parser::AST::Node node, interface: Interface::Shape, receiver: Parser::AST::Node, receiver_type: AST::Types::t, method_name: Symbol, arguments: Array[Parser::AST::Node], block_params: Parser::AST::Node?, block_body: Parser::AST::Node?) -> Pair
+    # The entrypoint to type check method calls, which may be with blocks
+    #
+    # * `send_node` can be `:send`, `:super`, or `:zsuper`
+    # * `node` can be `:send`, `:block`, `:super`, or `:zsuper`
+    # * Specify `unwrap` keyword `true` to type check safe-navigation-operator, that unwraps the type of reeiver automatically and make the return type optional
+    #
+    def type_send: (
+      Parser::AST::Node node,
+      send_node: Parser::AST::Node,
+      block_params: Parser::AST::Node?,
+      block_body: Parser::AST::Node?,
+      ?unwrap: bool
+    ) -> Pair
 
-    def type_send: (untyped node, send_node: untyped, block_params: untyped, block_body: untyped, ?unwrap: bool) -> untyped
+    # The second step to type check method calls, which handles type refinements on *pure* calls
+    #
+    # * It receives `interface` keyword, that is the shape of the receiver type
+    # * It receives `arguments` keyword, that is an array of argument nodes
+    #
+    def type_send_interface: (
+      Parser::AST::Node node,
+      interface: Interface::Shape,
+      receiver: Parser::AST::Node?,
+      receiver_type: AST::Types::t,
+      method_name: Symbol,
+      arguments: Array[Parser::AST::Node],
+      block_params: Parser::AST::Node?,
+      block_body: Parser::AST::Node?
+    ) -> Pair
+
+    # The third step to type check method calls, which tries all of the overlods defined for the method
+    #
+    # * It receives the `Shape::Entry` object that represents an method entry of a shape
+    # * Returns `nil` when it cannot find suitable one from more than one overloads
+    #   * It means the type checker can report only *no suitable overlod detected for this args* 😫
+    #
+    def type_method_call: (
+      Parser::AST::Node node,
+      method_name: Symbol,
+      receiver_type: AST::Types::t,
+      method: Interface::Shape::Entry,
+      arguments: Array[Parser::AST::Node],
+      block_params: Parser::AST::Node?,
+      block_body: Parser::AST::Node?
+    ) -> [TypeInference::MethodCall::t, TypeConstruction]?
+
+    # The core to type check method calls, which implements type checking arguments including blocks and type inference
+    #
+    # * `receiver_type` and `method_name` are only used for error reporting
+    #
+    def try_method_type: (
+      Parser::AST::Node node,
+      receiver_type: AST::Types::t,
+      method_name: Symbol,
+      method_type: Interface::MethodType,
+      arguments: Array[Parser::AST::Node],
+      block_params: Parser::AST::Node?,
+      block_body: Parser::AST::Node?
+    ) -> [TypeInference::MethodCall::t, TypeConstruction]
+
+    # Extra step to type check method calls, which implements custom typing rules based on the methods
+    #
+    # * Returns `nil` if the `method_type` object is not associated to a method with custom typing rules
+    #
+    def try_special_method: (
+      Parser::AST::Node node,
+      receiver_type: AST::Types::t,
+      method_name: Symbol,
+      method_type: Interface::MethodType,
+      arguments: Array[Parser::AST::Node],
+      block_params: Parser::AST::Node?,
+      block_body: Parser::AST::Node?
+    ) -> [TypeInference::MethodCall::t, TypeConstruction]?
 
     def builder_config: () -> Interface::Builder::Config
 
@@ -149,27 +223,6 @@ module Steep
     SPECIAL_METHOD_NAMES: { array_compact: untyped, hash_compact: untyped }
 
     KNOWN_PURE_METHODS: Set[method_name]
-
-    def try_special_method: (
-      Parser::AST::Node node,
-      receiver_type: AST::Types::t,
-      method_name: Symbol,
-      method_type: Interface::MethodType,
-      arguments: Array[Parser::AST::Node],
-      block_params: Parser::AST::Node?,
-      block_body: Parser::AST::Node?
-    ) -> [TypeInference::MethodCall::t, TypeConstruction]?
-
-    def type_method_call: (
-      Parser::AST::Node node,
-      method_name: Symbol,
-      receiver_type: AST::Types::t,
-      method: Interface::Shape::Entry,
-      arguments: Array[Parser::AST::Node],
-      block_params: Parser::AST::Node?,
-      block_body: Parser::AST::Node?,
-      topdown_hint: untyped
-    ) -> [TypeInference::MethodCall::t, TypeConstruction]?
 
     def inspect: () -> ::String
 
@@ -193,17 +246,6 @@ module Steep
       } -> [Interface::MethodType, bool, Interface::Substitution]
 
     def eliminate_vars: (untyped `type`, untyped variables, ?to: untyped) -> untyped
-
-    def try_method_type: (
-      Parser::AST::Node node,
-      receiver_type: AST::Types::t,
-      method_name: Symbol,
-      method_type: Interface::MethodType,
-      arguments: Array[Parser::AST::Node],
-      block_params: Parser::AST::Node?,
-      block_body: Parser::AST::Node?,
-      topdown_hint: untyped
-    ) -> [TypeInference::MethodCall::t, TypeConstruction]
 
     def type_check_args: (
       TypeInference::SendArgs,

@@ -52,8 +52,16 @@ module Steep
       context.module_context
     end
 
+    def module_context!
+      module_context or raise
+    end
+
     def method_context
       context.method_context
+    end
+
+    def method_context!
+      method_context or raise
     end
 
     def block_context
@@ -913,8 +921,7 @@ module Steep
                                                 method: super_method,
                                                 arguments: node.children,
                                                 block_params: nil,
-                                                block_body: nil,
-                                                topdown_hint: true)
+                                                block_body: nil)
 
                 if call && constr
                   constr.add_call(call)
@@ -2467,6 +2474,16 @@ module Steep
             end
           end
 
+        # when :tapp
+        #   yield_self do
+        #     send_node, tapp = node.children
+
+        #     if types = tapp.types?(module_context.nesting, checker.factory, [])
+        #       pp types.map(&:to_s)
+
+        #     end
+        #   end
+
         else
           typing.add_error(Diagnostic::Ruby::UnsupportedSyntax.new(node: node))
           add_typing(node, type: AST::Builtin.any_type)
@@ -2883,14 +2900,15 @@ module Steep
       method = interface&.methods&.[](method_name)
 
       if method
-        call, constr = type_method_call(node,
-                                        method: method,
-                                        method_name: method_name,
-                                        arguments: arguments,
-                                        block_params: block_params,
-                                        block_body: block_body,
-                                        receiver_type: receiver_type,
-                                        topdown_hint: true)
+        call, constr = type_method_call(
+          node,
+          method: method,
+          method_name: method_name,
+          arguments: arguments,
+          block_params: block_params,
+          block_body: block_body,
+          receiver_type: receiver_type
+        )
 
         if call && constr
           case method_name.to_s
@@ -3004,6 +3022,7 @@ module Steep
 
     def type_send(node, send_node:, block_params:, block_body:, unwrap: false)
       # @type var constr: TypeConstruction
+      # @type var receiver: Parser::AST::Node?
 
       case send_node.type
       when :super, :zsuper
@@ -3134,6 +3153,7 @@ module Steep
           # compact
           return_type = method_type.type.return_type
           if AST::Builtin::Array.instance_type?(return_type)
+            # @type var return_type: AST::Types::Name::Instance
             elem = return_type.args[0]
             type = AST::Builtin::Array.instance_type(unwrap(elem))
 
@@ -3141,7 +3161,7 @@ module Steep
             call = TypeInference::MethodCall::Special.new(
               node: node,
               context: constr.context.method_context,
-              method_name: decl.method_name,
+              method_name: decl.method_name.method_name,
               receiver_type: receiver_type,
               actual_method_type: method_type.with(type: method_type.type.with(return_type: type)),
               return_type: type,
@@ -3156,6 +3176,7 @@ module Steep
           # compact
           return_type = method_type.type.return_type
           if AST::Builtin::Hash.instance_type?(return_type)
+            # @type var return_type: AST::Types::Name::Instance
             key = return_type.args[0]
             value = return_type.args[1]
             type = AST::Builtin::Hash.instance_type(key, unwrap(value))
@@ -3164,7 +3185,7 @@ module Steep
             call = TypeInference::MethodCall::Special.new(
               node: node,
               context: constr.context.method_context,
-              method_name: decl.method_name,
+              method_name: decl.method_name.method_name,
               receiver_type: receiver_type,
               actual_method_type: method_type.with(type: method_type.type.with(return_type: type)),
               return_type: type,
@@ -3179,7 +3200,7 @@ module Steep
       nil
     end
 
-    def type_method_call(node, method_name:, receiver_type:, method:, arguments:, block_params:, block_body:, topdown_hint:)
+    def type_method_call(node, method_name:, receiver_type:, method:, arguments:, block_params:, block_body:)
       node_range = node.loc.expression.yield_self {|l| l.begin_pos..l.end_pos }
 
       results = method.method_types.map do |method_type|
@@ -3202,40 +3223,26 @@ module Steep
               method_type: method_type,
               arguments: arguments,
               block_params: block_params,
-              block_body: block_body,
-              topdown_hint: topdown_hint
+              block_body: block_body
             )
           end
         end
       end
 
       case
-      when results.empty?
-        method_type = method.method_types.last
-        all_decls = method.method_types.each.with_object(Set[]) do |method_type, set|
-          set.merge(method_type.method_decls)
-        end
-
-        error = Diagnostic::Ruby::IncompatibleArguments.new(node: node, method_name: method_name, receiver_type: receiver_type, method_types: method.method_types)
-        call = TypeInference::MethodCall::Error.new(
-          node: node,
-          context: context.method_context,
-          method_name: method_name,
-          receiver_type: receiver_type,
-          return_type: method_type.type.return_type,
-          errors: [error],
-          method_decls: all_decls
-        )
-        constr = self.with_new_typing(typing.new_child(node_range))
+      when results.one?
+        # There is only one overload, use the type checking result
+        call, constr = results[0]
       when (call, constr = results.find {|call, _| call.is_a?(TypeInference::MethodCall::Typed) })
-        # Nop
+        # Successfully type checked with one of the overloads
       else
-        if results.one?
-          call, constr = results[0]
-        else
-          return
-        end
+        # No suitable overload, more than one overlodas
+        return
       end
+
+      constr or raise
+      call or raise
+
       constr.typing.save!
 
       [
@@ -3388,7 +3395,7 @@ module Steep
       constr
     end
 
-    def try_method_type(node, receiver_type:, method_name:, method_type:, arguments:, block_params:, block_body:, topdown_hint:)
+    def try_method_type(node, receiver_type:, method_name:, method_type:, arguments:, block_params:, block_body:)
       type_params, instantiation = Interface::TypeParam.rename(method_type.type_params)
       type_param_names = type_params.map(&:name)
 
@@ -3409,8 +3416,8 @@ module Steep
       constraints = Subtyping::Constraints.new(unknowns: type_params.map(&:name))
       ccontext = Subtyping::Constraints::Context.new(
         self_type: self_type,
-        instance_type: module_context.instance_type,
-        class_type: module_context.module_type,
+        instance_type: module_context!.instance_type,
+        class_type: module_context!.module_type,
         variance: variance
       )
 
@@ -3597,7 +3604,7 @@ module Steep
 
             case node.children[0].type
             when :super, :zsuper
-              unless method_context.super_method
+              unless method_context!.super_method
                 errors << Diagnostic::Ruby::UnexpectedSuper.new(
                   node: node.children[0],
                   method: method_name
