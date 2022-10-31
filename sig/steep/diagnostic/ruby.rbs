@@ -1,7 +1,7 @@
 module Steep
   module Diagnostic
     module Ruby
-      type location = Parser::Source::Range | Parser::Source::Range
+      type location = Parser::Source::Range | RBS::Location[untyped, untyped]
 
       class Base
         include Helper
@@ -486,15 +486,59 @@ module Steep
         def header_line: () -> String
       end
 
-      ALL: untyped
+      class UnexpectedTypeArgument < Base
+        attr_reader type_arg: AST::Types::t
 
-      def self.all_error: () -> untyped
+        attr_reader method_type: Interface::MethodType
 
-      def self.default: () -> untyped
+        def node: () -> nil
 
-      def self.strict: () -> untyped
+        def initialize: (type_arg: AST::Types::t, method_type: Interface::MethodType) -> void
 
-      def self.lenient: () -> untyped
+        def header_line: () -> String
+      end
+
+      class InsufficientTypeArgument < Base
+        attr_reader type_args: Array[AST::Types::t]
+
+        attr_reader method_type: Interface::MethodType
+
+        def initialize: (node: Parser::AST::Node, type_args: Array[AST::Types::t], method_type: Interface::MethodType) -> void
+
+        def header_line: () -> String
+      end
+
+      class TypeArgumentMismatchError < Base
+        attr_reader type_argument: AST::Types::t
+
+        attr_reader type_parameter: Interface::TypeParam
+
+        attr_reader result: Subtyping::Result::Base
+
+        include ResultPrinter
+
+        def node: () -> nil
+
+        def initialize: (type_arg: AST::Types::t, type_param: Interface::TypeParam, result: Subtyping::Result::Base) -> void
+
+        def header_line: () -> String
+      end
+
+      ALL: Array[singleton(Base)]
+
+      type template = Hash[singleton(Base), LSPFormatter::severity]
+
+      self.@all_error: template?
+      def self.all_error: () -> template
+
+      self.@default: template?
+      def self.default: () -> template
+
+      self.@strict: template?
+      def self.strict: () -> template
+
+      self.@lenient: template?
+      def self.lenient: () -> template
     end
   end
 end

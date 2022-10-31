@@ -787,6 +787,51 @@ module Steep
         end
       end
 
+      class UnexpectedTypeArgument < Base
+        attr_reader :type_arg, :method_type
+
+        def initialize(type_arg:, method_type:)
+          super(node: nil, location: type_arg.location)
+          @type_arg = type_arg
+          @method_type = method_type
+        end
+
+        def header_line
+          "Unexpected type arg is given to method type `#{method_type.to_s}`"
+        end
+      end
+
+      class InsufficientTypeArgument < Base
+        attr_reader :type_args, :method_type
+
+        def initialize(node:, type_args:, method_type:)
+          super(node: node)
+          @type_args = type_args
+          @method_type = method_type
+        end
+
+        def header_line
+          "Requires #{method_type.type_params.size} types, but #{type_args.size} given: `#{method_type.to_s}`"
+        end
+      end
+
+      class TypeArgumentMismatchError < Base
+        attr_reader :type_argument, :type_parameter, :result
+
+        def initialize(type_arg:, type_param:, result:)
+          super(node: nil, location: type_arg.location)
+          @type_argument = type_arg
+          @type_parameter = type_param
+          @result = result
+        end
+
+        include ResultPrinter
+
+        def header_line
+          "Cannot pass a type `#{type_argument}` as a type parameter `#{type_parameter.to_s}`"
+        end
+      end
+
       ALL = ObjectSpace.each_object(Class).with_object([]) do |klass, array|
         if klass < Base
           array << klass
@@ -795,25 +840,29 @@ module Steep
 
       def self.all_error
         @all_error ||= ALL.each.with_object({}) do |klass, hash|
+          # @type var hash: Hash[singleton(Base), LSPFormatter::severity]
           hash[klass] = LSPFormatter::ERROR
         end.freeze
       end
 
       def self.default
-        @default ||= all_error.merge(
+        @default ||= _ = all_error.merge(
           {
             ImplicitBreakValueMismatch => :warning,
             FallbackAny => :information,
             ElseOnExhaustiveCase => :warning,
             UnknownConstant => :warning,
             MethodDefinitionMissing => :information,
-            FalseAssertion => :information
+            FalseAssertion => :information,
+            UnexpectedTypeArgument => :information,
+            InsufficientTypeArgument => :information,
+            UnexpectedTypeArgument => :information
           }
         ).freeze
       end
 
       def self.strict
-        @strict ||= all_error.merge(
+        @strict ||= _ = all_error.merge(
           {
             NoMethod => nil,
             ImplicitBreakValueMismatch => nil,
@@ -826,7 +875,7 @@ module Steep
       end
 
       def self.lenient
-        @lenient ||= all_error.merge(
+        @lenient ||= _ = all_error.merge(
           {
             NoMethod => nil,
             ImplicitBreakValueMismatch => nil,

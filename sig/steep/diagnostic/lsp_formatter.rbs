@@ -15,6 +15,8 @@ module Steep
 
       HINT: :hint
 
+      type severity = :error | :warning | :information | :hint
+
       def initialize: (?::Hash[untyped, untyped] config, ?default_severity: untyped) -> void
 
       def validate_class: (untyped klass) -> (untyped | nil)
