@@ -10129,4 +10129,76 @@ hash = array #: Hash[Symbol, String]
       end
     end
   end
+
+  def test_type_app_succeed
+    with_checker(<<-RBS) do |checker|
+class Array[unchecked out Elem]
+  def union: [T] (*Array[T]) -> Array[Elem | T]
+end
+      RBS
+      source = parse_ruby(<<-RUBY)
+x = [1].union([1.2]) #$ Numeric
+y = [1]&.union([""]) #$ Object
+z = [1].map { _1.to_s } #$ Object
+      RUBY
+
+      with_standard_construction(checker, source) do |construction, typing|
+        type, _, context = construction.synthesize(source.node)
+
+        assert_no_error typing
+
+        assert_equal parse_type("::Array[::Integer | ::Numeric]"), context.type_env[:x]
+        assert_equal parse_type("::Array[::Integer | ::Object]?"), context.type_env[:y]
+        assert_equal parse_type("::Array[::Object]"), context.type_env[:z]
+      end
+    end
+  end
+
+  def test_type_app_error
+    with_checker(<<-RBS) do |checker|
+class AppTest
+  def foo: [T < Numeric, S] (T, S) -> [T, S]
+end
+      RBS
+      source = parse_ruby(<<-RUBY)
+
+
+x = AppTest.new.foo("", 1) #$ String, Integer
+y = AppTest.new.foo(1, 2) #$ Integer
+z = AppTest.new.foo(1, 2) #$ Integer, Integer, String
+      RUBY
+
+      with_standard_construction(checker, source) do |construction, typing|
+        type, _, context = construction.synthesize(source.node)
+
+        assert_typing_error(typing, size: 3) do |errors|
+          assert_any!(errors) do |error|
+            assert_instance_of Diagnostic::Ruby::TypeArgumentMismatchError, error
+            loc = error.location
+            pp error.location
+            pp lines: error.location.buffer.lines, ranges: error.location.buffer.ranges
+            pp start_loc: loc.buffer.pos_to_loc(loc.start_pos), _start_loc: loc.__send__(:_start_loc)
+            assert_equal "Cannot pass a type `::String` as a type parameter `T < ::Numeric`", error.header_line
+            assert_equal "String", error.location.source
+          end
+
+          assert_any!(errors) do |error|
+            assert_instance_of Diagnostic::Ruby::InsufficientTypeArgument, error
+            assert_equal "Requires 2 types, but 1 given: `[T < ::Numeric, S] (T, S) -> [T, S]`", error.header_line
+            assert_equal "AppTest.new.foo(1, 2) \#$ Integer", error.location.source
+          end
+
+          assert_any!(errors) do |error|
+            assert_instance_of Diagnostic::Ruby::UnexpectedTypeArgument, error
+            assert_equal "Unexpected type arg is given to method type `[T < ::Numeric, S] (T, S) -> [T, S]`", error.header_line
+            assert_equal "String", error.location.source
+          end
+        end
+
+        assert_equal parse_type("[untyped, ::Integer]"), context.type_env[:x]
+        assert_equal parse_type("[untyped, untyped]"), context.type_env[:y]
+        assert_equal parse_type("[untyped, untyped]"), context.type_env[:z]
+      end
+    end
+  end
 end

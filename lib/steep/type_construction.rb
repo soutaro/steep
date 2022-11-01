@@ -806,42 +806,6 @@ module Steep
             end
           end
 
-        when :send
-          yield_self do
-            if self_class?(node)
-              module_type = expand_alias(module_context.module_type)
-              type = if module_type.is_a?(AST::Types::Name::Singleton)
-                       AST::Types::Name::Singleton.new(name: module_type.name)
-                     else
-                       module_type
-                     end
-
-              add_typing(node, type: type)
-            else
-              type_send(node, send_node: node, block_params: nil, block_body: nil)
-            end
-          end
-
-        when :csend
-          yield_self do
-            send_type, constr =
-              if self_class?(node)
-                module_type = expand_alias(module_context.module_type)
-                type = if module_type.is_a?(AST::Types::Name::Singleton)
-                         AST::Types::Name::Singleton.new(name: module_type.name)
-                       else
-                         module_type
-                       end
-                add_typing(node, type: type).to_ary
-              else
-                type_send(node, send_node: node, block_params: nil, block_body: nil, unwrap: true).to_ary
-              end
-
-            constr
-              .update_type_env { context.type_env.join(constr.context.type_env, context.type_env) }
-              .add_typing(node, type: union_type(send_type, AST::Builtin.nil_type))
-          end
-
         when :match_with_lvasgn
           each_child_node(node) do |child|
             synthesize(child)
@@ -915,13 +879,16 @@ module Steep
                   }
                 )
 
-                call, constr = type_method_call(node,
-                                                receiver_type: self_type,
-                                                method_name: method_context.name,
-                                                method: super_method,
-                                                arguments: node.children,
-                                                block_params: nil,
-                                                block_body: nil)
+                call, constr = type_method_call(
+                  node,
+                  receiver_type: self_type,
+                  method_name: method_context.name,
+                  method: super_method,
+                  arguments: node.children,
+                  block_params: nil,
+                  block_body: nil,
+                  tapp: nil
+                )
 
                 if call && constr
                   constr.add_call(call)
@@ -951,35 +918,6 @@ module Steep
               end
             else
               fallback_to_any node
-            end
-          end
-
-        when :block
-          yield_self do
-            send_node, params, body = node.children
-            if send_node.type == :lambda
-              type_lambda(node, params_node: params, body_node: body, type_hint: hint)
-            else
-              type_send(node, send_node: send_node, block_params: params, block_body: body, unwrap: send_node.type == :csend)
-            end
-          end
-
-        when :numblock
-          yield_self do
-            send_node, max_num, body = node.children
-
-            if max_num == 1
-              arg_nodes = [Parser::AST::Node.new(:procarg0, [:_1])]
-            else
-              arg_nodes = max_num.times.map {|i| Parser::AST::Node.new(:arg, [:"_#{i+1}"]) }
-            end
-
-            params = Parser::AST::Node.new(:args, arg_nodes)
-
-            if send_node.type == :lambda
-              type_lambda(node, params_node: params, body_node: body, type_hint: hint)
-            else
-              type_send(node, send_node: send_node, block_params: params, block_body: body, unwrap: send_node.type == :csend)
             end
           end
 
@@ -1554,9 +1492,9 @@ module Steep
 
               constructor.synthesize(node.children[1]) if node.children[1]
 
-              if constructor.module_context.instance_definition && module_context.module_definition
-                if constructor.module_context.instance_definition.type_name == module_context.module_definition.type_name
-                  module_context.defined_module_methods.merge(constructor.module_context.defined_instance_methods)
+              if constructor.module_context!.instance_definition && module_context!.module_definition
+                if constructor.module_context!.instance_definition.type_name == module_context!.module_definition.type_name
+                  module_context!.defined_module_methods.merge(constructor.module_context!.defined_instance_methods)
                 end
               end
             end
@@ -2458,7 +2396,7 @@ module Steep
             # @type var as_type: AST::Node::TypeAssertion
             asserted_node, as_type = node.children
 
-            if type = as_type.type?(module_context.nesting, checker.factory, [])
+            if type = as_type.type?(module_context!.nesting, checker.factory, [])
               actual_type, constr = synthesize(asserted_node, hint: type)
 
               if result = no_subtyping?(sub_type: type, super_type: actual_type)
@@ -2477,15 +2415,16 @@ module Steep
             end
           end
 
-        # when :tapp
-        #   yield_self do
-        #     send_node, tapp = node.children
+        when :block, :numblock, :send, :csend
+          synthesize_sendish(node, hint: hint, tapp: nil)
 
-        #     if types = tapp.types?(module_context.nesting, checker.factory, [])
-        #       pp types.map(&:to_s)
+        when :tapp
+          yield_self do
+            sendish, tapp = node.children
+            type, constr = synthesize_sendish(sendish, hint: hint, tapp: tapp)
 
-        #     end
-        #   end
+            constr.add_typing(node, type: type)
+          end
 
         else
           typing.add_error(Diagnostic::Ruby::UnsupportedSyntax.new(node: node))
@@ -2519,6 +2458,74 @@ module Steep
         pair.with(type: type)
       else
         pair
+      end
+    end
+
+    def synthesize_sendish(node, hint:, tapp:)
+      case node.type
+      when :send
+        yield_self do
+          if self_class?(node)
+            module_type = expand_alias(module_context!.module_type)
+            type = if module_type.is_a?(AST::Types::Name::Singleton)
+                     AST::Types::Name::Singleton.new(name: module_type.name)
+                   else
+                     module_type
+                   end
+
+            add_typing(node, type: type)
+          else
+            type_send(node, send_node: node, block_params: nil, block_body: nil, tapp: tapp)
+          end
+        end
+      when :csend
+        yield_self do
+          send_type, constr =
+            if self_class?(node)
+              module_type = expand_alias(module_context!.module_type)
+              type = if module_type.is_a?(AST::Types::Name::Singleton)
+                       AST::Types::Name::Singleton.new(name: module_type.name)
+                     else
+                       module_type
+                     end
+              add_typing(node, type: type).to_ary
+            else
+              type_send(node, send_node: node, block_params: nil, block_body: nil, unwrap: true, tapp: tapp).to_ary
+            end
+
+          constr
+            .update_type_env { context.type_env.join(constr.context.type_env, context.type_env) }
+            .add_typing(node, type: union_type(send_type, AST::Builtin.nil_type))
+        end
+      when :block
+        yield_self do
+          send_node, params, body = node.children
+          if send_node.type == :lambda
+            type_lambda(node, params_node: params, body_node: body, type_hint: hint)
+          else
+            type_send(node, send_node: send_node, block_params: params, block_body: body, unwrap: send_node.type == :csend, tapp: tapp)
+          end
+        end
+      when :numblock
+        yield_self do
+          send_node, max_num, body = node.children
+
+          if max_num == 1
+            arg_nodes = [Parser::AST::Node.new(:procarg0, [:_1])]
+          else
+            arg_nodes = max_num.times.map {|i| Parser::AST::Node.new(:arg, [:"_#{i+1}"]) }
+          end
+
+          params = Parser::AST::Node.new(:args, arg_nodes)
+
+          if send_node.type == :lambda
+            type_lambda(node, params_node: params, body_node: body, type_hint: hint)
+          else
+            type_send(node, send_node: send_node, block_params: params, block_body: body, unwrap: send_node.type == :csend, tapp: tapp)
+          end
+        end
+      else
+        raise "Unexpected node is given to `#synthesize_sendish` (#{node.type}, #{node.location.first_line})"
       end
     end
 
@@ -2874,6 +2881,7 @@ module Steep
     def synthesize_children(node, skips: [])
       skips = Set.new.compare_by_identity.merge(skips)
 
+      # @type var constr: TypeConstruction
       constr = self
 
       each_child_node(node) do |child|
@@ -2899,7 +2907,7 @@ module Steep
       end
     end
 
-    def type_send_interface(node, interface:, receiver:, receiver_type:, method_name:, arguments:, block_params:, block_body:)
+    def type_send_interface(node, interface:, receiver:, receiver_type:, method_name:, arguments:, block_params:, block_body:, tapp:)
       method = interface&.methods&.[](method_name)
 
       if method
@@ -2910,7 +2918,8 @@ module Steep
           arguments: arguments,
           block_params: block_params,
           block_body: block_body,
-          receiver_type: receiver_type
+          receiver_type: receiver_type,
+          tapp: tapp
         )
 
         if call && constr
@@ -3004,7 +3013,7 @@ module Steep
           send_node = node.children[0]
           case send_node.type
           when :super, :zsuper
-            method_name = method_context.name
+            method_name = method_context!.name or raise
             return fallback_to_any(send_node) do
               Diagnostic::Ruby::UnexpectedSuper.new(node: send_node, method: method_name)
             end
@@ -3023,7 +3032,7 @@ module Steep
       end
     end
 
-    def type_send(node, send_node:, block_params:, block_body:, unwrap: false)
+    def type_send(node, send_node:, block_params:, block_body:, unwrap: false, tapp:)
       # @type var constr: TypeConstruction
       # @type var receiver: Parser::AST::Node?
 
@@ -3085,7 +3094,8 @@ module Steep
                             method_name: method_name,
                            arguments: arguments,
                            block_params: block_params,
-                           block_body: block_body
+                           block_body: block_body,
+                           tapp: tapp
                          )
                        else
                          constr = constr.synthesize_children(node, skips: [receiver])
@@ -3107,8 +3117,8 @@ module Steep
     def builder_config
       Interface::Builder::Config.new(
         self_type: self_type,
-        class_type: module_context.module_type,
-        instance_type: module_context.instance_type,
+        class_type: module_context!.module_type,
+        instance_type: module_context!.instance_type,
         variable_bounds: variable_context.upper_bounds
       )
     end
@@ -3203,7 +3213,7 @@ module Steep
       nil
     end
 
-    def type_method_call(node, method_name:, receiver_type:, method:, arguments:, block_params:, block_body:)
+    def type_method_call(node, method_name:, receiver_type:, method:, arguments:, block_params:, block_body:, tapp:)
       node_range = node.loc.expression.yield_self {|l| l.begin_pos..l.end_pos }
 
       results = method.method_types.map do |method_type|
@@ -3226,7 +3236,8 @@ module Steep
               method_type: method_type,
               arguments: arguments,
               block_params: block_params,
-              block_body: block_body
+              block_body: block_body,
+              tapp: tapp
             )
           end
         end
@@ -3398,11 +3409,77 @@ module Steep
       constr
     end
 
-    def try_method_type(node, receiver_type:, method_name:, method_type:, arguments:, block_params:, block_body:)
-      type_params, instantiation = Interface::TypeParam.rename(method_type.type_params)
-      type_param_names = type_params.map(&:name)
-
+    def try_method_type(node, receiver_type:, method_name:, method_type:, arguments:, block_params:, block_body:, tapp:)
       constr = self
+
+      if tapp && type_args = tapp.types?(module_context!.nesting, checker.factory, [])
+        type_arity = method_type.type_params.size
+        type_param_names = method_type.type_params.map(&:name)
+
+        # Explicit type application
+        if type_args.size == type_arity
+          # @type var args_: Array[AST::Types::t]
+          args_ = []
+
+          type_args.each_with_index do |type, index|
+            param = method_type.type_params[index]
+            if param.upper_bound
+              if result = no_subtyping?(sub_type: type, super_type: param.upper_bound)
+                args_ << AST::Builtin.any_type
+                constr.typing.add_error(
+                  Diagnostic::Ruby::TypeArgumentMismatchError.new(
+                    type_arg: type,
+                    type_param: param,
+                    result: result
+                  )
+                )
+              else
+                args_ << type
+              end
+            else
+              args_ << type
+            end
+          end
+
+          method_type = method_type.instantiate(Interface::Substitution.build(type_param_names, args_))
+        else
+          if type_args.size > type_arity
+            type_args.drop(type_arity).each do |type_arg|
+              constr.typing.add_error(
+                Diagnostic::Ruby::UnexpectedTypeArgument.new(
+                  type_arg: type_arg,
+                  method_type: method_type
+                )
+              )
+            end
+          end
+
+          if type_args.size < type_arity
+            constr.typing.add_error(
+              Diagnostic::Ruby::InsufficientTypeArgument.new(
+                node: tapp.node,
+                type_args: type_args,
+                method_type: method_type
+              )
+            )
+          end
+
+          method_type = method_type.instantiate(
+            Interface::Substitution.build(
+              type_param_names,
+              Array.new(type_param_names.size, AST::Builtin.any_type)
+            )
+          )
+        end
+
+        type_params = []
+        type_param_names.clear
+      else
+        # Infer type application
+        type_params, instantiation = Interface::TypeParam.rename(method_type.type_params)
+        type_param_names = type_params.map(&:name)
+        method_type = method_type.instantiate(instantiation)
+      end
 
       constr = constr.with(
         context: context.with(
@@ -3412,8 +3489,6 @@ module Steep
           )
         )
       )
-
-      method_type = method_type.instantiate(instantiation)
 
       variance = Subtyping::VariableVariance.from_method_type(method_type)
       constraints = Subtyping::Constraints.new(unknowns: type_params.map(&:name))

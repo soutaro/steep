@@ -134,6 +134,10 @@ module Steep
 
     def synthesize_children: (Parser::AST::Node node, ?skips: Array[Parser::AST::Node]) -> TypeConstruction
 
+    # Synthesize `:send`, `:csend`, `:block`, and `:numblock` node
+    #
+    def synthesize_sendish: (Parser::AST::Node sendish, hint: AST::Types::t?, tapp: AST::Node::TypeApplication?) -> Pair
+
     # The entrypoint to type check method calls, which may be with blocks
     #
     # * `send_node` can be `:send`, `:super`, or `:zsuper`
@@ -145,7 +149,8 @@ module Steep
       send_node: Parser::AST::Node,
       block_params: Parser::AST::Node?,
       block_body: Parser::AST::Node?,
-      ?unwrap: bool
+      ?unwrap: bool,
+      tapp: AST::Node::TypeApplication?
     ) -> Pair
 
     # The second step to type check method calls, which handles type refinements on *pure* calls
@@ -161,7 +166,8 @@ module Steep
       method_name: Symbol,
       arguments: Array[Parser::AST::Node],
       block_params: Parser::AST::Node?,
-      block_body: Parser::AST::Node?
+      block_body: Parser::AST::Node?,
+      tapp: AST::Node::TypeApplication?
     ) -> Pair
 
     # The third step to type check method calls, which tries all of the overlods defined for the method
@@ -177,7 +183,8 @@ module Steep
       method: Interface::Shape::Entry,
       arguments: Array[Parser::AST::Node],
       block_params: Parser::AST::Node?,
-      block_body: Parser::AST::Node?
+      block_body: Parser::AST::Node?,
+      tapp: AST::Node::TypeApplication?
     ) -> [TypeInference::MethodCall::t, TypeConstruction]?
 
     # The core to type check method calls, which implements type checking arguments including blocks and type inference
@@ -191,7 +198,8 @@ module Steep
       method_type: Interface::MethodType,
       arguments: Array[Parser::AST::Node],
       block_params: Parser::AST::Node?,
-      block_body: Parser::AST::Node?
+      block_body: Parser::AST::Node?,
+      tapp: AST::Node::TypeApplication?
     ) -> [TypeInference::MethodCall::t, TypeConstruction]
 
     # Extra step to type check method calls, which implements custom typing rules based on the methods
@@ -213,7 +221,7 @@ module Steep
     # Calculates the shape (interface) of an type
     #
     # * Returns `nil` if the type cannot be translated to a shape
-    # * Returns Shape::Entry instead of Shape, if `method_name` is given
+    # * Returns Shape::Entry instead of Shape when `method_name` is given
     #
     def calculate_interface: (AST::Types::t `type`, private: bool) -> Interface::Shape?
                            | (AST::Types::t `type`, Symbol method_name, private: bool) -> Interface::Shape::Entry?
