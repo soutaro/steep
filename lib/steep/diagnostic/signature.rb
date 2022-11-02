@@ -11,9 +11,7 @@ module Steep
         end
 
         def header_line
-          StringIO.new.tap do |io|
-            puts io
-          end.string
+          raise
         end
 
         def detail_lines
@@ -25,7 +23,9 @@ module Steep
         end
 
         def path
-          location.buffer.name
+          if location
+            Pathname(location.buffer.name)
+          end
         end
       end
 
@@ -166,7 +166,6 @@ module Steep
       class RecursiveAlias < Base
         attr_reader :class_name
         attr_reader :names
-        attr_reader :location
 
         def initialize(class_name:, names:, location:)
           super(location: location)
@@ -284,7 +283,6 @@ module Steep
 
       class InstanceVariableTypeError < Base
         attr_reader :name
-        attr_reader :variable
         attr_reader :var_type
         attr_reader :parent_type
 
@@ -318,7 +316,7 @@ module Steep
         private
 
         def mixin_name
-          case member
+          case mem = member
           when RBS::AST::Members::Prepend
             "prepend"
           when RBS::AST::Members::Include
@@ -440,7 +438,7 @@ module Steep
           Diagnostic::Signature::RecursiveAlias.new(
             class_name: error.type.name,
             names: error.defs.map(&:name),
-            location: error.defs[0].original.location
+            location: error.defs[0].original&.location
           )
         when RBS::RecursiveAncestorError
           Diagnostic::Signature::RecursiveAncestor.new(

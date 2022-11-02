@@ -1,158 +1,170 @@
 module Steep
   module Diagnostic
     module Signature
+      type location = RBS::Location[untyped, untyped]
+
       class Base
         include Helper
 
-        attr_reader location: untyped
+        attr_reader location: location?
 
-        def initialize: (location: untyped) -> void
+        def initialize: (location: location?) -> void
 
-        def header_line: () -> untyped
+        def header_line: () -> String
 
-        def detail_lines: () -> nil
+        def detail_lines: () -> String?
 
-        def diagnostic_code: () -> ::String
+        def diagnostic_code: () -> String
 
-        def path: () -> untyped
+        def path: () -> Pathname?
       end
 
       class SyntaxError < Base
-        attr_reader exception: untyped
+        attr_reader exception: RBS::ParsingError
 
-        def initialize: (untyped exception, location: untyped) -> void
+        def initialize: (RBS::ParsingError exception, location: location?) -> void
 
-        def self.parser_syntax_error_message: (untyped exception) -> ::String
+        def self.parser_syntax_error_message: (RBS::ParsingError exception) -> String
 
-        def header_line: () -> untyped
+        def header_line: () -> String
       end
 
       class DuplicatedDeclaration < Base
-        attr_reader type_name: untyped
+        attr_reader type_name: RBS::TypeName | Symbol
 
-        def initialize: (type_name: untyped, location: untyped) -> void
+        def initialize: (type_name: RBS::TypeName | Symbol, location: location?) -> void
 
-        def header_line: () -> ::String
+        def header_line: () -> String
       end
 
       class UnknownTypeName < Base
-        attr_reader name: untyped
+        attr_reader name: RBS::TypeName
 
-        def initialize: (name: untyped, location: untyped) -> void
+        def initialize: (name: RBS::TypeName, location: location?) -> void
 
-        def header_line: () -> ::String
+        def header_line: () -> String
       end
 
       class InvalidTypeApplication < Base
-        attr_reader name: untyped
+        attr_reader name: RBS::TypeName
 
-        attr_reader args: untyped
+        attr_reader args: Array[AST::Types::t]
 
-        attr_reader params: untyped
+        attr_reader params: Array[Symbol]
 
-        def initialize: (name: untyped, args: untyped, params: untyped, location: untyped) -> void
+        def initialize: (name: RBS::TypeName, args: Array[AST::Types::t], params: Array[Symbol], location: location?) -> void
 
-        def header_line: () -> untyped
+        def header_line: () -> String
       end
 
       class UnsatisfiableTypeApplication < Base
-        attr_reader type_name: untyped
+        attr_reader type_name: RBS::TypeName
 
-        attr_reader type_arg: untyped
+        attr_reader type_arg: AST::Types::t
 
-        attr_reader type_param: untyped
+        attr_reader type_param: Interface::TypeParam
 
-        def initialize: (type_name: untyped, type_arg: untyped, type_param: untyped, location: untyped) -> void
+        def initialize: (type_name: RBS::TypeName, type_arg: AST::Types::t, type_param: Interface::TypeParam, location: location?) -> void
 
-        def header_line: () -> ::String
+        def header_line: () -> String
       end
 
       class InvalidMethodOverload < Base
-        attr_reader class_name: untyped
+        attr_reader class_name: RBS::TypeName
 
-        attr_reader method_name: untyped
+        attr_reader method_name: Symbol
 
-        def initialize: (class_name: untyped, method_name: untyped, location: untyped) -> void
+        def initialize: (class_name: RBS::TypeName, method_name: Symbol, location: location?) -> void
 
-        def header_line: () -> ::String
+        def header_line: () -> String
       end
 
       class UnknownMethodAlias < Base
-        attr_reader class_name: untyped
+        attr_reader class_name: RBS::TypeName
 
-        attr_reader method_name: untyped
+        attr_reader method_name: Symbol
 
-        def initialize: (class_name: untyped, method_name: untyped, location: untyped) -> void
+        def initialize: (class_name: RBS::TypeName, method_name: Symbol, location: location?) -> void
 
-        def header_line: () -> ::String
+        def header_line: () -> String
       end
 
       class DuplicatedMethodDefinition < Base
-        attr_reader class_name: untyped
+        attr_reader class_name: RBS::TypeName
 
-        attr_reader method_name: untyped
+        attr_reader method_name: Symbol
 
-        def initialize: (class_name: untyped, method_name: untyped, location: untyped) -> void
+        def initialize: (class_name: RBS::TypeName, method_name: Symbol, location: location?) -> void
 
-        def header_line: () -> ::String
+        def header_line: () -> String
       end
 
       class RecursiveAlias < Base
-        attr_reader class_name: untyped
+        attr_reader class_name: RBS::TypeName
 
-        attr_reader names: untyped
+        attr_reader names: Array[Symbol]
 
-        attr_reader location: untyped
+        def initialize: (class_name: RBS::TypeName, names: Array[Symbol], location: location?) -> void
 
-        def initialize: (class_name: untyped, names: untyped, location: untyped) -> void
-
-        def header_line: () -> ::String
+        def header_line: () -> String
       end
 
       class RecursiveAncestor < Base
-        attr_reader ancestors: untyped
+        attr_reader ancestors: Array[RBS::Definition::Ancestor::t]
 
-        def initialize: (ancestors: untyped, location: untyped) -> void
+        def initialize: (ancestors: Array[RBS::Definition::Ancestor::t], location: location?) -> void
 
-        def header_line: () -> ::String
+        def header_line: () -> String
       end
 
       class SuperclassMismatch < Base
-        attr_reader name: untyped
+        attr_reader name: RBS::TypeName
 
-        def initialize: (name: untyped, location: untyped) -> void
+        def initialize: (name: RBS::TypeName, location: location?) -> void
 
-        def header_line: () -> ::String
+        def header_line: () -> String
       end
 
       class GenericParameterMismatch < Base
-        attr_reader name: untyped
+        attr_reader name: RBS::TypeName
 
-        def initialize: (name: untyped, location: untyped) -> void
+        def initialize: (name: RBS::TypeName, location: location?) -> void
 
-        def header_line: () -> ::String
+        def header_line: () -> String
       end
 
       class InvalidVarianceAnnotation < Base
-        attr_reader name: untyped
+        attr_reader name: RBS::TypeName
 
-        attr_reader param: untyped
+        attr_reader param: RBS::AST::TypeParam
 
-        def initialize: (name: untyped, param: untyped, location: untyped) -> void
+        def initialize: (name: RBS::TypeName, param: RBS::AST::TypeParam, location: location?) -> void
 
-        def header_line: () -> ::String
+        def header_line: () -> String
       end
 
       class ModuleSelfTypeError < Base
-        attr_reader name: untyped
+        attr_reader name: RBS::TypeName
 
-        attr_reader ancestor: untyped
+        attr_reader ancestor: RBS::DefinitionBuilder::AncestorBuilder::OneAncestors
 
-        attr_reader relation: untyped
+        attr_reader relation: Subtyping::Relation[AST::Types::t]
 
-        def initialize: (name: untyped, ancestor: untyped, relation: untyped, location: untyped) -> void
+        def initialize: (name: RBS::TypeName, ancestor: RBS::DefinitionBuilder::AncestorBuilder::OneAncestors, relation: Subtyping::Relation[AST::Types::t], location: location?) -> void
 
-        def header_line: () -> ::String
+        def header_line: () -> String
+      end
+
+      class ClassVariableDuplicationError < Base
+        attr_reader class_name: RBS::TypeName
+
+        attr_reader other_class_name: RBS::TypeName
+
+        attr_reader variable_name: Symbol
+
+        def initialize: (class_name: RBS::TypeName, other_class_name: RBS::TypeName, variable_name: Symbol, location: RBS::Location[untyped, untyped]) -> void
+
+        def header_line: () -> String
       end
 
       # The error is raised when a class variable is defined in both `class_name` and `other_class_name`
@@ -169,31 +181,29 @@ module Steep
 
 
       class InstanceVariableTypeError < Base
-        attr_reader name: untyped
+        attr_reader name: Symbol
 
-        attr_reader variable: untyped
+        attr_reader var_type: AST::Types::t
 
-        attr_reader var_type: untyped
+        attr_reader parent_type: AST::Types::t
 
-        attr_reader parent_type: untyped
+        def initialize: (name: Symbol, location: location?, var_type: AST::Types::t, parent_type: AST::Types::t) -> void
 
-        def initialize: (name: untyped, location: untyped, var_type: untyped, parent_type: untyped) -> void
-
-        def header_line: () -> ::String
+        def header_line: () -> String
       end
 
       class MixinClassError < Base
-        attr_reader member: untyped
+        attr_reader member: RBS::AST::Members::Include | RBS::AST::Members::Extend | RBS::AST::Members::Prepend
 
-        attr_reader type_name: untyped
+        attr_reader type_name: RBS::TypeName
 
-        def initialize: (location: untyped, member: untyped, type_name: untyped) -> void
+        def initialize: (location: location?, member: RBS::AST::Members::Include | RBS::AST::Members::Extend | RBS::AST::Members::Prepend, type_name: RBS::TypeName) -> void
 
-        def header_line: () -> ::String
+        def header_line: () -> String
 
         private
 
-        def mixin_name: () -> untyped
+        def mixin_name: () -> String
       end
 
       # A class definition has a module as its super class
@@ -207,32 +217,32 @@ module Steep
       end
 
       class UnexpectedError < Base
-        attr_reader message: untyped
+        attr_reader message: String
 
-        def initialize: (message: untyped, location: untyped) -> void
+        def initialize: (message: String, location: location?) -> void
 
-        def header_line: () -> ::String
+        def header_line: () -> String
       end
 
       class RecursiveTypeAlias < Base
-        attr_reader alias_names: untyped
+        attr_reader alias_names: Array[RBS::TypeName]
 
-        def initialize: (alias_names: untyped, location: untyped) -> void
+        def initialize: (alias_names: Array[RBS::TypeName], location: location?) -> void
 
-        def header_line: () -> ::String
+        def header_line: () -> String
       end
 
       class NonregularTypeAlias < Base
-        attr_reader type_name: untyped
+        attr_reader type_name: RBS::TypeName
 
-        attr_reader nonregular_type: untyped
+        attr_reader nonregular_type: AST::Types::t
 
-        def initialize: (type_name: untyped, nonregular_type: untyped, location: untyped) -> void
+        def initialize: (type_name: RBS::TypeName, nonregular_type: AST::Types::t, location: location?) -> void
 
-        def header_line: () -> ::String
+        def header_line: () -> String
       end
 
-      def self.from_rbs_error: (untyped error, factory: untyped) -> untyped
+      def self.from_rbs_error: (RBS::BaseError error, factory: AST::Types::Factory) -> Base
     end
   end
 end
