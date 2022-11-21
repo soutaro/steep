@@ -1,0 +1,76 @@
+module Steep
+  module Signature
+    class Validator
+      Location: singleton(RBS::Location)
+
+      Declarations: singleton(RBS::AST::Declarations)
+
+      attr_reader checker: Subtyping::Check
+
+      @errors: Array[Diagnostic::Signature::Base]
+
+      @type_name_resolver: RBS::TypeNameResolver?
+
+      @validator: RBS::Validator?
+
+      def initialize: (checker: Subtyping::Check) -> void
+
+      def has_error?: () -> bool
+
+      def no_error?: () -> bool
+
+      def each_error: () { (Diagnostic::Signature::Base) -> void } -> void
+                    | () -> Enumerator[Diagnostic::Signature::Base, void]
+
+      def env: () -> RBS::Environment
+
+      def builder: () -> RBS::DefinitionBuilder
+
+      def type_name_resolver: () -> RBS::TypeNameResolver
+
+      def validator: () -> RBS::Validator
+
+      def factory: () -> AST::Types::Factory
+
+      def validate: () -> void
+
+      def validate_type_application_constraints: (RBS::TypeName type_name, Array[RBS::AST::TypeParam] type_params, Array[RBS::Types::t] type_args, location: RBS::Location[untyped, untyped]?) -> void
+
+      def validate_type_application: (RBS::Types::t) -> void
+
+      def validate_type: (RBS::Types::t `type`) -> untyped
+
+      def ancestor_to_type: (RBS::Definition::Ancestor::t ancestor) -> (AST::Types::Name::Interface | AST::Types::Name::Instance)
+
+      def mixin_constraints: (RBS::Definition definition, Array[RBS::Definition::Ancestor::Instance] mixin_ancestors, immediate_self_types: Array[RBS::Definition::Ancestor::t]?) -> Array[[Subtyping::Relation[AST::Types::t], RBS::Definition::Ancestor::Instance]]
+
+      def each_method_type: (RBS::Definition) { (RBS::MethodType) -> void } -> void
+
+      def each_variable_type: (RBS::Definition) { (RBS::Types::t) -> void } -> void
+
+      def validate_definition_type: (RBS::Definition) -> void
+
+      def validate_one_class: (RBS::TypeName) -> void
+
+      def validate_ancestor_application: (RBS::TypeName, RBS::Definition::Ancestor::Instance ancestor) -> void
+
+      def validate_one_interface: (RBS::TypeName) -> void
+
+      def validate_decl: () -> void
+
+      def validate_const: () -> void
+
+      def validate_one_constant: (RBS::TypeName name, RBS::Environment::SingleEntry[RBS::TypeName, RBS::AST::Declarations::Constant] entry) -> void
+
+      def validate_global: () -> void
+
+      def validate_one_global: (Symbol name, RBS::Environment::SingleEntry[Symbol, RBS::AST::Declarations::Global]) -> void
+
+      def validate_one_alias: (RBS::TypeName name, ?RBS::Environment::SingleEntry[RBS::TypeName, RBS::AST::Declarations::Alias] entry) -> void
+
+      def validate_alias: () -> void
+
+      def rescue_validation_errors: (?RBS::TypeName? type_name) { () -> void } -> void
+    end
+  end
+end
