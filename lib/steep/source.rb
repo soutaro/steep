@@ -60,6 +60,8 @@ module Steep
             annotations << annotation
           when assertion = AST::Node::TypeAssertion.parse(location)
             type_comments[assertion.line] = assertion
+          when tapp = AST::Node::TypeApplication.parse(location)
+            type_comments[tapp.line] = tapp
           end
         end
       end
@@ -259,10 +261,18 @@ module Steep
       annotations.replace(other_annotations)
     end
 
-    def self.map_child_node(node, type = nil)
+    def self.map_child_node(node, type = nil, skip: nil)
       children = node.children.map do |child|
         if child.is_a?(Parser::AST::Node)
-          yield child
+          if skip
+            if skip.member?(child)
+              child
+            else
+              yield child
+            end
+          else
+            yield child
+          end
         else
           child
         end
@@ -447,12 +457,61 @@ module Steep
             node = adjust_location(node)
             return assertion_node(node, last_comment)
           end
+        when selector_line = sendish_node?(node)
+          if (comment = comments[selector_line]).is_a?(AST::Node::TypeApplication)
+            child_assertions = comments.except(selector_line)
+            case node.type
+            when :block
+              send, *children = node.children
+              node = node.updated(
+                nil,
+                [
+                  map_child_node(send) {|child| insert_type_node(child, child_assertions) },
+                  *children.map {|child| insert_type_node(child, child_assertions) }
+                ]
+              )
+            when :numblock
+              send, size, body = node.children
+              node = node.updated(
+                nil,
+                [
+                  map_child_node(send) {|child| insert_type_node(child, child_assertions) },
+                  size,
+                  insert_type_node(body, child_assertions)
+                ]
+              )
+            else
+              node = map_child_node(node) {|child| insert_type_node(child, child_assertions) }
+            end
+            node = adjust_location(node)
+            return type_application_node(node, comment)
+          end
         end
       end
 
       adjust_location(
         map_child_node(node, nil) {|child| insert_type_node(child, comments) }
       )
+    end
+
+    def self.sendish_node?(node)
+      send_node =
+        case node.type
+        when :send, :csend
+          node
+        when :block, :numblock
+          send = node.children[0]
+          case send.type
+          when :send, :csend
+            send
+          end
+        end
+
+      if send_node
+        if send_node.location.dot
+          send_node.location.selector.line
+        end
+      end
     end
 
     def self.adjust_location(node)
@@ -474,6 +533,18 @@ module Steep
     def self.assertion_node(node, type)
       map = Parser::Source::Map.new(node.location.expression.with(end_pos: type.location.end_pos))
       Parser::AST::Node.new(:assertion, [node, type], { location: map })
+    end
+
+    def self.type_application_node(node, tapp)
+      if node.location.expression.end_pos > tapp.location.end_pos
+        map = Parser::Source::Map.new(node.location.expression)
+      else
+        map = Parser::Source::Map.new(node.location.expression.with(end_pos: tapp.location.end_pos))
+      end
+
+      node = Parser::AST::Node.new(:tapp, [node, tapp], { location: map })
+      tapp.set_node(node)
+      node
     end
   end
 end

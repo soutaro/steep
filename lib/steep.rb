@@ -51,6 +51,7 @@ require "steep/ast/types/logic"
 require "steep/ast/annotation"
 require "steep/ast/annotation/collection"
 require "steep/ast/node/type_assertion"
+require "steep/ast/node/type_application"
 require "steep/ast/builtin"
 require "steep/ast/types/factory"
 

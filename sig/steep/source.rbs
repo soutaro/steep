@@ -25,7 +25,7 @@ module Steep
       ?line_range: Range[Integer]?
     ) -> void
 
-    def self.map_child_node: (Parser::AST::Node node, ?Symbol? type) { (Parser::AST::Node) -> Parser::AST::Node } -> Parser::AST::Node
+    def self.map_child_node: (Parser::AST::Node node, ?Symbol? type, ?skip: Set[Parser::AST::Node]?) { (Parser::AST::Node) -> Parser::AST::Node } -> Parser::AST::Node
 
     def annotations: (block: Parser::AST::Node, factory: AST::Types::Factory, context: RBS::Resolver::context) -> AST::Annotation::Collection
 
@@ -62,12 +62,18 @@ module Steep
 
     def without_unrelated_defs: (line: Integer, column: Integer) -> Source
 
-    type type_comment = AST::Node::TypeAssertion
+    type type_comment = AST::Node::TypeAssertion | AST::Node::TypeApplication
 
     def self.insert_type_node: (Parser::AST::Node node, Hash[Integer, type_comment]) -> Parser::AST::Node
 
     def self.adjust_location: (Parser::AST::Node) -> Parser::AST::Node
 
     def self.assertion_node: (Parser::AST::Node, AST::Node::TypeAssertion) -> Parser::AST::Node
+
+    def self.type_application_node: (Parser::AST::Node, AST::Node::TypeApplication) -> Parser::AST::Node
+
+    # Returns a line of `selector` of `send` node, that can be used to look up a TypeApplication comment
+    #
+    def self.sendish_node?: (Parser::AST::Node) -> Integer?
   end
 end
