@@ -20,7 +20,7 @@ module Steep
       end
 
       def each_error(&block)
-        if block_given?
+        if block
           @errors.each(&block)
         else
           enum_for :each_error
@@ -64,6 +64,8 @@ module Steep
           )
 
           type_params.zip(type_args).each do |param, arg|
+            arg or raise
+
             if param.upper_bound
               upper_bound_type = factory.type(param.upper_bound).subst(subst)
               arg_type = factory.type(arg)
@@ -121,7 +123,7 @@ module Steep
 
         if name && type_params && type_args
           if !type_params.empty? && !type_args.empty?
-            validate_type_application_constraints(type.name, type_params, type_args, location: type.location)
+            validate_type_application_constraints(name, type_params, type_args, location: type.location)
           end
         end
 
@@ -156,19 +158,21 @@ module Steep
       end
 
       def mixin_constraints(definition, mixin_ancestors, immediate_self_types:)
+        # @type var relations: Array[[Subtyping::Relation[AST::Types::t], RBS::Definition::Ancestor::Instance]]
         relations = []
 
         self_type = checker.factory.type(definition.self_type)
         if immediate_self_types && !immediate_self_types.empty?
-          self_type = AST::Types::Intersection.build(
-            types: immediate_self_types.map {|st| ancestor_to_type(st) }.push(self_type),
-            location: nil
-          )
+          # @type var sts: Array[AST::Types::t]
+          sts = immediate_self_types.map {|st| ancestor_to_type(st) }
+          self_type = AST::Types::Intersection.build(types: sts.push(self_type), location: nil)
         end
 
         mixin_ancestors.each do |ancestor|
           args = ancestor.args.map {|type| checker.factory.type(type) }
           ancestor_ancestors = builder.ancestor_builder.one_instance_ancestors(ancestor.name)
+          ancestor_ancestors.self_types or raise
+          ancestor_ancestors.params or raise
           self_constraints = ancestor_ancestors.self_types.map do |self_ancestor|
             s = Interface::Substitution.build(ancestor_ancestors.params, args)
             ancestor_to_type(self_ancestor).subst(s)
@@ -263,7 +267,7 @@ module Steep
                 end
 
                 ancestors = builder.ancestor_builder.one_instance_ancestors(name)
-                mixin_constraints(definition, ancestors.included_modules, immediate_self_types: ancestors.self_types).each do |relation, ancestor|
+                mixin_constraints(definition, ancestors.included_modules || raise, immediate_self_types: ancestors.self_types).each do |relation, ancestor|
                   checker.check(
                     relation,
                     self_type: AST::Types::Self.new,
@@ -271,6 +275,8 @@ module Steep
                     class_type: AST::Types::Class.new,
                     constraints: Subtyping::Constraints.empty
                   ).else do
+                    raise if ancestor.source.is_a?(Symbol)
+
                     @errors << Diagnostic::Signature::ModuleSelfTypeError.new(
                       name: name,
                       location: ancestor.source&.location || raise,
@@ -292,6 +298,14 @@ module Steep
             end
 
             builder.build_singleton(name).tap do |definition|
+              entry =
+                case definition.entry
+                when RBS::Environment::ClassEntry, RBS::Environment::ModuleEntry
+                  definition.entry
+                else
+                  raise
+                end
+
               definition.instance_variables.each do |name, var|
                 if parent = var.parent_variable
                   var_type = checker.factory.type(var.type)
@@ -327,7 +341,7 @@ module Steep
               definition.class_variables.each do |name, var|
                 if var.declared_in == definition.type_name
                   if (parent = var.parent_variable) && var.declared_in != parent.declared_in
-                    class_var = definition.entry.decls.flat_map {|decl| decl.decl.members }.find do |member|
+                    class_var = entry.decls.flat_map {|decl| decl.decl.members }.find do |member|
                       member.is_a?(RBS::AST::Members::ClassVariable) && member.name == name
                     end
 
@@ -336,7 +350,7 @@ module Steep
                         class_name: definition.type_name,
                         other_class_name: parent.declared_in,
                         variable_name: name,
-                        location: class_var.location[:name]
+                        location: class_var.location&.[](:name)
                       )
                     end
                   end
@@ -344,6 +358,7 @@ module Steep
               end
 
               ancestors = builder.ancestor_builder.one_singleton_ancestors(name)
+              ancestors.extended_modules or raise
               mixin_constraints(definition, ancestors.extended_modules, immediate_self_types: ancestors.self_types).each do |relation, ancestor|
                 checker.check(
                   relation,
@@ -352,6 +367,8 @@ module Steep
                   class_type: AST::Types::Class.new,
                   constraints: Subtyping::Constraints.empty
                 ).else do
+                  raise if ancestor.source.is_a?(Symbol)
+                  
                   @errors << Diagnostic::Signature::ModuleSelfTypeError.new(
                     name: name,
                     location: ancestor.source&.location || raise,
@@ -381,19 +398,23 @@ module Steep
               builder.build_instance(ancestor.name)
             when ancestor.name.interface?
               builder.build_interface(ancestor.name)
+            else
+              raise
             end
 
           location =
-            if ancestor.source == :super
+            case ancestor.source
+            when :super
               primary_decl = env.class_decls[name].primary.decl
+              primary_decl.is_a?(RBS::AST::Declarations::Class) or raise
               if super_class = primary_decl.super_class
                 super_class.location
               else
                 # Implicit super class (Object): this can be skipped in fact...
-                primary_decl.location[:name]
+                primary_decl.location&.aref(:name)
               end
             else
-              ancestor.source.location
+              ancestor.source&.location
             end
 
           validate_type_application_constraints(
@@ -423,12 +444,14 @@ module Steep
                 case ancestor
                 when RBS::Definition::Ancestor::Instance
                   # Interface ancestor cannot be other than Interface
+                  ancestor.source.is_a?(Symbol) and raise
+
                   defn = builder.build_interface(ancestor.name)
                   validate_type_application_constraints(
                     ancestor.name,
                     defn.type_params_decl,
                     ancestor.args,
-                    location: ancestor.source.location || raise
+                    location: ancestor.source&.location || raise
                   )
                 end
               end

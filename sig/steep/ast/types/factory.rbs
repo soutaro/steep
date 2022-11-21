@@ -4,8 +4,6 @@ module Steep
       class Factory
         @env: RBS::Environment
 
-        @type_name_resolver: RBS::Resolver::TypeNameResolver
-
         attr_reader definition_builder: RBS::DefinitionBuilder
 
         attr_reader type_cache: Hash[RBS::Types::t, t]

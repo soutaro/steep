@@ -104,19 +104,6 @@ end
       end
     end
 
-    def test_ruby_code_rbs_error2
-      in_tmpdir do
-        prepare_project({ "lib/rbs_error.rb" =>  "class RBSError; end", "sig/rbs_error.rbs" => "class RBSError < Kernel end" })
-
-        stdout, _, _ = sh3(*steep, "checkfile", "lib/rbs_error.rb")
-
-        json = parse_output(stdout)
-        json.find {|obj| obj[:path] == "lib/rbs_error.rb" }.tap do |obj|
-          assert_equal ["Ruby::UnexpectedError"], obj[:diagnostics].map {|d| d[:code] }
-        end
-      end
-    end
-
     def test_rbs_success
       in_tmpdir do
         prepare_project({ "sig/test.rbs" => "class TestClass end" })

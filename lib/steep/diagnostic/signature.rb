@@ -329,6 +329,19 @@ module Steep
         end
       end
 
+      class InheritModuleError < Base
+        attr_reader :super_class
+
+        def initialize(super_class)
+          super(location: super_class.location)
+          @super_class = super_class
+        end
+
+        def header_line
+          "Cannot inherit from a module `#{super_class.name}`"
+        end
+      end
+
       class UnexpectedError < Base
         attr_reader :message
 
@@ -462,6 +475,8 @@ module Steep
             nonregular_type: factory.type(error.diagnostic.nonregular_type),
             location: error.location
           )
+        when RBS::InheritModuleError
+          Diagnostic::Signature::InheritModuleError.new(error.super_decl)
         else
           raise error
         end
