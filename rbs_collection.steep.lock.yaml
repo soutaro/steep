@@ -90,14 +90,6 @@ gems:
   version: '0'
   source:
     type: stdlib
-- name: stackprof
-  version: '0.2'
-  source:
-    type: git
-    name: ruby/gem_rbs_collection
-    revision: 94fcc911186b127cffdfd7a378b5e0b511196089
-    remote: https://github.com/ruby/gem_rbs_collection.git
-    repo_dir: gems
 - name: strscan
   version: '0'
   source:
@@ -142,4 +134,4 @@ gems:
   version: '0'
   source:
     type: stdlib
-gemfile_lock_path: Gemfile.lock
+gemfile_lock_path: Gemfile.steep.lock
