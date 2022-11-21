@@ -156,7 +156,7 @@ module Steep
       end
 
       # The error is raised when a class variable is defined in both `class_name` and `other_class_name`
-      # 
+      #
       class ClassVariableDuplicationError < Base
         attr_reader class_name: RBS::TypeName
         attr_reader other_class_name: RBS::TypeName
@@ -194,6 +194,16 @@ module Steep
         private
 
         def mixin_name: () -> untyped
+      end
+
+      # A class definition has a module as its super class
+      #
+      class InheritModuleError < Base
+        attr_reader super_class: RBS::AST::Declarations::Class::Super
+
+        def initialize: (RBS::AST::Declarations::Class::Super) -> void
+
+        def header_line: () -> String
       end
 
       class UnexpectedError < Base
