@@ -2,11 +2,14 @@ module Steep
   module AST
     module Node
       class TypeAssertion
-        attr_reader :source, :location
+        attr_reader :location
 
-        def initialize(source, location)
-          @source = source
+        def initialize(location)
           @location = location
+        end
+
+        def source
+          location.source
         end
 
         def line
@@ -14,9 +17,12 @@ module Steep
         end
 
         def type(context, factory, type_vars)
-          ty = RBS::Parser.parse_type(type_str, line: location.start_line, column: location.start_column, variables: type_vars)
-          ty = factory.type(ty)
-          factory.absolute_type(ty, context: context)
+          if ty = RBS::Parser.parse_type(type_location.buffer, range: type_location.range, variables: type_vars)
+            ty = factory.type(ty)
+            factory.absolute_type(ty, context: context)
+          else
+            nil
+          end
         rescue ::RBS::ParsingError => exn
           exn
         end
@@ -31,12 +37,17 @@ module Steep
         end
 
         def type_str
-          source.delete_prefix(":").lstrip
+          @type_str ||= source.delete_prefix(":").lstrip
         end
 
-        def self.parse(source, location)
-          if source =~/\A:\s*(.+)/
-            TypeAssertion.new(source, location)
+        def type_location
+          offset = source.size - type_str.size
+          RBS::Location.new(location.buffer, location.start_pos + offset, location.end_pos)
+        end
+
+        def self.parse(location)
+          if location.source =~/\A:\s*(.+)/
+            TypeAssertion.new(location)
           end
         end
       end

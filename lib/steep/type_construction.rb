@@ -2455,6 +2455,7 @@ module Steep
 
         when :assertion
           yield_self do
+            # @type var as_type: AST::Node::TypeAssertion
             asserted_node, as_type = node.children
 
             if type = as_type.type?(module_context.nesting, checker.factory, [])
@@ -2471,6 +2472,8 @@ module Steep
               end
 
               constr.add_typing(node, type: type)
+            else
+              synthesize(asserted_node, hint: hint)
             end
           end
 

@@ -35,8 +35,8 @@ module Steep
 
       # @type var annotations: Array[AST::Annotation::t]
       annotations = []
-      # @type var assertions: Hash[Integer, AST::Node::TypeAssertion]
-      assertions = {}
+      # @type var type_comments: Hash[Integer, type_comment]
+      type_comments = {}
 
       buffer = RBS::Buffer.new(name: path, content: source_code)
       annotation_parser = AnnotationParser.new(factory: factory)
@@ -58,8 +58,8 @@ module Steep
           case
           when annotation = annotation_parser.parse(content, location: location)
             annotations << annotation
-          when assertion = AST::Node::TypeAssertion.parse(content, location)
-            assertions[assertion.line] = assertion
+          when assertion = AST::Node::TypeAssertion.parse(location)
+            type_comments[assertion.line] = assertion
           end
         end
       end
@@ -68,7 +68,7 @@ module Steep
       map.compare_by_identity
 
       if node
-        node = insert_assertions(node, assertions)
+        node = insert_type_node(node, type_comments)
         construct_mapping(node: node, annotations: annotations, mapping: map)
       end
 
@@ -412,46 +412,46 @@ module Steep
       end
     end
 
-    def self.insert_assertions(node, assertions)
+    def self.insert_type_node(node, comments)
       if node.location.expression
         first_line = node.location.expression.first_line
         last_line = node.location.expression.last_line
-        last_assertion = assertions[last_line]
+        last_comment = comments[last_line]
 
-        if (first_line..last_line).none? {|l| assertions.key?(l) }
+        if (first_line..last_line).none? {|l| comments.key?(l) }
           return node
         end
 
         case
-        when last_assertion.is_a?(AST::Node::TypeAssertion)
+        when last_comment.is_a?(AST::Node::TypeAssertion)
           case node.type
           when :lvasgn, :ivasgn, :gvasgn, :cvasgn, :casgn
             # Skip
           when :masgn
             lhs, rhs = node.children
-            node = node.updated(nil, [lhs, insert_assertions(rhs, assertions)])
+            node = node.updated(nil, [lhs, insert_type_node(rhs, comments)])
             return adjust_location(node)
           when :return, :break, :next
             # Skip
           when :begin
             if node.loc.begin
               # paren
-              child_assertions = assertions.except(last_line)
-              node = map_child_node(node) {|child| insert_assertions(child, child_assertions) }
+              child_assertions = comments.except(last_line)
+              node = map_child_node(node) {|child| insert_type_node(child, child_assertions) }
               node = adjust_location(node)
-              return assertion_node(node, last_assertion)
+              return assertion_node(node, last_comment)
             end
           else
-            child_assertions = assertions.except(last_line)
-            node = map_child_node(node) {|child| insert_assertions(child, child_assertions) }
+            child_assertions = comments.except(last_line)
+            node = map_child_node(node) {|child| insert_type_node(child, child_assertions) }
             node = adjust_location(node)
-            return assertion_node(node, last_assertion)
+            return assertion_node(node, last_comment)
           end
         end
       end
 
       adjust_location(
-        map_child_node(node, nil) {|child| insert_assertions(child, assertions) }
+        map_child_node(node, nil) {|child| insert_type_node(child, comments) }
       )
     end
 

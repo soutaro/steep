@@ -62,7 +62,9 @@ module Steep
 
     def without_unrelated_defs: (line: Integer, column: Integer) -> Source
 
-    def self.insert_assertions: (Parser::AST::Node node, Hash[Integer, AST::Node::TypeAssertion]) -> Parser::AST::Node
+    type type_comment = AST::Node::TypeAssertion
+
+    def self.insert_type_node: (Parser::AST::Node node, Hash[Integer, type_comment]) -> Parser::AST::Node
 
     def self.adjust_location: (Parser::AST::Node) -> Parser::AST::Node
 

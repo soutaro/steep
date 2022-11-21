@@ -2,21 +2,24 @@ module Steep
   module AST
     module Node
       class TypeAssertion
-        attr_reader source: String
-
         attr_reader location: RBS::Location[untyped, untyped]
+
+        def source: () -> String
 
         def line: () -> Integer
 
-        def initialize: (String source, RBS::Location[untyped, untyped]) -> void
+        def initialize: (RBS::Location[untyped, untyped]) -> void
 
-        def type: (RBS::Resolver::context, Types::Factory, Array[Symbol] type_vars) -> (Types::t | RBS::ParsingError)
+        def type: (RBS::Resolver::context, Types::Factory, Array[Symbol] type_vars) -> (Types::t | RBS::ParsingError | nil)
 
         def type?: (RBS::Resolver::context, Types::Factory, Array[Symbol] type_vars) -> Types::t?
 
+        @type_str: String?
         def type_str: () -> String
 
-        def self.parse: (String, RBS::Location[untyped, untyped]) -> TypeAssertion?
+        def type_location: () -> RBS::Location[untyped, untyped]
+
+        def self.parse: (RBS::Location[untyped, untyped]) -> TypeAssertion?
       end
     end
   end

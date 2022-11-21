@@ -10099,7 +10099,7 @@ end
 
       with_standard_construction(checker, source) do |construction, typing|
         type, _, context = construction.synthesize(source.node)
-        
+
         assert_no_error typing
         assert_equal parse_type("::Integer | nil"), context.type_env[:bar]
         assert_equal parse_type("::Numeric | ::String | nil"), context.type_env[:baz]
@@ -10109,7 +10109,6 @@ end
 
   def test_assertion_as_type
     with_checker(<<-RBS) do |checker|
-type foo = [Integer, String]
       RBS
       source = parse_ruby(<<-RUBY)
 array = [] #: Array[Integer]
