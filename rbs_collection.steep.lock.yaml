@@ -11,7 +11,7 @@ gems:
   source:
     type: stdlib
 - name: rbs
-  version: 2.7.0
+  version: 2.8.0.pre.1
   source:
     type: rubygems
 - name: dbm
@@ -23,7 +23,7 @@ gems:
   source:
     type: git
     name: ruby/gem_rbs_collection
-    revision: 96e192a6cb7cad12d89a8923fdab3ab8d6054d0b
+    revision: 94fcc911186b127cffdfd7a378b5e0b511196089
     remote: https://github.com/ruby/gem_rbs_collection.git
     repo_dir: gems
 - name: ast
@@ -31,7 +31,7 @@ gems:
   source:
     type: git
     name: ruby/gem_rbs_collection
-    revision: 96e192a6cb7cad12d89a8923fdab3ab8d6054d0b
+    revision: 94fcc911186b127cffdfd7a378b5e0b511196089
     remote: https://github.com/ruby/gem_rbs_collection.git
     repo_dir: gems
 - name: csv
@@ -47,7 +47,7 @@ gems:
   source:
     type: git
     name: ruby/gem_rbs_collection
-    revision: 96e192a6cb7cad12d89a8923fdab3ab8d6054d0b
+    revision: 94fcc911186b127cffdfd7a378b5e0b511196089
     remote: https://github.com/ruby/gem_rbs_collection.git
     repo_dir: gems
 - name: json
@@ -59,7 +59,7 @@ gems:
   source:
     type: git
     name: ruby/gem_rbs_collection
-    revision: 96e192a6cb7cad12d89a8923fdab3ab8d6054d0b
+    revision: 94fcc911186b127cffdfd7a378b5e0b511196089
     remote: https://github.com/ruby/gem_rbs_collection.git
     repo_dir: gems
 - name: logger
@@ -75,7 +75,7 @@ gems:
   source:
     type: git
     name: ruby/gem_rbs_collection
-    revision: 96e192a6cb7cad12d89a8923fdab3ab8d6054d0b
+    revision: 94fcc911186b127cffdfd7a378b5e0b511196089
     remote: https://github.com/ruby/gem_rbs_collection.git
     repo_dir: gems
 - name: rainbow
@@ -83,7 +83,7 @@ gems:
   source:
     type: git
     name: ruby/gem_rbs_collection
-    revision: 96e192a6cb7cad12d89a8923fdab3ab8d6054d0b
+    revision: 94fcc911186b127cffdfd7a378b5e0b511196089
     remote: https://github.com/ruby/gem_rbs_collection.git
     repo_dir: gems
 - name: securerandom
@@ -95,7 +95,7 @@ gems:
   source:
     type: git
     name: ruby/gem_rbs_collection
-    revision: 96e192a6cb7cad12d89a8923fdab3ab8d6054d0b
+    revision: 94fcc911186b127cffdfd7a378b5e0b511196089
     remote: https://github.com/ruby/gem_rbs_collection.git
     repo_dir: gems
 - name: strscan
@@ -142,3 +142,4 @@ gems:
   version: '0'
   source:
     type: stdlib
+gemfile_lock_path: Gemfile.lock
