@@ -37,7 +37,11 @@ module Steep
         end
 
         def type(type)
-          ty = type_cache[type] and return ty
+          unless type.location
+            if ty = type_cache[type]
+              return ty
+            end
+          end
 
           type_cache[type] =
             case type
