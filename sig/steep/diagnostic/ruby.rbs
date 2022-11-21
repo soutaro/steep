@@ -384,11 +384,11 @@ module Steep
       class IncompatibleAnnotation < Base
         attr_reader result: Subtyping::Result::Base
 
-        attr_reader relation: Subtyping::Relation
+        attr_reader relation: Subtyping::Relation[untyped]
 
         attr_reader var_name: Symbol
 
-        def initialize: (node: Parser::AST::Node, var_name: Symbol, result: Subtyping::Result::Base, relation: Subtyping::Relation) -> void
+        def initialize: (node: Parser::AST::Node, var_name: Symbol, result: Subtyping::Result::Base, relation: Subtyping::Relation[untyped]) -> void
 
         include ResultPrinter
 
