@@ -105,7 +105,7 @@ module Steep
           steepfile: project.steepfile_path,
           args: [],
           delay_shutdown: true,
-          steep_command: jobs_option.steep_command_value,
+          steep_command: jobs_option.steep_command,
           count: count
         )
 

@@ -18,22 +18,27 @@ module Steep
         @index = index
       end
 
-      def self.start_worker(type, name:, steepfile:, steep_command: "steep", index: nil, delay_shutdown: false, patterns: [])
+      def self.start_worker(type, name:, steepfile:, steep_command:, index: nil, delay_shutdown: false, patterns: [])
         begin
-          fork_worker(
-            type,
-            name: name,
-            steepfile: steepfile,
-            index: index,
-            delay_shutdown: delay_shutdown,
-            patterns: patterns
-          )
+          unless steep_command
+            fork_worker(
+              type,
+              name: name,
+              steepfile: steepfile,
+              index: index,
+              delay_shutdown: delay_shutdown,
+              patterns: patterns
+            )
+          else
+            # Use `#spawn_worker`
+            raise NotImplementedError
+          end
         rescue NotImplementedError
           spawn_worker(
             type,
             name: name,
             steepfile: steepfile,
-            steep_command: steep_command,
+            steep_command: steep_command || "steep",
             index: index,
             delay_shutdown: delay_shutdown,
             patterns: patterns
@@ -122,7 +127,7 @@ module Steep
         new(reader: reader, writer: writer, stderr: stderr, wait_thread: thread, name: name, index: index&.[](1))
       end
 
-      def self.start_typecheck_workers(steepfile:, args:, steep_command: "steep", count: [Etc.nprocessors - 1, 1].max, delay_shutdown: false)
+      def self.start_typecheck_workers(steepfile:, args:, steep_command:, count: [Etc.nprocessors - 1, 1].max, delay_shutdown: false)
         count.times.map do |i|
           start_worker(
             :typecheck,

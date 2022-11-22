@@ -526,8 +526,8 @@ end
       project = Project.new(steepfile_path: steepfile)
       Project::DSL.parse(project, steepfile.read)
 
-      interaction_worker = Server::WorkerProcess.start_worker(:interaction, name: "interaction", steepfile: steepfile)
-      typecheck_workers = Server::WorkerProcess.start_typecheck_workers(steepfile: steepfile, count: 1, args: [])
+      interaction_worker = Server::WorkerProcess.start_worker(:interaction, name: "interaction", steepfile: steepfile, steep_command: nil)
+      typecheck_workers = Server::WorkerProcess.start_typecheck_workers(steepfile: steepfile, count: 1, args: [], steep_command: nil)
 
       master = Server::Master.new(
         project: project,
@@ -607,8 +607,8 @@ end
       project = Project.new(steepfile_path: steepfile)
       Project::DSL.parse(project, steepfile.read)
 
-      interaction_worker = Server::WorkerProcess.start_worker(:interaction, name: "interaction", steepfile: steepfile)
-      typecheck_workers = Server::WorkerProcess.start_typecheck_workers(steepfile: steepfile, count: 1, args: [])
+      interaction_worker = Server::WorkerProcess.start_worker(:interaction, name: "interaction", steepfile: steepfile, steep_command: nil)
+      typecheck_workers = Server::WorkerProcess.start_typecheck_workers(steepfile: steepfile, count: 1, args: [], steep_command: nil)
 
       master = Server::Master.new(project: project,
                                   reader: worker_reader,
@@ -681,8 +681,8 @@ end
       project = Project.new(steepfile_path: steepfile)
       Project::DSL.parse(project, steepfile.read)
 
-      interaction_worker = Server::WorkerProcess.start_worker(:interaction, name: "interaction", steepfile: steepfile)
-      typecheck_workers = Server::WorkerProcess.start_typecheck_workers(steepfile: steepfile, count: 2, args: [])
+      interaction_worker = Server::WorkerProcess.start_worker(:interaction, name: "interaction", steepfile: steepfile, steep_command: nil)
+      typecheck_workers = Server::WorkerProcess.start_typecheck_workers(steepfile: steepfile, count: 2, args: [], steep_command: nil)
 
       master = Server::Master.new(project: project,
                                   reader: worker_reader,
@@ -731,8 +731,8 @@ end
       project = Project.new(steepfile_path: steepfile)
       Project::DSL.parse(project, steepfile.read)
 
-      interaction_worker = Server::WorkerProcess.start_worker(:interaction, name: "interaction", steepfile: steepfile)
-      typecheck_workers = Server::WorkerProcess.start_typecheck_workers(steepfile: steepfile, count: 2, args: [])
+      interaction_worker = Server::WorkerProcess.start_worker(:interaction, name: "interaction", steepfile: steepfile, steep_command: nil)
+      typecheck_workers = Server::WorkerProcess.start_typecheck_workers(steepfile: steepfile, count: 2, args: [], steep_command: nil)
 
       master = Server::Master.new(project: project,
                                   reader: worker_reader,

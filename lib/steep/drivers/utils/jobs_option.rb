@@ -17,10 +17,6 @@ module Steep
         def jobs_count_value
           jobs_count || default_jobs_count
         end
-
-        def steep_command_value
-          steep_command || "steep"
-        end
       end
     end
   end

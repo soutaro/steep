@@ -15,8 +15,6 @@ module Steep
         def default_jobs_count: () -> Integer
 
         def jobs_count_value: () -> Integer
-
-        def steep_command_value: () -> String
       end
     end
   end
