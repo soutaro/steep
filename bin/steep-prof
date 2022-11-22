@@ -2,7 +2,7 @@
 
 require "stackprof"
 
-mode = (ENV["STEEP_STACKPROF_MODE"] || :wall).to_sym
+mode = (ENV["STEEP_STACKPROF_MODE"] || :cpu).to_sym
 out = ENV["STEEP_STACKPROF_OUT"] || "tmp/stackprof-#{mode}-steep.dump"
 interval = ENV["STEEP_STACKPROF_INTERVAL"]&.to_i || 1000
 
