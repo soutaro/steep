@@ -88,7 +88,8 @@ module Steep
         end
 
         Steep.measure "typechecking" do
-          @typing = TypeCheckService.type_check(source: source, subtyping: subtyping)
+          resolver = RBS::Resolver::ConstantResolver.new(builder: subtyping.factory.definition_builder)
+          @typing = TypeCheckService.type_check(source: source, subtyping: subtyping, constant_resolver: resolver)
         end
       end
 
