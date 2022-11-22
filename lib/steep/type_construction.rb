@@ -3216,12 +3216,15 @@ module Steep
     def type_method_call(node, method_name:, receiver_type:, method:, arguments:, block_params:, block_body:, tapp:)
       node_range = node.loc.expression.yield_self {|l| l.begin_pos..l.end_pos }
 
-      results = method.method_types.map do |method_type|
+      # @type var fails: Array[[TypeInference::MethodCall::t, TypeConstruction]]
+      fails = []
+
+      method.method_types.each do |method_type|
         Steep.logger.tagged method_type.to_s do
           typing.new_child(node_range) do |child_typing|
             constr = self.with_new_typing(child_typing)
 
-            constr.try_special_method(
+            call, constr = constr.try_special_method(
               node,
               receiver_type: receiver_type,
               method_name: method_name,
@@ -3239,30 +3242,32 @@ module Steep
               block_body: block_body,
               tapp: tapp
             )
+
+            if call.is_a?(TypeInference::MethodCall::Typed)
+              constr.typing.save!
+              return [
+                call,
+                update_type_env { constr.context.type_env }
+              ]
+            else
+              fails << [call, constr]
+            end
           end
         end
       end
 
-      case
-      when results.one?
-        # There is only one overload, use the type checking result
-        call, constr = results[0]
-      when (call, constr = results.find {|call, _| call.is_a?(TypeInference::MethodCall::Typed) })
-        # Successfully type checked with one of the overloads
+      if fails.one?
+        call, constr = fails[0]
+
+        constr.typing.save!
+
+        [
+          call,
+          update_type_env { constr.context.type_env }
+        ]
       else
-        # No suitable overload, more than one overlodas
-        return
+        nil
       end
-
-      constr or raise
-      call or raise
-
-      constr.typing.save!
-
-      [
-        call,
-        update_type_env { constr.context.type_env }
-      ]
     end
 
     def inspect
