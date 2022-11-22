@@ -72,7 +72,7 @@ module Steep
 
         attr_reader method_decls: Set[MethodDecl]
 
-        def initialize: (node: Parser::AST::Node, context: context, method_name: Symbol, receiver_type: AST::Types::t, actual_method_type: Interface::MethodType, method_decls: Array[MethodDecl], return_type: AST::Types::t) -> void
+        def initialize: (node: Parser::AST::Node, context: context, method_name: Symbol, receiver_type: AST::Types::t, actual_method_type: Interface::MethodType, method_decls: Set[MethodDecl], return_type: AST::Types::t) -> void
 
         def update: (?node: Parser::AST::Node, ?return_type: AST::Types::t) -> self
 

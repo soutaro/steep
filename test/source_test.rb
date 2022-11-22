@@ -650,4 +650,159 @@ next 123 #: Integer?
       end
     end
   end
+
+  def test_tapp_send
+    with_factory({ Pathname("foo.rbs") => <<-RBS }) do |factory|
+class Tapp
+  def test: [T] (*T) -> T
+end
+      RBS
+      source = Steep::Source.parse(<<-EOF, path: Pathname("foo.rb"), factory: factory)
+Tapp.new.test # $ String
+Tapp.new.test( # $ String
+  1,
+  2,
+  3
+)
+      EOF
+
+      source.node.children[0].tap do |node|
+        assert_equal :tapp, node.type
+        assert_equal "Tapp.new.test # $ String", node.loc.expression.source
+
+        assert_equal :send, node.children[0].type
+        assert_equal "String", node.children[1].type_str
+      end
+
+      source.node.children[1].tap do |node|
+        assert_equal :tapp, node.type
+        assert_equal <<~RUBY.chomp, node.loc.expression.source
+        Tapp.new.test( # $ String
+          1,
+          2,
+          3
+        )
+        RUBY
+
+        assert_equal :send, node.children[0].type
+        assert_equal "String", node.children[1].type_str
+      end
+    end
+  end
+
+  def test_tapp_csend
+    with_factory({ Pathname("foo.rbs") => <<-RBS }) do |factory|
+class Tapp
+  def test: [T] (*T) -> T
+end
+      RBS
+      source = Steep::Source.parse(<<-EOF, path: Pathname("foo.rb"), factory: factory)
+Tapp.new&.test # $ String
+Tapp.new&.test( # $ String
+  1,
+  2,
+  3
+)
+      EOF
+
+      source.node.children[0].tap do |node|
+        assert_equal :tapp, node.type
+        assert_equal "Tapp.new&.test # $ String", node.loc.expression.source
+
+        assert_equal :csend, node.children[0].type
+        assert_equal "String", node.children[1].type_str
+      end
+
+      source.node.children[1].tap do |node|
+        assert_equal :tapp, node.type
+        assert_equal "Tapp.new&.test( # $ String\n  1,\n  2,\n  3\n)", node.loc.expression.source
+
+        assert_equal :csend, node.children[0].type
+        assert_equal "String", node.children[1].type_str
+      end
+    end
+  end
+
+  def test_tapp_block
+    with_factory({ Pathname("foo.rbs") => <<-RBS }) do |factory|
+class Tapp
+  def test: [T] () { (T) -> void } -> T
+end
+      RBS
+      source = Steep::Source.parse(<<-EOF, path: Pathname("foo.rb"), factory: factory)
+Tapp.new.test {|x| x }# $ String
+Tapp.new&.test do |x| # $ String
+  x
+end
+      EOF
+
+      source.node.children[0].tap do |node|
+        assert_equal :tapp, node.type
+        assert_equal "Tapp.new.test {|x| x }# $ String", node.loc.expression.source
+
+        assert_equal :block, node.children[0].type
+        assert_equal "String", node.children[1].type_str
+      end
+
+      source.node.children[1].tap do |node|
+        assert_equal :tapp, node.type
+        assert_equal "Tapp.new&.test do |x| # $ String\n  x\nend", node.loc.expression.source
+
+        assert_equal :block, node.children[0].type
+        assert_equal "String", node.children[1].type_str
+      end
+    end
+  end
+
+  def test_tapp_numblock
+    with_factory({ Pathname("foo.rbs") => <<-RBS }) do |factory|
+class Tapp
+  def test: [T] () { (T) -> void } -> T
+end
+      RBS
+      source = Steep::Source.parse(<<-EOF, path: Pathname("foo.rb"), factory: factory)
+Tapp.new.test { _1 }# $ String
+Tapp.new&.test do # $ String
+  _1
+end
+      EOF
+
+      source.node.children[0].tap do |node|
+        assert_equal :tapp, node.type
+        assert_equal "Tapp.new.test { _1 }# $ String", node.loc.expression.source
+
+        assert_equal :numblock, node.children[0].type
+        assert_equal "String", node.children[1].type_str
+      end
+
+      source.node.children[1].tap do |node|
+        assert_equal :tapp, node.type
+        assert_equal "Tapp.new&.test do # $ String\n  _1\nend", node.loc.expression.source
+
+        assert_equal :numblock, node.children[0].type
+        assert_equal "String", node.children[1].type_str
+      end
+    end
+  end
+
+  def test_tapp_skip
+    with_factory({ Pathname("foo.rbs") => <<-RBS }) do |factory|
+class Tapp
+  def test: [T] () { (T) -> void } -> T
+end
+      RBS
+      source = Steep::Source.parse(<<-EOF, path: Pathname("foo.rb"), factory: factory)
+-> { _1 } # $ String
+super { } # $ nil
+      EOF
+
+      source.node.children[0].tap do |node|
+        assert_equal :numblock, node.type
+      end
+
+      source.node.children[1].tap do |node|
+        assert_equal :block, node.type
+      end
+    end
+  end
 end

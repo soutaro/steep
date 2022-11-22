@@ -2,7 +2,8 @@ module Steep
   module Diagnostic
     module Helper
       def error_name
-        self.class.name.split(/::/).last
+        name = self.class.name or raise
+        name.split(/::/).last or raise
       end
 
       def full_message

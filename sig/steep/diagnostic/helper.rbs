@@ -1,9 +1,15 @@
 module Steep
   module Diagnostic
-    module Helper
-      def error_name: () -> untyped
+    module Helper : _DiagnosticMessage
+      def error_name: () -> String
 
-      def full_message: () -> ::String
+      def full_message: () -> String
+    end
+
+    interface _DiagnosticMessage
+      %a{pure} def detail_lines: () -> String?
+
+      def header_line: () -> String
     end
   end
 end

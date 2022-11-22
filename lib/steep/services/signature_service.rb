@@ -174,7 +174,7 @@ module Steep
                                file.decls
                              else
                                # factory is not used here because the error is a syntax error.
-                               Diagnostic::Signature.from_rbs_error(file.decls, factory: nil)
+                               Diagnostic::Signature.from_rbs_error(file.decls, factory: _ = nil)
                              end
                 diagnostics << diagnostic
               end
@@ -214,6 +214,7 @@ module Steep
 
       def update_env(updated_files, paths:)
         Steep.logger.tagged "#update_env" do
+          # @type var errors: Array[RBS::BaseError]
           errors = []
           new_decls = Set[].compare_by_identity
 
@@ -230,7 +231,9 @@ module Steep
             updated_files.each_value do |content|
               case decls = content.decls
               when RBS::BaseError
-                errors << content.decls
+                errors << decls
+              when Diagnostic::Signature::UnexpectedError
+                return [decls]
               else
                 begin
                   decls.each do |decl|
@@ -255,7 +258,7 @@ module Steep
           unless errors.empty?
             return errors.map {|error|
               # Factory will not be used because of the possible error types.
-              Diagnostic::Signature.from_rbs_error(error, factory: nil)
+              Diagnostic::Signature.from_rbs_error(error, factory: _ = nil)
             }
           end
 
@@ -277,7 +280,7 @@ module Steep
 
           unless errors.empty?
             # Builder won't be used.
-            factory = AST::Types::Factory.new(builder: nil)
+            factory = AST::Types::Factory.new(builder: _ = nil)
             return errors.map {|error| Diagnostic::Signature.from_rbs_error(error, factory: factory) }
           end
 

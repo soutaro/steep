@@ -35,8 +35,8 @@ module Steep
 
       # @type var annotations: Array[AST::Annotation::t]
       annotations = []
-      # @type var assertions: Hash[Integer, AST::Node::TypeAssertion]
-      assertions = {}
+      # @type var type_comments: Hash[Integer, type_comment]
+      type_comments = {}
 
       buffer = RBS::Buffer.new(name: path, content: source_code)
       annotation_parser = AnnotationParser.new(factory: factory)
@@ -58,8 +58,10 @@ module Steep
           case
           when annotation = annotation_parser.parse(content, location: location)
             annotations << annotation
-          when assertion = AST::Node::TypeAssertion.parse(content, location)
-            assertions[assertion.line] = assertion
+          when assertion = AST::Node::TypeAssertion.parse(location)
+            type_comments[assertion.line] = assertion
+          when tapp = AST::Node::TypeApplication.parse(location)
+            type_comments[tapp.line] = tapp
           end
         end
       end
@@ -68,7 +70,7 @@ module Steep
       map.compare_by_identity
 
       if node
-        node = insert_assertions(node, assertions)
+        node = insert_type_node(node, type_comments)
         construct_mapping(node: node, annotations: annotations, mapping: map)
       end
 
@@ -259,10 +261,18 @@ module Steep
       annotations.replace(other_annotations)
     end
 
-    def self.map_child_node(node, type = nil)
+    def self.map_child_node(node, type = nil, skip: nil)
       children = node.children.map do |child|
         if child.is_a?(Parser::AST::Node)
-          yield child
+          if skip
+            if skip.member?(child)
+              child
+            else
+              yield child
+            end
+          else
+            yield child
+          end
         else
           child
         end
@@ -412,51 +422,100 @@ module Steep
       end
     end
 
-    def self.insert_assertions(node, assertions)
+    def self.insert_type_node(node, comments)
       if node.location.expression
         first_line = node.location.expression.first_line
         last_line = node.location.expression.last_line
-        last_assertion = assertions[last_line]
+        last_comment = comments[last_line]
 
-        if (first_line..last_line).none? {|l| assertions.key?(l) }
+        if (first_line..last_line).none? {|l| comments.key?(l) }
           return node
         end
 
         case
-        when last_assertion.is_a?(AST::Node::TypeAssertion)
+        when last_comment.is_a?(AST::Node::TypeAssertion)
           case node.type
           when :lvasgn, :ivasgn, :gvasgn, :cvasgn, :casgn
             # Skip
           when :masgn
             lhs, rhs = node.children
-            node = node.updated(nil, [lhs, insert_assertions(rhs, assertions)])
+            node = node.updated(nil, [lhs, insert_type_node(rhs, comments)])
             return adjust_location(node)
           when :return, :break, :next
             # Skip
           when :begin
             if node.loc.begin
               # paren
-              child_assertions = assertions.except(last_line)
-              node = map_child_node(node) {|child| insert_assertions(child, child_assertions) }
+              child_assertions = comments.except(last_line)
+              node = map_child_node(node) {|child| insert_type_node(child, child_assertions) }
               node = adjust_location(node)
-              return assertion_node(node, last_assertion)
+              return assertion_node(node, last_comment)
             end
           else
-            child_assertions = assertions.except(last_line)
-            node = map_child_node(node) {|child| insert_assertions(child, child_assertions) }
+            child_assertions = comments.except(last_line)
+            node = map_child_node(node) {|child| insert_type_node(child, child_assertions) }
             node = adjust_location(node)
-            return assertion_node(node, last_assertion)
+            return assertion_node(node, last_comment)
+          end
+        when selector_line = sendish_node?(node)
+          if (comment = comments[selector_line]).is_a?(AST::Node::TypeApplication)
+            child_assertions = comments.except(selector_line)
+            case node.type
+            when :block
+              send, *children = node.children
+              node = node.updated(
+                nil,
+                [
+                  map_child_node(send) {|child| insert_type_node(child, child_assertions) },
+                  *children.map {|child| insert_type_node(child, child_assertions) }
+                ]
+              )
+            when :numblock
+              send, size, body = node.children
+              node = node.updated(
+                nil,
+                [
+                  map_child_node(send) {|child| insert_type_node(child, child_assertions) },
+                  size,
+                  insert_type_node(body, child_assertions)
+                ]
+              )
+            else
+              node = map_child_node(node) {|child| insert_type_node(child, child_assertions) }
+            end
+            node = adjust_location(node)
+            return type_application_node(node, comment)
           end
         end
       end
 
       adjust_location(
-        map_child_node(node, nil) {|child| insert_assertions(child, assertions) }
+        map_child_node(node, nil) {|child| insert_type_node(child, comments) }
       )
     end
 
+    def self.sendish_node?(node)
+      send_node =
+        case node.type
+        when :send, :csend
+          node
+        when :block, :numblock
+          send = node.children[0]
+          case send.type
+          when :send, :csend
+            send
+          end
+        end
+
+      if send_node
+        if send_node.location.dot
+          send_node.location.selector.line
+        end
+      end
+    end
+
     def self.adjust_location(node)
-      if end_pos = node.location.expression.end_pos
+      if end_pos = node.location.expression&.end_pos
         if last_pos = each_child_node(node).map {|node| node.location.expression&.end_pos }.compact.max
           if last_pos > end_pos
             props = { location: node.location.with_expression(node.location.expression.with(end_pos: last_pos)) }
@@ -474,6 +533,18 @@ module Steep
     def self.assertion_node(node, type)
       map = Parser::Source::Map.new(node.location.expression.with(end_pos: type.location.end_pos))
       Parser::AST::Node.new(:assertion, [node, type], { location: map })
+    end
+
+    def self.type_application_node(node, tapp)
+      if node.location.expression.end_pos > tapp.location.end_pos
+        map = Parser::Source::Map.new(node.location.expression)
+      else
+        map = Parser::Source::Map.new(node.location.expression.with(end_pos: tapp.location.end_pos))
+      end
+
+      node = Parser::AST::Node.new(:tapp, [node, tapp], { location: map })
+      tapp.set_node(node)
+      node
     end
   end
 end

@@ -1,11 +1,15 @@
 module Steep
   module Diagnostic
     class LSPFormatter
-      LSP: untyped
+      LSP: singleton(LanguageServer::Protocol)
 
-      attr_reader config: untyped
+      type config = Hash[singleton(Diagnostic::Ruby::Base) | singleton(Diagnostic::Signature::Base), severity?]
 
-      attr_reader default_severity: untyped
+      type severity = :error | :warning | :information | :hint
+
+      attr_reader config: config
+
+      attr_reader default_severity: severity
 
       ERROR: :error
 
@@ -15,15 +19,15 @@ module Steep
 
       HINT: :hint
 
-      def initialize: (?::Hash[untyped, untyped] config, ?default_severity: untyped) -> void
+      def initialize: (?config config, ?default_severity: severity) -> void
 
-      def validate_class: (untyped klass) -> (untyped | nil)
+      def validate_class: (Class klass) -> void
 
-      def validate_severity: (untyped klass, untyped severity) -> untyped
+      def validate_severity: (Class | :default klass, severity?) -> void
 
-      def format: (untyped diagnostic) -> untyped
+      def format: (Diagnostic::Ruby::Base | Diagnostic::Signature::Base) -> Hash[Symbol, untyped]?
 
-      def severity_for: (untyped diagnostic) -> untyped
+      def severity_for: (Diagnostic::Ruby::Base | Diagnostic::Signature::Base) -> String?
     end
   end
 end

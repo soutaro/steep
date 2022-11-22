@@ -1,0 +1,7 @@
+class RBS::Location[in RK, in OK]
+  def as_lsp_range: () -> { start: { line: Integer, character: Integer }, end: { line: Integer, character: Integer } }
+end
+
+class Parser::Source::Range
+  def as_lsp_range: () -> { start: { line: Integer, character: Integer }, end: { line: Integer, character: Integer } }
+end
