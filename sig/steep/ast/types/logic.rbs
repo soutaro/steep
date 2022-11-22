@@ -20,6 +20,8 @@ module Steep
           alias eql? ==
 
           def to_s: () -> ::String
+
+          def level: () -> Array[Integer]
         end
 
         # A type for `!` (not) operator results.

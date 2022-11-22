@@ -28,6 +28,10 @@ module Steep
           def to_s
             "<% #{self.class} %>"
           end
+
+          def level
+            [0]
+          end
         end
 
         class Not < Base

@@ -29,7 +29,7 @@ module Steep
 
         include Helper::ChildrenLevel
 
-        def level: () -> Integer
+        def level: () -> Array[Integer]
 
         def with_location: (loc new_location) -> Union
       end

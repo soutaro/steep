@@ -26,7 +26,7 @@ module Steep
 
         def each_child: () ?{ () -> untyped } -> untyped
 
-        def level: () -> untyped
+        def level: () -> Array[Integer]
 
         def with_location: (untyped new_location) -> untyped
       end

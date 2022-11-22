@@ -25,7 +25,7 @@ module Steep
         def each_child: () { (t) -> void } -> void
                       | () -> Enumerator[t, void]
 
-        def level: () -> untyped
+        def level: () -> Array[Integer]
 
         def with_location: (RBS::Location[untyped, untyped] new_location) -> Tuple
       end
