@@ -42,7 +42,7 @@ module Steep
         server_reader = LanguageServer::Protocol::Transport::Io::Reader.new(server_read)
         server_writer = LanguageServer::Protocol::Transport::Io::Writer.new(server_write)
 
-        typecheck_workers = Server::WorkerProcess.start_typecheck_workers(steepfile: project.steepfile_path, args: dirs.map(&:to_s), steep_command: jobs_option.steep_command_value, count: jobs_option.jobs_count_value)
+        typecheck_workers = Server::WorkerProcess.start_typecheck_workers(steepfile: project.steepfile_path, args: dirs.map(&:to_s), steep_command: jobs_option.steep_command, count: jobs_option.jobs_count_value)
 
         master = Server::Master.new(
           project: project,
