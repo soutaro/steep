@@ -19,6 +19,10 @@ module Steep
             builder.env(last_builder.env)
           end
         end
+
+        def constant_resolver
+          @constant_resolver ||= RBS::Resolver::ConstantResolver.new(builder: last_builder)
+        end
       end
 
       class AncestorErrorStatus
@@ -36,6 +40,10 @@ module Steep
             builder = Index::RBSIndex::Builder.new(index: index)
             builder.env(last_builder.env)
           end
+        end
+
+        def constant_resolver
+          @constant_resolver ||= RBS::Resolver::ConstantResolver.new(builder: last_builder)
         end
       end
 
@@ -60,6 +68,10 @@ module Steep
             builder = Index::RBSIndex::Builder.new(index: index)
             builder.env(self.builder.env)
           end
+        end
+
+        def constant_resolver
+          @constant_resolver ||= RBS::Resolver::ConstantResolver.new(builder: builder)
         end
       end
 
@@ -123,6 +135,10 @@ module Steep
 
       def latest_rbs_index
         status.rbs_index
+      end
+
+      def latest_constant_resolver
+        status.constant_resolver
       end
 
       def current_subtyping

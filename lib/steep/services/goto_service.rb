@@ -211,8 +211,9 @@ module Steep
         subtyping = signature_service.current_subtyping or return
         source = Source.parse(content, path: path, factory: subtyping.factory)
         source = source.without_unrelated_defs(line: line, column: column)
+        resolver = RBS::Resolver::ConstantResolver.new(builder: subtyping.factory.definition_builder)
         [
-          Services::TypeCheckService.type_check(source: source, subtyping: subtyping),
+          Services::TypeCheckService.type_check(source: source, subtyping: subtyping, constant_resolver: resolver),
           signature_service
         ]
       rescue

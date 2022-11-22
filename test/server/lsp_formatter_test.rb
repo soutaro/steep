@@ -11,7 +11,8 @@ class Steep::Server::LSPFormatterTest < Minitest::Test
     source = Source.parse(content, path: Pathname("a.rb"), factory: factory)
     builder = Interface::Builder.new(factory)
     subtyping = Subtyping::Check.new(builder: builder)
-    Services::TypeCheckService.type_check(source: source, subtyping: subtyping)
+    resolver = RBS::Resolver::ConstantResolver.new(builder: subtyping.factory.definition_builder)
+    Services::TypeCheckService.type_check(source: source, subtyping: subtyping, constant_resolver: resolver)
   end
 
   def test_ruby_hover_variable

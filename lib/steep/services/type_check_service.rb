@@ -280,7 +280,7 @@ module Steep
 
             if subtyping
               text = source_files[path].content
-              file = type_check_file(target: target, subtyping: subtyping, path: path, text: text)
+              file = type_check_file(target: target, subtyping: subtyping, path: path, text: text) { signature_service.latest_constant_resolver }
               yield [file.path, file.diagnostics]
               source_files[path] = file
             end
@@ -326,7 +326,7 @@ module Steep
       def type_check_file(target:, subtyping:, path:, text:)
         Steep.logger.tagged "#type_check_file(#{path}@#{target.name})" do
           source = Source.parse(text, path: path, factory: subtyping.factory)
-          typing = TypeCheckService.type_check(source: source, subtyping: subtyping)
+          typing = TypeCheckService.type_check(source: source, subtyping: subtyping, constant_resolver: yield)
           SourceFile.with_typing(path: path, content: text, node: source.node, typing: typing)
         end
       rescue AnnotationParser::SyntaxError => exn
@@ -342,7 +342,7 @@ module Steep
         SourceFile.no_data(path: path, content: text)
       end
 
-      def self.type_check(source:, subtyping:)
+      def self.type_check(source:, subtyping:, constant_resolver:)
         annotations = source.annotations(block: source.node, factory: subtyping.factory, context: nil)
 
         definition = subtyping.factory.definition_builder.build_instance(AST::Builtin::Object.module_name)
@@ -350,7 +350,7 @@ module Steep
         const_env = TypeInference::ConstantEnv.new(
           factory: subtyping.factory,
           context: nil,
-          resolver: RBS::Resolver::ConstantResolver.new(builder: subtyping.factory.definition_builder)
+          resolver: constant_resolver
         )
         type_env = TypeInference::TypeEnv.new(const_env)
         type_env = TypeInference::TypeEnvBuilder.new(

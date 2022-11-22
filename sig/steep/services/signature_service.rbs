@@ -16,9 +16,13 @@ module Steep
 
         @rbs_index: Index::RBSIndex?
 
+        @constant_resolver: RBS::Resolver::ConstantResolver?
+
         def initialize: (files: Hash[Pathname, FileStatus], changed_paths: Set[Pathname], diagnostics: Array[Diagnostic::Signature::Base], last_builder: RBS::DefinitionBuilder) -> void
 
         def rbs_index: () -> Index::RBSIndex
+
+        def constant_resolver: () -> RBS::Resolver::ConstantResolver
       end
 
       class AncestorErrorStatus
@@ -32,9 +36,13 @@ module Steep
 
         @rbs_index: Index::RBSIndex?
 
+        @constant_resolver: RBS::Resolver::ConstantResolver?
+
         def initialize: (files: Hash[Pathname, FileStatus], changed_paths: Set[Pathname], diagnostics: Array[Diagnostic::Signature::Base], last_builder: RBS::DefinitionBuilder) -> void
 
         def rbs_index: () -> Index::RBSIndex
+
+        def constant_resolver: () -> RBS::Resolver::ConstantResolver
       end
 
       class LoadedStatus
@@ -46,11 +54,15 @@ module Steep
 
         @subtyping: Subtyping::Check?
 
+        @constant_resolver: RBS::Resolver::ConstantResolver?
+
         def initialize: (files: Hash[Pathname, FileStatus], builder: RBS::DefinitionBuilder) -> void
 
         def subtyping: () -> Subtyping::Check
 
         def rbs_index: () -> Index::RBSIndex
+
+        def constant_resolver: () -> RBS::Resolver::ConstantResolver
       end
 
       class FileStatus
@@ -87,6 +99,8 @@ module Steep
       def latest_builder: () -> RBS::DefinitionBuilder
 
       def latest_rbs_index: () -> Index::RBSIndex
+
+      def latest_constant_resolver: () -> RBS::Resolver::ConstantResolver
 
       def current_subtyping: () -> Subtyping::Check?
 
