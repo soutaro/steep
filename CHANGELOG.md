@@ -2,6 +2,22 @@
 
 ## master
 
+## 1.3.0.pre.1 (2022-11-22)
+
+### Type checker core
+
+* Add type assertion syntax ([#665](https://github.com/soutaro/steep/pull/665))
+* Add type application syntax ([#670](https://github.com/soutaro/steep/pull/670))
+
+### Commandline tool
+
+* Fork when available for quicker startup ([#664](https://github.com/soutaro/steep/pull/664))
+
+### Miscellaneous
+
+* Fixes for some RBS errors within steep gem ([#668](https://github.com/soutaro/steep/pull/668))
+* Upgrade to RBS 2.8 (pre) ([#669](https://github.com/soutaro/steep/pull/669))
+
 ## 1.2.1 (2022-10-22)
 
 ### Type checker core
