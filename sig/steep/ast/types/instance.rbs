@@ -20,7 +20,7 @@ module Steep
 
         def to_s: () -> "instance"
 
-        def level: () -> ::Array[0]
+        def level: () -> Array[Integer]
 
         def with_location: (untyped new_location) -> untyped
 

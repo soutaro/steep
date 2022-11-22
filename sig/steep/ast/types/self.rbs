@@ -20,7 +20,7 @@ module Steep
 
         def free_variables: () -> untyped
 
-        def level: () -> ::Array[0]
+        def level: () -> Array[Integer]
 
         def with_location: (untyped new_location) -> untyped
 

@@ -13,7 +13,7 @@ module Steep
 
           def subst: (Steep::Interface::Substitution s) -> self
 
-          def level: () -> ::Array[0]
+          def level: () -> Array[Integer]
         end
 
         class Applying < Base
@@ -40,7 +40,7 @@ module Steep
 
           include Helper::ChildrenLevel
 
-          def level: () -> untyped
+          def level: () -> Array[Integer]
         end
 
         class Singleton < Base

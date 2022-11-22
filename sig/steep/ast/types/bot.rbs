@@ -20,7 +20,7 @@ module Steep
 
         include Helper::NoChild
 
-        def level: () -> ::Array[2]
+        def level: () -> Array[Integer]
 
         def with_location: (untyped new_location) -> untyped
       end

@@ -26,8 +26,8 @@ module Steep
 
         include Helper::NoChild
 
-        def level: () -> ::Array[0]
-
+        def level: () -> Array[Integer]
+                 
         def update: (?name: untyped, ?location: untyped) -> untyped
 
         def with_location: (untyped new_location) -> untyped

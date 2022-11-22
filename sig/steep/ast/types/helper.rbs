@@ -3,15 +3,18 @@ module Steep
     module Types
       module Helper
         module ChildrenLevel
-          def level_of_children: (untyped children) -> untyped
+          def level_of_children: (Array[t] children) -> Array[Integer]
         end
 
         module NoFreeVariables
-          def free_variables: () -> untyped
+          @fvs: Set[Symbol]
+
+          def free_variables: () -> Set[Symbol]
         end
 
         module NoChild
-          def each_child: () ?{ () -> untyped } -> (untyped | nil)
+          def each_child: () { (t) -> void } -> void
+                        | () -> Enumerator[t, void]
         end
       end
     end

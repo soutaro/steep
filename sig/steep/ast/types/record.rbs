@@ -29,7 +29,7 @@ module Steep
         def each_child: () { (t) -> void } -> void
                       | () -> Enumerator[t, void]
 
-        def level: () -> Integer
+        def level: () -> Array[Integer]
 
         def with_location: (loc new_location) -> self
       end
