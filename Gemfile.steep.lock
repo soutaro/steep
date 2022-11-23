@@ -29,7 +29,7 @@ GEM
       ffi (~> 1.0)
     rbs (2.8.0.pre.1)
     securerandom (0.2.0)
-    steep (1.2.1)
+    steep (1.3.0.pre.2)
       activesupport (>= 5.1)
       csv (>= 3.0.9)
       fileutils (>= 1.1.0)
@@ -40,7 +40,7 @@ GEM
       parallel (>= 1.0.0)
       parser (>= 3.1)
       rainbow (>= 2.2.2, < 4.0)
-      rbs (>= 2.7.0)
+      rbs (>= 2.8.0.pre)
       securerandom (>= 0.1)
       strscan (>= 1.0.0)
       terminal-table (>= 2, < 4)
@@ -56,7 +56,7 @@ PLATFORMS
 
 DEPENDENCIES
   rbs (~> 2.8.0.pre)
-  steep (~> 1.2.0)
+  steep (~> 1.3.0.pre)
 
 BUNDLED WITH
    2.3.15
