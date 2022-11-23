@@ -2,6 +2,18 @@
 
 ## master
 
+## 1.3.0.pre.2 (2022-11-23)
+
+### Type checker core
+
+* Add missing `#level` method ([\#671](https://github.com/soutaro/steep/pull/671))
+* Cache `constant_resolver` among files in a target([\#673](https://github.com/soutaro/steep/pull/673))
+* Early return from type checking overloads ([\#674](https://github.com/soutaro/steep/pull/674))
+
+### Commandline tool
+
+* Spawn worker processes if `--steep-command` is specified ([\#672](https://github.com/soutaro/steep/pull/672))
+
 ## 1.3.0.pre.1 (2022-11-22)
 
 ### Type checker core

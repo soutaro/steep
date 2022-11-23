@@ -1,4 +1,6 @@
 module Steep
+  VERSION: String
+
   def self.logger: () -> (Logger & ActiveSupport::TaggedLogging)
 
   def self.new_logger: (untyped output, untyped prev_level) -> untyped
