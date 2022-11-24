@@ -29,11 +29,15 @@ module Steep
         include Helper::NoChild
 
         def subst(s)
-          s.self_type or raise "Unexpected substitution: #{inspect}"
+          if s.self_type
+            s.self_type
+          else
+            self
+          end
         end
 
         @@fvs = Set[instance]
-        
+
         def free_variables
           @@fvs
         end

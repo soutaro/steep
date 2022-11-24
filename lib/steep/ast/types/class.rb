@@ -27,7 +27,11 @@ module Steep
         alias eql? ==
 
         def subst(s)
-          s.module_type or raise "Unexpected substitution: #{inspect}"
+          if s.module_type
+            s.module_type
+          else
+            self
+          end
         end
 
         @@fvs = Set[instance]

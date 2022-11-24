@@ -11,13 +11,13 @@ module Steep
 
       attr_reader dictionary: Hash[Symbol, AST::Types::t]
 
-      attr_reader instance_type: AST::Types::t
+      attr_reader instance_type: AST::Types::t?
 
-      attr_reader module_type: AST::Types::t
+      attr_reader module_type: AST::Types::t?
 
-      attr_reader self_type: AST::Types::t
+      attr_reader self_type: AST::Types::t?
 
-      def initialize: (dictionary: Hash[Symbol, AST::Types::t], instance_type: AST::Types::t, module_type: AST::Types::t, self_type: AST::Types::t) -> void
+      def initialize: (dictionary: Hash[Symbol, AST::Types::t], instance_type: AST::Types::t?, module_type: AST::Types::t?, self_type: AST::Types::t?) -> void
 
       def self.empty: () -> instance
 
@@ -31,7 +31,7 @@ module Steep
 
       def key?: (Symbol var) -> bool
 
-      def self.build: (Array[Symbol] vars, ?Array[AST::Types::t]? types, ?instance_type: AST::Types::t, ?module_type: AST::Types::t, ?self_type: AST::Types::t) -> Substitution
+      def self.build: (Array[Symbol] vars, ?Array[AST::Types::t]? types, ?instance_type: AST::Types::t?, ?module_type: AST::Types::t?, ?self_type: AST::Types::t?) -> Substitution
 
       def except: (Array[Symbol] vars) -> Substitution
 

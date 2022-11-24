@@ -43,15 +43,15 @@ module Steep
         set = Set.new
 
         set.merge(dictionary.keys)
-        set << AST::Types::Instance.instance unless instance_type.is_a?(AST::Types::Instance)
-        set << AST::Types::Class.instance unless instance_type.is_a?(AST::Types::Class)
-        set << AST::Types::Instance.instance unless instance_type.is_a?(AST::Types::Self)
+        set << AST::Types::Self.instance if self_type
+        set << AST::Types::Class.instance if module_type
+        set << AST::Types::Instance.instance if instance_type
 
         set
       end
 
       def to_s
-        a = []
+        a = [] #: Array[String]
 
         dictionary.each do |x, ty|
           a << "#{x} -> #{ty}"
@@ -87,12 +87,13 @@ module Steep
         end
       end
 
-      def self.build(vars, types = nil, instance_type: AST::Types::Instance.instance, module_type: AST::Types::Class.instance, self_type: AST::Types::Self.instance)
+      def self.build(vars, types = nil, instance_type: nil, module_type: nil, self_type: nil)
         types ||= vars.map {|var| AST::Types::Var.fresh(var) }
 
         raise InvalidSubstitutionError.new(vars_size: vars.size, types_size: types.size) unless vars.size == types.size
 
-        dic = vars.zip(types).each.with_object({}) do |(var, type), d|
+        dic = vars.zip(types).each.with_object({}) do |(var, type), d| #$ Hash[Symbol, AST::Types::t]
+          type or raise
           d[var] = type
         end
 
@@ -130,9 +131,9 @@ module Steep
           end
         end
 
-        @instance_type = instance_type.subst(s)
-        @module_type = module_type.subst(s)
-        @self_type = self_type.subst(s)
+        @instance_type = instance_type.subst(s) if instance_type
+        @module_type = module_type.subst(s) if module_type
+        @self_type = self_type.subst(s) if self_type
 
         self
       end
