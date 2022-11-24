@@ -43,7 +43,11 @@ module Steep
         include Helper::ChildrenLevel
 
         def each_child(&block)
-          elements.each_value(&block)
+          if block
+            elements.each_value(&block)
+          else
+            elements.each_value
+          end
         end
 
         def level

@@ -4,25 +4,25 @@ module Steep
       class Union
         attr_reader types: Array[t]
 
-        type loc = RBS::Location[untyped, untyped]
+        attr_reader location: untyped
 
-        attr_reader location: loc?
+        def initialize: (types: Array[t], ?location: untyped) -> void
 
-        def initialize: (types: Array[t], ?location: loc?) -> void
-
-        def self.build: (types: Array[t], ?location: loc?) -> t
+        def self.build: (types: Array[t], ?location: untyped) -> t
 
         def ==: (untyped other) -> bool
 
+        @hash: Integer
         def hash: () -> Integer
 
         alias eql? ==
 
-        def subst: (Interface::Substitution s) -> Union
+        def subst: (Interface::Substitution s) -> t
 
         def to_s: () -> ::String
 
-        def free_variables: () -> Set[Symbol]
+        @fvs: Set[variable]
+        def free_variables: () -> Set[variable]
 
         def each_child: () { (t) -> void } -> void
                       | () -> Enumerator[t, void]
@@ -31,7 +31,7 @@ module Steep
 
         def level: () -> Array[Integer]
 
-        def with_location: (loc new_location) -> Union
+        def with_location: (untyped new_location) -> Union
       end
     end
   end

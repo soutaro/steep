@@ -54,7 +54,7 @@ module Steep
                   when false
                     Builtin::FalseClass
                   else
-                    raise "Unexpected literal type: #{value.inspect}"
+                    raise "Unexpected literal type: #{(_ = value).inspect}"
                   end
 
           Name::Instance.new(name: klass.module_name, args: [], location: location)

@@ -5,7 +5,12 @@ module Steep
            | Class | Instance | Self
            | Intersection  | Record | Tuple | Union
            | Name::Alias | Name::Instance | Name::Interface | Name::Singleton
-           | Proc | Var | Logic::Base
+           | Proc | Var
+           | Logic::Not | Logic::ReceiverIsNil | Logic::ReceiverIsNotNil | Logic::ReceiverIsArg | Logic::ArgIsReceiver | Logic::ArgEqualsReceiver | Logic::Env
+
+      # Variables and special types that is subject for substitution
+      #
+      type variable = Symbol | Class | Instance | Self
 
       class Masked
         attr_reader location: untyped

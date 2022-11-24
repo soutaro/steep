@@ -6,7 +6,7 @@ module Steep
         attr_reader :types_size
 
         def initialize(vars_size:, types_size:)
-          @var_size = vars_size
+          @vars_size = vars_size
           @types_size = types_size
 
           super "Invalid substitution: vars.size=#{vars_size}, types.size=#{types_size}"

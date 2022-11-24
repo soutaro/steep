@@ -1,36 +1,41 @@
 module Steep
   module AST
     module Types
+      # Type variables
       class Var
-        attr_reader name: untyped
+        attr_reader name: Symbol
 
         attr_reader location: untyped
 
-        def initialize: (name: untyped, ?location: untyped?) -> void
+        def initialize: (name: Symbol, ?location: untyped?) -> void
 
-        def ==: (untyped other) -> untyped
+        def ==: (untyped other) -> bool
 
-        def hash: () -> untyped
+        def hash: () -> Integer
 
         alias eql? ==
 
-        def self.fresh_name: (untyped name) -> untyped
+        self.@mutex: Thread::Mutex
+        self.@max: Integer
+
+        def self.fresh_name: (Symbol name) -> Symbol
 
         def self.fresh: (Symbol name, ?location: untyped?) -> Var
 
-        def to_s: () -> untyped
+        def to_s: () -> String
 
-        def subst: (untyped s) -> (untyped | self)
+        def subst: (Interface::Substitution s) -> t
 
-        def free_variables: () -> untyped
+        @fvs: Set[variable]
+        def free_variables: () -> Set[variable]
 
         include Helper::NoChild
 
         def level: () -> Array[Integer]
-                 
-        def update: (?name: untyped, ?location: untyped) -> untyped
 
-        def with_location: (untyped new_location) -> untyped
+        def update: (?name: Symbol, ?location: untyped) -> Var
+
+        def with_location: (untyped new_location) -> Var
       end
     end
   end

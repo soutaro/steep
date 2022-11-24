@@ -32,8 +32,10 @@ module Steep
           s.self_type or raise "Unexpected substitution: #{inspect}"
         end
 
+        @@fvs = Set[instance]
+        
         def free_variables
-          @fvs ||= Set.new([self])
+          @@fvs
         end
 
         def level

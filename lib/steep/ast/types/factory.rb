@@ -204,7 +204,7 @@ module Steep
           when Logic::Base
             RBS::Types::Bases::Bool.new(location: type.location)
           else
-            raise "Unexpected type given: #{type} (#{type.class})"
+            __skip__ = raise "Unexpected type given: #{type} (#{type.class})"
           end
         end
 
@@ -248,7 +248,14 @@ module Steep
           RBS::AST::TypeParam.new(
             name: type_param.name,
             variance: type_param.variance,
-            upper_bound: type_param.upper_bound&.yield_self {|u| type_1(u) },
+            upper_bound: type_param.upper_bound&.yield_self {|u|
+              case u_ = type_1(u)
+              when RBS::Types::ClassInstance, RBS::Types::ClassSingleton, RBS::Types::Interface
+                u_
+              else
+                raise "`#{u_}` cannot be type parameter upper bound"
+              end
+            },
             location: type_param.location
           ).unchecked!(type_param.unchecked)
         end

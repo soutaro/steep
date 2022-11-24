@@ -2,11 +2,11 @@ module Steep
   module Interface
     class Substitution
       class InvalidSubstitutionError < StandardError
-        attr_reader vars_size: untyped
+        attr_reader vars_size: Integer
 
-        attr_reader types_size: untyped
+        attr_reader types_size: Integer
 
-        def initialize: (vars_size: untyped, types_size: untyped) -> void
+        def initialize: (vars_size: Integer, types_size: Integer) -> void
       end
 
       attr_reader dictionary: Hash[Symbol, AST::Types::t]
@@ -23,7 +23,7 @@ module Steep
 
       def empty?: () -> bool
 
-      def domain: () -> Set[AST::Types::t | Symbol]
+      def domain: () -> Set[AST::Types::variable]
 
       def to_s: () -> ::String
 

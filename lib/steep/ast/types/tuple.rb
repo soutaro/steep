@@ -31,17 +31,19 @@ module Steep
         end
 
         def free_variables()
-          @fvs ||= Set.new.tap do |set|
-            types.each do |type|
-              set.merge(type.free_variables)
-            end
+          @fvs ||= each_child.with_object(Set[]) do |type, set| #$ Set[variable]
+            set.merge(type.free_variables)
           end
         end
 
         include Helper::ChildrenLevel
 
         def each_child(&block)
-          types.each(&block)
+          if block
+            types.each(&block)
+          else
+            types.each
+          end
         end
 
         def level

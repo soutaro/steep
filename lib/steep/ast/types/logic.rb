@@ -9,9 +9,7 @@ module Steep
             self
           end
 
-          def free_variables
-            @fvs ||= Set[]
-          end
+          include Helper::NoFreeVariables
 
           include Helper::NoChild
 

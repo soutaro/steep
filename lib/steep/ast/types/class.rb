@@ -30,8 +30,10 @@ module Steep
           s.module_type or raise "Unexpected substitution: #{inspect}"
         end
 
-        def free_variables()
-          @fvs = Set.new([self])
+        @@fvs = Set[instance]
+
+        def free_variables
+          @@fvs
         end
 
         include Helper::NoChild

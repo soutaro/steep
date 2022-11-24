@@ -22,18 +22,23 @@ module Steep
 
         def to_s: () -> ::String
 
-        def free_variables: () -> Set[Symbol]
+        @fvs: Set[variable]
+        def free_variables: () -> Set[variable]
 
         include Helper::ChildrenLevel
 
         def level: () -> Array[Integer]
 
-        def closed?: () -> bool
-
         def with_location: (untyped new_location) -> Proc
 
         def map_type: () { (AST::Types::t) -> AST::Types::t } -> Proc
 
+        # Returns true if the proc requires exactly one argument
+        #
+        # * One required argument,
+        # * No optional/rest argument, and
+        # * No keywords
+        #
         def one_arg?: () -> bool
 
         def back_type: () -> AST::Types::t

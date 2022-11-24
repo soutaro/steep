@@ -35,7 +35,7 @@ module Steep
             when 0
               AST::Types::Top.new(location: location)
             when 1
-              tys.first
+              tys.first || raise
             else
               new(types: dups.to_a, location: location)
             end
@@ -73,7 +73,11 @@ module Steep
         include Helper::ChildrenLevel
 
         def each_child(&block)
-          types.each(&block)
+          if block
+            types.each(&block)
+          else
+            types.each
+          end
         end
 
         def level

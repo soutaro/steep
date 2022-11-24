@@ -4,9 +4,9 @@ module Steep
       class Tuple
         attr_reader types: Array[t]
 
-        attr_reader location: RBS::Location[untyped, untyped]?
+        attr_reader location: untyped
 
-        def initialize: (types: Array[t], ?location: RBS::Location[untyped, untyped]?) -> void
+        def initialize: (types: Array[t], ?location: untyped) -> void
 
         def ==: (untyped other) -> bool
 
@@ -18,7 +18,8 @@ module Steep
 
         def to_s: () -> ::String
 
-        def free_variables: () -> Set[Symbol]
+        @fvs: Set[variable]
+        def free_variables: () -> Set[variable]
 
         include Helper::ChildrenLevel
 
@@ -27,7 +28,7 @@ module Steep
 
         def level: () -> Array[Integer]
 
-        def with_location: (RBS::Location[untyped, untyped] new_location) -> Tuple
+        def with_location: (untyped new_location) -> Tuple
       end
     end
   end
