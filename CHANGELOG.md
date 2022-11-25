@@ -2,6 +2,12 @@
 
 ## master
 
+## 1.3.0 (2022-11-25)
+
+### Type checker core
+
+* Type check types ([#676](https://github.com/soutaro/steep/pull/676))
+
 ## 1.3.0.pre.2 (2022-11-23)
 
 ### Type checker core
