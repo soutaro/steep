@@ -11,7 +11,7 @@ gems:
   source:
     type: stdlib
 - name: rbs
-  version: 2.8.0.pre.1
+  version: 2.8.0
   source:
     type: rubygems
 - name: dbm
