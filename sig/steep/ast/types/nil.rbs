@@ -6,15 +6,15 @@ module Steep
 
         def initialize: (?location: untyped?) -> void
 
-        def ==: (untyped other) -> untyped
+        def ==: (untyped other) -> bool
 
-        def hash: () -> untyped
+        def hash: () -> Integer
 
         alias eql? ==
 
-        def subst: (untyped s) -> self
+        def subst: (Interface::Substitution s) -> Nil
 
-        def to_s: () -> "nil"
+        def to_s: () -> String
 
         include Helper::NoFreeVariables
 
@@ -22,9 +22,9 @@ module Steep
 
         def level: () -> Array[Integer]
 
-        def with_location: (untyped new_location) -> untyped
+        def with_location: (untyped new_location) -> Nil
 
-        def back_type: () -> untyped
+        def back_type: () -> Name::Instance
       end
     end
   end

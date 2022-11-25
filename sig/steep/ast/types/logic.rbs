@@ -2,24 +2,22 @@ module Steep
   module AST
     module Types
       module Logic
-        type loc = RBS::Location[untyped, untyped]
-
         class Base
           attr_reader location: untyped
 
-          def subst: (untyped s) -> self
+          def subst: (Interface::Substitution s) -> self
 
-          def free_variables: () -> untyped
+          include Helper::NoFreeVariables
 
           include Helper::NoChild
 
-          def hash: () -> untyped
+          def hash: () -> Integer
 
-          def ==: (untyped other) -> untyped
+          def ==: (untyped other) -> bool
 
           alias eql? ==
 
-          def to_s: () -> ::String
+          def to_s: () -> String
 
           def level: () -> Array[Integer]
         end
@@ -62,7 +60,7 @@ module Steep
 
           attr_reader type: t
 
-          def initialize: (truthy: TypeInference::TypeEnv, falsy: TypeInference::TypeEnv, type: t, ?location: loc?) -> void
+          def initialize: (truthy: TypeInference::TypeEnv, falsy: TypeInference::TypeEnv, type: t, ?location: untyped) -> void
 
           def ==: (untyped other) -> bool
 
@@ -70,7 +68,7 @@ module Steep
 
           def hash: () -> Integer
 
-          def inspect: () -> ::String
+          def inspect: () -> String
 
           alias to_s inspect
         end

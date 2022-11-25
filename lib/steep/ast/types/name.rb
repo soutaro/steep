@@ -51,14 +51,16 @@ module Steep
           end
 
           def with_location(new_location)
-            self.class.new(name: name, args: args, location: new_location)
+            _ = self.class.new(name: name, args: args, location: new_location)
           end
 
           def subst(s)
             if free_variables.intersect?(s.domain)
-              self.class.new(location: location,
-                             name: name,
-                             args: args.map {|a| a.subst(s) })
+              _ = self.class.new(
+                location: location,
+                name: name,
+                args: args.map {|a| a.subst(s) }
+              )
             else
               self
             end
@@ -73,7 +75,11 @@ module Steep
           end
 
           def each_child(&block)
-            args.each(&block)
+            if block
+              args.each(&block)
+            else
+              args.each
+            end
           end
 
           include Helper::ChildrenLevel

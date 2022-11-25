@@ -7,9 +7,9 @@ module Steep
         end
 
         module NoFreeVariables
-          @fvs: Set[Symbol]
+          @fvs: Set[variable]
 
-          def free_variables: () -> Set[Symbol]
+          def free_variables: () -> Set[variable]
         end
 
         module NoChild

@@ -1,6 +1,8 @@
 module Steep
   module AST
     module Types
+      # Types with names
+      #
       module Name
         class Base
           attr_reader location: untyped
@@ -25,15 +27,17 @@ module Steep
 
           alias eql? ==
 
+          @hash: Integer
           def hash: () -> Integer
 
           def to_s: () -> ::String
 
-          def with_location: (untyped new_location) -> untyped
+          def with_location: (untyped new_location) -> self
 
           def subst: (Steep::Interface::Substitution s) -> self
 
-          def free_variables: () -> Set[Symbol]
+          @fvs: Set[variable]
+          def free_variables: () -> Set[variable]
 
           def each_child: () { (t) -> void } -> void
                         | () -> Enumerator[t, void]
@@ -52,7 +56,7 @@ module Steep
 
           def to_s: () -> ::String
 
-          def with_location: (untyped new_location) -> untyped
+          def with_location: (untyped new_location) -> Singleton
 
           include Helper::NoChild
         end

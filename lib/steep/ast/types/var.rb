@@ -22,7 +22,7 @@ module Steep
         alias eql? ==
 
         def self.fresh_name(name)
-          @mutex ||= Mutex.new
+          @mutex ||= Thread::Mutex.new
 
           @mutex.synchronize do
             @max ||= 0

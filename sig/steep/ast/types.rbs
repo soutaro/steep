@@ -5,33 +5,12 @@ module Steep
            | Class | Instance | Self
            | Intersection  | Record | Tuple | Union
            | Name::Alias | Name::Instance | Name::Interface | Name::Singleton
-           | Proc | Var | Logic::Base
+           | Proc | Var
+           | Logic::Not | Logic::ReceiverIsNil | Logic::ReceiverIsNotNil | Logic::ReceiverIsArg | Logic::ArgIsReceiver | Logic::ArgEqualsReceiver | Logic::Env
 
-      class Masked
-        attr_reader location: untyped
-
-        attr_reader type: untyped
-
-        attr_reader mask: untyped
-
-        def initialize: (type: untyped, mask: untyped, location: untyped) -> void
-
-        def ==: (untyped other) -> untyped
-
-        alias eql? ==
-
-        def hash: () -> untyped
-
-        def to_json: (*untyped a) -> untyped
-
-        def to_s: (?::Integer level) -> ::String
-
-        def free_variables: () -> untyped
-
-        def each_type: () { (untyped) -> untyped } -> untyped
-
-        def sub: (untyped s) -> untyped
-      end
+      # Variables and special types that is subject for substitution
+      #
+      type variable = Symbol | Class | Instance | Self
     end
   end
 end

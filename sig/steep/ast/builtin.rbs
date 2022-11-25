@@ -59,7 +59,7 @@ module Steep
 
       def self.top_type: () -> Types::Top
 
-      def self.optional: (Types::t `type`) -> Types::Union
+      def self.optional: (Types::t) -> Types::t
 
       def self.true_type: () -> Types::Literal
 

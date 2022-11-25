@@ -12,7 +12,9 @@ module Steep
 
         def self.build(types:, location: nil)
           return AST::Types::Bot.new if types.empty?
-          return types.first if types.size == 1
+          if types.size == 1
+            return types.first || raise
+          end
 
           types.flat_map do |type|
             if type.is_a?(Union)
@@ -36,7 +38,7 @@ module Steep
             when 0
               AST::Types::Bot.new
             when 1
-              tys.first
+              tys.first || raise
             else
               new(types: tys, location: location)
             end
@@ -49,7 +51,7 @@ module Steep
         end
 
         def hash
-          @hash ||= types.inject(self.class.hash) {|c, type| type.hash ^ c }
+          @hash ||= types.inject(self.class.hash) {|c, type| type.hash ^ c } #$ Integer
         end
 
         alias eql? ==
@@ -71,7 +73,11 @@ module Steep
         end
 
         def each_child(&block)
-          types.each(&block)
+          if block
+            types.each(&block)
+          else
+            types.each
+          end
         end
 
         include Helper::ChildrenLevel

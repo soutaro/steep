@@ -2,33 +2,36 @@ module Steep
   module AST
     module Types
       class Intersection
-        attr_reader types: untyped
+        attr_reader types: Array[t]
 
         attr_reader location: untyped
 
-        def initialize: (types: untyped, ?location: untyped?) -> void
+        def initialize: (types: Array[t], ?location: untyped?) -> void
 
         def self.build: (types: Array[t], ?location: untyped?) -> t
 
-        def ==: (untyped other) -> untyped
+        def ==: (untyped other) -> bool
 
-        def hash: () -> untyped
+        @hash: Integer
+        def hash: () -> Integer
 
         alias eql? ==
 
-        def subst: (untyped s) -> untyped
+        def subst: (Interface::Substitution s) -> t
 
-        def to_s: () -> ::String
+        def to_s: () -> String
 
-        def free_variables: () -> untyped
+        @fvs: Set[variable]
+        def free_variables: () -> Set[variable]
 
         include Helper::ChildrenLevel
 
-        def each_child: () ?{ () -> untyped } -> untyped
+        def each_child: () { (t) -> void } -> void
+                      | () -> Enumerator[t, void]
 
         def level: () -> Array[Integer]
 
-        def with_location: (untyped new_location) -> untyped
+        def with_location: (untyped new_location) -> Intersection
       end
     end
   end

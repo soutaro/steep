@@ -270,9 +270,9 @@ module Steep
                 mixin_constraints(definition, ancestors.included_modules || raise, immediate_self_types: ancestors.self_types).each do |relation, ancestor|
                   checker.check(
                     relation,
-                    self_type: AST::Types::Self.new,
-                    instance_type: AST::Types::Instance.new,
-                    class_type: AST::Types::Class.new,
+                    self_type: AST::Types::Self.instance,
+                    instance_type: AST::Types::Instance.instance,
+                    class_type: AST::Types::Class.instance,
                     constraints: Subtyping::Constraints.empty
                   ).else do
                     raise if ancestor.source.is_a?(Symbol)
@@ -314,16 +314,16 @@ module Steep
                   relation = Subtyping::Relation.new(sub_type: var_type, super_type: parent_type)
                   result1 = checker.check(
                     relation,
-                    self_type: AST::Types::Self.new,
-                    instance_type: AST::Types::Instance.new,
-                    class_type: AST::Types::Class.new,
+                    self_type: AST::Types::Self.instance,
+                    instance_type: AST::Types::Instance.instance,
+                    class_type: AST::Types::Class.instance,
                     constraints: Subtyping::Constraints.empty
                   )
                   result2 = checker.check(
                     relation.flip,
-                    self_type: AST::Types::Self.new,
-                    instance_type: AST::Types::Instance.new,
-                    class_type: AST::Types::Class.new,
+                    self_type: AST::Types::Self.instance,
+                    instance_type: AST::Types::Instance.instance,
+                    class_type: AST::Types::Class.instance,
                     constraints: Subtyping::Constraints.empty
                   )
 
@@ -362,13 +362,13 @@ module Steep
               mixin_constraints(definition, ancestors.extended_modules, immediate_self_types: ancestors.self_types).each do |relation, ancestor|
                 checker.check(
                   relation,
-                  self_type: AST::Types::Self.new,
-                  instance_type: AST::Types::Instance.new,
-                  class_type: AST::Types::Class.new,
+                  self_type: AST::Types::Self.instance ,
+                  instance_type: AST::Types::Instance.instance,
+                  class_type: AST::Types::Class.instance,
                   constraints: Subtyping::Constraints.empty
                 ).else do
                   raise if ancestor.source.is_a?(Symbol)
-                  
+
                   @errors << Diagnostic::Signature::ModuleSelfTypeError.new(
                     name: name,
                     location: ancestor.source&.location || raise,

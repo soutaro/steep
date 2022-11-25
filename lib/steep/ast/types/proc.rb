@@ -68,10 +68,6 @@ module Steep
           [0] + level_of_children(children)
         end
 
-        def closed?
-          type.closed? && (block.nil? || block.closed?) &&  (self_type ? self_type.closed? : false)
-        end
-
         def with_location(new_location)
           self.class.new(location: new_location, block: block, type: type, self_type: self_type)
         end
@@ -103,7 +99,11 @@ module Steep
         end
 
         def block_required?
-          block && !block.optional?
+          if block
+            !block.optional?
+          else
+            false
+          end
         end
 
         def each_child(&block)

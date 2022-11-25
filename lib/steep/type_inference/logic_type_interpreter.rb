@@ -390,14 +390,14 @@ module Steep
           # 4. none of the above (example: T = String, K = Integer)
 
           relation = Subtyping::Relation.new(sub_type: type, super_type: instance_type)
-          if subtyping.check(relation, constraints: Subtyping::Constraints.empty, self_type: AST::Types::Self.new, instance_type: AST::Types::Instance.new, class_type: AST::Types::Class.new).success?
+          if subtyping.check(relation, constraints: Subtyping::Constraints.empty, self_type: AST::Types::Self.instance, instance_type: AST::Types::Instance.instance, class_type: AST::Types::Class.instance).success?
             # 1 or 2. Satisfies the condition, no narrowing because `type` is already more specific than/equals to `instance_type`
             [
               [type],
               []
             ]
           else
-            if subtyping.check(relation.flip, constraints: Subtyping::Constraints.empty, self_type: AST::Types::Self.new, instance_type: AST::Types::Instance.new, class_type: AST::Types::Class.new).success?
+            if subtyping.check(relation.flip, constraints: Subtyping::Constraints.empty, self_type: AST::Types::Self.instance, instance_type: AST::Types::Instance.instance, class_type: AST::Types::Class.instance).success?
               # 3. Satisfied the condition, narrows to `instance_type`, but cannot remove it from *falsy* list
               [
                 [instance_type],
