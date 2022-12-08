@@ -28,7 +28,7 @@ GEM
       zeitwerk (~> 2.3)
     ast (2.4.2)
     concurrent-ruby (1.1.10)
-    csv (3.2.5)
+    csv (3.2.6)
     debase (0.2.5.beta2)
       debase-ruby_core_source (>= 0.10.12)
     debase-ruby_core_source (0.10.16)
