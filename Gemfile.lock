@@ -58,7 +58,7 @@ GEM
     rbs (2.8.0)
     ruby-debug-ide (0.7.3)
       rake (>= 0.8.1)
-    securerandom (0.2.0)
+    securerandom (0.2.2)
     stackprof (0.2.22)
     strscan (3.0.4)
     terminal-table (3.0.2)
