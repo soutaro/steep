@@ -19,11 +19,11 @@ gems:
   source:
     type: stdlib
 - name: activesupport
-  version: '6.0'
+  version: '7.0'
   source:
     type: git
     name: ruby/gem_rbs_collection
-    revision: 94fcc911186b127cffdfd7a378b5e0b511196089
+    revision: 3cdcbea7f7a2a2ba5dffce3ee71f938f8b301687
     remote: https://github.com/ruby/gem_rbs_collection.git
     repo_dir: gems
 - name: ast
@@ -31,7 +31,7 @@ gems:
   source:
     type: git
     name: ruby/gem_rbs_collection
-    revision: 94fcc911186b127cffdfd7a378b5e0b511196089
+    revision: 3cdcbea7f7a2a2ba5dffce3ee71f938f8b301687
     remote: https://github.com/ruby/gem_rbs_collection.git
     repo_dir: gems
 - name: csv
@@ -47,7 +47,7 @@ gems:
   source:
     type: git
     name: ruby/gem_rbs_collection
-    revision: 94fcc911186b127cffdfd7a378b5e0b511196089
+    revision: 3cdcbea7f7a2a2ba5dffce3ee71f938f8b301687
     remote: https://github.com/ruby/gem_rbs_collection.git
     repo_dir: gems
 - name: json
@@ -59,7 +59,7 @@ gems:
   source:
     type: git
     name: ruby/gem_rbs_collection
-    revision: 94fcc911186b127cffdfd7a378b5e0b511196089
+    revision: 3cdcbea7f7a2a2ba5dffce3ee71f938f8b301687
     remote: https://github.com/ruby/gem_rbs_collection.git
     repo_dir: gems
 - name: logger
@@ -75,7 +75,7 @@ gems:
   source:
     type: git
     name: ruby/gem_rbs_collection
-    revision: 94fcc911186b127cffdfd7a378b5e0b511196089
+    revision: 3cdcbea7f7a2a2ba5dffce3ee71f938f8b301687
     remote: https://github.com/ruby/gem_rbs_collection.git
     repo_dir: gems
 - name: rainbow
@@ -83,7 +83,7 @@ gems:
   source:
     type: git
     name: ruby/gem_rbs_collection
-    revision: 94fcc911186b127cffdfd7a378b5e0b511196089
+    revision: 3cdcbea7f7a2a2ba5dffce3ee71f938f8b301687
     remote: https://github.com/ruby/gem_rbs_collection.git
     repo_dir: gems
 - name: securerandom
@@ -110,19 +110,19 @@ gems:
   version: '0'
   source:
     type: stdlib
-- name: monitor
-  version: '0'
-  source:
-    type: stdlib
 - name: date
   version: '0'
   source:
     type: stdlib
-- name: singleton
+- name: monitor
   version: '0'
   source:
     type: stdlib
 - name: mutex_m
+  version: '0'
+  source:
+    type: stdlib
+- name: singleton
   version: '0'
   source:
     type: stdlib
