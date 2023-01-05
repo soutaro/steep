@@ -27,8 +27,8 @@ RBS
     end
 
     service.latest_builder.build_instance(TypeName("::Hello"))
-    assert_operator service.latest_builder.instance_cache, :key?, [TypeName("::Hello"), false]
-    assert_operator service.latest_builder.instance_cache, :key?, [TypeName("::Object"), false]
+    assert_operator service.latest_builder.instance_cache, :key?, TypeName("::Hello")
+    assert_operator service.latest_builder.instance_cache, :key?, TypeName("::Object")
 
     {}.tap do |changes|
       changes[Pathname("sig/foo.rbs")] = [
@@ -41,8 +41,8 @@ RBS
       service.update(changes)
     end
 
-    refute_operator service.latest_builder.instance_cache, :key?, [TypeName("::Hello"), false]
-    assert_operator service.latest_builder.instance_cache, :key?, [TypeName("::Object"), false]
+    refute_operator service.latest_builder.instance_cache, :key?, TypeName("::Hello")
+    assert_operator service.latest_builder.instance_cache, :key?, TypeName("::Object")
   end
 
   def test_update_nested
@@ -78,10 +78,10 @@ RBS
     controller.latest_builder.build_instance(TypeName("::A::C"))
     controller.latest_builder.build_instance(TypeName("::X"))
 
-    assert_operator controller.latest_builder.instance_cache, :key?, [TypeName("::A"), false]
-    assert_operator controller.latest_builder.instance_cache, :key?, [TypeName("::A::B"), false]
-    assert_operator controller.latest_builder.instance_cache, :key?, [TypeName("::A::C"), false]
-    assert_operator controller.latest_builder.instance_cache, :key?, [TypeName("::X"), false]
+    assert_operator controller.latest_builder.instance_cache, :key?, TypeName("::A")
+    assert_operator controller.latest_builder.instance_cache, :key?, TypeName("::A::B")
+    assert_operator controller.latest_builder.instance_cache, :key?, TypeName("::A::C")
+    assert_operator controller.latest_builder.instance_cache, :key?, TypeName("::X")
 
     {}.tap do |changes|
       changes[Pathname("sig/foo.rbs")] = [
@@ -96,10 +96,10 @@ RBS
       controller.update(changes)
     end
 
-    refute_operator controller.latest_builder.instance_cache, :key?, [TypeName("::A"), false]
-    refute_operator controller.latest_builder.instance_cache, :key?, [TypeName("::A::B"), false]
-    refute_operator controller.latest_builder.instance_cache, :key?, [TypeName("::A::C"), false]
-    assert_operator controller.latest_builder.instance_cache, :key?, [TypeName("::X"), false]
+    refute_operator controller.latest_builder.instance_cache, :key?, TypeName("::A")
+    refute_operator controller.latest_builder.instance_cache, :key?, TypeName("::A::B")
+    refute_operator controller.latest_builder.instance_cache, :key?, TypeName("::A::C")
+    assert_operator controller.latest_builder.instance_cache, :key?, TypeName("::X")
   end
 
   def test_update_syntax_error
