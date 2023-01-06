@@ -1,0 +1,21 @@
+#!/usr/bin/env bash
+
+BINSTUB_DIR=$(cd $(dirname $0); pwd)
+GEMFILE=$(readlink -f ${BINSTUB_DIR}/../Gemfile.steep)
+COLLECTION=$(readlink -f ${BINSTUB_DIR}/../rbs_collection.steep.yaml)
+ROOT_DIR=$(readlink -f ${BINSTUB_DIR}/..)
+
+RBS="bundle exec --gemfile=${GEMFILE} rbs --collection=${COLLECTION}"
+
+if type "rbenv" > /dev/null 2>&1; then
+  RBS="rbenv exec ${RBS}"
+else
+  if type "rvm" > /dev/null 2>&1; then
+    if [ -e ${ROOT_DIR}/.ruby-version ]; then
+      RBS="rvm ${ROOT_DIR} do ${RBS}"
+    fi
+  fi
+fi
+
+exec $RBS $@
+
