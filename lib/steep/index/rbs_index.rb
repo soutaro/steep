@@ -148,7 +148,7 @@ module Steep
       end
 
       def each_entry(&block)
-        if block_given?
+        if block
           type_index.each_value(&block)
           method_index.each_value(&block)
           const_index.each_value(&block)
@@ -176,7 +176,7 @@ module Steep
 
       def each_declaration(type_name: nil, method_name: nil, const_name: nil, global_name: nil, &block)
         if block
-          entry = entry(type_name: type_name, method_name: method_name, const_name: const_name, global_name: global_name)
+          entry = __skip__ = entry(type_name: type_name, method_name: method_name, const_name: const_name, global_name: global_name)
           entry.declarations.each(&block)
         else
           enum_for(:each_declaration, type_name: type_name, method_name: method_name, const_name: const_name, global_name: global_name)
@@ -187,9 +187,12 @@ module Steep
         entry(type_name: type_name).add_reference(ref)
       end
 
-      def each_reference(type_name: nil, &block)
+      def each_reference(type_name:, &block)
         if block
-          entry(type_name: type_name).references.each(&block)
+          case
+          when type_name
+            entry(type_name: type_name).references.each(&block)
+          end
         else
           enum_for(:each_reference, type_name: type_name)
         end
@@ -205,8 +208,8 @@ module Steep
         def member(type_name, member)
           case member
           when RBS::AST::Members::MethodDefinition
-            member.types.each do |method_type|
-              method_type.each_type do |type|
+            member.overloads.each do |overload|
+              overload.method_type.each_type do |type|
                 type_reference type, from: member
               end
             end
@@ -230,6 +233,8 @@ module Steep
                               InstanceMethodName.new(type_name: type_name, method_name: member.name)
                             when :singleton
                               SingletonMethodName.new(type_name: type_name, method_name: member.name)
+                            else
+                              raise
                             end
               index.add_method_declaration(method_name, member)
             end
@@ -240,6 +245,8 @@ module Steep
                               InstanceMethodName.new(type_name: type_name, method_name: "#{member.name}=".to_sym)
                             when :singleton
                               SingletonMethodName.new(type_name: type_name, method_name: "#{member.name}=".to_sym)
+                            else
+                              raise
                             end
               index.add_method_declaration(method_name, member)
             end
