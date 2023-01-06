@@ -783,7 +783,7 @@ module Steep
         end
 
         def header_line
-          "Assertion cannot hold: no relationship between infered type (`#{node_type.to_s}`) and asserted type (`#{assertion_type.to_s}`)"
+          "Assertion cannot hold: no relationship between inferred type (`#{node_type.to_s}`) and asserted type (`#{assertion_type.to_s}`)"
         end
       end
 

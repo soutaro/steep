@@ -10130,6 +10130,31 @@ hash = array #: Hash[Symbol, String]
     end
   end
 
+  def test_assertion_as_type_fool_success
+    with_checker(<<-RBS) do |checker|
+      RBS
+      source = parse_ruby(<<-RUBY)
+path = nil #: Pathname?
+name = 3 #: String?
+      RUBY
+
+      with_standard_construction(checker, source) do |construction, typing|
+        type, _, context = construction.synthesize(source.node)
+
+        assert_typing_error(typing, size: 1) do |errors|
+          assert_any!(errors) do |error|
+            assert_instance_of Diagnostic::Ruby::FalseAssertion, error
+            assert_equal parse_type("::String?"), error.assertion_type
+            assert_equal parse_type("::Integer"), error.node_type
+          end
+        end
+
+        assert_equal parse_type("::Pathname?"), context.type_env[:path]
+        assert_equal parse_type("::String?"), context.type_env[:name]
+      end
+    end
+  end
+
   def test_type_app_succeed
     with_checker(<<-RBS) do |checker|
 class Array[unchecked out Elem]

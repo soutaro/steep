@@ -135,8 +135,8 @@ module Steep
         checker.check(
           relation,
           self_type: self_type,
-          instance_type: module_context.instance_type,
-          class_type: module_context.module_type,
+          instance_type: module_context!.instance_type,
+          class_type: module_context!.module_type,
           constraints: constraints
         )
       end
@@ -2399,7 +2399,7 @@ module Steep
             if type = as_type.type?(module_context!.nesting, checker.factory, [])
               actual_type, constr = synthesize(asserted_node, hint: type)
 
-              if result = no_subtyping?(sub_type: type, super_type: actual_type)
+              if no_subtyping?(sub_type: type, super_type: actual_type) && no_subtyping?(sub_type: actual_type, super_type: type)
                 typing.add_error(
                   Diagnostic::Ruby::FalseAssertion.new(
                     node: node,
