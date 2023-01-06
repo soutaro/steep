@@ -1,13 +1,25 @@
 module Steep
   class Project
     class Options
-      PathOptions: untyped
+      class PathOptions
+        attr_reader core_root: Pathname?
 
-      attr_reader libraries: untyped
+        attr_reader stdlib_root: Pathname?
 
-      attr_accessor paths: untyped
+        attr_reader repo_paths: Array[Pathname]
 
-      attr_accessor collection_lock: untyped
+        def initialize: (?core_root: Pathname?, ?stdlib_root: Pathname?, ?repo_paths: Array[Pathname]) -> void
+
+        def customized_stdlib?: () -> bool
+
+        def customized_core?: () -> bool
+      end
+
+      attr_reader libraries: Array[String]
+
+      attr_accessor paths: PathOptions
+
+      attr_accessor collection_lock: RBS::Collection::Config::Lockfile
 
       def initialize: () -> void
     end
