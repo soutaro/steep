@@ -34,6 +34,14 @@ gems:
     revision: 3cdcbea7f7a2a2ba5dffce3ee71f938f8b301687
     remote: https://github.com/ruby/gem_rbs_collection.git
     repo_dir: gems
+- name: concurrent-ruby
+  version: '1.1'
+  source:
+    type: git
+    name: ruby/gem_rbs_collection
+    revision: 8f2be26c03ad81a7124927ebc4f8e066ba94b92b
+    remote: https://github.com/ruby/gem_rbs_collection.git
+    repo_dir: gems
 - name: csv
   version: '0'
   source:
