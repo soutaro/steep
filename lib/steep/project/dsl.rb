@@ -172,8 +172,12 @@ module Steep
           yield code_diagnostics_config if block_given?
         end
 
+        def project!
+          project or raise "TargetDSL doesn't have project (#{name})"
+        end
+
         def collection_config(path)
-          @collection_config_path = project.absolute_path(path)
+          @collection_config_path = project!.absolute_path(path)
         end
 
         def disable_collection
@@ -196,7 +200,6 @@ module Steep
 
       def initialize(project:)
         @project = project
-        @global_signatures = []
       end
 
       def self.register_template(name, target)
@@ -218,13 +221,18 @@ module Steep
                  end
 
         Steep.logger.tagged "target=#{name}" do
-          target.instance_eval(&block) if block_given?
+          target.instance_eval(&block) if block
         end
 
         source_pattern = Pattern.new(patterns: target.sources, ignores: target.ignored_sources, ext: ".rb")
         signature_pattern = Pattern.new(patterns: target.signatures, ext: ".rbs")
 
-        collection_lock = target.collection_config_path&.then { |p| RBS::Collection::Config.lockfile_of(p) }
+
+        if config_path = target.collection_config_path
+          lockfile_path = RBS::Collection::Config.to_lockfile_path(config_path)
+          content = YAML.load_file(lockfile_path.to_s)
+          collection_lock = RBS::Collection::Config::Lockfile.from_lockfile(lockfile_path: lockfile_path, data: content)
+        end
 
         Project::Target.new(
           name: target.name,

@@ -54,7 +54,7 @@
         character: 22
       end:
         line: 1
-        character: -1
+        character: 28
     severity: ERROR
     message: Cannot inherit from a module `::Kernel`
     code: RBS::InheritModuleError

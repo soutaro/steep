@@ -2,89 +2,135 @@ module Steep
   module Index
     class RBSIndex
       class TypeEntry
-        attr_reader type_name: untyped
+        attr_reader type_name: RBS::TypeName
 
-        attr_reader declarations: untyped
+        type decl = RBS::AST::Declarations::Class
+                  | RBS::AST::Declarations::Module
+                  | RBS::AST::Declarations::Interface
+                  | RBS::AST::Declarations::Alias
 
-        attr_reader references: untyped
+        type ref = RBS::AST::Members::MethodDefinition
+                 | RBS::AST::Members::AttrWriter
+                 | RBS::AST::Members::AttrReader
+                 | RBS::AST::Members::AttrAccessor
+                 | RBS::AST::Members::Include
+                 | RBS::AST::Members::Extend
+                 | RBS::AST::Members::InstanceVariable
+                 | RBS::AST::Members::ClassVariable
+                 | RBS::AST::Members::ClassInstanceVariable
+                 | RBS::AST::Declarations::Module
+                 | RBS::AST::Declarations::Class
+                 | RBS::AST::Declarations::Constant
+                 | RBS::AST::Declarations::Global
+                 | RBS::AST::Declarations::Alias
 
-        def initialize: (type_name: untyped) -> void
+        attr_reader declarations: Set[decl]
 
-        def add_declaration: (untyped decl) -> untyped
+        attr_reader references: Set[ref]
 
-        def add_reference: (untyped ref) -> untyped
+        def initialize: (type_name: RBS::TypeName) -> void
+
+        def add_declaration: (decl decl) -> self
+
+        def add_reference: (ref) -> self
       end
 
       class MethodEntry
-        attr_reader method_name: untyped
+        attr_reader method_name: method_name
 
-        attr_reader declarations: untyped
+        type decl = RBS::AST::Members::MethodDefinition
+                  | RBS::AST::Members::Alias
+                  | RBS::AST::Members::AttrWriter
+                  | RBS::AST::Members::AttrReader
+                  | RBS::AST::Members::AttrAccessor
 
-        attr_reader references: untyped
+        type ref = RBS::AST::Members::Alias
 
-        def initialize: (method_name: untyped) -> void
+        attr_reader declarations: Set[decl]
 
-        def add_declaration: (untyped decl) -> untyped
+        attr_reader references: Set[ref]
+
+        def initialize: (method_name: method_name) -> void
+
+        def add_declaration: (decl) -> self
       end
 
       class ConstantEntry
-        attr_reader const_name: untyped
+        attr_reader const_name: RBS::TypeName
 
-        attr_reader declarations: untyped
+        type decl = RBS::AST::Declarations::Constant
 
-        def initialize: (const_name: untyped) -> void
+        attr_reader declarations: Set[decl]
 
-        def add_declaration: (untyped decl) -> untyped
+        def initialize: (const_name: RBS::TypeName) -> void
+
+        def add_declaration: (decl) -> self
       end
 
       class GlobalEntry
-        attr_reader global_name: untyped
+        attr_reader global_name: Symbol
 
-        attr_reader declarations: untyped
+        type decl = RBS::AST::Declarations::Global
 
-        def initialize: (global_name: untyped) -> void
+        attr_reader declarations: Set[decl]
 
-        def add_declaration: (untyped decl) -> untyped
+        def initialize: (global_name: Symbol) -> void
+
+        def add_declaration: (decl) -> self
       end
 
-      attr_reader type_index: untyped
+      attr_reader type_index: Hash[RBS::TypeName, TypeEntry]
 
-      attr_reader method_index: untyped
+      attr_reader method_index: Hash[method_name, MethodEntry]
 
-      attr_reader const_index: untyped
+      attr_reader const_index: Hash[RBS::TypeName, ConstantEntry]
 
-      attr_reader global_index: untyped
+      attr_reader global_index: Hash[Symbol, GlobalEntry]
 
       def initialize: () -> void
 
-      def entry: (?type_name: untyped?, ?method_name: untyped?, ?const_name: untyped?, ?global_name: untyped?) -> untyped
+      def entry: (type_name: RBS::TypeName) -> TypeEntry
+               | (method_name: method_name) -> MethodEntry
+               | (const_name: RBS::TypeName) -> ConstantEntry
+               | (global_name: Symbol) -> GlobalEntry
 
-      def each_entry: () { () -> untyped } -> untyped
+      def each_entry: () { (TypeEntry | MethodEntry | ConstantEntry | GlobalEntry) -> void } -> void
+                    | () -> Enumerator[TypeEntry | MethodEntry | ConstantEntry | GlobalEntry, void]
 
-      def add_type_declaration: (untyped type_name, untyped declaration) -> untyped
+      def add_type_declaration: (RBS::TypeName type_name, TypeEntry::decl declaration) -> TypeEntry
 
-      def add_method_declaration: (untyped method_name, untyped member) -> untyped
+      def add_method_declaration: (method_name, MethodEntry::decl member) -> MethodEntry
 
-      def add_constant_declaration: (untyped const_name, untyped decl) -> untyped
+      def add_constant_declaration: (RBS::TypeName const_name, ConstantEntry::decl decl) -> ConstantEntry
 
-      def add_global_declaration: (untyped global_name, untyped decl) -> untyped
+      def add_global_declaration: (Symbol global_name, GlobalEntry::decl decl) -> GlobalEntry
 
-      def each_declaration: (?type_name: untyped?, ?method_name: untyped?, ?const_name: untyped?, ?global_name: untyped?) { () -> untyped } -> untyped
+      def each_declaration: (type_name: RBS::TypeName) { (TypeEntry) -> void } -> void
+                          | (type_name: RBS::TypeName) -> Enumerator[TypeEntry, void]
+                          | (method_name: method_name) { (MethodEntry) -> void } -> void
+                          | (method_name: method_name) -> Enumerator[MethodEntry, void]
+                          | (const_name: RBS::TypeName) { (ConstantEntry) -> void } -> void
+                          | (const_name: RBS::TypeName) -> Enumerator[ConstantEntry, void]
+                          | (global_name: Symbol) { (GlobalEntry) -> void } -> void
+                          | (global_name: Symbol) -> Enumerator[GlobalEntry, void]
 
-      def add_type_reference: (untyped type_name, untyped ref) -> untyped
+      # `type_name` is referred from `ref`
+      #
+      def add_type_reference: (RBS::TypeName type_name, TypeEntry::ref ref) -> TypeEntry
 
-      def each_reference: (?type_name: untyped?) { () -> untyped } -> untyped
+      def each_reference: (type_name: RBS::TypeName) { (TypeEntry::ref) -> void } -> void
+                        | (type_name: RBS::TypeName) -> Enumerator[TypeEntry::ref, void]
 
       class Builder
-        attr_reader index: untyped
+        attr_reader index: RBSIndex
 
-        def initialize: (index: untyped) -> void
+        def initialize: (index: RBSIndex) -> void
 
-        def member: (untyped type_name, untyped member) -> untyped
+        def member: (RBS::TypeName type_name, RBS::AST::Members::t | RBS::AST::Declarations::t member) -> void
 
-        def type_reference: (untyped `type`, from: untyped) -> untyped
+        def type_reference: (RBS::Types::t, from: TypeEntry::ref) -> void
 
-        def env: (untyped env) -> untyped
+        def env: (RBS::Environment env) -> void
       end
     end
   end

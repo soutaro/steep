@@ -2,53 +2,55 @@ module Steep
   class Project
     class DSL
       class TargetDSL
-        attr_reader name: untyped
+        attr_reader name: Symbol
 
-        attr_reader sources: untyped
+        attr_reader sources: Array[String]
 
-        attr_reader libraries: untyped
+        attr_reader libraries: Array[String]
 
-        attr_reader signatures: untyped
+        attr_reader signatures: Array[String]
 
-        attr_reader ignored_sources: untyped
+        attr_reader ignored_sources: Array[String]
 
-        attr_reader stdlib_root: untyped
+        attr_reader stdlib_root: Pathname?
 
-        attr_reader core_root: untyped
+        attr_reader core_root: Pathname?
 
-        attr_reader repo_paths: untyped
+        attr_reader repo_paths: Array[Pathname]
 
         attr_reader code_diagnostics_config: untyped
 
-        attr_reader project: untyped
+        attr_reader project: Project?
 
-        attr_reader collection_config_path: untyped
+        attr_reader collection_config_path: Pathname?
 
         NONE: untyped
 
-        def initialize: (untyped name, ?sources: untyped, ?libraries: untyped, ?signatures: untyped, ?ignored_sources: untyped, ?repo_paths: untyped, ?code_diagnostics_config: ::Hash[untyped, untyped], ?project: untyped?, ?collection_config_path: untyped) -> void
+        def project!: () -> Project
 
-        def initialize_copy: (untyped other) -> untyped
+        def initialize: (Symbol name, ?sources: Array[String], ?libraries: Array[String], ?signatures: Array[String], ?ignored_sources: Array[String], ?repo_paths: Array[Pathname], ?code_diagnostics_config: ::Hash[untyped, untyped], ?project: Project?, ?collection_config_path: Pathname?) -> void
 
-        def check: (*untyped args) -> untyped
+        def initialize_copy: (instance other) -> void
 
-        def ignore: (*untyped args) -> untyped
+        def check: (*String args) -> void
 
-        def library: (*untyped args) -> untyped
+        def ignore: (*String args) -> void
 
-        def typing_options: (?untyped? level, **untyped hash) -> untyped
+        def library: (*String args) -> void
 
-        def signature: (*untyped args) -> untyped
+        def typing_options: (?untyped level, **untyped hash) -> void
 
-        def update: (?name: untyped, ?sources: untyped, ?libraries: untyped, ?ignored_sources: untyped, ?signatures: untyped, ?project: untyped) -> untyped
+        def signature: (*String args) -> void
 
-        def no_builtin!: (?bool value) -> untyped
+        def update: (?name: Symbol, ?sources: Array[String], ?libraries: Array[String], ?signatures: Array[String], ?ignored_sources: Array[String], ?project: Project?) -> TargetDSL
 
-        def vendor: (?::String dir, ?stdlib: untyped?, ?gems: untyped?) -> untyped
+        def no_builtin!: (?bool value) -> void
 
-        def stdlib_path: (core_root: untyped, stdlib_root: untyped) -> untyped
+        def vendor: (?::String dir, ?stdlib: untyped?, ?gems: untyped?) -> void
 
-        def repo_path: (*untyped paths) -> untyped
+        def stdlib_path: (core_root: String, stdlib_root: String) -> void
+
+        def repo_path: (*String paths) -> void
 
         # Configure the code diagnostics printing setup.
         #
@@ -71,24 +73,27 @@ module Steep
         # configure_code_diagnostics(D::Ruby.lenient)
         # ```
         #
-        def configure_code_diagnostics: (?untyped? hash) { (untyped) -> untyped } -> untyped
+        def configure_code_diagnostics: (Hash[untyped, untyped] hash) -> void
+                                      | () { (Hash[untyped, untyped]) -> void } -> void
 
-        def collection_config: (untyped path) -> untyped
+        def collection_config: (Pathname path) -> void
 
-        def disable_collection: () -> untyped
+        def disable_collection: () -> void
       end
 
       attr_reader project: untyped
 
-      def self.templates: () -> untyped
+      @@templates: Hash[Symbol, TargetDSL]
 
-      def initialize: (project: untyped) -> void
+      def self.templates: () -> Hash[Symbol, TargetDSL]
 
-      def self.register_template: (untyped name, untyped target) -> untyped
+      def initialize: (project: Project) -> void
 
-      def self.parse: (untyped project, untyped code, ?filename: ::String) -> untyped
+      def self.register_template: (Symbol name, TargetDSL target) -> void
 
-      def target: (untyped name, ?template: untyped?) ?{ () -> untyped } -> untyped
+      def self.parse: (Project project, String code, ?filename: String) -> void
+
+      def target: (Symbol name, ?template: Symbol?) ?{ (TargetDSL) [self: TargetDSL] -> void } -> void
     end
   end
 end

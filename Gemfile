@@ -3,6 +3,8 @@ source 'https://rubygems.org'
 # Specify your gem's dependencies in steep.gemspec
 gemspec
 
+gem "rbs", "~>3.0.0.dev"
+
 gem "rake"
 gem "minitest", "~> 5.16"
 gem "minitest-hooks"
