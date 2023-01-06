@@ -1,29 +1,18 @@
 ---
 sources:
-- name: ruby/gem_rbs_collection
+- type: git
+  name: ruby/gem_rbs_collection
+  revision: 6f9f54a753a78c505e63e7f31a48b3f71f1b510d
   remote: https://github.com/ruby/gem_rbs_collection.git
-  revision: main
   repo_dir: gems
 path: ".gem_rbs_collection"
 gems:
-- name: set
-  version: '0'
-  source:
-    type: stdlib
-- name: rbs
-  version: 2.8.0
-  source:
-    type: rubygems
-- name: dbm
-  version: '0'
-  source:
-    type: stdlib
 - name: activesupport
-  version: '7.0'
+  version: '6.0'
   source:
     type: git
     name: ruby/gem_rbs_collection
-    revision: 3cdcbea7f7a2a2ba5dffce3ee71f938f8b301687
+    revision: 6f9f54a753a78c505e63e7f31a48b3f71f1b510d
     remote: https://github.com/ruby/gem_rbs_collection.git
     repo_dir: gems
 - name: ast
@@ -31,22 +20,26 @@ gems:
   source:
     type: git
     name: ruby/gem_rbs_collection
-    revision: 3cdcbea7f7a2a2ba5dffce3ee71f938f8b301687
-    remote: https://github.com/ruby/gem_rbs_collection.git
-    repo_dir: gems
-- name: concurrent-ruby
-  version: '1.1'
-  source:
-    type: git
-    name: ruby/gem_rbs_collection
-    revision: 8f2be26c03ad81a7124927ebc4f8e066ba94b92b
+    revision: 6f9f54a753a78c505e63e7f31a48b3f71f1b510d
     remote: https://github.com/ruby/gem_rbs_collection.git
     repo_dir: gems
 - name: csv
   version: '0'
   source:
     type: stdlib
+- name: date
+  version: '0'
+  source:
+    type: stdlib
+- name: dbm
+  version: '0'
+  source:
+    type: stdlib
 - name: fileutils
+  version: '0'
+  source:
+    type: stdlib
+- name: forwardable
   version: '0'
   source:
     type: stdlib
@@ -55,7 +48,7 @@ gems:
   source:
     type: git
     name: ruby/gem_rbs_collection
-    revision: 3cdcbea7f7a2a2ba5dffce3ee71f938f8b301687
+    revision: 6f9f54a753a78c505e63e7f31a48b3f71f1b510d
     remote: https://github.com/ruby/gem_rbs_collection.git
     repo_dir: gems
 - name: json
@@ -67,7 +60,7 @@ gems:
   source:
     type: git
     name: ruby/gem_rbs_collection
-    revision: 3cdcbea7f7a2a2ba5dffce3ee71f938f8b301687
+    revision: 6f9f54a753a78c505e63e7f31a48b3f71f1b510d
     remote: https://github.com/ruby/gem_rbs_collection.git
     repo_dir: gems
 - name: logger
@@ -75,50 +68,6 @@ gems:
   source:
     type: stdlib
 - name: minitest
-  version: '0'
-  source:
-    type: stdlib
-- name: parallel
-  version: '1.20'
-  source:
-    type: git
-    name: ruby/gem_rbs_collection
-    revision: 3cdcbea7f7a2a2ba5dffce3ee71f938f8b301687
-    remote: https://github.com/ruby/gem_rbs_collection.git
-    repo_dir: gems
-- name: rainbow
-  version: '3.0'
-  source:
-    type: git
-    name: ruby/gem_rbs_collection
-    revision: 3cdcbea7f7a2a2ba5dffce3ee71f938f8b301687
-    remote: https://github.com/ruby/gem_rbs_collection.git
-    repo_dir: gems
-- name: securerandom
-  version: '0'
-  source:
-    type: stdlib
-- name: strscan
-  version: '0'
-  source:
-    type: stdlib
-- name: pathname
-  version: '0'
-  source:
-    type: stdlib
-- name: optparse
-  version: '0'
-  source:
-    type: stdlib
-- name: tsort
-  version: '0'
-  source:
-    type: stdlib
-- name: rdoc
-  version: '0'
-  source:
-    type: stdlib
-- name: date
   version: '0'
   source:
     type: stdlib
@@ -130,7 +79,51 @@ gems:
   version: '0'
   source:
     type: stdlib
+- name: optparse
+  version: '0'
+  source:
+    type: stdlib
+- name: parallel
+  version: '1.20'
+  source:
+    type: git
+    name: ruby/gem_rbs_collection
+    revision: 6f9f54a753a78c505e63e7f31a48b3f71f1b510d
+    remote: https://github.com/ruby/gem_rbs_collection.git
+    repo_dir: gems
+- name: pathname
+  version: '0'
+  source:
+    type: stdlib
+- name: rainbow
+  version: '3.0'
+  source:
+    type: git
+    name: ruby/gem_rbs_collection
+    revision: 6f9f54a753a78c505e63e7f31a48b3f71f1b510d
+    remote: https://github.com/ruby/gem_rbs_collection.git
+    repo_dir: gems
+- name: rbs
+  version: 3.0.0.dev.1
+  source:
+    type: rubygems
+- name: rdoc
+  version: '0'
+  source:
+    type: stdlib
+- name: securerandom
+  version: '0'
+  source:
+    type: stdlib
+- name: set
+  version: '0'
+  source:
+    type: stdlib
 - name: singleton
+  version: '0'
+  source:
+    type: stdlib
+- name: strscan
   version: '0'
   source:
     type: stdlib
@@ -138,7 +131,7 @@ gems:
   version: '0'
   source:
     type: stdlib
-- name: forwardable
+- name: tsort
   version: '0'
   source:
     type: stdlib
