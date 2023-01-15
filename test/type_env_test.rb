@@ -23,10 +23,34 @@ class TypeEnvTest < Minitest::Test
     with_factory do
       env = TypeEnv.new(constant_env)
 
-      env = env.assign_local_variables({ :x => parse_type("::String") })
+      env = env.assign_local_variables({
+        :x => parse_type("::String"),
+        :ä => parse_type("::Integer")
+      })
+      assert_raises(RuntimeError) do
+        env.assign_local_variables({ :ǲ => parse_type("::Integer") })
+      end
 
       assert_equal parse_type("::String"), env[:x]
+      assert_equal parse_type("::Integer"), env[:ä]
       assert_nil env.enforced_type(:x)
+      assert_nil env.enforced_type(:ä)
+    end
+  end
+
+  def test_local_variable_name_p
+    with_factory do
+      env = TypeEnv.new(constant_env)
+      assert_equal true, env.local_variable_name?(:abc)
+      assert_equal true, env.local_variable_name?(:_abc)
+      assert_equal false, env.local_variable_name?(:@abc)
+      assert_equal false, env.local_variable_name?(:$abc)
+      assert_equal false, env.local_variable_name?(:_)
+      assert_equal false, env.local_variable_name?(:__skip__)
+      assert_equal false, env.local_variable_name?(:__any__)
+      assert_equal true, env.local_variable_name?(:ǳ) # Lowercase_Letter
+      assert_equal false, env.local_variable_name?(:Ǳ) # Uppercase_Letter
+      assert_equal false, env.local_variable_name?(:ǲ) # Titlecase_Letter
     end
   end
 
