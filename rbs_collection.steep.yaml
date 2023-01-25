@@ -2,7 +2,7 @@
 sources:
   - name: ruby/gem_rbs_collection
     remote: https://github.com/ruby/gem_rbs_collection.git
-    revision: main
+    revision: c42c09528dd99252db98f0744181a6de54ec2f55
     repo_dir: gems
 
 # A directory to install the downloaded RBSs
@@ -15,6 +15,8 @@ gems:
     ignore: true
   - name: set
   - name: rbs
+    ignore: true
   - name: with_steep_types
     ignore: true
   - name: dbm
+  - name: optparse
