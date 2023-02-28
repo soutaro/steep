@@ -19,18 +19,17 @@ module Steep
         def content_for(target:, path:, line:, column:)
           service = self.service.signature_services[target.name]
 
-          _, decls = service.latest_env.buffers_decls.find do |buffer, _|
-            Pathname(buffer.name) == path
-          end
+          env = service.latest_env
+          buffer = env.buffers.find {|buf| buf.name.to_s == path.to_s } or return
+          (dirs, decls = env.signatures[buffer]) or raise
 
-          return if decls.nil?
-
-          loc_key, path = ::RBS::Locator.new(decls: decls).find2(line: line, column: column) || return
+          locator = ::RBS::Locator.new(buffer: buffer, dirs: dirs, decls: decls)
+          loc_key, path = locator.find2(line: line, column: column) || return
           head, *_tail = path
 
           case head
           when ::RBS::Types::Alias
-            alias_decl = service.latest_env.alias_decls[head.name]&.decl or raise
+            alias_decl = service.latest_env.type_alias_decls[head.name]&.decl or raise
 
             TypeAliasContent.new(
               location: head.location || raise,
@@ -38,9 +37,16 @@ module Steep
             )
           when ::RBS::Types::ClassInstance, ::RBS::Types::ClassSingleton
             if loc_key == :name
-              env = service.latest_env
-              class_decl = env.class_decls[head.name]&.decls&.[](0)&.decl or raise
               location = head.location&.[](:name) or raise
+
+              class_entry = service.latest_env.module_class_entry(head.name) or raise
+              case class_entry
+              when ::RBS::Environment::ClassEntry, ::RBS::Environment::ModuleEntry
+                class_decl = class_entry.primary.decl
+              when ::RBS::Environment::ClassAliasEntry, ::RBS::Environment::ModuleAliasEntry
+                class_decl = class_entry.decl
+              end
+
               ClassContent.new(
                 location: location,
                 decl: class_decl
@@ -55,6 +61,20 @@ module Steep
               location: location,
               decl: interface_decl
             )
+          when ::RBS::AST::Declarations::ClassAlias, ::RBS::AST::Declarations::ModuleAlias
+            if loc_key == :old_name
+              location = head.location&.[](:old_name) or raise
+
+              class_entry = service.latest_env.module_class_entry(head.old_name) or raise
+              case class_entry
+              when ::RBS::Environment::ClassEntry, ::RBS::Environment::ModuleEntry
+                class_decl = class_entry.primary.decl
+              when ::RBS::Environment::ClassAliasEntry, ::RBS::Environment::ModuleAliasEntry
+                class_decl = class_entry.decl
+              end
+
+              ClassContent.new(location: location, decl: class_decl)
+            end
           end
         end
       end

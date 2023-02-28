@@ -51,6 +51,12 @@ module Steep
         attr_reader full_name: RBS::TypeName
 
         def initialize: (env: RBS::Environment, identifier: Symbol, range: Range, type: AST::Types::t, full_name: RBS::TypeName) -> void
+
+        def class?: () -> bool
+
+        def module?: () -> bool
+
+        def comments: () -> Array[RBS::AST::Comment]
       end
 
       class MethodNameItem

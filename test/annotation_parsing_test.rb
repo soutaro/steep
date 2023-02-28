@@ -14,7 +14,9 @@ class AnnotationParsingTest < Minitest::Test
   end
 
   def parse_annotation(source, factory:)
-    AnnotationParser.new(factory: factory).parse(source, location: nil)
+    buf = RBS::Buffer.new(name: "#parse_annotation", content: source)
+    location = RBS::Location.new(buf, 0, buf.last_position)
+    AnnotationParser.new(factory: factory).parse(source, location: location)
   end
 
   def test_skip_annotation
@@ -171,8 +173,8 @@ class AnnotationParsingTest < Minitest::Test
         parse_annotation("@type break: Array<Integer.class>", factory: factory)
       end
 
-      assert_equal "@type break: Array<Integer.class>", exn.source
-      assert_instance_of RBS::ParsingError, exn.cause
+      assert_equal "Array<Integer.class>", exn.source
+      assert_nil exn.cause
     end
   end
 end

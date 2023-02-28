@@ -82,23 +82,27 @@ module Steep
 
           type decl = ::RBS::Environment::ClassEntry
                     | ::RBS::Environment::ModuleEntry
-                    | ::RBS::Environment::SingleEntry[::RBS::TypeName, ::RBS::AST::Declarations::Constant]
+                    | ::RBS::Environment::ClassAliasEntry
+                    | ::RBS::Environment::ModuleAliasEntry
+                    | ::RBS::Environment::ConstantEntry
 
           attr_reader decl: decl
 
           attr_reader class_decl(): ::RBS::Environment::ClassEntry | ::RBS::Environment::ModuleEntry | nil
 
-          attr_reader constant_decl(): ::RBS::Environment::SingleEntry[::RBS::TypeName, ::RBS::AST::Declarations::Constant]?
+          attr_reader class_alias(): ::RBS::Environment::ClassAliasEntry | ::RBS::Environment::ModuleAliasEntry | nil
+
+          attr_reader constant_decl(): ::RBS::Environment::ConstantEntry?
 
           def initialize: (location: Parser::Source::Range, full_name: ::RBS::TypeName, type: AST::Types::t, decl: decl) -> void
 
           def comments: () -> Array[::RBS::AST::Comment]
 
           # Returns true if `decl` is a class/module definition
-          def class_or_module?: () -> (::RBS::Environment::ClassEntry | ::RBS::Environment::ModuleEntry | nil)
+          def class_or_module?: () -> bool
 
           # Returns true if `decl` is a constant definition
-          def constant?: () -> ::RBS::Environment::SingleEntry[::RBS::TypeName, ::RBS::AST::Declarations::Constant]?
+          def constant?: () -> bool
         end
 
         type content = TypeContent | VariableContent | MethodCallContent | DefinitionContent | ConstantContent | TypeAssertionContent

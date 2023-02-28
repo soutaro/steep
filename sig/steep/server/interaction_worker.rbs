@@ -23,11 +23,11 @@ module Steep
 
       def process_completion: (untyped job) -> untyped
 
-      def format_completion_item_for_rbs: (untyped sig_service, untyped type_name, untyped context, untyped job, untyped prefix) -> (nil | untyped)
+      def format_completion_item_for_rbs: (Services::SignatureService sig_service, untyped type_name, untyped context, untyped job, untyped prefix) -> (nil | untyped)
 
       def format_comment: (untyped comment) -> (untyped | nil)
 
-      def format_comments: (untyped comments) -> (untyped | nil)
+      def format_comments: (Array[RBS::AST::Comment] comments) -> untyped?
 
       def format_completion_item: (untyped item) -> untyped
 

@@ -14,9 +14,6 @@ module Steep
         @source_pattern = source_pattern
         @signature_pattern = signature_pattern
         @code_diagnostics_config = code_diagnostics_config
-
-        @source_files = {}
-        @signature_files = {}
       end
 
       def possible_source_file?(path)
@@ -55,6 +52,7 @@ module Steep
 
         options.libraries.each do |lib|
           name, version = lib.split(/:/, 2)
+          name or raise
           loader.add(library: name, version: version)
         end
         loader.add_collection(options.collection_lock) if options.collection_lock

@@ -21,6 +21,8 @@ module Steep
 
       def children: (RBS::TypeName module_name) -> Hash[Symbol, constant_tuple]
 
+      def decompose_constant!: (RBS::Constant? constant) -> constant_tuple
+
       def decompose_constant: (RBS::Constant? constant) -> constant_tuple?
     end
   end

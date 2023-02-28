@@ -74,6 +74,8 @@ module Steep
         def try_singleton_type: (t) -> t?
 
         def try_instance_type: (t) -> t?
+
+        def normalize_type: (t) -> t
       end
     end
   end

@@ -370,19 +370,11 @@ module Steep
         end
 
         def module_name?(type_name)
-          if entry = env.class_decls[type_name]
-            entry.is_a?(RBS::Environment::ModuleEntry)
-          else
-            false
-          end
+          env.module_entry(type_name) ? true : false
         end
 
         def class_name?(type_name)
-          if entry = env.class_decls[type_name]
-            entry.is_a?(RBS::Environment::ClassEntry)
-          else
-            false
-          end
+          env.class_entry(type_name) ? true : false
         end
 
         def env
@@ -432,6 +424,60 @@ module Steep
             AST::Types::Name::Singleton.new(name:type.name)
           else
             nil
+          end
+        end
+
+        def normalize_type(type)
+          case type
+          when AST::Types::Name::Instance
+            AST::Types::Name::Instance.new(
+              name: env.normalize_module_name(type.name),
+              args: type.args.map {|ty| normalize_type(ty) },
+              location: type.location
+            )
+          when AST::Types::Name::Singleton
+            AST::Types::Name::Singleton.new(
+              name: env.normalize_module_name(type.name),
+              location: type.location
+            )
+          when AST::Types::Any, AST::Types::Boolean, AST::Types::Bot, AST::Types::Nil,
+            AST::Types::Top, AST::Types::Void, AST::Types::Literal, AST::Types::Class, AST::Types::Instance,
+            AST::Types::Self, AST::Types::Var, AST::Types::Logic::Base
+            type
+          when AST::Types::Intersection
+            AST::Types::Intersection.build(
+              types: type.types.map {|type| normalize_type(type) },
+              location: type.location
+            )
+          when AST::Types::Union
+            AST::Types::Union.build(
+              types: type.types.map {|type| normalize_type(type) },
+              location: type.location
+            )
+          when AST::Types::Record
+            AST::Types::Record.new(
+              elements: type.elements.transform_values {|type| normalize_type(type) },
+              location: type.location
+            )
+          when AST::Types::Tuple
+            AST::Types::Tuple.new(
+              types: type.types.map {|type| normalize_type(type) },
+              location: type.location
+            )
+          when AST::Types::Proc
+            type.map_type {|type| normalize_type(type) }
+          when AST::Types::Name::Alias
+            AST::Types::Name::Alias.new(
+              name: type.name,
+              args: type.args.map {|ty| normalize_type(ty) },
+              location: type.location
+            )
+          when AST::Types::Name::Interface
+            AST::Types::Name::Interface.new(
+              name: type.name,
+              args: type.args.map {|ty| normalize_type(ty) },
+              location: type.location
+            )
           end
         end
       end

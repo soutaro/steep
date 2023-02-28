@@ -14,6 +14,8 @@ module Steep
             case
             when decl = class_decl
               decl.decls.map {|d| d.decl.comment }
+            when decl = class_alias
+              [decl.decl.comment]
             when decl = constant_decl
               [decl.decl.comment]
             else
@@ -22,27 +24,31 @@ module Steep
           end
 
           def class_decl
-            if (decl = decl()).is_a?(::RBS::Environment::MultiEntry)
+            case decl
+            when ::RBS::Environment::ClassEntry, ::RBS::Environment::ModuleEntry
+              decl
+            end
+          end
+
+          def class_alias
+            case decl
+            when ::RBS::Environment::ClassAliasEntry, ::RBS::Environment::ModuleAliasEntry
               decl
             end
           end
 
           def constant_decl
-            if (decl = decl()).is_a?(::RBS::Environment::SingleEntry)
+            if decl.is_a?(::RBS::Environment::ConstantEntry)
               decl
             end
           end
 
           def constant?
-            if decl.is_a?(::RBS::Environment::SingleEntry)
-              decl
-            end
+            constant_decl ? true : false
           end
 
           def class_or_module?
-            if decl.is_a?(::RBS::Environment::MultiEntry)
-              decl
-            end
+            (class_decl || class_alias) ?  true : false
           end
         end
 
@@ -169,13 +175,13 @@ module Steep
               const_name = typing.source_index.reference(constant_node: node)
 
               if const_name
-                decl = context.env.class_decls[const_name] || context.env.constant_decls[const_name]
+                entry = context.env.constant_entry(const_name) or return
 
                 return ConstantContent.new(
                   location: node.location.name,
                   full_name: const_name,
                   type: type,
-                  decl: decl
+                  decl: entry
                 )
               end
             when :assertion

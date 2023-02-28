@@ -7,7 +7,9 @@ module Steep
         type decl = RBS::AST::Declarations::Class
                   | RBS::AST::Declarations::Module
                   | RBS::AST::Declarations::Interface
-                  | RBS::AST::Declarations::Alias
+                  | RBS::AST::Declarations::TypeAlias
+                  | RBS::AST::Declarations::ClassAlias
+                  | RBS::AST::Declarations::ModuleAlias
 
         type ref = RBS::AST::Members::MethodDefinition
                  | RBS::AST::Members::AttrWriter
@@ -22,7 +24,9 @@ module Steep
                  | RBS::AST::Declarations::Class
                  | RBS::AST::Declarations::Constant
                  | RBS::AST::Declarations::Global
-                 | RBS::AST::Declarations::Alias
+                 | RBS::AST::Declarations::TypeAlias
+                 | RBS::AST::Declarations::ClassAlias
+                 | RBS::AST::Declarations::ModuleAlias
 
         attr_reader declarations: Set[decl]
 

@@ -110,18 +110,23 @@ EOM
           end
         when HoverProvider::Ruby::ConstantContent
           CommentBuilder.build do |builder|
-            if decl = content.class_or_module?
+            case
+            when decl = content.class_decl
               builder << <<EOM
 ```rbs
 #{declaration_summary(decl.primary.decl)}
 ```
 EOM
-            end
-
-            if content.constant?
+            when decl = content.constant_decl
               builder << <<EOM
 ```rbs
 #{content.full_name}: #{content.type}
+```
+EOM
+            when decl = content.class_alias
+              builder << <<EOM
+```rbs
+#{decl.is_a?(::RBS::Environment::ClassAliasEntry) ? "class" : "module"} #{decl.decl.new_name} = #{decl.decl.old_name}
 ```
 EOM
             end
@@ -245,10 +250,14 @@ EOM
                         " : #{decl.self_types.map {|s| name_and_args(s.name, s.args) }.join(", ")}"
                       end
           "module #{name_and_params(decl.name, decl.type_params)}#{self_type}"
-        when RBS::AST::Declarations::Alias
+        when RBS::AST::Declarations::TypeAlias
           "type #{decl.name} = #{decl.type}"
         when RBS::AST::Declarations::Interface
           "interface #{name_and_params(decl.name, decl.type_params)}"
+        when RBS::AST::Declarations::ClassAlias
+          "class #{decl.new_name} = #{decl.old_name}"
+        when RBS::AST::Declarations::ModuleAlias
+          "module #{decl.new_name} = #{decl.old_name}"
         end
       end
     end

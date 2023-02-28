@@ -619,7 +619,7 @@ module Steep
           return true
         end
 
-        relation.sub_type == relation.super_type
+        builder.factory.normalize_type(relation.sub_type) == builder.factory.normalize_type(relation.super_type)
       end
 
       def check_interface(relation)

@@ -36,7 +36,7 @@ module Steep
       end
 
       def type_name_resolver
-        @type_name_resolver ||= RBS::TypeNameResolver.from_env(env)
+        @type_name_resolver ||= RBS::Resolver::TypeNameResolver.new(env)
       end
 
       def validator
@@ -112,7 +112,7 @@ module Steep
               type.args
             ]
           when RBS::Types::Alias
-            entry = env.alias_decls[type.name]
+            entry = env.type_alias_decls[type.name]
 
             [
               type.name,
@@ -135,7 +135,7 @@ module Steep
       def validate_type(type)
         Steep.logger.debug "#{Location.to_string type.location}: Validating #{type}..."
 
-        validator.validate_type type, context: [RBS::Namespace.root]
+        validator.validate_type(type, context: nil)
         validate_type_application(type)
       end
 
@@ -235,7 +235,7 @@ module Steep
         end
       end
 
-      def validate_one_class(name)
+      def validate_one_class_decl(name)
         rescue_validation_errors(name) do
           Steep.logger.debug { "Validating class definition `#{name}`..." }
 
@@ -390,6 +390,17 @@ module Steep
         end
       end
 
+      def validate_one_class(name)
+        entry = env.constant_entry(name)
+
+        case entry
+        when RBS::Environment::ClassEntry, RBS::Environment::ModuleEntry
+          validate_one_class_decl(name)
+        when RBS::Environment::ClassAliasEntry, RBS::Environment::ModuleAliasEntry
+          validate_one_class_alias(name, entry)
+        end
+      end
+
       def validate_ancestor_application(name, ancestor)
         unless ancestor.args.empty?
           definition =
@@ -465,6 +476,10 @@ module Steep
           validate_one_class(name)
         end
 
+        env.class_alias_decls.each do |name, entry|
+          validate_one_class_alias(name, entry)
+        end
+
         env.interface_decls.each_key do |name|
           validate_one_interface(name)
         end
@@ -497,7 +512,7 @@ module Steep
         end
       end
 
-      def validate_one_alias(name, entry = env.alias_decls[name])
+      def validate_one_alias(name, entry = env.type_alias_decls[name])
         rescue_validation_errors(name) do
           Steep.logger.debug "Validating alias `#{name}`..."
           upper_bounds = entry.decl.type_params.each.with_object({}) do |param, bounds|
@@ -512,8 +527,15 @@ module Steep
         end
       end
 
+      def validate_one_class_alias(name, entry)
+        rescue_validation_errors(name) do
+          Steep.logger.debug "Validating class/module alias `#{name}`..."
+          validator.validate_class_alias(entry: entry)
+        end
+      end
+
       def validate_alias
-        env.alias_decls.each do |name, entry|
+        env.type_alias_decls.each do |name, entry|
           validate_one_alias(name, entry)
         end
       end

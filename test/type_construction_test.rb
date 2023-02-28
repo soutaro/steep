@@ -10199,10 +10199,6 @@ z = AppTest.new.foo(1, 2) #$ Integer, Integer, String
         assert_typing_error(typing, size: 3) do |errors|
           assert_any!(errors) do |error|
             assert_instance_of Diagnostic::Ruby::TypeArgumentMismatchError, error
-            loc = error.location
-            pp error.location
-            pp lines: error.location.buffer.lines, ranges: error.location.buffer.ranges
-            pp start_loc: loc.buffer.pos_to_loc(loc.start_pos), _start_loc: loc.__send__(:_start_loc)
             assert_equal "Cannot pass a type `::String` as a type parameter `T < ::Numeric`", error.header_line
             assert_equal "String", error.location.source
           end

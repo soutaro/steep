@@ -146,23 +146,11 @@ module Steep
       class ModuleSelfTypeError < Base
         attr_reader name: RBS::TypeName
 
-        attr_reader ancestor: RBS::DefinitionBuilder::AncestorBuilder::OneAncestors
+        attr_reader ancestor: RBS::Definition::Ancestor::Instance
 
         attr_reader relation: Subtyping::Relation[AST::Types::t]
 
-        def initialize: (name: RBS::TypeName, ancestor: RBS::DefinitionBuilder::AncestorBuilder::OneAncestors, relation: Subtyping::Relation[AST::Types::t], location: location?) -> void
-
-        def header_line: () -> String
-      end
-
-      class ClassVariableDuplicationError < Base
-        attr_reader class_name: RBS::TypeName
-
-        attr_reader other_class_name: RBS::TypeName
-
-        attr_reader variable_name: Symbol
-
-        def initialize: (class_name: RBS::TypeName, other_class_name: RBS::TypeName, variable_name: Symbol, location: RBS::Location[untyped, untyped]) -> void
+        def initialize: (name: RBS::TypeName, ancestor: RBS::Definition::Ancestor::Instance, relation: Subtyping::Relation[AST::Types::t], location: location?) -> void
 
         def header_line: () -> String
       end
@@ -238,6 +226,22 @@ module Steep
         attr_reader nonregular_type: AST::Types::t
 
         def initialize: (type_name: RBS::TypeName, nonregular_type: AST::Types::t, location: location?) -> void
+
+        def header_line: () -> String
+      end
+
+      class InconsistentClassModuleAliasError < Base
+        attr_reader decl: RBS::AST::Declarations::ModuleAlias | RBS::AST::Declarations::ClassAlias
+
+        def initialize: (decl: RBS::AST::Declarations::ModuleAlias | RBS::AST::Declarations::ClassAlias) -> void
+
+        def header_line: () -> String
+      end
+
+      class CyclicClassAliasDefinitionError < Base
+        attr_reader decl: RBS::AST::Declarations::ModuleAlias | RBS::AST::Declarations::ClassAlias
+
+        def initialize: (decl: RBS::AST::Declarations::ModuleAlias | RBS::AST::Declarations::ClassAlias) -> void
 
         def header_line: () -> String
       end

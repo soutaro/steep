@@ -61,7 +61,7 @@ RUBY
 
 Returns a copy of `self` with all occurrences of the given `pattern` replaced.
 
-See [Substitution Methods](#class-String-label-Substitution+Methods).
+See [Substitution Methods](rdoc-ref:String@Substitution+Methods).
 
 Returns an Enumerator if no `replacement` and no block given.
 
@@ -103,6 +103,7 @@ RUBY
 ```
 
 Returns a new Array containing all non-`nil` elements from `self`:
+
     a = [nil, 0, nil, 1, nil, 2, nil]
     a.compact # => [0, 1, 2]
 EOM
@@ -141,7 +142,7 @@ RUBY
 
 Returns a copy of `self` with all occurrences of the given `pattern` replaced.
 
-See [Substitution Methods](#class-String-label-Substitution+Methods).
+See [Substitution Methods](rdoc-ref:String@Substitution+Methods).
 
 Returns an Enumerator if no `replacement` and no block given.
 
@@ -170,7 +171,7 @@ EOM
 
 Returns a copy of `self` with all occurrences of the given `pattern` replaced.
 
-See [Substitution Methods](#class-String-label-Substitution+Methods).
+See [Substitution Methods](rdoc-ref:String@Substitution+Methods).
 
 Returns an Enumerator if no `replacement` and no block given.
 
@@ -263,7 +264,7 @@ type foo[T, S < Numeric] = [T, S]
 type bar = 123
 RBS
       Services::HoverProvider::RBS::TypeAliasContent.new(
-        decl: factory.env.alias_decls[TypeName("::foo")].decl,
+        decl: factory.env.type_alias_decls[TypeName("::foo")].decl,
         location: nil
       ).tap do |content|
         comment = Server::LSPFormatter.format_hover_content(content)
@@ -275,7 +276,7 @@ TEXT
       end
 
       Services::HoverProvider::RBS::TypeAliasContent.new(
-        decl: factory.env.alias_decls[TypeName("::bar")].decl,
+        decl: factory.env.type_alias_decls[TypeName("::bar")].decl,
         location: nil
       ).tap do |content|
         comment = Server::LSPFormatter.format_hover_content(content)
