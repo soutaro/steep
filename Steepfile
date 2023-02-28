@@ -27,7 +27,6 @@ target :app do
 
   library(
     "rdoc",
-    "set",
     "pathname",
     "monitor",
     "tsort",
