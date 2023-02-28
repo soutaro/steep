@@ -18,7 +18,9 @@ module Steep
             declarations << decl
           when RBS::AST::Declarations::Interface
             declarations << decl
-          when RBS::AST::Declarations::Alias
+          when RBS::AST::Declarations::TypeAlias
+            declarations << decl
+          when RBS::AST::Declarations::ClassAlias, RBS::AST::Declarations::ModuleAlias
             declarations << decl
           else
             raise "Unexpected type declaration: #{decl}"
@@ -41,7 +43,9 @@ module Steep
             references << ref
           when RBS::AST::Declarations::Constant, RBS::AST::Declarations::Global
             references << ref
-          when RBS::AST::Declarations::Alias
+          when RBS::AST::Declarations::TypeAlias
+            references << ref
+          when RBS::AST::Declarations::ClassAlias, RBS::AST::Declarations::ModuleAlias
             references << ref
           else
             raise "Unexpected type reference: #{ref}"
@@ -312,6 +316,11 @@ module Steep
             end
           end
 
+          env.class_alias_decls.each do |name, entry|
+            index.add_type_declaration(name, entry.decl)
+            index.add_type_reference(entry.decl.old_name, entry.decl)
+          end
+
           env.interface_decls.each do |name, decl|
             index.add_type_declaration(name, decl.decl)
 
@@ -320,7 +329,7 @@ module Steep
             end
           end
 
-          env.alias_decls.each do |name, decl|
+          env.type_alias_decls.each do |name, decl|
             index.add_type_declaration(name, decl.decl)
             type_reference decl.decl.type, from: decl.decl
           end

@@ -295,10 +295,12 @@ module Steep
       else
         name = module_name || super_name
 
-        if name && entry = checker.factory.env.class_decls[name]
+        if name && checker.factory.env.module_name?(name)
+          definition = checker.factory.definition_builder.build_instance(name)
+
           AST::Annotation::Implements::Module.new(
             name: name,
-            args: entry.type_params.each.map(&:name)
+            args: definition.type_params
           )
         end
       end
@@ -338,7 +340,7 @@ module Steep
     end
 
     def for_module(node, new_module_name)
-      new_nesting = [nesting, new_module_name || false]
+      new_nesting = [nesting, new_module_name || false] #: RBS::Resolver::context
 
       annots = source.annotations(block: node, factory: checker.factory, context: new_nesting)
 
@@ -353,9 +355,7 @@ module Steep
       end
 
       if implement_module_name
-        module_entry = checker.factory.definition_builder.env.class_decls[implement_module_name.name]
-
-        raise unless module_entry.is_a?(RBS::Environment::ModuleEntry)
+        module_entry = checker.factory.definition_builder.env.normalized_module_entry(implement_module_name.name) or raise
 
         module_context = module_context.update(
           instance_type: AST::Types::Intersection.build(
@@ -566,10 +566,10 @@ module Steep
                     when AST::Types::Name::Singleton
                       type_name = instance_type.name
 
-                      case checker.factory.env.class_decls[type_name]
-                      when RBS::Environment::ModuleEntry
+                      case checker.factory.env.constant_entry(type_name)
+                      when RBS::Environment::ModuleEntry, RBS::Environment::ModuleAliasEntry
                         AST::Builtin::Module.instance_type
-                      when RBS::Environment::ClassEntry
+                      when RBS::Environment::ClassEntry, RBS::Environment::ClassAliasEntry
                         AST::Builtin::Class.instance_type
                       else
                         raise
@@ -4098,7 +4098,8 @@ module Steep
 
     def validate_method_definitions(node, module_name)
       module_name_1 = module_name.name
-      member_decl_count = checker.factory.env.class_decls[module_name_1].decls.count {|d| d.decl.each_member.count > 0 }
+      module_entry = checker.factory.env.normalized_module_class_entry(module_name_1) or raise
+      member_decl_count = module_entry.decls.count {|d| d.decl.each_member.count > 0 }
 
       return unless member_decl_count == 1
 
@@ -4267,7 +4268,8 @@ module Steep
     def to_instance_type(type, args: nil)
       args = args || case type
                      when AST::Types::Name::Singleton
-                       checker.factory.env.class_decls[type.name].type_params.each.map { AST::Builtin.any_type }
+                       decl = checker.factory.env.normalized_module_class_entry(type.name) or raise
+                       decl.type_params.each.map { AST::Builtin.any_type }
                      else
                        raise "unexpected type to to_instance_type: #{type}"
                      end

@@ -6,7 +6,6 @@ module Steep
       attr_reader :resolver
 
       def initialize(factory:, context:, resolver:)
-        @cache = {}
         @factory = factory
         @context = context
         @resolver = resolver
@@ -25,7 +24,8 @@ module Steep
       end
 
       def constants
-        resolver.constants(context).transform_values {|c| decompose_constant(c) }
+        cs = resolver.constants(context) or raise
+        cs.transform_values {|c| decompose_constant!(c) }
       end
 
       def resolve_child(module_name, constant_name)
@@ -35,7 +35,11 @@ module Steep
       end
 
       def children(module_name)
-        resolver.children(module_name).transform_values {|c| decompose_constant(c) }
+        resolver.children(module_name).transform_values {|c| decompose_constant!(c) }
+      end
+
+      def decompose_constant!(constant)
+        decompose_constant(constant) || raise
       end
 
       def decompose_constant(constant)

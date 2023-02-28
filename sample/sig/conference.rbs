@@ -1,3 +1,5 @@
+use Object as Foo
+
 class Conference
   attr_reader title: String
   attr_reader year: Integer
@@ -12,3 +14,24 @@ end
 class Object
   def must: () -> self
 end
+
+# Test data
+class Konference = Conference
+
+class Allay = ::Array
+
+module Hoge = Bazzz
+
+module Bazzz = Hoge
+
+class Foo < Konference
+  class OBH = String
+
+  type a = Integer
+end
+
+type foo = [Conference, Konference]
+
+
+type b = ::Foo::OBH
+

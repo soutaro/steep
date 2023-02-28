@@ -22,6 +22,23 @@ end
     end
   end
 
+  def test_class_alias_decl
+    with_factory({ "a.rbs" => <<-RBS }) do |factory|
+module Foo = Kernel
+    RBS
+      env = factory.definition_builder.env
+
+      index = RBSIndex.new()
+      builder = RBSIndex::Builder.new(index: index)
+
+      builder.env(env)
+
+      assert_equal 1, index.each_declaration(type_name: TypeName("::Foo")).count
+      assert_equal 1, index.each_reference(type_name: TypeName("::Kernel")).count {|ref| ref.is_a?(RBS::AST::Declarations::ModuleAlias) }
+    end
+  end
+
+
   def test_method_decl
     with_factory({ "a.rbs" => <<-RBS }) do |factory|
 class HelloWorld

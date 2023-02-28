@@ -16,25 +16,23 @@ module Steep
         # @implements ConstantItem
 
         def class?
-          if decl = env.class_decls[full_name]
-            decl.primary.decl.is_a?(RBS::AST::Declarations::Class)
-          end
+          env.class_entry(full_name) ? true : false
         end
 
         def module?
-          if decl = env.class_decls[full_name]
-            decl.primary.decl.is_a?(RBS::AST::Declarations::Module)
-          end
+          env.module_entry(full_name) ? true : false
         end
 
         def comments
-          case
-          when decl = env.class_decls[full_name]
-            decl.decls.filter_map {|d| d.decl.comment }
-          when comment = env.constant_decls[full_name]&.decl&.comment
-            [comment]
+          case entry = env.constant_entry(full_name)
+          when RBS::Environment::ConstantEntry
+            [entry.decl.comment].compact
+          when RBS::Environment::ClassEntry, RBS::Environment::ModuleEntry
+            entry.decls.filter_map {|d| d.decl.comment }
+          when RBS::Environment::ClassAliasEntry, RBS::Environment::ModuleAliasEntry
+            [entry.decl.comment].compact
           else
-            []
+            raise
           end
         end
       end

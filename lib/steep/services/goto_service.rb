@@ -151,15 +151,15 @@ module Steep
               end
             end
           end
-        when target_names = type_check.signature_file?(path)
+        when target_names = type_check.signature_file?(path) #: Array[Symbol]
           target_names.each do |target_name|
-            signature_service = type_check.signature_services[target_name]
-            decls = signature_service.latest_env.declarations.select do |decl|
-              buffer_path = Pathname(decl.location.buffer.name)
-              buffer_path == relative_path || buffer_path == path
-            end
+            signature_service = type_check.signature_services[target_name] #: SignatureService
 
-            locator = RBS::Locator.new(decls: decls)
+            env = signature_service.latest_env
+            buffer = env.buffers.find {|buf| buf.name.to_s == relative_path.to_s } or raise
+            (dirs, decls = env.signatures[buffer]) or raise
+
+            locator = RBS::Locator.new(buffer: buffer, dirs: dirs, decls: decls)
             last, nodes = locator.find2(line: line, column: column)
             case nodes[0]
             when RBS::AST::Declarations::Class, RBS::AST::Declarations::Module
@@ -222,16 +222,17 @@ module Steep
 
       def constant_definition_in_rbs(name, locations:)
         type_check.signature_services.each_value do |signature|
-          env = signature.latest_env
+          env = signature.latest_env #: RBS::Environment
 
-          if entry = env.class_decls[name]
+          case entry = env.constant_entry(name)
+          when RBS::Environment::ConstantEntry
+            locations << entry.decl.location&.[](:name)
+          when RBS::Environment::ClassEntry, RBS::Environment::ModuleEntry
             entry.decls.each do |d|
-              locations << d.decl.location[:name]
+              locations << d.decl.location&.[](:name)
             end
-          end
-
-          if entry = env.constant_decls[name]
-            locations << entry.decl.location[:name]
+          when RBS::Environment::ClassAliasEntry, RBS::Environment::ModuleAliasEntry
+            locations << entry.decl.location&.[](:new_name)
           end
         end
 

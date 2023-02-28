@@ -1,9 +1,9 @@
 module Steep
   class Project
     class Target
-      attr_reader name: untyped
+      attr_reader name: Symbol
 
-      attr_reader options: untyped
+      attr_reader options: Options
 
       attr_reader source_pattern: Pattern
 
@@ -11,15 +11,15 @@ module Steep
 
       attr_reader code_diagnostics_config: untyped
 
-      def initialize: (name: untyped, options: untyped, source_pattern: untyped, signature_pattern: untyped, code_diagnostics_config: untyped) -> void
+      def initialize: (name: Symbol, options: Options, source_pattern: Pattern, signature_pattern: Pattern, code_diagnostics_config: untyped) -> void
 
-      def possible_source_file?: (untyped path) -> untyped
+      def possible_source_file?: (Pathname path) -> bool
 
-      def possible_signature_file?: (untyped path) -> untyped
+      def possible_signature_file?: (Pathname path) -> bool
 
-      def new_env_loader: (project: untyped) -> untyped
+      def new_env_loader: (project: Project) -> RBS::EnvironmentLoader
 
-      def self.construct_env_loader: (options: untyped, project: untyped) -> untyped
+      def self.construct_env_loader: (options: Options, project: Project) -> RBS::EnvironmentLoader
     end
   end
 end

@@ -20,16 +20,19 @@ module Steep
       attr_reader :source
       attr_reader :location
 
-      def initialize(source:, location:, exn: nil)
+      def initialize(source:, location:, exn: nil, message: nil)
         @source = source
         @location = location
 
-        message = case exn
-                  when RBS::ParsingError
-                    Diagnostic::Signature::SyntaxError.parser_syntax_error_message(exn)
-                  when Exception
-                    exn.message
-                  end
+        if exn
+          message =
+            case exn
+            when RBS::ParsingError
+              Diagnostic::Signature::SyntaxError.parser_syntax_error_message(exn)
+            else
+              exn.message
+            end
+        end
 
         super message
       end
@@ -41,8 +44,25 @@ module Steep
     PARAM = /[A-Z][A-Za-z0-9_]*/
     TYPE_PARAMS = /(\[(?<params>#{PARAM}(,\s*#{PARAM})*)\])?/
 
-    def parse_type(string)
-      factory.type(RBS::Parser.parse_type(string))
+    def parse_type(match, name = :type, location:)
+      string = match[name] or raise
+      st, en = match.offset(name)
+      st or raise
+      en or raise
+      loc = RBS::Location.new(location.buffer, location.start_pos + st, location.start_pos + en)
+
+      type =
+        begin
+          RBS::Parser.parse_type(string)
+        rescue RBS::ParsingError => exn
+          raise SyntaxError.new(source: string, location: loc, exn: exn)
+        end or raise
+
+      unless (type.location || raise).source == string.strip
+        raise SyntaxError.new(source: string, location: loc, message: "Failed to parse a type in annotation")
+      end
+
+      factory.type(type)
     end
 
     def keyword_subject_type(keyword, name)
@@ -59,10 +79,9 @@ module Steep
         Regexp.last_match.yield_self do |match|
           match or raise
           name = match[:name] or raise
-          type = match[:type] or raise
 
           AST::Annotation::VarType.new(name: name.to_sym,
-                                       type: parse_type(type),
+                                       type: parse_type(match, location: location),
                                        location: location)
         end
 
@@ -72,7 +91,7 @@ module Steep
           name = match[:name] or raise
           type = match[:type] or raise
 
-          method_type = factory.method_type(RBS::Parser.parse_method_type(type), method_decls: Set[])
+          method_type = factory.method_type(RBS::Parser.parse_method_type(type) || raise, method_decls: Set[])
 
           AST::Annotation::MethodType.new(name: name.to_sym,
                                           type: method_type,
@@ -83,7 +102,7 @@ module Steep
         Regexp.last_match.yield_self do |match|
           match or raise
           name = match[:name] or raise
-          type = parse_type(match[:type] || raise)
+          type = parse_type(match, location: location)
 
           AST::Annotation::ConstType.new(name: TypeName(name), type: type, location: location)
         end
@@ -92,7 +111,7 @@ module Steep
         Regexp.last_match.yield_self do |match|
           match or raise
           name = match[:name] or raise
-          type = parse_type(match[:type] || raise)
+          type = parse_type(match, location: location)
 
           AST::Annotation::IvarType.new(name: name.to_sym,
                                          type: type,
@@ -102,42 +121,43 @@ module Steep
       when keyword_and_type("return")
         Regexp.last_match.yield_self do |match|
           match or raise
-          type = parse_type(match[:type] || raise)
+          type = parse_type(match, location: location)
           AST::Annotation::ReturnType.new(type: type, location: location)
         end
 
       when keyword_and_type("block")
         Regexp.last_match.yield_self do |match|
           match or raise
-          type = parse_type(match[:type] || raise)
+          type = parse_type(match, location: location)
           AST::Annotation::BlockType.new(type: type, location: location)
         end
 
       when keyword_and_type("self")
         Regexp.last_match.yield_self do |match|
           match or raise
-          type = parse_type(match[:type] || raise)
+          type = parse_type(match, location: location)
           AST::Annotation::SelfType.new(type: type, location: location)
         end
 
       when keyword_and_type("instance")
         Regexp.last_match.yield_self do |match|
           match or raise
-          type = parse_type(match[:type] || raise)
+          type = parse_type(match, location: location)
           AST::Annotation::InstanceType.new(type: type, location: location)
         end
 
       when keyword_and_type("module")
         Regexp.last_match.yield_self do |match|
           match or raise
-          type = parse_type(match[:type] || raise)
+          type = parse_type(match, location: location)
           AST::Annotation::ModuleType.new(type: type, location: location)
         end
 
       when keyword_and_type("break")
         Regexp.last_match.yield_self do |match|
           match or raise
-          type = parse_type(match[:type] || raise)
+          type = parse_type(match, location: location)
+
           AST::Annotation::BreakType.new(type: type, location: location)
         end
 

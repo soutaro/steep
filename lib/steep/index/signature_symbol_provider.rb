@@ -84,7 +84,7 @@ module Steep
                     kind: LSP::Constant::SymbolKind::INTERFACE,
                     container_name: container_name
                   )
-                when RBS::AST::Declarations::Alias
+                when RBS::AST::Declarations::TypeAlias
                   symbols << SymbolInformation.new(
                     name: name,
                     location: decl.location,

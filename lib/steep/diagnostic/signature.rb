@@ -381,6 +381,42 @@ module Steep
         end
       end
 
+      class InconsistentClassModuleAliasError < Base
+        attr_reader :decl
+
+        def initialize(decl:)
+          @decl = decl
+          super(location: decl.location&.[](:old_name))
+        end
+
+        def header_line
+          expected_kind =
+            case decl
+            when RBS::AST::Declarations::ModuleAlias
+              "module"
+            when RBS::AST::Declarations::ClassAlias
+              "class"
+            else
+              raise
+            end
+
+          "A #{expected_kind} `#{decl.new_name}` cannot be an alias of `#{decl.old_name}`"
+        end
+      end
+
+      class CyclicClassAliasDefinitionError < Base
+        attr_reader :decl
+
+        def initialize(decl:)
+          @decl = decl
+          super(location: decl.location&.[](:new_name))
+        end
+
+        def header_line
+          "#{decl.new_name} is a cyclic definition"
+        end
+      end
+
       def self.from_rbs_error(error, factory:)
         case error
         when RBS::ParsingError
@@ -475,6 +511,10 @@ module Steep
           )
         when RBS::InheritModuleError
           Diagnostic::Signature::InheritModuleError.new(error.super_decl)
+        when RBS::InconsistentClassModuleAliasError
+          Diagnostic::Signature::InconsistentClassModuleAliasError.new(decl: error.alias_entry.decl)
+        when RBS::CyclicClassAliasDefinitionError
+          Diagnostic::Signature::CyclicClassAliasDefinitionError.new(decl: error.alias_entry.decl)
         else
           raise error
         end

@@ -10,3 +10,13 @@ class Conference
 end
 
 Conference.new()
+
+
+Konference
+
+Konference.new()
+
+
+# @type var foo: Konference
+
+foo = Conference.new

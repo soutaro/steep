@@ -128,7 +128,7 @@ module Steep
               )
             when (targets = project.targets_for_path(job.path)).is_a?(Array)
               target = targets[0] or return
-              sig_service = service.signature_services[target.name]
+              sig_service = service.signature_services[target.name] #: Services::SignatureService
               relative_path = job.path
               buffer = RBS::Buffer.new(name: relative_path, content: sig_service.files[relative_path].content)
               pos = buffer.loc_to_pos([job.line, job.column])
@@ -139,10 +139,12 @@ module Steep
                 return
               end
 
-              decls = sig_service.files[relative_path].decls
-              locator = RBS::Locator.new(decls: decls)
+              sig = sig_service.files[relative_path].signature
+              sig.is_a?(Array) or raise
+              decls = sig[2]
+              locator = RBS::Locator.new(buffer: sig[0], dirs: sig[1], decls: decls)
 
-              _hd, tail = locator.find2(line: job.line, column: job.column)
+              (_hd, tail = locator.find2(line: job.line, column: job.column)) or return []
 
               namespace = []
               tail.each do |t|
@@ -160,11 +162,12 @@ module Steep
 
               context.map!(&:absolute!)
 
-              class_items = sig_service.latest_env.class_decls.keys.map { |type_name|
+              class_names = sig_service.latest_env.class_decls.keys + sig_service.latest_env.class_alias_decls.keys
+              class_items = class_names.map { |type_name|
                 format_completion_item_for_rbs(sig_service, type_name, context, job, prefix)
               }.compact
 
-              alias_items = sig_service.latest_env.alias_decls.keys.map { |type_name|
+              alias_items = sig_service.latest_env.type_alias_decls.keys.map { |type_name|
                 format_completion_item_for_rbs(sig_service, type_name, context, job, prefix)
               }.compact
 
@@ -201,21 +204,35 @@ module Steep
 
         case type_name.kind
         when :class
-          class_decl = sig_service.latest_env.class_decls[type_name]&.decls[0]&.decl or raise
+          env = sig_service.latest_env #: RBS::Environment
+          class_entry = env.module_class_entry(type_name) or raise
 
-          LanguageServer::Protocol::Interface::CompletionItem.new(
-            label: "#{name}",
-            documentation:  format_comment(class_decl.comment),
-            text_edit: LanguageServer::Protocol::Interface::TextEdit.new(
-              range: range,
-              new_text: name
-            ),
-            kind: LSP::Constant::CompletionItemKind::CLASS,
-            insert_text_format: LSP::Constant::InsertTextFormat::SNIPPET
-
-          )
+          case class_entry
+          when RBS::Environment::ClassEntry, RBS::Environment::ModuleEntry
+            LanguageServer::Protocol::Interface::CompletionItem.new(
+              label: "#{name}",
+              documentation:  format_comment(class_entry.primary.decl.comment),
+              text_edit: LanguageServer::Protocol::Interface::TextEdit.new(
+                range: range,
+                new_text: name
+              ),
+              kind: LSP::Constant::CompletionItemKind::CLASS,
+              insert_text_format: LSP::Constant::InsertTextFormat::SNIPPET
+            )
+          when RBS::Environment::ClassAliasEntry, RBS::Environment::ModuleAliasEntry
+            LanguageServer::Protocol::Interface::CompletionItem.new(
+              label: "#{name}",
+              documentation:  format_comment(class_entry.decl.comment),
+              text_edit: LanguageServer::Protocol::Interface::TextEdit.new(
+                range: range,
+                new_text: name
+              ),
+              kind: LSP::Constant::CompletionItemKind::CLASS,
+              insert_text_format: LSP::Constant::InsertTextFormat::SNIPPET
+            )
+          end
         when :alias
-          alias_decl = sig_service.latest_env.alias_decls[type_name]&.decl or raise
+          alias_decl = sig_service.latest_env.type_alias_decls[type_name]&.decl or raise
           LanguageServer::Protocol::Interface::CompletionItem.new(
             label: "#{name}",
             text_edit: LanguageServer::Protocol::Interface::TextEdit.new(

@@ -20,6 +20,10 @@ module Steep
           def level
             [0]
           end
+
+          def map_type(&block)
+            self
+          end
         end
 
         class Applying < Base
@@ -86,6 +90,12 @@ module Steep
 
           def level
             [0] + level_of_children(args)
+          end
+
+          def map_type(&block)
+            args = self.args.map(&block)
+
+            _ = self.class.new(name: self.name, args: self.args, location: self.location)
           end
         end
 

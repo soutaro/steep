@@ -80,7 +80,7 @@ module Steep
 
     def with_method_constr: (untyped method_name, untyped node, args: untyped, self_type: untyped, definition: untyped) { (untyped) -> untyped } -> untyped
 
-    def implement_module: (module_name: untyped, annotations: untyped, ?super_name: untyped?) -> untyped
+    def implement_module: (module_name: RBS::TypeName, annotations: AST::Annotation::Collection, ?super_name: RBS::TypeName?) -> AST::Annotation::Implements::Module?
 
     def default_module_context: (untyped implement_module_name, nesting: untyped) -> untyped
 

@@ -26,7 +26,7 @@ module Steep
 
         attr_reader module_type_annotation: untyped
 
-        attr_reader implement_module_annotation: untyped
+        attr_reader implement_module_annotation: Implements?
 
         attr_reader dynamic_annotations: untyped
 

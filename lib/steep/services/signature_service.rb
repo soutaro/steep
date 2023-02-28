@@ -75,7 +75,7 @@ module Steep
         end
       end
 
-      FileStatus = _ = Struct.new(:path, :content, :decls, keyword_init: true)
+      FileStatus = _ = Struct.new(:path, :content, :signature, keyword_init: true)
 
       def initialize(env:)
         builder = RBS::DefinitionBuilder.new(env: env)
@@ -150,7 +150,7 @@ module Steep
       def apply_changes(files, changes)
         Steep.logger.tagged "#apply_changes" do
           Steep.measure2 "Applying change" do |sampler|
-            changes.each.with_object({}) do |pair, update|
+            changes.each.with_object({}) do |pair, update|  # $ Hash[Pathname, FileStatus]
               path, cs = pair
               sampler.sample "#{path}" do
                 old_text = files[path]&.content
@@ -158,17 +158,18 @@ module Steep
 
                 buffer = RBS::Buffer.new(name: path, content: content)
 
-                update[path] = begin
-                                 FileStatus.new(path: path, content: content, decls: RBS::Parser.parse_signature(buffer))
-                               rescue ArgumentError => exn
-                                 error = Diagnostic::Signature::UnexpectedError.new(
-                                   message: exn.message,
-                                   location: RBS::Location.new(buffer: buffer, start_pos: 0, end_pos: content.size)
-                                 )
-                                 FileStatus.new(path: path, content: content, decls: error)
-                               rescue RBS::ParsingError => exn
-                                 FileStatus.new(path: path, content: content, decls: exn)
-                               end
+                update[path] =
+                  begin
+                    FileStatus.new(path: path, content: content, signature: RBS::Parser.parse_signature(buffer))
+                  rescue ArgumentError => exn
+                    error = Diagnostic::Signature::UnexpectedError.new(
+                      message: exn.message,
+                      location: RBS::Location.new(buffer: buffer, start_pos: 0, end_pos: content.size)
+                    )
+                    FileStatus.new(path: path, content: content, signature: error)
+                  rescue RBS::ParsingError => exn
+                    FileStatus.new(path: path, content: content, signature: exn)
+                  end
               end
             end
           end
@@ -181,16 +182,16 @@ module Steep
           paths = Set.new(updates.each_key)
           paths.merge(pending_changed_paths)
 
-          if updates.each_value.any? {|file| !file.decls.is_a?(Array) }
-            diagnostics = []
+          if updates.each_value.any? {|file| !file.signature.is_a?(Array) }
+            diagnostics = [] #: Array[Diagnostic::Signature::Base]
 
             updates.each_value do |file|
-              unless file.decls.is_a?(Array)
-                diagnostic = if file.decls.is_a?(Diagnostic::Signature::Base)
-                               file.decls
+              unless file.signature.is_a?(Array)
+                diagnostic = if file.signature.is_a?(Diagnostic::Signature::Base)
+                               file.signature
                              else
                                # factory is not used here because the error is a syntax error.
-                               Diagnostic::Signature.from_rbs_error(file.decls, factory: _ = nil)
+                               Diagnostic::Signature.from_rbs_error(file.signature, factory: _ = nil)
                              end
                 diagnostics << diagnostic
               end
@@ -204,9 +205,7 @@ module Steep
             )
           else
             files = self.files.merge(updates)
-            updated_files = paths.each_with_object({}) do |path, hash|
-              hash[path] = files[path]
-            end
+            updated_files = files.slice(*paths.to_a)
             result =
               Steep.measure "#update_env with updated #{paths.size} files" do
                 update_env(updated_files, paths: paths)
@@ -229,33 +228,29 @@ module Steep
       end
 
       def update_env(updated_files, paths:)
+
         Steep.logger.tagged "#update_env" do
-          # @type var errors: Array[RBS::BaseError]
-          errors = []
-          new_decls = Set[].compare_by_identity
+          errors = [] #: Array[RBS::BaseError]
+          new_decls = Set[].compare_by_identity #: Set[RBS::AST::Declarations::t]
 
           env =
             Steep.measure "Deleting out of date decls" do
-              latest_env.reject do |decl|
-                if decl.location
-                  paths.include?(decl.location.buffer.name)
-                end
-              end
+              bufs = latest_env.buffers.select {|buf| paths.include?(buf.name) }
+              latest_env.unload(Set.new(bufs))
             end
 
           Steep.measure "Loading new decls" do
             updated_files.each_value do |content|
-              case decls = content.decls
-              when RBS::BaseError
-                errors << decls
+              case content.signature
+              when RBS::ParsingError
+                errors << content.signature
               when Diagnostic::Signature::UnexpectedError
-                return [decls]
+                return [content.signature]
               else
                 begin
-                  decls.each do |decl|
-                    env << decl
-                    new_decls << decl
-                  end
+                  buffer, dirs, decls = content.signature
+                  env.add_signature(buffer: buffer, directives: dirs, decls: decls)
+                  new_decls.merge(decls)
                 rescue RBS::LoadingError => exn
                   errors << exn
                 end
@@ -375,8 +370,10 @@ module Steep
               type_name_from_decl(member, set: set)
             end
           end
-        when RBS::AST::Declarations::Alias
+        when RBS::AST::Declarations::TypeAlias
           set << decl.name
+        when RBS::AST::Declarations::ClassAlias, RBS::AST::Declarations::ModuleAlias
+          set << decl.new_name
         end
       end
 

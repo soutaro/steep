@@ -56,4 +56,15 @@ module A::String end
       assert_equal TypeName("::String"), env.toplevel(:String)[1]
     end
   end
+
+  def test_module_alias
+    with_constant_env({ "foo.rbs" => <<-EOS }, context: [nil, TypeName("::A")]) do |env|
+module A end
+module B = A
+    EOS
+      assert_equal TypeName("::A"), env.resolve(:A)[1]
+      assert_equal TypeName("::B"), env.toplevel(:B)[1]
+    end
+  end
+
 end

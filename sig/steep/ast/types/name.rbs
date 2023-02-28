@@ -16,6 +16,8 @@ module Steep
           def subst: (Steep::Interface::Substitution s) -> self
 
           def level: () -> Array[Integer]
+
+          def map_type: () { (t) -> t } -> self
         end
 
         class Applying < Base
@@ -45,6 +47,8 @@ module Steep
           include Helper::ChildrenLevel
 
           def level: () -> Array[Integer]
+
+          def map_type: () { (t) -> t } -> self
         end
 
         class Singleton < Base

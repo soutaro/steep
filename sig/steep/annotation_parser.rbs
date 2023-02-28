@@ -19,7 +19,8 @@ module Steep
 
       attr_reader location: RBS::Location[untyped, untyped]
 
-      def initialize: (source: String, location: RBS::Location[untyped, untyped], ?exn: Exception?) -> void
+      def initialize: (source: String, location: RBS::Location[untyped, untyped], exn: Exception) -> void
+                    | (source: String, location: RBS::Location[untyped, untyped], message: String) -> void
     end
 
     TYPE: Regexp
@@ -30,7 +31,7 @@ module Steep
 
     TYPE_PARAMS: Regexp
 
-    def parse_type: (String) -> AST::Types::t
+    def parse_type: (MatchData, ?Symbol, location: RBS::Location[untyped, untyped]) -> AST::Types::t
 
     # ```
     # @type ${keyword} ${name}: ${type}

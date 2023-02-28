@@ -9,7 +9,7 @@ module Steep
 
       @errors: Array[Diagnostic::Signature::Base]
 
-      @type_name_resolver: RBS::TypeNameResolver?
+      @type_name_resolver: RBS::Resolver::TypeNameResolver?
 
       @validator: RBS::Validator?
 
@@ -26,7 +26,7 @@ module Steep
 
       def builder: () -> RBS::DefinitionBuilder
 
-      def type_name_resolver: () -> RBS::TypeNameResolver
+      def type_name_resolver: () -> RBS::Resolver::TypeNameResolver
 
       def validator: () -> RBS::Validator
 
@@ -60,13 +60,17 @@ module Steep
 
       def validate_const: () -> void
 
-      def validate_one_constant: (RBS::TypeName name, RBS::Environment::SingleEntry[RBS::TypeName, RBS::AST::Declarations::Constant] entry) -> void
+      def validate_one_constant: (RBS::TypeName name, RBS::Environment::ConstantEntry entry) -> void
 
       def validate_global: () -> void
 
-      def validate_one_global: (Symbol name, RBS::Environment::SingleEntry[Symbol, RBS::AST::Declarations::Global]) -> void
+      def validate_one_global: (Symbol name, RBS::Environment::GlobalEntry) -> void
 
-      def validate_one_alias: (RBS::TypeName name, ?RBS::Environment::SingleEntry[RBS::TypeName, RBS::AST::Declarations::Alias] entry) -> void
+      def validate_one_alias: (RBS::TypeName name, ?RBS::Environment::TypeAliasEntry entry) -> void
+
+      def validate_one_class_decl: (RBS::TypeName) -> void
+                                 
+      def validate_one_class_alias: (RBS::TypeName, RBS::Environment::ClassAliasEntry | RBS::Environment::ModuleAliasEntry) -> void
 
       def validate_alias: () -> void
 

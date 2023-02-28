@@ -1,5 +1,12 @@
 module Steep
   module Services
+    # SignatureService takes care of two sets of RBS files.
+    #
+    # 1. RBS files loaded from `EnvironmentLoader` -- usually type signatures of libraries
+    # 2. RBS files managed in editors -- usually type signatures of the development target (app or gem)
+    #
+    # The files in #2 are managed throuth `#status` and the changes are tracked.
+    #
     class SignatureService
       type status = SyntaxErrorStatus | AncestorErrorStatus | LoadedStatus
 
@@ -65,17 +72,25 @@ module Steep
         def constant_resolver: () -> RBS::Resolver::ConstantResolver
       end
 
+      # A file has one of the three states:
+      #
+      # 1. The parsing succeeded and loaded a list of declarations
+      # 2. The content has a syntax error and parsing failed
+      # 3. Other unexpected error
+      #
       class FileStatus
         attr_reader path: Pathname
 
         attr_reader content: String
 
-        attr_reader decls: Array[RBS::AST::Declarations::t] | Diagnostic::Signature::UnexpectedError | RBS::ParsingError
+        type signature = [RBS::Buffer, Array[RBS::AST::Directives::t], Array[RBS::AST::Declarations::t]]
+
+        attr_reader signature: signature | Diagnostic::Signature::UnexpectedError | RBS::ParsingError
 
         def initialize: (
           path: Pathname,
           content: String,
-          decls: Array[RBS::AST::Declarations::t] | Diagnostic::Signature::UnexpectedError | RBS::ParsingError
+          signature: signature | Diagnostic::Signature::UnexpectedError | RBS::ParsingError
         ) -> void
       end
 
@@ -85,11 +100,17 @@ module Steep
 
       @env_rbs_paths: Set[Pathname]?
 
+      # All RBS paths in environment, both dependency RBS and target RBS
+      #
       def env_rbs_paths: () -> Set[Pathname]
 
+      # Yield all RBS paths in the environment, both dependency RBS and target RBS
+      #
       def each_rbs_path: () { (Pathname) -> void } -> void
                        | () -> Enumerator[Pathname, void]
 
+      # The Target files
+      #
       def files: () -> Hash[Pathname, FileStatus]
 
       def pending_changed_paths: () -> Set[Pathname]
@@ -106,10 +127,13 @@ module Steep
 
       def apply_changes: (Hash[Pathname, FileStatus] files, Server::ChangeBuffer::changes changes) -> Hash[Pathname, FileStatus]
 
+      # The entry point to apply the edit to the signatures
+      #
       def update: (Server::ChangeBuffer::changes changes) -> void
 
       def update_env: (
-        Hash[Pathname, FileStatus] updated_files, paths: Set[Pathname]
+        Hash[Pathname, FileStatus] updated_files,
+        paths: Set[Pathname]
       ) -> (RBS::DefinitionBuilder::AncestorBuilder | Array[Diagnostic::Signature::Base])
 
       def rescue_rbs_error: (Array[RBS::BaseError] errors) { () -> void } -> void
