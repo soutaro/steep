@@ -10,6 +10,7 @@ target :app do
     hash[D::Ruby::MethodDefinitionMissing] = :hint
   end
 
+  FileUtils.mkpath("tmp")
   tmp_rbs_dir = File.join("tmp", "rbs-sig")
 
   definition = Bundler::Definition.build(Pathname("Gemfile"), Pathname("Gemfile.lock"), nil)
