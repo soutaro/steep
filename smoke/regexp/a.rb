@@ -1,7 +1,7 @@
 new_1 = Regexp.new("a")
 new_1.foo
 
-new_2 = Regexp.new("a", true)
+new_2 = Regexp.new("a", nil)
 new_2.foo
 
 new_3 = Regexp.new("a", Regexp::EXTENDED | Regexp::IGNORECASE)
@@ -13,7 +13,7 @@ new_4.foo
 compile_1 = Regexp.compile("a")
 compile_1.foo
 
-compile_2 = Regexp.compile("a", true)
+compile_2 = Regexp.compile("a", false)
 compile_2.foo
 
 compile_3 = Regexp.compile("a", Regexp::EXTENDED | Regexp::IGNORECASE)
