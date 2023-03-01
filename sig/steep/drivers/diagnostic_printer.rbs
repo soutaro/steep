@@ -1,7 +1,7 @@
 module Steep
   module Drivers
     class DiagnosticPrinter
-      LSP: untyped
+      module LSP = LanguageServer::Protocol
 
       attr_reader stdout: untyped
 

@@ -1,7 +1,7 @@
 module Steep
   module Index
     class SignatureSymbolProvider
-      LSP: untyped
+      module LSP = LanguageServer::Protocol
 
       SymbolInformation: untyped
 

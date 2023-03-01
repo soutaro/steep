@@ -1,7 +1,7 @@
 module Steep
   module Server
     class Master
-      LSP: singleton(LanguageServer::Protocol)
+      module LSP = LanguageServer::Protocol
 
       class TypeCheckRequest
         attr_reader guid: String

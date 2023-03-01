@@ -30,11 +30,11 @@ module Steep
         client_read, server_write = IO.pipe
         server_read, client_write = IO.pipe
 
-        client_reader = LanguageServer::Protocol::Transport::Io::Reader.new(client_read)
-        client_writer = LanguageServer::Protocol::Transport::Io::Writer.new(client_write)
+        client_reader = LSP::Transport::Io::Reader.new(client_read)
+        client_writer = LSP::Transport::Io::Writer.new(client_write)
 
-        server_reader = LanguageServer::Protocol::Transport::Io::Reader.new(server_read)
-        server_writer = LanguageServer::Protocol::Transport::Io::Writer.new(server_write)
+        server_reader = LSP::Transport::Io::Reader.new(server_read)
+        server_writer = LSP::Transport::Io::Writer.new(server_write)
 
         typecheck_workers = Server::WorkerProcess.start_typecheck_workers(
           steepfile: project.steepfile_path,
