@@ -1,3 +1,5 @@
+use Steep::Services::*, LanguageServer::Protocol as LSP
+
 module Steep
   module Server
     # TypeCheckWorker provides two features:
@@ -15,9 +17,9 @@ module Steep
     class TypeCheckWorker < BaseWorker
       attr_reader project: Project
 
-      attr_reader assignment: Services::PathAssignment
+      attr_reader assignment: PathAssignment
 
-      attr_reader service: Services::TypeCheckService
+      attr_reader service: TypeCheckService
 
       attr_reader commandline_args: Array[String]
 
@@ -95,9 +97,9 @@ module Steep
 
       def initialize: (
         project: Project,
-        reader: LanguageServer::Protocol::Transport::Io::Reader,
-        writer: LanguageServer::Protocol::Transport::Io::Writer,
-        assignment: Services::PathAssignment,
+        reader: LSP::Transport::Io::Reader,
+        writer: LSP::Transport::Io::Writer,
+        assignment: PathAssignment,
         commandline_args: Array[String]
       ) -> void
 
