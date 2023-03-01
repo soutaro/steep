@@ -1,3 +1,5 @@
+use RBS::TypeName
+
 module Steep
   module Interface
     class Builder
@@ -85,11 +87,11 @@ module Steep
       attr_reader cache: Hash[cache_key, Shape?]
 
       # No type application (if generic), no self-instance-module resolution
-      attr_reader raw_instance_object_shape_cache: Hash[[RBS::TypeName, bool], Shape]
+      attr_reader raw_instance_object_shape_cache: Hash[[TypeName, bool], Shape]
 
-      attr_reader raw_singleton_object_shape_cache: Hash[[RBS::TypeName, bool], Shape]
+      attr_reader raw_singleton_object_shape_cache: Hash[[TypeName, bool], Shape]
 
-      attr_reader raw_interface_object_shape_cache: Hash[[RBS::TypeName, bool], Shape]
+      attr_reader raw_interface_object_shape_cache: Hash[[TypeName, bool], Shape]
 
       def initialize: (AST::Types::Factory) -> void
 
