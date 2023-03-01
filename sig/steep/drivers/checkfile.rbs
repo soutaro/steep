@@ -1,7 +1,7 @@
 module Steep
   module Drivers
     class Checkfile
-      LSP: singleton(LanguageServer::Protocol)
+      module LSP = LanguageServer::Protocol
 
       attr_reader stdout: IO
 

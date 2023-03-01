@@ -9,7 +9,7 @@ module Steep
 
       CompletionJob: untyped
 
-      LSP: untyped
+      module LSP = LanguageServer::Protocol
 
       attr_reader service: untyped
 

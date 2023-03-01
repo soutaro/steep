@@ -9,7 +9,7 @@ module Steep
         def close: () -> void
       end
 
-      LSP: untyped
+      module LSP = LanguageServer::Protocol
 
       @skip_jobs_after_shutdown: bool
 

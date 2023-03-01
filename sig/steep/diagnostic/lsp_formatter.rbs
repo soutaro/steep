@@ -1,7 +1,7 @@
 module Steep
   module Diagnostic
     class LSPFormatter
-      LSP: singleton(LanguageServer::Protocol)
+      module LSP = LanguageServer::Protocol
 
       type config = Hash[singleton(Diagnostic::Ruby::Base) | singleton(Diagnostic::Signature::Base), severity?]
 
