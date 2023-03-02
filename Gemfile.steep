@@ -1,4 +1,4 @@
 source "https://rubygems.org"
 
-gem 'steep', '~> 1.4.0.dev'
-gem "rbs"
+gem 'steep', '~> 1.4.0.dev', require: false
+gem "rbs", path: "../rbs"
