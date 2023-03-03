@@ -201,13 +201,19 @@ Generally, these are by our design.
 
 `rbs prototype` offers options: `rbi` to generate prototype from Sorbet RBI and `runtime` to generate from runtime API.
 
+## Guides
+
+There are some guides in the `guide` directory. I know we need more comprehensive set of documentations. Just started writing docs.
+
+* [Guides](guides)
+
 ## Examples
 
 You can find examples in `smoke` directory.
 
 ## IDEs
 
-Steep implements some of the Language Server Protocol features. 
+Steep implements some of the Language Server Protocol features.
 - For **VSCode** please install [the plugin](https://github.com/soutaro/steep-vscode)
 - For **SublimeText** please install [LSP](https://github.com/sublimelsp/LSP) package and follow [instructions](https://lsp.sublimetext.io/language_servers/#steep)
 
