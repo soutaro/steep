@@ -77,7 +77,7 @@ DEPENDENCIES
   minitest-hooks
   minitest-slow_test
   rake
-  rbs (~> 3.0.0)
+  rbs (~> 3.0.2)
   ruby-debug-ide
   stackprof
   steep!
