@@ -6,7 +6,7 @@ gemspec
 gem "rbs", "~> 3.0.0"
 
 gem "rake"
-gem "minitest", "~> 5.17"
+gem "minitest", "~> 5.18"
 gem "minitest-hooks"
 group :stackprof, optional: true do
   gem "stackprof"
