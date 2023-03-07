@@ -3,7 +3,7 @@ source 'https://rubygems.org'
 # Specify your gem's dependencies in steep.gemspec
 gemspec
 
-gem "rbs", "~> 3.0.0"
+gem "rbs", "~> 3.0.3"
 
 gem "rake"
 gem "minitest", "~> 5.17"
