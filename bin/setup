@@ -6,4 +6,4 @@ set -vx
 bundle install
 
 bundle install --gemfile=Gemfile.steep
-bundle exec --gemfile=Gemfile.steep rbs --collection=rbs_collection.steep.yaml collection install
+bin/rbs collection install

@@ -11,10 +11,10 @@ jobs:
     strategy:
       matrix:
         container_tag:
-        - "2.6"
         - "2.7"
         - "3.0"
         - "3.1"
+        - "3.2"
         - "master-nightly-focal"
         task:
         - test
@@ -25,10 +25,6 @@ jobs:
       image: rubylang/ruby:${{ matrix.container_tag }}
     steps:
     - uses: actions/checkout@v3
-    - name: Reset bundler
-      run: |
-        rm Gemfile.lock Gemfile.steep.lock
-      if: contains(matrix.container_tag, '2.6')
     - name: Run test
       run: |
         git config --global --add safe.directory /__w/steep/steep
