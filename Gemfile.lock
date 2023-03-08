@@ -13,7 +13,7 @@ PATH
       parser (>= 3.1)
       pathname (>= 0.2.1)
       rainbow (>= 2.2.2, < 4.0)
-      rbs (>= 2.8.0)
+      rbs (~> 2.8.0)
       securerandom (>= 0.1)
       strscan (>= 1.0.0)
       terminal-table (>= 2, < 4)
