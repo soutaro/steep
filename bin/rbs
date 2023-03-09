@@ -18,4 +18,3 @@ else
 fi
 
 exec $RBS $@
-

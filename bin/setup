@@ -4,8 +4,6 @@ IFS=$'\n\t'
 set -vx
 
 bundle install
-bundle exec rbs
 
 bundle install --gemfile=Gemfile.steep
-bundle exec --gemfile=Gemfile.steep rbs
 bin/rbs collection install
