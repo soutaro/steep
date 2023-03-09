@@ -15,7 +15,7 @@ module Steep
 
       include Utils::DriverHelper
 
-      LSP: singleton(LanguageServer::Protocol)
+      module LSP = LanguageServer::Protocol
 
       def initialize: (stdout: IO, stderr: IO) -> void
 

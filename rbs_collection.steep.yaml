@@ -9,14 +9,15 @@ sources:
 path: .gem_rbs_collection
 
 gems:
-  # Skip loading rbs gem's RBS.
-  # It's unnecessary if you don't use rbs as a library.
-  - name: steep
-    ignore: true
-  - name: set
-  - name: rbs
-    ignore: true
   - name: with_steep_types
     ignore: true
-  - name: dbm
-  - name: optparse
+  - name: activesupport
+  - name: rainbow
+  - name: listen
+  - name: json
+  - name: logger
+  - name: fileutils
+  - name: strscan
+  - name: csv
+  - name: pathname
+  - name: securerandom

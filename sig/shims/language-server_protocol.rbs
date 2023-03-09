@@ -16,5 +16,17 @@ module LanguageServer
         end
       end
     end
+
+    module Constant
+      module DiagnosticSeverity
+        ERROR: String
+
+        WARNING: String
+
+        INFORMATION: String
+
+        HINT: String
+      end
+    end
   end
 end

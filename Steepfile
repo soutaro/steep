@@ -27,8 +27,6 @@ target :app do
 
   library(
     "rdoc",
-    "set",
-    "pathname",
     "monitor",
     "tsort",
     "uri",
@@ -39,6 +37,5 @@ target :app do
     'find',
     'digest',
     "optparse",
-    "securerandom"
   )
 end
