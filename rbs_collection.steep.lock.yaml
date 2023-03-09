@@ -15,14 +15,6 @@ gems:
     revision: c42c09528dd99252db98f0744181a6de54ec2f55
     remote: https://github.com/ruby/gem_rbs_collection.git
     repo_dir: gems
-- name: ast
-  version: '2.4'
-  source:
-    type: git
-    name: ruby/gem_rbs_collection
-    revision: c42c09528dd99252db98f0744181a6de54ec2f55
-    remote: https://github.com/ruby/gem_rbs_collection.git
-    repo_dir: gems
 - name: concurrent-ruby
   version: '1.1'
   source:
@@ -36,10 +28,6 @@ gems:
   source:
     type: stdlib
 - name: date
-  version: '0'
-  source:
-    type: stdlib
-- name: dbm
   version: '0'
   source:
     type: stdlib
@@ -87,18 +75,6 @@ gems:
   version: '0'
   source:
     type: stdlib
-- name: optparse
-  version: '0'
-  source:
-    type: stdlib
-- name: parallel
-  version: '1.20'
-  source:
-    type: git
-    name: ruby/gem_rbs_collection
-    revision: c42c09528dd99252db98f0744181a6de54ec2f55
-    remote: https://github.com/ruby/gem_rbs_collection.git
-    repo_dir: gems
 - name: pathname
   version: '0'
   source:
@@ -112,10 +88,6 @@ gems:
     remote: https://github.com/ruby/gem_rbs_collection.git
     repo_dir: gems
 - name: securerandom
-  version: '0'
-  source:
-    type: stdlib
-- name: set
   version: '0'
   source:
     type: stdlib
