@@ -308,7 +308,13 @@ module Steep
       end
 
       def local_variable_name?(name)
-        name.start_with?(/[a-z_]/) && name != :_ && name != :__skip__ && name != :__any__
+        # Ruby constants start with Uppercase_Letter or Titlecase_Letter in the unicode property.
+        # If name start with `@`, it is instance variable or class instance variable.
+        # If name start with `$`, it is global variable.
+        return false if name.start_with?(/[\p{Uppercase_Letter}\p{Titlecase_Letter}@$]/)
+        return false if TypeConstruction::SPECIAL_LVAR_NAMES.include?(name)
+
+        true
       end
 
       def local_variable_name!(name)
