@@ -11,6 +11,10 @@ module Steep
       end
     end
 
+    def to_pathname!(uri, dosish: Gem.win_platform?)
+      to_pathname(uri, dosish: dosish) or raise "Cannot translate a URI to pathname: #{uri}"
+    end
+
     def to_uri(path, dosish: Gem.win_platform?)
       str_path = path.to_s
       if dosish

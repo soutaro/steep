@@ -6,8 +6,10 @@ module Steep
     #
     def self?.to_pathname: (String uri, ?dosish: bool) -> Pathname?
 
+    def self?.to_pathname!: (String uri, ?dosish: bool) -> Pathname
+
     # Receives a Pathname and returns a *file* URI
-    # 
+    #
     def self?.to_uri: (Pathname path, ?dosish: bool) -> URI::File
   end
 end

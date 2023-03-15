@@ -1,0 +1,4 @@
+class String
+  def start_with?: (Regexp) -> bool
+                 | ...
+end
