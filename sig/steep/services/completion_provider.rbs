@@ -77,6 +77,8 @@ module Steep
         def inherited?: () -> bool
       end
 
+      type item = InstanceVariableItem | LocalVariableItem | ConstantItem | MethodNameItem
+
       attr_reader source_text: String
 
       attr_reader path: Pathname
