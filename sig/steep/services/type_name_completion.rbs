@@ -1,4 +1,4 @@
-use RBS::TypeName, RBS::Namespace, RBS::Environment, RBS::Resolver
+use RBS::TypeName, RBS::Namespace, RBS::Environment, RBS::Resolver, RBS::AST::Directives
 
 module Steep
   module Services
@@ -91,7 +91,9 @@ module Steep
 
       attr_reader type_name_resolver: Resolver::TypeNameResolver
 
-      def initialize: (env: Environment, context: Resolver::context) -> void
+      attr_reader map: Environment::UseMap
+
+      def initialize: (env: Environment, context: Resolver::context, dirs: Array[Directives::t]) -> void
 
       def complete_class_name: (RBS::Buffer input, line: Integer, column: Integer) -> Array[Item]
 
@@ -101,7 +103,12 @@ module Steep
       #
       def find_type_names: (Prefix::t) -> Array[TypeName]
 
-      def relative_name_in_context: (TypeName) -> TypeName
+      # Returns a pair of
+      #
+      # * Absolute type name
+      # * Relative type name in given context if possible (or absolute name)
+      #
+      def resolve_name_in_context: (TypeName) -> [TypeName, TypeName]
 
       def format_constant_name: (TypeName) -> String
 

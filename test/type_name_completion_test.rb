@@ -64,7 +64,7 @@ class TypeNameCompletionTest < Minitest::Test
         end
       RBS
 
-      completion = Services::TypeNameCompletion.new(env: factory.env, context: nil)
+      completion = Services::TypeNameCompletion.new(env: factory.env, context: nil, dirs: [])
 
       # Returns all accessible type names from the context
       assert_equal [TypeName("::Foo")], completion.find_type_names(nil)
@@ -94,12 +94,38 @@ class TypeNameCompletionTest < Minitest::Test
         end
       RBS
 
-      completion = Services::TypeNameCompletion.new(env: factory.env, context: [nil, TypeName("::Foo")])
+      completion = Services::TypeNameCompletion.new(env: factory.env, context: [nil, TypeName("::Foo")], dirs: [])
 
-      assert_equal TypeName("baz"), completion.relative_name_in_context(TypeName("::Foo::baz"))
-      assert_equal TypeName("Bar::baz"), completion.relative_name_in_context(TypeName("::Foo::Bar::baz"))
+      assert_equal [TypeName("::Foo::baz"), TypeName("baz")], completion.resolve_name_in_context(TypeName("::Foo::baz"))
+      assert_equal [TypeName("::Foo::Bar::baz"), TypeName("Bar::baz")], completion.resolve_name_in_context(TypeName("::Foo::Bar::baz"))
 
-      assert_equal TypeName("_Quax"), completion.relative_name_in_context(TypeName("::Foo::_Quax"))
+      assert_equal [TypeName("::Foo::_Quax"), TypeName("_Quax")], completion.resolve_name_in_context(TypeName("::Foo::_Quax"))
+    end
+  end
+
+  def test_use_type_names
+    with_factory({ "a.rbs" => <<~RBS }) do |factory|
+        use Object as Foo, Integer as String
+      RBS
+
+      buf = factory.env.buffers.find {|buf| Pathname(buf.name).basename == Pathname("a.rbs") }
+      dirs = factory.env.signatures[buf][0]
+
+      completion = Services::TypeNameCompletion.new(env: factory.env, context: nil, dirs: dirs)
+
+      assert_operator completion.each_type_name, :include?, TypeName("Foo")
+      assert_operator completion.each_type_name, :include?, TypeName("String")
+      assert_operator completion.each_type_name, :include?, TypeName("::String")
+
+      assert_operator completion.find_type_names(nil), :include?, TypeName("Foo")
+      assert_operator completion.find_type_names(nil), :include?, TypeName("String")
+      assert_operator completion.find_type_names(nil), :include?, TypeName("::String")
+
+      assert_equal [TypeName("Foo")], completion.find_type_names(Services::TypeNameCompletion::Prefix::RawIdentPrefix.new("Foo"))
+
+      assert_equal [TypeName("::Object"), TypeName("Foo")], completion.resolve_name_in_context(TypeName("Foo"))
+      assert_equal [TypeName("::Integer"), TypeName("String")], completion.resolve_name_in_context(TypeName("String"))
+      assert_equal [TypeName("::String"), TypeName("::String")], completion.resolve_name_in_context(TypeName("::String"))
     end
   end
 end

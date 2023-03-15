@@ -131,20 +131,23 @@ module Steep
             when (targets = project.targets_for_path(job.path)).is_a?(Array)
               target = targets[0] or raise
               sig_service = service.signature_services[target.name] or raise
-
               relative_path = job.path
-              buffer = RBS::Buffer.new(name: relative_path, content: sig_service.files[relative_path].content)
 
-              prefix = Services::TypeNameCompletion::Prefix.parse(buffer, line: job.line, column: job.column)
               context = nil #: RBS::Resolver::context
 
               case sig_service.status
               when Steep::Services::SignatureService::SyntaxErrorStatus, Steep::Services::SignatureService::AncestorErrorStatus
-                context = nil
+
+                if buffer = sig_service.latest_env.buffers.find {|buf| Pathname(buf.name) == Pathname(relative_path) }
+                  dirs = sig_service.latest_env.signatures[buffer][0]
+                else
+                  dirs = [] #: Array[RBS::AST::Directives::t]
+                end
               else
                 signature = sig_service.files[relative_path].signature
                 signature.is_a?(Array) or raise
                 buffer, dirs, decls = signature
+
                 locator = RBS::Locator.new(buffer: buffer, dirs: dirs, decls: decls)
 
                 _hd, tail = locator.find2(line: job.line, column: job.column)
@@ -162,22 +165,17 @@ module Steep
                 end
               end
 
-              completion = Services::TypeNameCompletion.new(env: sig_service.latest_env, context: context)
+              buffer = RBS::Buffer.new(name: relative_path, content: sig_service.files[relative_path].content)
+              prefix = Services::TypeNameCompletion::Prefix.parse(buffer, line: job.line, column: job.column)
+
+              completion = Services::TypeNameCompletion.new(env: sig_service.latest_env, context: context, dirs: dirs)
               type_names = completion.find_type_names(prefix)
               prefix_size = prefix ? prefix.size : 0
 
               completion_items = type_names.map {|type_name|
-                relative_name = completion.relative_name_in_context(type_name)
+                absolute_name, relative_name = completion.resolve_name_in_context(type_name)
 
-                Steep.logger.fatal {
-                  {
-                    type_name: type_name.to_s,
-                    relative_name: relative_name.to_s,
-                    context: context
-                  }.inspect
-                }
-
-                format_completion_item_for_rbs(sig_service, type_name, job, relative_name.to_s, prefix_size)
+                format_completion_item_for_rbs(sig_service, absolute_name, job, relative_name.to_s, prefix_size)
               }
 
               ["untyped", "void", "bool", "class", "module", "instance", "nil"].each do |name|
@@ -442,17 +440,6 @@ module Steep
         end
 
         params.join(", ")
-      end
-
-      def relative_name_in_context(type_name, context)
-        context.each do |namespace|
-          if (type_name.to_s == namespace.to_type_name.to_s || type_name.namespace.to_s == "::")
-            return RBS::TypeName.new(namespace: RBS::Namespace.empty, name: type_name.name)
-          elsif type_name.to_s.start_with?(namespace.to_s)
-            return TypeName(type_name.to_s.sub(namespace.to_type_name.to_s, '')).relative!
-          end
-        end
-        type_name
       end
     end
   end

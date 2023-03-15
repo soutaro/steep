@@ -65,8 +65,6 @@ module Steep
       def method_type_to_snippet: (RBS::MethodType method_type) -> ::String
 
       def params_to_snippet: (RBS::Types::Function fun) -> String
-
-      def relative_name_in_context: (TypeName type_name, Array[Namespace] context) -> TypeName
     end
   end
 end
