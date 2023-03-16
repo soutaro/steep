@@ -126,7 +126,37 @@ module Steep
 
     def constant_typename: (Parser::AST::Node parent, Symbol name) -> RBS::TypeName?
 
-    def synthesize_constant: (Parser::AST::Node node, Parser::AST::Node? parent_node, Symbol constant_name) { () -> void } -> [AST::Types::t, TypeConstruction, RBS::TypeName?]
+    # Synthesize a constant declaration -- :cdecl, :class, or :module
+    #
+    # * `node` is the node that references a constant
+    # * `parent_node` is the parent (namespace) of a constant reference
+    # * `constant_name` is the name of constant
+    #
+    # Yields a block that is expected to add an error, or it reports Diagnostic::Ruby::UnknownConstant if not given.
+    #
+    # Returns a tuple of
+    #
+    # * The type of the constant
+    # * TypeConstruction instance after the evaluation
+    # * The full name of the constant
+    #
+    def synthesize_constant_decl: (Parser::AST::Node? node, Parser::AST::Node? parent_node, Symbol constant_name) ?{ () -> void } -> [AST::Types::t, TypeConstruction, RBS::TypeName?]
+
+    # Synthesize a constant reference
+    #
+    # * `node` is the node that references a constant
+    # * `parent_node` is the parent (namespace) of a constant reference
+    # * `constant_name` is the name of constant
+    #
+    # Yields a block that is expected to add an error, or it reports Diagnostic::Ruby::UnknownConstant if not given.
+    #
+    # Returns a tuple of
+    #
+    # * The type of the constant
+    # * TypeConstruction instance after the evaluation
+    # * The full name of the constant
+    #
+    def synthesize_constant: (Parser::AST::Node? node, Parser::AST::Node? parent_node, Symbol constant_name) ?{ () -> void } -> [AST::Types::t, TypeConstruction, RBS::TypeName?]
 
     def optional_proc?: (untyped `type`) -> (untyped | nil | nil | nil | nil)
 
@@ -303,7 +333,7 @@ module Steep
     #
     def synthesize_block: (node: Parser::AST::Node, block_type_hint: AST::Types::t?, block_body: Parser::AST::Node?) -> AST::Types::t
 
-    def nesting: () -> RBS::Resolver::context
+    %a{pure} def nesting: () -> RBS::Resolver::context
 
     def absolute_name: (untyped name) -> untyped
 

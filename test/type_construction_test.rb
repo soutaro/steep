@@ -10222,4 +10222,59 @@ z = AppTest.new.foo(1, 2) #$ Integer, Integer, String
       end
     end
   end
+
+  def test_class_name_resolution
+    with_checker(<<~RBS) do |checker|
+        module TestClassConstant
+        end
+
+        module Kernel
+        end
+      RBS
+      source = parse_ruby(<<~RUBY)
+        module TestClassConstant
+          class Integer
+          end
+
+          String = true
+
+          module Kernel
+          end
+        end
+
+        class UnknownOuterModule
+          class String
+          end
+        end
+      RUBY
+
+      with_standard_construction(checker, source) do |construction, typing|
+        type, _, context = construction.synthesize(source.node)
+
+        assert_any!(typing.errors) do |error|
+          assert_instance_of Diagnostic::Ruby::UnknownConstant, error
+          assert_equal :Integer, error.name
+          assert_equal :class, error.kind
+        end
+
+        assert_any!(typing.errors) do |error|
+          assert_instance_of Diagnostic::Ruby::UnknownConstant, error
+          assert_equal :String, error.name
+          assert_equal :constant, error.kind
+        end
+
+        assert_any!(typing.errors) do |error|
+          assert_instance_of Diagnostic::Ruby::UnknownConstant, error
+          assert_equal :Kernel, error.name
+          assert_equal :module, error.kind
+        end
+
+        assert_any!(typing.errors) do |error|
+          assert_instance_of Diagnostic::Ruby::UnknownConstant, error
+          assert_equal :String, error.name
+          assert_equal :class, error.kind
+        end
+      end
+    end
+  end
 end

@@ -1394,7 +1394,7 @@ module Steep
             constr = self
 
             name_node, super_node, _ = node.children
-            _, constr, class_name = synthesize_constant(name_node, name_node.children[0], name_node.children[1]) do
+            _, constr, class_name = synthesize_constant_decl(name_node, name_node.children[0], name_node.children[1]) do
               typing.add_error(
                 Diagnostic::Ruby::UnknownConstant.new(node: name_node, name: name_node.children[1]).class!
               )
@@ -1444,7 +1444,7 @@ module Steep
             constr = self
 
             name_node, _ = node.children
-            _, constr, module_name = synthesize_constant(name_node, name_node.children[0], name_node.children[1]) do
+            _, constr, module_name = synthesize_constant_decl(name_node, name_node.children[0], name_node.children[1]) do
               typing.add_error Diagnostic::Ruby::UnknownConstant.new(node: name_node, name: name_node.children[1]).module!
             end
 
@@ -1521,7 +1521,7 @@ module Steep
 
         when :casgn
           yield_self do
-            constant_type, constr, constant_name = synthesize_constant(nil, node.children[0], node.children[1]) do
+            constant_type, constr, constant_name = synthesize_constant_decl(nil, node.children[0], node.children[1]) do
               typing.add_error(
                 Diagnostic::Ruby::UnknownConstant.new(
                   node: node,
@@ -2678,6 +2678,56 @@ module Steep
       end
 
       constr.add_typing(node, type: truthy_rhs_type)
+    end
+
+    def synthesize_constant_decl(node, parent_node, constant_name, &block)
+      const_name = module_name_from_node(parent_node, constant_name)
+
+      if const_name && type = context.type_env.annotated_constant(const_name)
+        # const-type annotation wins
+        if node
+          constr = synthesize_children(node)
+          type, constr = constr.add_typing(node, type: type)
+          [type, constr, nil]
+        else
+          [type, self, nil]
+        end
+      else
+        if parent_node
+          synthesize_constant(node, parent_node, constant_name, &block)
+        else
+          if nesting
+            if parent_nesting = nesting[1]
+              if constant = context.type_env.constant_env.resolver.table.children(parent_nesting)&.fetch(constant_name, nil)
+                return [checker.factory.type(constant.type), self, constant.name]
+              end
+            end
+
+            if block_given?
+              yield
+            else
+              if node
+                constr.typing.add_error(
+                  Diagnostic::Ruby::UnknownConstant.new(node: node, name: constant_name)
+                )
+              end
+            end
+
+            if node
+              _, constr = add_typing(node, type: AST::Builtin.any_type)
+            end
+
+            [
+              AST::Builtin.any_type,
+              self,
+              nil
+            ]
+          else
+            # No neesting
+            synthesize_constant(node, nil, constant_name, &block)
+          end
+        end
+      end
     end
 
     def synthesize_constant(node, parent_node, constant_name)
