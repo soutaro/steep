@@ -20,3 +20,9 @@ Konference.new()
 # @type var foo: Konference
 
 foo = Conference.new
+
+class Conference12
+  class Integer
+
+  end
+end

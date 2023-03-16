@@ -333,7 +333,7 @@ module Steep
     #
     def synthesize_block: (node: Parser::AST::Node, block_type_hint: AST::Types::t?, block_body: Parser::AST::Node?) -> AST::Types::t
 
-    def nesting: () -> RBS::Resolver::context
+    %a{pure} def nesting: () -> RBS::Resolver::context
 
     def absolute_name: (untyped name) -> untyped
 

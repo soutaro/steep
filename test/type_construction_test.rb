@@ -10241,6 +10241,11 @@ z = AppTest.new.foo(1, 2) #$ Integer, Integer, String
           module Kernel
           end
         end
+
+        class UnknownOuterModule
+          class String
+          end
+        end
       RUBY
 
       with_standard_construction(checker, source) do |construction, typing|
@@ -10262,6 +10267,12 @@ z = AppTest.new.foo(1, 2) #$ Integer, Integer, String
           assert_instance_of Diagnostic::Ruby::UnknownConstant, error
           assert_equal :Kernel, error.name
           assert_equal :module, error.kind
+        end
+
+        assert_any!(typing.errors) do |error|
+          assert_instance_of Diagnostic::Ruby::UnknownConstant, error
+          assert_equal :String, error.name
+          assert_equal :class, error.kind
         end
       end
     end

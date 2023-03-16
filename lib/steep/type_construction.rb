@@ -2697,8 +2697,10 @@ module Steep
           synthesize_constant(node, parent_node, constant_name, &block)
         else
           if nesting
-            if constant = context.type_env.constant_env.resolver.table.children(module_context!.class_name)&.fetch(constant_name, nil)
-              return [checker.factory.type(constant.type), self, constant.name]
+            if parent_nesting = nesting[1]
+              if constant = context.type_env.constant_env.resolver.table.children(parent_nesting)&.fetch(constant_name, nil)
+                return [checker.factory.type(constant.type), self, constant.name]
+              end
             end
 
             if block_given?
@@ -2721,6 +2723,7 @@ module Steep
               nil
             ]
           else
+            # No neesting
             synthesize_constant(node, nil, constant_name, &block)
           end
         end
