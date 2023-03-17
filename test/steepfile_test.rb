@@ -139,7 +139,7 @@ RUBY
 sources: []
 path: '.gem_rbs_collection'
 gems:
-  - name: pathname
+  - name: securerandom
     source:
       type: stdlib
 YAML
@@ -152,7 +152,7 @@ EOF
 
       project.targets[0].tap do |target|
         assert target.options.collection_lock
-        assert target.options.collection_lock.gem('pathname')
+        assert target.options.collection_lock.gem('securerandom')
       end
     end
   end
@@ -164,7 +164,7 @@ EOF
 sources: []
 path: '.gem_rbs_collection'
 gems:
-  - name: pathname
+  - name: securerandom
     source:
       type: stdlib
 YAML
@@ -178,7 +178,7 @@ EOF
 
       project.targets[0].tap do |target|
         assert target.options.collection_lock
-        assert target.options.collection_lock.gem('pathname')
+        assert target.options.collection_lock.gem('securerandom')
       end
     end
   end
