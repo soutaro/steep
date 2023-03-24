@@ -1203,7 +1203,6 @@ end
         assert_equal instance_definition.methods[:foo], method_context.method
         assert_equal parse_method_type("(::String) -> ::Integer"), method_context.method_type
         assert_equal parse_type("::Integer"), method_context.return_type
-        refute method_context.constructor
 
         assert_equal parse_type("::A"), for_method.self_type
         assert_nil for_method.block_context
@@ -1238,7 +1237,6 @@ EOS
         assert_equal :foo, method_context.name
         assert_equal parse_method_type("(::Object | ::String) -> ::Integer"), method_context.method_type
         assert_equal parse_type("::Integer"), method_context.return_type
-        refute method_context.constructor
 
         assert_equal parse_type("::A"), for_method.self_type
         assert_nil for_method.block_context
@@ -1280,7 +1278,6 @@ end
         assert_equal :foo, method_context.name
         assert_equal parse_method_type("() ?{ () -> untyped } -> untyped"), method_context.method_type
         assert_equal parse_type("untyped"), method_context.return_type
-        refute method_context.constructor
 
         assert_equal parse_type("::A"), for_method.self_type
         assert_nil for_method.block_context
@@ -1321,7 +1318,6 @@ end
         assert_equal :foo, method_context.name
         assert_equal parse_method_type("(::String) -> ::Integer"), method_context.method_type
         assert_equal parse_type("::String"), method_context.return_type
-        refute method_context.constructor
 
         assert_equal parse_type("::A"), for_method.self_type
         assert_nil for_method.block_context

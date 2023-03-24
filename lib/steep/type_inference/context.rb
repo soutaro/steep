@@ -6,15 +6,13 @@ module Steep
         attr_reader :method
         attr_reader :method_type
         attr_reader :return_type
-        attr_reader :constructor
         attr_reader :super_method
 
-        def initialize(name:, method:, method_type:, return_type:, constructor:, super_method:)
+        def initialize(name:, method:, method_type:, return_type:, super_method:)
           @name = name
           @method = method
           @return_type = return_type
           @method_type = method_type
-          @constructor = constructor
           @super_method = super_method
         end
 

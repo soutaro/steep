@@ -17,9 +17,6 @@ module Steep
         # Falls back to `untyped`
         attr_reader return_type: AST::Types::t
 
-        # deprecated
-        attr_reader constructor: bool
-
         # The *super* method if identified
         attr_reader super_method: RBS::Definition::Method?
 
@@ -28,7 +25,6 @@ module Steep
           method: RBS::Definition::Method?,
           method_type: Interface::MethodType?,
           return_type: AST::Types::t,
-          constructor: bool,
           super_method: RBS::Definition::Method?
         ) -> void
 

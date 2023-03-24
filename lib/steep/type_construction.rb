@@ -195,7 +195,6 @@ module Steep
         method: definition && definition.methods[method_name],
         method_type: method_type,
         return_type: annots.return_type || method_type&.type&.return_type || AST::Builtin.any_type,
-        constructor: false,
         super_method: super_method
       )
 
