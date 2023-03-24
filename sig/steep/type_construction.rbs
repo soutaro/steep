@@ -30,9 +30,7 @@ module Steep
 
     attr_reader context: TypeInference::Context
 
-    %a{pure} def module_context: () -> TypeInference::Context::ModuleContext?
-
-    def module_context!: () -> TypeInference::Context::ModuleContext
+    %a{pure} def module_context: () -> TypeInference::Context::ModuleContext
 
     %a{pure} def method_context: () -> TypeInference::Context::MethodContext?
 
@@ -104,7 +102,7 @@ module Steep
 
     def for_sclass: (Parser::AST::Node node, AST::Types::t `type`) -> TypeConstruction?
 
-    def for_branch: (Parser::AST::Node node, ?break_context: TypeInference::Context::BreakContext?) -> untyped
+    def for_branch: (Parser::AST::Node node, ?break_context: TypeInference::Context::BreakContext?) -> TypeConstruction
 
     def add_typing: (Parser::AST::Node node, type: AST::Types::t, ?constr: TypeConstruction) -> Pair
 
@@ -370,15 +368,20 @@ module Steep
 
     def unwrap: (AST::Types::t `type`) -> AST::Types::t
 
+    # Returns `nil` if `type` is recursive
+    #
+    # See `Factory#deep_expand_alias`.
+    #
     def deep_expand_alias: (AST::Types::t `type`) -> AST::Types::t?
 
-    def flatten_union: (AST::Types::t `type`) -> Array[AST::Types::t]
+    # `A | B | ... | Z` => `[A, B, ..., Z]`
+    def flatten_union: (AST::Types::t) -> Array[AST::Types::t]
 
-    def select_flatten_types: (untyped `type`) { () -> untyped } -> untyped
+    def select_flatten_types: (AST::Types::t) { (AST::Types::t) -> boolish } -> Array[AST::Types::t]
 
-    def partition_flatten_types: (AST::Types::t `type`) { (AST::Types::t) -> boolish } -> [Array[AST::Types::t], Array[AST::Types::t]]
+    def partition_flatten_types: (AST::Types::t) { (AST::Types::t) -> boolish } -> [Array[AST::Types::t], Array[AST::Types::t]]
 
-    def flatten_array_elements: (untyped `type`) -> untyped
+    def flatten_array_elements: (AST::Types::t) -> Array[AST::Types::t]
 
     def expand_alias: (AST::Types::t `type`) -> AST::Types::t
                     | [A] (AST::Types::t) { (AST::Types::t) -> A } -> A
