@@ -47,7 +47,7 @@ GEM
     minitest-slow_test (0.2.0)
       minitest (>= 5.0)
     parallel (1.22.1)
-    parser (3.2.1.1)
+    parser (3.2.2.0)
       ast (~> 2.4.1)
     rainbow (3.1.1)
     rake (13.0.6)
