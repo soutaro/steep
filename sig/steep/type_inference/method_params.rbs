@@ -1,24 +1,31 @@
+use Parser::AST::Node, Steep::Interface::MethodType
+use Steep::Interface::Function::Params, Steep::Interface::Block
+
 module Steep
   module TypeInference
+    # A MethodParams object provides the information of parameters from MethodType and nodes
+    #
+    # It primarly provides a mapping from a local variable (method parameter) to its type.
+    #
     class MethodParams
       class BaseParameter
         attr_reader name: Symbol
 
-        attr_reader type: untyped
+        attr_reader type: AST::Types::t?
 
-        attr_reader node: Parser::AST::Node
+        attr_reader node: Node
 
-        def initialize: (name: Symbol, type: untyped, node: Parser::AST::Node) -> void
+        def initialize: (name: Symbol, type: AST::Types::t?, node: Node) -> void
 
         def optional?: () -> bool
 
-        def value: () -> Parser::AST::Node
+        def value: () -> Node?
 
         def var_type: () -> AST::Types::t
 
         def untyped?: () -> bool
 
-        def ==: (untyped other) -> untyped
+        def ==: (untyped other) -> bool
 
         alias eql? ==
 
@@ -34,27 +41,25 @@ module Steep
       class BaseRestParameter
         attr_reader name: Symbol
 
-        attr_reader type: untyped
+        attr_reader type: AST::Types::t?
 
-        attr_reader node: Parser::AST::Node
+        attr_reader node: Node
 
-        def initialize: (name: Symbol, type: untyped, node: Parser::AST::Node) -> void
+        def initialize: (name: Symbol, type: AST::Types::t?, node: Node) -> void
 
         def ==: (untyped other) -> bool
 
         alias eql? ==
 
         def hash: () -> Integer
-
-        def var_type: () -> AST::Types::t
       end
 
       class PositionalRestParameter < BaseRestParameter
-        def var_type: () -> AST::Types::t
+        def var_type: () -> AST::Types::Name::Instance
       end
 
       class KeywordRestParameter < BaseRestParameter
-        def var_type: () -> AST::Types::t
+        def var_type: () -> AST::Types::Name::Instance
       end
 
       class BlockParameter
@@ -62,11 +67,11 @@ module Steep
 
         attr_reader type: Interface::Function?
 
-        attr_reader node: Parser::AST::Node
+        attr_reader node: Node
 
         attr_reader self_type: AST::Types::t?
 
-        def initialize: (name: Symbol, type: Interface::Function?, node: Parser::AST::Node, optional: boolish, self_type: AST::Types::t?) -> void
+        def initialize: (name: Symbol, type: Interface::Function?, node: Node, optional: boolish, self_type: AST::Types::t?) -> void
 
         @optional: boolish
 
@@ -81,28 +86,40 @@ module Steep
         def hash: () -> Integer
       end
 
-      attr_reader args: untyped
+      type param = PositionalParameter | KeywordParameter | PositionalRestParameter | KeywordRestParameter | BlockParameter
 
-      attr_reader method_type: untyped
+      # The children of `:args` node
+      attr_reader args: Array[Node]
 
-      attr_reader params: untyped
+      attr_reader method_type: MethodType?
 
-      attr_reader errors: untyped
+      # Mapping from the name of parameter to parameter object
+      attr_reader params: Hash[Symbol, param]
 
-      def initialize: (args: untyped, method_type: untyped) -> void
+      attr_reader errors: Array[Diagnostic::Ruby::Base]
 
-      def []: (untyped name) -> untyped
+      # The type of `...`
+      #
+      # `nil` if the node doesn't have it.
+      #
+      attr_reader forward_arg_type: [Params, Block?]?
+
+      def initialize: (args: Array[Node], method_type: MethodType?, forward_arg_type: [Params, Block?]?) -> void
+
+      def []: (Symbol name) -> untyped
 
       def size: () -> Integer
 
-      def each_param: () { (BaseParameter | BaseRestParameter | BlockParameter) -> void } -> void
-                    | () -> Enumerator[BaseParameter | BaseRestParameter | BlockParameter, void]
+      def each_param: () { (param) -> void } -> void
+                    | () -> Enumerator[param, void]
 
       def each: () { (Symbol, AST::Types::t) -> void } -> void
 
-      def self.empty: (node: Parser::AST::Node) -> MethodParams
+      def update: (?forward_arg_type: [Params, Block?]?) -> MethodParams
 
-      def self.build: (node: Parser::AST::Node, method_type: untyped) -> MethodParams
+      def self.empty: (node: Node) -> MethodParams
+
+      def self.build: (node: Node, method_type: MethodType) -> MethodParams
     end
   end
 end

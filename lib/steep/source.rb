@@ -20,6 +20,7 @@ module Steep
       self.emit_lambda = true
       self.emit_procarg0 = true
       self.emit_kwargs = true
+      self.emit_forward_arg = true
     end
 
     def self.new_parser
