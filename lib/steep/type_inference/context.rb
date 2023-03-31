@@ -7,13 +7,15 @@ module Steep
         attr_reader :method_type
         attr_reader :return_type
         attr_reader :super_method
+        attr_reader :forward_arg_type
 
-        def initialize(name:, method:, method_type:, return_type:, super_method:)
+        def initialize(name:, method:, method_type:, return_type:, super_method:, forward_arg_type:)
           @name = name
           @method = method
           @return_type = return_type
           @method_type = method_type
           @super_method = super_method
+          @forward_arg_type = forward_arg_type
         end
 
         def block_type

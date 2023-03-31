@@ -190,22 +190,23 @@ module Steep
         variable_context = self.variable_context
       end
 
+      method_params =
+      if method_type
+        TypeInference::MethodParams.build(node: node, method_type: method_type)
+      else
+        TypeInference::MethodParams.empty(node: node)
+      end
+
       method_context = TypeInference::Context::MethodContext.new(
         name: method_name,
         method: definition && definition.methods[method_name],
         method_type: method_type,
         return_type: annots.return_type || method_type&.type&.return_type || AST::Builtin.any_type,
-        super_method: super_method
+        super_method: super_method,
+        forward_arg_type: method_params.forward_arg_type
       )
 
-      method_params =
-        if method_type
-          TypeInference::MethodParams.build(node: node, method_type: method_type)
-        else
-          TypeInference::MethodParams.empty(node: node)
-        end
-
-      local_variable_types = method_params.each_param.with_object({}) do |param, hash|
+      local_variable_types = method_params.each_param.with_object({}) do |param, hash| #$ Hash[Symbol, AST::Types::t]
         if param.name
           unless SPECIAL_LVAR_NAMES.include?(param.name)
             hash[param.name] = param.var_type

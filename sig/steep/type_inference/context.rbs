@@ -1,3 +1,5 @@
+use Steep::Interface::Function::Params, Steep::Interface::Block
+
 module Steep
   module TypeInference
     # Type checking context
@@ -20,12 +22,16 @@ module Steep
         # The *super* method if identified
         attr_reader super_method: RBS::Definition::Method?
 
+        # The type of forwarding params when `...` is given
+        attr_reader forward_arg_type: [Params, Block?]?
+
         def initialize: (
           name: Symbol,
           method: RBS::Definition::Method?,
           method_type: Interface::MethodType?,
           return_type: AST::Types::t,
-          super_method: RBS::Definition::Method?
+          super_method: RBS::Definition::Method?,
+          forward_arg_type: [Params, Block?]?
         ) -> void
 
         # Type of the block of the current method type
