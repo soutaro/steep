@@ -729,4 +729,22 @@ class ArgsTest < Minitest::Test
       end
     end
   end
+
+  def test_forwarded_args
+    node = parse_ruby(<<~RUBY).node
+      def foo(...)
+        foo(1, ...)
+      end
+    RUBY
+    node = dig(node, 2)
+    _, _, *args = node.children
+
+    [node, args].tap do |node, args|
+      SendArgs.new(node: node, arguments: args, type: parse_method_type("(Integer, String) -> void")).tap do |args|
+        args, _ =  args.each {}
+
+        assert_instance_of SendArgs::ForwardedArgs, args
+      end
+    end
+  end
 end

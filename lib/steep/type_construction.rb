@@ -217,7 +217,7 @@ module Steep
 
       type_env = TypeInference::TypeEnvBuilder.new(
         TypeInference::TypeEnvBuilder::Command::ImportLocalVariableAnnotations.new(annots).merge!.on_duplicate! do |name, original, annotated|
-          param = method_params.each_param.find {|param| param.name == name }
+          param = method_params[name] or raise
           if result = no_subtyping?(sub_type: original, super_type: annotated)
             typing.add_error Diagnostic::Ruby::IncompatibleAnnotation.new(
               node: param.node,
@@ -1561,6 +1561,7 @@ module Steep
               # @type var errors: Array[Diagnostic::Ruby::Base]
               errors = []
               constr = type_check_args(
+                nil,
                 args,
                 Subtyping::Constraints.new(unknowns: []),
                 errors
@@ -2444,6 +2445,9 @@ module Steep
             constr.add_typing(node, type: type)
           end
 
+        when :forwarded_args, :forward_arg
+          add_typing(node, type: AST::Builtin.any_type)
+
         else
           typing.add_error(Diagnostic::Ruby::UnsupportedSyntax.new(node: node))
           add_typing(node, type: AST::Builtin.any_type)
@@ -2947,7 +2951,7 @@ module Steep
     end
 
     def synthesize_children(node, skips: [])
-      skips = Set.new.compare_by_identity.merge(skips)
+      skips = Set.new.compare_by_identity.merge(skips).delete(nil)
 
       # @type var constr: TypeConstruction
       constr = self
@@ -2970,8 +2974,11 @@ module Steep
       return false unless call.node.type == :send || call.node.type == :csend
       return false unless call.pure? || KNOWN_PURE_METHODS.superset?(Set.new(call.method_decls.map(&:method_name)))
 
-      [receiver, *arguments].all? do |node|
-        !node || value_node?(node) || context.type_env[node]
+      argishes = [*arguments]
+      argishes << receiver if receiver
+
+      argishes.all? do |node|
+        value_node?(node) || context.type_env[node]
       end
     end
 
@@ -3012,7 +3019,11 @@ module Steep
                 end
               else
                 constr = constr.update_type_env do |env|
-                  env.invalidate_pure_node(receiver)
+                  if receiver
+                    env.invalidate_pure_node(receiver)
+                  else
+                    env
+                  end
                 end
               end
             end
@@ -3023,7 +3034,7 @@ module Steep
             call = call.with_return_type(optional_type)
           end
         else
-          errors = []
+          errors = [] #: Array[Diagnostic::Ruby::Base]
 
           skips = [receiver]
           skips << node.children[0] if node.type == :block
@@ -3050,7 +3061,7 @@ module Steep
           )
           call = TypeInference::MethodCall::Error.new(
             node: node,
-            context: context.method_context,
+            context: context.call_context,
             method_name: method_name,
             receiver_type: receiver_type,
             errors: errors
@@ -3059,7 +3070,7 @@ module Steep
 
         constr.add_call(call)
       else
-        skips = []
+        skips = [] #: Array[Parser::AST::Node?]
         skips << receiver if receiver
         skips << node.children[0] if node.type == :block
         skips << block_params if block_params
@@ -3091,7 +3102,7 @@ module Steep
         constr.add_call(
           TypeInference::MethodCall::NoMethodError.new(
             node: node,
-            context: context.method_context,
+            context: context.call_context,
             method_name: method_name,
             receiver_type: receiver_type,
             error: Diagnostic::Ruby::NoMethod.new(node: node, method: method_name, type: interface&.type || receiver_type)
@@ -3147,7 +3158,7 @@ module Steep
                        constr.add_call(
                          TypeInference::MethodCall::Untyped.new(
                            node: node,
-                           context: context.method_context,
+                           context: context.call_context,
                            method_name: method_name
                          )
                        )
@@ -3159,7 +3170,7 @@ module Steep
                            interface: interface,
                            receiver: receiver,
                            receiver_type: receiver_type,
-                            method_name: method_name,
+                           method_name: method_name,
                            arguments: arguments,
                            block_params: block_params,
                            block_body: block_body,
@@ -3170,7 +3181,7 @@ module Steep
                          constr.add_call(
                            TypeInference::MethodCall::NoMethodError.new(
                              node: node,
-                             context: context.method_context,
+                             context: context.call_context,
                              method_name: method_name,
                              receiver_type: receiver_type,
                              error: Diagnostic::Ruby::NoMethod.new(node: node, method: method_name, type: receiver_type)
@@ -3282,7 +3293,7 @@ module Steep
     end
 
     def type_method_call(node, method_name:, receiver_type:, method:, arguments:, block_params:, block_body:, tapp:)
-      node_range = node.loc.expression.yield_self {|l| l.begin_pos..l.end_pos }
+      node_range = node.loc.expression.to_range
 
       # @type var fails: Array[[TypeInference::MethodCall::t, TypeConstruction]]
       fails = []
@@ -3395,11 +3406,11 @@ module Steep
       end
     end
 
-    def type_check_args(args, constraints, errors)
+    def type_check_args(method_name, args, constraints, errors)
       # @type var constr: TypeConstruction
       constr = self
 
-      es = args.each do |arg|
+      forwarded_args, es = args.each do |arg|
         case arg
         when TypeInference::SendArgs::PositionalArgs::NodeParamPair
           _, constr = constr.type_check_argument(
@@ -3472,12 +3483,41 @@ module Steep
 
         when TypeInference::SendArgs::KeywordArgs::MissingKeyword
           # ignore
+
         else
           raise arg.inspect
         end
       end
 
       errors.push(*es)
+
+      if forwarded_args
+        method_name or raise "method_name cannot be nil if `forwarded_args` is given, because proc/block doesn't support `...` arg"
+
+        (params, _ = context.method_context&.forward_arg_type) or raise
+
+        checker.with_context(self_type: self_type, instance_type: context.module_context.instance_type, class_type: context.module_context.module_type, constraints: constraints) do
+          result = checker.check_method_params(
+            :"... (argument forwarding)",
+            Subtyping::Relation.new(
+              sub_type: forwarded_args.params,
+              super_type: params
+            )
+          )
+
+          if result.failure?
+            errors.push(
+              Diagnostic::Ruby::IncompatibleArgumentForwarding.new(
+                method_name: method_name,
+                node: forwarded_args.node,
+                forwarded_args_type: params,
+                method_parameter_type: forwarded_args.params,
+                result: result
+              )
+            )
+          end
+        end
+      end
 
       constr
     end
@@ -3545,7 +3585,7 @@ module Steep
           )
         end
 
-        type_params = []
+        type_params = [] #: Array[Interface::TypeParam]
         type_param_names.clear
       else
         # Infer type application
@@ -3572,7 +3612,7 @@ module Steep
         variance: variance
       )
 
-      upper_bounds = {}
+      upper_bounds = {} #: Hash[Symbol, AST::Types::t]
 
       type_params.each do |param|
         if ub = param.upper_bound
@@ -3587,6 +3627,7 @@ module Steep
 
         args = TypeInference::SendArgs.new(node: node, arguments: arguments, type: method_type)
         constr = constr.type_check_args(
+          method_name,
           args,
           constraints,
           errors

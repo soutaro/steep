@@ -46,13 +46,18 @@ module Steep
         end
 
         def detail_lines
-          StringIO.new.tap do |io|
-            result.failure_path&.reverse_each.map do |result|
+          lines = StringIO.new.tap do |io|
+            failure_path = result.failure_path || []
+            failure_path.reverse_each.map do |result|
               relation_message(result.relation)
             end.compact.each.with_index(1) do |message, index|
               io.puts "#{"  " * (index)}#{message}"
             end
           end.string.chomp
+
+          unless lines.empty?
+            lines
+          end
         end
       end
 
@@ -829,6 +834,23 @@ module Steep
 
         def header_line
           "Cannot pass a type `#{type_argument}` as a type parameter `#{type_parameter.to_s}`"
+        end
+      end
+
+      class IncompatibleArgumentForwarding < Base
+        attr_reader :forwarded_args_type, :method_parameter_type, :result
+
+        def initialize(node:, forwarded_args_type: , method_parameter_type:, result:)
+          super(node: node)
+          @forwarded_args_type = forwarded_args_type
+          @method_parameter_type = method_parameter_type
+          @result = result
+        end
+
+        include ResultPrinter
+
+        def header_line
+          "Cannot forward arguments to the method"
         end
       end
 

@@ -68,7 +68,7 @@ module Steep
 
         def following_args: () -> Array[Parser::AST::Node]
 
-        def param: () -> Interface::Function::Params::PositionalParams::param?
+        %a{pure} def param: () -> Interface::Function::Params::PositionalParams::param?
 
         def update: (?index: Integer, ?positional_params: Interface::Function::Params::PositionalParams?, ?uniform: bool) -> PositionalArgs
 
@@ -198,6 +198,14 @@ module Steep
         def node_type: () -> AST::Types::t
       end
 
+      class ForwardedArgs
+        attr_reader node: Parser::AST::Node
+
+        attr_reader params: Interface::Function::Params
+
+        def initialize: (node: Parser::AST::Node, params: Interface::Function::Params) -> void
+      end
+
       attr_reader node: Parser::AST::Node
 
       attr_reader arguments: Array[Parser::AST::Node]
@@ -216,14 +224,16 @@ module Steep
 
       def kwargs_node: () -> Parser::AST::Node?
 
+      def forwarded_args_node: () -> Parser::AST::Node?
+
       def positional_arg: () -> PositionalArgs
 
       def keyword_args: () -> KeywordArgs
 
       def block_pass_arg: () -> BlockPassArg
 
-      def each: () { (PositionalArgs::arg | KeywordArgs::arg) -> void } -> Array[Diagnostic::Ruby::Base]
-              | () -> Enumerator[PositionalArgs::arg | KeywordArgs::arg, Array[Diagnostic::Ruby::Base]]
+      def each: () { (PositionalArgs::arg | KeywordArgs::arg) -> void } -> [ForwardedArgs?, Array[Diagnostic::Ruby::Base]]
+              | () -> Enumerator[PositionalArgs::arg | KeywordArgs::arg, [ForwardedArgs?, Array[Diagnostic::Ruby::Base]]]
     end
   end
 end

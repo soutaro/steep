@@ -10273,4 +10273,30 @@ z = AppTest.new.foo(1, 2) #$ Integer, Integer, String
       end
     end
   end
+
+  def test_triple_dots
+    with_checker(<<~RBS) do |checker|
+        class TripleDots
+          def foo: (Integer, String, foo: String) -> void
+
+          def bar: (Integer, Object, foo: String) -> void
+        end
+      RBS
+      source = parse_ruby(<<~RUBY)
+        class TripleDots
+          def foo(x, ...)
+            bar(123, ...)
+          end
+        end
+      RUBY
+
+      with_standard_construction(checker, source) do |construction, typing|
+        pp source.node
+
+        type, _, context = construction.synthesize(source.node)
+
+        assert_no_error typing
+      end
+    end
+  end
 end

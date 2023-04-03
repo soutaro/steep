@@ -106,7 +106,7 @@ module Steep
 
       def initialize: (args: Array[Node], method_type: MethodType?, forward_arg_type: [Params, Block?]?) -> void
 
-      def []: (Symbol name) -> untyped
+      def []: (Symbol name) -> param
 
       def size: () -> Integer
 

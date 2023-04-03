@@ -160,7 +160,7 @@ module Steep
 
     def type_lambda: (Parser::AST::Node node, params_node: Parser::AST::Node, body_node: Parser::AST::Node, type_hint: AST::Types::t?) -> Pair
 
-    def synthesize_children: (Parser::AST::Node node, ?skips: Array[Parser::AST::Node]) -> TypeConstruction
+    def synthesize_children: (Parser::AST::Node node, ?skips: Array[Parser::AST::Node?]) -> TypeConstruction
 
     # Synthesize `:send`, `:csend`, `:block`, and `:numblock` node
     #
@@ -206,7 +206,7 @@ module Steep
     #
     def type_method_call: (
       Parser::AST::Node node,
-      method_name: Symbol,
+      method_name: method_name,
       receiver_type: AST::Types::t,
       method: Interface::Shape::Entry,
       arguments: Array[Parser::AST::Node],
@@ -222,7 +222,7 @@ module Steep
     def try_method_type: (
       Parser::AST::Node node,
       receiver_type: AST::Types::t,
-      method_name: Symbol,
+      method_name: method_name,
       method_type: Interface::MethodType,
       arguments: Array[Parser::AST::Node],
       block_params: Parser::AST::Node?,
@@ -237,7 +237,7 @@ module Steep
     def try_special_method: (
       Parser::AST::Node node,
       receiver_type: AST::Types::t,
-      method_name: Symbol,
+      method_name: method_name,
       method_type: Interface::MethodType,
       arguments: Array[Parser::AST::Node],
       block_params: Parser::AST::Node?,
@@ -283,7 +283,13 @@ module Steep
 
     def eliminate_vars: (untyped `type`, untyped variables, ?to: untyped) -> untyped
 
+    # Type check arguments
+    #
+    # * Receives the `method_name` of a method that is being called
+    # * `method_name` is `nil` if it type checks arguments of block or proc
+    #
     def type_check_args: (
+      method_name | nil,
       TypeInference::SendArgs,
       Subtyping::Constraints,
       Array[Diagnostic::Ruby::Base]
@@ -360,7 +366,8 @@ module Steep
 
     def fallback_to_any: (Parser::AST::Node node) ?{ () -> Diagnostic::Ruby::Base } -> Pair
 
-    def self_class?: (untyped node) -> untyped
+    # Return `true` if `node` is `self.class`
+    def self_class?: (Parser::AST::Node node) -> bool
 
     def namespace_module?: (untyped node) -> (false | untyped)
 
@@ -469,14 +476,14 @@ module Steep
 
     def save_typing: () -> untyped
 
-    # Returns `true` if a method call can be identified as _pure_.
+    # Returns `true` if a method call can be identified as _pure_:
     #
-    # * The `node` is not a call with call
-    # * It always calls _pure_ method
-    # * The `receiver` is _pure_
+    # * The `node` is not a call with block,
+    # * It always calls _pure_ method,
+    # * The `receiver` is _pure_, and
     # * All of the arguments are _pure_
     #
-    def pure_send?: (TypeInference::MethodCall::Typed call, Parser::AST::Node receiver, Array[Parser::AST::Node] arguments) -> bool
+    def pure_send?: (TypeInference::MethodCall::Typed call, Parser::AST::Node? receiver, Array[Parser::AST::Node] arguments) -> bool
 
     # Transform given `node` to a node that has a local variable instead of the outer most call/non-value node
     #
