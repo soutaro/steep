@@ -157,6 +157,10 @@ module Steep
         params[name] or raise "Unknown variable name: #{name}"
       end
 
+      def param?(name)
+        params.key?(name)
+      end
+
       def size
         params.size
       end

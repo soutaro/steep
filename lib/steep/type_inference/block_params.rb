@@ -328,6 +328,19 @@ module Steep
         end
       end
 
+      def each_single_param()
+        each do |param|
+          case param
+          when Param
+            yield param
+          when MultipleParam
+            param.each_param do |p|
+              yield p
+            end
+          end
+        end
+      end
+
       def self.from_multiple(node, annotations)
         # @type var params: Array[Param | MultipleParam]
         params = []

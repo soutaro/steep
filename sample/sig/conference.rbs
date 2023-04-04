@@ -38,5 +38,5 @@ type b = ::Foo::OBH
 class HogeHoge
   def foo: (Integer, bar: String) -> String
 
-  def bar: (Object, Integer, bar: String) -> Integer
+  def bar: (Object, Integer, bar: String, baz: Integer) -> Integer
 end

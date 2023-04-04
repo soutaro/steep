@@ -118,7 +118,7 @@ module Steep
         ) -> void
 
         # Returns a hash from the name of a class variable to its type
-        def class_variables: () -> Hash[Symbol, RBS::Types::t]?
+        %a{pure} def class_variables: () -> Hash[Symbol, RBS::Types::t]?
 
         def update: (
           ?instance_type: AST::Types::t,

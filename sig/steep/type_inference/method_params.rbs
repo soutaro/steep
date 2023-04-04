@@ -108,6 +108,8 @@ module Steep
 
       def []: (Symbol name) -> param
 
+      def param?: (Symbol) -> bool
+
       def size: () -> Integer
 
       def each_param: () { (param) -> void } -> void

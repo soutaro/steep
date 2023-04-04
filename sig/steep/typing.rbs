@@ -34,7 +34,7 @@ module Steep
 
     def add_error: (Diagnostic::Ruby::Base error) -> void
 
-    def add_typing: (Parser::AST::Node node, AST::Types::t `type`, TypeInference::Context _context) -> untyped
+    def add_typing: (Parser::AST::Node node, AST::Types::t `type`, top) -> untyped
 
     def add_call: (untyped node, untyped call) -> untyped
 
@@ -61,8 +61,13 @@ module Steep
     def new_child: [A] (Range[Integer] range) { (Typing) -> A } -> A
                  | (Range[Integer]) -> Typing
 
-    def each_typing: () { () -> untyped } -> untyped
+    def each_typing: () { (Parser::AST::Node, AST::Types::t) -> void } -> void
 
+    # Push the current changes to the `#parent` typing
+    #
+    # * Raises an error if `#parent` is `nil`
+    # * Raises an error if `#parent` is changed since `#new_child` call that instantiated `self`
+    #
     def save!: () -> void
   end
 end

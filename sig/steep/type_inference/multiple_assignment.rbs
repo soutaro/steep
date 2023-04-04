@@ -59,7 +59,7 @@ module Steep
       # Returns a type hint for multiple assignment right hand side
       #
       # It constructs a structure of tuple types, based on the assignment lhs, and variable types.
-      # 
+      #
       def hint_for_mlhs: (Parser::AST::Node mlhs, TypeEnv env) -> AST::Types::t?
 
       private
