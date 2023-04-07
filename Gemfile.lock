@@ -58,7 +58,7 @@ GEM
     ruby-debug-ide (0.7.3)
       rake (>= 0.8.1)
     securerandom (0.2.2)
-    stackprof (0.2.23)
+    stackprof (0.2.25)
     strscan (3.0.6)
     terminal-table (3.0.2)
       unicode-display_width (>= 1.1.1, < 3)
