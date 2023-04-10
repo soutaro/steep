@@ -69,6 +69,16 @@ module Steep
         )
       end
 
+      def to_proc_type
+        proc = AST::Types::Proc.new(type: type, self_type: self_type, block: nil)
+
+        if optional?
+          AST::Types::Union.build(types: [proc, AST::Builtin.nil_type])
+        else
+          proc
+        end
+      end
+
       def +(other)
         optional = self.optional? || other.optional?
         type = Function.new(

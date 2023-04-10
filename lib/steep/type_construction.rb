@@ -3526,7 +3526,7 @@ module Steep
       if forwarded_args
         method_name or raise "method_name cannot be nil if `forwarded_args` is given, because proc/block doesn't support `...` arg"
 
-        (params, _ = context.method_context&.forward_arg_type) or raise
+        (params, block = context.method_context&.forward_arg_type) or raise
 
         checker.with_context(self_type: self_type, instance_type: context.module_context.instance_type, class_type: context.module_context.module_type, constraints: constraints) do
           result = checker.check_method_params(
@@ -3542,8 +3542,7 @@ module Steep
               Diagnostic::Ruby::IncompatibleArgumentForwarding.new(
                 method_name: method_name,
                 node: forwarded_args.node,
-                forwarded_args_type: params,
-                method_parameter_type: forwarded_args.params,
+                params_pair: [params, forwarded_args.params],
                 result: result
               )
             )
@@ -3855,6 +3854,21 @@ module Steep
           arg = args.block_pass_arg
 
           case
+          when forwarded_args_node = args.forwarded_args_node
+            (_, block = method_context!.forward_arg_type) or raise
+
+            method_block_type = method_type.block&.to_proc_type || AST::Builtin.nil_type
+            forwarded_block_type = block&.to_proc_type || AST::Builtin.nil_type
+
+            if result = constr.no_subtyping?(sub_type: forwarded_block_type, super_type: method_block_type)
+              errors << Diagnostic::Ruby::IncompatibleArgumentForwarding.new(
+                method_name: method_name,
+                node: forwarded_args_node,
+                block_pair: [block, method_type.block],
+                result: result
+              )
+            end
+
           when arg.compatible?
             if arg.node
               # Block pass (&block) is given

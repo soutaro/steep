@@ -10308,4 +10308,39 @@ z = AppTest.new.foo(1, 2) #$ Integer, Integer, String
       end
     end
   end
+
+  def test_triple_dots_block
+    with_checker(<<~RBS) do |checker|
+        class TripleDots
+          def foo: () { (String) -> Object } -> void
+
+          def bar: () ?{ (String) -> Object } -> void
+
+          def baz: () { (Array[Object]) -> Object } -> void
+        end
+      RBS
+      source = parse_ruby(<<~RUBY)
+        class TripleDots
+          def foo(...)
+            bar(...)
+            baz(...)
+          end
+
+          def bar(...) end
+          def baz(...) end
+        end
+      RUBY
+
+      with_standard_construction(checker, source) do |construction, typing|
+        type, _, context = construction.synthesize(source.node)
+
+        assert_typing_error(typing, size: 1) do |errors|
+          assert_any!(errors) do |error|
+            assert_instance_of Diagnostic::Ruby::IncompatibleArgumentForwarding, error
+            assert_equal :baz, error.method_name
+          end
+        end
+      end
+    end
+  end
 end
