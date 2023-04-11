@@ -26,3 +26,9 @@ class Conference12
 
   end
 end
+
+class HogeHoge
+  def foo(...)
+    bar(self, ...).to_s
+  end
+end

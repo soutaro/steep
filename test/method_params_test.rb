@@ -520,4 +520,46 @@ class MethodParamsTest < Minitest::Test
       end
     end
   end
+
+  def test_forward_arg1
+    with_factory do
+      node = def_node("def foo(...); end")
+
+      MethodParams.build(node: node, method_type: parse_method_type("(Integer) -> void")).tap do |params|
+        assert_equal "(Integer)", params.forward_arg_type[0].to_s
+        assert_nil params.forward_arg_type[1]
+      end
+
+      MethodParams.build(node: node, method_type: parse_method_type("(A, ?B, *C, x: D, ?y: E, **F) -> void")).tap do |params|
+        assert_equal "(A, ?B, *C, x: D, ?y: E, **F)", params.forward_arg_type[0].to_s
+        assert_nil params.forward_arg_type[1]
+      end
+
+      MethodParams.build(node: node, method_type: parse_method_type("() { () -> void } -> void")).tap do |params|
+        assert_equal "()", params.forward_arg_type[0].to_s
+        assert_equal "{ () -> void }", params.forward_arg_type[1].to_s
+      end
+    end
+  end
+
+  def test_forward_arg2
+    with_factory do
+      node = def_node("def foo(x, ...); end")
+
+      MethodParams.build(node: node, method_type: parse_method_type("(Integer) -> void")).tap do |params|
+        assert_equal "()", params.forward_arg_type[0].to_s
+        assert_nil params.forward_arg_type[1]
+      end
+
+      MethodParams.build(node: node, method_type: parse_method_type("(A, ?B, *C, x: D, ?y: E, **F) -> void")).tap do |params|
+        assert_equal "(?B, *C, x: D, ?y: E, **F)", params.forward_arg_type[0].to_s
+        assert_nil params.forward_arg_type[1]
+      end
+
+      MethodParams.build(node: node, method_type: parse_method_type("(untyped) { () -> void } -> void")).tap do |params|
+        assert_equal "()", params.forward_arg_type[0].to_s
+        assert_equal "{ () -> void }", params.forward_arg_type[1].to_s
+      end
+    end
+  end
 end

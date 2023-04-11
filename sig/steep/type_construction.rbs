@@ -20,6 +20,8 @@ module Steep
 
     include NodeHelper
 
+    include ModuleHelper
+
     attr_reader checker: Subtyping::Check
 
     attr_reader source: Source
@@ -30,15 +32,15 @@ module Steep
 
     attr_reader context: TypeInference::Context
 
-    %a{pure} def module_context: () -> TypeInference::Context::ModuleContext?
-
-    def module_context!: () -> TypeInference::Context::ModuleContext
+    %a{pure} def module_context: () -> TypeInference::Context::ModuleContext
 
     %a{pure} def method_context: () -> TypeInference::Context::MethodContext?
 
     def method_context!: () -> TypeInference::Context::MethodContext
 
     %a{pure} def block_context: () -> TypeInference::Context::BlockContext?
+
+    def block_context!: () -> TypeInference::Context::BlockContext
 
     %a{pure} def break_context: () -> TypeInference::Context::BreakContext?
 
@@ -58,7 +60,7 @@ module Steep
 
     def update_type_env: () { (TypeInference::TypeEnv) -> TypeInference::TypeEnv } -> TypeConstruction
 
-    def check_relation: (sub_type: AST::Types::t, super_type: AST::Types::t, ?constraints: Subtyping::Constraints) -> Subtyping::Result::Base
+    def check_relation: (sub_type: AST::Types::t, super_type: AST::Types::t, ?constraints: Subtyping::Constraints) -> Subtyping::Result::t
 
     # This is a variation of `#check_relation` method.
     # It checks if given subtyping relation `sub_type <: super_type` holds or not, and returns truthy when *doesn't* hold.
@@ -82,7 +84,7 @@ module Steep
 
     def implement_module: (module_name: RBS::TypeName, annotations: AST::Annotation::Collection, ?super_name: RBS::TypeName?) -> AST::Annotation::Implements::Module?
 
-    def default_module_context: (untyped implement_module_name, nesting: untyped) -> untyped
+    def default_module_context: (AST::Annotation::Implements::Module? implement_module_name, nesting: RBS::Resolver::context) -> TypeInference::Context::ModuleContext
 
     def for_module: (untyped node, untyped new_module_name) -> untyped
 
@@ -104,7 +106,7 @@ module Steep
 
     def for_sclass: (Parser::AST::Node node, AST::Types::t `type`) -> TypeConstruction?
 
-    def for_branch: (Parser::AST::Node node, ?break_context: TypeInference::Context::BreakContext?) -> untyped
+    def for_branch: (Parser::AST::Node node, ?break_context: TypeInference::Context::BreakContext?) -> TypeConstruction
 
     def add_typing: (Parser::AST::Node node, type: AST::Types::t, ?constr: TypeConstruction) -> Pair
 
@@ -112,7 +114,7 @@ module Steep
 
     def synthesize: (Parser::AST::Node node, ?hint: AST::Types::t?, ?condition: bool) -> Pair
 
-    def check: (Parser::AST::Node node, AST::Types::t `type`, ?constraints: Subtyping::Constraints) { (AST::Types::t, AST::Types::t, Subtyping::Result::Base) -> void } -> Pair
+    def check: (Parser::AST::Node node, AST::Types::t `type`, ?constraints: Subtyping::Constraints) { (AST::Types::t, AST::Types::t, Subtyping::Result::t) -> void } -> Pair
 
     def masgn_lhs?: (untyped lhs) -> untyped
 
@@ -160,9 +162,9 @@ module Steep
 
     def optional_proc?: (untyped `type`) -> (untyped | nil | nil | nil | nil)
 
-    def type_lambda: (Parser::AST::Node node, params_node: Parser::AST::Node, body_node: Parser::AST::Node, type_hint: AST::Types::t?) -> Pair
+    def type_lambda: (Parser::AST::Node & Parser::AST::_BlockNode node, params_node: Parser::AST::Node, body_node: Parser::AST::Node, type_hint: AST::Types::t?) -> Pair
 
-    def synthesize_children: (Parser::AST::Node node, ?skips: Array[Parser::AST::Node]) -> TypeConstruction
+    def synthesize_children: (Parser::AST::Node node, ?skips: Array[Parser::AST::Node?]) -> TypeConstruction
 
     # Synthesize `:send`, `:csend`, `:block`, and `:numblock` node
     #
@@ -285,7 +287,13 @@ module Steep
 
     def eliminate_vars: (untyped `type`, untyped variables, ?to: untyped) -> untyped
 
+    # Type check arguments
+    #
+    # * Receives the `method_name` of a method that is being called
+    # * `method_name` is `nil` if it type checks arguments of block or proc
+    #
     def type_check_args: (
+      Symbol | nil,
       TypeInference::SendArgs,
       Subtyping::Constraints,
       Array[Diagnostic::Ruby::Base]
@@ -293,7 +301,7 @@ module Steep
 
     def type_check_argument: (Parser::AST::Node node, type: AST::Types::t, constraints: Subtyping::Constraints, errors: Array[Diagnostic::Ruby::Base], ?report_node: Parser::AST::Node) -> Pair
 
-    def type_block_without_hint: (node: Parser::AST::Node, block_annotations: AST::Annotation::Collection, block_params: TypeInference::BlockParams?, block_body: Parser::AST::Node?) ?{ (Diagnostic::Ruby::Base) -> void } -> void
+    def type_block_without_hint: (node: Parser::AST::Node & Parser::AST::_BlockNode, block_annotations: AST::Annotation::Collection, block_params: TypeInference::BlockParams?, block_body: Parser::AST::Node?) ?{ (Diagnostic::Ruby::Base) -> void } -> void
 
     def set_up_block_mlhs_params_env: (
       Parser::AST::Node mlhs_node,
@@ -329,15 +337,19 @@ module Steep
 
     # Synthesize the block body and returns the type of the body
     #
-    # The constructor can be discarded because it cannot change anything outer than block.
+    # The constructor can be safely discarded because it cannot change anything outer than block.
     #
-    def synthesize_block: (node: Parser::AST::Node, block_type_hint: AST::Types::t?, block_body: Parser::AST::Node?) -> AST::Types::t
+    def synthesize_block: (
+      node: Parser::AST::Node & Parser::AST::_BlockNode,
+      block_type_hint: AST::Types::t?,
+      block_body: Parser::AST::Node?
+    ) -> AST::Types::t
 
     %a{pure} def nesting: () -> RBS::Resolver::context
 
     def absolute_name: (untyped name) -> untyped
 
-    def union_type: (*AST::Types::t types) -> AST::Types::t
+    def union_type: (*AST::Types::t? types) -> AST::Types::t
 
     # Returns union type of given types
     #
@@ -358,27 +370,35 @@ module Steep
     #
     def union_of_tuple_to_tuple_of_union: (AST::Types::Union) -> AST::Types::Tuple?
 
-    def validate_method_definitions: (untyped node, untyped module_name) -> (nil | untyped)
+    def validate_method_definitions: (Parser::AST::Node node, AST::Annotation::Implements::Module module_name) -> void
 
     def fallback_to_any: (Parser::AST::Node node) ?{ () -> Diagnostic::Ruby::Base } -> Pair
 
-    def self_class?: (untyped node) -> untyped
+    # Return `true` if `node` is `self.class`
+    def self_class?: (Parser::AST::Node node) -> bool
 
-    def namespace_module?: (untyped node) -> (false | untyped)
+    # Returns `true` if the given `node` is a `class` or `module` declaration that only contains module/class definitions
+    #
+    def namespace_module?: (Parser::AST::Node node) -> bool
 
     def type_any_rec: (Parser::AST::Node node) -> Pair
 
     def unwrap: (AST::Types::t `type`) -> AST::Types::t
 
+    # Returns `nil` if `type` is recursive
+    #
+    # See `Factory#deep_expand_alias`.
+    #
     def deep_expand_alias: (AST::Types::t `type`) -> AST::Types::t?
 
-    def flatten_union: (AST::Types::t `type`) -> Array[AST::Types::t]
+    # `A | B | ... | Z` => `[A, B, ..., Z]`
+    def flatten_union: (AST::Types::t) -> Array[AST::Types::t]
 
-    def select_flatten_types: (untyped `type`) { () -> untyped } -> untyped
+    def select_flatten_types: (AST::Types::t) { (AST::Types::t) -> boolish } -> Array[AST::Types::t]
 
-    def partition_flatten_types: (AST::Types::t `type`) { (AST::Types::t) -> boolish } -> [Array[AST::Types::t], Array[AST::Types::t]]
+    def partition_flatten_types: (AST::Types::t) { (AST::Types::t) -> boolish } -> [Array[AST::Types::t], Array[AST::Types::t]]
 
-    def flatten_array_elements: (untyped `type`) -> untyped
+    def flatten_array_elements: (AST::Types::t) -> Array[AST::Types::t]
 
     def expand_alias: (AST::Types::t `type`) -> AST::Types::t
                     | [A] (AST::Types::t) { (AST::Types::t) -> A } -> A
@@ -387,7 +407,12 @@ module Steep
 
     def to_instance_type: (untyped `type`, ?args: untyped?) -> untyped
 
-    def try_tuple_type!: (Parser::AST::Node node, ?hint: AST::Types::Tuple?) -> Pair
+    # Synthesize the type of a node, assuming it has tuple type when possible
+    #
+    # * Try `#try_tuple_type` if applicable, or
+    # * Run the normal `#synthesize` else
+    #
+    def try_tuple_type!: (Parser::AST::Node node, ?hint: AST::Types::t?) -> Pair
 
     # Try to give `array_node` a tuple type
     #
@@ -458,22 +483,36 @@ module Steep
     # * When hint is union type, it tries recursively with the union cases.
     # * Otherwise, it tries to be a hash instance.
     #
-    def type_hash: (untyped hash_node, hint: untyped) -> untyped
+    def type_hash: (Parser::AST::Node hash_node, hint: AST::Types::t?) -> untyped
 
     # Returns the first one from elements of `types` that returns a type `t` where `t <: hint`.
     #
     def pick_one_of: (Array[AST::Types::t] types, range: untyped) { (AST::Types::t hint, TypeConstruction) -> Pair? } -> Pair?
 
-    def save_typing: () -> untyped
-
-    # Returns `true` if a method call can be identified as _pure_.
+    # *Commit* the transaction (current typing) and returns a `TypeConstruction` with saved typing
     #
-    # * The `node` is not a call with call
-    # * It always calls _pure_ method
-    # * The `receiver` is _pure_
+    # ```ruby
+    # transaction = typing.new_child(range) {|child| constr.with_new_typing(child) }
+    #
+    # # Do something that may fail
+    #
+    # if succeeded
+    #   # Commit the may-fail operation
+    #   constr = transaction.save_typing()
+    # else
+    #   # Abort the transaction
+    # end
+    # ```
+    def save_typing: () -> TypeConstruction
+
+    # Returns `true` if a method call can be identified as _pure_:
+    #
+    # * The `node` is not a call with block,
+    # * It always calls _pure_ method,
+    # * The `receiver` is _pure_, and
     # * All of the arguments are _pure_
     #
-    def pure_send?: (TypeInference::MethodCall::Typed call, Parser::AST::Node receiver, Array[Parser::AST::Node] arguments) -> bool
+    def pure_send?: (TypeInference::MethodCall::Typed call, Parser::AST::Node? receiver, Array[Parser::AST::Node] arguments) -> bool
 
     # Transform given `node` to a node that has a local variable instead of the outer most call/non-value node
     #

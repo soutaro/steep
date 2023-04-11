@@ -32,6 +32,8 @@ module Steep
       def map_type: () { (AST::Types::t) -> AST::Types::t } -> Block
 
       def +: (Block other) -> Block
+
+      def to_proc_type: () -> AST::Types::t
     end
   end
 end

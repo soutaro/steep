@@ -36,6 +36,7 @@ module Parser
       attr_accessor self.emit_lambda: bool
       attr_accessor self.emit_procarg0: bool
       attr_accessor self.emit_kwargs: bool
+      attr_accessor self.emit_forward_arg: bool
 
       def string_value: (untyped) -> untyped
 

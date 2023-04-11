@@ -143,16 +143,22 @@ module Steep
       attr_reader :method_type
       attr_reader :params
       attr_reader :errors
+      attr_reader :forward_arg_type
 
-      def initialize(args:, method_type:)
+      def initialize(args:, method_type:, forward_arg_type:)
         @args = args
         @method_type = method_type
         @params = {}
         @errors = []
+        @forward_arg_type = forward_arg_type
       end
 
       def [](name)
         params[name] or raise "Unknown variable name: #{name}"
+      end
+
+      def param?(name)
+        params.key?(name)
       end
 
       def size
@@ -160,7 +166,11 @@ module Steep
       end
 
       def each_param(&block)
-        params.each_value(&block)
+        if block
+          params.each_value(&block)
+        else
+          params.each_value
+        end
       end
 
       def each
@@ -173,7 +183,12 @@ module Steep
         end
       end
 
+      def update(forward_arg_type: self.forward_arg_type)
+        MethodParams.new(args: args, method_type: method_type, forward_arg_type: forward_arg_type)
+      end
+
       def self.empty(node:)
+        # @type var args_node: ::Parser::AST::Node
         args_node =
           case node.type
           when :def
@@ -184,9 +199,10 @@ module Steep
             raise
           end
 
-        params = new(args: args_node.children, method_type: nil)
+        params = new(args: args_node.children, method_type: nil, forward_arg_type: nil)
 
         args_node.children.each do |arg|
+          # @type var arg: ::Parser::AST::Node
           case arg.type
           when :arg, :optarg
             name = arg.children[0]
@@ -210,6 +226,7 @@ module Steep
       end
 
       def self.build(node:, method_type:)
+        # @type var args_node: ::Parser::AST::Node
         args_node =
           case node.type
           when :def
@@ -219,17 +236,17 @@ module Steep
           else
             raise
           end
-        original = args_node.children
+        original = args_node.children #: Array[Parser::AST::Node]
         args = original.dup
 
-        instance = new(args: original, method_type: method_type)
+        instance = new(args: original, method_type: method_type, forward_arg_type: nil)
 
         positional_params = method_type.type.params.positional_params
 
         loop do
-          arg = args.first
+          arg = args.first or break
 
-          case arg&.type
+          case arg.type
           when :arg
             name = arg.children[0]
             param = positional_params&.head
@@ -300,9 +317,14 @@ module Steep
           args.shift
         end
 
-        if (arg = args.first)&.type == :restarg
+        if (arg = args.first) && arg.type == :forward_arg
+          forward_params = method_type.type.params.update(positional_params: positional_params)
+          return instance.update(forward_arg_type: [forward_params, method_type.block])
+        end
+
+        if (arg = args.first) && arg.type == :restarg
           name = arg.children[0]
-          rest_types = []
+          rest_types = [] #: Array[AST::Types::t]
           has_error = false
 
           loop do
@@ -325,7 +347,11 @@ module Steep
               break
             end
 
-            positional_params = positional_params.tail
+            if positional_params
+              positional_params = positional_params.tail
+            else
+              raise "Fatal error"
+            end
           end
 
           type = rest_types.empty? ? nil : AST::Types::Union.build(types: rest_types)
@@ -348,9 +374,9 @@ module Steep
         keywords = keyword_params.keywords
 
         loop do
-          arg = args.first
+          arg = args.first or break
 
-          case arg&.type
+          case arg.type
           when :kwarg
             name = arg.children[0]
 
@@ -421,9 +447,9 @@ module Steep
           args.shift
         end
 
-        if (arg = args.first)&.type == :kwrestarg
+        if (arg = args.first) && arg.type == :kwrestarg
           name = arg.children[0]
-          rest_types = []
+          rest_types = [] #: Array[AST::Types::t]
           has_error = false
 
           keywords.each do |keyword|
@@ -460,8 +486,8 @@ module Steep
           end
         end
 
-        if (arg = args.first)&.type == :blockarg
-          name = arg.children[0]
+        if (arg = args.first) && arg.type == :blockarg
+          name = arg.children[0] #: Symbol
 
           if method_type.block
             instance.params[name] = BlockParameter.new(

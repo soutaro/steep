@@ -52,10 +52,6 @@ module Steep
       context.module_context
     end
 
-    def module_context!
-      module_context or raise
-    end
-
     def method_context
       context.method_context
     end
@@ -66,6 +62,10 @@ module Steep
 
     def block_context
       context.block_context
+    end
+
+    def block_context!
+      block_context or raise
     end
 
     def break_context
@@ -135,8 +135,8 @@ module Steep
         checker.check(
           relation,
           self_type: self_type,
-          instance_type: module_context!.instance_type,
-          class_type: module_context!.module_type,
+          instance_type: module_context.instance_type,
+          class_type: module_context.module_type,
           constraints: constraints
         )
       end
@@ -163,8 +163,8 @@ module Steep
 
       method_type = annotation_method_type || definition_method_type
 
-      if annots&.return_type && method_type&.type&.return_type
-        check_relation(sub_type: annots.return_type, super_type: method_type.type.return_type).else do |result|
+      if (annotation_return_type = annots&.return_type) && (method_type_return_type = method_type&.type&.return_type)
+        check_relation(sub_type: annotation_return_type, super_type: method_type_return_type).else do |result|
           typing.add_error(
             Diagnostic::Ruby::MethodReturnTypeAnnotationMismatch.new(
               node: node,
@@ -194,23 +194,23 @@ module Steep
         variable_context = self.variable_context
       end
 
+      method_params =
+      if method_type
+        TypeInference::MethodParams.build(node: node, method_type: method_type)
+      else
+        TypeInference::MethodParams.empty(node: node)
+      end
+
       method_context = TypeInference::Context::MethodContext.new(
         name: method_name,
         method: definition && definition.methods[method_name],
         method_type: method_type,
         return_type: annots.return_type || method_type&.type&.return_type || AST::Builtin.any_type,
-        constructor: false,
-        super_method: super_method
+        super_method: super_method,
+        forward_arg_type: method_params.forward_arg_type
       )
 
-      method_params =
-        if method_type
-          TypeInference::MethodParams.build(node: node, method_type: method_type)
-        else
-          TypeInference::MethodParams.empty(node: node)
-        end
-
-      local_variable_types = method_params.each_param.with_object({}) do |param, hash|
+      local_variable_types = method_params.each_param.with_object({}) do |param, hash| #$ Hash[Symbol, AST::Types::t]
         if param.name
           unless SPECIAL_LVAR_NAMES.include?(param.name)
             hash[param.name] = param.var_type
@@ -221,14 +221,16 @@ module Steep
 
       type_env = TypeInference::TypeEnvBuilder.new(
         TypeInference::TypeEnvBuilder::Command::ImportLocalVariableAnnotations.new(annots).merge!.on_duplicate! do |name, original, annotated|
-          param = method_params.each_param.find {|param| param.name == name }
-          if result = no_subtyping?(sub_type: original, super_type: annotated)
-            typing.add_error Diagnostic::Ruby::IncompatibleAnnotation.new(
-              node: param.node,
-              var_name: name,
-              result: result,
-              relation: result.relation
-            )
+          if method_params.param?(name)
+            param = method_params[name]
+            if result = no_subtyping?(sub_type: original, super_type: annotated)
+              typing.add_error Diagnostic::Ruby::IncompatibleAnnotation.new(
+                node: param.node,
+                var_name: name,
+                result: result,
+                relation: result.relation
+              )
+            end
           end
         end,
         TypeInference::TypeEnvBuilder::Command::ImportInstanceVariableDefinition.new(definition, checker.factory),
@@ -308,7 +310,7 @@ module Steep
 
     def default_module_context(implement_module_name, nesting:)
       if implement_module_name
-        module_name = checker.factory.absolute_type_name(implement_module_name.name, context: nesting)
+        module_name = checker.factory.absolute_type_name(implement_module_name.name, context: nesting) or raise
         module_args = implement_module_name.args.map {|name| AST::Types::Var.new(name: name) }
 
         instance_def = checker.factory.definition_builder.build_instance(module_name)
@@ -328,8 +330,8 @@ module Steep
         )
       else
         TypeInference::Context::ModuleContext.new(
-          instance_type: nil,
-          module_type: nil,
+          instance_type: AST::Builtin::Object.instance_type,
+          module_type: AST::Builtin::Object.module_type,
           implement_name: nil,
           nesting: nesting,
           class_name: self.module_context.class_name,
@@ -375,6 +377,8 @@ module Steep
                            args: module_self.args,
                            location: module_self.location
                          )
+                       else
+                         raise
                        end
                 checker.factory.type(type)
               },
@@ -451,7 +455,7 @@ module Steep
     end
 
     def for_class(node, new_class_name, super_class_name)
-      new_nesting = [nesting, new_class_name || false]
+      new_nesting = [nesting, new_class_name || false] #: RBS::Resolver::context
       annots = source.annotations(block: node, factory: checker.factory, context: new_nesting)
 
       class_const_env = TypeInference::ConstantEnv.new(
@@ -594,7 +598,7 @@ module Steep
 
       module_definition = case module_type
                           when AST::Types::Name::Singleton
-                            type_name = instance_type.name
+                            type_name = module_type.name
                             checker.factory.definition_builder.build_singleton(type_name)
                           else
                             nil
@@ -728,7 +732,7 @@ module Steep
             else
               if enforced_type = context.type_env.enforced_type(name)
                 case
-                when hint == nil
+                when !hint
                   hint = enforced_type
                 when check_relation(sub_type: enforced_type, super_type: hint).success?
                   # enforced_type is compatible with hint and more specific to hint.
@@ -862,27 +866,29 @@ module Steep
 
         when :super
           yield_self do
-            if self_type && method_context&.method
-              if super_def = method_context.super_method
+            if self_type && method_context!.method
+              if super_def = method_context!.super_method
                 each_child_node(node) do |child|
                   synthesize(child)
                 end
 
                 super_method = Interface::Shape::Entry.new(
-                  method_types: method_context.super_method.method_types.map {|method_type|
+                  method_types: super_def.defs.map {|type_def|
                     decl = TypeInference::MethodCall::MethodDecl.new(
-                      method_name: InstanceMethodName.new(type_name: super_def.implemented_in || super_def.defined_in,
-                                                          method_name: method_context.name),
-                      method_def: super_def
+                      method_name: InstanceMethodName.new(
+                        type_name: super_def.implemented_in || super_def.defined_in || raise,
+                        method_name: method_context!.name || raise("method context must have a name")
+                      ),
+                      method_def: type_def
                     )
-                    checker.factory.method_type(method_type, method_decls: Set[decl])
+                    checker.factory.method_type(type_def.type, method_decls: Set[decl])
                   }
                 )
 
                 call, constr = type_method_call(
                   node,
                   receiver_type: self_type,
-                  method_name: method_context.name,
+                  method_name: method_context!.name || raise("method context must have a name"),
                   method: super_method,
                   arguments: node.children,
                   block_params: nil,
@@ -896,13 +902,13 @@ module Steep
                   error = Diagnostic::Ruby::UnresolvedOverloading.new(
                     node: node,
                     receiver_type: self_type,
-                    method_name: method_context.name,
+                    method_name: method_context!.name,
                     method_types: super_method.method_types
                   )
                   call = TypeInference::MethodCall::Error.new(
                     node: node,
-                    context: context.method_context,
-                    method_name: method_context.name,
+                    context: context.call_context,
+                    method_name: method_context!.name || raise("method context must have a name"),
                     receiver_type: self_type,
                     errors: [error]
                   )
@@ -913,7 +919,7 @@ module Steep
                 end
               else
                 fallback_to_any node do
-                  Diagnostic::Ruby::UnexpectedSuper.new(node: node, method: method_context.name)
+                  Diagnostic::Ruby::UnexpectedSuper.new(node: node, method: method_context!.name)
                 end
               end
             else
@@ -923,6 +929,8 @@ module Steep
 
         when :def
           yield_self do
+            # @type var node: Parser::AST::Node & Parser::AST::_DefNode
+
             name, args_node, body_node = node.children
 
             with_method_constr(
@@ -1021,16 +1029,16 @@ module Steep
             new.typing.add_context_for_node(node, context: new.context)
             new.typing.add_context_for_body(node, context: new.context)
 
-            new.method_context.tap do |method_context|
+            new.method_context!.tap do |method_context|
               if method_context.method
                 name_ = node.children[1]
 
                 method_name =
                   case self_type
                   when AST::Types::Name::Instance
-                    InstanceMethodName.new(type_name: method_context.method.implemented_in, method_name: name_)
+                    InstanceMethodName.new(type_name: method_context.method.implemented_in || raise, method_name: name_)
                   when AST::Types::Name::Singleton
-                    SingletonMethodName.new(type_name: method_context.method.implemented_in, method_name: name_)
+                    SingletonMethodName.new(type_name: method_context.method.implemented_in || raise, method_name: name_)
                   end
 
                 new.typing.source_index.add_definition(method: method_name, definition: node)
@@ -1044,8 +1052,8 @@ module Steep
             end
 
             if node.children[3]
-              return_type = expand_alias(new.method_context&.return_type)
-              if return_type && !return_type.is_a?(AST::Types::Void)
+              return_type = expand_alias(new.method_context!.return_type)
+              if !return_type.is_a?(AST::Types::Void)
                 new.check(node.children[3], return_type) do |return_type, actual_type, result|
                   typing.add_error(
                     Diagnostic::Ruby::MethodBodyTypeMismatch.new(
@@ -1062,49 +1070,44 @@ module Steep
             end
           end
 
-          if module_context
-            if node.children[0].type == :self
-              module_context.defined_module_methods << node.children[1]
-            end
+          if node.children[0].type == :self
+            module_context.defined_module_methods << node.children[1]
           end
 
           add_typing(node, type: AST::Builtin::Symbol.instance_type)
 
         when :return
           yield_self do
-            method_return_type = expand_alias(method_context&.return_type)
-
-            if node.children.size > 0
-              return_types = node.children.map do |value|
-                synthesize(
-                  value,
-                  hint: if method_return_type.is_a?(AST::Types::Void)
-                          nil
-                        else
-                          method_return_type
-                        end
-                ).type
+            method_return_type =
+              if method_context
+                expand_alias(method_context.return_type)
               end
 
-              value_type = if return_types.size == 1
-                             return_types.first
-                           else
-                             AST::Builtin::Array.instance_type(union_type(*return_types))
-                           end
-
-            else
+            case node.children.size
+            when 0
               value_type = AST::Builtin.nil_type
+              constr = self
+            when 1
+              return_value_node = node.children[0]
+              value_type, constr = synthesize(return_value_node, hint: method_return_type)
+            else
+              constr = synthesize_children(node)
+              return_types = node.children.map do |value|
+                constr.typing.type_of(node: value)
+              end
+
+              value_type = AST::Builtin::Array.instance_type(union_type(*return_types))
             end
 
             if method_return_type
-              unless method_return_type.is_a?(AST::Types::Void)
-                result = check_relation(sub_type: value_type, super_type: method_return_type)
+              unless method_context.nil? || method_return_type.is_a?(AST::Types::Void)
+                result = constr.check_relation(sub_type: value_type, super_type: method_return_type)
 
                 if result.failure?
                   typing.add_error(
                     Diagnostic::Ruby::ReturnTypeMismatch.new(
                       node: node,
-                      expected: method_context&.return_type,
+                      expected: method_return_type,
                       actual: value_type,
                       result: result
                     )
@@ -1113,14 +1116,14 @@ module Steep
               end
             end
 
-            add_typing(node, type: AST::Builtin.bottom_type)
+            constr.add_typing(node, type: AST::Builtin.bottom_type)
           end
 
         when :break
           value = node.children[0]
 
           if break_context
-            break_type = (break_context || raise).break_type
+            break_type = break_context.break_type
 
             if value
               check(value, break_type) do |break_type, actual_type, result|
@@ -1158,7 +1161,7 @@ module Steep
 
           if break_context
             if next_type = break_context.next_type
-              next_type = deep_expand_alias(next_type)
+              next_type = deep_expand_alias(next_type) || next_type
 
               if value
                 _, constr = check(value, next_type) do |break_type, actual_type, result|
@@ -1201,7 +1204,7 @@ module Steep
 
         when :procarg0
           yield_self do
-            constr = self
+            constr = self #: TypeConstruction
 
             node.children.each do |arg|
               if arg.is_a?(Symbol)
@@ -1227,7 +1230,7 @@ module Steep
 
         when :mlhs
           yield_self do
-            constr = self
+            constr = self #: TypeConstruction
 
             node.children.each do |arg|
               _, constr = constr.synthesize(arg)
@@ -1353,7 +1356,6 @@ module Steep
           ty = node.type == :true ? AST::Types::Literal.new(value: true) : AST::Types::Literal.new(value: false)
 
           if hint && check_relation(sub_type: ty, super_type: hint).success? && !hint.is_a?(AST::Types::Any) && !hint.is_a?(AST::Types::Top)
-
             add_typing(node, type: hint)
           else
             add_typing(node, type: AST::Types::Boolean.new)
@@ -1393,6 +1395,9 @@ module Steep
           yield_self do
             constr = self
 
+            # @type var name_node: Parser::AST::Node
+            # @type var super_node: Parser::AST::Node?
+
             name_node, super_node, _ = node.children
             _, constr, class_name = synthesize_constant_decl(name_node, name_node.children[0], name_node.children[1]) do
               typing.add_error(
@@ -1421,9 +1426,9 @@ module Steep
 
             with_class_constr(node, class_name, super_name) do |constructor|
               if module_type = constructor.module_context&.module_type
-                _, constructor = constructor.add_typing(name, type: module_type)
+                _, constructor = constructor.add_typing(name_node, type: module_type)
               else
-                _, constructor = constructor.fallback_to_any(name)
+                _, constructor = constructor.fallback_to_any(name_node)
               end
 
               constructor.typing.add_context_for_node(node, context: constructor.context)
@@ -1443,6 +1448,7 @@ module Steep
           yield_self do
             constr = self
 
+            # @type var name_node: Parser::AST::Node
             name_node, _ = node.children
             _, constr, module_name = synthesize_constant_decl(name_node, name_node.children[0], name_node.children[1]) do
               typing.add_error Diagnostic::Ruby::UnknownConstant.new(node: name_node, name: name_node.children[1]).module!
@@ -1454,9 +1460,9 @@ module Steep
 
             with_module_constr(node, module_name) do |constructor|
               if module_type = constructor.module_context&.module_type
-                _, constructor = constructor.add_typing(name, type: module_type)
+                _, constructor = constructor.add_typing(name_node, type: module_type)
               else
-                _, constructor = constructor.fallback_to_any(name)
+                _, constructor = constructor.fallback_to_any(name_node)
               end
 
               constructor.typing.add_context_for_node(node, context: constructor.context)
@@ -1492,9 +1498,9 @@ module Steep
 
               constructor.synthesize(node.children[1]) if node.children[1]
 
-              if constructor.module_context!.instance_definition && module_context!.module_definition
-                if constructor.module_context!.instance_definition.type_name == module_context!.module_definition.type_name
-                  module_context!.defined_module_methods.merge(constructor.module_context!.defined_instance_methods)
+              if constructor.module_context.instance_definition && module_context.module_definition
+                if constructor.module_context.instance_definition.type_name == module_context.module_definition.type_name
+                  module_context.defined_module_methods.merge(constructor.module_context.defined_instance_methods)
                 end
               end
             end
@@ -1570,6 +1576,7 @@ module Steep
               # @type var errors: Array[Diagnostic::Ruby::Base]
               errors = []
               constr = type_check_args(
+                nil,
                 args,
                 Subtyping::Constraints.new(unknowns: []),
                 errors
@@ -1590,7 +1597,7 @@ module Steep
 
         when :zsuper
           yield_self do
-            if method_context&.method
+            if method_context && method_context.method
               if method_context.super_method
                 types = method_context.super_method.method_types.map {|method_type|
                   checker.factory.method_type(method_type, method_decls: Set[]).type.return_type
@@ -1623,22 +1630,28 @@ module Steep
             else
               node_range = node.loc.expression.yield_self {|l| l.begin_pos..l.end_pos }
 
-              if hint && !(tuples = select_flatten_types(hint) {|type| type.is_a?(AST::Types::Tuple) }).empty?
-                tuples.each do |tuple|
-                  typing.new_child(node_range) do |child_typing|
-                    if pair = with_new_typing(child_typing).try_tuple_type(node, tuple)
-                      return pair.with(constr: pair.constr.save_typing)
+              if hint
+                tuples = select_flatten_types(hint) {|type| type.is_a?(AST::Types::Tuple) } #: Array[AST::Types::Tuple]
+                unless tuples.empty?
+                  tuples.each do |tuple|
+                    typing.new_child(node_range) do |child_typing|
+                      if pair = with_new_typing(child_typing).try_tuple_type(node, tuple)
+                        return pair.with(constr: pair.constr.save_typing)
+                      end
                     end
                   end
                 end
               end
 
-              if hint && !(arrays = select_flatten_types(hint) {|type| AST::Builtin::Array.instance_type?(type) }).empty?
-                arrays.each do |array|
-                  typing.new_child(node_range) do |child_typing|
-                    pair = with_new_typing(child_typing).try_array_type(node, array)
-                    if pair.constr.check_relation(sub_type: pair.type, super_type: hint).success?
-                      return pair.with(constr: pair.constr.save_typing)
+              if hint
+                arrays = select_flatten_types(hint) {|type| AST::Builtin::Array.instance_type?(type) } #: Array[AST::Types::Name::Instance]
+                unless arrays.empty?
+                  arrays.each do |array|
+                    typing.new_child(node_range) do |child_typing|
+                      pair = with_new_typing(child_typing).try_array_type(node, array)
+                      if pair.constr.check_relation(sub_type: pair.type, super_type: hint).success?
+                        return pair.with(constr: pair.constr.save_typing)
+                      end
                     end
                   end
                 end
@@ -1771,7 +1784,7 @@ module Steep
             end
 
             constr = constr.update_type_env do |env|
-              envs = []
+              envs = [] #: Array[TypeInference::TypeEnv]
 
               if true_pair
                 unless true_pair.type.is_a?(AST::Types::Bot)
@@ -1798,13 +1811,15 @@ module Steep
 
         when :case
           yield_self do
+            # @type var node: Parser::AST::Node & Parser::AST::_CaseNode
+
             cond, *whens, els = node.children
 
-            constr = self
+            constr = self #: TypeConstruction
             interpreter = TypeInference::LogicTypeInterpreter.new(subtyping: checker, typing: typing, config: builder_config)
 
             if cond
-              branch_results = []
+              branch_results = [] #: Array[Pair]
 
               cond_type, constr = constr.synthesize(cond)
               _, cond_vars = interpreter.decompose_value(cond)
@@ -1858,6 +1873,8 @@ module Steep
               end
 
               if els
+                node.loc.else or raise
+
                 begin_pos = node.loc.else.end_pos
                 end_pos = node.loc.end.begin_pos
                 typing.add_context(begin_pos..end_pos, context: when_constr.context)
@@ -1885,14 +1902,14 @@ module Steep
                 end
               end
             else
-              branch_results = []
+              branch_results = [] #: Array[Pair]
 
               condition_constr = constr
               clause_constr = constr
 
               whens.each do |when_clause|
                 when_clause_constr = condition_constr
-                body_envs = []
+                body_envs = [] #: Array[TypeInference::TypeEnv]
 
                 *tests, body = when_clause.children
 
@@ -1975,7 +1992,7 @@ module Steep
               end
 
               resbody_construction = body_constr.for_branch(resbody).update_type_env do |env|
-                assignments = {}
+                assignments = {} #: Hash[Symbol, AST::Types::t]
 
                 case
                 when exn_classes && var_name && exn_types
@@ -2025,8 +2042,12 @@ module Steep
             klasses, asgn, body = node.children
             synthesize(klasses) if klasses
             synthesize(asgn) if asgn
-            body_type = synthesize(body, hint: hint).type if body
-            add_typing(node, type: body_type)
+            if body
+              body_type = synthesize(body, hint: hint).type
+              add_typing(node, type: body_type)
+            else
+              add_typing(node, type: AST::Builtin.nil_type)
+            end
           end
 
         when :ensure
@@ -2034,7 +2055,11 @@ module Steep
             body, ensure_body = node.children
             body_type = synthesize(body).type if body
             synthesize(ensure_body) if ensure_body
-            add_typing(node, type: union_type(body_type))
+            if body_type
+              add_typing(node, type: body_type)
+            else
+              add_typing(node, type: AST::Builtin.nil_type)
+            end
           end
 
         when :masgn
@@ -2054,13 +2079,13 @@ module Steep
                 if method_type = (each.method_types || []).find {|type| type.block && type.block.type.params.first_param }
                   if block = method_type.block
                     if first_param = block.type.params.first_param
-                      var_type = first_param.type
+                      var_type = first_param.type #: AST::Types::t
                     end
                   end
                 end
               end
             end
-            var_name = asgn.children[0]
+            var_name = asgn.children[0] #: Symbol
 
             if var_type
               if body
@@ -2106,7 +2131,13 @@ module Steep
               body_env, exit_env = truthy_env, falsy_env
             when :until
               exit_env, body_env = truthy_env, falsy_env
+            else
+              raise
             end
+
+            body_env or raise
+            exit_env or raise
+
 
             if body
               pins = body_env.pin_local_variables(nil)
@@ -2131,7 +2162,7 @@ module Steep
           yield_self do
             cond, body = node.children
 
-            _, cond_constr, = synthesize(cond).to_ary
+            _, cond_constr, = synthesize(cond)
 
             if body
               for_loop =
@@ -2146,7 +2177,7 @@ module Steep
 
               add_typing(node, type: AST::Builtin.nil_type, constr: constr)
             else
-              add_typing(node, type: AST::Builtin.nil_type, constr: cond_pair.constr)
+              add_typing(node, type: AST::Builtin.nil_type, constr: cond_constr)
             end
           end
 
@@ -2155,12 +2186,12 @@ module Steep
 
           constr = self
           begin_type, constr = if begin_node
-                                 constr.synthesize(begin_node)
+                                 constr.synthesize(begin_node).to_ary
                                else
                                  [AST::Builtin.nil_type, constr]
                                end
           end_type, constr = if end_node
-                               constr.synthesize(end_node)
+                               constr.synthesize(end_node).to_ary
                              else
                                [AST::Builtin.nil_type, constr]
                              end
@@ -2298,14 +2329,18 @@ module Steep
                 Steep.logger.error "Passing multiple args through Symbol#to_proc is not supported yet"
               end
             when value == nil
-              type = AST::Types::Proc.new(
-                type: method_context.method_type.block.type,
-                location: nil,
-                block: nil,
-                self_type: method_context.method_type.block.self_type
-              )
-              if method_context.method_type.block.optional?
-                type = AST::Types::Union.build(types: [type, AST::Builtin.nil_type])
+              if block_type = method_context!.block_type
+                type = AST::Types::Proc.new(
+                  type: block_type.type,
+                  location: nil,
+                  block: nil,
+                  self_type: block_type.self_type
+                )
+                if block_type.optional?
+                  type = AST::Types::Union.build(types: [type, AST::Builtin.nil_type])
+                end
+              else
+                type = AST::Builtin.nil_type
               end
             end
 
@@ -2328,9 +2363,12 @@ module Steep
 
           type, constr = synthesize(rhs, hint: hint)
 
-          var_type = if module_context&.class_variables
-                       module_context.class_variables[name]&.yield_self {|ty| checker.factory.type(ty) }
-                     end
+          var_type =
+            if class_vars = module_context.class_variables
+              if ty = class_vars[name]
+                checker.factory.type(ty)
+              end
+            end
 
           if var_type
             result = constr.check_relation(sub_type: type, super_type: var_type)
@@ -2352,10 +2390,13 @@ module Steep
           end
 
         when :cvar
-          name = node.children[0]
-          var_type = if module_context&.class_variables
-                       module_context.class_variables[name]&.yield_self {|ty| checker.factory.type(ty) }
-                     end
+          name = node.children[0] #: Symbol
+          var_type =
+            if cvs = module_context.class_variables
+              if ty = cvs[name]
+                checker.factory.type(ty)
+              end
+            end
 
           if var_type
             add_typing node, type: var_type
@@ -2383,7 +2424,7 @@ module Steep
           end
 
         when :args
-          constr = self
+          constr = self #: TypeConstruction
 
           each_child_node(node) do |child|
             _, constr = constr.synthesize(child)
@@ -2396,7 +2437,7 @@ module Steep
             # @type var as_type: AST::Node::TypeAssertion
             asserted_node, as_type = node.children
 
-            if type = as_type.type?(module_context!.nesting, checker.factory, [])
+            if type = as_type.type?(module_context.nesting, checker.factory, [])
               actual_type, constr = synthesize(asserted_node, hint: type)
 
               if no_subtyping?(sub_type: type, super_type: actual_type) && no_subtyping?(sub_type: actual_type, super_type: type)
@@ -2426,6 +2467,9 @@ module Steep
             constr.add_typing(node, type: type)
           end
 
+        when :forwarded_args, :forward_arg
+          add_typing(node, type: AST::Builtin.any_type)
+
         else
           typing.add_error(Diagnostic::Ruby::UnsupportedSyntax.new(node: node))
           add_typing(node, type: AST::Builtin.any_type)
@@ -2439,7 +2483,7 @@ module Steep
         end
       rescue RBS::BaseError => exn
         Steep.logger.warn { "Unexpected RBS error: #{exn.message}" }
-        exn.backtrace.each {|loc| Steep.logger.warn "  #{loc}" }
+        exn.backtrace&.each {|loc| Steep.logger.warn "  #{loc}" }
         typing.add_error(Diagnostic::Ruby::UnexpectedError.new(node: node, error: exn))
         type_any_rec(node)
       rescue StandardError => exn
@@ -2466,7 +2510,7 @@ module Steep
       when :send
         yield_self do
           if self_class?(node)
-            module_type = expand_alias(module_context!.module_type)
+            module_type = expand_alias(module_context.module_type)
             type = if module_type.is_a?(AST::Types::Name::Singleton)
                      AST::Types::Name::Singleton.new(name: module_type.name)
                    else
@@ -2482,7 +2526,7 @@ module Steep
         yield_self do
           send_type, constr =
             if self_class?(node)
-              module_type = expand_alias(module_context!.module_type)
+              module_type = expand_alias(module_context.module_type)
               type = if module_type.is_a?(AST::Types::Name::Singleton)
                        AST::Types::Name::Singleton.new(name: module_type.name)
                      else
@@ -2501,6 +2545,7 @@ module Steep
         yield_self do
           send_node, params, body = node.children
           if send_node.type == :lambda
+            # @type var node: Parser::AST::Node & Parser::AST::_BlockNode
             type_lambda(node, params_node: params, body_node: body, type_hint: hint)
           else
             type_send(node, send_node: send_node, block_params: params, block_body: body, unwrap: send_node.type == :csend, tapp: tapp)
@@ -2519,6 +2564,7 @@ module Steep
           params = Parser::AST::Node.new(:args, arg_nodes)
 
           if send_node.type == :lambda
+            # @type var node: Parser::AST::Node & Parser::AST::_BlockNode
             type_lambda(node, params_node: params, body_node: body, type_hint: hint)
           else
             type_send(node, send_node: send_node, block_params: params, block_body: body, unwrap: send_node.type == :csend, tapp: tapp)
@@ -2632,7 +2678,7 @@ module Steep
       hint = masgn.hint_for_mlhs(lhs, context.type_env)
 
       rhs_type, lhs_constr = try_tuple_type!(rhs, hint: hint).to_ary
-      rhs_type = deep_expand_alias(rhs_type)
+      rhs_type = deep_expand_alias(rhs_type) || rhs_type
 
       falsys, truthys = partition_flatten_types(rhs_type) do |type|
         type.is_a?(AST::Types::Nil) || (type.is_a?(AST::Types::Literal) && type.value == false)
@@ -2707,19 +2753,20 @@ module Steep
               yield
             else
               if node
-                constr.typing.add_error(
+                typing.add_error(
                   Diagnostic::Ruby::UnknownConstant.new(node: node, name: constant_name)
                 )
               end
             end
 
+            constr = self #: TypeConstruction
             if node
               _, constr = add_typing(node, type: AST::Builtin.any_type)
             end
 
             [
               AST::Builtin.any_type,
-              self,
+              constr,
               nil
             ]
           else
@@ -2845,7 +2892,7 @@ module Steep
 
       block_constr.typing.add_context_for_body(node, context: block_constr.context)
 
-      params.params.each do |param|
+      params.each_single_param do |param|
         _, block_constr = block_constr.synthesize(param.node, hint: param.type)
       end
 
@@ -2893,8 +2940,13 @@ module Steep
           Interface::Substitution.build([], [], self_type: block_constr.self_type)
         )
 
-        if expected_block_type = block_constr.block_context.body_type
-          type_vars = expected_block_type.free_variables
+        if expected_block_type = block_constr.block_context!.body_type
+          type_vars = expected_block_type.free_variables.filter_map do |var|
+            case var
+            when Symbol
+              var
+            end
+          end
           subst = Interface::Substitution.build(type_vars, type_vars.map { AST::Builtin.any_type })
           expected_block_type = expected_block_type.subst(subst)
 
@@ -2929,7 +2981,7 @@ module Steep
     end
 
     def synthesize_children(node, skips: [])
-      skips = Set.new.compare_by_identity.merge(skips)
+      skips = Set.new.compare_by_identity.merge(skips).delete(nil)
 
       # @type var constr: TypeConstruction
       constr = self
@@ -2952,8 +3004,11 @@ module Steep
       return false unless call.node.type == :send || call.node.type == :csend
       return false unless call.pure? || KNOWN_PURE_METHODS.superset?(Set.new(call.method_decls.map(&:method_name)))
 
-      [receiver, *arguments].all? do |node|
-        !node || value_node?(node) || context.type_env[node]
+      argishes = [*arguments]
+      argishes << receiver if receiver
+
+      argishes.all? do |node|
+        value_node?(node) || context.type_env[node]
       end
     end
 
@@ -2994,7 +3049,11 @@ module Steep
                 end
               else
                 constr = constr.update_type_env do |env|
-                  env.invalidate_pure_node(receiver)
+                  if receiver
+                    env.invalidate_pure_node(receiver)
+                  else
+                    env
+                  end
                 end
               end
             end
@@ -3005,13 +3064,14 @@ module Steep
             call = call.with_return_type(optional_type)
           end
         else
-          errors = []
+          errors = [] #: Array[Diagnostic::Ruby::Base]
 
           skips = [receiver]
           skips << node.children[0] if node.type == :block
 
           constr = synthesize_children(node, skips: skips)
           if block_params
+            # @type var node: Parser::AST::Node & Parser::AST::_BlockNode
             block_annotations = source.annotations(block: node, factory: checker.factory, context: nesting)
 
             constr.type_block_without_hint(
@@ -3032,7 +3092,7 @@ module Steep
           )
           call = TypeInference::MethodCall::Error.new(
             node: node,
-            context: context.method_context,
+            context: context.call_context,
             method_name: method_name,
             receiver_type: receiver_type,
             errors: errors
@@ -3041,7 +3101,7 @@ module Steep
 
         constr.add_call(call)
       else
-        skips = []
+        skips = [] #: Array[Parser::AST::Node?]
         skips << receiver if receiver
         skips << node.children[0] if node.type == :block
         skips << block_params if block_params
@@ -3049,6 +3109,7 @@ module Steep
 
         constr = synthesize_children(node, skips: skips)
         if block_params
+          # @type var node: Parser::AST::Node & Parser::AST::_BlockNode
           block_annotations = source.annotations(block: node, factory: checker.factory, context: nesting)
 
           constr.type_block_without_hint(
@@ -3073,7 +3134,7 @@ module Steep
         constr.add_call(
           TypeInference::MethodCall::NoMethodError.new(
             node: node,
-            context: context.method_context,
+            context: context.call_context,
             method_name: method_name,
             receiver_type: receiver_type,
             error: Diagnostic::Ruby::NoMethod.new(node: node, method: method_name, type: interface&.type || receiver_type)
@@ -3129,7 +3190,7 @@ module Steep
                        constr.add_call(
                          TypeInference::MethodCall::Untyped.new(
                            node: node,
-                           context: context.method_context,
+                           context: context.call_context,
                            method_name: method_name
                          )
                        )
@@ -3141,7 +3202,7 @@ module Steep
                            interface: interface,
                            receiver: receiver,
                            receiver_type: receiver_type,
-                            method_name: method_name,
+                           method_name: method_name,
                            arguments: arguments,
                            block_params: block_params,
                            block_body: block_body,
@@ -3152,7 +3213,7 @@ module Steep
                          constr.add_call(
                            TypeInference::MethodCall::NoMethodError.new(
                              node: node,
-                             context: context.method_context,
+                             context: context.call_context,
                              method_name: method_name,
                              receiver_type: receiver_type,
                              error: Diagnostic::Ruby::NoMethod.new(node: node, method: method_name, type: receiver_type)
@@ -3167,8 +3228,8 @@ module Steep
     def builder_config
       Interface::Builder::Config.new(
         self_type: self_type,
-        class_type: module_context!.module_type,
-        instance_type: module_context!.instance_type,
+        class_type: module_context.module_type,
+        instance_type: module_context.instance_type,
         variable_bounds: variable_context.upper_bounds
       )
     end
@@ -3223,7 +3284,7 @@ module Steep
             _, constr = add_typing(node, type: type)
             call = TypeInference::MethodCall::Special.new(
               node: node,
-              context: constr.context.method_context,
+              context: constr.context.call_context,
               method_name: decl.method_name.method_name,
               receiver_type: receiver_type,
               actual_method_type: method_type.with(type: method_type.type.with(return_type: type)),
@@ -3247,7 +3308,7 @@ module Steep
             _, constr = add_typing(node, type: type)
             call = TypeInference::MethodCall::Special.new(
               node: node,
-              context: constr.context.method_context,
+              context: constr.context.call_context,
               method_name: decl.method_name.method_name,
               receiver_type: receiver_type,
               actual_method_type: method_type.with(type: method_type.type.with(return_type: type)),
@@ -3264,7 +3325,7 @@ module Steep
     end
 
     def type_method_call(node, method_name:, receiver_type:, method:, arguments:, block_params:, block_body:, tapp:)
-      node_range = node.loc.expression.yield_self {|l| l.begin_pos..l.end_pos }
+      node_range = node.loc.expression.to_range
 
       # @type var fails: Array[[TypeInference::MethodCall::t, TypeConstruction]]
       fails = []
@@ -3377,11 +3438,11 @@ module Steep
       end
     end
 
-    def type_check_args(args, constraints, errors)
+    def type_check_args(method_name, args, constraints, errors)
       # @type var constr: TypeConstruction
       constr = self
 
-      es = args.each do |arg|
+      forwarded_args, es = args.each do |arg|
         case arg
         when TypeInference::SendArgs::PositionalArgs::NodeParamPair
           _, constr = constr.type_check_argument(
@@ -3454,12 +3515,40 @@ module Steep
 
         when TypeInference::SendArgs::KeywordArgs::MissingKeyword
           # ignore
+
         else
-          raise arg.inspect
+          raise (_ = arg).inspect
         end
       end
 
       errors.push(*es)
+
+      if forwarded_args
+        method_name or raise "method_name cannot be nil if `forwarded_args` is given, because proc/block doesn't support `...` arg"
+
+        (params, block = context.method_context&.forward_arg_type) or raise
+
+        checker.with_context(self_type: self_type, instance_type: context.module_context.instance_type, class_type: context.module_context.module_type, constraints: constraints) do
+          result = checker.check_method_params(
+            :"... (argument forwarding)",
+            Subtyping::Relation.new(
+              sub_type: forwarded_args.params,
+              super_type: params
+            )
+          )
+
+          if result.failure?
+            errors.push(
+              Diagnostic::Ruby::IncompatibleArgumentForwarding.new(
+                method_name: method_name,
+                node: forwarded_args.node,
+                params_pair: [params, forwarded_args.params],
+                result: result
+              )
+            )
+          end
+        end
+      end
 
       constr
     end
@@ -3467,7 +3556,7 @@ module Steep
     def try_method_type(node, receiver_type:, method_name:, method_type:, arguments:, block_params:, block_body:, tapp:)
       constr = self
 
-      if tapp && type_args = tapp.types?(module_context!.nesting, checker.factory, [])
+      if tapp && type_args = tapp.types?(module_context.nesting, checker.factory, [])
         type_arity = method_type.type_params.size
         type_param_names = method_type.type_params.map(&:name)
 
@@ -3527,7 +3616,7 @@ module Steep
           )
         end
 
-        type_params = []
+        type_params = [] #: Array[Interface::TypeParam]
         type_param_names.clear
       else
         # Infer type application
@@ -3549,12 +3638,12 @@ module Steep
       constraints = Subtyping::Constraints.new(unknowns: type_params.map(&:name))
       ccontext = Subtyping::Constraints::Context.new(
         self_type: self_type,
-        instance_type: module_context!.instance_type,
-        class_type: module_context!.module_type,
+        instance_type: module_context.instance_type,
+        class_type: module_context.module_type,
         variance: variance
       )
 
-      upper_bounds = {}
+      upper_bounds = {} #: Hash[Symbol, AST::Types::t]
 
       type_params.each do |param|
         if ub = param.upper_bound
@@ -3564,11 +3653,14 @@ module Steep
       end
 
       checker.push_variable_bounds(upper_bounds) do
+        # @type block: [TypeInference::MethodCall::t, TypeConstruction]
+
         # @type var errors: Array[Diagnostic::Ruby::Base]
         errors = []
 
         args = TypeInference::SendArgs.new(node: node, arguments: arguments, type: method_type)
         constr = constr.type_check_args(
+          method_name,
           args,
           constraints,
           errors
@@ -3576,6 +3668,8 @@ module Steep
 
         if block_params
           # block is given
+          # @type var node: Parser::AST::Node & Parser::AST::_BlockNode
+
           block_annotations = source.annotations(block: node, factory: checker.factory, context: nesting)
           block_params_ = TypeInference::BlockParams.from_node(block_params, annotations: block_annotations)
 
@@ -3646,12 +3740,14 @@ module Steep
                 )
               }
 
+              method_type.block or raise
+
               if solved
                 # Ready for type check the body of the block
                 block_constr = block_constr.update_type_env {|env| env.subst(s) }
                 block_constr = block_constr.update_context {|context|
                   context.with(
-                    self_type: method_type.block&.self_type || context.self_type,
+                    self_type: method_type.block.self_type || context.self_type,
                     type_env: context.type_env.subst(s),
                     block_context: context.block_context&.subst(s),
                     break_context: context.break_context&.subst(s)
@@ -3758,6 +3854,21 @@ module Steep
           arg = args.block_pass_arg
 
           case
+          when forwarded_args_node = args.forwarded_args_node
+            (_, block = method_context!.forward_arg_type) or raise
+
+            method_block_type = method_type.block&.to_proc_type || AST::Builtin.nil_type
+            forwarded_block_type = block&.to_proc_type || AST::Builtin.nil_type
+
+            if result = constr.no_subtyping?(sub_type: forwarded_block_type, super_type: method_block_type)
+              errors << Diagnostic::Ruby::IncompatibleArgumentForwarding.new(
+                method_name: method_name,
+                node: forwarded_args_node,
+                block_pair: [block, method_type.block],
+                result: result
+              )
+            end
+
           when arg.compatible?
             if arg.node
               # Block pass (&block) is given
@@ -3820,7 +3931,10 @@ module Steep
             )
 
           when arg.unexpected_block?
-            # Unexpected block is given
+            # Unexpected block pass node is given
+
+            arg.node or raise
+
             method_type, solved, _ = apply_solution(errors, node: node, method_type: method_type) {
               constraints.solution(checker, variables: method_type.free_variables, context: ccontext)
             }
@@ -3841,7 +3955,7 @@ module Steep
         call = if errors.empty?
                  TypeInference::MethodCall::Typed.new(
                    node: node,
-                   context: context.method_context,
+                   context: context.call_context,
                    receiver_type: receiver_type,
                    method_name: method_name,
                    actual_method_type: method_type,
@@ -3851,7 +3965,7 @@ module Steep
                else
                  TypeInference::MethodCall::Error.new(
                    node: node,
-                   context: context.method_context,
+                   context: context.call_context,
                    receiver_type: receiver_type,
                    method_name: method_name,
                    return_type: return_type || method_type.type.return_type,
@@ -3921,7 +4035,7 @@ module Steep
 
       block_type = block_constr.synthesize_block(node: node, block_type_hint: nil, block_body: block_body)
 
-      if expected_block_type = block_constr.block_context.body_type
+      if expected_block_type = block_constr.block_context!.body_type
         block_constr.check_relation(sub_type: block_type, super_type: expected_block_type).else do |result|
           Diagnostic::Ruby::BlockBodyTypeMismatch.new(
             node: node,
@@ -3997,8 +4111,7 @@ module Steep
 
       param_types_hash.delete_if {|name, _| SPECIAL_LVAR_NAMES.include?(name) }
 
-      param_types = param_types_hash.each.with_object({}) do |pair, hash|
-        # @type var hash: Hash[Symbol, [AST::Types::t, AST::Types::t?]]
+      param_types = param_types_hash.each.with_object({}) do |pair, hash| #$ Hash[Symbol, [AST::Types::t, AST::Types::t?]]
         name, type = pair
         hash[name] = [type, nil]
       end
@@ -4084,7 +4197,7 @@ module Steep
 
     def synthesize_block(node:, block_type_hint:, block_body:)
       if block_body
-        body_type, _, context = synthesize(block_body, hint: block_context.body_type || block_type_hint)
+        body_type, _, context = synthesize(block_body, hint: block_context&.body_type || block_type_hint)
 
         range = block_body.loc.expression.end_pos..node.loc.end.begin_pos
         typing.add_context(range, context: context)
@@ -4105,7 +4218,7 @@ module Steep
 
     def union_type(*types)
       raise if types.empty?
-      AST::Types::Union.build(types: types)
+      AST::Types::Union.build(types: types.compact)
     end
 
     def union_type_unify(*types)
@@ -4154,14 +4267,18 @@ module Steep
       return unless member_decl_count == 1
 
       expected_instance_method_names = (module_context.instance_definition&.methods || {}).each.with_object(Set[]) do |(name, method), set|
-        if method.implemented_in == module_context.instance_definition.type_name
-          set << name
+        if method.implemented_in
+          if method.implemented_in == module_context.instance_definition&.type_name
+            set << name
+          end
         end
       end
       expected_module_method_names = (module_context.module_definition&.methods || {}).each.with_object(Set[]) do |(name, method), set|
         if name != :new
-          if method.implemented_in == module_context.module_definition.type_name
-            set << name
+          if method.implemented_in
+            if method.implemented_in == module_context.module_definition&.type_name
+              set << name
+            end
           end
         end
       end
@@ -4238,18 +4355,20 @@ module Steep
     end
 
     def namespace_module?(node)
-      nodes = case node.type
-              when :class, :module
-                node.children.last&.yield_self {|child|
-                  if child.type == :begin
-                    child.children
-                  else
-                    [child]
-                  end
-                } || []
-              else
-                return false
-              end
+      # @type var nodes: Array[Parser::AST::Node]
+      nodes =
+        case node.type
+        when :class, :module
+          node.children.last&.yield_self {|child|
+            if child.type == :begin
+              child.children
+            else
+              [child]
+            end
+          } || []
+        else
+          return false
+        end
 
       !nodes.empty? && nodes.all? {|child| child.type == :class || child.type == :module}
     end
@@ -4278,18 +4397,19 @@ module Steep
     end
 
     def select_flatten_types(type, &block)
-      types = flatten_union(deep_expand_alias(type))
+      types = flatten_union(deep_expand_alias(type) || type)
       types.select(&block)
     end
 
     def partition_flatten_types(type, &block)
-      types = flatten_union(deep_expand_alias(type))
+      types = flatten_union(deep_expand_alias(type) || type)
       types.partition(&block)
     end
 
     def flatten_array_elements(type)
-      flatten_union(deep_expand_alias(type)).flat_map do |type|
+      flatten_union(deep_expand_alias(type) || type).flat_map do |type|
         if AST::Builtin::Array.instance_type?(type)
+          # @type var type: AST::Types::Name::Instance
           type.args
         else
           [type]
@@ -4298,7 +4418,12 @@ module Steep
     end
 
     def expand_alias(type, &block)
-      checker.factory.expand_alias(type, &block)
+      typ = checker.factory.expand_alias(type)
+      if block
+        yield(typ)
+      else
+        typ
+      end
     end
 
     def test_literal_type(literal, hint)
@@ -4346,9 +4471,8 @@ module Steep
     def try_tuple_type(array_node, hint)
       raise unless array_node.type == :array
 
-      constr = self
-      # @type var element_types: Array[AST::Types::t]
-      element_types = []
+      constr = self #: TypeConstruction
+      element_types = [] #: Array[AST::Types::t]
 
       array_node.children.each_with_index do |child, index|
         return if child.type == :splat
@@ -4430,11 +4554,14 @@ module Steep
           instance_type: module_context.instance_type,
           class_type: module_context.module_type
         )
-        subst = constraints.solution(
-          checker,
-          variables: type.free_variables + [var.name],
-          context: context
-        )
+
+        variables = (type.free_variables + [var.name]).filter_map do |name|
+          case name
+          when Symbol
+            name
+          end
+        end
+        subst = constraints.solution(checker, variables: variables, context: context)
 
         type.subst(subst)
       end
@@ -4443,8 +4570,8 @@ module Steep
     def try_array_type(node, hint)
       element_hint = hint ? hint.args[0] : nil
 
-      constr = self
-      element_types = []
+      constr = self #: TypeConstruction
+      element_types = [] #: Array[AST::Types::t]
 
       each_child_node(node) do |child|
         case child.type
@@ -4475,24 +4602,24 @@ module Steep
     def type_hash_record(hash_node, record_type)
       raise unless hash_node.type == :hash || hash_node.type == :kwargs
 
-      constr = self
+      constr = self #: TypeConstruction
 
       if record_type
         hints = record_type.elements.dup
       else
-        hints = {}
+        hints = {} #: Hash[AST::Types::Record::key, AST::Types::t]
       end
 
-      elems = {}
+      elems = {} #: Hash[AST::Types::Record::key, AST::Types::t]
 
       each_child_node(hash_node) do |child|
         if child.type == :pair
           case child.children[0].type
           when :sym, :str, :int
-            key_node = child.children[0]
-            value_node = child.children[1]
+            key_node = child.children[0] #: Parser::AST::Node
+            value_node = child.children[1] #: Parser::AST::Node
 
-            key = key_node.children[0]
+            key = key_node.children[0] #: String | Symbol | Integer
 
             _, constr = constr.synthesize(key_node, hint: AST::Types::Literal.new(value: key))
 
@@ -4521,14 +4648,10 @@ module Steep
       constr.add_typing(hash_node, type: type)
     end
 
-    # Give hash_node a type based on hint.
-    #
-    # * When hint is Record type, it may have record type.
-    # * When hint is union type, it tries recursively with the union cases.
-    # * Otherwise, it tries to be a hash instance.
-    #
     def type_hash(hash_node, hint:)
-      hint = deep_expand_alias(hint)
+      if hint
+        hint = deep_expand_alias(hint)
+      end
       range = hash_node.loc.expression.yield_self {|l| l.begin_pos..l.end_pos }
 
       case hint
@@ -4549,10 +4672,11 @@ module Steep
         end
       end
 
-      key_types = []
-      value_types = []
+      key_types = [] #: Array[AST::Types::t]
+      value_types = [] #: Array[AST::Types::t]
 
-      if AST::Builtin::Hash.instance_type?(hint)
+      if hint && AST::Builtin::Hash.instance_type?(hint)
+        # @type var hint: AST::Types::Name::Instance
         key_hint, value_hint = hint.args
       end
 
@@ -4561,7 +4685,7 @@ module Steep
         value_hint || AST::Builtin.any_type
       )
 
-      constr = self
+      constr = self #: TypeConstruction
 
       if hash_node.children.empty?
         key_types << key_hint if key_hint
@@ -4578,14 +4702,13 @@ module Steep
             value_types << value_type
           when :kwsplat
             bypass_splat(elem) do |elem_|
-              pair = constr.synthesize(elem_, hint: hint_hash)
-
-              if AST::Builtin::Hash.instance_type?(pair.type)
-                key_types << pair.type.args[0]
-                value_types << pair.type.args[1]
+              constr.synthesize(elem_, hint: hint_hash).tap do |(type, _)|
+                if AST::Builtin::Hash.instance_type?(type)
+                  # @type var type: AST::Types::Name::Instance
+                  key_types << type.args[0]
+                  value_types << type.args[1]
+                end
               end
-
-              pair
             end
           else
             raise
@@ -4623,7 +4746,7 @@ module Steep
 
     def save_typing
       typing.save!
-      with_new_typing(typing.parent)
+      with_new_typing(typing.parent || raise)
     end
 
     def extract_outermost_call(node, var_name)

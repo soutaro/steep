@@ -1,7 +1,16 @@
 module Steep
   module ModuleHelper
+    # Translate a *const* node to a type name if possible
+    #
+    # ```ruby
+    # Foo::Bar     # => `Foo::Bar`
+    # foo::Bar     # => nil
+    # ```
+    #
     def module_name_from_node: (Parser::AST::Node? parent_node, Symbol constant_name) -> RBS::TypeName?
 
+    # Translate a *const* node to a namespace if possible
+    # 
     def namespace_from_node: (Parser::AST::Node? node) -> RBS::Namespace?
   end
 end

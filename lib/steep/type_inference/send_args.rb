@@ -101,6 +101,9 @@ module Steep
 
         def next()
           case
+          when node && node.type == :forwarded_args
+            # If the node is a `:forwarded_args`, abort
+            nil
           when !node && param.is_a?(Interface::Function::Params::PositionalParams::Required)
             [
               MissingArg.new(params: positional_params),
@@ -410,8 +413,8 @@ module Steep
             when type = keyword_type(key)
               consumed_keys << key
               types << type
-            when rest_type
-              types << rest_type
+            when type = rest_type()
+              types << type
             else
               unexpected_keyword = key
             end
@@ -483,6 +486,15 @@ module Steep
         end
       end
 
+      class ForwardedArgs
+        attr_reader :node, :params
+
+        def initialize(node:, params:)
+          @node = node
+          @params = params
+        end
+      end
+
       attr_reader :node
       attr_reader :arguments
       attr_reader :type
@@ -499,6 +511,8 @@ module Steep
           type.type.params
         when AST::Types::Proc
           type.type.params
+        else
+          raise
         end
       end
 
@@ -526,12 +540,18 @@ module Steep
       end
 
       def positional_arg
-        args = if keyword_params.empty?
-                 arguments.take_while {|node| node.type != :block_pass }
-               else
-                 arguments.take_while {|node| node.type != :kwargs && node.type != :block_pass }
-               end
+        args =
+          if keyword_params.empty?
+            arguments.take_while {|node| node.type != :block_pass }
+          else
+            arguments.take_while {|node| node.type != :kwargs && node.type != :block_pass }
+          end
+
         PositionalArgs.new(args: args, index: 0, positional_params: positional_params)
+      end
+
+      def forwarded_args_node
+        arguments.find {|node| node.type == :forwarded_args }
       end
 
       def keyword_args
@@ -550,6 +570,8 @@ module Steep
       def each
         if block_given?
           errors = []
+
+          last_positional_args = positional_arg
 
           positional_arg.tap do |args|
             while (value, args = args.next())
@@ -591,66 +613,73 @@ module Steep
               when PositionalArgs::UnexpectedArg, PositionalArgs::MissingArg
                 errors << value
               end
+
+              last_positional_args = args
             end
           end
 
-          keyword_args.tap do |args|
-            while (a, args = args.next)
-              case a
-              when KeywordArgs::MissingKeyword
-                errors << a
-              when KeywordArgs::UnexpectedKeyword
-                errors << a
-              end
+          if fag = forwarded_args_node
+            params = Interface::Function::Params.new(
+              positional_params: last_positional_args.positional_params,
+              keyword_params: keyword_params
+            )
 
-              yield a
+            forwarded_args = ForwardedArgs.new(node: fag, params: params)
+          else
+            keyword_args.tap do |args|
+              while (a, args = args.next)
+                case a
+                when KeywordArgs::MissingKeyword
+                  errors << a
+                when KeywordArgs::UnexpectedKeyword
+                  errors << a
+                end
 
-              case a
-              when KeywordArgs::SplatArg
-                case type = a.type
-                when nil
-                  raise
-                when AST::Types::Record
-                  # @type var keys: Array[Symbol]
-                  keys = _ = type.elements.keys
-                  ts, args = args.consume_keys(keys, node: a.node)
+                yield a
 
-                  case ts
-                  when KeywordArgs::UnexpectedKeyword
-                    yield ts
-                    errors << ts
-                  when Array
-                    record = AST::Types::Record.new(elements: Hash[keys.zip(ts)])
-                    yield KeywordArgs::ArgTypePairs.new(pairs: [[a.node, record]])
-                  end
-                else
-                  args = args.update(index: args.index + 1)
+                case a
+                when KeywordArgs::SplatArg
+                  case type = a.type
+                  when nil
+                    raise
+                  when AST::Types::Record
+                    # @type var keys: Array[Symbol]
+                    keys = _ = type.elements.keys
+                    ts, args = args.consume_keys(keys, node: a.node)
 
-                  if args.rest_type
-                    type = AST::Builtin::Hash.instance_type(AST::Builtin::Symbol.instance_type, args.possible_value_type)
-                    yield KeywordArgs::ArgTypePairs.new(pairs: [[a.node, type]])
+                    case ts
+                    when KeywordArgs::UnexpectedKeyword
+                      yield ts
+                      errors << ts
+                    when Array
+                      pairs = keys.zip(ts) #: Array[[Symbol, AST::Types::t]]
+                      record = AST::Types::Record.new(elements: Hash[pairs])
+                      yield KeywordArgs::ArgTypePairs.new(pairs: [[a.node, record]])
+                    end
                   else
-                    yield KeywordArgs::UnexpectedKeyword.new(keyword: nil, node: a.node)
+                    args = args.update(index: args.index + 1)
+
+                    if args.rest_type
+                      type = AST::Builtin::Hash.instance_type(AST::Builtin::Symbol.instance_type, args.possible_value_type)
+                      yield KeywordArgs::ArgTypePairs.new(pairs: [[a.node, type]])
+                    else
+                      yield KeywordArgs::UnexpectedKeyword.new(keyword: nil, node: a.node)
+                    end
                   end
                 end
               end
             end
           end
 
-          # pass = block_pass_arg
-          # if pass.node
-          #   yield pass
-          # end
+          diagnostics = [] #: Array[Diagnostic::Ruby::Base]
 
-          diagnostics = []
-
-          missing_keywords = []
+          missing_keywords = [] #: Array[Symbol]
           errors.each do |error|
             case error
             when KeywordArgs::UnexpectedKeyword
               diagnostics << Diagnostic::Ruby::UnexpectedKeywordArgument.new(node: error.node, params: params)
             when KeywordArgs::MissingKeyword
-              missing_keywords.push(*error.keywords)
+              missing_keywords.push(*error.keywords.to_a)
             when PositionalArgs::UnexpectedArg
               diagnostics << Diagnostic::Ruby::UnexpectedPositionalArgument.new(node: error.node, params: params)
             when PositionalArgs::MissingArg
@@ -662,7 +691,7 @@ module Steep
             diagnostics << Diagnostic::Ruby::InsufficientKeywordArguments.new(node: node, params: params, missing_keywords: missing_keywords)
           end
 
-          diagnostics
+          [forwarded_args, diagnostics]
         else
           enum_for :each
         end

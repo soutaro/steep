@@ -149,6 +149,10 @@ module Steep
 
       def each: () { (Param | MultipleParam) -> void } -> void
               | () -> Enumerator[Param | MultipleParam, void]
+
+      # Yields `Param` recursively
+      # 
+      def each_single_param: () { (Param) -> void } -> void
     end
   end
 end

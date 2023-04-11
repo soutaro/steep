@@ -1,0 +1,37 @@
+module Parser
+  module AST
+    interface _BlockNode
+      def type: () -> :block
+
+      %a{pure} def loc: () -> (Source::Map & _BlockLocation)
+    end
+
+    interface _BlockLocation
+      %a{pure} def end: () -> Source::Range
+    end
+
+    interface _DefNode
+      def type: () -> :def
+
+      def children: () -> [Symbol, Node, Node?]
+
+      %a{pure} def loc: () -> (Source::Map & _DefLocation)
+    end
+
+    interface _DefLocation
+      %a{pure} def end: () -> Source::Range?
+    end
+
+    interface _CaseNode
+      def type: () -> :case
+
+      %a{pure} def loc: () -> (Source::Map & _CaseLocation)
+    end
+
+    interface _CaseLocation
+      %a{pure} def else: () -> Source::Range?
+
+      %a{pure} def end: () -> Source::Range
+    end
+  end
+end
