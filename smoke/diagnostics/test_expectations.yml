@@ -46,6 +46,7 @@
     message: |-
       Cannot pass a value of type `^(untyped, untyped, untyped) -> untyped` as a block-pass-argument of type `^(::Integer) -> void`
         ^(untyped, untyped, untyped) -> untyped <: ^(::Integer) -> void
+          (Params are incompatible)
     code: Ruby::BlockTypeMismatch
 - file: break_type_mismatch.rb
   diagnostics:

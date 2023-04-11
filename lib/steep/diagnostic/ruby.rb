@@ -37,11 +37,11 @@ module Steep
           when relation.interface?
             nil
           when relation.block?
-            ">> Block"
+            "(Blocks are incompatible)"
           when relation.function?
             nil
           when relation.params?
-            ">> Params"
+            "(Params are incompatible)"
           end
         end
 
