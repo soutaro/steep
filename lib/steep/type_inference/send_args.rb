@@ -569,7 +569,7 @@ module Steep
 
       def each
         if block_given?
-          errors = []
+          errors = [] #: Array[PositionalArgs::error_arg | KeywordArgs::error_arg]
 
           last_positional_args = positional_arg
 
@@ -619,12 +619,12 @@ module Steep
           end
 
           if fag = forwarded_args_node
-            params = Interface::Function::Params.new(
+            forward_params = Interface::Function::Params.new(
               positional_params: last_positional_args.positional_params,
               keyword_params: keyword_params
             )
 
-            forwarded_args = ForwardedArgs.new(node: fag, params: params)
+            forwarded_args = ForwardedArgs.new(node: fag, params: forward_params)
           else
             keyword_args.tap do |args|
               while (a, args = args.next)

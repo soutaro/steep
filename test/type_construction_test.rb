@@ -10343,4 +10343,33 @@ z = AppTest.new.foo(1, 2) #$ Integer, Integer, String
       end
     end
   end
+
+  def test_flow_sensitive_case_no_cond
+    with_checker(<<~RBS) do |checker|
+        class TestTest
+          attr_reader name: String?
+
+          def next: () -> void
+        end
+      RBS
+      source = parse_ruby(<<~RUBY)
+        class TestTest
+          # @dynamic name
+
+          def next
+            case
+            when name
+              name.size
+            end
+          end
+        end
+      RUBY
+
+      with_standard_construction(checker, source) do |construction, typing|
+        type, _, context = construction.synthesize(source.node)
+
+        assert_no_error(typing)
+      end
+    end
+  end
 end
