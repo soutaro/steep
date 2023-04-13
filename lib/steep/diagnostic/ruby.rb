@@ -914,8 +914,7 @@ module Steep
       end
 
       def self.all_error
-        @all_error ||= ALL.each.with_object({}) do |klass, hash|
-          # @type var hash: Hash[singleton(Base), LSPFormatter::severity]
+        @all_error ||= ALL.each.with_object({}) do |klass, hash| #$ Hash[singleton(Base), LSPFormatter::severity]
           hash[klass] = LSPFormatter::ERROR
         end.freeze
       end

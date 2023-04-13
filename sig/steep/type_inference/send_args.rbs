@@ -52,7 +52,9 @@ module Steep
           include Equatable
         end
 
-        type arg = NodeParamPair | NodeTypePair | SplatArg | UnexpectedArg | MissingArg
+        type arg = NodeParamPair | NodeTypePair | SplatArg | error_arg
+
+        type error_arg = UnexpectedArg | MissingArg
 
         attr_reader args: Array[Parser::AST::Node]
 
@@ -134,7 +136,9 @@ module Steep
           def initialize: (keywords: Set[Symbol]) -> void
         end
 
-        type arg = ArgTypePairs | SplatArg | UnexpectedKeyword | MissingKeyword
+        type arg = ArgTypePairs | SplatArg | error_arg
+
+        type error_arg = UnexpectedKeyword | MissingKeyword
 
         attr_reader kwarg_nodes: Array[Parser::AST::Node]
 
