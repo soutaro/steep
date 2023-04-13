@@ -3183,46 +3183,65 @@ module Steep
       receiver_type = checker.factory.deep_expand_alias(recv_type)
       private = receiver.nil? || receiver.type == :self
 
-      type, constr = case receiver_type
-                     when nil
-                       raise
+      type, constr =
+        case receiver_type
+        when nil
+          raise
 
-                     when AST::Types::Any
-                       constr = constr.synthesize_children(node, skips: [receiver])
-                       constr.add_call(
-                         TypeInference::MethodCall::Untyped.new(
-                           node: node,
-                           context: context.call_context,
-                           method_name: method_name
-                         )
-                       )
+        when AST::Types::Any
+          case node.type
+          when :block, :numblock
+            # @type var node: Parser::AST::Node & Parser::AST::_BlockNode
+            block_annotations = source.annotations(block: node, factory: checker.factory, context: nesting)
+            block_params or raise
 
-                     else
-                       if interface = calculate_interface(receiver_type, private: private)
-                         constr.type_send_interface(
-                           node,
-                           interface: interface,
-                           receiver: receiver,
-                           receiver_type: receiver_type,
-                           method_name: method_name,
-                           arguments: arguments,
-                           block_params: block_params,
-                           block_body: block_body,
-                           tapp: tapp
-                         )
-                       else
-                         constr = constr.synthesize_children(node, skips: [receiver])
-                         constr.add_call(
-                           TypeInference::MethodCall::NoMethodError.new(
-                             node: node,
-                             context: context.call_context,
-                             method_name: method_name,
-                             receiver_type: receiver_type,
-                             error: Diagnostic::Ruby::NoMethod.new(node: node, method: method_name, type: receiver_type)
-                           )
-                         )
-                       end
-                     end
+            constr = constr.synthesize_children(node.children[0])
+
+            constr.type_block_without_hint(
+              node: node,
+              block_params: TypeInference::BlockParams.from_node(block_params, annotations: block_annotations),
+              block_annotations: block_annotations,
+              block_body: block_body
+            ) do |error|
+              constr.typing.errors << error
+            end
+          else
+            constr = constr.synthesize_children(node, skips: [receiver])
+          end
+
+          constr.add_call(
+            TypeInference::MethodCall::Untyped.new(
+              node: node,
+              context: context.call_context,
+              method_name: method_name
+            )
+          )
+        else
+          if interface = calculate_interface(receiver_type, private: private)
+            constr.type_send_interface(
+              node,
+              interface: interface,
+              receiver: receiver,
+              receiver_type: receiver_type,
+              method_name: method_name,
+              arguments: arguments,
+              block_params: block_params,
+              block_body: block_body,
+              tapp: tapp
+            )
+          else
+            constr = constr.synthesize_children(node, skips: [receiver])
+            constr.add_call(
+              TypeInference::MethodCall::NoMethodError.new(
+                node: node,
+                context: context.call_context,
+                method_name: method_name,
+                receiver_type: receiver_type,
+                error: Diagnostic::Ruby::NoMethod.new(node: node, method: method_name, type: receiver_type)
+              )
+            )
+          end
+        end
 
       Pair.new(type: type, constr: constr)
     end

@@ -10372,4 +10372,28 @@ z = AppTest.new.foo(1, 2) #$ Integer, Integer, String
       end
     end
   end
+
+  def test_untyped_call_block
+    with_checker(<<~RBS) do |checker|
+      RBS
+      source = parse_ruby(<<~RUBY)
+        (_ = [1, 2, 3]).each {
+          case
+          when 1
+            next
+          when 2
+            retry
+          when 3
+            break
+          end
+        }
+      RUBY
+
+      with_standard_construction(checker, source) do |construction, typing|
+        type, _, context = construction.synthesize(source.node)
+
+        assert_no_error(typing)
+      end
+    end
+  end
 end
