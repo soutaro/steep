@@ -1911,10 +1911,12 @@ module Steep
                 when_clause_constr = condition_constr
                 body_envs = [] #: Array[TypeInference::TypeEnv]
 
+                # @type var tests: Array[Parser::AST::Node]
+                # @type var body: Parser::AST::Node?
                 *tests, body = when_clause.children
 
                 tests.each do |test|
-                  test_type, condition_constr = condition_constr.synthesize(test, condition: true).to_ary
+                  test_type, condition_constr = condition_constr.synthesize(test, condition: true)
                   truthy_env, falsy_env = interpreter.eval(env: condition_constr.context.type_env, node: test)
 
                   condition_constr = condition_constr.update_type_env { falsy_env }
