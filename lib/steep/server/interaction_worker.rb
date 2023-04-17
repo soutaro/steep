@@ -322,7 +322,8 @@ module Steep
             text_edit: LanguageServer::Protocol::Interface::TextEdit.new(
               range: range,
               new_text: item.identifier
-            )
+            ),
+            sort_text: "l.#{item.identifier}"
           )
         when Services::CompletionProvider::ConstantItem
           case
@@ -355,7 +356,7 @@ module Steep
             ),
             documentation: format_comment(item.comment),
             insert_text_format: LanguageServer::Protocol::Constant::InsertTextFormat::SNIPPET,
-            sort_text: item.inherited? ? 'z' : 'a' # Ensure language server puts non-inherited methods before inherited methods
+            sort_text: item.inherited? ? "m.z.#{item.identifier}" : "m.z.#{item.identifier}" # Ensure language server puts non-inherited methods before inherited methods
           )
         when Services::CompletionProvider::InstanceVariableItem
           LanguageServer::Protocol::Interface::CompletionItem.new(
