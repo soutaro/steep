@@ -1,31 +1,33 @@
+use RBS::Location, RBS::AST::Declarations, RBS::AST::Directives, RBS::TypeName, RBS::Environment
+
 module Steep
   module Services
     module HoverProvider
       class RBS
         class TypeAliasContent
-          attr_reader location: ::RBS::Location[untyped, untyped]
+          attr_reader location: Location[untyped, untyped]
 
-          attr_reader decl: ::RBS::AST::Declarations::TypeAlias
+          attr_reader decl: Declarations::TypeAlias
 
-          def initialize: (location: ::RBS::Location[untyped, untyped], decl: ::RBS::AST::Declarations::TypeAlias) -> void
+          def initialize: (location: Location[untyped, untyped], decl: Declarations::TypeAlias) -> void
         end
 
         class ClassContent
-          attr_reader location: ::RBS::Location[untyped, untyped]
+          attr_reader location: Location[untyped, untyped]
 
-          type decl = ::RBS::AST::Declarations::Class | ::RBS::AST::Declarations::Module | ::RBS::AST::Declarations::ClassAlias | ::RBS::AST::Declarations::ModuleAlias
+          type decl = Declarations::Class | Declarations::Module | Declarations::ClassAlias | Declarations::ModuleAlias
 
           attr_reader decl: decl
 
-          def initialize: (location: ::RBS::Location[untyped, untyped], decl: decl) -> void
+          def initialize: (location: Location[untyped, untyped], decl: decl) -> void
         end
 
         class InterfaceContent
-          attr_reader location: ::RBS::Location[untyped, untyped]
+          attr_reader location: Location[untyped, untyped]
 
-          attr_reader decl: ::RBS::AST::Declarations::Interface
+          attr_reader decl: Declarations::Interface
 
-          def initialize: (location: ::RBS::Location[untyped, untyped], decl: ::RBS::AST::Declarations::Interface) -> void
+          def initialize: (location: Location[untyped, untyped], decl: Declarations::Interface) -> void
         end
 
         type content = TypeAliasContent | ClassContent | InterfaceContent
@@ -37,6 +39,8 @@ module Steep
         def project: () -> Project
 
         def content_for: (target: Project::Target, path: Pathname, line: Integer, column: Integer) -> content?
+
+        def content_for_type_name: (TypeName, env: Environment, location: Location[untyped, untyped]) -> content?
       end
     end
   end

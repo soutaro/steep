@@ -154,4 +154,38 @@ RBS
       assert_nil hover.content_for(target: target, path: Pathname("hello.rbs"), line: 1, column: 4)
     end
   end
+
+  def test_hover_use
+    in_tmpdir do
+      service = typecheck_service()
+
+      service.update(
+        changes: {
+          Pathname("hello.rbs") => [ContentChange.string(<<RBS)]
+use Object
+use Thread::*
+RBS
+        }
+      ) {}
+
+      target = service.project.targets.find {|target| target.name == :lib }
+      hover = HoverProvider::RBS.new(service: service)
+
+      hover.content_for(target: target, path: Pathname("hello.rbs"), line: 1, column: 6).tap do |content|
+        assert_instance_of HoverProvider::RBS::ClassContent, content
+        assert_instance_of RBS::Location, content.location
+        assert_equal "Object", content.location.source
+        assert_instance_of RBS::AST::Declarations::Class, content.decl
+        assert_equal TypeName("::Object"), content.decl.name
+      end
+
+      hover.content_for(target: target, path: Pathname("hello.rbs"), line: 2, column: 6).tap do |content|
+        assert_instance_of HoverProvider::RBS::ClassContent, content
+        assert_instance_of RBS::Location, content.location
+        assert_equal "Thread::", content.location.source
+        assert_instance_of RBS::AST::Declarations::Class, content.decl
+        assert_equal TypeName("::Thread"), content.decl.name
+      end
+    end
+  end
 end
