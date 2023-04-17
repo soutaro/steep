@@ -128,8 +128,6 @@ end
       EOR
 
         provider.run(line: 1, column: 4).tap do |items|
-          items.find {|item| item.identifier == :class }.inherited?
-
           assert_equal [
             { :identifier=>:class, :inherited_method=>true },
             { :identifier=>:is_a?, :inherited_method=>true },
