@@ -74,7 +74,7 @@ module Steep
 
         attr_reader method_decls: Array[MethodCall::MethodDecl]
 
-        def initialize: (identifier: Symbol, range: Range, method_type: RBS::MethodType, method_decls: Array[MethodCall::MethodDecl]) -> void
+        def initialize: (identifier: Symbol, range: Range, method_type: RBS::MethodType, method_decls: Array[MethodCall::MethodDecl], receiver_type: AST::Types::t) -> void
 
         def comment: () -> RBS::AST::Comment?
 

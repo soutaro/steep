@@ -340,6 +340,7 @@ module Steep
                   items << MethodNameItem.new(
                     identifier: name,
                     range: range,
+                    receiver_type: type,
                     method_type: subtyping.factory.method_type_1(method_type),
                     method_decls: method_type.method_decls.to_a
                   )
