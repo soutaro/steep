@@ -29,52 +29,57 @@ module Steep
 
           case head
           when ::RBS::Types::Alias
-            alias_decl = service.latest_env.type_alias_decls[head.name]&.decl or raise
+            content_for_type_name(head.name, env: env, location: head.location || raise)
 
-            TypeAliasContent.new(
-              location: head.location || raise,
-              decl: alias_decl
-            )
           when ::RBS::Types::ClassInstance, ::RBS::Types::ClassSingleton
             if loc_key == :name
               location = head.location&.[](:name) or raise
-
-              class_entry = service.latest_env.module_class_entry(head.name) or raise
-              case class_entry
-              when ::RBS::Environment::ClassEntry, ::RBS::Environment::ModuleEntry
-                class_decl = class_entry.primary.decl
-              when ::RBS::Environment::ClassAliasEntry, ::RBS::Environment::ModuleAliasEntry
-                class_decl = class_entry.decl
-              end
-
-              ClassContent.new(
-                location: location,
-                decl: class_decl
-              )
+              content_for_type_name(head.name, env: env, location: location)
             end
-          when ::RBS::Types::Interface
-            env = service.latest_env
-            interface_decl = env.interface_decls[head.name]&.decl or raise
-            location = head.location&.[](:name) or raise
 
-            InterfaceContent.new(
-              location: location,
-              decl: interface_decl
-            )
+          when ::RBS::Types::Interface
+            location = head.location&.[](:name) or raise
+            content_for_type_name(head.name, env: env, location: location)
+
           when ::RBS::AST::Declarations::ClassAlias, ::RBS::AST::Declarations::ModuleAlias
             if loc_key == :old_name
               location = head.location&.[](:old_name) or raise
-
-              class_entry = service.latest_env.module_class_entry(head.old_name) or raise
-              case class_entry
-              when ::RBS::Environment::ClassEntry, ::RBS::Environment::ModuleEntry
-                class_decl = class_entry.primary.decl
-              when ::RBS::Environment::ClassAliasEntry, ::RBS::Environment::ModuleAliasEntry
-                class_decl = class_entry.decl
-              end
-
-              ClassContent.new(location: location, decl: class_decl)
+              content_for_type_name(head.old_name, env: env, location: location)
             end
+
+          when ::RBS::AST::Directives::Use::SingleClause
+            if loc_key == :type_name
+              location = head.location&.[](:type_name) or raise
+              content_for_type_name(head.type_name.absolute!, env: env, location: location)
+            end
+
+          when ::RBS::AST::Directives::Use::WildcardClause
+            if loc_key == :namespace
+              location = head.location&.[](:namespace) or raise
+              content_for_type_name(head.namespace.to_type_name.absolute!, env: env, location: location)
+            end
+          end
+        end
+
+        def content_for_type_name(type_name, env:, location:)
+          case
+          when type_name.alias?
+            alias_decl = env.type_alias_decls[type_name]&.decl or return
+            TypeAliasContent.new(location: location, decl: alias_decl)
+          when type_name.interface?
+            interface_decl = env.interface_decls[type_name]&.decl or return
+            InterfaceContent.new(location: location, decl: interface_decl)
+          when type_name.class?
+            class_entry = env.module_class_entry(type_name) or return
+
+            case class_entry
+            when ::RBS::Environment::ClassEntry, ::RBS::Environment::ModuleEntry
+              class_decl = class_entry.primary.decl
+            when ::RBS::Environment::ClassAliasEntry, ::RBS::Environment::ModuleAliasEntry
+              class_decl = class_entry.decl
+            end
+
+            ClassContent.new(location: location, decl: class_decl)
           end
         end
       end
