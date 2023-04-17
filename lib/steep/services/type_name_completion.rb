@@ -90,9 +90,17 @@ module Steep
 
       def each_type_name(&block)
         if block
+          env = self.env
+
           map.instance_eval do
             @map.each_key do |name|
-              yield RBS::TypeName.new(name: name, namespace: RBS::Namespace.empty)
+              relative_name = RBS::TypeName.new(name: name, namespace: RBS::Namespace.empty)
+              if absolute_name = resolve?(relative_name)
+                if env.type_name?(absolute_name)
+                  # Yields only if the relative type name resolves to existing absolute type name
+                  yield relative_name
+                end
+              end
             end
           end
           env.class_decls.each_key(&block)

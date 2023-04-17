@@ -172,11 +172,10 @@ module Steep
               type_names = completion.find_type_names(prefix)
               prefix_size = prefix ? prefix.size : 0
 
-              completion_items = type_names.map {|type_name|
+              completion_items = type_names.map do |type_name|
                 absolute_name, relative_name = completion.resolve_name_in_context(type_name)
-
                 format_completion_item_for_rbs(sig_service, absolute_name, job, relative_name.to_s, prefix_size)
-              }
+              end
 
               ["untyped", "void", "bool", "class", "module", "instance", "nil"].each do |name|
                 completion_items << LanguageServer::Protocol::Interface::CompletionItem.new(
