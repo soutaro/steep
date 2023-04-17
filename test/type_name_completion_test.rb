@@ -80,6 +80,25 @@ class TypeNameCompletionTest < Minitest::Test
     end
   end
 
+  def test_each_type_name_used
+    with_factory({ "a.rbs" => <<~RBS }) do |factory|
+        use NoSuchClass, Object as ExistingClass
+      RBS
+
+      buf = factory.env.buffers.find {|buf| File.basename(buf.name) == "a.rbs" } or raise
+      dirs, _ = factory.env.signatures[buf]
+
+      completion = Services::TypeNameCompletion.new(
+        env: factory.env,
+        context: nil,
+        dirs: dirs
+      )
+
+      refute completion.each_type_name.include?(TypeName("NoSuchClass"))
+      assert completion.each_type_name.include?(TypeName("ExistingClass"))
+    end
+  end
+
   def test_relative_name_in_context
     with_factory({ "a.rbs" => <<~RBS}) do |factory|
         class Foo
