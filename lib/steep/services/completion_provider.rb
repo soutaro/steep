@@ -168,51 +168,40 @@ module Steep
 
         return [] unless node
 
-        items = []
+        items = [] #: Array[item]
 
         context = typing.context_at(line: position.line, column: position.column)
 
         case
-        when node.type == :send && node.children[0] == nil && at_end?(position, of: node.loc.selector)
+        when node.type == :send && node.children[0] == nil && at_end?(position, of: (_ = node.loc).selector)
           # foo ←
           prefix = node.children[1].to_s
 
-          method_items_for_receiver_type(context.self_type,
-                                         include_private: true,
-                                         prefix: prefix,
-                                         position: position,
-                                         items: items)
+          method_items_for_receiver_type(context.self_type, include_private: true, prefix: prefix, position: position, items: items)
           local_variable_items_for_context(context, position: position, prefix: prefix, items: items)
 
         when node.type == :lvar && at_end?(position, of: node.loc)
           # foo ← (lvar)
           local_variable_items_for_context(context, position: position, prefix: node.children[0].to_s, items: items)
 
-        when node.type == :send && node.children[0] && at_end?(position, of: node.loc.selector)
+        when node.type == :send && node.children[0] && at_end?(position, of: (_ = node.loc).selector)
           # foo.ba ←
-          receiver_type = case (type = typing.type_of(node: node.children[0]))
-                          when AST::Types::Self
-                            context.self_type
-                          else
-                            type
-                          end
+          receiver_type =
+            case (type = typing.type_of(node: node.children[0]))
+            when AST::Types::Self
+              context.self_type
+            else
+              type
+            end
           prefix = node.children[1].to_s
 
-          method_items_for_receiver_type(receiver_type,
-                                         include_private: false,
-                                         prefix: prefix,
-                                         position: position,
-                                         items: items)
+          method_items_for_receiver_type(receiver_type, include_private: false, prefix: prefix, position: position, items: items)
 
         when node.type == :const && node.children[0] == nil && at_end?(position, of: node.loc)
           # Foo ← (const)
           prefix = node.children[1].to_s
 
-          method_items_for_receiver_type(context.self_type,
-                                         include_private: false,
-                                         prefix: prefix,
-                                         position: position,
-                                         items: items)
+          method_items_for_receiver_type(context.self_type, include_private: false, prefix: prefix, position: position, items: items)
           constant_items_for_context(context, prefix: prefix, position: position, items: items)
 
         when node.type == :const && node.children[0] && at_end?(position, of: node.loc)
@@ -223,30 +212,23 @@ module Steep
           if parent_type
             prefix = node.children[1].to_s
 
-            method_items_for_receiver_type(parent_type,
-                                           include_private: false,
-                                           prefix: prefix,
-                                           position: position,
-                                           items: items)
+            method_items_for_receiver_type(parent_type, include_private: false, prefix: prefix, position: position, items: items)
             constant_items_for_context(context, parent: parent_node, prefix: prefix, position: position, items: items)
           end
 
-        when node.type == :send && at_end?(position, of: node.loc.dot) && node.loc.dot.source == "."
+        when node.type == :send && at_end?(position, of: (_ = node.loc).dot) && (_ = node.loc).dot.source == "."
           # foo.← ba
-          receiver_type = case (type = typing.type_of(node: node.children[0]))
-                          when AST::Types::Self
-                            context.self_type
-                          else
-                            type
-                          end
+          receiver_type =
+            case (type = typing.type_of(node: node.children[0]))
+            when AST::Types::Self
+              context.self_type
+            else
+              type
+            end
 
-          method_items_for_receiver_type(receiver_type,
-                                         include_private: false,
-                                         prefix: "",
-                                         position: position,
-                                         items: items)
+          method_items_for_receiver_type(receiver_type, include_private: false, prefix: "", position: position, items: items)
 
-        when node.type == :send && at_end?(position, of: node.loc.dot) && node.loc.dot.source == "::"
+        when node.type == :send && at_end?(position, of: (_ = node.loc).dot) && (_ = node.loc).dot.source == "::"
           # foo::← ba
           items.push(*items_for_colon2(position: position))
 
@@ -255,11 +237,7 @@ module Steep
           instance_variable_items_for_context(context, position: position, prefix: node.children[0].to_s, items: items)
 
         else
-          method_items_for_receiver_type(context.self_type,
-                                         include_private: true,
-                                         prefix: "",
-                                         position: position,
-                                         items: items)
+          method_items_for_receiver_type(context.self_type, include_private: true, prefix: "", position: position, items: items)
           local_variable_items_for_context(context, position: position, prefix: "", items: items)
           instance_variable_items_for_context(context, position: position, prefix: "", items: items)
           constant_items_for_context(context, position: position, prefix: "", items: items)
@@ -279,19 +257,16 @@ module Steep
         if at_end?(shift_pos, of: node.loc)
           begin
             context = typing.context_at(line: position.line, column: position.column)
-            receiver_type = case (type = typing.type_of(node: node))
-                            when AST::Types::Self
-                              context.self_type
-                            else
-                              type
-                            end
+            receiver_type =
+              case (type = typing.type_of(node: node))
+              when AST::Types::Self
+                context.self_type
+              else
+                type
+              end
 
-            items = []
-            method_items_for_receiver_type(receiver_type,
-                                           include_private: false,
-                                           prefix: "",
-                                           position: position,
-                                           items: items)
+            items = [] #: Array[item]
+            method_items_for_receiver_type(receiver_type, include_private: false, prefix: "", position: position, items: items)
             items
           rescue Typing::UnknownNodeError
             []
@@ -307,7 +282,7 @@ module Steep
         node, *_ = source.find_nodes(line: shift_pos.line, column: shift_pos.column)
         node ||= source.node
 
-        items = []
+        items = [] #: Array[item]
         case node&.type
         when :const
           # Constant:: ←
@@ -335,7 +310,7 @@ module Steep
         return [] unless node
 
         context = typing.context_at(line: position.line, column: position.column)
-        items = []
+        items = [] #: Array[item]
         instance_variable_items_for_context(context, prefix: "@", position: position, items: items)
         items
       end
@@ -354,31 +329,29 @@ module Steep
             variable_bounds: context.variable_context.upper_bounds
           )
         )
-        # factory.shape(type, self_type: type, private: include_private)
 
-        shape.methods.each do |name, method_entry|
-          next if disallowed_method?(name)
+        if shape
+          shape.methods.each do |name, method_entry|
+            next if disallowed_method?(name)
 
-          if name.to_s.start_with?(prefix)
-            if word_name?(name.to_s)
-              method_entry.method_types.each do |method_type|
-                items << MethodNameItem.new(
-                  identifier: name,
-                  range: range,
-                  receiver_type: type,
-                  method_type: subtyping.factory.method_type_1(method_type),
-                  method_decls: method_type.method_decls
-                )
+            if name.to_s.start_with?(prefix)
+              if word_name?(name.to_s)
+                method_entry.method_types.each do |method_type|
+                  items << MethodNameItem.new(
+                    identifier: name,
+                    range: range,
+                    method_type: subtyping.factory.method_type_1(method_type),
+                    method_decls: method_type.method_decls.to_a
+                  )
+                end
               end
             end
           end
         end
-      rescue RuntimeError => _exn
-        # nop
       end
 
       def word_name?(name)
-        name =~ /\w/
+        name =~ /\w/ ? true : false
       end
 
       def local_variable_items_for_context(context, position:, prefix:, items:)
@@ -420,9 +393,7 @@ module Steep
         range = range_for(position, prefix: prefix)
         context.type_env.instance_variable_types.each do |name, type|
           if name.to_s.start_with?(prefix)
-            items << InstanceVariableItem.new(identifier: name,
-                                              range: range,
-                                              type: type)
+            items << InstanceVariableItem.new(identifier: name, range: range, type: type)
           end
         end
       end

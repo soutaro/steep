@@ -1,6 +1,10 @@
+use RBS::Environment, RBS::TypeName
+use Steep::TypeInference::MethodCall
+
 module Steep
   module Services
     class CompletionProvider
+      # Cursor position
       class Position
         attr_reader line: Integer
 
@@ -40,7 +44,7 @@ module Steep
       end
 
       class ConstantItem
-        attr_reader env: RBS::Environment
+        attr_reader env: Environment
 
         attr_reader identifier: Symbol
 
@@ -48,9 +52,9 @@ module Steep
 
         attr_reader type: AST::Types::t
 
-        attr_reader full_name: RBS::TypeName
+        attr_reader full_name: TypeName
 
-        def initialize: (env: RBS::Environment, identifier: Symbol, range: Range, type: AST::Types::t, full_name: RBS::TypeName) -> void
+        def initialize: (env: Environment, identifier: Symbol, range: Range, type: AST::Types::t, full_name: TypeName) -> void
 
         def class?: () -> bool
 
@@ -66,11 +70,11 @@ module Steep
 
         attr_reader receiver_type: AST::Types::t
 
-        attr_reader method_type: untyped
+        attr_reader method_type: RBS::MethodType
 
-        attr_reader method_decls: Array[TypeInference::MethodCall::MethodDecl]
+        attr_reader method_decls: Array[MethodCall::MethodDecl]
 
-        def initialize: (identifier: Symbol, range: Range, method_type: untyped, method_decls: Array[TypeInference::MethodCall::MethodDecl]) -> void
+        def initialize: (identifier: Symbol, range: Range, method_type: RBS::MethodType, method_decls: Array[MethodCall::MethodDecl]) -> void
 
         def comment: () -> RBS::AST::Comment?
 
@@ -91,39 +95,39 @@ module Steep
 
       attr_reader typing: Typing
 
-      def initialize: (source_text: untyped, path: untyped, subtyping: untyped) -> void
+      def initialize: (source_text: String, path: Pathname, subtyping: Subtyping::Check) -> void
 
-      def type_check!: (untyped text, line: untyped, column: untyped) -> untyped
+      def type_check!: (String text, line: Integer, column: Integer) -> void
 
-      def env: () -> untyped
+      def env: () -> Environment
 
-      def run: (line: untyped, column: untyped) -> untyped
+      def run: (line: Integer, column: Integer) -> Array[item]
 
-      def range_from_loc: (untyped loc) -> untyped
+      def range_from_loc: (Parser::Source::Range loc) -> Range
 
-      def at_end?: (untyped pos, of: untyped) -> (untyped | nil)
+      def at_end?: (Position pos, of: Parser::Source::Map | Parser::Source::Range | nil) -> boolish
 
-      def range_for: (untyped position, ?prefix: ::String) -> untyped
+      def range_for: (Position position, ?prefix: ::String) -> Range
 
-      def items_for_trigger: (position: untyped) -> (::Array[untyped] | untyped)
+      def items_for_trigger: (position: Position) -> Array[item]
 
-      def items_for_dot: (position: Position) -> ::Array[MethodNameItem]
+      def items_for_dot: (position: Position) -> Array[item]
 
-      def items_for_colon2: (position: untyped) -> untyped
+      def items_for_colon2: (position: Position) -> Array[item]
 
-      def items_for_atmark: (position: untyped) -> (::Array[untyped] | untyped)
+      def items_for_atmark: (position: Position) -> Array[item]
 
-      def method_items_for_receiver_type: (untyped `type`, include_private: untyped, prefix: untyped, position: untyped, items: untyped) -> untyped
+      def method_items_for_receiver_type: (AST::Types::t, include_private: bool, prefix: String, position: Position, items: Array[item]) -> void
 
-      def word_name?: (String name) -> void
+      def word_name?: (String name) -> bool
 
-      def local_variable_items_for_context: (TypeInference::Context context, position: Position, prefix: String, items: Array[LocalVariableItem]) -> void
+      def local_variable_items_for_context: (TypeInference::Context context, position: Position, prefix: String, items: Array[item]) -> void
 
-      def constant_items_for_context: (TypeInference::Context context, position: Position, prefix: String, items: Array[ConstantItem], ?parent: Parser::AST::Node?) -> void
+      def constant_items_for_context: (TypeInference::Context context, position: Position, prefix: String, items: Array[item], ?parent: Parser::AST::Node?) -> void
 
-      def instance_variable_items_for_context: (TypeInference::Context context, position: Position, prefix: String, items: Array[InstanceVariableItem]) -> void
+      def instance_variable_items_for_context: (TypeInference::Context context, position: Position, prefix: String, items: Array[item]) -> void
 
-      def index_for: (untyped string, line: untyped, column: untyped) -> untyped
+      def index_for: (String, line: Integer, column: Integer) -> Integer
 
       def disallowed_method?: (Symbol name) -> bool
     end
