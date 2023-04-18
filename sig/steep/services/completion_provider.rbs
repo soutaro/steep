@@ -63,25 +63,88 @@ module Steep
         def comments: () -> Array[RBS::AST::Comment]
       end
 
-      class MethodNameItem
+      # Method name completion item with *simple* receiver type
+      #
+      # Instance type, Singleton type, Interface type is simple.
+      # The item may have multiple overloads, but must have single method definition source.
+      #
+      class SimpleMethodNameItem
         attr_reader identifier: Symbol
 
         attr_reader range: Range
 
-        attr_reader receiver_type: AST::Types::t
+        attr_reader receiver_type: AST::Types::Name::Instance | AST::Types::Name::Interface | AST::Types::Name::Singleton
 
-        attr_reader method_type: RBS::MethodType
+        attr_reader method_types: Array[RBS::MethodType]
+
+        attr_reader method_name: method_name
+
+        attr_reader method_member: RBS::Definition::Method::method_member
+
+        def initialize: (
+          identifier: Symbol,
+          range: Range,
+          receiver_type: AST::Types::Name::Instance | AST::Types::Name::Interface | AST::Types::Name::Singleton,
+          method_name: method_name,
+          method_types: Array[RBS::MethodType],
+          method_member: RBS::Definition::Method::method_member
+        ) -> void
+
+        %a{pure} def comment: () -> RBS::AST::Comment?
+      end
+
+      # Method name completion item with *complex* receiver type
+      #
+      # The item may have multiple overloads and multiple method declarations.
+      #
+      class ComplexMethodNameItem
+        attr_reader identifier: Symbol
+
+        attr_reader range: Range
+
+        attr_reader reeiver_type: AST::Types::t
+
+        attr_reader method_types: Array[RBS::MethodType]
 
         attr_reader method_decls: Array[MethodCall::MethodDecl]
 
-        def initialize: (identifier: Symbol, range: Range, method_type: RBS::MethodType, method_decls: Array[MethodCall::MethodDecl], receiver_type: AST::Types::t) -> void
+        def initialize: (
+          identifier: Symbol,
+          range: Range,
+          method_types: Array[RBS::MethodType],
+          method_decls: Array[MethodCall::MethodDecl],
+          receiver_type: AST::Types::t
+        ) -> void
 
-        def comment: () -> RBS::AST::Comment?
+        def method_names: () -> Array[method_name]
 
-        def inherited?: () -> bool
+        def method_definitions: () -> Hash[method_name, RBS::Definition::Method::method_member]
+
+        def defining_method_name: (TypeName, Symbol name, RBS::Definition::Method::method_member) -> method_name
       end
 
-      type item = InstanceVariableItem | LocalVariableItem | ConstantItem | MethodNameItem
+      # Method name completion item for generated methods, like `#first` in tuple types
+      #
+      # The generated methods doesn't have associated `MethodDecl`.
+      #
+      class GeneratedMethodNameItem
+        attr_reader identifier: Symbol
+
+        attr_reader range: Range
+
+        attr_reader reeiver_type: AST::Types::t
+
+        attr_reader method_types: Array[RBS::MethodType]
+
+        def initialize: (
+          identifier: Symbol,
+          range: Range,
+          receiver_type: AST::Types::t,
+          method_types: Array[RBS::MethodType]
+        ) -> void
+      end
+
+      type item = InstanceVariableItem | LocalVariableItem | ConstantItem | SimpleMethodNameItem | ComplexMethodNameItem | GeneratedMethodNameItem
 
       attr_reader source_text: String
 
@@ -130,6 +193,7 @@ module Steep
       def index_for: (String, line: Integer, column: Integer) -> Integer
 
       def disallowed_method?: (Symbol name) -> bool
+
     end
   end
 end

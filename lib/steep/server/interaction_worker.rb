@@ -319,11 +319,8 @@ module Steep
             label: item.identifier,
             kind: LanguageServer::Protocol::Constant::CompletionItemKind::VARIABLE,
             detail: item.type.to_s,
-            text_edit: LanguageServer::Protocol::Interface::TextEdit.new(
-              range: range,
-              new_text: item.identifier
-            ),
-            sort_text: "l.#{item.identifier}"
+            insert_text: item.identifier,
+            sort_text: item.identifier
           )
         when Services::CompletionProvider::ConstantItem
           case
@@ -344,32 +341,95 @@ module Steep
               new_text: item.identifier
             )
           )
-        when Services::CompletionProvider::MethodNameItem
-          method_type_snippet = method_type_to_snippet(item.method_type)
+        when Services::CompletionProvider::SimpleMethodNameItem
           LanguageServer::Protocol::Interface::CompletionItem.new(
             label: item.identifier,
-            kind: LanguageServer::Protocol::Constant::CompletionItemKind::METHOD,
-            detail: item.method_type.to_s,
-            text_edit: LanguageServer::Protocol::Interface::TextEdit.new(
-              new_text: "#{item.identifier}#{method_type_snippet}",
-              range: range
-            ),
-            documentation: format_comment(item.comment),
-            insert_text_format: LanguageServer::Protocol::Constant::InsertTextFormat::SNIPPET,
-            sort_text: item.inherited? ? "m.z.#{item.identifier}" : "m.z.#{item.identifier}" # Ensure language server puts non-inherited methods before inherited methods
+            kind: LanguageServer::Protocol::Constant::CompletionItemKind::FUNCTION,
+            label_details: { description: item.method_name.relative.to_s },
+            insert_text: item.identifier,
+            documentation: LSP::Interface::MarkupContent.new(
+              kind: LSP::Constant::MarkupKind::MARKDOWN,
+              value: format_method_item_doc(item.method_types, [], { item.method_name => item.method_member.comment })
+            )
+          )
+        when Services::CompletionProvider::ComplexMethodNameItem
+          method_names = item.method_names.map(&:relative).uniq
+
+          comments = item.method_definitions.transform_values {|member| member.comment }
+
+          LanguageServer::Protocol::Interface::CompletionItem.new(
+            label: item.identifier,
+            kind: LanguageServer::Protocol::Constant::CompletionItemKind::FUNCTION,
+            label_details: { description: method_names.join(", ") },
+            insert_text: item.identifier,
+            documentation: LSP::Interface::MarkupContent.new(
+              kind: LSP::Constant::MarkupKind::MARKDOWN,
+              value: format_method_item_doc(item.method_types, method_names, comments)
+            )
+          )
+        when Services::CompletionProvider::GeneratedMethodNameItem
+          LanguageServer::Protocol::Interface::CompletionItem.new(
+            label: item.identifier,
+            kind: LanguageServer::Protocol::Constant::CompletionItemKind::FUNCTION,
+            label_details: { description: "(Generated)" },
+            insert_text: item.identifier,
+            documentation: LSP::Interface::MarkupContent.new(
+              kind: LSP::Constant::MarkupKind::MARKDOWN,
+              value: format_method_item_doc(item.method_types, [], {}, "🤖 Generated method for receiver type")
+            )
           )
         when Services::CompletionProvider::InstanceVariableItem
           LanguageServer::Protocol::Interface::CompletionItem.new(
             label: item.identifier,
             kind: LanguageServer::Protocol::Constant::CompletionItemKind::FIELD,
             detail: item.type.to_s,
+            insert_text: item.identifier,
             text_edit: LanguageServer::Protocol::Interface::TextEdit.new(
               range: range,
-              new_text: item.identifier,
-            ),
-            insert_text_format: LanguageServer::Protocol::Constant::InsertTextFormat::SNIPPET
+              new_text: item.identifier
+            )
           )
         end
+      end
+
+      def format_method_item_doc(method_types, method_names, comments, footer = "")
+        io = StringIO.new
+
+        io.puts "**Method type**:"
+        io.puts "```rbs"
+        if method_types.size == 1
+          io.puts method_types[0].to_s
+        else
+          io.puts "  #{method_types.join("\n| ")}"
+        end
+        io.puts "```"
+
+        if method_names.size > 1
+          io.puts "**Possible methods**: #{method_names.map {|type| "`#{type.to_s}`" }.join(", ")}"
+        end
+
+        comments.each do |method_name, comment|
+          if comment
+            io.puts "### 📚 #{method_name.relative}"
+            io.puts comment.string.gsub(/<!--(?~-->)-->/, "")
+          end
+        end
+
+        if (without_docs = comments.values.select(&:nil?)).size > 0
+          io.puts
+          io.puts "----"
+          if without_docs.size == 1
+            io.puts "🔍 One more method without docs"
+          else
+            io.puts "🔍 #{without_docs.size} more methods without docs"
+          end
+        end
+
+        unless footer.empty?
+          io.print footer
+        end
+
+        io.string
       end
 
       def method_type_to_snippet(method_type)
@@ -378,7 +438,6 @@ module Steep
                  else
                    "(#{params_to_snippet(method_type.type)})"
                  end
-
 
         block = if method_type.block
                   open, space, close = if method_type.block.type.return_type.is_a?(RBS::Types::Bases::Void)

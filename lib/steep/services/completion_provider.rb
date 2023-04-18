@@ -36,31 +36,53 @@ module Steep
           end
         end
       end
-      MethodNameItem = _ = Struct.new(:identifier, :range, :receiver_type, :method_type, :method_decls, keyword_init: true) do
-        # @implements MethodNameItem
+
+      SimpleMethodNameItem = _ = Struct.new(:identifier, :range, :receiver_type, :method_types, :method_member, :method_name, keyword_init: true) do
+        # @implements SimpleMethodNameItem
 
         def comment
-          case method_decls.size
-          when 0
-            nil
-          when 1
-            method = method_decls.to_a.first or raise
-            method.method_def&.comment
-          else
-            nil
+          method_member.comment
+        end
+      end
+
+      ComplexMethodNameItem = _ = Struct.new(:identifier, :range, :receiver_type, :method_types, :method_decls, keyword_init: true) do
+        # @implements ComplexMethodNameItem
+
+        def method_names
+          method_definitions.keys
+        end
+
+        def method_definitions
+          method_decls.each.with_object({}) do |decl, hash| #$ Hash[method_name, RBS::Definition::Method::method_member]
+            method_name = defining_method_name(
+              decl.method_def.defined_in,
+              decl.method_name.method_name,
+              decl.method_def.member
+            )
+            hash[method_name] = decl.method_def.member
           end
         end
 
-        def inherited?
-          case receiver_type = receiver_type()
-          when AST::Types::Name::Instance, AST::Types::Name::Singleton, AST::Types::Name::Interface
-            method_decls.any? do |decl|
-              decl.method_name.type_name != receiver_type.name
+        def defining_method_name(type_name, name, member)
+          case member
+          when RBS::AST::Members::MethodDefinition
+            if member.instance?
+              InstanceMethodName.new(type_name: type_name, method_name: name)
+            else
+              SingletonMethodName.new(type_name: type_name, method_name: name)
             end
-          else
-            false
+          when RBS::AST::Members::Attribute
+            if member.kind == :instance
+              InstanceMethodName.new(type_name: type_name, method_name: name)
+            else
+              SingletonMethodName.new(type_name: type_name, method_name: name)
+            end
           end
         end
+      end
+
+      GeneratedMethodNameItem = _ = Struct.new(:identifier, :range, :receiver_type, :method_types, keyword_init: true) do
+        # @implements GeneratedMethodNameItem
       end
 
       attr_reader :source_text
@@ -336,14 +358,44 @@ module Steep
 
             if name.to_s.start_with?(prefix)
               if word_name?(name.to_s)
-                method_entry.method_types.each do |method_type|
-                  items << MethodNameItem.new(
-                    identifier: name,
-                    range: range,
-                    receiver_type: type,
-                    method_type: subtyping.factory.method_type_1(method_type),
-                    method_decls: method_type.method_decls.to_a
-                  )
+                case type
+                when AST::Types::Name::Instance, AST::Types::Name::Interface, AST::Types::Name::Singleton
+                  # Simple method type
+                  all_decls = Set.new(method_entry.method_types.flat_map {|method_type| method_type.method_decls.to_a }).sort_by {|decl| decl.method_name.to_s }
+                  all_members = Set.new(all_decls.flat_map {|decl| decl.method_def.member })
+                  all_members.each do |member|
+                    associated_decl = all_decls.find {|decl| decl.method_def.member == member } or next
+                    method_types = method_entry.method_types.select {|method_type| method_type.method_decls.any? {|decl| decl.method_def.member == member }}
+                    items << SimpleMethodNameItem.new(
+                      identifier: name,
+                      range: range,
+                      receiver_type: type,
+                      method_name: associated_decl.method_name,
+                      method_types: method_types.map {|type| subtyping.factory.method_type_1(type) },
+                      method_member: member
+                    )
+                  end
+                else
+                  generated_method_types, defined_method_types = method_entry.method_types.partition {|method_type| method_type.method_decls.empty? }
+
+                  unless defined_method_types.empty?
+                    items << ComplexMethodNameItem.new(
+                      identifier: name,
+                      range: range,
+                      receiver_type: type,
+                      method_types: defined_method_types.map {|type| subtyping.factory.method_type_1(type) },
+                      method_decls: defined_method_types.flat_map {|type| type.method_decls.to_a }.sort_by {|decl| decl.method_name.to_s }
+                    )
+                  end
+
+                  unless generated_method_types.empty?
+                    items << GeneratedMethodNameItem.new(
+                      identifier: name,
+                      range: range,
+                      receiver_type: type,
+                      method_types: generated_method_types.map {|type| subtyping.factory.method_type_1(type) }
+                    )
+                  end
                 end
               end
             end

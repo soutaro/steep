@@ -4,12 +4,20 @@ module Steep
     def to_s
       "#{type_name}##{method_name}"
     end
+
+    def relative
+      InstanceMethodName.new(type_name: type_name.relative!, method_name: method_name)
+    end
   end
 
   SingletonMethodName = _ = Struct.new(:type_name, :method_name, keyword_init: true) do
     # @implements SingletonMethodName
     def to_s
       "#{type_name}.#{method_name}"
+    end
+
+    def relative
+      SingletonMethodName.new(type_name: type_name.relative!, method_name: method_name)
     end
   end
 
