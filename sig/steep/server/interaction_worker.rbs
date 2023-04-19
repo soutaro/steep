@@ -62,19 +62,19 @@ module Steep
 
       def handle_request: (lsp_request) -> void
 
-      def process_hover: (HoverJob job) -> untyped
+      def process_hover: (HoverJob job) -> LanguageServer::Protocol::Interface::Hover?
 
-      def process_completion: (CompletionJob job) -> untyped
+      def process_completion: (CompletionJob job) -> LanguageServer::Protocol::Interface::CompletionList?
 
-      def process_signature_help: (SignatureHelpJob) -> untyped
+      def process_signature_help: (SignatureHelpJob) -> LanguageServer::Protocol::Interface::SignatureHelp?
 
-      def format_completion_item_for_rbs: (Services::SignatureService, RBS::TypeName, CompletionJob job, String complete_text, Integer prefix_size) -> untyped
+      def format_completion_item_for_rbs: (Services::SignatureService, RBS::TypeName, CompletionJob job, String complete_text, Integer prefix_size) -> LanguageServer::Protocol::Interface::CompletionItem
 
-      def format_comment: (Comment? comment) -> untyped?
+      def format_comment: (Comment? comment) -> LanguageServer::Protocol::Interface::MarkupContent?
 
-      def format_comments: (Array[RBS::AST::Comment] comments) -> untyped?
+      def format_comments: (Array[RBS::AST::Comment] comments) -> LanguageServer::Protocol::Interface::MarkupContent?
 
-      def format_completion_item: (CompletionProvider::item item) -> untyped
+      def format_completion_item: (CompletionProvider::item item) -> LanguageServer::Protocol::Interface::CompletionItem
 
       # Returns a markdown format documentation for method name item
       #

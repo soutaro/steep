@@ -1,3 +1,5 @@
+use RBS::TypeName
+
 module Steep
   module Server
     module LSPFormatter
@@ -17,13 +19,13 @@ module Steep
         def push: () { (String) -> void } -> void
       end
 
-      def self?.format_hover_content: (Services::HoverProvider::Ruby::content | Services::HoverProvider::RBS::content) -> untyped
+      def self?.format_hover_content: (Services::HoverProvider::Ruby::content | Services::HoverProvider::RBS::content) -> String
 
       def self?.to_list: [A < Object] (Enumerable[A] collection) ?{ (A) -> String } -> String
 
-      def self?.name_and_args: (untyped name, untyped args) -> ::String
+      def self?.name_and_args: (TypeName name, Array[RBS::Types::t] args) -> String
 
-      def self?.name_and_params: (untyped name, untyped params) -> ::String
+      def self?.name_and_params: (TypeName name, Array[RBS::AST::TypeParam] params) -> String
 
       type summarizable_decl = ::RBS::AST::Declarations::Class
                              | ::RBS::AST::Declarations::Module

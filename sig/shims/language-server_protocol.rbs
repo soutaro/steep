@@ -27,6 +27,237 @@ module LanguageServer
 
         HINT: String
       end
+
+      module CompletionItemKind
+        type t = Integer
+
+        TEXT: Integer
+        METHOD: Integer
+        FUNCTION: Integer
+        CONSTRUCTOR: Integer
+        FIELD: Integer
+        VARIABLE: Integer
+        CLASS: Integer
+        INTERFACE: Integer
+        MODULE: Integer
+        PROPERTY: Integer
+        UNIT: Integer
+        VALUE: Integer
+        ENUM: Integer
+        KEYWORD: Integer
+        SNIPPET: Integer
+        COLOR: Integer
+        FILE: Integer
+        REFERENCE: Integer
+        FOLDER: Integer
+        ENUMMEMBER: Integer
+        CONSTANT: Integer
+        STRUCT: Integer
+        EVENT: Integer
+        OPERATOR: Integer
+        TYPEPARAMETER: Integer
+      end
+
+      module CompletionItemTag
+        type t = Integer
+
+        Deprecated: Integer
+      end
+
+      module InsertTextFormat
+        type t = Integer
+
+        PLAIN_TEXT: Integer
+
+        SNIPPET: Integer
+      end
+
+      module InsertTextMode
+        type t = Integer
+
+        AS_IS: Integer
+
+        ADJUST_INDENTATION: Integer
+      end
+
+      module MarkupKind
+        type t = "plaintext" | "markdown"
+
+        PLAINTEXT: "plaintext"
+
+        MARKDOWN: "markdown"
+      end
+    end
+
+    module Interface
+      class Position
+        # 0-origin line number
+        attr_reader line: Integer
+
+        # 0-origin character position (== cursor position)
+        attr_reader character: Integer
+
+        def initialize: (line: Integer, character: Integer) -> void
+                      | (Hash[Symbol, untyped]) -> void
+      end
+
+      class Range
+        attr_reader start: Position
+
+        attr_reader end: Position
+
+        def initialize: (start: Position, end: Position) -> void
+                      | (Hash[Symbol, untyped]) -> void
+      end
+
+      class MarkupContent
+        attr_reader kind: Constant::MarkupKind::t
+
+        attr_reader value: String
+
+        def initialize: (kind: Constant::MarkupKind::t, value: String) -> void
+      end
+
+      class TextEdit
+        attr_reader range: Range
+
+        attr_reader new_text: String
+
+        def initialize: (range: Range, new_text: String) -> void
+      end
+
+      class InsertReplaceEdit
+        attr_reader new_text: String
+
+        attr_reader insert: Range
+
+        attr_reader replace: Range
+
+        def initialize: (new_text: String, insert: Range, replace: Range) -> void
+      end
+
+      class Command
+        attr_reader title: String
+
+        attr_reader command: String
+
+        attr_reader arguments: Array[untyped]?
+
+        def initialize: (title: String, command: String, ?arguments: Array[untyped]?) -> void
+      end
+
+      class Hover
+        attr_reader contents: MarkupContent
+
+        attr_reader range: Range
+
+        def initialize: (contents: MarkupContent, range: Range) -> void
+      end
+
+      class CompletionList
+        attr_reader is_incomplete: bool
+
+        attr_reader items: Array[CompletionItem]
+
+        def initialize: (items: Array[CompletionItem], is_incomplete: bool) -> void
+      end
+
+      class CompletionItem
+        attr_reader label: String
+
+        attr_reader label_details: CompletionItemLabelDetails?
+
+        attr_reader kind: Constant::CompletionItemKind::t?
+
+        attr_reader tags: Array[Constant::CompletionItemTag::t]?
+
+        attr_reader detail: String?
+
+        attr_reader documentation: MarkupContent?
+
+        attr_reader preselect: bool?
+
+        attr_reader sort_text: String?
+
+        attr_reader filter_text: String?
+
+        attr_reader insert_text: String?
+
+        attr_reader insert_text_format: Constant::InsertTextFormat::t?
+
+        attr_reader insert_text_mode: Constant::InsertTextMode::t?
+
+        attr_reader text_edit: TextEdit | InsertReplaceEdit | nil
+
+        attr_reader text_edit_text: String?
+
+        attr_reader additional_text_edits: Array[TextEdit]?
+
+        attr_reader commit_characters: Array[String]?
+
+        attr_reader command: Command?
+
+        attr_reader data: untyped?
+
+        def initialize:(
+          label: String,
+          ?label_details: CompletionItemLabelDetails?,
+          ?kind: Constant::CompletionItemKind::t?,
+          ?tags: Array[Constant::CompletionItemTag::t]?,
+          ?detail: String?,
+          ?documentation: MarkupContent?,
+          ?preselect: bool?,
+          ?sort_text: String?,
+          ?filter_text: String?,
+          ?insert_text: String?,
+          ?insert_text_format: Constant::InsertTextFormat::t?,
+          ?insert_text_mode: Constant::InsertTextMode::t?,
+          ?text_edit: TextEdit | InsertReplaceEdit | nil,
+          ?text_edit_text: String?,
+          ?additional_text_edits: Array[TextEdit]?,
+          ?commit_characters: Array[String]?,
+          ?command: Command?,
+          ?data: untyped?
+        ) -> void
+      end
+
+      class CompletionItemLabelDetails
+        attr_reader detail: String?
+
+        attr_reader description: String?
+
+        def initialize: (?detail: String?, ?description: String?) -> void
+      end
+
+      class SignatureInformation
+        attr_reader label: String
+
+        attr_reader documentation: MarkupContent?
+
+        attr_reader parameters: Array[ParameterInformation]?
+
+        attr_reader active_parameter: Integer?
+
+        def initialize: (label: String, ?documentation: MarkupContent?, ?parameters: Array[ParameterInformation]?, ?active_parameter: Integer?) -> void
+      end
+
+      class ParameterInformation
+        attr_reader label: String | [Integer, Integer]
+
+        attr_reader documentation: MarkupContent?
+
+        def initialize: (label: String | [Integer, Integer], ?documentation: MarkupContent) -> void
+      end
+
+      class SignatureHelp
+        attr_reader signatures: Array[SignatureInformation]
+
+        attr_reader active_signature: Integer?
+
+        attr_reader active_parameter: Integer?
+
+        def initialize: (signatures: Array[SignatureInformation], ?active_signature: Integer?, ?active_parameter: Integer?) -> void
+      end
     end
   end
 end

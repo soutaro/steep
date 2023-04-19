@@ -43,4 +43,7 @@ module Parser
       def value: (untyped) -> untyped
     end
   end
+
+  class SyntaxError < StandardError
+  end
 end
