@@ -79,10 +79,6 @@ module Steep
       # Returns a markdown format documentation for method name item
       #
       def format_method_item_doc: (Array[RBS::MethodType], Array[method_name], Hash[method_name, RBS::AST::Comment?], ?String footer) -> String
-
-      def method_type_to_snippet: (RBS::MethodType method_type) -> ::String
-
-      def params_to_snippet: (RBS::Types::Function fun) -> String
     end
   end
 end
