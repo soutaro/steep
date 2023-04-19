@@ -6,6 +6,7 @@ module Steep
       ApplyChangeJob = _ = Class.new()
       HoverJob = _ = Struct.new(:id, :path, :line, :column, keyword_init: true)
       CompletionJob = _ = Struct.new(:id, :path, :line, :column, :trigger, keyword_init: true)
+      SignatureHelpJob = _ = Struct.new(:id, :path, :line, :column, keyword_init: true)
 
       LSP = LanguageServer::Protocol
 
@@ -35,6 +36,8 @@ module Steep
             writer.write({ id: job.id, result: process_hover(job) })
           when CompletionJob
             writer.write({ id: job.id, result: process_completion(job) })
+          when SignatureHelpJob
+            writer.write({ id: job.id, result: process_signature_help(job) })
           end
         end
       end
@@ -69,6 +72,13 @@ module Steep
           trigger = params.dig(:context, :triggerCharacter)
 
           queue << CompletionJob.new(id: id, path: path, line: line, column: column, trigger: trigger)
+        when "textDocument/signatureHelp"
+          id = request[:id]
+          params = request[:params]
+          path = project.relative_path(Steep::PathHelper.to_pathname!(params[:textDocument][:uri]))
+          line, column = params[:position].yield_self {|hash| [hash[:line]+1, hash[:character]] }
+
+          queue << SignatureHelpJob.new(id: id, path: path, line: line, column: column)
         end
       end
 
@@ -415,13 +425,17 @@ module Steep
           end
         end
 
-        if (without_docs = comments.values.select(&:nil?)).size > 0
-          io.puts
-          io.puts "----"
-          if without_docs.size == 1
-            io.puts "🔍 One more method without docs"
-          else
-            io.puts "🔍 #{without_docs.size} more methods without docs"
+        if (without_docs, with_docs = comments.values.partition(&:nil?))
+          unless with_docs.empty?
+            if without_docs.empty?
+              io.puts
+              io.puts "----"
+              if without_docs.size == 1
+                io.puts "🔍 One more method without docs"
+              else
+                io.puts "🔍 #{without_docs.size} more methods without docs"
+              end
+            end
           end
         end
 
@@ -499,6 +513,37 @@ module Steep
         end
 
         params.join(", ")
+      end
+
+      def process_signature_help(job)
+        Steep.logger.tagged("##{__method__}") do
+          if target = project.target_for_source_path(job.path)
+            file = service.source_files[job.path] or return
+            subtyping = service.signature_services[target.name].current_subtyping or return
+            source = Source.parse(file.content, path: file.path, factory: subtyping.factory)
+
+            provider = Services::SignatureHelpProvider.new(source: source, subtyping: subtyping)
+
+            if (items, index = provider.run(line: job.line, column: job.column))
+              signatures = items.map do |item|
+                LSP::Interface::SignatureInformation.new(
+                  label: "(#{item.method_type.type.param_to_s})",
+                  documentation: item.comment&.yield_self do |comment|
+                    LSP::Interface::MarkupContent.new(
+                      kind: LSP::Constant::MarkupKind::MARKDOWN,
+                      value: comment.string.gsub(/<!--(?~-->)-->/, "")
+                    )
+                  end
+                )
+              end
+
+              LSP::Interface::SignatureHelp.new(
+                signatures: signatures,
+                active_signature: index
+              )
+            end
+          end
+        end
       end
     end
   end
