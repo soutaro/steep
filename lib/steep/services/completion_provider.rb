@@ -35,6 +35,19 @@ module Steep
             raise
           end
         end
+
+        def decl
+          case entry = env.constant_entry(full_name)
+          when RBS::Environment::ConstantEntry
+            entry.decl
+          when RBS::Environment::ClassEntry, RBS::Environment::ModuleEntry
+            entry.primary.decl
+          when RBS::Environment::ClassAliasEntry, RBS::Environment::ModuleAliasEntry
+            entry.decl
+          else
+            raise
+          end
+        end
       end
 
       SimpleMethodNameItem = _ = Struct.new(:identifier, :range, :receiver_type, :method_types, :method_member, :method_name, keyword_init: true) do

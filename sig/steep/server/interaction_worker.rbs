@@ -70,15 +70,7 @@ module Steep
 
       def format_completion_item_for_rbs: (Services::SignatureService, RBS::TypeName, CompletionJob job, String complete_text, Integer prefix_size) -> LanguageServer::Protocol::Interface::CompletionItem
 
-      def format_comment: (Comment? comment) -> LanguageServer::Protocol::Interface::MarkupContent?
-
-      def format_comments: (Array[RBS::AST::Comment] comments) -> LanguageServer::Protocol::Interface::MarkupContent?
-
       def format_completion_item: (CompletionProvider::item item) -> LanguageServer::Protocol::Interface::CompletionItem
-
-      # Returns a markdown format documentation for method name item
-      #
-      def format_method_item_doc: (Array[RBS::MethodType], Array[method_name], Hash[method_name, RBS::AST::Comment?], ?String footer) -> String
     end
   end
 end

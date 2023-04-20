@@ -168,8 +168,8 @@ RUBY
       response = worker.process_hover(InteractionWorker::HoverJob.new(path: Pathname("lib/foo.rb"), line: 1, column: 1))
       response = response.attributes
 
-      assert_equal({ kind: "markdown", value: "`foo`: `::Integer`" }, response[:contents])
-      assert_equal({ start: { line: 0, character: 0 }, end: { line: 0, character: 3 }}, response[:range])
+      assert_equal({ kind: "markdown", value: "`foo`: `::Integer`" }, response[:contents].attributes)
+      assert_equal({ start: { line: 0, character: 0 }, end: { line: 0, character: 3 }}.to_json, response[:range].to_json)
     end
   end
 
@@ -210,8 +210,8 @@ type ::foo = ::Integer | ::String
 
 here is your comments
 MD
-      assert_equal({ kind: "markdown", value: expected_value }, response[:contents])
-      assert_equal({ start: { line: 4, character: 10 }, end: { line: 4, character: 13 }}, response[:range])
+      assert_equal({ kind: "markdown", value: expected_value }, response[:contents].attributes)
+      assert_equal({ start: { line: 4, character: 10 }, end: { line: 4, character: 13 } }.to_json, response[:range].to_json)
     end
   end
 
@@ -254,8 +254,8 @@ interface ::_Fooable
 
 here is your comments
 MD
-      assert_equal({ kind: "markdown", value: expected_value }, response[:contents])
-      assert_equal({ start: { line: 6, character: 12 }, end: { line: 6, character: 20 }}, response[:range])
+      assert_equal({ kind: "markdown", value: expected_value }.to_json, response[:contents].to_json)
+      assert_equal({ start: { line: 6, character: 12 }, end: { line: 6, character: 20 } }.to_json, response[:range].to_json)
     end
   end
 
@@ -297,8 +297,8 @@ class ::Foo[T] < ::Parent[T]
 
 here is your comments
 MD
-      assert_equal({ kind: "markdown", value: expected_value }, response[:contents])
-      assert_equal({ start: { line: 5, character: 8 }, end: { line: 5, character: 11 }}, response[:range])
+      assert_equal({ kind: "markdown", value: expected_value }.to_json, response[:contents].to_json)
+      assert_equal({ start: { line: 5, character: 8 }, end: { line: 5, character: 11 } }.to_json, response[:range].to_json)
     end
   end
 
@@ -338,7 +338,7 @@ class ::Foo[T]
 
 This is comment content
 MD
-      assert_equal({ kind: "markdown", value: expected_value }, response[:contents])
+      assert_equal({ kind: "markdown", value: expected_value }, response[:contents].attributes)
     end
   end
 

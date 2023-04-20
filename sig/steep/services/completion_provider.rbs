@@ -61,6 +61,14 @@ module Steep
         def module?: () -> bool
 
         def comments: () -> Array[RBS::AST::Comment]
+
+        type const_decl = RBS::AST::Declarations::Constant
+                        | RBS::AST::Declarations::Class
+                        | RBS::AST::Declarations::Module
+                        | RBS::AST::Declarations::ClassAlias
+                        | RBS::AST::Declarations::ModuleAlias
+
+        def decl: () -> const_decl
       end
 
       # Method name completion item with *simple* receiver type

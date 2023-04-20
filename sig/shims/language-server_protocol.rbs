@@ -90,7 +90,17 @@ module LanguageServer
     end
 
     module Interface
+      interface _Base
+        def attributes: () -> Hash[Symbol, untyped]
+
+        alias to_hash attributes
+
+        def to_json: () -> String
+      end
+
       class Position
+        include _Base
+
         # 0-origin line number
         attr_reader line: Integer
 
@@ -102,6 +112,8 @@ module LanguageServer
       end
 
       class Range
+        include _Base
+
         attr_reader start: Position
 
         attr_reader end: Position
@@ -111,6 +123,8 @@ module LanguageServer
       end
 
       class MarkupContent
+        include _Base
+
         attr_reader kind: Constant::MarkupKind::t
 
         attr_reader value: String
@@ -119,6 +133,8 @@ module LanguageServer
       end
 
       class TextEdit
+        include _Base
+
         attr_reader range: Range
 
         attr_reader new_text: String
@@ -127,6 +143,8 @@ module LanguageServer
       end
 
       class InsertReplaceEdit
+        include _Base
+
         attr_reader new_text: String
 
         attr_reader insert: Range
@@ -137,6 +155,8 @@ module LanguageServer
       end
 
       class Command
+        include _Base
+
         attr_reader title: String
 
         attr_reader command: String
@@ -147,6 +167,8 @@ module LanguageServer
       end
 
       class Hover
+        include _Base
+
         attr_reader contents: MarkupContent
 
         attr_reader range: Range
@@ -155,6 +177,8 @@ module LanguageServer
       end
 
       class CompletionList
+        include _Base
+
         attr_reader is_incomplete: bool
 
         attr_reader items: Array[CompletionItem]
@@ -163,6 +187,8 @@ module LanguageServer
       end
 
       class CompletionItem
+        include _Base
+
         attr_reader label: String
 
         attr_reader label_details: CompletionItemLabelDetails?
@@ -222,6 +248,8 @@ module LanguageServer
       end
 
       class CompletionItemLabelDetails
+        include _Base
+
         attr_reader detail: String?
 
         attr_reader description: String?
@@ -230,6 +258,8 @@ module LanguageServer
       end
 
       class SignatureInformation
+        include _Base
+
         attr_reader label: String
 
         attr_reader documentation: MarkupContent?
@@ -242,6 +272,8 @@ module LanguageServer
       end
 
       class ParameterInformation
+        include _Base
+
         attr_reader label: String | [Integer, Integer]
 
         attr_reader documentation: MarkupContent?
@@ -250,6 +282,8 @@ module LanguageServer
       end
 
       class SignatureHelp
+        include _Base
+
         attr_reader signatures: Array[SignatureInformation]
 
         attr_reader active_signature: Integer?

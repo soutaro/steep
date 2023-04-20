@@ -233,80 +233,53 @@ module Steep
           env = sig_service.latest_env #: RBS::Environment
           class_entry = env.module_class_entry(type_name) or raise
 
-          comment =
-            case class_entry
-            when RBS::Environment::ClassEntry, RBS::Environment::ModuleEntry
-              class_entry.decls.flat_map {|decl| [decl.decl.comment] }.first
-            when RBS::Environment::ClassAliasEntry, RBS::Environment::ModuleAliasEntry
-              class_entry.decl.comment
-            end
+          case class_entry
+          when RBS::Environment::ClassEntry, RBS::Environment::ModuleEntry
+            comments = class_entry.decls.map {|decl| decl.decl.comment }.compact
+            decl = class_entry.primary.decl
+          when RBS::Environment::ClassAliasEntry, RBS::Environment::ModuleAliasEntry
+            comments = [class_entry.decl.comment].compact
+            decl = class_entry.decl
+          end
 
           LSP::Interface::CompletionItem.new(
             label: complete_text,
-            detail: type_name.to_s,
-            documentation:  format_comment(comment),
+            label_details: LSP::Interface::CompletionItemLabelDetails.new(description: LSPFormatter.declaration_summary(decl)),
+            documentation: LSPFormatter.markup_content { LSPFormatter.format_rbs_completion_docs(type_name, decl, comments) },
             text_edit: LSP::Interface::TextEdit.new(
               range: range,
               new_text: complete_text
             ),
-            kind: LSP::Constant::CompletionItemKind::CLASS,
-            insert_text_format: LSP::Constant::InsertTextFormat::SNIPPET,
-            sort_text: complete_text,
-            filter_text: complete_text
+            kind: LSP::Constant::CompletionItemKind::CLASS
           )
         when :alias
           alias_decl = sig_service.latest_env.type_alias_decls[type_name]&.decl or raise
 
           LSP::Interface::CompletionItem.new(
             label: complete_text,
-            detail: type_name.to_s,
+            label_details: LSP::Interface::CompletionItemLabelDetails.new(description: LSPFormatter.declaration_summary(alias_decl)),
             text_edit: LSP::Interface::TextEdit.new(
               range: range,
               new_text: complete_text
             ),
-            documentation: format_comment(alias_decl.comment),
-            # https://github.com/microsoft/vscode-languageserver-node/blob/6d78fc4d25719b231aba64a721a606f58b9e0a5f/client/src/common/client.ts#L624-L650
-            kind: LSP::Constant::CompletionItemKind::FIELD,
-            insert_text_format: LSP::Constant::InsertTextFormat::SNIPPET,
-            sort_text: complete_text,
-            filter_text: complete_text
+            documentation: LSPFormatter.markup_content { LSPFormatter.format_rbs_completion_docs(type_name, alias_decl, [alias_decl.comment].compact) },
+            kind: LSP::Constant::CompletionItemKind::FIELD
           )
         when :interface
           interface_decl = sig_service.latest_env.interface_decls[type_name]&.decl or raise
 
           LSP::Interface::CompletionItem.new(
             label: complete_text,
-            detail: type_name.to_s,
+            label_details: LSP::Interface::CompletionItemLabelDetails.new(description: LSPFormatter.declaration_summary(interface_decl)),
             text_edit: LSP::Interface::TextEdit.new(
               range: range,
               new_text: complete_text
             ),
-            documentation: format_comment(interface_decl.comment),
-            kind: LSP::Constant::CompletionItemKind::INTERFACE,
-            insert_text_format: LSP::Constant::InsertTextFormat::SNIPPET,
-            sort_text: complete_text,
-            filter_text: complete_text
+            documentation: LSPFormatter.markup_content { LSPFormatter.format_rbs_completion_docs(type_name, interface_decl, [interface_decl.comment].compact) },
+            kind: LSP::Constant::CompletionItemKind::INTERFACE
           )
         else
           raise
-        end
-      end
-
-      def format_comment(comment)
-        if comment
-          LSP::Interface::MarkupContent.new(
-            kind: LSP::Constant::MarkupKind::MARKDOWN,
-            value: comment.string.gsub(/<!--(?~-->)-->/, "")
-          )
-        end
-      end
-
-      def format_comments(comments)
-        unless comments.empty?
-          LSP::Interface::MarkupContent.new(
-            kind: LSP::Constant::MarkupKind::MARKDOWN,
-            value: comments.map(&:string).join("\n----\n").gsub(/<!--(?~-->)-->/, "")
-          )
         end
       end
 
@@ -327,7 +300,8 @@ module Steep
           LSP::Interface::CompletionItem.new(
             label: item.identifier.to_s,
             kind: LSP::Constant::CompletionItemKind::VARIABLE,
-            detail: item.type.to_s,
+            label_details: LSP::Interface::CompletionItemLabelDetails.new(description: item.type.to_s),
+            documentation: LSPFormatter.markup_content { LSPFormatter.format_completion_docs(item) },
             insert_text: item.identifier.to_s,
             sort_text: item.identifier.to_s
           )
@@ -335,16 +309,17 @@ module Steep
           case
           when item.class? || item.module?
             kind = LSP::Constant::CompletionItemKind::CLASS
-            detail = item.full_name.to_s
           else
             kind = LSP::Constant::CompletionItemKind::CONSTANT
-            detail = item.type.to_s
           end
+
+          detail = LSPFormatter.declaration_summary(item.decl)
+
           LSP::Interface::CompletionItem.new(
             label: item.identifier.to_s,
             kind: kind,
-            detail: detail,
-            documentation: format_comments(item.comments),
+            label_details: LSP::Interface::CompletionItemLabelDetails.new(description: detail),
+            documentation: LSPFormatter.markup_content { LSPFormatter.format_completion_docs(item) },
             text_edit: LSP::Interface::TextEdit.new(
               range: range,
               new_text: item.identifier.to_s
@@ -356,25 +331,17 @@ module Steep
             kind: LSP::Constant::CompletionItemKind::FUNCTION,
             label_details: LSP::Interface::CompletionItemLabelDetails.new(description: item.method_name.relative.to_s),
             insert_text: item.identifier.to_s,
-            documentation: LSP::Interface::MarkupContent.new(
-              kind: LSP::Constant::MarkupKind::MARKDOWN,
-              value: format_method_item_doc(item.method_types, [], { item.method_name => item.method_member.comment })
-            )
+            documentation: LSPFormatter.markup_content { LSPFormatter.format_completion_docs(item) }
           )
         when Services::CompletionProvider::ComplexMethodNameItem
           method_names = item.method_names.map(&:relative).uniq
-
-          comments = item.method_definitions.transform_values {|member| member.comment }
 
           LSP::Interface::CompletionItem.new(
             label: item.identifier.to_s,
             kind: LSP::Constant::CompletionItemKind::FUNCTION,
             label_details: LSP::Interface::CompletionItemLabelDetails.new(description: method_names.join(", ")),
             insert_text: item.identifier.to_s,
-            documentation: LSP::Interface::MarkupContent.new(
-              kind: LSP::Constant::MarkupKind::MARKDOWN,
-              value: format_method_item_doc(item.method_types, method_names, comments)
-            )
+            documentation: LSPFormatter.markup_content { LSPFormatter.format_completion_docs(item) }
           )
         when Services::CompletionProvider::GeneratedMethodNameItem
           LSP::Interface::CompletionItem.new(
@@ -382,67 +349,20 @@ module Steep
             kind: LSP::Constant::CompletionItemKind::FUNCTION,
             label_details: LSP::Interface::CompletionItemLabelDetails.new(description: "(Generated)"),
             insert_text: item.identifier.to_s,
-            documentation: LSP::Interface::MarkupContent.new(
-              kind: LSP::Constant::MarkupKind::MARKDOWN,
-              value: format_method_item_doc(item.method_types, [], {}, "🤖 Generated method for receiver type")
-            )
+            documentation: LSPFormatter.markup_content { LSPFormatter.format_completion_docs(item) }
           )
         when Services::CompletionProvider::InstanceVariableItem
           LSP::Interface::CompletionItem.new(
             label: item.identifier.to_s,
             kind: LSP::Constant::CompletionItemKind::FIELD,
-            detail: item.type.to_s,
-            insert_text: item.identifier.to_s,
+            label_details: LSP::Interface::CompletionItemLabelDetails.new(description: item.type.to_s),
+            documentation: LSPFormatter.markup_content { LSPFormatter.format_completion_docs(item) },
             text_edit: LSP::Interface::TextEdit.new(
               range: range,
               new_text: item.identifier.to_s
             )
           )
         end
-      end
-
-      def format_method_item_doc(method_types, method_names, comments, footer = "")
-        io = StringIO.new
-
-        io.puts "**Method type**:"
-        io.puts "```rbs"
-        if method_types.size == 1
-          io.puts method_types[0].to_s
-        else
-          io.puts "  #{method_types.join("\n| ")}"
-        end
-        io.puts "```"
-
-        if method_names.size > 1
-          io.puts "**Possible methods**: #{method_names.map {|type| "`#{type.to_s}`" }.join(", ")}"
-        end
-
-        comments.each do |method_name, comment|
-          if comment
-            io.puts "### 📚 #{method_name.relative}"
-            io.puts comment.string.gsub(/<!--(?~-->)-->/, "")
-          end
-        end
-
-        if (without_docs, with_docs = comments.values.partition(&:nil?))
-          unless with_docs.empty?
-            if without_docs.empty?
-              io.puts
-              io.puts "----"
-              if without_docs.size == 1
-                io.puts "🔍 One more method without docs"
-              else
-                io.puts "🔍 #{without_docs.size} more methods without docs"
-              end
-            end
-          end
-        end
-
-        unless footer.empty?
-          io.print footer
-        end
-
-        io.string
       end
 
       def process_signature_help(job)
