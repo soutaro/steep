@@ -8,8 +8,6 @@ module Steep
     attr_reader :stderr
     attr_reader :command
 
-    include Parallel::ProcessorCount
-
     def initialize(stdout:, stdin:, stderr:, argv:)
       @stdout = stdout
       @stdin = stdin

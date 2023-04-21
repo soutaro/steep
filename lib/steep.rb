@@ -16,7 +16,7 @@ require 'uri'
 require "yaml"
 require "securerandom"
 
-require "parallel/processor_count"
+require "concurrent/utility/processor_counter"
 require "terminal-table"
 
 require "rbs"

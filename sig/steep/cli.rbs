@@ -10,8 +10,6 @@ module Steep
 
     attr_reader command: Symbol
 
-    include Parallel::ProcessorCount
-
     def initialize: (stdout: IO, stdin: IO, stderr: IO, argv: Array[String]) -> void
 
     def self.available_commands: () -> ::Array[Symbol]
