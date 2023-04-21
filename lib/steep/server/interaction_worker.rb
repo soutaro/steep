@@ -394,6 +394,8 @@ module Steep
             end
           end
         end
+      rescue Parser::SyntaxError
+        # Ignore syntax error
       end
     end
   end
