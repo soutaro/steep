@@ -26,11 +26,11 @@ module Steep
         def comments
           case entry = env.constant_entry(full_name)
           when RBS::Environment::ConstantEntry
-            [entry.decl.comment].compact
+            [entry.decl.comment]
           when RBS::Environment::ClassEntry, RBS::Environment::ModuleEntry
-            entry.decls.filter_map {|d| d.decl.comment }
+            entry.decls.map {|d| d.decl.comment }
           when RBS::Environment::ClassAliasEntry, RBS::Environment::ModuleAliasEntry
-            [entry.decl.comment].compact
+            [entry.decl.comment]
           else
             raise
           end

@@ -60,7 +60,7 @@ module Steep
 
         def module?: () -> bool
 
-        def comments: () -> Array[RBS::AST::Comment]
+        def comments: () -> Array[RBS::AST::Comment?]
 
         type const_decl = RBS::AST::Declarations::Constant
                         | RBS::AST::Declarations::Class

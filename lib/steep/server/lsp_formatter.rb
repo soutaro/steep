@@ -28,12 +28,14 @@ module Steep
 
           case call
           when TypeInference::MethodCall::Typed
-            method_types = [
-              call.actual_method_type.with(
-                type: call.actual_method_type.type.with(return_type: call.return_type)
-              )
-            ]
+            method_types = call.method_decls.map(&:method_type)
             if call.is_a?(TypeInference::MethodCall::Special)
+              method_types = [
+                call.actual_method_type.with(
+                  type: call.actual_method_type.type.with(return_type: call.return_type)
+                )
+              ]
+
               header = <<~MD
                 **💡 Custom typing rule applies**
 
@@ -50,7 +52,7 @@ module Steep
             MD
           end
 
-          method_names = call.method_decls.map(&:method_name)
+          method_names = call.method_decls.map {|decl| decl.method_name.relative }
           docs = call.method_decls.map {|decl| [decl.method_name, decl.method_def.comment] }.to_h
 
           if header
@@ -85,7 +87,7 @@ module Steep
           MD
 
           if content.definition.method_types.size > 1
-            io.puts "**Intermal method type**"
+            io.puts "**Internal method type**"
             io.puts <<~MD
               ```rbs
               #{content.method_type}
@@ -119,14 +121,16 @@ module Steep
             ```rbs
             #{decl_summary}
             ```
-            ----
           MD
 
-          io.puts format_comments(
-            content.comments.map {|comment|
-              [content.full_name.relative!.to_s, comment] #: [String, RBS::AST::Comment?]
-            }
-          )
+          comments = content.comments.map {|comment|
+            [content.full_name.relative!.to_s, comment] #: [String, RBS::AST::Comment?]
+          }
+
+          unless comments.all?(&:nil?)
+            io.puts "----"
+            io.puts format_comments(comments)
+          end
 
           io.string
         when HoverProvider::Ruby::TypeContent
@@ -170,20 +174,23 @@ module Steep
           ```rbs
           #{declaration_summary(content.decl)}
           ```
-          ----
           MD
 
-          class_name =
-            case content.decl
-            when RBS::AST::Declarations::ModuleAlias, RBS::AST::Declarations::ClassAlias
-              content.decl.new_name
-            when RBS::AST::Declarations::Class, RBS::AST::Declarations::Module
-              content.decl.name
-            else
-              raise
-            end
+          if content.decl.comment
+            io.puts "----"
 
-          io << format_comments([[class_name.relative!.to_s, content.decl.comment]])
+            class_name =
+              case content.decl
+              when RBS::AST::Declarations::ModuleAlias, RBS::AST::Declarations::ClassAlias
+                content.decl.new_name
+              when RBS::AST::Declarations::Class, RBS::AST::Declarations::Module
+                content.decl.name
+              else
+                raise
+              end
+
+            io << format_comments([[class_name.relative!.to_s, content.decl.comment]])
+          end
 
           io.string
         else
@@ -202,14 +209,16 @@ module Steep
             ```rbs
             #{declaration_summary(item.decl)}
             ```
-            ----
           MD
 
-          io.puts format_comments(
-            item.comments.map {|comment|
-              [item.full_name.relative!.to_s, comment] #: [String, RBS::AST::Comment?]
-            }
-          )
+          unless item.comments.all?(&:nil?)
+            io.puts "----"
+            io.puts format_comments(
+              item.comments.map {|comment|
+                [item.full_name.relative!.to_s, comment] #: [String, RBS::AST::Comment?]
+              }
+            )
+          end
 
           io.string
         when Services::CompletionProvider::InstanceVariableItem
@@ -363,7 +372,7 @@ module Steep
                       end
           "module #{name_and_params(decl.name.relative!, decl.type_params)}#{self_type}"
         when RBS::AST::Declarations::TypeAlias
-          "type #{decl.name.relative!} = #{decl.type}"
+          "type #{name_and_params(decl.name.relative!, decl.type_params)} = #{decl.type}"
         when RBS::AST::Declarations::Interface
           "interface #{name_and_params(decl.name.relative!, decl.type_params)}"
         when RBS::AST::Declarations::ClassAlias
@@ -394,12 +403,13 @@ module Steep
           io.puts
         end
 
-        io.puts "----"
-
-        io.puts format_comments(comments.transform_keys {|name| name.relative.to_s }.entries)
+        unless comments.each_value.all?(&:nil?)
+          io.puts "----"
+          io.puts format_comments(comments.transform_keys {|name| name.relative.to_s }.entries)
+        end
 
         unless footer.empty?
-          io.print footer
+          io.puts footer.rstrip
         end
 
         io.string
