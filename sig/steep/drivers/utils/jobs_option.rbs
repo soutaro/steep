@@ -8,8 +8,6 @@ module Steep
 
         attr_reader jobs_count_modifier: Integer
 
-        include Parallel::ProcessorCount
-
         def initialize: (?jobs_count_modifier: Integer) -> void
 
         def default_jobs_count: () -> Integer
