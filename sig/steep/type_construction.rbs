@@ -122,6 +122,8 @@ module Steep
 
     def ivasgn: (Parser::AST::Node node, AST::Types::t rhs_type) -> Pair
 
+    def gvasgn: (Parser::AST::Node node, AST::Types::t rhs_type) -> Pair
+
     def type_masgn: (Parser::AST::Node node) -> Pair
 
     def type_masgn_type: (Parser::AST::Node mlhs_node, AST::Types::t? rhs_type, masgn: TypeInference::MultipleAssignment, optional: bool) -> TypeConstruction?
