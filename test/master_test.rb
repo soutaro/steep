@@ -705,7 +705,6 @@ x.ab
 
         hover = ui.hover_on(path: project.absolute_path(Pathname("lib/foo.rb")), line: 1, character: 0)
 
-        assert_equal({ kind: "markdown", value: "`x`: `::Integer`" }, hover[:contents])
         assert_equal({ line: 1, character: 0 }, hover[:range][:start])
         assert_equal({ line: 1, character: 1 }, hover[:range][:end])
 

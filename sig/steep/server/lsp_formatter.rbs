@@ -1,38 +1,63 @@
+use RBS::TypeName
+
 module Steep
   module Server
+    # LSPFormatter translates hover content and completion item to markdown string
+    #
+    # The class has four main methods:
+    #
+    # * `markup_content` translates a string to `MarkupContent` object
+    # * `format_hover_content` translates a hover content to Markdown string
+    # * `format_completion_docs` translates a completion item to a documentation
+    # * `format_rbs_competion_docs` generates docs for completion item of RBS
+    #
     module LSPFormatter
       include Services
 
-      class CommentBuilder
-        @array: Array[String]
+      module LSP = LanguageServer::Protocol
 
-        def initialize: () -> void
+      # Translate given String to MarkupContent
+      #
+      def self?.markup_content: (String?) -> LanguageServer::Protocol::Interface::MarkupContent?
+                              | () { () -> String? } -> LanguageServer::Protocol::Interface::MarkupContent?
 
-        def self.build: () { (CommentBuilder) -> void } -> String
+      # Translates a hover content to String
+      #
+      def self?.format_hover_content: (Services::HoverProvider::Ruby::content | Services::HoverProvider::RBS::content) -> String
 
-        def to_s: () -> String
+      # Translates a completion item to String
+      def self?.format_completion_docs: (Services::CompletionProvider::item) -> String
 
-        def <<: (String? string) -> void
+      # Translates a completion item for RBS to String
+      def self?.format_rbs_completion_docs: (TypeName, summarizable_decl, Array[RBS::AST::Comment]) -> String
 
-        def push: () { (String) -> void } -> void
-      end
+      def self?.format_comment: (RBS::AST::Comment?, ?header: String?) -> String?
+                              | (RBS::AST::Comment?, ?header: String?) { (String) -> void } -> void
 
-      def self?.format_hover_content: (Services::HoverProvider::Ruby::content | Services::HoverProvider::RBS::content) -> untyped
+      def self?.format_comments: (Array[[String, RBS::AST::Comment?]]) -> String
 
-      def self?.to_list: [A < Object] (Enumerable[A] collection) ?{ (A) -> String } -> String
+      def self?.local_variable: (Symbol, AST::Types::t) -> String
 
-      def self?.name_and_args: (untyped name, untyped args) -> ::String
+      def self?.instance_variable: (Symbol, AST::Types::t) -> String
 
-      def self?.name_and_params: (untyped name, untyped params) -> ::String
+      # Renders type application
+      def self?.name_and_args: (TypeName name, Array[RBS::Types::t] args) -> String
 
-      type summarizable_decl = ::RBS::AST::Declarations::Class
-                             | ::RBS::AST::Declarations::Module
-                             | ::RBS::AST::Declarations::Interface
-                             | ::RBS::AST::Declarations::TypeAlias
-                             | ::RBS::AST::Declarations::ClassAlias
-                             | ::RBS::AST::Declarations::ModuleAlias
+      # Renders generic type definition
+      def self?.name_and_params: (TypeName name, Array[RBS::AST::TypeParam] params) -> String
+
+      type summarizable_decl = RBS::AST::Declarations::Class
+                             | RBS::AST::Declarations::Module
+                             | RBS::AST::Declarations::Interface
+                             | RBS::AST::Declarations::TypeAlias
+                             | RBS::AST::Declarations::ClassAlias
+                             | RBS::AST::Declarations::ModuleAlias
+                             | RBS::AST::Declarations::Global
+                             | RBS::AST::Declarations::Constant
 
       def self?.declaration_summary: (summarizable_decl) -> String
+
+      def self?.format_method_item_doc: (Array[_ToS], Array[method_name], Hash[method_name, RBS::AST::Comment?], ?String footer) -> String
     end
   end
 end

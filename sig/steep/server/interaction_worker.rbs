@@ -36,7 +36,19 @@ module Steep
         def initialize: (id: String, path: Pathname, line: Integer, column: Integer, trigger: String) -> void
       end
 
-      type job = ApplyChangeJob | HoverJob | CompletionJob
+      class SignatureHelpJob
+        attr_reader id: String
+
+        attr_reader path: Pathname
+
+        attr_reader line: Integer
+
+        attr_reader column: Integer
+
+        def initialize: (id: String, path: Pathname, line: Integer, column: Integer) -> void
+      end
+
+      type job = ApplyChangeJob | HoverJob | CompletionJob | SignatureHelpJob
 
       module LSP = LanguageServer::Protocol
 
@@ -50,21 +62,15 @@ module Steep
 
       def handle_request: (lsp_request) -> void
 
-      def process_hover: (HoverJob job) -> untyped
+      def process_hover: (HoverJob job) -> LanguageServer::Protocol::Interface::Hover?
 
-      def process_completion: (CompletionJob job) -> untyped
+      def process_completion: (CompletionJob job) -> LanguageServer::Protocol::Interface::CompletionList?
 
-      def format_completion_item_for_rbs: (Services::SignatureService, RBS::TypeName, CompletionJob job, String complete_text, Integer prefix_size) -> untyped
+      def process_signature_help: (SignatureHelpJob) -> LanguageServer::Protocol::Interface::SignatureHelp?
 
-      def format_comment: (Comment? comment) -> untyped?
+      def format_completion_item_for_rbs: (Services::SignatureService, RBS::TypeName, CompletionJob job, String complete_text, Integer prefix_size) -> LanguageServer::Protocol::Interface::CompletionItem
 
-      def format_comments: (Array[RBS::AST::Comment] comments) -> untyped?
-
-      def format_completion_item: (CompletionProvider::item item) -> untyped
-
-      def method_type_to_snippet: (RBS::MethodType method_type) -> ::String
-
-      def params_to_snippet: (RBS::Types::Function fun) -> String
+      def format_completion_item: (CompletionProvider::item item) -> LanguageServer::Protocol::Interface::CompletionItem
     end
   end
 end

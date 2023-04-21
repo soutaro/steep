@@ -563,6 +563,22 @@ module LSPTestHelper
   def master_reader
     @master_reader ||= LSP::Transport::Io::Reader.new(writer_pipe[0])
   end
+
+  def with_master_read_queue()
+    read_queue = Queue.new
+
+    read_thread = Thread.new do
+      master_reader.read do |response|
+        read_queue << response
+      end
+    end
+
+    yield read_queue
+
+    writer_pipe[1].close()
+
+    read_thread.join
+  end
 end
 
 module TypeConstructionHelper

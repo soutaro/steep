@@ -45,13 +45,15 @@ Arr
       EOR
 
         provider.run(line: 1, column: 3).tap do |items|
-          assert_any! items do |item|
-            assert_instance_of CompletionProvider::MethodNameItem, item
+          assert_equal 2, items.size
+
+          items.find {|item| item.is_a?(CompletionProvider::ConstantItem) }.tap do |item|
             assert_equal :Array, item.identifier
           end
-          assert_any! items do |item|
-            assert_instance_of CompletionProvider::ConstantItem, item
+
+          items.find {|item| item.is_a?(CompletionProvider::SimpleMethodNameItem) }.tap do |item|
             assert_equal :Array, item.identifier
+            assert_equal MethodName("::Object#Array"), item.method_name
           end
         end
       end
@@ -74,7 +76,7 @@ self.cl
       end
     end
   end
-
+  
   def test_on_method_identifier_colon2
     with_checker do
       CompletionProvider.new(source_text: <<-EOR, path: Pathname("foo.rb"), subtyping: checker).tap do |provider|
@@ -128,19 +130,17 @@ end
       EOR
 
         provider.run(line: 1, column: 4).tap do |items|
-          items.find {|item| item.identifier == :class }.inherited?
-
           assert_equal [
-            { :identifier=>:class, :inherited_method=>true },
-            { :identifier=>:is_a?, :inherited_method=>true },
-            { :identifier=>:itself, :inherited_method=>true },
-            { :identifier=>:nil?, :inherited_method=>true },
-            { :identifier=>:size, :inherited_method=>false },
-            { :identifier=>:tap, :inherited_method=>true },
-            { :identifier=>:to_s, :inherited_method=>true },
-            { :identifier=>:to_str, :inherited_method=>false }
+            :class,
+            :is_a?,
+            :itself,
+            :nil?,
+            :size,
+            :tap,
+            :to_s,
+            :to_str
           ],
-          items.map { |item| { identifier: item.identifier, inherited_method: item.inherited? } }.sort { |h1, h2| h1[:identifier] <=> h2[:identifier] }
+          items.map(&:identifier).sort
         end
       end
     end
@@ -195,7 +195,7 @@ end
           items.grep(CompletionProvider::LocalVariableItem).tap do |items|
             assert_empty items
           end
-          items.grep(CompletionProvider::MethodNameItem).tap do |items|
+          items.grep(CompletionProvider::SimpleMethodNameItem).tap do |items|
             assert_equal [:class, :gets, :is_a?, :itself, :nil?, :puts, :require, :tap, :to_s, :world],
                          items.map(&:identifier).sort
           end
@@ -212,7 +212,7 @@ end
           items.grep(CompletionProvider::LocalVariableItem).tap do |items|
             assert_empty items
           end
-          items.grep(CompletionProvider::MethodNameItem).tap do |items|
+          items.grep(CompletionProvider::SimpleMethodNameItem).tap do |items|
             assert_equal [:attr_reader, :block_given?, :class, :gets, :is_a?, :itself, :new, :nil?, :puts, :require, :tap, :to_s],
                          items.map(&:identifier).sort
           end
@@ -316,7 +316,7 @@ Hello::
       EOR
 
         provider.run(line: 1, column: 7).tap do |items|
-          items.grep(CompletionProvider::MethodNameItem).tap do |items|
+          items.grep(CompletionProvider::SimpleMethodNameItem).tap do |items|
             assert_equal [:attr_reader, :block_given?, :class, :is_a?, :itself, :new, :nil?, :tap, :to_s],
                          items.map(&:identifier).sort
           end
@@ -341,7 +341,7 @@ EOF
       EOR
 
         provider.run(line: 1, column: 2).tap do |items|
-          items.grep(CompletionProvider::MethodNameItem).tap do |items|
+          items.grep(CompletionProvider::SimpleMethodNameItem).tap do |items|
             assert_empty items
           end
           items.grep(CompletionProvider::ConstantItem).tap do |items|
@@ -375,9 +375,91 @@ bar()
                          items.map(&:identifier).sort
           end
 
-          items.grep(CompletionProvider::MethodNameItem).tap do |items|
+          items.grep(CompletionProvider::SimpleMethodNameItem).tap do |items|
             assert_equal [:attr_reader, :block_given?, :class, :is_a?, :itself, :new, :nil?, :tap, :to_s],
                          items.map(&:identifier).sort
+          end
+        end
+      end
+    end
+  end
+
+  def test_simple_method_name_item_two_defs
+    with_checker <<~RBS do
+        class TestClass
+          def foo: () -> String
+
+          def foo: (String) -> void
+                 | ...
+        end
+      RBS
+      CompletionProvider.new(source_text: <<~RUBY, path: Pathname("foo.rb"), subtyping: checker).tap do |provider|
+          TestClass.new.f
+        RUBY
+
+        provider.run(line: 1, column: 15).tap do |items|
+          items.grep(CompletionProvider::SimpleMethodNameItem).tap do |items|
+            assert_equal [:foo, :foo], items.map(&:identifier).sort
+
+            assert_any!(items) do |item|
+              assert_equal <<~RBS.chomp, item.method_member.location.source
+                  def foo: () -> String
+                RBS
+            end
+
+            assert_any!(items) do |item|
+              assert_equal <<~RBS.chomp, item.method_member.location.source
+                  def foo: (String) -> void
+                           | ...
+                RBS
+            end
+          end
+        end
+      end
+    end
+  end
+
+  def test_generated_method_name_item
+    with_checker <<~RBS do
+      RBS
+      CompletionProvider.new(source_text: <<~RUBY, path: Pathname("foo.rb"), subtyping: checker).tap do |provider|
+          a = [] #: [Integer, String]
+          a.fir
+        RUBY
+
+        provider.run(line: 2, column: 5).tap do |items|
+          items.grep(CompletionProvider::GeneratedMethodNameItem).tap do |items|
+            assert_equal [:first], items.map(&:identifier).sort
+
+            assert_equal ["() -> ::Integer"], items[0].method_types.map(&:to_s)
+
+          end
+        end
+      end
+    end
+  end
+
+  def test_complex_method_name_item
+    with_checker <<~RBS do
+        class Integer
+          def to_s: () -> String
+        end
+
+        class String
+          def to_s: () -> String
+        end
+      RBS
+      CompletionProvider.new(source_text: <<~RUBY, path: Pathname("foo.rb"), subtyping: checker).tap do |provider|
+          a = [] #: Integer | String
+          a.to_s
+        RUBY
+
+        provider.run(line: 2, column: 6).tap do |items|
+          items.grep(CompletionProvider::ComplexMethodNameItem).tap do |items|
+            assert_equal [:to_s], items.map(&:identifier).sort
+
+            assert_equal ["() -> ::String"], items[0].method_types.map(&:to_s)
+            assert_equal [MethodName("::Integer#to_s"), MethodName("::String#to_s")], items[0].method_names
           end
         end
       end

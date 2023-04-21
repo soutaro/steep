@@ -1,0 +1,39 @@
+use RBS::Environment
+
+module Steep
+  module Services
+    class SignatureHelpProvider
+      module MethodCall = TypeInference::MethodCall
+
+      class Item
+        attr_reader method_type: RBS::MethodType
+
+        attr_reader comment: RBS::AST::Comment?
+
+        def initialize: (RBS::MethodType, RBS::AST::Comment?) -> void
+      end
+
+      attr_reader source: Source
+
+      attr_reader path: Pathname
+
+      attr_reader subtyping: Subtyping::Check
+
+      attr_reader buffer: RBS::Buffer
+
+      def env: () -> Environment
+
+      def initialize: (source: Source, subtyping: Subtyping::Check) -> void
+
+      # 1-origin line, 0-origin column
+      #
+      def run: (line: Integer, column: Integer) -> [Array[Item], Integer?]?
+
+      private
+
+      def signature_help_for: (Parser::AST::Node, Typing) -> [Array[Item], Integer?]?
+
+      def type_check!: (line: Integer, column: Integer) -> Typing
+    end
+  end
+end

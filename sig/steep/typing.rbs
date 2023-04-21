@@ -44,7 +44,7 @@ module Steep
 
     def type_of: (node: Parser::AST::Node) -> AST::Types::t
 
-    def call_of: (node: untyped) -> untyped
+    def call_of: (node: Parser::AST::Node) -> TypeInference::MethodCall::t
 
     def add_context_for_node: (untyped node, context: untyped) -> untyped
 

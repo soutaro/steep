@@ -6,6 +6,7 @@ module Steep
       ApplyChangeJob = _ = Class.new()
       HoverJob = _ = Struct.new(:id, :path, :line, :column, keyword_init: true)
       CompletionJob = _ = Struct.new(:id, :path, :line, :column, :trigger, keyword_init: true)
+      SignatureHelpJob = _ = Struct.new(:id, :path, :line, :column, keyword_init: true)
 
       LSP = LanguageServer::Protocol
 
@@ -35,6 +36,8 @@ module Steep
             writer.write({ id: job.id, result: process_hover(job) })
           when CompletionJob
             writer.write({ id: job.id, result: process_completion(job) })
+          when SignatureHelpJob
+            writer.write({ id: job.id, result: process_signature_help(job) })
           end
         end
       end
@@ -53,7 +56,7 @@ module Steep
         when "textDocument/hover"
           id = request[:id]
 
-          path = project.relative_path(Steep::PathHelper.to_pathname!(request[:params][:textDocument][:uri]))
+          path = project.relative_path(PathHelper.to_pathname!(request[:params][:textDocument][:uri]))
           line = request[:params][:position][:line]+1
           column = request[:params][:position][:character]
 
@@ -64,11 +67,18 @@ module Steep
 
           params = request[:params]
 
-          path = project.relative_path(Steep::PathHelper.to_pathname!(params[:textDocument][:uri]))
+          path = project.relative_path(PathHelper.to_pathname!(params[:textDocument][:uri]))
           line, column = params[:position].yield_self {|hash| [hash[:line]+1, hash[:character]] }
           trigger = params.dig(:context, :triggerCharacter)
 
           queue << CompletionJob.new(id: id, path: path, line: line, column: column, trigger: trigger)
+        when "textDocument/signatureHelp"
+          id = request[:id]
+          params = request[:params]
+          path = project.relative_path(PathHelper.to_pathname!(params[:textDocument][:uri]))
+          line, column = params[:position].yield_self {|hash| [hash[:line]+1, hash[:character]] }
+
+          queue << SignatureHelpJob.new(id: id, path: path, line: line, column: column)
         end
       end
 
@@ -81,16 +91,13 @@ module Steep
             if content
               range = content.location.yield_self do |location|
                 lsp_range = location.as_lsp_range
-                start_position = { line: lsp_range[:start][:line], character: lsp_range[:start][:character] }
-                end_position = { line: lsp_range[:end][:line], character: lsp_range[:end][:character] }
-                { start: start_position, end: end_position }
+                start_position = LSP::Interface::Position.new(line: lsp_range[:start][:line], character: lsp_range[:start][:character])
+                end_position = LSP::Interface::Position.new(line: lsp_range[:end][:line], character: lsp_range[:end][:character])
+                LSP::Interface::Range.new(start: start_position, end: end_position)
               end
 
               LSP::Interface::Hover.new(
-                contents: {
-                  kind: "markdown",
-                  value: LSPFormatter.format_hover_content(content).to_s
-                },
+                contents:  LSP::Interface::MarkupContent.new(kind: "markdown", value: LSPFormatter.format_hover_content(content).to_s),
                 range: range
               )
             end
@@ -136,7 +143,7 @@ module Steep
               context = nil #: RBS::Resolver::context
 
               case sig_service.status
-              when Steep::Services::SignatureService::SyntaxErrorStatus, Steep::Services::SignatureService::AncestorErrorStatus
+              when Services::SignatureService::SyntaxErrorStatus, Services::SignatureService::AncestorErrorStatus
 
                 if buffer = sig_service.latest_env.buffers.find {|buf| Pathname(buf.name) == Pathname(relative_path) }
                   dirs = sig_service.latest_env.signatures[buffer][0]
@@ -178,16 +185,16 @@ module Steep
               end
 
               ["untyped", "void", "bool", "class", "module", "instance", "nil"].each do |name|
-                completion_items << LanguageServer::Protocol::Interface::CompletionItem.new(
+                completion_items << LSP::Interface::CompletionItem.new(
                   label: name,
                   detail: "(builtin type)",
-                  text_edit: LanguageServer::Protocol::Interface::TextEdit.new(
-                    range: LanguageServer::Protocol::Interface::Range.new(
-                      start: LanguageServer::Protocol::Interface::Position.new(
+                  text_edit: LSP::Interface::TextEdit.new(
+                    range: LSP::Interface::Range.new(
+                      start: LSP::Interface::Position.new(
                         line: job.line - 1,
                         character: job.column - prefix_size
                       ),
-                      end: LanguageServer::Protocol::Interface::Position.new(
+                      end: LSP::Interface::Position.new(
                         line: job.line - 1,
                         character: job.column
                       )
@@ -210,12 +217,12 @@ module Steep
       end
 
       def format_completion_item_for_rbs(sig_service, type_name, job, complete_text, prefix_size)
-        range = LanguageServer::Protocol::Interface::Range.new(
-          start: LanguageServer::Protocol::Interface::Position.new(
+        range = LSP::Interface::Range.new(
+          start: LSP::Interface::Position.new(
             line: job.line - 1,
             character: job.column - prefix_size
           ),
-          end: LanguageServer::Protocol::Interface::Position.new(
+          end: LSP::Interface::Position.new(
             line: job.line - 1,
             character: job.column
           )
@@ -226,88 +233,63 @@ module Steep
           env = sig_service.latest_env #: RBS::Environment
           class_entry = env.module_class_entry(type_name) or raise
 
-          comment =
-            case class_entry
-            when RBS::Environment::ClassEntry, RBS::Environment::ModuleEntry
-              class_entry.decls.flat_map {|decl| [decl.decl.comment] }.first
-            when RBS::Environment::ClassAliasEntry, RBS::Environment::ModuleAliasEntry
-              class_entry.decl.comment
-            end
+          case class_entry
+          when RBS::Environment::ClassEntry, RBS::Environment::ModuleEntry
+            comments = class_entry.decls.map {|decl| decl.decl.comment }.compact
+            decl = class_entry.primary.decl
+          when RBS::Environment::ClassAliasEntry, RBS::Environment::ModuleAliasEntry
+            comments = [class_entry.decl.comment].compact
+            decl = class_entry.decl
+          end
 
-          LanguageServer::Protocol::Interface::CompletionItem.new(
+          LSP::Interface::CompletionItem.new(
             label: complete_text,
-            detail: type_name.to_s,
-            documentation:  format_comment(comment),
-            text_edit: LanguageServer::Protocol::Interface::TextEdit.new(
+            label_details: LSP::Interface::CompletionItemLabelDetails.new(description: LSPFormatter.declaration_summary(decl)),
+            documentation: LSPFormatter.markup_content { LSPFormatter.format_rbs_completion_docs(type_name, decl, comments) },
+            text_edit: LSP::Interface::TextEdit.new(
               range: range,
               new_text: complete_text
             ),
-            kind: LSP::Constant::CompletionItemKind::CLASS,
-            insert_text_format: LSP::Constant::InsertTextFormat::SNIPPET,
-            sort_text: complete_text,
-            filter_text: complete_text
+            kind: LSP::Constant::CompletionItemKind::CLASS
           )
         when :alias
           alias_decl = sig_service.latest_env.type_alias_decls[type_name]&.decl or raise
 
-          LanguageServer::Protocol::Interface::CompletionItem.new(
+          LSP::Interface::CompletionItem.new(
             label: complete_text,
-            detail: type_name.to_s,
-            text_edit: LanguageServer::Protocol::Interface::TextEdit.new(
+            label_details: LSP::Interface::CompletionItemLabelDetails.new(description: LSPFormatter.declaration_summary(alias_decl)),
+            text_edit: LSP::Interface::TextEdit.new(
               range: range,
               new_text: complete_text
             ),
-            documentation: format_comment(alias_decl.comment),
-            # https://github.com/microsoft/vscode-languageserver-node/blob/6d78fc4d25719b231aba64a721a606f58b9e0a5f/client/src/common/client.ts#L624-L650
-            kind: LSP::Constant::CompletionItemKind::FIELD,
-            insert_text_format: LSP::Constant::InsertTextFormat::SNIPPET,
-            sort_text: complete_text,
-            filter_text: complete_text
+            documentation: LSPFormatter.markup_content { LSPFormatter.format_rbs_completion_docs(type_name, alias_decl, [alias_decl.comment].compact) },
+            kind: LSP::Constant::CompletionItemKind::FIELD
           )
         when :interface
           interface_decl = sig_service.latest_env.interface_decls[type_name]&.decl or raise
 
-          LanguageServer::Protocol::Interface::CompletionItem.new(
+          LSP::Interface::CompletionItem.new(
             label: complete_text,
-            detail: type_name.to_s,
-            text_edit: LanguageServer::Protocol::Interface::TextEdit.new(
+            label_details: LSP::Interface::CompletionItemLabelDetails.new(description: LSPFormatter.declaration_summary(interface_decl)),
+            text_edit: LSP::Interface::TextEdit.new(
               range: range,
               new_text: complete_text
             ),
-            documentation: format_comment(interface_decl.comment),
-            kind: LanguageServer::Protocol::Constant::CompletionItemKind::INTERFACE,
-            insert_text_format: LanguageServer::Protocol::Constant::InsertTextFormat::SNIPPET,
-            sort_text: complete_text,
-            filter_text: complete_text
+            documentation: LSPFormatter.markup_content { LSPFormatter.format_rbs_completion_docs(type_name, interface_decl, [interface_decl.comment].compact) },
+            kind: LSP::Constant::CompletionItemKind::INTERFACE
           )
-        end
-      end
-
-      def format_comment(comment)
-        if comment
-          LSP::Interface::MarkupContent.new(
-            kind: LSP::Constant::MarkupKind::MARKDOWN,
-            value: comment.string.gsub(/<!--(?~-->)-->/, "")
-          )
-        end
-      end
-
-      def format_comments(comments)
-        unless comments.empty?
-          LSP::Interface::MarkupContent.new(
-            kind: LSP::Constant::MarkupKind::MARKDOWN,
-            value: comments.map(&:string).join("\n----\n").gsub(/<!--(?~-->)-->/, "")
-          )
+        else
+          raise
         end
       end
 
       def format_completion_item(item)
-        range = LanguageServer::Protocol::Interface::Range.new(
-          start: LanguageServer::Protocol::Interface::Position.new(
+        range = LSP::Interface::Range.new(
+          start: LSP::Interface::Position.new(
             line: item.range.start.line-1,
             character: item.range.start.column
           ),
-          end: LanguageServer::Protocol::Interface::Position.new(
+          end: LSP::Interface::Position.new(
             line: item.range.end.line-1,
             character: item.range.end.column
           )
@@ -315,130 +297,103 @@ module Steep
 
         case item
         when Services::CompletionProvider::LocalVariableItem
-          LanguageServer::Protocol::Interface::CompletionItem.new(
-            label: item.identifier,
-            kind: LanguageServer::Protocol::Constant::CompletionItemKind::VARIABLE,
-            detail: item.type.to_s,
-            text_edit: LanguageServer::Protocol::Interface::TextEdit.new(
-              range: range,
-              new_text: item.identifier
-            )
+          LSP::Interface::CompletionItem.new(
+            label: item.identifier.to_s,
+            kind: LSP::Constant::CompletionItemKind::VARIABLE,
+            label_details: LSP::Interface::CompletionItemLabelDetails.new(description: item.type.to_s),
+            documentation: LSPFormatter.markup_content { LSPFormatter.format_completion_docs(item) },
+            insert_text: item.identifier.to_s,
+            sort_text: item.identifier.to_s
           )
         when Services::CompletionProvider::ConstantItem
           case
           when item.class? || item.module?
-            kind = LanguageServer::Protocol::Constant::CompletionItemKind::CLASS
-            detail = item.full_name.to_s
+            kind = LSP::Constant::CompletionItemKind::CLASS
           else
-            kind = LanguageServer::Protocol::Constant::CompletionItemKind::CONSTANT
-            detail = item.type.to_s
+            kind = LSP::Constant::CompletionItemKind::CONSTANT
           end
-          LanguageServer::Protocol::Interface::CompletionItem.new(
-            label: item.identifier,
+
+          detail = LSPFormatter.declaration_summary(item.decl)
+
+          LSP::Interface::CompletionItem.new(
+            label: item.identifier.to_s,
             kind: kind,
-            detail: detail,
-            documentation: format_comments(item.comments),
-            text_edit: LanguageServer::Protocol::Interface::TextEdit.new(
+            label_details: LSP::Interface::CompletionItemLabelDetails.new(description: detail),
+            documentation: LSPFormatter.markup_content { LSPFormatter.format_completion_docs(item) },
+            text_edit: LSP::Interface::TextEdit.new(
               range: range,
-              new_text: item.identifier
+              new_text: item.identifier.to_s
             )
           )
-        when Services::CompletionProvider::MethodNameItem
-          method_type_snippet = method_type_to_snippet(item.method_type)
-          LanguageServer::Protocol::Interface::CompletionItem.new(
-            label: item.identifier,
-            kind: LanguageServer::Protocol::Constant::CompletionItemKind::METHOD,
-            detail: item.method_type.to_s,
-            text_edit: LanguageServer::Protocol::Interface::TextEdit.new(
-              new_text: "#{item.identifier}#{method_type_snippet}",
-              range: range
-            ),
-            documentation: format_comment(item.comment),
-            insert_text_format: LanguageServer::Protocol::Constant::InsertTextFormat::SNIPPET,
-            sort_text: item.inherited? ? 'z' : 'a' # Ensure language server puts non-inherited methods before inherited methods
+        when Services::CompletionProvider::SimpleMethodNameItem
+          LSP::Interface::CompletionItem.new(
+            label: item.identifier.to_s,
+            kind: LSP::Constant::CompletionItemKind::FUNCTION,
+            label_details: LSP::Interface::CompletionItemLabelDetails.new(description: item.method_name.relative.to_s),
+            insert_text: item.identifier.to_s,
+            documentation: LSPFormatter.markup_content { LSPFormatter.format_completion_docs(item) }
+          )
+        when Services::CompletionProvider::ComplexMethodNameItem
+          method_names = item.method_names.map(&:relative).uniq
+
+          LSP::Interface::CompletionItem.new(
+            label: item.identifier.to_s,
+            kind: LSP::Constant::CompletionItemKind::FUNCTION,
+            label_details: LSP::Interface::CompletionItemLabelDetails.new(description: method_names.join(", ")),
+            insert_text: item.identifier.to_s,
+            documentation: LSPFormatter.markup_content { LSPFormatter.format_completion_docs(item) }
+          )
+        when Services::CompletionProvider::GeneratedMethodNameItem
+          LSP::Interface::CompletionItem.new(
+            label: item.identifier.to_s,
+            kind: LSP::Constant::CompletionItemKind::FUNCTION,
+            label_details: LSP::Interface::CompletionItemLabelDetails.new(description: "(Generated)"),
+            insert_text: item.identifier.to_s,
+            documentation: LSPFormatter.markup_content { LSPFormatter.format_completion_docs(item) }
           )
         when Services::CompletionProvider::InstanceVariableItem
-          LanguageServer::Protocol::Interface::CompletionItem.new(
-            label: item.identifier,
-            kind: LanguageServer::Protocol::Constant::CompletionItemKind::FIELD,
-            detail: item.type.to_s,
-            text_edit: LanguageServer::Protocol::Interface::TextEdit.new(
+          LSP::Interface::CompletionItem.new(
+            label: item.identifier.to_s,
+            kind: LSP::Constant::CompletionItemKind::FIELD,
+            label_details: LSP::Interface::CompletionItemLabelDetails.new(description: item.type.to_s),
+            documentation: LSPFormatter.markup_content { LSPFormatter.format_completion_docs(item) },
+            text_edit: LSP::Interface::TextEdit.new(
               range: range,
-              new_text: item.identifier,
-            ),
-            insert_text_format: LanguageServer::Protocol::Constant::InsertTextFormat::SNIPPET
+              new_text: item.identifier.to_s
+            )
           )
         end
       end
 
-      def method_type_to_snippet(method_type)
-        params = if method_type.type.each_param.count == 0
-                   ""
-                 else
-                   "(#{params_to_snippet(method_type.type)})"
-                 end
+      def process_signature_help(job)
+        Steep.logger.tagged("##{__method__}") do
+          if target = project.target_for_source_path(job.path)
+            file = service.source_files[job.path] or return
+            subtyping = service.signature_services[target.name].current_subtyping or return
+            source = Source.parse(file.content, path: file.path, factory: subtyping.factory)
 
+            provider = Services::SignatureHelpProvider.new(source: source, subtyping: subtyping)
 
-        block = if method_type.block
-                  open, space, close = if method_type.block.type.return_type.is_a?(RBS::Types::Bases::Void)
-                                         ["do", " ", "end"]
-                                       else
-                                         ["{", "", "}"]
-                                       end
-
-                  if method_type.block.type.each_param.count == 0
-                    " #{open} $0 #{close}"
-                  else
-                    " #{open}#{space}|#{params_to_snippet(method_type.block.type)}| $0 #{close}"
+            if (items, index = provider.run(line: job.line, column: job.column))
+              signatures = items.map do |item|
+                LSP::Interface::SignatureInformation.new(
+                  label: "(#{item.method_type.type.param_to_s})",
+                  documentation: item.comment&.yield_self do |comment|
+                    LSP::Interface::MarkupContent.new(
+                      kind: LSP::Constant::MarkupKind::MARKDOWN,
+                      value: comment.string.gsub(/<!--(?~-->)-->/, "")
+                    )
                   end
-                else
-                  ""
-                end
+                )
+              end
 
-        "#{params}#{block}"
-      end
-
-      def params_to_snippet(fun)
-        params = []
-
-        index = 1
-
-        fun.required_positionals.each do |param|
-          if name = param.name
-            params << "${#{index}:#{param.type}}"
-          else
-            params << "${#{index}:#{param.type}}"
+              LSP::Interface::SignatureHelp.new(
+                signatures: signatures,
+                active_signature: index
+              )
+            end
           end
-
-          index += 1
         end
-
-        if fun.rest_positionals
-          params << "${#{index}:*#{fun.rest_positionals.type}}"
-          index += 1
-        end
-
-        fun.trailing_positionals.each do |param|
-          if name = param.name
-            params << "${#{index}:#{param.type}}"
-          else
-            params << "${#{index}:#{param.type}}"
-          end
-
-          index += 1
-        end
-
-        fun.required_keywords.each do |keyword, param|
-          if name = param.name
-            params << "#{keyword}: ${#{index}:#{name}_}"
-          else
-            params << "#{keyword}: ${#{index}:#{param.type}_}"
-          end
-
-          index += 1
-        end
-
-        params.join(", ")
       end
     end
   end

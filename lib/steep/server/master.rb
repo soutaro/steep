@@ -548,6 +548,9 @@ module Steep
                         trigger_characters: [".", "@", ":"],
                         work_done_progress: true
                       ),
+                      signature_help_provider: {
+                        triggerCharacters: ["("]
+                      },
                       workspace_symbol_provider: true,
                       definition_provider: true,
                       declaration_provider: false,
@@ -596,7 +599,7 @@ module Steep
             controller.update_priority(close: path)
           end
 
-        when "textDocument/hover", "textDocument/completion"
+        when "textDocument/hover", "textDocument/completion", "textDocument/signatureHelp"
           if interaction_worker
             if path = pathname(message[:params][:textDocument][:uri])
               result_controller << send_request(method: message[:method], params: message[:params], worker: interaction_worker) do |handler|

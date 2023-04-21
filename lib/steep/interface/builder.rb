@@ -373,15 +373,15 @@ module Steep
                 types1 = shape1.methods[name]&.method_types or raise
                 types2 = shape2.methods[name]&.method_types or raise
 
-                if types1 == types2
+                if types1 == types2 && types1.map {|type| type.method_decls.to_a }.to_set == types2.map {|type| type.method_decls.to_a }.to_set
                   shape.methods[name] = (shape1.methods[name] or raise)
                 else
-                  method_types = {}
+                  method_types = {} #: Hash[MethodType, true]
 
                   types1.each do |type1|
                     types2.each do |type2|
                       if type1 == type2
-                        method_types[type1] = true
+                        method_types[type1.with(method_decls: type1.method_decls + type2.method_decls)] = true
                       else
                         if type = MethodType.union(type1, type2, subtyping)
                           method_types[type] = true

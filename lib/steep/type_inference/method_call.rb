@@ -1,6 +1,6 @@
 module Steep
   module TypeInference
-    class MethodCall
+    module MethodCall
       class MethodDecl
         attr_reader :method_name
         attr_reader :method_def
