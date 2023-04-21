@@ -848,6 +848,15 @@ module Steep
 
               constr.add_typing(node, type: type)
 
+            when :gvasgn
+              var_node = lhs.updated(:gvar)
+              send_node = rhs.updated(:send, [var_node, op, rhs])
+              new_node = node.updated(:gvasgn, [lhs.children[0], send_node])
+
+              type, constr = synthesize(new_node, hint: hint)
+
+              constr.add_typing(node, type: type)
+
             when :send
               new_rhs = rhs.updated(:send, [lhs, node.children[1], node.children[2]])
               new_node = lhs.updated(:send, [lhs.children[0], :"#{lhs.children[1]}=", *lhs.children.drop(2), new_rhs])
@@ -2226,6 +2235,9 @@ module Steep
             when :ivasgn
               type, constr = synthesize(rhs, hint: hint)
               constr.ivasgn(asgn, type)
+            when :gvasgn
+              type, constr = synthesize(rhs, hint: hint)
+              constr.gvasgn(asgn, type)
             when :send
               children = asgn.children.dup
               children[1] = :"#{children[1]}="
@@ -2257,27 +2269,11 @@ module Steep
           yield_self do
             name, rhs = node.children
             lhs_type = context.type_env[name]
-
             rhs_type, constr = synthesize(rhs, hint: lhs_type).to_ary
 
-            if lhs_type
-              result = constr.check_relation(sub_type: rhs_type, super_type: lhs_type)
+            type, constr = constr.gvasgn(node, rhs_type)
 
-              if result.failure?
-                constr.typing.add_error(
-                  Diagnostic::Ruby::IncompatibleAssignment.new(
-                    node: node,
-                    lhs_type: lhs_type,
-                    rhs_type: rhs_type,
-                    result: result
-                  )
-                )
-              end
-            else
-              constr.typing.add_error(Diagnostic::Ruby::UnknownGlobalVariable.new(node: node, name: name))
-            end
-
-            constr.add_typing(node, type: rhs_type)
+            constr.add_typing(node, type: type)
           end
 
         when :gvar
@@ -2584,7 +2580,7 @@ module Steep
                     else
                       a.type
                     end
-        asgn_type.nil? || asgn_type == :lvasgn || asgn_type == :ivasgn
+        asgn_type.nil? || asgn_type == :lvasgn || asgn_type == :ivasgn || asgn_type == :gvasgn
       end
     end
 
@@ -2632,6 +2628,24 @@ module Steep
       add_typing(node, type: rhs_type)
     end
 
+    def gvasgn(node, rhs_type)
+      name = node.children[0]
+
+      lhs_type = context.type_env[name]
+
+      if lhs_type
+        if result = no_subtyping?(sub_type: rhs_type, super_type: lhs_type)
+          typing.add_error(
+            Diagnostic::Ruby::IncompatibleAssignment.new(node: node, lhs_type: lhs_type, rhs_type: rhs_type, result: result)
+          )
+        end
+      else
+        typing.add_error(Diagnostic::Ruby::UnknownGlobalVariable.new(node: node, name: name))
+      end
+
+      add_typing(node, type: rhs_type)
+    end
+
     def type_masgn_type(mlhs_node, rhs_type, masgn:, optional:)
       # @type var constr: TypeConstruction
       constr = self
@@ -2659,7 +2673,7 @@ module Steep
           when :ivasgn
             _, constr = constr.ivasgn(asgn_node, type)
           when :gvasgn
-            raise
+            _, constr = constr.gvasgn(asgn_node, type)
           when :mlhs
             constr = (constr.type_masgn_type(asgn_node, type, masgn: masgn, optional: optional) or return)
           end
@@ -2714,11 +2728,11 @@ module Steep
         each_descendant_node(lhs) do |node|
           case node.type
           when :lvasgn
-            _, constr = constr.lvasgn(node, AST::Builtin.any_type).to_ary
+            _, constr = constr.lvasgn(node, AST::Builtin.any_type)
           when :ivasgn
-            _, constr = constr.ivasgn(node, AST::Builtin.any_type).to_ary
+            _, constr = constr.ivasgn(node, AST::Builtin.any_type)
           when :gvasgn
-            raise
+            _, constr = constr.gvasgn(node, AST::Builtin.any_type)
           else
             _, constr = constr.add_typing(node, type: AST::Builtin.any_type).to_ary
           end

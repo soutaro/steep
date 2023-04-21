@@ -10396,4 +10396,57 @@ z = AppTest.new.foo(1, 2) #$ Integer, Integer, String
       end
     end
   end
+
+  def test_masgn__global
+    with_checker(<<~RBS) do |checker|
+        $FOO: String
+
+        $BAR: Integer
+      RBS
+      source = parse_ruby(<<~RUBY)
+        $FOO, $BAR = "1", 2
+      RUBY
+
+      with_standard_construction(checker, source) do |construction, typing|
+        type, _, context = construction.synthesize(source.node)
+
+        assert_no_error(typing)
+      end
+    end
+  end
+
+  def test_opasgn__global
+    with_checker(<<~RBS) do |checker|
+        $FOO: String
+      RBS
+      source = parse_ruby(<<~RUBY)
+        $FOO += "hoge"
+      RUBY
+
+      with_standard_construction(checker, source) do |construction, typing|
+        type, _, context = construction.synthesize(source.node)
+
+        assert_no_error(typing)
+        assert_equal parse_type("::String"), type
+      end
+    end
+  end
+
+  def test_orasgn_andasgn__global
+    with_checker(<<~RBS) do |checker|
+        $FOO: String
+      RBS
+      source = parse_ruby(<<~RUBY)
+        $FOO ||= "hoge"
+        $FOO &&= "huga"
+      RUBY
+
+      with_standard_construction(checker, source) do |construction, typing|
+        type, _, context = construction.synthesize(source.node)
+
+        assert_no_error(typing)
+        assert_equal parse_type("::String"), type
+      end
+    end
+  end
 end
