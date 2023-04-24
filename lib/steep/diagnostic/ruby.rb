@@ -286,13 +286,14 @@ module Steep
         def initialize(node:, type:, method:)
           loc = case node.type
                 when :send
-                  node.loc.selector
+                  loc = _ = nil
+                  loc ||= node.loc.operator if node.loc.respond_to?(:operator)
+                  loc ||= node.loc.selector if node.loc.respond_to?(:selector)
+                  loc
                 when :block
                   node.children[0].loc.selector
-                else
-                  node.loc.expression
                 end
-          super(node: node, location: loc)
+          super(node: node, location: loc || node.loc.expression)
           @type = type
           @method = method
         end

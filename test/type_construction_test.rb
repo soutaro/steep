@@ -10449,4 +10449,24 @@ z = AppTest.new.foo(1, 2) #$ Integer, Integer, String
       end
     end
   end
+
+  def test_opasgn_error_report
+    with_checker(<<~RBS) do |checker|
+      RBS
+      source = parse_ruby(<<~RUBY)
+        x = [1].first
+
+        x += 1
+      RUBY
+
+      with_standard_construction(checker, source) do |construction, typing|
+        type, _, context = construction.synthesize(source.node)
+
+        assert_all!(typing.errors) do |error|
+          assert_operator error, :is_a?, Diagnostic::Ruby::NoMethod
+          assert_instance_of Parser::Source::Range, error.location
+        end
+      end
+    end
+  end
 end
