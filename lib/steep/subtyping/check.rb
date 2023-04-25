@@ -627,7 +627,7 @@ module Steep
 
         sub_interface, super_interface = relation
 
-        method_pairs = super_interface.methods.each_with_object({}) do |(method_name, sup_method), hash|
+        method_pairs = super_interface.methods.each_with_object({}) do |(method_name, sup_method), hash| #$ Hash[Symbol, Relation[Interface::Shape::Entry]]
           if sub_method = sub_interface.methods[method_name]
             hash[method_name] = Relation.new(sub_type: sub_method, super_type: sup_method)
           else
@@ -806,26 +806,23 @@ module Steep
         super_type.type_params.empty? or raise "Expected monomorphic method type: #{super_type}"
 
         All(relation) do |result|
-          result.add(Relation.new(sub_type: sub_type.type, super_type: super_type.type)) do |rel|
-            check_function(name, rel)
-          end
+          type_relation = Relation.new(sub_type: sub_type.type, super_type: super_type.type)
 
-          result.add(Relation.new(sub_type: sub_type.block, super_type: super_type.block)) do |rel|
-            ret = expand_block_given(name, rel)
-
-            case ret
-            when Relation
+          case ret = expand_block_given(name, Relation.new(sub_type: sub_type.block, super_type: super_type.block))
+          when true
+            result.add(type_relation) { check_function(name, type_relation) }
+          when Relation
+            result.add(type_relation) { check_function(name, type_relation) }
+            result.add(ret) do
               All(ret) do |result|
                 result.add_result(check_self_type_binding(ret, ret.super_type.self_type, ret.sub_type.self_type))
-                result.add(Relation(ret.super_type.type, ret.sub_type.type)) do |rel|
-                  check_function(name, rel)
+                result.add(Relation(ret.super_type.type, ret.sub_type.type)) do |block_relation|
+                  check_function(name, block_relation)
                 end
               end
-            when Result::Base
-              ret
-            else
-              nil
             end
+          when Result::Failure
+            result.add { ret }
           end
         end
       end
