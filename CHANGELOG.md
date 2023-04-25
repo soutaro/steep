@@ -2,6 +2,18 @@
 
 ## master
 
+## 1.3.2 (2023-03-17)
+
+### Miscellaneous
+
+* Remove pathname from runtime_dependency ([#740](https://github.com/soutaro/steep/pull/740))
+
+## 1.3.1 (2023-03-08)
+
+### Miscellaneous
+
+* Require rbs-2.8.x ([#732](https://github.com/soutaro/steep/pull/732))
+
 ## 1.3.0 (2022-11-25)
 
 ### Type checker core
