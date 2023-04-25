@@ -144,7 +144,6 @@ module Steep
 
               case sig_service.status
               when Services::SignatureService::SyntaxErrorStatus, Services::SignatureService::AncestorErrorStatus
-
                 if buffer = sig_service.latest_env.buffers.find {|buf| Pathname(buf.name) == Pathname(relative_path) }
                   dirs = sig_service.latest_env.signatures[buffer][0]
                 else
@@ -208,7 +207,7 @@ module Steep
               end
 
               LSP::Interface::CompletionList.new(
-                is_incomplete: false,
+                is_incomplete: !sig_service.status.is_a?(Services::SignatureService::LoadedStatus),
                 items: completion_items
               )
             end
