@@ -2,6 +2,29 @@
 
 ## master
 
+## 1.4.0 (2023-04-25)
+
+### Type checker core
+
+* Return immediately if blocks are incompatible ([#765](https://github.com/soutaro/steep/pull/765))
+* Fix location of no method error ([#763](https://github.com/soutaro/steep/pull/763))
+* Support `gvasgn` in assignment variants ([#762](https://github.com/soutaro/steep/pull/762))
+* Set up break contexts correctly for untyped blocks ([#752](https://github.com/soutaro/steep/pull/752))
+* Fix flow sensitive on `case` without condition ([#751](https://github.com/soutaro/steep/pull/751))
+* Support `...` syntax ([#750](https://github.com/soutaro/steep/pull/750))
+* Fix constant declaration type checking ([#738](https://github.com/soutaro/steep/pull/738))
+* Fix errors caused by non-ascii variable names ([#703](https://github.com/soutaro/steep/pull/703))
+* Update RBS to 3.0 ([#716](https://github.com/soutaro/steep/pull/716), [#754](https://github.com/soutaro/steep/pull/754))
+
+### Language server
+
+* Implement signature help, better completion and hover ([#759](https://github.com/soutaro/steep/pull/759), [#761](https://github.com/soutaro/steep/pull/761), [#766](https://github.com/soutaro/steep/pull/766))
+
+### Miscellaneous
+
+* Remove pathname from runtime_dependency ([#739](https://github.com/soutaro/steep/pull/739))
+* `parallel` out, `concurrent-ruby` in ([#760](https://github.com/soutaro/steep/pull/760))
+
 ## 1.3.2 (2023-03-17)
 
 ### Miscellaneous
