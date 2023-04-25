@@ -97,7 +97,7 @@ module Steep
       # Returns a Relation when the given relation can be expanded to relation between Interface::Block.
       # Returns a failure otherwise.
       #
-      def expand_block_given: (Symbol name, Relation[Interface::Block?] relation) -> (Relation[Interface::Block] | true | Result::t)
+      def expand_block_given: (Symbol name, Relation[Interface::Block?] relation) -> (Relation[Interface::Block] | true | Result::Failure)
 
       # Receives a subtyping relation between self bindings `S <: S'` that is included in procs or blocks as:
       #
