@@ -33,21 +33,25 @@ module Steep
                 builder = Interface::Builder.new(factory)
                 check = Subtyping::Check.new(builder: builder)
                 Signature::Validator.new(checker: check).tap {|v| v.validate() }.each_error.to_a
+              else
+                raise
               end
             end
 
           any_error ||= !errors.empty?
 
           formatter = Diagnostic::LSPFormatter.new({})
-          diagnostics = errors.group_by {|e| e.location.buffer }.transform_values do |errors|
+          diagnostics = errors.group_by {|e| e.location&.buffer }.transform_values do |errors|
             errors.map {|error| formatter.format(error) }
           end
 
           diagnostics.each do |buffer, ds|
-            printer = DiagnosticPrinter.new(stdout: stdout, buffer: buffer)
-            ds.each do |d|
-              printer.print(d)
-              stdout.puts
+            if buffer
+              printer = DiagnosticPrinter.new(stdout: stdout, buffer: buffer)
+              ds.each do |d|
+                printer.print(d)
+                stdout.puts
+              end
             end
           end
         end

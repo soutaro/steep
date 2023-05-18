@@ -55,7 +55,7 @@ PLATFORMS
   arm64-darwin-22
 
 DEPENDENCIES
-  steep (~> 1.4.0.dev)
+  steep
 
 BUNDLED WITH
    2.3.15
