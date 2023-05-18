@@ -1,15 +1,15 @@
 module Steep
   module Drivers
     class Validate
-      attr_reader stdout: untyped
+      attr_reader stdout: IO
 
-      attr_reader stderr: untyped
+      attr_reader stderr: IO
 
       include Utils::DriverHelper
 
-      def initialize: (stdout: untyped, stderr: untyped) -> void
+      def initialize: (stdout: IO, stderr: IO) -> void
 
-      def run: () -> untyped
+      def run: () -> void
     end
   end
 end
