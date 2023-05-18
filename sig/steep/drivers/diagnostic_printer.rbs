@@ -3,23 +3,23 @@ module Steep
     class DiagnosticPrinter
       module LSP = LanguageServer::Protocol
 
-      attr_reader stdout: untyped
+      attr_reader stdout: IO
 
-      attr_reader buffer: untyped
+      attr_reader buffer: RBS::Buffer
 
-      def initialize: (stdout: untyped, buffer: untyped) -> void
+      def initialize: (stdout: IO, buffer: RBS::Buffer) -> void
 
-      def path: () -> untyped
+      def path: () -> Pathname
 
-      def color_severity: (untyped string, severity: untyped) -> untyped
+      def color_severity: (String string, severity: String) -> String
 
-      def severity_message: (untyped severity) -> untyped
+      def severity_message: (String) -> String
 
-      def location: (untyped diagnostic) -> untyped
+      def location: (untyped diagnostic) -> String
 
-      def print: (untyped diagnostic, ?prefix: ::String, ?source: bool) -> untyped
+      def print: (untyped diagnostic, ?prefix: ::String, ?source: bool) -> void
 
-      def print_source_line: (untyped diagnostic, ?prefix: ::String) -> untyped
+      def print_source_line: (untyped diagnostic, ?prefix: ::String) -> void
     end
   end
 end

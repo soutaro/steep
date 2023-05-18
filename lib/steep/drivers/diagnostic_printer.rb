@@ -12,7 +12,7 @@ module Steep
       end
 
       def path
-        buffer.name
+        Pathname(buffer.name)
       end
 
       def color_severity(string, severity:)
@@ -40,6 +40,8 @@ module Steep
                    "information"
                  when LSP::Constant::DiagnosticSeverity::HINT
                    "hint"
+                 else
+                  raise
                  end
 
         color_severity(string, severity: severity)
@@ -82,12 +84,12 @@ module Steep
 
         line = buffer.lines[start_pos[:line]]
 
-        leading = line[0...start_pos[:character]]
+        leading = line[0...start_pos[:character]] || ""
         if start_pos[:line] == end_pos[:line]
-          subject = line[start_pos[:character]...end_pos[:character]]
+          subject = line[start_pos[:character]...end_pos[:character]] || ""
           trailing = (line[end_pos[:character]...] || "").chomp
         else
-          subject = line[start_pos[:character]...].chomp
+          subject = (line[start_pos[:character]...] || "").chomp
           trailing = ""
         end
 
