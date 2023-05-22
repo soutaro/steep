@@ -78,10 +78,17 @@ module Steep
       #
       def definition: (path: Pathname, line: Integer, column: Integer) -> Array[loc]
 
+      # Returns array of locations that is a response to a *Go to type-definition* request
+      #
+      def type_definition: (path: Pathname, line: Integer, column: Integer) -> Array[loc]
+
       private
 
       # Returns a set of queries
       def query_at: (path: Pathname, line: Integer, column: Integer) -> Array[query]
+
+      def each_type_name: (AST::Types::t) { (TypeName) -> void } -> void
+                        | (AST::Types::t) -> Enumerator[TypeName, void]
 
       def test_ast_location: (Parser::Source::Range loc, line: Integer, column: Integer) -> bool
 

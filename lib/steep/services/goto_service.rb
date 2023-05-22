@@ -89,6 +89,61 @@ module Steep
         end
       end
 
+      def type_definition(path:, line:, column:)
+        locations = [] #: Array[loc]
+
+        relative_path = project.relative_path(path)
+
+        target = type_check.source_file?(relative_path) or return []
+        source = type_check.source_files[relative_path]
+        typing, signature = type_check_path(target: target, path: relative_path, content: source.content, line: line, column: column)
+
+        typing or return []
+        signature or return []
+
+        node, *_parents = typing.source.find_nodes(line: line, column: column)
+        node or return []
+
+        type = typing.type_of(node: node)
+
+        subtyping = signature.current_subtyping or return []
+
+        each_type_name(type).uniq.each do |name|
+          type_name_locations(name, locations: locations)
+        end
+
+        locations.uniq.select do |loc|
+          case loc
+          when RBS::Location
+            assignment =~ loc.name
+          else
+            true
+          end
+        end
+      end
+
+      def each_type_name(type, &block)
+        if block
+          case type
+          when AST::Types::Name::Instance, AST::Types::Name::Alias, AST::Types::Name::Singleton, AST::Types::Name::Interface
+            yield type.name
+          when AST::Types::Literal
+            yield type.back_type.name
+          when AST::Types::Nil
+            yield RBS::TypeName.new(name: :NilClass, namespace: RBS::Namespace.root)
+          when AST::Types::Boolean
+            yield RBS::BuiltinNames::TrueClass.name
+            yield RBS::BuiltinNames::FalseClass.name
+          end
+
+          type.each_child do |child|
+            each_type_name(child, &block)
+          end
+        else
+          enum_for :each_type_name, type
+        end
+      end
+
       def test_ast_location(loc, line:, column:)
         return false if line < loc.line
         return false if line == loc.line && column < loc.column
