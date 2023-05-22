@@ -30,12 +30,24 @@ module Steep
           )
         end
 
+        def self.type_definition(id:, params:)
+          new(
+            kind: :type_definition,
+            id: id,
+            params: params
+          )
+        end
+
         def implementation?
           kind == :implementation
         end
 
         def definition?
           kind == :definition
+        end
+
+        def type_definition?
+          kind == :type_definition
         end
       end
 
@@ -75,6 +87,8 @@ module Steep
           queue << GotoJob.definition(id: request[:id], params: request[:params])
         when "textDocument/implementation"
           queue << GotoJob.implementation(id: request[:id], params: request[:params])
+        when "textDocument/typeDefinition"
+          queue << GotoJob.type_definition(id: request[:id], params: request[:params])
         end
       end
 
@@ -266,7 +280,7 @@ module Steep
       end
 
       def goto(job)
-        path = Steep::PathHelper.to_pathname(job.params[:textDocument][:uri])
+        path = Steep::PathHelper.to_pathname(job.params[:textDocument][:uri]) or return []
         line = job.params[:position][:line] + 1
         column = job.params[:position][:character]
 
@@ -277,6 +291,8 @@ module Steep
             goto_service.definition(path: path, line: line, column: column)
           when job.implementation?
             goto_service.implementation(path: path, line: line, column: column)
+          when job.type_definition?
+            goto_service.type_definition(path: path, line: line, column: column)
           else
             raise
           end
@@ -293,7 +309,7 @@ module Steep
           path = project.absolute_path(path)
 
           {
-            uri: Steep::PathHelper.to_uri(path.to_s).to_s,
+            uri: Steep::PathHelper.to_uri(path).to_s,
             range: loc.as_lsp_range
           }
         end

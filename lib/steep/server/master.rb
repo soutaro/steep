@@ -555,7 +555,7 @@ module Steep
                       definition_provider: true,
                       declaration_provider: false,
                       implementation_provider: true,
-                      type_definition_provider: false
+                      type_definition_provider: true
                     )
                   )
                 }
@@ -654,7 +654,7 @@ module Steep
             end
           end
 
-        when "textDocument/definition", "textDocument/implementation"
+        when "textDocument/definition", "textDocument/implementation", "textDocument/typeDefinition"
           if path = pathname(message[:params][:textDocument][:uri])
             result_controller << group_request do |group|
               typecheck_workers.each do |worker|
