@@ -33,5 +33,13 @@ module Parser
 
       %a{pure} def end: () -> Source::Range
     end
+
+    interface _NamedLocation
+      %a{pure} def name: () -> Source::Range
+    end
+
+    interface _SelectorLocation
+      %a{pure} def selector: () -> Source::Range
+    end
   end
 end

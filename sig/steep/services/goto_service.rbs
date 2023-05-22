@@ -1,45 +1,99 @@
+use RBS::TypeName, RBS::Location
+
 module Steep
   module Services
     class GotoService
       include ModuleHelper
 
-      module SourceHelper
-        def from_ruby?: () -> untyped
+      # Where the query is issued from
+      #
+      # * `:ruby` if the query is issued from a Ruby code
+      # * `:rbs` if the query is issued from a RBS file
+      #
+      type from = :ruby | :rbs
 
-        def from_rbs?: () -> untyped
+      module SourceHelper : _From
+        interface _From
+          def from: () -> from
+        end
+
+        def from_ruby?: () -> bool
+
+        def from_rbs?: () -> bool
       end
 
-      ConstantQuery: untyped
+      # Query a constant
+      #
+      class ConstantQuery
+        include SourceHelper
 
-      MethodQuery: untyped
+        attr_reader name: TypeName
 
-      TypeNameQuery: untyped
+        # Where the query is issued from
+        attr_reader from: from
 
-      attr_reader type_check: untyped
+        def initialize: (name: TypeName, from: from) -> void
+      end
 
-      attr_reader assignment: untyped
+      # Query a method
+      #
+      class MethodQuery
+        include SourceHelper
 
-      def initialize: (type_check: untyped, assignment: untyped) -> void
+        attr_reader name: method_name
 
-      def project: () -> untyped
+        # Where the query is issued from
+        attr_reader from: from
 
-      def implementation: (path: untyped, line: untyped, column: untyped) -> untyped
+        def initialize: (name: method_name, from: from) -> void
+      end
 
-      def definition: (path: untyped, line: untyped, column: untyped) -> untyped
+      # Query a type name
+      #
+      #
+      #
+      class TypeNameQuery
+        attr_reader name: TypeName
 
-      def test_ast_location: (untyped loc, line: untyped, column: untyped) -> (false | true)
+        def initialize: (name: TypeName) -> void
+      end
 
-      def query_at: (path: untyped, line: untyped, column: untyped) -> untyped
+      type query = ConstantQuery | MethodQuery | TypeNameQuery
 
-      def type_check_path: (target: untyped, path: untyped, content: untyped, line: untyped, column: untyped) -> untyped
+      type loc = Location[bot, bot] | Parser::Source::Range
 
-      def constant_definition_in_rbs: (untyped name, locations: untyped) -> untyped
+      attr_reader type_check: TypeCheckService
 
-      def constant_definition_in_ruby: (untyped name, locations: untyped) -> untyped
+      attr_reader assignment: PathAssignment
 
-      def method_locations: (untyped name, in_ruby: untyped, in_rbs: untyped, locations: untyped) -> untyped
+      def initialize: (type_check: TypeCheckService, assignment: PathAssignment) -> void
 
-      def type_name_locations: (untyped name, ?locations: untyped) -> untyped
+      def project: () -> Project
+
+      # Returns array of locations that is a response to a *Go to implementation* request
+      #
+      def implementation: (path: Pathname, line: Integer, column: Integer) -> Array[loc]
+
+      # Returns array of locations that is a response to a *Go to definition* request
+      #
+      def definition: (path: Pathname, line: Integer, column: Integer) -> Array[loc]
+
+      private
+
+      # Returns a set of queries
+      def query_at: (path: Pathname, line: Integer, column: Integer) -> Array[query]
+
+      def test_ast_location: (Parser::Source::Range loc, line: Integer, column: Integer) -> bool
+
+      def type_check_path: (target: Project::Target, path: Pathname, content: String, line: Integer, column: Integer) -> [Typing, SignatureService]?
+
+      def constant_definition_in_rbs: (TypeName name, locations: Array[loc]) -> Array[loc]
+
+      def constant_definition_in_ruby: (TypeName name, locations: Array[loc]) -> Array[loc]
+
+      def method_locations: (method_name, in_ruby: bool, in_rbs: bool, locations: Array[loc]) -> Array[loc]
+
+      def type_name_locations: (TypeName name, ?locations: Array[loc]) -> Array[loc]
     end
   end
 end

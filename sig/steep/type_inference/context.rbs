@@ -8,7 +8,7 @@ module Steep
       #
       class MethodContext
         # Name of the method
-        attr_reader name: Symbol?
+        attr_reader name: Symbol
 
         # `nil` when RBS doesn't have the corresponding method definition
         attr_reader method: RBS::Definition::Method?

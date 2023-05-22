@@ -13,13 +13,14 @@ module Steep
         end
       end
 
-      ConstantQuery = Struct.new(:name, :from, keyword_init: true) do
+      class ConstantQuery < Struct.new(:name, :from, keyword_init: true)
         include SourceHelper
       end
-      MethodQuery = Struct.new(:name, :from, keyword_init: true) do
+      class MethodQuery < Struct.new(:name, :from, keyword_init: true)
         include SourceHelper
       end
-      TypeNameQuery = Struct.new(:name, keyword_init: true)
+      class TypeNameQuery < Struct.new(:name, keyword_init: true)
+      end
 
       attr_reader :type_check, :assignment
 
@@ -33,9 +34,7 @@ module Steep
       end
 
       def implementation(path:, line:, column:)
-        locations = []
-
-        # relative_path = project.relative_path(path)
+        locations = [] #: Array[loc]
 
         queries = query_at(path: path, line: line, column: column)
         queries.uniq!
@@ -55,7 +54,7 @@ module Steep
       end
 
       def definition(path:, line:, column:)
-        locations = []
+        locations = [] #: Array[loc]
 
         queries = query_at(path: path, line: line, column: column)
         queries.uniq!
@@ -99,7 +98,7 @@ module Steep
       end
 
       def query_at(path:, line:, column:)
-        queries = []
+        queries = [] #: Array[query]
 
         relative_path = project.relative_path(path)
 
@@ -110,29 +109,44 @@ module Steep
           if typing
             node, *parents = typing.source.find_nodes(line: line, column: column)
 
-            if node
+            if node && parents
               case node.type
               when :const, :casgn
-                if test_ast_location(node.location.name, line: line, column: column)
+                named_location = (_ = node.location) #: Parser::AST::_NamedLocation
+                if test_ast_location(named_location.name, line: line, column: column)
                   if name = typing.source_index.reference(constant_node: node)
                     queries << ConstantQuery.new(name: name, from: :ruby)
                   end
                 end
               when :def, :defs
-                if test_ast_location(node.location.name, line: line, column: column)
+                named_location = (_ = node.location) #: Parser::AST::_NamedLocation
+                if test_ast_location(named_location.name, line: line, column: column)
                   if method_context = typing.context_at(line: line, column: column).method_context
-                    type_name = method_context.method.defined_in
-                    name =
-                      if method_context.method.defs.any? {|defn| defn.member.singleton? }
-                        SingletonMethodName.new(type_name: type_name, method_name: method_context.name)
-                      else
-                        InstanceMethodName.new(type_name: type_name, method_name: method_context.name)
+                    if method = method_context.method
+                      method.defs.each do |defn|
+                        singleton_method =
+                          case defn.member
+                          when RBS::AST::Members::MethodDefinition
+                            defn.member.singleton?
+                          when RBS::AST::Members::Attribute
+                            defn.member.kind == :singleton
+                          end
+
+                        name =
+                          if singleton_method
+                            SingletonMethodName.new(type_name: defn.defined_in, method_name: method_context.name)
+                          else
+                            InstanceMethodName.new(type_name: defn.defined_in, method_name: method_context.name)
+                          end
+
+                        queries << MethodQuery.new(name: name, from: :ruby)
                       end
-                    queries << MethodQuery.new(name: name, from: :ruby)
+                    end
                   end
                 end
               when :send
-                if test_ast_location(node.location.selector, line: line, column: column)
+                location = (_ = node.location) #: Parser::AST::_SelectorLocation
+                if test_ast_location(location.selector, line: line, column: column)
                   if (parent = parents[0]) && parent.type == :block && parent.children[0] == node
                     node = parents[0]
                   end
@@ -161,6 +175,9 @@ module Steep
 
             locator = RBS::Locator.new(buffer: buffer, dirs: dirs, decls: decls)
             last, nodes = locator.find2(line: line, column: column)
+
+            nodes or raise
+
             case nodes[0]
             when RBS::AST::Declarations::Class, RBS::AST::Declarations::Module
               if last == :name
@@ -172,7 +189,8 @@ module Steep
               end
             when RBS::AST::Members::MethodDefinition
               if last == :name
-                type_name = nodes[1].name
+                parent_node = nodes[1] #: RBS::AST::Declarations::Class | RBS::AST::Declarations::Module | RBS::AST::Declarations::Interface
+                type_name = parent_node.name
                 method_name = nodes[0].name
                 if nodes[0].instance?
                   queries << MethodQuery.new(
@@ -226,13 +244,19 @@ module Steep
 
           case entry = env.constant_entry(name)
           when RBS::Environment::ConstantEntry
-            locations << entry.decl.location&.[](:name)
+            if entry.decl.location
+              locations << entry.decl.location[:name]
+            end
           when RBS::Environment::ClassEntry, RBS::Environment::ModuleEntry
             entry.decls.each do |d|
-              locations << d.decl.location&.[](:name)
+              if d.decl.location
+                locations << d.decl.location[:name]
+              end
             end
           when RBS::Environment::ClassAliasEntry, RBS::Environment::ModuleAliasEntry
-            locations << entry.decl.location&.[](:new_name)
+            if entry.decl.location
+              locations << entry.decl.location[:new_name]
+            end
           end
         end
 
@@ -305,11 +329,17 @@ module Steep
             entry.declarations.each do |decl|
               case decl
               when RBS::AST::Members::MethodDefinition
-                locations << decl.location[:name]
+                if decl.location
+                  locations << decl.location[:name]
+                end
               when RBS::AST::Members::Alias
-                locations << decl.location[:new_name]
+                if decl.location
+                  locations << decl.location[:new_name]
+                end
               when RBS::AST::Members::AttrAccessor, RBS::AST::Members::AttrReader, RBS::AST::Members::AttrWriter
-                locations << decl.location[:name]
+                if decl.location
+                  locations << decl.location[:name]
+                end
               end
             end
           end
@@ -324,7 +354,18 @@ module Steep
 
           entry = index.entry(type_name: name)
           entry.declarations.each do |decl|
-            locations << decl.location[:name]
+            case decl
+            when RBS::AST::Declarations::Class, RBS::AST::Declarations::Module, RBS::AST::Declarations::Interface, RBS::AST::Declarations::TypeAlias
+              if decl.location
+                locations << decl.location[:name]
+              end
+            when RBS::AST::Declarations::AliasDecl
+              if decl.location
+                locations << decl.location[:new_name]
+              end
+            else
+              raise
+            end
           end
         end
 
