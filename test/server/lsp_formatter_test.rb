@@ -68,6 +68,41 @@ class Steep::Server::LSPFormatterTest < Minitest::Test
     end
   end
 
+  def test_ruby_hover_method_call__underscore
+    with_factory({ "foo.rbs" => <<~RBS }) do
+        class HoverMethodCallUnderscoreTest
+          # This is comment for `HoverMethodCallTest#__foo__`.
+          def __foo__: () -> void
+        end
+      RBS
+
+      typing = type_check(<<~RUBY)
+        HoverMethodCallUnderscoreTest.new.__foo__()
+      RUBY
+
+      call = typing.call_of(node: typing.source.node)
+
+      content = Services::HoverProvider::Ruby::MethodCallContent.new(
+        node: nil,
+        method_call: call,
+        location: nil
+      )
+
+      comment = Server::LSPFormatter.format_hover_content(content)
+      assert_equal <<~MD, comment
+        **Method type**:
+        ```rbs
+        () -> void
+        ```
+        ----
+        ### 📚 HoverMethodCallUnderscoreTest#\\_\\_foo\\_\\_
+
+        This is comment for `HoverMethodCallTest#__foo__`.
+
+      MD
+    end
+  end
+
   def test_ruby_hover_method_call__simple_receiver__no_doc
     with_factory({ "foo.rbs" => <<~RBS }) do
         class HoverMethodCallTest
@@ -581,7 +616,7 @@ RBS
         ```
 
         ----
-        ### 📚 _HelloWorld
+        ### 📚 \\_HelloWorld
 
         This is an interface!
         MD

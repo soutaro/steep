@@ -296,7 +296,7 @@ module Steep
 
         io = StringIO.new
         if header
-          io.puts "### 📚 #{header}"
+          io.puts "### 📚 #{header.gsub("_", "\\_")}"
           io.puts
         end
         io.puts comment.string.rstrip.gsub(/^[ \t]*<!--(?~-->)-->\n/, "").gsub(/\A([ \t]*\n)+/, "")
