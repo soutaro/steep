@@ -72,7 +72,7 @@ module Steep
       end
 
       class GotoJob
-        type kind = :implementation | :definition
+        type kind = :implementation | :definition | :type_definition
 
         attr_reader id: String
 
@@ -88,9 +88,13 @@ module Steep
 
         def self.definition: (id: String, params: params) -> GotoJob
 
+        def self.type_definition: (id: String, params: params) -> GotoJob
+
         def implementation?: () -> bool
 
         def definition?: () -> bool
+
+        def type_definition?: () -> bool
       end
 
       include ChangeBuffer

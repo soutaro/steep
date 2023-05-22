@@ -704,4 +704,52 @@ RUBY
       end
     end
   end
+
+  def test_go_to_type_definition
+    type_check = type_check_service do |changes|
+      changes[Pathname("lib/test.rb")] = [ContentChange.string(<<~RUBY)]
+        Foo.new
+      RUBY
+      changes[Pathname("sig/foo.rbs")] = [ContentChange.string(<<~RBS)]
+        class Foo
+        end
+      RBS
+    end
+
+    service = Services::GotoService.new(type_check: type_check, assignment: assignment)
+
+    service.type_definition(path: dir + "lib/test.rb", line: 1, column: 5).tap do |locs|
+      assert_equal 1, locs.size
+      assert_equal "Foo", locs[0].source
+    end
+  end
+
+  def test_go_to_type_definition2
+    type_check = type_check_service do |changes|
+      changes[Pathname("lib/test.rb")] = [ContentChange.string(<<~RUBY)]
+        x = true #: bool
+        y = 1 #: 1
+        z = [1]
+      RUBY
+    end
+
+    service = Services::GotoService.new(type_check: type_check, assignment: assignment)
+
+    service.type_definition(path: dir + "lib/test.rb", line: 1, column: 3).tap do |locs|
+      assert_equal 2, locs.size
+      assert locs.find {|loc| loc.source == "TrueClass" }
+      assert locs.find {|loc| loc.source == "FalseClass" }
+    end
+
+    service.type_definition(path: dir + "lib/test.rb", line: 2, column: 3).tap do |locs|
+      assert_equal 1, locs.size
+      assert locs.find {|loc| loc.source == "Integer" }
+    end
+
+    service.type_definition(path: dir + "lib/test.rb", line: 3, column: 3).tap do |locs|
+      assert_equal 2, locs.size
+      assert locs.find {|loc| loc.source == "Integer" }
+      assert locs.find {|loc| loc.source == "Array" }
+    end
+  end
 end
