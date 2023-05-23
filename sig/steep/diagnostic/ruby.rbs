@@ -575,6 +575,9 @@ module Steep
 
       self.@lenient: template?
       def self.lenient: () -> template
+
+      self.@silent: template?
+      def self.silent: () -> template
     end
   end
 end
