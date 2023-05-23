@@ -898,7 +898,8 @@ module Steep
                   arguments: node.children,
                   block_params: nil,
                   block_body: nil,
-                  tapp: nil
+                  tapp: nil,
+                  hint: hint
                 )
 
                 if call && constr
@@ -2510,7 +2511,7 @@ module Steep
 
             add_typing(node, type: type)
           else
-            type_send(node, send_node: node, block_params: nil, block_body: nil, tapp: tapp)
+            type_send(node, send_node: node, block_params: nil, block_body: nil, tapp: tapp, hint: hint)
           end
         end
       when :csend
@@ -2525,7 +2526,7 @@ module Steep
                      end
               add_typing(node, type: type).to_ary
             else
-              type_send(node, send_node: node, block_params: nil, block_body: nil, unwrap: true, tapp: tapp).to_ary
+              type_send(node, send_node: node, block_params: nil, block_body: nil, unwrap: true, tapp: tapp, hint: hint).to_ary
             end
 
           constr
@@ -2539,7 +2540,7 @@ module Steep
             # @type var node: Parser::AST::Node & Parser::AST::_BlockNode
             type_lambda(node, params_node: params, body_node: body, type_hint: hint)
           else
-            type_send(node, send_node: send_node, block_params: params, block_body: body, unwrap: send_node.type == :csend, tapp: tapp)
+            type_send(node, send_node: send_node, block_params: params, block_body: body, unwrap: send_node.type == :csend, tapp: tapp, hint: hint)
           end
         end
       when :numblock
@@ -2558,7 +2559,7 @@ module Steep
             # @type var node: Parser::AST::Node & Parser::AST::_BlockNode
             type_lambda(node, params_node: params, body_node: body, type_hint: hint)
           else
-            type_send(node, send_node: send_node, block_params: params, block_body: body, unwrap: send_node.type == :csend, tapp: tapp)
+            type_send(node, send_node: send_node, block_params: params, block_body: body, unwrap: send_node.type == :csend, tapp: tapp, hint: hint)
           end
         end
       else
@@ -3021,7 +3022,7 @@ module Steep
       end
     end
 
-    def type_send_interface(node, interface:, receiver:, receiver_type:, method_name:, arguments:, block_params:, block_body:, tapp:)
+    def type_send_interface(node, interface:, receiver:, receiver_type:, method_name:, arguments:, block_params:, block_body:, tapp:, hint:)
       method = interface&.methods&.[](method_name)
 
       if method
@@ -3033,7 +3034,8 @@ module Steep
           block_params: block_params,
           block_body: block_body,
           receiver_type: receiver_type,
-          tapp: tapp
+          tapp: tapp,
+          hint: hint
         )
 
         if call && constr
@@ -3152,7 +3154,7 @@ module Steep
       end
     end
 
-    def type_send(node, send_node:, block_params:, block_body:, unwrap: false, tapp:)
+    def type_send(node, send_node:, block_params:, block_body:, unwrap: false, tapp:, hint:)
       # @type var constr: TypeConstruction
       # @type var receiver: Parser::AST::Node?
 
@@ -3234,7 +3236,8 @@ module Steep
               arguments: arguments,
               block_params: block_params,
               block_body: block_body,
-              tapp: tapp
+              tapp: tapp,
+              hint: hint
             )
           else
             constr = constr.synthesize_children(node, skips: [receiver])
@@ -3352,7 +3355,7 @@ module Steep
       nil
     end
 
-    def type_method_call(node, method_name:, receiver_type:, method:, arguments:, block_params:, block_body:, tapp:)
+    def type_method_call(node, method_name:, receiver_type:, method:, arguments:, block_params:, block_body:, tapp:, hint:)
       node_range = node.loc.expression.to_range
 
       # @type var fails: Array[[TypeInference::MethodCall::t, TypeConstruction]]
@@ -3379,7 +3382,8 @@ module Steep
               arguments: arguments,
               block_params: block_params,
               block_body: block_body,
-              tapp: tapp
+              tapp: tapp,
+              hint: hint
             )
 
             if call.is_a?(TypeInference::MethodCall::Typed)
@@ -3599,7 +3603,7 @@ module Steep
       constr
     end
 
-    def try_method_type(node, receiver_type:, method_name:, method_type:, arguments:, block_params:, block_body:, tapp:)
+    def try_method_type(node, receiver_type:, method_name:, method_type:, arguments:, block_params:, block_body:, tapp:, hint:)
       constr = self
 
       if tapp && type_args = tapp.types?(module_context.nesting, checker.factory, [])
@@ -3714,12 +3718,29 @@ module Steep
 
         if block_params
           # block is given
+
           # @type var node: Parser::AST::Node & Parser::AST::_BlockNode
 
           block_annotations = source.annotations(block: node, factory: checker.factory, context: nesting)
           block_params_ = TypeInference::BlockParams.from_node(block_params, annotations: block_annotations)
 
           if method_type.block
+            fvs = method_type.type.return_type.free_variables.each.with_object(Set[]) do |var, fvs| #$ Set[Symbol]
+              if var.is_a?(Symbol)
+                fvs << var
+              end
+            end
+
+            if hint && !fvs.empty?
+              if check_relation(sub_type: method_type.type.return_type, super_type: hint, constraints: constraints).success?
+                method_type, solved, s = apply_solution(errors, node: node, method_type: method_type) do
+                  constraints.solution(checker, variables: fvs, context: ccontext)
+                end
+              end
+
+              method_type.block or raise
+            end
+
             # Method accepts block
             pairs = block_params_&.zip(method_type.block.type.params, nil, factory: checker.factory)
 

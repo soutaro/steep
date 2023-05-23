@@ -1,3 +1,5 @@
+use Steep::AST::Types
+
 module Steep
   class TypeConstruction
     class Pair
@@ -184,7 +186,8 @@ module Steep
       block_params: Parser::AST::Node?,
       block_body: Parser::AST::Node?,
       ?unwrap: bool,
-      tapp: AST::Node::TypeApplication?
+      tapp: AST::Node::TypeApplication?,
+      hint: Types::t?
     ) -> Pair
 
     # The second step to type check method calls, which handles type refinements on *pure* calls
@@ -201,7 +204,8 @@ module Steep
       arguments: Array[Parser::AST::Node],
       block_params: Parser::AST::Node?,
       block_body: Parser::AST::Node?,
-      tapp: AST::Node::TypeApplication?
+      tapp: AST::Node::TypeApplication?,
+      hint: Types::t?
     ) -> Pair
 
     # The third step to type check method calls, which tries all of the overlods defined for the method
@@ -218,7 +222,8 @@ module Steep
       arguments: Array[Parser::AST::Node],
       block_params: Parser::AST::Node?,
       block_body: Parser::AST::Node?,
-      tapp: AST::Node::TypeApplication?
+      tapp: AST::Node::TypeApplication?,
+      hint: Types::t?
     ) -> [TypeInference::MethodCall::t, TypeConstruction]?
 
     # The core to type check method calls, which implements type checking arguments including blocks and type inference
@@ -233,7 +238,8 @@ module Steep
       arguments: Array[Parser::AST::Node],
       block_params: Parser::AST::Node?,
       block_body: Parser::AST::Node?,
-      tapp: AST::Node::TypeApplication?
+      tapp: AST::Node::TypeApplication?,
+      hint: Types::t?
     ) -> [TypeInference::MethodCall::t, TypeConstruction]
 
     # Extra step to type check method calls, which implements custom typing rules based on the methods
