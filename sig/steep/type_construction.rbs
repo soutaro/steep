@@ -301,6 +301,12 @@ module Steep
       Array[Diagnostic::Ruby::Base]
     ) -> TypeConstruction
 
+    # Type check arguments without known method type
+    #
+    # This handles `:splat` nodes and `:kwargs` node that appears as an argument.
+    #
+    def type_check_untyped_args: (Array[Parser::AST::Node] arguments) -> TypeConstruction
+
     def type_check_argument: (Parser::AST::Node node, type: AST::Types::t, constraints: Subtyping::Constraints, errors: Array[Diagnostic::Ruby::Base], ?report_node: Parser::AST::Node) -> Pair
 
     def type_block_without_hint: (node: Parser::AST::Node & Parser::AST::_BlockNode, block_annotations: AST::Annotation::Collection, block_params: TypeInference::BlockParams?, block_body: Parser::AST::Node?) ?{ (Diagnostic::Ruby::Base) -> void } -> void
@@ -485,7 +491,7 @@ module Steep
     # * When hint is union type, it tries recursively with the union cases.
     # * Otherwise, it tries to be a hash instance.
     #
-    def type_hash: (Parser::AST::Node hash_node, hint: AST::Types::t?) -> untyped
+    def type_hash: (Parser::AST::Node hash_node, hint: AST::Types::t?) -> Pair
 
     # Returns the first one from elements of `types` that returns a type `t` where `t <: hint`.
     #

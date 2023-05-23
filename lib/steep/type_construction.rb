@@ -923,12 +923,12 @@ module Steep
                   fallback_to_any(node) { error }
                 end
               else
-                synthesize_children(node).fallback_to_any(node) do
+                type_check_untyped_args(node.children).fallback_to_any(node) do
                   Diagnostic::Ruby::UnexpectedSuper.new(node: node, method: method_context!.name)
                 end
               end
             else
-              synthesize_children(node).fallback_to_any(node)
+              type_check_untyped_args(node.children).fallback_to_any(node)
             end
           end
 
@@ -3159,10 +3159,10 @@ module Steep
       case send_node.type
       when :super, :zsuper
         receiver = nil
-        method_name = method_context&.name
+        method_name = method_context!.name
         arguments = send_node.children
 
-        if method_name.nil? || method_context&.super_method.nil?
+        if method_name.nil? || method_context!.super_method.nil?
           return fallback_to_any(send_node) do
             Diagnostic::Ruby::UnexpectedSuper.new(
               node: send_node,
@@ -3464,6 +3464,24 @@ module Steep
         subst = Interface::Substitution.build(variables, Array.new(variables.size, to))
         type.subst(subst)
       end
+    end
+
+    def type_check_untyped_args(arguments)
+      constr = self #: TypeConstruction
+
+      arguments.each do |arg|
+        case arg.type
+        when :splat
+          type, constr = constr.synthesize(arg.children[0])
+          _, constr = constr.add_typing(arg, type: type)
+        when :kwargs
+          _, constr = constr.type_hash_record(arg, nil) || constr.type_hash(arg, hint: nil)
+        else
+          _, constr = constr.synthesize(arg)
+        end
+      end
+
+      constr
     end
 
     def type_check_args(method_name, args, constraints, errors)
