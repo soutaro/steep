@@ -1100,12 +1100,9 @@ module Steep
               return_value_node = node.children[0]
               value_type, constr = synthesize(return_value_node, hint: method_return_type)
             else
-              constr = synthesize_children(node)
-              return_types = node.children.map do |value|
-                constr.typing.type_of(node: value)
-              end
-
-              value_type = AST::Builtin::Array.instance_type(union_type(*return_types))
+              # It returns an array
+              array = node.updated(:array)
+              value_type, constr = synthesize(array, hint: method_return_type)
             end
 
             if method_return_type

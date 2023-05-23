@@ -10469,4 +10469,25 @@ z = AppTest.new.foo(1, 2) #$ Integer, Integer, String
       end
     end
   end
+
+  def test_return__mvalue
+    with_checker(<<~RBS) do |checker|
+        class ReturnMultipleValues
+          def foo: () -> [String, Integer]
+        end
+      RBS
+      source = parse_ruby(<<~RUBY)
+        class ReturnMultipleValues
+          def foo
+            return "foo", 123
+          end
+        end
+      RUBY
+
+      with_standard_construction(checker, source) do |construction, typing|
+        type, _, context = construction.synthesize(source.node)
+        assert_no_error(typing)
+      end
+    end
+  end
 end
