@@ -4487,7 +4487,7 @@ module Steep
     def try_tuple_type!(node, hint: nil)
       if node.type == :array
         if hint.nil? || hint.is_a?(AST::Types::Tuple)
-          node_range = node.loc.expression.yield_self {|l| l.begin_pos..l.end_pos }
+          node_range = node.loc.expression.to_range
 
           typing.new_child(node_range) do |child_typing|
             if pair = with_new_typing(child_typing).try_tuple_type(node, hint)
@@ -4507,15 +4507,28 @@ module Steep
       element_types = [] #: Array[AST::Types::t]
 
       array_node.children.each_with_index do |child, index|
-        return if child.type == :splat
-
-        child_hint =
-          if hint
-            hint.types[index]
+        if child.type == :splat
+          type, constr = constr.synthesize(child.children[0])
+          typing.add_typing(child, type, nil)
+          if converted_type = try_convert(type, :to_a)
+            if converted_type.is_a?(AST::Types::Tuple)
+              element_types.push(*converted_type.types)
+            else
+              # The converted_type may be an array, which cannot be used to construct a tuple type
+              return
+            end
+          else
+            element_types << type
           end
+        else
+          child_hint =
+            if hint
+              hint.types[index]
+            end
 
-        type, constr = constr.synthesize(child, hint: child_hint)
-        element_types << type
+          type, constr = constr.synthesize(child, hint: child_hint)
+          element_types << type
+        end
       end
 
       constr.add_typing(array_node, type: AST::Types::Tuple.new(types: element_types))
