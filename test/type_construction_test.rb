@@ -10490,4 +10490,59 @@ z = AppTest.new.foo(1, 2) #$ Integer, Integer, String
       end
     end
   end
+
+  def test_masgn__splat_rhs1
+    with_checker(<<~RBS) do |checker|
+        class WithToA
+          def to_a: () -> [Integer, String, bool]
+        end
+      RBS
+      source = parse_ruby(<<~RUBY)
+        a, b, c = *WithToA.new
+      RUBY
+
+      with_standard_construction(checker, source) do |construction, typing|
+        type, _, context = construction.synthesize(source.node)
+        assert_no_error(typing)
+        assert_equal parse_type("::Integer"), context.type_env[:a]
+        assert_equal parse_type("::String"), context.type_env[:b]
+        assert_equal parse_type("bool"), context.type_env[:c]
+      end
+    end
+  end
+
+  def test_masgn__splat_rhs2
+    with_checker(<<~RBS) do |checker|
+      RBS
+      source = parse_ruby(<<~RUBY)
+        a, b = *123
+      RUBY
+
+      with_standard_construction(checker, source) do |construction, typing|
+        type, _, context = construction.synthesize(source.node)
+        assert_no_error(typing)
+        assert_equal parse_type("::Integer"), context.type_env[:a]
+        assert_equal parse_type("nil"), context.type_env[:b]
+      end
+    end
+  end
+
+  def test_masgn__splat_rhs3
+    with_checker(<<~RBS) do |checker|
+        class WithToA
+          def to_a: () -> Array[Integer]
+        end
+      RBS
+      source = parse_ruby(<<~RUBY)
+        a, b = *WithToA.new
+      RUBY
+
+      with_standard_construction(checker, source) do |construction, typing|
+        type, _, context = construction.synthesize(source.node)
+        assert_no_error(typing)
+        assert_equal parse_type("::Integer?"), context.type_env[:a]
+        assert_equal parse_type("::Integer?"), context.type_env[:b]
+      end
+    end
+  end
 end
