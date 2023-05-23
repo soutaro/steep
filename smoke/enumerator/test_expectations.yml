@@ -4,98 +4,9 @@
   - range:
       start:
         line: 5
-        character: 0
-      end:
-        line: 8
-        character: 3
-    severity: ERROR
-    message: |-
-      Cannot assign a value of type `::String` to a variable of type `::Hash[::Symbol, ::String]`
-        ::String <: ::Hash[::Symbol, ::String]
-          ::Object <: ::Hash[::Symbol, ::String]
-            ::BasicObject <: ::Hash[::Symbol, ::String]
-    code: Ruby::IncompatibleAssignment
-  - range:
-      start:
-        line: 6
-        character: 2
+        character: 7
       end:
         line: 6
-        character: 10
-    severity: ERROR
-    message: |-
-      Cannot assign a value of type `::Integer` to a variable of type `::Hash[::Symbol, ::String]`
-        ::Integer <: ::Hash[::Symbol, ::String]
-          ::Numeric <: ::Hash[::Symbol, ::String]
-            ::Object <: ::Hash[::Symbol, ::String]
-              ::BasicObject <: ::Hash[::Symbol, ::String]
-    code: Ruby::IncompatibleAssignment
-  - range:
-      start:
-        line: 7
-        character: 2
-      end:
-        line: 7
-        character: 10
-    severity: ERROR
-    message: |-
-      Cannot assign a value of type `::String` to a variable of type `::Hash[::Symbol, ::String]`
-        ::String <: ::Hash[::Symbol, ::String]
-          ::Object <: ::Hash[::Symbol, ::String]
-            ::BasicObject <: ::Hash[::Symbol, ::String]
-    code: Ruby::IncompatibleAssignment
-  - range:
-      start:
-        line: 10
-        character: 0
-      end:
-        line: 13
-        character: 3
-    severity: ERROR
-    message: |-
-      Cannot assign a value of type `::Array[::Integer]` to a variable of type `::Hash[::Symbol, ::String]`
-        ::Array[::Integer] <: ::Hash[::Symbol, ::String]
-          ::Object <: ::Hash[::Symbol, ::String]
-            ::BasicObject <: ::Hash[::Symbol, ::String]
-    code: Ruby::IncompatibleAssignment
-  - range:
-      start:
-        line: 11
-        character: 2
-      end:
-        line: 11
-        character: 10
-    severity: ERROR
-    message: |-
-      Cannot assign a value of type `::Integer` to a variable of type `::Hash[::Symbol, ::String]`
-        ::Integer <: ::Hash[::Symbol, ::String]
-          ::Numeric <: ::Hash[::Symbol, ::String]
-            ::Object <: ::Hash[::Symbol, ::String]
-              ::BasicObject <: ::Hash[::Symbol, ::String]
-    code: Ruby::IncompatibleAssignment
-  - range:
-      start:
-        line: 12
-        character: 2
-      end:
-        line: 12
-        character: 10
-    severity: ERROR
-    message: |-
-      Cannot assign a value of type `::Integer` to a variable of type `::Hash[::Symbol, ::String]`
-        ::Integer <: ::Hash[::Symbol, ::String]
-          ::Numeric <: ::Hash[::Symbol, ::String]
-            ::Object <: ::Hash[::Symbol, ::String]
-              ::BasicObject <: ::Hash[::Symbol, ::String]
-    code: Ruby::IncompatibleAssignment
-- file: b.rb
-  diagnostics:
-  - range:
-      start:
-        line: 6
-        character: 4
-      end:
-        line: 9
         character: 3
     severity: ERROR
     message: |-
@@ -104,32 +15,33 @@
         def with_object: [U] (U) { (::Integer, U) -> untyped } -> U
                        | [U] (U) -> ::Enumerator[[::Integer, U], U]
     code: Ruby::UnresolvedOverloading
+- file: b.rb
+  diagnostics:
   - range:
       start:
         line: 11
-        character: 0
+        character: 8
       end:
-        line: 14
-        character: 3
+        line: 11
+        character: 14
     severity: ERROR
     message: |-
-      Cannot assign a value of type `::Array[::String]` to a variable of type `::Array[::Integer]`
-        ::Array[::String] <: ::Array[::Integer]
-          ::String <: ::Integer
-            ::Object <: ::Integer
-              ::BasicObject <: ::Integer
-    code: Ruby::IncompatibleAssignment
+      Cannot pass a value of type `::String` as an argument of type `::Integer`
+        ::String <: ::Integer
+          ::Object <: ::Integer
+            ::BasicObject <: ::Integer
+    code: Ruby::ArgumentTypeMismatch
   - range:
       start:
-        line: 17
-        character: 0
+        line: 15
+        character: 4
       end:
-        line: 19
+        line: 17
         character: 3
     severity: ERROR
     message: |-
-      Cannot assign a value of type `::Array[untyped]` to a variable of type `::String`
-        ::Array[untyped] <: ::String
-          ::Object <: ::String
-            ::BasicObject <: ::String
-    code: Ruby::IncompatibleAssignment
+      Cannot find compatible overloading of method `with_object` of type `::Enumerator[::Integer, ::Array[::Integer]]`
+      Method types:
+        def with_object: [U] (U) { (::Integer, U) -> untyped } -> U
+                       | [U] (U) -> ::Enumerator[[::Integer, U], U]
+    code: Ruby::UnresolvedOverloading

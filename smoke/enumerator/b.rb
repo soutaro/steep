@@ -4,12 +4,10 @@
 a = [1]
 
 b = a.each.with_object([]) do |i, xs|
-  # @type var xs: String
   xs << i.to_s
 end
 
 c = a.each.with_object([]) do |i, xs|
-  # @type var xs: Array[String]
   xs << i.to_s
 end
 
