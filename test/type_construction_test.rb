@@ -10545,4 +10545,29 @@ z = AppTest.new.foo(1, 2) #$ Integer, Integer, String
       end
     end
   end
+
+  def test_super__splat_arg
+    with_checker(<<~RBS) do |checker|
+        class SuperSplatBase
+          def foo: (String, *Integer) -> void
+        end
+
+        class SuperSplat < SuperSplatBase
+          def foo: (*Integer) -> void
+        end
+      RBS
+      source = parse_ruby(<<~RUBY)
+        class SuperSplat
+          def foo(*is)
+            super("foo", *is)
+          end
+        end
+      RUBY
+
+      with_standard_construction(checker, source) do |construction, typing|
+        type, _, context = construction.synthesize(source.node)
+        assert_no_error(typing)
+      end
+    end
+  end
 end

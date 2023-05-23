@@ -877,10 +877,6 @@ module Steep
           yield_self do
             if self_type && method_context!.method
               if super_def = method_context!.super_method
-                each_child_node(node) do |child|
-                  synthesize(child)
-                end
-
                 super_method = Interface::Shape::Entry.new(
                   method_types: super_def.defs.map {|type_def|
                     decl = TypeInference::MethodCall::MethodDecl.new(
@@ -927,12 +923,12 @@ module Steep
                   fallback_to_any(node) { error }
                 end
               else
-                fallback_to_any node do
+                synthesize_children(node).fallback_to_any(node) do
                   Diagnostic::Ruby::UnexpectedSuper.new(node: node, method: method_context!.name)
                 end
               end
             else
-              fallback_to_any node
+              synthesize_children(node).fallback_to_any(node)
             end
           end
 
