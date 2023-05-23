@@ -166,7 +166,7 @@ module Steep
 
         def hash: () -> untyped
 
-        def flat_unnamed_params: () -> (untyped | ::Array[untyped])
+        def flat_unnamed_params: () -> Array[[:required | :optional, AST::Types::t]]
 
         def flat_keywords: () -> untyped
 

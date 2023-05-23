@@ -490,4 +490,28 @@ end
       end
     end
   end
+
+  def test_zip_untyped
+    with_factory do
+      block_params("proc {|x, y, *z| }") do |params|
+        params.zip(
+          Params.build(
+            required: [parse_type("untyped")],
+            optional: [],
+            rest: nil,
+            required_keywords: {},
+            optional_keywords: {},
+            rest_keywords: nil
+          ),
+          nil,
+          factory: factory
+        ).tap do |zip|
+          assert_equal 3, zip.size
+          assert_equal [params.params[0], parse_type("untyped")], zip[0]
+          assert_equal [params.params[1], parse_type("untyped")], zip[1]
+          assert_equal [params.params[2], parse_type("::Array[untyped]")], zip[2]
+        end
+      end
+    end
+  end
 end

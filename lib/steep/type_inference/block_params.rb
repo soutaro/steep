@@ -217,6 +217,17 @@ module Steep
         # @type var zip: Array[[Param | MultipleParam, AST::Types::t]]
         zip = []
 
+        if untyped_args?(params_type)
+          params.each do |param|
+            if param == rest_param
+              zip << [param, AST::Builtin::Array.instance_type(fill_untyped: true)]
+            else
+              zip << [param, AST::Builtin.any_type]
+            end
+          end
+          return zip
+        end
+
         if expandable? && (type = expandable_params?(params_type, factory))
           case
           when AST::Builtin::Array.instance_type?(type)
@@ -359,6 +370,11 @@ module Steep
         end
 
         MultipleParam.new(node: node, params: params)
+      end
+
+      def untyped_args?(params)
+        flat = params.flat_unnamed_params
+        flat.size == 1 && flat[0][1].is_a?(AST::Types::Any)
       end
     end
   end
