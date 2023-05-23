@@ -931,7 +931,8 @@ module Steep
             FalseAssertion => :information,
             UnexpectedTypeArgument => :information,
             InsufficientTypeArgument => :information,
-            UnexpectedTypeArgument => :information
+            UnexpectedTypeArgument => :information,
+            UnsupportedSyntax => nil
           }
         ).freeze
       end
@@ -944,7 +945,8 @@ module Steep
             FallbackAny => nil,
             ElseOnExhaustiveCase => nil,
             UnknownConstant => nil,
-            MethodDefinitionMissing => nil
+            MethodDefinitionMissing => nil,
+            UnsupportedSyntax => nil
           }
         ).freeze
       end
@@ -959,7 +961,8 @@ module Steep
             UnknownConstant => nil,
             MethodDefinitionMissing => nil,
             UnexpectedJump => nil,
-            FalseAssertion => :hint
+            FalseAssertion => :hint,
+            UnsupportedSyntax => nil
           }
         ).freeze
       end
