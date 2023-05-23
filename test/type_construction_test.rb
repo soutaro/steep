@@ -2906,10 +2906,15 @@ EOF
       with_standard_construction(checker, source) do |construction, typing|
         construction.synthesize(source.node)
 
-        assert_typing_error(typing, size: 1)
+        assert_typing_error(typing, size: 2) do |errors|
+          assert_any!(errors) do |error|
+            assert_instance_of Diagnostic::Ruby::IncompatibleAssignment, error
+          end
 
-        assert_equal 1, typing.errors.size
-        assert_instance_of Diagnostic::Ruby::IncompatibleAssignment, typing.errors[0]
+          assert_any!(errors) do |error|
+            assert_instance_of Diagnostic::Ruby::IncompatibleAnnotation, error
+          end
+        end
       end
     end
   end
@@ -10596,6 +10601,36 @@ z = AppTest.new.foo(1, 2) #$ Integer, Integer, String
             assert_instance_of Diagnostic::Ruby::UnexpectedSuper, error
           end
         end
+      end
+    end
+  end
+
+  def test_send__type_inference_return
+    with_checker(<<~RBS) do |checker|
+        class Array[unchecked out A]
+          def each: () -> Enumerator[A, void]
+                  | ...
+        end
+
+        class Enumerator[A, B]
+          def each: { (A) -> void } -> B
+
+          def map: [X] () { (A) -> X } -> Array[X]
+        end
+      RBS
+      source = parse_ruby(<<~RUBY)
+        # @type var s: Array[[Integer, Integer]]
+        s = [1, 2, 3].each.map do |n|
+          [n, n]
+        end
+      RUBY
+
+      with_standard_construction(checker, source) do |construction, typing|
+        type, _, context = construction.synthesize(source.node)
+
+        assert_no_error typing
+
+        assert_equal parse_type("::Array[[::Integer, ::Integer]]"), type
       end
     end
   end
