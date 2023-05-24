@@ -3756,6 +3756,7 @@ module Steep
                 block_self_hint: method_type.block.self_type,
                 node_type_hint: method_type.type.return_type
               )
+
               block_constr = block_constr.with_new_typing(
                 block_constr.typing.new_child(block_constr.typing.block_range(node))
               )
@@ -3765,7 +3766,7 @@ module Steep
               pairs.each do |param, type|
                 case param
                 when TypeInference::BlockParams::Param
-                  _, block_constr = block_constr.synthesize(param.node, hint: param.type || type).to_ary
+                  _, block_constr = block_constr.synthesize(param.node, hint: param.type || type)
 
                   if param.type
                     check_relation(sub_type: type, super_type: param.type, constraints: constraints).else do |result|
@@ -3780,7 +3781,7 @@ module Steep
                   end
                 when TypeInference::BlockParams::MultipleParam
                   param.each_param do |p|
-                    _, block_constr = block_constr.synthesize(p.node, hint: p.type || type).to_ary
+                    _, block_constr = block_constr.synthesize(p.node, hint: p.type || type)
 
                     if p.type
                       check_relation(sub_type: type, super_type: p.type, constraints: constraints).else do |result|
