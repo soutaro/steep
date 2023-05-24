@@ -21,7 +21,7 @@ module Steep
 
       def initialize: (stdout: untyped, stderr: untyped) -> void
 
-      def run: () -> untyped
+      def run: () -> Integer
 
       def print_expectations: (project: untyped, all_files: untyped, expectations_path: untyped, notifications: untyped) -> untyped
 

@@ -130,6 +130,9 @@ module Steep
           stdout.puts Rainbow("Unexpected error reported. 🚨").red.bold
           1
         end
+      rescue Errno::EPIPE => error
+        stdout.puts Rainbow("Steep shutdown with an error: #{error.inspect}").red.bold
+        return 1
       end
 
       def print_expectations(project:, all_files:, expectations_path:, notifications:)
