@@ -63,6 +63,7 @@ module Steep
         worker.commandline_args = patterns
 
         pid = fork do
+          Process.setpgid(0, 0)
           stdin_out.close
           stdout_in.close
           worker.run()

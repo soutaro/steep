@@ -55,7 +55,6 @@ module Steep
         master.commandline_args.push(*dirs.map(&:to_s))
 
         main_thread = Thread.start do
-          Thread.current.abort_on_exception = true
           master.start()
         end
 
@@ -157,7 +156,13 @@ module Steep
           main_thread.join
         rescue Interrupt
           master.kill
-          main_thread.join
+          begin
+            main_thread.join
+          rescue
+            master.each_worker do |worker|
+              worker.kill(force: true)
+            end
+          end
         end
 
         0
