@@ -1,0 +1,13 @@
+module Steep
+  class ThreadWaiter[A]
+    attr_reader objects: Array[A]
+
+    attr_reader queue: Thread::Queue
+
+    attr_reader waiter_threads: Set[Thread]
+
+    def initialize: (Array[A]) { (A) -> Thread } -> void
+
+    def wait_one: () -> Thread?
+  end
+end
