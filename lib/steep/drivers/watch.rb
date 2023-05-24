@@ -57,7 +57,6 @@ module Steep
         main_thread = Thread.start do
           master.start()
         end
-        main_thread.abort_on_exception = true
 
         initialize_id = request_id()
         client_writer.write(method: "initialize", id: initialize_id)
@@ -157,7 +156,13 @@ module Steep
           main_thread.join
         rescue Interrupt
           master.kill
-          main_thread.join
+          begin
+            main_thread.join
+          rescue
+            master.each_worker do |worker|
+              worker.kill(force: true)
+            end
+          end
         end
 
         0

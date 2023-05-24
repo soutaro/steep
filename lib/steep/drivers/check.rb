@@ -55,9 +55,9 @@ module Steep
         master.commandline_args.push(*command_line_patterns)
 
         main_thread = Thread.start do
+          Thread.current.abort_on_exception = true
           master.start()
         end
-        main_thread.abort_on_exception = true
 
         Steep.logger.info { "Initializing server" }
         initialize_id = request_id()
@@ -130,6 +130,9 @@ module Steep
           stdout.puts Rainbow("Unexpected error reported. 🚨").red.bold
           1
         end
+      rescue Errno::EPIPE => error
+        stdout.puts Rainbow("Steep shutdown with an error: #{error.inspect}").red.bold
+        return 1
       end
 
       def print_expectations(project:, all_files:, expectations_path:, notifications:)

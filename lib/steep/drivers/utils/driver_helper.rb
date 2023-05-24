@@ -10,6 +10,16 @@ module Steep
           steep_file_path = path.absolute? ? path : Pathname.pwd + path
           Project.new(steepfile_path: steep_file_path).tap do |project|
             Project::DSL.parse(project, path.read, filename: path.to_s)
+
+            project.targets.each do |target|
+              if collection_lock = target.options.collection_lock
+                begin
+                  collection_lock.check_rbs_availability!
+                rescue RBS::Collection::Config::CollectionNotAvailable
+                  raise "Run `rbs collection install` to install type definitions"
+                end
+              end
+            end
           end
         end
 

@@ -145,9 +145,9 @@ module Steep
         master.commandline_args.push(*command_line_patterns)
 
         main_thread = Thread.start do
+          Thread.current.abort_on_exception = true
           master.start()
         end
-        main_thread.abort_on_exception = true
 
         initialize_id = request_id()
         client_writer.write({ method: :initialize, id: initialize_id })

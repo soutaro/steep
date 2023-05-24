@@ -119,9 +119,9 @@ module Steep
         master.typecheck_automatically = false
 
         main_thread = Thread.start do
+          Thread.current.abort_on_exception = true
           master.start()
         end
-        main_thread.abort_on_exception = true
 
         Steep.logger.info { "Initializing server" }
         initialize_id = request_id()
