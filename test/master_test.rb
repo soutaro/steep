@@ -538,9 +538,9 @@ end
       )
 
       main_thread = Thread.new do
+        Thread.current.abort_on_exception = true
         master.start()
       end
-      main_thread.abort_on_exception = true
 
       ui = LSPDouble.new(reader: master_reader, writer: master_writer)
       ui.start do
@@ -617,9 +617,9 @@ end
                                   typecheck_workers: typecheck_workers)
 
       main_thread = Thread.new do
+        Thread.current.abort_on_exception = true
         master.start()
       end
-      main_thread.abort_on_exception = true
 
       ui = LSPDouble.new(reader: master_reader, writer: master_writer)
       ui.start do
@@ -691,9 +691,9 @@ end
                                   typecheck_workers: typecheck_workers)
 
       main_thread = Thread.new do
+        Thread.current.abort_on_exception = true
         master.start()
       end
-      main_thread.abort_on_exception = true
 
       ui = LSPDouble.new(reader: master_reader, writer: master_writer)
       ui.start do
@@ -740,9 +740,9 @@ end
                                   typecheck_workers: typecheck_workers)
 
       main_thread = Thread.new do
+        Thread.current.abort_on_exception = true
         master.start()
       end
-      main_thread.abort_on_exception = true
 
       ui = LSPDouble.new(reader: master_reader, writer: master_writer)
       ui.start do

@@ -40,6 +40,8 @@ module Steep
       def run
         tags = Steep.logger.formatter.current_tags.dup
         thread = Thread.new do
+          Thread.current.abort_on_exception = true
+
           Steep.logger.formatter.push_tags(*tags)
           Steep.logger.tagged "background" do
             while job = queue.pop
@@ -69,7 +71,6 @@ module Steep
             end
           end
         end
-        thread.abort_on_exception = true
 
         Steep.logger.tagged "frontend" do
           begin
