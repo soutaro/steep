@@ -966,6 +966,12 @@ module Steep
           }
         ).freeze
       end
+
+      def self.silent
+        @silent ||= ALL.each.with_object({}) do |klass, hash|
+          hash[klass] = nil
+        end.freeze
+      end
     end
   end
 end
