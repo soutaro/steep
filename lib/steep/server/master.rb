@@ -450,50 +450,65 @@ module Steep
             end
           end
 
-          Steep.logger.tagged "main" do
-            while job = job_queue.deq
-              case job
-              when ReceiveMessageJob
-                src = case job.source
+          loop_thread = Thread.new do
+            Steep.logger.formatter.push_tags(*tags)
+            Steep.logger.tagged "main" do
+              while job = job_queue.deq
+                case job
+                when ReceiveMessageJob
+                  src = case job.source
+                        when :client
+                          :client
+                        else
+                          job.source.name
+                        end
+                  Steep.logger.tagged("ReceiveMessageJob(#{src}/#{job.message[:method]}/#{job.message[:id]})") do
+                    if job.response? && result_controller.process_response(job.message)
+                      # nop
+                      Steep.logger.info { "Processed by ResultController" }
+                    else
+                      case job.source
                       when :client
-                        :client
-                      else
-                        job.source.name
-                      end
-                Steep.logger.tagged("ReceiveMessageJob(#{src}/#{job.message[:method]}/#{job.message[:id]})") do
-                  if job.response? && result_controller.process_response(job.message)
-                    # nop
-                    Steep.logger.info { "Processed by ResultController" }
-                  else
-                    case job.source
-                    when :client
-                      process_message_from_client(job.message)
+                        process_message_from_client(job.message)
 
-                      if job.message[:method] == "exit"
-                        job_queue.close()
+                        if job.message[:method] == "exit"
+                          job_queue.close()
+                        end
+                      when WorkerProcess
+                        process_message_from_worker(job.message, worker: job.source)
                       end
-                    when WorkerProcess
-                      process_message_from_worker(job.message, worker: job.source)
                     end
                   end
-                end
-              when SendMessageJob
-                case job.dest
-                when :client
-                  Steep.logger.info { "Processing SendMessageJob: dest=client, method=#{job.message[:method] || "-"}, id=#{job.message[:id] || "-"}" }
-                  writer.write job.message
-                when WorkerProcess
-                  Steep.logger.info { "Processing SendMessageJob: dest=#{job.dest.name}, method=#{job.message[:method] || "-"}, id=#{job.message[:id] || "-"}" }
-                  job.dest << job.message
+                when SendMessageJob
+                  case job.dest
+                  when :client
+                    Steep.logger.info { "Processing SendMessageJob: dest=client, method=#{job.message[:method] || "-"}, id=#{job.message[:id] || "-"}" }
+                    writer.write job.message
+                  when WorkerProcess
+                    Steep.logger.info { "Processing SendMessageJob: dest=#{job.dest.name}, method=#{job.message[:method] || "-"}, id=#{job.message[:id] || "-"}" }
+                    job.dest << job.message
+                  end
                 end
               end
             end
-
-            read_client_thread.join()
-            worker_threads.each do |thread|
-              thread.join
-            end
           end
+
+          waiter = ThreadWaiter.new(each_worker.to_a) {|worker| worker.wait_thread }
+          waiter.wait_one()
+
+          unless job_queue.closed?
+            # Exit by error
+            each_worker do |worker|
+              worker.kill(force: true)
+            end
+            raise "Unexpected worker process exit"
+          end
+
+          read_client_thread.join()
+          worker_threads.each do |thread|
+            thread.join
+          end
+          loop_thread.join
         end
       end
 

@@ -87,7 +87,11 @@ module Steep
 
       def read: () { (untyped) -> void } -> void
 
-      def kill: () -> void
+      # Stop the process by sending SIGTERM and wait for the process exit
+      #
+      # Send `SIGKILL` and returns immediately if `force:` is `true`.
+      #
+      def kill: (?force: bool) -> void
     end
   end
 end

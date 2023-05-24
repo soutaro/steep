@@ -63,6 +63,8 @@ module Steep
         worker.commandline_args = patterns
 
         pid = fork do
+          stdin_out.close
+          stdout_in.close
           worker.run()
         end
 
@@ -149,8 +151,22 @@ module Steep
         reader.read(&block)
       end
 
-      def kill
-        Process.kill(:TERM, @wait_thread.pid)
+      def kill(force: false)
+        Steep.logger.tagged("WorkerProcess#kill@#{name}(#{wait_thread.pid})") do
+          begin
+            signal = force ? :KILL : :TERM
+            Steep.logger.debug("Sending signal SIG#{signal}...")
+            Process.kill(signal, wait_thread.pid)
+            Steep.logger.debug("Successfully sent the signal.")
+          rescue Errno::ESRCH => error
+            Steep.logger.debug("Failed #{error.inspect}")
+          end
+          unless force
+            Steep.logger.debug("Waiting for process exit...")
+            wait_thread.join()
+            Steep.logger.debug("Confirmed process exit.")
+          end
+        end
       end
     end
   end

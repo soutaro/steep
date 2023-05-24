@@ -227,7 +227,23 @@ module Steep
 
       def initialize: (project: Project, reader: untyped, writer: untyped, interaction_worker: WorkerProcess?, typecheck_workers: Array[WorkerProcess], ?queue: Thread::Queue) -> void
 
+      # Start the Steep language server
+      #
+      # Returns after the language server shutdown.
+      # The shutdown process starts by `exit` message.
+      #
+      # Raises an exception if the worker processes doesn't shutdown properly, like being `#kill`-ed.
+      # Exiting the process is assumed in the case of error.
+      # The only one cleanup it does is stopping the worker processes, by `SIGKILL`.
+      #
       def start: () -> void
+
+      # Stops the language server workers by sending SIGTERM
+      #
+      # This skips the normal shutdown process defined in LSP.
+      # The `#start` call will result in an exception.
+      #
+      def kill: () -> void
 
       def each_worker: () { (WorkerProcess) -> void } -> void
                      | () -> Enumerator[WorkerProcess, void]
@@ -253,8 +269,6 @@ module Steep
       def send_request: (method: String, worker: WorkerProcess, ?id: String, ?params: untyped?) ?{ (ResultHandler) -> void } -> ResultHandler
 
       def group_request: () { (GroupHandler) -> void } -> GroupHandler
-
-      def kill: () -> void
     end
   end
 end
