@@ -10634,4 +10634,26 @@ z = AppTest.new.foo(1, 2) #$ Integer, Integer, String
       end
     end
   end
+
+  def test_send_block__untyped_distribute
+    with_checker(<<~RBS) do |checker|
+        class UntypedBlock
+          def self.foo: () { (untyped) -> void } -> void
+        end
+      RBS
+      source = parse_ruby(<<~RUBY)
+        UntypedBlock.foo do |x, y, *z|
+          x.foo
+          y.foo
+          z[0].foo
+        end
+      RUBY
+
+      with_standard_construction(checker, source) do |construction, typing|
+        type, _, context = construction.synthesize(source.node)
+
+        assert_no_error typing
+      end
+    end
+  end
 end

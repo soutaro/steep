@@ -151,8 +151,14 @@ module Steep
               | () -> Enumerator[Param | MultipleParam, void]
 
       # Yields `Param` recursively
-      # 
+      #
       def each_single_param: () { (Param) -> void } -> void
+
+      # Returns true if the parameter is single `untyped`
+      #
+      # This will automatically distribute `untyped` on block parameters.
+      #
+      def untyped_args?: (Interface::Function::Params) -> bool
     end
   end
 end
