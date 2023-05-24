@@ -19,7 +19,7 @@ module Steep
 
       attr_accessor paths: PathOptions
 
-      attr_accessor collection_lock: RBS::Collection::Config::Lockfile
+      attr_accessor collection_lock: RBS::Collection::Config::Lockfile?
 
       def initialize: () -> void
     end
