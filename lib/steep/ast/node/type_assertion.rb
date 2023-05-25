@@ -17,7 +17,7 @@ module Steep
         end
 
         def type(context, factory, type_vars)
-          if ty = RBS::Parser.parse_type(type_location.buffer, range: type_location.range, variables: type_vars)
+          if ty = RBS::Parser.parse_type(type_location.buffer, range: type_location.range, variables: type_vars, require_eof: true)
             ty = factory.type(ty)
             factory.absolute_type(ty, context: context)
           else
@@ -25,6 +25,13 @@ module Steep
           end
         rescue ::RBS::ParsingError => exn
           exn
+        end
+
+        def type_syntax?
+          RBS::Parser.parse_type(type_location.buffer, range: type_location.range, variables: [], require_eof: true)
+          true
+        rescue::RBS::ParsingError
+          false
         end
 
         def type?(context, factory, type_vars)
@@ -46,8 +53,13 @@ module Steep
         end
 
         def self.parse(location)
-          if location.source =~/\A:\s*(.+)/
-            TypeAssertion.new(location)
+          source = location.source.strip
+
+          if source =~/\A:\s*(.+)/
+            assertion = TypeAssertion.new(location)
+            if assertion.type_syntax?
+              assertion
+            end
           end
         end
       end
