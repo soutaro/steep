@@ -10656,4 +10656,22 @@ z = AppTest.new.foo(1, 2) #$ Integer, Integer, String
       end
     end
   end
+
+  def test_assertion__ignore_rdoc_directive
+    with_checker(<<~RBS) do |checker|
+        class RDocCommentConflictTest
+        end
+      RBS
+      source = parse_ruby(<<~RUBY)
+        class RDocCommentConflictTest # :nodoc:
+        end
+      RUBY
+
+      with_standard_construction(checker, source) do |construction, typing|
+        type, _, context = construction.synthesize(source.node)
+
+        assert_no_error typing
+      end
+    end
+  end
 end
