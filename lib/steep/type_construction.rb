@@ -1402,11 +1402,17 @@ module Steep
             # @type var super_node: Parser::AST::Node?
 
             name_node, super_node, _ = node.children
-            _, constr, class_name = synthesize_constant_decl(name_node, name_node.children[0], name_node.children[1]) do
-              typing.add_error(
-                Diagnostic::Ruby::UnknownConstant.new(node: name_node, name: name_node.children[1]).class!
-              )
+
+            if name_node.type == :const
+              _, constr, class_name = synthesize_constant_decl(name_node, name_node.children[0], name_node.children[1]) do
+                typing.add_error(
+                  Diagnostic::Ruby::UnknownConstant.new(node: name_node, name: name_node.children[1]).class!
+                )
+              end
+            else
+              _, constr = synthesize(name_node)
             end
+
             if class_name
               typing.source_index.add_definition(constant: class_name, definition: name_node)
             end
@@ -1453,8 +1459,13 @@ module Steep
 
             # @type var name_node: Parser::AST::Node
             name_node, _ = node.children
-            _, constr, module_name = synthesize_constant_decl(name_node, name_node.children[0], name_node.children[1]) do
-              typing.add_error Diagnostic::Ruby::UnknownConstant.new(node: name_node, name: name_node.children[1]).module!
+
+            if name_node.type == :const
+              _, constr, module_name = synthesize_constant_decl(name_node, name_node.children[0], name_node.children[1]) do
+                typing.add_error Diagnostic::Ruby::UnknownConstant.new(node: name_node, name: name_node.children[1]).module!
+              end
+            else
+              _, constr = synthesize(name_node)
             end
 
             if module_name
