@@ -573,6 +573,27 @@ t = [10, ""]
     end
   end
 
+  def test_assertion_class_module_names
+      with_factory do |factory|
+        source = Steep::Source.parse(<<~RUBY, path: Pathname("foo.rb"), factory: factory)
+          class Foo # : Integer
+          end
+          module Bar # : nil
+          end
+        RUBY
+
+        source.node.children[0].tap do |node|
+          assert_equal :class, node.type
+          assert_equal :const, node.children[0].type
+        end
+
+        source.node.children[1].tap do |node|
+          assert_equal :module, node.type
+          assert_equal :const, node.children[0].type
+        end
+      end
+    end
+
   def test_assertion_assignment
     with_factory do |factory|
       source = Steep::Source.parse(<<-EOF, path: Pathname("foo.rb"), factory: factory)

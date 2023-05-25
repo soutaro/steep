@@ -490,9 +490,35 @@ module Steep
         end
       end
 
-      adjust_location(
-        map_child_node(node, nil) {|child| insert_type_node(child, comments) }
-      )
+      case node.type
+      when :class
+        class_name, super_class, class_body = node.children
+        adjust_location(
+          node.updated(
+            nil,
+            [
+              class_name,
+              super_class,
+              class_body ? insert_type_node(class_body, comments) : nil
+            ]
+          )
+        )
+      when :module
+        module_name, module_body = node.children
+        adjust_location(
+          node.updated(
+            nil,
+            [
+              module_name,
+              module_body ? insert_type_node(module_body, comments) : nil
+            ]
+          )
+        )
+      else
+        adjust_location(
+          map_child_node(node, nil) {|child| insert_type_node(child, comments) }
+        )
+      end
     end
 
     def self.sendish_node?(node)
