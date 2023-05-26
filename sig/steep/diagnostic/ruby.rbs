@@ -530,6 +530,17 @@ module Steep
         def header_line: () -> String
       end
 
+      # Type hint is given to a proc/lambda but it was ignored
+      #
+      # 1. Because the hint is incompatible to `::Proc` type
+      # 2. More than one *proc type* is included in the hint
+      #
+      class ProcHintIgnored < Base
+        attr_reader hint_type: AST::Types::t
+
+        def initialize: (hint_type: AST::Types::t, node: Parser::AST::Node) -> void
+      end
+
       # Argument forwarding `...` cannot be done safely, because of
       #
       # 1. The arguments are incompatible, or
