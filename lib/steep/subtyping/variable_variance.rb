@@ -63,6 +63,17 @@ module Steep
             covariants << type.name
             contravariants << type.name
           end
+        when AST::Types::Proc
+          type.type.params.each_type do |type|
+            add_type(type, variance: variance, covariants: contravariants, contravariants: covariants)
+          end
+          add_type(type.type.return_type, variance: variance, covariants: covariants, contravariants: contravariants)
+          if type.block
+            type.block.type.params.each_type do |type|
+              add_type(type, variance: variance, covariants: covariants, contravariants: contravariants)
+            end
+            add_type(type.type.return_type, variance: variance, covariants: contravariants, contravariants: covariants)
+          end
         when AST::Types::Union, AST::Types::Intersection, AST::Types::Tuple
           type.types.each do |ty|
             add_type(ty, variance: variance, covariants: covariants, contravariants: contravariants)
