@@ -4677,9 +4677,10 @@ EOF
       with_standard_construction(checker, source) do |construction, typing|
         construction.synthesize(source.node)
 
-        assert_equal 1, typing.errors.size
-        typing.errors[0].yield_self do |error|
-          assert_instance_of Diagnostic::Ruby::IncompatibleAssignment, error
+        assert_typing_error(typing, size: 2) do |errors|
+          assert_any!(errors) do |error|
+            assert_instance_of Diagnostic::Ruby::IncompatibleAssignment, error
+          end
         end
       end
     end
@@ -8898,7 +8899,7 @@ end
       with_standard_construction(checker, source) do |construction, typing|
         type, _, _ = construction.synthesize(source.node)
 
-        assert_typing_error(typing, size: 1) do |errors|
+        assert_typing_error(typing, size: 2) do |errors|
           assert_any!(errors) do |error|
             assert_instance_of Diagnostic::Ruby::IncompatibleAssignment, error
           end
@@ -10744,6 +10745,69 @@ z = AppTest.new.foo(1, 2) #$ Integer, Integer, String
             assert_instance_of Diagnostic::Ruby::BlockTypeMismatch, error
           end
         end
+      end
+    end
+  end
+
+  def test_type_hint__proc_optional
+    with_checker(<<~RBS) do |checker|
+      RBS
+      source = parse_ruby(<<~RUBY)
+        # @type var proc: nil | ^(Integer) -> String
+        proc = -> (x) do
+          x.hogehoge
+        end
+      RUBY
+
+      with_standard_construction(checker, source) do |construction, typing|
+        type, _, context = construction.synthesize(source.node)
+
+        assert_typing_error(typing, size: 1) do |errors|
+          assert_any!(errors) do |error|
+            assert_instance_of Diagnostic::Ruby::NoMethod, error
+            assert_equal parse_type("::Integer"), error.type
+          end
+        end
+      end
+    end
+  end
+
+  def test_type_hint__proc_union_with_proc
+    with_checker(<<~RBS) do |checker|
+      RBS
+      source = parse_ruby(<<~RUBY)
+        # @type var proc: (^(Integer) -> String) | (^(String, String) -> Integer)
+        proc = -> (x) do
+          x.hogehoge
+        end
+      RUBY
+
+      with_standard_construction(checker, source) do |construction, typing|
+        type, _, context = construction.synthesize(source.node)
+
+        assert_typing_error(typing, size: 1) do |errors|
+          assert_any!(errors) do |error|
+            assert_instance_of Diagnostic::Ruby::ProcHintIgnored, error
+            assert_equal parse_type("(^(::Integer) -> ::String) | (^(::String, ::String) -> ::Integer)"), error.hint_type
+          end
+        end
+      end
+    end
+  end
+
+  def test_type_hint__proc_union_proc_instance
+    with_checker(<<~RBS) do |checker|
+      RBS
+      source = parse_ruby(<<~RUBY)
+        # @type var proc: Proc
+        proc = -> (x) do
+          x.hogehoge
+        end
+      RUBY
+
+      with_standard_construction(checker, source) do |construction, typing|
+        type, _, context = construction.synthesize(source.node)
+        assert_no_error typing
       end
     end
   end
