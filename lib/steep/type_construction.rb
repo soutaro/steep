@@ -2295,43 +2295,58 @@ module Steep
 
         when :block_pass
           yield_self do
-            value = node.children[0]
+            value_node = node.children[0]
 
-            case
-            when hint.is_a?(AST::Types::Proc) && value && value.type == :sym
-              if hint.one_arg?
-                # Assumes Symbol#to_proc implementation
-                param_type = hint.type.params.required[0]
-                case param_type
-                when AST::Types::Any
-                  type = AST::Types::Any.new
-                else
-                  if method = calculate_interface(param_type, private: true)&.methods&.[](value.children[0])
-                    return_types = method.method_types.filter_map do |method_type|
-                      if method_type.type.params.optional?
-                        method_type.type.return_type
+            constr = self #: TypeConstruction
+
+            if value_node
+              type, constr = synthesize(value_node, hint: hint)
+
+              if hint.is_a?(AST::Types::Proc) && value_node.type == :sym
+                if hint.one_arg?
+                  # Assumes Symbol#to_proc implementation
+                  param_type = hint.type.params.required[0]
+                  case param_type
+                  when AST::Types::Any
+                    type = AST::Types::Any.new
+                  else
+                    if method = calculate_interface(param_type, private: true)&.methods&.[](value_node.children[0])
+                      return_types = method.method_types.filter_map do |method_type|
+                        if method_type.type.params.optional?
+                          method_type.type.return_type
+                        end
+                      end
+
+                      unless return_types.empty?
+                        type = AST::Types::Proc.new(
+                          type: Interface::Function.new(
+                            params: Interface::Function::Params.empty.with_first_param(
+                              Interface::Function::Params::PositionalParams::Required.new(param_type)
+                            ),
+                            return_type: return_types[0],
+                            location: nil
+                          ),
+                          block: nil,
+                          self_type: nil
+                        )
                       end
                     end
-
-                    unless return_types.empty?
-                      type = AST::Types::Proc.new(
-                        type: Interface::Function.new(
-                          params: Interface::Function::Params.empty.with_first_param(
-                            Interface::Function::Params::PositionalParams::Required.new(param_type)
-                          ),
-                          return_type: return_types[0],
-                          location: nil
-                        ),
-                        block: nil,
-                        self_type: nil
-                      )
-                    end
                   end
+                else
+                  Steep.logger.error "Passing multiple args through Symbol#to_proc is not supported yet"
                 end
-              else
-                Steep.logger.error "Passing multiple args through Symbol#to_proc is not supported yet"
               end
-            when value == nil
+
+              case
+              when type.is_a?(AST::Types::Proc)
+                # nop
+              when AST::Builtin::Proc.instance_type?(type)
+                # nop
+              else
+                type = try_convert(type, :to_proc) || type
+              end
+            else
+              # Anonymous block_pass only happens inside method definition
               if block_type = method_context!.block_type
                 type = AST::Types::Proc.new(
                   type: block_type.type,
@@ -2339,15 +2354,14 @@ module Steep
                   block: nil,
                   self_type: block_type.self_type
                 )
+
                 if block_type.optional?
-                  type = AST::Types::Union.build(types: [type, AST::Builtin.nil_type])
+                  type = union_type(type, AST::Builtin.nil_type)
                 end
               else
                 type = AST::Builtin.nil_type
               end
             end
-
-            type ||= synthesize(value, hint: hint).type
 
             add_typing node, type: type
           end
@@ -2879,7 +2893,7 @@ module Steep
         if type.types.size == 2
           if type.types.find {|t| t.is_a?(AST::Types::Nil) }
             if proc_type = type.types.find {|t| t.is_a?(AST::Types::Proc) }
-              proc_type
+              proc_type #: AST::Types::Proc
             end
           end
         end

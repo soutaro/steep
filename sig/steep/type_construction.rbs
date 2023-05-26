@@ -164,7 +164,9 @@ module Steep
     #
     def synthesize_constant: (Parser::AST::Node? node, Parser::AST::Node? parent_node, Symbol constant_name) ?{ () -> void } -> [AST::Types::t, TypeConstruction, RBS::TypeName?]
 
-    def optional_proc?: (untyped `type`) -> (untyped | nil | nil | nil | nil)
+    # Returns a proc type if given type is a two clause union with the proc type and `nil`
+    # 
+    def optional_proc?: (AST::Types::t) -> AST::Types::Proc?
 
     def type_lambda: (Parser::AST::Node & Parser::AST::_BlockNode node, params_node: Parser::AST::Node, body_node: Parser::AST::Node, type_hint: AST::Types::t?) -> Pair
 
