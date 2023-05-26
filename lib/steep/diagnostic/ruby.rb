@@ -908,6 +908,19 @@ module Steep
         end
       end
 
+      class ProcHintIgnored < Base
+        attr_reader :hint_type, :block_node
+
+        def initialize(hint_type:, node:)
+          @hint_type = hint_type
+          super(node: node)
+        end
+
+        def header_line
+          "The type hint given to the block is ignored: `#{hint_type}`"
+        end
+      end
+
       ALL = ObjectSpace.each_object(Class).with_object([]) do |klass, array|
         if klass < Base
           array << klass
@@ -932,7 +945,8 @@ module Steep
             UnexpectedTypeArgument => :information,
             InsufficientTypeArgument => :information,
             UnexpectedTypeArgument => :information,
-            UnsupportedSyntax => nil
+            UnsupportedSyntax => nil,
+            ProcHintIgnored => :information
           }
         ).freeze
       end
@@ -946,7 +960,8 @@ module Steep
             ElseOnExhaustiveCase => nil,
             UnknownConstant => nil,
             MethodDefinitionMissing => nil,
-            UnsupportedSyntax => nil
+            UnsupportedSyntax => nil,
+            ProcHintIgnored => :warning
           }
         ).freeze
       end
@@ -962,7 +977,8 @@ module Steep
             MethodDefinitionMissing => nil,
             UnexpectedJump => nil,
             FalseAssertion => :hint,
-            UnsupportedSyntax => nil
+            UnsupportedSyntax => nil,
+            ProcHintIgnored => :hint
           }
         ).freeze
       end

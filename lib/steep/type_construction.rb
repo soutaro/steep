@@ -2904,14 +2904,32 @@ module Steep
       block_annotations = source.annotations(block: node, factory: checker.factory, context: nesting)
       params = TypeInference::BlockParams.from_node(params_node, annotations: block_annotations)
 
-      type_hint = deep_expand_alias(type_hint) if type_hint
+      if type_hint
+        original_hint = type_hint
 
-      case type_hint
-      when AST::Types::Proc
-        params_hint = type_hint.type.params
-        return_hint = type_hint.type.return_type
-        block_hint = type_hint.block
-        self_hint = type_hint.self_type
+        type_hint = deep_expand_alias(type_hint) || type_hint
+
+        procs = flatten_union(type_hint).select do |type|
+          check_relation(sub_type: type, super_type: AST::Builtin::Proc.instance_type).success?
+        end
+
+        proc_instances, proc_types = procs.partition {|type| AST::Builtin::Proc.instance_type?(type) }
+
+        case
+        when !proc_instances.empty? && proc_types.empty?
+          # `::Proc` is given as a hint
+        when proc_types.size == 1
+          # Proc type is given as a hint
+          hint_proc = proc_types[0]  #: AST::Types::Proc
+          params_hint = hint_proc.type.params
+          return_hint = hint_proc.type.return_type
+          block_hint = hint_proc.block
+          self_hint = hint_proc.self_type
+        else
+          typing.add_error(
+            Diagnostic::Ruby::ProcHintIgnored.new(hint_type: original_hint, node: node)
+          )
+        end
       end
 
       block_constr = for_block(
