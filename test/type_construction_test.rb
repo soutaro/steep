@@ -10674,4 +10674,77 @@ z = AppTest.new.foo(1, 2) #$ Integer, Integer, String
       end
     end
   end
+
+  def test_block_pass__to_proc
+    with_checker(<<~RBS) do |checker|
+        class ToProcTest
+          def self.foo: () { (Integer) -> void } -> void
+        end
+
+        class ReturnsProc
+          def to_proc: () -> (^(Integer) -> String)
+        end
+      RBS
+      source = parse_ruby(<<~RUBY)
+        ToProcTest.foo(&ReturnsProc.new)
+      RUBY
+
+      with_standard_construction(checker, source) do |construction, typing|
+        type, _, context = construction.synthesize(source.node)
+
+        assert_no_error typing
+      end
+    end
+  end
+
+  def test_block_pass__to_proc_nil
+    with_checker(<<~RBS) do |checker|
+        class ToProcTest
+          def self.foo: () { (Integer) -> void } -> void
+        end
+
+        class ReturnsProc
+          def to_proc: () -> nil
+        end
+      RBS
+      source = parse_ruby(<<~RUBY)
+        ToProcTest.foo(&ReturnsProc.new)
+      RUBY
+
+      with_standard_construction(checker, source) do |construction, typing|
+        type, _, context = construction.synthesize(source.node)
+
+        assert_typing_error(typing, size: 1) do |errors|
+          assert_any!(errors) do |error|
+            assert_instance_of Diagnostic::Ruby::RequiredBlockMissing, error
+          end
+        end
+      end
+    end
+  end
+
+  def test_block_pass__to_proc_no
+    with_checker(<<~RBS) do |checker|
+        class ToProcTest
+          def self.foo: () { (Integer) -> void } -> void
+        end
+
+        class ReturnsProc
+        end
+      RBS
+      source = parse_ruby(<<~RUBY)
+        ToProcTest.foo(&ReturnsProc.new)
+      RUBY
+
+      with_standard_construction(checker, source) do |construction, typing|
+        type, _, context = construction.synthesize(source.node)
+
+        assert_typing_error(typing, size: 1) do |errors|
+          assert_any!(errors) do |error|
+            assert_instance_of Diagnostic::Ruby::BlockTypeMismatch, error
+          end
+        end
+      end
+    end
+  end
 end
