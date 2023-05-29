@@ -3,31 +3,31 @@ module Steep
     class Check
       module LSP = LanguageServer::Protocol
 
-      attr_reader stdout: untyped
+      attr_reader stdout: IO
 
-      attr_reader stderr: untyped
+      attr_reader stderr: IO
 
-      attr_reader command_line_patterns: untyped
+      attr_reader command_line_patterns: Array[String]
 
-      attr_accessor with_expectations_path: untyped
+      attr_accessor with_expectations_path: Pathname?
 
-      attr_accessor save_expectations_path: untyped
+      attr_accessor save_expectations_path: Pathname?
 
-      attr_accessor severity_level: untyped
+      attr_accessor severity_level: Diagnostic::LSPFormatter::severity
 
       attr_reader jobs_option: Utils::JobsOption
 
       include Utils::DriverHelper
 
-      def initialize: (stdout: untyped, stderr: untyped) -> void
+      def initialize: (stdout: IO, stderr: IO) -> void
 
       def run: () -> Integer
 
-      def print_expectations: (project: untyped, all_files: untyped, expectations_path: untyped, notifications: untyped) -> untyped
+      def print_expectations: (project: Project, all_files: Array[Pathname], expectations_path: Pathname, notifications: Array[untyped]) -> Integer
 
-      def save_expectations: (project: untyped, all_files: untyped, expectations_path: untyped, notifications: untyped) -> 0
+      def save_expectations: (project: Project, all_files: Array[Pathname], expectations_path: Pathname, notifications: Array[untyped]) -> Integer
 
-      def print_result: (project: untyped, notifications: untyped) -> (0 | 1)
+      def print_result: (project: Project, notifications: Array[untyped]) -> Integer
     end
   end
 end

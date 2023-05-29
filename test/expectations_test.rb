@@ -5,6 +5,8 @@ class ExpectationsTest < Minitest::Test
   include ShellHelper
   include Steep
 
+  Diagnostic = Expectations::Diagnostic
+
   LSP = LanguageServer::Protocol
 
   def test_load
@@ -25,12 +27,10 @@ YAML
 
     assert_equal(
       [
-        {
-          range: {
-            start: { line: 3, character: 0 },
-            end: { line: 3, character: 7 }
-          },
-          severity: LSP::Constant::DiagnosticSeverity::ERROR,
+        Diagnostic.new(
+          start_position: { line: 3, character: 0 },
+          end_position: { line: 3, character: 7 },
+          severity: :error,
           code: "Ruby::UnresolvedOverloading",
           message: <<~MSG
             Cannot assign a value of type `::String` to a variable of type `::Symbol`
@@ -38,7 +38,7 @@ YAML
                 ::Object <: ::Symbol
                   ::BasicObject <: ::Symbol
           MSG
-        }
+        )
       ],
       es.diagnostics[Pathname("a.rb")]
     )
@@ -46,33 +46,27 @@ YAML
 
   def test_testresult
     ds = [
-      {
-        range: {
-          start: { line: 3, character: 0 },
-          end: { line: 3, character: 7 }
-        },
-        severity: LSP::Constant::DiagnosticSeverity::ERROR,
+      Diagnostic.new(
+        start_position: { line: 3, character: 0 },
+        end_position: { line: 3, character: 7 },
+        severity: :error,
         code: "Ruby::UnresolvedOverloading",
         message: "Diagnostic 1"
-      },
-      {
-        range: {
-          start: { line: 3, character: 3 },
-          end: { line: 3, character: 7 }
-        },
-        severity: LSP::Constant::DiagnosticSeverity::ERROR,
+      ),
+      Diagnostic.new(
+        start_position: { line: 3, character: 3 },
+        end_position: { line: 3, character: 7 },
+        severity: :error,
         code: "Ruby::UnresolvedOverloading",
         message: "Diagnostic 2"
-      },
-      {
-        range: {
-          start: { line: 4, character: 0 },
-          end: { line: 5, character: 0 }
-        },
-        severity: LSP::Constant::DiagnosticSeverity::ERROR,
+      ),
+      Diagnostic.new(
+        start_position: { line: 4, character: 0 },
+        end_position: { line: 5, character: 0 },
+        severity: :error,
         code: "Ruby::UnresolvedOverloading",
         message: "Diagnostic 3"
-      }
+      )
     ]
 
     result = Expectations::TestResult.new(

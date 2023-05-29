@@ -17,7 +17,7 @@ module Steep
 
       def location: (untyped diagnostic) -> String
 
-      def print: (untyped diagnostic, ?prefix: ::String, ?source: bool) -> void
+      def print: (Hash[Symbol, untyped] diagnostic, ?prefix: ::String, ?source: bool) -> void
 
       def print_source_line: (untyped diagnostic, ?prefix: ::String) -> void
     end

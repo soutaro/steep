@@ -68,8 +68,8 @@ module Steep
         Steep.logger.info { "Starting type checking: #{request_guid}" }
         client_writer.write({ method: "$/typecheck", params: { guid: request_guid } })
 
-        diagnostic_notifications = []
-        error_messages = []
+        diagnostic_notifications = [] #: Array[LanguageServer::Protocol::Interface::PublishDiagnosticsParams]
+        error_messages = [] #: Array[String]
         client_reader.read do |response|
           case
           when response[:method] == "textDocument/publishDiagnostics"
@@ -142,9 +142,11 @@ module Steep
         unexpected_count = 0
         missing_count = 0
 
-        ns = notifications.each.with_object({}) do |notification, hash|
-          path = project.relative_path(Steep::PathHelper.to_pathname(notification[:uri]))
-          hash[path] = notification[:diagnostics]
+        ns = notifications.each.with_object({}) do |notification, hash| #$ Hash[Pathname, Array[Expectations::Diagnostic]]
+          path = project.relative_path(Steep::PathHelper.to_pathname(notification[:uri]) || raise)
+          hash[path] = notification[:diagnostics].map do |diagnostic|
+            Expectations::Diagnostic.from_lsp(diagnostic)
+          end
         end
 
         all_files.sort.each do |path|
@@ -159,10 +161,10 @@ module Steep
               expected_count += 1
             when :unexpected
               unexpected_count += 1
-              printer.print(diag, prefix: Rainbow("+ ").green)
+              printer.print(diag.to_lsp, prefix: Rainbow("+ ").green)
             when :missing
               missing_count += 1
-              printer.print(diag, prefix: Rainbow("- ").red, source: false)
+              printer.print(diag.to_lsp, prefix: Rainbow("- ").red, source: false)
             end
           end
         end
@@ -189,9 +191,9 @@ module Steep
                          Expectations.empty()
                        end
 
-        ns = notifications.each.with_object({}) do |notification, hash|
-          path = project.relative_path(Steep::PathHelper.to_pathname(notification[:uri]))
-          hash[path] = notification[:diagnostics]
+        ns = notifications.each.with_object({}) do |notification, hash| #$ Hash[Pathname, Array[Expectations::Diagnostic]]
+          path = project.relative_path(Steep::PathHelper.to_pathname(notification[:uri]) || raise)
+          hash[path] = notification[:diagnostics].map {|diagnostic| Expectations::Diagnostic.from_lsp(diagnostic) }
         end
 
         all_files.sort.each do |path|
@@ -219,7 +221,7 @@ module Steep
           total = errors.sum {|notification| notification[:diagnostics].size }
 
           errors.each do |notification|
-            path = Steep::PathHelper.to_pathname(notification[:uri])
+            path = Steep::PathHelper.to_pathname(notification[:uri]) or raise
             buffer = RBS::Buffer.new(name: project.relative_path(path), content: path.read)
             printer = DiagnosticPrinter.new(buffer: buffer, stdout: stdout)
 
