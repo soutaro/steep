@@ -21,6 +21,10 @@ module Steep
         def block_type
           method_type&.block
         end
+
+        def attribute_setter?
+          name.to_s.end_with?('=')
+        end
       end
 
       class BlockContext

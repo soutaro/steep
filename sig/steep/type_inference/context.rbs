@@ -36,6 +36,10 @@ module Steep
 
         # Type of the block of the current method type
         def block_type: () -> Interface::Block?
+
+        # Returns `true` if the method is a setter -- ends with `=`
+        #
+        def attribute_setter?: () -> bool
       end
 
       # Information about the block which the body is being type checked
