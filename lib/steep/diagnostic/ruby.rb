@@ -322,6 +322,24 @@ module Steep
         end
       end
 
+      class SetterReturnTypeMismatch < Base
+        attr_reader :expected, :actual, :result, :method_name
+
+        include ResultPrinter
+
+        def initialize(node:, method_name:, expected:, actual:, result:)
+          super(node: node)
+          @method_name = method_name
+          @expected = expected
+          @actual = actual
+          @result = result
+        end
+
+        def header_line
+          "The setter method `#{method_name}` cannot return a value of type `#{actual}` because declared as type `#{expected}`"
+        end
+      end
+
       class UnexpectedBlockGiven < Base
         attr_reader :method_type
 
@@ -536,6 +554,24 @@ module Steep
 
         def header_line
           "Cannot allow method body have type `#{actual}` because declared as type `#{expected}`"
+        end
+      end
+
+      class SetterBodyTypeMismatch < Base
+        attr_reader :expected, :actual, :result, :method_name
+
+        include ResultPrinter
+
+        def initialize(node:, expected:, actual:, result:, method_name:)
+          super(node: node, location: node.loc.name)
+          @expected = expected
+          @actual = actual
+          @result = result
+          @method_name = method_name
+        end
+
+        def header_line
+          "Setter method `#{method_name}` cannot have type `#{actual}` because declared as type `#{expected}`"
         end
       end
 

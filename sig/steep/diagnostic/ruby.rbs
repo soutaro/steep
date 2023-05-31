@@ -153,6 +153,36 @@ module Steep
         def header_line: () -> ::String
       end
 
+      # Setter method, which has a name ending with `=`, returns different type from the method type
+      #
+      # ```ruby
+      # class Foo
+      #   # Assume `name=` has method type of `(String) -> String`
+      #   def name=(value)
+      #     return if value.empty?
+      #     @value = value
+      #   end
+      # end
+      # ```
+      #
+      # This is a special diagnostic for setter methods because the return value is not used with ordinal call syntax.
+      #
+      class SetterReturnTypeMismatch < Base
+        attr_reader expected: AST::Types::t
+
+        attr_reader actual: AST::Types::t
+
+        attr_reader result: Subtyping::Result::Base
+
+        attr_reader method_name: Symbol
+
+        include ResultPrinter
+
+        def initialize: (node: Parser::AST::Node, method_name: Symbol, expected: AST::Types::t, actual: AST::Types::t, result: Subtyping::Result::Base) -> void
+
+        def header_line: () -> String
+      end
+
       class UnexpectedBlockGiven < Base
         attr_reader method_type: untyped
 
@@ -297,6 +327,36 @@ module Steep
         def initialize: (node: untyped, expected: untyped, actual: untyped, result: untyped) -> void
 
         def header_line: () -> ::String
+      end
+
+      # Setter method, which has a name ending with `=`, has different type from the method type
+      #
+      # ```ruby
+      # class Foo
+      #   # Assume `name=` has method type of `(String) -> String`
+      #   def name=(value)
+      #     @value = value
+      #     value.strip!
+      #   end
+      # end
+      # ```
+      #
+      # This is a special diagnostic for setter methods because the return value is not used with ordinal call syntax.
+      #
+      class SetterBodyTypeMismatch < Base
+        attr_reader expected: AST::Types::t
+
+        attr_reader actual: AST::Types::t
+
+        attr_reader result: Subtyping::Result::Base
+
+        attr_reader method_name: Symbol
+
+        include ResultPrinter
+
+        def initialize: (node: Parser::AST::Node & Parser::AST::_DefNode, expected: AST::Types::t, actual: AST::Types::t, result: Subtyping::Result::Base, method_name: Symbol) -> void
+
+        def header_line: () -> String
       end
 
       class UnexpectedYield < Base
