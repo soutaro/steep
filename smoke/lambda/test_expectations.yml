@@ -15,25 +15,3 @@
           ::Object <: ::Integer
             ::BasicObject <: ::Integer
     code: Ruby::IncompatibleAssignment
-  - range:
-      start:
-        line: 10
-        character: 0
-      end:
-        line: 12
-        character: 3
-    severity: ERROR
-    message: |-
-      Cannot assign a value of type `::Proc` to a variable of type `^(::Integer) -> ::Integer`
-        ::Proc <: ^(::Integer) -> ::Integer
-    code: Ruby::IncompatibleAssignment
-  - range:
-      start:
-        line: 11
-        character: 4
-      end:
-        line: 11
-        character: 5
-    severity: ERROR
-    message: Type `nil` does not have method `+`
-    code: Ruby::NoMethod
