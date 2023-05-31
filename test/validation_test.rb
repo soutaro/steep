@@ -1116,4 +1116,26 @@ Test: SetValueExtractor[ArraySet]
       end
     end
   end
+
+  def test_generic_ancestor_argument_types
+    with_checker <<~RBS do |checker|
+        interface _X[T]
+        end
+
+        class Y
+          include _X[Array]
+        end
+      RBS
+
+      Validator.new(checker: checker).tap do |validator|
+        validator.validate
+
+        assert_any!(validator.each_error, size: 1) do |error|
+          assert_instance_of Diagnostic::Signature::InvalidTypeApplication, error
+          assert_equal "Type `::Array` is generic but used as a non generic type", error.header_line
+          assert_equal "Array", error.location.source
+        end
+      end
+    end
+  end
 end
