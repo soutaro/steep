@@ -1,6 +1,13 @@
 require_relative "test_helper"
 
-class TypeConstructionTest < Minitest::Test
+# (Almost) end-to-end type checking test
+#
+# Specify the type definition, Ruby code, and expected diagnostics.
+# Running test here allows using debuggers.
+#
+# You can use `Add type_check_test case` VSCode snippet to add new test case.
+#
+class TypeCheckTest < Minitest::Test
   include TestHelper
   include TypeErrorAssertions
   include FactoryHelper
