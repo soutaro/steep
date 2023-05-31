@@ -18,16 +18,6 @@ module LanguageServer
     end
 
     module Constant
-      module DiagnosticSeverity
-        ERROR: String
-
-        WARNING: String
-
-        INFORMATION: String
-
-        HINT: String
-      end
-
       module CompletionItemKind
         type t = Integer
 
@@ -87,6 +77,26 @@ module LanguageServer
 
         MARKDOWN: "markdown"
       end
+
+      module DiagnosticSeverity
+        type t = 1 | 2 | 3 | 4
+
+        ERROR: 1
+
+        WARNING: 2
+
+        INFORMATION: 3
+
+        HINT: 4
+      end
+
+      module DiagnosticTag
+        type t = 1 | 2
+
+        UNNECESSARY: 1
+
+        DEPRECATED: 2
+      end
     end
 
     module Interface
@@ -120,6 +130,16 @@ module LanguageServer
 
         def initialize: (start: Position, end: Position) -> void
                       | (Hash[Symbol, untyped]) -> void
+      end
+
+      class Location
+        include _Base
+
+        attr_reader uri: String
+
+        attr_reader range: Range
+
+        def initialize: (uri: String, range: Range) -> void
       end
 
       class MarkupContent
@@ -291,6 +311,68 @@ module LanguageServer
         attr_reader active_parameter: Integer?
 
         def initialize: (signatures: Array[SignatureInformation], ?active_signature: Integer?, ?active_parameter: Integer?) -> void
+      end
+
+      class PublishDiagnosticsParams
+        include _Base
+
+        attr_reader uri: String
+
+        attr_reader version: Integer?
+
+        attr_reader diagnostics: Array[Diagnostic]
+
+        def initialize: (uri: String, ?version: Integer?, diagnostics: Array[Diagnostic]) -> void
+      end
+
+      class Diagnostic
+        attr_reader range: Range
+
+        attr_reader severity: Constant::DiagnosticSeverity::t?
+
+        attr_reader code: Integer | String | nil
+
+        attr_reader code_description: CodeDescription?
+
+        attr_reader source: String?
+
+        attr_reader message: String
+
+        attr_reader tags: Array[Constant::DiagnosticTag::t]?
+
+        attr_reader related_information: RelatedInformation?
+
+        attr_reader data: untyped?
+
+        def initialize: (
+          range: Range,
+          ?severity: Constant::DiagnosticSeverity::t?,
+          ?code: Integer | String | nil,
+          ?code_description: CodeDescription?,
+          ?source: String?,
+          message: String,
+          ?tags: Array[Constant::DiagnosticTag::t]?,
+          ?related_information: RelatedInformation?,
+          ?data: untyped
+        ) -> void
+      end
+
+      class RelatedInformation
+        include _Base
+
+        attr_reader location: Location
+
+        attr_reader message: String
+
+        def initialize: (location: Location, message: String) -> void
+      end
+
+      class CodeDescription
+        include _Base
+
+        attr_reader href: String
+
+        def initialize: (href: String) -> void
       end
     end
   end

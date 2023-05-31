@@ -19,6 +19,8 @@ module Parser
     end
 
     interface _DefLocation
+      def name: () -> Source::Range
+
       %a{pure} def end: () -> Source::Range?
     end
 

@@ -1,0 +1,72 @@
+module Steep
+  class Expectations
+    type status = :expected | :missing | :unexpected
+
+    class Diagnostic
+      module DiagnosticSeverity = LanguageServer::Protocol::Constant::DiagnosticSeverity
+
+      type position = { line: Integer, character: Integer }
+
+      attr_reader start_position: position
+
+      attr_reader end_position: position
+
+      attr_reader severity: Steep::Diagnostic::LSPFormatter::severity
+
+      attr_reader message: String
+
+      attr_reader code: String
+
+      def initialize: (start_position: position, end_position: position, severity: Steep::Diagnostic::LSPFormatter::severity, message: String, code: String) -> void
+
+      def self.from_hash: (untyped) -> instance
+
+      def self.from_lsp: (untyped) -> Diagnostic
+
+      def to_hash: () -> Hash[String, untyped]
+
+      def to_lsp: () -> Hash[Symbol, untyped]
+
+      def lsp_severity: () -> Integer
+
+      def sort_key: () -> Array[untyped]
+    end
+
+    class TestResult
+      attr_reader path: Pathname
+
+      attr_reader expectation: Array[Diagnostic]
+
+      attr_reader actual: Array[Diagnostic]
+
+      def initialize: (path: Pathname, expectation: Array[Diagnostic], actual: Array[Diagnostic]) -> void
+
+      def empty?: () -> bool
+
+      def satisfied?: () -> bool
+
+      def each_diagnostics: () { ([status, Diagnostic]) -> void } -> void
+                          | () -> Enumerator[[status, Diagnostic], void]
+
+      def expected_diagnostics: () -> Array[Diagnostic]
+
+      def unexpected_diagnostics: () -> Array[Diagnostic]
+
+      def missing_diagnostics: () -> Array[Diagnostic]
+    end
+
+    module LSP = LanguageServer::Protocol
+
+    attr_reader diagnostics: Hash[Pathname, Array[Diagnostic]]
+
+    def initialize: () -> void
+
+    def test: (path: Pathname, diagnostics: Array[Diagnostic]) -> TestResult
+
+    def self.empty: () -> instance
+
+    def to_yaml: () -> String
+
+    def self.load: (path: Pathname, content: String) -> instance
+  end
+end

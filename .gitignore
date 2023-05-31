@@ -10,3 +10,5 @@
 /lib/steep/parser.rb
 /log
 /.gem_rbs_collection
+/.vscode/*
+!/.vscode/steep-shared.code-snippets

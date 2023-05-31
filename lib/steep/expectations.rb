@@ -1,5 +1,136 @@
 module Steep
   class Expectations
+    class Diagnostic < Struct.new(:start_position, :end_position, :severity, :message, :code, keyword_init: true)
+      DiagnosticSeverity = LanguageServer::Protocol::Constant::DiagnosticSeverity
+
+      def self.from_hash(hash)
+        start_position = {
+          line: hash.dig("range", "start", "line") - 1,
+          character: hash.dig("range", "start", "character")
+        } #: position
+        end_position = {
+          line: hash.dig("range", "end", "line") - 1,
+          character: hash.dig("range", "end", "character")
+        } #: position
+
+        severity =
+          case hash["severity"] || "ERROR"
+          when "ERROR"
+            :error
+          when "WARNING"
+            :warning
+          when "INFORMATION"
+            :information
+          when "HINT"
+            :hint
+          end #: Diagnostic::LSPFormatter::severity
+
+        Diagnostic.new(
+          start_position: start_position,
+          end_position: end_position,
+          severity: severity,
+          message: hash["message"],
+          code: hash["code"]
+        )
+      end
+
+      def self.from_lsp(diagnostic)
+        start_position = {
+          line: diagnostic.dig(:range, :start, :line),
+          character: diagnostic.dig(:range, :start, :character)
+        } #: position
+        end_position = {
+          line: diagnostic.dig(:range, :end, :line),
+          character: diagnostic.dig(:range, :end, :character)
+        } #: position
+
+        severity =
+          case diagnostic[:severity]
+          when DiagnosticSeverity::ERROR
+            :error
+          when DiagnosticSeverity::WARNING
+            :warning
+          when DiagnosticSeverity::INFORMATION
+            :information
+          when DiagnosticSeverity::HINT
+            :hint
+          else
+            :error
+          end #: Diagnostic::LSPFormatter::severity
+
+        Diagnostic.new(
+          start_position: start_position,
+          end_position: end_position,
+          severity: severity,
+          message: diagnostic[:message],
+          code: diagnostic[:code]
+        )
+      end
+
+      def to_hash
+        {
+          "range" => {
+            "start" => {
+              "line" => start_position[:line] + 1,
+              "character" => start_position[:character]
+            },
+            "end" => {
+              "line" => end_position[:line] + 1,
+              "character" => end_position[:character]
+            }
+          },
+          "severity" => severity.to_s.upcase,
+          "message" => message,
+          "code" => code
+        }
+      end
+
+      def lsp_severity
+        case severity
+        when :error
+          DiagnosticSeverity::ERROR
+        when :warning
+          DiagnosticSeverity::WARNING
+        when :information
+          DiagnosticSeverity::INFORMATION
+        when :hint
+          DiagnosticSeverity::HINT
+        else
+          raise
+        end
+      end
+
+      def to_lsp
+        {
+          range: {
+            start: {
+              line: start_position[:line],
+              character: start_position[:character]
+            },
+            end: {
+              line: end_position[:line],
+              character: end_position[:character]
+            }
+          },
+          severity: lsp_severity,
+          message: message,
+          code: code
+        }
+      end
+
+      def sort_key
+        [
+          start_position[:line],
+          start_position[:character],
+          end_position[:line],
+          end_position[:character],
+          code,
+          severity,
+          message
+        ]
+      end
+    end
+
     class TestResult
       attr_reader :path
       attr_reader :expectation
@@ -21,17 +152,17 @@ module Steep
 
       def each_diagnostics
         if block_given?
-          expected_set = Set.new(expectation)
-          actual_set = Set.new(actual)
+          expected_set = Set.new(expectation) #: Set[Diagnostic]
+          actual_set = Set.new(actual) #: Set[Diagnostic]
 
-          (expected_set + actual_set).sort_by {|a| Expectations.sort_key(a) }.each do |lsp|
+          (expected_set + actual_set).sort_by(&:sort_key).each do |diagnostic|
             case
-            when expected_set.include?(lsp) && actual_set.include?(lsp)
-              yield :expected, lsp
-            when expected_set.include?(lsp)
-              yield :missing, lsp
-            when actual_set.include?(lsp)
-              yield :unexpected, lsp
+            when expected_set.include?(diagnostic) && actual_set.include?(diagnostic)
+              yield [:expected, diagnostic]
+            when expected_set.include?(diagnostic)
+              yield [:missing, diagnostic]
+            when actual_set.include?(diagnostic)
+              yield [:unexpected, diagnostic]
             end
           end
         else
@@ -56,18 +187,6 @@ module Steep
 
     attr_reader :diagnostics
 
-    def self.sort_key(hash)
-      [
-        hash.dig(:range, :start, :line),
-        hash.dig(:range, :start, :character),
-        hash.dig(:range, :end, :line),
-        hash.dig(:range, :end, :character),
-        hash[:code],
-        hash[:severity],
-        hash[:message]
-      ]
-    end
-
     def initialize()
       @diagnostics = {}
     end
@@ -81,14 +200,13 @@ module Steep
     end
 
     def to_yaml
-      array = []
+      array = [] #: Array[{ "file" => String, "diagnostics" => Array[untyped] }]
 
       diagnostics.each_key.sort.each do |key|
         ds = diagnostics[key]
         array << {
           "file" => key.to_s,
-          'diagnostics' => ds.sort_by {|hash| Expectations.sort_key(hash) }
-                             .map { |d| Expectations.lsp_to_hash(d) }
+          'diagnostics' => ds.sort_by(&:sort_key).map(&:to_hash)
         }
       end
 
@@ -100,60 +218,11 @@ module Steep
 
       YAML.load(content, filename: path.to_s).each do |entry|
         file = Pathname(entry["file"])
-        expectations.diagnostics[file] = entry["diagnostics"]
-                                           .map {|hash| hash_to_lsp(hash) }
-                                           .sort_by! {|h| sort_key(h) }
+        expectations.diagnostics[file] =
+          entry["diagnostics"].map {|hash| Diagnostic.from_hash(hash) }.sort_by!(&:sort_key)
       end
 
       expectations
-    end
-
-    # Translate hash to LSP Diagnostic message
-    def self.hash_to_lsp(hash)
-      {
-        range: {
-          start: {
-            line: hash.dig("range", "start", "line") - 1,
-            character: hash.dig("range", "start", "character")
-          },
-          end: {
-            line: hash.dig("range", "end", "line") - 1,
-            character: hash.dig("range", "end", "character")
-          }
-        },
-        severity: {
-          "ERROR" => LSP::Constant::DiagnosticSeverity::ERROR,
-          "WARNING" => LSP::Constant::DiagnosticSeverity::WARNING,
-          "INFORMATION" => LSP::Constant::DiagnosticSeverity::INFORMATION,
-          "HINT" => LSP::Constant::DiagnosticSeverity::HINT
-        }[hash["severity"] || "ERROR"],
-        message: hash["message"],
-        code: hash["code"]
-      }
-    end
-
-    # Translate LSP diagnostic message to hash
-    def self.lsp_to_hash(lsp)
-      {
-        "range" => {
-          "start" => {
-            "line" => lsp.dig(:range, :start, :line) + 1,
-            "character" => lsp.dig(:range, :start, :character)
-          },
-          "end" => {
-            "line" => lsp.dig(:range, :end, :line) + 1,
-            "character" => lsp.dig(:range, :end, :character)
-          }
-        },
-        "severity" => {
-          LSP::Constant::DiagnosticSeverity::ERROR => "ERROR",
-          LSP::Constant::DiagnosticSeverity::WARNING => "WARNING",
-          LSP::Constant::DiagnosticSeverity::INFORMATION => "INFORMATION",
-          LSP::Constant::DiagnosticSeverity::HINT => "HINT"
-        }[lsp[:severity] || LSP::Constant::DiagnosticSeverity::ERROR],
-        "message" => lsp[:message],
-        "code" => lsp[:code]
-      }
     end
   end
 end
