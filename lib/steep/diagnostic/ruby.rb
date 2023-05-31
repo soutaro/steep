@@ -982,7 +982,9 @@ module Steep
             InsufficientTypeArgument => :information,
             UnexpectedTypeArgument => :information,
             UnsupportedSyntax => nil,
-            ProcHintIgnored => :information
+            ProcHintIgnored => :information,
+            SetterBodyTypeMismatch => nil,
+            SetterReturnTypeMismatch => nil
           }
         ).freeze
       end
@@ -997,7 +999,9 @@ module Steep
             UnknownConstant => nil,
             MethodDefinitionMissing => nil,
             UnsupportedSyntax => nil,
-            ProcHintIgnored => :warning
+            ProcHintIgnored => :warning,
+            SetterBodyTypeMismatch => :error,
+            SetterReturnTypeMismatch => :error
           }
         ).freeze
       end
@@ -1014,7 +1018,9 @@ module Steep
             UnexpectedJump => nil,
             FalseAssertion => :hint,
             UnsupportedSyntax => nil,
-            ProcHintIgnored => :hint
+            ProcHintIgnored => :hint,
+            SetterBodyTypeMismatch => nil,
+            SetterReturnTypeMismatch => nil
           }
         ).freeze
       end
