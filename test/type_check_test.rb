@@ -110,4 +110,38 @@ class TypeCheckTest < Minitest::Test
       YAML
     )
   end
+
+  def test_lambda_method
+    run_type_check_test(
+      signatures: {},
+      code: {
+        "a.rb" => <<~RUBY
+          # @type var f: ^(Integer) -> Integer
+          f = lambda {|x| x + 1 }
+
+          g = lambda {|x| x + 1 } #: ^(Integer) -> String
+        RUBY
+      },
+      expectations: <<~YAML
+        ---
+        - file: a.rb
+          diagnostics:
+          - range:
+              start:
+                line: 4
+                character: 11
+              end:
+                line: 4
+                character: 23
+            severity: ERROR
+            message: |-
+              Cannot allow block body have type `::Integer` because declared as type `::String`
+                ::Integer <: ::String
+                  ::Numeric <: ::String
+                    ::Object <: ::String
+                      ::BasicObject <: ::String
+            code: Ruby::BlockBodyTypeMismatch
+      YAML
+    )
+  end
 end

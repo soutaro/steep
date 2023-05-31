@@ -170,7 +170,7 @@ module Steep
     #
     def optional_proc?: (AST::Types::t) -> AST::Types::Proc?
 
-    def type_lambda: (Parser::AST::Node & Parser::AST::_BlockNode node, params_node: Parser::AST::Node, body_node: Parser::AST::Node, type_hint: AST::Types::t?) -> Pair
+    def type_lambda: (Parser::AST::Node & Parser::AST::_BlockNode node, params_node: Parser::AST::Node, body_node: Parser::AST::Node?, type_hint: AST::Types::t?) -> Pair
 
     def synthesize_children: (Parser::AST::Node node, ?skips: Array[Parser::AST::Node?]) -> TypeConstruction
 
@@ -257,7 +257,8 @@ module Steep
       method_type: Interface::MethodType,
       arguments: Array[Parser::AST::Node],
       block_params: Parser::AST::Node?,
-      block_body: Parser::AST::Node?
+      block_body: Parser::AST::Node?,
+      hint: Types::t?
     ) -> [TypeInference::MethodCall::t, TypeConstruction]?
 
     def builder_config: () -> Interface::Builder::Config
@@ -272,7 +273,7 @@ module Steep
 
     def expand_self: (untyped `type`) -> untyped
 
-    SPECIAL_METHOD_NAMES: { array_compact: untyped, hash_compact: untyped }
+    SPECIAL_METHOD_NAMES: Hash[Symbol, Set[method_name]]
 
     KNOWN_PURE_METHODS: Set[method_name]
 
