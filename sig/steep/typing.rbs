@@ -1,11 +1,13 @@
+use Steep::TypeInference::Context, Steep::TypeInference::ContextArray, Steep::TypeInference::MethodCall
+
 module Steep
   class Typing
     class UnknownNodeError < StandardError
-      attr_reader op: untyped
+      attr_reader op: Symbol
 
-      attr_reader node: untyped
+      attr_reader node: Parser::AST::Node
 
-      def initialize: (untyped op, node: untyped) -> void
+      def initialize: (Symbol op, node: Parser::AST::Node) -> void
     end
 
     attr_reader source: Source
@@ -16,43 +18,43 @@ module Steep
 
     attr_reader parent: Typing?
 
-    attr_reader parent_last_update: untyped
+    attr_reader parent_last_update: Integer?
 
-    attr_reader last_update: untyped
+    attr_reader last_update: Integer
 
-    attr_reader should_update: untyped
+    attr_reader should_update: bool
 
-    attr_reader contexts: untyped
+    attr_reader contexts: ContextArray
 
-    attr_reader root_context: untyped
+    attr_reader root_context: Context
 
-    attr_reader method_calls: untyped
+    attr_reader method_calls: Hash[Parser::AST::Node, MethodCall::t]
 
-    attr_reader source_index: untyped
+    attr_reader source_index: Index::SourceIndex
 
-    def initialize: (source: untyped, root_context: untyped, ?parent: untyped?, ?parent_last_update: untyped, ?contexts: untyped?, ?source_index: untyped?) -> void
+    def initialize: (source: Source, root_context: Context, ?parent: Typing?, ?parent_last_update: Integer?, ?contexts: ContextArray?, ?source_index: Index::SourceIndex?) -> void
 
     def add_error: (Diagnostic::Ruby::Base error) -> void
 
-    def add_typing: (Parser::AST::Node node, AST::Types::t `type`, top) -> untyped
+    def add_typing: (Parser::AST::Node node, AST::Types::t `type`, top) -> void
 
-    def add_call: (untyped node, untyped call) -> untyped
+    def add_call: (Parser::AST::Node node, MethodCall::t call) -> void
 
-    def add_context: (Range[Integer] range, context: TypeInference::Context) -> void
+    def add_context: (Range[Integer] range, context: Context) -> void
 
-    def has_type?: (untyped node) -> untyped
+    def has_type?: (Parser::AST::Node node) -> bool
 
     def type_of: (node: Parser::AST::Node) -> AST::Types::t
 
     def call_of: (node: Parser::AST::Node) -> TypeInference::MethodCall::t
 
-    def add_context_for_node: (untyped node, context: untyped) -> untyped
+    def add_context_for_node: (Parser::AST::Node node, context: Context) -> void
 
-    def block_range: (untyped node) -> ::Range[untyped]
+    def block_range: (Parser::AST::Node node) -> Range[Integer]
 
-    def add_context_for_body: (untyped node, context: untyped) -> untyped
+    def add_context_for_body: (Parser::AST::Node node, context: Context) -> void
 
-    def context_at: (line: Integer, column: Integer) -> TypeInference::Context
+    def context_at: (line: Integer, column: Integer) -> Context
 
     def dump: (untyped io) -> untyped
 
@@ -61,7 +63,7 @@ module Steep
     def new_child: [A] (Range[Integer] range) { (Typing) -> A } -> A
                  | (Range[Integer]) -> Typing
 
-    def each_typing: () { (Parser::AST::Node, AST::Types::t) -> void } -> void
+    def each_typing: () { ([Parser::AST::Node, AST::Types::t]) -> void } -> void
 
     # Push the current changes to the `#parent` typing
     #

@@ -2,36 +2,37 @@ module Steep
   module TypeInference
     class ContextArray
       class Entry
-        attr_reader range: untyped
+        attr_reader range: Range[Integer]
 
-        attr_reader context: untyped
+        attr_reader context: Context
 
-        attr_reader sub_entries: untyped
+        attr_reader sub_entries: Set[Entry]
 
-        def initialize: (range: untyped, context: untyped) -> void
+        def initialize: (range: Range[Integer], context: Context) -> void
       end
 
-      attr_reader buffer: untyped
+      attr_reader buffer: RBS::Buffer
 
-      attr_reader root: untyped
+      attr_reader root: Entry
 
-      def initialize: (buffer: untyped, context: untyped, ?range: untyped) -> void
+      def initialize: (buffer: RBS::Buffer, context: Context, ?range: Range[Integer]) -> void
 
-      def range: () -> untyped
+      def range: () -> Range[Integer]
 
-      def self.from_source: (source: untyped, ?range: untyped?, ?context: untyped?) -> untyped
+      def self.from_source: (source: Source, ?range: Range[Integer]?, context: Context) -> ContextArray
 
-      def insert_context: (untyped range, context: untyped, ?entry: untyped) -> untyped
+      def insert_context: (Range[Integer] range, context: Context, ?entry: Entry) -> void
 
-      def each_entry: () { (untyped) -> untyped } -> untyped
+      def each_entry: () { (Entry) -> void } -> void
+                    | () -> Enumerator[Entry, void]
 
-      def context_at: (untyped index, ?entry: untyped) -> (nil | untyped)
+      def context_at: (Integer index, ?entry: Entry) -> Context?
 
-      def []: (untyped index) -> untyped
+      def []: (Integer index) -> Context?
 
-      def at: (line: untyped, column: untyped) -> untyped
+      def at: (line: Integer, column: Integer) -> Context?
 
-      def merge: (untyped subtree) -> untyped
+      def merge: (ContextArray subtree) -> void
     end
   end
 end

@@ -23,14 +23,15 @@ module Steep
         root.range
       end
 
-      def self.from_source(source:, range: nil, context: nil)
+      def self.from_source(source:, range: nil, context:)
         content = if source.node
                     source.node.location.expression.source_buffer.source
                   else
                     ""
                   end
         buffer = RBS::Buffer.new(name: source.path, content: content)
-        new(buffer: buffer, context: context, range: range || 0..buffer.content.size)
+        range ||= 0..buffer.content.size
+        new(buffer: buffer, context: context, range: range)
       end
 
       def insert_context(range, context:, entry: self.root)
@@ -62,12 +63,11 @@ module Steep
         end
       end
 
-      def each_entry
-        if block_given?
+      def each_entry(&block)
+        if block
           es = [root]
 
-          until es.empty?
-            e = es.pop
+          while e = es.pop
             es.push(*e.sub_entries.to_a)
 
             yield e
