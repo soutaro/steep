@@ -434,6 +434,10 @@ module Steep
             ancestor.args,
             location: location
           )
+
+          ancestor.args.each do |arg|
+            validate_type(arg)
+          end
         end
       end
 
