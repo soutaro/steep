@@ -3379,10 +3379,14 @@ module Steep
       ],
       hash_compact: Set[
         MethodName("::Hash#compact")
+      ],
+      lambda: Set[
+        MethodName("::Kernel#lambda"),
+        MethodName("::Kernel.lambda")
       ]
     }
 
-    def try_special_method(node, receiver_type:, method_name:, method_type:, arguments:, block_params:, block_body:)
+    def try_special_method(node, receiver_type:, method_name:, method_type:, arguments:, block_params:, block_body:, hint:)
       decls = method_type.method_decls
 
       case
@@ -3433,6 +3437,23 @@ module Steep
             return [call, constr]
           end
         end
+      when decl = decls.find {|decl| SPECIAL_METHOD_NAMES[:lambda].include?(decl.method_name) }
+        if block_params
+          # @type var node: Parser::AST::Node & Parser::AST::_BlockNode
+          type, constr = type_lambda(node, params_node: block_params, body_node: block_body, type_hint: hint)
+
+          call = TypeInference::MethodCall::Special.new(
+            node: node,
+            context: context.call_context,
+            method_name: decl.method_name.method_name,
+            receiver_type: receiver_type,
+            actual_method_type: method_type.with(type: method_type.type.with(return_type: type)),
+            return_type: type,
+            method_decls: decls
+          )
+
+          return [call, constr]
+        end
       end
 
       nil
@@ -3456,7 +3477,8 @@ module Steep
               method_type: method_type,
               arguments: arguments,
               block_params: block_params,
-              block_body: block_body
+              block_body: block_body,
+              hint: hint
             ) || constr.try_method_type(
               node,
               receiver_type: receiver_type,
