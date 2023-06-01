@@ -3,7 +3,7 @@ PATH
   specs:
     steep (1.4.0)
       activesupport (>= 5.1)
-      concurrent-ruby (>= 1.2.2)
+      concurrent-ruby (>= 1.1.10)
       csv (>= 3.0.9)
       fileutils (>= 1.1.0)
       json (>= 2.1.0)
