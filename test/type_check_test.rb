@@ -144,4 +144,91 @@ class TypeCheckTest < Minitest::Test
       YAML
     )
   end
+
+  def test_back_ref
+    run_type_check_test(
+      signatures: {
+      },
+      code: {
+        "a.rb" => <<~RUBY
+          # @type var x: String
+          x = $&
+          x = $'
+          x = $+
+          x = $,
+          x = $'
+        RUBY
+      },
+      expectations: <<~YAML
+        ---
+        - file: a.rb
+          diagnostics:
+          - range:
+              start:
+                line: 2
+                character: 0
+              end:
+                line: 2
+                character: 6
+            severity: ERROR
+            message: |-
+              Cannot assign a value of type `(::String | nil)` to a variable of type `::String`
+                (::String | nil) <: ::String
+                  nil <: ::String
+            code: Ruby::IncompatibleAssignment
+          - range:
+              start:
+                line: 3
+                character: 0
+              end:
+                line: 3
+                character: 6
+            severity: ERROR
+            message: |-
+              Cannot assign a value of type `(::String | nil)` to a variable of type `::String`
+                (::String | nil) <: ::String
+                  nil <: ::String
+            code: Ruby::IncompatibleAssignment
+          - range:
+              start:
+                line: 4
+                character: 0
+              end:
+                line: 4
+                character: 6
+            severity: ERROR
+            message: |-
+              Cannot assign a value of type `(::String | nil)` to a variable of type `::String`
+                (::String | nil) <: ::String
+                  nil <: ::String
+            code: Ruby::IncompatibleAssignment
+          - range:
+              start:
+                line: 5
+                character: 0
+              end:
+                line: 5
+                character: 6
+            severity: ERROR
+            message: |-
+              Cannot assign a value of type `(::String | nil)` to a variable of type `::String`
+                (::String | nil) <: ::String
+                  nil <: ::String
+            code: Ruby::IncompatibleAssignment
+          - range:
+              start:
+                line: 6
+                character: 0
+              end:
+                line: 6
+                character: 6
+            severity: ERROR
+            message: |-
+              Cannot assign a value of type `(::String | nil)` to a variable of type `::String`
+                (::String | nil) <: ::String
+                  nil <: ::String
+            code: Ruby::IncompatibleAssignment
+      YAML
+    )
+  end
 end
