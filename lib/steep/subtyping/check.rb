@@ -637,7 +637,7 @@ module Steep
 
         All(relation) do |result|
           method_pairs.each do |method_name, method_relation|
-            result.add(relation) do
+            result.add(method_relation) do
               check_method(method_name, method_relation)
             end
           end
@@ -808,7 +808,9 @@ module Steep
         All(relation) do |result|
           type_relation = Relation.new(sub_type: sub_type.type, super_type: super_type.type)
 
-          case ret = expand_block_given(name, Relation.new(sub_type: sub_type.block, super_type: super_type.block))
+          ret = expand_block_given(name, Relation.new(sub_type: sub_type.block, super_type: super_type.block))
+
+          case ret
           when true
             result.add(type_relation) { check_function(name, type_relation) }
           when Relation
@@ -822,7 +824,7 @@ module Steep
               end
             end
           when Result::Failure
-            result.add { ret }
+            result.add(ret.relation) { ret }
           end
         end
       end
