@@ -13,7 +13,12 @@ module Steep
         end
 
         def jobs_count_value
-          jobs_count || default_jobs_count
+          count = jobs_count || default_jobs_count
+          if count >= 1
+            count
+          else
+            1
+          end
         end
       end
     end
