@@ -2266,8 +2266,11 @@ module Steep
           # ignore
           add_typing(node, type: AST::Builtin.any_type)
 
-        when :nth_ref, :back_ref
-          add_typing(node, type: AST::Builtin::String.instance_type)
+        when :nth_ref
+          add_typing(node, type: union_type(AST::Builtin::String.instance_type, AST::Builtin.nil_type))
+
+        when :back_ref
+          synthesize(node.updated(:gvar), hint: hint)
 
         when :or_asgn, :and_asgn
           yield_self do
