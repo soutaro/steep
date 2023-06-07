@@ -231,4 +231,37 @@ class TypeCheckTest < Minitest::Test
       YAML
     )
   end
+
+  def test_type_variable_in_Set_new
+    run_type_check_test(
+      signatures: {
+      },
+      code: {
+        "a.rb" => <<~RUBY
+          # @type var array: _Each[Integer]
+          array = [1,2,3]
+
+          a = Set.new([1, 2, 3])
+          a.each do |x|
+            x.fooo
+          end
+        RUBY
+      },
+      expectations: <<~YAML
+        ---
+        - file: a.rb
+          diagnostics:
+          - range:
+              start:
+                line: 6
+                character: 4
+              end:
+                line: 6
+                character: 8
+            severity: ERROR
+            message: Type `::Integer` does not have method `fooo`
+            code: Ruby::NoMethod
+      YAML
+    )
+  end
 end
