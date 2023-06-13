@@ -43,5 +43,205 @@ module Parser
     interface _SelectorLocation
       %a{pure} def selector: () -> Source::Range
     end
+
+    # ```ruby
+    # if foo then bar else baz end
+    # #^                              => keyword
+    # #      ^^^^                     => begin
+    # #               ^^^^            => else
+    # #                        ^^^    => end
+    # ```
+    #
+    interface _Condition
+      %a{pure} def keyword: () -> Source::Range
+
+      %a{pure} def begin: () -> Source::Range?
+
+      %a{pure} def else: () -> Source::Range?
+
+      %a{pure} def end: () -> Source::Range?
+    end
+
+    interface _Ternary
+      %a{pure} def question: () -> Source::Range
+
+      %a{pure} def colon: () -> Source::Range
+    end
+
+    interface _Variable
+      %a{pure} def name: () -> Source::Range
+
+      %a{pure} def operator: () -> Source::Range?
+    end
+
+    # ```ruby
+    # foo.bar(baz)
+    # #  ^             => dot
+    # #   ^^^          => selector
+    # #      ^         => begin
+    # #          ^     => end
+    #
+    # foo.bar += 1
+    # #  ^             => dot
+    # #   ^^^          => selector
+    # #       ^^       => operator
+    # ```
+    #
+    interface _Send
+      %a{pure} def dot: () -> Source::Range?
+
+      %a{pure} def selector: () -> Source::Range
+
+      %a{pure} def operator: () -> Source::Range?
+
+      %a{pure} def begin: () -> Source::Range?
+
+      %a{pure} def end: () -> Source::Range?
+    end
+
+    # ```ruby
+    # rescue Foo => x then
+    # #^^^^^                => keyword
+    # #          ^^         => assoc
+    # #               ^^^^  => begin
+    # ```
+    interface _RescueBody
+      %a{pure} def keyword: () -> Source::Range
+
+      %a{pure} def assoc: () -> Source::Range?
+
+      %a{pure} def begin: () -> Source::Range?
+    end
+
+    # ```ruby
+    # +1
+    # ^         => operator
+    # ```
+    interface _Operator
+      %a{pure} def operator: () -> Source::Range?
+    end
+
+    # ```ruby
+    # def self.foo(); end
+    # #^^                        => keyword
+    # #       ^                  => operator
+    # #        ^^^               => name
+    # #               ^^^        => end
+    #
+    # def foo = bar
+    # #^^                        => keyword
+    # #   ^^^                    => name
+    # #       ^                  => assignment
+    # ```
+    interface _MethodDefinition
+      %a{pure} def keyword: () -> Source::Range
+
+      %a{pure} def operator: () -> Source::Range?
+
+      %a{pure} def name: () -> Source::Range
+
+      %a{pure} def end: () -> Source::Range?
+
+      %a{pure} def assignment: () -> Source::Range?
+    end
+
+    # ```ruby
+    # when foo then
+    # #^^^             => keyword
+    # #        ^^^^    => begin
+    # ```
+    interface _Keyword
+      %a{pure} def keyword: () -> Source::Range
+
+      %a{pure} def begin: () -> Source::Range?
+
+      %a{pure} def end: () -> Source::Range?
+    end
+
+    # ```ruby
+    # foo[1] += 1
+    # #  ^             => begin
+    # #    ^           => end
+    # #      ^^        => operator
+    # ```
+    interface _Index
+      %a{pure} def begin: () -> Source::Range
+
+      %a{pure} def end: () -> Source::Range
+
+      %a{pure} def operator: () -> Source::Range?
+    end
+
+    # ```ruby
+    # <<FOO                   <= expression
+    #   foo                   <= heredoc_body
+    # FOO                     <= heredoc_end
+    # ```
+    #
+    interface _Heredoc
+      %a{pure} def heredoc_body: () -> Source::Range
+
+      %a{pure} def heredoc_end: () -> Source::Range
+    end
+
+    # ```ruby
+    # for x in [] then ... end
+    # #^^                       => keyword
+    # #     ^^                  => in
+    # #           ^^^^          => begin
+    # #                    ^^^  => end
+    # ```
+    interface _For
+      %a{pure} def keyword: () -> Source::Range
+
+      %a{pure} def in: () -> Source::Range
+
+      %a{pure} def begin: () -> Source::Range?
+
+      %a{pure} def end: () -> Source::Range
+    end
+
+    # ```ruby
+    # class Foo::Bar < Baz; end
+    # #^^^^                       => keyword
+    # #     ^^^^^^^^              => name
+    # #              ^            => operator
+    # #                     ^^^   => end
+    # ```
+    interface _Definition
+      %a{pure} def keyword: () -> Source::Range
+
+      %a{pure} def name: () -> Source::Range
+
+      %a{pure} def operator: () -> Source::Range?
+
+      %a{pure} def end: () -> Source::Range
+    end
+
+    # ```ruby
+    # Foo::Bar += 1
+    # #  ^^                 => double_colon
+    # #    ^^^              => name
+    # #        ^^           => operator
+    # ```
+    #
+    interface _Constant
+      %a{pure} def double_colon: () -> Source::Range?
+
+      %a{pure} def name: () -> Source::Range
+
+      %a{pure} def operator: () -> Source::Range?
+    end
+
+    # ```ruby
+    #   (1)
+    # # ^           => begin
+    # #   ^         => end
+    # ```
+    interface _Collection
+      %a{pure} def begin: () -> Source::Range?
+
+      %a{pure} def end: () -> Source::Range?
+    end
   end
 end

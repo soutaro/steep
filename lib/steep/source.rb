@@ -67,7 +67,7 @@ module Steep
         end
       end
 
-      map = {}
+      map = {} #: Hash[Parser::AST::Node, Array[AST::Annotation::t]]
       map.compare_by_identity
 
       if node
@@ -86,44 +86,56 @@ module Steep
     def self.construct_mapping(node:, annotations:, mapping:, line_range: nil)
       case node.type
       when :if
+        cond_node, truthy_node, falsy_node, loc = deconstruct_if_node!(node)
+
         if node.loc.respond_to?(:question)
           # Skip ternary operator
+
           each_child_node node do |child|
             construct_mapping(node: child, annotations: annotations, mapping: mapping, line_range: nil)
           end
         else
-          if node.loc.expression.begin_pos == node.loc.keyword.begin_pos
-            construct_mapping(node: node.children[0],
-                              annotations: annotations,
-                              mapping: mapping,
-                              line_range: nil)
+          if_loc = loc #: NodeHelper::condition_loc
 
-            if node.children[1]
-              if node.loc.keyword.source == "if" || node.loc.keyword.source == "elsif"
-                then_start = node.loc.begin&.last_line || node.children[0].loc.last_line
-                then_end = node.children[2] ? node.loc.else.line : node.loc.last_line
+          if if_loc.expression.begin_pos == if_loc.keyword.begin_pos
+            construct_mapping(node: cond_node,annotations: annotations, mapping: mapping, line_range: nil)
+
+            if truthy_node
+              if if_loc.keyword.source == "if" || if_loc.keyword.source == "elsif"
+                # if foo
+                #   bar      <=
+                # end
+                then_start = if_loc.begin&.last_line || cond_node.loc.last_line
+                then_end = if_loc.else&.line || if_loc.last_line
               else
-                then_start = node.loc.else.last_line
-                then_end = node.loc.last_line
+                # unless foo
+                # else
+                #   bar      <=
+                # end
+                if_loc.else or raise
+                then_start = if_loc.else.last_line
+                then_end = loc.last_line
               end
-              construct_mapping(node: node.children[1],
-                                annotations: annotations,
-                                mapping: mapping,
-                                line_range: then_start...then_end)
+              construct_mapping(node: truthy_node, annotations: annotations, mapping: mapping, line_range: then_start...then_end)
             end
 
-            if node.children[2]
-              if node.loc.keyword.source == "if" || node.loc.keyword.source == "elsif"
-                else_start = node.loc.else.last_line
-                else_end = node.loc.last_line
+            if falsy_node
+              if if_loc.keyword.source == "if" || if_loc.keyword.source == "elsif"
+                # if foo
+                # else
+                #   bar      <=
+                # end
+                if_loc.else or raise
+                else_start = if_loc.else.last_line
+                else_end = if_loc.last_line
               else
-                else_start = node.loc.begin&.last_line || node.children[0].loc.last_line
-                else_end = node.children[1] ? node.loc.else.line : node.loc.last_line
+                # unless foo
+                #   bar      <=
+                # end
+                else_start = if_loc.begin&.last_line || cond_node.loc.last_line
+                else_end = if_loc.else&.line || if_loc.last_line
               end
-              construct_mapping(node: node.children[2],
-                                annotations: annotations,
-                                mapping: mapping,
-                                line_range: else_start...else_end)
+              construct_mapping(node: falsy_node, annotations: annotations, mapping: mapping, line_range: else_start...else_end)
             end
 
           else
@@ -135,22 +147,19 @@ module Steep
         end
 
       when :while, :until
-        if node.loc.expression.begin_pos == node.loc.keyword.begin_pos
-          construct_mapping(node: node.children[0],
-                            annotations: annotations,
-                            mapping: mapping,
-                            line_range: nil)
+        cond_node, body_node, loc = deconstruct_whileish_node!(node)
 
-          if node.children[1]
-            body_start = node.children[0].loc.last_line
-            body_end = node.loc.end.line
+        if loc.expression.begin_pos == loc.keyword.begin_pos
+          # prefix while
+          loc.end or raise
+          construct_mapping(node: cond_node, annotations: annotations, mapping: mapping, line_range: nil)
 
-            construct_mapping(node: node.children[1],
-                              annotations: annotations,
-                              mapping: mapping,
-                              line_range: body_start...body_end)
+          if body_node
+            body_start = cond_node.loc.last_line
+            body_end = loc.end.line
+
+            construct_mapping(node: body_node, annotations: annotations, mapping: mapping, line_range: body_start...body_end)
           end
-
         else
           # postfix while
           each_child_node(node) do |child|
@@ -159,70 +168,63 @@ module Steep
         end
 
       when :while_post, :until_post
-        construct_mapping(node: node.children[0],
-                          annotations: annotations,
-                          mapping: mapping,
-                          line_range: nil)
+        cond_node, body_node, loc = deconstruct_whileish_node!(node)
 
-        if node.children[1]
-          body_start = node.loc.expression.line
-          body_end = node.loc.keyword.line
+        construct_mapping(node: cond_node, annotations: annotations, mapping: mapping, line_range: nil)
 
-          construct_mapping(node: node.children[1],
-                            annotations: annotations,
-                            mapping: mapping,
-                            line_range: body_start...body_end)
+        if body_node
+          body_start = loc.expression.line
+          body_end = loc.keyword.line
+          construct_mapping(node: body_node, annotations: annotations, mapping: mapping, line_range: body_start...body_end)
         end
 
       when :case
-        if node.children[0]
-          construct_mapping(node: node.children[0], annotations: annotations, mapping: mapping, line_range: nil)
+        cond_node, when_nodes, else_node, loc = deconstruct_case_node!(node)
+
+        if cond_node
+          construct_mapping(node: cond_node, annotations: annotations, mapping: mapping, line_range: nil)
         end
 
-        if node.children.last
-          else_node = node.children.last
-          else_start = node.loc.else.last_line
-          else_end = node.loc.end.line
+        if else_node
+          loc.else or raise
+          loc.end or raise
 
-          construct_mapping(node: else_node,
-                            annotations: annotations,
-                            mapping: mapping,
-                            line_range: else_start...else_end)
+          else_start = loc.else.last_line
+          else_end = loc.end.line
+
+          construct_mapping(node: else_node, annotations: annotations, mapping: mapping, line_range: else_start...else_end)
         end
 
-        node.children.drop(1).each do |child|
-          if child&.type == :when
+        when_nodes.each do |child|
+          if child.type == :when
             construct_mapping(node: child, annotations: annotations, mapping: mapping, line_range: nil)
           end
         end
 
       when :when
-        last_cond = node.children[-2]
-        body = node.children.last
+        operands, body, loc = deconstruct_when_node!(node)
+        last_cond = operands.last or raise
 
-        node.children.take(node.children.size-1).each do |child|
+        operands.each do |child|
           construct_mapping(node: child, annotations: annotations, mapping: mapping, line_range: nil)
         end
 
         if body
-          cond_end = last_cond.loc.last_line+1
+          cond_end = loc.begin&.last_line || last_cond.loc.last_line+1
           body_end = body.loc.last_line
-          construct_mapping(node: body,
-                            annotations: annotations,
-                            mapping: mapping,
-                            line_range: cond_end...body_end)
+          construct_mapping(node: body, annotations: annotations, mapping: mapping, line_range: cond_end...body_end)
         end
 
       when :rescue
-        if node.children.last
-          else_node = node.children.last
-          else_start = node.loc.else.last_line
-          else_end = node.loc.last_line
+        body, resbodies, else_node, loc = deconstruct_rescue_node!(node)
 
-          construct_mapping(node: else_node,
-                            annotations: annotations,
-                            mapping: mapping,
-                            line_range: else_start...else_end)
+        if else_node
+          loc.else or raise
+
+          else_start = loc.else.last_line
+          else_end = loc.last_line
+
+          construct_mapping(node: else_node, annotations: annotations, mapping: mapping, line_range: else_start...else_end)
         end
 
         each_child_node(node) do |child|
@@ -236,17 +238,13 @@ module Steep
       end
 
       associated_annotations, other_annotations = annotations.partition do |annot|
-        case node.type
-        when :def, :module, :class, :block, :ensure, :defs
-          loc = node.loc
-          loc.line <= annot.line && annot.line < loc.last_line
+        location = node.loc
+        annot.line or next
 
-        when :resbody
-          if node.loc.keyword.begin_pos == node.loc.expression.begin_pos
-            # skip postfix rescue
-            loc = node.loc
-            loc.line <= annot.line && annot.line < loc.last_line
-          end
+        case node.type
+        when :def, :module, :class, :block, :ensure, :defs, :resbody
+          location = node.loc
+          location.line <= annot.line && annot.line < location.last_line
         else
           if line_range
             line_range.begin <= annot.line && annot.line < line_range.end
@@ -307,7 +305,7 @@ module Steep
         case node.type
         when :dstr, :str
           if node.location.respond_to?(:heredoc_body)
-            yield [node, *parents]
+            yield [[node, *parents], _ = node.location]
           end
         end
 
@@ -322,10 +320,10 @@ module Steep
     end
 
     def find_heredoc_nodes(line, column, position)
-      each_heredoc_node() do |nodes|
+      each_heredoc_node() do |nodes, location|
         node = nodes[0]
 
-        range = node.location.heredoc_body&.yield_self do |r|
+        range = location.heredoc_body&.yield_self do |r|
           r.begin_pos..r.end_pos
         end
 
@@ -445,7 +443,8 @@ module Steep
           when :return, :break, :next
             # Skip
           when :begin
-            if node.loc.begin
+            location = node.loc #: Parser::Source::Map & Parser::AST::_Collection
+            if location.begin
               # paren
               child_assertions = comments.except(last_line)
               node = map_child_node(node) {|child| insert_type_node(child, child_assertions) }
@@ -535,8 +534,14 @@ module Steep
         end
 
       if send_node
-        if send_node.location.dot
-          send_node.location.selector.line
+        receiver_node, name, _, location = deconstruct_send_node!(send_node)
+
+        if receiver_node
+          if location.dot
+            location.selector.line
+          end
+        else
+          location.selector.line
         end
       end
     end

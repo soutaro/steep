@@ -59,7 +59,7 @@ bar do |x|
 end
 EOF
 
-      array = ContextArray.from_source(source: source)
+      array = ContextArray.from_source(source: source, context: nil)
 
       range2 = dig(source.node, 1, 1).loc.end.end_pos..dig(source.node, 1).loc.end.begin_pos
       range3 = dig(source.node, 1, 2).yield_self {|n| n.loc.expression.begin_pos..n.loc.expression.end_pos }

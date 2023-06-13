@@ -36,8 +36,8 @@ module Steep
     #
     # Yields arrays, inner node first, outer node last -- `[heredoc_node, *outer_node, node]`.
     #
-    def each_heredoc_node: (?Parser::AST::Node? node, ?Array[Parser::AST::Node] parents) { (Array[Parser::AST::Node]) -> void } -> void
-                         | (?Parser::AST::Node? node, ?Array[Parser::AST::Node] parents) -> Enumerator[Array[Parser::AST::Node], void]
+    def each_heredoc_node: (?Parser::AST::Node? node, ?Array[Parser::AST::Node] parents) { ([Array[Parser::AST::Node], Parser::Source::Map & Parser::AST::_Heredoc]) -> void } -> void
+                         | (?Parser::AST::Node? node, ?Array[Parser::AST::Node] parents) -> Enumerator[[Array[Parser::AST::Node], Parser::Source::Map & Parser::AST::_Heredoc], void]
 
     # Returns array of nodes that is located inside heredoc
     #
