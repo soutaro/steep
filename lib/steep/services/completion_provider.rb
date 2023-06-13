@@ -146,6 +146,10 @@ module Steep
             end
           end
 
+          # Skip if the cursor is in a comment.
+          # 
+          at_comment?(position) and return []
+
           Steep.measure "completion item collection" do
             items_for_trigger(position: position)
           end
@@ -186,6 +190,14 @@ module Steep
       def at_end?(pos, of:)
         if of
           of.last_line == pos.line && of.last_column == pos.column
+        end
+      end
+
+      def at_comment?(position)
+        if source.find_comment(line: position.line, column: position.column)
+          true
+        else
+          false
         end
       end
 

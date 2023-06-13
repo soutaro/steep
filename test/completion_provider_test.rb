@@ -76,7 +76,7 @@ self.cl
       end
     end
   end
-  
+
   def test_on_method_identifier_colon2
     with_checker do
       CompletionProvider.new(source_text: <<-EOR, path: Pathname("foo.rb"), subtyping: checker).tap do |provider|
@@ -461,6 +461,19 @@ bar()
             assert_equal ["() -> ::String"], items[0].method_types.map(&:to_s)
             assert_equal [MethodName("::Integer#to_s"), MethodName("::String#to_s")], items[0].method_names
           end
+        end
+      end
+    end
+  end
+
+  def test_on_comment
+    with_checker do
+      CompletionProvider.new(source_text: <<~RUBY, path: Pathname("foo.rb"), subtyping: checker).tap do |provider|
+        x = [] #: Array[String]
+      RUBY
+
+        provider.run(line: 1, column: 10).tap do |items|
+          assert_empty items
         end
       end
     end

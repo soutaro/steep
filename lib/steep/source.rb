@@ -1,15 +1,19 @@
 module Steep
   class Source
+    attr_reader :buffer
     attr_reader :path
     attr_reader :node
     attr_reader :mapping
+    attr_reader :comments
 
     extend NodeHelper
 
-    def initialize(path:, node:, mapping:)
+    def initialize(buffer:, path:, node:, mapping:, comments:)
+      @buffer = buffer
       @path = path
       @node = node
       @mapping = mapping
+      @comments = comments
     end
 
     class Builder < ::Parser::Builders::Default
@@ -41,6 +45,10 @@ module Steep
 
       buffer = RBS::Buffer.new(name: path, content: source_code)
       annotation_parser = AnnotationParser.new(factory: factory)
+
+      comments = comments.sort_by do |comment|
+        comment.loc.expression.begin_pos
+      end
 
       comments.each do |comment|
         if comment.inline?
@@ -80,7 +88,7 @@ module Steep
         map[node] << annot
       end
 
-      new(path: path, node: node, mapping: map)
+      new(buffer: buffer, path: path, node: node, mapping: map, comments: comments)
     end
 
     def self.construct_mapping(node:, annotations:, mapping:, line_range: nil)
@@ -375,6 +383,20 @@ module Steep
       end
     end
 
+    def find_comment(line:, column:)
+      pos = buffer.loc_to_pos([line, column])
+
+      comment = comments.bsearch do |comment|
+        pos <= comment.loc.expression.end_pos
+      end
+
+      if comment
+        if comment.loc.expression.begin_pos < pos
+          comment
+        end
+      end
+    end
+
     def self.delete_defs(node, allow_list)
       case node.type
       when :def
@@ -415,7 +437,7 @@ module Steep
           mapping[node_] << annot
         end
 
-        Source.new(path: path, node: node_, mapping: mapping)
+        Source.new(buffer: buffer, path: path, node: node_, mapping: mapping, comments: comments)
       else
         self
       end

@@ -176,6 +176,8 @@ module Steep
 
       def range_from_loc: (Parser::Source::Range loc) -> Range
 
+      def at_comment?: (Position pos) -> bool
+
       def at_end?: (Position pos, of: Parser::Source::Map | Parser::Source::Range | nil) -> boolish
 
       def range_for: (Position position, ?prefix: ::String) -> Range
