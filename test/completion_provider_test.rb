@@ -492,4 +492,17 @@ bar()
       end
     end
   end
+
+  def test_on_steep_type_assertion
+    with_checker do
+      CompletionProvider.new(source_text: <<~RUBY, path: Pathname("foo.rb"), subtyping: checker).tap do |provider|
+        x = [] #: Ar
+      RUBY
+
+        provider.run(line: 1, column: 12).tap do |items|
+          assert_equal [TypeName("Array")], items.map(&:relative_type_name)
+        end
+      end
+    end
+  end
 end

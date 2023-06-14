@@ -212,7 +212,7 @@ module Steep
 
       def items_for_atmark: (position: Position) -> Array[item]
 
-      def items_for_rbs: (position: Position, annotation: AST::Annotation::t) -> Array[item]
+      def items_for_rbs: (position: Position, buffer: RBS::Buffer) -> Array[item]
 
       def method_items_for_receiver_type: (AST::Types::t, include_private: bool, prefix: String, position: Position, items: Array[item]) -> void
 

@@ -202,17 +202,25 @@ module Steep
             end
           end
 
-          if at_comment?(position)
-            annotation = source.each_annotation.flat_map {|_, annots| annots }.find do |a|
-              if a.location
-                a.location.start_pos < index && index <= a.location.end_pos
-              end
-            end
+          node, *_parents = source.find_nodes(line: position.line, column: position.column)
 
-            if annotation
-              return items_for_rbs(position: position, annotation: annotation)
-            else
-              return []
+          case node&.type
+          when :assertion
+            # continue
+          else
+            if at_comment?(position)
+              annotation = source.each_annotation.flat_map {|_, annots| annots }.find do |a|
+                if a.location
+                  a.location.start_pos < index && index <= a.location.end_pos
+                end
+              end
+
+              if annotation
+                annotation.location or raise
+                return items_for_rbs(position: position, buffer: annotation.location.buffer)
+              else
+                return []
+              end
             end
           end
 
@@ -349,6 +357,10 @@ module Steep
           # @fo ←
           instance_variable_items_for_context(context, position: position, prefix: node.children[0].to_s, items: items)
 
+        when node.type == :assertion
+          assertion = node.children[1] #: AST::Node::TypeAssertion
+          items.push(*items_for_rbs(position: position, buffer: assertion.location.buffer))
+
         else
           method_items_for_receiver_type(context.self_type, include_private: true, prefix: "", position: position, items: items)
           local_variable_items_for_context(context, position: position, prefix: "", items: items)
@@ -428,14 +440,12 @@ module Steep
         items
       end
 
-      def items_for_rbs(position:, annotation:)
+      def items_for_rbs(position:, buffer:)
         items = [] #: Array[item]
-
-        annotation.location or raise
 
         context = typing.context_at(line: position.line, column: position.column)
         completion = TypeNameCompletion.new(env: context.env, context: context.module_context.nesting, dirs: [])
-        prefix = TypeNameCompletion::Prefix.parse(annotation.location.buffer, line: position.line, column: position.column)
+        prefix = TypeNameCompletion::Prefix.parse(buffer, line: position.line, column: position.column)
 
         size = prefix&.size || 0
         range = Range.new(start: position - size, end: position)
