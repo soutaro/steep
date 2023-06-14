@@ -469,11 +469,25 @@ bar()
   def test_on_comment
     with_checker do
       CompletionProvider.new(source_text: <<~RUBY, path: Pathname("foo.rb"), subtyping: checker).tap do |provider|
-        x = [] #: Array[String]
+        x = [] # Hoge hoge
       RUBY
 
         provider.run(line: 1, column: 10).tap do |items|
           assert_empty items
+        end
+      end
+    end
+  end
+
+  def test_on_steep_inline_comment
+    with_checker do
+      CompletionProvider.new(source_text: <<~RUBY, path: Pathname("foo.rb"), subtyping: checker).tap do |provider|
+        # @type var x: Ar
+        x = []
+      RUBY
+
+        provider.run(line: 1, column: 17).tap do |items|
+          assert_equal [TypeName("Array")], items.map(&:relative_type_name)
         end
       end
     end

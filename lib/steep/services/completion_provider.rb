@@ -98,6 +98,62 @@ module Steep
         # @implements GeneratedMethodNameItem
       end
 
+      class TypeNameItem < Struct.new(:env, :absolute_type_name, :relative_type_name, :range, keyword_init: true)
+        def decl
+          case
+          when absolute_type_name.interface?
+            env.interface_decls[absolute_type_name].decl
+          when absolute_type_name.alias?
+            env.type_alias_decls[absolute_type_name].decl
+          when absolute_type_name.class?
+            case entry = env.module_class_entry(absolute_type_name)
+            when RBS::Environment::ClassEntry, RBS::Environment::ModuleEntry
+              entry.primary.decl
+            when RBS::Environment::ClassAliasEntry, RBS::Environment::ModuleAliasEntry
+              entry.decl
+            else
+              raise
+            end
+          else
+            raise
+          end
+        end
+
+        def comments
+          comments = [] #: Array[RBS::AST::Comment]
+
+          case
+          when absolute_type_name.interface?
+            if comment = env.interface_decls[absolute_type_name].decl.comment
+              comments << comment
+            end
+          when absolute_type_name.alias?
+            if comment = env.type_alias_decls[absolute_type_name].decl.comment
+              comments << comment
+            end
+          when absolute_type_name.class?
+            case entry = env.module_class_entry(absolute_type_name)
+            when RBS::Environment::ClassEntry, RBS::Environment::ModuleEntry
+              entry.decls.each do |decl|
+                if comment = decl.decl.comment
+                  comments << comment
+                end
+              end
+            when RBS::Environment::ClassAliasEntry, RBS::Environment::ModuleAliasEntry
+              if comment = entry.decl.comment
+                comments << comment
+              end
+            else
+              raise
+            end
+          else
+            raise
+          end
+
+          comments
+        end
+      end
+
       attr_reader :source_text
       attr_reader :path
       attr_reader :subtyping
@@ -146,9 +202,19 @@ module Steep
             end
           end
 
-          # Skip if the cursor is in a comment.
-          # 
-          at_comment?(position) and return []
+          if at_comment?(position)
+            annotation = source.each_annotation.flat_map {|_, annots| annots }.find do |a|
+              if a.location
+                a.location.start_pos < index && index <= a.location.end_pos
+              end
+            end
+
+            if annotation
+              return items_for_rbs(position: position, annotation: annotation)
+            else
+              return []
+            end
+          end
 
           Steep.measure "completion item collection" do
             items_for_trigger(position: position)
@@ -359,6 +425,26 @@ module Steep
         context = typing.context_at(line: position.line, column: position.column)
         items = [] #: Array[item]
         instance_variable_items_for_context(context, prefix: "@", position: position, items: items)
+        items
+      end
+
+      def items_for_rbs(position:, annotation:)
+        items = [] #: Array[item]
+
+        annotation.location or raise
+
+        context = typing.context_at(line: position.line, column: position.column)
+        completion = TypeNameCompletion.new(env: context.env, context: context.module_context.nesting, dirs: [])
+        prefix = TypeNameCompletion::Prefix.parse(annotation.location.buffer, line: position.line, column: position.column)
+
+        size = prefix&.size || 0
+        range = Range.new(start: position - size, end: position)
+
+        completion.find_type_names(prefix).each do |name|
+          absolute, relative = completion.resolve_name_in_context(name)
+          items << TypeNameItem.new(relative_type_name: relative, absolute_type_name: absolute, env: context.env, range: range)
+        end
+
         items
       end
 

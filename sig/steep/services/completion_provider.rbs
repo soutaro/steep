@@ -152,7 +152,29 @@ module Steep
         ) -> void
       end
 
-      type item = InstanceVariableItem | LocalVariableItem | ConstantItem | SimpleMethodNameItem | ComplexMethodNameItem | GeneratedMethodNameItem
+      class TypeNameItem
+        attr_reader env: Environment
+
+        attr_reader absolute_type_name: TypeName
+
+        attr_reader relative_type_name: TypeName
+
+        attr_reader range: Range
+
+        def initialize: (absolute_type_name: TypeName, relative_type_name: TypeName, env: Environment, range: Range) -> void
+
+        def decl: () -> Server::LSPFormatter::summarizable_decl
+
+        def comments: () -> Array[RBS::AST::Comment]
+      end
+
+      type item = InstanceVariableItem
+                | LocalVariableItem
+                | ConstantItem
+                | SimpleMethodNameItem
+                | ComplexMethodNameItem
+                | GeneratedMethodNameItem
+                | TypeNameItem
 
       attr_reader source_text: String
 
@@ -190,6 +212,8 @@ module Steep
 
       def items_for_atmark: (position: Position) -> Array[item]
 
+      def items_for_rbs: (position: Position, annotation: AST::Annotation::t) -> Array[item]
+
       def method_items_for_receiver_type: (AST::Types::t, include_private: bool, prefix: String, position: Position, items: Array[item]) -> void
 
       def word_name?: (String name) -> bool
@@ -203,7 +227,6 @@ module Steep
       def index_for: (String, line: Integer, column: Integer) -> Integer
 
       def disallowed_method?: (Symbol name) -> bool
-
     end
   end
 end
