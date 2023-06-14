@@ -10134,6 +10134,8 @@ hash = array #: Hash[Symbol, String]
 
   def test_assertion_as_type_fool_success
     with_checker(<<-RBS) do |checker|
+        class Pathname
+        end
       RBS
       source = parse_ruby(<<-RUBY)
 path = nil #: Pathname?

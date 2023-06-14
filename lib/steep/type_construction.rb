@@ -2494,7 +2494,7 @@ module Steep
             # @type var as_type: AST::Node::TypeAssertion
             asserted_node, as_type = node.children
 
-            if type = as_type.type?(module_context.nesting, checker.factory, [])
+            if type = as_type.type?(module_context.nesting, checker, [])
               actual_type, constr = synthesize(asserted_node, hint: type)
 
               if no_subtyping?(sub_type: type, super_type: actual_type) && no_subtyping?(sub_type: actual_type, super_type: type)
