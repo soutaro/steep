@@ -202,13 +202,24 @@ module Steep
             end
           end
 
-          node, *_parents = source.find_nodes(line: position.line, column: position.column)
+          if at_comment?(position)
+            node, *parents = source.find_nodes(line: position.line, column: position.column)
 
-          case node&.type
-          when :assertion
-            # continue
-          else
-            if at_comment?(position)
+            case
+            when node&.type == :assertion
+              # continue
+              node or raise
+              assertion = node.children[1] #: AST::Node::TypeAssertion
+              return items_for_rbs(position: position, buffer: assertion.location.buffer)
+
+            when node && parents && tapp_node = ([node] + parents).find {|n| n.type == :tapp }
+              tapp = tapp_node.children[1] #: AST::Node::TypeApplication
+              type_range = tapp.type_location.range
+
+              if type_range.begin < index && index <= type_range.end
+                return items_for_rbs(position: position, buffer: tapp.location.buffer)
+              end
+            else
               annotation = source.each_annotation.flat_map {|_, annots| annots }.find do |a|
                 if a.location
                   a.location.start_pos < index && index <= a.location.end_pos
@@ -356,10 +367,6 @@ module Steep
         when node.type == :ivar && at_end?(position, of: node.loc)
           # @fo ←
           instance_variable_items_for_context(context, position: position, prefix: node.children[0].to_s, items: items)
-
-        when node.type == :assertion
-          assertion = node.children[1] #: AST::Node::TypeAssertion
-          items.push(*items_for_rbs(position: position, buffer: assertion.location.buffer))
 
         else
           method_items_for_receiver_type(context.self_type, include_private: true, prefix: "", position: position, items: items)
