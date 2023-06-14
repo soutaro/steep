@@ -12,9 +12,9 @@ module Steep
 
         def initialize: (RBS::Location[untyped, untyped]) -> void
 
-        def types: (RBS::Resolver::context, Types::Factory, Array[Symbol] type_vars) -> (Array[Types::t] | RBS::ParsingError)
+        def types: (RBS::Resolver::context, Subtyping::Check, Array[Symbol] type_vars) -> (Array[Types::t] | RBS::ParsingError | nil)
 
-        def types?: (RBS::Resolver::context, Types::Factory, Array[Symbol] type_vars) -> Array[Types::t]?
+        def types?: (RBS::Resolver::context, Subtyping::Check, Array[Symbol] type_vars) -> Array[Types::t]?
 
         @type_str: String?
         def type_str: () -> String

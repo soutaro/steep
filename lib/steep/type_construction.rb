@@ -3711,7 +3711,7 @@ module Steep
     def try_method_type(node, receiver_type:, method_name:, method_type:, arguments:, block_params:, block_body:, tapp:, hint:)
       constr = self
 
-      if tapp && type_args = tapp.types?(module_context.nesting, checker.factory, [])
+      if tapp && type_args = tapp.types?(module_context.nesting, checker, [])
         type_arity = method_type.type_params.size
         type_param_names = method_type.type_params.map(&:name)
 
