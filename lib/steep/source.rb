@@ -489,7 +489,11 @@ module Steep
                 nil,
                 [
                   map_child_node(send) {|child| insert_type_node(child, child_assertions) },
-                  *children.map {|child| insert_type_node(child, child_assertions) }
+                  *children.map do |child|
+                    if child
+                      insert_type_node(child, child_assertions)
+                    end
+                  end
                 ]
               )
             when :numblock
