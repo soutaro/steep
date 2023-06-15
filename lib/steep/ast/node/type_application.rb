@@ -24,7 +24,7 @@ module Steep
           location.source
         end
 
-        def types(context, factory, type_vars)
+        def types(context, subtyping, type_vars)
           # @type var types: Array[Types::t]
           types = []
 
@@ -32,8 +32,16 @@ module Steep
 
           while true
             ty = RBS::Parser.parse_type(loc.buffer, range: loc.range, variables: type_vars) or break
-            ty = factory.type(ty)
-            types << factory.absolute_type(ty, context: context)
+
+            validator = Signature::Validator.new(checker: subtyping)
+            validator.validate_type(ty)
+
+            if validator.has_error?
+              return
+            end
+
+            ty = subtyping.factory.type(ty)
+            types << subtyping.factory.absolute_type(ty, context: context)
 
             match = RBS::Location.new(loc.buffer, ty.location.end_pos, type_location.end_pos).source.match(/\A\s*,\s*/) or break
             offset = match.length
@@ -45,8 +53,8 @@ module Steep
           exn
         end
 
-        def types?(context, factory, type_vars)
-          case types = types(context, factory, type_vars)
+        def types?(context, subtyping, type_vars)
+          case types = types(context, subtyping, type_vars)
           when RBS::ParsingError
             nil
           else

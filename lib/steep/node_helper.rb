@@ -45,5 +45,175 @@ module Steep
         false
       end
     end
+
+    def deconstruct_if_node(node)
+      if node.type == :if
+        [
+          node.children[0],
+          node.children[1],
+          node.children[2],
+          _ = node.location
+        ]
+      end
+    end
+
+    def deconstruct_if_node!(node)
+      deconstruct_if_node(node) or raise
+    end
+
+    def test_if_node(node)
+      if (a, b, c, d = deconstruct_if_node(node))
+        yield(a, b, c, d)
+      else
+        false
+      end
+    end
+
+    def deconstruct_whileish_node(node)
+      case node.type
+      when :while, :until, :while_post, :until_post
+        [
+          node.children[0],
+          node.children[1],
+          _ = node.location
+        ]
+      end
+    end
+
+    def deconstruct_whileish_node!(node)
+      deconstruct_whileish_node(node) or raise
+    end
+
+    def test_whileish_node(node)
+      if (a, b, c = deconstruct_whileish_node(node))
+        yield(a, b, c)
+      else
+        false
+      end
+    end
+
+    def deconstruct_case_node(node)
+      case node.type
+      when :case
+        cond, *whens, else_ = node.children
+        [
+          cond,
+          whens,
+          else_,
+          _ = node.loc
+        ]
+      end
+    end
+
+    def deconstruct_case_node!(node)
+      deconstruct_case_node(node) or raise
+    end
+
+    def test_case_node(node)
+      if (a, b, c, d = deconstruct_case_node(node))
+        yield a, b, c, d
+      else
+        false
+      end
+    end
+
+    def deconstruct_when_node(node)
+      case node.type
+      when :when
+        *conds, body = node.children
+        [
+          conds,
+          body,
+          _ = node.loc
+        ]
+      end
+    end
+
+    def deconstruct_when_node!(node)
+      deconstruct_when_node(node) or raise
+    end
+
+    def test_when_node(node)
+      if (a, b, c = deconstruct_when_node(node))
+        yield a, b, c
+      else
+        false
+      end
+    end
+
+    def deconstruct_rescue_node(node)
+      case node.type
+      when :rescue
+        body, *resbodies, else_ = node.children
+
+        [
+          body,
+          resbodies,
+          else_,
+          _ = node.loc
+        ]
+      end
+    end
+
+    def deconstruct_rescue_node!(node)
+      deconstruct_rescue_node(node) or raise
+    end
+
+    def test_rescue_node(node)
+      if (a, b, c, d = deconstruct_rescue_node(node))
+        yield a, b, c, d
+      else
+        false
+      end
+    end
+
+    def deconstruct_resbody_node(node)
+      case node.type
+      when :resbody
+        [
+          node.children[0],
+          node.children[1],
+          node.children[2],
+          _  = node.loc
+        ]
+      end
+    end
+
+    def deconstruct_resbody_node!(node)
+      deconstruct_resbody_node(node) or raise
+    end
+
+    def test_resbody_node(node)
+      if (a, b, c, d = deconstruct_resbody_node(node))
+        yield a, b, c, d
+      else
+        false
+      end
+    end
+
+    def deconstruct_send_node(node)
+      case node.type
+      when :send, :csend
+        receiver, selector, *args = node.children
+        [
+          receiver,
+          selector,
+          args,
+          _  = node.loc
+        ]
+      end
+    end
+
+    def deconstruct_send_node!(node)
+      deconstruct_send_node(node) or raise
+    end
+
+    def test_send_node(node)
+      if (a, b, c, d = deconstruct_send_node(node))
+        yield a, b, c, d
+      else
+        false
+      end
+    end
   end
 end

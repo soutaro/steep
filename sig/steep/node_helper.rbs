@@ -1,3 +1,7 @@
+use Parser::AST::Node
+use Parser::AST::_Condition, Parser::AST::_Ternary, Parser::AST::_Keyword, Parser::AST::_RescueBody, Parser::AST::_Send
+use Parser::Source::Map
+
 module Steep
   module NodeHelper
     def each_child_node: (Parser::AST::Node) -> Enumerator[Parser::AST::Node, void]
@@ -9,5 +13,57 @@ module Steep
     # Returns true if given node is a syntactic-value node
     #
     def value_node?: (Parser::AST::Node) -> bool
+
+    type condition_loc = Map & _Condition
+
+    type ternary_loc = Map & _Ternary
+
+    def deconstruct_if_node: (Node) -> [Node, Node?, Node?, condition_loc | ternary_loc]?
+
+    def deconstruct_if_node!: (Node) -> [Node, Node?, Node?, condition_loc | ternary_loc]
+
+    def test_if_node: (Node) { (Node, Node?, Node?, condition_loc | ternary_loc) -> bool } -> bool
+
+    type keyword_loc = Map & Parser::AST::_Keyword
+
+    def deconstruct_whileish_node: (Node) -> [Node, Node?, keyword_loc]?
+
+    def deconstruct_whileish_node!: (Node) -> [Node, Node?, keyword_loc]
+
+    def test_whileish_node: (Node) { (Node, Node?, keyword_loc) -> bool } -> bool
+
+    def deconstruct_case_node: (Node) -> [Node?, Array[Node], Node?, condition_loc]?
+
+    def deconstruct_case_node!: (Node) -> [Node?, Array[Node], Node?, condition_loc]
+
+    def test_case_node: (Node) { (Node?, Array[Node], Node?, condition_loc) -> bool } -> bool
+
+    def deconstruct_when_node: (Node) -> [Array[Node], Node?, keyword_loc]?
+
+    def deconstruct_when_node!: (Node) -> [Array[Node], Node?, keyword_loc]
+
+    def test_when_node: (Node) { (Array[Node], Node?, keyword_loc) -> bool } -> bool
+
+    def deconstruct_rescue_node: (Node) -> [Node?, Array[Node], Node?, condition_loc]?
+
+    def deconstruct_rescue_node!: (Node) -> [Node?, Array[Node], Node?, condition_loc]
+
+    def test_rescue_node: (Node) { (Node?, Array[Node], Node?, condition_loc) -> bool } -> bool
+
+    type rescue_body_loc = Map & _RescueBody
+
+    def deconstruct_resbody_node: (Node) -> [Node?, Node?, Node?, rescue_body_loc]?
+
+    def deconstruct_resbody_node!: (Node) -> [Node?, Node?, Node?, rescue_body_loc]
+
+    def test_resbody_node: (Node) { (Node?, Node?, Node?, rescue_body_loc) -> bool } -> bool
+
+    type send_loc = Map & _Send
+
+    def deconstruct_send_node: (Node) -> [Node?, Symbol, Array[Node], send_loc]?
+
+    def deconstruct_send_node!: (Node) -> [Node?, Symbol, Array[Node], send_loc]
+
+    def test_send_node: (Node) { (Node?, Symbol, Array[Node], send_loc) -> bool } -> bool
   end
 end

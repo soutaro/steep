@@ -8614,7 +8614,7 @@ end
       with_standard_construction(checker, source) do |construction, typing|
         type, _ = construction.synthesize(source.node)
 
-        assert_equal parse_type("[X, untyped]", variables: [:X]), typing.context_at(line: 6, column: 5).type_env[:z]
+        assert_equal parse_type("[X, untyped]", variables: [:X]), typing.context_at(line: 7, column: 5).type_env[:z]
       end
     end
   end
@@ -10134,6 +10134,8 @@ hash = array #: Hash[Symbol, String]
 
   def test_assertion_as_type_fool_success
     with_checker(<<-RBS) do |checker|
+        class Pathname
+        end
       RBS
       source = parse_ruby(<<-RUBY)
 path = nil #: Pathname?

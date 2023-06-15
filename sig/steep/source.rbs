@@ -2,19 +2,29 @@ module Steep
   class Source
     extend NodeHelper
 
+    attr_reader buffer: RBS::Buffer
+
     attr_reader path: Pathname
 
     attr_reader node: Parser::AST::Node?
 
     attr_reader mapping: Hash[Parser::AST::Node, Array[AST::Annotation::t]]
 
-    def initialize: (path: Pathname, node: Parser::AST::Node?, mapping: Hash[Parser::AST::Node, Array[AST::Annotation::t]]) -> void
+    attr_reader comments: Array[Parser::Source::Comment]
+
+    def initialize: (
+      buffer: RBS::Buffer,
+      path: Pathname,
+      node: Parser::AST::Node?,
+      mapping: Hash[Parser::AST::Node, Array[AST::Annotation::t]],
+      comments: Array[Parser::Source::Comment]
+    ) -> void
 
     class Builder < ::Parser::Builders::Default
       def string_value: (untyped token) -> untyped
     end
 
-    def self.new_parser: () -> Parser::Ruby31
+    def self.new_parser: () -> Parser::Ruby32
 
     def self.parse: (String source_code, path: Pathname, factory: AST::Types::Factory) -> Source
 
@@ -36,8 +46,8 @@ module Steep
     #
     # Yields arrays, inner node first, outer node last -- `[heredoc_node, *outer_node, node]`.
     #
-    def each_heredoc_node: (?Parser::AST::Node? node, ?Array[Parser::AST::Node] parents) { (Array[Parser::AST::Node]) -> void } -> void
-                         | (?Parser::AST::Node? node, ?Array[Parser::AST::Node] parents) -> Enumerator[Array[Parser::AST::Node], void]
+    def each_heredoc_node: (?Parser::AST::Node? node, ?Array[Parser::AST::Node] parents) { ([Array[Parser::AST::Node], Parser::Source::Map & Parser::AST::_Heredoc]) -> void } -> void
+                         | (?Parser::AST::Node? node, ?Array[Parser::AST::Node] parents) -> Enumerator[[Array[Parser::AST::Node], Parser::Source::Map & Parser::AST::_Heredoc], void]
 
     # Returns array of nodes that is located inside heredoc
     #
@@ -57,6 +67,19 @@ module Steep
 
     # Returns a node and it's outer nodes
     def find_nodes: (line: Integer, column: Integer) -> ::Array[Parser::AST::Node]?
+
+    # Returns comment at the given position
+    #
+    # Note that a cursor position that is at the beginning of a comment returns `nil`.
+    #
+    # ```ruby
+    # .#. .H.e.l.l.o.
+    # ^                   => Returns nil
+    #   ^                 => Returns the comment
+    #               ^     => Returns the comment
+    # ```
+    #
+    def find_comment: (line: Integer, column: Integer) -> Parser::Source::Comment?
 
     def self.delete_defs: (Parser::AST::Node node, Set[Parser::AST::Node] allow_list) -> Parser::AST::Node
 

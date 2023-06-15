@@ -2497,7 +2497,7 @@ module Steep
             # @type var as_type: AST::Node::TypeAssertion
             asserted_node, as_type = node.children
 
-            if type = as_type.type?(module_context.nesting, checker.factory, [])
+            if type = as_type.type?(module_context.nesting, checker, [])
               actual_type, constr = synthesize(asserted_node, hint: type)
 
               if no_subtyping?(sub_type: type, super_type: actual_type) && no_subtyping?(sub_type: actual_type, super_type: type)
@@ -3714,7 +3714,7 @@ module Steep
     def try_method_type(node, receiver_type:, method_name:, method_type:, arguments:, block_params:, block_body:, tapp:, hint:)
       constr = self
 
-      if tapp && type_args = tapp.types?(module_context.nesting, checker.factory, [])
+      if tapp && type_args = tapp.types?(module_context.nesting, checker, [])
         type_arity = method_type.type_params.size
         type_param_names = method_type.type_params.map(&:name)
 

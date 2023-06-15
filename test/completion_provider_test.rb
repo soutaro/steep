@@ -76,7 +76,7 @@ self.cl
       end
     end
   end
-  
+
   def test_on_method_identifier_colon2
     with_checker do
       CompletionProvider.new(source_text: <<-EOR, path: Pathname("foo.rb"), subtyping: checker).tap do |provider|
@@ -461,6 +461,60 @@ bar()
             assert_equal ["() -> ::String"], items[0].method_types.map(&:to_s)
             assert_equal [MethodName("::Integer#to_s"), MethodName("::String#to_s")], items[0].method_names
           end
+        end
+      end
+    end
+  end
+
+  def test_on_comment
+    with_checker do
+      CompletionProvider.new(source_text: <<~RUBY, path: Pathname("foo.rb"), subtyping: checker).tap do |provider|
+        x = [] # Hoge hoge
+      RUBY
+
+        provider.run(line: 1, column: 10).tap do |items|
+          assert_empty items
+        end
+      end
+    end
+  end
+
+  def test_on_steep_inline_comment
+    with_checker do
+      CompletionProvider.new(source_text: <<~RUBY, path: Pathname("foo.rb"), subtyping: checker).tap do |provider|
+        # @type var x: Ar
+        x = []
+      RUBY
+
+        provider.run(line: 1, column: 17).tap do |items|
+          assert_equal [TypeName("Array")], items.map(&:relative_type_name)
+        end
+      end
+    end
+  end
+
+  def test_on_steep_type_assertion
+    with_checker do
+      CompletionProvider.new(source_text: <<~RUBY, path: Pathname("foo.rb"), subtyping: checker).tap do |provider|
+        x = [] #: Ar
+      RUBY
+
+        provider.run(line: 1, column: 12).tap do |items|
+          assert_equal [TypeName("Array")], items.map(&:relative_type_name)
+        end
+      end
+    end
+  end
+
+  def test_on_steep_type_application
+    with_checker do
+      CompletionProvider.new(source_text: <<~RUBY, path: Pathname("foo.rb"), subtyping: checker).tap do |provider|
+        [1, 2].inject([]) do |x, y| #$ Ar
+        end
+      RUBY
+
+        provider.run(line: 1, column: 33).tap do |items|
+          assert_equal [TypeName("Array")], items.map(&:relative_type_name)
         end
       end
     end

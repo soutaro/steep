@@ -231,6 +231,25 @@ module Steep
           format_method_item_doc(item.method_types, method_names, comments)
         when Services::CompletionProvider::GeneratedMethodNameItem
           format_method_item_doc(item.method_types, [], {}, "🤖 Generated method for receiver type")
+        when Services::CompletionProvider::TypeNameItem
+          io = StringIO.new
+
+          io.puts <<~MD
+            ```rbs
+            #{declaration_summary(item.decl)}
+            ```
+          MD
+
+          unless item.comments.empty?
+            io.puts "----"
+            io.puts format_comments(
+              item.comments.map {|comment|
+                [item.absolute_type_name.relative!.to_s, comment] #: [String, RBS::AST::Comment?]
+              }
+            )
+          end
+
+          io.string
         end
       end
 

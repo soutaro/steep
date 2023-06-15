@@ -361,6 +361,26 @@ module Steep
               new_text: item.identifier.to_s
             )
           )
+        when Services::CompletionProvider::TypeNameItem
+          kind =
+            case
+            when item.absolute_type_name.class?
+              LSP::Constant::CompletionItemKind::CLASS
+            when item.absolute_type_name.interface?
+              LSP::Constant::CompletionItemKind::INTERFACE
+            when item.absolute_type_name.alias?
+              LSP::Constant::CompletionItemKind::FIELD
+            end
+          LSP::Interface::CompletionItem.new(
+            label: item.relative_type_name.to_s,
+            kind: kind,
+            label_details: nil,
+            documentation: LSPFormatter.markup_content { LSPFormatter.format_completion_docs(item) },
+            text_edit: LSP::Interface::TextEdit.new(
+              range: range,
+              new_text: item.relative_type_name.to_s
+            )
+          )
         end
       end
 

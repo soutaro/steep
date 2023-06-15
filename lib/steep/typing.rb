@@ -32,10 +32,10 @@ module Steep
       @should_update = false
 
       @errors = []
-      @typing = {}.compare_by_identity
+      (@typing = {}).compare_by_identity
       @root_context = root_context
-      @contexts = contexts || TypeInference::ContextArray.from_source(source: source)
-      @method_calls = {}.compare_by_identity
+      @contexts = contexts || TypeInference::ContextArray.from_source(source: source, context: root_context)
+      (@method_calls = {}).compare_by_identity
 
       @source_index = source_index || Index::SourceIndex.new(source: source)
     end
@@ -222,10 +222,11 @@ module Steep
     end
 
     def new_child(range)
+      context = contexts[range.begin] || contexts.root.context
       child = self.class.new(source: source,
                              parent: self,
                              root_context: root_context,
-                             contexts: TypeInference::ContextArray.new(buffer: contexts.buffer, range: range, context: nil),
+                             contexts: TypeInference::ContextArray.new(buffer: contexts.buffer, range: range, context: context),
                              source_index: source_index.new_child)
       @should_update = true
 

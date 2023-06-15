@@ -826,4 +826,19 @@ super { } # $ nil
       end
     end
   end
+
+  def test_find_comment
+    with_factory() do |factory|
+      source = Steep::Source.parse(<<~RUBY, path: Pathname("foo.rb"), factory: factory)
+        # comment 1
+        # comment 2
+        x = 123 # comment 3
+      RUBY
+
+      assert_nil source.find_comment(line: 1, column: 0)
+      assert_equal "# comment 1", source.find_comment(line: 1, column: 1).text
+      assert_equal "# comment 2", source.find_comment(line: 2, column: 1).text
+      assert_equal "# comment 3", source.find_comment(line: 3, column: 13).text
+    end
+  end
 end

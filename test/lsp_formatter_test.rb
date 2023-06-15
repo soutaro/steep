@@ -8,7 +8,7 @@ class LSPFormatterTest < Minitest::Test
   LSPFormatter = Diagnostic::LSPFormatter
 
   def node
-    ::Parser::Ruby31.parse("1+2")
+    ::Parser::Ruby32.parse("1+2")
   end
 
   def test_severity_for

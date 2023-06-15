@@ -10,9 +10,9 @@ module Steep
 
         def initialize: (RBS::Location[untyped, untyped]) -> void
 
-        def type: (RBS::Resolver::context, Types::Factory, Array[Symbol] type_vars) -> (Types::t | RBS::ParsingError | nil)
+        def type: (RBS::Resolver::context, Subtyping::Check, Array[Symbol] type_vars) -> (Types::t | RBS::ParsingError | nil)
 
-        def type?: (RBS::Resolver::context, Types::Factory, Array[Symbol] type_vars) -> Types::t?
+        def type?: (RBS::Resolver::context, Subtyping::Check, Array[Symbol] type_vars) -> Types::t?
 
         @type_str: String?
         def type_str: () -> String
@@ -22,7 +22,7 @@ module Steep
         # Returns true if given comment body has a valid type syntax
         #
         # This method is used to reject RDoc directives beforehand.
-        # 
+        #
         def type_syntax?: () -> bool
 
         def self.parse: (RBS::Location[untyped, untyped]) -> TypeAssertion?
