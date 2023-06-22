@@ -9,7 +9,7 @@ module Steep
 
       attr_reader queue: Thread::Queue
 
-      attr_accessor severity_level: Symbol
+      attr_accessor severity_level: Diagnostic::LSPFormatter::severity
 
       attr_reader jobs_option: Utils::JobsOption
 
