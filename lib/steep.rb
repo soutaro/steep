@@ -169,6 +169,7 @@ module Steep
     @log_output = output
     prev_level = @logger&.level
     @logger = new_logger(output, prev_level)
+    output
   end
 
   @logger = nil
@@ -176,19 +177,21 @@ module Steep
 
   def self.measure(message, level: :warn)
     start = Time.now
-    yield.tap do
-      time = Time.now - start
-      if level.is_a?(Symbol)
-        level = Logger.const_get(level.to_s.upcase)
-      end
-      self.logger.log(level) { "#{message} took #{time} seconds" }
+    yield
+  ensure
+    time = Time.now - start
+    if level.is_a?(Symbol)
+      level = Logger.const_get(level.to_s.upcase)
     end
+    self.logger.log(level) { "#{message} took #{time} seconds" }
   end
 
   def self.log_error(exn, message: "Unexpected error: #{exn.inspect}")
     Steep.logger.fatal message
-    exn.backtrace.each do |loc|
-      Steep.logger.error "  #{loc}"
+    if backtrace = exn.backtrace
+      backtrace.each do |loc|
+        Steep.logger.error "  #{loc}"
+      end
     end
   end
 
@@ -199,7 +202,9 @@ module Steep
 
     def sample(message)
       start = Time.now
-      yield.tap do
+      begin
+        yield
+      ensure
         time = Time.now - start
         @samples << [message, time]
       end
@@ -221,12 +226,13 @@ module Steep
       if count > 0
         total/count
       else
-        0
+        0.to_f
       end
     end
 
     def percentile(p)
-      slowests([count * p / 100r, 1].max).last&.last || 0
+      c = [count * p / 100.to_r, 1].max or raise
+      slowests(c.to_i).last&.last || 0.to_f
     end
   end
 
@@ -258,7 +264,7 @@ klasses = [
 
 klasses.each do |klass|
   klass.instance_eval do
-    def self.new(*_, **__, &___)
+    def self.new(*_a, **_b, &_c)
       super
     end
   end
@@ -294,7 +300,7 @@ module GCCounter
 
           GC.start(immediate_sweep: true, immediate_mark: true, full_mark: true)
 
-          gceds = []
+          gceds = [] #: Array[[Class, Integer]]
 
           klasses.each do |klass|
             count = ObjectSpace.each_object(klass).count
