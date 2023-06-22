@@ -16,7 +16,7 @@ module Steep
           buffered_changes.clear
           copy
         end
-        
+
         if block_given?
           yield changes
         else
@@ -41,21 +41,23 @@ module Steep
 
       def collect_changes(request)
         push_buffer do |changes|
-          path = project.relative_path(Steep::PathHelper.to_pathname(request[:params][:textDocument][:uri]))
-          version = request[:params][:textDocument][:version]
-          Steep.logger.info { "Updating source: path=#{path}, version=#{version}..." }
+          if path = Steep::PathHelper.to_pathname(request[:params][:textDocument][:uri])
+            path = project.relative_path(path)
+            version = request[:params][:textDocument][:version]
+            Steep.logger.info { "Updating source: path=#{path}, version=#{version}..." }
 
-          changes[path] ||= []
-          request[:params][:contentChanges].each do |change|
-            changes[path] << Services::ContentChange.new(
-              range: change[:range]&.yield_self {|range|
-                [
-                  range[:start].yield_self {|pos| Services::ContentChange::Position.new(line: pos[:line] + 1, column: pos[:character]) },
-                  range[:end].yield_self {|pos| Services::ContentChange::Position.new(line: pos[:line] + 1, column: pos[:character]) }
-                ]
-              },
-              text: change[:text]
-            )
+            changes[path] ||= []
+            request[:params][:contentChanges].each do |change|
+              changes[path] << Services::ContentChange.new(
+                range: change[:range]&.yield_self {|range|
+                  [
+                    range[:start].yield_self {|pos| Services::ContentChange::Position.new(line: pos[:line] + 1, column: pos[:character]) },
+                    range[:end].yield_self {|pos| Services::ContentChange::Position.new(line: pos[:line] + 1, column: pos[:character]) }
+                  ]
+                },
+                text: change[:text]
+              )
+            end
           end
         end
       end
