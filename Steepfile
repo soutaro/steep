@@ -2,6 +2,8 @@ D = Steep::Diagnostic
 
 target :app do
   check "lib"
+  ignore "lib/steep/shims"
+  
   signature "sig"
 
   collection_config "rbs_collection.steep.yaml"
