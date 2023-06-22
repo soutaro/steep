@@ -37,6 +37,7 @@ module Steep
                 loc = node.loc
                 stdout.puts "#{path}:#{loc.line}:#{loc.column}:#{node.type}:\t#{node.loc.expression.source.lines.first}"
                 annotations.each do |annotation|
+                  annotation.location or raise
                   stdout.puts "  #{annotation.location.source}"
                 end
               end
