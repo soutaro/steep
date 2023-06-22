@@ -49,6 +49,8 @@ module Steep
         end
 
         class ImportInstanceVariableAnnotations < AnnotationsBase
+          def merge!: (?bool) -> self
+                    
           include _Base
 
           @merge: bool
