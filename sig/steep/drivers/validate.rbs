@@ -9,7 +9,7 @@ module Steep
 
       def initialize: (stdout: IO, stderr: IO) -> void
 
-      def run: () -> void
+      def run: () -> Integer
     end
   end
 end
