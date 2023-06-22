@@ -1,29 +1,41 @@
+use LanguageServer::Protocol::Constant::SymbolKind
+
 module Steep
   module Index
     class SignatureSymbolProvider
       module LSP = LanguageServer::Protocol
 
-      SymbolInformation: untyped
+      class SymbolInformation
+        attr_reader name: String
 
-      attr_reader project: untyped
+        attr_reader location: RBS::Location[untyped, untyped]
 
-      attr_reader indexes: untyped
+        attr_reader container_name: String?
 
-      attr_reader assignment: untyped
+        attr_reader kind: SymbolKind::t
 
-      def initialize: (project: untyped, assignment: untyped) -> void
+        def initialize: (name: String, location: RBS::Location[untyped, untyped], container_name: String?, kind: SymbolKind::t) -> void
+      end
 
-      def self.test_type_name: (untyped query, untyped type_name) -> untyped
+      attr_reader project: Project
+
+      attr_reader indexes: Array[RBSIndex]
+
+      attr_reader assignment: Services::PathAssignment
+
+      def initialize: (project: Project, assignment: Services::PathAssignment) -> void
+
+      def self.test_type_name: (String query, RBS::TypeName type_name) -> bool
 
       alias self.test_const_name self.test_type_name
 
-      alias self.test_global_name self.test_type_name
+      def self.test_global_name: (String query, Symbol global_name) -> bool
 
-      def self.test_method_name: (untyped query, untyped method_name) -> untyped
+      def self.test_method_name: (String query, method_name) -> bool
 
-      def assigned?: (untyped path) -> untyped
+      def assigned?: (Pathname) -> bool
 
-      def query_symbol: (untyped query) -> untyped
+      def query_symbol: (String query) -> Array[SymbolInformation]
     end
   end
 end

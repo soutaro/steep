@@ -2,7 +2,9 @@ module Steep
   module Index
     class SignatureSymbolProvider
       LSP = LanguageServer::Protocol
-      SymbolInformation = Struct.new(:name, :kind, :container_name, :location, keyword_init: true)
+
+      class SymbolInformation < Struct.new(:name, :kind, :container_name, :location, keyword_init: true)
+      end
 
       attr_reader :project
       attr_reader :indexes
@@ -48,7 +50,7 @@ module Steep
       end
 
       def query_symbol(query)
-        symbols = []
+        symbols = [] #: Array[SymbolInformation]
 
         indexes.each do |index|
           index.each_entry do |entry|
@@ -60,34 +62,35 @@ module Steep
               name = entry.type_name.name.to_s
 
               entry.declarations.each do |decl|
-                next unless assigned?(Pathname(decl.location.buffer.name))
+                location = decl.location or next
+                next unless assigned?(Pathname(location.buffer.name))
 
                 case decl
                 when RBS::AST::Declarations::Class
                   symbols << SymbolInformation.new(
                     name: name,
-                    location: decl.location,
+                    location: location,
                     kind: LSP::Constant::SymbolKind::CLASS,
                     container_name: container_name
                   )
                 when RBS::AST::Declarations::Module
                   symbols << SymbolInformation.new(
                     name: name,
-                    location: decl.location,
+                    location: location,
                     kind: LSP::Constant::SymbolKind::MODULE,
                     container_name: container_name
                   )
                 when RBS::AST::Declarations::Interface
                   symbols << SymbolInformation.new(
                     name: name,
-                    location: decl.location,
+                    location: location,
                     kind: LSP::Constant::SymbolKind::INTERFACE,
                     container_name: container_name
                   )
                 when RBS::AST::Declarations::TypeAlias
                   symbols << SymbolInformation.new(
                     name: name,
-                    location: decl.location,
+                    location: location,
                     kind: LSP::Constant::SymbolKind::ENUM,
                     container_name: container_name
                   )
@@ -101,31 +104,34 @@ module Steep
                        "##{entry.method_name.method_name}"
                      when SingletonMethodName
                        ".#{entry.method_name.method_name}"
+                     else
+                       raise
                      end
               container_name = entry.method_name.type_name.relative!.to_s
 
               entry.declarations.each do |decl|
-                next unless assigned?(Pathname(decl.location.buffer.name))
+                location = decl.location or next
+                next unless assigned?(Pathname(location.buffer.name))
 
                 case decl
                 when RBS::AST::Members::MethodDefinition
                   symbols << SymbolInformation.new(
                     name: name,
-                    location: decl.location,
+                    location: location,
                     kind: LSP::Constant::SymbolKind::METHOD,
                     container_name: container_name
                   )
                 when RBS::AST::Members::Alias
                   symbols << SymbolInformation.new(
                     name: name,
-                    location: decl.location,
+                    location: location,
                     kind: LSP::Constant::SymbolKind::METHOD,
                     container_name: container_name
                   )
                 when RBS::AST::Members::AttrAccessor, RBS::AST::Members::AttrReader, RBS::AST::Members::AttrWriter
                   symbols << SymbolInformation.new(
                     name: name,
-                    location: decl.location,
+                    location: location,
                     kind: LSP::Constant::SymbolKind::PROPERTY,
                     container_name: container_name
                   )
@@ -133,7 +139,7 @@ module Steep
                   if decl.ivar_name
                     symbols << SymbolInformation.new(
                       name: decl.ivar_name.to_s,
-                      location: decl.location,
+                      location: location,
                       kind: LSP::Constant::SymbolKind::FIELD,
                       container_name: container_name
                     )
@@ -144,6 +150,7 @@ module Steep
               next unless SignatureSymbolProvider.test_const_name(query, entry.const_name)
 
               entry.declarations.each do |decl|
+                next unless decl.location
                 next unless assigned?(Pathname(decl.location.buffer.name))
 
                 symbols << SymbolInformation.new(
@@ -157,12 +164,14 @@ module Steep
               next unless SignatureSymbolProvider.test_global_name(query, entry.global_name)
 
               entry.declarations.each do |decl|
+                next unless decl.location
                 next unless assigned?(Pathname(decl.location.buffer.name))
 
                 symbols << SymbolInformation.new(
                   name: decl.name.to_s,
                   location: decl.location,
-                  kind: LSP::Constant::SymbolKind::VARIABLE
+                  kind: LSP::Constant::SymbolKind::VARIABLE,
+                  container_name: nil
                 )
               end
             end
