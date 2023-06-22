@@ -109,6 +109,8 @@ module LanguageServer
       end
 
       class Position
+        type json = { line: Integer, character: Integer }
+
         include _Base
 
         # 0-origin line number
@@ -124,6 +126,11 @@ module LanguageServer
       class Range
         include _Base
 
+        type json = {
+          start: Position::json,
+          end: Position::json
+        }
+
         attr_reader start: Position
 
         attr_reader end: Position
@@ -134,6 +141,8 @@ module LanguageServer
 
       class Location
         include _Base
+
+        type json = { uri: String, range: Range::json }
 
         attr_reader uri: String
 
@@ -326,6 +335,18 @@ module LanguageServer
       end
 
       class Diagnostic
+        type json = {
+          range: Range::json,
+          severity: Constant::DiagnosticSeverity::t?,
+          code: Integer | String | nil,
+          codeDescription: CodeDescription::json?,
+          source: String?,
+          message: String,
+          tags: Array[Constant::DiagnosticTag::t]?,
+          relatedInformation: RelatedInformation::json?,
+          data: untyped?
+        }
+
         attr_reader range: Range
 
         attr_reader severity: Constant::DiagnosticSeverity::t?
@@ -360,6 +381,11 @@ module LanguageServer
       class RelatedInformation
         include _Base
 
+        type json = {
+          location: Location::json,
+          message: String
+        }
+
         attr_reader location: Location
 
         attr_reader message: String
@@ -369,6 +395,8 @@ module LanguageServer
 
       class CodeDescription
         include _Base
+
+        type json = { href: String }
 
         attr_reader href: String
 

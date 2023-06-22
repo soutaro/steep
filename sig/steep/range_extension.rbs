@@ -1,7 +1,7 @@
 class RBS::Location[in RK, in OK]
-  def as_lsp_range: () -> { start: { line: Integer, character: Integer }, end: { line: Integer, character: Integer } }
+  def as_lsp_range: () -> LanguageServer::Protocol::Interface::Range::json
 end
 
 class Parser::Source::Range
-  def as_lsp_range: () -> { start: { line: Integer, character: Integer }, end: { line: Integer, character: Integer } }
+  def as_lsp_range: () -> LanguageServer::Protocol::Interface::Range::json
 end
