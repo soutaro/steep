@@ -192,7 +192,8 @@ module Steep
         OptionParser.new do |opts|
           opts.banner = "Usage: steep watch [options] [dirs]"
           opts.on("--severity-level=LEVEL", /^error|warning|information|hint$/, "Specify the minimum diagnostic severity to be recognized as an error (defaults: warning): error, warning, information, or hint") do |level|
-            command.severity_level = level.to_sym
+            # @type var level: String
+            command.severity_level = _ = level.to_sym
           end
           handle_jobs_option command.jobs_option, opts
           handle_logging_options opts

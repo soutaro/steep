@@ -41,14 +41,14 @@ module Steep
         severity = severity_for(diagnostic)
 
         if severity
-          range = diagnostic.location&.as_lsp_range or raise "#{diagnostic.class} object (#{diagnostic.full_message}) instance must have `#location`"
+          range = diagnostic.location&.as_lsp_range || raise("#{diagnostic.class} object (#{diagnostic.full_message}) instance must have `#location`")
 
-          LSP::Interface::Diagnostic.new(
+          {
             message: diagnostic.full_message,
             code: diagnostic.diagnostic_code,
             severity: severity,
             range: range
-          ).to_hash
+          }
         end
       end
 

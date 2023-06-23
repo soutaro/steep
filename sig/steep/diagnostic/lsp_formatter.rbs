@@ -1,3 +1,6 @@
+use LanguageServer::Protocol::Constant::DiagnosticSeverity as LSPDiagnosticSeverity
+use LanguageServer::Protocol::Interface::Diagnostic as LSPDiagnostic
+
 module Steep
   module Diagnostic
     class LSPFormatter
@@ -25,9 +28,9 @@ module Steep
 
       def validate_severity: (Class | :default klass, severity?) -> void
 
-      def format: (Diagnostic::Ruby::Base | Diagnostic::Signature::Base) -> Hash[Symbol, untyped]?
+      def format: (Diagnostic::Ruby::Base | Diagnostic::Signature::Base) -> LSPDiagnostic::json?
 
-      def severity_for: (Diagnostic::Ruby::Base | Diagnostic::Signature::Base) -> String?
+      def severity_for: (Diagnostic::Ruby::Base | Diagnostic::Signature::Base) -> LSPDiagnosticSeverity::t?
     end
   end
 end

@@ -1,19 +1,19 @@
 module Steep
   module Drivers
     class Init
-      attr_reader stdout: untyped
+      attr_reader stdout: IO
 
-      attr_reader stderr: untyped
+      attr_reader stderr: IO
 
-      attr_accessor force_write: untyped
+      attr_accessor force_write: bool
 
       include Utils::DriverHelper
 
-      TEMPLATE: "# D = Steep::Diagnostic\n#\n# target :lib do\n#   signature \"sig\"\n#\n#   check \"lib\"                       # Directory name\n#   check \"Gemfile\"                   # File name\n#   check \"app/models/**/*.rb\"        # Glob\n#   # ignore \"lib/templates/*.rb\"\n#\n#   # library \"pathname\", \"set\"       # Standard libraries\n#   # library \"strong_json\"           # Gems\n#\n#   # configure_code_diagnostics(D::Ruby.strict)       # `strict` diagnostics setting\n#   # configure_code_diagnostics(D::Ruby.lenient)      # `lenient` diagnostics setting\n#   # configure_code_diagnostics(D::Ruby.silent)       # `silent` diagnostics setting\n#   # configure_code_diagnostics do |hash|             # You can setup everything yourself\n#   #   hash[D::Ruby::NoMethod] = :information\n#   # end\n# end\n\n# target :test do\n#   signature \"sig\", \"sig-private\"\n#\n#   check \"test\"\n#\n#   # library \"pathname\", \"set\"       # Standard libraries\n# end\n"
+      TEMPLATE: String
 
-      def initialize: (stdout: untyped, stderr: untyped) -> void
+      def initialize: (stdout: IO, stderr: IO) -> void
 
-      def run: () -> (1 | 0)
+      def run: () -> Integer
     end
   end
 end

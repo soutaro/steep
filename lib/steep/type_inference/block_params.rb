@@ -76,6 +76,14 @@ module Steep
             enum_for :each_param
           end
         end
+
+        def type
+          types = params.map do |param|
+            param.type or return
+          end
+
+          AST::Types::Tuple.new(types: types)
+        end
       end
 
       attr_reader :leading_params
@@ -191,15 +199,30 @@ module Steep
             return nil
           end
 
-          if rest_param && hint.rest
-            rest = rest_param.type&.yield_self {|ty| ty.args&.first } || hint.rest
-          else
-            rest = hint.rest
+          if rest_param
+            if hint.rest
+              if rest_type = rest_param.type
+                if AST::Builtin::Array.instance_type?(rest_type)
+                  rest_type.is_a?(AST::Types::Name::Instance) or raise
+                  rest = rest_type.args.first or raise
+                end
+              end
+
+              rest ||= hint.rest
+            end
           end
         else
           leadings = leading_params.map {|param| param.type || AST::Types::Any.new }
           optionals = optional_params.map {|param| param.type || AST::Types::Any.new }
-          rest = rest_param&.yield_self {|param| param.type&.args&.[](0) || AST::Types::Any.new }
+
+          if rest_param
+            if rest_type = rest_param.type
+              if array = AST::Builtin::Array.instance_type?(rest_type)
+                rest = array.args.first or raise
+              end
+            end
+            rest ||= AST::Types::Any.new
+          end
         end
 
         Interface::Function::Params.build(
@@ -265,10 +288,10 @@ module Steep
           types = params_type.flat_unnamed_params
 
           (leading_params + optional_params).each do |param|
-            type = types.shift&.last || params_type.rest
+            typ = types.shift&.last || params_type.rest
 
-            if type
-              zip << [param, type]
+            if typ
+              zip << [param, typ]
             else
               zip << [param, AST::Builtin.nil_type]
             end
@@ -279,7 +302,9 @@ module Steep
               array = AST::Builtin::Array.instance_type(params_type.rest || AST::Builtin.any_type)
               zip << [rest_param, array]
             else
-              union = AST::Types::Union.build(types: types.map(&:last) + [params_type.rest])
+              union_members = types.map(&:last)
+              union_members << params_type.rest if params_type.rest
+              union = AST::Types::Union.build(types: union_members)
               array = AST::Builtin::Array.instance_type(union)
               zip << [rest_param, array]
             end

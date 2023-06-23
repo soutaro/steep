@@ -130,7 +130,7 @@ module Steep
               printer = DiagnosticPrinter.new(stdout: stdout, buffer: buffer)
 
               diagnostics = response[:params][:diagnostics]
-              diagnostics.filter! {|d| keep_diagnostic?(d) }
+              diagnostics.filter! {|d| keep_diagnostic?(d, severity_level: severity_level) }
 
               unless diagnostics.empty?
                 diagnostics.each do |diagnostic|

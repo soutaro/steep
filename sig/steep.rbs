@@ -3,33 +3,34 @@ module Steep
 
   def self.logger: () -> (Logger & ActiveSupport::TaggedLogging)
 
-  def self.new_logger: (untyped output, untyped prev_level) -> untyped
+  def self.new_logger: (IO output, Integer? prev_level) -> (Logger & ActiveSupport::TaggedLogging)
 
-  def self.log_output: () -> untyped
-
-  def self.log_output=: (untyped output) -> untyped
+  attr_accessor self.log_output: IO
 
   def self.measure: [A] (String message, ?level: ::Symbol) { () -> A } -> A
 
-  def self.log_error: (untyped exn, ?message: ::String) -> untyped
+  def self.log_error: (Exception exn, ?message: ::String) -> void
 
-  self.@logger: ActiveSupport::TaggedLogging?
+  self.@logger: (Logger & ActiveSupport::TaggedLogging)?
 
   class Sampler
+    type sample = [String, Float]
+    @samples: Array[sample]
+
     def initialize: () -> void
 
-    def sample: (untyped message) { () -> untyped } -> untyped
+    def sample: [A] (String message) { () -> A } -> A
 
-    def count: () -> untyped
+    def count: () -> Integer
 
-    def total: () -> untyped
+    def total: () -> Float
 
-    def slowests: (untyped num) -> untyped
+    def slowests: (Integer num) -> Array[sample]
 
-    def average: () -> (untyped | 0)
+    def average: () -> Float
 
-    def percentile: (untyped p) -> untyped
+    def percentile: (Integer p) -> Float
   end
 
-  def self.measure2: (untyped message, ?level: ::Symbol) { (untyped) -> untyped } -> untyped
+  def self.measure2: [A] (String message, ?level: ::Symbol) { (Sampler) -> A } -> A
 end

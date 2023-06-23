@@ -54,8 +54,10 @@ module Steep
               case lib
               when :core
                 stdout.puts "      - core: #{path}"
+              when Pathname
+                raise "Unexpected pathname from loader: path=#{path}"
               else
-                stdout.puts "      - #{lib.name}: #{path}"
+                stdout.puts "      - #{lib.name}(#{lib.version}): #{path}"
               end
             end
           end

@@ -23,14 +23,6 @@ module Steep
           end
         end
 
-        def type_check(project)
-          project.targets.each do |target|
-            Steep.logger.tagged "target=#{target.name}" do
-              target.type_check
-            end
-          end
-        end
-
         def request_id
           SecureRandom.alphanumeric(10)
         end
@@ -66,10 +58,10 @@ module Steep
           end
         end
 
-        def keep_diagnostic?(diagnostic)
+        def keep_diagnostic?(diagnostic, severity_level:)
           severity = diagnostic[:severity]
 
-          case self.severity_level
+          case severity_level
           when nil, :hint
             true
           when :error

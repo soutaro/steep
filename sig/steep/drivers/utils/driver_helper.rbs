@@ -1,3 +1,5 @@
+use LanguageServer::Protocol::Transport::Io::*
+
 module Steep
   module Drivers
     module Utils
@@ -6,17 +8,17 @@ module Steep
 
         def load_config: (?path: Pathname) -> Project
 
-        def type_check: (Project project) -> void
-
         def request_id: () -> String
 
-        def wait_for_response_id: (reader: untyped, id: untyped, ?unknown_responses: ::Symbol) -> untyped
+        def wait_for_response_id: (reader: Reader, id: String, ?unknown_responses: unknown_message_action) -> untyped
 
-        def shutdown_exit: (writer: untyped, reader: untyped) -> untyped
+        def shutdown_exit: (writer: Writer, reader: Reader) -> void
 
-        def wait_for_message: (reader: untyped, ?unknown_messages: ::Symbol) { (untyped) -> untyped } -> untyped
+        type unknown_message_action = :ignore | :log | :raise
 
-        def keep_diagnostic?: (untyped diagnostic) -> bool
+        def wait_for_message: (reader: Reader, ?unknown_messages: unknown_message_action) { (untyped) -> bool } -> untyped
+
+        def keep_diagnostic?: (untyped diagnostic, severity_level: Diagnostic::LSPFormatter::severity) -> bool
       end
     end
   end

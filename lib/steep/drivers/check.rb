@@ -74,7 +74,7 @@ module Steep
           case
           when response[:method] == "textDocument/publishDiagnostics"
             ds = response[:params][:diagnostics]
-            ds.select! {|d| keep_diagnostic?(d) }
+            ds.select! {|d| keep_diagnostic?(d, severity_level: severity_level) }
             if ds.empty?
               stdout.print "."
             else

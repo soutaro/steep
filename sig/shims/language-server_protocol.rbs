@@ -97,6 +97,37 @@ module LanguageServer
 
         DEPRECATED: 2
       end
+
+      module SymbolKind
+        FILE: 1
+        MODULE: 2
+        NAMESPACE: 3
+        PACKAGE: 4
+        CLASS: 5
+        METHOD: 6
+        PROPERTY: 7
+        FIELD: 8
+        CONSTRUCTOR: 9
+        ENUM: 10
+        INTERFACE: 11
+        FUNCTION: 12
+        VARIABLE: 13
+        CONSTANT: 14
+        STRING: 15
+        NUMBER: 16
+        BOOLEAN: 17
+        ARRAY: 18
+        OBJECT: 19
+        KEY: 20
+        NULL: 21
+        ENUM_MEMBER: 22
+        STRUCT: 23
+        EVENT: 24
+        OPERATOR: 25
+        TYPE_PARAMETER: 26
+
+        type t = 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11 | 12 | 13 | 14 | 15 | 16 | 17 | 18 | 19 | 20 | 21 | 22 | 23 | 24 | 25 | 26
+      end
     end
 
     module Interface
@@ -109,6 +140,8 @@ module LanguageServer
       end
 
       class Position
+        type json = { line: Integer, character: Integer }
+
         include _Base
 
         # 0-origin line number
@@ -124,6 +157,11 @@ module LanguageServer
       class Range
         include _Base
 
+        type json = {
+          start: Position::json,
+          end: Position::json
+        }
+
         attr_reader start: Position
 
         attr_reader end: Position
@@ -134,6 +172,8 @@ module LanguageServer
 
       class Location
         include _Base
+
+        type json = { uri: String, range: Range::json }
 
         attr_reader uri: String
 
@@ -326,6 +366,18 @@ module LanguageServer
       end
 
       class Diagnostic
+        type json = {
+          range: Range::json,
+          severity: Constant::DiagnosticSeverity::t?,
+          code: Integer | String | nil,
+          codeDescription: CodeDescription::json?,
+          source: String?,
+          message: String,
+          tags: Array[Constant::DiagnosticTag::t]?,
+          relatedInformation: RelatedInformation::json?,
+          data: untyped?
+        }
+
         attr_reader range: Range
 
         attr_reader severity: Constant::DiagnosticSeverity::t?
@@ -360,6 +412,11 @@ module LanguageServer
       class RelatedInformation
         include _Base
 
+        type json = {
+          location: Location::json,
+          message: String
+        }
+
         attr_reader location: Location
 
         attr_reader message: String
@@ -369,6 +426,8 @@ module LanguageServer
 
       class CodeDescription
         include _Base
+
+        type json = { href: String }
 
         attr_reader href: String
 

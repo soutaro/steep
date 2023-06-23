@@ -12,9 +12,9 @@ module Steep
 
         def module_type: () -> Types::Name::Singleton
 
-        def instance_type?: (Types::t `type`, ?args: Array[Types::t]?) -> bool
+        def instance_type?: (Types::t `type`, ?args: Array[Types::t]?) -> Types::Name::Instance?
 
-        def module_type?: (Types::t `type`) -> bool
+        def module_type?: (Types::t `type`) -> Types::Name::Singleton?
       end
 
       Object: Type

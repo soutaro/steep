@@ -22,7 +22,7 @@ module Steep
               files = if absolute_path.directory?
                         Pathname.glob("#{absolute_path}/**/*#{pattern.ext}")
                       else
-                        Pathname.glob(absolute_path)
+                        Pathname.glob(absolute_path.to_s)
                       end
 
               files.sort.each do |source_path|
