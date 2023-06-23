@@ -89,6 +89,12 @@ module Steep
         #
         def each_param: () { (Param) -> void } -> void
                       | () -> Enumerator[Param, void]
+
+        # Type that is constructed from `#params` type annotations
+        #
+        # Returns `nil` any part of the params is left un-annotated.
+        #
+        def type: () -> AST::Types::t?
       end
 
       attr_reader leading_params: Array[Param | MultipleParam]

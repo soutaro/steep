@@ -140,7 +140,7 @@ module Steep
 
         def optional: () -> Array[AST::Types::t]
 
-        def rest: () -> AST::Types::t?
+        %a{pure} def rest: () -> AST::Types::t?
 
         attr_reader positional_params: PositionalParams?
 
