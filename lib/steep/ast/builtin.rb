@@ -29,20 +29,22 @@ module Steep
           if type.is_a?(Types::Name::Instance)
             if args
               arity == args.size or raise "Malformed instance type: name=#{module_name}, args=#{args}"
-              type.name == module_name && type.args == args
+              if type.name == module_name && type.args == args
+                type
+              end
             else
-              type.name == module_name && type.args.size == arity
+              if type.name == module_name && type.args.size == arity
+                type
+              end
             end
-          else
-            false
           end
         end
 
         def module_type?(type)
           if type.is_a?(Types::Name::Singleton)
-            type.name == module_name
-          else
-            false
+            if type.name == module_name
+              type
+            end
           end
         end
       end
