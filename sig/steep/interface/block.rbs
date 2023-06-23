@@ -25,6 +25,8 @@ module Steep
 
       def subst: (Substitution s) -> Block
 
+      @fvs: Set[Symbol]
+
       def free_variables: () -> Set[Symbol]
 
       def to_s: () -> ::String
