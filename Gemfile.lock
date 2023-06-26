@@ -27,7 +27,7 @@ GEM
       tzinfo (~> 2.0)
     ast (2.4.2)
     concurrent-ruby (1.2.2)
-    csv (3.2.6)
+    csv (3.2.7)
     ffi (1.15.5)
     fileutils (1.7.1)
     i18n (1.13.0)
