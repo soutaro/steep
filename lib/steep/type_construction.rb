@@ -1722,7 +1722,10 @@ module Steep
             left_type, constr, left_context = synthesize(left_node, hint: hint, condition: true).to_ary
 
             interpreter = TypeInference::LogicTypeInterpreter.new(subtyping: checker, typing: typing, config: builder_config)
-            left_truthy_env, left_falsy_env = interpreter.eval(env: left_context.type_env, node: left_node)
+            truthy, falsy = interpreter.eval(env: left_context.type_env, node: left_node)
+
+            left_truthy_env = truthy.env
+            left_falsy_env = falsy.env
 
             if left_type.is_a?(AST::Types::Logic::Env)
               left_type = left_type.type
@@ -1735,7 +1738,9 @@ module Steep
                 .for_branch(right_node)
                 .synthesize(right_node, hint: hint, condition: true).to_ary
 
-            right_truthy_env, right_falsy_env = interpreter.eval(env: right_context.type_env, node: right_node)
+            right_truthy, right_falsy = interpreter.eval(env: right_context.type_env, node: right_node)
+            right_truthy_env = right_truthy.env
+            right_falsy_env = right_falsy.env
 
             env =
               if right_type.is_a?(AST::Types::Bot)
@@ -1770,7 +1775,9 @@ module Steep
             left_type, constr, left_context = synthesize(left_node, hint: hint, condition: true).to_ary
 
             interpreter = TypeInference::LogicTypeInterpreter.new(subtyping: checker, typing: typing, config: builder_config)
-            left_truthy_env, left_falsy_env = interpreter.eval(env: left_context.type_env, node: left_node)
+            left_truthy, left_falsy = interpreter.eval(env: left_context.type_env, node: left_node)
+            left_truthy_env = left_truthy.env
+            left_falsy_env = left_falsy.env
 
             if left_type.is_a?(AST::Types::Logic::Env)
               left_type = left_type.type
@@ -1784,7 +1791,9 @@ module Steep
                 .for_branch(right_node)
                 .synthesize(right_node, hint: left_type, condition: true).to_ary
 
-            right_truthy_env, right_falsy_env = interpreter.eval(env: left_falsy_env, node: right_node)
+            right_truthy, right_falsy = interpreter.eval(env: left_falsy_env, node: right_node)
+            right_truthy_env = right_truthy.env
+            right_falsy_env = right_falsy.env
 
             env = if right_type.is_a?(AST::Types::Bot)
                     left_truthy_env
@@ -1817,7 +1826,9 @@ module Steep
 
             cond_type, constr = synthesize(cond, condition: true).to_ary
             interpreter = TypeInference::LogicTypeInterpreter.new(subtyping: checker, typing: constr.typing, config: builder_config)
-            truthy_env, falsy_env = interpreter.eval(env: constr.context.type_env, node: cond)
+            truthy, falsy = interpreter.eval(env: constr.context.type_env, node: cond)
+            truthy_env = truthy.env
+            falsy_env = falsy.env
 
             if true_clause
               true_pair =
@@ -1904,7 +1915,9 @@ module Steep
                 tests.each do |test|
                   test_node = test.updated(:send, [test, :===, cond])
                   test_type, test_constr = test_constr.synthesize(test_node, condition: true).to_ary
-                  truthy_env, falsy_env = interpreter.eval(node: test_node, env: test_constr.context.type_env)
+                  truthy, falsy = interpreter.eval(node: test_node, env: test_constr.context.type_env)
+                  truthy_env = truthy.env
+                  falsy_env = falsy.env
 
                   test_envs << truthy_env
 
@@ -1971,7 +1984,9 @@ module Steep
 
                 tests.each do |test|
                   test_type, condition_constr = condition_constr.synthesize(test, condition: true)
-                  truthy_env, falsy_env = interpreter.eval(env: condition_constr.context.type_env, node: test)
+                  truthy, falsy = interpreter.eval(env: condition_constr.context.type_env, node: test)
+                  truthy_env = truthy.env
+                  falsy_env = falsy.env
 
                   condition_constr = condition_constr.update_type_env { falsy_env }
                   body_envs << truthy_env
@@ -2180,7 +2195,9 @@ module Steep
             cond_type, constr = synthesize(cond, condition: true).to_ary
 
             interpreter = TypeInference::LogicTypeInterpreter.new(subtyping: checker, typing: typing, config: builder_config)
-            truthy_env, falsy_env = interpreter.eval(env: constr.context.type_env, node: cond)
+            truthy, falsy = interpreter.eval(env: constr.context.type_env, node: cond)
+            truthy_env = truthy.env
+            falsy_env = falsy.env
 
             case node.type
             when :while

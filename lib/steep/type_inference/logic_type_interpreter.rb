@@ -1,6 +1,9 @@
 module Steep
   module TypeInference
     class LogicTypeInterpreter
+      class Result < Struct.new(:env, :type, :unreachable, keyword_init: true)
+      end
+
       attr_reader :subtyping
       attr_reader :typing
       attr_reader :config
@@ -32,10 +35,14 @@ module Steep
       end
 
       def eval(env:, node:)
-        objects = Set[]
+        objects = Set[] #: Set[Symbol | Parser::AST::Node]
+
         truthy_type, falsy_type, truthy_env, falsy_env = evaluate_node(env: env, node: node, refined_objects: objects)
 
-        [truthy_env, falsy_env, objects, truthy_type, falsy_type]
+        truthy_result = Result.new(type: truthy_type, env: truthy_env, unreachable: false)
+        falsy_result = Result.new(type: falsy_type, env: falsy_env, unreachable: false)
+
+        [truthy_result, falsy_result, objects]
       end
 
       def evaluate_node(env:, node:, refined_objects:)

@@ -1,6 +1,16 @@
 module Steep
   module TypeInference
     class LogicTypeInterpreter
+      class Result
+        attr_reader env: TypeEnv
+
+        attr_reader type: AST::Types::t
+
+        attr_reader unreachable: bool
+
+        def initialize: (env: TypeEnv, type: AST::Types::t, unreachable: bool) -> void
+      end
+
       attr_reader subtyping: Subtyping::Check
 
       attr_reader typing: Typing
@@ -11,7 +21,7 @@ module Steep
 
       def initialize: (subtyping: Subtyping::Check, typing: Typing, config: Interface::Builder::Config) -> void
 
-      def eval: (env: TypeEnv, node: Parser::AST::Node) -> [TypeEnv, TypeEnv, Set[Symbol | Parser::AST::Node], AST::Types::t, AST::Types::t]
+      def eval: (env: TypeEnv, node: Parser::AST::Node) -> [Result, Result, Set[Symbol | Parser::AST::Node]]
 
       def evaluate_node: (env: TypeEnv, node: Parser::AST::Node, refined_objects: Set[Symbol | Parser::AST::Node]) -> [AST::Types::t, AST::Types::t, TypeEnv, TypeEnv]
 
