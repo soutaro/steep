@@ -61,6 +61,8 @@ module Steep
 
         def unwrap_optional: (Types::t `type`) -> [Types::t, Types::t]
 
+        def unwrap_optional?: (Types::t) -> [Types::t?, Types::t?]
+
         def module_name?: (TypeName type_name) -> bool
 
         def class_name?: (TypeName type_name) -> bool

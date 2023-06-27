@@ -348,7 +348,7 @@ module Steep
           acc
         end
 
-        def unwrap_optional(type)
+        def unwrap_optional?(type)
           case type
           when AST::Types::Union
             falsy_types, truthy_types = type.types.partition do |type|
@@ -357,16 +357,29 @@ module Steep
             end
 
             [
-              AST::Types::Union.build(types: truthy_types),
-              AST::Types::Union.build(types: falsy_types)
+              truthy_types.empty? ? nil : AST::Types::Union.build(types: truthy_types),
+              falsy_types.empty? ? nil : AST::Types::Union.build(types: falsy_types)
             ]
           when AST::Types::Name::Alias
-            unwrap_optional(expand_alias(type))
+            type_ = expand_alias(type)
+            if type_ == type
+              [type_, type_]
+            else
+              unwrap_optional?(type_)
+            end
           when AST::Types::Boolean
             [type, type]
           else
-            [type, AST::Types::Bot.new()]
+            [type, nil]
           end
+        end
+
+        def unwrap_optional(type)
+          truthy, falsy = unwrap_optional?(type)
+          [
+            truthy || AST::Types::Bot.new,
+            falsy || AST::Types::Bot.new
+          ]
         end
 
         def module_name?(type_name)
