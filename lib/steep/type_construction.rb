@@ -1902,6 +1902,8 @@ module Steep
                 end
               end
 
+              else_branch_reachable = true
+
               when_constr = constr
               whens.each do |clause|
                 # @type var tests: Array[Parser::AST::Node]
@@ -1916,12 +1918,15 @@ module Steep
                   test_node = test.updated(:send, [test, :===, cond])
                   test_type, test_constr = test_constr.synthesize(test_node, condition: true).to_ary
                   truthy, falsy = interpreter.eval(node: test_node, env: test_constr.context.type_env)
+
                   truthy_env = truthy.env
                   falsy_env = falsy.env
 
                   test_envs << truthy_env
 
                   test_constr = test_constr.update_type_env { falsy_env }
+
+                  else_branch_reachable = !falsy.unreachable
                 end
 
                 body_constr = when_constr.update_type_env {|env| env.join(*test_envs) }
@@ -1957,7 +1962,7 @@ module Steep
               cond_type ||= when_constr.context.type_env[value_node] if value_node
               cond_type ||= typing.type_of(node: node.children[0])
 
-              if cond_type.is_a?(AST::Types::Bot)
+              if !else_branch_reachable
                 # Exhaustive
                 if els
                   typing.add_error Diagnostic::Ruby::ElseOnExhaustiveCase.new(node: els, type: cond_type)

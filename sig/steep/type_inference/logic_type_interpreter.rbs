@@ -6,10 +6,26 @@ module Steep
 
         attr_reader type: AST::Types::t
 
-        attr_reader unreachable: bool
+        attr_accessor unreachable: bool
 
         def initialize: (env: TypeEnv, type: AST::Types::t, unreachable: bool) -> void
+
+        def update_env: () { () -> TypeEnv } -> Result
+
+        def update_type: { () -> AST::Types::t } -> Result
+
+        # Make the instance unreachable, and returns self
+        #
+        def unreachable!: () -> self
       end
+
+      TRUE: AST::Types::Literal
+
+      FALSE: AST::Types::Literal
+
+      BOOL: AST::Types::Boolean
+
+      BOT: AST::Types::Bot
 
       attr_reader subtyping: Subtyping::Check
 
@@ -23,9 +39,9 @@ module Steep
 
       def eval: (env: TypeEnv, node: Parser::AST::Node) -> [Result, Result, Set[Symbol | Parser::AST::Node]]
 
-      def evaluate_node: (env: TypeEnv, node: Parser::AST::Node, refined_objects: Set[Symbol | Parser::AST::Node]) -> [AST::Types::t, AST::Types::t, TypeEnv, TypeEnv]
+      def evaluate_node: (env: TypeEnv, node: Parser::AST::Node, refined_objects: Set[Symbol | Parser::AST::Node]) -> [Result, Result]
 
-      def evaluate_method_call: (env: TypeEnv, type: AST::Types::Logic::Base, receiver: Parser::AST::Node?, arguments: Array[Parser::AST::Node], refined_objects: Set[Symbol | Parser::AST::Node]) -> [TypeEnv, TypeEnv]?
+      def evaluate_method_call: (env: TypeEnv, type: AST::Types::Logic::Base, receiver: Parser::AST::Node?, arguments: Array[Parser::AST::Node], refined_objects: Set[Symbol | Parser::AST::Node]) -> [Result, Result]?
 
       # Apply type refinement to `node` as `truthy_type` and `falsy_type`.
       #
@@ -55,6 +71,8 @@ module Steep
 
       private
 
+      # Assign local variables included in the assignment node and masgn node
+      #
       def evaluate_assignment: (Parser::AST::Node node, TypeEnv env, AST::Types::t rhs_type, refined_objects: Set[Symbol | Parser::AST::Node]) -> TypeEnv
 
       def guess_type_from_method: (Parser::AST::Node node) -> (AST::Types::Logic::ReceiverIsArg | AST::Types::Logic::ReceiverIsNil | AST::Types::Logic::Not | AST::Types::Logic::ArgIsReceiver | nil)
@@ -74,7 +92,7 @@ module Steep
       #
       def literal_var_type_case_select: (Parser::AST::Node value_node, AST::Types::t arg_type) -> [Array[AST::Types::t], Array[AST::Types::t]]?
 
-      def type_case_select: (AST::Types::t `type`, RBS::TypeName klass) -> [AST::Types::t, AST::Types::t]
+      def type_case_select: (AST::Types::t `type`, RBS::TypeName klass) -> [AST::Types::t?, AST::Types::t?]
 
       def type_case_select0: (AST::Types::t `type`, RBS::TypeName klass) -> [Array[AST::Types::t], Array[AST::Types::t]]
 
