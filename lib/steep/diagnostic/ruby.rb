@@ -773,6 +773,12 @@ module Steep
         end
       end
 
+      class UnreachableBranch < Base
+        def header_line
+          "The branch is unreachable"
+        end
+      end
+
       class UnexpectedSplat < Base
         attr_reader :type
 

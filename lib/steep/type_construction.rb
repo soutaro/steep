@@ -1827,13 +1827,11 @@ module Steep
             cond_type, constr = synthesize(cond, condition: true).to_ary
             interpreter = TypeInference::LogicTypeInterpreter.new(subtyping: checker, typing: constr.typing, config: builder_config)
             truthy, falsy = interpreter.eval(env: constr.context.type_env, node: cond)
-            truthy_env = truthy.env
-            falsy_env = falsy.env
 
             if true_clause
               true_pair =
                 constr
-                  .update_type_env { truthy_env }
+                  .update_type_env { truthy.env }
                   .for_branch(true_clause)
                   .tap {|constr| typing.add_context_for_node(true_clause, context: constr.context) }
                   .synthesize(true_clause, hint: hint)
@@ -1842,7 +1840,7 @@ module Steep
             if false_clause
               false_pair =
                 constr
-                  .update_type_env { falsy_env }
+                  .update_type_env { falsy.env }
                   .for_branch(false_clause)
                   .tap {|constr| typing.add_context_for_node(false_clause, context: constr.context) }
                   .synthesize(false_clause, hint: hint)
@@ -1851,23 +1849,43 @@ module Steep
             constr = constr.update_type_env do |env|
               envs = [] #: Array[TypeInference::TypeEnv]
 
-              if true_pair
-                unless true_pair.type.is_a?(AST::Types::Bot)
-                  envs << true_pair.context.type_env
+              unless truthy.unreachable
+                if true_pair
+                  unless true_pair.type.is_a?(AST::Types::Bot)
+                    envs << true_pair.context.type_env
+                  end
+                else
+                  envs << truthy.env
                 end
-              else
-                envs << truthy_env
               end
 
               if false_pair
-                unless false_pair.type.is_a?(AST::Types::Bot)
-                  envs << false_pair.context.type_env
+                unless falsy.unreachable
+                  unless false_pair.type.is_a?(AST::Types::Bot)
+                    envs << false_pair.context.type_env
+                  end
                 end
               else
-                envs << falsy_env
+                envs << falsy.env
               end
 
               env.join(*envs)
+            end
+
+            if truthy.unreachable
+              typing.add_error(
+                Diagnostic::Ruby::UnreachableBranch.new(
+                  node: true_clause || node
+                )
+              )
+            end
+
+            if falsy.unreachable
+              typing.add_error(
+                Diagnostic::Ruby::UnreachableBranch.new(
+                  node: false_clause || node
+                )
+              )
             end
 
             node_type = union_type_unify(true_pair&.type || AST::Builtin.nil_type, false_pair&.type || AST::Builtin.nil_type)
@@ -1888,8 +1906,11 @@ module Steep
 
               cond_type, constr = constr.synthesize(cond)
               _, cond_vars = interpreter.decompose_value(cond)
+              SPECIAL_LVAR_NAMES.each do |name|
+                cond_vars.delete(name)
+              end
 
-              var_name = :"_a#{SecureRandom.base64(4)}"
+              var_name = :"_a#{SecureRandom.alphanumeric(4)}"
               var_cond, value_node = extract_outermost_call(cond, var_name)
               if value_node
                 unless constr.context.type_env[value_node]
@@ -1902,7 +1923,7 @@ module Steep
                 end
               end
 
-              else_branch_reachable = true
+              next_branch_reachable = true
 
               when_constr = constr
               whens.each do |clause|
@@ -1913,6 +1934,9 @@ module Steep
                 test_constr = when_constr
                 # @type var test_envs: Array[TypeInference::TypeEnv]
                 test_envs = []
+
+                branch_reachable = false
+                false_branch_reachable = false
 
                 tests.each do |test|
                   test_node = test.updated(:send, [test, :===, cond])
@@ -1926,9 +1950,11 @@ module Steep
 
                   test_constr = test_constr.update_type_env { falsy_env }
 
-                  else_branch_reachable = !falsy.unreachable
+                  branch_reachable ||= next_branch_reachable && !truthy.unreachable
+                  false_branch_reachable = !falsy.unreachable
                 end
 
+                next_branch_reachable &&= false_branch_reachable
                 body_constr = when_constr.update_type_env {|env| env.join(*test_envs) }
 
                 if body
@@ -1941,6 +1967,12 @@ module Steep
                   branch_results << Pair.new(type: AST::Builtin.nil_type, constr: body_constr)
                 end
 
+                unless branch_reachable
+                  typing.add_error(
+                    Diagnostic::Ruby::UnreachableBranch.new(node: body || clause)
+                  )
+                end
+
                 when_constr = test_constr
               end
 
@@ -1951,7 +1983,11 @@ module Steep
                 end_pos = node.loc.end.begin_pos
                 typing.add_context(begin_pos..end_pos, context: when_constr.context)
 
-                branch_results << when_constr.synthesize(els, hint: hint)
+                else_result = when_constr.synthesize(els, hint: hint)
+
+                if next_branch_reachable
+                  branch_results << else_result
+                end
               end
 
               types = branch_results.map(&:type)
@@ -1962,10 +1998,17 @@ module Steep
               cond_type ||= when_constr.context.type_env[value_node] if value_node
               cond_type ||= typing.type_of(node: node.children[0])
 
-              if !else_branch_reachable
+              if !next_branch_reachable
                 # Exhaustive
-                if els
-                  typing.add_error Diagnostic::Ruby::ElseOnExhaustiveCase.new(node: els, type: cond_type)
+                _, _, _, loc = deconstruct_case_node!(node)
+
+                # `else` may present even if it's empty
+                if loc.else
+                  if els
+                    typing.add_error Diagnostic::Ruby::UnreachableBranch.new(node: els)
+                  else
+                    typing.add_error Diagnostic::Ruby::UnreachableBranch.new(node: node, location: loc.else)
+                  end
                 end
               else
                 unless els
@@ -1979,6 +2022,8 @@ module Steep
               condition_constr = constr
               clause_constr = constr
 
+              next_branch_reachable = true
+
               whens.each do |when_clause|
                 when_clause_constr = condition_constr
                 body_envs = [] #: Array[TypeInference::TypeEnv]
@@ -1986,6 +2031,9 @@ module Steep
                 # @type var tests: Array[Parser::AST::Node]
                 # @type var body: Parser::AST::Node?
                 *tests, body = when_clause.children
+
+                branch_reachable = false
+                false_branch_reachable = false
 
                 tests.each do |test|
                   test_type, condition_constr = condition_constr.synthesize(test, condition: true)
@@ -1995,7 +2043,12 @@ module Steep
 
                   condition_constr = condition_constr.update_type_env { falsy_env }
                   body_envs << truthy_env
+
+                  branch_reachable ||= next_branch_reachable && !truthy.unreachable
+                  false_branch_reachable ||= !falsy.unreachable
                 end
+
+                next_branch_reachable &&= false_branch_reachable
 
                 if body
                   branch_results <<
@@ -2006,6 +2059,12 @@ module Steep
                       .synthesize(body, hint: hint)
                 else
                   branch_results << Pair.new(type: AST::Builtin.nil_type, constr: when_clause_constr)
+                end
+
+                unless branch_reachable
+                  typing.add_error(
+                    Diagnostic::Ruby::UnreachableBranch.new(node: body || when_clause)
+                  )
                 end
               end
 

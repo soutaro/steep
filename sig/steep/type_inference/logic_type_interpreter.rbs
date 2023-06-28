@@ -27,6 +27,8 @@ module Steep
 
       BOT: AST::Types::Bot
 
+      UNTYPED: AST::Types::Any
+
       attr_reader subtyping: Subtyping::Check
 
       attr_reader typing: Typing

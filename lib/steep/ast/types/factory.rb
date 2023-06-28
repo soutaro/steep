@@ -367,7 +367,7 @@ module Steep
             else
               unwrap_optional?(type_)
             end
-          when AST::Types::Boolean
+          when AST::Types::Boolean, AST::Types::Any
             [type, type]
           else
             [type, nil]

@@ -51,6 +51,7 @@ module Steep
       FALSE = AST::Types::Literal.new(value: false)
       BOOL = AST::Types::Boolean.new
       BOT = AST::Types::Bot.new
+      UNTYPED = AST::Types::Any.new
 
       def eval(env:, node:)
         objects = Set[] #: Set[Symbol | Parser::AST::Node]
@@ -94,8 +95,24 @@ module Steep
 
           return [truthy_result, falsy_result]
 
-        when :lvasgn, :masgn
+        when :lvasgn
           name, rhs = node.children
+          if TypeConstruction::SPECIAL_LVAR_NAMES.include?(name)
+            return [
+              Result.new(type: type, env: env, unreachable: false),
+              Result.new(type: type, env: env, unreachable: false)
+            ]
+          end
+
+          truthy_result, falsy_result = evaluate_node(env: env, node: rhs, refined_objects: refined_objects)
+
+          return [
+            truthy_result.update_env { evaluate_assignment(node, truthy_result.env, truthy_result.type, refined_objects: refined_objects) },
+            falsy_result.update_env { evaluate_assignment(node, falsy_result.env, falsy_result.type, refined_objects: refined_objects) }
+          ]
+
+        when :masgn
+          _, rhs = node.children
           truthy_result, falsy_result = evaluate_node(env: env, node: rhs, refined_objects: refined_objects)
 
           return [
@@ -268,8 +285,8 @@ module Steep
               truthy_env, falsy_env = refine_node_type(
                 env: env,
                 node: receiver,
-                truthy_type: truthy_type || BOT,
-                falsy_type: falsy_type || BOT,
+                truthy_type: truthy_type || factory.instance_type(arg_type.name),
+                falsy_type: falsy_type || UNTYPED,
                 refined_objects: refined_objects
               )
 
@@ -293,8 +310,8 @@ module Steep
               truthy_env, falsy_env = refine_node_type(
                 env: env,
                 node: arg,
-                truthy_type: truthy_type || BOT,
-                falsy_type: falsy_type || BOT,
+                truthy_type: truthy_type || factory.instance_type(receiver_type.name),
+                falsy_type: falsy_type || UNTYPED,
                 refined_objects: refined_objects
               )
 
