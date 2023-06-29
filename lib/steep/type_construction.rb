@@ -4376,6 +4376,7 @@ module Steep
       pins = context.type_env.pin_local_variables(nil)
 
       type_env = context.type_env
+      type_env = type_env.invalidate_pure_node(Parser::AST::Node.new(:self)) if block_self_hint || block_annotations.self_type
       type_env = type_env.merge(local_variable_types: pins)
       type_env = type_env.merge(local_variable_types: param_types)
       type_env = TypeInference::TypeEnvBuilder.new(

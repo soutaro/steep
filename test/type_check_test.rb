@@ -572,4 +572,143 @@ class TypeCheckTest < Minitest::Test
       YAML
     )
   end
+
+  def test_flow_sensitive__self
+    run_type_check_test(
+      signatures: {
+        "a.rbs" => <<~RBS
+          class Hello
+            attr_reader name: String?
+          end
+        RBS
+      },
+      code: {
+        "a.rb" => <<~RUBY
+          Hello.new.instance_eval do
+            if self.name
+              self.name + "!"
+            end
+          end
+        RUBY
+      },
+      expectations: <<~YAML
+        ---
+        - file: a.rb
+          diagnostics: []
+      YAML
+    )
+  end
+
+  def test_flow_sensitive__self2
+    run_type_check_test(
+      signatures: {
+        "a.rbs" => <<~RBS
+          class Hello
+            attr_reader name: String?
+
+            def foo: { () [self: self] -> void } -> void
+          end
+        RBS
+      },
+      code: {
+        "a.rb" => <<~RUBY
+          Hello.new.foo do
+            if self.name
+              Hello.new.foo do
+                self.name + "!"
+              end
+            end
+          end
+        RUBY
+      },
+      expectations: <<~YAML
+        ---
+        - file: a.rb
+          diagnostics:
+          - range:
+              start:
+                line: 4
+                character: 16
+              end:
+                line: 4
+                character: 17
+            severity: ERROR
+            message: Type `(::String | nil)` does not have method `+`
+            code: Ruby::NoMethod
+      YAML
+    )
+  end
+
+  def test_flow_sensitive__self3
+    run_type_check_test(
+      signatures: {
+        "a.rbs" => <<~RBS
+          class Hello
+            attr_reader name: String?
+
+            def foo: { () -> void } -> void
+          end
+        RBS
+      },
+      code: {
+        "a.rb" => <<~RUBY
+          Hello.new.foo do
+            # @type self: Hello
+            if self.name
+              Hello.new.foo do
+                # @type self: Hello
+                self.name + "!"
+              end
+            end
+          end
+        RUBY
+      },
+      expectations: <<~YAML
+        ---
+        - file: a.rb
+          diagnostics:
+          - range:
+              start:
+                line: 6
+                character: 16
+              end:
+                line: 6
+                character: 17
+            severity: ERROR
+            message: Type `(::String | nil)` does not have method `+`
+            code: Ruby::NoMethod
+      YAML
+    )
+  end
+
+  def test_flow_sensitive__self4
+    run_type_check_test(
+      signatures: {
+        "a.rbs" => <<~RBS
+          class Hello
+            attr_reader name: String?
+
+            def foo: { () -> void } -> void
+          end
+        RBS
+      },
+      code: {
+        "a.rb" => <<~RUBY
+          Hello.new.foo do
+            # @type self: Hello
+            if self.name
+              Hello.new.foo do
+                self.name + "!"
+              end
+            end
+          end
+        RUBY
+      },
+      expectations: <<~YAML
+        ---
+        - file: a.rb
+          diagnostics: []
+      YAML
+    )
+  end
 end
