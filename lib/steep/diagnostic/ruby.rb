@@ -662,6 +662,7 @@ module Steep
       end
 
       autoload :UnknownConstantAssigned, "steep/diagnostic/deprecated/unknown_constant_assigned"
+      autoload :ElseOnExhaustiveCase, "steep/diagnostic/deprecated/else_on_exhaustive_case"
 
       class UnknownInstanceVariable < Base
         attr_reader :name
@@ -757,19 +758,6 @@ module Steep
 
         def header_line
           "Type annotation for branch about `#{var_name}` is incompatible since #{relation} doesn't hold"
-        end
-      end
-
-      class ElseOnExhaustiveCase < Base
-        attr_reader :type
-
-        def initialize(node:, type:)
-          super(node: node)
-          @type = type
-        end
-
-        def header_line
-          "The branch is unreachable because the condition is exhaustive"
         end
       end
 

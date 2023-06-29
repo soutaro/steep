@@ -1,0 +1,13 @@
+module Steep
+  module Diagnostic
+    module Ruby
+      class ElseOnExhaustiveCase < Base
+        attr_reader type: untyped
+
+        def initialize: (node: untyped, type: untyped) -> void
+
+        def header_line: () -> String
+      end
+    end
+  end
+end
