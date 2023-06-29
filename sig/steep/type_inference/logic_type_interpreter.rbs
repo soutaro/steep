@@ -39,11 +39,11 @@ module Steep
 
       def initialize: (subtyping: Subtyping::Check, typing: Typing, config: Interface::Builder::Config) -> void
 
-      def eval: (env: TypeEnv, node: Parser::AST::Node) -> [Result, Result, Set[Symbol | Parser::AST::Node]]
+      def eval: (env: TypeEnv, node: Parser::AST::Node) -> [Result, Result]
 
-      def evaluate_node: (env: TypeEnv, node: Parser::AST::Node, refined_objects: Set[Symbol | Parser::AST::Node]) -> [Result, Result]
+      def evaluate_node: (env: TypeEnv, node: Parser::AST::Node) -> [Result, Result]
 
-      def evaluate_method_call: (env: TypeEnv, type: AST::Types::Logic::Base, receiver: Parser::AST::Node?, arguments: Array[Parser::AST::Node], refined_objects: Set[Symbol | Parser::AST::Node]) -> [Result, Result]?
+      def evaluate_method_call: (env: TypeEnv, type: AST::Types::Logic::Base, receiver: Parser::AST::Node?, arguments: Array[Parser::AST::Node]) -> [Result, Result]?
 
       # Apply type refinement to `node` as `truthy_type` and `falsy_type`.
       #
@@ -55,7 +55,7 @@ module Steep
       # * `node` is a `lvasgn`
       # * `node` is a _pure_ method call
       #
-      def refine_node_type: (env: TypeEnv, node: Parser::AST::Node, truthy_type: AST::Types::t, falsy_type: AST::Types::t, refined_objects: Set[Symbol | Parser::AST::Node]) -> [TypeEnv, TypeEnv]
+      def refine_node_type: (env: TypeEnv, node: Parser::AST::Node, truthy_type: AST::Types::t, falsy_type: AST::Types::t) -> [TypeEnv, TypeEnv]
 
       # Returns a pair of a node and set of local variable names.
       #
@@ -75,7 +75,7 @@ module Steep
 
       # Assign local variables included in the assignment node and masgn node
       #
-      def evaluate_assignment: (Parser::AST::Node node, TypeEnv env, AST::Types::t rhs_type, refined_objects: Set[Symbol | Parser::AST::Node]) -> TypeEnv
+      def evaluate_assignment: (Parser::AST::Node node, TypeEnv env, AST::Types::t rhs_type) -> TypeEnv
 
       def guess_type_from_method: (Parser::AST::Node node) -> (AST::Types::Logic::ReceiverIsArg | AST::Types::Logic::ReceiverIsNil | AST::Types::Logic::Not | AST::Types::Logic::ArgIsReceiver | nil)
 

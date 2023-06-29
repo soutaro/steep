@@ -54,13 +54,10 @@ module Steep
       UNTYPED = AST::Types::Any.new
 
       def eval(env:, node:)
-        objects = Set[] #: Set[Symbol | Parser::AST::Node]
-        truthy, falsy = evaluate_node(env: env, node: node, refined_objects: objects)
-
-        [truthy, falsy, objects]
+        evaluate_node(env: env, node: node)
       end
 
-      def evaluate_node(env:, node:, refined_objects:)
+      def evaluate_node(env:, node:)
         type = typing.type_of(node: node)
 
         if type.is_a?(AST::Types::Logic::Env)
@@ -76,7 +73,6 @@ module Steep
         case node.type
         when :lvar
           name = node.children[0]
-          refined_objects << name
           truthy_type, falsy_type = factory.unwrap_optional?(type)
 
           truthy_result =
@@ -104,25 +100,25 @@ module Steep
             ]
           end
 
-          truthy_result, falsy_result = evaluate_node(env: env, node: rhs, refined_objects: refined_objects)
+          truthy_result, falsy_result = evaluate_node(env: env, node: rhs)
 
           return [
-            truthy_result.update_env { evaluate_assignment(node, truthy_result.env, truthy_result.type, refined_objects: refined_objects) },
-            falsy_result.update_env { evaluate_assignment(node, falsy_result.env, falsy_result.type, refined_objects: refined_objects) }
+            truthy_result.update_env { evaluate_assignment(node, truthy_result.env, truthy_result.type) },
+            falsy_result.update_env { evaluate_assignment(node, falsy_result.env, falsy_result.type) }
           ]
 
         when :masgn
           _, rhs = node.children
-          truthy_result, falsy_result = evaluate_node(env: env, node: rhs, refined_objects: refined_objects)
+          truthy_result, falsy_result = evaluate_node(env: env, node: rhs)
 
           return [
-            truthy_result.update_env { evaluate_assignment(node, truthy_result.env, truthy_result.type, refined_objects: refined_objects) },
-            falsy_result.update_env { evaluate_assignment(node, falsy_result.env, falsy_result.type, refined_objects: refined_objects) }
+            truthy_result.update_env { evaluate_assignment(node, truthy_result.env, truthy_result.type) },
+            falsy_result.update_env { evaluate_assignment(node, falsy_result.env, falsy_result.type) }
           ]
 
         when :begin
           last_node = node.children.last or raise
-          return evaluate_node(env: env, node: last_node, refined_objects: refined_objects)
+          return evaluate_node(env: env, node: last_node)
 
         when :send
           if type.is_a?(AST::Types::Any)
@@ -132,13 +128,12 @@ module Steep
           case type
           when AST::Types::Logic::Base
             receiver, _, *arguments = node.children
-            if (truthy_result, falsy_result = evaluate_method_call(env: env, type: type, receiver: receiver, arguments: arguments, refined_objects: refined_objects))
+            if (truthy_result, falsy_result = evaluate_method_call(env: env, type: type, receiver: receiver, arguments: arguments))
               return [truthy_result, falsy_result]
             end
           else
             if env[node]
               truthy_type, falsy_type = factory.unwrap_optional?(type)
-              refined_objects << node
 
               truthy_result =
                 if truthy_type
@@ -166,14 +161,13 @@ module Steep
         ]
       end
 
-      def evaluate_assignment(assignment_node, env, rhs_type, refined_objects:)
+      def evaluate_assignment(assignment_node, env, rhs_type)
         case assignment_node.type
         when :lvasgn
           name, _ = assignment_node.children
           if TypeConstruction::SPECIAL_LVAR_NAMES.include?(name)
             env
           else
-            refined_objects << name
             env.refine_types(local_variable_types: { name => rhs_type })
           end
         when :masgn
@@ -194,7 +188,7 @@ module Steep
 
           assignments.each do |pair|
             node, type = pair
-            env = evaluate_assignment(node, env, type, refined_objects: refined_objects)
+            env = evaluate_assignment(node, env, type)
           end
 
           env
@@ -203,7 +197,7 @@ module Steep
         end
       end
 
-      def refine_node_type(env:, node:, truthy_type:, falsy_type:, refined_objects:)
+      def refine_node_type(env:, node:, truthy_type:, falsy_type:)
         case node.type
         when :lvar
           name = node.children[0]
@@ -211,7 +205,6 @@ module Steep
           if TypeConstruction::SPECIAL_LVAR_NAMES.include?(name)
             [env, env]
           else
-            refined_objects << name
             [
               env.refine_types(local_variable_types: { name => truthy_type }),
               env.refine_types(local_variable_types: { name => falsy_type })
@@ -221,12 +214,11 @@ module Steep
         when :lvasgn
           name, rhs = node.children
 
-          truthy_env, falsy_env = refine_node_type(env: env, node: rhs, truthy_type: truthy_type, falsy_type: falsy_type, refined_objects: refined_objects)
+          truthy_env, falsy_env = refine_node_type(env: env, node: rhs, truthy_type: truthy_type, falsy_type: falsy_type)
 
           if TypeConstruction::SPECIAL_LVAR_NAMES.include?(name)
             [truthy_env, falsy_env]
           else
-            refined_objects << name
             [
               truthy_env.refine_types(local_variable_types: { name => truthy_type }),
               falsy_env.refine_types(local_variable_types: { name => falsy_type })
@@ -235,7 +227,6 @@ module Steep
 
         when :send
           if env[node]
-            refined_objects << node
             [
               env.refine_types(pure_call_types: { node => truthy_type }),
               env.refine_types(pure_call_types: { node => falsy_type })
@@ -245,13 +236,13 @@ module Steep
           end
         when :begin
           last_node = node.children.last or raise
-          refine_node_type(env: env, node: last_node, truthy_type: truthy_type, falsy_type: falsy_type, refined_objects: refined_objects)
+          refine_node_type(env: env, node: last_node, truthy_type: truthy_type, falsy_type: falsy_type)
         else
           [env, env]
         end
       end
 
-      def evaluate_method_call(env:, type:, receiver:, arguments:, refined_objects:)
+      def evaluate_method_call(env:, type:, receiver:, arguments:)
         case type
         when AST::Types::Logic::ReceiverIsNil
           if receiver && arguments.size.zero?
@@ -262,8 +253,7 @@ module Steep
               env: env,
               node: receiver,
               truthy_type: falsy_receiver || BOT,
-              falsy_type: truthy_receiver || BOT,
-              refined_objects: refined_objects
+              falsy_type: truthy_receiver || BOT
             )
 
             truthy_result = Result.new(type: TRUE, env: truthy_env, unreachable: false)
@@ -286,8 +276,7 @@ module Steep
                 env: env,
                 node: receiver,
                 truthy_type: truthy_type || factory.instance_type(arg_type.name),
-                falsy_type: falsy_type || UNTYPED,
-                refined_objects: refined_objects
+                falsy_type: falsy_type || UNTYPED
               )
 
               truthy_result = Result.new(type: TRUE, env: truthy_env, unreachable: false)
@@ -311,8 +300,7 @@ module Steep
                 env: env,
                 node: arg,
                 truthy_type: truthy_type || factory.instance_type(receiver_type.name),
-                falsy_type: falsy_type || UNTYPED,
-                refined_objects: refined_objects
+                falsy_type: falsy_type || UNTYPED
               )
 
               truthy_result = Result.new(type: TRUE, env: truthy_env, unreachable: false)
@@ -332,8 +320,7 @@ module Steep
                 env: env,
                 node: arg,
                 truthy_type: truthy_types.empty? ? BOT : AST::Types::Union.build(types: truthy_types),
-                falsy_type: falsy_types.empty? ? BOT : AST::Types::Union.build(types: falsy_types),
-                refined_objects: refined_objects
+                falsy_type: falsy_types.empty? ? BOT : AST::Types::Union.build(types: falsy_types)
               )
 
               truthy_result = Result.new(type: TRUE, env: truthy_env, unreachable: false)
@@ -347,7 +334,7 @@ module Steep
           end
         when AST::Types::Logic::Not
           if receiver
-            truthy_result, falsy_result = evaluate_node(env: env, node: receiver, refined_objects: refined_objects)
+            truthy_result, falsy_result = evaluate_node(env: env, node: receiver)
             [
               falsy_result.update_type { TRUE },
               truthy_result.update_type { FALSE }
