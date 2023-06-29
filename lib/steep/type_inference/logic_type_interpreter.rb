@@ -57,9 +57,7 @@ module Steep
         evaluate_node(env: env, node: node)
       end
 
-      def evaluate_node(env:, node:)
-        type = typing.type_of(node: node)
-
+      def evaluate_node(env:, node:, type: typing.type_of(node: node))
         if type.is_a?(AST::Types::Logic::Env)
           truthy_env = type.truthy
           falsy_env = type.falsy
@@ -119,6 +117,32 @@ module Steep
         when :begin
           last_node = node.children.last or raise
           return evaluate_node(env: env, node: last_node)
+
+        when :csend
+          if type.is_a?(AST::Types::Any)
+            type = guess_type_from_method(node) || type
+          end
+
+          receiver, _, *arguments = node.children
+          receiver_type = typing.type_of(node: receiver)
+
+          truthy_receiver, falsy_receiver = evaluate_node(env: env, node: receiver)
+          truthy_type, _ = factory.unwrap_optional?(type)
+
+          truthy_result, falsy_result = evaluate_node(
+            env: truthy_receiver.env,
+            node: node.updated(:send),
+            type: truthy_type || type
+          )
+          truthy_result.unreachable! if truthy_receiver.unreachable
+
+          falsy_result = Result.new(
+            env: env.join(falsy_receiver.env, falsy_result.env),
+            unreachable: falsy_result.unreachable && falsy_receiver.unreachable,
+            type: falsy_result.type
+          )
+
+          return [truthy_result, falsy_result]
 
         when :send
           if type.is_a?(AST::Types::Any)

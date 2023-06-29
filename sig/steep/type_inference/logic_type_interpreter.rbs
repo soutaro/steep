@@ -41,7 +41,7 @@ module Steep
 
       def eval: (env: TypeEnv, node: Parser::AST::Node) -> [Result, Result]
 
-      def evaluate_node: (env: TypeEnv, node: Parser::AST::Node) -> [Result, Result]
+      def evaluate_node: (env: TypeEnv, node: Parser::AST::Node, ?type: AST::Types::t) -> [Result, Result]
 
       def evaluate_method_call: (env: TypeEnv, type: AST::Types::Logic::Base, receiver: Parser::AST::Node?, arguments: Array[Parser::AST::Node]) -> [Result, Result]?
 

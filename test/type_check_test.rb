@@ -472,4 +472,104 @@ class TypeCheckTest < Minitest::Test
       YAML
     )
   end
+
+  def test_flow_sensitive__csend
+    run_type_check_test(
+      signatures: {
+        "a.rbs" => <<~RBS
+        RBS
+      },
+      code: {
+        "a.rb" => <<~RUBY
+          x = nil #: Integer?
+
+          if x&.nonzero?
+            x.no_method_in_then
+          else
+            x.no_method_in_else
+          end
+        RUBY
+      },
+      expectations: <<~YAML
+        ---
+        - file: a.rb
+          diagnostics:
+          - range:
+              start:
+                line: 4
+                character: 4
+              end:
+                line: 4
+                character: 21
+            severity: ERROR
+            message: Type `::Integer` does not have method `no_method_in_then`
+            code: Ruby::NoMethod
+          - range:
+              start:
+                line: 6
+                character: 4
+              end:
+                line: 6
+                character: 21
+            severity: ERROR
+            message: Type `(::Integer | nil)` does not have method `no_method_in_else`
+            code: Ruby::NoMethod
+      YAML
+    )
+  end
+
+  def test_flow_sensitive__csend2
+    run_type_check_test(
+      signatures: {
+        "a.rbs" => <<~RBS
+        RBS
+      },
+      code: {
+        "a.rb" => <<~RUBY
+          x = nil #: Integer?
+
+          if x&.is_a?(String)
+            x.no_method_in_then
+          else
+            x.no_method_in_else
+          end
+        RUBY
+      },
+      expectations: <<~YAML
+        ---
+        - file: a.rb
+          diagnostics:
+          - range:
+              start:
+                line: 4
+                character: 2
+              end:
+                line: 4
+                character: 21
+            severity: ERROR
+            message: The branch is unreachable
+            code: Ruby::UnreachableBranch
+          - range:
+              start:
+                line: 4
+                character: 4
+              end:
+                line: 4
+                character: 21
+            severity: ERROR
+            message: Type `::String` does not have method `no_method_in_then`
+            code: Ruby::NoMethod
+          - range:
+              start:
+                line: 6
+                character: 4
+              end:
+                line: 6
+                character: 21
+            severity: ERROR
+            message: Type `(::Integer | nil)` does not have method `no_method_in_else`
+            code: Ruby::NoMethod
+      YAML
+    )
+  end
 end
