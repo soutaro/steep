@@ -2941,7 +2941,7 @@ EOF
   def test_if_typing
     with_checker do |checker|
       source = parse_ruby(<<EOF)
-if 3
+if _ = 3
   x = 1
   y = (x + 1).to_int
   z = :foo
@@ -2966,7 +2966,7 @@ EOF
   def test_if_return
     with_checker do |checker|
       source = parse_ruby(<<-RUBY)
-if 3
+if _ = 3
   return
 else
   x = :foo
@@ -2989,7 +2989,7 @@ end
 # @type var x: String | Integer
 x = (_ = nil)
 
-if 3
+if _ = 3
   # @type var x: String
   x + ""
 else
@@ -3092,7 +3092,7 @@ EOF
   def test_while_type_error
     with_checker do |checker|
       source = parse_ruby(<<EOF)
-x = 3 ? 4 : ""
+x = (_ = 3) ? 4 : ""
 
 while true
   x = :foo
@@ -3276,12 +3276,12 @@ EOF
 
         assert_equal 1, typing.errors.size
         typing.errors[0].yield_self do |error|
-          assert_instance_of Diagnostic::Ruby::ElseOnExhaustiveCase, error
+          assert_instance_of Diagnostic::Ruby::UnreachableBranch, error
           assert_equal error.node, dig(source.node, 1, 2)
         end
 
         assert_equal parse_type("::String | ::Integer"), pair.type
-        assert_equal parse_type("nil"), pair.context.type_env[:z]
+        assert_nil pair.context.type_env[:z]
       end
     end
   end
@@ -5858,7 +5858,7 @@ end
       source = parse_ruby(<<-RUBY)
 # @type var y: String
 
-x = 1 ? "" : nil
+x = (_ = 1) ? "" : nil
 x ||= ""
 y = x
       RUBY
@@ -5964,7 +5964,7 @@ class WhenUnion
 end
     RBS
       source = parse_ruby(<<-RUBY)
-x = WhenUnion.new.map(case 1
+x = WhenUnion.new.map(case _ = 1
   when String
     "foo"
   else
@@ -6273,7 +6273,7 @@ a + 1
       source = parse_ruby(<<-RUBY)
 a = [1].first
 x = a.nil?
-return if x
+return if _ = x
 a + 1
       RUBY
 
@@ -8967,7 +8967,7 @@ end
 # @type var a: FilterMap
 a = _ = nil
 a.filter_map do |s|
-  if s
+  if _ = s
     s.size
   end
 end
@@ -9200,8 +9200,8 @@ end
     RBS
 
       source = parse_ruby(<<-'RUBY')
-doc = 1 ? "" : nil
-doc = (2 ? "" : nil) if !doc || doc.empty?
+doc = (_ = 1) ? "" : nil
+doc = ((_ = 2) ? "" : nil) if !doc || doc.empty?
       RUBY
 
       with_standard_construction(checker, source) do |construction, typing|
@@ -9822,7 +9822,7 @@ end
     with_checker(<<-RBS) do |checker|
       RBS
       source = parse_ruby(<<-RUBY)
-case x = 123
+case _ = 123
 when String
   Object.new
 else
@@ -9845,7 +9845,7 @@ end
       RBS
       source = parse_ruby(<<-RUBY)
 x, y =
-  if 123
+  if _ = 123
     ["String", 123]
   else
     [nil, nil]
@@ -9869,7 +9869,7 @@ x, y =
       RBS
       source = parse_ruby(<<-RUBY)
 x, y =
-  if 123
+  if _ = 123
     ["String", 123]
   else
     [nil]
@@ -10385,8 +10385,8 @@ z = AppTest.new.foo(1, 2) #$ Integer, Integer, String
     with_checker(<<~RBS) do |checker|
       RBS
       source = parse_ruby(<<~RUBY)
-        (_ = [1, 2, 3]).each {
-          case
+        (_ = [1, 2, 3]).each {|i|
+          case i
           when 1
             next
           when 2

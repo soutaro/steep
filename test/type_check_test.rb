@@ -67,7 +67,7 @@ class TypeCheckTest < Minitest::Test
         "a.rb" => <<~RUBY
           class SetterReturnType
             def foo=(value)
-              if value
+              if _ = value
                 return
               else
                 123
@@ -261,6 +261,453 @@ class TypeCheckTest < Minitest::Test
             severity: ERROR
             message: Type `::Integer` does not have method `fooo`
             code: Ruby::NoMethod
+      YAML
+    )
+  end
+
+  def test_if_unreachable
+    run_type_check_test(
+      signatures: {
+      },
+      code: {
+        "a.rb" => <<~RUBY
+          x = 123 #: Integer
+
+          if x.is_a?(String)
+            foo()
+          end
+
+          if x.is_a?(Integer)
+          else
+            bar()
+          end
+        RUBY
+      },
+      expectations: <<~YAML
+      ---
+      - file: a.rb
+        diagnostics:
+        - range:
+            start:
+              line: 4
+              character: 2
+            end:
+              line: 4
+              character: 5
+          severity: ERROR
+          message: Type `::Object` does not have method `foo`
+          code: Ruby::NoMethod
+        - range:
+            start:
+              line: 4
+              character: 2
+            end:
+              line: 4
+              character: 7
+          severity: ERROR
+          message: The branch is unreachable
+          code: Ruby::UnreachableBranch
+        - range:
+            start:
+              line: 9
+              character: 2
+            end:
+              line: 9
+              character: 5
+          severity: ERROR
+          message: Type `::Object` does not have method `bar`
+          code: Ruby::NoMethod
+        - range:
+            start:
+              line: 9
+              character: 2
+            end:
+              line: 9
+              character: 7
+          severity: ERROR
+          message: The branch is unreachable
+          code: Ruby::UnreachableBranch
+      YAML
+    )
+  end
+
+  def test_case_unreachable_1
+    run_type_check_test(
+      signatures: {
+      },
+      code: {
+        "a.rb" => <<~RUBY
+          x = 123
+
+          case x
+          when String
+            x.is_a_string
+          when Integer
+            x + 1
+          when Array
+          end
+        RUBY
+      },
+      expectations: <<~YAML
+        ---
+        - file: a.rb
+          diagnostics:
+          - range:
+              start:
+                line: 5
+                character: 2
+              end:
+                line: 5
+                character: 15
+            severity: ERROR
+            message: The branch is unreachable
+            code: Ruby::UnreachableBranch
+          - range:
+              start:
+                line: 5
+                character: 4
+              end:
+                line: 5
+                character: 15
+            severity: ERROR
+            message: Type `::String` does not have method `is_a_string`
+            code: Ruby::NoMethod
+          - range:
+              start:
+                line: 8
+                character: 0
+              end:
+                line: 8
+                character: 10
+            severity: ERROR
+            message: The branch is unreachable
+            code: Ruby::UnreachableBranch
+      YAML
+    )
+  end
+
+  def test_case_unreachable_2
+    run_type_check_test(
+      signatures: {
+        "a.rbs" => <<~RBS
+        RBS
+      },
+      code: {
+        "a.rb" => <<~RUBY
+          x = 123
+          case
+          when x.is_a?(String)
+            x.is_a_string
+          when x.is_a?(Integer)
+            x+1
+          when x.is_a?(Array)
+          end
+        RUBY
+      },
+      expectations: <<~YAML
+        ---
+        - file: a.rb
+          diagnostics:
+          - range:
+              start:
+                line: 4
+                character: 2
+              end:
+                line: 4
+                character: 15
+            severity: ERROR
+            message: The branch is unreachable
+            code: Ruby::UnreachableBranch
+          - range:
+              start:
+                line: 4
+                character: 4
+              end:
+                line: 4
+                character: 15
+            severity: ERROR
+            message: Type `::String` does not have method `is_a_string`
+            code: Ruby::NoMethod
+          - range:
+              start:
+                line: 7
+                character: 0
+              end:
+                line: 7
+                character: 19
+            severity: ERROR
+            message: The branch is unreachable
+            code: Ruby::UnreachableBranch
+      YAML
+    )
+  end
+
+  def test_case_unreachable_3
+    run_type_check_test(
+      signatures: {
+      },
+      code: {
+        "a.rb" => <<~RUBY
+          case x = 123
+          when Integer
+            x+1
+          else
+          end
+        RUBY
+      },
+      expectations: <<~YAML
+        ---
+        - file: a.rb
+          diagnostics:
+          - range:
+              start:
+                line: 4
+                character: 0
+              end:
+                line: 4
+                character: 4
+            severity: ERROR
+            message: The branch is unreachable
+            code: Ruby::UnreachableBranch
+      YAML
+    )
+  end
+
+  def test_flow_sensitive__csend
+    run_type_check_test(
+      signatures: {
+        "a.rbs" => <<~RBS
+        RBS
+      },
+      code: {
+        "a.rb" => <<~RUBY
+          x = nil #: Integer?
+
+          if x&.nonzero?
+            x.no_method_in_then
+          else
+            x.no_method_in_else
+          end
+        RUBY
+      },
+      expectations: <<~YAML
+        ---
+        - file: a.rb
+          diagnostics:
+          - range:
+              start:
+                line: 4
+                character: 4
+              end:
+                line: 4
+                character: 21
+            severity: ERROR
+            message: Type `::Integer` does not have method `no_method_in_then`
+            code: Ruby::NoMethod
+          - range:
+              start:
+                line: 6
+                character: 4
+              end:
+                line: 6
+                character: 21
+            severity: ERROR
+            message: Type `(::Integer | nil)` does not have method `no_method_in_else`
+            code: Ruby::NoMethod
+      YAML
+    )
+  end
+
+  def test_flow_sensitive__csend2
+    run_type_check_test(
+      signatures: {
+        "a.rbs" => <<~RBS
+        RBS
+      },
+      code: {
+        "a.rb" => <<~RUBY
+          x = nil #: Integer?
+
+          if x&.is_a?(String)
+            x.no_method_in_then
+          else
+            x.no_method_in_else
+          end
+        RUBY
+      },
+      expectations: <<~YAML
+        ---
+        - file: a.rb
+          diagnostics:
+          - range:
+              start:
+                line: 4
+                character: 2
+              end:
+                line: 4
+                character: 21
+            severity: ERROR
+            message: The branch is unreachable
+            code: Ruby::UnreachableBranch
+          - range:
+              start:
+                line: 4
+                character: 4
+              end:
+                line: 4
+                character: 21
+            severity: ERROR
+            message: Type `::String` does not have method `no_method_in_then`
+            code: Ruby::NoMethod
+          - range:
+              start:
+                line: 6
+                character: 4
+              end:
+                line: 6
+                character: 21
+            severity: ERROR
+            message: Type `(::Integer | nil)` does not have method `no_method_in_else`
+            code: Ruby::NoMethod
+      YAML
+    )
+  end
+
+  def test_flow_sensitive__self
+    run_type_check_test(
+      signatures: {
+        "a.rbs" => <<~RBS
+          class Hello
+            attr_reader name: String?
+          end
+        RBS
+      },
+      code: {
+        "a.rb" => <<~RUBY
+          Hello.new.instance_eval do
+            if self.name
+              self.name + "!"
+            end
+          end
+        RUBY
+      },
+      expectations: <<~YAML
+        ---
+        - file: a.rb
+          diagnostics: []
+      YAML
+    )
+  end
+
+  def test_flow_sensitive__self2
+    run_type_check_test(
+      signatures: {
+        "a.rbs" => <<~RBS
+          class Hello
+            attr_reader name: String?
+
+            def foo: { () [self: self] -> void } -> void
+          end
+        RBS
+      },
+      code: {
+        "a.rb" => <<~RUBY
+          Hello.new.foo do
+            if self.name
+              Hello.new.foo do
+                self.name + "!"
+              end
+            end
+          end
+        RUBY
+      },
+      expectations: <<~YAML
+        ---
+        - file: a.rb
+          diagnostics:
+          - range:
+              start:
+                line: 4
+                character: 16
+              end:
+                line: 4
+                character: 17
+            severity: ERROR
+            message: Type `(::String | nil)` does not have method `+`
+            code: Ruby::NoMethod
+      YAML
+    )
+  end
+
+  def test_flow_sensitive__self3
+    run_type_check_test(
+      signatures: {
+        "a.rbs" => <<~RBS
+          class Hello
+            attr_reader name: String?
+
+            def foo: { () -> void } -> void
+          end
+        RBS
+      },
+      code: {
+        "a.rb" => <<~RUBY
+          Hello.new.foo do
+            # @type self: Hello
+            if self.name
+              Hello.new.foo do
+                # @type self: Hello
+                self.name + "!"
+              end
+            end
+          end
+        RUBY
+      },
+      expectations: <<~YAML
+        ---
+        - file: a.rb
+          diagnostics:
+          - range:
+              start:
+                line: 6
+                character: 16
+              end:
+                line: 6
+                character: 17
+            severity: ERROR
+            message: Type `(::String | nil)` does not have method `+`
+            code: Ruby::NoMethod
+      YAML
+    )
+  end
+
+  def test_flow_sensitive__self4
+    run_type_check_test(
+      signatures: {
+        "a.rbs" => <<~RBS
+          class Hello
+            attr_reader name: String?
+
+            def foo: { () -> void } -> void
+          end
+        RBS
+      },
+      code: {
+        "a.rb" => <<~RUBY
+          Hello.new.foo do
+            # @type self: Hello
+            if self.name
+              Hello.new.foo do
+                self.name + "!"
+              end
+            end
+          end
+        RUBY
+      },
+      expectations: <<~YAML
+        ---
+        - file: a.rb
+          diagnostics: []
       YAML
     )
   end

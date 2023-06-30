@@ -25,6 +25,8 @@ module Steep
 
     def value_node?(node)
       case node.type
+      when :self
+        true
       when :true, :false, :str, :sym, :int, :float, :nil
         true
       when :lvar

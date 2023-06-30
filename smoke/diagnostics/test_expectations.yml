@@ -130,8 +130,8 @@
         line: 11
         character: 26
     severity: ERROR
-    message: The branch is unreachable because the condition is exhaustive
-    code: Ruby::ElseOnExhaustiveCase
+    message: The branch is unreachable
+    code: Ruby::UnreachableBranch
 - file: incompatible_annotation.rb
   diagnostics:
   - range:

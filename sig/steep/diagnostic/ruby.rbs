@@ -475,12 +475,8 @@ module Steep
         def header_line: () -> ::String
       end
 
-      class ElseOnExhaustiveCase < Base
-        attr_reader type: untyped
-
-        def initialize: (node: untyped, type: untyped) -> void
-
-        def header_line: () -> "The branch is unreachable because the condition is exhaustive"
+      class UnreachableBranch < Base
+        def header_line: () -> String
       end
 
       class UnexpectedSplat < Base
