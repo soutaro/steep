@@ -146,6 +146,34 @@ end
     end
   end
 
+  def test_qcall_trigger
+    with_checker do
+      CompletionProvider.new(source_text: <<-EOR, path: Pathname("foo.rb"), subtyping: checker).tap do |provider|
+n = [1].first
+n&.to
+      EOR
+
+        provider.run(line: 2, column: 3).tap do |items|
+          assert_equal [
+            :class,
+            :is_a?,
+            :itself,
+            :nil?,
+            :tap,
+            :to_int,
+            :to_s,
+            :zero?
+          ],
+          items.map(&:identifier).sort
+        end
+
+        provider.run(line: 2, column: 5).tap do |items|
+          assert_equal [:to_int, :to_s], items.map(&:identifier).sort
+        end
+      end
+    end
+  end
+
   def test_on_atmark
     with_checker <<EOF do
 class Hello
