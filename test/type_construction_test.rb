@@ -6135,6 +6135,14 @@ x + 1
 c = [1].first
 return if (y = c.nil?)
 c + 1
+
+d = [1].first
+puts "nil!" and return if d.nil?
+d + 1
+
+e = [1].first
+nil or return if e.nil?
+e + 1
       RUBY
 
       with_standard_construction(checker, source) do |construction, typing|

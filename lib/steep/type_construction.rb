@@ -1751,8 +1751,12 @@ module Steep
 
             type =
               case
+              when left_type.is_a?(AST::Types::Bot)
+                left_type
               when check_relation(sub_type: left_type, super_type: AST::Types::Boolean.new).success?
                 union_type(left_type, right_type)
+              when left_type != AST::Builtin.nil_type && right_type.is_a?(AST::Types::Bot)
+                right_type
               else
                 union_type(right_type, AST::Builtin.nil_type)
               end
@@ -1803,8 +1807,12 @@ module Steep
 
             type =
               case
+              when left_type.is_a?(AST::Types::Bot)
+                left_type
               when check_relation(sub_type: left_type, super_type: AST::Builtin.bool_type).success? && !left_type.is_a?(AST::Types::Any)
                 AST::Builtin.bool_type
+              when left_falsy.unreachable && right_type.is_a?(AST::Types::Bot)
+                right_type
               else
                 union_type(left_type, right_type)
               end
