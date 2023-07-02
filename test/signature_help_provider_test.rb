@@ -14,11 +14,12 @@ class SignatureHelpProviderTest < Minitest::Test
           def self.foo: (String, Integer) -> Array[Symbol]
         end
       RBS
-      source = Source.parse(<<~RUBY, path: Pathname("a.rb"), factory: checker.factory)
+      content = <<~RUBY
         TestClass.foo()
       RUBY
+      source = Source.parse(content, path: Pathname("a.rb"), factory: checker.factory)
 
-      SignatureHelpProvider.new(source: source, subtyping: checker).tap do |provider|
+      SignatureHelpProvider.new(source: source, content: content, subtyping: checker).tap do |provider|
         items, index = provider.run(line: 1, column: 14)
 
         assert_nil index
@@ -34,11 +35,12 @@ class SignatureHelpProviderTest < Minitest::Test
                       | () -> Array[Symbol]
         end
       RBS
-      source = Source.parse(<<~RUBY, path: Pathname("a.rb"), factory: checker.factory)
+      content = <<~RUBY
         TestClass.foo("", 123)
       RUBY
+      source = Source.parse(content, path: Pathname("a.rb"), factory: checker.factory)
 
-      SignatureHelpProvider.new(source: source, subtyping: checker).tap do |provider|
+      SignatureHelpProvider.new(source: source, content: content, subtyping: checker).tap do |provider|
         items, index = provider.run(line: 1, column: 14)
 
         assert_equal 0, index

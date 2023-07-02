@@ -23,7 +23,7 @@ module Steep
 
       def env: () -> Environment
 
-      def initialize: (source: Source, subtyping: Subtyping::Check) -> void
+      def initialize: (source: Source, content: String, subtyping: Subtyping::Check) -> void
 
       # 1-origin line, 0-origin column
       #
