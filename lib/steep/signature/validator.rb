@@ -346,11 +346,12 @@ module Steep
                     end
 
                     if class_var
+                      loc = class_var.location #: RBS::Location[untyped, untyped]?
                       @errors << Diagnostic::Signature::ClassVariableDuplicationError.new(
                         class_name: definition.type_name,
                         other_class_name: parent.declared_in,
                         variable_name: name,
-                        location: class_var.location&.[](:name)
+                        location: loc&.[](:name) || raise
                       )
                     end
                   end
