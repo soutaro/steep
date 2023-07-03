@@ -391,7 +391,7 @@ module Steep
             subtyping = service.signature_services[target.name].current_subtyping or return
             source = Source.parse(file.content, path: file.path, factory: subtyping.factory)
 
-            provider = Services::SignatureHelpProvider.new(source: source, content: file.content, subtyping: subtyping)
+            provider = Services::SignatureHelpProvider.new(source: source, subtyping: subtyping)
 
             if (items, index = provider.run(line: job.line, column: job.column))
               signatures = items.map do |item|

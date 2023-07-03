@@ -11,10 +11,10 @@ module Steep
         subtyping.factory.env
       end
 
-      def initialize(source:, content:, subtyping:)
+      def initialize(source:, subtyping:)
         @source = source
         @subtyping = subtyping
-        @buffer = RBS::Buffer.new(name: source.path, content: content)
+        @buffer = source.buffer
       end
 
       def run(line:, column:)
