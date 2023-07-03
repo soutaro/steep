@@ -665,9 +665,11 @@ module Steep
 
       def unwrap_optional(type)
         if type.is_a?(AST::Types::Union) && type.types.include?(AST::Builtin.nil_type)
-          type.types.reject! { |t| t == AST::Builtin.nil_type }
+          types = type.types.reject { |t| t == AST::Builtin.nil_type }
+          AST::Types::Union.new(types: types, location: type.location)
+        else
+          type
         end
-        type
       end
     end
   end
