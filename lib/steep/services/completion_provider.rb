@@ -384,7 +384,7 @@ module Steep
           # foo::← ba
           items.push(*items_for_colon2(position: position))
 
-        when node.type == :csend && at_end?(position, of: (_ = node.loc).dot) && (_ = node.loc).dot.source == "&."
+        when node.type == :csend && at_end?(position, of: (_ = node.loc).dot)
           # foo&.← ba
           receiver_type =
             case (type = typing.type_of(node: node.children[0]))
