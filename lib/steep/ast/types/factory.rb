@@ -348,8 +348,15 @@ module Steep
           acc
         end
 
-        def unwrap_optional?(type)
+        def partition_union(type)
           case type
+          when AST::Types::Name::Alias
+            unfold = expand_alias(type)
+            if unfold == type
+              [type, type]
+            else
+              partition_union(unfold)
+            end
           when AST::Types::Union
             falsy_types, truthy_types = type.types.partition do |type|
               (type.is_a?(AST::Types::Literal) && type.value == false) ||
@@ -360,26 +367,38 @@ module Steep
               truthy_types.empty? ? nil : AST::Types::Union.build(types: truthy_types),
               falsy_types.empty? ? nil : AST::Types::Union.build(types: falsy_types)
             ]
-          when AST::Types::Name::Alias
-            type_ = expand_alias(type)
-            if type_ == type
-              [type_, type_]
-            else
-              unwrap_optional?(type_)
-            end
-          when AST::Types::Boolean, AST::Types::Any
+          when AST::Types::Any, AST::Types::Boolean
             [type, type]
+          when AST::Types::Nil
+            [nil, type]
+          when AST::Types::Literal
+            if type.value == false
+              [nil, type]
+            else
+              [type, nil]
+            end
           else
             [type, nil]
           end
         end
 
         def unwrap_optional(type)
-          truthy, falsy = unwrap_optional?(type)
-          [
-            truthy || AST::Types::Bot.new,
-            falsy || AST::Types::Bot.new
-          ]
+          case type
+          when AST::Types::Union
+            unwrap = type.types.filter_map do |type|
+              unless type.is_a?(AST::Types::Nil)
+                type
+              end
+            end
+
+            unless unwrap.empty?
+              AST::Types::Union.build(types: unwrap)
+            end
+          when AST::Types::Nil
+            nil
+          else
+            type
+          end
         end
 
         def module_name?(type_name)

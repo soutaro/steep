@@ -1786,7 +1786,8 @@ module Steep
             if left_type.is_a?(AST::Types::Logic::Env)
               left_type = left_type.type
             end
-            left_type, _ = checker.factory.unwrap_optional(left_type)
+            le, _ = checker.factory.partition_union(left_type)
+            left_type = le || AST::Types::Bot.new
 
             right_type, constr, right_context =
               constr
@@ -4650,8 +4651,7 @@ module Steep
     end
 
     def unwrap(type)
-      truthy, _ = checker.factory.unwrap_optional(type)
-      truthy
+      checker.factory.unwrap_optional(type) || AST::Types::Bot.new
     end
 
     def deep_expand_alias(type)
