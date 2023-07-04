@@ -1,7 +1,7 @@
 # @type var b: String
 # @type var c: ::Integer
 
-a = "foo"
+a = ["foo"].sample
 
 b = a && a.to_str
 
