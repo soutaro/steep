@@ -62,9 +62,11 @@ module Steep
           truthy_env = type.truthy
           falsy_env = type.falsy
 
+          truthy_type, falsy_type = factory.partition_union(type.type)
+
           return [
-            Result.new(env: truthy_env, type: TRUE, unreachable: false),
-            Result.new(env: falsy_env, type: FALSE, unreachable: false)
+            Result.new(env: truthy_env, type: truthy_type || TRUE, unreachable: !truthy_type),
+            Result.new(env: falsy_env, type: falsy_type || FALSE, unreachable: !falsy_type)
           ]
         end
 
