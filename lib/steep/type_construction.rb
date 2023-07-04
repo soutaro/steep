@@ -1722,10 +1722,7 @@ module Steep
             left_type, constr, left_context = synthesize(left_node, hint: hint, condition: true).to_ary
 
             interpreter = TypeInference::LogicTypeInterpreter.new(subtyping: checker, typing: typing, config: builder_config)
-            truthy, falsy = interpreter.eval(env: left_context.type_env, node: left_node)
-
-            left_truthy_env = truthy.env
-            left_falsy_env = falsy.env
+            left_truthy, left_falsy = interpreter.eval(env: left_context.type_env, node: left_node)
 
             if left_type.is_a?(AST::Types::Logic::Env)
               left_type = left_type.type
@@ -1733,38 +1730,40 @@ module Steep
 
             right_type, constr, right_context =
               constr
-                .update_type_env { left_truthy_env }
+                .update_type_env { left_truthy.env }
                 .tap {|constr| typing.add_context_for_node(right_node, context: constr.context) }
                 .for_branch(right_node)
                 .synthesize(right_node, hint: hint, condition: true).to_ary
 
             right_truthy, right_falsy = interpreter.eval(env: right_context.type_env, node: right_node)
-            right_truthy_env = right_truthy.env
-            right_falsy_env = right_falsy.env
 
-            env =
-              if right_type.is_a?(AST::Types::Bot)
-                left_falsy_env
-              else
-                context.type_env.join(left_falsy_env, right_context.type_env)
-              end
+            case
+            when left_truthy.unreachable
+              # Always left_falsy
+              env = left_falsy.env
+              type = left_falsy.type
+            when left_falsy.unreachable
+              # Always left_truthy ==> right
+              env = right_context.type_env
+              type = right_type
+            when right_truthy.unreachable && right_falsy.unreachable
+              env = left_falsy.env
+              type = left_falsy.type
+            else
+              env = context.type_env.join(left_falsy.env, right_context.type_env)
+              type = union_type(left_falsy.type, right_type)
 
-            type =
-              case
-              when left_type.is_a?(AST::Types::Bot)
-                left_type
-              when check_relation(sub_type: left_type, super_type: AST::Types::Boolean.new).success?
-                union_type(left_type, right_type)
-              when left_type != AST::Builtin.nil_type && right_type.is_a?(AST::Types::Bot)
-                right_type
-              else
-                union_type(right_type, AST::Builtin.nil_type)
+              unless type.is_a?(AST::Types::Any)
+                if check_relation(sub_type: type, super_type: AST::Types::Boolean.new).success?
+                  type = AST::Types::Boolean.new
+                end
               end
+            end
 
             if condition
               type = AST::Types::Logic::Env.new(
-                truthy: right_truthy_env,
-                falsy: context.type_env.join(left_falsy_env, right_falsy_env),
+                truthy: right_truthy.env,
+                falsy: context.type_env.join(left_falsy.env, right_falsy.env),
                 type: type
               )
             end
