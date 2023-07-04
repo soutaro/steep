@@ -14,12 +14,7 @@ module Steep
       def initialize(source:, subtyping:)
         @source = source
         @subtyping = subtyping
-
-        text =
-          if source.node
-            source.node.loc.expression.source
-          end
-        @buffer = RBS::Buffer.new(name: source.path, content: text || "")
+        @buffer = source.buffer
       end
 
       def run(line:, column:)

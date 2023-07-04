@@ -35,11 +35,12 @@ class SignatureHelpProviderTest < Minitest::Test
         end
       RBS
       source = Source.parse(<<~RUBY, path: Pathname("a.rb"), factory: checker.factory)
+        # Show signature help for a commented method call
         TestClass.foo("", 123)
       RUBY
 
       SignatureHelpProvider.new(source: source, subtyping: checker).tap do |provider|
-        items, index = provider.run(line: 1, column: 14)
+        items, index = provider.run(line: 2, column: 14)
 
         assert_equal 0, index
         assert_equal ["(::String, ::Integer) -> ::Array[::Symbol]", "() -> ::Array[::Symbol]"], items.map(&:method_type).map(&:to_s)
