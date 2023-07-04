@@ -1882,19 +1882,23 @@ module Steep
             end
 
             if truthy.unreachable
-              typing.add_error(
-                Diagnostic::Ruby::UnreachableBranch.new(
-                  node: true_clause || node
+              if true_clause
+                typing.add_error(
+                  Diagnostic::Ruby::UnreachableBranch.new(
+                    node: true_clause || node
+                  )
                 )
-              )
+              end
             end
 
             if falsy.unreachable
-              typing.add_error(
-                Diagnostic::Ruby::UnreachableBranch.new(
-                  node: false_clause || node
+              if false_clause
+                typing.add_error(
+                  Diagnostic::Ruby::UnreachableBranch.new(
+                    node: false_clause || node
+                  )
                 )
-              )
+              end
             end
 
             node_type = union_type_unify(true_pair&.type || AST::Builtin.nil_type, false_pair&.type || AST::Builtin.nil_type)
