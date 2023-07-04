@@ -754,7 +754,7 @@ class TypeCheckTest < Minitest::Test
       code: {
         "a.rb" => <<~RUBY
           x = [1].first
-          nil and return unless x
+          nil or return unless x
           x + 1
         RUBY
       },
@@ -772,7 +772,7 @@ class TypeCheckTest < Minitest::Test
       code: {
         "a.rb" => <<~RUBY
           x = [1].first
-          false and return unless x
+          x or return unless x
           x + 1
         RUBY
       },
