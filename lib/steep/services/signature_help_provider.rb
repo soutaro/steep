@@ -30,7 +30,7 @@ module Steep
 
           node or return
 
-          if node.type == :send
+          if node.type == :send || node.type == :csend
             pos = buffer.loc_to_pos([line, column])
             begin_loc = (_ = node.loc).begin #: Parser::Source::Range?
             end_loc = (_ = node.loc).end #: Parser::Source::Range?
