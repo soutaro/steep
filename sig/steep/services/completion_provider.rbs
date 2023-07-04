@@ -208,6 +208,8 @@ module Steep
 
       def items_for_dot: (position: Position) -> Array[item]
 
+      def items_for_qcall: (position: Position) -> Array[item]
+
       def items_for_colon2: (position: Position) -> Array[item]
 
       def items_for_atmark: (position: Position) -> Array[item]
@@ -227,6 +229,9 @@ module Steep
       def index_for: (String, line: Integer, column: Integer) -> Integer
 
       def disallowed_method?: (Symbol name) -> bool
+
+      def unwrap_optional: (AST::Types::t) -> AST::Types::t
+
     end
   end
 end

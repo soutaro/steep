@@ -243,9 +243,16 @@ module Steep
           Steep.logger.info "recovering syntax error: #{exn.inspect}"
           case possible_trigger
           when "."
-            source_text[index-1] = " "
-            type_check!(source_text, line: line, column: column)
-            items_for_dot(position: position)
+            if source_text[index-2] == "&"
+              source_text[index-1] = " "
+              source_text[index-2] = " "
+              type_check!(source_text, line: line, column: column)
+              items_for_qcall(position: position)
+            else
+              source_text[index-1] = " "
+              type_check!(source_text, line: line, column: column)
+              items_for_dot(position: position)
+            end
           when "@"
             source_text[index-1] = " "
             type_check!(source_text, line: line, column: column)
@@ -329,6 +336,19 @@ module Steep
 
           method_items_for_receiver_type(receiver_type, include_private: false, prefix: prefix, position: position, items: items)
 
+        when node.type == :csend && node.children[0] && at_end?(position, of: (_ = node.loc).selector)
+          # foo&.ba ←
+          receiver_type =
+            case (type = typing.type_of(node: node.children[0]))
+            when AST::Types::Self
+              context.self_type
+            else
+              unwrap_optional(type)
+            end
+          prefix = node.children[1].to_s
+
+          method_items_for_receiver_type(receiver_type, include_private: false, prefix: prefix, position: position, items: items)
+
         when node.type == :const && node.children[0] == nil && at_end?(position, of: node.loc)
           # Foo ← (const)
           prefix = node.children[1].to_s
@@ -364,6 +384,18 @@ module Steep
           # foo::← ba
           items.push(*items_for_colon2(position: position))
 
+        when node.type == :csend && at_end?(position, of: (_ = node.loc).dot)
+          # foo&.← ba
+          receiver_type =
+            case (type = typing.type_of(node: node.children[0]))
+            when AST::Types::Self
+              context.self_type
+            else
+              unwrap_optional(type)
+            end
+
+          method_items_for_receiver_type(receiver_type, include_private: false, prefix: "", position: position, items: items)
+
         when node.type == :ivar && at_end?(position, of: node.loc)
           # @fo ←
           instance_variable_items_for_context(context, position: position, prefix: node.children[0].to_s, items: items)
@@ -395,6 +427,36 @@ module Steep
                 context.self_type
               else
                 type
+              end
+
+            items = [] #: Array[item]
+            method_items_for_receiver_type(receiver_type, include_private: false, prefix: "", position: position, items: items)
+            items
+          rescue Typing::UnknownNodeError
+            []
+          end
+        else
+          []
+        end
+      end
+
+      def items_for_qcall(position:)
+        # foo&. ←
+        shift_pos = position-2
+        node, *_parents = source.find_nodes(line: shift_pos.line, column: shift_pos.column)
+        node ||= source.node
+
+        return [] unless node
+
+        if at_end?(shift_pos, of: node.loc)
+          begin
+            context = typing.context_at(line: position.line, column: position.column)
+            receiver_type =
+              case (type = typing.type_of(node: node))
+              when AST::Types::Self
+                context.self_type
+              else
+                unwrap_optional(type)
               end
 
             items = [] #: Array[item]
@@ -599,6 +661,15 @@ module Steep
         # instances of new classes, so don't show it as
         # an LSP option
         name == :initialize
+      end
+
+      def unwrap_optional(type)
+        if type.is_a?(AST::Types::Union) && type.types.include?(AST::Builtin.nil_type)
+          types = type.types.reject { |t| t == AST::Builtin.nil_type }
+          AST::Types::Union.new(types: types, location: type.location)
+        else
+          type
+        end
       end
     end
   end
