@@ -68,6 +68,13 @@ module Steep
           ]
         end
 
+        if type.is_a?(AST::Types::Bot)
+          return [
+            Result.new(env: env, type: type, unreachable: true),
+            Result.new(env: env, type: type, unreachable: true),
+          ]
+        end
+
         case node.type
         when :lvar
           name = node.children[0]
