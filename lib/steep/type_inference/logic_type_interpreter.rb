@@ -62,16 +62,25 @@ module Steep
           truthy_env = type.truthy
           falsy_env = type.falsy
 
+          truthy_type, falsy_type = factory.partition_union(type.type)
+
           return [
-            Result.new(env: truthy_env, type: TRUE, unreachable: false),
-            Result.new(env: falsy_env, type: FALSE, unreachable: false)
+            Result.new(env: truthy_env, type: truthy_type || TRUE, unreachable: !truthy_type),
+            Result.new(env: falsy_env, type: falsy_type || FALSE, unreachable: !falsy_type)
+          ]
+        end
+
+        if type.is_a?(AST::Types::Bot)
+          return [
+            Result.new(env: env, type: type, unreachable: true),
+            Result.new(env: env, type: type, unreachable: true),
           ]
         end
 
         case node.type
         when :lvar
           name = node.children[0]
-          truthy_type, falsy_type = factory.unwrap_optional?(type)
+          truthy_type, falsy_type = factory.partition_union(type)
 
           truthy_result =
             if truthy_type
@@ -127,7 +136,7 @@ module Steep
           receiver_type = typing.type_of(node: receiver)
 
           truthy_receiver, falsy_receiver = evaluate_node(env: env, node: receiver)
-          truthy_type, _ = factory.unwrap_optional?(type)
+          truthy_type, _ = factory.partition_union(type)
 
           truthy_result, falsy_result = evaluate_node(
             env: truthy_receiver.env,
@@ -157,7 +166,7 @@ module Steep
             end
           else
             if env[node]
-              truthy_type, falsy_type = factory.unwrap_optional?(type)
+              truthy_type, falsy_type = factory.partition_union(type)
 
               truthy_result =
                 if truthy_type
@@ -178,7 +187,7 @@ module Steep
           end
         end
 
-        truthy_type, falsy_type = factory.unwrap_optional?(type)
+        truthy_type, falsy_type = factory.partition_union(type)
         return [
           Result.new(type: truthy_type || BOT, env: env, unreachable: truthy_type.nil?),
           Result.new(type: falsy_type || BOT, env: env, unreachable: falsy_type.nil?)
@@ -271,7 +280,7 @@ module Steep
         when AST::Types::Logic::ReceiverIsNil
           if receiver && arguments.size.zero?
             receiver_type = typing.type_of(node: receiver)
-            truthy_receiver, falsy_receiver = factory.unwrap_optional?(receiver_type)
+            truthy_receiver, falsy_receiver = factory.partition_union(receiver_type)
 
             truthy_env, falsy_env = refine_node_type(
               env: env,

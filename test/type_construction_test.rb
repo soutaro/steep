@@ -3557,7 +3557,7 @@ EOF
         assert_no_error typing
 
         assert_equal parse_type("::Integer"), pair.context.type_env[:x]
-        assert_equal parse_type("::Integer?"), pair.context.type_env[:y]
+        assert_equal parse_type("::Integer"), pair.context.type_env[:y]
       end
     end
   end
@@ -4442,7 +4442,7 @@ EOF
 
         assert_no_error typing
         assert_equal parse_type("::String"), pair.context.type_env[:a]
-        assert_equal parse_type("::String?"), pair.context.type_env[:b]
+        assert_equal parse_type("::String"), pair.context.type_env[:b]
         assert_equal parse_type("untyped"), pair.context.type_env[:c]
       end
     end

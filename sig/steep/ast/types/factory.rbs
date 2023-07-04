@@ -59,9 +59,34 @@ module Steep
         #
         def flatten_union: (t `type`, ?Array[t] acc) -> Array[t]
 
-        def unwrap_optional: (Types::t `type`) -> [Types::t, Types::t]
+        # Partition the type components in union types to truthy ones and falsy ones
+        #
+        # * Returns a pair of *truthy* type and *falsy* type
+        # * The pair may contain `nil` if given type always evaluates to truthy or falsy
+        # * Expand (unfold) the type aliases automatically
+        #
+        # ```ruby
+        # partition_union?(`Integer?`)                          # => [`Integer`, `nil`]
+        # partition_union?(`Integer | String | nil | false`)    # => [`Integer | String`, `nil | false`]
+        # partition_union?(`bool`)                              # => [`bool`, `bool`]
+        # partition_union?(`nil`)                               # => [nil, `nil`]
+        # ```
+        #
+        def partition_union: (Types::t) -> [Types::t?, Types::t?]
 
-        def unwrap_optional?: (Types::t) -> [Types::t?, Types::t?]
+        # Returns a type that doesn't have `nil` in the union component
+        #
+        # * Returns `nil` if given type is `nil`
+        # * **Doesn't expand type alias automatically**
+        #
+        # ```ruby
+        # unwrap_optional(`String?`)                               # => `String`
+        # unwrap_optional(`String | Integer | false | nil`)        # => `String | Integer | false`
+        # unwrap_optional(`nil`)                                   # => nil
+        # unwrap_optional(`boolish`)                               # => `boolish`
+        # ```
+        #
+        def unwrap_optional: (Types::t) -> Types::t?
 
         def module_name?: (TypeName type_name) -> bool
 
