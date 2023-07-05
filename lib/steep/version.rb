@@ -1,3 +1,3 @@
 module Steep
-  VERSION = "1.4.0"
+  VERSION = "1.5.0.pre.1"
 end
