@@ -25,6 +25,8 @@ module Steep
         end
 
         def types(context, subtyping, type_vars)
+          resolver = RBS::Resolver::TypeNameResolver.new(subtyping.factory.env)
+
           # @type var types: Array[Types::t]
           types = []
 
@@ -32,6 +34,7 @@ module Steep
 
           while true
             ty = RBS::Parser.parse_type(loc.buffer, range: loc.range, variables: type_vars) or break
+            ty = ty.map_type_name {|name| resolver.resolve(name, context: context) || name.absolute! }
 
             validator = Signature::Validator.new(checker: subtyping)
             validator.validate_type(ty)
@@ -41,7 +44,7 @@ module Steep
             end
 
             ty = subtyping.factory.type(ty)
-            types << subtyping.factory.absolute_type(ty, context: context)
+            types << ty
 
             match = RBS::Location.new(loc.buffer, ty.location.end_pos, type_location.end_pos).source.match(/\A\s*,\s*/) or break
             offset = match.length
