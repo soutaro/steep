@@ -18,12 +18,14 @@ module Steep
 
         def type(context, subtyping, type_vars)
           if ty = RBS::Parser.parse_type(type_location.buffer, range: type_location.range, variables: type_vars, require_eof: true)
+            resolver = RBS::Resolver::TypeNameResolver.new(subtyping.factory.env)
+            ty = ty.map_type_name {|name| resolver.resolve(name, context: context) || name.absolute! }
+
             validator = Signature::Validator.new(checker: subtyping)
             validator.validate_type(ty)
 
             unless validator.has_error?
-              ty = subtyping.factory.type(ty)
-              subtyping.factory.absolute_type(ty, context: context)
+              subtyping.factory.type(ty)
             end
           else
             nil

@@ -783,4 +783,30 @@ class TypeCheckTest < Minitest::Test
       YAML
     )
   end
+
+  def test_type_assertion__generic_type_error
+    run_type_check_test(
+      signatures: {
+        "a.rbs" => <<~RBS
+          class Foo
+            class Bar
+            end
+          end
+        RBS
+      },
+      code: {
+        "a.rb" => <<~RUBY
+          class Foo
+            a = [] #: Array[Bar]
+            a.map {|x| x } #$ Bar
+          end
+        RUBY
+      },
+      expectations: <<~YAML
+        ---
+        - file: a.rb
+          diagnostics: []
+      YAML
+    )
+  end
 end
