@@ -406,7 +406,8 @@ module Steep
                 )
               end
 
-              LSP::Interface::SignatureHelp.new(
+              @last_signature_help_line = job.line
+              @last_signature_help_result = LSP::Interface::SignatureHelp.new(
                 signatures: signatures,
                 active_signature: index
               )
@@ -414,7 +415,8 @@ module Steep
           end
         end
       rescue Parser::SyntaxError
-        # Ignore syntax error
+        # Reuse the latest result to keep SignatureHelp opened while typing
+        @last_signature_help_result if @last_signature_help_line == job.line
       end
     end
   end
