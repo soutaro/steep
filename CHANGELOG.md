@@ -2,6 +2,12 @@
 
 ## master
 
+## 1.5.0.pre.2 (2023-07-05)
+
+### Language server
+
+* Fix signature help is not shown for the optional chaining (&.) ([#832](https://github.com/soutaro/steep/pull/832))
+
 ## 1.5.0.pre.1 (2023-07-05)
 
 ### Type checker core
@@ -30,7 +36,6 @@
 
 ### Language server
 
-* Fix signature help is not shown for the optional chaining (&.) ([#832](https://github.com/soutaro/steep/pull/832))
 * Completion in annotations ([#818](https://github.com/soutaro/steep/pull/818))
 * Implement *go to type definition* ([#784](https://github.com/soutaro/steep/pull/784))
 
