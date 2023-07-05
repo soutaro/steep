@@ -2,6 +2,20 @@
 
 ## master
 
+## 1.5.0.pre.3 (2023-07-05)
+
+### Type checker core
+
+* Resolve type names from TypeAssertion and TypeApplication ([#836](https://github.com/soutaro/steep/pull/836))
+
+### Commandline tool
+
+* Replace ElseOnExhaustiveCase by UnreachableBranch from steep/diagnostic/ruby.rb ([#833](https://github.com/soutaro/steep/pull/833))
+
+### Language server
+
+* Reuse the latest result to keep SignatureHelp opened while typing ([#835](https://github.com/soutaro/steep/pull/835))
+
 ## 1.5.0.pre.2 (2023-07-05)
 
 ### Language server
