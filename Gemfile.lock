@@ -1,7 +1,7 @@
 PATH
   remote: .
   specs:
-    steep (1.4.0)
+    steep (1.5.0.pre.1)
       activesupport (>= 5.1)
       concurrent-ruby (>= 1.1.10)
       csv (>= 3.0.9)
@@ -47,7 +47,7 @@ GEM
       ast (~> 2.4.1)
       racc
     prettier_print (1.2.1)
-    racc (1.7.0)
+    racc (1.7.1)
     rainbow (3.1.1)
     rake (13.0.6)
     rb-fsevent (0.11.2)
