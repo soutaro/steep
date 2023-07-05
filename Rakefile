@@ -24,6 +24,7 @@ end
 Rake::Task[:release].enhance do
   Rake::Task[:"release:note"].invoke
   Rake::Task[:"release:github"].invoke
+  Rake::Task[:"release:release-prs"].invoke
 end
 
 desc "Generate changelog template from GH pull requests"
@@ -48,7 +49,7 @@ task :changelog do
     "--json",
     "url,title,number",
     "--search" ,
-    "milestone:\"#{milestone}\" is:merged sort:updated-desc"
+    "milestone:\"#{milestone}\" is:merged sort:updated-desc -label:Released"
   ]
 
   require "open3"
@@ -171,6 +172,49 @@ NOTES
     if status.success?
       puts "  ⏩️ Done! Open #{output.chomp} and publish the release!"
       puts
+    end
+  end
+
+  desc "Add `Released` labels to pull requests associated to the version"
+  task "release-prs" do
+    major, minor, patch, pre = Steep::VERSION.split(".", 4)
+    major = major.to_i
+    minor = minor.to_i
+    patch = patch.to_i
+
+    if patch == 0
+      milestone = "Steep #{major}.#{minor}"
+    else
+      milestone = "Steep #{major}.#{minor}.x"
+    end
+
+    puts "🔍 Finding pull requests that is associated to milestone `#{milestone}`..."
+
+    command = [
+      "gh",
+      "pr",
+      "list",
+      "--json",
+      "url,title,number",
+      "--search" ,
+      "milestone:\"#{milestone}\" is:merged sort:updated-desc -label:Released"
+    ]
+
+    require "open3"
+    output, status = Open3.capture2(*command)
+    raise status.inspect unless status.success?
+
+    require "json"
+    json = JSON.parse(output, symbolize_names: true)
+
+    puts "  ✅ Found #{json.size} PRs..."
+
+    json.each do |pr|
+      puts "🧐 Updating #{pr[:url]}..."
+      output, status = Open3.capture2("gh", "pr", "edit", pr[:number].to_s, "--add-label", "Released")
+      raise status.inspect unless status.success?
+      puts "  ✅ Done!"
+      sleep 0.5
     end
   end
 end
