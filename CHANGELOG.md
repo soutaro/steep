@@ -21,6 +21,10 @@
 * Fix type assertion parsing error ([#805](https://github.com/soutaro/steep/pull/805))
 * Distribute `untyped` to block params ([#798](https://github.com/soutaro/steep/pull/798))
 * Should escape underscore for method name ([#770](https://github.com/soutaro/steep/pull/770))
+* Give a special typing rule to `#lambda` calls ([#811](https://github.com/soutaro/steep/pull/811))
+* Support early return code using "and return" ([#828](https://github.com/soutaro/steep/pull/828))
+* Validate type applications in ancestors ([#810](https://github.com/soutaro/steep/pull/810))
+* Convert block-pass-arguments with `#to_proc` ([#806](https://github.com/soutaro/steep/pull/806))
 
 ### Commandline tool
 
@@ -38,11 +42,14 @@
 
 * Completion in annotations ([#818](https://github.com/soutaro/steep/pull/818))
 * Implement *go to type definition* ([#784](https://github.com/soutaro/steep/pull/784))
+* completion: Support completion for optional chaining (&.) ([#827](https://github.com/soutaro/steep/pull/827))
+* signature helps are not shown if the target code has comments ([#829](https://github.com/soutaro/steep/pull/829))
 
 ### Miscellaneous
 
 * Typecheck sources ([#820](https://github.com/soutaro/steep/pull/820))
 * Relax concurrent-ruby requirement ([#812](https://github.com/soutaro/steep/pull/812))
+* Cast from union for faster type checking ([#830](https://github.com/soutaro/steep/pull/830))
 
 ## 1.4.0 (2023-04-25)
 
