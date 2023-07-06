@@ -1398,8 +1398,11 @@ module Steep
         when :true, :false
           ty = node.type == :true ? AST::Types::Literal.new(value: true) : AST::Types::Literal.new(value: false)
 
-          if hint && check_relation(sub_type: ty, super_type: hint).success? && !hint.is_a?(AST::Types::Any) && !hint.is_a?(AST::Types::Top)
+          case
+          when hint && check_relation(sub_type: ty, super_type: hint).success? && !hint.is_a?(AST::Types::Any) && !hint.is_a?(AST::Types::Top)
             add_typing(node, type: hint)
+          when condition
+            add_typing(node, type: ty)
           else
             add_typing(node, type: AST::Types::Boolean.new)
           end
@@ -2016,9 +2019,6 @@ module Steep
               branch_results = [] #: Array[Pair]
 
               condition_constr = constr
-              clause_constr = constr
-
-              next_branch_reachable = true
 
               whens.each do |when_clause|
                 when_clause_constr = condition_constr
@@ -2029,7 +2029,6 @@ module Steep
                 *tests, body = when_clause.children
 
                 branch_reachable = false
-                false_branch_reachable = false
 
                 tests.each do |test|
                   test_type, condition_constr = condition_constr.synthesize(test, condition: true)
@@ -2040,11 +2039,8 @@ module Steep
                   condition_constr = condition_constr.update_type_env { falsy_env }
                   body_envs << truthy_env
 
-                  branch_reachable ||= next_branch_reachable && !truthy.unreachable
-                  false_branch_reachable ||= !falsy.unreachable
+                  branch_reachable ||= !truthy.unreachable
                 end
-
-                next_branch_reachable &&= false_branch_reachable
 
                 if body
                   branch_results <<
@@ -4476,19 +4472,27 @@ module Steep
     end
 
     def union_type_unify(*types)
-      types.inject do |type1, type2|
-        next type1 if type1.is_a?(AST::Types::Any)
-        next type2 if type2.is_a?(AST::Types::Any)
+      types = types.reject {|t| t.is_a?(AST::Types::Bot) }
 
-        unless no_subtyping?(sub_type: type1, super_type: type2)
-          next type2
+      if types.empty?
+        AST::Types::Bot.new
+      else
+        types.inject do |type1, type2|
+          next type2 if type1.is_a?(AST::Types::Any)
+          next type1 if type2.is_a?(AST::Types::Any)
+
+          unless no_subtyping?(sub_type: type1, super_type: type2)
+            # type1 <: type2
+            next type2
+          end
+
+          unless no_subtyping?(sub_type: type2, super_type: type1)
+            # type2 <: type1
+            next type1
+          end
+
+          union_type(type1, type2)
         end
-
-        unless no_subtyping?(sub_type: type2, super_type: type1)
-          next type1
-        end
-
-        union_type(type1, type2)
       end
     end
 

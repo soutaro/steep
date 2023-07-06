@@ -3804,8 +3804,8 @@ EOF
 
         assert_empty typing.errors
 
-        assert_equal parse_type("bool"), pair.context.type_env[:a]
-        assert_equal parse_type("bool"), pair.context.type_env[:b]
+        assert_equal parse_type("false"), pair.context.type_env[:a]
+        assert_equal parse_type("true"), pair.context.type_env[:b]
       end
     end
   end
