@@ -4476,19 +4476,27 @@ module Steep
     end
 
     def union_type_unify(*types)
-      types.inject do |type1, type2|
-        next type1 if type1.is_a?(AST::Types::Any)
-        next type2 if type2.is_a?(AST::Types::Any)
+      types = types.reject {|t| t.is_a?(AST::Types::Bot) }
 
-        unless no_subtyping?(sub_type: type1, super_type: type2)
-          next type2
+      if types.empty?
+        AST::Types::Bot.new
+      else
+        types.inject do |type1, type2|
+          next type2 if type1.is_a?(AST::Types::Any)
+          next type1 if type2.is_a?(AST::Types::Any)
+
+          unless no_subtyping?(sub_type: type1, super_type: type2)
+            # type1 <: type2
+            next type2
+          end
+
+          unless no_subtyping?(sub_type: type2, super_type: type1)
+            # type2 <: type1
+            next type1
+          end
+
+          union_type(type1, type2)
         end
-
-        unless no_subtyping?(sub_type: type2, super_type: type1)
-          next type1
-        end
-
-        union_type(type1, type2)
       end
     end
 

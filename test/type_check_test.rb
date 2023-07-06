@@ -890,7 +890,17 @@ class TypeCheckTest < Minitest::Test
       expectations: <<~YAML
         ---
         - file: a.rb
-          diagnostics: []
+          diagnostics:
+          - range:
+              start:
+                line: 13
+                character: 2
+              end:
+                line: 13
+                character: 12
+            severity: ERROR
+            message: Type `nil` does not have method `is_untyped`
+            code: Ruby::NoMethod
       YAML
     )
   end
