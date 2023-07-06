@@ -972,4 +972,52 @@ class TypeCheckTest < Minitest::Test
       YAML
     )
   end
+
+  def test_case_when__untyped_value
+    run_type_check_test(
+      signatures: {
+      },
+      code: {
+        "a.rb" => <<~RUBY
+          foo = true #: untyped
+
+          case foo
+          when nil
+            1
+          when true
+            2
+          end
+        RUBY
+      },
+      expectations: <<~YAML
+        ---
+        - file: a.rb
+          diagnostics: []
+      YAML
+    )
+  end
+
+  def test_case_when__bool_value
+    run_type_check_test(
+      signatures: {
+      },
+      code: {
+        "a.rb" => <<~RUBY
+          foo = true #: bool
+
+          case foo
+          when false
+            1
+          when true
+            2
+          end
+        RUBY
+      },
+      expectations: <<~YAML
+        ---
+        - file: a.rb
+          diagnostics: []
+      YAML
+    )
+  end
 end

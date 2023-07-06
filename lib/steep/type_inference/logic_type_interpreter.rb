@@ -417,6 +417,10 @@ module Steep
           end
 
           [truthy_types, falsy_types]
+        when AST::Types::Boolean
+          [[arg_type], [arg_type]]
+        when AST::Types::Top, AST::Types::Any
+          [[arg_type], [arg_type]]
         else
           types = [arg_type]
 
