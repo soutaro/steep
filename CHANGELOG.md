@@ -2,6 +2,15 @@
 
 ## master
 
+## 1.5.0.pre.4 (2023-07-06)
+
+### Type checker core
+
+* Fix unreachability test ([#842](https://github.com/soutaro/steep/pull/842))
+* Make type of `case` node `untyped` rather than `nil` ([#841](https://github.com/soutaro/steep/pull/841))
+* Fix `#partition_union` ([#840](https://github.com/soutaro/steep/pull/840))
+* Fix type-case ([#839](https://github.com/soutaro/steep/pull/839))
+
 ## 1.5.0.pre.3 (2023-07-05)
 
 ### Type checker core
