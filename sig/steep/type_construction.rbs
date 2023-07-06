@@ -538,18 +538,30 @@ module Steep
     # Returns a pair of transformed node and the outer most call/non-value node if present.
     #
     # ```rb
-    # x = y = foo()   # Call `#transform_value_node` with the node and var_name `:__foo__`
+    # x = y = foo()   # Call `#transform_condition_node` with the node and var_name `:__foo__`
     #                 # => Returns [x = y = __foo__, foo()]
+    #
+    # x               # Call `#transform_condition_node` with the node and var_name `:__foo__`
+    #                 # => Returns [__foo__, x]
     # ```
     #
     # This is typically used for transforming assginment node for case condition.
     #
-    def extract_outermost_call: (Parser::AST::Node node, Symbol) -> [Parser::AST::Node, Parser::AST::Node?]
+    def transform_condition_node: (Parser::AST::Node node, Symbol) -> [Parser::AST::Node, Parser::AST::Node]
 
     def type_name: (AST::Types::t) -> RBS::TypeName?
 
     def singleton_type: (AST::Types::t) -> AST::Types::t?
 
     def instance_type: (AST::Types::t) -> AST::Types::t?
+
+    # Propagate an entry of `source` in TypeEnv to `dest`
+    #
+    # `source` is name of a local variable.
+    #
+    # If `dest` is a `lvar` node, it updates local variable entry of TypeEnv.
+    # Otherwise, it updates *pure* call of `dest` if it already exists.
+    #
+    def propagate_type_env: (Symbol source, Parser::AST::Node dest, TypeInference::TypeEnv) -> TypeInference::TypeEnv
   end
 end

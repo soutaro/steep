@@ -809,4 +809,36 @@ class TypeCheckTest < Minitest::Test
       YAML
     )
   end
+
+  def test_type_case__local_variable_narrowing
+    run_type_check_test(
+      signatures: {
+        "a.rbs" => <<~RBS
+          type foo = Integer | String | nil
+        RBS
+      },
+      code: {
+        "a.rb" => <<~RUBY
+          foo = 3 #: foo
+
+          case foo
+          when Integer
+            1
+          when String, nil
+            2
+          end
+        RUBY
+      },
+      expectations: <<~YAML
+        ---
+        - file: a.rb
+          diagnostics: []
+      YAML
+    ) do |typings|
+      typing = typings["a.rb"]
+      node, * = typing.source.find_nodes(line: 3, column: 6)
+
+      assert_equal "::foo", typing.type_of(node: node).to_s
+    end
+  end
 end
