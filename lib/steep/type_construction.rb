@@ -1920,18 +1920,9 @@ module Steep
                 cond_vars.delete(name)
               end
 
-              var_name = :"_a#{SecureRandom.alphanumeric(4)}"
-              var_cond, value_node = extract_outermost_call(cond, var_name)
-              if value_node
-                unless constr.context.type_env[value_node]
-                  constr = constr.update_type_env do |env|
-                    env.assign_local_variable(var_name, cond_type, nil)
-                  end
-                  cond = var_cond
-                else
-                  value_node = nil
-                end
-              end
+              var_name = :"_a[#{SecureRandom.alphanumeric(4)}]"
+              var_cond, value_node = transform_condition_node(cond, var_name)
+              constr = constr.update_type_env {|env| env.assign_local_variable(var_name, cond_type, nil) }
 
               next_branch_reachable = true
 
@@ -1949,12 +1940,12 @@ module Steep
                 false_branch_reachable = false
 
                 tests.each do |test|
-                  test_node = test.updated(:send, [test, :===, cond])
+                  test_node = test.updated(:send, [test, :===, var_cond])
                   test_type, test_constr = test_constr.synthesize(test_node, condition: true).to_ary
                   truthy, falsy = interpreter.eval(node: test_node, env: test_constr.context.type_env)
 
-                  truthy_env = truthy.env
-                  falsy_env = falsy.env
+                  truthy_env = propagate_type_env(var_name, value_node, truthy.env)
+                  falsy_env = propagate_type_env(var_name, value_node, falsy.env)
 
                   test_envs << truthy_env
 
@@ -2002,11 +1993,6 @@ module Steep
 
               types = branch_results.map(&:type)
               constrs = branch_results.map(&:constr)
-
-              cond_type = when_constr.context.type_env[var_name]
-              cond_type ||= when_constr.context.type_env[cond_vars.first || raise] unless cond_vars.empty?
-              cond_type ||= when_constr.context.type_env[value_node] if value_node
-              cond_type ||= typing.type_of(node: node.children[0])
 
               if !next_branch_reachable
                 # Exhaustive
@@ -5029,33 +5015,19 @@ module Steep
       with_new_typing(typing.parent || raise)
     end
 
-    def extract_outermost_call(node, var_name)
+    def transform_condition_node(node, var_name)
       case node.type
       when :lvasgn
         name, rhs = node.children
-        rhs, value_node = extract_outermost_call(rhs, var_name)
-        if value_node
-          [node.updated(nil, [name, rhs]), value_node]
-        else
-          [node, value_node]
-        end
+        rhs, value_node = transform_condition_node(rhs, var_name)
+        [node.updated(nil, [name, rhs]), value_node]
       when :begin
         *children, last = node.children
-        last, value_node = extract_outermost_call(last, var_name)
-        if value_node
-          [node.updated(nil, children.push(last)), value_node]
-        else
-          [node, value_node]
-        end
-      when :lvar
-        [node, nil]
+        last, value_node = transform_condition_node(last, var_name)
+        [node.updated(nil, children.push(last)), value_node]
       else
-        if value_node?(node)
-          [node, nil]
-        else
-          var_node = node.updated(:lvar, [var_name])
-          [var_node, node]
-        end
+        var_node = node.updated(:lvar, [var_name])
+        [var_node, node]
       end
     end
 
@@ -5106,6 +5078,21 @@ module Steep
       else
         if name = type_name(type)
           checker.factory.instance_type(name)
+        end
+      end
+    end
+
+    def propagate_type_env(source, dest, env)
+      source_type = env[source] or raise
+
+      if dest.type == :lvar
+        var_name = dest.children[0] #: Symbol
+        env.assign_local_variable(var_name, source_type, nil)
+      else
+        if env[dest]
+          env.replace_pure_call_type(dest, source_type)
+        else
+          env
         end
       end
     end
