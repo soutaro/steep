@@ -841,4 +841,28 @@ class TypeCheckTest < Minitest::Test
       assert_equal "::foo", typing.type_of(node: node).to_s
     end
   end
+
+  def test_branch_unreachable__logic_type
+    run_type_check_test(
+      signatures: {
+      },
+      code: {
+        "a.rb" => <<~RUBY
+          x = 1
+          y = x.is_a?(String)
+
+          if y
+            z = 1
+          else
+            z = 2
+          end
+        RUBY
+      },
+      expectations: <<~YAML
+        ---
+        - file: a.rb
+          diagnostics: []
+      YAML
+    )
+  end
 end

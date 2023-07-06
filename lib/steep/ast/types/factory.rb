@@ -358,16 +358,21 @@ module Steep
               partition_union(unfold)
             end
           when AST::Types::Union
-            falsy_types, truthy_types = type.types.partition do |type|
-              (type.is_a?(AST::Types::Literal) && type.value == false) ||
-                type.is_a?(AST::Types::Nil)
+            truthy_types = [] #: Array[AST::Types::t]
+            falsy_types = [] #: Array[AST::Types::t]
+
+            type.types.each do |type|
+              truthy, falsy = partition_union(type)
+
+              truthy_types << truthy if truthy
+              falsy_types << falsy if falsy
             end
 
             [
               truthy_types.empty? ? nil : AST::Types::Union.build(types: truthy_types),
               falsy_types.empty? ? nil : AST::Types::Union.build(types: falsy_types)
             ]
-          when AST::Types::Any, AST::Types::Boolean
+          when AST::Types::Any, AST::Types::Boolean, AST::Types::Top, AST::Types::Logic::Base
             [type, type]
           when AST::Types::Nil
             [nil, type]

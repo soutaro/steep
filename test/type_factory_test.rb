@@ -395,4 +395,31 @@ end
       end
     end
   end
+
+  def test_partition_union__top
+    with_factory() do |factory|
+      factory.partition_union(factory.type(parse_type("top"))).tap do |truthy, falsy|
+        assert_equal factory.type(parse_type("top")), truthy
+        assert_equal factory.type(parse_type("top")), falsy
+      end
+    end
+  end
+
+  def test_partition_union__boolish
+    with_factory() do |factory|
+      factory.partition_union(factory.type(parse_type("::boolish"))).tap do |truthy, falsy|
+        assert_equal factory.type(parse_type("top")), truthy
+        assert_equal factory.type(parse_type("top")), falsy
+      end
+    end
+  end
+
+  def test_partition_union__bool_union
+    with_factory() do |factory|
+      factory.partition_union(factory.type(parse_type("bool | ::Symbol"))).tap do |truthy, falsy|
+        assert_equal factory.type(parse_type("bool | ::Symbol")), truthy
+        assert_equal factory.type(parse_type("bool")), falsy
+      end
+    end
+  end
 end
