@@ -4477,6 +4477,9 @@ module Steep
 
     def union_type_unify(*types)
       types.inject do |type1, type2|
+        next type1 if type1.is_a?(AST::Types::Any)
+        next type2 if type2.is_a?(AST::Types::Any)
+
         unless no_subtyping?(sub_type: type1, super_type: type2)
           next type2
         end

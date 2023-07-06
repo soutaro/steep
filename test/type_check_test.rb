@@ -865,4 +865,33 @@ class TypeCheckTest < Minitest::Test
       YAML
     )
   end
+
+  def test_type_case__returns_nil_untyped_union
+    run_type_check_test(
+      signatures: {
+      },
+      code: {
+        "a.rb" => <<~RUBY
+          x = _ = 1
+          y = _ = 2
+          z = _ = 3
+
+          a =
+            case x
+            when :foo
+              y
+            when :bar
+              z
+            end
+
+          a.is_untyped
+        RUBY
+      },
+      expectations: <<~YAML
+        ---
+        - file: a.rb
+          diagnostics: []
+      YAML
+    )
+  end
 end
