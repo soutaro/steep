@@ -2019,9 +2019,6 @@ module Steep
               branch_results = [] #: Array[Pair]
 
               condition_constr = constr
-              clause_constr = constr
-
-              next_branch_reachable = true
 
               whens.each do |when_clause|
                 when_clause_constr = condition_constr
@@ -2032,7 +2029,6 @@ module Steep
                 *tests, body = when_clause.children
 
                 branch_reachable = false
-                false_branch_reachable = false
 
                 tests.each do |test|
                   test_type, condition_constr = condition_constr.synthesize(test, condition: true)
@@ -2043,11 +2039,8 @@ module Steep
                   condition_constr = condition_constr.update_type_env { falsy_env }
                   body_envs << truthy_env
 
-                  branch_reachable ||= next_branch_reachable && !truthy.unreachable
-                  false_branch_reachable ||= !falsy.unreachable
+                  branch_reachable ||= !truthy.unreachable
                 end
-
-                next_branch_reachable &&= false_branch_reachable
 
                 if body
                   branch_results <<

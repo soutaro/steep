@@ -428,16 +428,6 @@ class TypeCheckTest < Minitest::Test
             severity: ERROR
             message: Type `::String` does not have method `is_a_string`
             code: Ruby::NoMethod
-          - range:
-              start:
-                line: 7
-                character: 0
-              end:
-                line: 7
-                character: 19
-            severity: ERROR
-            message: The branch is unreachable
-            code: Ruby::UnreachableBranch
       YAML
     )
   end
@@ -901,6 +891,84 @@ class TypeCheckTest < Minitest::Test
             severity: ERROR
             message: Type `nil` does not have method `is_untyped`
             code: Ruby::NoMethod
+      YAML
+    )
+  end
+
+  def test_case_when__no_subject__reachability
+    run_type_check_test(
+      signatures: {
+      },
+      code: {
+        "a.rb" => <<~RUBY
+          case
+          when false
+            :a
+          when nil
+            :b
+          when "".is_a?(NilClass)
+            :c
+          end
+        RUBY
+      },
+      expectations: <<~YAML
+        ---
+        - file: a.rb
+          diagnostics:
+          - range:
+              start:
+                line: 3
+                character: 2
+              end:
+                line: 3
+                character: 4
+            severity: ERROR
+            message: The branch is unreachable
+            code: Ruby::UnreachableBranch
+          - range:
+              start:
+                line: 5
+                character: 2
+              end:
+                line: 5
+                character: 4
+            severity: ERROR
+            message: The branch is unreachable
+            code: Ruby::UnreachableBranch
+          - range:
+              start:
+                line: 7
+                character: 2
+              end:
+                line: 7
+                character: 4
+            severity: ERROR
+            message: The branch is unreachable
+            code: Ruby::UnreachableBranch
+      YAML
+    )
+  end
+
+  def test_case_when__no_subject__reachability_no_continue
+    run_type_check_test(
+      signatures: {
+      },
+      code: {
+        "a.rb" => <<~RUBY
+          case
+          when true
+            :a
+          when 1
+            :b
+          else
+            :c
+          end
+        RUBY
+      },
+      expectations: <<~YAML
+        ---
+        - file: a.rb
+          diagnostics: []
       YAML
     )
   end
