@@ -1398,8 +1398,11 @@ module Steep
         when :true, :false
           ty = node.type == :true ? AST::Types::Literal.new(value: true) : AST::Types::Literal.new(value: false)
 
-          if hint && check_relation(sub_type: ty, super_type: hint).success? && !hint.is_a?(AST::Types::Any) && !hint.is_a?(AST::Types::Top)
+          case
+          when hint && check_relation(sub_type: ty, super_type: hint).success? && !hint.is_a?(AST::Types::Any) && !hint.is_a?(AST::Types::Top)
             add_typing(node, type: hint)
+          when condition
+            add_typing(node, type: ty)
           else
             add_typing(node, type: AST::Types::Boolean.new)
           end
