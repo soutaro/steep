@@ -3913,13 +3913,15 @@ module Steep
             end
 
             if hint && !fvs.empty?
-              if check_relation(sub_type: method_type.type.return_type, super_type: hint, constraints: constraints).success?
-                method_type, solved, s = apply_solution(errors, node: node, method_type: method_type) do
-                  constraints.solution(checker, variables: fvs, context: ccontext)
+              if hint.free_variables.subset?(self_type.free_variables)
+                if check_relation(sub_type: method_type.type.return_type, super_type: hint, constraints: constraints).success?
+                  method_type, solved, s = apply_solution(errors, node: node, method_type: method_type) do
+                    constraints.solution(checker, variables: fvs, context: ccontext)
+                  end
                 end
-              end
 
-              method_type.block or raise
+                method_type.block or raise
+              end
             end
 
             # Method accepts block

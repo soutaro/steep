@@ -1020,4 +1020,80 @@ class TypeCheckTest < Minitest::Test
       YAML
     )
   end
+
+  def test_type_inference__nested_block
+    run_type_check_test(
+      signatures: {
+      },
+      code: {
+        "a.rb" => <<~RUBY
+          a = 123.yield_self do
+            "abc".yield_self do
+              :hogehoge
+            end
+          end
+
+          a.is_symbol
+        RUBY
+      },
+      expectations: <<~YAML
+        ---
+        - file: a.rb
+          diagnostics:
+          - range:
+              start:
+                line: 7
+                character: 2
+              end:
+                line: 7
+                character: 11
+            severity: ERROR
+            message: Type `::Symbol` does not have method `is_symbol`
+            code: Ruby::NoMethod
+      YAML
+    )
+  end
+
+  def test_type_inference__nested_block_free_variable
+    run_type_check_test(
+      signatures: {
+        "a.rbs" => <<~RBS
+          class Foo[T]
+            def foo: () -> T
+          end
+        RBS
+      },
+      code: {
+        "a.rb" => <<~RUBY
+          # Type error is reported because `::Symbol`` cannot be `T`
+          class Foo
+            def foo
+              "".yield_self do
+                :symbol
+              end
+            end
+          end
+        RUBY
+      },
+      expectations: <<~YAML
+        ---
+        - file: a.rb
+          diagnostics:
+          - range:
+              start:
+                line: 4
+                character: 4
+              end:
+                line: 6
+                character: 7
+            severity: ERROR
+            message: |-
+              Cannot find compatible overloading of method `yield_self` of type `::String`
+              Method types:
+                def yield_self: [X] () { (::String) -> X } -> X
+                              | () -> ::Enumerator[::String, untyped]
+            code: Ruby::UnresolvedOverloading
+      YAML
+    )
+  end
 end
