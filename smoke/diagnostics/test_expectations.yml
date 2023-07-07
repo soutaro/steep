@@ -120,18 +120,6 @@
     message: 'The method parameter has different kind from the declaration `(name:
       ::String, size: ::Integer) -> void`'
     code: Ruby::DifferentMethodParameterKind
-- file: else_on_exhaustive_case.rb
-  diagnostics:
-  - range:
-      start:
-        line: 11
-        character: 2
-      end:
-        line: 11
-        character: 26
-    severity: ERROR
-    message: The branch is unreachable
-    code: Ruby::UnreachableBranch
 - file: incompatible_annotation.rb
   diagnostics:
   - range:

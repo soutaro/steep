@@ -767,6 +767,19 @@ module Steep
         end
       end
 
+      class UnreachableValueBranch < Base
+        attr_reader :type
+
+        def initialize(node:, type:, location: node.location.expression)
+          super(node: node, location: location)
+          @type = type
+        end
+
+        def header_line
+          "The branch may evaluate to a value of `#{type}` but unreachable"
+        end
+      end
+
       class UnexpectedSplat < Base
         attr_reader :type
 
@@ -968,7 +981,8 @@ module Steep
           {
             ImplicitBreakValueMismatch => :warning,
             FallbackAny => :information,
-            UnreachableBranch => :warning,
+            UnreachableValueBranch => :warning,
+            UnreachableBranch => :information,
             UnknownConstant => :warning,
             MethodDefinitionMissing => :information,
             FalseAssertion => :information,
@@ -989,6 +1003,7 @@ module Steep
             NoMethod => nil,
             ImplicitBreakValueMismatch => nil,
             FallbackAny => nil,
+            UnreachableValueBranch => nil,
             UnreachableBranch => nil,
             UnknownConstant => nil,
             MethodDefinitionMissing => nil,
@@ -1006,6 +1021,7 @@ module Steep
             NoMethod => nil,
             ImplicitBreakValueMismatch => nil,
             FallbackAny => nil,
+            UnreachableValueBranch => nil,
             UnreachableBranch => nil,
             UnknownConstant => nil,
             MethodDefinitionMissing => nil,

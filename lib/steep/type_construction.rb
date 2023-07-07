@@ -1883,9 +1883,25 @@ module Steep
 
             if truthy.unreachable
               if true_clause
+                _, _, _, loc = deconstruct_if_node!(node)
+
+                if loc.respond_to?(:keyword)
+                  condition_loc = loc #: NodeHelper::condition_loc
+                  case condition_loc.keyword.source
+                  when "if"
+                    location = condition_loc.begin || condition_loc.keyword
+                  when "unless"
+                    # `else` token always exists
+                    location = condition_loc.else || raise
+                  end
+                else
+                  location = true_clause.loc.expression
+                end
+
                 typing.add_error(
                   Diagnostic::Ruby::UnreachableBranch.new(
-                    node: true_clause || node
+                    node: true_clause,
+                    location: location || raise
                   )
                 )
               end
@@ -1893,9 +1909,25 @@ module Steep
 
             if falsy.unreachable
               if false_clause
+                _, _, _, loc = deconstruct_if_node!(node)
+
+                if loc.respond_to?(:keyword)
+                  condition_loc = loc #: NodeHelper::condition_loc
+                  case condition_loc.keyword.source
+                  when "if"
+                    # `else` token always exists
+                    location = condition_loc.else || raise
+                  when "unless"
+                    location = condition_loc.begin || condition_loc.keyword
+                  end
+                else
+                  location = false_clause.loc.expression
+                end
+
                 typing.add_error(
                   Diagnostic::Ruby::UnreachableBranch.new(
-                    node: false_clause || node
+                    node: false_clause,
+                    location: location || raise
                   )
                 )
               end
@@ -1961,19 +1993,25 @@ module Steep
                 next_branch_reachable &&= false_branch_reachable
                 body_constr = when_constr.update_type_env {|env| env.join(*test_envs) }
 
-                if body
-                  branch_results <<
+                branch_result =
+                  if body
                     body_constr
                       .for_branch(body)
                       .tap {|constr| typing.add_context_for_node(body, context: constr.context) }
                       .synthesize(body, hint: hint)
-                else
-                  branch_results << Pair.new(type: AST::Builtin.nil_type, constr: body_constr)
-                end
+                  else
+                    Pair.new(type: AST::Builtin.nil_type, constr: body_constr)
+                  end
 
-                unless branch_reachable
+                branch_results << branch_result
+
+                if !branch_reachable && !branch_result.type.is_a?(AST::Types::Bot)
                   typing.add_error(
-                    Diagnostic::Ruby::UnreachableBranch.new(node: body || clause)
+                    Diagnostic::Ruby::UnreachableValueBranch.new(
+                      node: clause,
+                      type: branch_result.type,
+                      location: clause.location.keyword
+                    )
                   )
                 end
 
@@ -2004,9 +2042,14 @@ module Steep
                 # `else` may present even if it's empty
                 if loc.else
                   if els
-                    typing.add_error Diagnostic::Ruby::UnreachableBranch.new(node: els)
-                  else
-                    typing.add_error Diagnostic::Ruby::UnreachableBranch.new(node: node, location: loc.else)
+                    else_result or raise
+                    unless else_result.type.is_a?(AST::Types::Bot)
+                      typing.add_error Diagnostic::Ruby::UnreachableValueBranch.new(
+                        node: els,
+                        type: else_result.type,
+                        location: node.loc.else || raise
+                      )
+                    end
                   end
                 end
               else
@@ -2042,21 +2085,29 @@ module Steep
                   branch_reachable ||= !truthy.unreachable
                 end
 
-                if body
-                  branch_results <<
+                branch_result =
+                  if body
                     when_clause_constr
                       .for_branch(body)
                       .update_type_env {|env| env.join(*body_envs) }
                       .tap {|constr| typing.add_context_for_node(body, context: constr.context) }
                       .synthesize(body, hint: hint)
-                else
-                  branch_results << Pair.new(type: AST::Builtin.nil_type, constr: when_clause_constr)
-                end
+                  else
+                    Pair.new(type: AST::Builtin.nil_type, constr: when_clause_constr)
+                  end
+
+                branch_results << branch_result
 
                 unless branch_reachable
-                  typing.add_error(
-                    Diagnostic::Ruby::UnreachableBranch.new(node: body || when_clause)
-                  )
+                  unless branch_result.type.is_a?(AST::Types::Bot)
+                    typing.add_error(
+                      Diagnostic::Ruby::UnreachableValueBranch.new(
+                        node: when_clause,
+                        type: branch_result.type,
+                        location: when_clause.location.keyword || raise
+                      )
+                    )
+                  end
                 end
               end
 
