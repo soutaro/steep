@@ -2,6 +2,13 @@
 
 ## master
 
+## 1.5.0.pre.5 (2023-07-07)
+
+### Type checker core
+
+* Unreachability improvements ([#845](https://github.com/soutaro/steep/pull/845))
+* Fix type inference problem ([#843](https://github.com/soutaro/steep/pull/843))
+
 ## 1.5.0.pre.4 (2023-07-06)
 
 ### Type checker core
