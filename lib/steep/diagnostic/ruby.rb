@@ -767,6 +767,19 @@ module Steep
         end
       end
 
+      class UnreachableValueBranch < Base
+        attr_reader :type
+
+        def initialize(node:, type:, location: node.location.expression)
+          super(node: node, location: location)
+          @type = type
+        end
+
+        def header_line
+          "The branch may evaluate to a value of `#{type}` but unreachable"
+        end
+      end
+
       class UnexpectedSplat < Base
         attr_reader :type
 

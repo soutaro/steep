@@ -479,6 +479,31 @@ module Steep
         def header_line: () -> String
       end
 
+      # The branch is unreachable, but not `bot` type
+      #
+      # We often have `else` branch to make the code more defensive:
+      #
+      # ```ruby
+      # case value
+      # when Integer
+      #   # ...
+      # when String
+      #   # ...
+      # else
+      #   raise "Cannot happen!"
+      # end
+      # ```
+      #
+      # This diagnostic allows writing `raise` or `return`, by checking the type of the branch body is `bot` or not.
+      # 
+      class UnreachableValueBranch < Base
+        attr_reader type: AST::Types::t
+
+        def initialize: (node: Parser::AST::Node, type: AST::Types::t, ?location: location) -> void
+
+        def header_line: () -> String
+      end
+
       class UnexpectedSplat < Base
         attr_reader type: untyped
 
