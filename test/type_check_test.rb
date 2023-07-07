@@ -284,49 +284,49 @@ class TypeCheckTest < Minitest::Test
         RUBY
       },
       expectations: <<~YAML
-      ---
-      - file: a.rb
-        diagnostics:
-        - range:
-            start:
-              line: 4
-              character: 2
-            end:
-              line: 4
-              character: 5
-          severity: ERROR
-          message: Type `::Object` does not have method `foo`
-          code: Ruby::NoMethod
-        - range:
-            start:
-              line: 4
-              character: 2
-            end:
-              line: 4
-              character: 7
-          severity: ERROR
-          message: The branch is unreachable
-          code: Ruby::UnreachableBranch
-        - range:
-            start:
-              line: 9
-              character: 2
-            end:
-              line: 9
-              character: 5
-          severity: ERROR
-          message: Type `::Object` does not have method `bar`
-          code: Ruby::NoMethod
-        - range:
-            start:
-              line: 9
-              character: 2
-            end:
-              line: 9
-              character: 7
-          severity: ERROR
-          message: The branch is unreachable
-          code: Ruby::UnreachableBranch
+        ---
+        - file: a.rb
+          diagnostics:
+          - range:
+              start:
+                line: 3
+                character: 0
+              end:
+                line: 3
+                character: 2
+            severity: ERROR
+            message: The branch is unreachable
+            code: Ruby::UnreachableBranch
+          - range:
+              start:
+                line: 4
+                character: 2
+              end:
+                line: 4
+                character: 5
+            severity: ERROR
+            message: Type `::Object` does not have method `foo`
+            code: Ruby::NoMethod
+          - range:
+              start:
+                line: 8
+                character: 0
+              end:
+                line: 8
+                character: 4
+            severity: ERROR
+            message: The branch is unreachable
+            code: Ruby::UnreachableBranch
+          - range:
+              start:
+                line: 9
+                character: 2
+              end:
+                line: 9
+                character: 5
+            severity: ERROR
+            message: Type `::Object` does not have method `bar`
+            code: Ruby::NoMethod
       YAML
     )
   end
@@ -599,14 +599,14 @@ class TypeCheckTest < Minitest::Test
           diagnostics:
           - range:
               start:
-                line: 5
-                character: 2
+                line: 4
+                character: 0
               end:
-                line: 5
-                character: 15
+                line: 4
+                character: 4
             severity: ERROR
-            message: The branch is unreachable
-            code: Ruby::UnreachableBranch
+            message: The branch may evaluate to a value of `untyped` but unreachable
+            code: Ruby::UnreachableValueBranch
           - range:
               start:
                 line: 5
@@ -623,10 +623,10 @@ class TypeCheckTest < Minitest::Test
                 character: 0
               end:
                 line: 8
-                character: 10
+                character: 4
             severity: ERROR
-            message: The branch is unreachable
-            code: Ruby::UnreachableBranch
+            message: The branch may evaluate to a value of `nil` but unreachable
+            code: Ruby::UnreachableValueBranch
       YAML
     )
   end
@@ -655,14 +655,14 @@ class TypeCheckTest < Minitest::Test
           diagnostics:
           - range:
               start:
-                line: 4
-                character: 2
+                line: 3
+                character: 0
               end:
-                line: 4
-                character: 15
+                line: 3
+                character: 4
             severity: ERROR
-            message: The branch is unreachable
-            code: Ruby::UnreachableBranch
+            message: The branch may evaluate to a value of `untyped` but unreachable
+            code: Ruby::UnreachableValueBranch
           - range:
               start:
                 line: 4
@@ -693,17 +693,7 @@ class TypeCheckTest < Minitest::Test
       expectations: <<~YAML
         ---
         - file: a.rb
-          diagnostics:
-          - range:
-              start:
-                line: 4
-                character: 0
-              end:
-                line: 4
-                character: 4
-            severity: ERROR
-            message: The branch is unreachable
-            code: Ruby::UnreachableBranch
+          diagnostics: []
       YAML
     )
   end
@@ -776,11 +766,11 @@ class TypeCheckTest < Minitest::Test
           diagnostics:
           - range:
               start:
-                line: 4
-                character: 2
+                line: 3
+                character: 0
               end:
-                line: 4
-                character: 21
+                line: 3
+                character: 2
             severity: ERROR
             message: The branch is unreachable
             code: Ruby::UnreachableBranch
@@ -1162,34 +1152,34 @@ class TypeCheckTest < Minitest::Test
           diagnostics:
           - range:
               start:
-                line: 3
-                character: 2
+                line: 2
+                character: 0
               end:
-                line: 3
+                line: 2
                 character: 4
             severity: ERROR
-            message: The branch is unreachable
-            code: Ruby::UnreachableBranch
+            message: The branch may evaluate to a value of `::Symbol` but unreachable
+            code: Ruby::UnreachableValueBranch
           - range:
               start:
-                line: 5
-                character: 2
+                line: 4
+                character: 0
               end:
-                line: 5
+                line: 4
                 character: 4
             severity: ERROR
-            message: The branch is unreachable
-            code: Ruby::UnreachableBranch
+            message: The branch may evaluate to a value of `::Symbol` but unreachable
+            code: Ruby::UnreachableValueBranch
           - range:
               start:
-                line: 7
-                character: 2
+                line: 6
+                character: 0
               end:
-                line: 7
+                line: 6
                 character: 4
             severity: ERROR
-            message: The branch is unreachable
-            code: Ruby::UnreachableBranch
+            message: The branch may evaluate to a value of `::Symbol` but unreachable
+            code: Ruby::UnreachableValueBranch
       YAML
     )
   end
