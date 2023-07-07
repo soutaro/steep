@@ -331,6 +331,251 @@ class TypeCheckTest < Minitest::Test
     )
   end
 
+  def test_if_unreachable__if_then
+    run_type_check_test(
+      signatures: {
+      },
+      code: {
+        "a.rb" => <<~RUBY
+          # Then branch is unreachable
+          if nil then
+            123
+          else
+            123
+          end
+
+          if nil
+            123
+          else
+            123
+          end
+
+          if nil
+            123
+          end
+
+          123 if nil
+        RUBY
+      },
+      expectations: <<~YAML
+        ---
+        - file: a.rb
+          diagnostics:
+          - range:
+              start:
+                line: 2
+                character: 7
+              end:
+                line: 2
+                character: 11
+            severity: ERROR
+            message: The branch is unreachable
+            code: Ruby::UnreachableBranch
+          - range:
+              start:
+                line: 8
+                character: 0
+              end:
+                line: 8
+                character: 2
+            severity: ERROR
+            message: The branch is unreachable
+            code: Ruby::UnreachableBranch
+          - range:
+              start:
+                line: 14
+                character: 0
+              end:
+                line: 14
+                character: 2
+            severity: ERROR
+            message: The branch is unreachable
+            code: Ruby::UnreachableBranch
+          - range:
+              start:
+                line: 18
+                character: 4
+              end:
+                line: 18
+                character: 6
+            severity: ERROR
+            message: The branch is unreachable
+            code: Ruby::UnreachableBranch
+      YAML
+    )
+  end
+
+  def test_if_unreachable__if_else
+    run_type_check_test(
+      signatures: {
+      },
+      code: {
+        "a.rb" => <<~RUBY
+          # Else branch is unreachable
+          if 123 then
+            123
+          else
+            123
+          end
+
+          if 123
+            123
+          else
+            123
+          end
+        RUBY
+      },
+      expectations: <<~YAML
+        ---
+        - file: a.rb
+          diagnostics:
+          - range:
+              start:
+                line: 4
+                character: 0
+              end:
+                line: 4
+                character: 4
+            severity: ERROR
+            message: The branch is unreachable
+            code: Ruby::UnreachableBranch
+          - range:
+              start:
+                line: 10
+                character: 0
+              end:
+                line: 10
+                character: 4
+            severity: ERROR
+            message: The branch is unreachable
+            code: Ruby::UnreachableBranch
+      YAML
+    )
+  end
+
+  def test_if_unreachable__unless_then
+    run_type_check_test(
+      signatures: {
+      },
+      code: {
+        "a.rb" => <<~RUBY
+          # Then branch is unreachable
+          unless true then
+            123
+          else
+            123
+          end
+
+          unless true
+            123
+          else
+            123
+          end
+
+          unless true
+            123
+          end
+
+          123 unless true
+        RUBY
+      },
+      expectations: <<~YAML
+        ---
+        - file: a.rb
+          diagnostics:
+          - range:
+              start:
+                line: 2
+                character: 12
+              end:
+                line: 2
+                character: 16
+            severity: ERROR
+            message: The branch is unreachable
+            code: Ruby::UnreachableBranch
+          - range:
+              start:
+                line: 8
+                character: 0
+              end:
+                line: 8
+                character: 6
+            severity: ERROR
+            message: The branch is unreachable
+            code: Ruby::UnreachableBranch
+          - range:
+              start:
+                line: 14
+                character: 0
+              end:
+                line: 14
+                character: 6
+            severity: ERROR
+            message: The branch is unreachable
+            code: Ruby::UnreachableBranch
+          - range:
+              start:
+                line: 18
+                character: 4
+              end:
+                line: 18
+                character: 10
+            severity: ERROR
+            message: The branch is unreachable
+            code: Ruby::UnreachableBranch
+      YAML
+    )
+  end
+
+
+  def test_if_unreachable__unless_else
+    run_type_check_test(
+      signatures: {
+      },
+      code: {
+        "a.rb" => <<~RUBY
+          # Else branch is unreachable
+          unless false then
+            123
+          else
+            123
+          end
+
+          unless false
+            123
+          else
+            123
+          end
+        RUBY
+      },
+      expectations: <<~YAML
+        ---
+        - file: a.rb
+          diagnostics:
+          - range:
+              start:
+                line: 4
+                character: 0
+              end:
+                line: 4
+                character: 4
+            severity: ERROR
+            message: The branch is unreachable
+            code: Ruby::UnreachableBranch
+          - range:
+              start:
+                line: 10
+                character: 0
+              end:
+                line: 10
+                character: 4
+            severity: ERROR
+            message: The branch is unreachable
+            code: Ruby::UnreachableBranch
+      YAML
+    )
+  end
+
   def test_case_unreachable_1
     run_type_check_test(
       signatures: {

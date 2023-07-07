@@ -1883,9 +1883,25 @@ module Steep
 
             if truthy.unreachable
               if true_clause
+                _, _, _, loc = deconstruct_if_node!(node)
+
+                if loc.respond_to?(:keyword)
+                  condition_loc = loc #: NodeHelper::condition_loc
+                  case condition_loc.keyword.source
+                  when "if"
+                    location = condition_loc.begin || condition_loc.keyword
+                  when "unless"
+                    # `else` token always exists
+                    location = condition_loc.else || raise
+                  end
+                else
+                  location = true_clause.loc.expression
+                end
+
                 typing.add_error(
                   Diagnostic::Ruby::UnreachableBranch.new(
-                    node: true_clause || node
+                    node: true_clause,
+                    location: location || raise
                   )
                 )
               end
@@ -1893,9 +1909,25 @@ module Steep
 
             if falsy.unreachable
               if false_clause
+                _, _, _, loc = deconstruct_if_node!(node)
+
+                if loc.respond_to?(:keyword)
+                  condition_loc = loc #: NodeHelper::condition_loc
+                  case condition_loc.keyword.source
+                  when "if"
+                    # `else` token always exists
+                    location = condition_loc.else || raise
+                  when "unless"
+                    location = condition_loc.begin || condition_loc.keyword
+                  end
+                else
+                  location = false_clause.loc.expression
+                end
+
                 typing.add_error(
                   Diagnostic::Ruby::UnreachableBranch.new(
-                    node: false_clause || node
+                    node: false_clause,
+                    location: location || raise
                   )
                 )
               end
