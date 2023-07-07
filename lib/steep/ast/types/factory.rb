@@ -204,7 +204,7 @@ module Steep
           when Logic::Base
             RBS::Types::Bases::Bool.new(location: type.location)
           else
-            __skip__ = raise "Unexpected type given: #{type} (#{type.class})"
+            raise "Unexpected type given: #{type} (#{type.class})"
           end
         end
 
