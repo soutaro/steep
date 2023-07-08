@@ -10,7 +10,11 @@ module Steep
 
         attr_reader comment: RBS::AST::Comment?
 
-        def initialize: (RBS::MethodType, RBS::AST::Comment?) -> void
+        attr_reader active_parameter: Integer?
+
+        def initialize: (RBS::MethodType, RBS::AST::Comment?, Integer?) -> void
+
+        def parameters: () -> Array[String]
       end
 
       attr_reader source: Source
@@ -31,7 +35,13 @@ module Steep
 
       private
 
-      def signature_help_for: (Parser::AST::Node, Typing) -> [Array[Item], Integer?]?
+      def active_parameter_for: (RBS::MethodType?, Array[Parser::AST::Node], Array[Parser::AST::Node]?, Parser::AST::Node) -> Integer?
+
+      def arguments_for: (RBS::MethodType) -> Array[String]
+
+      def last_argument_nodes_for: (argument_nodes: Array[Parser::AST::Node], line: Integer, column: Integer) -> Array[Parser::AST::Node]?
+
+      def signature_help_for: (Parser::AST::Node, Array[Parser::AST::Node], Array[Parser::AST::Node]?, Typing) -> [Array[Item], Integer?]?
 
       def type_check!: (line: Integer, column: Integer) -> Typing
     end
