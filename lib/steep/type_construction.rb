@@ -1950,10 +1950,6 @@ module Steep
               branch_results = [] #: Array[Pair]
 
               cond_type, constr = constr.synthesize(cond)
-              _, cond_vars = interpreter.decompose_value(cond)
-              SPECIAL_LVAR_NAMES.each do |name|
-                cond_vars.delete(name)
-              end
 
               var_name = :"_a[#{SecureRandom.alphanumeric(4)}]"
               var_cond, value_node = transform_condition_node(cond, var_name)
