@@ -110,7 +110,7 @@ module Steep
         end
 
         def content_for(target:, path:, line:, column:)
-          file = service.source_files[path]
+          file = service.source_files[path] or return
           typing = typecheck(target, path: path, content: file.content, line: line, column: column) or return
           node, *parents = typing.source.find_nodes(line: line, column: column)
 
