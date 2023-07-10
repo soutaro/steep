@@ -1331,4 +1331,31 @@ class TypeCheckTest < Minitest::Test
       YAML
     )
   end
+
+  def test_type_narrowing__local_variable_safe_navigation_operator
+    run_type_check_test(
+      signatures: {
+        "a.rbs" => <<~RBS
+          class Hello
+            type context = [context, String | false] | nil
+            def foo: (context) -> void
+          end
+        RBS
+      },
+      code: {
+        "a.rb" => <<~RUBY
+          class Hello
+            def foo(context)
+              context&.[](0)
+            end
+          end
+        RUBY
+      },
+      expectations: <<~YAML
+        ---
+        - file: a.rb
+          diagnostics: []
+      YAML
+    )
+  end
 end
