@@ -3073,7 +3073,8 @@ module Steep
         type_hint = deep_expand_alias(type_hint) || type_hint
 
         procs = flatten_union(type_hint).select do |type|
-          check_relation(sub_type: type, super_type: AST::Builtin::Proc.instance_type).success?
+          check_relation(sub_type: type, super_type: AST::Builtin::Proc.instance_type).success? &&
+            !type.is_a?(AST::Types::Any)
         end
 
         proc_instances, proc_types = procs.partition {|type| AST::Builtin::Proc.instance_type?(type) }
