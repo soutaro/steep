@@ -1950,10 +1950,6 @@ module Steep
               branch_results = [] #: Array[Pair]
 
               cond_type, constr = constr.synthesize(cond)
-              _, cond_vars = interpreter.decompose_value(cond)
-              SPECIAL_LVAR_NAMES.each do |name|
-                cond_vars.delete(name)
-              end
 
               var_name = :"_a[#{SecureRandom.alphanumeric(4)}]"
               var_cond, value_node = transform_condition_node(cond, var_name)
@@ -3077,7 +3073,8 @@ module Steep
         type_hint = deep_expand_alias(type_hint) || type_hint
 
         procs = flatten_union(type_hint).select do |type|
-          check_relation(sub_type: type, super_type: AST::Builtin::Proc.instance_type).success?
+          check_relation(sub_type: type, super_type: AST::Builtin::Proc.instance_type).success? &&
+            !type.is_a?(AST::Types::Any)
         end
 
         proc_instances, proc_types = procs.partition {|type| AST::Builtin::Proc.instance_type?(type) }
