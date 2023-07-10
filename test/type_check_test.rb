@@ -1358,4 +1358,36 @@ class TypeCheckTest < Minitest::Test
       YAML
     )
   end
+
+  def test_argument_error__unexpected_unexpected_positional_argument
+    run_type_check_test(
+      signatures: {
+        "a.rbs" => <<~RBS
+          class Foo
+            def foo: () -> void
+          end
+        RBS
+      },
+      code: {
+        "a.rb" => <<~RUBY
+          Foo.new.foo(hello_world: true)
+        RUBY
+      },
+      expectations: <<~YAML
+        ---
+        - file: a.rb
+          diagnostics:
+          - range:
+              start:
+                line: 1
+                character: 12
+              end:
+                line: 1
+                character: 23
+            severity: ERROR
+            message: Unexpected keyword argument
+            code: Ruby::UnexpectedKeywordArgument
+      YAML
+    )
+  end
 end
