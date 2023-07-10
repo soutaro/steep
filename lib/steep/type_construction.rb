@@ -2617,7 +2617,26 @@ module Steep
             # @type var as_type: AST::Node::TypeAssertion
             asserted_node, as_type = node.children
 
-            if type = as_type.type?(module_context.nesting, checker, [])
+            type = as_type.type(module_context.nesting, checker, [])
+
+            case type
+            when Array
+              type.each do |error|
+                typing.add_error(
+                  Diagnostic::Ruby::RBSError.new(
+                    error: error,
+                    node: node,
+                    location: error.location || raise
+                  )
+                )
+              end
+
+              synthesize(asserted_node, hint: hint)
+
+            when nil, RBS::ParsingError
+              synthesize(asserted_node, hint: hint)
+
+            else
               actual_type, constr = synthesize(asserted_node, hint: type)
 
               if no_subtyping?(sub_type: type, super_type: actual_type) && no_subtyping?(sub_type: actual_type, super_type: type)
@@ -2631,21 +2650,33 @@ module Steep
               end
 
               constr.add_typing(node, type: type)
-            else
-              synthesize(asserted_node, hint: hint)
             end
           end
 
-        when :block, :numblock, :send, :csend
-          synthesize_sendish(node, hint: hint, tapp: nil)
-
         when :tapp
           yield_self do
+            # @type var tapp: AST::Node::TypeApplication
             sendish, tapp = node.children
+
+            if (array = tapp.types(module_context.nesting, checker, [])).is_a?(Enumerator)
+              array.each do |error|
+                typing.add_error(
+                  Diagnostic::Ruby::RBSError.new(
+                    error: error,
+                    node: node,
+                    location: error.location || raise
+                  )
+                )
+              end
+            end
+
             type, constr = synthesize_sendish(sendish, hint: hint, tapp: tapp)
 
             constr.add_typing(node, type: type)
           end
+
+        when :block, :numblock, :send, :csend
+          synthesize_sendish(node, hint: hint, tapp: nil)
 
         when :forwarded_args, :forward_arg
           add_typing(node, type: AST::Builtin.any_type)

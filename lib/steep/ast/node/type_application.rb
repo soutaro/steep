@@ -42,7 +42,7 @@ module Steep
             end
 
             if validator.has_error?
-              return
+              return validator.each_error
             end
 
             ty = subtyping.factory.type(ty)
@@ -60,7 +60,7 @@ module Steep
 
         def types?(context, subtyping, type_vars)
           case types = types(context, subtyping, type_vars)
-          when RBS::ParsingError
+          when RBS::ParsingError, Enumerator
             nil
           else
             types

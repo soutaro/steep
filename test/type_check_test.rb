@@ -1441,7 +1441,27 @@ class TypeCheckTest < Minitest::Test
       expectations: <<~YAML
         ---
         - file: a.rb
-          diagnostics: []
+          diagnostics:
+          - range:
+              start:
+                line: 1
+                character: 7
+              end:
+                line: 1
+                character: 10
+            severity: ERROR
+            message: Cannot find type `::Int`
+            code: Ruby::RBSError
+          - range:
+              start:
+                line: 2
+                character: 14
+              end:
+                line: 2
+                character: 17
+            severity: ERROR
+            message: Cannot find type `::Int`
+            code: Ruby::RBSError
       YAML
     )
   end

@@ -964,6 +964,19 @@ module Steep
         end
       end
 
+      class RBSError < Base
+        attr_reader :error
+
+        def initialize(error:, node:, location:)
+          @error = error
+          super(node: node, location: location)
+        end
+
+        def header_line
+          error.header_line
+        end
+      end
+
       ALL = ObjectSpace.each_object(Class).with_object([]) do |klass, array|
         if klass < Base
           array << klass

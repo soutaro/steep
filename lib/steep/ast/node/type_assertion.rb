@@ -28,6 +28,8 @@ module Steep
 
             unless validator.has_error?
               subtyping.factory.type(ty)
+            else
+              validator.each_error.to_a
             end
           else
             nil
@@ -39,7 +41,7 @@ module Steep
         def type_syntax?
           RBS::Parser.parse_type(type_location.buffer, range: type_location.range, variables: [], require_eof: true)
           true
-        rescue::RBS::ParsingError
+        rescue ::RBS::ParsingError
           false
         end
 
@@ -47,7 +49,7 @@ module Steep
           type = type(context, subtyping, type_vars)
 
           case type
-          when RBS::ParsingError, nil
+          when RBS::ParsingError, nil, Array
             nil
           else
             type
