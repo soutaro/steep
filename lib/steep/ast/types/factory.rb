@@ -401,6 +401,13 @@ module Steep
             end
           when AST::Types::Nil
             nil
+          when AST::Types::Name::Alias
+            type_ = expand_alias(type)
+            if type_ == type
+              type_
+            else
+              unwrap_optional(type_)
+            end
           else
             type
           end
