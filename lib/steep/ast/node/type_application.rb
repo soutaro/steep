@@ -37,10 +37,12 @@ module Steep
             ty = ty.map_type_name {|name| resolver.resolve(name, context: context) || name.absolute! }
 
             validator = Signature::Validator.new(checker: subtyping)
-            validator.validate_type(ty)
+            validator.rescue_validation_errors do
+              validator.validate_type(ty)
+            end
 
             if validator.has_error?
-              return
+              return validator.each_error
             end
 
             ty = subtyping.factory.type(ty)
@@ -58,7 +60,7 @@ module Steep
 
         def types?(context, subtyping, type_vars)
           case types = types(context, subtyping, type_vars)
-          when RBS::ParsingError
+          when RBS::ParsingError, Enumerator
             nil
           else
             types

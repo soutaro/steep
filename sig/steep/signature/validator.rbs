@@ -38,7 +38,7 @@ module Steep
 
       def validate_type_application: (RBS::Types::t) -> void
 
-      def validate_type: (RBS::Types::t `type`) -> untyped
+      def validate_type: (RBS::Types::t `type`) -> void
 
       def ancestor_to_type: (RBS::Definition::Ancestor::t ancestor) -> (AST::Types::Name::Interface | AST::Types::Name::Instance)
 
@@ -69,7 +69,7 @@ module Steep
       def validate_one_alias: (RBS::TypeName name, ?RBS::Environment::TypeAliasEntry entry) -> void
 
       def validate_one_class_decl: (RBS::TypeName) -> void
-                                 
+
       def validate_one_class_alias: (RBS::TypeName, RBS::Environment::ClassAliasEntry | RBS::Environment::ModuleAliasEntry) -> void
 
       def validate_alias: () -> void

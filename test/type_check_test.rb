@@ -1391,7 +1391,6 @@ class TypeCheckTest < Minitest::Test
     )
   end
 
-
   def test_const_assingnment
     run_type_check_test(
       signatures: {
@@ -1425,6 +1424,44 @@ class TypeCheckTest < Minitest::Test
             severity: ERROR
             message: 'The type hint given to the block is ignored: `untyped`'
             code: Ruby::ProcHintIgnored
+      YAML
+    )
+  end
+
+  def test_type_assertion__type_error
+    run_type_check_test(
+      signatures: {
+      },
+      code: {
+        "a.rb" => <<~RUBY
+          nil #: Int
+          [1].map {} #$ Int
+        RUBY
+      },
+      expectations: <<~YAML
+        ---
+        - file: a.rb
+          diagnostics:
+          - range:
+              start:
+                line: 1
+                character: 7
+              end:
+                line: 1
+                character: 10
+            severity: ERROR
+            message: Cannot find type `::Int`
+            code: Ruby::RBSError
+          - range:
+              start:
+                line: 2
+                character: 14
+              end:
+                line: 2
+                character: 17
+            severity: ERROR
+            message: Cannot find type `::Int`
+            code: Ruby::RBSError
       YAML
     )
   end
