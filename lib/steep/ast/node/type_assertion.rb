@@ -22,7 +22,9 @@ module Steep
             ty = ty.map_type_name {|name| resolver.resolve(name, context: context) || name.absolute! }
 
             validator = Signature::Validator.new(checker: subtyping)
-            validator.validate_type(ty)
+            validator.rescue_validation_errors do
+              validator.validate_type(ty)
+            end
 
             unless validator.has_error?
               subtyping.factory.type(ty)
