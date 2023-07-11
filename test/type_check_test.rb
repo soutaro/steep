@@ -1465,4 +1465,35 @@ class TypeCheckTest < Minitest::Test
       YAML
     )
   end
+
+  def test_nilq_unreachable
+    run_type_check_test(
+      signatures: {
+      },
+      code: {
+        "a.rb" => <<~RUBY
+          if 1.nil?
+            123
+          else
+            123
+          end
+        RUBY
+      },
+      expectations: <<~YAML
+        ---
+        - file: a.rb
+          diagnostics:
+          - range:
+              start:
+                line: 1
+                character: 0
+              end:
+                line: 1
+                character: 2
+            severity: ERROR
+            message: The branch is unreachable
+            code: Ruby::UnreachableBranch
+      YAML
+    )
+  end
 end
