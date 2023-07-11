@@ -2,6 +2,24 @@
 
 ## master
 
+## 1.5.0.pre.6 (2023-07-11)
+
+### Type checker core
+
+* Report RBS validation errors in Ruby code ([#859](https://github.com/soutaro/steep/pull/859))
+* Fix proc type assignment ([#858](https://github.com/soutaro/steep/pull/858))
+* Report `UnexpectedKeywordArgument` even if no keyword param is accepted ([#856](https://github.com/soutaro/steep/pull/856))
+* Unfold type alias on unwrap optional ([#855](https://github.com/soutaro/steep/pull/855))
+
+### Language server
+
+* Keyword completion in block call ([#865](https://github.com/soutaro/steep/pull/865))
+* Indicate the current or next argument on signature help ([#850](https://github.com/soutaro/steep/pull/850))
+* Support completion for keyword arguments ([#851](https://github.com/soutaro/steep/pull/851))
+* Let hover show the type of method call node ([#864](https://github.com/soutaro/steep/pull/864))
+* Fix UnknownNodeError in SignatureHelp ([#863](https://github.com/soutaro/steep/pull/863))
+* hover: Fix NoMethodError on generating hover for not supported files ([#853](https://github.com/soutaro/steep/pull/853))
+
 ## 1.5.0.pre.5 (2023-07-07)
 
 ### Type checker core
