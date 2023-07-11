@@ -280,20 +280,22 @@ module Steep
         when AST::Types::Logic::ReceiverIsNil
           if receiver && arguments.size.zero?
             receiver_type = typing.type_of(node: receiver)
-            truthy_receiver, falsy_receiver = factory.partition_union(receiver_type)
+            unwrap = factory.unwrap_optional(receiver_type)
+            truthy_receiver = AST::Builtin.nil_type
+            falsy_receiver = unwrap || receiver_type
 
             truthy_env, falsy_env = refine_node_type(
               env: env,
               node: receiver,
-              truthy_type: falsy_receiver || BOT,
-              falsy_type: truthy_receiver || BOT
+              truthy_type: truthy_receiver,
+              falsy_type: falsy_receiver
             )
 
             truthy_result = Result.new(type: TRUE, env: truthy_env, unreachable: false)
-            truthy_result.unreachable! unless truthy_receiver
+            truthy_result.unreachable! if unwrap == receiver_type
 
             falsy_result = Result.new(type: FALSE, env: falsy_env, unreachable: false)
-            falsy_result.unreachable! unless falsy_receiver
+            falsy_result.unreachable! unless unwrap
 
             [truthy_result, falsy_result]
           end

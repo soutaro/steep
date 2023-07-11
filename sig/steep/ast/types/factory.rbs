@@ -77,13 +77,12 @@ module Steep
         # Returns a type that doesn't have `nil` in the union component
         #
         # * Returns `nil` if given type is `nil`
-        # * **Doesn't expand type alias automatically**
+        # * Expand (unfold) the type aliases automatically
         #
         # ```ruby
         # unwrap_optional(`String?`)                               # => `String`
         # unwrap_optional(`String | Integer | false | nil`)        # => `String | Integer | false`
         # unwrap_optional(`nil`)                                   # => nil
-        # unwrap_optional(`boolish`)                               # => `boolish`
         # ```
         #
         def unwrap_optional: (Types::t) -> Types::t?
