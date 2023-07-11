@@ -1391,43 +1391,6 @@ class TypeCheckTest < Minitest::Test
     )
   end
 
-  def test_const_assingnment
-    run_type_check_test(
-      signatures: {
-      },
-      code: {
-        "a.rb" => <<~RUBY
-          A = ->{}
-        RUBY
-      },
-      expectations: <<~YAML
-        ---
-        - file: a.rb
-          diagnostics:
-          - range:
-              start:
-                line: 1
-                character: 0
-              end:
-                line: 1
-                character: 1
-            severity: ERROR
-            message: 'Cannot find the declaration of constant: `A`'
-            code: Ruby::UnknownConstant
-          - range:
-              start:
-                line: 1
-                character: 4
-              end:
-                line: 1
-                character: 8
-            severity: ERROR
-            message: 'The type hint given to the block is ignored: `untyped`'
-            code: Ruby::ProcHintIgnored
-      YAML
-    )
-  end
-
   def test_type_assertion__type_error
     run_type_check_test(
       signatures: {
@@ -1518,6 +1481,23 @@ class TypeCheckTest < Minitest::Test
               end
             end
           end
+        RUBY
+      },
+      expectations: <<~YAML
+        ---
+        - file: a.rb
+          diagnostics: []
+      YAML
+    )
+  end
+
+  def test_lambda__hint_is_untyped
+    run_type_check_test(
+      signatures: {
+      },
+      code: {
+        "a.rb" => <<~RUBY
+          a = _ = ->(x) { x + 1 }
         RUBY
       },
       expectations: <<~YAML
