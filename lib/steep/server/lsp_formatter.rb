@@ -259,6 +259,10 @@ module Steep
           end
 
           io.string
+        when Services::CompletionProvider::KeywordArgumentItem
+          <<~MD
+            **Keyword argument**: `#{item.identifier}`
+          MD
         end
       end
 
