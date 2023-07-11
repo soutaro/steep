@@ -1496,4 +1496,35 @@ class TypeCheckTest < Minitest::Test
       YAML
     )
   end
+
+  def test_type_case__type_variable
+    run_type_check_test(
+      signatures: {
+        "a.rbs" => <<~RBS
+          class Hello
+            def foo: [A] (A) -> void
+          end
+        RBS
+      },
+      code: {
+        "a.rb" => <<~RUBY
+          class Hello
+            def foo(x)
+              case x
+              when Hash
+                123
+              when String
+                123
+              end
+            end
+          end
+        RUBY
+      },
+      expectations: <<~YAML
+        ---
+        - file: a.rb
+          diagnostics: []
+      YAML
+    )
+  end
 end

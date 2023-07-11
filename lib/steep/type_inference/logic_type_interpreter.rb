@@ -502,7 +502,7 @@ module Steep
             type_case_select0(ty, klass)
           end
 
-        when AST::Types::Any, AST::Types::Top
+        when AST::Types::Any, AST::Types::Top, AST::Types::Var
           [
             [instance_type],
             [type]
