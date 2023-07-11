@@ -1527,4 +1527,21 @@ class TypeCheckTest < Minitest::Test
       YAML
     )
   end
+
+  def test_lambda__hint_is_untyped
+    run_type_check_test(
+      signatures: {
+      },
+      code: {
+        "a.rb" => <<~RUBY
+          a = _ = ->(x) { x + 1 }
+        RUBY
+      },
+      expectations: <<~YAML
+        ---
+        - file: a.rb
+          diagnostics: []
+      YAML
+    )
+  end
 end

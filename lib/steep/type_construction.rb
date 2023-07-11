@@ -3103,27 +3103,29 @@ module Steep
 
         type_hint = deep_expand_alias(type_hint) || type_hint
 
-        procs = flatten_union(type_hint).select do |type|
-          check_relation(sub_type: type, super_type: AST::Builtin::Proc.instance_type).success? &&
-            !type.is_a?(AST::Types::Any)
-        end
+        unless type_hint.is_a?(AST::Types::Any)
+          procs = flatten_union(type_hint).select do |type|
+            check_relation(sub_type: type, super_type: AST::Builtin::Proc.instance_type).success? &&
+              !type.is_a?(AST::Types::Any)
+          end
 
-        proc_instances, proc_types = procs.partition {|type| AST::Builtin::Proc.instance_type?(type) }
+          proc_instances, proc_types = procs.partition {|type| AST::Builtin::Proc.instance_type?(type) }
 
-        case
-        when !proc_instances.empty? && proc_types.empty?
-          # `::Proc` is given as a hint
-        when proc_types.size == 1
-          # Proc type is given as a hint
-          hint_proc = proc_types[0]  #: AST::Types::Proc
-          params_hint = hint_proc.type.params
-          return_hint = hint_proc.type.return_type
-          block_hint = hint_proc.block
-          self_hint = hint_proc.self_type
-        else
-          typing.add_error(
-            Diagnostic::Ruby::ProcHintIgnored.new(hint_type: original_hint, node: node)
-          )
+          case
+          when !proc_instances.empty? && proc_types.empty?
+            # `::Proc` is given as a hint
+          when proc_types.size == 1
+            # Proc type is given as a hint
+            hint_proc = proc_types[0]  #: AST::Types::Proc
+            params_hint = hint_proc.type.params
+            return_hint = hint_proc.type.return_type
+            block_hint = hint_proc.block
+            self_hint = hint_proc.self_type
+          else
+            typing.add_error(
+              Diagnostic::Ruby::ProcHintIgnored.new(hint_type: original_hint, node: node)
+            )
+          end
         end
       end
 
