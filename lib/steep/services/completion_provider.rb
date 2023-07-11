@@ -1,6 +1,8 @@
 module Steep
   module Services
     class CompletionProvider
+      include NodeHelper
+
       Position = _ = Struct.new(:line, :column, keyword_init: true) do
         # @implements Position
         def -(size)
@@ -308,7 +310,7 @@ module Steep
         node, *parents = source.find_nodes(line: position.line, column: position.column)
         node ||= source.node
 
-        return [] unless node
+        return [] unless node && parents
 
         items = [] #: Array[item]
 
@@ -321,7 +323,16 @@ module Steep
 
           method_items_for_receiver_type(context.self_type, include_private: true, prefix: prefix, position: position, items: items)
           local_variable_items_for_context(context, position: position, prefix: prefix, items: items)
-          keyword_argument_items_for_method(node: parents&.first, position: position, prefix: prefix, items: items)
+
+          if (send_node, block_node = deconstruct_sendish_and_block_nodes(*parents))
+            keyword_argument_items_for_method(
+              call_node: block_node || send_node,
+              send_node: send_node,
+              position: position,
+              prefix: prefix,
+              items: items
+            )
+          end
 
         when node.type == :lvar && at_end?(position, of: node.loc)
           # foo ← (lvar)
@@ -548,10 +559,17 @@ module Steep
           return
         end
 
-        node, *_parents = source.find_nodes(line: line, column: column)
-        if node && (node.type == :send || node.type == :csend)
-          position = Position.new(line: line, column: column)
-          keyword_argument_items_for_method(node: node, position: position, prefix: argname.join, items: items)
+        if nodes = source.find_nodes(line: line, column: column)
+          if (send_node, block_node = deconstruct_sendish_and_block_nodes(*nodes))
+            position = Position.new(line: line, column: column)
+            keyword_argument_items_for_method(
+              call_node: block_node || send_node,
+              send_node: send_node,
+              position: position,
+              prefix: argname.join,
+              items: items
+            )
+          end
         end
       end
 
@@ -669,16 +687,17 @@ module Steep
         end
       end
 
-      def keyword_argument_items_for_method(node:, position:, prefix:, items:)
-        return unless node && (node.type == :send || node.type == :csend)
+      def keyword_argument_items_for_method(call_node:, send_node:, position:, prefix:, items:)
+        receiver_node, method_name, argument_nodes = deconstruct_send_node!(send_node)
 
-        call = typing.call_of(node: node)
+        call = typing.call_of(node: call_node)
+
         case call
         when TypeInference::MethodCall::Typed, TypeInference::MethodCall::Error
           type = call.receiver_type
           shape = subtyping.builder.shape(
             type,
-            public_only: !node.children[0].nil?,
+            public_only: !!receiver_node,
             config: Interface::Builder::Config.new(self_type: type, class_type: nil, instance_type: nil, variable_bounds: {})
           )
           if shape
@@ -687,7 +706,7 @@ module Steep
                 defn = method_type.method_decls.to_a[0]&.method_def
                 if defn
                   range = range_for(position, prefix: prefix)
-                  kwargs = node.children[2...]&.find { |arg| arg.type == :kwargs }&.children || []
+                  kwargs = argument_nodes.find { |arg| arg.type == :kwargs }&.children || []
                   used_kwargs = kwargs.filter_map { |arg| arg.type == :pair && arg.children.first.children.first }
 
                   kwargs = defn.type.type.required_keywords.keys + defn.type.type.optional_keywords.keys

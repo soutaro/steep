@@ -217,5 +217,28 @@ module Steep
         false
       end
     end
+
+    def deconstruct_sendish_and_block_nodes(*nodes)
+      send_node, block_node = nodes.take(2)
+
+      if send_node
+        case send_node.type
+        when :send, :csend, :super
+          if block_node
+            case block_node.type
+            when :block, :numblock
+              if send_node.equal?(block_node.children[0])
+                return [send_node, block_node]
+              end
+            end
+          end
+
+          [send_node, nil]
+        when :zsuper
+          # zsuper doesn't receive block
+          [send_node, nil]
+        end
+      end
+    end
   end
 end

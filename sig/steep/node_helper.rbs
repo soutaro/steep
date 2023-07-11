@@ -65,5 +65,14 @@ module Steep
     def deconstruct_send_node!: (Node) -> [Node?, Symbol, Array[Node], send_loc]
 
     def test_send_node: (Node) { (Node?, Symbol, Array[Node], send_loc) -> bool } -> bool
+
+    # Deconstruct sendish node and it's associated block node
+    #
+    # Receives a sequence of node tree where the leaf node comes first.
+    # If the first node is `send`, `csend`, `super`, or `zsuper`, it is the sendish node.
+    #
+    # If the next node is a `block` or `numblock` that is associated to the *sendish node*, it is the block node.
+    #
+    def deconstruct_sendish_and_block_nodes: (*Parser::AST::Node) -> [Parser::AST::Node, Parser::AST::Node?]?
   end
 end
