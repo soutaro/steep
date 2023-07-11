@@ -4,6 +4,8 @@ use Steep::TypeInference::MethodCall
 module Steep
   module Services
     class CompletionProvider
+      include NodeHelper
+
       # Cursor position
       class Position
         attr_reader line: Integer
@@ -237,14 +239,13 @@ module Steep
 
       def instance_variable_items_for_context: (TypeInference::Context context, position: Position, prefix: String, items: Array[item]) -> void
 
-      def keyword_argument_items_for_method: (node: Parser::AST::Node?, position: Position, prefix: String, items: Array[item]) -> void
+      def keyword_argument_items_for_method: (call_node: Parser::AST::Node, send_node: Parser::AST::Node, position: Position, prefix: String, items: Array[item]) -> void
 
       def index_for: (String, line: Integer, column: Integer) -> Integer
 
       def disallowed_method?: (Symbol name) -> bool
 
       def unwrap_optional: (AST::Types::t) -> AST::Types::t
-
     end
   end
 end

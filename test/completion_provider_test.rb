@@ -581,4 +581,23 @@ TestClass.new.foo(arg1: 1, a)
       end
     end
   end
+
+  def test_keyword_argument_block
+    with_checker <<EOF do
+class TestClass
+  def foo: (arg1: Integer, arg2: Integer, ?arg3: Integer, ?arg4: Integer) { () -> void } -> void
+end
+EOF
+      CompletionProvider.new(source_text: <<-EOR, path: Pathname("foo.rb"), subtyping: checker).tap do |provider|
+TestClass.new.foo(arg1: 1, a) do
+end
+#                         ^
+      EOR
+
+        provider.run(line: 1, column: 28).tap do |items|
+          assert_equal ["arg2:", "arg3:", "arg4:"], items.map(&:identifier)
+        end
+      end
+    end
+  end
 end
