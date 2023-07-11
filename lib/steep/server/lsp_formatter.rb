@@ -28,7 +28,16 @@ module Steep
 
           case call
           when TypeInference::MethodCall::Typed
+            io.puts <<~MD
+              ```rbs
+              #{call.actual_method_type.type.return_type}
+              ```
+
+              ----
+            MD
+
             method_types = call.method_decls.map(&:method_type)
+
             if call.is_a?(TypeInference::MethodCall::Special)
               method_types = [
                 call.actual_method_type.with(
@@ -250,6 +259,10 @@ module Steep
           end
 
           io.string
+        when Services::CompletionProvider::KeywordArgumentItem
+          <<~MD
+            **Keyword argument**: `#{item.identifier}`
+          MD
         end
       end
 

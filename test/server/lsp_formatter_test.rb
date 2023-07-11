@@ -55,6 +55,11 @@ class Steep::Server::LSPFormatterTest < Minitest::Test
 
       comment = Server::LSPFormatter.format_hover_content(content)
       assert_equal <<~MD, comment
+        ```rbs
+        ::Array[::Integer]
+        ```
+
+        ----
         **Method type**:
         ```rbs
         [A] (A) -> ::Array[A]
@@ -90,6 +95,11 @@ class Steep::Server::LSPFormatterTest < Minitest::Test
 
       comment = Server::LSPFormatter.format_hover_content(content)
       assert_equal <<~MD, comment
+        ```rbs
+        void
+        ```
+
+        ----
         **Method type**:
         ```rbs
         () -> void
@@ -125,6 +135,11 @@ class Steep::Server::LSPFormatterTest < Minitest::Test
 
       comment = Server::LSPFormatter.format_hover_content(content)
       assert_equal <<~MD, comment
+        ```rbs
+        ::Array[::Integer]
+        ```
+
+        ----
         **Method type**:
         ```rbs
         [A] (A) -> ::Array[A]
@@ -166,6 +181,11 @@ class Steep::Server::LSPFormatterTest < Minitest::Test
 
       comment = Server::LSPFormatter.format_hover_content(content)
       assert_equal <<~MD, comment
+        ```rbs
+        (::Integer | ::String | ::Symbol)
+        ```
+
+        ----
         **Method type**:
         ```rbs
           () -> ::Integer
@@ -206,6 +226,11 @@ class Steep::Server::LSPFormatterTest < Minitest::Test
 
         comment = Server::LSPFormatter.format_hover_content(content)
         assert_equal <<~MD.chomp, comment
+          ```rbs
+          ::Array[::Integer]
+          ```
+
+          ----
           **💡 Custom typing rule applies**
 
           ----
