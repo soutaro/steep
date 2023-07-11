@@ -55,4 +55,21 @@ class SignatureHelpProviderTest < Minitest::Test
       end
     end
   end
+
+  def test_send__with_block
+    with_checker(<<~RBS) do
+      RBS
+      source = Source.parse(<<~RUBY, path: Pathname("a.rb"), factory: checker.factory)
+        [1].each() do |x|
+        end
+      RUBY
+
+      SignatureHelpProvider.new(source: source, subtyping: checker).tap do |provider|
+        items, index = provider.run(line: 1, column: 9)
+
+        assert_equal 0, index
+        assert_equal ["() { (::Integer) -> untyped } -> ::Array[::Integer]"], items.map(&:method_type).map(&:to_s)
+      end
+    end
+  end
 end

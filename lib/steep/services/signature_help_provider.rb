@@ -40,7 +40,7 @@ module Steep
                 # Given position is between open/close parens of args of send node
 
                 if parent && (parent.type == :block || parent.type == :numblock)
-                  send_node = parent.children[0]
+                  send_node = parent
                 else
                   send_node = node
                 end
