@@ -1331,4 +1331,138 @@ class TypeCheckTest < Minitest::Test
       YAML
     )
   end
+
+  def test_type_narrowing__local_variable_safe_navigation_operator
+    run_type_check_test(
+      signatures: {
+        "a.rbs" => <<~RBS
+          class Hello
+            type context = [context, String | false] | nil
+            def foo: (context) -> void
+          end
+        RBS
+      },
+      code: {
+        "a.rb" => <<~RUBY
+          class Hello
+            def foo(context)
+              context&.[](0)
+            end
+          end
+        RUBY
+      },
+      expectations: <<~YAML
+        ---
+        - file: a.rb
+          diagnostics: []
+      YAML
+    )
+  end
+
+  def test_argument_error__unexpected_unexpected_positional_argument
+    run_type_check_test(
+      signatures: {
+        "a.rbs" => <<~RBS
+          class Foo
+            def foo: () -> void
+          end
+        RBS
+      },
+      code: {
+        "a.rb" => <<~RUBY
+          Foo.new.foo(hello_world: true)
+        RUBY
+      },
+      expectations: <<~YAML
+        ---
+        - file: a.rb
+          diagnostics:
+          - range:
+              start:
+                line: 1
+                character: 12
+              end:
+                line: 1
+                character: 23
+            severity: ERROR
+            message: Unexpected keyword argument
+            code: Ruby::UnexpectedKeywordArgument
+      YAML
+    )
+  end
+
+  def test_const_assingnment
+    run_type_check_test(
+      signatures: {
+      },
+      code: {
+        "a.rb" => <<~RUBY
+          A = ->{}
+        RUBY
+      },
+      expectations: <<~YAML
+        ---
+        - file: a.rb
+          diagnostics:
+          - range:
+              start:
+                line: 1
+                character: 0
+              end:
+                line: 1
+                character: 1
+            severity: ERROR
+            message: 'Cannot find the declaration of constant: `A`'
+            code: Ruby::UnknownConstant
+          - range:
+              start:
+                line: 1
+                character: 4
+              end:
+                line: 1
+                character: 8
+            severity: ERROR
+            message: 'The type hint given to the block is ignored: `untyped`'
+            code: Ruby::ProcHintIgnored
+      YAML
+    )
+  end
+
+  def test_type_assertion__type_error
+    run_type_check_test(
+      signatures: {
+      },
+      code: {
+        "a.rb" => <<~RUBY
+          nil #: Int
+          [1].map {} #$ Int
+        RUBY
+      },
+      expectations: <<~YAML
+        ---
+        - file: a.rb
+          diagnostics:
+          - range:
+              start:
+                line: 1
+                character: 7
+              end:
+                line: 1
+                character: 10
+            severity: ERROR
+            message: Cannot find type `::Int`
+            code: Ruby::RBSError
+          - range:
+              start:
+                line: 2
+                character: 14
+              end:
+                line: 2
+                character: 17
+            severity: ERROR
+            message: Cannot find type `::Int`
+            code: Ruby::RBSError
+      YAML
+    )
+  end
 end

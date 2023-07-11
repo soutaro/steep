@@ -10,7 +10,7 @@ module Steep
 
         def initialize: (RBS::Location[untyped, untyped]) -> void
 
-        def type: (RBS::Resolver::context, Subtyping::Check, Array[Symbol] type_vars) -> (Types::t | RBS::ParsingError | nil)
+        def type: (RBS::Resolver::context, Subtyping::Check, Array[Symbol] type_vars) -> (Types::t | RBS::ParsingError | Array[Diagnostic::Signature::Base] | nil)
 
         def type?: (RBS::Resolver::context, Subtyping::Check, Array[Symbol] type_vars) -> Types::t?
 

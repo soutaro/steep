@@ -547,4 +547,38 @@ bar()
       end
     end
   end
+
+  def test_first_keyword_argument
+    with_checker <<EOF do
+class TestClass
+  def foo: (arg1: Integer, arg2: Integer, ?arg3: Integer, ?arg4: Integer) -> void
+end
+EOF
+      CompletionProvider.new(source_text: <<-EOR, path: Pathname("foo.rb"), subtyping: checker).tap do |provider|
+TestClass.new.foo(a)
+      EOR
+
+        provider.run(line: 1, column: 19).tap do |items|
+          assert_equal ["arg1:", "arg2:", "arg3:", "arg4:"], items.map(&:identifier)
+        end
+      end
+    end
+  end
+
+  def test_following_keyword_argument
+    with_checker <<EOF do
+class TestClass
+  def foo: (arg1: Integer, arg2: Integer, ?arg3: Integer, ?arg4: Integer) -> void
+end
+EOF
+      CompletionProvider.new(source_text: <<-EOR, path: Pathname("foo.rb"), subtyping: checker).tap do |provider|
+TestClass.new.foo(arg1: 1, a)
+      EOR
+
+        provider.run(line: 1, column: 28).tap do |items|
+          assert_equal ["arg2:", "arg3:", "arg4:"], items.map(&:identifier)
+        end
+      end
+    end
+  end
 end

@@ -11,6 +11,7 @@ module Steep
       Range = _ = Struct.new(:start, :end, keyword_init: true)
 
       InstanceVariableItem = _ = Struct.new(:identifier, :range, :type, keyword_init: true)
+      KeywordArgumentItem = _ = Struct.new(:identifier, :range, keyword_init: true)
       LocalVariableItem = _ = Struct.new(:identifier, :range, :type, keyword_init: true)
       ConstantItem = _ = Struct.new(:env, :identifier, :range, :type, :full_name, keyword_init: true) do
         # @implements ConstantItem
@@ -267,7 +268,9 @@ module Steep
               []
             end
           else
-            []
+            items = [] #: Array[item]
+            items_for_following_keyword_arguments(source_text, index: index, line: line, column: column, items: items)
+            items
           end
         end
       end
@@ -302,7 +305,7 @@ module Steep
       end
 
       def items_for_trigger(position:)
-        node, *_parents = source.find_nodes(line: position.line, column: position.column)
+        node, *parents = source.find_nodes(line: position.line, column: position.column)
         node ||= source.node
 
         return [] unless node
@@ -318,6 +321,7 @@ module Steep
 
           method_items_for_receiver_type(context.self_type, include_private: true, prefix: prefix, position: position, items: items)
           local_variable_items_for_context(context, position: position, prefix: prefix, items: items)
+          keyword_argument_items_for_method(node: parents&.first, position: position, prefix: prefix, items: items)
 
         when node.type == :lvar && at_end?(position, of: node.loc)
           # foo ← (lvar)
@@ -527,6 +531,30 @@ module Steep
         items
       end
 
+      def items_for_following_keyword_arguments(text, index:, line:, column:, items:)
+        return if text[index - 1] !~ /[a-zA-Z0-9]/
+
+        text = text.dup
+        argname = [] #: Array[String]
+        while text[index - 1] =~ /[a-zA-Z0-9]/
+          argname.unshift(text[index - 1] || '')
+          source_text[index - 1] = " "
+          index -= 1
+        end
+
+        begin
+          type_check!(source_text, line: line, column: column)
+        rescue Parser::SyntaxError
+          return
+        end
+
+        node, *_parents = source.find_nodes(line: line, column: column)
+        if node && (node.type == :send || node.type == :csend)
+          position = Position.new(line: line, column: column)
+          keyword_argument_items_for_method(node: node, position: position, prefix: argname.join, items: items)
+        end
+      end
+
       def method_items_for_receiver_type(type, include_private:, prefix:, position:, items:)
         range = range_for(position, prefix: prefix)
         context = typing.context_at(line: position.line, column: position.column)
@@ -640,6 +668,41 @@ module Steep
           end
         end
       end
+
+      def keyword_argument_items_for_method(node:, position:, prefix:, items:)
+        return unless node && (node.type == :send || node.type == :csend)
+
+        call = typing.call_of(node: node)
+        case call
+        when TypeInference::MethodCall::Typed, TypeInference::MethodCall::Error
+          type = call.receiver_type
+          shape = subtyping.builder.shape(
+            type,
+            public_only: !node.children[0].nil?,
+            config: Interface::Builder::Config.new(self_type: type, class_type: nil, instance_type: nil, variable_bounds: {})
+          )
+          if shape
+            if method = shape.methods[call.method_name]
+              method.method_types.each.with_index do |method_type, i|
+                defn = method_type.method_decls.to_a[0]&.method_def
+                if defn
+                  range = range_for(position, prefix: prefix)
+                  kwargs = node.children[2...]&.find { |arg| arg.type == :kwargs }&.children || []
+                  used_kwargs = kwargs.filter_map { |arg| arg.type == :pair && arg.children.first.children.first }
+
+                  kwargs = defn.type.type.required_keywords.keys + defn.type.type.optional_keywords.keys
+                  kwargs.each do |name|
+                    if name.to_s.start_with?(prefix) && !used_kwargs.include?(name)
+                      items << KeywordArgumentItem.new(identifier: "#{name}:", range: range)
+                    end
+                  end
+                end
+              end
+            end
+          end
+        end
+      end
+
 
       def index_for(string, line:, column:)
         index = 0

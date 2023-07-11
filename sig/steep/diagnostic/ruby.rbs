@@ -495,7 +495,7 @@ module Steep
       # ```
       #
       # This diagnostic allows writing `raise` or `return`, by checking the type of the branch body is `bot` or not.
-      # 
+      #
       class UnreachableValueBranch < Base
         attr_reader type: AST::Types::t
 
@@ -620,6 +620,14 @@ module Steep
         attr_reader hint_type: AST::Types::t
 
         def initialize: (hint_type: AST::Types::t, node: Parser::AST::Node) -> void
+      end
+
+      # RBS embedded in the Ruby code has validation error
+      # 
+      class RBSError < Base
+        attr_reader error: Signature::Base
+
+        def initialize: (error: Signature::Base, node: Parser::AST::Node, location: location) -> void
       end
 
       # Argument forwarding `...` cannot be done safely, because of
