@@ -21,9 +21,13 @@ class LangserverTest < Minitest::Test
       (current_dir + "lib").mkdir
       (current_dir + "sig").mkdir
       (current_dir + "Steepfile").write <<EOF
+D = Steep::Diagnostic
+
 target :app do
   check "lib"
   signature "sig"
+
+  configure_code_diagnostics(D::Ruby.all_error)
 end
 EOF
 
