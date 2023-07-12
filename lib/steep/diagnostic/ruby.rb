@@ -992,20 +992,20 @@ module Steep
       def self.default
         @default ||= _ = all_error.merge(
           {
-            ImplicitBreakValueMismatch => :warning,
             FallbackAny => :information,
-            UnreachableValueBranch => :warning,
-            UnreachableBranch => :information,
-            UnknownConstant => :warning,
-            MethodDefinitionMissing => :information,
             FalseAssertion => :information,
-            UnexpectedTypeArgument => :information,
+            ImplicitBreakValueMismatch => :warning,
             InsufficientTypeArgument => :information,
-            UnexpectedTypeArgument => :information,
-            UnsupportedSyntax => nil,
+            MethodDefinitionMissing => :information,
             ProcHintIgnored => :information,
             SetterBodyTypeMismatch => nil,
-            SetterReturnTypeMismatch => nil
+            SetterReturnTypeMismatch => nil,
+            UnexpectedTypeArgument => :information,
+            UnexpectedTypeArgument => :information,
+            UnknownConstant => :warning,
+            UnreachableBranch => :information,
+            UnreachableValueBranch => :warning,
+            UnsupportedSyntax => nil,
           }
         ).freeze
       end
@@ -1013,17 +1013,17 @@ module Steep
       def self.strict
         @strict ||= _ = all_error.merge(
           {
-            NoMethod => nil,
-            ImplicitBreakValueMismatch => nil,
             FallbackAny => nil,
-            UnreachableValueBranch => nil,
-            UnreachableBranch => nil,
-            UnknownConstant => nil,
+            ImplicitBreakValueMismatch => nil,
             MethodDefinitionMissing => nil,
-            UnsupportedSyntax => nil,
+            NoMethod => nil,
             ProcHintIgnored => :warning,
             SetterBodyTypeMismatch => :error,
-            SetterReturnTypeMismatch => :error
+            SetterReturnTypeMismatch => :error,
+            UnknownConstant => nil,
+            UnreachableBranch => nil,
+            UnreachableValueBranch => nil,
+            UnsupportedSyntax => nil,
           }
         ).freeze
       end
@@ -1031,19 +1031,19 @@ module Steep
       def self.lenient
         @lenient ||= _ = all_error.merge(
           {
-            NoMethod => nil,
-            ImplicitBreakValueMismatch => nil,
             FallbackAny => nil,
-            UnreachableValueBranch => nil,
-            UnreachableBranch => nil,
-            UnknownConstant => nil,
-            MethodDefinitionMissing => nil,
-            UnexpectedJump => nil,
             FalseAssertion => :hint,
-            UnsupportedSyntax => nil,
+            ImplicitBreakValueMismatch => nil,
+            MethodDefinitionMissing => nil,
+            NoMethod => nil,
             ProcHintIgnored => :hint,
             SetterBodyTypeMismatch => nil,
-            SetterReturnTypeMismatch => nil
+            SetterReturnTypeMismatch => nil,
+            UnexpectedJump => nil,
+            UnknownConstant => nil,
+            UnreachableBranch => nil,
+            UnreachableValueBranch => nil,
+            UnsupportedSyntax => nil,
           }
         ).freeze
       end
