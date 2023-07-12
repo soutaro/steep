@@ -623,7 +623,7 @@ module Steep
       end
 
       # RBS embedded in the Ruby code has validation error
-      # 
+      #
       class RBSError < Base
         attr_reader error: Signature::Base
 
@@ -665,18 +665,32 @@ module Steep
       type template = Hash[singleton(Base), LSPFormatter::severity]
 
       self.@all_error: template?
+      self.@default: template?
+      self.@strict: template?
+      self.@lenient: template?
+      self.@silent: template?
+
+      # This template reports everything as an error
+      #
       def self.all_error: () -> template
 
-      self.@default: template?
+      # This template detects inconsistencies between RBS and Ruby code APIs
+      #
       def self.default: () -> template
 
-      self.@strict: template?
+      # This template helps you keeping your codebase (almost) type-safe
+      #
+      # You can start with this template to review the problems reported on the project,
+      # and you can ignore some kind of errors.
+      #
       def self.strict: () -> template
 
-      self.@lenient: template?
+      # This template detects inconsistent definition in Ruby code with respect to your RBS definition
+      #
       def self.lenient: () -> template
 
-      self.@silent: template?
+      # This template reports nothing
+      #
       def self.silent: () -> template
     end
   end
