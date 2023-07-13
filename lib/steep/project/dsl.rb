@@ -143,27 +143,6 @@ module Steep
           @repo_paths.push(*paths.map {|s| Pathname(s) })
         end
 
-        # Configure the code diagnostics printing setup.
-        #
-        # Yields a hash, and the update the hash in the block.
-        #
-        # ```rb
-        # D = Steep::Diagnostic
-        #
-        # configure_code_diagnostics do |hash|
-        #   # Assign one of :error, :warning, :information, :hint or :nil to error classes.
-        #   hash[D::Ruby::UnexpectedPositionalArgument] = :error
-        # end
-        # ```
-        #
-        # Passing a hash is also allowed.
-        #
-        # ```rb
-        # D = Steep::Diagnostic
-        #
-        # configure_code_diagnostics(D::Ruby.lenient)
-        # ```
-        #
         def configure_code_diagnostics(hash = nil)
           if hash
             code_diagnostics_config.merge!(hash)

@@ -1,3 +1,5 @@
+use Steep::Diagnostic::Ruby::template
+
 module Steep
   class Project
     class DSL
@@ -71,10 +73,13 @@ module Steep
         # D = Steep::Diagnostic
         #
         # configure_code_diagnostics(D::Ruby.lenient)
+        # configure_code_diagnostics(D::Ruby.strict) do |config|
+        #   config[D::Ruby::NoMethod] = nil
+        # end
         # ```
         #
-        def configure_code_diagnostics: (Hash[untyped, untyped] hash) -> void
-                                      | () { (Hash[untyped, untyped]) -> void } -> void
+        def configure_code_diagnostics: (template hash) ?{ (template) -> void }-> void
+                                      | () { (template) -> void }-> void
 
         def collection_config: (Pathname path) -> void
 
