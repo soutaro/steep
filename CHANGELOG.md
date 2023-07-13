@@ -2,6 +2,24 @@
 
 ## master
 
+## 1.5.0 (2023-07-13)
+
+### Type checker core
+
+* Fix for the case `untyped` is the proc type hint ([#868](https://github.com/soutaro/steep/pull/868))
+* Type case with type variable ([#869](https://github.com/soutaro/steep/pull/869))
+* Filx `nil?` unreachability detection ([#867](https://github.com/soutaro/steep/pull/867))
+
+### Commandline tool
+
+* Update `#configure_code_diagnostics` type ([#873](https://github.com/soutaro/steep/pull/873))
+* Update diagnostics templates ([#871](https://github.com/soutaro/steep/pull/871))
+* Removed "set" from "libray" in init.rb and README ([#870](https://github.com/soutaro/steep/pull/870))
+
+### Language server
+
+* Use RBS::Buffer method to calculate position ([#872](https://github.com/soutaro/steep/pull/872))
+
 ## 1.5.0.pre.6 (2023-07-11)
 
 ### Type checker core
