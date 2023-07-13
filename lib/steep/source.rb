@@ -330,13 +330,12 @@ module Steep
     def find_heredoc_nodes(line, column, position)
       each_heredoc_node() do |nodes, location|
         node = nodes[0]
+        loc = location.heredoc_body #: Parser::Source::Range
 
-        range = location.heredoc_body&.yield_self do |r|
-          r.begin_pos..r.end_pos
-        end
-
-        if range && (range === position)
-          return nodes
+        if range = loc.to_range
+          if range.begin <= position && position <= range.end
+            return nodes
+          end
         end
       end
 
@@ -344,12 +343,10 @@ module Steep
     end
 
     def find_nodes_loc(node, position, parents)
-      range = node.location.expression&.yield_self do |r|
-        r.begin_pos..r.end_pos
-      end
+      range = node.location.expression&.to_range
 
       if range
-        if range === position
+        if range.begin <= position && position <= range.end
           parents.unshift node
 
           Source.each_child_node(node) do |child|
@@ -366,9 +363,7 @@ module Steep
     def find_nodes(line:, column:)
       return [] unless node
 
-      position = (line-1).times.sum do |i|
-        node.location.expression.source_buffer.source_line(i+1).size + 1
-      end + column
+      position = buffer.loc_to_pos([line, column])
 
       if heredoc_nodes = find_heredoc_nodes(line, column, position)
         Source.each_child_node(heredoc_nodes[0]) do |child|
