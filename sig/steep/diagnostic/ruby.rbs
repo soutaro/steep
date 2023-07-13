@@ -662,7 +662,7 @@ module Steep
 
       ALL: Array[singleton(Base)]
 
-      type template = Hash[singleton(Base), LSPFormatter::severity]
+      type template = Hash[singleton(Base), LSPFormatter::severity?]
 
       self.@all_error: template?
       self.@default: template?
