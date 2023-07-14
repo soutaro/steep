@@ -1507,4 +1507,30 @@ class TypeCheckTest < Minitest::Test
       YAML
     )
   end
+
+  def test_safe_navigation_operator__or_hint
+    run_type_check_test(
+      signatures: {
+        "a.rbs" => <<~RBS
+          class Hello
+            def foo: (Integer?) -> Integer
+          end
+        RBS
+      },
+      code: {
+        "a.rb" => <<~RUBY
+          class Hello
+            def foo(a)
+              a&.then {|x| x.infinite? } || -1
+            end
+          end
+        RUBY
+      },
+      expectations: <<~YAML
+        ---
+        - file: a.rb
+          diagnostics: []
+      YAML
+    )
+  end
 end

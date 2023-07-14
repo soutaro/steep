@@ -1778,7 +1778,10 @@ module Steep
           yield_self do
             left_node, right_node = node.children
 
-            left_type, constr, left_context = synthesize(left_node, hint: hint, condition: true).to_ary
+            if hint
+              left_hint = union_type_unify(hint, AST::Builtin.nil_type, AST::Builtin.false_type)
+            end
+            left_type, constr, left_context = synthesize(left_node, hint: left_hint, condition: true).to_ary
 
             interpreter = TypeInference::LogicTypeInterpreter.new(subtyping: checker, typing: typing, config: builder_config)
             left_truthy, left_falsy = interpreter.eval(env: left_context.type_env, node: left_node)
