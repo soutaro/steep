@@ -32,3 +32,8 @@ class HogeHoge
     bar(self, ...).to_s
   end
 end
+
+
+
+conference = nil #: Conference?
+
