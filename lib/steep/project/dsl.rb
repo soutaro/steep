@@ -66,7 +66,7 @@ module Steep
         def typing_options(level = nil, **hash)
           Steep.logger.error "#typing_options is deprecated and has no effect as of version 0.46.0. Update your Steepfile as follows for (almost) equivalent setting:"
 
-          messages = []
+          messages = [] #: Array[String]
 
           messages << "# D = Steep::Diagnostic                          # Define a constant to shorten namespace"
 
@@ -83,7 +83,7 @@ module Steep
             Steep.logger.error "  #{msg}"
           end
 
-          config = []
+          config = [] #: Array[String]
 
           if hash[:allow_missing_definitions]
             config << "hash[D::Ruby::MethodDefinitionMissing] = nil   # allow_missing_definitions"

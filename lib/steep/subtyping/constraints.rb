@@ -249,8 +249,8 @@ module Steep
           class_type = context.class_type
         end
 
-        vars = []
-        types = []
+        vars = [] #: Array[Symbol]
+        types = [] #: Array[AST::Types::t]
 
         dictionary.each_key do |var|
           if variables.include?(var)
