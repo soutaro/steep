@@ -54,7 +54,7 @@ module Steep
         end
 
         def print(stats_result)
-          rows = []
+          rows = [] #: Array[Array[untyped]]
           stats_result.sort_by {|row| row[:path] }.each do |row|
             if row[:type] == "success"
               rows << [

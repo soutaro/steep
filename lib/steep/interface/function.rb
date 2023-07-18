@@ -471,8 +471,8 @@ module Steep
 
           # For overloading
           def +(other)
-            requireds = {}
-            optionals = {}
+            requireds = {} #: Hash[Symbol, AST::Types::t]
+            optionals = {} #: Hash[Symbol, AST::Types::t]
 
             all_keys = Set[] + self.requireds.keys + self.optionals.keys + other.requireds.keys + other.optionals.keys
             all_keys.each do |key|
@@ -535,8 +535,8 @@ module Steep
 
           # For union
           def |(other)
-            requireds = {}
-            optionals = {}
+            requireds = {} #: Hash[Symbol, AST::Types::t]
+            optionals = {} #: Hash[Symbol, AST::Types::t]
 
             all_keys = Set[] + self.requireds.keys + self.optionals.keys + other.requireds.keys + other.optionals.keys
             all_keys.each do |key|
@@ -600,8 +600,8 @@ module Steep
 
           # For intersection
           def &(other)
-            requireds = {}
-            optionals = {}
+            requireds = {} #: Hash[Symbol, AST::Types::t]
+            optionals = {} #: Hash[Symbol, AST::Types::t]
 
             all_keys = Set[] + self.requireds.keys + self.optionals.keys + other.requireds.keys + other.optionals.keys
             all_keys.each do |key|
@@ -665,7 +665,7 @@ module Steep
         end
 
         def required
-          array = []
+          array = [] #: Array[AST::Types::t]
 
           positional_params&.each do |param|
             case param
@@ -680,7 +680,7 @@ module Steep
         end
 
         def optional
-          array = []
+          array = [] #: Array[AST::Types::t]
 
           positional_params&.each do |param|
             case param

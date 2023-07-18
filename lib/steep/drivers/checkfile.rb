@@ -168,8 +168,7 @@ module Steep
 
         Steep.logger.info { "Starting type checking: #{request_guid}" }
 
-        diagnostic_notifications = []
-        error_messages = []
+        error_messages = [] #: Array[String]
         client_reader.read do |response|
           case
           when response[:method] == "textDocument/publishDiagnostics"

@@ -122,7 +122,7 @@ module Steep
               items = begin
                         provider.run(line: job.line, column: job.column)
                       rescue Parser::SyntaxError
-                        []
+                        [] #: Array[Services::CompletionProvider::item]
                       end
 
               completion_items = items.map do |item|
@@ -157,7 +157,7 @@ module Steep
                 locator = RBS::Locator.new(buffer: buffer, dirs: dirs, decls: decls)
 
                 _hd, tail = locator.find2(line: job.line, column: job.column)
-                tail ||= []
+                tail ||= [] #: Array[RBS::Locator::component]
 
                 tail.reverse_each do |t|
                   case t

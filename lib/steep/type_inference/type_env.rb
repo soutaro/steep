@@ -9,7 +9,7 @@ module Steep
       attr_reader :pure_method_calls
 
       def to_s
-        array = []
+        array = [] #: Array[String]
 
         local_variable_types.each do |name, entry|
           if enforced_type = entry[1]
@@ -108,7 +108,7 @@ module Steep
       end
 
       def assign_local_variables(assignments)
-        local_variable_types = {}
+        local_variable_types = {} #: Hash[Symbol, local_variable_entry]
         invalidated_nodes = Set[]
 
         assignments.each do |name, new_type|
@@ -135,7 +135,7 @@ module Steep
       end
 
       def refine_types(local_variable_types: {}, pure_call_types: {})
-        local_variable_updates = {}
+        local_variable_updates = {} #: Hash[Symbol, local_variable_entry]
 
         local_variable_types.each do |name, type|
           local_variable_name!(name)

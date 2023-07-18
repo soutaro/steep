@@ -430,7 +430,7 @@ module Steep
               when AST::Types::Name::Singleton
                 singleton_super_types(relation.sub_type.name)
               else
-                []
+                [] #: Array[super_type]
               end
 
             unless possible_sub_types.empty?
@@ -743,7 +743,7 @@ module Steep
             args.each {|arg| constraints.unknown!(arg.name) }
 
             upper_bounds = {}
-            relations = []
+            relations = [] #: Array[Relation]
 
             args.zip(sub_type.type_params, super_type.type_params).each do |arg, sub_param, sup_param|
               sub_ub = sub_param.upper_bound
