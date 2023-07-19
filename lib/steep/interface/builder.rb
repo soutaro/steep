@@ -766,6 +766,15 @@ module Steep
                 )
               )
             end
+          when :<, :<=
+            case defined_in
+            when RBS::BuiltinNames::Module.name
+              return method_type.with(
+                type: method_type.type.with(
+                  return_type: AST::Types::Logic::ArgIsAncestor.new(location: method_type.type.return_type.location)
+                )
+              )
+            end
           end
         end
 

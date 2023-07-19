@@ -52,6 +52,11 @@ module Steep
           def initialize: (?location: untyped?) -> void
         end
 
+        # A type for `Class#<` or `Class#<=` call results.
+        class ArgIsAncestor < Base
+          def initialize: (?location: untyped?) -> void
+        end
+
         # A type with truthy/falsy type environment.
         class Env < Base
           attr_reader truthy: TypeInference::TypeEnv

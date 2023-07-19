@@ -367,6 +367,32 @@ module Steep
               [truthy_result, falsy_result]
             end
           end
+
+        when AST::Types::Logic::ArgIsAncestor
+          if receiver && (arg = arguments[0])
+            receiver_type = typing.type_of(node: receiver)
+            arg_type = factory.deep_expand_alias(typing.type_of(node: arg))
+
+            if arg_type.is_a?(AST::Types::Name::Singleton)
+              truthy_type = arg_type
+              falsy_type = receiver_type
+              truthy_env, falsy_env = refine_node_type(
+                env: env,
+                node: receiver,
+                truthy_type: truthy_type,
+                falsy_type: falsy_type
+              )
+
+              truthy_result = Result.new(type: TRUE, env: truthy_env, unreachable: false)
+              truthy_result.unreachable! unless truthy_type
+
+              falsy_result = Result.new(type: FALSE, env: falsy_env, unreachable: false)
+              falsy_result.unreachable! unless falsy_type
+
+              [truthy_result, falsy_result]
+            end
+          end
+
         when AST::Types::Logic::Not
           if receiver
             truthy_result, falsy_result = evaluate_node(env: env, node: receiver)

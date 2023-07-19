@@ -281,6 +281,46 @@ end
     end
   end
 
+  def test_call_arg_is_ancestor
+    with_checker() do |checker|
+      source = parse_ruby("klass = Foo; klass < String")
+
+      node = source.node.children[1]
+
+      call = TypeInference::MethodCall::Typed.new(
+        node: node,
+        context: TypeInference::MethodCall::TopLevelContext.new,
+        method_name: :<,
+        receiver_type: parse_type("singleton(::Object)"),
+        actual_method_type: parse_method_type("(::Module) -> bool?").yield_self do |method_type|
+          method_type.with(
+            type: method_type.type.with(
+              return_type: AST::Types::Logic::ArgIsAncestor.new()
+            )
+          )
+        end,
+        method_decls: [],
+        return_type: AST::Types::Logic::ArgIsAncestor.new()
+      )
+
+      typing = Typing.new(source: source, root_context: nil)
+      typing.add_typing(dig(node), AST::Types::Logic::ArgIsAncestor.new(), nil)
+      typing.add_typing(dig(node, 0), parse_type("singleton(::Object)"), nil)
+      typing.add_typing(dig(node, 2), parse_type("singleton(::String)"), nil)
+
+      env = type_env
+        .assign_local_variable(:klass, parse_type("singleton(::Object)"), nil)
+
+      interpreter = LogicTypeInterpreter.new(subtyping: checker, typing: typing, config: config)
+      truthy_result, falsy_result = interpreter.eval(env: env, node: node)
+
+      assert_equal parse_type("true"), truthy_result.type
+      assert_equal parse_type("false"), falsy_result.type
+      assert_equal parse_type("singleton(::String)"), truthy_result.env[:klass]
+      assert_equal parse_type("singleton(::Object)"), falsy_result.env[:klass]
+    end
+  end
+
   def test_call_not
     with_checker(<<-RBS) do |checker|
       RBS
