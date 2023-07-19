@@ -1533,4 +1533,28 @@ class TypeCheckTest < Minitest::Test
       YAML
     )
   end
+
+  def test_parse_type_variable__annotation
+    run_type_check_test(
+      signatures: {
+        "a.rbs" => <<~RBS
+          class Foo[A]
+            def bar: [B] (A, B) -> void
+          end
+        RBS
+      },
+      code: {
+        "a.rb" => <<~RUBY
+          class Foo
+            def bar(x, y)
+              # @type var z: [A, B]
+              z = [x, y]
+            end
+          end
+        RUBY
+      },
+      expectations: <<~YAML
+      YAML
+    )
+  end
 end
