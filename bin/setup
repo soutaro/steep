@@ -5,5 +5,5 @@ set -vx
 
 bundle install
 
-bundle install --gemfile=Gemfile.steep
+bundle install --gemfile=gemfile_steep/Gemfile
 bin/rbs collection install
