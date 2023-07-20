@@ -33,6 +33,8 @@ class TypeCheckTest < Minitest::Test
       end
     end
 
+    yield typings if block_given?
+
     formatter = Diagnostic::LSPFormatter.new()
 
     diagnostics = typings.transform_values do |typing|
@@ -50,8 +52,6 @@ class TypeCheckTest < Minitest::Test
 
       assert_equal expectations, exps.to_yaml
     end
-
-    yield typings if block_given?
   end
 
   def test_setter_type
@@ -1530,6 +1530,51 @@ class TypeCheckTest < Minitest::Test
         ---
         - file: a.rb
           diagnostics: []
+      YAML
+    )
+  end
+
+  def test_type_check__elsif
+    run_type_check_test(
+      signatures: {
+      },
+      code: {
+        "a.rb" => <<~RUBY
+          x = nil #: Symbol?
+
+          if x.is_a?(Integer)
+            1
+          elsif x.is_a?(String)
+            2
+          elsif x.is_a?(NilClass)
+            3
+          end
+        RUBY
+      },
+      expectations: <<~YAML
+        ---
+        - file: a.rb
+          diagnostics:
+          - range:
+              start:
+                line: 3
+                character: 0
+              end:
+                line: 3
+                character: 2
+            severity: ERROR
+            message: The branch is unreachable
+            code: Ruby::UnreachableBranch
+          - range:
+              start:
+                line: 5
+                character: 0
+              end:
+                line: 5
+                character: 5
+            severity: ERROR
+            message: The branch is unreachable
+            code: Ruby::UnreachableBranch
       YAML
     )
   end

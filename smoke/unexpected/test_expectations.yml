@@ -1,16 +1,4 @@
 ---
-- file: unexpected.rb
-  diagnostics:
-  - range:
-      start:
-        line: 1
-        character: 0
-      end:
-        line: 1
-        character: 14
-    severity: ERROR
-    message: 'UnexpectedError: unexpected.rbs:2:17...2:24: Could not find String1'
-    code: Ruby::UnexpectedError
 - file: unexpected.rbs
   diagnostics:
   - range:

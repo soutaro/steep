@@ -546,11 +546,9 @@ module Steep
       end
 
       class UnexpectedError < Base
-        attr_reader message: untyped
+        attr_reader error: Exception
 
-        attr_reader error: untyped
-
-        def initialize: (node: untyped, error: untyped) -> void
+        def initialize: (node: Parser::AST::Node, error: Exception) -> void
 
         def header_line: () -> ::String
       end

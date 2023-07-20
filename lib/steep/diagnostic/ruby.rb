@@ -841,7 +841,6 @@ module Steep
       end
 
       class UnexpectedError < Base
-        attr_reader :message
         attr_reader :error
 
         def initialize(node:, error:)
@@ -850,7 +849,28 @@ module Steep
         end
 
         def header_line
-          "UnexpectedError: #{error.message}"
+          "UnexpectedError: #{error.message}(#{error.class})"
+        end
+
+        def detail_lines
+          if trace = error.backtrace
+            io = StringIO.new
+
+            total = trace.size
+            if total > 30
+              trace = trace.take(15)
+            end
+
+            trace.each.with_index do |line, index|
+              io.puts "#{index+1}. #{line}"
+            end
+
+            if trace.size != total
+              io.puts "  (#{total - trace.size} more backtrace)"
+            end
+
+            io.string
+          end
         end
       end
 
