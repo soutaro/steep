@@ -2,7 +2,7 @@ module Steep
   module AST
     module Annotation
       class Collection
-        attr_reader annotations: untyped
+        attr_reader annotations: Array[Annotation::t]
 
         attr_reader factory: Types::Factory
 
@@ -14,31 +14,34 @@ module Steep
 
         attr_reader ivar_type_annotations: Hash[Symbol, IvarType]
 
-        attr_reader method_type_annotations: untyped
+        attr_reader method_type_annotations: Hash[Symbol, MethodType?]
 
-        attr_reader block_type_annotation: untyped
+        attr_reader block_type_annotation: BlockType?
 
-        attr_reader return_type_annotation: untyped
+        attr_reader return_type_annotation: ReturnType?
 
-        attr_reader self_type_annotation: untyped
+        attr_reader self_type_annotation: SelfType?
 
-        attr_reader instance_type_annotation: untyped
+        attr_reader instance_type_annotation: InstanceType?
 
-        attr_reader module_type_annotation: untyped
+        attr_reader module_type_annotation: ModuleType?
 
         attr_reader implement_module_annotation: Implements?
 
-        attr_reader dynamic_annotations: untyped
+        attr_reader dynamic_annotations: Array[Dynamic]
 
-        attr_reader break_type_annotation: untyped
+        attr_reader break_type_annotation: BreakType?
 
-        def initialize: (annotations: untyped, factory: untyped, context: untyped) -> void
+        def initialize: (annotations: Array[Annotation::t], factory: Types::Factory, context: RBS::Resolver::context) -> void
 
-        def absolute_type: (untyped `type`) -> (untyped | nil)
+        def absolute_type: (Types::t) -> Types::t
+                         | (Types::t?) -> Types::t?
 
-        def var_type: (?lvar: untyped?, ?ivar: untyped?, ?const: untyped?) -> untyped
+        def var_type: (lvar: Symbol) -> Types::t?
+                    | (ivar: Symbol) -> Types::t?
+                    | (const: RBS::TypeName) -> Types::t?
 
-        def method_type: (untyped name) -> (untyped | nil)
+        def method_type: (Symbol name) -> Interface::MethodType?
 
         %a{pure} def block_type: () -> Types::t?
 
@@ -52,23 +55,23 @@ module Steep
 
         %a{pure} def break_type: () -> Types::t?
 
-        def lvar_types: () -> untyped
+        def lvar_types: () -> Hash[Symbol, Types::t]
 
-        def ivar_types: () -> untyped
+        def ivar_types: () -> Hash[Symbol, Types::t]
 
-        def const_types: () -> untyped
+        def const_types: () -> Hash[RBS::TypeName, Types::t]
 
-        def instance_dynamics: () -> untyped
+        def instance_dynamics: () -> Array[Symbol]
 
-        def module_dynamics: () -> untyped
+        def module_dynamics: () -> Array[Symbol]
 
-        def merge_block_annotations: (untyped annotations) -> untyped
+        def merge_block_annotations: (Collection annotations) -> Collection
 
-        def any?: () { () -> untyped } -> untyped
+        def any?: () { (Annotation::t) -> boolish } -> bool
 
-        def size: () -> untyped
+        def size: () -> Integer
 
-        def include?: (untyped obj) -> untyped
+        def include?: (Annotation::t obj) -> bool
       end
     end
   end
