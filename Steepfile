@@ -3,13 +3,12 @@ D = Steep::Diagnostic
 target :app do
   check "lib"
   ignore "lib/steep/shims"
-  
+
   signature "sig"
 
   collection_config "rbs_collection.steep.yaml"
 
-  configure_code_diagnostics do |hash|             # You can setup everything yourself
-    hash[D::Ruby::MethodDefinitionMissing] = :hint
+  configure_code_diagnostics(D::Ruby.strict) do |hash|
   end
 
   FileUtils.mkpath("tmp")

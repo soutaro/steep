@@ -110,20 +110,20 @@ module Steep
         end
 
         def lvar_types
-          var_type_annotations.each_key.with_object({}) do |name, hash|
-            hash[name] = var_type(lvar: name)
+          var_type_annotations.each_key.with_object({}) do |name, hash| #$ Hash[Symbol, Types::t]
+            hash[name] = var_type(lvar: name) || raise
           end
         end
 
         def ivar_types
-          ivar_type_annotations.each_key.with_object({}) do |name, hash|
-            hash[name] = var_type(ivar: name)
+          ivar_type_annotations.each_key.with_object({}) do |name, hash| #$ Hash[Symbol, Types::t]
+            hash[name] = var_type(ivar: name) || raise
           end
         end
 
         def const_types
-          const_type_annotations.each_key.with_object({}) do |name, hash|
-            hash[name] = var_type(const: name)
+          const_type_annotations.each_key.with_object({}) do |name, hash| #$ Hash[RBS::TypeName, Types::t]
+            hash[name] = var_type(const: name) || raise
           end
         end
 
