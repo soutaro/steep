@@ -8,6 +8,13 @@ updates:
       time: "20:00"
     open-pull-requests-limit: 10
 
+  - package-ecosystem: bundler
+    directory: "/gemfile_steep"
+    schedule:
+      interval: daily
+      time: "20:00"
+    open-pull-requests-limit: 10
+
   - package-ecosystem: "github-actions"
     directory: "/"
     schedule:
