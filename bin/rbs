@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 BINSTUB_DIR=$(cd $(dirname $0); pwd)
-GEMFILE=$(readlink -f ${BINSTUB_DIR}/../Gemfile.steep)
+GEMFILE=$(readlink -f ${BINSTUB_DIR}/../gemfile_steep/Gemfile)
 COLLECTION=$(readlink -f ${BINSTUB_DIR}/../rbs_collection.steep.yaml)
 ROOT_DIR=$(readlink -f ${BINSTUB_DIR}/..)
 

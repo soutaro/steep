@@ -103,4 +103,4 @@ gems:
   version: '0'
   source:
     type: stdlib
-gemfile_lock_path: Gemfile.steep.lock
+gemfile_lock_path: gemfile_steep/Gemfile.lock
