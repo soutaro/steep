@@ -33,6 +33,8 @@ class TypeCheckTest < Minitest::Test
       end
     end
 
+    yield typings if block_given?
+
     formatter = Diagnostic::LSPFormatter.new()
 
     diagnostics = typings.transform_values do |typing|
@@ -50,8 +52,6 @@ class TypeCheckTest < Minitest::Test
 
       assert_equal expectations, exps.to_yaml
     end
-
-    yield typings if block_given?
   end
 
   def test_setter_type
