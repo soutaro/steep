@@ -1891,7 +1891,7 @@ module Steep
                 if loc.respond_to?(:keyword)
                   condition_loc = loc #: NodeHelper::condition_loc
                   case condition_loc.keyword.source
-                  when "if"
+                  when "if", "elsif"
                     location = condition_loc.begin || condition_loc.keyword
                   when "unless"
                     # `else` token always exists
@@ -1916,8 +1916,9 @@ module Steep
 
                 if loc.respond_to?(:keyword)
                   condition_loc = loc #: NodeHelper::condition_loc
+
                   case condition_loc.keyword.source
-                  when "if"
+                  when "if", "elsif"
                     # `else` token always exists
                     location = condition_loc.else || raise
                   when "unless"
