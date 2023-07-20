@@ -2,6 +2,18 @@
 
 ## master
 
+## 1.5.1 (2023-07-20)
+
+### Type checker core
+
+* Support unreachable branch detection with `elsif` ([#879](https://github.com/soutaro/steep/pull/879))
+* Give an optional type hint to lhs of `||` ([#874](https://github.com/soutaro/steep/pull/874))
+
+### Miscellaneous
+
+* Update steep ([#878](https://github.com/soutaro/steep/pull/878))
+* Update inline type comments ([#875](https://github.com/soutaro/steep/pull/875))
+
 ## 1.5.0 (2023-07-13)
 
 ### Type checker core
