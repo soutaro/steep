@@ -99,6 +99,10 @@ module Steep
       def type_case_select0: (AST::Types::t `type`, RBS::TypeName klass) -> [Array[AST::Types::t], Array[AST::Types::t]]
 
       def try_convert: (AST::Types::t, Symbol) -> AST::Types::t?
+
+      def no_subtyping?: (sub_type: AST::Types::t, super_type: AST::Types::t) -> Subtyping::Result::t?
+
+      def subtyping?: (sub_type: AST::Types::t, super_type: AST::Types::t) -> bool
     end
   end
 end

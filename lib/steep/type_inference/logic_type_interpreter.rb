@@ -292,7 +292,7 @@ module Steep
             )
 
             truthy_result = Result.new(type: TRUE, env: truthy_env, unreachable: false)
-            truthy_result.unreachable! if unwrap == receiver_type
+            truthy_result.unreachable! if no_subtyping?(sub_type: AST::Builtin.nil_type, super_type: receiver_type)
 
             falsy_result = Result.new(type: FALSE, env: falsy_env, unreachable: false)
             falsy_result.unreachable! unless unwrap
@@ -529,15 +529,14 @@ module Steep
           # 3. K <: T           (example: T = Numeric, K = Integer)
           # 4. none of the above (example: T = String, K = Integer)
 
-          relation = Subtyping::Relation.new(sub_type: type, super_type: instance_type)
-          if subtyping.check(relation, constraints: Subtyping::Constraints.empty, self_type: AST::Types::Self.instance, instance_type: AST::Types::Instance.instance, class_type: AST::Types::Class.instance).success?
+          if subtyping?(sub_type: type, super_type: instance_type)
             # 1 or 2. Satisfies the condition, no narrowing because `type` is already more specific than/equals to `instance_type`
             [
               [type],
               []
             ]
           else
-            if subtyping.check(relation.flip, constraints: Subtyping::Constraints.empty, self_type: AST::Types::Self.instance, instance_type: AST::Types::Instance.instance, class_type: AST::Types::Class.instance).success?
+            if subtyping?(sub_type: instance_type, super_type: type)
               # 3. Satisfied the condition, narrows to `instance_type`, but cannot remove it from *falsy* list
               [
                 [instance_type],
@@ -552,6 +551,19 @@ module Steep
             end
           end
         end
+      end
+
+      def no_subtyping?(sub_type:, super_type:)
+        relation = Subtyping::Relation.new(sub_type: sub_type, super_type: super_type)
+        result = subtyping.check(relation, constraints: Subtyping::Constraints.empty, self_type: AST::Types::Self.instance, instance_type: AST::Types::Instance.instance, class_type: AST::Types::Class.instance)
+
+        if result.failure?
+          result
+        end
+      end
+
+      def subtyping?(sub_type:, super_type:)
+        !no_subtyping?(sub_type: sub_type, super_type: super_type)
       end
 
       def try_convert(type, method)
