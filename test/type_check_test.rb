@@ -1578,4 +1578,27 @@ class TypeCheckTest < Minitest::Test
       YAML
     )
   end
+
+  def test_untyped_nilp
+    run_type_check_test(
+      signatures: {
+      },
+      code: {
+        "a.rb" => <<~RUBY
+          a = _ = nil
+
+          if a.nil?
+            1
+          else
+            2
+          end
+        RUBY
+      },
+      expectations: <<~YAML
+        ---
+        - file: a.rb
+          diagnostics: []
+      YAML
+    )
+  end
 end

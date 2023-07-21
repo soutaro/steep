@@ -339,7 +339,7 @@ end
 
   def test_type_case_select_untyped
     with_checker do |checker|
-      interpreter = LogicTypeInterpreter.new(subtyping: checker, typing: nil, typing: nil, config: config)
+      interpreter = LogicTypeInterpreter.new(subtyping: checker, typing: nil, config: config)
 
       assert_equal [parse_type("::String"), parse_type("untyped")],
                    interpreter.type_case_select(parse_type("untyped"), TypeName("::String"))
@@ -348,7 +348,7 @@ end
 
   def test_type_case_select_top
     with_checker do |checker|
-      interpreter = LogicTypeInterpreter.new(subtyping: checker, typing: nil, typing: nil, config: config)
+      interpreter = LogicTypeInterpreter.new(subtyping: checker, typing: nil, config: config)
 
       assert_equal [parse_type("::String"), parse_type("top")],
                    interpreter.type_case_select(parse_type("top"), TypeName("::String"))
@@ -366,7 +366,7 @@ end
 class TestChild2 < TestParent
 end
     RBS
-      interpreter = LogicTypeInterpreter.new(subtyping: checker, typing: nil, typing: nil, config: config)
+      interpreter = LogicTypeInterpreter.new(subtyping: checker, typing: nil, config: config)
 
       assert_equal [parse_type("::TestChild1"), parse_type("::String")],
                    interpreter.type_case_select(parse_type("::TestChild1 | ::String"), TypeName("::TestParent"))
@@ -388,7 +388,7 @@ type ds = D1 | D2
 type dm = ms | ds
     RBS
 
-      interpreter = LogicTypeInterpreter.new(subtyping: checker, typing: nil, typing: nil, config: config)
+      interpreter = LogicTypeInterpreter.new(subtyping: checker, typing: nil, config: config)
 
       assert_equal [parse_type("::M1"), parse_type("::M2 | ::M3")],
                    interpreter.type_case_select(parse_type("::ms"), TypeName("::M1"))
