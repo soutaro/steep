@@ -71,6 +71,18 @@ module Steep
 
         # Substitution for immediate type expressions
         def subst: () -> Substitution
+
+        # Returns `self_type`, or `nil` when it is `Types::Self`
+        #
+        def self_type?: () -> AST::Types::t?
+
+        # Returns `class_type`, or `nil` when it is `Types::Class`
+        #
+        def class_type?: () -> AST::Types::t?
+
+        # Returns `instanc_type`, or `nil` when it is `Types::Instance`
+        #
+        def instance_type?: () -> AST::Types::t?
       end
 
       attr_reader factory: AST::Types::Factory
