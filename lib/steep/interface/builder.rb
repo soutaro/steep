@@ -68,6 +68,24 @@ module Steep
             )
           end
         end
+
+        def self_type?
+          unless self_type.is_a?(AST::Types::Self)
+            self_type
+          end
+        end
+
+        def instance_type?
+          unless instance_type.is_a?(AST::Types::Instance)
+            instance_type
+          end
+        end
+
+        def class_type?
+          unless class_type.is_a?(AST::Types::Class)
+            class_type
+          end
+        end
       end
 
       attr_reader :factory, :cache, :raw_object_cache
@@ -122,16 +140,18 @@ module Steep
         fetch_cache(type, public_only, config) do
           case type
           when AST::Types::Self
-            self_type = config.self_type.subst(config.subst)
-            shape(self_type, public_only: public_only, config: config.update(resolve_self: false))
+            if self_type = config.self_type?
+              self_type = self_type.subst(config.subst)
+              shape(self_type, public_only: public_only, config: config.update(resolve_self: false))
+            end
           when AST::Types::Instance
-            if config.instance_type
-              instance_type = config.instance_type.subst(config.subst)
+            if instance_type = config.instance_type?
+              instance_type = instance_type.subst(config.subst)
               shape(instance_type, public_only: public_only, config: config.update(resolve_instance: false))
             end
           when AST::Types::Class
-            if config.class_type
-              class_type = config.class_type.subst(config.subst)
+            if class_type = config.class_type?
+              class_type = class_type.subst(config.subst)
               shape(class_type, public_only: public_only, config: config.update(resolve_class: false))
             end
           when AST::Types::Name::Instance, AST::Types::Name::Interface, AST::Types::Name::Singleton
@@ -159,7 +179,7 @@ module Steep
               instance_var = AST::Types::Var.fresh(:INSTANCE)
 
               bounds = config.variable_bounds.merge({ self_var.name => config.self_type, instance_var.name => config.instance_type, class_var.name => config.class_type })
-              type_ = type.subst(Substitution.build([], [], self_type: self_var, instance_type: instance_var, module_type: class_var))
+              type_ = type.subst(Substitution.build([], [], self_type: self_var, instance_type: instance_var, module_type: class_var)) #: AST::Types::Union
 
               config_ = config.update(resolve_self: false, resolve_class: true, resolve_instance: true, variable_bounds: bounds)
 
@@ -203,7 +223,7 @@ module Steep
             instance_var = AST::Types::Var.fresh(:INSTANCE)
 
             bounds = config.variable_bounds.merge({ self_var.name => config.self_type, instance_var.name => config.instance_type, class_var.name => config.class_type })
-            type_ = type.subst(Substitution.build([], [], self_type: self_var, instance_type: instance_var, module_type: class_var))
+            type_ = type.subst(Substitution.build([], [], self_type: self_var, instance_type: instance_var, module_type: class_var)) #: AST::Types::Intersection
 
             config_ = config.update(resolve_self: false, resolve_class: true, resolve_instance: true, variable_bounds: bounds)
 
