@@ -244,6 +244,9 @@ module Steep
 
         rescue Parser::SyntaxError => exn
           Steep.logger.info "recovering syntax error: #{exn.inspect}"
+
+          @source_text = source_text.dup
+
           case possible_trigger
           when "."
             if source_text[index-2] == "&"
