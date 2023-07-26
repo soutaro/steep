@@ -38,7 +38,7 @@ GEM
       rb-fsevent (~> 0.10, >= 0.10.3)
       rb-inotify (~> 0.9, >= 0.9.10)
     logger (1.5.3)
-    minitest (5.18.1)
+    minitest (5.19.0)
     minitest-hooks (1.5.0)
       minitest (> 5.3)
     minitest-slow_test (0.2.0)
@@ -74,7 +74,7 @@ PLATFORMS
   ruby
 
 DEPENDENCIES
-  minitest (~> 5.18)
+  minitest (~> 5.19)
   minitest-hooks
   minitest-slow_test
   rake
