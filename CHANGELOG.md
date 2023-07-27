@@ -2,6 +2,17 @@
 
 ## master
 
+## 1.5.2 (2023-07-27)
+
+### Type checker core
+
+* Avoid inifinite loop in `#shape` ([#884](https://github.com/soutaro/steep/pull/884))
+* Fix `nil?` typing with `untyped` receiver ([#882](https://github.com/soutaro/steep/pull/882))
+
+### Language server
+
+* Avoid breaking the original source code through `CompletionProvider` ([#883](https://github.com/soutaro/steep/pull/883))
+
 ## 1.5.1 (2023-07-20)
 
 ### Type checker core
