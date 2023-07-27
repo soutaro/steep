@@ -1601,4 +1601,61 @@ class TypeCheckTest < Minitest::Test
       YAML
     )
   end
+
+  def test_module_alias_as_namespace_alias
+    run_type_check_test(
+      signatures: {
+        "a.rbs" => <<~RBS
+          class Foo
+            type t = Integer
+
+            class Foo2
+            end
+          end
+
+          class Bar = Foo
+
+          type baz = Bar::t
+        RBS
+      },
+      code: {
+        "a.rb" => <<~RUBY
+          123 #: baz
+        RUBY
+      },
+      expectations: <<~YAML
+        ---
+        - file: a.rb
+          diagnostics: []
+      YAML
+    )
+  end
+
+  def test_module_alias_as_namespace_class
+    run_type_check_test(
+      signatures: {
+        "a.rbs" => <<~RBS
+          class Foo
+            type t = Integer
+
+            class Foo2 = Integer
+          end
+
+          class Bar = Foo
+
+          type baz = Bar::t
+        RBS
+      },
+      code: {
+        "a.rb" => <<~RUBY
+          123 #: Bar::Foo2
+        RUBY
+      },
+      expectations: <<~YAML
+        ---
+        - file: a.rb
+          diagnostics: []
+      YAML
+    )
+  end
 end
