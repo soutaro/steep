@@ -9,6 +9,7 @@ module Steep
       attr_accessor :max_index
       attr_accessor :index
       attr_accessor :commandline_args
+      attr_accessor :with_expectations_path
 
       include Utils::DriverHelper
 
@@ -33,7 +34,8 @@ module Steep
                                                  reader: reader,
                                                  writer: writer,
                                                  assignment: assignment,
-                                                 commandline_args: commandline_args)
+                                                 commandline_args: commandline_args,
+                                                 with_expectations_path: with_expectations_path)
                    when :interaction
                      Server::InteractionWorker.new(project: project, reader: reader, writer: writer)
                    else

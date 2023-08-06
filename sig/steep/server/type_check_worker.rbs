@@ -25,6 +25,8 @@ module Steep
 
       attr_reader current_type_check_guid: String?
 
+      attr_reader expectations: Expectations?
+
       class WorkspaceSymbolJob
         attr_reader id: String
 
@@ -104,7 +106,8 @@ module Steep
         reader: LSP::Transport::Io::Reader,
         writer: LSP::Transport::Io::Writer,
         assignment: PathAssignment,
-        commandline_args: Array[String]
+        commandline_args: Array[String],
+        with_expectations_path: Pathname?
       ) -> void
 
       def handle_request: (untyped request) -> void

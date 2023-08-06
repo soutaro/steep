@@ -65,6 +65,8 @@ module Steep
 
     def self.empty: () -> instance
 
+    def include?: (path: Pathname, diagnostic: Diagnostic) -> bool
+
     def to_yaml: () -> String
 
     def self.load: (path: Pathname, content: String) -> instance

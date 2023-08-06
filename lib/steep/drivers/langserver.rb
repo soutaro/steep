@@ -8,6 +8,7 @@ module Steep
       attr_reader :type_check_queue
       attr_reader :type_check_thread
       attr_reader :jobs_option
+      attr_accessor :with_expectations_path
 
       include Utils::DriverHelper
 
@@ -36,7 +37,7 @@ module Steep
         @project = load_config()
 
         interaction_worker = Server::WorkerProcess.start_worker(:interaction, name: "interaction", steepfile: project.steepfile_path, steep_command: jobs_option.steep_command)
-        typecheck_workers = Server::WorkerProcess.start_typecheck_workers(steepfile: project.steepfile_path, args: [], steep_command: jobs_option.steep_command, count: jobs_option.jobs_count_value)
+        typecheck_workers = Server::WorkerProcess.start_typecheck_workers(steepfile: project.steepfile_path, args: [], steep_command: jobs_option.steep_command, count: jobs_option.jobs_count_value, with_expectations_path: with_expectations_path)
 
         master = Server::Master.new(
           project: project,

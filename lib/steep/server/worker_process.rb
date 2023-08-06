@@ -18,7 +18,7 @@ module Steep
         @index = index
       end
 
-      def self.start_worker(type, name:, steepfile:, steep_command:, index: nil, delay_shutdown: false, patterns: [])
+      def self.start_worker(type, name:, steepfile:, steep_command:, index: nil, delay_shutdown: false, patterns: [], with_expectations_path: nil)
         begin
           unless steep_command
             fork_worker(
@@ -27,7 +27,8 @@ module Steep
               steepfile: steepfile,
               index: index,
               delay_shutdown: delay_shutdown,
-              patterns: patterns
+              patterns: patterns,
+              with_expectations_path: with_expectations_path
             )
           else
             # Use `#spawn_worker`
@@ -41,12 +42,13 @@ module Steep
             steep_command: steep_command || "steep",
             index: index,
             delay_shutdown: delay_shutdown,
-            patterns: patterns
+            patterns: patterns,
+            with_expectations_path: with_expectations_path
           )
         end
       end
 
-      def self.fork_worker(type, name:, steepfile:, index:, delay_shutdown:, patterns:)
+      def self.fork_worker(type, name:, steepfile:, index:, delay_shutdown:, patterns:, with_expectations_path:)
         stdin_in, stdin_out = IO.pipe
         stdout_in, stdout_out = IO.pipe
 
@@ -56,6 +58,7 @@ module Steep
         worker.worker_type = type
         worker.worker_name = name
         worker.delay_shutdown = delay_shutdown
+        worker.with_expectations_path = with_expectations_path
         if (max, this = index)
           worker.max_index = max
           worker.index = this
@@ -91,7 +94,7 @@ module Steep
         )
       end
 
-      def self.spawn_worker(type, name:, steepfile:, steep_command:, index:, delay_shutdown:, patterns:)
+      def self.spawn_worker(type, name:, steepfile:, steep_command:, index:, delay_shutdown:, patterns:, with_expectations_path:)
         args = ["--name=#{name}", "--steepfile=#{steepfile}"]
         args << (%w(debug info warn error fatal unknown)[Steep.logger.level].yield_self {|log_level| "--log-level=#{log_level}" })
 
@@ -106,6 +109,10 @@ module Steep
 
         if delay_shutdown
           args << "--delay-shutdown"
+        end
+
+        if with_expectations_path
+          args << "--with-expectations-path=#{with_expectations_path}}" 
         end
 
         command = case type
@@ -130,7 +137,7 @@ module Steep
         new(reader: reader, writer: writer, stderr: stderr, wait_thread: thread, name: name, index: index&.[](1))
       end
 
-      def self.start_typecheck_workers(steepfile:, args:, steep_command:, count: [Etc.nprocessors - 1, 1].max, delay_shutdown: false)
+      def self.start_typecheck_workers(steepfile:, args:, steep_command:, count: [Etc.nprocessors - 1, 1].max, delay_shutdown: false, with_expectations_path: nil)
         count.times.map do |i|
           start_worker(
             :typecheck,
@@ -140,6 +147,7 @@ module Steep
             index: [count, i],
             patterns: args,
             delay_shutdown: delay_shutdown,
+            with_expectations_path: with_expectations_path
           )
         end
       end

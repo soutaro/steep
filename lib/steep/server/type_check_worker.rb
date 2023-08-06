@@ -4,6 +4,7 @@ module Steep
       attr_reader :project, :assignment, :service
       attr_reader :commandline_args
       attr_reader :current_type_check_guid
+      attr_reader :expectations
 
       WorkspaceSymbolJob = _ = Struct.new(:query, :id, keyword_init: true)
       StatsJob = _ = Struct.new(:id, keyword_init: true)
@@ -53,7 +54,7 @@ module Steep
 
       include ChangeBuffer
 
-      def initialize(project:, reader:, writer:, assignment:, commandline_args:)
+      def initialize(project:, reader:, writer:, assignment:, commandline_args:, with_expectations_path:)
         super(project: project, reader: reader, writer: writer)
 
         @assignment = assignment
@@ -63,6 +64,9 @@ module Steep
         @queue = Queue.new
         @commandline_args = commandline_args
         @current_type_check_guid = nil
+
+        expectations_path = project.relative_path(with_expectations_path) if with_expectations_path
+        @expectations = Expectations.load(path: expectations_path, content: expectations_path.read) if expectations_path&.exist?
       end
 
       def handle_request(request)
@@ -199,11 +203,14 @@ module Steep
               target = project.target_for_source_path(path)
               formatter = Diagnostic::LSPFormatter.new(target&.code_diagnostics_config || {})
 
+              lsp_diagnostics = diagnostics.map {|diagnostic| formatter.format(diagnostic) }.uniq.compact
+              lsp_diagnostics.reject! { |d| expectations.include?(path: path, diagnostic: Expectations::Diagnostic.from_lsp(d)) } if expectations
+
               writer.write(
                 method: :"textDocument/publishDiagnostics",
                 params: LSP::Interface::PublishDiagnosticsParams.new(
                   uri: Steep::PathHelper.to_uri(job.path).to_s,
-                  diagnostics: diagnostics.map {|diagnostic| formatter.format(diagnostic) }.uniq.compact
+                  diagnostics: lsp_diagnostics
                 )
               )
             end
