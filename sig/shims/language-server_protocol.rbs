@@ -78,6 +78,18 @@ module LanguageServer
         MARKDOWN: "markdown"
       end
 
+      class MessageType
+        type t = 1 | 2 | 3 | 4
+
+        ERROR: 1
+
+        WARNING: 2
+
+        INFO: 3
+
+        LOG: 4
+      end
+
       module DiagnosticSeverity
         type t = 1 | 2 | 3 | 4
 
