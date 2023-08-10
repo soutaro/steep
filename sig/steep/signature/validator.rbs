@@ -66,6 +66,11 @@ module Steep
 
       def validate_one_global: (Symbol name, RBS::Environment::GlobalEntry) -> void
 
+      # Validate type alias
+      #
+      # 1. Make sure the outer namespace of given `name` exists
+      # 2. Make sure the type alias is valid with respect to `RBS::Validator`
+      # 
       def validate_one_alias: (RBS::TypeName name, ?RBS::Environment::TypeAliasEntry entry) -> void
 
       def validate_one_class_decl: (RBS::TypeName) -> void
