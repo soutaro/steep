@@ -10,7 +10,3 @@ group :stackprof, optional: true do
   gem "stackprof"
 end
 gem 'minitest-slow_test'
-
-group :development do
-  gem "ruby-lsp", require: false
-end

@@ -1601,4 +1601,25 @@ class TypeCheckTest < Minitest::Test
       YAML
     )
   end
+
+  def test_paren_conditional
+    run_type_check_test(
+      signatures: {},
+      code: {
+        "a.rb" => <<~RUBY
+          a = [1].first
+          b = [2].first
+
+          if (a && b)
+            a + b
+          end
+        RUBY
+      },
+      expectations: <<~YAML
+        ---
+        - file: a.rb
+          diagnostics: []
+      YAML
+    )
+  end
 end
