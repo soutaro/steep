@@ -2,6 +2,12 @@
 
 ## master
 
+## 1.5.3 (2023-08-10)
+
+### Type checker core
+
+* Fix type checking parenthesized conditional nodes ([#896](https://github.com/soutaro/steep/pull/896))
+
 ## 1.5.2 (2023-07-27)
 
 ### Type checker core
