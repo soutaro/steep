@@ -710,7 +710,7 @@ module Steep
                 end
               end
 
-              p = pair.constr.synthesize(last_node, hint: hint)
+              p = pair.constr.synthesize(last_node, hint: hint, condition: condition)
               last_pair = pair + p
               last_pair.constr.add_typing(node, type: last_pair.type, constr: last_pair.constr)
             else
