@@ -520,6 +520,12 @@ module Steep
       def validate_one_alias(name, entry = env.type_alias_decls[name])
         rescue_validation_errors(name) do
           Steep.logger.debug "Validating alias `#{name}`..."
+
+          unless name.namespace.empty?
+            outer = name.namespace.to_type_name
+            builder.validate_type_name(outer, entry.decl.location&.aref(:name))
+          end
+
           upper_bounds = entry.decl.type_params.each.with_object({}) do |param, bounds|
             bounds[param.name] = factory.type_opt(param.upper_bound)
           end
