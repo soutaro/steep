@@ -4,6 +4,7 @@ module Steep
       attr_reader :project, :assignment, :service
       attr_reader :commandline_args
       attr_reader :current_type_check_guid
+      attr_reader :severity_level
 
       WorkspaceSymbolJob = _ = Struct.new(:query, :id, keyword_init: true)
       StatsJob = _ = Struct.new(:id, keyword_init: true)
@@ -53,7 +54,7 @@ module Steep
 
       include ChangeBuffer
 
-      def initialize(project:, reader:, writer:, assignment:, commandline_args:)
+      def initialize(project:, reader:, writer:, assignment:, commandline_args:, severity_level:)
         super(project: project, reader: reader, writer: writer)
 
         @assignment = assignment
@@ -63,6 +64,7 @@ module Steep
         @queue = Queue.new
         @commandline_args = commandline_args
         @current_type_check_guid = nil
+        @severity_level = severity_level
       end
 
       def handle_request(request)
@@ -162,11 +164,14 @@ module Steep
             service.validate_signature(path: project.relative_path(job.path)) do |path, diagnostics|
               formatter = Diagnostic::LSPFormatter.new({}, **{})
 
+              lsp_diagnostics = diagnostics.map {|diagnostic| formatter.format(diagnostic) }.uniq.compact
+              lsp_diagnostics.select! { |diagnostic| keep_diagnostic?(diagnostic, severity_level: severity_level) }
+
               writer.write(
                 method: :"textDocument/publishDiagnostics",
                 params: LSP::Interface::PublishDiagnosticsParams.new(
                   uri: Steep::PathHelper.to_uri(job.path),
-                  diagnostics: diagnostics.map {|diagnostic| formatter.format(diagnostic) }.uniq
+                  diagnostics: lsp_diagnostics
                 )
               )
             end
@@ -180,11 +185,14 @@ module Steep
             service.validate_signature(path: job.path) do |path, diagnostics|
               formatter = Diagnostic::LSPFormatter.new({}, **{})
 
+              lsp_diagnostics = diagnostics.map {|diagnostic| formatter.format(diagnostic) }.uniq.compact
+              lsp_diagnostics.select! { |diagnostic| keep_diagnostic?(diagnostic, severity_level: severity_level) }
+
               writer.write(
                 method: :"textDocument/publishDiagnostics",
                 params: LSP::Interface::PublishDiagnosticsParams.new(
                   uri: Steep::PathHelper.to_uri(job.path),
-                  diagnostics: diagnostics.map {|diagnostic| formatter.format(diagnostic) }.uniq.compact
+                  diagnostics: lsp_diagnostics
                 )
               )
             end
@@ -199,11 +207,14 @@ module Steep
               target = project.target_for_source_path(path)
               formatter = Diagnostic::LSPFormatter.new(target&.code_diagnostics_config || {})
 
+              lsp_diagnostics = diagnostics.map {|diagnostic| formatter.format(diagnostic) }.uniq.compact
+              lsp_diagnostics.select! { |diagnostic| keep_diagnostic?(diagnostic, severity_level: severity_level) }
+
               writer.write(
                 method: :"textDocument/publishDiagnostics",
                 params: LSP::Interface::PublishDiagnosticsParams.new(
                   uri: Steep::PathHelper.to_uri(job.path),
-                  diagnostics: diagnostics.map {|diagnostic| formatter.format(diagnostic) }.uniq.compact
+                  diagnostics: lsp_diagnostics
                 )
               )
             end
@@ -226,6 +237,21 @@ module Steep
             id: job.id,
             result: goto(job)
           )
+        end
+      end
+
+      def keep_diagnostic?(diagnostic, severity_level:)
+        severity = diagnostic[:severity]
+
+        case severity_level
+        when nil, :hint
+          true
+        when :error
+          severity <= LanguageServer::Protocol::Constant::DiagnosticSeverity::ERROR
+        when :warning
+          severity <= LanguageServer::Protocol::Constant::DiagnosticSeverity::WARNING
+        when :information
+          severity <= LanguageServer::Protocol::Constant::DiagnosticSeverity::INFORMATION
         end
       end
 

@@ -5,6 +5,7 @@ module Steep
       attr_reader :stderr
       attr_reader :stdin
       attr_reader :write_mutex
+      attr_accessor :severity_level
       attr_reader :type_check_queue
       attr_reader :type_check_thread
       attr_reader :jobs_option
@@ -16,6 +17,7 @@ module Steep
         @stderr = stderr
         @stdin = stdin
         @write_mutex = Mutex.new
+        @severity_level = :warning
         @type_check_queue = Queue.new
         @jobs_option = Utils::JobsOption.new(jobs_count_modifier: -1)
       end
@@ -36,7 +38,7 @@ module Steep
         @project = load_config()
 
         interaction_worker = Server::WorkerProcess.start_worker(:interaction, name: "interaction", steepfile: project.steepfile_path, steep_command: jobs_option.steep_command)
-        typecheck_workers = Server::WorkerProcess.start_typecheck_workers(steepfile: project.steepfile_path, args: [], steep_command: jobs_option.steep_command, count: jobs_option.jobs_count_value)
+        typecheck_workers = Server::WorkerProcess.start_typecheck_workers(steepfile: project.steepfile_path, args: [], steep_command: jobs_option.steep_command, count: jobs_option.jobs_count_value, severity_level: severity_level)
 
         master = Server::Master.new(
           project: project,

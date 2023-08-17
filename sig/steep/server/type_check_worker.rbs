@@ -25,6 +25,8 @@ module Steep
 
       attr_reader current_type_check_guid: String?
 
+      attr_reader severity_level: Diagnostic::LSPFormatter::severity
+
       class WorkspaceSymbolJob
         attr_reader id: String
 
@@ -104,7 +106,8 @@ module Steep
         reader: LSP::Transport::Io::Reader,
         writer: LSP::Transport::Io::Writer,
         assignment: PathAssignment,
-        commandline_args: Array[String]
+        commandline_args: Array[String],
+        severity_level: Diagnostic::LSPFormatter::severity
       ) -> void
 
       def handle_request: (untyped request) -> void
@@ -128,6 +131,8 @@ module Steep
                | StatsJob
 
       def handle_job: (job) -> void
+
+      def keep_diagnostic?: (untyped diagnostic, severity_level: Diagnostic::LSPFormatter::severity) -> bool
 
       def typecheck_progress: (guid: String, path: Pathname) -> void
 

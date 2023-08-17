@@ -13,6 +13,8 @@ module Steep
 
       attr_accessor delay_shutdown: bool
 
+      attr_accessor severity_level: Diagnostic::LSPFormatter::severity
+
       attr_accessor max_index: Integer
 
       attr_accessor index: Integer

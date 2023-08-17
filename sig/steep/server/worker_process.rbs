@@ -53,6 +53,7 @@ module Steep
         steep_command: String?,
         ?patterns: Array[String],
         ?delay_shutdown: bool,
+        ?severity_level: Diagnostic::LSPFormatter::severity,
         ?index: [Integer, Integer]?
       ) -> WorkerProcess
 
@@ -62,6 +63,7 @@ module Steep
         steepfile: Pathname,
         patterns: Array[String],
         delay_shutdown: bool,
+        severity_level: Diagnostic::LSPFormatter::severity,
         index: [Integer, Integer]?
       ) -> WorkerProcess
 
@@ -72,6 +74,7 @@ module Steep
         steep_command: ::String,
         patterns: Array[String],
         delay_shutdown: bool,
+        severity_level: Diagnostic::LSPFormatter::severity,
         index: [Integer, Integer]?
       ) -> WorkerProcess
 
@@ -80,7 +83,8 @@ module Steep
         args: Array[String],
         steep_command: ::String?,
         ?count: Integer,
-        ?delay_shutdown: bool
+        ?delay_shutdown: bool,
+        ?severity_level: Diagnostic::LSPFormatter::severity
       ) -> Array[WorkerProcess]
 
       def <<: (untyped message) -> void

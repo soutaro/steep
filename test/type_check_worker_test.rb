@@ -66,6 +66,7 @@ class TypeCheckWorkerTest < Minitest::Test
             project: project,
             assignment: assignment,
             commandline_args: [],
+            severity_level: :warning,
             reader: worker_reader,
             writer: worker_writer)
         ) do |worker|
@@ -102,6 +103,7 @@ class TypeCheckWorkerTest < Minitest::Test
           project: project,
           assignment: assignment,
           commandline_args: [],
+          severity_level: :warning,
           reader: worker_reader,
           writer: worker_writer
         )
@@ -135,6 +137,7 @@ class TypeCheckWorkerTest < Minitest::Test
           project: project,
           assignment: assignment,
           commandline_args: [],
+          severity_level: :warning,
           reader: worker_reader,
           writer: worker_writer
         )
@@ -183,6 +186,7 @@ class TypeCheckWorkerTest < Minitest::Test
           project: project,
           assignment: assignment,
           commandline_args: [],
+          severity_level: :warning,
           reader: worker_reader,
           writer: worker_writer
         )
@@ -247,6 +251,7 @@ class TypeCheckWorkerTest < Minitest::Test
           project: project,
           assignment: assignment,
           commandline_args: [],
+          severity_level: :warning,
           reader: worker_reader,
           writer: worker_writer
         )
@@ -294,6 +299,7 @@ class TypeCheckWorkerTest < Minitest::Test
           project: project,
           assignment: assignment,
           commandline_args: [],
+          severity_level: :warning,
           reader: worker_reader,
           writer: worker_writer
         )
@@ -345,6 +351,7 @@ class TypeCheckWorkerTest < Minitest::Test
           project: project,
           assignment: assignment,
           commandline_args: [],
+          severity_level: :warning,
           reader: worker_reader,
           writer: worker_writer
         )
@@ -392,6 +399,7 @@ class TypeCheckWorkerTest < Minitest::Test
           project: project,
           assignment: assignment,
           commandline_args: [],
+          severity_level: :warning,
           reader: worker_reader,
           writer: worker_writer
         )
@@ -446,6 +454,7 @@ class TypeCheckWorkerTest < Minitest::Test
           project: project,
           assignment: assignment,
           commandline_args: [],
+          severity_level: :warning,
           reader: worker_reader,
           writer: worker_writer
         )
@@ -494,6 +503,7 @@ class TypeCheckWorkerTest < Minitest::Test
           project: project,
           assignment: assignment,
           commandline_args: [],
+          severity_level: :warning,
           reader: worker_reader,
           writer: worker_writer
         )
@@ -553,6 +563,7 @@ class TypeCheckWorkerTest < Minitest::Test
           project: project,
           assignment: assignment,
           commandline_args: [],
+          severity_level: nil,
           reader: worker_reader,
           writer: worker_writer
         )
@@ -615,6 +626,7 @@ class TypeCheckWorkerTest < Minitest::Test
           project: project,
           assignment: assignment,
           commandline_args: [],
+          severity_level: :warning,
           reader: worker_reader,
           writer: worker_writer
         )
@@ -659,6 +671,7 @@ EOF
         project: project,
         assignment: assignment,
         commandline_args: [],
+        severity_level: :warning,
         reader: worker_reader,
         writer: worker_writer
       )
@@ -703,6 +716,7 @@ EOF
         project: project,
         assignment: assignment,
         commandline_args: [],
+        severity_level: :warning,
         reader: worker_reader,
         writer: worker_writer
       )
@@ -728,6 +742,7 @@ RUBY
         project: project,
         assignment: assignment,
         commandline_args: [],
+        severity_level: :warning,
         reader: worker_reader,
         writer: worker_writer
       )
@@ -769,6 +784,7 @@ RUBY
         project: project,
         assignment: assignment,
         commandline_args: [],
+        severity_level: :warning,
         reader: worker_reader,
         writer: worker_writer
       )

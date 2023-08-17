@@ -208,6 +208,9 @@ module Steep
       Drivers::Langserver.new(stdout: stdout, stderr: stderr, stdin: stdin).tap do |command|
         OptionParser.new do |opts|
           opts.on("--steepfile=PATH") {|path| command.steepfile = Pathname(path) }
+          opts.on("--severity-level=LEVEL", /^error|warning|information|hint$/, "Specify the minimum diagnostic severity to be recognized as an error (defaults: warning): error, warning, information, or hint") do |level|
+            command.severity_level = level.to_sym
+          end
           handle_jobs_option command.jobs_option, opts
           handle_logging_options opts
         end.parse!(argv)
@@ -325,6 +328,9 @@ TEMPLATE
           opts.on("--steepfile=PATH") {|path| command.steepfile = Pathname(path) }
           opts.on("--name=NAME") {|name| command.worker_name = name }
           opts.on("--delay-shutdown") { command.delay_shutdown = true }
+          opts.on("--severity-level=LEVEL", /^error|warning|information|hint$/, "Specify the minimum diagnostic severity to be recognized as an error (defaults: warning): error, warning, information, or hint") do |level|
+            command.severity_level = level.to_sym
+          end
           opts.on("--max-index=COUNT") {|count| command.max_index = Integer(count) }
           opts.on("--index=INDEX") {|index| command.index = Integer(index) }
         end.parse!(argv)

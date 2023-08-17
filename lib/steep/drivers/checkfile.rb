@@ -105,6 +105,7 @@ module Steep
           steepfile: project.steepfile_path,
           args: [],
           delay_shutdown: true,
+          severity_level: nil,
           steep_command: jobs_option.steep_command,
           count: count
         )

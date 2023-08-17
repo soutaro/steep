@@ -9,6 +9,8 @@ module Steep
 
       attr_reader write_mutex: Thread::Mutex
 
+      attr_accessor severity_level: Diagnostic::LSPFormatter::severity
+
       attr_reader type_check_queue: Thread::Queue
 
       attr_reader type_check_thread: Thread

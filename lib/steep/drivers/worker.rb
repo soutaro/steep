@@ -6,6 +6,7 @@ module Steep
       attr_accessor :worker_type
       attr_accessor :worker_name
       attr_accessor :delay_shutdown
+      attr_accessor :severity_level
       attr_accessor :max_index
       attr_accessor :index
       attr_accessor :commandline_args
@@ -33,7 +34,8 @@ module Steep
                                                  reader: reader,
                                                  writer: writer,
                                                  assignment: assignment,
-                                                 commandline_args: commandline_args)
+                                                 commandline_args: commandline_args,
+                                                 severity_level: severity_level)
                    when :interaction
                      Server::InteractionWorker.new(project: project, reader: reader, writer: writer)
                    else
