@@ -767,6 +767,20 @@ module Steep
               )
             end
           end
+
+          if method_def.annotations.any? {|annotation| annotation.string == "primitive:nil?" }
+            return method_type.with(
+              type: method_type.type.with(
+                return_type: AST::Types::Logic::ReceiverIsNil.new(location: method_type.type.return_type.location)
+              )
+            )
+          elsif method_def.annotations.any? {|annotation| annotation.string == "primitive:not_nil?" }
+            return method_type.with(
+              type: method_type.type.with(
+                return_type: AST::Types::Logic::ReceiverIsNotNil.new(location: method_type.type.return_type.location)
+              )
+            )
+          end
         end
 
         method_type

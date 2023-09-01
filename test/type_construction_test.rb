@@ -6152,6 +6152,46 @@ e + 1
     end
   end
 
+  def test_logic_receiver_is_nil_via_annotation
+    with_checker(<<-RBS) do |checker|
+      class Object
+        %a{primitive:nil?}
+        def blank?: () -> bool
+      end
+    RBS
+      source = parse_ruby(<<-RUBY)
+a = [1].first
+return if a.blank?
+a + 1
+      RUBY
+
+      with_standard_construction(checker, source) do |construction, typing|
+        construction.synthesize(source.node)
+        assert_no_error typing
+      end
+    end
+  end
+
+  def test_logic_receiver_is_not_nil_via_annotation
+    with_checker(<<-RBS) do |checker|
+      class Object
+        %a{primitive:not_nil?}
+        def present?: () -> bool
+      end
+    RBS
+      source = parse_ruby(<<-RUBY)
+a = [1].first
+return unless a.present?
+a + 1
+      RUBY
+
+      with_standard_construction(checker, source) do |construction, typing|
+        construction.synthesize(source.node)
+        assert_no_error typing
+      end
+    end
+  end
+
   def test_logic_receiver_is_arg
     with_checker(<<-RBS) do |checker|
     RBS
