@@ -23,7 +23,7 @@ jobs:
     container:
       image: rubylang/ruby:${{ matrix.container_tag }}
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v4
     - name: Run test
       run: |
         git config --global --add safe.directory /__w/steep/steep
