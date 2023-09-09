@@ -271,7 +271,7 @@ module Steep
     def calculate_interface: (AST::Types::t `type`, private: bool) -> Interface::Shape?
                            | (AST::Types::t `type`, Symbol method_name, private: bool) -> Interface::Shape::Entry?
 
-    def expand_self: (untyped `type`) -> untyped
+    def expand_self: (AST::Types::t `type`) -> AST::Types::t
 
     SPECIAL_METHOD_NAMES: Hash[Symbol, Set[method_name]]
 

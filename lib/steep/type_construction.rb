@@ -3046,6 +3046,7 @@ module Steep
           end
         else
           parent_type, constr = synthesize(parent_node).to_ary
+          parent_type = expand_self(parent_type)
           parent_type = deep_expand_alias(parent_type)
 
           case parent_type

@@ -1622,4 +1622,28 @@ class TypeCheckTest < Minitest::Test
       YAML
     )
   end
+
+  def test_self_constant
+    run_type_check_test(
+      signatures: {
+        "a.rbs" => <<~RBS
+          class ConstantTest
+            NAME: String
+          end
+        RBS
+      },
+      code: {
+        "a.rb" => <<~RUBY
+          class ConstantTest
+            self::NAME
+          end
+        RUBY
+      },
+      expectations: <<~YAML
+        ---
+        - file: a.rb
+          diagnostics: []
+      YAML
+    )
+  end
 end
