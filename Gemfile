@@ -4,7 +4,7 @@ source 'https://rubygems.org'
 gemspec
 
 gem "rake"
-gem "minitest", "~> 5.19"
+gem "minitest", "~> 5.20"
 gem "minitest-hooks"
 group :stackprof, optional: true do
   gem "stackprof"
