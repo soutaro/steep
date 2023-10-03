@@ -123,7 +123,7 @@ module Steep
       # Returns nil if there is no path.
       def hole_path: (AST::Types::t `type`, ?Array[AST::Types::t] path) -> Array[AST::Types::t]?
 
-      def Relation: [T < Object] (T sub, T sup) -> Relation[T]
+      def Relation: [T < Relation::_Subject] (T sub, T sup) -> Relation[T]
     end
   end
 end

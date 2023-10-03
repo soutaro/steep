@@ -45,7 +45,7 @@ module Steep
         @failure: bool
 
         # Returns `false` if no future `#add` changes the result.
-        def add: [T < Object] (*Relation[T] relations) { (Relation[T]) -> t? } -> bool
+        def add: [T < Relation::_Subject] (*Relation[T] relations) { (Relation[T]) -> t? } -> bool
 
         # Returns `false` if no future `#add` changes the result.
         def add_result: (t?) -> bool
