@@ -1138,4 +1138,22 @@ Test: SetValueExtractor[ArraySet]
       end
     end
   end
+
+  def test_validate_type_alias_module_alias
+    with_checker <<~RBS do |checker|
+        module Foo
+          type t = Integer
+        end
+
+        module Bar = Foo
+
+        type baz = Bar::t
+      RBS
+
+      Validator.new(checker: checker).tap do |validator|
+        validator.validate
+        assert_predicate validator, :no_error?
+      end
+    end
+  end
 end
