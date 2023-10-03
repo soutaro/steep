@@ -1,6 +1,16 @@
 module Steep
   module Subtyping
-    class Relation[out Subject < Object]
+    class Relation[out Subject < _Subject]
+      interface _Subject
+        def hash: () -> Integer
+
+        def is_a?: (Module) -> bool
+
+        def class: () -> Class
+
+        def !: () -> bool
+      end
+
       attr_reader sub_type: Subject
 
       attr_reader super_type: Subject

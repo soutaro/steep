@@ -79,11 +79,11 @@ module Steep
       end
 
       def instance_type
-        @instance_type
+        @instance_type || AST::Types::Instance.instance
       end
 
       def class_type
-        @class_type
+        @class_type || AST::Types::Class.instance
       end
 
       def constraints
@@ -193,7 +193,7 @@ module Steep
           bounds = cache_bounds(relation)
           fvs = relation.sub_type.free_variables + relation.super_type.free_variables
           cached = cache[relation, @self_type, @instance_type, @class_type, bounds]
-          if cached && fvs.none? {|var| constraints.unknown?(var) }
+          if cached && fvs.none? {|var| var.is_a?(Symbol) && constraints.unknown?(var) }
             cached
           else
             if assumptions.member?(relation)
@@ -212,7 +212,8 @@ module Steep
 
       def cache_bounds(relation)
         vars = relation.sub_type.free_variables + relation.super_type.free_variables
-        vars.each.with_object({}) do |var, hash|
+        vars.each.with_object({}) do |var, hash| #$ Hash[Symbol, AST::Types::t]
+          next unless var.is_a?(Symbol)
           if upper_bound = variable_upper_bound(var)
             hash[var] = upper_bound
           end
@@ -232,7 +233,7 @@ module Steep
         when AST::Types::Literal
           type.value == true
         else
-          AST::Builtin::TrueClass.instance_type?(type)
+          AST::Builtin::TrueClass.instance_type?(type) ? true : false
         end
       end
 
@@ -241,7 +242,7 @@ module Steep
         when AST::Types::Literal
           type.value == false
         else
-          AST::Builtin::FalseClass.instance_type?(type)
+          AST::Builtin::FalseClass.instance_type?(type) ? true : false
         end
       end
 
@@ -410,7 +411,7 @@ module Steep
                     class_type: class_type,
                     variable_bounds: variable_upper_bounds
                   )
-                ) or raise
+                ) or return Failure(relation, Result::Failure::UnknownPairError.new(relation: relation))
               }
             )
           end
@@ -492,7 +493,7 @@ module Steep
             Failure(relation, Result::Failure::UnknownPairError.new(relation: relation))
           end
 
-        when relation.sub_type.is_a?(AST::Types::Tuple) && AST::Builtin::Array.instance_type?(relation.super_type)
+        when relation.sub_type.is_a?(AST::Types::Tuple) && (super_type = AST::Builtin::Array.instance_type?(relation.super_type))
           Expand(relation) do
             tuple_element_type =
               AST::Types::Union.build(
@@ -500,7 +501,7 @@ module Steep
                 location: relation.sub_type.location
               )
 
-            check_type(Relation.new(sub_type: tuple_element_type, super_type: relation.super_type.args[0]))
+            check_type(Relation.new(sub_type: tuple_element_type, super_type: super_type.args[0]))
           end
 
         when relation.sub_type.is_a?(AST::Types::Record) && relation.super_type.is_a?(AST::Types::Record)
@@ -742,10 +743,17 @@ module Steep
             args = sub_type.type_params.map {|type_param| AST::Types::Var.fresh(type_param.name) }
             args.each {|arg| constraints.unknown!(arg.name) }
 
-            upper_bounds = {}
-            relations = [] #: Array[Relation]
+            upper_bounds = {} #: Hash[Symbol, AST::Types::t]
+            relations = [] #: Array[Relation[AST::Types::t]]
 
             args.zip(sub_type.type_params, super_type.type_params).each do |arg, sub_param, sup_param|
+              # @type var arg: AST::Types::Var
+              # @type var sub_param: Interface::TypeParam?
+              # @type var super_param: Interface::TypeParam?
+
+              sub_param or raise
+              sup_param or raise
+
               sub_ub = sub_param.upper_bound
               sup_ub = sup_param.upper_bound
 
@@ -927,7 +935,7 @@ module Steep
 
         sub_params, super_params = relation
 
-        pairs = []
+        pairs = [] #: Array[[AST::Types::t, AST::Types::t]]
 
         sub_flat = sub_params.flat_unnamed_params
         sup_flat = super_params.flat_unnamed_params
@@ -939,7 +947,7 @@ module Steep
           return failure unless sub_params.rest
 
           while sub_flat.size > 0
-            sub_type = sub_flat.shift
+            sub_type = sub_flat.shift or raise
             sup_type = sup_flat.shift
 
             if sup_type
@@ -955,7 +963,7 @@ module Steep
 
         when sub_params.rest
           while sub_flat.size > 0
-            sub_type = sub_flat.shift
+            sub_type = sub_flat.shift or raise
             sup_type = sup_flat.shift
 
             if sup_type
@@ -972,7 +980,7 @@ module Steep
           end
         when sub_params.required.size + sub_params.optional.size >= super_params.required.size + super_params.optional.size
           while sub_flat.size > 0
-            sub_type = sub_flat.shift
+            sub_type = sub_flat.shift or raise
             sup_type = sup_flat.shift
 
             if sup_type
