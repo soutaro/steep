@@ -408,8 +408,12 @@ end
 
   def test_nil_type
     with_checker do |checker|
-      assert_success_check checker, "nil", "::NilClass"
       assert_success_check checker, "::NilClass", "nil"
+      
+      assert_fail_check checker, "nil", "::NilClass"
+      assert_fail_check checker, "nil", "::Object"
+      assert_success_check checker, "nil", "top"
+      assert_success_check checker, "nil", "untyped"
     end
   end
 
