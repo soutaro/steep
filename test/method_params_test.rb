@@ -370,6 +370,23 @@ class MethodParamsTest < Minitest::Test
         end
       end
 
+      MethodParams.build(node: node, method_type: parse_method_type("(?foo: String) -> void")).tap do |params|
+        assert_equal 1, params.size
+
+        assert_equal(
+          MethodParams::KeywordRestParameter.new(
+            name: :foo,
+            type: parse_type("String"),
+            node: params.args[0]
+          ),
+          params[:foo]
+        )
+
+        assert_any!(params.errors, size: 1) do |error|
+          assert_instance_of DifferentMethodParameterKind, error
+        end
+      end
+
       MethodParams.build(node: node, method_type: parse_method_type("(**Symbol) -> void")).tap do |params|
         assert_equal 1, params.size
 
