@@ -112,10 +112,11 @@ module Steep
               type.args
             ]
           when RBS::Types::Alias
-            entry = env.type_alias_decls[type.name]
+            type_name = env.normalize_type_name?(type.name) or return
+            entry = env.type_alias_decls[type_name]
 
             [
-              type.name,
+              type_name,
               entry.decl.type_params,
               type.args
             ]
