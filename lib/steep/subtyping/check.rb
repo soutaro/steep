@@ -550,9 +550,7 @@ module Steep
           end
 
         when relation.super_type.is_a?(AST::Types::Nil) && AST::Builtin::NilClass.instance_type?(relation.sub_type)
-          Success(relation)
-
-        when relation.sub_type.is_a?(AST::Types::Nil) && AST::Builtin::NilClass.instance_type?(relation.super_type)
+          # NilClass <: nil
           Success(relation)
 
         when relation.sub_type.is_a?(AST::Types::Literal)
