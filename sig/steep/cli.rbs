@@ -24,6 +24,8 @@ module Steep
 
     def handle_jobs_option: (Drivers::Utils::JobsOption jobs_option, OptionParser opts) -> void
 
+    def setup_jobs_for_ci: (Drivers::Utils::JobsOption) -> void
+
     def process_init: () -> Integer
 
     def process_check: () -> Integer
