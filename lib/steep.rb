@@ -23,9 +23,6 @@ require "rbs"
 
 require "steep/path_helper"
 
-require "steep/shims/filter_map"
-require "steep/shims/symbol_start_with"
-
 require "steep/thread_waiter"
 require "steep/equatable"
 require "steep/method_name"
