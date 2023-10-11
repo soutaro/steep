@@ -159,8 +159,26 @@ module Steep
         end
       end
 
+      def resolve_used_name(name)
+        return nil if name.absolute?
+
+        case
+        when resolved = map.resolve?(name)
+          resolved
+        when name.namespace.empty?
+          nil
+        else
+          if resolved_parent = resolve_used_name(name.namespace.to_type_name)
+            resolved_name = RBS::TypeName.new(namespace: resolved_parent.to_namespace, name: name.name)
+            if env.normalize_type_name?(resolved_name)
+              resolved_name
+            end
+          end
+        end
+      end
+
       def resolve_name_in_context(name)
-        if resolved_name = map.resolve?(name)
+        if resolved_name = resolve_used_name(name)
           return [resolved_name, name]
         end
 
@@ -177,8 +195,8 @@ module Steep
           )
         end
 
-        if type_name_resolver.resolve(name.relative!, context: context) == name && !map.resolve?(name.relative!)
           [name, name.relative!]
+        if type_name_resolver.resolve(name.relative!, context: context) == name && !resolve_used_name(name.relative!)
         else
           [name, name]
         end

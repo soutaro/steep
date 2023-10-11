@@ -185,7 +185,11 @@ class TypeNameCompletionTest < Minitest::Test
 
   def test_use_type_names
     with_factory({ "a.rbs" => <<~RBS }) do |factory|
-        use Object as Foo, Integer as String
+        use Object as Foo, Integer as String, LongName as Long
+
+        module LongName
+          type hello = Integer
+        end
       RBS
 
       buf = factory.env.buffers.find {|buf| Pathname(buf.name).basename == Pathname("a.rbs") }
@@ -202,10 +206,16 @@ class TypeNameCompletionTest < Minitest::Test
       assert_operator completion.find_type_names(nil), :include?, TypeName("::String")
 
       assert_operator completion.find_type_names(Services::TypeNameCompletion::Prefix::RawIdentPrefix.new("Foo")), :include?, TypeName("Foo")
+      assert_operator(
+        completion.find_type_names(Services::TypeNameCompletion::Prefix::NamespacePrefix.new(RBS::Namespace.parse("Long::"), 6)),
+        :include?,
+        TypeName("Long::hello")
+      )
 
       assert_equal [TypeName("::Object"), TypeName("Foo")], completion.resolve_name_in_context(TypeName("Foo"))
       assert_equal [TypeName("::Integer"), TypeName("String")], completion.resolve_name_in_context(TypeName("String"))
       assert_equal [TypeName("::String"), TypeName("::String")], completion.resolve_name_in_context(TypeName("::String"))
+      assert_equal [TypeName("::LongName::hello"), TypeName("Long::hello")], completion.resolve_name_in_context(TypeName("Long::hello"))
     end
   end
 

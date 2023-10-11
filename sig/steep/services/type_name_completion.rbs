@@ -112,6 +112,8 @@ module Steep
 
       def format_constant_name: (TypeName) -> String
 
+      def resolve_used_name: (TypeName) -> TypeName?
+
       private
 
       # Yield type names defined in the environment
