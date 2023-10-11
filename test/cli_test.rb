@@ -641,4 +641,34 @@ GEMFILE
       end
     end
   end
+
+  def test_ci_jobs_setup_message
+    in_tmpdir do
+      (current_dir + "Steepfile").write(<<~RUBY)
+        target :app do
+        check "foo.rb"
+        end
+      RUBY
+
+      (current_dir + "foo.rb").write(<<~RUBY)
+        1 + 2
+      RUBY
+
+      push_env({ "CI" => "true" }) do
+        ["check", "checkfile", "stats"].each do |command|
+          _, stderr, status = sh3(*steep, command, "foo.rb")
+
+          assert_predicate status, :success?
+          assert_match /CI environment is detected but no `--jobs` option is given./, stderr
+        end
+
+        ["check", "checkfile", "stats"].each do |command|
+          _, stderr, status = sh3(*steep, command, "--jobs=1", "foo.rb")
+
+          assert_predicate status, :success?
+          refute_match /CI environment is detected but no `--jobs` option is given./, stderr
+        end
+      end
+    end
+  end
 end

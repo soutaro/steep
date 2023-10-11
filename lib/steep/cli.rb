@@ -84,6 +84,18 @@ module Steep
       end
     end
 
+    def setup_jobs_for_ci(jobs_option)
+      if ENV["CI"]
+        unless jobs_option.jobs_count
+          stderr.puts Rainbow("CI environment is detected but no `--jobs` option is given.").yellow
+          stderr.puts "  Using `[2, #{jobs_option.default_jobs_count} (# or processors)].min` to avoid hitting memory limit."
+          stderr.puts "  Specify `--jobs` option to increase the number of jobs."
+
+          jobs_option.jobs_count = [2, jobs_option.default_jobs_count].min
+        end
+      end
+    end
+
     def process_init
       Drivers::Init.new(stdout: stdout, stderr: stderr).tap do |command|
         OptionParser.new do |opts|
@@ -116,6 +128,8 @@ module Steep
           handle_logging_options opts
         end.parse!(argv)
 
+        setup_jobs_for_ci(check.jobs_option)
+
         check.command_line_patterns.push *argv
       end.run
     end
@@ -139,6 +153,8 @@ module Steep
           handle_logging_options opts
         end.parse!(argv)
 
+        setup_jobs_for_ci(check.jobs_option)
+
         check.command_line_args.push *argv
       end.run
     end
@@ -153,6 +169,8 @@ module Steep
           handle_jobs_option check.jobs_option, opts
           handle_logging_options opts
         end.parse!(argv)
+
+        setup_jobs_for_ci(check.jobs_option)
 
         check.command_line_patterns.push *argv
       end.run
@@ -198,6 +216,8 @@ module Steep
           handle_jobs_option command.jobs_option, opts
           handle_logging_options opts
         end.parse!(argv)
+
+        setup_jobs_for_ci(command.jobs_option)
 
         dirs = argv.map {|dir| Pathname(dir) }
         command.dirs.push(*dirs)
