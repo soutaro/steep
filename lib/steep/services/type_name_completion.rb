@@ -31,15 +31,20 @@ module Steep
 
           case prefix
           when /\A((::\w+[A-Z])+(::)?)/
-            NamespacePrefix.new(RBS::Namespace.parse($1.reverse), $1.size)
+            namespace = $1 or raise
+            NamespacePrefix.new(RBS::Namespace.parse(namespace.reverse), namespace.size)
           when /\A::/
             NamespacePrefix.new(RBS::Namespace.root, 2)
           when /\A(\w*[A-Za-z_])((::\w+[A-Z])+(::)?)/
-            NamespacedIdentPrefix.new(RBS::Namespace.parse($2.reverse), $1.reverse, $1.size + $2.size)
+            namespace = $1 or raise
+            identifier = $2 or raise
+            NamespacedIdentPrefix.new(RBS::Namespace.parse(identifier.reverse), namespace.reverse, namespace.size + identifier.size)
           when /\A(\w*[A-Za-z_])::/
-            NamespacedIdentPrefix.new(RBS::Namespace.root, $1.reverse, $1.size + 2)
+            namespace = $1 or raise
+            NamespacedIdentPrefix.new(RBS::Namespace.root, namespace.reverse, namespace.size + 2)
           when /\A(\w*[A-Za-z_])/
-            RawIdentPrefix.new($1.reverse)
+            identifier = $1 or raise
+            RawIdentPrefix.new(identifier.reverse)
           end
         end
       end
@@ -92,36 +97,97 @@ module Steep
         if block
           env = self.env
 
+          table = {} #: Hash[RBS::Namespace, Array[RBS::TypeName]]
+          env.class_decls.each_key do |type_name|
+            yield(type_name)
+            (table[type_name.namespace] ||= []) << type_name
+          end
+          env.type_alias_decls.each_key do |type_name|
+            yield(type_name)
+            (table[type_name.namespace] ||= []) << type_name
+          end
+          env.interface_decls.each_key do |type_name|
+            yield(type_name)
+            (table[type_name.namespace] ||= []) << type_name
+          end
+          env.class_alias_decls.each_key do |type_name|
+            yield(type_name)
+            (table[type_name.namespace] ||= []) << type_name
+          end
+
+          env.class_alias_decls.each_key do |alias_name|
+            normalized_name = env.normalize_module_name?(alias_name) or next
+            each_type_name_under(alias_name, normalized_name, table: table, &block)
+          end
+
+          resolve_pairs = [] #: Array[[RBS::TypeName, RBS::TypeName]]
+
           map.instance_eval do
             @map.each_key do |name|
               relative_name = RBS::TypeName.new(name: name, namespace: RBS::Namespace.empty)
               if absolute_name = resolve?(relative_name)
                 if env.type_name?(absolute_name)
                   # Yields only if the relative type name resolves to existing absolute type name
-                  yield relative_name
+                  resolve_pairs << [relative_name, absolute_name]
                 end
               end
             end
           end
-          env.class_decls.each_key(&block)
-          env.class_alias_decls.each_key(&block)
-          env.type_alias_decls.each_key(&block)
-          env.interface_decls.each_key(&block)
+
+          resolve_pairs.each do |use_name, absolute_name|
+            yield use_name
+            each_type_name_under(use_name, absolute_name, table: table, &block)
+          end
         else
           enum_for :each_type_name
         end
       end
 
+      def each_type_name_under(module_name, normalized_name, table:, &block)
+        if children = table.fetch(normalized_name.to_namespace, nil)
+          module_namespace = module_name.to_namespace
+
+          children.each do |normalized_child_name|
+            child_name = RBS::TypeName.new(namespace: module_namespace, name: normalized_child_name.name)
+
+            yield child_name
+
+            if normalized_child_name.class?
+              each_type_name_under(child_name, env.normalize_module_name(normalized_child_name), table: table, &block)
+            end
+          end
+        end
+      end
+
+      def resolve_used_name(name)
+        return nil if name.absolute?
+
+        case
+        when resolved = map.resolve?(name)
+          resolved
+        when name.namespace.empty?
+          nil
+        else
+          if resolved_parent = resolve_used_name(name.namespace.to_type_name)
+            resolved_name = RBS::TypeName.new(namespace: resolved_parent.to_namespace, name: name.name)
+            if env.normalize_type_name?(resolved_name)
+              resolved_name
+            end
+          end
+        end
+      end
+
       def resolve_name_in_context(name)
-        if resolved_name = map.resolve?(name)
+        if resolved_name = resolve_used_name(name)
           return [resolved_name, name]
         end
 
         name.absolute? or raise
+        normalized_name = env.normalize_type_name?(name) or raise "Cannot normalize given type name `#{name}`"
 
         name.namespace.path.reverse_each.inject(RBS::TypeName.new(namespace: RBS::Namespace.empty, name: name.name)) do |relative_name, component|
           if type_name_resolver.resolve(relative_name, context: context) == name
-            return [name, relative_name]
+            return [normalized_name, relative_name]
           end
 
           RBS::TypeName.new(
@@ -130,10 +196,10 @@ module Steep
           )
         end
 
-        if type_name_resolver.resolve(name.relative!, context: context) == name && !map.resolve?(name.relative!)
-          [name, name.relative!]
+        if type_name_resolver.resolve(name.relative!, context: context) == name && !resolve_used_name(name.relative!)
+          [normalized_name, name.relative!]
         else
-          [name, name]
+          [normalized_name, name]
         end
       end
 
@@ -144,7 +210,12 @@ module Steep
             type_name.split.any? {|sym| sym.to_s.downcase.include?(prefix.ident.downcase) }
           end
         when Prefix::NamespacedIdentPrefix
-          absolute_namespace = type_name_resolver.resolve(prefix.namespace.to_type_name, context: context)&.to_namespace || prefix.namespace
+          absolute_namespace =
+            if prefix.namespace.empty?
+              RBS::Namespace.root
+            else
+              type_name_resolver.resolve(prefix.namespace.to_type_name, context: context)&.to_namespace || prefix.namespace
+            end
 
           each_type_name.filter do|name|
             name.namespace == absolute_namespace &&

@@ -112,8 +112,21 @@ module Steep
 
       def format_constant_name: (TypeName) -> String
 
+      def resolve_used_name: (TypeName) -> TypeName?
+
+      private
+
+      # Yield type names defined in the environment
+      #
+      # * Yields an absolute type name if it is defined in the environment
+      # * Yields an relative type name if it is imported with `use` declerative
+      #
+      # Alias classes/modules and types under them are yielded.
+      #
       def each_type_name: () { (TypeName) -> void } -> void
                         | () -> Enumerator[TypeName, void]
+
+      def each_type_name_under: (TypeName module_name, TypeName normalized_name, table: Hash[Namespace, Array[TypeName]]) { (TypeName) -> void } -> void
 
       def each_outer_module: (?Resolver::context) { (Namespace) -> void } -> Namespace
                            | () -> Enumerator[Namespace, void]

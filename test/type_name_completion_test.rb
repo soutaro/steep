@@ -75,6 +75,8 @@ class TypeNameCompletionTest < Minitest::Test
       # Returns all type names that shares the prefix and contains the identifier case-insensitively
       assert_equal [TypeName("::Foo::Bar::baz")], completion.find_type_names(Services::TypeNameCompletion::Prefix::NamespacedIdentPrefix.new(RBS::Namespace.parse("::Foo::Bar::"), "ba"))
 
+      assert_equal [TypeName("::Foo")], completion.find_type_names(Services::TypeNameCompletion::Prefix::NamespacedIdentPrefix.new(RBS::Namespace.parse("::"), "Fo"))
+
       # Returns all type names that shares the prefix
       assert_equal [TypeName("::Foo::Bar::baz"), TypeName("::Foo::Bar::_Quax")], completion.find_type_names(Services::TypeNameCompletion::Prefix::NamespacePrefix.new(RBS::Namespace.parse("::Foo::Bar::")))
     end
@@ -98,6 +100,65 @@ class TypeNameCompletionTest < Minitest::Test
       assert completion.each_type_name.include?(TypeName("ExistingClass"))
     end
   end
+
+  def test_each_type_name_alias
+    with_factory({ "a.rbs" => <<~RBS }) do |factory|
+        module Foo
+          module Bar = ::Bar
+        end
+
+        module Bar
+          module Baz = Integer
+        end
+      RBS
+
+      buf = factory.env.buffers.find {|buf| File.basename(buf.name) == "a.rbs" } or raise
+      dirs, _ = factory.env.signatures[buf]
+
+      completion = Services::TypeNameCompletion.new(
+        env: factory.env,
+        context: nil,
+        dirs: dirs
+      )
+
+      assert completion.each_type_name.include?(TypeName("::Foo"))
+      assert completion.each_type_name.include?(TypeName("::Foo::Bar"))
+      assert completion.each_type_name.include?(TypeName("::Foo::Bar::Baz"))
+      assert completion.each_type_name.include?(TypeName("::Bar"))
+      assert completion.each_type_name.include?(TypeName("::Bar::Baz"))
+    end
+  end
+
+  def test_each_type_name_alias_use
+    with_factory({ "a.rbs" => <<~RBS }) do |factory|
+        use Foo as FOO, Baz as BAZ
+
+        module Foo
+          module Bar = BAZ
+        end
+
+        module Baz
+          type t = Integer
+        end
+      RBS
+
+      buf = factory.env.buffers.find {|buf| File.basename(buf.name) == "a.rbs" } or raise
+      dirs, _ = factory.env.signatures[buf]
+
+      completion = Services::TypeNameCompletion.new(
+        env: factory.env,
+        context: nil,
+        dirs: dirs
+      )
+
+      type_names = completion.each_type_name.to_set
+
+      assert type_names.include?(TypeName("FOO"))
+      assert type_names.include?(TypeName("FOO::Bar"))
+      assert type_names.include?(TypeName("FOO::Bar::t"))
+    end
+  end
+
 
   def test_relative_name_in_context
     with_factory({ "a.rbs" => <<~RBS}) do |factory|
@@ -124,7 +185,11 @@ class TypeNameCompletionTest < Minitest::Test
 
   def test_use_type_names
     with_factory({ "a.rbs" => <<~RBS }) do |factory|
-        use Object as Foo, Integer as String
+        use Object as Foo, Integer as String, LongName as Long
+
+        module LongName
+          type hello = Integer
+        end
       RBS
 
       buf = factory.env.buffers.find {|buf| Pathname(buf.name).basename == Pathname("a.rbs") }
@@ -140,11 +205,92 @@ class TypeNameCompletionTest < Minitest::Test
       assert_operator completion.find_type_names(nil), :include?, TypeName("String")
       assert_operator completion.find_type_names(nil), :include?, TypeName("::String")
 
-      assert_equal [TypeName("Foo")], completion.find_type_names(Services::TypeNameCompletion::Prefix::RawIdentPrefix.new("Foo"))
+      assert_operator completion.find_type_names(Services::TypeNameCompletion::Prefix::RawIdentPrefix.new("Foo")), :include?, TypeName("Foo")
+      assert_operator(
+        completion.find_type_names(Services::TypeNameCompletion::Prefix::NamespacePrefix.new(RBS::Namespace.parse("Long::"), 6)),
+        :include?,
+        TypeName("Long::hello")
+      )
 
       assert_equal [TypeName("::Object"), TypeName("Foo")], completion.resolve_name_in_context(TypeName("Foo"))
       assert_equal [TypeName("::Integer"), TypeName("String")], completion.resolve_name_in_context(TypeName("String"))
       assert_equal [TypeName("::String"), TypeName("::String")], completion.resolve_name_in_context(TypeName("::String"))
+      assert_equal [TypeName("::LongName::hello"), TypeName("Long::hello")], completion.resolve_name_in_context(TypeName("Long::hello"))
+    end
+  end
+
+  def test_find_type_names_module_alias
+    with_factory({ "a.rbs" => <<~RBS }, nostdlib: true) do |factory|
+        class Foo
+          module Bar
+            type id = Integer
+          end
+        end
+
+        class Baz = Foo::Bar
+      RBS
+
+      completion = Services::TypeNameCompletion.new(env: factory.env, context: nil, dirs: [])
+
+      assert_equal(
+        [TypeName("::Baz::id")],
+        completion.find_type_names(Services::TypeNameCompletion::Prefix::NamespacePrefix.new(RBS::Namespace.parse("Baz::")))
+      )
+
+      assert_equal(
+        [TypeName("::Baz::id")],
+        completion.find_type_names(Services::TypeNameCompletion::Prefix::NamespacedIdentPrefix.new(RBS::Namespace.parse("Baz::"), "i"))
+      )
+    end
+  end
+
+  def test_use_type_names_nested
+    with_factory({ "a.rbs" => <<~RBS }) do |factory|
+        use Foo::Bar
+
+        module Foo
+          module Bar
+            module Baz
+            end
+          end
+        end
+
+        module Bar = Foo::Bar
+      RBS
+
+      buf = factory.env.buffers.find {|buf| Pathname(buf.name).basename == Pathname("a.rbs") }
+      dirs = factory.env.signatures[buf][0]
+
+      completion = Services::TypeNameCompletion.new(env: factory.env, context: [[nil, TypeName("::Foo")], TypeName("::Foo::Bar")], dirs: dirs)
+
+      assert_operator(
+        completion.find_type_names(Services::TypeNameCompletion::Prefix::RawIdentPrefix.new("Baz")),
+        :include?,
+        TypeName("Bar::Baz")
+      )
+      assert_operator(
+        completion.find_type_names(Services::TypeNameCompletion::Prefix::RawIdentPrefix.new("Baz")),
+        :include?,
+        TypeName("::Bar::Baz")
+      )
+      assert_operator(
+        completion.find_type_names(Services::TypeNameCompletion::Prefix::RawIdentPrefix.new("Baz")),
+        :include?,
+        TypeName("::Foo::Bar::Baz")
+      )
+
+      assert_equal(
+        [TypeName("::Foo::Bar::Baz"), TypeName("Baz")],
+        completion.resolve_name_in_context(TypeName("::Foo::Bar::Baz"))
+      )
+      assert_equal(
+        [TypeName("::Foo::Bar::Baz"), TypeName("::Bar::Baz")],
+        completion.resolve_name_in_context(TypeName("::Bar::Baz"))
+      )
+      assert_equal(
+        [TypeName("::Foo::Bar::Baz"), TypeName("Bar::Baz")],
+        completion.resolve_name_in_context(TypeName("Bar::Baz"))
+      )
     end
   end
 end

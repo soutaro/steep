@@ -227,9 +227,11 @@ module Steep
           )
         )
 
+        type_name = sig_service.latest_env.normalize_type_name(type_name)
+
         case type_name.kind
         when :class
-          env = sig_service.latest_env #: RBS::Environment
+          env = sig_service.latest_env
           class_entry = env.module_class_entry(type_name) or raise
 
           case class_entry

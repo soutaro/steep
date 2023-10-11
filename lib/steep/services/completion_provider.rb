@@ -115,7 +115,7 @@ module Steep
             when RBS::Environment::ClassAliasEntry, RBS::Environment::ModuleAliasEntry
               entry.decl
             else
-              raise
+              raise "absolute_type_name=#{absolute_type_name}, relative_type_name=#{relative_type_name}"
             end
           else
             raise
