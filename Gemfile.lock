@@ -20,17 +20,27 @@ PATH
 GEM
   remote: https://rubygems.org/
   specs:
-    activesupport (7.0.8)
+    activesupport (7.1.0)
+      base64
+      bigdecimal
       concurrent-ruby (~> 1.0, >= 1.0.2)
+      connection_pool (>= 2.2.5)
+      drb
       i18n (>= 1.6, < 2)
       minitest (>= 5.1)
+      mutex_m
       tzinfo (~> 2.0)
     ast (2.4.2)
+    base64 (0.1.1)
+    bigdecimal (3.1.4)
     concurrent-ruby (1.2.2)
+    connection_pool (2.4.1)
     csv (3.2.7)
     debug (1.8.0)
       irb (>= 1.5.0)
       reline (>= 0.3.1)
+    drb (2.1.1)
+      ruby2_keywords
     ffi (1.15.5)
     fileutils (1.7.1)
     i18n (1.14.1)
@@ -50,6 +60,7 @@ GEM
       minitest (> 5.3)
     minitest-slow_test (0.2.0)
       minitest (>= 5.0)
+    mutex_m (0.1.2)
     parser (3.2.2.4)
       ast (~> 2.4.1)
       racc
@@ -66,6 +77,7 @@ GEM
       psych (>= 4.0.0)
     reline (0.3.8)
       io-console (~> 0.5)
+    ruby2_keywords (0.0.5)
     securerandom (0.2.2)
     stackprof (0.2.25)
     stringio (3.0.8)
