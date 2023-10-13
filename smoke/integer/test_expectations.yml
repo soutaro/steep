@@ -102,20 +102,9 @@
     message: |-
       Cannot find compatible overloading of method `Integer` of type `::Object`
       Method types:
-        def Integer: ((::Numeric | ::String), ?exception: bool) -> ::Integer
-                   | (::String, ?::Integer, ?exception: bool) -> ::Integer
-    code: Ruby::UnresolvedOverloading
-  - range:
-      start:
-        line: 26
-        character: 0
-      end:
-        line: 26
-        character: 12
-    severity: ERROR
-    message: |-
-      Cannot find compatible overloading of method `Integer` of type `::Object`
-      Method types:
-        def Integer: ((::Numeric | ::String), ?exception: bool) -> ::Integer
-                   | (::String, ?::Integer, ?exception: bool) -> ::Integer
+        def Integer: ((::_ToInt | ::_ToI), ?exception: true) -> ::Integer
+                   | ((::_ToInt | ::_ToI), exception: bool) -> (::Integer | nil)
+                   | (::string, ?::int, ?exception: true) -> ::Integer
+                   | (::string, ?::int, exception: bool) -> (::Integer | nil)
+                   | (untyped, ?untyped, exception: false) -> nil
     code: Ruby::UnresolvedOverloading
