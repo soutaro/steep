@@ -110,69 +110,69 @@ module Steep
     end
 
     def process_check
-      Drivers::Check.new(stdout: stdout, stderr: stderr).tap do |check|
+      Drivers::Check.new(stdout: stdout, stderr: stderr).tap do |command|
         OptionParser.new do |opts|
           opts.banner = "Usage: steep check [options] [sources]"
 
-          opts.on("--steepfile=PATH") {|path| check.steepfile = Pathname(path) }
+          opts.on("--steepfile=PATH") {|path| command.steepfile = Pathname(path) }
           opts.on("--with-expectations[=PATH]", "Type check with expectations saved in PATH (or steep_expectations.yml)") do |path|
-            check.with_expectations_path = Pathname(path || "steep_expectations.yml")
+            command.with_expectations_path = Pathname(path || "steep_expectations.yml")
           end
           opts.on("--save-expectations[=PATH]", "Save expectations with current type check result to PATH (or steep_expectations.yml)") do |path|
-            check.save_expectations_path = Pathname(path || "steep_expectations.yml")
+            command.save_expectations_path = Pathname(path || "steep_expectations.yml")
           end
           opts.on("--severity-level=LEVEL", /^error|warning|information|hint$/, "Specify the minimum diagnostic severity to be recognized as an error (defaults: warning): error, warning, information, or hint") do |level|
-            check.severity_level = level.to_sym
+            command.severity_level = level.to_sym
           end
-          handle_jobs_option check.jobs_option, opts
+          handle_jobs_option command.jobs_option, opts
           handle_logging_options opts
         end.parse!(argv)
 
-        setup_jobs_for_ci(check.jobs_option)
-
-        check.command_line_patterns.push *argv
+        setup_jobs_for_ci(command.jobs_option)
+        
+        command.command_line_patterns.push *argv
       end.run
     end
 
     def process_checkfile
-      Drivers::Checkfile.new(stdout: stdout, stderr: stderr).tap do |check|
+      Drivers::Checkfile.new(stdout: stdout, stderr: stderr).tap do |command|
         OptionParser.new do |opts|
           opts.banner = "Usage: steep checkfile [options] [files]"
 
-          opts.on("--steepfile=PATH") {|path| check.steepfile = Pathname(path) }
-          opts.on("--all-rbs", "Type check all RBS files") { check.all_rbs = true }
-          opts.on("--all-ruby", "Type check all Ruby files") { check.all_ruby = true }
+          opts.on("--steepfile=PATH") {|path| command.steepfile = Pathname(path) }
+          opts.on("--all-rbs", "Type check all RBS files") { command.all_rbs = true }
+          opts.on("--all-ruby", "Type check all Ruby files") { command.all_ruby = true }
           opts.on("--stdin", "Read files to type check from stdin") do
             while line = stdin.gets()
               object = JSON.parse(line, symbolize_names: true)
               Steep.logger.info { "Loading content of `#{object[:path]}` from stdin: #{object[:content].lines[0].chomp}" }
-              check.stdin_input[Pathname(object[:path])] = object[:content]
+              command.stdin_input[Pathname(object[:path])] = object[:content]
             end
           end
-          handle_jobs_option check.jobs_option, opts
+          handle_jobs_option command.jobs_option, opts
           handle_logging_options opts
         end.parse!(argv)
 
-        setup_jobs_for_ci(check.jobs_option)
+        setup_jobs_for_ci(command.jobs_option)
 
-        check.command_line_args.push *argv
+        command.command_line_args.push *argv
       end.run
     end
 
     def process_stats
-      Drivers::Stats.new(stdout: stdout, stderr: stderr).tap do |check|
+      Drivers::Stats.new(stdout: stdout, stderr: stderr).tap do |command|
         OptionParser.new do |opts|
           opts.banner = "Usage: steep stats [options] [sources]"
 
-          opts.on("--steepfile=PATH") {|path| check.steepfile = Pathname(path) }
-          opts.on("--format=FORMAT", "Specify output format: csv, table") {|format| check.format = format }
-          handle_jobs_option check.jobs_option, opts
+          opts.on("--steepfile=PATH") {|path| command.steepfile = Pathname(path) }
+          opts.on("--format=FORMAT", "Specify output format: csv, table") {|format| command.format = format }
+          handle_jobs_option command.jobs_option, opts
           handle_logging_options opts
         end.parse!(argv)
 
-        setup_jobs_for_ci(check.jobs_option)
+        setup_jobs_for_ci(command.jobs_option)
 
-        check.command_line_patterns.push *argv
+        command.command_line_patterns.push *argv
       end.run
     end
 
