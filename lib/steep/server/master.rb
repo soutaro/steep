@@ -533,6 +533,10 @@ module Steep
         initialize_params&.dig(:capabilities, :window, :workDoneProgress) ? true : false
       end
 
+      def file_system_watcher_supported?
+        initialize_params&.dig(:capabilities, :workspace, :didChangeWatchedFiles, :dynamicRegistration) || false
+      end
+
       def process_message_from_client(message)
         Steep.logger.info "Processing message from client: method=#{message[:method]}, id=#{message[:id]}"
         id = message[:id]
@@ -578,6 +582,52 @@ module Steep
                   )
                 }
               )
+
+              if file_system_watcher_supported?
+                patterns = [] #: Array[String]
+                project.targets.each do |target|
+                  target.source_pattern.patterns.each do |pat|
+                    path = project.base_dir + pat
+                    patterns << path.to_s unless path.directory?
+                  end
+                  target.source_pattern.prefixes.each do |pat|
+                    path = project.base_dir + pat
+                    patterns << (path + "**/*.rb").to_s unless path.file?
+                  end
+                  target.signature_pattern.patterns.each do |pat|
+                    path = project.base_dir + pat
+                    patterns << path.to_s unless path.directory?
+                  end
+                  target.signature_pattern.prefixes.each do |pat|
+                    path = project.base_dir + pat
+                    patterns << (path + "**/*.rbs").to_s unless path.file?
+                  end
+                end
+                patterns.sort!
+                patterns.uniq!
+
+                Steep.logger.info { "Setting up didChangeWatchedFiles with pattern: #{patterns.inspect}" }
+
+                job_queue << SendMessageJob.to_client(
+                  message: {
+                    id: SecureRandom.uuid,
+                    method: "client/registerCapability",
+                    params: {
+                      registrations: [
+                        {
+                          id: SecureRandom.uuid,
+                          method: "workspace/didChangeWatchedFiles",
+                          registerOptions: {
+                            watchers: patterns.map do |pattern|
+                              { globPattern: pattern }
+                            end
+                          }
+                        }
+                      ]
+                    }
+                  }
+                )
+              end
             end
           end
 
@@ -585,6 +635,42 @@ module Steep
           if typecheck_automatically
             if request = controller.make_request(include_unchanged: true)
               start_type_check(request, last_request: nil, start_progress: request.total > 10)
+            end
+          end
+
+        when "workspace/didChangeWatchedFiles"
+          message[:params][:changes].each do |change|
+            uri = change[:uri]
+            type = change[:type]
+
+            path = PathHelper.to_pathname(uri) or next
+
+            controller.push_changes(path)
+
+            case type
+            when 1, 2
+              content = path.read
+            when 4
+              # Deleted
+              content = ""
+            end
+
+            broadcast_notification({
+              method: "$/file/reset",
+              params: { uri: uri, content: content }
+            })
+          end
+
+          if typecheck_automatically
+            start_type_checking_queue.execute do
+              job_queue.push(
+                -> do
+                  last_request = current_type_check_request
+                  if request = controller.make_request(last_request: last_request)
+                    start_type_check(request, last_request: last_request, start_progress: request.total > 10)
+                  end
+                end
+              )
             end
           end
 
@@ -608,9 +694,15 @@ module Steep
           end
 
         when "textDocument/didOpen"
-          if path = pathname(message[:params][:textDocument][:uri])
+          uri = message[:params][:textDocument][:uri]
+          text = message[:params][:textDocument][:text]
+
+          if path = pathname(uri)
             controller.update_priority(open: path)
-            broadcast_notification(message)
+            broadcast_notification({
+              method: "$/file/reset",
+              params: { uri: uri, content: text }
+            })
           end
 
         when "textDocument/didClose"

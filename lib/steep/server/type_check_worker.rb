@@ -74,9 +74,9 @@ module Steep
         when "textDocument/didChange"
           collect_changes(request)
 
-        when "textDocument/didOpen"
-          uri = request[:params][:textDocument][:uri]
-          text = request[:params][:textDocument][:text]
+        when "$/file/reset"
+          uri = request[:params][:uri]
+          text = request[:params][:content]
           reset_change(uri: uri, text: text)
 
         when "workspace/symbol"
