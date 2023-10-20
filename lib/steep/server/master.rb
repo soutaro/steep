@@ -694,9 +694,15 @@ module Steep
           end
 
         when "textDocument/didOpen"
-          if path = pathname(message[:params][:textDocument][:uri])
+          uri = message[:params][:textDocument][:uri]
+          text = message[:params][:textDocument][:text]
+
+          if path = pathname(uri)
             controller.update_priority(open: path)
-            broadcast_notification(message)
+            broadcast_notification({
+              method: "$/file/reset",
+              params: { uri: uri, content: text }
+            })
           end
 
         when "textDocument/didClose"
