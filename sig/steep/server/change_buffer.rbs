@@ -27,6 +27,10 @@ module Steep
       # Load changes from a request with `DidChangeTextDocumentParams` into `buffered_changes`
       #
       def collect_changes: (untyped request) -> void
+
+      # Reset the content of `uri` to `text`
+      # 
+      def reset_change: (uri: String, text: String) -> void
     end
   end
 end

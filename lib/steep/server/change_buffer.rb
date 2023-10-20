@@ -61,6 +61,15 @@ module Steep
           end
         end
       end
+
+      def reset_change(uri:, text:)
+        push_buffer do |changes|
+          if path = Steep::PathHelper.to_pathname(uri)
+            path = project.relative_path(path)
+            changes[path] = [Services::ContentChange.new(text: text)]
+          end
+        end
+      end
     end
   end
 end

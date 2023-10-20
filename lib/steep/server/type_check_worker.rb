@@ -70,8 +70,15 @@ module Steep
         when "initialize"
           load_files(project: project, commandline_args: commandline_args)
           writer.write({ id: request[:id], result: nil})
+
         when "textDocument/didChange"
           collect_changes(request)
+
+        when "textDocument/didOpen"
+          uri = request[:params][:textDocument][:uri]
+          text = request[:params][:textDocument][:text]
+          reset_change(uri: uri, text: text)
+
         when "workspace/symbol"
           query = request[:params][:query]
           queue << WorkspaceSymbolJob.new(id: request[:id], query: query)

@@ -610,6 +610,7 @@ module Steep
         when "textDocument/didOpen"
           if path = pathname(message[:params][:textDocument][:uri])
             controller.update_priority(open: path)
+            broadcast_notification(message)
           end
 
         when "textDocument/didClose"
