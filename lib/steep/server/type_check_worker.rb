@@ -79,6 +79,11 @@ module Steep
           text = request[:params][:textDocument][:text]
           reset_change(uri: uri, text: text)
 
+        when "$/file/reset"
+          uri = request[:params][:uri]
+          text = request[:params][:content]
+          reset_change(uri: uri, text: text)
+
         when "workspace/symbol"
           query = request[:params][:query]
           queue << WorkspaceSymbolJob.new(id: request[:id], query: query)

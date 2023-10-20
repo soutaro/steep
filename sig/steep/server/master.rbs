@@ -254,6 +254,8 @@ module Steep
 
       def work_done_progress_supported?: () -> bool
 
+      def file_system_watcher_supported?: () -> bool
+
       def process_message_from_client: (untyped message) -> void
 
       def process_message_from_worker: (untyped message, worker: WorkerProcess) -> void
