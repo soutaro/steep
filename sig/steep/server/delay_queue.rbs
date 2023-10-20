@@ -1,0 +1,37 @@
+module Steep
+  module Server
+    # DelayQueue provides a queue that delays running given job
+    #
+    # 1. The `delay` is specific to a DelayQueue instance, not job specific
+    # 2. It executes only the last job
+    #
+    # ```ruby
+    # queue = DelayQueue.new(delay: 0.5)
+    # queue.execute { pp 1 }
+    # queue.execute { pp 2 }
+    # queue.execute { pp 3 }
+    #
+    # # => Will print only `3`, and the jobs printing `1` and `2` will be discarded
+    # ```
+    #
+    # The job will run on `#thread`.
+    #
+    class DelayQueue
+      attr_reader delay: Float
+
+      attr_reader thread: Thread
+
+      attr_reader queue: Thread::Queue
+
+      attr_reader last_task: Proc
+
+      def initialize: (delay: Float) -> void
+
+      # The `#execute` method is not thread safe
+      #
+      # You should synchronize yourself if you want to call the method from multiple threads.
+      #
+      def execute: () { () -> void } -> void
+    end
+  end
+end

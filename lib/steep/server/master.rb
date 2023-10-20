@@ -402,6 +402,7 @@ module Steep
 
       attr_reader :initialize_params
       attr_accessor :typecheck_automatically
+      attr_reader :start_type_checking_queue
 
       def initialize(project:, reader:, writer:, interaction_worker:, typecheck_workers:, queue: Queue.new)
         @project = project
@@ -416,6 +417,7 @@ module Steep
 
         @controller = TypeCheckController.new(project: project)
         @result_controller = ResultController.new()
+        @start_type_checking_queue = DelayQueue.new(delay: 0.1)
       end
 
       def start
@@ -488,6 +490,8 @@ module Steep
                     Steep.logger.info { "Processing SendMessageJob: dest=#{job.dest.name}, method=#{job.message[:method] || "-"}, id=#{job.message[:id] || "-"}" }
                     job.dest << job.message
                   end
+                when Proc
+                  job.call()
                 end
               end
             end
@@ -551,7 +555,6 @@ module Steep
                     capabilities: LSP::Interface::ServerCapabilities.new(
                       text_document_sync: LSP::Interface::TextDocumentSyncOptions.new(
                         change: LSP::Constant::TextDocumentSyncKind::INCREMENTAL,
-                        save: LSP::Interface::SaveOptions.new(include_text: false),
                         open_close: true
                       ),
                       hover_provider: {
@@ -589,16 +592,16 @@ module Steep
           if path = pathname(message[:params][:textDocument][:uri])
             broadcast_notification(message)
             controller.push_changes(path)
-          end
 
-        when "textDocument/didSave"
-          if path = pathname(message[:params][:textDocument][:uri])
             if typecheck_automatically
-              if request = controller.make_request(last_request: current_type_check_request)
-                start_type_check(
-                  request,
-                  last_request: current_type_check_request,
-                  start_progress: request.total > 10
+              start_type_checking_queue.execute do
+                job_queue.push(
+                  -> do
+                    last_request = current_type_check_request
+                    if request = controller.make_request(last_request: last_request)
+                      start_type_check(request, last_request: last_request, start_progress: request.total > 10)
+                    end
+                  end
                 )
               end
             end

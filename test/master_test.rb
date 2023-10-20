@@ -753,12 +753,16 @@ end
         RUBY
         ui.save_file(project.absolute_path(Pathname("sig/foo.rbs")))
 
-        ui.workspace_symbol().tap do |symbols|
-          assert symbols.find { |symbol| symbol[:name] == "FooClassNew" }
+        finally_holds do
+          ui.workspace_symbol().tap do |symbols|
+            assert symbols.find { |symbol| symbol[:name] == "FooClassNew" }
+          end
         end
 
-        ui.workspace_symbol("array").tap do |symbols|
-          assert symbols.find { |symbol| symbol[:name] == "Array" }
+        finally_holds do
+          ui.workspace_symbol("array").tap do |symbols|
+            assert symbols.find { |symbol| symbol[:name] == "Array" }
+          end
         end
       end
 
