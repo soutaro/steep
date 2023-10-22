@@ -3387,13 +3387,20 @@ module Steep
           end
         end
 
+        interface_type = interface&.type || receiver_type
+        if interface_type.is_a?(AST::Types::Union) && interface_type.types.any? {|type| type.is_a?(AST::Types::Nil) }
+          error = Diagnostic::Ruby::NoMethodByNil.new(node: node, method: method_name, type: interface_type)
+        else
+          error = Diagnostic::Ruby::NoMethod.new(node: node, method: method_name, type: interface_type)
+        end
+
         constr.add_call(
           TypeInference::MethodCall::NoMethodError.new(
             node: node,
             context: context.call_context,
             method_name: method_name,
             receiver_type: receiver_type,
-            error: Diagnostic::Ruby::NoMethod.new(node: node, method: method_name, type: interface&.type || receiver_type)
+            error: error
           )
         )
       end
