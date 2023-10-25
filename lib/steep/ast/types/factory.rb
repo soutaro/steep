@@ -409,6 +409,8 @@ module Steep
             ]
           when AST::Types::Any, AST::Types::Boolean, AST::Types::Top, AST::Types::Logic::Base
             [type, type]
+          when AST::Types::Bot, AST::Types::Void
+            [nil, nil]
           when AST::Types::Nil
             [nil, type]
           when AST::Types::Literal
