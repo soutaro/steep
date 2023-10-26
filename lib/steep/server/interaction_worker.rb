@@ -409,7 +409,7 @@ module Steep
             if (items, index = provider.run(line: job.line, column: job.column))
               signatures = items.map do |item|
                 LSP::Interface::SignatureInformation.new(
-                  label: "(#{item.method_type.type.param_to_s})",
+                  label: item.method_type.to_s,
                   parameters: item.parameters.map { |param| LSP::Interface::ParameterInformation.new(label: param)},
                   active_parameter: item.active_parameter,
                   documentation: item.comment&.yield_self do |comment|
