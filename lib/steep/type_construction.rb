@@ -3293,7 +3293,7 @@ module Steep
           end
 
           if call.is_a?(TypeInference::MethodCall::Typed)
-            if (pure_call, type = constr.context.type_env.pure_method_calls[node])
+            if (pure_call, type = constr.context.type_env.pure_method_calls.fetch(node, nil))
               if type
                 call = pure_call.update(node: node, return_type: type)
                 constr.add_typing(node, type: call.return_type)
@@ -3664,6 +3664,23 @@ module Steep
             end
           end
         end
+      end
+
+      non_arity_errors = fails.reject do |call, _|
+        if call.is_a?(TypeInference::MethodCall::Error)
+          call.errors.any? do |error|
+            error.is_a?(Diagnostic::Ruby::UnexpectedBlockGiven) ||
+              error.is_a?(Diagnostic::Ruby::RequiredBlockMissing) ||
+              error.is_a?(Diagnostic::Ruby::UnexpectedPositionalArgument) ||
+              error.is_a?(Diagnostic::Ruby::InsufficientPositionalArguments) ||
+              error.is_a?(Diagnostic::Ruby::UnexpectedKeywordArgument) ||
+              error.is_a?(Diagnostic::Ruby::InsufficientKeywordArguments)
+          end
+        end
+      end
+
+      unless non_arity_errors.empty?
+        fails = non_arity_errors
       end
 
       if fails.one?
