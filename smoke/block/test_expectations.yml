@@ -98,31 +98,27 @@
   - range:
       start:
         line: 10
-        character: 0
+        character: 12
       end:
         line: 10
-        character: 29
+        character: 28
     severity: ERROR
     message: |-
-      Cannot find compatible overloading of method `map` of type `::Array[::Integer]`
-      Method types:
-        def map: [U] () { (::Integer) -> U } -> ::Array[U]
-               | () -> ::Enumerator[::Integer, ::Array[untyped]]
-    code: Ruby::UnresolvedOverloading
+      Cannot pass a value of type `::Proc` as a block-pass-argument of type `^(::Integer) -> U(3)`
+        ::Proc <: ^(::Integer) -> U(3)
+    code: Ruby::BlockTypeMismatch
   - range:
       start:
         line: 11
-        character: 0
+        character: 12
       end:
         line: 11
-        character: 21
+        character: 20
     severity: ERROR
     message: |-
-      Cannot find compatible overloading of method `map` of type `::Array[::Integer]`
-      Method types:
-        def map: [U] () { (::Integer) -> U } -> ::Array[U]
-               | () -> ::Enumerator[::Integer, ::Array[untyped]]
-    code: Ruby::UnresolvedOverloading
+      Cannot pass a value of type `::Proc` as a block-pass-argument of type `^(::Integer) -> U(4)`
+        ::Proc <: ^(::Integer) -> U(4)
+    code: Ruby::BlockTypeMismatch
 - file: e.rb
   diagnostics:
   - range:

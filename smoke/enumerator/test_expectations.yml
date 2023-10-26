@@ -10,11 +10,11 @@
         character: 3
     severity: ERROR
     message: |-
-      Cannot find compatible overloading of method `with_object` of type `::Enumerator[::Integer, ::Array[::Integer]]`
-      Method types:
-        def with_object: [U] (U) { (::Integer, U) -> untyped } -> U
-                       | [U] (U) -> ::Enumerator[[::Integer, U], U]
-    code: Ruby::UnresolvedOverloading
+      Unsatisfiable constraint `::String <: U(1) <: ::Hash[::Symbol, ::String]` is generated through (U(1)) { (::Integer, U(1)) -> untyped } -> U(1)
+        ::String <: ::Hash[::Symbol, ::String]
+          ::Object <: ::Hash[::Symbol, ::String]
+            ::BasicObject <: ::Hash[::Symbol, ::String]
+    code: Ruby::UnsatisfiableConstraint
 - file: b.rb
   diagnostics:
   - range:
@@ -40,8 +40,8 @@
         character: 3
     severity: ERROR
     message: |-
-      Cannot find compatible overloading of method `with_object` of type `::Enumerator[::Integer, ::Array[::Integer]]`
-      Method types:
-        def with_object: [U] (U) { (::Integer, U) -> untyped } -> U
-                       | [U] (U) -> ::Enumerator[[::Integer, U], U]
-    code: Ruby::UnresolvedOverloading
+      Unsatisfiable constraint `::Array[untyped] <: U(3) <: ::String` is generated through (U(3)) { (::Integer, U(3)) -> untyped } -> U(3)
+        ::Array[untyped] <: ::String
+          ::Object <: ::String
+            ::BasicObject <: ::String
+    code: Ruby::UnsatisfiableConstraint
