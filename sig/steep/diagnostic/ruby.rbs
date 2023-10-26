@@ -98,19 +98,19 @@ module Steep
       end
 
       class UnresolvedOverloading < Base
-        attr_reader node: untyped
+        attr_reader node (): Parser::AST::Node
 
-        attr_reader receiver_type: untyped
+        attr_reader receiver_type: AST::Types::t
 
-        attr_reader method_name: untyped
+        attr_reader method_name: Symbol
 
-        attr_reader method_types: untyped
+        attr_reader method_types: Array[Interface::MethodType]
 
-        def initialize: (node: untyped, receiver_type: untyped, method_name: untyped, method_types: untyped) -> void
+        def initialize: (node: Parser::AST::Node, receiver_type: AST::Types::t, method_name: Symbol, method_types: Array[Interface::MethodType]) -> void
 
-        def header_line: () -> ::String
+        def header_line: () -> String
 
-        def detail_lines: () -> untyped
+        def detail_lines: () -> String
       end
 
       class ArgumentTypeMismatch < Base
