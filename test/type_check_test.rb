@@ -1317,18 +1317,16 @@ class TypeCheckTest < Minitest::Test
           - range:
               start:
                 line: 4
-                character: 4
+                character: 18
               end:
                 line: 6
                 character: 7
             severity: ERROR
             message: |-
-              Cannot find compatible overloading of method `yield_self` of type `::String`
-              Method types:
-                def yield_self: [X] () { (::String) -> X } -> X
-                              | () -> ::Enumerator[::String, untyped]
-            code: Ruby::UnresolvedOverloading
-      YAML
+              Cannot allow block body have type `::Symbol` because declared as type `T`
+                ::Symbol <: T
+            code: Ruby::BlockBodyTypeMismatch
+        YAML
     )
   end
 
