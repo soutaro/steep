@@ -2,6 +2,41 @@
 
 ## master
 
+## 1.6.0.pre.1 (2023-10-27)
+
+### Type checker core
+
+* Test if a parameter is `_` ([#946](https://github.com/soutaro/steep/pull/946))
+* Let `[]=` call have correct type ([#945](https://github.com/soutaro/steep/pull/945))
+* Support type narrowing by `Module#<` ([#877](https://github.com/soutaro/steep/pull/877))
+* Fewer `UnresolvedOverloading` ([#941](https://github.com/soutaro/steep/pull/941))
+* Fix ArgumentTypeMismatch for PublishDiagnosticsParams ([#895](https://github.com/soutaro/steep/pull/895))
+* Add types for LSP::Constant::MessageType ([#894](https://github.com/soutaro/steep/pull/894))
+* `nil` is not a `NilClass` ([#920](https://github.com/soutaro/steep/pull/920))
+* Fix unexpected error when DifferentMethodParameterKind ([#917](https://github.com/soutaro/steep/pull/917))
+
+### Commandline tool
+
+* Fix space in file path crash ([#944](https://github.com/soutaro/steep/pull/944))
+* refactor: Rename driver objects to command ([#893](https://github.com/soutaro/steep/pull/893))
+* Run with `--jobs=2` automatically on CI ([#924](https://github.com/soutaro/steep/pull/924))
+* Fix type alias validation ([#922](https://github.com/soutaro/steep/pull/922))
+
+### Language server
+
+* Let goto definition work from `UnresolvedOverloading` error calls ([#943](https://github.com/soutaro/steep/pull/943))
+* Let label be whole method type in SignatureHelp ([#942](https://github.com/soutaro/steep/pull/942))
+* Set up file watcher ([#936](https://github.com/soutaro/steep/pull/936))
+* Reset file content on `didOpen` notification ([#935](https://github.com/soutaro/steep/pull/935))
+* Start type check on change ([#934](https://github.com/soutaro/steep/pull/934))
+* Better completion with module alias and `use` directives ([#923](https://github.com/soutaro/steep/pull/923))
+
+### Miscellaneous
+
+* Drop 2.7 support ([#928](https://github.com/soutaro/steep/pull/928))
+* Type check `subtyping/check.rb` ([#921](https://github.com/soutaro/steep/pull/921))
+* Type check constant under `self` ([#908](https://github.com/soutaro/steep/pull/908))
+
 ## 1.5.3 (2023-08-10)
 
 ### Type checker core
