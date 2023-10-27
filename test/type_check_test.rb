@@ -1644,4 +1644,30 @@ class TypeCheckTest < Minitest::Test
       YAML
     )
   end
+
+  def test_class_narrowing
+    run_type_check_test(
+      signatures: {
+        "a.rbs" => <<~RBS
+          module Foo
+            def self.foo: () -> void
+          end
+        RBS
+      },
+      code: {
+        "a.rb" => <<~RUBY
+          klass = Class.new()
+
+          if klass < Foo
+            klass.foo()
+          end
+        RUBY
+      },
+      expectations: <<~YAML
+        ---
+        - file: a.rb
+          diagnostics: []
+      YAML
+    )
+  end
 end
