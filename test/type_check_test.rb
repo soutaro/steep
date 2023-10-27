@@ -1714,4 +1714,35 @@ class TypeCheckTest < Minitest::Test
       YAML
     )
   end
+
+  def test_underscore_opt_param
+    run_type_check_test(
+      signatures: {
+        "a.rbs" => <<~RBS
+          class Foo
+            def foo: (?String, *untyped, **untyped) -> void
+
+            def bar: () { (?String, *untyped, **untyped) -> void } -> void
+          end
+        RBS
+      },
+      code: {
+        "a.rb" => <<~RUBY
+          class Foo
+            def foo(_ = "", *_, **_)
+              bar {|_ = "", *_, **_| }
+            end
+
+            def bar
+            end
+          end
+        RUBY
+      },
+      expectations: <<~YAML
+        ---
+        - file: a.rb
+          diagnostics: []
+      YAML
+    )
+  end
 end

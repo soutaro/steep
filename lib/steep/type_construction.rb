@@ -1305,29 +1305,39 @@ module Steep
             var = node.children[0]
             rhs = node.children[1]
 
-            var_type = context.type_env[var]
-
-            if var_type
-              type, constr = check(rhs, var_type) do |expected_type, actual_type, result|
-                typing.add_error(
-                  Diagnostic::Ruby::IncompatibleAssignment.new(
-                    node: node,
-                    lhs_type: expected_type,
-                    rhs_type: actual_type,
-                    result: result
-                  )
-                )
-              end
+            if SPECIAL_LVAR_NAMES.include?(var)
+              synthesize(rhs)
+              add_typing(node, type: AST::Builtin.any_type)
             else
-              type, constr = synthesize(rhs)
-            end
+              var_type = context.type_env[var]
 
-            constr.add_typing(node, type: type)
+              if var_type
+                type, constr = check(rhs, var_type) do |expected_type, actual_type, result|
+                  typing.add_error(
+                    Diagnostic::Ruby::IncompatibleAssignment.new(
+                      node: node,
+                      lhs_type: expected_type,
+                      rhs_type: actual_type,
+                      result: result
+                    )
+                  )
+                end
+              else
+                type, constr = synthesize(rhs)
+              end
+
+              constr.add_typing(node, type: type)
+            end
           end
 
         when :restarg
           yield_self do
             var = node.children[0]
+
+            if SPECIAL_LVAR_NAMES.include?(var)
+              return add_typing(node, type: AST::Builtin.any_type)
+            end
+
             type = context.type_env[var]
 
             unless type
@@ -1344,6 +1354,11 @@ module Steep
         when :kwrestarg
           yield_self do
             var = node.children[0]
+
+            if SPECIAL_LVAR_NAMES.include?(var)
+              return add_typing(node, type: AST::Builtin.any_type)
+            end
+
             type = context.type_env[var]
             unless type
               if context.method_context&.method_type
