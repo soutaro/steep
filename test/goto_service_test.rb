@@ -483,6 +483,32 @@ RUBY
     end
   end
 
+  def test_method_locations_error
+    type_check = type_check_service do |changes|
+      changes[Pathname("sig/customer.rbs")] = [ContentChange.string(<<RBS)]
+class Customer
+  def foo: (Integer, String) -> void
+         | (String) -> void
+end
+RBS
+      changes[Pathname("lib/main.rb")] = [ContentChange.string(<<RUBY)]
+Customer.new.foo()
+RUBY
+    end
+
+    type_check.source_files.each_key do |path|
+      type_check.typecheck_source(path: path) {}
+    end
+    service = Services::GotoService.new(type_check: type_check, assignment: assignment)
+    queries = service.query_at(path: Pathname("lib/main.rb"), line: 1, column: 16)
+
+    assert_equal 2, queries.size
+    queries.each do |query|
+      assert_instance_of Services::GotoService::MethodQuery, query
+      assert_equal MethodName("::Customer#foo"), query.name
+    end
+  end
+
   def test_type_name_locations
     type_check = type_check_service do |changes|
       changes[Pathname("sig/customer.rbs")] = [ContentChange.string(<<RBS)]

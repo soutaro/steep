@@ -3346,12 +3346,14 @@ module Steep
             method_name: method_name,
             method_types: method.method_types
           )
+          decls = method.method_types.each_with_object(Set[]) {|type, decls| decls.merge(type.method_decls) }
           call = TypeInference::MethodCall::Error.new(
             node: node,
             context: context.call_context,
             method_name: method_name,
             receiver_type: receiver_type,
-            errors: errors
+            errors: errors,
+            method_decls: decls
           )
         end
 
