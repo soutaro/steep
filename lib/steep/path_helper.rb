@@ -7,6 +7,7 @@ module Steep
       if uri.scheme == "file"
         path = uri.path or raise
         path.sub!(%r{^/([a-zA-Z])(:|%3A)//?}i, '\1:/') if dosish
+        path = URI::DEFAULT_PARSER.unescape(path)
         Pathname(path)
       end
     end
@@ -20,6 +21,7 @@ module Steep
       if dosish
         str_path.insert(0, "/") if str_path[0] != "/"
       end
+      str_path = URI::DEFAULT_PARSER.escape(str_path)
       URI::File.build(path: str_path)
     end
   end

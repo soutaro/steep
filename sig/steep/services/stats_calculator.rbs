@@ -1,17 +1,41 @@
 module Steep
   module Services
     class StatsCalculator
-      SuccessStats: untyped
+      class SuccessStats
+        attr_reader target: Project::Target
 
-      ErrorStats: untyped
+        attr_reader path: Pathname
 
-      attr_reader service: untyped
+        attr_reader typed_calls_count: Integer
 
-      def initialize: (service: untyped) -> void
+        attr_reader untyped_calls_count: Integer
 
-      def project: () -> untyped
+        attr_reader error_calls_count: Integer
 
-      def calc_stats: (untyped target, file: untyped) -> untyped
+        def initialize: (target: Project::Target, path: Pathname, typed_calls_count: Integer, untyped_calls_count: Integer, error_calls_count: Integer) -> void
+
+        def as_json: () -> Hash[Symbol, untyped]
+      end
+
+      class ErrorStats
+        attr_reader target: Project::Target
+
+        attr_reader path: Pathname
+
+        def initialize: (target: Project::Target, path: Pathname) -> void
+
+        def as_json: () -> Hash[Symbol, untyped]
+      end
+
+      type stats = SuccessStats | ErrorStats
+
+      attr_reader service: TypeCheckService
+
+      def initialize: (service: TypeCheckService) -> void
+
+      def project: () -> Project
+
+      def calc_stats: (Project::Target target, file: TypeCheckService::SourceFile) -> stats
     end
   end
 end

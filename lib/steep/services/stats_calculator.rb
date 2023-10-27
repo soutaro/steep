@@ -1,7 +1,7 @@
 module Steep
   module Services
     class StatsCalculator
-      SuccessStats = Struct.new(:target, :path, :typed_calls_count, :untyped_calls_count, :error_calls_count, keyword_init: true) do
+      class SuccessStats < Struct.new(:target, :path, :typed_calls_count, :untyped_calls_count, :error_calls_count, keyword_init: true)
         def as_json
           {
             type: "success",
@@ -14,7 +14,7 @@ module Steep
           }
         end
       end
-      ErrorStats = Struct.new(:target, :path, keyword_init: true) do
+      class ErrorStats < Struct.new(:target, :path, keyword_init: true)
         def as_json
           {
             type: "error",

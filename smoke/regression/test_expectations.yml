@@ -35,6 +35,18 @@
     severity: ERROR
     message: 'Cannot find the declaration of class: `Foo`'
     code: Ruby::UnknownConstant
+- file: hello world.rb
+  diagnostics:
+  - range:
+      start:
+        line: 1
+        character: 2
+      end:
+        line: 1
+        character: 5
+    severity: ERROR
+    message: Type `::Integer` does not have method `foo`
+    code: Ruby::NoMethod
 - file: issue_332.rb
   diagnostics:
   - range:

@@ -9,6 +9,7 @@ class PathHelperTest < Minitest::Test
     # Unix path
     assert_equal Pathname("/foo/bar"), to_pathname("file:///foo/bar")
     assert_equal Pathname("/foo/bar"), to_pathname("file:/foo/bar")
+    assert_equal Pathname("/foo bar"), to_pathname("file:/foo%20bar")
 
     # Dosish path
     assert_equal Pathname("C:/foo/bar"), to_pathname("file:///C:/foo/bar", dosish: true)
@@ -21,5 +22,6 @@ class PathHelperTest < Minitest::Test
   def test_to_uri
     assert_equal URI("file:///foo/bar"), to_uri(Pathname("/foo/bar"))
     assert_equal URI("file:///c:/foo/bar"), to_uri(Pathname("c:/foo/bar"), dosish: true)
+    assert_equal URI("file:///foo%20bar"), to_uri(Pathname("/foo bar"))
   end
 end
