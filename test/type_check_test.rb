@@ -1670,4 +1670,48 @@ class TypeCheckTest < Minitest::Test
       YAML
     )
   end
+
+  def test_calls_with_index_writer_methods
+    run_type_check_test(
+      signatures: {
+        "a.rbs" => <<~RBS
+          class WithIndexWriter
+            def []=: (String, String) -> Integer
+          end
+        RBS
+      },
+      code: {
+        "a.rb" => <<~RUBY
+          obj = WithIndexWriter.new
+          obj.[]=("hoge", "huga").foo
+          obj&.[]=("hoge", "huga").foo
+        RUBY
+      },
+      expectations: <<~YAML
+        ---
+        - file: a.rb
+          diagnostics:
+          - range:
+              start:
+                line: 2
+                character: 24
+              end:
+                line: 2
+                character: 27
+            severity: ERROR
+            message: Type `::Integer` does not have method `foo`
+            code: Ruby::NoMethod
+          - range:
+              start:
+                line: 3
+                character: 25
+              end:
+                line: 3
+                character: 28
+            severity: ERROR
+            message: Type `(::Integer | nil)` does not have method `foo`
+            code: Ruby::NoMethod
+      YAML
+    )
+  end
 end

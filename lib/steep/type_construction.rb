@@ -3285,7 +3285,14 @@ module Steep
 
         if call && constr
           case method_name.to_s
-          when "[]=", /\w=\Z/
+          when "[]="
+            if test_send_node(node) {|_, _, _, loc| !loc.dot }
+              last_arg = arguments.last or raise
+              if typing.has_type?(last_arg)
+                call = call.with_return_type(typing.type_of(node: last_arg))
+              end
+            end
+          when /\w=\Z/
             last_arg = arguments.last or raise
             if typing.has_type?(last_arg)
               call = call.with_return_type(typing.type_of(node: last_arg))
