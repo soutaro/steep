@@ -2908,6 +2908,8 @@ module Steep
             _, constr = constr.gvasgn(asgn_node, type)
           when :mlhs
             constr = (constr.type_masgn_type(asgn_node, type, masgn: masgn, optional: optional) or return)
+          else
+            _, constr = constr.synthesize_children(asgn_node).add_typing(asgn_node, type: AST::Builtin.any_type)
           end
 
           if node.type == :splat

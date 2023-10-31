@@ -663,7 +663,7 @@ module Steep
         if parent
           case parent.type
           when :const
-            const_name = typing.source_index.reference(constant_node: parent)
+            const_name = typing.source_index.reference(constant_node: parent) or raise "Unknown node in source_index: #{parent}"
             consts = context.type_env.constant_env.children(const_name)
           end
         else
