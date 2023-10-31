@@ -48,7 +48,7 @@ module Steep
         string = path.to_s
         extension = path.extname
 
-        patterns.any? {|pat| File.fnmatch(pat, string) } ||
+        patterns.any? {|pat| File.fnmatch(pat, string, File::FNM_PATHNAME) } ||
           prefixes.any? {|prefix| string.start_with?(prefix) && extension == ext }
       end
     end
