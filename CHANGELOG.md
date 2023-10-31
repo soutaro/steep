@@ -2,6 +2,17 @@
 
 ## master
 
+## 1.6.0.pre.2 (2023-10-31)
+
+### Type checker core
+
+* Assign types on method calls in mlhs node ([#951](https://github.com/soutaro/steep/pull/951))
+* Change severity of block diagnostics ([#950](https://github.com/soutaro/steep/pull/950))
+
+### Commandline tool
+
+* Match with `**` in pattern ([#949](https://github.com/soutaro/steep/pull/949))
+
 ## 1.6.0.pre.1 (2023-10-27)
 
 ### Type checker core
