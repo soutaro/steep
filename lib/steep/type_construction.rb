@@ -2214,6 +2214,10 @@ module Steep
               end
             end
 
+            resbody_pairs.select! do |pair|
+              no_subtyping?(sub_type: pair.type, super_type: AST::Types::Bot.new)
+            end
+
             resbody_types = resbody_pairs.map(&:type)
             resbody_envs = resbody_pairs.map {|pair| pair.context.type_env }
 
@@ -2225,8 +2229,13 @@ module Steep
                 .update_type_env {|env| env.join(*resbody_envs, env) }
                 .add_typing(node, type: union_type(else_type, *resbody_types))
             else
-              update_type_env {|env| env.join(*resbody_envs, else_constr.context.type_env) }
-                .add_typing(node, type: union_type(*[body_pair&.type, *resbody_types].compact))
+              if resbody_types.empty?
+                constr = body_pair ? body_pair.constr : self
+                constr.add_typing(node, type: body_pair&.type || AST::Builtin.nil_type)
+              else
+                update_type_env {|env| env.join(*resbody_envs, else_constr.context.type_env) }
+                  .add_typing(node, type: union_type(*[body_pair&.type, *resbody_types].compact))
+              end
             end
           end
 
