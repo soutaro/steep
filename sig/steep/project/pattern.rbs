@@ -1,22 +1,44 @@
 module Steep
   class Project
+    # `Pattern` class represents a pair of *positive* and *negative* patterns that may match with a pathname
+    #
+    # ```rb
+    # pat = Pattern.new(patterns: ["app/models"], ignores: ["app/models/account.rb"], ext: ".rbs")
+    #
+    # pat =~ "app/models/group.rb"    # => true
+    # pat =~ "app/models/account.rb"  # => false
+    # ```
+    #
+    # The pattern may be:
+    #
+    # 1. Directory name pattern -- `lib`, or
+    # 2. *Glob* pattern -- `foo/**/bar.rb`
+    #
     class Pattern
+      # Positive patterns, which is tested with `fnmatch`
       attr_reader patterns: Array[String]
 
+      # Negative patterns, which is tested with `fnmatch`
       attr_reader ignores: Array[String]
 
+      # Positive *dir name* pattern constructed from `#patterns`, which is tested with `start_with?`
       attr_reader prefixes: Array[String]
 
+      # Negative *dir name* pattern constructed from `#ignores`, which is tested with `start_with?`
       attr_reader ignore_prefixes: Array[String]
 
       attr_reader ext: String
 
       def initialize: (patterns: Array[String], ext: String, ?ignores: Array[String]) -> void
 
+      # Returns `true` if given path matches to *positive* pattern, but doesn't match to *negative* pattern
+      #
       def =~: (Pathname | String path) -> bool
 
+      # Returns true if given `Pathname` matches to *positive* pattern
       def match?: (Pathname path) -> bool
 
+      # Returns true if given `Pathname` matches to *negative* pattern
       def ignore?: (Pathname path) -> bool
 
       def test_string: (Pathname path, Array[String] patterns, Array[String] prefixes) -> bool
