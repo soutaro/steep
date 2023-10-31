@@ -1745,4 +1745,29 @@ class TypeCheckTest < Minitest::Test
       YAML
     )
   end
+
+  def test_rescue_assignment
+    run_type_check_test(
+      signatures: {
+        "a.rbs" => <<~RBS
+        RBS
+      },
+      code: {
+        "a.rb" => <<~RUBY
+          begin
+            x = 123
+          rescue
+            raise
+          end
+
+          x + 1
+        RUBY
+      },
+      expectations: <<~YAML
+        ---
+        - file: a.rb
+          diagnostics: []
+      YAML
+    )
+  end
 end
