@@ -1,4 +1,3 @@
-
 module Steep
   module Interface
     class Builder
@@ -718,22 +717,30 @@ module Steep
         if member.is_a?(RBS::AST::Members::MethodDefinition)
           case method_name.method_name
           when :is_a?, :kind_of?, :instance_of?
-            if defined_in == RBS::BuiltinNames::Object.name && member.instance?
-              return method_type.with(
-                type: method_type.type.with(
-                  return_type: AST::Types::Logic::ReceiverIsArg.new(location: method_type.type.return_type.location)
+            case
+            when RBS::BuiltinNames::Object.name,
+              RBS::BuiltinNames::Kernel.name
+              if member.instance?
+                return method_type.with(
+                  type: method_type.type.with(
+                    return_type: AST::Types::Logic::ReceiverIsArg.new(location: method_type.type.return_type.location)
+                  )
                 )
-              )
+              end
             end
 
           when :nil?
             case defined_in
-            when RBS::BuiltinNames::Object.name, AST::Builtin::NilClass.module_name
-              return method_type.with(
-                type: method_type.type.with(
-                  return_type: AST::Types::Logic::ReceiverIsNil.new(location: method_type.type.return_type.location)
+            when RBS::BuiltinNames::Object.name,
+              AST::Builtin::NilClass.module_name,
+              RBS::BuiltinNames::Kernel.name
+              if member.instance?
+                return method_type.with(
+                  type: method_type.type.with(
+                    return_type: AST::Types::Logic::ReceiverIsNil.new(location: method_type.type.return_type.location)
+                  )
                 )
-              )
+            end
             end
 
           when :!
@@ -757,8 +764,14 @@ module Steep
                   return_type: AST::Types::Logic::ArgIsReceiver.new(location: method_type.type.return_type.location)
                 )
               )
-            when RBS::BuiltinNames::Object.name, RBS::BuiltinNames::String.name, RBS::BuiltinNames::Integer.name, RBS::BuiltinNames::Symbol.name,
-              RBS::BuiltinNames::TrueClass.name, RBS::BuiltinNames::FalseClass.name, TypeName("::NilClass")
+            when RBS::BuiltinNames::Object.name,
+              RBS::BuiltinNames::Kernel.name,
+              RBS::BuiltinNames::String.name,
+              RBS::BuiltinNames::Integer.name,
+              RBS::BuiltinNames::Symbol.name,
+              RBS::BuiltinNames::TrueClass.name,
+              RBS::BuiltinNames::FalseClass.name,
+              TypeName("::NilClass")
               # Value based type-case works on literal types which is available for String, Integer, Symbol, TrueClass, FalseClass, and NilClass
               return method_type.with(
                 type: method_type.type.with(
@@ -783,3 +796,4 @@ module Steep
     end
   end
 end
+
