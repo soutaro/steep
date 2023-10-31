@@ -1013,8 +1013,8 @@ module Steep
         @default ||= _ = all_error.merge(
           {
             ArgumentTypeMismatch => :error,
-            BlockBodyTypeMismatch => :hint,
-            BlockTypeMismatch => :hint,
+            BlockBodyTypeMismatch => :warning,
+            BlockTypeMismatch => :warning,
             BreakTypeMismatch => :hint,
             DifferentMethodParameterKind => :hint,
             FallbackAny => :hint,
@@ -1129,8 +1129,8 @@ module Steep
         @lenient ||= _ = all_error.merge(
           {
             ArgumentTypeMismatch => :information,
-            BlockBodyTypeMismatch => :hint,
-            BlockTypeMismatch => :hint,
+            BlockBodyTypeMismatch => :information,
+            BlockTypeMismatch => :information,
             BreakTypeMismatch => :hint,
             DifferentMethodParameterKind => nil,
             FallbackAny => nil,
