@@ -412,6 +412,27 @@ bar()
     end
   end
 
+  def test_on_colon2_call_masgn
+    with_checker <<EOF do
+class Hello
+  class World
+  end
+end
+EOF
+      CompletionProvider.new(source_text: <<-EOR, path: Pathname("foo.rb"), subtyping: checker).tap do |provider|
+Hello::
+a, b = []
+      EOR
+
+        provider.run(line: 1, column: 7).tap do |items|
+          items.grep(CompletionProvider::ConstantItem).tap do |items|
+            assert_equal [:World], items.map(&:identifier).sort
+          end
+        end
+      end
+    end
+  end
+
   def test_simple_method_name_item_two_defs
     with_checker <<~RBS do
         class TestClass
