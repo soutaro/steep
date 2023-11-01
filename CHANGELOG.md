@@ -2,6 +2,13 @@
 
 ## master
 
+## 1.6.0.pre.3 (2023-11-01)
+
+### Type checker core
+
+* Object methods are moved to Kernel ([#952](https://github.com/soutaro/steep/pull/952))
+* Check if `rescue` body has `bot` type ([#953](https://github.com/soutaro/steep/pull/953))
+
 ## 1.6.0.pre.2 (2023-10-31)
 
 ### Type checker core
