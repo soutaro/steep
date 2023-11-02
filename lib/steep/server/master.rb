@@ -115,18 +115,25 @@ module Steep
             code_paths.include?(path)
           end
 
-          def add(path)
-            return if library_path?(path) || signature_path?(path) || code_path?(path)
+          def add(path, library: false)
+            return true if signature_path?(path) || code_path?(path) || library_path?(path)
 
-            relative_path = project.relative_path(path)
-
-            case
-            when target.source_pattern =~ relative_path
-              code_paths << path
-            when target.signature_pattern =~ relative_path
-              signature_paths << path
-            else
+            if library
               library_paths << path
+              true
+            else
+              relative_path = project.relative_path(path)
+
+              case
+              when target.source_pattern =~ relative_path
+                code_paths << path
+                true
+              when target.signature_pattern =~ relative_path
+                signature_paths << path
+                true
+              else
+                false
+              end
             end
           end
 
@@ -685,6 +692,8 @@ module Steep
               start_type_checking_queue.execute do
                 job_queue.push(
                   -> do
+                    Steep.logger.info { "Starting type check from textDocument/didChange notification..." }
+
                     last_request = current_type_check_request
                     if request = controller.make_request(last_request: last_request)
                       start_type_check(request, last_request: last_request, start_progress: request.total > 10)

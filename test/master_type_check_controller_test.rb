@@ -42,7 +42,7 @@ end
       end
 
       (RBS::EnvironmentLoader::DEFAULT_CORE_ROOT + "object.rbs").tap do |path|
-        paths << path
+        paths.add(path, library: true)
 
         assert_equal Set[path], paths.library_paths
         assert_operator paths, :library_path?, path
