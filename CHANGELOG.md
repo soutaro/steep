@@ -2,6 +2,12 @@
 
 ## master
 
+## 1.6.0.pre.4 (2023-11-02)
+
+### Language server
+
+* Fix LSP text synchronization problems ([#954](https://github.com/soutaro/steep/pull/954))
+
 ## 1.6.0.pre.3 (2023-11-01)
 
 ### Type checker core
