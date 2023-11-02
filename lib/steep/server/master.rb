@@ -645,20 +645,22 @@ module Steep
 
             path = PathHelper.to_pathname(uri) or next
 
-            controller.push_changes(path)
+            unless controller.priority_paths.include?(path)
+              controller.push_changes(path)
 
-            case type
-            when 1, 2
-              content = path.read
-            when 4
-              # Deleted
-              content = ""
+              case type
+              when 1, 2
+                content = path.read
+              when 4
+                # Deleted
+                content = ""
+              end
+
+              broadcast_notification({
+                method: "$/file/reset",
+                params: { uri: uri, content: content }
+              })
             end
-
-            broadcast_notification({
-              method: "$/file/reset",
-              params: { uri: uri, content: content }
-            })
           end
 
           if typecheck_automatically
