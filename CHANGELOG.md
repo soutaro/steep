@@ -2,6 +2,10 @@
 
 ## master
 
+## 1.6.0 (2023-11-09)
+
+Nothing changed from 1.6.0.pre.4.
+
 ## 1.6.0.pre.4 (2023-11-02)
 
 ### Language server
