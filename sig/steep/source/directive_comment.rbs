@@ -1,0 +1,24 @@
+module Steep
+  class Source
+    class DirectiveComment
+      DIAGNOSTIC_NAME_PATTERN: String
+      DIAGNOSTICS_NAME_PATTERN: String
+      DIRECTIVE_COMMENT_REGEXP: Regexp
+
+      attr_reader comment: Parser::Source::Comment
+      attr_reader args: Array[String]
+      attr_reader location: Parser::Source::Map
+
+      def initialize: (Parser::Source::Comment comment) -> void
+      def valid?: () -> bool
+      def all?: () -> bool
+      def start?: () -> bool
+      def end?: () -> bool
+      def diagnostic_names: () -> Array[String]
+
+      private
+
+      def parse_args: (Parser::Source::Comment comment) -> Array[String]
+    end
+  end
+end
