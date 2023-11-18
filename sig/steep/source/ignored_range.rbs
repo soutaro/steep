@@ -1,0 +1,16 @@
+module Steep
+  class Source
+    class IgnoredRange
+      attr_reader from: DirectiveComment
+      attr_reader to: DirectiveComment?
+
+      def initialize: (from: DirectiveComment, to: DirectiveComment?) -> void
+      def include?: (Steep::Diagnostic::Ruby::Base error) -> bool
+
+      private
+
+      def cover?: (line: Integer) -> bool
+      def match?: (type: Steep::Diagnostic::Ruby::Base) -> bool
+    end
+  end
+end
