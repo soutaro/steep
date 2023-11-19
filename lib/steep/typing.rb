@@ -41,7 +41,7 @@ module Steep
     end
 
     def add_error(error)
-      errors << error
+      errors << error unless source.directive_map.ignored?(error)
     end
 
     def add_typing(node, type, _context)

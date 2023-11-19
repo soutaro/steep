@@ -1770,4 +1770,36 @@ class TypeCheckTest < Minitest::Test
       YAML
     )
   end
+
+  def test_ignore_directive
+    run_type_check_test(
+      signatures: {
+        "a.rbs" => <<~RBS
+          class SetterReturnType
+            def foo=: (String) -> String
+          end
+        RBS
+      },
+      code: {
+        "a.rb" => <<~RUBY
+          # steep:ignore all
+          class SetterReturnType
+            def foo=(value)
+              if _ = value
+                return
+              else
+                123
+              end
+            end
+          end
+          # steep:ignore end
+        RUBY
+      },
+      expectations: <<~YAML
+        ---
+        - file: a.rb
+          diagnostics: []
+      YAML
+    )
+  end
 end

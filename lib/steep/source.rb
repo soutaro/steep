@@ -5,6 +5,7 @@ module Steep
     attr_reader :node
     attr_reader :mapping
     attr_reader :comments
+    attr_reader :directive_map
 
     extend NodeHelper
 
@@ -14,6 +15,7 @@ module Steep
       @node = node
       @mapping = mapping
       @comments = comments
+      @directive_map = DirectiveMap.new(comments)
     end
 
     class Builder < ::Parser::Builders::Default
