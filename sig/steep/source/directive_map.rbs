@@ -1,0 +1,14 @@
+module Steep
+  class Source
+    class DirectiveMap
+      attr_reader ignored_ranges: Array[IgnoredRange]
+
+      def initialize: (Array[Parser::Source::Comment] comments) -> void
+      def ignored?: (Diagnostic::Ruby::Base error) -> bool
+
+      private
+
+      def build_ignored_ranges: (Array[Parser::Source::Comment] comments) -> Array[IgnoredRange]
+    end
+  end
+end
