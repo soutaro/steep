@@ -1,0 +1,32 @@
+use RBS::AST::Declarations
+
+module Steep
+  module Services
+    class DocumentSymbolProvider
+      module LSP = LanguageServer::Protocol
+
+      interface _Loc
+        def start_line: () -> Integer
+        def start_column: () -> Integer
+        def end_line: () -> Integer
+        def end_column: () -> Integer
+      end
+
+      attr_reader service: TypeCheckService
+
+      def initialize: (service: TypeCheckService) -> void
+
+      def content_for: (path: Pathname) -> Array[LanguageServer::Protocol::Interface::DocumentSymbol]?
+
+      def build_document_symbols: (Declarations::Base | RBS::AST::Members::Base, Array[LanguageServer::Protocol::Interface::DocumentSymbol], ?top_level: bool) -> void
+
+      def build_range: (_Loc?) -> LanguageServer::Protocol::Interface::Range
+
+      def trim_namespace_scope: (String, ?top_level: bool) -> String
+
+      def symbol_name_with_type_params: (Declarations::Class | Declarations::Module | Declarations::Interface | Declarations::TypeAlias, ?top_level: bool) -> String
+
+      def kind_from_ast_node: (Declarations::Base | RBS::AST::Members::Base) -> LanguageServer::Protocol::Constant::SymbolKind::t
+    end
+  end
+end

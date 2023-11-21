@@ -5,6 +5,7 @@ module Steep
 
       ApplyChangeJob = _ = Class.new()
       HoverJob = _ = Struct.new(:id, :path, :line, :column, keyword_init: true)
+      DocumentSymbolJob = _ = Struct.new(:id, :path, keyword_init: true)
       CompletionJob = _ = Struct.new(:id, :path, :line, :column, :trigger, keyword_init: true)
       SignatureHelpJob = _ = Struct.new(:id, :path, :line, :column, keyword_init: true)
 
@@ -34,6 +35,8 @@ module Steep
             # nop
           when HoverJob
             writer.write({ id: job.id, result: process_hover(job) })
+          when DocumentSymbolJob
+            writer.write({ id: job.id, result: process_document_symbol(job) })
           when CompletionJob
             writer.write({ id: job.id, result: process_completion(job) })
           when SignatureHelpJob
@@ -61,6 +64,13 @@ module Steep
           column = request[:params][:position][:character]
 
           queue << HoverJob.new(id: id, path: path, line: line, column: column)
+
+        when "textDocument/documentSymbol"
+          id = request[:id]
+
+          path = project.relative_path(PathHelper.to_pathname!(request[:params][:textDocument][:uri]))
+
+          queue << DocumentSymbolJob.new(id: id, path: path)
 
         when "textDocument/completion"
           id = request[:id]
@@ -104,6 +114,17 @@ module Steep
           rescue Typing::UnknownNodeError => exn
             Steep.log_error exn, message: "Failed to compute hover: #{exn.inspect}"
             nil
+          end
+        end
+      end
+
+      def process_document_symbol(job)
+        Steep.logger.tagged "#process_document_symbol" do
+          Steep.measure "Generating document symbol response" do
+            Steep.logger.info { "path=#{job.path}" }
+
+            provider = Services::DocumentSymbolProvider.new(service: service)
+            provider.content_for(path: job.path)
           end
         end
       end

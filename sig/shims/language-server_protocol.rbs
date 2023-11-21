@@ -248,6 +248,14 @@ module LanguageServer
         def initialize: (contents: MarkupContent, range: Range) -> void
       end
 
+      class DocumentSymbol
+        include _Base
+
+        attr_reader range: Range
+
+        def initialize: (name: String, kind: Constant::SymbolKind::t, range: Range, selection_range: Range, ?children: Array[DocumentSymbol]?) -> void
+      end
+
       class CompletionList
         include _Base
 

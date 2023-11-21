@@ -573,6 +573,7 @@ module Steep
                         partialResults: true,
                         partialResult: true
                       },
+                      document_symbol_provider: true,
                       completion_provider: LSP::Interface::CompletionOptions.new(
                         trigger_characters: [".", "@", ":"],
                         work_done_progress: true
@@ -721,7 +722,7 @@ module Steep
             controller.update_priority(close: path)
           end
 
-        when "textDocument/hover", "textDocument/completion", "textDocument/signatureHelp"
+        when "textDocument/hover", "textDocument/completion", "textDocument/signatureHelp", "textDocument/documentSymbol"
           if interaction_worker
             if path = pathname(message[:params][:textDocument][:uri])
               result_controller << send_request(method: message[:method], params: message[:params], worker: interaction_worker) do |handler|
