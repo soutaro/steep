@@ -7,7 +7,7 @@ module Steep
       @targets = []
       @steepfile_path = steepfile_path
 
-      unless steepfile_path.absolute?
+      unless steepfile_path&.absolute?
         raise "Project#initialize(steepfile_path:): steepfile_path should be absolute path"
       end
     end

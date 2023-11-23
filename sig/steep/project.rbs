@@ -2,9 +2,9 @@ module Steep
   class Project
     attr_reader targets: Array[Target]
 
-    attr_reader steepfile_path: Pathname
+    attr_reader steepfile_path: Pathname?
 
-    def initialize: (steepfile_path: Pathname) -> void
+    def initialize: (steepfile_path: Pathname?) -> void
 
     def base_dir: () -> Pathname
 

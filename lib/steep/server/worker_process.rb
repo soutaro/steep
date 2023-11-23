@@ -92,7 +92,8 @@ module Steep
       end
 
       def self.spawn_worker(type, name:, steepfile:, steep_command:, index:, delay_shutdown:, patterns:)
-        args = ["--name=#{name}", "--steepfile=#{steepfile}"]
+        args = ["--name=#{name}"]
+        args << "--steepfile=#{steepfile}" if steepfile
         args << (%w(debug info warn error fatal unknown)[Steep.logger.level].yield_self {|log_level| "--log-level=#{log_level}" })
 
         if Steep.log_output.is_a?(String)
