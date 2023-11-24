@@ -4,13 +4,23 @@ module Steep
       module DriverHelper
         attr_accessor :steepfile
 
-        def load_config(path: steepfile || Pathname("Steepfile"))
-          raise "Cannot find a configuration at #{path}: `steep init` to scaffold" unless path.file?
-
-          steep_file_path = path.absolute? ? path : Pathname.pwd + path
-          Project.new(steepfile_path: steep_file_path).tap do |project|
-            Project::DSL.parse(project, path.read, filename: path.to_s)
-
+        def load_config(path: steepfile || Pathname("Steepfile"), warnings: true)
+          if path.file?
+            steep_file_path = path.absolute? ? path : Pathname.pwd + path
+            Project.new(steepfile_path: steep_file_path).tap do |project|
+              Project::DSL.parse(project, path.read, filename: path.to_s)
+            end
+          else
+            if warnings # Silence warnings in children worker processes
+              warn "Cannot find a configuration at #{path}: `steep init` to scaffold. Using current directory..."
+            end
+            Project.new(steepfile_path: nil, base_dir: Pathname.pwd).tap do |project|
+              Project::DSL.new(project: project).target :'.' do
+                check '.'
+                signature '.'
+              end
+            end
+          end.tap do |project|
             project.targets.each do |target|
               if collection_lock = target.options.collection_lock
                 begin
