@@ -177,17 +177,18 @@ module Steep
         @@templates
       end
 
-      def initialize(project:)
+      def initialize(project:, warnings: true)
         @project = project
+        @warnings = warnings
       end
 
       def self.register_template(name, target)
         templates[name] = target
       end
 
-      def self.parse(project, code, filename: "Steepfile")
+      def self.parse(project, code, filename: "Steepfile", warnings: true)
         Steep.logger.tagged filename do
-          self.new(project: project).instance_eval(code, filename)
+          self.new(project: project, warnings: warnings).instance_eval(code, filename)
         end
       end
 
@@ -216,9 +217,9 @@ module Steep
               .from_lockfile(lockfile_path: lockfile_path, data: content)
               .tap(&:check_rbs_availability!)
           rescue RBS::Collection::Config::CollectionNotAvailable
-            warn "Run `rbs collection install` to install type definitions"
+            warn "Run `rbs collection install` to install type definitions" if @warnings
           rescue YAML::SyntaxError
-            warn "Syntax error in `#{lockfile_path}`"
+            warn "Syntax error in `#{lockfile_path}`" if @warnings
           end
         end
 

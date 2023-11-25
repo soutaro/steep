@@ -26,6 +26,8 @@ module Steep
 
         attr_reader collection_config_path: Pathname?
 
+        @warnings: boolish
+
         NONE: untyped
 
         def project!: () -> Project
@@ -92,11 +94,11 @@ module Steep
 
       def self.templates: () -> Hash[Symbol, TargetDSL]
 
-      def initialize: (project: Project) -> void
+      def initialize: (project: Project, ?warnings: boolish) -> void
 
       def self.register_template: (Symbol name, TargetDSL target) -> void
 
-      def self.parse: (Project project, String code, ?filename: String) -> void
+      def self.parse: (Project project, String code, ?filename: String, ?warnings: boolish) -> void
 
       def target: (Symbol name, ?template: Symbol?) ?{ (TargetDSL) [self: TargetDSL] -> void } -> void
     end
