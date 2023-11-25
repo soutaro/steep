@@ -207,10 +207,19 @@ module Steep
         signature_pattern = Pattern.new(patterns: target.signatures, ext: ".rbs")
 
 
-        if config_path = target.collection_config_path
+        collection_lock = if (config_path = target.collection_config_path)
           lockfile_path = RBS::Collection::Config.to_lockfile_path(config_path)
-          content = YAML.load_file(lockfile_path.to_s)
-          collection_lock = RBS::Collection::Config::Lockfile.from_lockfile(lockfile_path: lockfile_path, data: content)
+          begin
+            raise RBS::Collection::Config::CollectionNotAvailable unless lockfile_path.file?
+            content = YAML.load_file(lockfile_path.to_s)
+            RBS::Collection::Config::Lockfile
+              .from_lockfile(lockfile_path: lockfile_path, data: content)
+              .tap(&:check_rbs_availability!)
+          rescue RBS::Collection::Config::CollectionNotAvailable
+            warn "Run `rbs collection install` to install type definitions"
+          rescue YAML::SyntaxError
+            warn "Syntax error in `#{lockfile_path}`"
+          end
         end
 
         Project::Target.new(
