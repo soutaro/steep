@@ -183,6 +183,39 @@ EOF
     end
   end
 
+  def test_collection_missing
+    in_tmpdir do
+      current_dir.join('rbs_collection.yaml').write('')
+      project = Project.new(steepfile_path: current_dir + "Steepfile")
+
+      assert_output nil, /rbs collection/ do
+        Project::DSL.parse(project, <<~EOF)
+          target :app do
+          end
+        EOF
+      end
+
+      assert_nil project.targets[0].options.collection_lock
+    end
+  end
+
+  def test_collection_bad
+    in_tmpdir do
+      current_dir.join('rbs_collection.yaml').write('')
+      current_dir.join('rbs_collection.lock.yaml').write(']')
+      project = Project.new(steepfile_path: current_dir + "Steepfile")
+
+      assert_output nil, /syntax/i do
+        Project::DSL.parse(project, <<~EOF)
+          target :app do
+          end
+        EOF
+      end
+
+      assert_nil project.targets[0].options.collection_lock
+    end
+  end
+
   def test_disable_collection
     in_tmpdir do
       current_dir.join('rbs_collection.yaml').write('')
