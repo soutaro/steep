@@ -217,9 +217,11 @@ module Steep
               .from_lockfile(lockfile_path: lockfile_path, data: content)
               .tap(&:check_rbs_availability!)
           rescue RBS::Collection::Config::CollectionNotAvailable
-            warn "Run `rbs collection install` to install type definitions" if @warnings
+            Steep.logger.error "Run `rbs collection install` to install type definitions" if @warnings
+            nil
           rescue YAML::SyntaxError
-            warn "Syntax error in `#{lockfile_path}`" if @warnings
+            Steep.logger.error "Syntax error in `#{lockfile_path}`" if @warnings
+            nil
           end
         end
 

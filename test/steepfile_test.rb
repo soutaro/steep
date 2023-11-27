@@ -188,14 +188,20 @@ EOF
       current_dir.join('rbs_collection.yaml').write('')
       project = Project.new(steepfile_path: current_dir + "Steepfile")
 
-      assert_output nil, /rbs collection/ do
-        Project::DSL.parse(project, <<~EOF)
+      begin
+        Steep.log_output = StringIO.new
+
+        Project::DSL.parse(project, <<~RUBY)
           target :app do
           end
-        EOF
-      end
+        RUBY
 
-      assert_nil project.targets[0].options.collection_lock
+        assert_match /rbs collection/, Steep.log_output.string
+        #TODO: Test `error` severity
+        assert_nil project.targets[0].options.collection_lock
+      ensure
+        Steep.log_output = STDERR
+      end
     end
   end
 
@@ -204,15 +210,21 @@ EOF
       current_dir.join('rbs_collection.yaml').write('')
       current_dir.join('rbs_collection.lock.yaml').write(']')
       project = Project.new(steepfile_path: current_dir + "Steepfile")
-
-      assert_output nil, /syntax/i do
-        Project::DSL.parse(project, <<~EOF)
+      
+      begin
+        Steep.log_output = StringIO.new
+        
+        Project::DSL.parse(project, <<~RUBY)
           target :app do
           end
-        EOF
-      end
+        RUBY
 
-      assert_nil project.targets[0].options.collection_lock
+        assert_match /[Ss]yntax/, Steep.log_output.string
+        #TODO: Test `error` severity
+        assert_nil project.targets[0].options.collection_lock
+      ensure
+        Steep.log_output = STDERR
+      end
     end
   end
 
