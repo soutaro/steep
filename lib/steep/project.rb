@@ -15,7 +15,7 @@ module Steep
         raise ArgumentError, "Project#initialize(base_dir:): neither base_dir nor steepfile_path given"
       end
 
-      unless steepfile_path&.absolute?
+      if steepfile_path and !steepfile_path.absolute?
         raise ArgumentError, "Project#initialize(steepfile_path:): steepfile_path should be absolute path"
       end
     end
