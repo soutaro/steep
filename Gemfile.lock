@@ -78,7 +78,7 @@ GEM
     reline (0.3.8)
       io-console (~> 0.5)
     ruby2_keywords (0.0.5)
-    securerandom (0.2.2)
+    securerandom (0.3.0)
     stackprof (0.2.25)
     stringio (3.0.8)
     strscan (3.0.7)
