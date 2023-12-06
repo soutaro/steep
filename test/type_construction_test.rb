@@ -10821,4 +10821,155 @@ z = AppTest.new.foo(1, 2) #$ Integer, Integer, String
       end
     end
   end
+
+  def test_method_definition_missing_for_methods
+    with_checker(<<~RBS) do |checker|
+        class A
+          def foo: () -> void
+          def bar: () -> void
+        end
+      RBS
+      source = parse_ruby(<<~RUBY)
+        class A
+          def foo
+          end
+        end
+      RUBY
+
+      with_standard_construction(checker, source) do |construction, typing|
+        construction.synthesize(source.node)
+
+        assert_equal 1, typing.errors.size
+
+        typing.errors[0].tap do |error|
+          assert_instance_of Diagnostic::Ruby::MethodDefinitionMissing, error
+          assert_equal :bar, error.missing_method
+        end
+      end
+    end
+  end
+
+  def test_method_definition_missing_for_attr_readers
+    with_checker(<<~RBS) do |checker|
+        class A
+          attr_reader foo: Integer
+          attr_reader bar: Integer
+        end
+      RBS
+      source = parse_ruby(<<~RUBY)
+        class A
+          attr_reader :foo
+        end
+      RUBY
+
+      with_standard_construction(checker, source) do |construction, typing|
+        construction.synthesize(source.node)
+
+        assert_equal 1, typing.errors.size
+
+        typing.errors[0].tap do |error|
+          assert_instance_of Diagnostic::Ruby::MethodDefinitionMissing, error
+          assert_equal :bar, error.missing_method
+        end
+      end
+    end
+  end
+
+  def test_method_definition_missing_for_attr_writers
+    with_checker(<<~RBS) do |checker|
+        class A
+          attr_writer foo: Integer
+          attr_writer bar: Integer
+        end
+      RBS
+      source = parse_ruby(<<~RUBY)
+        class A
+          attr_writer :foo
+        end
+      RUBY
+
+      with_standard_construction(checker, source) do |construction, typing|
+        construction.synthesize(source.node)
+
+        assert_equal 2, typing.errors.size
+
+        typing.errors[0].tap do |error|
+          assert_instance_of Diagnostic::Ruby::NoMethod, error
+          assert_equal :attr_writer, error.method  # why?
+        end
+
+        typing.errors[1].tap do |error|
+          assert_instance_of Diagnostic::Ruby::MethodDefinitionMissing, error
+          assert_equal :bar=, error.missing_method
+        end
+      end
+    end
+  end
+
+  def test_method_definition_missing_for_attr_accessors
+    with_checker(<<~RBS) do |checker|
+        class A
+          attr_accessor foo: Integer
+          attr_accessor bar: Integer
+        end
+      RBS
+      source = parse_ruby(<<~RUBY)
+        class A
+          attr_accessor :foo
+        end
+      RUBY
+
+      with_standard_construction(checker, source) do |construction, typing|
+        construction.synthesize(source.node)
+
+        assert_equal 3, typing.errors.size
+
+        typing.errors[0].tap do |error|
+          assert_instance_of Diagnostic::Ruby::NoMethod, error
+          assert_equal :attr_accessor, error.method  # why?
+        end
+
+        typing.errors[1].tap do |error|
+          assert_instance_of Diagnostic::Ruby::MethodDefinitionMissing, error
+          assert_equal :bar, error.missing_method
+        end
+
+        typing.errors[2].tap do |error|
+          assert_instance_of Diagnostic::Ruby::MethodDefinitionMissing, error
+          assert_equal :bar=, error.missing_method
+        end
+      end
+    end
+  end
+
+  def test_method_definition_missing_for_aliases
+    with_checker(<<~RBS) do |checker|
+        class A
+          def ==: (untyped) -> bool
+          alias eql? ==
+          alias equal? ==
+        end
+      RBS
+      source = parse_ruby(<<~RUBY)
+        class A
+          def ==(other)
+            true
+          end
+
+          alias eql? ==
+        end
+      RUBY
+
+      with_standard_construction(checker, source) do |construction, typing|
+        construction.synthesize(source.node)
+
+        assert_equal 1, typing.errors.size
+
+        typing.errors[0].tap do |error|
+          assert_instance_of Diagnostic::Ruby::MethodDefinitionMissing, error
+          assert_equal :equal?, error.missing_method
+        end
+      end
+    end
+  end
 end
