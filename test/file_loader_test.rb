@@ -27,6 +27,8 @@ class FileLoaderTest < Minitest::Test
 
       assert_equal [Pathname("lib/foo.rb"), Pathname("test/foo_test.rb")], loader.each_path_in_patterns(pat).to_a
       assert_equal [Pathname("lib/foo.rb")], loader.each_path_in_patterns(pat, ["lib"]).to_a
+      assert_equal [Pathname("lib/foo.rb")], loader.each_path_in_patterns(pat, ["lib/foo.rb"]).to_a
+      assert_equal [Pathname("lib/foo.rb")], loader.each_path_in_patterns(pat, [(current_dir + "lib/foo.rb".to_s)]).to_a
       assert_empty loader.each_path_in_patterns(pat, ["lib/parser.y"]).to_a
       assert_empty loader.each_path_in_patterns(pat, ["Rakefile"]).to_a
     end
