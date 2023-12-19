@@ -16,7 +16,7 @@ and install the gems.
 $ bundle install
 ```
 
-You can install it with the gem command.
+Alternatively, you can install it with the gem command.
 
 ```
 $ gem install steep
@@ -26,14 +26,14 @@ Execute the following command to confirm if the command is successfully installe
 
 ```
 $ steep version
-$ bundle exec steep version         # When you install with bundler
+$ bundle exec steep version         # If you install with bundler
 ```
 
-We omit the `bundle exec` prefix from the following commands. Run commands with the prefix if you install Steep with bundler.
+We omit the `bundle exec` prefix from the following commands. Run commands with the prefix if you installed Steep with Bundler.
 
 ## Type checking your first Ruby script
 
-Run steep init command to generate the configuration file, Steepfile.
+Run the `steep init` command to generate the configuration file, `Steepfile`.
 
 ```
 $ steep init
@@ -54,7 +54,7 @@ Type the following Ruby code in your editor, and save it as `lib/hello.rb`.
 currencies = { US: "$", JP: "¥", UK: "£" }
 country = %w(US JP UK).sample()
 
-puts "Hello! The price is #{currencies[country.to_sym]}100. 💸"
+puts "Hello! The price is #{currencies[country]}100. 💸"
 ```
 
 And type check it with Steep.
@@ -84,13 +84,13 @@ lib/hello.rb:4:39: [error] Cannot pass a value of type `(::String | nil)` as an 
 Detected 1 problem from 1 file
 ```
 
-The error says that the type of the country variable causes a type error. It is expected to be a Symbol, but String or nil will be given.
+The error says that the type of the country variable causes a type error. It is expected to be a symbol, but string or `nil` will be given.
 
 Let's see how we can fix the error.
 
 ## Fixing the type error
 
-The first step is converting the string value to a symbol. We can add to_sym call.
+The first step is converting the string value to a symbol. We can add a `#to_sym` call.
 
 ```rb
 currencies = { US: "$", JP: "¥", UK: "£" }
@@ -128,7 +128,7 @@ Instead, we can simply tell the type checker that the value of the country canno
 
 The underlying type system supports flow-sensitive typing similar to TypeScript and Rust. It detects conditional expressions testing the value of a variable and propagates the knowledge that the value cannot be `nil`.
 
-We can fix the type error with an or construct.
+We can fix the type error with an `or` construct.
 
 ```rb
 currencies = { US: "$", JP: "¥", UK: "£" }
@@ -137,7 +137,7 @@ country = %w(US JP UK).sample() or raise
 puts "Hello! The price is #{currencies[country.to_sym]}100. 💸"
 ```
 
-The change let the type checking succeed.
+The change lets the type checking succeed.
 
 ```
 $ steep check
@@ -145,7 +145,7 @@ $ steep check
 
 .........................................................
 
-No type error detected. 🧉
+No type error detected. 🫖
 ```
 
 The `raise` method is called when `sample()` returns `nil`. Steep can reason the possible control flow based on the semantics of or in Ruby:
@@ -161,4 +161,3 @@ There are two possibilities of the type of the result of the `sample()` call, `n
 ## Next steps
 
 This is a really quick introduction to using Steep. You may have noticed that I haven't explained anything about defining new classes or modules. See the RBS guide for more examples!
-
