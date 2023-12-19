@@ -12,7 +12,7 @@ module Steep
             end
           else
             if warnings # Silence warnings in children worker processes
-              warn "Cannot find a configuration at #{path}: `steep init` to scaffold. Using current directory..."
+              Steep.logger.error "Cannot find a configuration at #{path}: `steep init` to scaffold. Using current directory..."
             end
             Project.new(steepfile_path: nil, base_dir: Pathname.pwd).tap do |project|
               Project::DSL.new(project: project).target :'.' do
