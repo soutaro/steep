@@ -36,7 +36,7 @@ GEM
     concurrent-ruby (1.2.2)
     connection_pool (2.4.1)
     csv (3.2.7)
-    debug (1.9.0)
+    debug (1.9.1)
       irb (~> 1.10)
       reline (>= 0.3.8)
     drb (2.2.0)
@@ -45,8 +45,8 @@ GEM
     fileutils (1.7.1)
     i18n (1.14.1)
       concurrent-ruby (~> 1.0)
-    io-console (0.6.0)
-    irb (1.10.1)
+    io-console (0.7.1)
+    irb (1.11.0)
       rdoc
       reline (>= 0.3.8)
     json (2.7.1)
@@ -64,7 +64,7 @@ GEM
     parser (3.2.2.4)
       ast (~> 2.4.1)
       racc
-    psych (5.1.1.1)
+    psych (5.1.2)
       stringio
     racc (1.7.3)
     rainbow (3.1.1)
@@ -73,7 +73,7 @@ GEM
     rb-inotify (0.10.1)
       ffi (~> 1.0)
     rbs (3.2.2)
-    rdoc (6.6.1)
+    rdoc (6.6.2)
       psych (>= 4.0.0)
     reline (0.4.1)
       io-console (~> 0.5)
