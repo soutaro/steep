@@ -53,7 +53,8 @@ module Steep
         steep_command: String?,
         ?patterns: Array[String],
         ?delay_shutdown: bool,
-        ?index: [Integer, Integer]?
+        ?index: [Integer, Integer]?,
+        ?with_expectations_path: Pathname?
       ) -> WorkerProcess
 
       def self.fork_worker: (
@@ -62,7 +63,8 @@ module Steep
         steepfile: Pathname,
         patterns: Array[String],
         delay_shutdown: bool,
-        index: [Integer, Integer]?
+        index: [Integer, Integer]?,
+        with_expectations_path: Pathname?
       ) -> WorkerProcess
 
       def self.spawn_worker: (
@@ -72,7 +74,8 @@ module Steep
         steep_command: ::String,
         patterns: Array[String],
         delay_shutdown: bool,
-        index: [Integer, Integer]?
+        index: [Integer, Integer]?,
+        with_expectations_path: Pathname?
       ) -> WorkerProcess
 
       def self.start_typecheck_workers: (
@@ -80,7 +83,8 @@ module Steep
         args: Array[String],
         steep_command: ::String?,
         ?count: Integer,
-        ?delay_shutdown: bool
+        ?delay_shutdown: bool,
+        ?with_expectations_path: Pathname?
       ) -> Array[WorkerProcess]
 
       def <<: (untyped message) -> void

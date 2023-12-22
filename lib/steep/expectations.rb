@@ -199,6 +199,10 @@ module Steep
       new()
     end
 
+    def include?(path:, diagnostic:)
+      (self.diagnostics[path] || []).include?(diagnostic)
+    end
+
     def to_yaml
       array = [] #: Array[{ "file" => String, "diagnostics" => Array[untyped] }]
 

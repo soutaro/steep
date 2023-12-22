@@ -228,6 +228,9 @@ module Steep
       Drivers::Langserver.new(stdout: stdout, stderr: stderr, stdin: stdin).tap do |command|
         OptionParser.new do |opts|
           opts.on("--steepfile=PATH") {|path| command.steepfile = Pathname(path) }
+          opts.on("--with-expectations[=PATH]", "Type check with expectations saved in PATH (or steep_expectations.yml)") do |path|
+            command.with_expectations_path = Pathname(path || "steep_expectations.yml")
+          end
           handle_jobs_option command.jobs_option, opts
           handle_logging_options opts
         end.parse!(argv)
@@ -347,6 +350,9 @@ TEMPLATE
           opts.on("--delay-shutdown") { command.delay_shutdown = true }
           opts.on("--max-index=COUNT") {|count| command.max_index = Integer(count) }
           opts.on("--index=INDEX") {|index| command.index = Integer(index) }
+          opts.on("--with-expectations[=PATH]", "Type check with expectations saved in PATH (or steep_expectations.yml)") do |path|
+            command.with_expectations_path = Pathname(path || "steep_expectations.yml")
+          end
         end.parse!(argv)
 
         command.commandline_args.push(*argv)
