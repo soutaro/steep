@@ -21,7 +21,7 @@ module Steep
 
       def factory: () -> AST::Types::Factory
 
-      def with_context: [A] (self_type: AST::Types::t, instance_type: AST::Types::t, class_type: AST::Types::t, constraints: Constraints) { () -> A } -> A
+      def with_context: [A] (self_type: AST::Types::t?, instance_type: AST::Types::t?, class_type: AST::Types::t?, constraints: Constraints?) { () -> A } -> A
 
       def self_type: () -> AST::Types::t
 
@@ -50,7 +50,7 @@ module Steep
 
       def singleton_super_types: (RBS::TypeName type_name) -> Array[super_type]
 
-      def check: (Relation[AST::Types::t] relation, constraints: Constraints, self_type: AST::Types::t, instance_type: AST::Types::t, class_type: AST::Types::t) -> Result::t
+      def check: (Relation[AST::Types::t] relation, constraints: Constraints, self_type: AST::Types::t?, instance_type: AST::Types::t?, class_type: AST::Types::t?) -> Result::t
 
       def check_type: (Relation[AST::Types::t] relation) -> Result::t
 
