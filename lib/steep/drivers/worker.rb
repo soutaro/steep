@@ -21,7 +21,7 @@ module Steep
 
       def run()
         Steep.logger.tagged("#{worker_type}:#{worker_name}") do
-          project = load_config(warnings: false) # Main process has already emitted any warnings
+          project = load_config()
 
           reader = LanguageServer::Protocol::Transport::Io::Reader.new(stdin)
           writer = LanguageServer::Protocol::Transport::Io::Writer.new(stdout)

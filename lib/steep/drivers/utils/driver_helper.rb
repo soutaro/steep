@@ -4,16 +4,14 @@ module Steep
       module DriverHelper
         attr_accessor :steepfile
 
-        def load_config(path: steepfile || Pathname("Steepfile"), warnings: true)
+        def load_config(path: steepfile || Pathname("Steepfile"))
           if path.file?
             steep_file_path = path.absolute? ? path : Pathname.pwd + path
             Project.new(steepfile_path: steep_file_path).tap do |project|
               Project::DSL.parse(project, path.read, filename: path.to_s)
             end
           else
-            if warnings # Silence warnings in children worker processes
-              Steep.logger.error "Cannot find a configuration at #{path}: `steep init` to scaffold. Using current directory..."
-            end
+            Steep.ui_logger.error { "Cannot find a configuration at #{path}: `steep init` to scaffold. Using current directory..." }
             Project.new(steepfile_path: nil, base_dir: Pathname.pwd).tap do |project|
               Project::DSL.new(project: project).target :'.' do
                 check '.'

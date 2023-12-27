@@ -1,6 +1,13 @@
 module Steep
   VERSION: String
 
+  # `ui_logger` is a logger for user interaction messages
+  #
+  # The *main* process has the logger.
+  # The *worker* processes disables the logging through this.
+  #
+  def self.ui_logger: () -> (Logger & ActiveSupport::TaggedLogging)
+
   def self.logger: () -> (Logger & ActiveSupport::TaggedLogging)
 
   def self.new_logger: (IO output, Integer? prev_level) -> (Logger & ActiveSupport::TaggedLogging)
@@ -12,6 +19,8 @@ module Steep
   def self.log_error: (Exception exn, ?message: ::String) -> void
 
   self.@logger: (Logger & ActiveSupport::TaggedLogging)?
+
+  self.@ui_logger: (Logger & ActiveSupport::TaggedLogging)?
 
   class Sampler
     type sample = [String, Float]

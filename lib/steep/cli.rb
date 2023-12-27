@@ -63,6 +63,7 @@ module Steep
     def handle_logging_options(opts)
       opts.on("--log-level=LEVEL", "Specify log level: debug, info, warn, error, fatal") do |level|
         Steep.logger.level = level
+        Steep.ui_logger.level = level
       end
 
       opts.on("--log-output=PATH", "Print logs to given path") do |file|
@@ -71,6 +72,7 @@ module Steep
 
       opts.on("--verbose", "Set log level to debug") do
         Steep.logger.level = Logger::DEBUG
+        Steep.ui_logger.level = Logger::DEBUG
       end
     end
 
@@ -129,7 +131,7 @@ module Steep
         end.parse!(argv)
 
         setup_jobs_for_ci(command.jobs_option)
-        
+
         command.command_line_patterns.push *argv
       end.run
     end
@@ -348,6 +350,9 @@ TEMPLATE
           opts.on("--max-index=COUNT") {|count| command.max_index = Integer(count) }
           opts.on("--index=INDEX") {|index| command.index = Integer(index) }
         end.parse!(argv)
+
+        # Disable any `ui_logger` output in workers
+        Steep.ui_logger.level = :fatal
 
         command.commandline_args.push(*argv)
       end.run
