@@ -135,8 +135,8 @@ module Steep
         end
 
         def stdlib_path(core_root:, stdlib_root:)
-          @core_root = core_root ? Pathname(core_root) : core_root
-          @stdlib_root = stdlib_root ? Pathname(stdlib_root) : stdlib_root
+          @core_root = Pathname(core_root)
+          @stdlib_root = Pathname(stdlib_root)
         end
 
         def repo_path(*paths)

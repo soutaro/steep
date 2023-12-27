@@ -27,7 +27,6 @@ target :app do
 end
 
 target :Gemfile, template: :gemfile do
-  stdlib_path(core_root: false, stdlib_root: false)
 end
 EOF
 
@@ -49,8 +48,8 @@ EOF
         assert_equal [], target.source_pattern.ignores
         assert_equal [], target.signature_pattern.patterns
         assert_equal ["gemfile"], target.options.libraries
-        assert_equal false, target.options.paths.core_root
-        assert_equal false, target.options.paths.stdlib_root
+        assert_nil target.options.paths.core_root
+        assert_nil target.options.paths.stdlib_root
       end
     end
   end
