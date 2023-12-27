@@ -15,8 +15,9 @@ module Steep
             absolute_path = base_dir + path
 
             if absolute_path.file?
-              if pattern =~ path
-                yield absolute_path.relative_path_from(base_dir)
+              relative_path = absolute_path.relative_path_from(base_dir)
+              if pattern =~ relative_path
+                yield relative_path
               end
             else
               files = if absolute_path.directory?
