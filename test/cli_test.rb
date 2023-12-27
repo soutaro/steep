@@ -312,6 +312,21 @@ end
     end
   end
 
+  def test_check_no_steepfile
+    in_tmpdir do
+      (current_dir + "foo.rb").write(<<~EOF)
+        1 + 2
+      EOF
+
+      stdout, stderr, status = sh3(*steep, 'check')
+
+      assert_predicate status, :success?, stdout
+      assert_match /current directory/, stderr
+      assert_match /steep init/, stderr
+      assert_match /No type error detected\./, stdout
+    end
+  end
+
   def test_annotations
     in_tmpdir do
       (current_dir + "foo.rb").write(<<-RUBY)

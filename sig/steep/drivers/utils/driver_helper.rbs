@@ -6,7 +6,7 @@ module Steep
       module DriverHelper
         attr_accessor steepfile: Pathname?
 
-        def load_config: (?path: Pathname) -> Project
+        def load_config: (?path: Pathname, ?warnings: boolish) -> Project
 
         def request_id: () -> String
 
