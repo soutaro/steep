@@ -14,9 +14,7 @@ module Steep
         attr_reader :project
         attr_reader :collection_config_path
 
-        NONE = Object.new.freeze
-
-        def initialize(name, sources: [], libraries: [], signatures: [], ignored_sources: [], repo_paths: [], code_diagnostics_config: {}, project: nil, collection_config_path: NONE)
+        def initialize(name, sources: [], libraries: [], signatures: [], ignored_sources: [], repo_paths: [], code_diagnostics_config: {}, project: nil, collection_config_path: nil)
           @name = name
           @sources = sources
           @libraries = libraries
@@ -27,14 +25,7 @@ module Steep
           @repo_paths = []
           @code_diagnostics_config = code_diagnostics_config
           @project = project
-          @collection_config_path =
-            case collection_config_path
-            when NONE
-              path = project&.absolute_path(RBS::Collection::Config::PATH)
-              path&.exist? ? path : nil
-            else
-              collection_config_path
-            end
+          @collection_config_path = collection_config_path
         end
 
         def initialize_copy(other)
@@ -160,7 +151,7 @@ module Steep
         end
 
         def disable_collection
-          @collection_config_path = nil
+          @collection_config_path = false
         end
       end
 
@@ -206,8 +197,17 @@ module Steep
         source_pattern = Pattern.new(patterns: target.sources, ignores: target.ignored_sources, ext: ".rb")
         signature_pattern = Pattern.new(patterns: target.signatures, ext: ".rbs")
 
+        config_path =
+          case target.collection_config_path
+          when Pathname
+            target.collection_config_path
+          when nil
+            project.absolute_path(RBS::Collection::Config::PATH)
+          when false
+            nil
+          end
 
-        if config_path = target.collection_config_path
+        if config_path && config_path.file?
           lockfile_path = RBS::Collection::Config.to_lockfile_path(config_path)
           content = YAML.load_file(lockfile_path.to_s)
           collection_lock = RBS::Collection::Config::Lockfile.from_lockfile(lockfile_path: lockfile_path, data: content)
