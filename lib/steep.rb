@@ -152,6 +152,10 @@ module Steep
     @logger || raise
   end
 
+  def self.ui_logger
+    @ui_logger || raise
+  end
+
   def self.new_logger(output, prev_level)
     ActiveSupport::TaggedLogging.new(Logger.new(output)).tap do |logger|
       logger.push_tags "Steep #{VERSION}"
@@ -165,12 +169,18 @@ module Steep
 
   def self.log_output=(output)
     @log_output = output
+
     prev_level = @logger&.level
     @logger = new_logger(output, prev_level)
+
+    prev_level = @ui_logger&.level
+    @ui_logger = new_logger(output, prev_level)
+
     output
   end
 
   @logger = nil
+  @ui_logger = nil
   self.log_output = STDERR
 
   def self.measure(message, level: :warn)

@@ -64,6 +64,7 @@ module Steep
 
         pid = fork do
           Process.setpgid(0, 0)
+          Steep.ui_logger.level = :fatal
           stdin_out.close
           stdout_in.close
           worker.run()

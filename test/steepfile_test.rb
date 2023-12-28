@@ -27,7 +27,6 @@ target :app do
 end
 
 target :Gemfile, template: :gemfile do
-  stdlib_path(core_root: false, stdlib_root: false)
 end
 EOF
 
@@ -49,8 +48,8 @@ EOF
         assert_equal [], target.source_pattern.ignores
         assert_equal [], target.signature_pattern.patterns
         assert_equal ["gemfile"], target.options.libraries
-        assert_equal false, target.options.paths.core_root
-        assert_equal false, target.options.paths.stdlib_root
+        assert_nil target.options.paths.core_root
+        assert_nil target.options.paths.stdlib_root
       end
     end
   end
@@ -151,8 +150,7 @@ end
 EOF
 
       project.targets[0].tap do |target|
-        assert target.options.collection_lock
-        assert target.options.collection_lock.gem('securerandom')
+        assert_equal current_dir.join('rbs_collection.yaml'), target.options.collection_config_path
       end
     end
   end
@@ -177,8 +175,7 @@ end
 EOF
 
       project.targets[0].tap do |target|
-        assert target.options.collection_lock
-        assert target.options.collection_lock.gem('securerandom')
+        assert_equal current_dir.join('my-rbs_collection.yaml'), target.options.collection_config_path
       end
     end
   end
@@ -205,6 +202,70 @@ EOF
       project.targets[0].tap do |target|
         assert_nil target.options.collection_lock
       end
+    end
+  end
+
+  def test_collection_missing
+    in_tmpdir do
+      project = Project.new(steepfile_path: current_dir + "Steepfile")
+
+      Project::DSL.parse(project, <<~RUBY)
+        target :app do
+        end
+      RUBY
+
+      assert_nil project.targets[0].options.load_collection_lock
+      assert_nil project.targets[0].options.collection_lock
+    end
+  end
+
+  def test_load_collection_missing_error
+    in_tmpdir do
+      project = Project.new(steepfile_path: current_dir + "Steepfile")
+
+      Project::DSL.parse(project, <<~RUBY)
+        target :app do
+        end
+      RUBY
+
+      assert_nil project.targets[0].options.load_collection_lock()
+      assert_nil project.targets[0].options.collection_lock
+    end
+  end
+
+
+  def test_load_collection_syntax_error
+    in_tmpdir do
+      current_dir.join('rbs_collection.yaml').write('')
+      current_dir.join('rbs_collection.lock.yaml').write(']')
+      project = Project.new(steepfile_path: current_dir + "Steepfile")
+
+      Project::DSL.parse(project, <<~RUBY)
+        target :app do
+        end
+      RUBY
+
+      assert_instance_of YAML::SyntaxError, project.targets[0].options.load_collection_lock
+      assert_nil project.targets[0].options.collection_lock
+    end
+  end
+
+  def test_load_collection_failed
+    in_tmpdir do
+      current_dir.join('rbs_collection.yaml').write('')
+      current_dir.join('rbs_collection.lock.yaml').write(<<~YAML)
+        path: .test_path
+        gems: []
+      YAML
+      project = Project.new(steepfile_path: current_dir + "Steepfile")
+
+      Project::DSL.parse(project, <<~RUBY)
+        target :app do
+        end
+      RUBY
+
+      assert_instance_of RBS::Collection::Config::CollectionNotAvailable, project.targets[0].options.load_collection_lock
+      assert_nil project.targets[0].options.collection_lock
     end
   end
 end

@@ -19,9 +19,29 @@ module Steep
 
       attr_accessor paths: PathOptions
 
-      attr_accessor collection_lock: RBS::Collection::Config::Lockfile?
+      attr_accessor collection_config_path: Pathname?
 
       def initialize: () -> void
+
+      # Returns path of lockfile
+      %a{pure} def collection_lock_path: () -> Pathname?
+
+      # Returns `Lockfile` instance if it can be loaded
+      #
+      %a{pure} def collection_lock: () -> RBS::Collection::Config::Lockfile?
+
+      @collection_lock: RBS::Collection::Config::Lockfile | Pathname | YAML::SyntaxError | RBS::Collection::Config::CollectionNotAvailable | nil
+
+      # Load collection configuration
+      #
+      # * Returns `Lockfile` instance if successfully loaded
+      # * Returns `nil` if collection is disabled
+      # * Returns `Pathname` if a file is missing
+      # * Returns `YAML::SyntaxError` or `CollectionNotAvailable` if an error is raised
+      #
+      # It keeps the last result unless `force: true` is specified.
+      #
+      def load_collection_lock: (?force: bool) -> (RBS::Collection::Config::Lockfile | Pathname | YAML::SyntaxError | RBS::Collection::Config::CollectionNotAvailable | nil)
     end
   end
 end

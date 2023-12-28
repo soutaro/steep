@@ -4,16 +4,14 @@ module Steep
       module DriverHelper
         attr_accessor :steepfile
 
-        def load_config(path: steepfile || Pathname("Steepfile"), warnings: true)
+        def load_config(path: steepfile || Pathname("Steepfile"))
           if path.file?
             steep_file_path = path.absolute? ? path : Pathname.pwd + path
             Project.new(steepfile_path: steep_file_path).tap do |project|
               Project::DSL.parse(project, path.read, filename: path.to_s)
             end
           else
-            if warnings # Silence warnings in children worker processes
-              Steep.logger.error "Cannot find a configuration at #{path}: `steep init` to scaffold. Using current directory..."
-            end
+            Steep.ui_logger.error { "Cannot find a configuration at #{path}: `steep init` to scaffold. Using current directory..." }
             Project.new(steepfile_path: nil, base_dir: Pathname.pwd).tap do |project|
               Project::DSL.new(project: project).target :'.' do
                 check '.'
@@ -22,11 +20,14 @@ module Steep
             end
           end.tap do |project|
             project.targets.each do |target|
-              if collection_lock = target.options.collection_lock
-                begin
-                  collection_lock.check_rbs_availability!
-                rescue RBS::Collection::Config::CollectionNotAvailable
-                  raise "Run `rbs collection install` to install type definitions"
+              case result = target.options.load_collection_lock
+              when nil, RBS::Collection::Config::Lockfile
+                # ok
+              else
+                if result == target.options.collection_config_path
+                  Steep.ui_logger.error { "rbs-collection setup is broken: `#{result}` is missing" }
+                else
+                  Steep.ui_logger.error { "Run `rbs collection install` to install type definitions" }
                 end
               end
             end

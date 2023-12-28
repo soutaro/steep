@@ -24,9 +24,13 @@ module Steep
 
         attr_reader project: Project?
 
-        attr_reader collection_config_path: Pathname?
-
-        NONE: untyped
+        # Attribute to keep track of collection configuration
+        #
+        # * `Pathname` means loading the configuration from the path
+        # * `nil` means no configuration is given
+        # * `false` means rbs-collection is disabled
+        #
+        attr_reader collection_config_path: Pathname | nil | false
 
         def project!: () -> Project
 
@@ -86,7 +90,7 @@ module Steep
         def disable_collection: () -> void
       end
 
-      attr_reader project: untyped
+      attr_reader project: Project
 
       @@templates: Hash[Symbol, TargetDSL]
 
