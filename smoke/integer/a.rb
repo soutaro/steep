@@ -21,6 +21,6 @@ integer_4.foo
 integer_5 = Integer("10", 2)
 integer_5.foo
 
-Integer(Object.new)
+Integer(Object.new, exception: false)
 
 Integer(nil)
