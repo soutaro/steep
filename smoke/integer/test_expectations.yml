@@ -91,20 +91,3 @@
     severity: ERROR
     message: Type `::Integer` does not have method `foo`
     code: Ruby::NoMethod
-  - range:
-      start:
-        line: 24
-        character: 0
-      end:
-        line: 24
-        character: 19
-    severity: ERROR
-    message: |-
-      Cannot find compatible overloading of method `Integer` of type `::Object`
-      Method types:
-        def Integer: ((::_ToInt | ::_ToI), ?exception: true) -> ::Integer
-                   | ((::_ToInt | ::_ToI), exception: bool) -> (::Integer | nil)
-                   | (::string, ?::int, ?exception: true) -> ::Integer
-                   | (::string, ?::int, exception: bool) -> (::Integer | nil)
-                   | (untyped, ?untyped, exception: false) -> nil
-    code: Ruby::UnresolvedOverloading
