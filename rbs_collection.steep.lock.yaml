@@ -1,10 +1,4 @@
 ---
-sources:
-- type: git
-  name: ruby/gem_rbs_collection
-  revision: c42c09528dd99252db98f0744181a6de54ec2f55
-  remote: https://github.com/ruby/gem_rbs_collection.git
-  repo_dir: gems
 path: ".gem_rbs_collection"
 gems:
 - name: activesupport
@@ -15,6 +9,14 @@ gems:
     revision: c42c09528dd99252db98f0744181a6de54ec2f55
     remote: https://github.com/ruby/gem_rbs_collection.git
     repo_dir: gems
+- name: base64
+  version: '0'
+  source:
+    type: stdlib
+- name: bigdecimal
+  version: '0'
+  source:
+    type: stdlib
 - name: concurrent-ruby
   version: '1.1'
   source:
