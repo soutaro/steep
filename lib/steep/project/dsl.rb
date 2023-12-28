@@ -202,16 +202,13 @@ module Steep
           when Pathname
             target.collection_config_path
           when nil
-            project.absolute_path(RBS::Collection::Config::PATH)
+            default = project.absolute_path(RBS::Collection::Config::PATH)
+            if default.file?
+              default
+            end
           when false
             nil
           end
-
-        if config_path && config_path.file?
-          lockfile_path = RBS::Collection::Config.to_lockfile_path(config_path)
-          content = YAML.load_file(lockfile_path.to_s)
-          collection_lock = RBS::Collection::Config::Lockfile.from_lockfile(lockfile_path: lockfile_path, data: content)
-        end
 
         Project::Target.new(
           name: target.name,
@@ -224,7 +221,7 @@ module Steep
               stdlib_root: target.stdlib_root,
               repo_paths: target.repo_paths
             )
-            options.collection_lock = collection_lock
+            options.collection_config_path = config_path
           end,
           code_diagnostics_config: target.code_diagnostics_config
         ).tap do |target|
