@@ -27,6 +27,7 @@ test_dirs.each do |dir|
   end
 
   command = %w(steep check --with-expectations=test_expectations.yml)
+  command << "-j2" if ENV["CI"]
   puts "  command: #{command.join(" ")}"
 
   output, status = Open3.capture2(*command, chdir: dir.to_s)
