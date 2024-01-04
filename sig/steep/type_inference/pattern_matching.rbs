@@ -4,13 +4,15 @@ module Steep
   module TypeInference
     class PatternMatching
       class Clause
+        # The result given to the pattern matching body
         attr_reader truthy_result: LogicTypeInterpreter::Result
 
+        # The result the pattern doesn't match
         attr_reader falsy_result: LogicTypeInterpreter::Result
 
-        attr_reader clause_type: AST::Types::t
+        attr_reader body_result: Pair
 
-        def initialize: (LogicTypeInterpreter::Result truthy_result, LogicTypeInterpreter::Result falsy_result, AST::Types::t clause_type) -> void
+        def initialize: (LogicTypeInterpreter::Result truthy_result, LogicTypeInterpreter::Result falsy_result, Pair body_pair) -> void
       end
 
       # Initial state, after evaluating the matching expression
@@ -18,9 +20,9 @@ module Steep
 
       attr_reader clauses: Array[Clause]
 
-      attr_reader last_result: LogicTypeInterpreter::Result
+      @else_clause_result: Pair?
 
-      def initialize: (initial: Pair, initial_result: LogicTypeInterpreter::Result) -> void
+      def initialize: (initial: Pair) -> void
 
       # Add a pattern to the pattern matching
       #
@@ -37,6 +39,8 @@ module Steep
       # The block type checks the body of the else node, and returns the result Pair object.
       #
       def else_clause: () { (TypeEnv) -> Pair } -> Pair
+
+      def last_result: () -> LogicTypeInterpreter::Result
 
       # The result of the pattern matching
       def result: () -> Pair
