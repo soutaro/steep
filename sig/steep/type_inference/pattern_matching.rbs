@@ -1,0 +1,45 @@
+use Steep::TypeConstruction::Pair, Parser::AST::Node
+
+module Steep
+  module TypeInference
+    class PatternMatching
+      class Clause
+        attr_reader truthy_result: LogicTypeInterpreter::Result
+
+        attr_reader falsy_result: LogicTypeInterpreter::Result
+
+        attr_reader clause_type: AST::Types::t
+
+        def initialize: (LogicTypeInterpreter::Result truthy_result, LogicTypeInterpreter::Result falsy_result, AST::Types::t clause_type) -> void
+      end
+
+      # Initial state, after evaluating the matching expression
+      attr_reader initial: Pair
+
+      attr_reader clauses: Array[Clause]
+
+      attr_reader last_result: LogicTypeInterpreter::Result
+
+      def initialize: (initial: Pair, initial_result: LogicTypeInterpreter::Result) -> void
+
+      # Add a pattern to the pattern matching
+      #
+      # The *truthy* type environment is given to the block.
+      # The block type checks the body of the clause, and returns the result Pair object.
+      #
+      # The method returns the obtained `Pair` object.
+      #
+      def match_clause: (Node pattern_node) { (TypeEnv) -> Pair } -> Pair
+
+      # Add `else` clause to the pattern matching
+      #
+      # It yields a type environment for the body of the else clause.
+      # The block type checks the body of the else node, and returns the result Pair object.
+      #
+      def else_clause: () { (TypeEnv) -> Pair } -> Pair
+
+      # The result of the pattern matching
+      def result: () -> Pair
+    end
+  end
+end

@@ -1770,4 +1770,27 @@ class TypeCheckTest < Minitest::Test
       YAML
     )
   end
+
+  def test_case_in_value_pattern
+    run_type_check_test(
+      signatures: {
+        "a.rbs" => <<~RBS
+        RBS
+      },
+      code: {
+        "a.rb" => <<~RUBY
+          array = _ = nil
+          s = 123
+          
+          case array
+          in Integer
+          in 1
+          in ^s
+          end
+        RUBY
+      },
+      expectations: <<~YAML
+      YAML
+    )
+  end
 end

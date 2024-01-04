@@ -2709,6 +2709,40 @@ module Steep
         when :forwarded_args, :forward_arg
           add_typing(node, type: AST::Builtin.any_type)
 
+        when :case_match
+          subject, *clauses, else_clause = node.children
+
+          config = builder_config
+
+          pair = synthesize(subject, condition: true)
+
+          matching = TypeInference::PatternMatching.new(initial: pair)
+          clauses.each do |clause|
+            pat, cond, body = clause.children
+            matching.match_clause(pat) do |env|
+              constr = matching.initial.constr.update_type_env { env }
+
+              if cond
+                _, constr = constr.synthesize(cond, condition: true)
+                logic = TypeInference::LogicTypeInterpreter.new(subtyping: constr.checker, typing: constr.typing, config: config)
+                truthy_result, _ = logic.evaluate_node(env: constr.context.type_env, node: cond)
+                constr = constr.update_type_env { truthy_result.env }
+              end
+
+              constr.synthesize(body, hint: hint, condition: condition)
+            end
+          end
+          
+          if else_clause
+            matching.else_clause do |env|
+              constr = pair.constr.update_type_env { env }
+              constr.synthesize(else_clause, hint: hint, condition: condition)
+            end
+          end
+
+          type, constr = matching.result
+
+          constr.add_typing(node, type: type)
         else
           typing.add_error(Diagnostic::Ruby::UnsupportedSyntax.new(node: node))
           add_typing(node, type: AST::Builtin.any_type)
