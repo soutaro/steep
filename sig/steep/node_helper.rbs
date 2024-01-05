@@ -74,5 +74,7 @@ module Steep
     # If the next node is a `block` or `numblock` that is associated to the *sendish node*, it is the block node.
     #
     def deconstruct_sendish_and_block_nodes: (*Parser::AST::Node) -> [Parser::AST::Node, Parser::AST::Node?]?
+
+    def clone_node: (Node) -> Node
   end
 end
