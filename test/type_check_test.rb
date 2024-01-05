@@ -1781,10 +1781,16 @@ class TypeCheckTest < Minitest::Test
         "a.rb" => <<~RUBY
           array = _ = nil
           s = 123
-          
-          case array
+
+          case a = b = array
           in Integer
+            a.foo
+            b.foo
+            array.foo
           in 1
+            a.bar
+            b.bar
+            array.bar
           in ^s
           end
         RUBY
@@ -1793,4 +1799,34 @@ class TypeCheckTest < Minitest::Test
       YAML
     )
   end
+
+  def test_case_in_array
+    run_type_check_test(
+      signatures: {
+        "a.rbs" => <<~RBS
+        RBS
+      },
+      code: {
+        "a.rb" => <<~RUBY
+          array = _ = nil
+          s = 123
+
+          case a = b = array
+          # in [1, 2]
+          #   a.foo
+          #   b.foo
+          #   array.foo
+          # in [x, y]
+          #   a.bar
+          #   b.bar
+          #   array.bar
+          in [^s, Integer]
+          end
+        RUBY
+      },
+      expectations: <<~YAML
+      YAML
+    )
+  end
+
 end

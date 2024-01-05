@@ -10,19 +10,23 @@ module Steep
         # The result the pattern doesn't match
         attr_reader falsy_result: LogicTypeInterpreter::Result
 
-        attr_reader body_result: Pair
+        attr_reader body_pair: Pair
 
         def initialize: (LogicTypeInterpreter::Result truthy_result, LogicTypeInterpreter::Result falsy_result, Pair body_pair) -> void
       end
 
       # Initial state, after evaluating the matching expression
-      attr_reader initial: Pair
+      attr_reader initial_result: Pair
+
+      attr_reader node: Node
 
       attr_reader clauses: Array[Clause]
 
+      attr_reader logic: LogicTypeInterpreter
+
       @else_clause_result: Pair?
 
-      def initialize: (initial: Pair) -> void
+      def initialize: (node: Node, initial_result: Pair, logic: LogicTypeInterpreter) -> void
 
       # Add a pattern to the pattern matching
       #
@@ -44,6 +48,10 @@ module Steep
 
       # The result of the pattern matching
       def result: () -> Pair
+
+      def transform_condition_node: (Node, Symbol) -> [Node, Node]
+
+      def propagate_type_env: (Symbol, Node, TypeEnv) -> TypeEnv
     end
   end
 end
