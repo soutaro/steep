@@ -5055,22 +5055,6 @@ module Steep
       with_new_typing(typing.parent || raise)
     end
 
-    def transform_condition_node(node, var_name)
-      case node.type
-      when :lvasgn
-        name, rhs = node.children
-        rhs, value_node = transform_condition_node(rhs, var_name)
-        [node.updated(nil, [name, rhs]), value_node]
-      when :begin
-        *children, last = node.children
-        last, value_node = transform_condition_node(last, var_name)
-        [node.updated(nil, children.push(last)), value_node]
-      else
-        var_node = node.updated(:lvar, [var_name])
-        [var_node, node]
-      end
-    end
-
     def type_name(type)
       case type
       when AST::Types::Name::Instance, AST::Types::Name::Singleton
@@ -5118,21 +5102,6 @@ module Steep
       else
         if name = type_name(type)
           checker.factory.instance_type(name)
-        end
-      end
-    end
-
-    def propagate_type_env(source, dest, env)
-      source_type = env[source] or raise
-
-      if dest.type == :lvar
-        var_name = dest.children[0] #: Symbol
-        env.assign_local_variable(var_name, source_type, nil)
-      else
-        if env[dest]
-          env.replace_pure_call_type(dest, source_type)
-        else
-          env
         end
       end
     end
