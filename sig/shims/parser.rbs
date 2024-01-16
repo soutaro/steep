@@ -35,6 +35,16 @@ module Parser
     attr_reader diagnostics: untyped
   end
 
+  class Ruby33
+    def initialize: (untyped builder) -> void
+
+    def parse: (Source::Buffer) -> AST
+
+    def parse_with_comments: (Source::Buffer) -> [AST::Node, Array[Source::Comment]]
+
+    attr_reader diagnostics: untyped
+  end
+
   module Source
     class Buffer
       def initialize: (String file, Integer lineno, source: String) -> void

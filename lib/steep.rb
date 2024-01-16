@@ -1,7 +1,7 @@
 require "steep/version"
 
 require "pathname"
-require "parser/ruby32"
+require "parser/ruby33"
 require "active_support"
 require "active_support/core_ext/object/try"
 require "active_support/core_ext/string/inflections"
