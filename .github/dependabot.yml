@@ -7,6 +7,9 @@ updates:
       interval: daily
       time: "20:00"
     open-pull-requests-limit: 10
+    allow:
+      - dependency-type: all
+    versioning-strategy: lockfile-only
 
   - package-ecosystem: bundler
     directory: "/gemfile_steep"
@@ -14,6 +17,9 @@ updates:
       interval: daily
       time: "20:00"
     open-pull-requests-limit: 10
+    allow:
+      - dependency-type: all
+    versioning-strategy: lockfile-only
 
   - package-ecosystem: "github-actions"
     directory: "/"
