@@ -2028,7 +2028,7 @@ end while line = gets
 
         assert_equal 1, typing.errors.size
         typing.errors[0].tap do |error|
-          assert_instance_of Diagnostic::Ruby::NoMethod, error
+          assert_instance_of Diagnostic::Ruby::NoMethodByNil, error
           assert_equal parse_type("::String?"), error.type
           assert_equal :+, error.method
         end
@@ -3882,7 +3882,7 @@ EOF
 
         assert_equal 1, typing.errors.size
         typing.errors[0].yield_self do |error|
-          assert_instance_of Diagnostic::Ruby::NoMethod, error
+          assert_instance_of Diagnostic::Ruby::NoMethodByNil, error
           assert_equal :no_such_method, error.method
         end
       end
@@ -9461,7 +9461,7 @@ RUBY
 
         assert_typing_error(typing, size: 1) do |errors|
           errors[0].tap do |error|
-            assert_instance_of Diagnostic::Ruby::NoMethod, error
+            assert_instance_of Diagnostic::Ruby::NoMethodByNil, error
             assert_equal :+, error.method
           end
         end
@@ -10479,7 +10479,7 @@ z = AppTest.new.foo(1, 2) #$ Integer, Integer, String
         type, _, context = construction.synthesize(source.node)
 
         assert_all!(typing.errors) do |error|
-          assert_operator error, :is_a?, Diagnostic::Ruby::NoMethod
+          assert_operator error, :is_a?, Diagnostic::Ruby::NoMethodByNil
           assert_instance_of Parser::Source::Range, error.location
         end
       end

@@ -303,6 +303,30 @@ module Steep
         end
       end
 
+      class NoMethodByNil < Base
+        attr_reader :type
+        attr_reader :method
+
+        def initialize(node:, type:, method:)
+          loc = case node.type
+                when :send
+                  loc = _ = nil
+                  loc ||= node.loc.operator if node.loc.respond_to?(:operator)
+                  loc ||= node.loc.selector if node.loc.respond_to?(:selector)
+                  loc
+                when :block
+                  node.children[0].loc.selector
+                end
+          super(node: node, location: loc || node.loc.expression)
+          @type = type
+          @method = method
+        end
+
+        def header_line
+          "Type `#{type}` does not have method `#{method}`"
+        end
+      end
+
       class ReturnTypeMismatch < Base
         attr_reader :expected
         attr_reader :actual
@@ -1035,6 +1059,7 @@ module Steep
             MethodReturnTypeAnnotationMismatch => :hint,
             MultipleAssignmentConversionError => :hint,
             NoMethod => :error,
+            NoMethodByNil => :error,
             ProcHintIgnored => :hint,
             ProcTypeExpected => :hint,
             RBSError => :information,
@@ -1093,6 +1118,7 @@ module Steep
             MethodReturnTypeAnnotationMismatch => :error,
             MultipleAssignmentConversionError => :error,
             NoMethod => :error,
+            NoMethodByNil => :error,
             ProcHintIgnored => :information,
             ProcTypeExpected => :error,
             RBSError => :error,
@@ -1151,6 +1177,7 @@ module Steep
             MethodReturnTypeAnnotationMismatch => nil,
             MultipleAssignmentConversionError => nil,
             NoMethod => :information,
+            NoMethodByNil => :information,
             ProcHintIgnored => nil,
             ProcTypeExpected => nil,
             RBSError => :information,
