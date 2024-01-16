@@ -1,0 +1,130 @@
+use Parser::AST::Node
+use Steep::TypeConstruction::Pair, Steep::TypeInference::LogicTypeInterpreter::Result
+use Steep::NodeHelper::condition_loc, Steep::NodeHelper::keyword_loc
+
+module Steep
+  module TypeInference
+    class CaseWhen
+      class WhenPatterns
+        include NodeHelper
+
+        attr_reader logic: LogicTypeInterpreter
+
+        attr_reader initial_constr: TypeConstruction
+
+        # True if the `when` clause is unreachable
+        attr_reader unreachable_clause: bool
+
+        @assignment_node: Node
+
+        attr_reader pattern_results: Array[[Node, Result, Result]]
+
+        def initialize: (LogicTypeInterpreter logic, TypeConstruction initial_constr, bool unreachable, Node assignment_node) -> void
+
+        def add_pattern: (Node pattern) { (Node, TypeConstruction, bool) -> Pair } -> void
+
+        # The result for body of the when-clause
+        #
+        # Raises an error when no patern is registered.
+        #
+        def body_result: () { (TypeEnv) -> TypeEnv? } -> [TypeConstruction, bool]
+
+        # The result for next when-clause
+        #
+        # Raises an error when no patern is registered.
+        #
+        def falsy_result: () -> [TypeConstruction, bool]
+
+        # The result for incoming pattern
+        def latest_result: () -> [TypeConstruction, bool]
+
+        # Returns new object equivalent to @assignment_node
+        def assignment_node: () -> Node
+      end
+
+      type when_result = [
+        Result,   # Type of the body of the when-clause
+        Result    # Result for the case the when-clause doesn't match
+      ]
+
+      include NodeHelper
+      extend NodeHelper
+
+      # The location of `#node`
+      attr_reader location: condition_loc
+
+      # `case` node
+      attr_reader node: Node
+
+      attr_reader condition_node: Node
+
+      attr_reader when_nodes: Array[Node]
+
+      attr_reader else_node: Node?
+
+      attr_reader logic: LogicTypeInterpreter
+
+      attr_reader clause_results: Array[when_result]
+
+      attr_reader else_result: Pair?
+
+      # Fresh local variable name that contains the value of `#condition_node`
+      attr_reader var_name: Symbol
+
+      # `lvasgn` node that propagates the value of `#condition_node` to local variables
+      attr_reader assignment_node: Node
+
+      # A node that points to the value of `#condition_node`
+      #
+      # `nil` if it is an local variable.
+      #
+      attr_reader value_node: Node?
+
+      # The result of the type checking of `#condition_node`
+      #
+      attr_reader initial_constr: TypeConstruction
+
+      # The public API
+      #
+      # It type checks given `case` node with condition node, and records types and errors of sub nodes.
+      #
+      def self.type_check: (TypeConstruction, Node, LogicTypeInterpreter, hint: AST::Types::t?, condition: bool) -> [Array[AST::Types::t], Array[TypeEnv]]
+
+      def initialize: (Node, LogicTypeInterpreter) { (Node) -> Pair } -> void
+
+      def when_clauses: () { (WhenPatterns, Array[Node], Node?, keyword_loc) -> when_result } -> void
+
+      def else_clause: () { (Node, TypeConstruction) -> Pair } -> void
+
+      def result: () -> [Array[AST::Types::t], Array[TypeEnv]]
+
+      # Assign type of `value_node`
+      def propagate_value_node_type: (TypeEnv) -> TypeEnv?
+
+      # Returns `true` is `else` keyword is given
+      #
+      # `else_node` may be `nil` because body expression might be omitted.
+      #
+      # ```ruby
+      # case x
+      # when 1
+      # else
+      #   # The body expression is omitted, but the branch is given.
+      # end
+      # ```
+      #
+      def has_else_clause?: () -> Parser::Source::Range?
+
+      # def typing: () -> Typing
+
+      # Extract assignments
+      #
+      # Returns a pair of the node that represents the value and assignment.
+      #
+      def rewrite_condition_node: (Symbol, Node) ->[Node?, Node]
+
+      # TypeConstruction for incoming clause
+      def latest_result: () -> [TypeConstruction, bool]
+    end
+  end
+end

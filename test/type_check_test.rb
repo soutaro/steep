@@ -693,7 +693,17 @@ class TypeCheckTest < Minitest::Test
       expectations: <<~YAML
         ---
         - file: a.rb
-          diagnostics: []
+          diagnostics:
+          - range:
+              start:
+                line: 4
+                character: 0
+              end:
+                line: 4
+                character: 4
+            severity: ERROR
+            message: The branch may evaluate to a value of `nil` but unreachable
+            code: Ruby::UnreachableValueBranch
       YAML
     )
   end
@@ -1221,6 +1231,37 @@ class TypeCheckTest < Minitest::Test
             1
           when true
             2
+          end
+        RUBY
+      },
+      expectations: <<~YAML
+        ---
+        - file: a.rb
+          diagnostics: []
+      YAML
+    )
+  end
+
+  def test_case_when__narrow_pure_call
+    run_type_check_test(
+      signatures: {
+        "a.rbs" => <<~RBS
+          class CaseWhenNarrowPure
+            attr_reader foo: Integer | String | Array[String]
+          end
+        RBS
+      },
+      code: {
+        "a.rb" => <<~RUBY
+          test = CaseWhenNarrowPure.new
+
+          case test.foo
+          when Integer
+            test.foo + 1
+          when String
+            test.foo + ""
+          else
+            test.foo.each
           end
         RUBY
       },

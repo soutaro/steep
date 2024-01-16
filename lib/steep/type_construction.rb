@@ -1966,113 +1966,7 @@ module Steep
             interpreter = TypeInference::LogicTypeInterpreter.new(subtyping: checker, typing: typing, config: builder_config)
 
             if cond
-              branch_results = [] #: Array[Pair]
-
-              cond_type, constr = constr.synthesize(cond)
-
-              var_name = :"_a[#{SecureRandom.alphanumeric(4)}]"
-              var_cond, value_node = transform_condition_node(cond, var_name)
-              constr = constr.update_type_env {|env| env.assign_local_variable(var_name, cond_type, nil) }
-
-              next_branch_reachable = true
-
-              when_constr = constr
-              whens.each do |clause|
-                # @type var tests: Array[Parser::AST::Node]
-                # @type var body: Parser::AST::Node?
-                *tests, body = clause.children
-
-                test_constr = when_constr
-                # @type var test_envs: Array[TypeInference::TypeEnv]
-                test_envs = []
-
-                branch_reachable = false
-                false_branch_reachable = false
-
-                tests.each do |test|
-                  test_node = test.updated(:send, [test, :===, var_cond])
-                  test_type, test_constr = test_constr.synthesize(test_node, condition: true).to_ary
-                  truthy, falsy = interpreter.eval(node: test_node, env: test_constr.context.type_env)
-
-                  truthy_env = propagate_type_env(var_name, value_node, truthy.env)
-                  falsy_env = propagate_type_env(var_name, value_node, falsy.env)
-
-                  test_envs << truthy_env
-
-                  test_constr = test_constr.update_type_env { falsy_env }
-
-                  branch_reachable ||= next_branch_reachable && !truthy.unreachable
-                  false_branch_reachable = !falsy.unreachable
-                end
-
-                next_branch_reachable &&= false_branch_reachable
-                body_constr = when_constr.update_type_env {|env| env.join(*test_envs) }
-
-                branch_result =
-                  if body
-                    body_constr
-                      .for_branch(body)
-                      .tap {|constr| typing.add_context_for_node(body, context: constr.context) }
-                      .synthesize(body, hint: hint)
-                  else
-                    Pair.new(type: AST::Builtin.nil_type, constr: body_constr)
-                  end
-
-                branch_results << branch_result
-
-                if !branch_reachable && !branch_result.type.is_a?(AST::Types::Bot)
-                  typing.add_error(
-                    Diagnostic::Ruby::UnreachableValueBranch.new(
-                      node: clause,
-                      type: branch_result.type,
-                      location: clause.location.keyword
-                    )
-                  )
-                end
-
-                when_constr = test_constr
-              end
-
-              if els
-                node.loc.else or raise
-
-                begin_pos = node.loc.else.end_pos
-                end_pos = node.loc.end.begin_pos
-                typing.add_context(begin_pos..end_pos, context: when_constr.context)
-
-                else_result = when_constr.synthesize(els, hint: hint)
-
-                if next_branch_reachable
-                  branch_results << else_result
-                end
-              end
-
-              types = branch_results.map(&:type)
-              constrs = branch_results.map(&:constr)
-
-              if !next_branch_reachable
-                # Exhaustive
-                _, _, _, loc = deconstruct_case_node!(node)
-
-                # `else` may present even if it's empty
-                if loc.else
-                  if els
-                    else_result or raise
-                    unless else_result.type.is_a?(AST::Types::Bot)
-                      typing.add_error Diagnostic::Ruby::UnreachableValueBranch.new(
-                        node: els,
-                        type: else_result.type,
-                        location: node.loc.else || raise
-                      )
-                    end
-                  end
-                end
-              else
-                unless els
-                  constrs << when_constr
-                  types << AST::Builtin.nil_type
-                end
-              end
+              types, envs = TypeInference::CaseWhen.type_check(constr, node, interpreter, hint: hint, condition: condition)
             else
               branch_results = [] #: Array[Pair]
 
@@ -2131,7 +2025,7 @@ module Steep
               end
 
               types = branch_results.map(&:type)
-              constrs = branch_results.map(&:constr)
+              envs = branch_results.map {|result| result.constr.context.type_env }
 
               unless els
                 types << AST::Builtin.nil_type
@@ -2139,7 +2033,6 @@ module Steep
             end
 
             constr = constr.update_type_env do |env|
-              envs = constrs.map {|c| c.context.type_env }
               env.join(*envs)
             end
 
@@ -5162,22 +5055,6 @@ module Steep
       with_new_typing(typing.parent || raise)
     end
 
-    def transform_condition_node(node, var_name)
-      case node.type
-      when :lvasgn
-        name, rhs = node.children
-        rhs, value_node = transform_condition_node(rhs, var_name)
-        [node.updated(nil, [name, rhs]), value_node]
-      when :begin
-        *children, last = node.children
-        last, value_node = transform_condition_node(last, var_name)
-        [node.updated(nil, children.push(last)), value_node]
-      else
-        var_node = node.updated(:lvar, [var_name])
-        [var_node, node]
-      end
-    end
-
     def type_name(type)
       case type
       when AST::Types::Name::Instance, AST::Types::Name::Singleton
@@ -5225,21 +5102,6 @@ module Steep
       else
         if name = type_name(type)
           checker.factory.instance_type(name)
-        end
-      end
-    end
-
-    def propagate_type_env(source, dest, env)
-      source_type = env[source] or raise
-
-      if dest.type == :lvar
-        var_name = dest.children[0] #: Symbol
-        env.assign_local_variable(var_name, source_type, nil)
-      else
-        if env[dest]
-          env.replace_pure_call_type(dest, source_type)
-        else
-          env
         end
       end
     end

@@ -240,5 +240,17 @@ module Steep
         end
       end
     end
+
+    def clone_node(node)
+      children = node.children.map do |child|
+        if child.is_a?(Parser::AST::Node)
+          clone_node(child)
+        else
+          child.dup
+        end
+      end
+
+      node.updated(nil, children)
+    end
   end
 end
