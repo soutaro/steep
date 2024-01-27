@@ -110,6 +110,7 @@ require "steep/services/signature_help_provider"
 require "steep/services/stats_calculator"
 require "steep/services/file_loader"
 require "steep/services/goto_service"
+require "steep/services/document_symbol_provider"
 
 require "steep/server/delay_queue"
 require "steep/server/lsp_formatter"
