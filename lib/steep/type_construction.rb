@@ -2348,11 +2348,9 @@ module Steep
           end
 
         when :defined?
-          each_child_node(node) do |child|
-            synthesize(child)
-          end
+          type_any_rec(node, only_children: true)
 
-          add_typing(node, type: AST::Builtin.any_type)
+          add_typing(node, type: AST::Builtin.optional(AST::Builtin::String.instance_type))
 
         when :gvasgn
           yield_self do
@@ -4667,8 +4665,8 @@ module Steep
       !nodes.empty? && nodes.all? {|child| child.type == :class || child.type == :module}
     end
 
-    def type_any_rec(node)
-      add_typing node, type: AST::Builtin.any_type
+    def type_any_rec(node, only_children: false)
+      add_typing node, type: AST::Builtin.any_type unless only_children
 
       each_child_node(node) do |child|
         type_any_rec(child)
