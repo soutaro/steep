@@ -997,6 +997,19 @@ module Steep
         end
       end
 
+      class InvalidIgnoreComment < Base
+        attr_reader :comment
+
+        def initialize(comment:)
+          @comment = comment
+          super(node: nil, location: comment.location.expression)
+        end
+
+        def header_line
+          "Invalid ignore comment"
+        end
+      end
+
       ALL = ObjectSpace.each_object(Class).with_object([]) do |klass, array|
         if klass < Base
           array << klass
@@ -1028,6 +1041,7 @@ module Steep
             InsufficientKeywordArguments => :error,
             InsufficientPositionalArguments => :error,
             InsufficientTypeArgument => :hint,
+            InvalidIgnoreComment => :warning,
             MethodArityMismatch => :error,
             MethodBodyTypeMismatch => :error,
             MethodDefinitionMissing => nil,
@@ -1086,6 +1100,7 @@ module Steep
             InsufficientKeywordArguments => :error,
             InsufficientPositionalArguments => :error,
             InsufficientTypeArgument => :error,
+            InvalidIgnoreComment => :warning,
             MethodArityMismatch => :error,
             MethodBodyTypeMismatch => :error,
             MethodDefinitionMissing => :hint,
@@ -1144,6 +1159,7 @@ module Steep
             InsufficientKeywordArguments => :information,
             InsufficientPositionalArguments => :information,
             InsufficientTypeArgument => nil,
+            InvalidIgnoreComment => :warning,
             MethodArityMismatch => :information,
             MethodBodyTypeMismatch => :warning,
             MethodDefinitionMissing => nil,

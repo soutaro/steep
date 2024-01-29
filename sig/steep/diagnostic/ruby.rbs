@@ -628,6 +628,14 @@ module Steep
         def initialize: (error: Signature::Base, node: Parser::AST::Node, location: location) -> void
       end
 
+      # steep:ignore comment is invalid
+      #
+      class InvalidIgnoreComment < Base
+        attr_reader comment: Parser::Source::Comment
+
+        def initialize: (comment: Parser::Source::Comment) -> void
+      end
+
       # Argument forwarding `...` cannot be done safely, because of
       #
       # 1. The arguments are incompatible, or
