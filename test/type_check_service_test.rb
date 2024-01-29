@@ -502,4 +502,50 @@ RUBY
       end
     end
   end
+
+  def test_update_ruby__ignore
+    # Ignore diagnostics based on ignore comment
+
+    service = Services::TypeCheckService.new(project: project)
+
+    {
+      Pathname("lib/a.rb") => [ContentChange.string(<<~RUBY)],
+        # steep:ignore:start
+        1+""
+        # steep:ignore:end
+
+        foo() # steep:ignore
+
+        bar() # steep:ignore NoMethod
+      RUBY
+    }.tap do |changes|
+      service.update_and_check(changes: changes, assignment: assignment, &reporter)
+
+      assert_equal [], reported_diagnostics.dig(Pathname("lib/a.rb"))
+
+      reported_diagnostics.clear
+    end
+  end
+
+  def test_update_ruby__ignore_error
+    # Ignore diagnostics based on ignore comment
+
+    service = Services::TypeCheckService.new(project: project)
+
+    {
+      Pathname("lib/a.rb") => [ContentChange.string(<<~RUBY)],
+        # steep:ignore:start
+
+        # steep:ignore
+
+        foo()
+      RUBY
+    }.tap do |changes|
+      service.update_and_check(changes: changes, assignment: assignment, &reporter)
+
+      assert_equal ["Ruby::NoMethod", "Ruby::InvalidIgnoreComment", "Ruby::InvalidIgnoreComment"], reported_diagnostics.dig(Pathname("lib/a.rb")).map {|d| d[:code] }
+
+      reported_diagnostics.clear
+    end
+  end
 end

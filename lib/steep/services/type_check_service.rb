@@ -13,25 +13,27 @@ module Steep
         attr_reader :node
         attr_reader :typing
         attr_reader :errors
+        attr_reader :ignores
 
-        def initialize(path:, node:, content:, typing:, errors:)
+        def initialize(path:, node:, content:, typing:, ignores:, errors:)
           @path = path
           @node = node
           @content = content
           @typing = typing
+          @ignores = ignores
           @errors = errors
         end
 
         def self.with_syntax_error(path:, content:, error:)
-          new(path: path, node: false, content: content, errors: [error], typing: nil)
+          new(path: path, node: false, content: content, errors: [error], typing: nil, ignores: nil)
         end
 
-        def self.with_typing(path:, content:, typing:, node:)
-          new(path: path, node: node, content: content, errors: nil, typing: typing)
+        def self.with_typing(path:, content:, typing:, node:, ignores:)
+          new(path: path, node: node, content: content, errors: nil, typing: typing, ignores: ignores)
         end
 
         def self.no_data(path:, content:)
-          new(path: path, content: content, node: false, errors: nil, typing: nil)
+          new(path: path, content: content, node: false, errors: nil, typing: nil, ignores: nil)
         end
 
         def update_content(content)
@@ -40,12 +42,37 @@ module Steep
             content: content,
             node: node,
             errors: errors,
-            typing: typing
+            typing: typing,
+            ignores: ignores
           )
         end
 
         def diagnostics
-          errors || typing&.errors || []
+          case
+          when errors
+            errors
+          when typing && ignores
+            errors = [] #: Array[Diagnostic::Ruby::Base]
+
+            errors.concat(
+              typing.errors.delete_if do |diagnostic|
+                case diagnostic.location
+                when ::Parser::Source::Range
+                  ignores.ignore?(diagnostic.location.first_line, diagnostic.location.last_line, diagnostic.diagnostic_code)
+                when RBS::Location
+                  ignores.ignore?(diagnostic.location.start_line, diagnostic.location.end_line, diagnostic.diagnostic_code)
+                end
+              end
+            )
+
+            ignores.error_ignores.each do |ignore|
+              errors << Diagnostic::Ruby::InvalidIgnoreComment.new(comment: ignore.comment)
+            end
+
+            errors
+          else
+            []
+          end
         end
       end
 
@@ -327,7 +354,8 @@ module Steep
         Steep.logger.tagged "#type_check_file(#{path}@#{target.name})" do
           source = Source.parse(text, path: path, factory: subtyping.factory)
           typing = TypeCheckService.type_check(source: source, subtyping: subtyping, constant_resolver: yield)
-          SourceFile.with_typing(path: path, content: text, node: source.node, typing: typing)
+          ignores = Source::IgnoreRanges.new(ignores: source.ignores)
+          SourceFile.with_typing(path: path, content: text, node: source.node, typing: typing, ignores: ignores)
         end
       rescue AnnotationParser::SyntaxError => exn
         error = Diagnostic::Ruby::SyntaxError.new(message: exn.message, location: exn.location)

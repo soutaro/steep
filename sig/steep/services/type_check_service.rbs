@@ -20,6 +20,8 @@ module Steep
 
         attr_reader typing: Typing?
 
+        attr_reader ignores: Source::IgnoreRanges?
+
         attr_reader errors: Array[Diagnostic::Ruby::Base]?
 
         def initialize: (
@@ -27,17 +29,20 @@ module Steep
           node: Parser::AST::Node | nil | false,
           content: String,
           typing: Typing?,
+          ignores: Source::IgnoreRanges?,
           errors: Array[Diagnostic::Ruby::Base]?
         ) -> void
 
         def self.with_syntax_error: (path: Pathname, content: String, error: Diagnostic::Ruby::SyntaxError) -> SourceFile
 
-        def self.with_typing: (path: Pathname, content: String, typing: Typing, node: Parser::AST::Node?) -> SourceFile
+        def self.with_typing: (path: Pathname, content: String, typing: Typing, ignores: Source::IgnoreRanges, node: Parser::AST::Node?) -> SourceFile
 
         def self.no_data: (path: Pathname, content: String) -> SourceFile
 
         def update_content: (String content) -> SourceFile
 
+        # Diagnostics filgered by `ignores`
+        # 
         def diagnostics: () -> Array[Diagnostic::Ruby::Base]
       end
 
