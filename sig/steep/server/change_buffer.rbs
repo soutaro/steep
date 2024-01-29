@@ -1,13 +1,15 @@
 module Steep
   module Server
-    module ChangeBuffer : _WithProject
+    module ChangeBuffer : _WithProject, _WithMutex
       interface _WithProject
         def project: () -> Project
       end
 
-      type changes = Hash[Pathname, Array[Services::ContentChange]]
+      interface _WithMutex
+        def mutex: () -> Mutex
+      end
 
-      attr_reader mutex: Thread::Mutex
+      type changes = Hash[Pathname, Array[Services::ContentChange]]
 
       attr_reader buffered_changes: changes
 
@@ -29,7 +31,7 @@ module Steep
       def collect_changes: (untyped request) -> void
 
       # Reset the content of `uri` to `text`
-      # 
+      #
       def reset_change: (uri: String, text: String) -> void
     end
   end

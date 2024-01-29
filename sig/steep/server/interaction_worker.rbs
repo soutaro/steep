@@ -58,6 +58,8 @@ module Steep
 
       attr_reader service: Services::TypeCheckService
 
+      attr_reader mutex: Mutex
+
       def initialize: (project: Project, reader: Reader, writer: Writer, ?queue: Queue) -> void
 
       def handle_job: (job) -> void

@@ -5,13 +5,13 @@ module Steep
       attr_reader :buffered_changes
 
       def push_buffer
-        @mutex.synchronize do
+        mutex.synchronize do
           yield buffered_changes
         end
       end
 
       def pop_buffer
-        changes = @mutex.synchronize do
+        changes = mutex.synchronize do
           copy = buffered_changes.dup
           buffered_changes.clear
           copy

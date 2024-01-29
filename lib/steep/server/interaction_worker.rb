@@ -10,13 +10,13 @@ module Steep
 
       LSP = LanguageServer::Protocol
 
-      attr_reader :service
+      attr_reader :service, :mutex
 
       def initialize(project:, reader:, writer:, queue: Queue.new)
         super(project: project, reader: reader, writer: writer)
         @queue = queue
-        @service = Services::TypeCheckService.new(project: project)
         @mutex = Mutex.new
+        @service = Services::TypeCheckService.new(project: project)
         @buffered_changes = {}
       end
 
