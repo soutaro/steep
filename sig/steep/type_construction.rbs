@@ -400,7 +400,7 @@ module Steep
     #
     def namespace_module?: (Parser::AST::Node node) -> bool
 
-    def type_any_rec: (Parser::AST::Node node) -> Pair
+    def type_any_rec: (Parser::AST::Node node, ?only_children: bool) -> Pair
 
     def unwrap: (AST::Types::t `type`) -> AST::Types::t
 

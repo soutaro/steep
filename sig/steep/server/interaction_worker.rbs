@@ -58,9 +58,19 @@ module Steep
 
       attr_reader service: Services::TypeCheckService
 
+      attr_reader mutex: Mutex
+
       def initialize: (project: Project, reader: Reader, writer: Writer, ?queue: Queue) -> void
 
       def handle_job: (job) -> void
+
+      @last_job_mutex: Mutex
+
+      @last_job: job?
+
+      def process_latest_job: [T] (job) { () -> T } -> T?
+
+      def queue_job: (job) -> void
 
       type lsp_request = { id: String, method: String, params: untyped }
 

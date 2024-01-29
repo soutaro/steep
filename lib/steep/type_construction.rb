@@ -2349,7 +2349,6 @@ module Steep
 
         when :defined?
           type_any_rec(node, only_children: true)
-
           add_typing(node, type: AST::Builtin.optional(AST::Builtin::String.instance_type))
 
         when :gvasgn

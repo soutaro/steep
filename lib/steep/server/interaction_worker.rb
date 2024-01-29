@@ -10,14 +10,15 @@ module Steep
 
       LSP = LanguageServer::Protocol
 
-      attr_reader :service
+      attr_reader :service, :mutex
 
       def initialize(project:, reader:, writer:, queue: Queue.new)
         super(project: project, reader: reader, writer: writer)
         @queue = queue
-        @service = Services::TypeCheckService.new(project: project)
         @mutex = Mutex.new
+        @service = Services::TypeCheckService.new(project: project)
         @buffered_changes = {}
+        @last_job_mutex = Mutex.new
       end
 
       def handle_job(job)
@@ -33,25 +34,61 @@ module Steep
           when ApplyChangeJob
             # nop
           when HoverJob
-            writer.write({ id: job.id, result: process_hover(job) })
+            writer.write(
+              {
+                id: job.id,
+                result: process_latest_job(job) { process_hover(job) }
+              }
+            )
           when CompletionJob
-            writer.write({ id: job.id, result: process_completion(job) })
+            writer.write(
+              {
+                id: job.id,
+                result: process_latest_job(job) { process_completion(job) }
+              }
+            )
           when SignatureHelpJob
-            writer.write({ id: job.id, result: process_signature_help(job) })
+            writer.write(
+              {
+                id: job.id,
+                result: process_latest_job(job) { process_signature_help(job) }
+              }
+            )
           end
         end
+      end
+
+      def process_latest_job(job)
+        @last_job_mutex.synchronize do
+          unless job.equal?(@last_job)
+            Steep.logger.debug { "Skipping interaction job: latest_job=#{@last_job.class}, skipped_job#{job.class}" }
+            return
+          end
+          @last_job = nil
+        end
+
+        yield
+      end
+
+      def queue_job(job)
+        @last_job_mutex.synchronize do
+          unless job.is_a?(ApplyChangeJob)
+            @last_job = job
+          end
+        end
+        queue << job
       end
 
       def handle_request(request)
         case request[:method]
         when "initialize"
           load_files(project: project, commandline_args: [])
-          queue << ApplyChangeJob.new
+          queue_job ApplyChangeJob.new
           writer.write({ id: request[:id], result: nil })
 
         when "textDocument/didChange"
           collect_changes(request)
-          queue << ApplyChangeJob.new
+          queue_job ApplyChangeJob.new
 
         when "textDocument/hover"
           id = request[:id]
@@ -60,7 +97,7 @@ module Steep
           line = request[:params][:position][:line]+1
           column = request[:params][:position][:character]
 
-          queue << HoverJob.new(id: id, path: path, line: line, column: column)
+          queue_job HoverJob.new(id: id, path: path, line: line, column: column)
 
         when "textDocument/completion"
           id = request[:id]
@@ -71,14 +108,14 @@ module Steep
           line, column = params[:position].yield_self {|hash| [hash[:line]+1, hash[:character]] }
           trigger = params.dig(:context, :triggerCharacter)
 
-          queue << CompletionJob.new(id: id, path: path, line: line, column: column, trigger: trigger)
+          queue_job CompletionJob.new(id: id, path: path, line: line, column: column, trigger: trigger)
         when "textDocument/signatureHelp"
           id = request[:id]
           params = request[:params]
           path = project.relative_path(PathHelper.to_pathname!(params[:textDocument][:uri]))
           line, column = params[:position].yield_self {|hash| [hash[:line]+1, hash[:character]] }
 
-          queue << SignatureHelpJob.new(id: id, path: path, line: line, column: column)
+          queue_job SignatureHelpJob.new(id: id, path: path, line: line, column: column)
         end
       end
 
