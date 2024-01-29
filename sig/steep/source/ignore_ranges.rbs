@@ -1,0 +1,38 @@
+use Steep::AST::Ignore, RBS::Location
+
+module Steep
+  class Source
+    class IgnoreRanges
+      attr_reader all_ignores: Array[Ignore::t]
+
+      attr_reader error_ignores: Array[Ignore::t]
+
+      attr_reader ignored_ranges: Array[Range[Integer]]
+
+      attr_reader ignored_lines: Hash[Integer, Ignore::IgnoreLine]
+
+      def initialize: (ignores: Array[Ignore::t]) -> void
+
+      # If given diagnostic code at the location is ignored or not
+      #
+      # Ignore ranges work for location that is completely inside the range.
+      # Both the starting point and ending point should be in one range.
+      # Only diagnostic (1) is ignored in the following example.
+      #
+      # ```ruby
+      #                         + <2
+      # # steep:ignore:start    |
+      #                   1> +  +
+      #                      +    +
+      # # steep:ignore:end        |
+      #                           + <3
+      # ```
+      #
+      # Ignore lines work for location that has starting line or ending line.
+      #
+      def ignore?: (Integer start_line, Integer end_line, String code) -> bool
+
+      def ignore_code?: (Ignore::IgnoreLine, String code) -> bool
+    end
+  end
+end

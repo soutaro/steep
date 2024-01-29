@@ -12,12 +12,15 @@ module Steep
 
     attr_reader comments: Array[Parser::Source::Comment]
 
+    attr_reader ignores: Array[AST::Ignore::t]
+
     def initialize: (
       buffer: RBS::Buffer,
       path: Pathname,
       node: Parser::AST::Node?,
       mapping: Hash[Parser::AST::Node, Array[AST::Annotation::t]],
-      comments: Array[Parser::Source::Comment]
+      comments: Array[Parser::Source::Comment],
+      ignores: Array[AST::Ignore::t]
     ) -> void
 
     class Builder < ::Parser::Builders::Default

@@ -5,15 +5,17 @@ module Steep
     attr_reader :node
     attr_reader :mapping
     attr_reader :comments
+    attr_reader :ignores
 
     extend NodeHelper
 
-    def initialize(buffer:, path:, node:, mapping:, comments:)
+    def initialize(buffer:, path:, node:, mapping:, comments:, ignores:)
       @buffer = buffer
       @path = path
       @node = node
       @mapping = mapping
       @comments = comments
+      @ignores = ignores
     end
 
     class Builder < ::Parser::Builders::Default
@@ -88,7 +90,11 @@ module Steep
         map[node] << annot
       end
 
-      new(buffer: buffer, path: path, node: node, mapping: map, comments: comments)
+      ignores = comments.filter_map do |comment|
+        AST::Ignore.parse(comment, buffer)
+      end
+
+      new(buffer: buffer, path: path, node: node, mapping: map, comments: comments, ignores: ignores)
     end
 
     def self.construct_mapping(node:, annotations:, mapping:, line_range: nil)
@@ -432,7 +438,7 @@ module Steep
           mapping[node_] << annot
         end
 
-        Source.new(buffer: buffer, path: path, node: node_, mapping: mapping, comments: comments)
+        Source.new(buffer: buffer, path: path, node: node_, mapping: mapping, comments: comments, ignores: ignores)
       else
         self
       end
