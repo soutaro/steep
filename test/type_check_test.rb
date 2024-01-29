@@ -1811,4 +1811,21 @@ class TypeCheckTest < Minitest::Test
       YAML
     )
   end
+
+  def test_defined?
+    run_type_check_test(
+      signatures: {
+      },
+      code: {
+        "a.rb" => <<~RUBY
+          defined? foo
+        RUBY
+      },
+      expectations: <<~YAML
+        ---
+        - file: a.rb
+          diagnostics: []
+      YAML
+    )
+  end
 end
