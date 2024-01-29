@@ -1,0 +1,66 @@
+use Parser::Source::Comment, RBS::Buffer, RBS::Location
+
+module Steep
+  module AST
+    module Ignore
+      class BufferScanner
+        attr_reader scanner: StringScanner
+
+        attr_reader location: Location[untyped, untyped]
+
+        def initialize: (Location[untyped, untyped]) -> void
+
+        def offset: () -> Integer
+
+        def charpos: () -> Integer
+
+        def scan: (Regexp) -> Location[bot, bot]?
+
+        def skip: (Regexp) -> void
+
+        def eos?: () -> bool
+      end
+
+      type t = IgnoreStart | IgnoreEnd | IgnoreLine
+
+      def self.parse: (Comment, Buffer) -> t?
+
+      class IgnoreStart
+        attr_reader comment: Comment
+
+        attr_reader location: Location[bot, bot]
+
+        def initialize: (Comment, Location[bot, bot]) -> void
+
+        def line: () -> Integer
+      end
+
+      class IgnoreEnd
+        attr_reader comment: Comment
+
+        attr_reader location: Location[bot, bot]
+
+        def initialize: (Comment, Location[bot, bot]) -> void
+
+        def line: () -> Integer
+      end
+
+      class IgnoreLine
+        type diagnostic = Location[:name, :following_comma]
+        type diagnostics = Array[diagnostic]
+
+        attr_reader comment: Comment
+
+        attr_reader location: Location[:keyword, bot]
+
+        attr_reader raw_diagnostics: diagnostics
+
+        def initialize: (Comment, diagnostics, Location[:keyword, bot]) -> void
+
+        def line: () -> Integer
+
+        def ignored_diagnostics: () -> (:all | Array[String])
+      end
+    end
+  end
+end

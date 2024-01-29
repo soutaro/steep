@@ -52,6 +52,7 @@ require "steep/ast/node/type_assertion"
 require "steep/ast/node/type_application"
 require "steep/ast/builtin"
 require "steep/ast/types/factory"
+require "steep/ast/ignore"
 
 require "steep/range_extension"
 
