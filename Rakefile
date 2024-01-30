@@ -188,6 +188,11 @@ NOTES
       milestone = "Steep #{major}.#{minor}.x"
     end
 
+    if pre =~ /dev/
+      puts "🔍 Skipping `Released` tags because `dev` release: `#{pre}`"
+      next
+    end
+
     puts "🔍 Finding pull requests that is associated to milestone `#{milestone}`..."
 
     command = [
