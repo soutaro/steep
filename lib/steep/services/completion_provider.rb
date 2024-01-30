@@ -157,6 +157,9 @@ module Steep
         end
       end
 
+      class TextItem < Struct.new(:text, :help_text, :range, :label, keyword_init: true)
+      end
+
       attr_reader :source_text
       attr_reader :path
       attr_reader :subtyping
@@ -205,7 +208,7 @@ module Steep
             end
           end
 
-          if at_comment?(position)
+          if comment = at_comment?(position)
             node, *parents = source.find_nodes(line: position.line, column: position.column)
 
             case
@@ -232,9 +235,41 @@ module Steep
               if annotation
                 annotation.location or raise
                 return items_for_rbs(position: position, buffer: annotation.location.buffer)
-              else
-                return []
               end
+
+              comment_content = comment.text[1..] || ""
+              comment_content.strip!
+
+              range = Range.new(
+                start: Position.new(line: line, column: column),
+                end: Position.new(line: line, column: column)
+              )
+
+              items = [
+                TextItem.new(label: "steep:ignore:start", text: "steep:ignore:start", help_text: "Open ignore block", range: range),
+                TextItem.new(label: "steep:ignore:end", text: "steep:ignore:end", help_text: "Close ignore block", range: range),
+                TextItem.new(label: "steep:ignore", text: "steep:ignore ${1:optional diagnostics}", help_text: "Ignore line", range: range),
+                TextItem.new(label: "@type var x: T", text: "@type var ${1:variable}: ${2:var type}", help_text: "Type of local variable", range: range),
+                TextItem.new(label: "@type self: T", text: "@type self: ${1:self type}", help_text: "Type of `self`", range: range),
+                TextItem.new(label: "@type block: T", text: "@type block: ${1:block type}", help_text: "Type of `block`", range: range),
+                TextItem.new(label: "@type break: T", text: "@type break: ${1:break type}", help_text: "Type of `block`", range: range),
+              ]
+
+              items = items.filter_map do |item|
+                if item.text.start_with?(comment_content)
+                  TextItem.new(
+                    label: item.label,
+                    text: item.text,
+                    help_text: item.help_text,
+                    range: Range.new(
+                      start: Position.new(line: item.range.start.line, column: item.range.start.column - comment_content.size),
+                      end: item.range.end
+                    )
+                  )
+                end
+              end
+
+              return items
             end
           end
 
@@ -294,11 +329,7 @@ module Steep
       end
 
       def at_comment?(position)
-        if source.find_comment(line: position.line, column: position.column)
-          true
-        else
-          false
-        end
+        source.find_comment(line: position.line, column: position.column)
       end
 
       def range_for(position, prefix: "")

@@ -178,6 +178,18 @@ module Steep
         def comments: () -> Array[RBS::AST::Comment]
       end
 
+      class TextItem
+        attr_reader label: String
+
+        attr_reader text: String
+
+        attr_reader help_text: String?
+
+        attr_reader range: Range
+
+        def initialize: (text: String, help_text: String?, range: Range, label: String) -> void
+      end
+
       type item = InstanceVariableItem
                 | KeywordArgumentItem
                 | LocalVariableItem
@@ -186,6 +198,7 @@ module Steep
                 | ComplexMethodNameItem
                 | GeneratedMethodNameItem
                 | TypeNameItem
+                | TextItem
 
       attr_reader source_text: String
 
@@ -209,7 +222,7 @@ module Steep
 
       def range_from_loc: (Parser::Source::Range loc) -> Range
 
-      def at_comment?: (Position pos) -> bool
+      def at_comment?: (Position pos) -> Parser::Source::Comment?
 
       def at_end?: (Position pos, of: Parser::Source::Map | Parser::Source::Range | nil) -> boolish
 
