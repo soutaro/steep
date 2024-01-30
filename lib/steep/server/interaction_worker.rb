@@ -439,7 +439,9 @@ module Steep
           if target = project.target_for_source_path(job.path)
             file = service.source_files[job.path] or return
             subtyping = service.signature_services[target.name].current_subtyping or return
-            source = Source.parse(file.content, path: file.path, factory: subtyping.factory)
+            source =
+              Source.parse(file.content, path: file.path, factory: subtyping.factory)
+                .without_unrelated_defs(line: job.line, column: job.column)
 
             provider = Services::SignatureHelpProvider.new(source: source, subtyping: subtyping)
 
