@@ -55,7 +55,7 @@ module Steep
               if begin_loc.end_pos <= pos && pos <= end_loc.begin_pos
                 # Given position is between open/close parens of args of send node
 
-                if parent && (parent.type == :block || parent.type == :numblock)
+                if parent && (parent.type == :block || parent.type == :numblock) && node.equal?(parent.children[0])
                   send_node = parent
                 else
                   send_node = node
