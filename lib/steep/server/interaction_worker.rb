@@ -431,6 +431,17 @@ module Steep
               new_text: item.relative_type_name.to_s
             )
           )
+          when Services::CompletionProvider::TextItem
+            LSP::Interface::CompletionItem.new(
+              label: item.label,
+              label_details: item.help_text && LSP::Interface::CompletionItemLabelDetails.new(description: item.help_text),
+              kind: LSP::Constant::CompletionItemKind::SNIPPET,
+              insert_text_format: LSP::Constant::InsertTextFormat::SNIPPET,
+              text_edit: LSP::Interface::TextEdit.new(
+                range: range,
+                new_text: item.text
+              )
+            )
         end
       end
 

@@ -621,4 +621,33 @@ end
       end
     end
   end
+
+  def test_comment__ignore
+    with_checker do
+      CompletionProvider.new(source_text: <<-EOR, path: Pathname("foo.rb"), subtyping: checker).tap do |provider|
+# s
+      EOR
+
+        provider.run(line: 1, column: 3).tap do |items|
+          assert_equal ["steep:ignore:start", "steep:ignore:end", "steep:ignore ${1:optional diagnostics}"], items.map(&:text)
+        end
+      end
+    end
+  end
+
+  def test_comment__type
+    with_checker do
+      CompletionProvider.new(source_text: <<-EOR, path: Pathname("foo.rb"), subtyping: checker).tap do |provider|
+# @
+      EOR
+
+        provider.run(line: 1, column: 3).tap do |items|
+          assert_equal(
+            ["@type var ${1:variable}: ${2:var type}", "@type self: ${1:self type}", "@type block: ${1:block type}", "@type break: ${1:break type}"],
+            items.map(&:text)
+          )
+        end
+      end
+    end
+  end
 end
