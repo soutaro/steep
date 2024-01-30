@@ -76,7 +76,8 @@ module Steep
       end
 
       def last_argument_nodes_for(argument_nodes:, line:, column:)
-        return unless argument_nodes.last.children[2]  # No arguments
+        last = argument_nodes.last or raise
+        return unless last.children[2]  # No arguments
         return argument_nodes if argument_nodes.size > 1  # Cursor is on the last argument
 
         pos = buffer.loc_to_pos([line, column])
@@ -150,9 +151,9 @@ module Steep
             case last_argument_nodes[-3].type
             when :pair
               argname = last_argument_nodes[-3].children.first.children.first
-              if method_type.type.required_keywords[argname]
+              if method_type.type.required_keywords.key?(argname)
                 positionals + method_type.type.required_keywords.keys.index(argname).to_i + 1
-              elsif method_type.type.optional_keywords[argname]
+              elsif method_type.type.optional_keywords.key?(argname)
                 positionals + method_type.type.required_keywords.size + method_type.type.optional_keywords.keys.index(argname).to_i + 1
               elsif method_type.type.rest_keywords
                 positionals + method_type.type.required_keywords.size + method_type.type.optional_keywords.size
@@ -161,7 +162,7 @@ module Steep
               positionals + method_type.type.required_keywords.size + method_type.type.optional_keywords.size if method_type.type.rest_keywords
             end
           else
-            pos = node.children[2...].index { |c| c.location == last_argument_nodes[-2].location }.to_i
+            pos = (node.children[2...] || raise).index { |c| c.location == last_argument_nodes[-2].location }.to_i
             if method_type.type.rest_positionals
               [pos + 1, positionals - 1].min
             else
@@ -177,9 +178,9 @@ module Steep
             case argument_nodes[-3].type
             when :pair
               argname = argument_nodes[-3].children.first.children.first
-              if method_type.type.required_keywords[argname]
+              if method_type.type.required_keywords.key?(argname)
                 positionals + method_type.type.required_keywords.keys.index(argname).to_i
-              elsif method_type.type.optional_keywords[argname]
+              elsif method_type.type.optional_keywords.key?(argname)
                 positionals + method_type.type.required_keywords.size + method_type.type.optional_keywords.keys.index(argname).to_i
               elsif method_type.type.rest_keywords
                 positionals + method_type.type.required_keywords.size + method_type.type.optional_keywords.size
@@ -188,7 +189,7 @@ module Steep
               positionals + method_type.type.required_keywords.size + method_type.type.optional_keywords.size if method_type.type.rest_keywords
             end
           else
-            pos = node.children[2...].index { |c| c.location == argument_nodes[-2].location }.to_i
+            pos = (node.children[2...] || raise).index { |c| c.location == argument_nodes[-2].location }.to_i
             [pos, positionals - 1].min
           end
         end
