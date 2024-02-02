@@ -4393,7 +4393,7 @@ module Steep
       param_types = param_types_hash.each.with_object({}) do |pair, hash| #$ Hash[Symbol, [AST::Types::t, AST::Types::t?]]
         name, type = pair
         # skip unamed arguments `*`, `**` and `&`
-        next unless name
+        next if name.nil?
         hash[name] = [type, nil]
       end
 

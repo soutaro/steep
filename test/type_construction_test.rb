@@ -6120,6 +6120,48 @@ end
     end
   end
 
+  def test_block_param_masgn_with_unnamed
+    with_checker(<<-RBS) do |checker|
+class BlockParamTupleRest
+  def foo: () { ([Integer, String]) -> void } -> void
+end
+    RBS
+      source = parse_ruby(<<-RUBY)
+BlockParamTupleRest.new.foo do |*, **, &|
+  if 1
+  end
+end
+      RUBY
+      with_standard_construction(checker, source) do |construction, typing|
+        construction.synthesize(source.node)
+        assert_typing_error typing, size: 1 do |error,|
+          assert_instance_of Diagnostic::Ruby::FallbackAny, error
+        end
+      end
+    end
+  end
+
+  def test_block_param_masgn_with_unnamed2
+    with_checker(<<-RBS) do |checker|
+class BlockParamTupleRest
+  def foo: () { ([Integer, String]) -> void } -> void
+end
+    RBS
+      source = parse_ruby(<<-RUBY)
+BlockParamTupleRest.new.foo do |(*)|
+  if 1
+  end
+end
+      RUBY
+      with_standard_construction(checker, source) do |construction, typing|
+        construction.synthesize(source.node)
+        assert_typing_error typing, size: 1 do |error,|
+          assert_instance_of Diagnostic::Ruby::FallbackAny, error
+        end
+      end
+    end
+  end
+
   def test_logic_receiver_is_nil
     with_checker(<<-RBS) do |checker|
     RBS

@@ -514,4 +514,29 @@ end
       end
     end
   end
+
+  def test_unnamed
+    with_factory do
+      block_params("proc {|*| }") do |params, args|
+        assert_equal BlockParams::Param.new(var: nil,
+                                            type: nil,
+                                            value: nil,
+                                            node: args[0]),
+                     params.rest_param
+      end
+    end
+  end
+
+  def test_unnamed_multi
+    with_factory do
+      block_params("proc {|(*)| }") do |params, args|
+        param = BlockParams::Param.new(var: nil,
+                                    type: nil,
+                                    value: nil,
+                                    node: args[0])
+        assert_equal [param],
+                     params.leading_params
+      end
+    end
+  end
 end
