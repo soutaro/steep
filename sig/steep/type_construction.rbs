@@ -325,7 +325,7 @@ module Steep
     def set_up_block_mlhs_params_env: (
       Parser::AST::Node mlhs_node,
       AST::Types::t type,
-      Hash[Symbol, AST::Types::t]
+      Hash[Symbol?, AST::Types::t]
     ) { (Parser::AST::Node error_mlhs_node, AST::Types::t type) -> void } -> void
 
     # Returns a Pair of
