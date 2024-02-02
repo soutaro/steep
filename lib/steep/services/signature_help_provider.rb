@@ -175,18 +175,20 @@ module Steep
           when :splat
             method_type.type.required_positionals.size + method_type.type.optional_positionals.size if method_type.type.rest_positionals
           when :kwargs
-            case argument_nodes[-3].type
-            when :pair
-              argname = argument_nodes[-3].children.first.children.first
-              if method_type.type.required_keywords.key?(argname)
-                positionals + method_type.type.required_keywords.keys.index(argname).to_i
-              elsif method_type.type.optional_keywords.key?(argname)
-                positionals + method_type.type.required_keywords.size + method_type.type.optional_keywords.keys.index(argname).to_i
-              elsif method_type.type.rest_keywords
-                positionals + method_type.type.required_keywords.size + method_type.type.optional_keywords.size
+            if argument_nodes[-3]
+              case argument_nodes[-3].type
+              when :pair
+                argname = argument_nodes[-3].children.first.children.first
+                if method_type.type.required_keywords.key?(argname)
+                  positionals + method_type.type.required_keywords.keys.index(argname).to_i
+                elsif method_type.type.optional_keywords.key?(argname)
+                  positionals + method_type.type.required_keywords.size + method_type.type.optional_keywords.keys.index(argname).to_i
+                elsif method_type.type.rest_keywords
+                  positionals + method_type.type.required_keywords.size + method_type.type.optional_keywords.size
+                end
+              when :kwsplat
+                positionals + method_type.type.required_keywords.size + method_type.type.optional_keywords.size if method_type.type.rest_keywords
               end
-            when :kwsplat
-              positionals + method_type.type.required_keywords.size + method_type.type.optional_keywords.size if method_type.type.rest_keywords
             end
           else
             pos = (node.children[2...] || raise).index { |c| c.location == argument_nodes[-2].location }.to_i
