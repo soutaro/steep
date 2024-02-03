@@ -219,6 +219,24 @@ Steep implements some of the Language Server Protocol features.
 
 Other LSP supporting tools may work with Steep where it starts the server as `steep langserver`.
 
+## Rake Tasks
+
+Steep comes with a set of configurable Rake tasks.
+
+```ruby
+# Rakefile
+
+require "steep/rake_task"
+Steep::RakeTask.new do |t|
+  t.check.severity_level = :error
+  t.watch.verbose
+end
+
+task default: [:steep]
+```
+
+Use `bundle exec rake -T` to see all available tasks.
+
 ## Development
 
 After checking out the repo, run `bin/setup` to install dependencies. Then, run `rake test` to run the tests. You can also run `bin/console` for an interactive prompt that will allow you to experiment.
