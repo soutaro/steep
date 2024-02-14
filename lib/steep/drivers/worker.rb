@@ -20,6 +20,10 @@ module Steep
       end
 
       def run()
+        if prefix = ENV["STEEP_TRACE_PREFIX"]
+          Tracing.setup Pathname(prefix)
+        end
+
         Steep.logger.tagged("#{worker_type}:#{worker_name}") do
           project = load_config()
 
@@ -50,6 +54,8 @@ module Steep
         rescue Interrupt
           Steep.logger.info "Shutting down by interrupt..."
         end
+
+        Tracing.save
 
         0
       end

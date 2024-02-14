@@ -1,0 +1,76 @@
+module Steep
+  class Tracing[Context < Array[untyped]]
+    class Trace[Context < Array[untyped]]
+      attr_reader id: Integer
+
+      attr_reader children: Array[Trace[Context]]
+
+      attr_reader context: Context
+
+      attr_reader started_at: Time
+
+      attr_reader stopped_at: Time
+
+      def initialize: (Integer, Context, Time started_at, Time stopped_at, Array[Trace[Context]] children) -> void
+
+      def total_duration: () -> Float
+
+      def self_duration: () -> Float
+    end
+
+    class OpenTrace[Context < Array[untyped]]
+      attr_reader id: Integer
+
+      attr_reader context: Context
+
+      attr_reader started_at: Time
+
+      attr_reader parent: OpenTrace[Context]?
+
+      attr_reader children: Array[Trace[Context]]
+
+      def initialize: (Integer, Context, OpenTrace[Context]? parent) -> void
+
+      def close: () -> Trace[Context]
+
+      def parent!: () -> OpenTrace[Context]
+
+      def root?: () -> bool
+    end
+
+    attr_reader name: String
+
+    attr_accessor prefix: Pathname?
+
+    attr_reader current: OpenTrace[Context]
+
+    attr_reader header: Array[String]
+
+    @latest_id: Integer
+
+    def fresh: () -> Integer
+
+    def save: () -> void
+
+    def initialize: (name: String, root: Context, header: Array[String]) -> void
+
+    def trace: [T] (Context) { () -> T } -> T
+
+    def push: (Context) -> void
+            | () { () -> Context } -> void
+
+    def pop: () -> void
+
+    def each_trace: (Trace[Context], Integer? parent_id) { (Trace[Context], Integer?) -> void } -> void
+
+    def self.setup: (Pathname prefix) -> void
+
+    def self.save: () -> void
+
+    attr_reader self.type_checking: Tracing[[String, Symbol, String, Integer, String]]
+
+    attr_reader self.subtyping_solver: Tracing[[String]]
+
+    attr_reader self.shape_builder: Tracing[[AST::Types::t]]
+  end
+end
