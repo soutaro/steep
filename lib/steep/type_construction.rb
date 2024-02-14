@@ -691,6 +691,7 @@ module Steep
     end
 
     def synthesize(node, hint: nil, condition: false)
+      Tracing.type_checking.push([typing.source.path.to_s, node.type, "#{node.loc.expression.first_line}:#{node.loc.expression.column}", node.loc.expression.size, node.loc.expression.source_line])
       Steep.logger.tagged "synthesize:(#{node.location&.yield_self {|loc| loc.expression.to_s.split(/:/, 2).last } || "-"})" do
         Steep.logger.debug node.type
         case node.type
@@ -2620,6 +2621,8 @@ module Steep
         typing.add_error(Diagnostic::Ruby::UnexpectedError.new(node: node, error: exn))
         type_any_rec(node)
       end
+    ensure
+      Tracing.type_checking.pop()
     end
 
     def check(node, type, constraints: Subtyping::Constraints.empty)

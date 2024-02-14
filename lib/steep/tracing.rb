@@ -131,12 +131,30 @@ module Steep
     end
 
     class <<self
+      attr_reader :type_checking, :subtyping_solver, :shape_builder
     end
 
+    @type_checking =
+      _ = Tracing.new(
+        name: "typechecking",
+        header: ["File", "Node type", "Location", "Size", "Source"],
+        root: ["--", :toplevel, "", "", ""],
+      )
+    @subtyping_solver =
+      _ = Tracing.new(name: "subtyping_solver", header: ["Constraint"], root: ["--"])
+    @shape_builder =
+      _ = Tracing.new(name: "shape_builder", header: ["Type"], root: [_ = "--"])
+
     def self.setup(prefix)
+      type_checking.prefix = prefix
+      subtyping_solver.prefix = prefix
+      shape_builder.prefix = prefix
     end
 
     def self.save
+      type_checking.save
+      subtyping_solver.save
+      shape_builder.save
     end
   end
 end

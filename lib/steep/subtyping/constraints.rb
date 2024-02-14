@@ -237,6 +237,10 @@ module Steep
       Context = _ = Struct.new(:variance, :self_type, :instance_type, :class_type, keyword_init: true)
 
       def solution(checker, variance: nil, variables:, self_type: nil, instance_type: nil, class_type: nil, context: nil)
+        Tracing.subtyping_solver.push { [self.to_s] }
+
+        return Interface::Substitution.empty if dictionary.empty?
+
         if context
           raise if variance
           raise if self_type
@@ -299,6 +303,8 @@ module Steep
         end
 
         Interface::Substitution.build(vars, types)
+      ensure
+        Tracing.subtyping_solver.pop
       end
 
       def has_constraint?(var)

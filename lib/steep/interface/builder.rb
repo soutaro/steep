@@ -137,6 +137,7 @@ module Steep
 
       def shape(type, public_only:, config:)
         fetch_cache(type, public_only, config) do
+          Tracing.shape_builder.push { [type] }
           case type
           when AST::Types::Self
             if self_type = config.self_type?
@@ -277,6 +278,8 @@ module Steep
           else
             raise "Unknown type is given: #{type}"
           end
+        ensure
+          Tracing.shape_builder.pop
         end
       end
 
