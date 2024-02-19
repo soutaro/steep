@@ -3893,7 +3893,7 @@ module Steep
         )
       )
 
-      variance = Subtyping::VariableVariance.from_method_type(method_type)
+      variance = Subtyping::VariableVariance.new(checker.factory.env).add_method_type(method_type)
       constraints = Subtyping::Constraints.new(unknowns: type_params.map(&:name))
       ccontext = Subtyping::Constraints::Context.new(
         self_type: self_type,
@@ -4852,7 +4852,7 @@ module Steep
 
       if (result = check_relation(sub_type: type, super_type: array, constraints: constraints)).success?
         context = Subtyping::Constraints::Context.new(
-          variance: Subtyping::VariableVariance.from_type(union_type(type, var)),
+          variance: Subtyping::VariableVariance.new(checker.factory.env).add_type(union_type(type, var)),
           self_type: self_type,
           instance_type: module_context.instance_type,
           class_type: module_context.module_type

@@ -1,11 +1,26 @@
 module Steep
   module Subtyping
+    # VariableVariance calculates the variance of type variables
+    #
+    # ```ruby
+    # variance = VariableVariance.new(env).add_type(type)
+    #
+    # variance.covariant?(:T)
+    # variance.contravariant?(:T)
+    # variance.invariant?(:T)
+    # variance.unused?(:T)
+    # ```
+    # 
     class VariableVariance
+      type variance = :covariant | :contravariant | :invariant
+
       attr_reader covariants: Set[Symbol]
 
       attr_reader contravariants: Set[Symbol]
 
-      def initialize: (covariants: Set[Symbol], contravariants: Set[Symbol]) -> void
+      attr_reader env: RBS::Environment
+
+      def initialize: (RBS::Environment) -> void
 
       def covariant?: (Symbol var) -> bool
 
@@ -13,13 +28,29 @@ module Steep
 
       def invariant?: (Symbol var) -> bool
 
-      def self.from_type: (AST::Types::t) -> VariableVariance
+      def unused?: (Symbol var) -> bool
 
-      def self.from_method_type: (Interface::MethodType method_type) -> VariableVariance
+      # Add variance included in the type
+      #
+      # Generics arguments are detected based on it's definition
+      #
+      def add_type: (AST::Types::t) -> VariableVariance
 
-      def self.add_params: (Interface::Function::Params params, block: bool, covariants: Set[Symbol], contravariants: Set[Symbol]) -> void
+      # Add variance of type variables in method_type
+      #
+      # Ignores the variable bounding -- bound variables are treated as *free* variables
+      #
+      def add_method_type: (Interface::MethodType method_type) -> VariableVariance
 
-      def self.add_type: (AST::Types::t `type`, variance: :covariant | :contravariant | :invariant, covariants: Set[Symbol], contravariants: Set[Symbol]) -> void
+      private
+
+      def self.insert_params: (Interface::Function::Params params, block: bool, covariants: Set[Symbol], contravariants: Set[Symbol]) -> void
+
+      # Add type variables from `type`, which is located in `variance` position
+      #
+      def insert_type: (AST::Types::t, variance) -> void
+
+      def flip: (variance) -> variance
     end
   end
 end

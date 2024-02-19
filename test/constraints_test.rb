@@ -77,10 +77,9 @@ end
       constraints.add(:b, super_type: integer)
       constraints.add(:c, sub_type: object, super_type: object)
 
-      variance = Subtyping::VariableVariance.new(
-        covariants: Set.new([:a, :c]),
-        contravariants: Set.new([:b, :c])
-      )
+      variance = Subtyping::VariableVariance.new(factory.env)
+      variance.covariants.merge([:a, :c])
+      variance.contravariants.merge([:b, :c])
 
       subst = constraints.solution(
         checker,
@@ -103,7 +102,7 @@ end
       constraints.add(:X, super_type: parse_type("::_Indexable[::Integer]"), skip: true)
       constraints.add(:X, super_type: parse_type("::Array[::Integer]"), skip: false)
 
-      variance = Subtyping::VariableVariance.new(covariants: Set[], contravariants: Set[])
+      variance = Subtyping::VariableVariance.new(checker.factory.env)
 
       subst = constraints.solution(
         checker,
@@ -129,10 +128,9 @@ end
       constraints.add(:b, super_type: integer)
       constraints.add(:c, sub_type: object, super_type: object)
 
-      variance = Subtyping::VariableVariance.new(
-        covariants: Set.new([:a, :c]),
-        contravariants: Set.new([:b, :c])
-      )
+      variance = Subtyping::VariableVariance.new(checker.factory.env)
+      variance.covariants.merge([:a, :c])
+      variance.contravariants.merge([:b, :c])
 
       subst = constraints.solution(
         checker,

@@ -704,7 +704,7 @@ module Steep
                 check_constraints(
                   relation,
                   variables: sub_args.map(&:name),
-                  variance: VariableVariance.from_method_type(sub_type_)
+                  variance: VariableVariance.new(factory.env).add_method_type(sub_type_)
                 )
               end
             end

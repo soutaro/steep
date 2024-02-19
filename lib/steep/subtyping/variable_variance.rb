@@ -3,10 +3,12 @@ module Steep
     class VariableVariance
       attr_reader :covariants
       attr_reader :contravariants
+      attr_reader :env
 
-      def initialize(covariants:, contravariants:)
-        @covariants = covariants
-        @contravariants = contravariants
+      def initialize(env)
+        @env = env
+        @covariants = Set[]
+        @contravariants = Set[]
       end
 
       def covariant?(var)
@@ -21,37 +23,47 @@ module Steep
         covariants.member?(var) && contravariants.member?(var)
       end
 
-      def self.from_type(type)
-        covariants = Set.new
-        contravariants = Set.new
-
-        add_type(type, variance: :covariant, covariants: covariants, contravariants: contravariants)
-
-        new(covariants: covariants, contravariants: contravariants)
+      def unused?(var)
+        !covariants.member?(var) && !contravariants.member?(var)
       end
 
-      def self.from_method_type(method_type)
-        covariants = Set.new
-        contravariants = Set.new
+      def add_type(type)
+        insert_type(type, :covariant)
+        self
+      end
 
-        add_params(method_type.type.params, block: false, contravariants: contravariants, covariants: covariants)
-        add_type(method_type.type.return_type, variance: :covariant, covariants: covariants, contravariants: contravariants)
+      def add_method_type(type)
+        type.type.params.each_type do |type|
+          insert_type(type, :contravariant)
+        end
+        insert_type(type.type.return_type, :covariant)
 
-        method_type.block&.type&.yield_self do |proc|
-          add_params(proc.params, block: true, contravariants: contravariants, covariants: covariants)
-          add_type(proc.return_type, variance: :contravariant, covariants: covariants, contravariants: contravariants)
+        if block = type.block
+          block.type.params.each_type do |type|
+            insert_type(type, :covariant)
+          end
+          insert_type(block.type.return_type, :contravariant)
+
+          if block.self_type
+            insert_type(block.self_type, :contravariant)
+          end
         end
 
-        new(covariants: covariants, contravariants: contravariants)
+        self
       end
 
-      def self.add_params(params, block:, covariants:, contravariants:)
-        params.each_type do |type|
-          add_type(type, variance: block ? :contravariant : :covariant, covariants: covariants, contravariants: contravariants)
+      def flip(v)
+        case v
+        when :covariant
+          :contravariant
+        when :contravariant
+          :covariant
+        else
+          v
         end
       end
 
-      def self.add_type(type, variance:, covariants:, contravariants:)
+      def insert_type(type, variance)
         case type
         when AST::Types::Var
           case variance
@@ -65,22 +77,53 @@ module Steep
           end
         when AST::Types::Proc
           type.type.params.each_type do |type|
-            add_type(type, variance: variance, covariants: contravariants, contravariants: covariants)
+            insert_type(type, flip(variance))
           end
-          add_type(type.type.return_type, variance: variance, covariants: covariants, contravariants: contravariants)
+          insert_type(type.type.return_type, variance)
           if type.block
             type.block.type.params.each_type do |type|
-              add_type(type, variance: variance, covariants: covariants, contravariants: contravariants)
+              insert_type(type, variance)
             end
-            add_type(type.type.return_type, variance: variance, covariants: contravariants, contravariants: covariants)
-          end
-        when AST::Types::Union, AST::Types::Intersection, AST::Types::Tuple
-          type.types.each do |ty|
-            add_type(ty, variance: variance, covariants: covariants, contravariants: contravariants)
+            insert_type(type.type.return_type, flip(variance))
+
+            if type.block.self_type
+              insert_type(type.block.self_type, variance)
+            end
           end
         when AST::Types::Name::Interface, AST::Types::Name::Instance, AST::Types::Name::Alias
-          type.args.each do |arg|
-            add_type(arg, variance: :invariant, covariants: covariants, contravariants: contravariants)
+          type_name = env.normalize_type_name!(type.name)
+          params =
+            case
+            when type_name.class?
+              decl = env.normalized_module_class_entry(type_name) or raise
+              decl.primary.decl.type_params
+            when type_name.interface?
+              decl = env.interface_decls.fetch(type_name)
+              decl.decl.type_params
+            when type_name.alias?
+              decl = env.type_alias_decls.fetch(type_name)
+              decl.decl.type_params
+            else
+              raise
+            end
+
+          pairs = params.zip(type.args)
+
+          pairs.each do |param, type|
+            if type
+              case param.variance
+              when :invariant
+                insert_type(type, :invariant)
+              when :covariant
+                insert_type(type, variance)
+              when :contravariant
+                insert_type(type, flip(variance))
+              end
+            end
+          end
+        else
+          type.each_child do |ty|
+            insert_type(ty, variance)
           end
         end
       end
