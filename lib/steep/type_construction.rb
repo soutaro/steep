@@ -3622,10 +3622,6 @@ module Steep
       end
     end
 
-    def inspect
-      "#<#{self.class}>"
-    end
-
     def with_child_typing(range:)
       constr = with_new_typing(typing.new_child(range))
 
