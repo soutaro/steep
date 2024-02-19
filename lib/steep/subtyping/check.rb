@@ -678,8 +678,14 @@ module Steep
             sub_args = sub_type.type_params.map {|param| AST::Types::Var.fresh(param.name) }
             sub_type_ = sub_type.instantiate(Interface::Substitution.build(sub_type.type_params.map(&:name), sub_args))
 
+            variance = VariableVariance.new(factory.env).add_method_type(sub_type_)
+
             sub_args.each do |s|
-              constraints.unknown!(s.name)
+              if variance.contravariant?(s.name) || variance.unused?(s.name)
+                constraints.unknown!(s.name)
+              else
+                return Failure(relation, Result::Failure::PolyMethodSubtyping.new(name: name))
+              end
             end
 
             relation = Relation.new(sub_type: sub_type_, super_type: super_type)
@@ -701,32 +707,34 @@ module Steep
               end
 
               result.add(relation) do |rel|
-                check_constraints(
-                  relation,
-                  variables: sub_args.map(&:name),
-                  variance: VariableVariance.new(factory.env).add_method_type(sub_type_)
-                )
+                check_constraints(relation, variables: sub_args.map(&:name), variance: variance)
               end
             end
           end
 
         when sub_type.type_params.empty? && !super_type.type_params.empty?
-          # Check if sub_type is an instance of super_type && no constraints on type variables (any).
+          # Check if sub_type is an instance of super_type
           All(relation) do |result|
             super_args = super_type.type_params.map {|param| AST::Types::Var.fresh(param.name) }
             super_type_ = super_type.instantiate(Interface::Substitution.build(super_type.type_params.map(&:name), super_args))
+
+            variance = VariableVariance.new(factory.env).add_method_type(super_type_)
 
             if failure = match_method_type_fails?(name, sub_type, super_type_)
               result.add_result(failure)
             else
               super_args.each do |arg|
-                constraints.unknown!(arg.name)
+                if variance.covariant?(arg.name) || variance.unused?(arg.name)
+                  constraints.unknown!(arg.name)
+                else
+                  return Failure(relation, Result::Failure::PolyMethodSubtyping.new(name: name))
+                end
               end
 
               result.add(Relation(sub_type, super_type_)) do |rel_|
                 ret = check_method_type(name, rel_)
 
-                if ret.success? && super_args.map(&:name).none? {|var| constraints.has_constraint?(var) }
+                if ret.success?# && super_args.map(&:name).none? {|var| constraints.has_constraint?(var) }
                   ret
                 else
                   Failure(rel_, Result::Failure::PolyMethodSubtyping.new(name: name))

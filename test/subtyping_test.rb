@@ -409,7 +409,7 @@ end
   def test_nil_type
     with_checker do |checker|
       assert_success_check checker, "::NilClass", "nil"
-      
+
       assert_fail_check checker, "nil", "::NilClass"
       assert_fail_check checker, "nil", "::Object"
       assert_success_check checker, "nil", "top"
@@ -1122,6 +1122,38 @@ type c = a | b
   def test_selfq
     with_checker do |checker|
       assert_success_check(checker, "self | nil", "self | nil")
+    end
+  end
+
+  def test_interface__generic_1
+    with_checker <<~RBS do |checker|
+        interface _A
+          def foo: [X] () -> X
+        end
+
+        interface _B
+          def foo: () -> Integer
+        end
+      RBS
+
+      assert_fail_check(checker, "::_A", "::_B")
+      assert_success_check(checker, "::_B", "::_A")
+    end
+  end
+
+  def test_interface__generic_2
+    with_checker <<~RBS do |checker|
+        interface _A
+          def foo: [X] (X) -> void
+        end
+
+        interface _B
+          def foo: (Integer) -> void
+        end
+      RBS
+
+      assert_success_check(checker, "::_A", "::_B")
+      assert_fail_check(checker, "::_B", "::_A")
     end
   end
 end

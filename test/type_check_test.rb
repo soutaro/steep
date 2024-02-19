@@ -1828,4 +1828,25 @@ class TypeCheckTest < Minitest::Test
       YAML
     )
   end
+
+  def test_regexp
+    Steep.logger.level = :DEBUG
+    run_type_check_test(
+      signatures: {
+        "a.rbs" => <<~RBS
+          class Foo
+            def foo: () -> ("aaa" | "bbb" | "ccc" | "ddd")
+          end
+        RBS
+      },
+      code: {
+        "a.rb" => <<~RUBY
+          "foo" =~ "bar"
+          # Foo.new.foo.to_sym #: String::_MatchAgainst[String, Integer?]
+        RUBY
+      },
+      expectations: <<~YAML
+      YAML
+    )
+  end
 end
