@@ -1828,4 +1828,34 @@ class TypeCheckTest < Minitest::Test
       YAML
     )
   end
+
+  def test_string_match
+    run_type_check_test(
+      signatures: {},
+      code: {
+        "a.rb" => <<~RUBY
+          "" =~ ""
+        RUBY
+      },
+      expectations: <<~YAML
+        ---
+        - file: a.rb
+          diagnostics:
+          - range:
+              start:
+                line: 1
+                character: 0
+              end:
+                line: 1
+                character: 8
+            severity: ERROR
+            message: |-
+              Cannot find compatible overloading of method `=~` of type `::String`
+              Method types:
+                def =~: (::Regexp) -> (::Integer | nil)
+                      | [T] (::String::_MatchAgainst[::String, T]) -> T
+            code: Ruby::UnresolvedOverloading
+      YAML
+    )
+  end
 end

@@ -81,7 +81,7 @@ module Steep
       class Failure < Base
         type error = MethodMissingError | BlockMismatchError | ParameterMismatchError
                    | UnknownPairError | PolyMethodSubtyping | UnsatisfiedConstraints
-                   | SelfBindingMismatch
+                   | SelfBindingMismatch | LoopAbort
 
         class MethodMissingError
           attr_reader name: untyped
@@ -142,6 +142,10 @@ module Steep
         class SelfBindingMismatch
           def initialize: () -> void
 
+          def message: () -> String
+        end
+
+        class LoopAbort
           def message: () -> String
         end
 

@@ -1,6 +1,8 @@
 module Steep
   module Subtyping
     class Check
+      ABORT_LIMIT: Integer
+
       attr_reader builder: Interface::Builder
 
       attr_reader cache: Cache
