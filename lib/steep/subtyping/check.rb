@@ -1,6 +1,8 @@
 module Steep
   module Subtyping
     class Check
+      ABORT_LIMIT = ENV.fetch("STEEP_SUBTYPING_ABORT_LIMIT", 50).to_i
+
       attr_reader :builder
       attr_reader :cache
 
@@ -187,6 +189,10 @@ module Steep
       end
 
       def check_type(relation)
+        if assumptions.size > ABORT_LIMIT
+          return Failure(relation, Result::Failure::LoopAbort.new)
+        end
+
         relation.type!
 
         Steep.logger.tagged "#{relation.sub_type} <: #{relation.super_type}" do

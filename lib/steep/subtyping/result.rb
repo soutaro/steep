@@ -269,6 +269,12 @@ module Steep
           end
         end
 
+        class LoopAbort
+          def message
+            "Detected infinite loop with limit of `#{Check::ABORT_LIMIT}`; specify $STEEP_SUBTYPING_ABORT_LIMIT env var to override the limit."
+          end
+        end
+
         attr_reader :error
 
         def initialize(relation, error)
