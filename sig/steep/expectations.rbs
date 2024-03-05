@@ -19,7 +19,7 @@ module Steep
 
       def initialize: (start_position: position, end_position: position, severity: Steep::Diagnostic::LSPFormatter::severity, message: String, code: String) -> void
 
-      def self.from_hash: (untyped) -> instance
+      def self.from_hash: (untyped) -> Diagnostic
 
       def self.from_lsp: (untyped) -> Diagnostic
 
