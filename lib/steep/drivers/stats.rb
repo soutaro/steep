@@ -83,7 +83,7 @@ module Steep
             end
           end
 
-          table = Terminal::Table.new(
+          table = Terminal::Table.new( # steep:ignore UnknownConstant
             headings: ["Target", "File", "Status", "Typed calls", "Untyped calls", "All calls", "Typed %"],
             rows: rows
           )
@@ -166,7 +166,7 @@ module Steep
           {
             id: stats_id,
             method: "workspace/executeCommand",
-            params: { command: "steep/stats", arguments: [] }
+            params: { command: "steep/stats", arguments: _ = [] }
           })
 
         stats_response = wait_for_response_id(reader: client_reader, id: stats_id)

@@ -49,8 +49,10 @@ module Steep
             if buffer
               printer = DiagnosticPrinter.new(stdout: stdout, buffer: buffer)
               ds.each do |d|
-                printer.print(d)
-                stdout.puts
+                if d
+                  printer.print(_ = d)
+                  stdout.puts
+                end
               end
             end
           end
