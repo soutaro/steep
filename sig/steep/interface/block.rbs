@@ -27,7 +27,7 @@ module Steep
 
       @fvs: Set[Symbol]
 
-      def free_variables: () -> Set[Symbol]
+      def free_variables: () -> Set[AST::Types::variable]
 
       def to_s: () -> ::String
 

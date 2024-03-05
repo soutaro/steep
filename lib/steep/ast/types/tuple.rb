@@ -46,6 +46,13 @@ module Steep
           end
         end
 
+        def map_type(&block)
+          Tuple.new(
+            types: types.map(&block),
+            location: location
+          )
+        end
+
         def level
           [0] + level_of_children(types)
         end

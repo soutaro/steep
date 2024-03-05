@@ -56,8 +56,8 @@ module Steep
           ?variable_bounds: Hash[Symbol, AST::Types::t?]
         ) -> self
 
-        @no_resolve: self?
-        def no_resolve: () -> self
+        @no_resolve: Config?
+        def no_resolve: () -> Config
 
         def resolve?: () -> bool
 

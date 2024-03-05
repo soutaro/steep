@@ -80,6 +80,13 @@ module Steep
           end
         end
 
+        def map_type(&block)
+          self.class.build(
+            types: each_child.map(&block),
+            location: location
+          )
+        end
+
         def level
           [0] + level_of_children(types)
         end
