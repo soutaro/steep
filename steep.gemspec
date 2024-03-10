@@ -19,7 +19,7 @@ Gem::Specification.new do |spec|
   spec.metadata["changelog_uri"] = "https://github.com/soutaro/steep/blob/master/CHANGELOG.md"
 
   spec.files         = `git ls-files -z`.split("\x0").reject {|f|
-    f.match(%r{^(test|spec|features|smoke)/})
+    f.match(%r{^(test|spec|features|smoke|sig/shims)/})
   }
 
   spec.bindir        = "exe"
