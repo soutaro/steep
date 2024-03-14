@@ -41,6 +41,8 @@ module Steep
 
       def merge: (Substitution s) -> Substitution
 
+      def update: (?self_type: AST::Types::t?, ?instance_type: AST::Types::t?, ?module_type: AST::Types::t?) -> Substitution
+
       def apply?: (AST::Types::t) -> bool
 
       def add!: (Symbol v, AST::Types::t ty) -> self

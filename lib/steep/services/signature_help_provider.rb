@@ -19,6 +19,8 @@ module Steep
         end
       end
 
+      include NodeHelper
+
       attr_reader :source, :path, :subtyping, :typing, :buffer
 
       def env
@@ -103,16 +105,11 @@ module Steep
         case call
         when MethodCall::Typed, MethodCall::Error
           type = call.receiver_type
-          if type.is_a?(AST::Types::Self)
-            type = context.self_type
-          end
+          config = Interface::Builder::Config.new(self_type: context.self_type, variable_bounds: context.variable_context.upper_bounds)
 
-          shape = subtyping.builder.shape(
-            type,
-            public_only: !node.children[0].nil?,
-            config: Interface::Builder::Config.new(self_type: type, class_type: nil, instance_type: nil, variable_bounds: {})
-          )
-          if shape
+          if shape = subtyping.builder.shape(type, config)
+            shape = shape.public_shape if private_send?(node)
+
             if method = shape.methods[call.method_name]
               method.method_types.each.with_index do |method_type, i|
                 defn = method_type.method_decls.to_a[0]&.method_def

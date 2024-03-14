@@ -878,6 +878,7 @@ module Steep
             if self_type && method_context!.method
               if super_def = method_context!.super_method
                 super_method = Interface::Shape::Entry.new(
+                  private_method: true,
                   method_types: super_def.defs.map {|type_def|
                     decl = TypeInference::MethodCall::MethodDecl.new(
                       method_name: InstanceMethodName.new(
@@ -2611,6 +2612,7 @@ module Steep
           end
         end
       rescue RBS::BaseError => exn
+        Steep.logger.warn("hello")
         Steep.logger.warn { "Unexpected RBS error: #{exn.message}" }
         exn.backtrace&.each {|loc| Steep.logger.warn "  #{loc}" }
         typing.add_error(Diagnostic::Ruby::UnexpectedError.new(node: node, error: exn))
@@ -3431,16 +3433,16 @@ module Steep
         self_type: self_type,
         class_type: module_context.module_type,
         instance_type: module_context.instance_type,
-        variable_bounds: variable_context.upper_bounds
+        variable_bounds: context.variable_context.upper_bounds
       )
     end
 
     def calculate_interface(type, method_name = nil, private:)
-      shape = checker.builder.shape(
-        type,
-        public_only: !private,
-        config: builder_config
-      )
+      shape = checker.builder.shape(type, builder_config)
+
+      unless private
+        shape = shape&.public_shape
+      end
 
       if method_name
         if shape

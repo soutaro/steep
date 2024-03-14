@@ -17,6 +17,8 @@ module Steep
         def parameters: () -> Array[String]
       end
 
+      include Steep::NodeHelper
+
       attr_reader source: Source
 
       attr_reader path: Pathname

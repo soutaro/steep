@@ -593,7 +593,7 @@ module Steep
       end
 
       def try_convert(type, method)
-        if shape = subtyping.builder.shape(type, public_only: true, config: config)
+        if shape = subtyping.builder.shape(type, config)
           if entry = shape.methods[method]
             method_type = entry.method_types.find do |method_type|
               method_type.type.params.optional?

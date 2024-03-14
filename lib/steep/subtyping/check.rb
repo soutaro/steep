@@ -410,14 +410,8 @@ module Steep
               relation.map {|type|
                 builder.shape(
                   type,
-                  public_only: true,
-                  config: Interface::Builder::Config.new(
-                    self_type: type,
-                    instance_type: instance_type,
-                    class_type: class_type,
-                    variable_bounds: variable_upper_bounds
-                  )
-                ) or return Failure(relation, Result::Failure::UnknownPairError.new(relation: relation))
+                  Interface::Builder::Config.new(self_type: type, variable_bounds: variable_upper_bounds)
+                )&.public_shape() or return Failure(relation, Result::Failure::UnknownPairError.new(relation: relation))
               }
             )
           end
@@ -530,14 +524,8 @@ module Steep
               relation.map {|type|
                 builder.shape(
                   type,
-                  public_only: true,
-                  config: Interface::Builder::Config.new(
-                    self_type: type,
-                    instance_type: instance_type,
-                    class_type: class_type,
-                    variable_bounds: variable_upper_bounds
-                  )
-                ) or raise
+                  Interface::Builder::Config.new(self_type: type, variable_bounds: variable_upper_bounds)
+                )&.public_shape or raise
               }
             )
           end

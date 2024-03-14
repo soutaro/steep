@@ -66,6 +66,17 @@ module Steep
 
     def test_send_node: (Node) { (Node?, Symbol, Array[Node], send_loc) -> bool } -> bool
 
+    # Returns if given node allows calling private method
+    #
+    # The node must be:
+    #
+    # * A `send` node,
+    # * A `csend` node,
+    # * A `block` node, or
+    # * A `nblock` node
+    #
+    def private_send?: (Node) -> bool
+
     # Deconstruct sendish node and it's associated block node
     #
     # Receives a sequence of node tree where the leaf node comes first.

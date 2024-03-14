@@ -147,6 +147,8 @@ module Steep
         # Returns the upper bound of a type variable
         def []: (Symbol name) -> AST::Types::t?
 
+        @upper_bounds: Hash[Symbol, AST::Types::t]?
+
         def upper_bounds: () -> Hash[Symbol, AST::Types::t]
 
         def self.empty: () -> TypeVariableContext

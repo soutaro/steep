@@ -2,14 +2,19 @@ module Steep
   module Interface
     class Shape
       class Entry
-        attr_reader :method_types
+        attr_reader :method_types, :private_method
 
-        def initialize(method_types:)
+        def initialize(method_types:, private_method:)
           @method_types = method_types
+          @private_method = private_method
         end
 
         def to_s
           "{ #{method_types.join(" || ")} }"
+        end
+
+        def private_method?
+          private_method
         end
       end
 
@@ -37,10 +42,12 @@ module Steep
           return nil unless key?(name)
 
           resolved_methods[name] ||= begin
+            entry = methods[name]
             Entry.new(
-              method_types: methods[name].method_types.map do |method_type|
+              method_types: entry.method_types.map do |method_type|
                 method_type.subst(subst)
-              end
+              end,
+              private_method: entry.private_method?
             )
           end
         end
@@ -82,13 +89,11 @@ module Steep
           end
         end
 
-        def +(other)
-          methods = Methods.new(substs: [], methods: {})
-
-          methods.merge!(self)
-          methods.merge!(other)
-
-          methods
+        def public_methods
+          Methods.new(
+            substs: substs,
+            methods: methods.reject {|_, entry| entry.private_method? }
+          )
         end
       end
 
@@ -126,6 +131,18 @@ module Steep
 
       def public?
         !private?
+      end
+
+      def public_shape
+        if public?
+          self
+        else
+          Shape.new(
+            type: type,
+            private: false,
+            methods: methods.public_methods
+          )
+        end
       end
     end
   end

@@ -4917,9 +4917,10 @@ WithPrivate.new.foo
       with_standard_construction(checker, source) do |construction, typing|
         construction.synthesize(source.node)
 
-        assert_equal 1, typing.errors.size
-        assert_any typing.errors do |error|
-          error.is_a?(Diagnostic::Ruby::NoMethod)
+        assert_typing_error(typing, size: 1) do |errors|
+          assert_any! errors do |error|
+            assert_instance_of Diagnostic::Ruby::NoMethod, error
+          end
         end
       end
     end

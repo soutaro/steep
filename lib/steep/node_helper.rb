@@ -207,7 +207,7 @@ module Steep
     end
 
     def deconstruct_send_node!(node)
-      deconstruct_send_node(node) or raise
+      deconstruct_send_node(node) or raise(node.inspect)
     end
 
     def test_send_node(node)
@@ -215,6 +215,23 @@ module Steep
         yield a, b, c, d
       else
         false
+      end
+    end
+
+    def private_send?(node)
+      case node.type
+      when :block, :numblock
+        private_send?(node.children[0])
+      when :send, :csend
+        receiver, = deconstruct_send_node!(node)
+
+        if receiver && receiver.type != :self
+          return false
+        end
+
+        true
+      else
+        raise "Unexpected node is given: #{node.inspect}"
       end
     end
 

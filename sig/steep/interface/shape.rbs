@@ -2,11 +2,15 @@ module Steep
   module Interface
     class Shape
       class Entry
+        attr_reader private_method: bool
+
         attr_reader method_types: Array[MethodType]
 
-        def initialize: (method_types: Array[MethodType]) -> void
+        def initialize: (method_types: Array[MethodType], private_method: bool) -> void
 
         def to_s: () -> String
+
+        def private_method?: () -> bool
       end
 
       class Methods
@@ -38,7 +42,7 @@ module Steep
 
         def merge!: (Methods other) -> void
 
-        # def +: (Methods other) -> Methods
+        def public_methods: () -> Methods
       end
 
       attr_reader type: AST::Types::t
@@ -56,6 +60,8 @@ module Steep
       def public?: () -> bool
 
       def subst: (Substitution, ?type: AST::Types::t?) -> Shape
+
+      def public_shape: () -> Shape
     end
   end
 end

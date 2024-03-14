@@ -611,18 +611,21 @@ module Steep
         range = range_for(position, prefix: prefix)
         context = typing.context_at(line: position.line, column: position.column)
 
-        shape = subtyping.builder.shape(
-          type,
-          public_only: !include_private,
-          config: Interface::Builder::Config.new(
-            self_type: context.self_type,
-            class_type: context.module_context&.module_type,
-            instance_type: context.module_context&.instance_type,
-            variable_bounds: context.variable_context.upper_bounds
-          )
-        )
+        config =
+          if (module_type = context.module_context&.module_type) && (instance_type = context.module_context&.instance_type)
+            Interface::Builder::Config.new(
+              self_type: context.self_type,
+              class_type: module_type,
+              instance_type: instance_type,
+              variable_bounds: context.variable_context.upper_bounds
+            )
+          else
+            Interface::Builder::Config.new(self_type: context.self_type, variable_bounds: context.variable_context.upper_bounds)
+          end
 
-        if shape
+        if shape = subtyping.builder.shape(type, config)
+          shape = shape.public_shape unless include_private
+
           shape.methods.each do |name, method_entry|
             next if disallowed_method?(name)
 
@@ -728,13 +731,12 @@ module Steep
 
         case call
         when TypeInference::MethodCall::Typed, TypeInference::MethodCall::Error
+          context = typing.context_at(line: position.line, column: position.column)
           type = call.receiver_type
-          shape = subtyping.builder.shape(
-            type,
-            public_only: !!receiver_node,
-            config: Interface::Builder::Config.new(self_type: type, class_type: nil, instance_type: nil, variable_bounds: {})
-          )
-          if shape
+
+          config = Interface::Builder::Config.new(self_type: type, variable_bounds: context.variable_context.upper_bounds)
+          if shape = subtyping.builder.shape(type, config)
+            shape = shape.public_shape if private_send?(call_node)
             if method = shape.methods[call.method_name]
               method.method_types.each.with_index do |method_type, i|
                 defn = method_type.method_decls.to_a[0]&.method_def
