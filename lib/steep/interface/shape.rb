@@ -16,6 +16,10 @@ module Steep
         def private_method?
           private_method
         end
+
+        def public_method?
+          !private_method
+        end
       end
 
       class Methods
@@ -83,9 +87,13 @@ module Steep
           Methods.new(substs: [*substs, subst], methods: methods)
         end
 
-        def merge!(other)
+        def merge!(other, &block)
           other.each do |name, entry|
-            methods[name] = entry
+            if block && (old_entry = methods[name])
+              methods[name] = yield(name, old_entry, entry)
+            else
+              methods[name] = entry
+            end
           end
         end
 

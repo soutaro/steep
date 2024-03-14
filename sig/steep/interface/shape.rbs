@@ -11,6 +11,8 @@ module Steep
         def to_s: () -> String
 
         def private_method?: () -> bool
+
+        def public_method?: () -> bool
       end
 
       class Methods
@@ -40,7 +42,7 @@ module Steep
 
         def push_substitution: (Substitution) -> Methods
 
-        def merge!: (Methods other) -> void
+        def merge!: (Methods other) ?{ (Symbol name, Entry old_entry, Entry new_entry) -> Entry } -> void
 
         def public_methods: () -> Methods
       end

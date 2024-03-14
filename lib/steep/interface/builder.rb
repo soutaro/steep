@@ -323,7 +323,13 @@ module Steep
         shape = Interface::Shape.new(type: type, private: true)
 
         shapes.each do |s|
-          shape.methods.merge!(s.methods)
+          shape.methods.merge!(s.methods) do |name, old_entry, new_entry|
+            if old_entry.public_method? && new_entry.private_method?
+              old_entry
+            else
+              new_entry
+            end
+          end
         end
 
         shape
