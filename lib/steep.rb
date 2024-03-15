@@ -186,15 +186,19 @@ module Steep
   @ui_logger = nil
   self.log_output = STDERR
 
-  def self.measure(message, level: :warn)
+  def self.measure(message, level: :warn, threshold: 0.0)
     start = Time.now
-    yield
-  ensure
-    time = Time.now - start
-    if level.is_a?(Symbol)
-      level = Logger.const_get(level.to_s.upcase)
+    begin
+      yield
+    ensure
+      time = Time.now - start
+      if level.is_a?(Symbol)
+        level = Logger.const_get(level.to_s.upcase)
+      end
+      if time > threshold
+        self.logger.log(level) { "#{message} took #{time} seconds" }
+      end
     end
-    self.logger.log(level) { "#{message} took #{time} seconds" }
   end
 
   def self.log_error(exn, message: "Unexpected error: #{exn.inspect}")

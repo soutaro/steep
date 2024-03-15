@@ -14,7 +14,7 @@ module Steep
 
   attr_accessor self.log_output: IO
 
-  def self.measure: [A] (String message, ?level: ::Symbol) { () -> A } -> A
+  def self.measure: [A] (String message, ?level: ::Symbol, ?threshold: Float) { () -> A } -> A
 
   def self.log_error: (Exception exn, ?message: ::String) -> void
 
