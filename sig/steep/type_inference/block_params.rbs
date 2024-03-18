@@ -37,7 +37,7 @@ module Steep
       # * `node` is the node of the parameter
       #
       class Param
-        attr_reader var: Symbol
+        attr_reader var: Symbol?
 
         attr_reader type: AST::Types::t?
 
@@ -45,7 +45,7 @@ module Steep
 
         attr_reader node: Parser::AST::Node
 
-        def initialize: (var: Symbol, type: AST::Types::t?, value: Parser::AST::Node?, node: Parser::AST::Node) -> void
+        def initialize: (var: Symbol?, type: AST::Types::t?, value: Parser::AST::Node?, node: Parser::AST::Node) -> void
 
         def ==: (untyped other) -> bool
 

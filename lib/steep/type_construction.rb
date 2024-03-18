@@ -4349,7 +4349,7 @@ module Steep
     def for_block(body_node, block_params:, block_param_hint:, block_type_hint:, block_block_hint:, block_annotations:, node_type_hint:, block_self_hint:)
       block_param_pairs = block_param_hint && block_params.zip(block_param_hint, block_block_hint, factory: checker.factory)
 
-      # @type var param_types_hash: Hash[Symbol, AST::Types::t]
+      # @type var param_types_hash: Hash[Symbol?, AST::Types::t]
       param_types_hash = {}
       if block_param_pairs
         block_param_pairs.each do |param, type|
@@ -4384,10 +4384,12 @@ module Steep
         end
       end
 
-      param_types_hash.delete_if {|name, _| SPECIAL_LVAR_NAMES.include?(name) }
+      param_types_hash.delete_if {|name, _| name && SPECIAL_LVAR_NAMES.include?(name) }
 
       param_types = param_types_hash.each.with_object({}) do |pair, hash| #$ Hash[Symbol, [AST::Types::t, AST::Types::t?]]
         name, type = pair
+        # skip unamed arguments `*`, `**` and `&`
+        next if name.nil?
         hash[name] = [type, nil]
       end
 

@@ -57,8 +57,9 @@ module Steep
 
         def variable_types
           each_param.with_object({}) do |param, hash|
+            var_name = param.var || next
             # @type var hash: Hash[Symbol, AST::Types::t?]
-            hash[param.var] = param.type
+            hash[var_name] = param.type
           end
         end
 
@@ -133,10 +134,17 @@ module Steep
           else
             var = arg.children[0]
             type = annotations.var_type(lvar: var)
-
             case arg.type
-            when :arg, :procarg0
+            when :arg
               default_params << Param.new(var: var, type: type, value: nil, node: arg)
+            when :procarg0
+              var = arg.children[0]
+              if var.is_a?(Symbol)
+                default_params << Param.new(var: var, type: type, value: nil, node: arg)
+              else
+                var = var.children[0]
+                default_params << Param.new(var: var, type: type, value: nil, node: arg)
+              end
             when :optarg
               default_params = trailing_params
               optional_params << Param.new(var: var, type: type, value: arg.children.last, node: arg)
