@@ -165,7 +165,16 @@ module Steep
             if expanded = factory.deep_expand_alias(type)
               shape(expanded, public_only: public_only, config: config)&.update(type: type)
             end
-          when AST::Types::Any, AST::Types::Bot, AST::Types::Void, AST::Types::Top
+          when AST::Types::Top
+            if definition_builder.env.interface_decls.key?(TypeName('::_Top'))
+              # rbs-3.3 or newer
+              type_ = AST::Types::Name::Interface.new(name: TypeName('::_Top'), args: [])
+            else
+              type_ = AST::Types::Name::Instance.new(name: TypeName('::BasicObject'), args: [])
+            end
+
+            shape(type_, public_only: public_only, config: config)&.update(type: type)
+          when AST::Types::Any, AST::Types::Bot, AST::Types::Void
             nil
           when AST::Types::Var
             if bound = config.variable_bounds[type.name]

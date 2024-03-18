@@ -6638,6 +6638,47 @@ y = b.foo(2)
     end
   end
 
+  def test_send_boolish1
+    with_checker(<<RBS) do |checker|
+type boolish = top
+
+interface _Top
+  def !: () -> bool
+end
+RBS
+      source = parse_ruby(<<-RUBY)
+# @type var a: boolish
+a = _ = nil
+puts 'Hello' if !a
+      RUBY
+
+      with_standard_construction(checker, source) do |construction, typing|
+        _, constr = construction.synthesize(source.node)
+
+        assert_equal 0, typing.errors.size
+      end
+    end
+  end
+
+  def test_send_boolish2
+    # for old RBS package (no _Top interface definition)
+    with_checker(<<RBS) do |checker|
+type boolish = top
+RBS
+      source = parse_ruby(<<-RUBY)
+# @type var a: boolish
+a = _ = nil
+puts 'Hello' if !a
+      RUBY
+
+      with_standard_construction(checker, source) do |construction, typing|
+        _, constr = construction.synthesize(source.node)
+
+        assert_equal 0, typing.errors.size
+      end
+    end
+  end
+
   def test_send_concrete_receiver
     with_checker(<<RBS) do |checker|
 class SendTest
