@@ -101,9 +101,25 @@ module Steep
         when AST::Types::Name::Interface
           object_shape(type.name).subst(interface_subst(type).merge(app_subst(type)), type: type)
         when AST::Types::Union
-          shapes = type.types.map do |type|
-            raw_shape(type, config) or return
+          groups = type.types.group_by do |type|
+            if type.is_a?(AST::Types::Literal)
+              type.back_type
+            else
+              nil
+            end
           end
+
+          shapes = [] #: Array[Shape]
+          groups.each do |name, types|
+            if name
+              union = AST::Types::Union.build(types: types)
+              subst = class_subst(name).update(self_type: union)
+              shapes << object_shape(name.name).subst(subst, type: union)
+            else
+              shapes.concat(types.map {|ty| raw_shape(ty, config) or return })
+            end
+          end
+
           fetch_cache(union_shape_cache, type) do
             union_shape(type, shapes)
           end

@@ -457,4 +457,21 @@ end
       end
     end
   end
+
+  def test_shape__big_literal_union
+    names = 100.times.map {|i| "'#{i}'"}
+
+    with_factory({ "a.rbs" => <<~RBS }) do
+        type names = #{names.join(" | ")}
+      RBS
+
+      builder = Interface::Builder.new(factory)
+
+      builder.shape(parse_type("::names"), config).tap do |shape|
+        assert_equal parse_type("::names"), shape.type
+
+        assert_equal [parse_method_type("() -> (#{names.join(" | ")})")], shape.methods[:itself].method_types
+      end
+    end
+  end
 end
