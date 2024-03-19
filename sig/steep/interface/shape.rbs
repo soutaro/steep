@@ -2,17 +2,26 @@ module Steep
   module Interface
     class Shape
       class Entry
-        attr_reader private_method: bool
+        @private_method: bool
 
-        attr_reader method_types: Array[MethodType]
+        @method_types: Array[MethodType]?
+
+        @generator: (^() -> Array[MethodType]?)?
 
         def initialize: (method_types: Array[MethodType], private_method: bool) -> void
+                      | (private_method: bool) { () -> Array[MethodType]? } -> void
+
+        def has_method_type?: () -> bool
 
         def to_s: () -> String
 
         def private_method?: () -> bool
 
         def public_method?: () -> bool
+
+        def method_types: () -> Array[MethodType]
+
+        def force: () -> void
       end
 
       class Methods

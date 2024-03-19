@@ -308,72 +308,56 @@ module Steep
           all_common_methods &= shape.methods.each_name
         end
 
-        skips0 = 0
-        skips1 = 0
-        skips2 = 0
-        unions = 0
-
         shape = Interface::Shape.new(type: shape_type, private: true)
         all_common_methods.each do |method_name|
-          methods = shapes.map {|shape| shape.methods[method_name] || raise }
-          entry = Interface::Shape::Entry.new(method_types: [], private_method: true)
+          method_typess = [] #: Array[Array[MethodType]]
+          private_method = false
+          shapes.each do |shape|
+            entry = shape.methods[method_name] || raise
+            method_typess << entry.method_types
+            private_method ||= entry.private_method?
+          end
 
-          method_types = methods.inject do |entry1, entry2|
-            # @type break: nil
+          shape.methods[method_name] = Interface::Shape::Entry.new(private_method: private_method) do
+            method_typess.inject do |types1, types2|
+              # @type break: nil
 
-            types1 = entry1.method_types
-            types2 = entry2.method_types
+              if types1 == types2
+                decl_array1 = types1.map(&:method_decls)
+                decl_array2 = types2.map(&:method_decls)
 
-            if types1 == types2
-              decl_array1 = types1.map(&:method_decls)
-              decl_array2 = types2.map(&:method_decls)
+                if decl_array1 == decl_array2
+                  next types1
+                end
 
-              if decl_array1 == decl_array2
-                skips0 += types1.size
-                next entry1
+                decls1 = decl_array1.each.with_object(Set[]) {|array, decls| decls.merge(array) } #$ Set[TypeInference::MethodCall::MethodDecl]
+                decls2 = decl_array2.each.with_object(Set[]) {|array, decls| decls.merge(array) } #$ Set[TypeInference::MethodCall::MethodDecl]
+
+                if decls1 == decls2
+                  next types1
+                end
               end
 
-              decls1 = decl_array1.each.with_object(Set[]) {|array, decls| decls.merge(array) } #$ Set[TypeInference::MethodCall::MethodDecl]
-              decls2 = decl_array2.each.with_object(Set[]) {|array, decls| decls.merge(array) } #$ Set[TypeInference::MethodCall::MethodDecl]
+              method_types = {} #: Hash[MethodType, bool]
 
-              if decls1 == decls2
-                skips1 += types1.size
-                next entry1
-              end
-            end
-
-            method_types = {} #: Hash[MethodType, bool]
-
-            types1.each do |type1|
-              types2.each do |type2|
-                if type1 == type2
-                  skips2 += 1
-                  # Steep.logger.fatal { { type1: type1.method_decls.map { _1.method_def.member.location.to_s }, type2: type2.method_decls.map { _1.method_def.member.location.to_s } }.inspect }
-                  method_types[type1.with(method_decls: type1.method_decls + type2.method_decls)] = true
-                else
-                  if type = MethodType.union(type1, type2, subtyping)
-                    Steep.logger.fatal { { type1: type1.to_s, type2: type2.to_s, type: type.to_s }.inspect }
-                    unions += 1
-                    method_types[type] = true
+              types1.each do |type1|
+                types2.each do |type2|
+                  if type1 == type2
+                    method_types[type1.with(method_decls: type1.method_decls + type2.method_decls)] = true
+                  else
+                    if type = MethodType.union(type1, type2, subtyping)
+                      method_types[type] = true
+                    end
                   end
                 end
               end
+
+              break nil if method_types.empty?
+
+              method_types.keys
             end
-
-            break nil if method_types.empty?
-
-            Interface::Shape::Entry.new(
-              method_types: method_types.keys,
-              private_method: entry1.private_method? || entry2.private_method?
-            )
-          end
-
-          if method_types
-            shape.methods[method_name] = method_types
           end
         end
-
-        Steep.logger.fatal { { skips0: skips0, skips1: skips1, skips2: skips2, unions: unions}.inspect }
 
         shape
       end
