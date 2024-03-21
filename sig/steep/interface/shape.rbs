@@ -64,6 +64,8 @@ module Steep
       def subst: (Substitution, ?type: AST::Types::t?) -> Shape
 
       def public_shape: () -> Shape
+
+      @public_shape: Shape?
     end
   end
 end

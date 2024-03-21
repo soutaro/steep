@@ -145,7 +145,7 @@ module Steep
         if public?
           self
         else
-          Shape.new(
+          @public_shape ||= Shape.new(
             type: type,
             private: false,
             methods: methods.public_methods

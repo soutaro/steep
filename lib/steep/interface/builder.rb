@@ -50,24 +50,37 @@ module Steep
         end
       end
 
-      attr_reader :factory
+      attr_reader :factory, :object_shape_cache, :union_shape_cache, :singleton_shape_cache
 
       def initialize(factory)
         @factory = factory
+        @object_shape_cache = {}
+        @union_shape_cache = {}
+        @singleton_shape_cache = {}
       end
 
       def shape(type, config)
-        if shape = raw_shape(type, config)
-          if type.free_variables.include?(AST::Types::Self.instance)
-            shape
-          else
-            if s = config.subst
-              shape.subst(s)
-            else
+        Steep.logger.tagged "shape(#{type})" do
+          if shape = raw_shape(type, config)
+            if type.free_variables.include?(AST::Types::Self.instance)
               shape
+            else
+              if s = config.subst
+                shape.subst(s)
+              else
+                shape
+              end
             end
           end
         end
+      end
+
+      def fetch_cache(cache, key)
+        if cache.key?(key)
+          return cache.fetch(key)
+        end
+
+        cache[key] = yield
       end
 
       def raw_shape(type, config)
@@ -91,7 +104,9 @@ module Steep
           shapes = type.types.map do |type|
             raw_shape(type, config) or return
           end
-          union_shape(type, shapes)
+          fetch_cache(union_shape_cache, type) do
+            union_shape(type, shapes)
+          end
         when AST::Types::Intersection
           shapes = type.types.map do |type|
             raw_shape(type, config) or return
@@ -161,10 +176,10 @@ module Steep
           singleton_shape(type.name).subst(class_subst(type).update(self_type: nil))
         when AST::Types::Name::Instance
           object_shape(type.name)
-          .subst(
-            class_subst(type).update(self_type: nil).merge(app_subst(type)),
-            type: type
-          )
+            .subst(
+              class_subst(type).update(self_type: nil).merge(app_subst(type)),
+              type: type
+            )
         when AST::Types::Name::Interface
           object_shape(type.name).subst(app_subst(type), type: type)
         when AST::Types::Literal
@@ -232,91 +247,135 @@ module Steep
       end
 
       def singleton_shape(type_name)
-        shape = Interface::Shape.new(type: AST::Types::Name::Singleton.new(name: type_name), private: true)
-        definition = factory.definition_builder.build_singleton(type_name)
+        singleton_shape_cache[type_name] ||= begin
+          shape = Interface::Shape.new(type: AST::Types::Name::Singleton.new(name: type_name), private: true)
+          definition = factory.definition_builder.build_singleton(type_name)
 
-        definition.methods.each do |name, method|
-          Steep.logger.tagged "method = #{type_name}.#{name}" do
-            shape.methods[name] = Interface::Shape::Entry.new(
-              private_method: method.private?,
-              method_types: method.defs.map do |type_def|
-                method_name = method_name_for(type_def, name)
-                decl = TypeInference::MethodCall::MethodDecl.new(method_name: method_name, method_def: type_def)
-                method_type = factory.method_type(type_def.type, method_decls: Set[decl])
-                replace_primitive_method(method_name, type_def, method_type)
-              end
-            )
+          definition.methods.each do |name, method|
+            Steep.logger.tagged "method = #{type_name}.#{name}" do
+              shape.methods[name] = Interface::Shape::Entry.new(
+                private_method: method.private?,
+                method_types: method.defs.map do |type_def|
+                  method_name = method_name_for(type_def, name)
+                  decl = TypeInference::MethodCall::MethodDecl.new(method_name: method_name, method_def: type_def)
+                  method_type = factory.method_type(type_def.type, method_decls: Set[decl])
+                  replace_primitive_method(method_name, type_def, method_type)
+                end
+              )
+            end
           end
-        end
 
-        shape
+          shape
+        end
       end
 
       def object_shape(type_name)
-        shape = Interface::Shape.new(type: AST::Builtin.bottom_type, private: true)
+        object_shape_cache[type_name] ||= begin
+          shape = Interface::Shape.new(type: AST::Builtin.bottom_type, private: true)
 
-        case
-        when type_name.class?
-          definition = factory.definition_builder.build_instance(type_name)
-        when type_name.interface?
-          definition = factory.definition_builder.build_interface(type_name)
-        end
-
-        definition or raise
-
-        definition.methods.each do |name, method|
-          Steep.logger.tagged "method = #{type_name}##{name}" do
-            shape.methods[name] = Interface::Shape::Entry.new(
-              private_method: method.private?,
-              method_types: method.defs.map do |type_def|
-                method_name = method_name_for(type_def, name)
-                decl = TypeInference::MethodCall::MethodDecl.new(method_name: method_name, method_def: type_def)
-                method_type = factory.method_type(type_def.type, method_decls: Set[decl])
-                replace_primitive_method(method_name, type_def, method_type)
-              end
-            )
+          case
+          when type_name.class?
+            definition = factory.definition_builder.build_instance(type_name)
+          when type_name.interface?
+            definition = factory.definition_builder.build_interface(type_name)
           end
-        end
 
-        shape
+          definition or raise
+
+          definition.methods.each do |name, method|
+            Steep.logger.tagged "method = #{type_name}##{name}" do
+              shape.methods[name] = Interface::Shape::Entry.new(
+                private_method: method.private?,
+                method_types: method.defs.map do |type_def|
+                  method_name = method_name_for(type_def, name)
+                  decl = TypeInference::MethodCall::MethodDecl.new(method_name: method_name, method_def: type_def)
+                  method_type = factory.method_type(type_def.type, method_decls: Set[decl])
+                  replace_primitive_method(method_name, type_def, method_type)
+                end
+              )
+            end
+          end
+
+          shape
+        end
       end
 
       def union_shape(shape_type, shapes)
-        shapes.inject do |shape1, shape2|
-          Interface::Shape.new(type: shape_type, private: true).tap do |shape|
-            common_methods = Set.new(shape1.methods.each_name) & Set.new(shape2.methods.each_name)
-            common_methods.each do |name|
-              Steep.logger.tagged(name.to_s) do
-                entry1 = shape1.methods[name] or raise
-                entry2 = shape2.methods[name] or raise
-                types1 = entry1.method_types
-                types2 = entry2.method_types
+        s0, *sx = shapes
+        s0 or raise
+        all_common_methods = Set.new(s0.methods.each_name)
+        sx.each do |shape|
+          all_common_methods &= shape.methods.each_name
+        end
 
-                if types1 == types2 && types1.map {|type| type.method_decls.to_a }.to_set == types2.map {|type| type.method_decls.to_a }.to_set
-                  shape.methods[name] = (shape1.methods[name] or raise)
+        skips0 = 0
+        skips1 = 0
+        skips2 = 0
+        unions = 0
+
+        shape = Interface::Shape.new(type: shape_type, private: true)
+        all_common_methods.each do |method_name|
+          methods = shapes.map {|shape| shape.methods[method_name] || raise }
+          entry = Interface::Shape::Entry.new(method_types: [], private_method: true)
+
+          method_types = methods.inject do |entry1, entry2|
+            # @type break: nil
+
+            types1 = entry1.method_types
+            types2 = entry2.method_types
+
+            if types1 == types2
+              decl_array1 = types1.map(&:method_decls)
+              decl_array2 = types2.map(&:method_decls)
+
+              if decl_array1 == decl_array2
+                skips0 += types1.size
+                next entry1
+              end
+
+              decls1 = decl_array1.each.with_object(Set[]) {|array, decls| decls.merge(array) } #$ Set[TypeInference::MethodCall::MethodDecl]
+              decls2 = decl_array2.each.with_object(Set[]) {|array, decls| decls.merge(array) } #$ Set[TypeInference::MethodCall::MethodDecl]
+
+              if decls1 == decls2
+                skips1 += types1.size
+                next entry1
+              end
+            end
+
+            method_types = {} #: Hash[MethodType, bool]
+
+            types1.each do |type1|
+              types2.each do |type2|
+                if type1 == type2
+                  skips2 += 1
+                  # Steep.logger.fatal { { type1: type1.method_decls.map { _1.method_def.member.location.to_s }, type2: type2.method_decls.map { _1.method_def.member.location.to_s } }.inspect }
+                  method_types[type1.with(method_decls: type1.method_decls + type2.method_decls)] = true
                 else
-                  method_types = {} #: Hash[MethodType, true]
-
-                  types1.each do |type1|
-                    types2.each do |type2|
-                      if type1 == type2
-                        method_types[type1.with(method_decls: type1.method_decls + type2.method_decls)] = true
-                      else
-                        if type = MethodType.union(type1, type2, subtyping)
-                          method_types[type] = true
-                        end
-                      end
-                    end
-                  end
-
-                  unless method_types.empty?
-                    shape.methods[name] = Interface::Shape::Entry.new(method_types: method_types.keys, private_method: entry1.private_method? || entry2.private_method?)
+                  if type = MethodType.union(type1, type2, subtyping)
+                    Steep.logger.fatal { { type1: type1.to_s, type2: type2.to_s, type: type.to_s }.inspect }
+                    unions += 1
+                    method_types[type] = true
                   end
                 end
               end
             end
+
+            break nil if method_types.empty?
+
+            Interface::Shape::Entry.new(
+              method_types: method_types.keys,
+              private_method: entry1.private_method? || entry2.private_method?
+            )
+          end
+
+          if method_types
+            shape.methods[method_name] = method_types
           end
         end
+
+        Steep.logger.fatal { { skips0: skips0, skips1: skips1, skips2: skips2, unions: unions}.inspect }
+
+        shape
       end
 
       def intersection_shape(type, shapes)

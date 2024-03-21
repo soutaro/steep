@@ -38,13 +38,15 @@ module Steep
       attr_reader factory: AST::Types::Factory
 
       # # No type application (if generic), no self-instance-module resolution
-      # attr_reader raw_instance_object_shape_cache: Hash[[TypeName, bool], Shape]
+      attr_reader object_shape_cache: Hash[TypeName, Shape?]
 
-      # attr_reader raw_singleton_object_shape_cache: Hash[[TypeName, bool], Shape]
+      attr_reader union_shape_cache: Hash[AST::Types::Union, Shape?]
 
-      # attr_reader raw_interface_object_shape_cache: Hash[[TypeName, bool], Shape]
+      attr_reader singleton_shape_cache: Hash[TypeName, Shape?]
 
       def initialize: (AST::Types::Factory) -> void
+
+      def fetch_cache: [KEY] (Hash[KEY, Shape?], KEY) { () -> Shape? } -> Shape?
 
       # Returns a shape of given type with respect to Config
       #
