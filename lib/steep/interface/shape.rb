@@ -2,14 +2,43 @@ module Steep
   module Interface
     class Shape
       class Entry
-        attr_reader :method_types
-
-        def initialize(method_types:)
+        def initialize(method_types: nil, private_method:, &block)
           @method_types = method_types
+          @generator = block
+          @private_method = private_method
+        end
+
+        def force
+          unless @method_types
+            @method_types = @generator&.call
+            @generator = nil
+          end
+        end
+
+        def method_types
+          force
+          @method_types or raise
+        end
+
+        def has_method_type?
+          force
+          @method_types ? true : false
         end
 
         def to_s
-          "{ #{method_types.join(" || ")} }"
+          if @generator
+            "<< Lazy entry >>"
+          else
+            "{ #{method_types.join(" || ")} }"
+          end
+        end
+
+        def private_method?
+          @private_method
+        end
+
+        def public_method?
+          !private_method?
         end
       end
 
@@ -25,7 +54,11 @@ module Steep
         end
 
         def key?(name)
-          methods.key?(name)
+          if entry = methods.fetch(name, nil)
+            entry.has_method_type?
+          else
+            false
+          end
         end
 
         def []=(name, entry)
@@ -37,10 +70,12 @@ module Steep
           return nil unless key?(name)
 
           resolved_methods[name] ||= begin
+            entry = methods[name]
             Entry.new(
-              method_types: methods[name].method_types.map do |method_type|
+              method_types: entry.method_types.map do |method_type|
                 method_type.subst(subst)
-              end
+              end,
+              private_method: entry.private_method?
             )
           end
         end
@@ -48,7 +83,7 @@ module Steep
         def each(&block)
           if block
             methods.each_key do |name|
-              entry = self[name] or raise
+              entry = self[name] or next
               yield [name, entry]
             end
           else
@@ -58,7 +93,9 @@ module Steep
 
         def each_name(&block)
           if block
-            methods.each_key(&block)
+            each do |name, _|
+              yield name
+            end
           else
             enum_for :each_name
           end
@@ -76,19 +113,21 @@ module Steep
           Methods.new(substs: [*substs, subst], methods: methods)
         end
 
-        def merge!(other)
+        def merge!(other, &block)
           other.each do |name, entry|
-            methods[name] = entry
+            if block && (old_entry = methods[name])
+              methods[name] = yield(name, old_entry, entry)
+            else
+              methods[name] = entry
+            end
           end
         end
 
-        def +(other)
-          methods = Methods.new(substs: [], methods: {})
-
-          methods.merge!(self)
-          methods.merge!(other)
-
-          methods
+        def public_methods
+          Methods.new(
+            substs: substs,
+            methods: methods.reject {|_, entry| entry.private_method? }
+          )
         end
       end
 
@@ -126,6 +165,18 @@ module Steep
 
       def public?
         !private?
+      end
+
+      def public_shape
+        if public?
+          self
+        else
+          @public_shape ||= Shape.new(
+            type: type,
+            private: false,
+            methods: methods.public_methods
+          )
+        end
       end
     end
   end

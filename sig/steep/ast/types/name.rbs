@@ -51,6 +51,7 @@ module Steep
           def map_type: () { (t) -> t } -> self
         end
 
+        # Singleton of a class/module
         class Singleton < Base
           def ==: (untyped other) -> bool
 
@@ -65,13 +66,16 @@ module Steep
           include Helper::NoChild
         end
 
+        # An instance of a class/module
         class Instance < Applying
           def to_module: () -> Singleton
         end
 
+        # An interface type
         class Interface < Applying
         end
 
+        # Type alias
         class Alias < Applying
         end
       end

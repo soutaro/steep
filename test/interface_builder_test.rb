@@ -7,508 +7,376 @@ class InterfaceBuilderTest < Minitest::Test
   include Steep
 
   def config(**opts)
-    opts = opts.merge(
+    opts = (
       {
         self_type: parse_type("::Object"),
-        class_type: nil,
-        instance_type: nil,
-        resolve_self: true,
-        resolve_class: true,
-        resolve_instance: true,
-        variable_bounds: {},
-      }
+        class_type: parse_type("singleton(::Object)"),
+        instance_type: parse_type("::Object"),
+        variable_bounds: {}
+      }.merge(opts)
     )
     Interface::Builder::Config.new(**opts)
   end
 
-  def test_interface_shape
+  def test_shape__interface
+    with_factory({ "a.rbs" => <<~RBS }) do
+        interface _Foo[T]
+          def hello: () -> [::Integer, T, self]
+        end
+      RBS
+      builder = Interface::Builder.new(factory)
+
+      builder.shape(parse_type("::_Foo[::String]"), config).tap do |shape|
+        assert_equal parse_type("::_Foo[::String]"), shape.type
+        assert_equal [parse_method_type("() -> [::Integer, ::String, ::_Foo[::String]]")], shape.methods[:hello].method_types
+      end
+
+      builder.shape(parse_type("::_Foo[self]"), config).tap do |shape|
+        assert_equal parse_type("::_Foo[self]"), shape.type
+        assert_equal [parse_method_type("() -> [::Integer, self, ::_Foo[self]]")], shape.methods[:hello].method_types
+      end
+
+      builder.shape(parse_type("self"), config(self_type: parse_type("::_Foo[::String]"))).tap do |shape|
+        assert_equal parse_type("::_Foo[::String]"), shape.type
+        assert_equal [parse_method_type("() -> [::Integer, ::String, self]")], shape.methods[:hello].method_types
+      end
+    end
+  end
+
+  def test_shape__class_singleton
+    with_factory({ "a.rbs" => <<~RBS }) do
+        class Foo
+          def self.hello: () -> [::Integer, self, instance, class]
+        end
+      RBS
+      builder = Interface::Builder.new(factory)
+
+      builder.shape(parse_type("singleton(::Foo)"), config).tap do |shape|
+        assert_equal parse_type("singleton(::Foo)"), shape.type
+        assert_equal [parse_method_type("() -> [::Integer, singleton(::Foo), ::Foo, singleton(::Foo)]")], shape.methods[:hello].method_types
+      end
+
+      builder.shape(parse_type("self"), config(self_type: parse_type("singleton(::Foo)"))).tap do |shape|
+        assert_equal parse_type("singleton(::Foo)"), shape.type
+        assert_equal [parse_method_type("() -> [::Integer, self, ::Foo, singleton(::Foo)]")], shape.methods[:hello].method_types
+      end
+
+      builder.shape(parse_type("class"), config(class_type: parse_type("singleton(::Foo)"))).tap do |shape|
+        assert_equal parse_type("singleton(::Foo)"), shape.type
+        assert_equal [parse_method_type("() -> [::Integer, singleton(::Foo), ::Foo, singleton(::Foo)]")], shape.methods[:hello].method_types
+      end
+
+      builder.shape(parse_type("instance"), config(instance_type: parse_type("singleton(::Foo)"))).tap do |shape|
+        assert_equal parse_type("singleton(::Foo)"), shape.type
+        assert_equal [parse_method_type("() -> [::Integer, singleton(::Foo), ::Foo, singleton(::Foo)]")], shape.methods[:hello].method_types
+      end
+    end
+  end
+
+  def test_shape__class_instance
+    with_factory({ "a.rbs" => <<~RBS }) do
+        class Foo[A, B, C]
+          def hello: () -> [::Integer, A, B, C, self, instance, class]
+        end
+      RBS
+      builder = Interface::Builder.new(factory)
+
+      builder.shape(parse_type("::Foo[::Object, ::String, ::Integer]"), config).tap do |shape|
+        assert_equal parse_type("::Foo[::Object, ::String, ::Integer]"), shape.type
+        assert_equal [parse_method_type("() -> [::Integer, ::Object, ::String, ::Integer, ::Foo[::Object, ::String, ::Integer], ::Foo[untyped, untyped, untyped], singleton(::Foo)]")], shape.methods[:hello].method_types
+      end
+
+      builder.shape(parse_type("::Foo[self, class, instance]"), config).tap do |shape|
+        assert_equal parse_type("::Foo[self, class, instance]"), shape.type
+        assert_equal [parse_method_type("() -> [::Integer, self, class, instance, ::Foo[self, class, instance], ::Foo[untyped, untyped, untyped], singleton(::Foo)]")], shape.methods[:hello].method_types
+      end
+
+      builder.shape(parse_type("self"), config(self_type: parse_type("::Foo[::Integer, ::String, ::Object]"), class_type: parse_type("singleton(::Foo)"), instance_type: parse_type("::Foo[untyped, untyped, untyped]"))).tap do |shape|
+        assert_equal parse_type("::Foo[::Integer, ::String, ::Object]"), shape.type
+        assert_equal [parse_method_type("() -> [::Integer, ::Integer, ::String, ::Object, self, ::Foo[untyped, untyped, untyped], singleton(::Foo)]")], shape.methods[:hello].method_types
+      end
+    end
+  end
+
+  def test_shape__alias
+    with_factory({ "a.rbs" => <<~RBS }) do
+        interface _Foo
+          def itself: () -> self
+        end
+
+        type bar[T] = T
+      RBS
+      builder = Interface::Builder.new(factory)
+
+      builder.shape(parse_type("::bar[::_Foo]"), config).tap do |shape|
+        assert_equal parse_type("::bar[::_Foo]"), shape.type
+        assert_equal [parse_method_type("() -> ::_Foo")], shape.methods[:itself].method_types
+      end
+
+      builder.shape(parse_type("::bar[self]"), config).tap do |shape|
+        assert_equal parse_type("::bar[self]"), shape.type
+        assert_equal [parse_method_type("() -> self")], shape.methods[:itself].method_types
+      end
+
+      builder.shape(parse_type("self"), config(self_type: parse_type("::bar[::_Foo]"))).tap do |shape|
+        assert_equal parse_type("::bar[::_Foo]"), shape.type
+        assert_equal [parse_method_type("() -> ::_Foo")], shape.methods[:itself].method_types
+      end
+    end
+  end
+
+  def test_shape__union
+    with_factory({ "a.rbs" => <<~RBS }) do
+        interface _Foo
+          def itself: () -> self
+        end
+
+        interface _Bar
+          def itself: () -> self
+        end
+      RBS
+      builder = Interface::Builder.new(factory)
+
+      builder.shape(parse_type("::_Foo | ::_Bar"), config).tap do |shape|
+        assert_equal parse_type("::_Foo | ::_Bar"), shape.type
+        assert_equal [parse_method_type("() -> (::_Foo | ::_Bar)")], shape.methods[:itself].method_types
+      end
+
+      builder.shape(parse_type("::_Foo | self"), config(self_type: parse_type("::_Bar"))).tap do |shape|
+        assert_equal parse_type("::_Foo | self"), shape.type
+        assert_equal [parse_method_type("() -> (::_Foo | self)")], shape.methods[:itself].method_types
+      end
+
+      builder.shape(parse_type("self"), config(self_type: parse_type("::_Foo | ::_Bar"))).tap do |shape|
+        assert_equal parse_type("::_Foo | ::_Bar"), shape.type
+        assert_equal [parse_method_type("() -> (::_Foo | ::_Bar)")], shape.methods[:itself].method_types
+      end
+    end
+  end
+
+  def test_shape__bool
+    with_factory() do
+      builder = Interface::Builder.new(factory)
+
+      builder.shape(parse_type("bool"), config).tap do |shape|
+        assert_equal parse_type("bool"), shape.type
+        assert_equal [parse_method_type("() -> bool")], shape.methods[:itself].method_types
+      end
+
+      builder.shape(parse_type("self"), config(self_type: parse_type("bool"))).tap do |shape|
+        assert_equal parse_type("bool"), shape.type
+        assert_equal [parse_method_type("() -> self")], shape.methods[:itself].method_types
+      end
+    end
+  end
+
+  def test_shape__literal
+    with_factory() do
+      builder = Interface::Builder.new(factory)
+
+      builder.shape(parse_type("1"), config).tap do |shape|
+        assert_equal parse_type("1"), shape.type
+        assert_equal [parse_method_type("() -> 1")], shape.methods[:itself].method_types
+      end
+
+      builder.shape(parse_type("self"), config(self_type: parse_type("1"))).tap do |shape|
+        assert_equal parse_type("1"), shape.type
+        assert_equal [parse_method_type("() -> self")], shape.methods[:itself].method_types
+      end
+    end
+  end
+
+  def test_shape__intersection
     with_factory({ "a.rbs" => <<-RBS }) do
 interface _Foo
-  def hello: () -> void
-end
-      RBS
-      builder = Interface::Builder.new(factory)
+  def f: (::Integer) -> self
 
-      shape = builder.shape(parse_type("::_Foo"), public_only: true, config: config)
-
-      assert_equal parse_type("::_Foo"), shape.type
-      assert_equal [:hello], shape.methods.each_name.to_a
-      assert_equal [parse_method_type("() -> void")], shape.methods[:hello].method_types
-    end
-  end
-
-  def test_class_shape
-    with_factory({ "a.rbs" => <<-RBS }) do
-      RBS
-      builder = Interface::Builder.new(factory)
-
-      shape = builder.shape(parse_type("::String"), public_only: true, config: config)
-
-      assert_equal parse_type("::String"), shape.type
-      assert_includes shape.methods.each_name.to_a, :gsub!      # Method from String
-      assert_includes shape.methods.each_name.to_a, :__id__     # Method from BasicObject
-      refute_includes shape.methods.each_name.to_a, :initialize # Private method String
-    end
-  end
-
-  def test_interface_shape_unfold_self
-    with_factory({ "a.rbs" => <<-RBS }) do
-interface _Foo
-  def itself: () -> self
-end
-      RBS
-      builder = Interface::Builder.new(factory)
-
-      shape = builder.shape(
-        parse_type("::_Foo"),
-        public_only: true,
-        config: config.update(resolve_self: true)
-      )
-
-      assert_equal parse_type("::_Foo"), shape.type
-      assert_equal [parse_method_type("() -> ::_Foo")], shape.methods[:itself].method_types
-    end
-  end
-
-  def test_self_shape_with_resolve
-    with_factory({ "a.rbs" => <<-RBS }) do
-interface _Foo
-  def itself: () -> self
-end
-      RBS
-      builder = Interface::Builder.new(factory)
-
-      shape = builder.shape(
-        parse_type("self"),
-        public_only: true,
-        config: config.update(
-          resolve_self: true,
-          self_type: parse_type("::_Foo")
-        )
-      )
-
-      assert_equal parse_type("::_Foo"), shape.type
-      assert_equal [parse_method_type("() -> self")], shape.methods[:itself].method_types
-    end
-  end
-
-  def test_self_shape_with_resolve_application
-    with_factory({ "a.rbs" => <<-RBS }) do
-class Foo[A, B, C]
-  def foo: () -> [A, B, C]
-         | () -> [self, class, instance]
-end
-      RBS
-      builder = Interface::Builder.new(factory)
-
-      shape = builder.shape(
-        parse_type("::Foo[self, class, instance]"),
-        public_only: true,
-        config: config.update(
-          self_type: parse_type("::String"),
-          class_type: parse_type("singleton(::String)"),
-          instance_type: parse_type("::String"),
-          resolve_self: true,
-          resolve_class: true,
-          resolve_instance: true
-        )
-      )
-
-      assert_equal parse_type("::Foo[::String, singleton(::String), ::String]"), shape.type
-      assert_equal(
-        [
-          parse_method_type("() -> [::String, singleton(::String), ::String]"),
-          parse_method_type("() -> [::Foo[::String, singleton(::String), ::String], singleton(::Foo), ::Foo[untyped, untyped, untyped]]")
-        ],
-        shape.methods[:foo].method_types
-      )
-    end
-  end
-
-  def test_self_shape_with_resolve_application_union
-    with_factory({ "a.rbs" => <<-RBS }) do
-class Foo[A, B, C]
-  def itself: () -> [A, B, C]
-
-  def foo: () -> [self, instance, class]
-end
-      RBS
-      builder = Interface::Builder.new(factory)
-
-      shape = builder.shape(
-        parse_type("::Foo[self, class, instance]?"),
-        public_only: true,
-        config: config.update(
-          self_type: parse_type("::String"),
-          class_type: parse_type("singleton(::String)"),
-          instance_type: parse_type("::String"),
-          resolve_self: true,
-          resolve_class: true,
-          resolve_instance: true
-        )
-      )
-
-      assert_equal parse_type("::Foo[::String, singleton(::String), ::String]?"), shape.type
-      assert_equal(
-        [
-          parse_method_type("() -> ([self, class, instance] | ::Foo[self, class, instance] | nil)"),
-        ],
-        shape.methods[:itself].method_types
-      )
-    end
-  end
-
-  def test_shape_bool
-    with_factory({ "a.rbs" => <<-RBS }) do
-      RBS
-      builder = Interface::Builder.new(factory)
-
-      shape = builder.shape(
-        parse_type("bool"),
-        public_only: true,
-        config: config.update(
-          self_type: parse_type("::String"),
-          class_type: parse_type("singleton(::String)"),
-          instance_type: parse_type("::String"),
-          resolve_self: true,
-          resolve_class: true,
-          resolve_instance: true
-        )
-      )
-
-      assert_equal parse_type("bool"), shape.type
-      assert_equal(
-        [
-          parse_method_type("() -> bool")
-        ],
-        shape.methods[:itself].method_types
-      )
-    end
-  end
-
-  def test_shape_literal
-    with_factory({ "a.rbs" => <<-RBS }) do
-class BasicObject
-  def special_types: () -> [self, class, instance]
-end
-      RBS
-      builder = Interface::Builder.new(factory)
-
-      shape = builder.shape(
-        parse_type(":foo"),
-        public_only: true,
-        config: config.update(
-          self_type: parse_type("::String"),
-          class_type: parse_type("singleton(::String)"),
-          instance_type: parse_type("::String"),
-          resolve_self: true,
-          resolve_class: true,
-          resolve_instance: true
-        )
-      )
-
-      assert_equal parse_type(":foo"), shape.type
-      assert_equal(
-        [
-          parse_method_type("() -> :foo")
-        ],
-        shape.methods[:itself].method_types
-      )
-      assert_equal(
-        [
-          parse_method_type("() -> [:foo, singleton(::Symbol), ::Symbol]")
-        ],
-        shape.methods[:special_types].method_types
-      )
-    end
-  end
-
-  def test_shape_union_self_no_self
-    with_factory({ "a.rbs" => <<-RBS }) do
-class BasicObject
-  def special_types: () -> [self, class, instance]
-end
-      RBS
-      builder = Interface::Builder.new(factory)
-
-      shape = builder.shape(
-        parse_type("::Integer | ::String"),
-        public_only: true,
-        config: config.update(
-          self_type: parse_type("::Object"),
-          class_type: nil,
-          instance_type: nil,
-          resolve_self: true,
-          resolve_class: true,
-          resolve_instance: true
-        )
-      )
-
-      assert_equal parse_type("::Integer | ::String"), shape.type
-      assert_equal(
-        [
-          parse_method_type("() -> ([::Integer | ::String, singleton(::Integer), ::Integer] | [::Integer | ::String, singleton(::String), ::String])")
-        ],
-        shape.methods[:special_types].method_types
-      )
-    end
-  end
-
-  def test_shape_union_self_with_self
-    with_factory({ "a.rbs" => <<-RBS }) do
-class BasicObject
-  def special_types: () -> [self, class, instance]
-end
-      RBS
-      builder = Interface::Builder.new(factory)
-
-      shape = builder.shape(
-        parse_type("self?"),
-        public_only: true,
-        config: config.update(
-          self_type: parse_type("::Object"),
-          class_type: nil,
-          instance_type: nil,
-          resolve_self: true,
-          resolve_class: true,
-          resolve_instance: true
-        )
-      )
-
-      assert_equal parse_type("::Object?"), shape.type
-      assert_equal(
-        [
-          parse_method_type("() -> ([self?, singleton(::Object), ::Object] | [self?, singleton(::NilClass), ::NilClass])")
-        ],
-        shape.methods[:special_types].method_types
-      )
-    end
-  end
-
-  def test_instance_shape_with_resolve
-    with_factory({ "a.rbs" => <<-RBS }) do
-interface _Foo
-  def itself: () -> self
-end
-      RBS
-      builder = Interface::Builder.new(factory)
-
-      shape = builder.shape(
-        parse_type("instance"),
-        public_only: true,
-        config: config.update(instance_type: parse_type("::Array[bool]"))
-      )
-
-      assert_equal parse_type("::Array[bool]"), shape.type
-    end
-  end
-
-  def test_class_shape_with_resolve
-    with_factory({ "a.rbs" => <<-RBS }) do
-interface _Foo
-  def itself: () -> self
-end
-      RBS
-      builder = Interface::Builder.new(factory)
-
-      shape = builder.shape(
-        parse_type("class"),
-        public_only: true,
-        config: config.update(class_type: parse_type("singleton(::Array)"))
-      )
-
-      assert_equal parse_type("singleton(::Array)"), shape.type
-    end
-  end
-
-  def test_alias_shape
-    with_factory({ "a.rbs" => <<-RBS }) do
-interface _Foo
-  def itself: () -> self
+  def g: () -> ::String
 end
 
-type foo = _Foo
-      RBS
-      builder = Interface::Builder.new(factory)
-
-      shape = builder.shape(parse_type("::foo"), public_only: true, config: config)
-
-      assert_equal parse_type("::foo"), shape.type
-    end
-  end
-
-  def test_alias_shape_broken
-    with_factory({ "a.rbs" => <<-RBS }) do
-type k = k | ^() -> k
-      RBS
-      builder = Interface::Builder.new(factory)
-
-      shape = builder.shape(parse_type("::k"), public_only: true, config: config)
-
-      assert_nil shape
-    end
-  end
-
-  def test_union_shape_methods
-    with_factory({ "a.rbs" => <<-RBS }) do
-interface _Foo
-  def f: (Integer) -> Integer
-
-  def g: (String) -> Integer
+interface _Bar
+  def f: (::String) -> self
 
   def h: () -> void
 end
-
-interface _Bar
-  def f: (String) -> String
-
-  def g: () -> void
-end
       RBS
       builder = Interface::Builder.new(factory)
 
-      shape = builder.shape(parse_type("::_Foo | ::_Bar"), public_only: true, config: config)
+      builder.shape(parse_type("::_Foo & ::_Bar"), config).tap do |shape|
+        assert_equal parse_type("::_Foo & ::_Bar"), shape.type
+        assert_equal [parse_method_type("(::String) -> ::_Bar")], shape.methods[:f].method_types
 
-      assert_equal parse_type("::_Foo | ::_Bar"), shape.type
-      assert_equal [:f], shape.methods.each_name.to_a
+        assert shape.methods[:g]
+        assert shape.methods[:h]
+      end
 
-      assert_equal [parse_method_type("(::Integer & ::String) -> (::Integer | ::String)")], shape.methods[:f].method_types
+      builder.shape(parse_type("::_Foo & self"), config(self_type: parse_type("::_Bar"))).tap do |shape|
+        assert_equal parse_type("::_Foo & self"), shape.type
+        assert_equal [parse_method_type("(::String) -> self")], shape.methods[:f].method_types
+      end
+
+      builder.shape(parse_type("self"), config(self_type: parse_type("::_Foo & ::_Bar"))).tap do |shape|
+        assert_equal parse_type("::_Foo & ::_Bar"), shape.type
+        assert_equal [parse_method_type("(::String) -> ::_Bar")], shape.methods[:f].method_types
+      end
     end
   end
 
-  def test_intersection_shape_methods
-    with_factory({ "a.rbs" => <<-RBS }) do
-interface _Foo
-  def f: (Integer) -> Integer
-
-  def g: (String) -> Integer
-end
-
-interface _Bar
-  def f: (String) -> String
-end
+  def test_shape__proc
+    with_factory({ "a.rbs" => <<~RBS }) do
+        class BasicObject
+          def special_types: () -> [self, class, instance]
+        end
       RBS
       builder = Interface::Builder.new(factory)
 
-      shape = builder.shape(parse_type("::_Foo & ::_Bar"), public_only: true, config: config)
+      builder.shape(parse_type("^(::String) { (::Integer) -> void } -> ::String"), config).tap do |shape|
+        assert_equal parse_type("^(::String) { (::Integer) -> void } -> ::String"), shape.type
 
-      assert_equal parse_type("::_Foo & ::_Bar"), shape.type
-      assert_equal [:f, :g], shape.methods.each_name.to_a
+        assert_equal(
+          [parse_method_type("(::String) { (::Integer) -> void } -> ::String")],
+          shape.methods[:[]].method_types
+        )
+        assert_equal(
+          [parse_method_type("(::String) { (::Integer) -> void } -> ::String")],
+          shape.methods[:call].method_types
+        )
 
-      assert_equal [parse_method_type("(::String) -> ::String")], shape.methods[:f].method_types
-      assert_equal [parse_method_type("(::String) -> ::Integer")], shape.methods[:g].method_types
+        assert_equal(
+          [parse_method_type("() -> ^(::String) { (::Integer) -> void } -> ::String")],
+          shape.methods[:itself].method_types
+        )
+      end
+
+      builder.shape(parse_type("^(self) -> ::String"), config).tap do |shape|
+        assert_equal parse_type("^(self) -> ::String"), shape.type
+
+        assert_equal(
+          [parse_method_type("(self) -> ::String")],
+          shape.methods[:[]].method_types
+        )
+        assert_equal(
+          [parse_method_type("() -> ^(self) -> ::String")],
+          shape.methods[:itself].method_types
+        )
+      end
+
+      builder.shape(parse_type("self"), config(self_type: parse_type("^() -> ::String"))).tap do |shape|
+        assert_equal parse_type("^() -> ::String"), shape.type
+
+        assert_equal(
+          [parse_method_type("() -> ::String")],
+          shape.methods[:[]].method_types
+        )
+        assert_equal(
+          [parse_method_type("() -> self")],
+          shape.methods[:itself].method_types
+        )
+      end
     end
   end
 
-  def test_tuple_shape
-    with_factory({ "a.rbs" => <<-RBS }) do
-class BasicObject
-  def special_types: () -> [self, class, instance]
-end
-      RBS
+  def test_shape__tuple
+    with_factory() do
       builder = Interface::Builder.new(factory)
 
-      shape = builder.shape(parse_type("[::Integer, top]"), public_only: true, config: config)
+      builder.shape(parse_type("[::Integer, top]"), config).tap do |shape|
+        assert_equal parse_type("[::Integer, top]"), shape.type
 
-      assert_equal parse_type("[::Integer, top]"), shape.type
+        assert_includes(shape.methods[:[]].method_types, parse_method_type("(0) -> ::Integer"))
+        assert_includes(shape.methods[:[]].method_types, parse_method_type("(1) -> top"))
+        assert_includes(shape.methods[:[]].method_types, parse_method_type("(::int) -> top"))
 
-      assert_includes(shape.methods[:[]].method_types, parse_method_type("(0) -> ::Integer"))
-      assert_includes(shape.methods[:[]].method_types, parse_method_type("(1) -> top"))
+        assert_includes(shape.methods[:[]=].method_types, parse_method_type("(0, ::Integer) -> ::Integer"))
+        assert_includes(shape.methods[:[]=].method_types, parse_method_type("(1, top) -> top"))
 
-      assert_includes(shape.methods[:[]=].method_types, parse_method_type("(0, ::Integer) -> ::Integer"))
-      assert_includes(shape.methods[:[]=].method_types, parse_method_type("(1, top) -> top"))
+        assert_includes(shape.methods[:fetch].method_types, parse_method_type("(0) -> ::Integer"))
+        assert_includes(shape.methods[:fetch].method_types, parse_method_type("(1) -> top"))
+        assert_includes(shape.methods[:fetch].method_types, parse_method_type("[T] (0, T) -> (::Integer | T)"))
+        assert_includes(shape.methods[:fetch].method_types, parse_method_type("[T] (1, T) -> (top | T)"))
+        assert_includes(shape.methods[:fetch].method_types, parse_method_type("[T] (0) { (::Integer) -> T } -> (::Integer | T)"))
+        assert_includes(shape.methods[:fetch].method_types, parse_method_type("[T] (1) { (::Integer) -> T } -> (top | T)"))
 
-      assert_includes(shape.methods[:fetch].method_types, parse_method_type("(0) -> ::Integer"))
-      assert_includes(shape.methods[:fetch].method_types, parse_method_type("(1) -> top"))
-      assert_includes(shape.methods[:fetch].method_types, parse_method_type("[T] (0, T) -> (::Integer | T)"))
-      assert_includes(shape.methods[:fetch].method_types, parse_method_type("[T] (1, T) -> (top | T)"))
-      assert_includes(shape.methods[:fetch].method_types, parse_method_type("[T] (0) { (::Integer) -> T } -> (::Integer | T)"))
-      assert_includes(shape.methods[:fetch].method_types, parse_method_type("[T] (1) { (::Integer) -> T } -> (top | T)"))
+        assert_equal([parse_method_type("() -> ::Integer")], shape.methods[:first].method_types)
+        assert_equal([parse_method_type("() -> top")], shape.methods[:last].method_types)
+      end
 
-      assert_equal([parse_method_type("() -> ::Integer")], shape.methods[:first].method_types)
-      assert_equal([parse_method_type("() -> top")], shape.methods[:last].method_types)
+      builder.shape(parse_type("[::Integer, self]"), config).tap do |shape|
+        assert_equal parse_type("[::Integer, self]"), shape.type
 
-      assert_equal(
-        [
-          parse_method_type("() -> [[::Integer, top], singleton(::Array), ::Array[untyped]]")
-        ],
-        shape.methods[:special_types].method_types
-      )
+        assert_includes(shape.methods[:[]].method_types, parse_method_type("(0) -> ::Integer"))
+        assert_includes(shape.methods[:[]].method_types, parse_method_type("(1) -> self"))
+
+        assert_includes(shape.methods[:[]=].method_types, parse_method_type("(0, ::Integer) -> ::Integer"))
+        assert_includes(shape.methods[:[]=].method_types, parse_method_type("(1, self) -> self"))
+
+        assert_includes(shape.methods[:fetch].method_types, parse_method_type("(0) -> ::Integer"))
+        assert_includes(shape.methods[:fetch].method_types, parse_method_type("(1) -> self"))
+        assert_includes(shape.methods[:fetch].method_types, parse_method_type("[T] (0, T) -> (::Integer | T)"))
+        assert_includes(shape.methods[:fetch].method_types, parse_method_type("[T] (1, T) -> (self | T)"))
+        assert_includes(shape.methods[:fetch].method_types, parse_method_type("[T] (0) { (::Integer) -> T } -> (::Integer | T)"))
+        assert_includes(shape.methods[:fetch].method_types, parse_method_type("[T] (1) { (::Integer) -> T } -> (self | T)"))
+
+        assert_equal([parse_method_type("() -> ::Integer")], shape.methods[:first].method_types)
+        assert_equal([parse_method_type("() -> self")], shape.methods[:last].method_types)
+      end
     end
   end
 
-  def test_record_shape
-    with_factory({ "a.rbs" => <<-RBS }) do
-class BasicObject
-  def special_types: () -> [self, class, instance]
-end
+  def test_shape__record
+    with_factory({ "a.rbs" => <<~RBS }) do
+        class BasicObject
+          def special_types: () -> [self, class, instance]
+        end
       RBS
+
       builder = Interface::Builder.new(factory)
 
-      shape = builder.shape(parse_type("{ id: ::Integer, name: ::String }"), public_only: true, config: config)
+      builder.shape(parse_type("{ id: ::Integer, name: ::String }"), config).tap do |shape|
+        assert_equal parse_type("{ id: ::Integer, name: ::String }"), shape.type
 
-      assert_equal parse_type("{ id: ::Integer, name: ::String }"), shape.type
+        assert_includes(shape.methods[:[]].method_types, parse_method_type("(:id) -> ::Integer"))
+        assert_includes(shape.methods[:[]].method_types, parse_method_type("(:name) -> ::String"))
+        assert_includes(shape.methods[:[]].method_types, parse_method_type("(:name | :id) -> (::String | ::Integer)"))
 
-      assert_includes(shape.methods[:[]].method_types, parse_method_type("(:id) -> ::Integer"))
-      assert_includes(shape.methods[:[]].method_types, parse_method_type("(:name) -> ::String"))
+        assert_includes(shape.methods[:[]=].method_types, parse_method_type("(:id, ::Integer) -> ::Integer"))
+        assert_includes(shape.methods[:[]=].method_types, parse_method_type("(:name, ::String) -> ::String"))
 
-      assert_includes(shape.methods[:[]=].method_types, parse_method_type("(:id, ::Integer) -> ::Integer"))
-      assert_includes(shape.methods[:[]=].method_types, parse_method_type("(:name, ::String) -> ::String"))
+        assert_includes(shape.methods[:fetch].method_types, parse_method_type("(:id) -> ::Integer"))
+        assert_includes(shape.methods[:fetch].method_types, parse_method_type("(:name) -> ::String"))
+        assert_includes(shape.methods[:fetch].method_types, parse_method_type("[T] (:id, T) -> (::Integer | T)"))
+        assert_includes(shape.methods[:fetch].method_types, parse_method_type("[T] (:name, T) -> (::String | T)"))
+        assert_includes(shape.methods[:fetch].method_types, parse_method_type("[T] (:id) { (:id | :name) -> T } -> (::Integer | T)"))
+        assert_includes(shape.methods[:fetch].method_types, parse_method_type("[T] (:name) { (:id | :name) -> T } -> (::String | T)"))
+      end
 
-      assert_includes(shape.methods[:fetch].method_types, parse_method_type("(:id) -> ::Integer"))
-      assert_includes(shape.methods[:fetch].method_types, parse_method_type("(:name) -> ::String"))
-      assert_includes(shape.methods[:fetch].method_types, parse_method_type("[T] (:id, T) -> (::Integer | T)"))
-      assert_includes(shape.methods[:fetch].method_types, parse_method_type("[T] (:name, T) -> (::String | T)"))
-      assert_includes(shape.methods[:fetch].method_types, parse_method_type("[T] (:id) { (:id | :name) -> T } -> (::Integer | T)"))
-      assert_includes(shape.methods[:fetch].method_types, parse_method_type("[T] (:name) { (:id | :name) -> T } -> (::String | T)"))
+      builder.shape(parse_type("{ id: ::Integer, name: self }"), config).tap do |shape|
+        assert_equal parse_type("{ id: ::Integer, name: self }"), shape.type
 
-      assert_equal(
-        [
-          parse_method_type("() -> [{ id: ::Integer, name: ::String }, singleton(::Hash), ::Hash[untyped, untyped]]")
-        ],
-        shape.methods[:special_types].method_types
-      )
+        assert_includes(shape.methods[:[]].method_types, parse_method_type("(:id) -> ::Integer"))
+        assert_includes(shape.methods[:[]].method_types, parse_method_type("(:name) -> self"))
+        assert_includes(shape.methods[:[]].method_types, parse_method_type("(:name | :id) -> (self | ::Integer)"))
+
+        assert_includes(shape.methods[:[]=].method_types, parse_method_type("(:id, ::Integer) -> ::Integer"))
+        assert_includes(shape.methods[:[]=].method_types, parse_method_type("(:name, self) -> self"))
+
+        assert_includes(shape.methods[:fetch].method_types, parse_method_type("(:id) -> ::Integer"))
+        assert_includes(shape.methods[:fetch].method_types, parse_method_type("(:name) -> self"))
+        assert_includes(shape.methods[:fetch].method_types, parse_method_type("[T] (:id, T) -> (::Integer | T)"))
+        assert_includes(shape.methods[:fetch].method_types, parse_method_type("[T] (:name, T) -> (self | T)"))
+        assert_includes(shape.methods[:fetch].method_types, parse_method_type("[T] (:id) { (:id | :name) -> T } -> (::Integer | T)"))
+        assert_includes(shape.methods[:fetch].method_types, parse_method_type("[T] (:name) { (:id | :name) -> T } -> (self | T)"))
+      end
     end
   end
 
-  def test_proc_shape
-    with_factory({ "a.rbs" => <<-RBS }) do
-class BasicObject
-  def special_types: () -> [self, class, instance]
-end
-      RBS
-      builder = Interface::Builder.new(factory)
-
-      shape = builder.shape(parse_type("^(::String) { (::Integer) -> void } -> ::String"), public_only: true, config: config)
-
-      assert_equal parse_type("^(::String) { (::Integer) -> void } -> ::String"), shape.type
-
-      assert_equal(
-        [parse_method_type("(::String) { (::Integer) -> void } -> ::String")],
-        shape.methods[:[]].method_types
-      )
-      assert_equal(
-        [parse_method_type("(::String) { (::Integer) -> void } -> ::String")],
-        shape.methods[:call].method_types
-      )
-
-      assert_equal(
-        [
-          parse_method_type("() -> [^(::String) { (::Integer) -> void } -> ::String, singleton(::Proc), ::Proc]")
-        ],
-        shape.methods[:special_types].method_types
-      )
-    end
-  end
-
-  def test_union_try
+  def test_shape__union_try
     with_factory({ "a.rbs" => <<-RBS }, nostdlib: true) do
 class BasicObject
 end
 
 class Object < BasicObject
   def try: [T] () { (self) -> T } -> T
-         | [T] () { () -> T } -> T
 end
 
 class Module
@@ -527,69 +395,83 @@ end
 class Symbol
 end
       RBS
+
       builder = Interface::Builder.new(factory)
 
-      shape = builder.shape(
-        parse_type("::Integer | ::String"),
-        public_only: true,
-        config: config.update(resolve_self: parse_type("::Integer | ::String"))
-      )
+      builder.shape(parse_type("::Integer | ::String"), config).tap do |shape|
+        assert_equal(
+          shape.methods[:try].method_types,
+          [
+            parse_method_type("[T] () { (::Integer | ::String) -> T } -> T"),
+          ]
+        )
+      end
 
-      assert_equal(
-        [
-          parse_method_type("[T] () { ((::Integer | ::String)) -> T } -> T"),
-          parse_method_type("[T] () { () -> T } -> T")
-        ],
-        shape.methods[:try].method_types
-      )
+      builder.shape(parse_type("::Integer | self"), config).tap do |shape|
+        assert_equal(
+          shape.methods[:try].method_types,
+          [
+            parse_method_type("[T] () { (::Integer | self) -> T } -> T"),
+          ]
+        )
+      end
+
+      builder.shape(parse_type("self"), config(self_type: parse_type("::Integer | ::String"))).tap do |shape|
+        assert_equal(
+          shape.methods[:try].method_types,
+          [
+            parse_method_type("[T] () { (::Integer | ::String) -> T } -> T"),
+          ]
+        )
+      end
     end
   end
 
-  def test_union_itself
-    with_factory({ "a.rbs" => <<-RBS }, nostdlib: true) do
-class BasicObject
-end
+  def test_shape__bounded_variable
+    with_factory({ "a.rbs" => <<~RBS }) do
+        interface _Foo[T]
+          def f: () -> self
 
-class Object < BasicObject
-  def itself: () -> self
-end
+          def g: () -> ::_Foo
 
-class Module
-end
-
-class Class < Module
-  def new: () -> instance
-end
-
-class Integer
-end
-
-class String
-end
-
-class Symbol
-end
+          def h: () -> T
+        end
       RBS
+
       builder = Interface::Builder.new(factory)
 
-      shape = builder.shape(
-        parse_type("::Object"),
-        public_only: true,
-        config: config.update(resolve_self: parse_type("::Object"))
-      )
+      builder.shape(parse_type("A", variables: [:A]), config(variable_bounds: { A: parse_type("::_Foo[::String]") })).tap do |shape|
+        assert_equal parse_type("A", variables: [:A]), shape.type
 
-      shape = builder.shape(
-        parse_type("::Integer | ::String"),
-        public_only: true,
-        config: config.update(resolve_self: parse_type("::Integer | ::String"))
-      )
+        assert_equal [parse_method_type("() -> A", variables: [:A])], shape.methods[:f].method_types
+        assert_equal [parse_method_type("() -> ::_Foo")], shape.methods[:g].method_types
+        assert_equal [parse_method_type("() -> ::String")], shape.methods[:h].method_types
+      end
 
-      assert_equal(
-        [
-          parse_method_type("() -> (::Integer | ::String)")
-        ],
-        shape.methods[:itself].method_types
-      )
+      builder.shape(parse_type("self"), config(self_type: parse_type("A", variables: [:A]), variable_bounds: { A: parse_type("::_Foo[::String]") })).tap do |shape|
+        assert_equal parse_type("A", variables: [:A]), shape.type
+
+        assert_equal [parse_method_type("() -> self")], shape.methods[:f].method_types
+        assert_equal [parse_method_type("() -> ::_Foo")], shape.methods[:g].method_types
+        assert_equal [parse_method_type("() -> ::String")], shape.methods[:h].method_types
+      end
+    end
+  end
+
+  def test_shape__big_literal_union
+    names = 100.times.map {|i| "'#{i}'"}
+
+    with_factory({ "a.rbs" => <<~RBS }) do
+        type names = #{names.join(" | ")}
+      RBS
+
+      builder = Interface::Builder.new(factory)
+
+      builder.shape(parse_type("::names"), config).tap do |shape|
+        assert_equal parse_type("::names"), shape.type
+
+        assert_equal [parse_method_type("() -> (#{names.join(" | ")})")], shape.methods[:itself].method_types
+      end
     end
   end
 end

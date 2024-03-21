@@ -23,7 +23,7 @@ module Steep
             :information
           when "HINT"
             :hint
-          end #: Diagnostic::LSPFormatter::severity
+          end #: Steep::Diagnostic::LSPFormatter::severity
 
         Diagnostic.new(
           start_position: start_position,
@@ -56,7 +56,7 @@ module Steep
             :hint
           else
             :error
-          end #: Diagnostic::LSPFormatter::severity
+          end #: Steep::Diagnostic::LSPFormatter::severity
 
         Diagnostic.new(
           start_position: start_position,

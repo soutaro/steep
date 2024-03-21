@@ -192,10 +192,10 @@ module Steep
           type2_ = type2.instantiate(s2)
           if mt = generate[type1_, type2_]
             check.push_variable_bounds(params1 + params2) do
-            variables = type1.type_params.map(&:name) + type2.type_params.map(&:name)
-            constraints = Subtyping::Constraints.new(unknowns: variables)
+              variables = type1.type_params.map(&:name) + type2.type_params.map(&:name)
+              constraints = Subtyping::Constraints.new(unknowns: variables)
 
-            check.with_context(self_type: AST::Builtin.any_type, instance_type: AST::Builtin.any_type, class_type: AST::Builtin.any_type, constraints: constraints) do
+              check.with_context(self_type: AST::Builtin.any_type, instance_type: AST::Builtin.any_type, class_type: AST::Builtin.any_type, constraints: constraints) do
                 result1 = check.check_method_type(:__method_on_type1, relation[type1.with(type_params: []), mt])
                 result2 = check.check_method_type(:__method_on_type2, relation[type2.with(type_params: []), mt])
 

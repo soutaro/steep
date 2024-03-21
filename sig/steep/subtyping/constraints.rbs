@@ -91,8 +91,8 @@ module Steep
 
       def lower_bound: (Symbol var, ?skip: bool) -> AST::Types::t
 
-      def solution: (Check checker, variables: Enumerable[Symbol], variance: VariableVariance, self_type: AST::Types::t, instance_type: AST::Types::t, class_type: AST::Types::t) -> Interface::Substitution
-                  | (Check checker, variables: Enumerable[Symbol], context: Context) -> Interface::Substitution
+      def solution: (Check checker, variables: Enumerable[AST::Types::variable], variance: VariableVariance, self_type: AST::Types::t, instance_type: AST::Types::t, class_type: AST::Types::t) -> Interface::Substitution
+                  | (Check checker, variables: Enumerable[AST::Types::variable], context: Context) -> Interface::Substitution
 
       def has_constraint?: (Symbol var) -> bool
 

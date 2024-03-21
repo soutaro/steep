@@ -138,6 +138,10 @@ module Steep
         self
       end
 
+      def update(self_type: self_type(), instance_type: instance_type(), module_type: module_type())
+        Substitution.new(dictionary: dictionary.dup, instance_type: instance_type, self_type: self_type, module_type: module_type)
+      end
+
       def merge(s)
         Substitution.new(dictionary: dictionary.dup,
                          instance_type: instance_type,

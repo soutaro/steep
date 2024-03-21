@@ -125,7 +125,7 @@ module Steep
         end
 
         def upper_bounds
-          table.each_value.with_object({}) do |type_param, bounds|
+          @upper_bounds ||= table.each_value.with_object({}) do |type_param, bounds|
             if type_param.upper_bound
               bounds[type_param.name] = type_param.upper_bound
             end

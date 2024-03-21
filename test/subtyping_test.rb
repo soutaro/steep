@@ -409,7 +409,7 @@ end
   def test_nil_type
     with_checker do |checker|
       assert_success_check checker, "::NilClass", "nil"
-      
+
       assert_fail_check checker, "nil", "::NilClass"
       assert_fail_check checker, "nil", "::Object"
       assert_success_check checker, "nil", "top"
@@ -471,9 +471,9 @@ end
     relation = parse_relation(sub_type, super_type, checker: checker)
     result = checker.check(
       relation,
-      self_type: self_type || :dummy_self_type,
-      instance_type: instance_type || :dummy_instance_type,
-      class_type: class_type || :dummy_class_type,
+      self_type: self_type || parse_type("::Object", checker: checker),
+      instance_type: instance_type || parse_type("::Object", checker: checker),
+      class_type: class_type || parse_type("singleton(::Object)", checker: checker),
       constraints: constraints
     )
 
@@ -498,9 +498,9 @@ end
     relation = parse_relation(sub_type, super_type, checker: checker)
     result = checker.check(
       relation,
-      self_type: self_type || :dummy_self_type,
-      instance_type: instance_type || :dummy_instance_type,
-      class_type: class_type || :dummy_class_type,
+      self_type: self_type || parse_type("::Object", checker: checker),
+      instance_type: instance_type || parse_type("::Object", checker: checker),
+      class_type: class_type || parse_type("singleton(::Object)", checker: checker),
       constraints: constraints
     )
 

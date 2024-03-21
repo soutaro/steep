@@ -163,71 +163,93 @@ module Steep
 
             case
             when x.is_a?(Required) && y.is_a?(Required)
+              xs or raise
+              ys or raise
               required(
                 union(x.type, y.type),
                 merge_for_overload(xs.tail, ys.tail)
               )
             when x.is_a?(Required) && y.is_a?(Optional)
+              xs or raise
+              ys or raise
               optional(
                 union(x.type, y.type, null: true),
                 merge_for_overload(xs.tail, ys.tail)
               )
             when x.is_a?(Required) && y.is_a?(Rest)
+              xs or raise
+              ys or raise
               optional(
                 union(x.type, y.type, null: true),
                 merge_for_overload(xs.tail, ys)
               )
             when x.is_a?(Required) && !y
+              xs or raise
               optional(
                 union(x.type, null: true),
                 merge_for_overload(xs.tail, nil)
               )
             when x.is_a?(Optional) && y.is_a?(Required)
+              xs or raise
+              ys or raise
               optional(
                 union(x.type, y.type, null: true),
                 merge_for_overload(xs.tail, ys.tail)
               )
             when x.is_a?(Optional) && y.is_a?(Optional)
+              xs or raise
+              ys or raise
               optional(
                 union(x.type, y.type),
                 merge_for_overload(xs.tail, ys.tail)
               )
             when x.is_a?(Optional) && y.is_a?(Rest)
+              xs or raise
+              ys or raise
               optional(
                 union(x.type, y.type),
                 merge_for_overload(xs.tail, ys)
               )
             when x.is_a?(Optional) && !y
+              xs or raise
               optional(
                 x.type,
                 merge_for_overload(xs.tail, nil)
               )  # == xs
             when x.is_a?(Rest) && y.is_a?(Required)
+              xs or raise
+              ys or raise
               optional(
                 union(x.type, y.type, null: true),
                 merge_for_overload(xs, ys.tail)
               )
             when x.is_a?(Rest) && y.is_a?(Optional)
+              xs or raise
+              ys or raise
               optional(
                 union(x.type, y.type),
                 merge_for_overload(xs, ys.tail)
               )
             when x.is_a?(Rest) && y.is_a?(Rest)
+              xs or raise
+              ys or raise
               rest(union(x.type, y.type))
             when x.is_a?(Rest) && !y
-              xs
+              xs or raise
             when !x && y.is_a?(Required)
+              ys or raise
               optional(
                 union(y.type, null: true),
                 merge_for_overload(nil, ys.tail)
               )
             when !x && y.is_a?(Optional)
+              ys or raise
               optional(
                 y.type,
                 merge_for_overload(nil, ys.tail)
               )  # == ys
             when !x && y.is_a?(Rest)
-              ys
+              ys or raise
             when !x && !y
               nil
             end
@@ -240,26 +262,34 @@ module Steep
 
             case
             when x.is_a?(Required) && y.is_a?(Required)
+              xs or raise
+              ys or raise
               required(
                 union(x.type, y.type),
                 merge_for_union(xs.tail, ys.tail)
               )
             when x.is_a?(Required) && !y
+              xs or raise
               optional(
                 x.type,
                 merge_for_union(xs.tail, nil)
               )
             when x.is_a?(Required) && y.is_a?(Optional)
+              xs or raise
+              ys or raise
               optional(
                 union(x.type, y.type),
                 merge_for_union(xs.tail, ys.tail)
               )
             when x.is_a?(Required) && y.is_a?(Rest)
+              xs or raise
+              ys or raise
               optional(
                 union(x.type, y.type),
                 merge_for_union(xs.tail, ys)
               )
             when !x && y.is_a?(Required)
+              ys or raise
               optional(
                 y.type,
                 merge_for_union(nil, ys.tail)
@@ -267,39 +297,53 @@ module Steep
             when !x && !y
               nil
             when !x && y.is_a?(Optional)
+              ys or raise
               PositionalParams.new(head: y, tail: merge_for_union(nil, ys.tail))
             when !x && y.is_a?(Rest)
-              ys
+              ys or raise
             when x.is_a?(Optional) && y.is_a?(Required)
+              xs or raise
+              ys or raise
               optional(
                 union(x.type, y.type),
                 merge_for_union(xs.tail, ys.tail)
               )
             when x.is_a?(Optional) && !y
+              xs or raise
               PositionalParams.new(head: x, tail: merge_for_union(xs.tail, nil)) # == xs
             when x.is_a?(Optional) && y.is_a?(Optional)
+              xs or raise
+              ys or raise
               optional(
                 union(x.type, y.type),
                 merge_for_union(xs.tail, ys.tail)
               )
             when x.is_a?(Optional) && y.is_a?(Rest)
+              xs or raise
+              ys or raise
               optional(
                 union(x.type, y.type),
                 merge_for_union(xs.tail, ys.tail)
               )
             when x.is_a?(Rest) && y.is_a?(Required)
+              xs or raise
+              ys or raise
               optional(
                 union(x.type, y.type),
                 merge_for_union(xs, ys.tail)
               )
             when x.is_a?(Rest) && !y
-              xs
+              xs or raise
             when x.is_a?(Rest) && y.is_a?(Optional)
+              xs or raise
+              ys or raise
               optional(
                 union(x.type, y.type),
                 merge_for_union(xs, ys.tail)
               )
             when x.is_a?(Rest) && y.is_a?(Rest)
+              xs or raise
+              ys or raise
               rest(
                 union(x.type, y.type)
               )
@@ -315,6 +359,8 @@ module Steep
 
             case
             when x.is_a?(Required) && y.is_a?(Required)
+              xs or raise
+              ys or raise
               required(
                 intersection(x.type, y.type),
                 merge_for_intersection(xs.tail, ys.tail)
@@ -322,11 +368,15 @@ module Steep
             when x.is_a?(Required) && !y
               raise
             when x.is_a?(Required) && y.is_a?(Optional)
+              xs or raise
+              ys or raise
               required(
                 intersection(x.type, y.type),
                 merge_for_intersection(xs.tail, ys.tail)
               )
             when x.is_a?(Required) && y.is_a?(Rest)
+              xs or raise
+              ys or raise
               required(
                 intersection(x.type, y.type),
                 merge_for_intersection(xs.tail, ys)
@@ -340,6 +390,8 @@ module Steep
             when !x && y.is_a?(Rest)
               nil
             when x.is_a?(Optional) && y.is_a?(Required)
+              xs or raise
+              ys or raise
               required(
                 intersection(x.type, y.type),
                 merge_for_intersection(xs.tail, ys.tail)
@@ -347,16 +399,22 @@ module Steep
             when x.is_a?(Optional) && !y
               nil
             when x.is_a?(Optional) && y.is_a?(Optional)
+              xs or raise
+              ys or raise
               optional(
                 intersection(x.type, y.type),
                 merge_for_intersection(xs.tail, ys.tail)
               )
             when x.is_a?(Optional) && y.is_a?(Rest)
+              xs or raise
+              ys or raise
               optional(
                 intersection(x.type, y.type),
                 merge_for_intersection(xs.tail, ys)
               )
             when x.is_a?(Rest) && y.is_a?(Required)
+              xs or raise
+              ys or raise
               required(
                 intersection(x.type, y.type),
                 merge_for_intersection(xs, ys.tail)
@@ -364,6 +422,8 @@ module Steep
             when x.is_a?(Rest) && !y
               nil
             when x.is_a?(Rest) && y.is_a?(Optional)
+              xs or raise
+              ys or raise
               optional(
                 intersection(x.type, y.type),
                 merge_for_intersection(xs, ys.tail)
@@ -705,6 +765,8 @@ module Steep
               return param.type
             end
           end
+
+          nil
         end
 
         attr_reader :positional_params
@@ -836,7 +898,7 @@ module Steep
         end
 
         def closed?
-          each_type.all?(&:closed?)
+          each_type.all? { _1.free_variables.empty? }
         end
 
         def subst(s)
@@ -945,6 +1007,7 @@ module Steep
 
       def free_variables
         @fvs ||= Set[].tap do |fvs|
+          # @type var fvs: Set[AST::Types::variable]
           fvs.merge(params.free_variables)
           fvs.merge(return_type.free_variables)
         end
@@ -999,7 +1062,7 @@ module Steep
       end
 
       def closed?
-        params.closed? && return_type.closed?
+        params.closed? && return_type.free_variables.empty?
       end
     end
   end

@@ -27,6 +27,7 @@ module Steep
             def var_type: () -> AST::Types::t
 
             def map_type: () { (AST::Types::t) -> AST::Types::t } -> self
+                        | () -> Enumerator[AST::Types::t, void]
           end
 
           class Required < Base
@@ -57,6 +58,7 @@ module Steep
           def map: () { (param) -> param } -> PositionalParams
 
           def map_type: () { (AST::Types::t) -> AST::Types::t } -> PositionalParams
+                      | () -> Enumerator[AST::Types::t, void]
 
           def subst: (Substitution s) -> PositionalParams
 
@@ -74,13 +76,13 @@ module Steep
 
           def size: () -> Integer
 
-          def self.build: (required: Array[AST::Types::t], optional: Array[AST::Types::t], rest: AST::Types::t?) -> PositionalParams
+          def self.build: (required: Array[AST::Types::t], optional: Array[AST::Types::t], rest: AST::Types::t?) -> PositionalParams?
 
           extend Utils
 
           # Calculates xs + ys.
           # Never fails.
-          def self.merge_for_overload: (PositionalParams? xs, PositionalParams? ys) -> PositionalParams
+          def self.merge_for_overload: (PositionalParams? xs, PositionalParams? ys) -> PositionalParams?
 
           # xs | ys
           def self.merge_for_union: (PositionalParams? xs, PositionalParams? ys) -> PositionalParams?
@@ -98,15 +100,15 @@ module Steep
 
           attr_reader rest: AST::Types::t?
 
-          def initialize: (?requireds: ::Hash[untyped, untyped], ?optionals: ::Hash[untyped, untyped], ?rest: untyped?) -> void
+          def initialize: (?requireds: ::Hash[Symbol, AST::Types::t], ?optionals: ::Hash[Symbol, AST::Types::t], ?rest: AST::Types::t?) -> void
 
-          def ==: (untyped other) -> untyped
+          def ==: (untyped other) -> bool
 
           alias eql? ==
 
-          def hash: () -> untyped
+          def hash: () -> Integer
 
-          def update: (?requireds: untyped, ?optionals: untyped, ?rest: untyped) -> untyped
+          def update: (?requireds: Hash[Symbol, AST::Types::t], ?optionals: Hash[Symbol, AST::Types::t], ?rest: AST::Types::t?) -> KeywordParams
 
           def empty?: () -> bool
 
@@ -117,6 +119,7 @@ module Steep
                        | () -> Enumerator[AST::Types::t, void]
 
           def map_type: () { (AST::Types::t) -> AST::Types::t } -> KeywordParams
+                      | () -> Enumerator[AST::Types::t, KeywordParams]
 
           def subst: (Substitution s) -> KeywordParams
 
@@ -127,13 +130,13 @@ module Steep
           include Utils
 
           # For overloading
-          def +: (untyped other) -> untyped
+          def +: (KeywordParams other) -> KeywordParams
 
           # For union
-          def |: (untyped other) -> untyped
+          def |: (KeywordParams other) -> KeywordParams
 
           # For intersection
-          def &: (untyped other) -> (nil | untyped)
+          def &: (KeywordParams other) -> KeywordParams?
         end
 
         def required: () -> Array[AST::Types::t]
@@ -146,54 +149,55 @@ module Steep
 
         attr_reader keyword_params: KeywordParams
 
-        def self.build: (?required: untyped, ?optional: untyped, ?rest: untyped?, ?required_keywords: ::Hash[untyped, untyped], ?optional_keywords: ::Hash[untyped, untyped], ?rest_keywords: untyped?) -> untyped
+        def self.build: (?required: Array[AST::Types::t], ?optional: Array[AST::Types::t], ?rest: AST::Types::t?, ?required_keywords: ::Hash[Symbol, AST::Types::t], ?optional_keywords: ::Hash[Symbol, AST::Types::t], ?rest_keywords: AST::Types::t?) -> Params
 
-        def initialize: (positional_params: untyped, keyword_params: untyped) -> void
+        def initialize: (positional_params: PositionalParams?, keyword_params: KeywordParams) -> void
 
-        def update: (?positional_params: untyped, ?keyword_params: untyped) -> untyped
+        def update: (?positional_params: PositionalParams?, ?keyword_params: KeywordParams) -> Params
 
-        def first_param: () -> untyped
+        def first_param: () -> PositionalParams::param?
 
-        def with_first_param: (untyped param) -> untyped
+        def with_first_param: (PositionalParams::param) -> Params
 
-        def has_positional?: () -> (true | false)
+        def has_positional?: () -> bool
 
-        def self.empty: () -> untyped
+        def self.empty: () -> Params
 
-        def ==: (untyped other) -> untyped
+        def ==: (untyped other) -> bool
 
         alias eql? ==
 
-        def hash: () -> untyped
+        def hash: () -> Integer
 
         def flat_unnamed_params: () -> Array[[:required | :optional, AST::Types::t]]
 
-        def flat_keywords: () -> untyped
+        def flat_keywords: () -> Hash[Symbol, AST::Types::t]
 
-        def required_keywords: () -> untyped
+        def required_keywords: () -> Hash[Symbol, AST::Types::t]
 
-        def optional_keywords: () -> untyped
+        def optional_keywords: () -> Hash[Symbol, AST::Types::t]
 
-        def rest_keywords: () -> untyped
+        def rest_keywords: () -> AST::Types::t?
 
-        def has_keywords?: () -> untyped
+        def has_keywords?: () -> bool
 
         def each_positional_param: () { (PositionalParams::Base) -> void } -> void
 
-        def without_keywords: () -> untyped
+        def without_keywords: () -> Params
 
-        def drop_first: () -> untyped
+        def drop_first: () -> Params
 
         def each_type: () { (AST::Types::t) -> void } -> void
                      | () -> Enumerator[AST::Types::t, void]
 
-        def free_variables: () -> untyped
+        @fvs: Set[AST::Types::variable]?
+        def free_variables: () -> Set[AST::Types::variable]
 
-        def closed?: () -> untyped
+        def closed?: () -> bool
 
         def subst: (Substitution s) -> Params
 
-        def size: () -> untyped
+        def size: () -> Integer
 
         def to_s: () -> ::String
 
@@ -244,7 +248,8 @@ module Steep
 
       def hash: () -> Integer
 
-      def free_variables: () -> Set[Symbol]
+      @fvs: Set[AST::Types::variable]?
+      def free_variables: () -> Set[AST::Types::variable]
 
       def subst: (Substitution s) -> Function
 

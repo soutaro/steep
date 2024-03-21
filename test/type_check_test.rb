@@ -1858,4 +1858,27 @@ class TypeCheckTest < Minitest::Test
       YAML
     )
   end
+
+  def test_big_literal_union_type
+    names = 100.times.map {|i| "'#{i}'"}
+
+    run_type_check_test(
+      signatures: {
+        "a.rbs" => <<~RBS
+          type names = #{names.join(" | ")}
+        RBS
+      },
+      code: {
+        "a.rb" => <<~RUBY
+          x = (_ = nil) #: names
+          x + ""
+        RUBY
+      },
+      expectations: <<~YAML
+        ---
+        - file: a.rb
+          diagnostics: []
+      YAML
+    )
+  end
 end

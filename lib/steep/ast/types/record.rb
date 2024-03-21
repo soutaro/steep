@@ -50,6 +50,13 @@ module Steep
           end
         end
 
+        def map_type(&block)
+          self.class.new(
+            elements: elements.transform_values(&block),
+            location: location
+          )
+        end
+
         def level
           [0] + level_of_children(elements.values)
         end

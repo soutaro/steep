@@ -29,6 +29,10 @@ module Steep
               enum_for :each_child
             end
           end
+
+          def map_type
+            self
+          end
         end
       end
     end

@@ -80,6 +80,13 @@ module Steep
           end
         end
 
+        def map_type(&block)
+          Union.build(
+            types: types.map(&block),
+            location: location
+          )
+        end
+
         include Helper::ChildrenLevel
 
         def level

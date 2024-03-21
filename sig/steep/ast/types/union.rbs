@@ -27,6 +27,8 @@ module Steep
         def each_child: () { (t) -> void } -> void
                       | () -> Enumerator[t, void]
 
+        def map_type: () { (t) -> t } -> t
+
         include Helper::ChildrenLevel
 
         def level: () -> Array[Integer]
