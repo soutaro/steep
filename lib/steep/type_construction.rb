@@ -1813,7 +1813,7 @@ module Steep
                 .for_branch(right_node)
                 .synthesize(right_node, hint: left_truthy.type, condition: true).to_ary
 
-            right_truthy, right_falsy = interpreter.eval(env: left_falsy.env, node: right_node)
+            right_truthy, right_falsy = interpreter.eval(env: right_context.type_env, node: right_node)
 
             case
             when left_falsy.unreachable

@@ -1881,4 +1881,68 @@ class TypeCheckTest < Minitest::Test
       YAML
     )
   end
+
+  def test_nilp_flow_sensitive_typing_error__or
+    run_type_check_test(
+      signatures: {
+        "a.rbs" => <<~RBS
+          class Event
+            attr_reader pubkey: String?
+            attr_reader id: String?
+            attr_reader sig: String?
+
+            def foo: (String, String, String) -> bool
+          end
+        RBS
+      },
+      code: {
+        "a.rb" => <<~RUBY
+          event = Event.new()
+
+          return if event.pubkey.nil? || event.id.nil? || event.sig.nil?
+
+          event.pubkey.strip
+          event.id.size
+          event.sig.encoding
+        RUBY
+      },
+      expectations: <<~YAML
+        ---
+        - file: a.rb
+          diagnostics: []
+      YAML
+    )
+  end
+
+  def test_nilp_flow_sensitive_typing_error__and
+    run_type_check_test(
+      signatures: {
+        "a.rbs" => <<~RBS
+          class Event
+            attr_reader pubkey: String?
+            attr_reader id: String?
+            attr_reader sig: String?
+
+            def foo: (String, String, String) -> bool
+          end
+        RBS
+      },
+      code: {
+        "a.rb" => <<~RUBY
+          event = Event.new()
+
+          return unless !event.pubkey.nil? && !event.id.nil? && !event.sig.nil?
+
+          event.pubkey.strip
+          event.id.size
+          event.sig.encoding
+        RUBY
+      },
+      expectations: <<~YAML
+        ---
+        - file: a.rb
+          diagnostics: []
+      YAML
+    )
+  end
 end
