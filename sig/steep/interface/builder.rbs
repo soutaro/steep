@@ -46,14 +46,16 @@ module Steep
 
       def initialize: (AST::Types::Factory) -> void
 
-      def fetch_cache: [KEY] (Hash[KEY, Shape?], KEY) { () -> Shape? } -> Shape?
-
       # Returns a shape of given type with respect to Config
       #
       # * If `self` occurs in the given type, it returns types with `self`
       # * If `self` doesn't occur in the given type, it returns type withohut `self`, that is resolved to `config.self_type`
       #
       def shape: (AST::Types::t, Config) -> Shape?
+
+      private
+
+      def fetch_cache: [KEY] (Hash[KEY, Shape?], KEY) { () -> Shape? } -> Shape?
 
       # Returns a shape of given type with respect to Config
       #
@@ -66,10 +68,16 @@ module Steep
 
       def self_shape: (AST::Types::t, Config) -> Shape?
 
-      private
-
+      # Returns a shape of instance type and interface type
+      #
+      # The `self` types included in the shape is the `self` types in the definition.
+      #
       def object_shape: (RBS::TypeName) -> Shape
 
+      # Returns a shape of singleton type
+      #
+      # The `self` types included in the shape is the `self` types in the definition.
+      #
       def singleton_shape: (RBS::TypeName) -> Shape
 
       def union_shape: (AST::Types::t, Array[Shape]) -> Shape?
@@ -95,58 +103,9 @@ module Steep
 
       def replace_primitive_method: (method_name, RBS::Definition::Method::TypeDef, MethodType) -> MethodType
 
-      # # Calculates the shape of given class, based on `public_only` and Config
-      # #
-      # # Returns `nil` if a type that cannot calculate Shape is given.
-      # #
-      # # * `public_only`: If false, returns a shape with private methods.
-      # #
-      # def shape: (AST::Types::t, public_only: bool, config: Config) -> Shape?
-
-      # private
-
       @subtyping: Subtyping::Check?
 
       def subtyping: () -> Subtyping::Check
-
-      # # Fetch and update cache
-      # #
-      # # Cache if given type is cacheable:
-      # #
-      # # * `self`, `instance`, `class` is not cacheable
-      # # * Type variables are not cacheable
-      # #
-      # def fetch_cache: (AST::Types::t, bool public_only, Config) { () -> Shape? } -> Shape?
-
-      # def include_self?: (AST::Types::t) -> bool
-
-      # def definition_builder: () -> RBS::DefinitionBuilder
-
-      # def object_shape: (
-      #   AST::Types::Name::Instance | AST::Types::Name::Singleton | AST::Types::Name::Interface,
-      #   bool public_only,
-      #   boolish keep_self,
-      #   boolish keep_instance,
-      #   boolish keep_singleton
-      # ) -> Shape
-
-      # def raw_object_shape: (
-      #   AST::Types::Name::Instance | AST::Types::Name::Singleton | AST::Types::Name::Interface,
-      #   bool public_only,
-      #   Substitution subst
-      # ) -> Shape
-
-      # def union_shape: (AST::Types::t, Array[Shape], bool public_only) -> Shape
-
-      # def intersection_shape: (AST::Types::t, Array[Shape], bool public_only) -> Shape
-
-      # def tuple_shape: (AST::Types::Tuple, bool public_only, Config) -> Shape
-
-      # def record_shape: (AST::Types::Record, bool public_only, Config) -> Shape?
-
-      # def proc_shape: (AST::Types::Proc, bool public_only, Config) -> Shape?
-
-
     end
   end
 end
