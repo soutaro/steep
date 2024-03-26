@@ -62,6 +62,7 @@ module Steep
       def shape(type, config)
         Steep.logger.tagged "shape(#{type})" do
           if shape = raw_shape(type, config)
+            # Optimization that skips unnecesary substittuion
             if type.free_variables.include?(AST::Types::Self.instance)
               shape
             else
