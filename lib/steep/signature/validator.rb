@@ -134,7 +134,7 @@ module Steep
       end
 
       def validate_type(type)
-        Steep.logger.debug "#{Location.to_string type.location}: Validating #{type}..."
+        Steep.logger.debug { "#{Location.to_string type.location}: Validating #{type}..." }
 
         validator.validate_type(type, context: nil)
         validate_type_application(type)
