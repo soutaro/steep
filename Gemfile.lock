@@ -72,7 +72,7 @@ GEM
     rb-fsevent (0.11.2)
     rb-inotify (0.10.1)
       ffi (~> 1.0)
-    rbs (3.5.0.pre.1)
+    rbs (3.5.0.pre.2)
       abbrev
     rdoc (6.6.3.1)
       psych (>= 4.0.0)
