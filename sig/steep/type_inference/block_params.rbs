@@ -127,7 +127,7 @@ module Steep
                       | (hint: Interface::Function::Params?) -> Interface::Function::Params?
 
       def zip: (
-        Interface::Function::Params params_type,
+        Interface::Function::Params? params_type,
         Interface::Block? block,
         factory: AST::Types::Factory
       ) -> Array[[Param | MultipleParam, AST::Types::t]]

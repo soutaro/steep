@@ -142,6 +142,14 @@ class TypeFactoryTest < Minitest::Test
     end
   end
 
+  def test_type__untyped_function
+    with_factory() do |factory|
+      factory.type(parse_type("^(?) -> void")).yield_self do |type|
+        assert_nil type.type.params
+      end
+    end
+  end
+
   def test_alias_type
     with_factory() do |factory|
       factory.type(parse_type("foo")).yield_self do |type|

@@ -61,7 +61,7 @@ module Steep
           type.each_type(&block)
           if block()
             yield(block().self_type) if block().self_type
-            block().type.params.each_type(&block)
+            block().type.params&.each_type(&block)
             yield(block().type.return_type)
           end
         else
@@ -119,7 +119,7 @@ module Steep
         self.class.new(
           type_params: type_params,
           type: Function.new(
-            params: type.params.subst(s1) + other.type.params.subst(s2),
+            params: type.params && other.type.params ? type.params.subst(s1) + other.type.params.subst(s2) : nil,
             return_type: AST::Types::Union.build(
               types: [type.return_type.subst(s1), other.type.return_type.subst(s2)]
             ),
@@ -250,10 +250,13 @@ module Steep
                 nil
               end
 
-            # Return when the two block parameters are imcompatible.
-            return unless b.type.params & ob.type.params
-
-            block_params = b.type.params | ob.type.params or return
+            if b.type.params && ob.type.params
+              # Return when the two block parameters are imcompatible.
+              return unless b.type.params & ob.type.params
+              block_params = b.type.params | ob.type.params or return
+            else
+              block_params = b.type.params || ob.type.params
+            end
 
             block_return_type = AST::Types::Intersection.build(types: [b.type.return_type, ob.type.return_type])
             block_type = Function.new(params: block_params, return_type: block_return_type, location: nil)
@@ -285,7 +288,12 @@ module Steep
       def &(other)
         return self if self == other
 
-        params = self.type.params | other.type.params or return
+        if self.type.params && other.type.params
+          params = self.type.params | other.type.params or return
+        else
+          params = self.type.params || other.type.params
+        end
+        
         block =
           case
           when (b = self.block) && (ob = other.block)

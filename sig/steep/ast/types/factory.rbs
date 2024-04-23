@@ -28,9 +28,9 @@ module Steep
 
         def type_1_opt: (t?) -> RBS::Types::t?
 
-        def function_1: (Interface::Function func) -> RBS::Types::Function
+        def function_1: (Interface::Function func) -> RBS::Types::function
 
-        def params: (RBS::Types::Function `type`) -> Interface::Function::Params
+        def params: (RBS::Types::function `type`) -> Interface::Function::Params?
 
         def type_param: (RBS::AST::TypeParam type_param) -> Interface::TypeParam
 

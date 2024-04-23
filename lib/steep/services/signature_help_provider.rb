@@ -7,15 +7,17 @@ module Steep
         # @implements Item
 
         def parameters
-          arguments = [] #: Array[String]
-          arguments.push(*method_type.type.required_positionals.map(&:to_s))
-          arguments.push(*method_type.type.optional_positionals.map {|p| "?#{p}"})
-          arguments.push("*#{self.method_type.type.rest_positionals}") if method_type.type.rest_positionals
-          arguments.push(*method_type.type.trailing_positionals.map(&:to_s))
-          arguments.push(*method_type.type.required_keywords.map {|name, param| "#{name}: #{param}" })
-          arguments.push(*method_type.type.optional_keywords.map {|name, param| "?#{name}: #{param}" })
-          arguments.push("**#{method_type.type.rest_keywords}") if method_type.type.rest_keywords
-          arguments
+          if method_type.type.is_a?(RBS::Types::Function)
+            arguments = [] #: Array[String]
+            arguments.push(*method_type.type.required_positionals.map(&:to_s))
+            arguments.push(*method_type.type.optional_positionals.map {|p| "?#{p}"})
+            arguments.push("*#{self.method_type.type.rest_positionals}") if method_type.type.rest_positionals
+            arguments.push(*method_type.type.trailing_positionals.map(&:to_s))
+            arguments.push(*method_type.type.required_keywords.map {|name, param| "#{name}: #{param}" })
+            arguments.push(*method_type.type.optional_keywords.map {|name, param| "?#{name}: #{param}" })
+            arguments.push("**#{method_type.type.rest_keywords}") if method_type.type.rest_keywords
+            arguments
+          end
         end
       end
 

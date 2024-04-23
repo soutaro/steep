@@ -1945,4 +1945,136 @@ class TypeCheckTest < Minitest::Test
       YAML
     )
   end
+
+  def test_method_call__untyped
+    run_type_check_test(
+      signatures: {
+        "a.rbs" => <<~RBS
+          class Hello
+            def f: (?) -> void
+
+            def g: () { (?) -> void } -> void
+          end
+        RBS
+      },
+      code: {
+        "a.rb" => <<~RUBY
+          hello = Hello.new()
+
+          hello.f(1, 2, 3)
+          hello.f() { }
+          hello.f(&-> { 1 })
+
+          hello.g {|x,y| x + y }
+          hello.g(&-> (x, y) { x + y })
+          hello.g(&-> (x) { x.foo })
+        RUBY
+      },
+      expectations: <<~YAML
+        ---
+        - file: a.rb
+          diagnostics: []
+      YAML
+    )
+  end
+
+  def test_method_call__untyped_block_body
+    run_type_check_test(
+      signatures: {
+        "a.rbs" => <<~RBS
+          class Hello
+            def f: (?) -> void
+          end
+        RBS
+      },
+      code: {
+        "a.rb" => <<~RUBY
+          hello = Hello.new()
+
+          hello.f() do |x|
+            # @type var x: String
+            x.foo
+            1.bar
+          end
+        RUBY
+      },
+      expectations: <<~YAML
+        ---
+        - file: a.rb
+          diagnostics:
+          - range:
+              start:
+                line: 5
+                character: 4
+              end:
+                line: 5
+                character: 7
+            severity: ERROR
+            message: Type `::String` does not have method `foo`
+            code: Ruby::NoMethod
+          - range:
+              start:
+                line: 6
+                character: 4
+              end:
+                line: 6
+                character: 7
+            severity: ERROR
+            message: Type `::Integer` does not have method `bar`
+            code: Ruby::NoMethod
+      YAML
+    )
+  end
+
+  def test_method_def__untyped
+    run_type_check_test(
+      signatures: {
+        "a.rbs" => <<~RBS
+          class Hello
+            def f: (?) -> void
+          end
+        RBS
+      },
+      code: {
+        "a.rb" => <<~RUBY
+          class Hello
+            def f(x, y, z)
+              x + y + z
+            end
+          end
+        RUBY
+      },
+      expectations: <<~YAML
+        ---
+        - file: a.rb
+          diagnostics: []
+      YAML
+    )
+  end
+
+  def test_method_yield__untyped
+    run_type_check_test(
+      signatures: {
+        "a.rbs" => <<~RBS
+          class Hello
+            def f: () { (?) -> void } -> void
+          end
+        RBS
+      },
+      code: {
+        "a.rb" => <<~RUBY
+          class Hello
+            def f(&block)
+              yield 1, 2, 3
+            end
+          end
+        RUBY
+      },
+      expectations: <<~YAML
+        ---
+        - file: a.rb
+          diagnostics: []
+      YAML
+    )
+  end
 end

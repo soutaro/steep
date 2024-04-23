@@ -14,7 +14,7 @@ module Steep
 
         def initialize: (RBS::MethodType, RBS::AST::Comment?, Integer?) -> void
 
-        def parameters: () -> Array[String]
+        def parameters: () -> Array[String]?
       end
 
       include Steep::NodeHelper

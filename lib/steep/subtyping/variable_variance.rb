@@ -46,7 +46,7 @@ module Steep
       end
 
       def self.add_params(params, block:, covariants:, contravariants:)
-        params.each_type do |type|
+        params&.each_type do |type|
           add_type(type, variance: block ? :contravariant : :covariant, covariants: covariants, contravariants: contravariants)
         end
       end
@@ -64,12 +64,12 @@ module Steep
             contravariants << type.name
           end
         when AST::Types::Proc
-          type.type.params.each_type do |type|
+          type.type.params&.each_type do |type|
             add_type(type, variance: variance, covariants: contravariants, contravariants: covariants)
           end
           add_type(type.type.return_type, variance: variance, covariants: covariants, contravariants: contravariants)
           if type.block
-            type.block.type.params.each_type do |type|
+            type.block.type.params&.each_type do |type|
               add_type(type, variance: variance, covariants: covariants, contravariants: contravariants)
             end
             add_type(type.type.return_type, variance: variance, covariants: contravariants, contravariants: covariants)
