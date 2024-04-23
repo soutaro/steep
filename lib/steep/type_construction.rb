@@ -1635,28 +1635,32 @@ module Steep
         when :yield
           if method_context && method_context.method_type
             if block_type = method_context.block_type
-              type = AST::Types::Proc.new(
-                type: block_type.type,
-                block: nil,
-                self_type: block_type.self_type
-              )
-              args = TypeInference::SendArgs.new(
-                node: node,
-                arguments: node.children,
-                type: type
-              )
+              if block_type.type.params
+                type = AST::Types::Proc.new(
+                  type: block_type.type,
+                  block: nil,
+                  self_type: block_type.self_type
+                )
+                args = TypeInference::SendArgs.new(
+                  node: node,
+                  arguments: node.children,
+                  type: type
+                )
 
-              # @type var errors: Array[Diagnostic::Ruby::Base]
-              errors = []
-              constr = type_check_args(
-                nil,
-                args,
-                Subtyping::Constraints.new(unknowns: []),
-                errors
-              )
+                # @type var errors: Array[Diagnostic::Ruby::Base]
+                errors = []
+                constr = type_check_args(
+                  nil,
+                  args,
+                  Subtyping::Constraints.new(unknowns: []),
+                  errors
+                )
 
-              errors.each do |error|
-                typing.add_error(error)
+                errors.each do |error|
+                  typing.add_error(error)
+                end
+              else
+                constr = type_check_untyped_args(node.children)
               end
 
               add_typing(node, type: block_type.type.return_type)
@@ -2172,10 +2176,21 @@ module Steep
               var_type = AST::Builtin.any_type
             else
               if each = calculate_interface(collection_type, :each, private: true)
-                if method_type = (each.method_types || []).find {|type| type.block && type.block.type.params.first_param }
+                method_type = (each.method_types || []).find do |type|
+                  if type.block
+                    if type.block.type.params
+                      type.block.type.params.first_param
+                    else
+                      true
+                    end
+                  end
+                end
+                if method_type
                   if block = method_type.block
-                    if first_param = block.type.params.first_param
+                    if first_param = block.type&.params&.first_param
                       var_type = first_param.type #: AST::Types::t
+                    else
+                      var_type - AST::Builtin.any_type
                     end
                   end
                 end
@@ -2386,31 +2401,33 @@ module Steep
 
               if hint.is_a?(AST::Types::Proc) && value_node.type == :sym
                 if hint.one_arg?
-                  # Assumes Symbol#to_proc implementation
-                  param_type = hint.type.params.required[0]
-                  case param_type
-                  when AST::Types::Any
-                    type = AST::Types::Any.new
-                  else
-                    if method = calculate_interface(param_type, private: true)&.methods&.[](value_node.children[0])
-                      return_types = method.method_types.filter_map do |method_type|
-                        if method_type.type.params.optional?
-                          method_type.type.return_type
+                  if hint.type.params
+                    # Assumes Symbol#to_proc implementation
+                    param_type = hint.type.params.required[0]
+                    case param_type
+                    when AST::Types::Any
+                      type = AST::Types::Any.new
+                    else
+                      if method = calculate_interface(param_type, private: true)&.methods&.[](value_node.children[0])
+                        return_types = method.method_types.filter_map do |method_type|
+                          if method_type.type.params.nil? || method_type.type.params.optional?
+                            method_type.type.return_type
+                          end
                         end
-                      end
 
-                      unless return_types.empty?
-                        type = AST::Types::Proc.new(
-                          type: Interface::Function.new(
-                            params: Interface::Function::Params.empty.with_first_param(
-                              Interface::Function::Params::PositionalParams::Required.new(param_type)
+                        unless return_types.empty?
+                          type = AST::Types::Proc.new(
+                            type: Interface::Function.new(
+                              params: Interface::Function::Params.empty.with_first_param(
+                                Interface::Function::Params::PositionalParams::Required.new(param_type)
+                              ),
+                              return_type: return_types[0],
+                              location: nil
                             ),
-                            return_type: return_types[0],
-                            location: nil
-                          ),
-                          block: nil,
-                          self_type: nil
-                        )
+                            block: nil,
+                            self_type: nil
+                          )
+                        end
                       end
                     end
                   end
@@ -3186,7 +3203,7 @@ module Steep
     end
 
     def type_send_interface(node, interface:, receiver:, receiver_type:, method_name:, arguments:, block_params:, block_body:, tapp:, hint:)
-      method = interface&.methods&.[](method_name)
+      method = interface.methods[method_name]
 
       if method
         call, constr = type_method_call(
@@ -3915,13 +3932,17 @@ module Steep
         # @type var errors: Array[Diagnostic::Ruby::Base]
         errors = []
 
-        args = TypeInference::SendArgs.new(node: node, arguments: arguments, type: method_type)
-        constr = constr.type_check_args(
-          method_name,
-          args,
-          constraints,
-          errors
-        )
+        if method_type.type.params
+          args = TypeInference::SendArgs.new(node: node, arguments: arguments, type: method_type)
+          constr = constr.type_check_args(
+            method_name,
+            args,
+            constraints,
+            errors
+          )
+        else
+          constr = constr.type_check_untyped_args(arguments)
+        end
 
         if block_params
           # block is given
@@ -4010,11 +4031,12 @@ module Steep
               end
 
               method_type, solved, s = apply_solution(errors, node: node, method_type: method_type) {
-                constraints.solution(
-                  checker,
-                  variables: method_type.type.params.free_variables + method_type.block.type.params.free_variables,
-                  context: ccontext
-                )
+                fvs_ = Set[] #: Set[AST::Types::variable]
+
+                fvs_.merge(method_type.type.params.free_variables) if method_type.type.params
+                fvs_.merge(method_type.block.type.params.free_variables) if method_type.block.type.params
+
+                constraints.solution(checker, variables: fvs_, context: ccontext)
               }
 
               method_type.block or raise
@@ -4102,129 +4124,143 @@ module Steep
               return_type = method_type.type.return_type
             end
           else
-            # Block is given but method doesn't accept
-            #
-            constr.type_block_without_hint(node: node, block_annotations: block_annotations, block_params: block_params_, block_body: block_body) do |error|
-              errors << error
-            end
-
-            case node.children[0].type
-            when :super, :zsuper
-              unless method_context!.super_method
-                errors << Diagnostic::Ruby::UnexpectedSuper.new(
-                  node: node.children[0],
-                  method: method_name
-                )
+            if args
+              # Block is given but method doesn't accept
+              #
+              constr.type_block_without_hint(node: node, block_annotations: block_annotations, block_params: block_params_, block_body: block_body) do |error|
+                errors << error
               end
-            else
-              errors << Diagnostic::Ruby::UnexpectedBlockGiven.new(
-                node: node,
-                method_type: method_type
-              )
-            end
 
-            method_type = eliminate_vars(method_type, type_param_names)
-            return_type = method_type.type.return_type
-          end
-        else
-          # Block syntax is not given
-          arg = args.block_pass_arg
-
-          case
-          when forwarded_args_node = args.forwarded_args_node
-            (_, block = method_context!.forward_arg_type) or raise
-
-            method_block_type = method_type.block&.to_proc_type || AST::Builtin.nil_type
-            forwarded_block_type = block&.to_proc_type || AST::Builtin.nil_type
-
-            if result = constr.no_subtyping?(sub_type: forwarded_block_type, super_type: method_block_type)
-              errors << Diagnostic::Ruby::IncompatibleArgumentForwarding.new(
-                method_name: method_name,
-                node: forwarded_args_node,
-                block_pair: [block, method_type.block],
-                result: result
-              )
-            end
-
-          when arg.compatible?
-            if arg.node
-              # Block pass (&block) is given
-              node_type, constr = constr.synthesize(arg.node, hint: arg.node_type)
-
-              nil_given =
-                constr.check_relation(sub_type: node_type, super_type: AST::Builtin.nil_type).success? &&
-                  !node_type.is_a?(AST::Types::Any)
-
-              if nil_given
-                # nil is given ==> no block arg node is given
-                method_type, solved, _ = apply_solution(errors, node: node, method_type: method_type) {
-                  constraints.solution(checker, variables: method_type.free_variables, context: ccontext)
-                }
-                method_type = eliminate_vars(method_type, type_param_names) unless solved
-
-                # Passing no block
-                errors << Diagnostic::Ruby::RequiredBlockMissing.new(
+              case node.children[0].type
+              when :super, :zsuper
+                unless method_context!.super_method
+                  errors << Diagnostic::Ruby::UnexpectedSuper.new(
+                    node: node.children[0],
+                    method: method_name
+                  )
+                end
+              else
+                errors << Diagnostic::Ruby::UnexpectedBlockGiven.new(
                   node: node,
                   method_type: method_type
                 )
-              else
-                # non-nil value is given
-                constr.check_relation(sub_type: node_type, super_type: arg.node_type, constraints: constraints).else do |result|
-                  errors << Diagnostic::Ruby::BlockTypeMismatch.new(
-                    node: arg.node,
-                    expected: arg.node_type,
-                    actual: node_type,
-                    result: result
-                  )
-                end
+              end
 
+              method_type = eliminate_vars(method_type, type_param_names)
+              return_type = method_type.type.return_type
+            else
+              if block_body
+                block_annotations = source.annotations(block: node, factory: checker.factory, context: nesting)
+                type_block_without_hint(
+                  node: node,
+                  block_annotations: block_annotations,
+                  block_params: TypeInference::BlockParams.from_node(block_params, annotations: block_annotations),
+                  block_body: block_body
+                )
+              end
+            end
+          end
+        else
+          # Block syntax is not given
+          if args
+            arg = args.block_pass_arg
+
+            case
+            when forwarded_args_node = args.forwarded_args_node
+              (_, block = method_context!.forward_arg_type) or raise
+
+              method_block_type = method_type.block&.to_proc_type || AST::Builtin.nil_type
+              forwarded_block_type = block&.to_proc_type || AST::Builtin.nil_type
+
+              if result = constr.no_subtyping?(sub_type: forwarded_block_type, super_type: method_block_type)
+                errors << Diagnostic::Ruby::IncompatibleArgumentForwarding.new(
+                  method_name: method_name,
+                  node: forwarded_args_node,
+                  block_pair: [block, method_type.block],
+                  result: result
+                )
+              end
+
+            when arg.compatible?
+              if arg.node
+                # Block pass (&block) is given
+                node_type, constr = constr.synthesize(arg.node, hint: arg.node_type)
+
+                nil_given =
+                  constr.check_relation(sub_type: node_type, super_type: AST::Builtin.nil_type).success? &&
+                    !node_type.is_a?(AST::Types::Any)
+
+                if nil_given
+                  # nil is given ==> no block arg node is given
+                  method_type, solved, _ = apply_solution(errors, node: node, method_type: method_type) {
+                    constraints.solution(checker, variables: method_type.free_variables, context: ccontext)
+                  }
+                  method_type = eliminate_vars(method_type, type_param_names) unless solved
+
+                  # Passing no block
+                  errors << Diagnostic::Ruby::RequiredBlockMissing.new(
+                    node: node,
+                    method_type: method_type
+                  )
+                else
+                  # non-nil value is given
+                  constr.check_relation(sub_type: node_type, super_type: arg.node_type, constraints: constraints).else do |result|
+                    errors << Diagnostic::Ruby::BlockTypeMismatch.new(
+                      node: arg.node,
+                      expected: arg.node_type,
+                      actual: node_type,
+                      result: result
+                    )
+                  end
+
+                  method_type, solved, _ = apply_solution(errors, node: node, method_type: method_type) {
+                    constraints.solution(checker, variables: method_type.free_variables, context: ccontext)
+                  }
+                  method_type = eliminate_vars(method_type, type_param_names) unless solved
+                end
+              else
+                # Block is not given
                 method_type, solved, _ = apply_solution(errors, node: node, method_type: method_type) {
                   constraints.solution(checker, variables: method_type.free_variables, context: ccontext)
                 }
                 method_type = eliminate_vars(method_type, type_param_names) unless solved
               end
-            else
-              # Block is not given
+
+              return_type = method_type.type.return_type
+
+            when arg.block_missing?
+              # Block is required but not given
+              method_type, solved, _ = apply_solution(errors, node: node, method_type: method_type) {
+                constraints.solution(checker, variables: method_type.free_variables, context: ccontext)
+              }
+
+              method_type = eliminate_vars(method_type, type_param_names) unless solved
+              return_type = method_type.type.return_type
+
+              errors << Diagnostic::Ruby::RequiredBlockMissing.new(
+                node: node,
+                method_type: method_type
+              )
+
+            when arg.unexpected_block?
+              # Unexpected block pass node is given
+
+              arg.node or raise
+
               method_type, solved, _ = apply_solution(errors, node: node, method_type: method_type) {
                 constraints.solution(checker, variables: method_type.free_variables, context: ccontext)
               }
               method_type = eliminate_vars(method_type, type_param_names) unless solved
-            end
+              return_type = method_type.type.return_type
 
-            return_type = method_type.type.return_type
+              node_type, constr = constr.synthesize(arg.node)
 
-          when arg.block_missing?
-            # Block is required but not given
-            method_type, solved, _ = apply_solution(errors, node: node, method_type: method_type) {
-              constraints.solution(checker, variables: method_type.free_variables, context: ccontext)
-            }
-
-            method_type = eliminate_vars(method_type, type_param_names) unless solved
-            return_type = method_type.type.return_type
-
-            errors << Diagnostic::Ruby::RequiredBlockMissing.new(
-              node: node,
-              method_type: method_type
-            )
-
-          when arg.unexpected_block?
-            # Unexpected block pass node is given
-
-            arg.node or raise
-
-            method_type, solved, _ = apply_solution(errors, node: node, method_type: method_type) {
-              constraints.solution(checker, variables: method_type.free_variables, context: ccontext)
-            }
-            method_type = eliminate_vars(method_type, type_param_names) unless solved
-            return_type = method_type.type.return_type
-
-            node_type, constr = constr.synthesize(arg.node)
-
-            unless constr.check_relation(sub_type: node_type, super_type: AST::Builtin.nil_type).success?
-              errors << Diagnostic::Ruby::UnexpectedBlockGiven.new(
-                node: node,
-                method_type: method_type
-              )
+              unless constr.check_relation(sub_type: node_type, super_type: AST::Builtin.nil_type).success?
+                errors << Diagnostic::Ruby::UnexpectedBlockGiven.new(
+                  node: node,
+                  method_type: method_type
+                )
+              end
             end
           end
         end
@@ -4796,7 +4832,7 @@ module Steep
       if shape = calculate_interface(type, private: false)
         if entry = shape.methods[method]
           method_type = entry.method_types.find do |method_type|
-            method_type.type.params.optional?
+            method_type.type.params.nil? || method_type.type.params.optional?
           end
 
           method_type.type.return_type if method_type

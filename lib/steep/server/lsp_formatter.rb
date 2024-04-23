@@ -263,6 +263,8 @@ module Steep
           <<~MD
             **Keyword argument**: `#{item.identifier}`
           MD
+        else
+          raise
         end
       end
 

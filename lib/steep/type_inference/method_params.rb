@@ -241,6 +241,22 @@ module Steep
 
         instance = new(args: original, method_type: method_type, forward_arg_type: nil)
 
+        unless method_type.type.params
+          args.each do |arg|
+            case arg.type
+            when :arg
+              name = arg.children[0]
+              instance.params[name] = PositionalParameter.new(name: name, type: AST::Builtin.any_type, node: arg)
+            when :optarg
+              name = arg.children[0]
+              instance.params[name] = PositionalParameter.new(name: name, type: AST::Builtin.any_type, node: arg)
+            when :forward_arg
+              return instance.update(forward_arg_type: true)
+            end
+          end
+          return instance
+        end
+
         positional_params = method_type.type.params.positional_params
 
         loop do

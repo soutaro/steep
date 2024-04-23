@@ -596,7 +596,8 @@ module Steep
         if shape = subtyping.builder.shape(type, config)
           if entry = shape.methods[method]
             method_type = entry.method_types.find do |method_type|
-              method_type.type.params.optional?
+              method_type.type.params.nil? ||
+                method_type.type.params.optional?
             end
 
             method_type.type.return_type if method_type

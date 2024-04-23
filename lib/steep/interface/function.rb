@@ -1008,7 +1008,7 @@ module Steep
       def free_variables
         @fvs ||= Set[].tap do |fvs|
           # @type var fvs: Set[AST::Types::variable]
-          fvs.merge(params.free_variables)
+          fvs.merge(params.free_variables) if params
           fvs.merge(return_type.free_variables)
         end
       end
@@ -1016,7 +1016,7 @@ module Steep
       def subst(s)
         return self if s.empty?
 
-        ps = params.subst(s)
+        ps = params.subst(s) if params
         ret = return_type.subst(s)
 
         if ps == params && ret == return_type
@@ -1032,7 +1032,7 @@ module Steep
 
       def each_type(&block)
         if block
-          params.each_type(&block)
+          params&.each_type(&block)
           yield return_type
         else
           enum_for :each_type
@@ -1043,7 +1043,7 @@ module Steep
 
       def map_type(&block)
         Function.new(
-          params: params.map_type(&block),
+          params: params&.map_type(&block),
           return_type: yield(return_type),
           location: location
         )
@@ -1058,11 +1058,19 @@ module Steep
       end
 
       def to_s
-        "#{params} -> #{return_type}"
+        if params
+          "#{params} -> #{return_type}"
+        else
+          "(?) -> #{return_type}"
+        end
       end
 
       def closed?
-        params.closed? && return_type.free_variables.empty?
+        if params
+          params.closed? && return_type.free_variables.empty?
+        else
+          return_type.free_variables.empty?
+        end
       end
     end
   end

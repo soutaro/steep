@@ -57,9 +57,11 @@ module Steep
         include Helper::ChildrenLevel
 
         def level
-          children = type.params.each_type.to_a + [type.return_type]
+          children = type.params&.each_type.to_a + [type.return_type]
           if block
-            children.push(*block.type.params.each_type.to_a)
+            if block.type.params
+              children.push(*block.type.params.each_type.to_a)
+            end
             children.push(block.type.return_type)
           end
           if self_type
@@ -83,13 +85,16 @@ module Steep
 
         def one_arg?
           params = type.params
-
-          params.required.size == 1 &&
-            params.optional.empty? &&
-            !params.rest &&
-            params.required_keywords.empty? &&
-            params.optional_keywords.empty? &&
-            !params.rest_keywords
+          if params
+            params.required.size == 1 &&
+              params.optional.empty? &&
+              !params.rest &&
+              params.required_keywords.empty? &&
+              params.optional_keywords.empty? &&
+              !params.rest_keywords
+          else
+            true
+          end
         end
 
         def back_type

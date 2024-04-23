@@ -177,7 +177,7 @@ module Steep
 
         def optional_keywords: () -> Hash[Symbol, AST::Types::t]
 
-        def rest_keywords: () -> AST::Types::t?
+        %a{pure} def rest_keywords: () -> AST::Types::t?
 
         def has_keywords?: () -> bool
 
@@ -234,13 +234,14 @@ module Steep
 
       type location = RBS::Location[untyped, untyped]
 
-      attr_reader params: Params
+      # Returns `nil` for `RBS::Types::UntypedFunction`
+      attr_reader params: Params?
 
       attr_reader return_type: AST::Types::t
 
       attr_reader location: location?
 
-      def initialize: (params: Params, return_type: AST::Types::t, location: location?) -> void
+      def initialize: (params: Params?, return_type: AST::Types::t, location: location?) -> void
 
       def ==: (untyped other) -> bool
 
@@ -260,7 +261,7 @@ module Steep
 
       def map_type: () { (AST::Types::t) -> AST::Types::t } -> Function
 
-      def with: (?params: Params, ?return_type: AST::Types::t) -> Function
+      def with: (?params: Params?, ?return_type: AST::Types::t) -> Function
 
       def to_s: () -> ::String
 

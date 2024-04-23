@@ -500,6 +500,7 @@ module Steep
       attr_reader :type
 
       def initialize(node:, arguments:, type:)
+        raise "Untyped function is not supported" unless type.type.params
         @node = node
         @arguments = arguments
         @type = type
@@ -508,9 +509,9 @@ module Steep
       def params
         case type
         when Interface::MethodType
-          type.type.params
+          type.type.params or raise
         when AST::Types::Proc
-          type.type.params
+          type.type.params or raise
         else
           raise
         end
@@ -526,10 +527,12 @@ module Steep
       end
 
       def positional_params
+        params or raise
         params.positional_params
       end
 
       def keyword_params
+        params or raise
         params.keyword_params
       end
 

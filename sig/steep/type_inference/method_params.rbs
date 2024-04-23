@@ -102,9 +102,9 @@ module Steep
       #
       # `nil` if the node doesn't have it.
       #
-      attr_reader forward_arg_type: [Params, Block?]?
+      attr_reader forward_arg_type: [Params, Block?] | true | nil
 
-      def initialize: (args: Array[Node], method_type: MethodType?, forward_arg_type: [Params, Block?]?) -> void
+      def initialize: (args: Array[Node], method_type: MethodType?, forward_arg_type: [Params, Block?] | true | nil) -> void
 
       def []: (Symbol name) -> param
 
@@ -117,7 +117,7 @@ module Steep
 
       def each: () { (Symbol, AST::Types::t) -> void } -> void
 
-      def update: (?forward_arg_type: [Params, Block?]?) -> MethodParams
+      def update: (?forward_arg_type: [Params, Block?] | true | nil) -> MethodParams
 
       def self.empty: (node: Node) -> MethodParams
 

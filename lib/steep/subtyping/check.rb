@@ -850,8 +850,10 @@ module Steep
         relation.function!
 
         All(relation) do |result|
-          result.add(relation.map {|fun| fun.params }) do |rel|
-            check_method_params(name, rel)
+          if relation.sub_type.params && relation.super_type.params
+            result.add(relation.map {|fun| _ = fun.params }) do |rel|
+              check_method_params(name, rel)
+            end
           end
 
           result.add(relation.map {|fun| fun.return_type }) do |rel|
@@ -906,16 +908,23 @@ module Steep
       end
 
       def match_method_type_fails?(name, type1, type2)
-        match_params(name, Relation(type1.type.params, type2.type.params)).tap do |param_pairs|
-          return param_pairs unless param_pairs.is_a?(Array)
+        if type1.type.params && type2.type.params
+          match_params(name, Relation(type1.type.params, type2.type.params)).tap do |param_pairs|
+            return param_pairs unless param_pairs.is_a?(Array)
+          end
         end
 
         case result = expand_block_given(name, Relation(type1.block, type2.block))
         when Result::Base
           return result
         when Relation
-          match_params(name, result.map {|m| m.type.params }).tap do |param_pairs|
-            return param_pairs unless param_pairs.is_a?(Array)
+          type1.block or raise
+          type2.block or raise
+
+          if type1.block.type.params && type2.block.type.params
+            match_params(name, result.map {|m| _ = m.type.params }).tap do |param_pairs|
+              return param_pairs unless param_pairs.is_a?(Array)
+            end
           end
         end
 

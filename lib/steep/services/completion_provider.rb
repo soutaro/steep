@@ -740,7 +740,7 @@ module Steep
             if method = shape.methods[call.method_name]
               method.method_types.each.with_index do |method_type, i|
                 defn = method_type.method_decls.to_a[0]&.method_def
-                if defn
+                if defn && defn.type.type
                   range = range_for(position, prefix: prefix)
                   kwargs = argument_nodes.find { |arg| arg.type == :kwargs }&.children || []
                   used_kwargs = kwargs.filter_map { |arg| arg.type == :pair && arg.children.first.children.first }

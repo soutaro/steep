@@ -248,7 +248,7 @@ module Steep
         # @type var zip: Array[[Param | MultipleParam, AST::Types::t]]
         zip = []
 
-        if untyped_args?(params_type)
+        if params_type.nil? || untyped_args?(params_type)
           params.each do |param|
             if param == rest_param
               zip << [param, AST::Builtin::Array.instance_type(fill_untyped: true)]

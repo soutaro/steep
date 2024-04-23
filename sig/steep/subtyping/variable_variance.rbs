@@ -17,7 +17,7 @@ module Steep
 
       def self.from_method_type: (Interface::MethodType method_type) -> VariableVariance
 
-      def self.add_params: (Interface::Function::Params params, block: bool, covariants: Set[Symbol], contravariants: Set[Symbol]) -> void
+      def self.add_params: (Interface::Function::Params? params, block: bool, covariants: Set[Symbol], contravariants: Set[Symbol]) -> void
 
       def self.add_type: (AST::Types::t `type`, variance: :covariant | :contravariant | :invariant, covariants: Set[Symbol], contravariants: Set[Symbol]) -> void
     end

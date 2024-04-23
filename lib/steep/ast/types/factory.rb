@@ -212,27 +212,36 @@ module Steep
           params = func.params
           return_type = func.return_type
 
-          RBS::Types::Function.new(
-            required_positionals: params.required.map {|type| RBS::Types::Function::Param.new(name: nil, type: type_1(type)) },
-            optional_positionals: params.optional.map {|type| RBS::Types::Function::Param.new(name: nil, type: type_1(type)) },
-            rest_positionals: params.rest&.yield_self {|type| RBS::Types::Function::Param.new(name: nil, type: type_1(type)) },
-            trailing_positionals: [],
-            required_keywords: params.required_keywords.transform_values {|type| RBS::Types::Function::Param.new(name: nil, type: type_1(type)) },
-            optional_keywords: params.optional_keywords.transform_values {|type| RBS::Types::Function::Param.new(name: nil, type: type_1(type)) },
-            rest_keywords: params.rest_keywords&.yield_self {|type| RBS::Types::Function::Param.new(name: nil, type: type_1(type)) },
-            return_type: type_1(return_type)
-          )
+          if params
+            RBS::Types::Function.new(
+              required_positionals: params.required.map {|type| RBS::Types::Function::Param.new(name: nil, type: type_1(type)) },
+              optional_positionals: params.optional.map {|type| RBS::Types::Function::Param.new(name: nil, type: type_1(type)) },
+              rest_positionals: params.rest&.yield_self {|type| RBS::Types::Function::Param.new(name: nil, type: type_1(type)) },
+              trailing_positionals: [],
+              required_keywords: params.required_keywords.transform_values {|type| RBS::Types::Function::Param.new(name: nil, type: type_1(type)) },
+              optional_keywords: params.optional_keywords.transform_values {|type| RBS::Types::Function::Param.new(name: nil, type: type_1(type)) },
+              rest_keywords: params.rest_keywords&.yield_self {|type| RBS::Types::Function::Param.new(name: nil, type: type_1(type)) },
+              return_type: type_1(return_type)
+            )
+          else
+            RBS::Types::UntypedFunction.new(return_type: type_1(return_type))
+          end
         end
 
         def params(type)
-          Interface::Function::Params.build(
-            required: type.required_positionals.map {|param| type(param.type) },
-            optional: type.optional_positionals.map {|param| type(param.type) },
-            rest: type.rest_positionals&.yield_self {|param| type(param.type) },
-            required_keywords: type.required_keywords.transform_values {|param| type(param.type) },
-            optional_keywords: type.optional_keywords.transform_values {|param| type(param.type) },
-            rest_keywords: type.rest_keywords&.yield_self {|param| type(param.type) }
-          )
+          case type
+          when RBS::Types::Function
+            Interface::Function::Params.build(
+              required: type.required_positionals.map {|param| type(param.type) },
+              optional: type.optional_positionals.map {|param| type(param.type) },
+              rest: type.rest_positionals&.yield_self {|param| type(param.type) },
+              required_keywords: type.required_keywords.transform_values {|param| type(param.type) },
+              optional_keywords: type.optional_keywords.transform_values {|param| type(param.type) },
+              rest_keywords: type.rest_keywords&.yield_self {|param| type(param.type) }
+            )
+          when RBS::Types::UntypedFunction
+            nil
+          end
         end
 
         def type_param(type_param)
