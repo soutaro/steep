@@ -65,7 +65,7 @@ It immediately type checks the left hand side, but with *conditional mode*. Cond
 x && y
 ```
 
-Going down again, it gets a typing `x: String?` and `y: String?. It runs a type narrowing, to obtain a result both of `x` and `y` are `String` for truthy result, both of `x` and `y` are `String?` for falsy result. The two environments should be propagated to the upper node, because the parent node is also `&&` which is a subject of type narrowing. So, it returns an `ENV` type, `String?` for original type, `{ x: String, y: String }` for truthy result, and `{ x: String?, y: String? }` for falsy result.
+Going down again, it gets a typing `x: String?` and `y: String?`. It runs a type narrowing, to obtain a result both of `x` and `y` are `String` for truthy result, both of `x` and `y` are `String?` for falsy result. The two environments should be propagated to the upper node, because the parent node is also `&&` which is a subject of type narrowing. So, it returns an `ENV` type, `String?` for original type, `{ x: String, y: String }` for truthy result, and `{ x: String?, y: String? }` for falsy result.
 
 Going up to the outer `&&` expression. The left hand side has `ENV` type, and then the right hand side is type checked based on the truthy environment (because of the semantics of `&&` expression.) Both `x` and `y` are `String` and it type checks. The type of the whole expression union of `String` and the falsy part of the original type -- `nil`.
 ## Union type partition
