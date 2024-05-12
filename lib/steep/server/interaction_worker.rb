@@ -90,6 +90,12 @@ module Steep
           collect_changes(request)
           queue_job ApplyChangeJob.new
 
+        when "$/file/reset"
+          uri = request[:params][:uri]
+          text = request[:params][:content]
+          reset_change(uri: uri, text: text)
+          queue_job ApplyChangeJob.new
+
         when "textDocument/hover"
           id = request[:id]
 
