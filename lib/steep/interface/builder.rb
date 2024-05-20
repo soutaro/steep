@@ -720,6 +720,20 @@ module Steep
             end
             end
 
+          when :present?
+            case defined_in
+            when RBS::BuiltinNames::Object.name,
+              AST::Builtin::NilClass.module_name,
+              RBS::BuiltinNames::Kernel.name
+              if member.instance?
+                return method_type.with(
+                  type: method_type.type.with(
+                    return_type: AST::Types::Logic::ReceiverIsNotNil.new(location: method_type.type.return_type.location)
+                  )
+                )
+            end
+            end
+
           when :!
             case defined_in
             when RBS::BuiltinNames::BasicObject.name,
