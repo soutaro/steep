@@ -2106,6 +2106,7 @@ module Steep
               end
 
               if body
+                resbody_construction.typing.add_context_for_node(body, context: resbody_construction.context)
                 resbody_construction.synthesize(body, hint: hint)
               else
                 Pair.new(constr: body_constr, type: AST::Builtin.nil_type)
