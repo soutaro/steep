@@ -3,20 +3,13 @@ version: 2
 updates:
   - package-ecosystem: bundler
     directory: "/"
-    schedule:
-      interval: daily
-      time: "20:00"
-    open-pull-requests-limit: 10
+    open-pull-requests-limit: 3
     allow:
       - dependency-type: all
-    versioning-strategy: lockfile-only
 
   - package-ecosystem: bundler
     directory: "/gemfile_steep"
-    schedule:
-      interval: daily
-      time: "20:00"
-    open-pull-requests-limit: 10
+    open-pull-requests-limit: 3
     allow:
       - dependency-type: all
     versioning-strategy: lockfile-only
