@@ -1,5 +1,6 @@
 require "rake"
 require "rake/tasklib"
+require "steep/cli"
 
 module Steep
   # Provides Rake tasks for running Steep commands.
@@ -8,16 +9,13 @@ module Steep
   # Steep::RakeTask.new do |t|
   #   t.check.severity_level = :error
   #   t.watch.verbose
+  #   t.stats << "--format=table"
   # end
-  class RakeTask < Rake::TaskLib
+  class RakeTask < Rake::TaskLib # steep:ignore UnknownConstant
     attr_accessor :name
 
     def self.available_commands
-      require "steep/cli"
-
-      skipped_commands = %i[langserver checkfile]
-
-      Steep::CLI.available_commands - skipped_commands
+      %i(init check stats binstub project watch)
     end
 
     def initialize(name = :steep, cli_runner = default_cli_runner)
@@ -64,12 +62,19 @@ module Steep
       end
 
       def method_missing(name, value = nil)
-        @options << "--#{name.to_s.gsub(/_/, '-').gsub(/=/, '')}"
-        @options << value.to_s unless value.nil?
+        option = "--#{name.to_s.gsub(/_/, '-').gsub(/=/, '')}"
+        option << "=#{value}" if value
+
+        self << option
       end
 
       def respond_to_missing?(_name)
         true
+      end
+
+      def <<(value)
+        @options << value
+        self
       end
 
       def to_a
@@ -120,7 +125,7 @@ module Steep
       end
 
       # Default steep task to steep:check
-      desc "Run steep check" unless ::Rake.application.last_description
+      desc "Run steep check" unless ::Rake.application.last_description # steep:ignore UnknownConstant
       task name => ["#{name}:check"]
     end
   end

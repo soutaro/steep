@@ -1,0 +1,53 @@
+module Steep
+  class RakeTask
+
+    attr_accessor name: Symbol
+
+    def self.available_commands: () -> Array[Symbol]
+
+    def initialize: (?::Symbol name, ?cli_runner) ?{ (TaskConfiguration) -> void } -> void
+
+    private
+
+    class TaskConfiguration
+      @commands: Hash[Symbol, CommandConfiguration]
+
+      def initialize: () -> void
+
+      def method_missing: (Symbol command) -> void
+
+      def respond_to_missing?: (Symbol name, ?bool include_private) -> boolish
+
+      def options: (Symbol command) -> Array[String]
+    end
+
+    class CommandConfiguration
+      @options: Array[String]
+
+      def initialize: () -> void
+
+      def method_missing: (Symbol name, ?untyped value) -> void
+
+      def respond_to_missing?: (Symbol _name) -> true
+
+      def <<: (String) -> self
+
+      def to_a: () -> Array[String]
+    end
+
+    type cli_runner = ^(Array[String]) -> Integer
+
+    def default_cli_runner: () -> cli_runner
+
+    def define_tasks: (TaskConfiguration configuration, cli_runner) -> void
+
+    # Methods that is defined in Rake::Task
+
+    def namespace: (Symbol) { (?) -> void } -> void
+
+    def desc: (String) -> void
+
+    def task: (Symbol | String name) { (?) -> void } -> void
+            | (Hash[Symbol, Array[String]]) ?{ (?) -> void } -> void
+  end
+end

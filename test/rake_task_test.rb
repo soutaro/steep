@@ -10,18 +10,20 @@ class RakeTaskTest < Minitest::Test
 
     configuration.check.severity_level = :error
     configuration.watch.verbose
+    configuration.stats << "--format=table"
 
     assert_raises(NoMethodError) do
       configuration.missing_command.verbose
     end
 
-    assert_equal ["--severity-level", "error"], configuration.options(:check)
+    assert_equal ["--severity-level=error"], configuration.options(:check)
     assert_equal ["--verbose"], configuration.options(:watch)
-    assert_equal [], configuration.options(:stats)
+    assert_equal ["--format=table"], configuration.options(:stats)
+    assert_equal [], configuration.options(:project)
   end
 
   def test_define_task_with_options
-    cli = mock_cli(expecting: %w[check --severity-level error])
+    cli = mock_cli(expecting: %w[check --severity-level=error])
 
     setup_rake_tasks!(cli) do |task|
       task.check.severity_level = :error
@@ -31,11 +33,11 @@ class RakeTaskTest < Minitest::Test
   end
 
   def test_rake_arguments
-    cli = mock_cli(expecting: %w[check --severity-level error])
+    cli = mock_cli(expecting: %w[check --severity-level=error])
 
     setup_rake_tasks!(cli)
 
-    Rake::Task["steep:check"].invoke("--severity-level", "error")
+    Rake::Task["steep:check"].invoke("--severity-level=error")
   end
 
   def test_help_task
