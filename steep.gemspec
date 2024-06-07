@@ -18,8 +18,11 @@ Gem::Specification.new do |spec|
   spec.metadata["source_code_uri"] = "https://github.com/soutaro/steep"
   spec.metadata["changelog_uri"] = "https://github.com/soutaro/steep/blob/master/CHANGELOG.md"
 
+  skip_dirs = %w(test spec features smoke sig gemfile_steep .github .vscode)
+  skip_files = %w(Gemfile Gemfile.lock rbs_collection.steep.yaml rbs_collection.steep.lock.yaml)
+
   spec.files         = `git ls-files -z`.split("\x0").reject {|f|
-    f.match(%r{^(test|spec|features|smoke|sig)/})
+    skip_dirs.any? {|dir| f.start_with?(dir + File::SEPARATOR) } || skip_files.include?(f)
   }
 
   spec.bindir        = "exe"
