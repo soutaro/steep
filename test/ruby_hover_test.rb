@@ -472,6 +472,43 @@ RUBY
     end
   end
 
+  def test_rescue
+    in_tmpdir do
+      service = typecheck_service()
+      service.update(
+        changes: {
+          Pathname("hello.rb") => [ContentChange.string(<<RUBY)]
+class Hello
+  def do_something(x)
+    x
+  rescue StandardError => e
+    e.message
+    e
+  end
+end
+RUBY
+        }
+      ) {}
+
+      target = service.project.targets.find {|target| target.name == :lib }
+      hover = HoverProvider::Ruby.new(service: service)
+
+      hover.content_for(target: target, path: Pathname("hello.rb"), line: 5, column: 5).tap do |content|
+        assert_instance_of HoverProvider::Ruby::VariableContent, content
+        assert_equal [5, 4]...[5, 5], [content.location.line,content.location.column]...[content.location.last_line, content.location.last_column]
+        assert_equal :e, content.name
+        assert_equal "::StandardError", content.type.to_s
+      end
+
+      hover.content_for(target: target, path: Pathname("hello.rb"), line: 6, column: 5).tap do |content|
+        assert_instance_of HoverProvider::Ruby::VariableContent, content
+        assert_equal [6, 4]...[6, 5], [content.location.line,content.location.column]...[content.location.last_line, content.location.last_column]
+        assert_equal :e, content.name
+        assert_equal "::StandardError", content.type.to_s
+      end
+    end
+  end
+
   def test_type_assertion
     in_tmpdir do
       service = typecheck_service()
