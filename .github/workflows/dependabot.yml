@@ -5,13 +5,21 @@ permissions:
   pull-requests: write
   contents: write
 
+env:
+  blocker_files: steep.gemspec Gemfile gemfile_steep/Gemfile
+
 jobs:
   dependabot:
     runs-on: ubuntu-latest
     if: ${{ github.actor == 'dependabot[bot]' }}
     steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Abort if blocker files are changed
+        run: git diff --exit-code ${{ github.event.pull_request.base.sha }} ${{ github.event.pull_request.head.sha }} -- ${{ env.blocker_files }}
       - name: Enable auto-merge for Dependabot PRs
         run: gh pr merge --auto --merge "$PR_URL"
         env:
           PR_URL: ${{github.event.pull_request.html_url}}
-          GITHUB_TOKEN: ${{secrets.GITHUB_TOKEN}}
