@@ -1,5 +1,48 @@
 # CHANGELOG
 
+## 1.7.0 (2024-06-07)
+
+### Type checker core
+
+* Implement untyped function params ([#1101](https://github.com/soutaro/steep/pull/1101))
+* Fix method call type narrowing with`||` operator ([#1085](https://github.com/soutaro/steep/pull/1085))
+* Refactor `Interface::Builder` ([#1081](https://github.com/soutaro/steep/pull/1081))
+* Fix UnexpectedError with unnamed arguments  ([#1041](https://github.com/soutaro/steep/pull/1041))
+* Abort if subtyping fails to (possible) infinite loop ([#1055](https://github.com/soutaro/steep/pull/1055))
+* Ignore diagnostics by `steep:ignore` comment ([#1034](https://github.com/soutaro/steep/pull/1034))
+* Make defined? accept any type ([#1031](https://github.com/soutaro/steep/pull/1031))
+* Refactor case-when syntax ([#999](https://github.com/soutaro/steep/pull/999))
+* Update `Steep::Subtyping::Check#check` types ([#972](https://github.com/soutaro/steep/pull/972))
+
+### Commandline tool
+
+* Improve wildcard handling in pattern matching for directory paths ([#1121](https://github.com/soutaro/steep/pull/1121))
+* Fix issue with wildcard expansion in FileLoader ([#1113](https://github.com/soutaro/steep/pull/1113))
+* Avoid unnecessary calling `RBS::Location#to_s` on debug log ([#1092](https://github.com/soutaro/steep/pull/1092))
+* Better recovery from collection problems ([#987](https://github.com/soutaro/steep/pull/987))
+* Handle absolute path ([#975](https://github.com/soutaro/steep/pull/975))
+* Default to check the entire current directory when there is no `Steepfile` ([#968](https://github.com/soutaro/steep/pull/968))
+
+### Language server
+
+* Fix variable untyped hover issue in rescue clause ([#1147](https://github.com/soutaro/steep/pull/1147))
+* Handle `$/file/reset` request in interaction worker ([#1122](https://github.com/soutaro/steep/pull/1122))
+* Skip pending UI jobs ([#1035](https://github.com/soutaro/steep/pull/1035))
+* Fix no method error ([#1040](https://github.com/soutaro/steep/pull/1040))
+* Implement completion for comments ([#1039](https://github.com/soutaro/steep/pull/1039))
+* Fix signature help ([#1038](https://github.com/soutaro/steep/pull/1038))
+
+### Miscellaneous
+
+* Revise rake tasks ([#1156](https://github.com/soutaro/steep/pull/1156))
+* Update `steep.gemspec` ([#1155](https://github.com/soutaro/steep/pull/1155))
+* Add `Steep::RakeTask` ([#995](https://github.com/soutaro/steep/pull/995))
+* Stop to distribute sig dir ([#1144](https://github.com/soutaro/steep/pull/1144))
+* Update gem-rbs-collection.md ([#1127](https://github.com/soutaro/steep/pull/1127))
+* Add shape docs ([#1089](https://github.com/soutaro/steep/pull/1089))
+* Ignore smoke tests when packaging gem ([#962](https://github.com/soutaro/steep/pull/962))
+* Fix setup for Ruby 3.3 ([#1000](https://github.com/soutaro/steep/pull/1000))
+
 ## master
 
 ## 1.6.0 (2023-11-09)
