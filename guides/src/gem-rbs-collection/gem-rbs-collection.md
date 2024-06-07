@@ -12,30 +12,13 @@ Run rbs-collection-init to start setup.
 $ rbs collection init
 ```
 
-You have to edit the generated `rbs_collection.yaml` file. Add a few lines under gems section.
+You have to edit your `Gemfile`. Specify `require: false` for gems for which you do not want type definitions.
 
-```yaml
-# Download sources
-sources:
-  - name: ruby/gem_rbs_collection
-    remote: https://github.com/ruby/gem_rbs_collection.git
-    revision: main
-    repo_dir: gems
-
-# A directory to install the downloaded RBSs
-path: .gem_rbs_collection
-
-gems:
-  # Skip loading rbs gem's RBS.
-  # It's unnecessary if you don't use rbs as a library.
-  - name: rbs
-    ignore: true
-  - name: steep
-    ignore: true
-  - name: rbs_rails     # Add these lines if you use rbs_rails
-    ignore: true
-  - name: rbs_protobuf  # Add these lines if you use rbs_protobuf
-    ignore: true
+```ruby
+gem 'rbs', require: false
+gem 'steep, require: false
+gem 'rbs_rails', require: false
+gem 'rbs_protobuf', require: false
 ```
 
 Once you save the file, run the install command.
