@@ -9,8 +9,6 @@ module Steep
           @class_type = class_type
           @instance_type = instance_type
           @variable_bounds = variable_bounds
-
-          validate
         end
 
         def self.empty
@@ -23,11 +21,16 @@ module Steep
           end
         end
 
-        def validate
+        def validate_self_type
           validate_fvs(:self_type, self_type)
+        end
+
+        def validate_instance_type
           validate_fvs(:instance_type, instance_type)
+        end
+
+        def validate_class_type
           validate_fvs(:class_type, class_type)
-          self
         end
 
         def validate_fvs(name, type)
@@ -37,6 +40,7 @@ module Steep
               raise "#{name} cannot include 'self' type: #{type}"
             end
             if fvs.include?(AST::Types::Instance.instance)
+              Steep.logger.fatal { "#{name} cannot include 'instance' type: #{type}" }
               raise "#{name} cannot include 'instance' type: #{type}"
             end
             if fvs.include?(AST::Types::Class.instance)
@@ -87,12 +91,15 @@ module Steep
       def raw_shape(type, config)
         case type
         when AST::Types::Self
+          config.validate_self_type
           self_type = config.self_type or raise
           self_shape(self_type, config)
         when AST::Types::Instance
+          config.validate_instance_type
           instance_type = config.instance_type or raise
           raw_shape(instance_type, config)
         when AST::Types::Class
+          config.validate_class_type
           klass_type = config.class_type or raise
           raw_shape(klass_type, config)
         when AST::Types::Name::Singleton
