@@ -5,10 +5,23 @@ module Steep
       Declarations = RBS::AST::Declarations
 
       attr_reader :checker
+      attr_reader :context
 
       def initialize(checker:)
         @checker = checker
         @errors = []
+        @context = []
+      end
+
+      def push_context(self_type: latest_context[0], class_type: latest_context[1], instance_type: latest_context[2])
+        @context.push([self_type, class_type, instance_type])
+        yield
+      ensure
+        @context.pop
+      end
+
+      def latest_context
+        context.last || [nil, nil, nil]
       end
 
       def has_error?
@@ -72,11 +85,13 @@ module Steep
 
               constraints = Subtyping::Constraints.empty
 
+              self_type, class_type, instance_type = latest_context
+
               checker.check(
                 Subtyping::Relation.new(sub_type: arg_type, super_type: upper_bound_type),
-                self_type: AST::Types::Self.instance,
-                class_type: nil,
-                instance_type: nil,
+                self_type: self_type,
+                class_type: class_type,
+                instance_type: instance_type,
                 constraints: constraints
               ).else do |result|
                 @errors << Diagnostic::Signature::UnsatisfiableTypeApplication.new(

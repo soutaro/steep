@@ -13,6 +13,14 @@ module Steep
 
       @validator: RBS::Validator?
 
+      # Stack of `self_type`, `class_type`, `instance_type` tuple
+      #
+      attr_reader context: Array[[AST::Types::t?, AST::Types::t?, AST::Types::t?]]
+
+      def latest_context: -> [AST::Types::t?, AST::Types::t?, AST::Types::t?]
+                        
+      def push_context: [T] (?self_type: AST::Types::t?, ?class_type: AST::Types::t?, ?instance_type: AST::Types::t?) { () -> T } -> T
+
       def initialize: (checker: Subtyping::Check) -> void
 
       def has_error?: () -> bool
@@ -70,7 +78,7 @@ module Steep
       #
       # 1. Make sure the outer namespace of given `name` exists
       # 2. Make sure the type alias is valid with respect to `RBS::Validator`
-      # 
+      #
       def validate_one_alias: (RBS::TypeName name, ?RBS::Environment::TypeAliasEntry entry) -> void
 
       def validate_one_class_decl: (RBS::TypeName) -> void
