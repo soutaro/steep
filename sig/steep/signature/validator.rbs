@@ -18,7 +18,7 @@ module Steep
       attr_reader context: Array[[AST::Types::t?, AST::Types::t?, AST::Types::t?]]
 
       def latest_context: -> [AST::Types::t?, AST::Types::t?, AST::Types::t?]
-                        
+
       def push_context: [T] (?self_type: AST::Types::t?, ?class_type: AST::Types::t?, ?instance_type: AST::Types::t?) { () -> T } -> T
 
       def initialize: (checker: Subtyping::Check) -> void
@@ -81,7 +81,7 @@ module Steep
       #
       def validate_one_alias: (RBS::TypeName name, ?RBS::Environment::TypeAliasEntry entry) -> void
 
-      def validate_one_class_decl: (RBS::TypeName) -> void
+      def validate_one_class_decl: (RBS::TypeName, RBS::Environment::ClassEntry | RBS::Environment::ModuleEntry) -> void
 
       def validate_one_class_alias: (RBS::TypeName, RBS::Environment::ClassAliasEntry | RBS::Environment::ModuleAliasEntry) -> void
 

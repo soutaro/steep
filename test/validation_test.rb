@@ -1156,4 +1156,27 @@ Test: SetValueExtractor[ArraySet]
       end
     end
   end
+
+  def test_validate_type_app__classish_bounded
+    with_checker <<~RBS do |checker|
+        interface _Generic[T < Object]
+        end
+
+        class Foo < BasicObject
+          class User
+            type t1 = _Generic[instance]
+            type t2 = _Generic[class]
+
+            include _Generic[class]
+            extend _Generic[instance]
+          end
+        end
+      RBS
+
+      Validator.new(checker: checker).tap do |validator|
+        validator.validate
+        assert_predicate validator.each_error.to_a, :empty?
+      end
+    end
+  end
 end

@@ -251,9 +251,16 @@ module Steep
         end
       end
 
-      def validate_one_class_decl(name)
+      def validate_one_class_decl(name, entry)
         rescue_validation_errors(name) do
           Steep.logger.debug { "Validating class definition `#{name}`..." }
+
+          class_type = AST::Types::Name::Singleton.new(name: name, location: nil)
+          instance_type = AST::Types::Name::Instance.new(
+            name: name,
+            args: entry.type_params.map { AST::Types::Any.new(location: nil) },
+            location: nil
+          )
 
           Steep.logger.tagged "#{name}" do
             builder.build_instance(name).tap do |definition|
@@ -261,15 +268,96 @@ module Steep
                 bounds[param.name] = factory.type_opt(param.upper_bound)
               end
 
-              checker.push_variable_bounds(upper_bounds) do
+              self_type = AST::Types::Name::Instance.new(
+                name: name,
+                args: entry.type_params.map { AST::Types::Var.new(name: _1.name) },
+                location: nil
+              )
+
+              push_context(self_type: self_type, class_type: class_type, instance_type: instance_type) do
+                checker.push_variable_bounds(upper_bounds) do
+                  definition.instance_variables.each do |name, var|
+                    if parent = var.parent_variable
+                      var_type = checker.factory.type(var.type)
+                      parent_type = checker.factory.type(parent.type)
+
+                      relation = Subtyping::Relation.new(sub_type: var_type, super_type: parent_type)
+                      result1 = checker.check(relation, self_type: nil, instance_type: nil, class_type: nil, constraints: Subtyping::Constraints.empty)
+                      result2 = checker.check(relation.flip, self_type: nil, instance_type: nil, class_type: nil, constraints: Subtyping::Constraints.empty)
+
+                      unless result1.success? and result2.success?
+                        @errors << Diagnostic::Signature::InstanceVariableTypeError.new(
+                          name: name,
+                          location: var.type.location,
+                          var_type: var_type,
+                          parent_type: parent_type
+                        )
+                      end
+                    end
+                  end
+
+                  ancestors = builder.ancestor_builder.one_instance_ancestors(name)
+                  mixin_constraints(definition, ancestors.included_modules || raise, immediate_self_types: ancestors.self_types).each do |relation, ancestor|
+                    checker.check(
+                      relation,
+                      self_type: AST::Types::Self.instance,
+                      instance_type: AST::Types::Instance.instance,
+                      class_type: AST::Types::Class.instance,
+                      constraints: Subtyping::Constraints.empty
+                    ).else do
+                      raise if ancestor.source.is_a?(Symbol)
+
+                      @errors << Diagnostic::Signature::ModuleSelfTypeError.new(
+                        name: name,
+                        location: ancestor.source&.location || raise,
+                        ancestor: ancestor,
+                        relation: relation
+                      )
+                    end
+                  end
+
+                  ancestors.each_ancestor do |ancestor|
+                    case ancestor
+                    when RBS::Definition::Ancestor::Instance
+                      validate_ancestor_application(name, ancestor)
+                    end
+                  end
+
+                  validate_definition_type(definition)
+                end
+              end
+            end
+
+            builder.build_singleton(name).tap do |definition|
+              entry =
+                case definition.entry
+                when RBS::Environment::ClassEntry, RBS::Environment::ModuleEntry
+                  definition.entry
+                else
+                  raise
+                end
+
+              push_context(self_type: class_type, class_type: class_type, instance_type: instance_type) do
                 definition.instance_variables.each do |name, var|
                   if parent = var.parent_variable
                     var_type = checker.factory.type(var.type)
                     parent_type = checker.factory.type(parent.type)
 
                     relation = Subtyping::Relation.new(sub_type: var_type, super_type: parent_type)
-                    result1 = checker.check(relation, self_type: nil, instance_type: nil, class_type: nil, constraints: Subtyping::Constraints.empty)
-                    result2 = checker.check(relation.flip, self_type: nil, instance_type: nil, class_type: nil, constraints: Subtyping::Constraints.empty)
+                    result1 = checker.check(
+                      relation,
+                      self_type: AST::Types::Self.instance,
+                      instance_type: AST::Types::Instance.instance,
+                      class_type: AST::Types::Class.instance,
+                      constraints: Subtyping::Constraints.empty
+                    )
+                    result2 = checker.check(
+                      relation.flip,
+                      self_type: AST::Types::Self.instance,
+                      instance_type: AST::Types::Instance.instance,
+                      class_type: AST::Types::Class.instance,
+                      constraints: Subtyping::Constraints.empty
+                    )
 
                     unless result1.success? and result2.success?
                       @errors << Diagnostic::Signature::InstanceVariableTypeError.new(
@@ -282,11 +370,32 @@ module Steep
                   end
                 end
 
-                ancestors = builder.ancestor_builder.one_instance_ancestors(name)
-                mixin_constraints(definition, ancestors.included_modules || raise, immediate_self_types: ancestors.self_types).each do |relation, ancestor|
+                definition.class_variables.each do |name, var|
+                  if var.declared_in == definition.type_name
+                    if (parent = var.parent_variable) && var.declared_in != parent.declared_in
+                      class_var = entry.decls.flat_map {|decl| decl.decl.members }.find do |member|
+                        member.is_a?(RBS::AST::Members::ClassVariable) && member.name == name
+                      end
+
+                      if class_var
+                        loc = class_var.location #: RBS::Location[untyped, untyped]?
+                        @errors << Diagnostic::Signature::ClassVariableDuplicationError.new(
+                          class_name: definition.type_name,
+                          other_class_name: parent.declared_in,
+                          variable_name: name,
+                          location: loc&.[](:name) || raise
+                        )
+                      end
+                    end
+                  end
+                end
+
+                ancestors = builder.ancestor_builder.one_singleton_ancestors(name)
+                ancestors.extended_modules or raise
+                mixin_constraints(definition, ancestors.extended_modules, immediate_self_types: ancestors.self_types).each do |relation, ancestor|
                   checker.check(
                     relation,
-                    self_type: AST::Types::Self.instance,
+                    self_type: AST::Types::Self.instance ,
                     instance_type: AST::Types::Instance.instance,
                     class_type: AST::Types::Class.instance,
                     constraints: Subtyping::Constraints.empty
@@ -301,7 +410,6 @@ module Steep
                     )
                   end
                 end
-
                 ancestors.each_ancestor do |ancestor|
                   case ancestor
                   when RBS::Definition::Ancestor::Instance
@@ -312,97 +420,6 @@ module Steep
                 validate_definition_type(definition)
               end
             end
-
-            builder.build_singleton(name).tap do |definition|
-              entry =
-                case definition.entry
-                when RBS::Environment::ClassEntry, RBS::Environment::ModuleEntry
-                  definition.entry
-                else
-                  raise
-                end
-
-              definition.instance_variables.each do |name, var|
-                if parent = var.parent_variable
-                  var_type = checker.factory.type(var.type)
-                  parent_type = checker.factory.type(parent.type)
-
-                  relation = Subtyping::Relation.new(sub_type: var_type, super_type: parent_type)
-                  result1 = checker.check(
-                    relation,
-                    self_type: AST::Types::Self.instance,
-                    instance_type: AST::Types::Instance.instance,
-                    class_type: AST::Types::Class.instance,
-                    constraints: Subtyping::Constraints.empty
-                  )
-                  result2 = checker.check(
-                    relation.flip,
-                    self_type: AST::Types::Self.instance,
-                    instance_type: AST::Types::Instance.instance,
-                    class_type: AST::Types::Class.instance,
-                    constraints: Subtyping::Constraints.empty
-                  )
-
-                  unless result1.success? and result2.success?
-                    @errors << Diagnostic::Signature::InstanceVariableTypeError.new(
-                      name: name,
-                      location: var.type.location,
-                      var_type: var_type,
-                      parent_type: parent_type
-                    )
-                  end
-                end
-              end
-
-              definition.class_variables.each do |name, var|
-                if var.declared_in == definition.type_name
-                  if (parent = var.parent_variable) && var.declared_in != parent.declared_in
-                    class_var = entry.decls.flat_map {|decl| decl.decl.members }.find do |member|
-                      member.is_a?(RBS::AST::Members::ClassVariable) && member.name == name
-                    end
-
-                    if class_var
-                      loc = class_var.location #: RBS::Location[untyped, untyped]?
-                      @errors << Diagnostic::Signature::ClassVariableDuplicationError.new(
-                        class_name: definition.type_name,
-                        other_class_name: parent.declared_in,
-                        variable_name: name,
-                        location: loc&.[](:name) || raise
-                      )
-                    end
-                  end
-                end
-              end
-
-              ancestors = builder.ancestor_builder.one_singleton_ancestors(name)
-              ancestors.extended_modules or raise
-              mixin_constraints(definition, ancestors.extended_modules, immediate_self_types: ancestors.self_types).each do |relation, ancestor|
-                checker.check(
-                  relation,
-                  self_type: AST::Types::Self.instance ,
-                  instance_type: AST::Types::Instance.instance,
-                  class_type: AST::Types::Class.instance,
-                  constraints: Subtyping::Constraints.empty
-                ).else do
-                  raise if ancestor.source.is_a?(Symbol)
-
-                  @errors << Diagnostic::Signature::ModuleSelfTypeError.new(
-                    name: name,
-                    location: ancestor.source&.location || raise,
-                    ancestor: ancestor,
-                    relation: relation
-                  )
-                end
-              end
-              ancestors.each_ancestor do |ancestor|
-                case ancestor
-                when RBS::Definition::Ancestor::Instance
-                  validate_ancestor_application(name, ancestor)
-                end
-              end
-
-              validate_definition_type(definition)
-            end
           end
         end
       end
@@ -412,7 +429,7 @@ module Steep
 
         case entry
         when RBS::Environment::ClassEntry, RBS::Environment::ModuleEntry
-          validate_one_class_decl(name)
+          validate_one_class_decl(name, entry)
         when RBS::Environment::ClassAliasEntry, RBS::Environment::ModuleAliasEntry
           validate_one_class_alias(name, entry)
         end
@@ -468,23 +485,31 @@ module Steep
               bounds[param.name] = factory.type_opt(param.upper_bound)
             end
 
-            checker.push_variable_bounds(upper_bounds) do
-              validate_definition_type(definition)
+            self_type = AST::Types::Name::Interface.new(
+              name: name,
+              args: definition.type_params.map { AST::Types::Var.new(name: _1) },
+              location: nil
+            )
 
-              ancestors = builder.ancestor_builder.one_interface_ancestors(name)
-              ancestors.each_ancestor do |ancestor|
-                case ancestor
-                when RBS::Definition::Ancestor::Instance
-                  # Interface ancestor cannot be other than Interface
-                  ancestor.source.is_a?(Symbol) and raise
+            push_context(self_type: self_type, class_type: nil, instance_type: nil) do
+              checker.push_variable_bounds(upper_bounds) do
+                validate_definition_type(definition)
 
-                  defn = builder.build_interface(ancestor.name)
-                  validate_type_application_constraints(
-                    ancestor.name,
-                    defn.type_params_decl,
-                    ancestor.args,
-                    location: ancestor.source&.location || raise
-                  )
+                ancestors = builder.ancestor_builder.one_interface_ancestors(name)
+                ancestors.each_ancestor do |ancestor|
+                  case ancestor
+                  when RBS::Definition::Ancestor::Instance
+                    # Interface ancestor cannot be other than Interface
+                    ancestor.source.is_a?(Symbol) and raise
+
+                    defn = builder.build_interface(ancestor.name)
+                    validate_type_application_constraints(
+                      ancestor.name,
+                      defn.type_params_decl,
+                      ancestor.args,
+                      location: ancestor.source&.location || raise
+                    )
+                  end
                 end
               end
             end
@@ -534,21 +559,33 @@ module Steep
       end
 
       def validate_one_alias(name, entry = env.type_alias_decls[name])
-        rescue_validation_errors(name) do
-          Steep.logger.debug "Validating alias `#{name}`..."
+        *, inner_most_outer_module = entry.outer
+        if inner_most_outer_module
+          class_type = AST::Types::Name::Singleton.new(name: inner_most_outer_module.name, location: nil)
+          instance_type = AST::Types::Name::Instance.new(
+            name: inner_most_outer_module.name,
+            args: inner_most_outer_module.type_params.map { AST::Types::Any.new(location: nil) },
+            location: nil
+          )
+        end
 
-          unless name.namespace.empty?
-            outer = name.namespace.to_type_name
-            builder.validate_type_name(outer, entry.decl.location&.aref(:name))
-          end
+        push_context(class_type: class_type, instance_type: instance_type, self_type: nil) do
+          rescue_validation_errors(name) do
+            Steep.logger.debug "Validating alias `#{name}`..."
 
-          upper_bounds = entry.decl.type_params.each.with_object({}) do |param, bounds|
-            bounds[param.name] = factory.type_opt(param.upper_bound)
-          end
+            unless name.namespace.empty?
+              outer = name.namespace.to_type_name
+              builder.validate_type_name(outer, entry.decl.location&.aref(:name))
+            end
 
-          validator.validate_type_alias(entry: entry) do |type|
-            checker.push_variable_bounds(upper_bounds) do
-              validate_type(entry.decl.type)
+            upper_bounds = entry.decl.type_params.each.with_object({}) do |param, bounds|
+              bounds[param.name] = factory.type_opt(param.upper_bound)
+            end
+
+            validator.validate_type_alias(entry: entry) do |type|
+              checker.push_variable_bounds(upper_bounds) do
+                validate_type(entry.decl.type)
+              end
             end
           end
         end
