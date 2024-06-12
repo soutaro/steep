@@ -21,3 +21,5 @@ gems:
   - name: csv
   - name: pathname
   - name: securerandom
+  - name: ffi
+    ignore: true

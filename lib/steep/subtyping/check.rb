@@ -798,33 +798,37 @@ module Steep
       end
 
       def check_method_type(name, relation)
-        relation.method!
+        Steep.logger.tagged "#{name} : #{relation.sub_type} <: #{relation.super_type}" do
+          relation.method!
 
-        sub_type, super_type = relation
+          sub_type, super_type = relation
 
-        sub_type.type_params.empty? or raise "Expected monomorphic method type: #{sub_type}"
-        super_type.type_params.empty? or raise "Expected monomorphic method type: #{super_type}"
+          sub_type.type_params.empty? or raise "Expected monomorphic method type: #{sub_type}"
+          super_type.type_params.empty? or raise "Expected monomorphic method type: #{super_type}"
 
-        All(relation) do |result|
-          type_relation = Relation.new(sub_type: sub_type.type, super_type: super_type.type)
+          All(relation) do |result|
+            type_relation = Relation.new(sub_type: sub_type.type, super_type: super_type.type)
 
-          ret = expand_block_given(name, Relation.new(sub_type: sub_type.block, super_type: super_type.block))
+            ret = expand_block_given(name, Relation.new(sub_type: sub_type.block, super_type: super_type.block))
 
-          case ret
-          when true
-            result.add(type_relation) { check_function(name, type_relation) }
-          when Relation
-            result.add(type_relation) { check_function(name, type_relation) }
-            result.add(ret) do
-              All(ret) do |result|
-                result.add_result(check_self_type_binding(ret, ret.super_type.self_type, ret.sub_type.self_type))
-                result.add(Relation(ret.super_type.type, ret.sub_type.type)) do |block_relation|
-                  check_function(name, block_relation)
+            case ret
+            when true
+              result.add(type_relation) { check_function(name, type_relation) }
+            when Relation
+              result.add(type_relation) { check_function(name, type_relation) }
+              result.add(ret) do
+                All(ret) do |result|
+                  result.add_result(check_self_type_binding(ret, ret.super_type.self_type, ret.sub_type.self_type))
+                  result.add(Relation(ret.super_type.type, ret.sub_type.type)) do |block_relation|
+                    check_function(name, block_relation)
+                  end
                 end
               end
+            when Result::Failure
+              result.add(ret.relation) { ret }
+            end.tap do |ret|
+              Steep.logger.debug "result=#{ret.class}"
             end
-          when Result::Failure
-            result.add(ret.relation) { ret }
           end
         end
       end

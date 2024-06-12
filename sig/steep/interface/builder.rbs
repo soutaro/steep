@@ -28,9 +28,16 @@ module Steep
 
         def upper_bound: (Symbol) -> AST::Types::t?
 
-        private
+        # Validates `self_type` attribute, and raises an error if it's not valid
+        def validate_self_type: () -> void
 
-        def validate: () -> self
+        # Validates `instance_type` attribute, and raises an error if it's not valid
+        def validate_instance_type: () -> void
+
+        # Validates `class_type` attribute, and raises an error if it's not valid
+        def validate_class_type: () -> void
+
+        private
 
         def validate_fvs: (Symbol name, AST::Types::t?) -> void
       end
