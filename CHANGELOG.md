@@ -1,5 +1,11 @@
 # CHANGELOG
 
+## 1.7.1 (2024-06-12)
+
+### Type checker core
+
+* Fix subtyping issues ([#1165](https://github.com/soutaro/steep/pull/1165))
+
 ## 1.7.0 (2024-06-07)
 
 ### Type checker core
