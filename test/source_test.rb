@@ -574,25 +574,25 @@ t = [10, ""]
   end
 
   def test_assertion_class_module_names
-      with_factory do |factory|
-        source = Steep::Source.parse(<<~RUBY, path: Pathname("foo.rb"), factory: factory)
-          class Foo # : Integer
-          end
-          module Bar # : nil
-          end
-        RUBY
-
-        source.node.children[0].tap do |node|
-          assert_equal :class, node.type
-          assert_equal :const, node.children[0].type
+    with_factory do |factory|
+      source = Steep::Source.parse(<<~RUBY, path: Pathname("foo.rb"), factory: factory)
+        class Foo # : Integer
         end
-
-        source.node.children[1].tap do |node|
-          assert_equal :module, node.type
-          assert_equal :const, node.children[0].type
+        module Bar # : nil
         end
+      RUBY
+
+      source.node.children[0].tap do |node|
+        assert_equal :class, node.type
+        assert_equal :const, node.children[0].type
+      end
+
+      source.node.children[1].tap do |node|
+        assert_equal :module, node.type
+        assert_equal :const, node.children[0].type
       end
     end
+  end
 
   def test_assertion_assignment
     with_factory do |factory|
@@ -668,6 +668,46 @@ next 123 #: Integer?
       source.node.children[2].tap do |node|
         assert_equal :next, node.type
         assert_equal :assertion, node.children[0].type
+      end
+    end
+  end
+
+  def test_assertion__skip
+    with_factory do |factory|
+      source = Steep::Source.parse(<<~RUBY, path: Pathname("foo.rb"), factory: factory)
+        attr_reader :foo #: String
+        attr_accessor :bar #: String
+        attr_writer :baz #: String
+      RUBY
+
+      source.node.children[0].tap do |node|
+        assert_equal :send, node.type
+      end
+      source.node.children[1].tap do |node|
+        assert_equal :send, node.type
+      end
+      source.node.children[2].tap do |node|
+        assert_equal :send, node.type
+      end
+    end
+  end
+
+  def test_assertion__no_skip
+    with_factory do |factory|
+      source = Steep::Source.parse(<<~RUBY, path: Pathname("foo.rb"), factory: factory)
+        (attr_reader :foo) #: String
+        (attr_accessor :bar) #: String
+        (attr_writer :baz) #: String
+      RUBY
+
+      source.node.children[0].tap do |node|
+        assert_equal :assertion, node.type
+      end
+      source.node.children[1].tap do |node|
+        assert_equal :assertion, node.type
+      end
+      source.node.children[2].tap do |node|
+        assert_equal :assertion, node.type
       end
     end
   end
