@@ -475,6 +475,15 @@ module Steep
               return assertion_node(node, last_comment)
             end
           else
+            if (receiver, name, * = deconstruct_send_node(node))
+              if receiver.nil?
+                if name == :attr_reader || name == :attr_writer || name == :attr_accessor
+                  child_assertions = comments.except(last_line)
+                  node = map_child_node(node) {|child| insert_type_node(child, child_assertions) }
+                  return adjust_location(node)
+                end
+              end
+            end
             child_assertions = comments.except(last_line)
             node = map_child_node(node) {|child| insert_type_node(child, child_assertions) }
             node = adjust_location(node)
