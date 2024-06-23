@@ -10864,4 +10864,25 @@ z = AppTest.new.foo(1, 2) #$ Integer, Integer, String
       end
     end
   end
+
+  def test_rational_and_complex_literal
+    with_checker(<<~RBS) do |checker|
+      RBS
+      source = parse_ruby(<<~RUBY)
+        r = 1r
+        c = 1i
+        rc = 1ri
+      RUBY
+
+      with_standard_construction(checker, source) do |construction, typing|
+        # type, _, context = construction.synthesize(source.node)
+        pair = construction.synthesize(source.node)
+
+        assert_equal parse_type("::Rational"), pair.context.type_env[:r]
+        assert_equal parse_type("::Complex"), pair.context.type_env[:c]
+        assert_equal parse_type("::Complex"), pair.context.type_env[:rc]
+        assert_no_error typing
+      end
+    end
+  end
 end
