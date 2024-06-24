@@ -1375,6 +1375,12 @@ module Steep
         when :float
           add_typing(node, type: AST::Builtin::Float.instance_type)
 
+        when :rational
+          add_typing(node, type: AST::Types::Name::Instance.new(name: TypeName("::Rational"), args: []))
+
+        when :complex
+          add_typing(node, type: AST::Types::Name::Instance.new(name: TypeName("::Complex"), args: []))
+
         when :nil
           add_typing(node, type: AST::Builtin.nil_type)
 
