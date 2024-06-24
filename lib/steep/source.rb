@@ -459,12 +459,14 @@ module Steep
           case node.type
           when :lvasgn, :ivasgn, :gvasgn, :cvasgn, :casgn
             # Skip
+          when :return, :break, :next
+            # Skip
+          when :def, :defs
+            # Skip
           when :masgn
             lhs, rhs = node.children
             node = node.updated(nil, [lhs, insert_type_node(rhs, comments)])
             return adjust_location(node)
-          when :return, :break, :next
-            # Skip
           when :begin
             location = node.loc #: Parser::Source::Map & Parser::AST::_Collection
             if location.begin
@@ -549,6 +551,21 @@ module Steep
             ]
           )
         )
+      when :def
+        name, args, body = node.children
+        assertion_location = args&.location&.expression || (_ = node.location).name
+        no_assertion_comments = comments.except(assertion_location.last_line)
+        args = insert_type_node(args, no_assertion_comments)
+        body = insert_type_node(body, comments) if body
+        return adjust_location(node.updated(nil, [name, args, body]))
+      when :defs
+        object, name, args, body = node.children
+        assertion_location = args&.location&.expression || (_ = node.location).name
+        no_assertion_comments = comments.except(assertion_location.last_line)
+        object = insert_type_node(object, no_assertion_comments)
+        args = insert_type_node(args, no_assertion_comments)
+        body = insert_type_node(body, comments) if body
+        return adjust_location(node.updated(nil, [object, name, args, body]))
       else
         adjust_location(
           map_child_node(node, nil) {|child| insert_type_node(child, comments) }
