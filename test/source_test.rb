@@ -712,6 +712,73 @@ next 123 #: Integer?
     end
   end
 
+  def test_assertion__def
+    with_factory do |factory|
+      source = Steep::Source.parse(<<~RUBY, path: Pathname("foo.rb"), factory: factory)
+        def foo(x) #: String
+        end
+
+        def bar #: void
+        end
+
+        def baz(x) = 123 #: Numeric
+      RUBY
+
+      source.node.children[0].tap do |node|
+        assert_equal :def, node.type
+        assert_equal :args, dig(node, 1).type
+        assert_equal :arg, dig(node, 1, 0).type
+        assert_nil dig(node, 2)
+      end
+      source.node.children[1].tap do |node|
+        assert_equal :def, node.type
+        assert_equal :args, dig(node, 1).type
+        assert_nil dig(node, 2)
+      end
+      source.node.children[2].tap do |node|
+        assert_equal :def, node.type
+        assert_equal :args, dig(node, 1).type
+        assert_equal :arg, dig(node, 1, 0).type
+        assert_equal :assertion, dig(node, 2).type
+      end
+    end
+  end
+
+  def test_assertion__defs
+    with_factory do |factory|
+      source = Steep::Source.parse(<<~RUBY, path: Pathname("foo.rb"), factory: factory)
+        def self.foo(x) #: String
+        end
+
+        def self.bar #: void
+        end
+
+        def self.baz(x) = 123 #: Numeric
+      RUBY
+
+      source.node.children[0].tap do |node|
+        assert_equal :defs, node.type
+        assert_equal :self, dig(node, 0).type
+        assert_equal :args, dig(node, 2).type
+        assert_equal :arg, dig(node, 2, 0).type
+        assert_nil dig(node, 3)
+      end
+      source.node.children[1].tap do |node|
+        assert_equal :defs, node.type
+        assert_equal :self, dig(node, 0).type
+        assert_equal :args, dig(node, 2).type
+        assert_nil dig(node, 3)
+      end
+      source.node.children[2].tap do |node|
+        assert_equal :defs, node.type
+        assert_equal :self, dig(node, 0).type
+        assert_equal :args, dig(node, 2).type
+        assert_equal :arg, dig(node, 2, 0).type
+        assert_equal :assertion, dig(node, 3).type
+      end
+    end
+  end
+
   def test_tapp_send
     with_factory({ Pathname("foo.rbs") => <<-RBS }) do |factory|
 class Tapp

@@ -2077,4 +2077,30 @@ class TypeCheckTest < Minitest::Test
       YAML
     )
   end
+
+  def test_args_annotation
+    run_type_check_test(
+      signatures: {
+        "a.rbs" => <<~RBS
+          class Hello
+            def foo: (String) -> Integer
+          end
+        RBS
+      },
+      code: {
+        "a.rb" => <<~RUBY
+          class Hello
+            def foo(x) #: Integer
+              3
+            end
+          end
+        RUBY
+      },
+      expectations: <<~YAML
+        ---
+        - file: a.rb
+          diagnostics: []
+      YAML
+    )
+  end
 end

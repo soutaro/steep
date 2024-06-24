@@ -94,6 +94,8 @@ module Steep
 
     def self.adjust_location: (Parser::AST::Node) -> Parser::AST::Node
 
+    # Returns an `:assertion` node with `TypeAssertion`
+    # 
     def self.assertion_node: (Parser::AST::Node, AST::Node::TypeAssertion) -> Parser::AST::Node
 
     def self.type_application_node: (Parser::AST::Node, AST::Node::TypeApplication) -> Parser::AST::Node
