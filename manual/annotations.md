@@ -142,3 +142,22 @@ This annotation tells instance variable of instance.
 
 * `@type` `instance` `ivar` *ivar* `:` *type*
 * `@type` `module` `ivar` *ivar* `:` *type*
+
+## Method Annotations
+
+Method annotations is about hinting behavior of the method.
+
+This kind of annotations should be written in the method context using annotation notation (ex. `%a{...}`) in the RBS file.
+
+Supported annotations are:
+
+* `pure`: This method is a pure method.  It means this method do not have side effects, and its return type will not be changed during the conditional block.
+
+### Example
+
+```rbs
+class Foo
+  %a{pure}
+  def foo: () -> String
+end
+```
