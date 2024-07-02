@@ -2522,6 +2522,7 @@ module Steep
           end
 
         when :alias
+          module_context.defined_instance_methods << node.children.first.children.first
           add_typing node, type: AST::Builtin.nil_type
 
         when :splat
@@ -3372,6 +3373,24 @@ module Steep
         else
           recv_type = AST::Types::Self.instance
           constr = self
+        end
+      end
+
+      if module_context && receiver.nil?
+        case method_name
+        when :attr_reader
+          arguments.each do |arg|
+            module_context.defined_instance_methods << arg.children[0]
+          end
+        when :attr_writer
+          arguments.each do |arg|
+            module_context.defined_instance_methods << "#{arg.children[0]}=".to_sym
+          end
+        when :attr_accessor
+          arguments.each do |arg|
+            module_context.defined_instance_methods << arg.children[0]
+            module_context.defined_instance_methods << "#{arg.children[0]}=".to_sym
+          end
         end
       end
 
