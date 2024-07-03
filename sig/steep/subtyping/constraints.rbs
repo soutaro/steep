@@ -2,55 +2,57 @@ module Steep
   module Subtyping
     class Constraints
       class UnsatisfiedInvariantError < StandardError
-        attr_reader constraints: untyped
+        type reason = VariablesUnknownsNotDisjoint | VariablesFreeVariablesNotDisjoint | UnknownsFreeVariableNotDisjoint
 
-        attr_reader reason: untyped
+        attr_reader constraints: Constraints
 
-        def initialize: (reason: untyped, constraints: untyped) -> void
+        attr_reader reason: reason
+
+        def initialize: (reason: reason, constraints: Constraints) -> void
 
         class VariablesUnknownsNotDisjoint
-          attr_reader vars: untyped
+          attr_reader vars: Array[Symbol]
 
-          def initialize: (vars: untyped) -> void
+          def initialize: (vars: Array[Symbol]) -> void
 
           def message: () -> ::String
         end
 
         class VariablesFreeVariablesNotDisjoint
-          attr_reader var: untyped
+          attr_reader var: Symbol
 
-          attr_reader lower_bound: untyped
+          attr_reader lower_bound: AST::Types::t?
 
-          attr_reader upper_bound: untyped
+          attr_reader upper_bound: AST::Types::t?
 
-          def initialize: (?var: untyped?, ?lower_bound: untyped?, ?upper_bound: untyped?) -> void
+          def initialize: (var: Symbol, lower_bound: AST::Types::t?, upper_bound: AST::Types::t?) -> void
 
           def message: () -> ::String
         end
 
         class UnknownsFreeVariableNotDisjoint
-          attr_reader var: untyped
+          attr_reader var: Symbol
 
-          attr_reader upper_bound: untyped
+          attr_reader upper_bound: AST::Types::t?
 
-          attr_reader lower_bound: untyped
+          attr_reader lower_bound: AST::Types::t?
 
-          def initialize: (var: untyped, lower_bound: untyped, upper_bound: untyped) -> void
+          def initialize: (var: Symbol, lower_bound: AST::Types::t?, upper_bound: AST::Types::t?) -> void
 
           def message: () -> ::String
         end
       end
 
       class UnsatisfiableConstraint < StandardError
-        attr_reader var: untyped
+        attr_reader var: Symbol
 
-        attr_reader sub_type: untyped
+        attr_reader sub_type: AST::Types::t
 
-        attr_reader super_type: untyped
+        attr_reader super_type: AST::Types::t
 
-        attr_reader result: untyped
+        attr_reader result: Result::t
 
-        def initialize: (var: untyped, sub_type: untyped, super_type: untyped, result: untyped) -> void
+        def initialize: (var: Symbol, sub_type: AST::Types::t, super_type: AST::Types::t, result: Result::t) -> void
       end
 
       class Context
@@ -75,7 +77,7 @@ module Steep
 
       def add_var: (*Symbol vars) -> void
 
-      def add: (Symbol var, ?sub_type: untyped?, ?super_type: untyped?, ?skip: bool) -> untyped
+      def add: (Symbol var, ?sub_type: AST::Types::t?, ?super_type: AST::Types::t?, ?skip: bool) -> void
 
       def eliminate_variable: (AST::Types::t `type`, to: AST::Types::t) -> AST::Types::t
 

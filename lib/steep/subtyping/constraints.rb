@@ -28,7 +28,7 @@ module Steep
           attr_reader :lower_bound
           attr_reader :upper_bound
 
-          def initialize(var: nil, lower_bound: nil, upper_bound: nil)
+          def initialize(var:, lower_bound:, upper_bound:)
             @var = var
             @lower_bound = lower_bound
             @upper_bound = upper_bound
@@ -96,7 +96,7 @@ module Steep
         unless Set.new(vars).disjoint?(unknowns)
           raise UnsatisfiedInvariantError.new(
             reason: UnsatisfiedInvariantError::VariablesUnknownsNotDisjoint.new(vars: vars),
-            constraints: constraints
+            constraints: self
           )
         end
       end
