@@ -5,7 +5,6 @@ module Steep
         type: String,
         target: String,
         path: String,
-        type: String,
         typed_calls: Integer,
         untyped_calls: Integer,
         total_calls: Integer

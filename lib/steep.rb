@@ -339,3 +339,15 @@ module GCCounter
     end
   end
 end
+
+
+
+
+# klasses = [Set]
+# klasses.each do |klass|
+#   # steep:ignore:start
+#   def klass.new(...)
+#     super
+#   end
+#   # steep:ignore:end
+# end

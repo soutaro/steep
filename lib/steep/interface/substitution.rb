@@ -82,6 +82,8 @@ module Steep
           !instance_type.is_a?(AST::Types::Instance)
         when AST::Types::Class
           !module_type.is_a?(AST::Types::Class)
+        when AST::Types::Name::Applying
+          type.args.any? {|ty| apply?(ty) }
         else
           type.each_child.any? {|t| apply?(t) }
         end

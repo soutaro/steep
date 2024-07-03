@@ -12,3 +12,8 @@ end
 gem 'minitest-slow_test'
 
 gem "debug", require: false, platform: :mri
+gem "vernier", "~> 1.0", require: false, platform: :mri
+gem "memory_profiler"
+
+gem "rbs"
+gem "majo"

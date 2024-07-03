@@ -54,6 +54,8 @@ GEM
       rb-fsevent (~> 0.10, >= 0.10.3)
       rb-inotify (~> 0.9, >= 0.9.10)
     logger (1.6.0)
+    majo (1.0.0)
+    memory_profiler (1.0.2)
     minitest (5.24.1)
     minitest-hooks (1.5.1)
       minitest (> 5.3)
@@ -86,18 +88,23 @@ GEM
     tzinfo (2.0.6)
       concurrent-ruby (~> 1.0)
     unicode-display_width (2.5.0)
+    vernier (1.1.1)
 
 PLATFORMS
   ruby
 
 DEPENDENCIES
   debug
+  majo
+  memory_profiler
   minitest (~> 5.21)
   minitest-hooks
   minitest-slow_test
   rake
+  rbs
   stackprof
   steep!
+  vernier (~> 1.0)
 
 BUNDLED WITH
    2.3.8
