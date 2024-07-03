@@ -110,13 +110,13 @@ module Steep
         begin_pos = if send_node.type != :lambda && args_node.loc.expression
                       args_node.loc.expression.end_pos
                     else
-                      node.loc.begin.end_pos
+                      node.loc.begin.end_pos # steep:ignore NoMethod
                     end
-        end_pos = node.loc.end.begin_pos
+        end_pos = node.loc.end.begin_pos # steep:ignore NoMethod
       when :numblock
         send_node, _ = node.children
-        begin_pos = node.loc.begin.end_pos
-        end_pos = node.loc.end.begin_pos
+        begin_pos = node.loc.begin.end_pos # steep:ignore NoMethod
+        end_pos = node.loc.end.begin_pos # steep:ignore NoMethod
       end
 
       begin_pos..end_pos
@@ -131,20 +131,20 @@ module Steep
                     else
                       name_node.loc.expression.end_pos
                     end
-        end_pos = node.loc.end.begin_pos
+        end_pos = node.loc.end.begin_pos # steep:ignore NoMethod
 
         add_context(begin_pos..end_pos, context: context)
 
       when :module
         name_node = node.children[0]
         begin_pos = name_node.loc.expression.end_pos
-        end_pos = node.loc.end.begin_pos
+        end_pos = node.loc.end.begin_pos # steep:ignore NoMethod
         add_context(begin_pos..end_pos, context: context)
 
       when :sclass
         name_node = node.children[0]
         begin_pos = name_node.loc.expression.end_pos
-        end_pos = node.loc.end.begin_pos
+        end_pos = node.loc.end.begin_pos # steep:ignore NoMethod
         add_context(begin_pos..end_pos, context: context)
 
       when :def, :defs
@@ -159,20 +159,20 @@ module Steep
 
           body_begin_pos =
             case
-            when node.loc.assignment
+            when node.loc.assignment # steep:ignore NoMethod
               # endless def
-              node.loc.assignment.end_pos
+              node.loc.assignment.end_pos # steep:ignore NoMethod
             when args_node.loc.expression
               # with args
               args_node.loc.expression.end_pos
             else
               # without args
-              node.loc.name.end_pos
+              node.loc.name.end_pos # steep:ignore NoMethod
             end
 
           body_end_pos =
-            if node.loc.end
-              node.loc.end.begin_pos
+            if node.loc.end # steep:ignore NoMethod
+              node.loc.end.begin_pos # steep:ignore NoMethod
             else
               node.loc.expression.end_pos
             end
@@ -188,7 +188,7 @@ module Steep
         _, collection, _ = node.children
 
         begin_pos = collection.loc.expression.end_pos
-        end_pos = node.loc.end.begin_pos
+        end_pos = node.loc.end.begin_pos # steep:ignore NoMethod
 
         add_context(begin_pos..end_pos, context: context)
       else
@@ -202,6 +202,7 @@ module Steep
     end
 
     def dump(io)
+      # steep:ignore:start
       io.puts "Typing: "
       nodes.each_value do |node|
         io.puts "  #{Typing.summary(node)} => #{type_of(node: node).inspect}"
@@ -211,6 +212,7 @@ module Steep
       errors.each do |error|
         io.puts "  #{Typing.summary(error.node)} => #{error.inspect}"
       end
+      # steep:ignore:end
     end
 
     def self.summary(node)

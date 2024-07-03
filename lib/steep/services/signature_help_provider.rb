@@ -11,7 +11,7 @@ module Steep
             arguments = [] #: Array[String]
             arguments.push(*method_type.type.required_positionals.map(&:to_s))
             arguments.push(*method_type.type.optional_positionals.map {|p| "?#{p}"})
-            arguments.push("*#{self.method_type.type.rest_positionals}") if method_type.type.rest_positionals
+            arguments.push("*#{method_type.type.rest_positionals}") if method_type.type.rest_positionals
             arguments.push(*method_type.type.trailing_positionals.map(&:to_s))
             arguments.push(*method_type.type.required_keywords.map {|name, param| "#{name}: #{param}" })
             arguments.push(*method_type.type.optional_keywords.map {|name, param| "?#{name}: #{param}" })
@@ -136,6 +136,7 @@ module Steep
 
       def active_parameter_for(method_type, argument_nodes, last_argument_nodes, node)
         return unless method_type
+        return unless method_type.type.is_a?(RBS::Types::Function)
 
         positionals = method_type.type.required_positionals.size + method_type.type.optional_positionals.size + (method_type.type.rest_positionals ? 1 : 0) + method_type.type.trailing_positionals.size
 

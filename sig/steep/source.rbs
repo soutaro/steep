@@ -40,7 +40,7 @@ module Steep
 
     def self.map_child_node: (Parser::AST::Node node, ?Symbol? type, ?skip: Set[Parser::AST::Node]?) { (Parser::AST::Node) -> Parser::AST::Node } -> Parser::AST::Node
 
-    def annotations: (block: Parser::AST::Node, factory: AST::Types::Factory, context: RBS::Resolver::context) -> AST::Annotation::Collection
+    def annotations: (block: Parser::AST::Node?, factory: AST::Types::Factory, context: RBS::Resolver::context) -> AST::Annotation::Collection
 
     def each_annotation: () { ([Parser::AST::Node, Array[AST::Annotation::t]]) -> void } -> void
                        | () -> Enumerator[[Parser::AST::Node, Array[AST::Annotation::t]], void]
@@ -95,7 +95,7 @@ module Steep
     def self.adjust_location: (Parser::AST::Node) -> Parser::AST::Node
 
     # Returns an `:assertion` node with `TypeAssertion`
-    # 
+    #
     def self.assertion_node: (Parser::AST::Node, AST::Node::TypeAssertion) -> Parser::AST::Node
 
     def self.type_application_node: (Parser::AST::Node, AST::Node::TypeApplication) -> Parser::AST::Node

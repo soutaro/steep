@@ -295,8 +295,14 @@ module Steep
     end
 
     def annotations(block:, factory:, context:)
+      annotations =
+        if block
+          mapping.fetch(block, [])
+        else
+          []
+        end #: Array[AST::Annotation::t]
       AST::Annotation::Collection.new(
-        annotations: (mapping[block] || []),
+        annotations: annotations,
         factory: factory,
         context: context
       )

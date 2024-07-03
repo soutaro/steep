@@ -121,14 +121,24 @@ module Steep
               context = typing.context_at(line: line, column: column)
               var_type = context.type_env[var_name] || AST::Types::Any.new(location: nil)
 
-              return VariableContent.new(node: node, name: var_name, type: var_type, location: node.location.name)
+              return VariableContent.new(
+                node: node,
+                name: var_name,
+                type: var_type,
+                location: node.location.name # steep:ignore NoMethod
+              )
 
             when :lvasgn
               var_name, rhs = node.children
               context = typing.context_at(line: line, column: column)
               type = context.type_env[var_name] || typing.type_of(node: node)
 
-              return VariableContent.new(node: node, name: var_name, type: type, location: node.location.name)
+              return VariableContent.new(
+                node: node,
+                name: var_name,
+                type: type,
+                location: node.location.name # steep:ignore NoMethod
+              )
 
             when :send, :csend
               result_node =
@@ -149,7 +159,7 @@ module Steep
                   return MethodCallContent.new(
                     node: result_node,
                     method_call: call,
-                    location: node.location.selector
+                    location: node.location.selector # steep:ignore NoMethod
                   )
                 end
               end
@@ -159,13 +169,15 @@ module Steep
               method_context = context.method_context
 
               if method_context && method_context.method
-                return DefinitionContent.new(
-                  node: node,
-                  method_name: method_name_from_method(method_context, builder: context.factory.definition_builder),
-                  method_type: method_context.method_type,
-                  definition: method_context.method,
-                  location: node.loc.name
-                )
+                if method_context.method_type
+                  return DefinitionContent.new(
+                    node: node,
+                    method_name: method_name_from_method(method_context, builder: context.factory.definition_builder),
+                    method_type: method_context.method_type,
+                    definition: method_context.method,
+                    location: node.loc.name # steep:ignore NoMethod
+                  )
+                end
               end
 
             when :const, :casgn
@@ -178,7 +190,7 @@ module Steep
                 entry = context.env.constant_entry(const_name) or return
 
                 return ConstantContent.new(
-                  location: node.location.name,
+                  location: node.location.name, # steep:ignore NoMethod
                   full_name: const_name,
                   type: type,
                   decl: entry

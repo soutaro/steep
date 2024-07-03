@@ -745,7 +745,12 @@ module Steep
                   kwargs = argument_nodes.find { |arg| arg.type == :kwargs }&.children || []
                   used_kwargs = kwargs.filter_map { |arg| arg.type == :pair && arg.children.first.children.first }
 
-                  kwargs = defn.type.type.required_keywords.keys + defn.type.type.optional_keywords.keys
+                  if defn.type.type.is_a?(RBS::Types::UntypedFunction)
+                    kwargs = [] #: Array[Symbol]
+                  else
+                    kwargs = defn.type.type.required_keywords.keys + defn.type.type.optional_keywords.keys
+                  end
+
                   kwargs.each do |name|
                     if name.to_s.start_with?(prefix) && !used_kwargs.include?(name)
                       items << KeywordArgumentItem.new(identifier: "#{name}:", range: range)

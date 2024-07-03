@@ -173,7 +173,9 @@ module Steep
                 method: :"textDocument/publishDiagnostics",
                 params: LSP::Interface::PublishDiagnosticsParams.new(
                   uri: Steep::PathHelper.to_uri(job.path).to_s,
-                  diagnostics: diagnostics.map {|diagnostic| formatter.format(diagnostic) }.uniq
+                  diagnostics: diagnostics.map {|diagnostic|
+                    _ = formatter.format(diagnostic)
+                  }.uniq
                 )
               )
             end
@@ -191,7 +193,7 @@ module Steep
                 method: :"textDocument/publishDiagnostics",
                 params: LSP::Interface::PublishDiagnosticsParams.new(
                   uri: Steep::PathHelper.to_uri(job.path).to_s,
-                  diagnostics: diagnostics.map {|diagnostic| formatter.format(diagnostic) }.uniq.compact
+                  diagnostics: diagnostics.map {|diagnostic| _ = formatter.format(diagnostic) }.uniq.compact
                 )
               )
             end
@@ -210,7 +212,9 @@ module Steep
                 method: :"textDocument/publishDiagnostics",
                 params: LSP::Interface::PublishDiagnosticsParams.new(
                   uri: Steep::PathHelper.to_uri(job.path).to_s,
-                  diagnostics: diagnostics.map {|diagnostic| formatter.format(diagnostic) }.uniq.compact
+                  diagnostics: diagnostics.map {|diagnostic|
+                    _ = formatter.format(diagnostic)
+                  }.uniq.compact
                 )
               )
             end

@@ -1,0 +1,3 @@
+module Etc
+  def self.nprocessors: () -> Integer
+end

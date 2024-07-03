@@ -115,7 +115,7 @@ module Steep
       #
       def has_else_clause?: () -> Parser::Source::Range?
 
-      # def typing: () -> Typing
+      def typing: () -> Typing
 
       # Extract assignments
       #
