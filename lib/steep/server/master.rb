@@ -39,7 +39,7 @@ module Steep
         end
 
         def percentage
-          checked_paths.size * 100 / all_paths.size
+          checked_paths.size * 100 / total
         end
 
         def all_paths
@@ -58,7 +58,7 @@ module Steep
         end
 
         def finished?
-          unchecked_paths.empty?
+          total <= checked_paths.size
         end
 
         def unchecked_paths
