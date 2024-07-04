@@ -139,8 +139,11 @@ module Steep
 
           case service.status
           when SignatureService::SyntaxErrorStatus, SignatureService::AncestorErrorStatus
-            service.status.diagnostics.group_by {|diag| Pathname(diag.location.buffer.name) }.each do |path, diagnostics|
-              signature_diagnostics[path].push(*diagnostics)
+            service.status.diagnostics.group_by {|diag| diag.location&.buffer&.name&.to_s }.each do |path_string, diagnostics|
+              if path_string
+                path = Pathname(path_string)
+                signature_diagnostics[path].push(*diagnostics)
+              end
             end
           when SignatureService::LoadedStatus
             validation_diagnostics = signature_validation_diagnostics[target.name] || {}
@@ -230,6 +233,7 @@ module Steep
               case service.status
               when SignatureService::SyntaxErrorStatus
                 diagnostics = service.status.diagnostics.select do |diag|
+                  diag.location or raise
                   Pathname(diag.location.buffer.name) == path &&
                     (diag.is_a?(Diagnostic::Signature::SyntaxError) || diag.is_a?(Diagnostic::Signature::UnexpectedError))
                 end
@@ -239,12 +243,15 @@ module Steep
                 end
 
               when SignatureService::AncestorErrorStatus
-                diagnostics = service.status.diagnostics.select {|diag| Pathname(diag.location.buffer.name) == path }
+                diagnostics = service.status.diagnostics.select do |diag|
+                  diag.location or raise
+                  Pathname(diag.location.buffer.name) == path
+                end
                 accumulated_diagnostics.push(*diagnostics)
                 yield [path, accumulated_diagnostics]
 
               when SignatureService::LoadedStatus
-                validator = Signature::Validator.new(checker: service.current_subtyping)
+                validator = Signature::Validator.new(checker: service.current_subtyping || raise)
                 type_names = service.type_names(paths: Set[path], env: service.latest_env).to_set
 
                 unless type_names.empty?
@@ -286,7 +293,10 @@ module Steep
                   end
                 end
 
-                diagnostics = validator.each_error.select {|error| Pathname(error.location.buffer.name) == path }
+                diagnostics = validator.each_error.select do |error|
+                  error.location or raise
+                  Pathname(error.location.buffer.name) == path
+                end
                 accumulated_diagnostics.push(*diagnostics)
                 yield [path, accumulated_diagnostics]
               end
@@ -361,7 +371,7 @@ module Steep
         error = Diagnostic::Ruby::SyntaxError.new(message: exn.message, location: exn.location)
         SourceFile.with_syntax_error(path: path, content: text, error: error)
       rescue ::Parser::SyntaxError => exn
-        error = Diagnostic::Ruby::SyntaxError.new(message: exn.message, location: exn.diagnostic.location)
+        error = Diagnostic::Ruby::SyntaxError.new(message: exn.message, location: (_ = exn).diagnostic.location)
         SourceFile.with_syntax_error(path: path, content: text, error: error)
       rescue EncodingError => exn
         SourceFile.no_data(path: path, content: "")

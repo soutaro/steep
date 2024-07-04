@@ -97,6 +97,8 @@ module Steep
         def type_definition?: () -> bool
       end
 
+      attr_reader mutex: Mutex
+
       include ChangeBuffer
 
       def initialize: (

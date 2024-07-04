@@ -132,7 +132,7 @@ module Steep
         new(reader: reader, writer: writer, stderr: stderr, wait_thread: thread, name: name, index: index&.[](1))
       end
 
-      def self.start_typecheck_workers(steepfile:, args:, steep_command:, count: [Etc.nprocessors - 1, 1].max, delay_shutdown: false)
+      def self.start_typecheck_workers(steepfile:, args:, steep_command:, count: [Etc.nprocessors - 1, 1].max || raise, delay_shutdown: false)
         count.times.map do |i|
           start_worker(
             :typecheck,

@@ -162,7 +162,7 @@ module Steep
                  end
 
           loc = if send
-                  send.loc.selector.with(end_pos: send.loc.expression.end_pos)
+                  send.loc.selector.with(end_pos: send.loc.expression.end_pos) # steep:ignore NoMethod
                 else
                   node.loc.expression
                 end
@@ -213,7 +213,7 @@ module Steep
                  end
 
           loc = if send
-                  send.loc.selector.with(end_pos: send.loc.expression.end_pos)
+                  send.loc.selector.with(end_pos: send.loc.expression.end_pos) # steep:ignore NoMethod
                 else
                   node.loc.expression
                 end
@@ -287,8 +287,8 @@ module Steep
           loc = case node.type
                 when :send
                   loc = _ = nil
-                  loc ||= node.loc.operator if node.loc.respond_to?(:operator)
-                  loc ||= node.loc.selector if node.loc.respond_to?(:selector)
+                  loc ||= node.loc.operator if node.loc.respond_to?(:operator) # steep:ignore NoMethod
+                  loc ||= node.loc.selector if node.loc.respond_to?(:selector) # steep:ignore NoMethod
                   loc
                 when :block
                   node.children[0].loc.selector
@@ -463,7 +463,7 @@ module Steep
                    node.children[1]
                  when :defs
                    node.children[2]
-                 end
+                 end #: Parser::AST::Node?
           super(node: node, location: args&.loc&.expression || node.loc.name)
           @method_type = method_type
         end
@@ -668,7 +668,7 @@ module Steep
         attr_reader :name
 
         def initialize(node:, name:)
-          super(node: node, location: node.loc.name)
+          super(node: node, location: node.loc.name)  # steep:ignore NoMethod
           @name = name
         end
 

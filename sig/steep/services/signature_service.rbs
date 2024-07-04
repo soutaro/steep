@@ -142,9 +142,9 @@ module Steep
 
       def type_names: (paths: Set[Pathname], env: RBS::Environment) -> Set[RBS::TypeName]
 
-      def const_decls: (paths: Set[Pathname], env: RBS::Environment) -> Hash[RBS::TypeName, RBS::Environment::SingleEntry[RBS::TypeName, RBS::AST::Declarations::Constant]]
+      def const_decls: (paths: Set[Pathname], env: RBS::Environment) -> Hash[RBS::TypeName, RBS::Environment::ConstantEntry]
 
-      def global_decls: (paths: Set[Pathname], ?env: RBS::Environment) -> Hash[Symbol, RBS::Environment::SingleEntry[Symbol, RBS::AST::Declarations::Global]]
+      def global_decls: (paths: Set[Pathname], ?env: RBS::Environment) -> Hash[Symbol, RBS::Environment::GlobalEntry]
 
       def type_name_from_decl: (RBS::AST::Declarations::t decl, set: Set[RBS::TypeName]) -> void
 

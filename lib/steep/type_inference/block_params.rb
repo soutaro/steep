@@ -172,6 +172,9 @@ module Steep
       end
 
       def params_type0(hint:)
+        # @type var leadings: Array[AST::Types::t]
+        # @type var optionals: Array[AST::Types::t]
+        
         if hint
           case
           when leading_params.size == hint.required.size
