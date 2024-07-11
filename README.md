@@ -214,8 +214,9 @@ You can find examples in `smoke` directory.
 ## IDEs
 
 Steep implements some of the Language Server Protocol features.
-- For **VSCode** please install [the plugin](https://github.com/soutaro/steep-vscode)
-- For **SublimeText** please install [LSP](https://github.com/sublimelsp/LSP) package and follow [instructions](https://lsp.sublimetext.io/language_servers/#steep)
+- For **VSCode** please install [the plugin](https://github.com/soutaro/steep-vscode).
+- For **SublimeText** please install [LSP](https://github.com/sublimelsp/LSP) package and follow [instructions](https://lsp.sublimetext.io/language_servers/#steep).
+- For **Vim** or **Neovim** please install [ALE](https://github.com/dense-analysis/ale?tab=readme-ov-file#asynchronous-lint-engine). You may want to `let g:ale_ruby_steep_executable = 'bundle'` to use your bundled `steep` version.
 
 Other LSP supporting tools may work with Steep where it starts the server as `steep langserver`.
 
