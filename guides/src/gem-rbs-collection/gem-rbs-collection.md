@@ -16,7 +16,7 @@ You have to edit your `Gemfile`. Specify `require: false` for gems for which you
 
 ```ruby
 gem 'rbs', require: false
-gem 'steep, require: false
+gem 'steep', require: false
 gem 'rbs_rails', require: false
 gem 'rbs_protobuf', require: false
 ```
