@@ -6195,6 +6195,41 @@ e + 1
     end
   end
 
+  def test_logic_receiver_is_not_nil
+    with_checker(<<-RBS) do |checker|
+      class Object
+        def present?: () -> bool
+      end
+    RBS
+      source = parse_ruby(<<-RUBY)
+a = [1].first
+return unless a.present?
+a + 1
+
+b = [1].first
+return unless (x = b).present?
+x + 1
+
+c = [1].first
+return unless (y = c.present?)
+c + 1
+
+d = [1].first
+puts "nil!" and return unless d.present?
+d + 1
+
+e = [1].first
+nil or return unless e.present?
+e + 1
+      RUBY
+
+      with_standard_construction(checker, source) do |construction, typing|
+        construction.synthesize(source.node)
+        assert_no_error typing
+      end
+    end
+  end
+
   def test_logic_receiver_is_arg
     with_checker(<<-RBS) do |checker|
     RBS
