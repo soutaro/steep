@@ -77,6 +77,11 @@ module Steep
 
       def add_var: (*Symbol vars) -> void
 
+      # Add a constraint on type variable
+      #
+      # `skip:` is for generics upper bounds.
+      # Because the upperbound is truly a constraint which shouldn't include the result type, we have the flag.
+      #
       def add: (Symbol var, ?sub_type: AST::Types::t?, ?super_type: AST::Types::t?, ?skip: bool) -> void
 
       def eliminate_variable: (AST::Types::t `type`, to: AST::Types::t) -> AST::Types::t
@@ -88,6 +93,8 @@ module Steep
       def unknown!: (Symbol var) -> void
 
       def empty?: () -> bool
+
+      def sub_constraints: () -> Constraints
 
       def upper_bound: (Symbol var, ?skip: bool) -> AST::Types::t
 

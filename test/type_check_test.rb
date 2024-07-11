@@ -2525,4 +2525,138 @@ class TypeCheckTest < Minitest::Test
       YAML
     )
   end
+
+  def test_numeric_plus__testtest
+    run_type_check_test(
+      signatures: {
+        "a.rbs" => <<~RBS
+          class BasicObject
+            def initialize: () -> void
+          end
+
+          module Kernel : BasicObject
+          end
+
+          class Object < BasicObject
+            include Kernel
+          end
+
+          class Module
+          end
+
+          class Class < Module
+            def new: () -> untyped
+          end
+
+          class Numeric
+            def coerce: (self) -> [self, self]
+                      | (untyped) -> [Float, Float]
+
+            def to_r: () -> Rational
+
+            def to_c: () -> Complex
+          end
+
+          interface _Add[Other, Return]
+            def +: (Other) -> Return
+          end
+
+          interface _Coerce[Other, ConvertedOther, ConvertedSelf]
+            def coerce: (Other) -> [ConvertedOther, ConvertedSelf]
+          end
+
+          class Integer < Numeric
+            def coerce: ...
+
+            def +: (Integer) -> Integer
+                 | [O < _Add[S, R], S, R] (_Coerce[Integer, O, S] other) -> R
+          end
+
+          class Float < Numeric
+            def coerce: (untyped) -> [Float, Float]
+
+            def +: (Float) -> Float
+                 | (Integer) -> Float
+                 | [O < _Add[S, R], S, R] (_Coerce[Float, O, S] other) -> R
+          end
+
+          class Rational < Numeric
+            def coerce: (Integer) -> [Rational, Rational]
+                      | (Float) -> [Float, Float]
+                      | (Rational) -> [Rational, Rational]
+                      | (Complex) -> ([Rational, Rational] | [Complex, Complex])
+
+            def +: (Integer) -> Rational
+                 | (Float) -> Float
+                 | (Rational) -> Rational
+                 | [O < _Add[S, R], S, R] (_Coerce[Rational, O, S] other) -> R
+          end
+
+          class Complex < Numeric
+            def coerce: (untyped) -> [Complex, Complex]
+
+            def +: (Integer) -> Complex
+                 | (Float) -> Complex
+                 | (Rational) -> Complex
+                 | (Complex) -> Complex
+                 | [O < _Add[S, R], S, R] (_Coerce[Complex, O, S] other) -> R
+          end
+        RBS
+      },
+      nostdlib: true,
+      code: {
+        "a.rb" => <<~RUBY
+          (1 + 1).integer!
+          (1 + 1.0).float!
+          (1 + 1.to_r).rational!
+          (1 + 1.to_c).complex!
+        RUBY
+      },
+      expectations: <<~YAML
+        ---
+        - file: a.rb
+          diagnostics:
+          - range:
+              start:
+                line: 1
+                character: 8
+              end:
+                line: 1
+                character: 16
+            severity: ERROR
+            message: Type `::Integer` does not have method `integer!`
+            code: Ruby::NoMethod
+          - range:
+              start:
+                line: 2
+                character: 10
+              end:
+                line: 2
+                character: 16
+            severity: ERROR
+            message: Type `::Float` does not have method `float!`
+            code: Ruby::NoMethod
+          - range:
+              start:
+                line: 3
+                character: 1
+              end:
+                line: 3
+                character: 11
+            severity: ERROR
+            message: Type `::Rational` does not have method `rational!`
+            code: Ruby::NoMethod
+          - range:
+              start:
+                line: 4
+                character: 1
+              end:
+                line: 4
+                character: 11
+            severity: ERROR
+            message: Type `::Complex` does not have method `complex!`
+            code: Ruby::NoMethod
+      YAML
+    )
+  end
 end

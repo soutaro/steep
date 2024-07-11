@@ -1124,4 +1124,46 @@ type c = a | b
       assert_success_check(checker, "self | nil", "self | nil")
     end
   end
+
+  def test_coerce_float
+    with_checker(<<~RBS) do |checker|
+        class Float
+        end
+
+        class Integer
+        end
+
+        interface _Plus[T, S]
+          def +: (T) -> S
+        end
+
+        class Num
+          def +: (::Integer) -> ::Integer
+               | (::Float) -> ::Float
+        end
+      RBS
+
+      Subtyping::Constraints.new(unknowns: [:O, :S, :R]).tap do |constraints|
+        constraints.add(
+          :O,
+          sub_type: parse_type("::Num", checker: checker),
+          super_type: parse_type("::_Plus[S, R]", variables: [:S, :R], checker: checker)
+        )
+        constraints.add(
+          :S,
+          sub_type: parse_type("::Float", checker: checker)
+        )
+
+        variance = Subtyping::VariableVariance.new(covariants: Set[:S, :O], contravariants: Set[:T, :O])
+        constraints.solution(
+          checker,
+          variance: variance,
+          variables: [:O, :S, :R],
+          self_type: 1,
+          instance_type: 1,
+          class_type: 1
+        )
+      end
+    end
+  end
 end
