@@ -94,8 +94,8 @@ end
   def test_subst_with_skip_constraints
     with_checker do |checker|
       constraints = Subtyping::Constraints.new(unknowns: [:X])
-      constraints.add(:X, super_type: parse_type("::_Indexable[::Integer]"), skip: true)
-      constraints.add(:X, super_type: parse_type("::Array[::Integer]"), skip: false)
+      constraints.add_generics_upper_bound(:X, parse_type("::_Indexable[::Integer]"))
+      constraints.add(:X, super_type: parse_type("::Array[::Integer]"))
 
       variance = Subtyping::VariableVariance.new(covariants: Set[], contravariants: Set[])
       context = Subtyping::Constraints::Context.new(self_type: nil, instance_type: nil, class_type: nil, variance: variance)
@@ -120,25 +120,17 @@ end
         covariants: Set.new([:a, :c]),
         contravariants: Set.new([:b, :c])
       )
-
-      subst = constraints.solution(
-        checker,
-        self_type: AST::Types::Self.new,
-        instance_type: AST::Types::Instance.new,
-        class_type: AST::Types::Class.new,
-        variance: variance,
-        variables: Set.new([:a, :b])
-      )
+      context = Subtyping::Constraints::Context.new(self_type: nil, instance_type: nil, class_type: nil, variance: variance)
+      subst = Subtyping::Constraints.solve(constraints, checker, context)
 
       assert_equal string, subst[:a]
       assert_equal integer, subst[:b]
-      refute_operator subst, :key?, :c
+      assert_equal object, subst[:c]
     end
   end
 
   def test_variable_elimination
-    constraints = Subtyping::Constraints.new(unknowns: [])
-    constraints.add_var(:a, :b)
+    constraints = Subtyping::Constraints.new(unknowns: [:x])
 
     assert_equal AST::Types::Var.new(name: :x),
                  constraints.eliminate_variable(AST::Types::Var.new(name: :x), to: AST::Types::Top.new)

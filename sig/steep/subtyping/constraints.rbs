@@ -69,20 +69,21 @@ module Steep
 
       attr_reader dictionary: Hash[Symbol, [Set[AST::Types::t], Set[AST::Types::t]]]
 
-      attr_reader vars: Set[Symbol]
+      attr_reader generics_upper_bounds: Hash[Symbol, AST::Types::t]
 
       def initialize: (unknowns: _Each[Symbol]) -> void
 
       def self.empty: () -> Constraints
 
-      def add_var: (*Symbol vars) -> void
-
       # Add a constraint on type variable
       #
-      # `skip:` is for generics upper bounds.
       # Because the upperbound is truly a constraint which shouldn't include the result type, we have the flag.
       #
-      def add: (Symbol var, ?sub_type: AST::Types::t?, ?super_type: AST::Types::t?, ?skip: bool) -> void
+      def add: (Symbol var, ?sub_type: AST::Types::t?, ?super_type: AST::Types::t?) -> void
+
+      # Add a constraint on type variable as a generics upper bound
+      #
+      def add_generics_upper_bound: (Symbol var, AST::Types::t type) -> void
 
       def eliminate_variable: (AST::Types::t `type`, to: AST::Types::t) -> AST::Types::t
 
@@ -111,6 +112,9 @@ module Steep
       def self.solve: (Constraints constraints, Check, Context) -> (Interface::Substitution | UnsatisfiableConstraint)
 
       def has_constraint?: (Symbol var) -> bool
+
+      def each_unknown_variable: () { (Symbol) -> void } -> void
+                               | () -> Enumerator[Symbol, void]
 
       # Yields a tuple of variable name, its lower bound, and its upper_bound
       #

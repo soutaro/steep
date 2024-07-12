@@ -73,11 +73,11 @@ module Steep
       end
 
       attr_reader :dictionary
-      attr_reader :vars
+      attr_reader :generics_upper_bounds
 
       def initialize(unknowns:)
         @dictionary = {}
-        @vars = Set.new
+        @generics_upper_bounds = {}
 
         unknowns.each do |var|
           dictionary[var] = [Set.new, Set.new]
@@ -88,20 +88,11 @@ module Steep
         new(unknowns: [])
       end
 
-      def add_var(*vars)
-        vars.each do |var|
-          self.vars << var
-        end
-
-        unless Set.new(vars).disjoint?(unknowns)
-          raise UnsatisfiedInvariantError.new(
-            reason: UnsatisfiedInvariantError::VariablesUnknownsNotDisjoint.new(vars: vars),
-            constraints: self
-          )
-        end
+      def add_generics_upper_bound(var, type)
+        generics_upper_bounds[var] = type
       end
 
-      def add(var, sub_type: nil, super_type: nil, skip: false)
+      def add(var, sub_type: nil, super_type: nil)
         subs, supers = dictionary[var]
 
         if sub_type.is_a?(AST::Types::Logic::Base)
@@ -162,10 +153,10 @@ module Steep
             AST::Types::Intersection.build(types: types)
           end
         when AST::Types::Var
-          if vars.member?(type.name)
-            to
-          else
+          if unknown?(type.name)
             type
+          else
+            to
           end
         when AST::Types::Tuple
           AST::Types::Tuple.new(
@@ -320,6 +311,14 @@ module Steep
         constraint(var) ? true : false
       end
 
+      def each_unknown_variable(&block)
+        if block
+          dictionary.each_key(&block)
+        else
+          enum_for :each_unknown_variable
+        end
+      end
+
       def each
         if block_given?
           dictionary.each_key do |var|
@@ -332,10 +331,14 @@ module Steep
 
       def to_s
         strings = each.map do |var, lower_bound, upper_bound|
-          "#{lower_bound} <: #{var} <: #{upper_bound}"
+          if ub = generics_upper_bounds.fetch(var, nil)
+            "#{lower_bound} <: #{var} <: #{upper_bound} (<: #{ub})"
+          else
+            "#{lower_bound} <: #{var} <: #{upper_bound}"
+          end
         end
 
-        "#{unknowns.to_a.join(",")}/#{vars.to_a.join(",")} |- { #{strings.join(", ")} }"
+        "#{unknowns.to_a.join(",")} |- { #{strings.join(", ")} }"
       end
 
       def constraint(var_name)
