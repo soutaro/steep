@@ -684,14 +684,13 @@ end
       assert_equal "::String", constraints.lower_bound(:T).to_s
 
       variance = Subtyping::VariableVariance.new(covariants: Set[:T], contravariants: Set[:T])
-      s = constraints.solution(
-        checker,
+      context = Constraints::Context.new(
         variance: variance,
-        variables: Set[:T],
         self_type: parse_type("self", checker: checker),
         instance_type: parse_type("instance", checker: checker),
         class_type: parse_type("class", checker: checker)
       )
+      s = Constraints.solve(constraints, checker, context)
       assert_equal "::String", s[:T].to_s
     end
   end
@@ -1155,14 +1154,13 @@ type c = a | b
         )
 
         variance = Subtyping::VariableVariance.new(covariants: Set[:S, :O], contravariants: Set[:T, :O])
-        constraints.solution(
-          checker,
+        context = Constraints::Context.new(
           variance: variance,
-          variables: [:O, :S, :R],
           self_type: 1,
           instance_type: 1,
           class_type: 1
         )
+        assert_instance_of Interface::Substitution, Constraints.solve(constraints, checker, context)
       end
     end
   end

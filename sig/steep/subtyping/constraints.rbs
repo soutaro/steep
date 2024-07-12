@@ -96,19 +96,39 @@ module Steep
 
       def sub_constraints: () -> Constraints
 
+      # Returns the upper bound of the variable
+      #
+      # If the variable is not constrained, it returns `top` type.
+      # If `skip: true` is given, it ignores the generics upper-bound constraints.
+      #
       def upper_bound: (Symbol var, ?skip: bool) -> AST::Types::t
 
+      # Returs the lower bound of the variable
+      #
+      # If the variable is not constrained, it returns `bot` type.
+      #
       def lower_bound: (Symbol var, ?skip: bool) -> AST::Types::t
 
-      def solution: (Check checker, variables: Enumerable[AST::Types::variable], variance: VariableVariance, self_type: AST::Types::t, instance_type: AST::Types::t, class_type: AST::Types::t) -> Interface::Substitution
-                  | (Check checker, variables: Enumerable[AST::Types::variable], context: Context) -> Interface::Substitution
+      def self.solve: (Constraints constraints, Check, Context) -> (Interface::Substitution | UnsatisfiableConstraint)
 
       def has_constraint?: (Symbol var) -> bool
 
+      # Yields a tuple of variable name, its lower bound, and its upper_bound
+      #
       def each: () { ([Symbol, AST::Types::t, AST::Types::t]) -> void } -> void
               | () -> Enumerator[[Symbol, AST::Types::t, AST::Types::t], void]
 
       def to_s: () -> ::String
+
+      # Returns a constraint for the variable
+      #
+      # If the variable is not constrained, it returns `nil`.
+      # If the variable is constrained by one side, it returns the type.
+      # If the variable is constrained by both sides, it returns a pair of types -- the lower bound and the upper bound.
+      #
+      # The `skip` constraints are included in the result.
+      #
+      def constraint: (Symbol var_name) -> ([AST::Types::t, AST::Types::t] | AST::Types::t | nil)
 
       private
 

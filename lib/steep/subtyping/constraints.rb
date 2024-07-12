@@ -236,98 +236,57 @@ module Steep
 
       Context = _ = Struct.new(:variance, :self_type, :instance_type, :class_type, keyword_init: true)
 
-      def solution(checker, variance: nil, variables:, self_type: nil, instance_type: nil, class_type: nil, context: nil)
-        pp self.to_s
-        
-        if context
-          raise if variance
-          raise if self_type
-          raise if instance_type
-          raise if class_type
-
-          variance = context.variance
-          self_type = context.self_type
-          instance_type = context.instance_type
-          class_type = context.class_type
-        end
-
+      def self.solve(constraints, checker, context)
         subst = Interface::Substitution.empty
 
-        single_side_constraint_vars = [] #: Array[Symbol]
-        double_side_constraint_vars = [] #: Array[Symbol]
-        no_constraint_vars = [] #: Array[Symbol]
+        constraints.dictionary.each_key do |var|
+          constraint = constraints.constraint(var)
 
-        dictionary.each_key do |var|
-          if variables.include?(var)
-            lower_bound_types = lower_bound_types(var)
-            upper_bound_types = upper_bound_types(var)
+          case constraint
+          when Array
+            relation = Relation.new(sub_type: constraint[0], super_type: constraint[1])
 
-            case
-            when !lower_bound_types.empty? && !upper_bound_types.empty?
-              double_side_constraint_vars << var
-            when lower_bound_types.empty? && upper_bound_types.empty?
-              no_constraint_vars << var
-            else
-              single_side_constraint_vars << var
-            end
-          end
-        end
+            checker.check(relation, self_type: context.self_type, instance_type: context.instance_type, class_type: context.class_type, constraints: Constraints.empty).yield_self do |result|
+              if result.success?
+                upper_bound = constraints.upper_bound(var, skip: true)
+                lower_bound = constraints.lower_bound(var, skip: true)
 
-        single_side_constraint_vars.each do |var|
-          resolve = lower_bound(var)
-          if resolve.is_a?(AST::Types::Bot)
-            resolve = upper_bound(var)
-          end
-
-          subst.add!(var, resolve)
-        end
-
-        double_side_constraint_vars.each do |var|
-          lower = lower_bound(var).subst(subst)
-          upper = upper_bound(var).subst(subst)
-
-          relation = Relation.new(sub_type: lower, super_type: upper)
-
-          checker.check(relation, self_type: self_type, instance_type: instance_type, class_type: class_type, constraints: self).yield_self do |result|
-            if result.success?
-              upper_bound = upper_bound(var, skip: true)
-              lower_bound = lower_bound(var, skip: true)
-
-              type =
-                case
-                when variance.contravariant?(var)
-                  upper_bound
-                when variance.covariant?(var)
-                  lower_bound
-                else
-                  if lower_bound.level.join > upper_bound.level.join
+                type =
+                  case
+                  when context.variance.contravariant?(var)
                     upper_bound
-                  else
+                  when context.variance.covariant?(var)
                     lower_bound
+                  else
+                    if lower_bound.level.join > upper_bound.level.join
+                      upper_bound
+                    else
+                      lower_bound
+                    end
                   end
-                end
 
-              subst.add!(var, type)
-            else
-              raise UnsatisfiableConstraint.new(
-                var: var,
-                sub_type: result.relation.sub_type,
-                super_type: result.relation.super_type,
-                result: result
-              )
+                subst.add!(var, type)
+              else
+                return UnsatisfiableConstraint.new(
+                  var: var,
+                  sub_type: result.relation.sub_type,
+                  super_type: result.relation.super_type,
+                  result: result
+                )
+              end
             end
+          when nil
+            subst.add!(var, AST::Types::Any.new())
+          else
+            subst.add!(var, constraint)
           end
-        end
-
-        no_constraint_vars.each do |var|
-          subst.add!(var, AST::Types::Any.new)
         end
 
         subst
       end
 
       def has_constraint?(var)
-        !upper_bound_types(var).empty? || !lower_bound_types(var).empty?
+        constraint(var) ? true : false
       end
 
       def each
@@ -346,6 +305,22 @@ module Steep
         end
 
         "#{unknowns.to_a.join(",")}/#{vars.to_a.join(",")} |- { #{strings.join(", ")} }"
+      end
+
+      def constraint(var_name)
+        upper_bound = upper_bound(var_name)
+        lower_bound = lower_bound(var_name)
+
+        case
+        when upper_bound.is_a?(AST::Types::Top) && lower_bound.is_a?(AST::Types::Bot)
+          nil
+        when upper_bound.is_a?(AST::Types::Top)
+          lower_bound
+        when lower_bound.is_a?(AST::Types::Bot)
+          upper_bound
+        else
+          [lower_bound, upper_bound]
+        end
       end
 
       def lower_bound_types(var_name)
