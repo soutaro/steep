@@ -684,14 +684,13 @@ end
       assert_equal "::String", constraints.lower_bound(:T).to_s
 
       variance = Subtyping::VariableVariance.new(covariants: Set[:T], contravariants: Set[:T])
-      s = constraints.solution(
-        checker,
+      context = Constraints::Context.new(
         variance: variance,
-        variables: Set[:T],
         self_type: parse_type("self", checker: checker),
         instance_type: parse_type("instance", checker: checker),
         class_type: parse_type("class", checker: checker)
       )
+      s = Constraints.solve(constraints, checker, context)
       assert_equal "::String", s[:T].to_s
     end
   end
@@ -1124,4 +1123,72 @@ type c = a | b
       assert_success_check(checker, "self | nil", "self | nil")
     end
   end
+
+  def test_coerce_float
+    with_checker(<<~RBS) do |checker|
+        class Float
+        end
+
+        class Integer
+        end
+
+        interface _Plus[T, S]
+          def +: (T) -> S
+        end
+
+        class Num
+          def +: (::Integer) -> ::Integer
+               | (::Float) -> ::Float
+        end
+      RBS
+
+      Subtyping::Constraints.new(unknowns: [:O, :S, :R]).tap do |constraints|
+        constraints.add(
+          :O,
+          sub_type: parse_type("::Num", checker: checker),
+          super_type: parse_type("::_Plus[S, R]", variables: [:S, :R], checker: checker)
+        )
+        constraints.add(
+          :S,
+          sub_type: parse_type("::Float", checker: checker)
+        )
+
+        variance = Subtyping::VariableVariance.new(covariants: Set[:S, :O], contravariants: Set[:T, :O])
+        context = Constraints::Context.new(variance: variance, self_type: 1, instance_type: 1, class_type: 1)
+        solution = Constraints.solve(constraints, checker, context)
+        assert_instance_of Interface::Substitution, solution
+        pp solution.to_s
+      end
+    end
+  end
+
+  # def test_bounded_method_parameter
+  #   with_checker(<<~RBS) do |checker|
+  #       class Foo < Object
+  #       end
+
+  #       class Bar < Foo
+  #       end
+  #     RBS
+
+  #     Subtyping::Constraints.new(unknowns: [:X]).tap do |constraints|
+  #       constraints.add(
+  #         :X,
+  #         super_type: parse_type("::Foo", checker: checker),
+  #         skip: true
+  #       )
+  #       constraints.add(
+  #         :X,
+  #         sub_type: parse_type("::Bar", checker: checker)
+  #       )
+
+  #       variance = Subtyping::VariableVariance.new(covariants: Set[:X], contravariants: Set[:X])
+  #       context = Constraints::Context.new(variance: variance, self_type: 1, instance_type: 1, class_type: 1)
+
+  #       solution = Constraints.solve(constraints, checker, context)
+  #       assert_instance_of Interface::Substitution, solution
+  #       pp solution.to_s
+  #     end
+  #   end
+  # end
 end

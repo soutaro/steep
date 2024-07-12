@@ -7,41 +7,6 @@ class ConstraintsTest < Minitest::Test
   include FactoryHelper
   include SubtypingHelper
 
-  BUILTIN = <<-EOB
-class BasicObject
-end
-
-class Object < BasicObject
-  def class: () -> class
-end
-
-class Class
-  def new: (*untyped) -> untyped
-end
-
-class Module
-end
-
-class String
-  def to_str: -> String
-  def self.try_convert: (untyped) -> String
-end
-
-class Integer
-  def to_int: -> Integer
-  def self.sqrt: (Integer) -> Integer
-end
-
-class Array[A]
-  def []: (Integer) -> A
-  def []=: (Integer, A) -> A
-end
-
-interface _Indexable[T]
-  def []: (Integer) -> T
-end
-  EOB
-
   def test_bounds
     with_factory do
       constraints = Subtyping::Constraints.new(unknowns: [:a, :b, :c])
@@ -82,14 +47,8 @@ end
         contravariants: Set.new([:b, :c])
       )
 
-      subst = constraints.solution(
-        checker,
-        self_type: AST::Types::Self.new,
-        instance_type: AST::Types::Instance.new,
-        class_type: AST::Types::Class.new,
-        variance: variance,
-        variables: Set.new([:a, :b, :c])
-      )
+      context = Subtyping::Constraints::Context.new(self_type: nil, instance_type: nil, class_type: nil, variance: variance)
+      subst = Subtyping::Constraints.solve(constraints, checker, context)
 
       assert_equal string, subst[:a]
       assert_equal integer, subst[:b]
@@ -97,22 +56,19 @@ end
     end
   end
 
-  def test_subst_with_skip_constraints
-    with_checker do |checker|
+  def test_subst_with_generics_upper_bound
+    with_checker(<<~RBS) do |checker|
+        interface _Indexable[T]
+          def []: (Integer) -> T
+        end
+      RBS
       constraints = Subtyping::Constraints.new(unknowns: [:X])
-      constraints.add(:X, super_type: parse_type("::_Indexable[::Integer]"), skip: true)
-      constraints.add(:X, super_type: parse_type("::Array[::Integer]"), skip: false)
+      constraints.add_generics_upper_bound(:X, parse_type("::_Indexable[::Integer]"))
+      constraints.add(:X, super_type: parse_type("::Array[::Integer]"))
 
       variance = Subtyping::VariableVariance.new(covariants: Set[], contravariants: Set[])
-
-      subst = constraints.solution(
-        checker,
-        self_type: AST::Types::Self.new,
-        instance_type: AST::Types::Instance.new,
-        class_type: AST::Types::Class.new,
-        variance: variance,
-        variables: Set[:X]
-      )
+      context = Subtyping::Constraints::Context.new(self_type: nil, instance_type: nil, class_type: nil, variance: variance)
+      subst = Subtyping::Constraints.solve(constraints, checker, context)
 
       assert_equal parse_type("::Array[::Integer]"), subst[:X]
     end
@@ -133,25 +89,17 @@ end
         covariants: Set.new([:a, :c]),
         contravariants: Set.new([:b, :c])
       )
-
-      subst = constraints.solution(
-        checker,
-        self_type: AST::Types::Self.new,
-        instance_type: AST::Types::Instance.new,
-        class_type: AST::Types::Class.new,
-        variance: variance,
-        variables: Set.new([:a, :b])
-      )
+      context = Subtyping::Constraints::Context.new(self_type: nil, instance_type: nil, class_type: nil, variance: variance)
+      subst = Subtyping::Constraints.solve(constraints, checker, context)
 
       assert_equal string, subst[:a]
       assert_equal integer, subst[:b]
-      refute_operator subst, :key?, :c
+      assert_equal object, subst[:c]
     end
   end
 
   def test_variable_elimination
-    constraints = Subtyping::Constraints.new(unknowns: [])
-    constraints.add_var(:a, :b)
+    constraints = Subtyping::Constraints.new(unknowns: [:x])
 
     assert_equal AST::Types::Var.new(name: :x),
                  constraints.eliminate_variable(AST::Types::Var.new(name: :x), to: AST::Types::Top.new)
@@ -174,5 +122,63 @@ end
                  constraints.eliminate_variable(AST::Types::Name::Instance.new(name: TypeName("::String"),
                                                                                args: [AST::Types::Var.new(name: :a)]),
                                                 to: AST::Types::Top.new)
+  end
+
+  def test_solve__with_nested_type_variable
+    with_checker(<<~RBS) do |checker|
+        interface _Indexable[T]
+          def []: (Integer) -> T
+        end
+      RBS
+      # { Array[Integer] <: A <: Array[B], B }
+      constraints = Subtyping::Constraints.new(unknowns: [:A, :B])
+      constraints.add(:A, sub_type: parse_type("::Array[::Integer]"), super_type: parse_type("::_Indexable[B]", variables: [:B]))
+
+      variance = Subtyping::VariableVariance.new(covariants: Set[], contravariants: Set[])
+      context = Subtyping::Constraints::Context.new(self_type: nil, instance_type: nil, class_type: nil, variance: variance)
+      subst = Subtyping::Constraints.solve(constraints, checker, context)
+
+      assert_instance_of Interface::Substitution, subst
+
+      assert_equal parse_type("::Array[::Integer]"), subst[:A]
+      assert_equal parse_type("::Integer"), subst[:B]
+    end
+  end
+
+  def test_solve__with_nested_type_variable__generics_upper_bound
+    with_checker(<<~RBS) do |checker|
+        interface _Indexable[T]
+          def []: (Integer) -> T
+        end
+      RBS
+
+      constraints = Subtyping::Constraints.new(unknowns: [:A, :B])
+      constraints.add(:A, sub_type: parse_type("::Array[::Integer]"))
+      constraints.add_generics_upper_bound(:A, parse_type("::_Indexable[B]", variables: [:B]))
+
+      variance = Subtyping::VariableVariance.new(covariants: Set[], contravariants: Set[])
+      context = Subtyping::Constraints::Context.new(self_type: nil, instance_type: nil, class_type: nil, variance: variance)
+      subst = Subtyping::Constraints.solve(constraints, checker, context)
+
+      assert_instance_of Interface::Substitution, subst
+
+      assert_equal parse_type("::Array[::Integer]"), subst[:A]
+      assert_equal parse_type("::Integer"), subst[:B]
+    end
+  end
+
+  def test_solve__fail_by_generics_upper_bound
+    with_checker(<<~RBS) do |checker|
+      RBS
+      constraints = Subtyping::Constraints.new(unknowns: [:A, :B])
+      constraints.add(:A, sub_type: parse_type("::String"))
+      constraints.add_generics_upper_bound(:A, parse_type("::Integer"))
+
+      variance = Subtyping::VariableVariance.new(covariants: Set[], contravariants: Set[])
+      context = Subtyping::Constraints::Context.new(self_type: nil, instance_type: nil, class_type: nil, variance: variance)
+      subst = Subtyping::Constraints.solve(constraints, checker, context)
+
+      assert_instance_of Subtyping::Constraints::UnsatisfiableConstraint, subst
+    end
   end
 end

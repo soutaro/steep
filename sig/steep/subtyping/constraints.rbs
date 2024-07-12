@@ -56,7 +56,7 @@ module Steep
       end
 
       class Context
-        attr_reader variance: untyped
+        attr_reader variance: VariableVariance
 
         attr_reader self_type: AST::Types::t
 
@@ -64,20 +64,26 @@ module Steep
 
         attr_reader class_type: AST::Types::t
 
-        def initialize: (variance: untyped, self_type: AST::Types::t, instance_type: AST::Types::t, class_type: AST::Types::t) -> void
+        def initialize: (variance: VariableVariance, self_type: AST::Types::t, instance_type: AST::Types::t, class_type: AST::Types::t) -> void
       end
 
-      attr_reader dictionary: Hash[Symbol, [Set[AST::Types::t], Set[AST::Types::t], Set[AST::Types::t]]]
+      attr_reader dictionary: Hash[Symbol, [Set[AST::Types::t], Set[AST::Types::t]]]
 
-      attr_reader vars: Set[Symbol]
+      attr_reader generics_upper_bounds: Hash[Symbol, AST::Types::t]
 
       def initialize: (unknowns: _Each[Symbol]) -> void
 
       def self.empty: () -> Constraints
 
-      def add_var: (*Symbol vars) -> void
+      # Add a constraint on type variable
+      #
+      # Because the upperbound is truly a constraint which shouldn't include the result type, we have the flag.
+      #
+      def add: (Symbol var, ?sub_type: AST::Types::t?, ?super_type: AST::Types::t?) -> void
 
-      def add: (Symbol var, ?sub_type: AST::Types::t?, ?super_type: AST::Types::t?, ?skip: bool) -> void
+      # Add a constraint on type variable as a generics upper bound
+      #
+      def add_generics_upper_bound: (Symbol var, AST::Types::t type) -> void
 
       def eliminate_variable: (AST::Types::t `type`, to: AST::Types::t) -> AST::Types::t
 
@@ -89,19 +95,41 @@ module Steep
 
       def empty?: () -> bool
 
-      def upper_bound: (Symbol var, ?skip: bool) -> AST::Types::t
+      # Returns the upper bound of the variable
+      #
+      # If the variable is not constrained, it returns `top` type.
+      #
+      def upper_bound: (Symbol var) -> AST::Types::t
 
-      def lower_bound: (Symbol var, ?skip: bool) -> AST::Types::t
+      # Returs the lower bound of the variable
+      #
+      # If the variable is not constrained, it returns `bot` type.
+      #
+      def lower_bound: (Symbol var) -> AST::Types::t
 
-      def solution: (Check checker, variables: Enumerable[AST::Types::variable], variance: VariableVariance, self_type: AST::Types::t, instance_type: AST::Types::t, class_type: AST::Types::t) -> Interface::Substitution
-                  | (Check checker, variables: Enumerable[AST::Types::variable], context: Context) -> Interface::Substitution
+      def self.solve: (Constraints constraints, Check, Context) -> (Interface::Substitution | UnsatisfiableConstraint)
+
+      def self.solve!: (Constraints constraints, Check, Context) -> Interface::Substitution
 
       def has_constraint?: (Symbol var) -> bool
 
+      def each_unknown_variable: () { (Symbol) -> void } -> void
+                               | () -> Enumerator[Symbol, void]
+
+      # Yields a tuple of variable name, its lower bound, and its upper_bound
+      #
       def each: () { ([Symbol, AST::Types::t, AST::Types::t]) -> void } -> void
               | () -> Enumerator[[Symbol, AST::Types::t, AST::Types::t], void]
 
       def to_s: () -> ::String
+
+      # Returns a constraint for the variable
+      #
+      # If the variable is not constrained, it returns `nil`.
+      # If the variable is constrained by one side, it returns the type.
+      # If the variable is constrained by both sides, it returns a pair of types -- the lower bound and the upper bound.
+      #
+      def constraint: (Symbol var_name) -> (Array[Relation[AST::Types::t]] | AST::Types::t | nil)
 
       private
 

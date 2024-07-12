@@ -16,10 +16,10 @@ class TypeCheckTest < Minitest::Test
 
   include Steep
 
-  def run_type_check_test(signatures: {}, code: {}, expectations: nil)
+  def run_type_check_test(signatures: {}, code: {}, expectations: nil, nostdlib: false)
     typings = {}
 
-    with_factory(signatures, nostdlib: false) do |factory|
+    with_factory(signatures, nostdlib: nostdlib) do |factory|
       builder = Interface::Builder.new(factory)
       subtyping = Subtyping::Check.new(builder: builder)
 
@@ -2100,6 +2100,607 @@ class TypeCheckTest < Minitest::Test
         ---
         - file: a.rb
           diagnostics: []
+      YAML
+    )
+  end
+
+  def test_numeric_plus__single
+    run_type_check_test(
+      signatures: {
+        "a.rbs" => <<~RBS
+          class BasicObject
+            def initialize: () -> void
+          end
+
+          module Kernel : BasicObject
+          end
+
+          class Object < BasicObject
+            include Kernel
+          end
+
+          class Module
+          end
+
+          class Class < Module
+            def new: () -> untyped
+          end
+
+          class Numeric
+            def coerce: (self) -> [self, self]
+                      | (untyped) -> [Float, Float]
+
+            def to_r: () -> Rational
+
+            def to_c: () -> Complex
+          end
+
+          interface _Add[Other, Return]
+            def +: (Other) -> Return
+          end
+
+          interface _Coerce[Other, ConvertedOther, ConvertedSelf]
+            def coerce: (Other) -> [ConvertedOther, ConvertedSelf]
+          end
+
+          class Integer < Numeric
+            def coerce: ...
+
+            def +: (Integer) -> Integer
+                 | [O < _Add[S, R], S, R] (_Coerce[Integer, O, S] other) -> R
+          end
+
+          class Float < Numeric
+            def coerce: (untyped) -> [Float, Float]
+
+            def +: (Float) -> Float
+                 | (Integer) -> Float
+                 | [O < _Add[S, R], S, R] (_Coerce[Float, O, S] other) -> R
+          end
+
+          class Rational < Numeric
+            def coerce: (Integer) -> [Rational, Rational]
+                      | (Float) -> [Float, Float]
+                      | (Rational) -> [Rational, Rational]
+                      | (Complex) -> ([Rational, Rational] | [Complex, Complex])
+
+            def +: (Integer) -> Rational
+                 | (Float) -> Float
+                 | (Rational) -> Rational
+                 | [O < _Add[S, R], S, R] (_Coerce[Rational, O, S] other) -> R
+          end
+
+          class Complex < Numeric
+            def coerce: (untyped) -> [Complex, Complex]
+
+            def +: (Integer) -> Complex
+                 | (Float) -> Complex
+                 | (Rational) -> Complex
+                 | (Complex) -> Complex
+                 | [O < _Add[S, R], S, R] (_Coerce[Complex, O, S] other) -> R
+          end
+        RBS
+      },
+      nostdlib: true,
+      code: {
+        "a.rb" => <<~RUBY
+          (1 + 1).integer!
+          (1 + 1.0).float!
+          (1 + 1.to_r).rational!
+          (1 + 1.to_c).complex!
+
+          (1.0 + 1).float!
+          (1.0 + 1.0).float!
+          (1.0 + 1.to_r).float!
+          (1.0 + 1.to_c).complex!
+
+          (1.to_r + 1).rational!
+          (1.to_r + 1.0).float!
+          (1.to_r + 1.to_r).rational!
+          (1.to_r + 1.to_c).complex!
+
+          (1.to_c + 1).complex!
+          (1.to_c + 1.0).complex!
+          (1.to_c + 1.to_r).complex!
+          (1.to_c + 1.to_c).complex!
+        RUBY
+      },
+      expectations: <<~YAML
+        ---
+        - file: a.rb
+          diagnostics:
+          - range:
+              start:
+                line: 1
+                character: 8
+              end:
+                line: 1
+                character: 16
+            severity: ERROR
+            message: Type `::Integer` does not have method `integer!`
+            code: Ruby::NoMethod
+          - range:
+              start:
+                line: 2
+                character: 10
+              end:
+                line: 2
+                character: 16
+            severity: ERROR
+            message: Type `::Float` does not have method `float!`
+            code: Ruby::NoMethod
+          - range:
+              start:
+                line: 3
+                character: 13
+              end:
+                line: 3
+                character: 22
+            severity: ERROR
+            message: Type `::Rational` does not have method `rational!`
+            code: Ruby::NoMethod
+          - range:
+              start:
+                line: 4
+                character: 13
+              end:
+                line: 4
+                character: 21
+            severity: ERROR
+            message: Type `::Complex` does not have method `complex!`
+            code: Ruby::NoMethod
+          - range:
+              start:
+                line: 6
+                character: 10
+              end:
+                line: 6
+                character: 16
+            severity: ERROR
+            message: Type `::Float` does not have method `float!`
+            code: Ruby::NoMethod
+          - range:
+              start:
+                line: 7
+                character: 12
+              end:
+                line: 7
+                character: 18
+            severity: ERROR
+            message: Type `::Float` does not have method `float!`
+            code: Ruby::NoMethod
+          - range:
+              start:
+                line: 8
+                character: 15
+              end:
+                line: 8
+                character: 21
+            severity: ERROR
+            message: Type `::Float` does not have method `float!`
+            code: Ruby::NoMethod
+          - range:
+              start:
+                line: 9
+                character: 15
+              end:
+                line: 9
+                character: 23
+            severity: ERROR
+            message: Type `::Complex` does not have method `complex!`
+            code: Ruby::NoMethod
+          - range:
+              start:
+                line: 11
+                character: 13
+              end:
+                line: 11
+                character: 22
+            severity: ERROR
+            message: Type `::Rational` does not have method `rational!`
+            code: Ruby::NoMethod
+          - range:
+              start:
+                line: 12
+                character: 15
+              end:
+                line: 12
+                character: 21
+            severity: ERROR
+            message: Type `::Float` does not have method `float!`
+            code: Ruby::NoMethod
+          - range:
+              start:
+                line: 13
+                character: 18
+              end:
+                line: 13
+                character: 27
+            severity: ERROR
+            message: Type `::Rational` does not have method `rational!`
+            code: Ruby::NoMethod
+          - range:
+              start:
+                line: 14
+                character: 18
+              end:
+                line: 14
+                character: 26
+            severity: ERROR
+            message: Type `::Complex` does not have method `complex!`
+            code: Ruby::NoMethod
+          - range:
+              start:
+                line: 16
+                character: 13
+              end:
+                line: 16
+                character: 21
+            severity: ERROR
+            message: Type `::Complex` does not have method `complex!`
+            code: Ruby::NoMethod
+          - range:
+              start:
+                line: 17
+                character: 15
+              end:
+                line: 17
+                character: 23
+            severity: ERROR
+            message: Type `::Complex` does not have method `complex!`
+            code: Ruby::NoMethod
+          - range:
+              start:
+                line: 18
+                character: 18
+              end:
+                line: 18
+                character: 26
+            severity: ERROR
+            message: Type `::Complex` does not have method `complex!`
+            code: Ruby::NoMethod
+          - range:
+              start:
+                line: 19
+                character: 18
+              end:
+                line: 19
+                character: 26
+            severity: ERROR
+            message: Type `::Complex` does not have method `complex!`
+            code: Ruby::NoMethod
+      YAML
+    )
+  end
+
+  def test_numeric_plus__union
+    run_type_check_test(
+      signatures: {
+        "a.rbs" => <<~RBS
+          class BasicObject
+            def initialize: () -> void
+          end
+
+          module Kernel : BasicObject
+          end
+
+          class Object < BasicObject
+            include Kernel
+          end
+
+          class Module
+          end
+
+          class Class < Module
+            def new: () -> untyped
+          end
+
+          class Numeric
+            def coerce: (self) -> [self, self]
+                      | (untyped) -> [Float, Float]
+
+            def to_r: () -> Rational
+
+            def to_c: () -> Complex
+          end
+
+          interface _Add[Other, Return]
+            def +: (Other) -> Return
+          end
+
+          interface _Coerce[Other, Converted]
+            def coerce: (Other) -> [Converted, Converted]
+          end
+
+          class Integer < Numeric
+            def coerce: ...
+
+            def +: (Integer) -> Integer
+                 | [O < _Add[O, R], R] (_Coerce[self, O] other) -> R
+          end
+
+          class Float < Numeric
+            def coerce: (untyped) -> [Float, Float]
+
+            def +: (Float) -> Float
+                 | (Integer) -> Float
+                 | [O < _Add[O, R], R] (_Coerce[Float, O] other) -> R
+          end
+
+          class Rational < Numeric
+            def coerce: (Integer) -> [Rational, Rational]
+                      | (Float) -> [Float, Float]
+                      | (Rational) -> [Rational, Rational]
+                      | (Complex) -> ([Rational, Rational] | [Complex, Complex])
+
+            def +: (Integer) -> Rational
+                 | (Float) -> Float
+                 | (Rational) -> Rational
+                 | [O < _Add[S, R], S, R] (_Coerce[self, O] other) -> R
+          end
+
+          class Complex < Numeric
+            def coerce: (untyped) -> [Complex, Complex]
+
+            def +: (Integer) -> Complex
+                 | (Float) -> Complex
+                 | (Rational) -> Complex
+                 | (Complex) -> Complex
+                 | [O < _Add[S, R], S, R] (_Coerce[self, O] other) -> R
+          end
+        RBS
+      },
+      nostdlib: true,
+      code: {
+        "a.rb" => <<~RUBY
+          (
+            1 +
+              1 #: Integer | Float | Rational | Complex
+          ).type_int_float_rational_complex?
+
+          (
+            1.1 +
+              1 #: Integer | Float | Rational | Complex
+          ).type_float_or_complex?
+
+          (
+            1.to_r +
+              1 #: Integer | Float | Rational | Complex
+          ).type_float_or_rational?
+
+          (
+            1.to_c +
+              1 #: Integer | Float | Rational | Complex
+          ).type_complex?
+        RUBY
+      },
+      expectations: <<~YAML
+        ---
+        - file: a.rb
+          diagnostics:
+          - range:
+              start:
+                line: 4
+                character: 2
+              end:
+                line: 4
+                character: 34
+            severity: ERROR
+            message: Type `(::Integer | ::Float | ::Rational | ::Complex)` does not have method
+              `type_int_float_rational_complex?`
+            code: Ruby::NoMethod
+          - range:
+              start:
+                line: 9
+                character: 2
+              end:
+                line: 9
+                character: 24
+            severity: ERROR
+            message: Type `(::Float | ::Complex)` does not have method
+              `type_float_or_complex?`
+            code: Ruby::NoMethod
+          - range:
+              start:
+                line: 14
+                character: 2
+              end:
+                line: 14
+                character: 25
+            severity: ERROR
+            message: Type `(::Float | ::Rational)` does not have method
+              `type_float_or_rational?`
+            code: Ruby::NoMethod
+          - range:
+              start:
+                line: 19
+                character: 2
+              end:
+                line: 19
+                character: 15
+            severity: ERROR
+            message: Type `::Complex` does not have method
+              `type_complex?`
+            code: Ruby::NoMethod
+      YAML
+    )
+  end
+
+  def test_numeric_plus__testtest
+    run_type_check_test(
+      signatures: {
+        "a.rbs" => <<~RBS
+          class BasicObject
+            def initialize: () -> void
+          end
+
+          module Kernel : BasicObject
+          end
+
+          class Object < BasicObject
+            include Kernel
+          end
+
+          class Module
+          end
+
+          class Class < Module
+            def new: () -> untyped
+          end
+
+          class Numeric
+            def coerce: (self) -> [self, self]
+                      | (untyped) -> [Float, Float]
+
+            def to_r: () -> Rational
+
+            def to_c: () -> Complex
+          end
+
+          interface _Add[Other, Return]
+            def +: (Other) -> Return
+          end
+
+          interface _Coerce[Other, ConvertedOther, ConvertedSelf]
+            def coerce: (Other) -> [ConvertedOther, ConvertedSelf]
+          end
+
+          class Integer < Numeric
+            def coerce: ...
+
+            def +: (Integer) -> Integer
+                 | [O < _Add[S, R], S, R] (_Coerce[Integer, O, S] other) -> R
+          end
+
+          class Float < Numeric
+            def coerce: (untyped) -> [Float, Float]
+
+            def +: (Float) -> Float
+                 | (Integer) -> Float
+                 | [O < _Add[S, R], S, R] (_Coerce[Float, O, S] other) -> R
+          end
+
+          class Rational < Numeric
+            def coerce: (Integer) -> [Rational, Rational]
+                      | (Float) -> [Float, Float]
+                      | (Rational) -> [Rational, Rational]
+                      | (Complex) -> ([Rational, Rational] | [Complex, Complex])
+
+            def +: (Integer) -> Rational
+                 | (Float) -> Float
+                 | (Rational) -> Rational
+                 | [O < _Add[S, R], S, R] (_Coerce[Rational, O, S] other) -> R
+          end
+
+          class Complex < Numeric
+            def coerce: (untyped) -> [Complex, Complex]
+
+            def +: (Integer) -> Complex
+                 | (Float) -> Complex
+                 | (Rational) -> Complex
+                 | (Complex) -> Complex
+                 | [O < _Add[S, R], S, R] (_Coerce[Complex, O, S] other) -> R
+          end
+        RBS
+      },
+      nostdlib: true,
+      code: {
+        "a.rb" => <<~RUBY
+          (1 + 1).integer!
+          (1 + 1.0).float!
+          (1 + 1.to_r).rational!
+          (1 + 1.to_c).complex!
+        RUBY
+      },
+      expectations: <<~YAML
+        ---
+        - file: a.rb
+          diagnostics:
+          - range:
+              start:
+                line: 1
+                character: 8
+              end:
+                line: 1
+                character: 16
+            severity: ERROR
+            message: Type `::Integer` does not have method `integer!`
+            code: Ruby::NoMethod
+          - range:
+              start:
+                line: 2
+                character: 10
+              end:
+                line: 2
+                character: 16
+            severity: ERROR
+            message: Type `::Float` does not have method `float!`
+            code: Ruby::NoMethod
+          - range:
+              start:
+                line: 3
+                character: 1
+              end:
+                line: 3
+                character: 11
+            severity: ERROR
+            message: Type `::Rational` does not have method `rational!`
+            code: Ruby::NoMethod
+          - range:
+              start:
+                line: 4
+                character: 1
+              end:
+                line: 4
+                character: 11
+            severity: ERROR
+            message: Type `::Complex` does not have method `complex!`
+            code: Ruby::NoMethod
+      YAML
+    )
+  end
+
+  def test_generic_method_call__1
+    run_type_check_test(
+      signatures: {
+        "a.rbs" => <<~RBS
+          class Hello
+            def f: [A] () { () -> A } -> A
+          end
+        RBS
+      },
+      code: {
+        "a.rb" => <<~RUBY
+          hello = Hello.new()
+
+          a = hello.f() { 1 }
+          a.is_integer
+        RUBY
+      },
+      expectations: <<~YAML
+        ---
+        - file: a.rb
+          diagnostics:
+          - range:
+              start:
+                line: 5
+                character: 4
+              end:
+                line: 5
+                character: 7
+            severity: ERROR
+            message: Type `::String` does not have method `foo`
+            code: Ruby::NoMethod
+          - range:
+              start:
+                line: 6
+                character: 4
+              end:
+                line: 6
+                character: 7
+            severity: ERROR
+            message: Type `::Integer` does not have method `bar`
+            code: Ruby::NoMethod
       YAML
     )
   end

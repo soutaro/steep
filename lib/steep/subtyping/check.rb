@@ -783,18 +783,21 @@ module Steep
       def check_constraints(relation, variables:, variance:)
         checker = Check.new(builder: builder)
 
-        constraints.solution(
-          checker,
+        context = Constraints::Context.new(
           variance: variance,
-          variables: variables,
           self_type: self_type,
           instance_type: instance_type,
           class_type: class_type
         )
 
-        Success(relation)
-      rescue Constraints::UnsatisfiableConstraint => error
-        Failure(relation, Result::Failure::UnsatisfiedConstraints.new(error))
+        solution = Constraints.solve(constraints, checker, context)
+
+        case solution
+        when Interface::Substitution
+          Success(relation)
+        else
+          Failure(relation, Result::Failure::UnsatisfiedConstraints.new(solution))
+        end
       end
 
       def check_method_type(name, relation)
