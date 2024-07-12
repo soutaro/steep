@@ -2659,4 +2659,49 @@ class TypeCheckTest < Minitest::Test
       YAML
     )
   end
+
+  def test_generic_method_call__1
+    run_type_check_test(
+      signatures: {
+        "a.rbs" => <<~RBS
+          class Hello
+            def f: [A] () { () -> A } -> A
+          end
+        RBS
+      },
+      code: {
+        "a.rb" => <<~RUBY
+          hello = Hello.new()
+
+          a = hello.f() { 1 }
+          a.is_integer
+        RUBY
+      },
+      expectations: <<~YAML
+        ---
+        - file: a.rb
+          diagnostics:
+          - range:
+              start:
+                line: 5
+                character: 4
+              end:
+                line: 5
+                character: 7
+            severity: ERROR
+            message: Type `::String` does not have method `foo`
+            code: Ruby::NoMethod
+          - range:
+              start:
+                line: 6
+                character: 4
+              end:
+                line: 6
+                character: 7
+            severity: ERROR
+            message: Type `::Integer` does not have method `bar`
+            code: Ruby::NoMethod
+      YAML
+    )
+  end
 end

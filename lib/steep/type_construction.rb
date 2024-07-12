@@ -3928,7 +3928,7 @@ module Steep
 
       type_params.each do |param|
         if ub = param.upper_bound
-          constraints.add(param.name, super_type: ub, skip: true)
+          constraints.add_generics_upper_bound(param.name, ub)
           upper_bounds[param.name] = ub
         end
       end
@@ -3970,7 +3970,7 @@ module Steep
               if hint.free_variables.subset?(self_type.free_variables)
                 if check_relation(sub_type: method_type.type.return_type, super_type: hint, constraints: constraints).success?
                   method_type, solved, s = apply_solution(errors, node: node, method_type: method_type) do
-                    constraints.solution(checker, variables: fvs, context: ccontext)
+                    Subtyping::Constraints.solve!(constraints, checker, ccontext)
                   end
                 end
 
@@ -4043,7 +4043,7 @@ module Steep
                 fvs_.merge(method_type.type.params.free_variables) if method_type.type.params
                 fvs_.merge(method_type.block.type.params.free_variables) if method_type.block.type.params
 
-                constraints.solution(checker, variables: fvs_, context: ccontext)
+                Subtyping::Constraints.solve!(constraints, checker, ccontext)
               }
 
               method_type.block or raise
@@ -4085,7 +4085,7 @@ module Steep
                 if result.success?
                   # Successfully type checked the body
                   method_type, solved, _ = apply_solution(errors, node: node, method_type: method_type) do
-                    constraints.solution(checker, variables: type_param_names, context: ccontext)
+                    Subtyping::Constraints.solve!(constraints, checker, ccontext)
                   end
                   method_type = eliminate_vars(method_type, type_param_names) unless solved
 
@@ -4124,7 +4124,7 @@ module Steep
               )
 
               method_type, solved, _ = apply_solution(errors, node: node, method_type: method_type) {
-                constraints.solution(checker, variables: type_param_names, context: ccontext)
+                Subtyping::Constraints.solve!(constraints, checker, ccontext)
               }
               method_type = eliminate_vars(method_type, type_param_names) unless solved
 
@@ -4200,7 +4200,7 @@ module Steep
                 if nil_given
                   # nil is given ==> no block arg node is given
                   method_type, solved, _ = apply_solution(errors, node: node, method_type: method_type) {
-                    constraints.solution(checker, variables: method_type.free_variables, context: ccontext)
+                    Subtyping::Constraints.solve!(constraints, checker, ccontext)
                   }
                   method_type = eliminate_vars(method_type, type_param_names) unless solved
 
@@ -4221,14 +4221,14 @@ module Steep
                   end
 
                   method_type, solved, _ = apply_solution(errors, node: node, method_type: method_type) {
-                    constraints.solution(checker, variables: method_type.free_variables, context: ccontext)
+                    Subtyping::Constraints.solve!(constraints, checker, ccontext)
                   }
                   method_type = eliminate_vars(method_type, type_param_names) unless solved
                 end
               else
                 # Block is not given
                 method_type, solved, _ = apply_solution(errors, node: node, method_type: method_type) {
-                  constraints.solution(checker, variables: method_type.free_variables, context: ccontext)
+                  Subtyping::Constraints.solve!(constraints, checker, ccontext)
                 }
                 method_type = eliminate_vars(method_type, type_param_names) unless solved
               end
@@ -4238,7 +4238,7 @@ module Steep
             when arg.block_missing?
               # Block is required but not given
               method_type, solved, _ = apply_solution(errors, node: node, method_type: method_type) {
-                constraints.solution(checker, variables: method_type.free_variables, context: ccontext)
+                Subtyping::Constraints.solve!(constraints, checker, ccontext)
               }
 
               method_type = eliminate_vars(method_type, type_param_names) unless solved
@@ -4255,7 +4255,7 @@ module Steep
               arg.node or raise
 
               method_type, solved, _ = apply_solution(errors, node: node, method_type: method_type) {
-                constraints.solution(checker, variables: method_type.free_variables, context: ccontext)
+                Subtyping::Constraints.solve!(constraints, checker, ccontext)
               }
               method_type = eliminate_vars(method_type, type_param_names) unless solved
               return_type = method_type.type.return_type
@@ -4891,7 +4891,6 @@ module Steep
       var = AST::Types::Var.fresh(:Elem)
       array = AST::Builtin::Array.instance_type(var)
       constraints = Subtyping::Constraints.new(unknowns: [])
-      constraints.add_var(var.name)
 
       if (result = check_relation(sub_type: type, super_type: array, constraints: constraints)).success?
         context = Subtyping::Constraints::Context.new(
@@ -4900,14 +4899,7 @@ module Steep
           instance_type: module_context.instance_type,
           class_type: module_context.module_type
         )
-
-        variables = (type.free_variables + [var.name]).filter_map do |name|
-          case name
-          when Symbol
-            name
-          end
-        end
-        subst = constraints.solution(checker, variables: variables, context: context)
+        subst = Subtyping::Constraints.solve!(constraints, checker, context)
 
         type.subst(subst)
       end

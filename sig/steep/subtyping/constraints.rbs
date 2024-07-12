@@ -95,8 +95,6 @@ module Steep
 
       def empty?: () -> bool
 
-      def sub_constraints: () -> Constraints
-
       # Returns the upper bound of the variable
       #
       # If the variable is not constrained, it returns `top` type.
@@ -110,6 +108,8 @@ module Steep
       def lower_bound: (Symbol var) -> AST::Types::t
 
       def self.solve: (Constraints constraints, Check, Context) -> (Interface::Substitution | UnsatisfiableConstraint)
+
+      def self.solve!: (Constraints constraints, Check, Context) -> Interface::Substitution
 
       def has_constraint?: (Symbol var) -> bool
 
@@ -129,7 +129,7 @@ module Steep
       # If the variable is constrained by one side, it returns the type.
       # If the variable is constrained by both sides, it returns a pair of types -- the lower bound and the upper bound.
       #
-      def constraint: (Symbol var_name) -> ([AST::Types::t, AST::Types::t] | AST::Types::t | nil)
+      def constraint: (Symbol var_name) -> (Array[Relation[AST::Types::t]] | AST::Types::t | nil)
 
       private
 

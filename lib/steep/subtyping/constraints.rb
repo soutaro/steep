@@ -221,10 +221,20 @@ module Steep
 
       Context = _ = Struct.new(:variance, :self_type, :instance_type, :class_type, keyword_init: true)
 
+      def self.solve!(constraints, checker, context)
+        solution = solve(constraints, checker, context)
+
+        if solution.is_a?(Interface::Substitution)
+          solution
+        else
+          raise solution
+        end
+      end
+
       def self.solve(constraints, checker, context)
         subst = Interface::Substitution.empty
 
-        double_end_constraints = [] #: Array[Symbol]
+        double_end_constraints = {} #: Hash[Symbol, Array[Relation[AST::Types::t]]]
         no_constraints = [] #: Array[Symbol]
 
         constraints.dictionary.each_key do |var|
@@ -232,7 +242,7 @@ module Steep
 
           case constraint
           when Array
-            double_end_constraints << var
+            double_end_constraints[var] = constraint
           when nil
             no_constraints << var
           else
@@ -246,35 +256,38 @@ module Steep
           return subst.merge!(untyped_subst)
         end
 
-        additional_relations = {} #: Hash[Symbol, Relation[AST::Types::t]]
-        double_end_constraints.each do |var|
-          additional_relations[var] = Relation.new(
-            sub_type: constraints.lower_bound(var).subst(subst),
-            super_type: constraints.upper_bound(var).subst(subst)
-          )
+        additional_relations = {} #: Hash[Symbol, Array[Relation[AST::Types::t]]]
+        double_end_constraints.each do |var, relations|
+          additional_relations[var] = relations.map do |rel|
+            rel.map {|ty| ty.subst(subst) }
+          end
         end
 
-        fvs = additional_relations.each_with_object(Set.new) do |(var, relation), fvs| #$ Set[Symbol]
-          relation.sub_type.free_variables.each do |fv|
-            fvs << fv if fv.is_a?(Symbol)
-          end
-          relation.super_type.free_variables.each do |fv|
-            fvs << fv if fv.is_a?(Symbol)
+        fvs = additional_relations.each_with_object(Set.new) do |(var, relations), fvs| #$ Set[Symbol]
+          relations.each do |relation|
+            relation.sub_type.free_variables.each do |fv|
+              fvs << fv if fv.is_a?(Symbol)
+            end
+            relation.super_type.free_variables.each do |fv|
+              fvs << fv if fv.is_a?(Symbol)
+            end
           end
         end
 
         fvs = fvs & no_constraints
 
         cs = Constraints.new(unknowns: fvs)
-        additional_relations.each do |var, relation|
-          checker.check(relation, self_type: context.self_type, instance_type: context.instance_type, class_type: context.class_type, constraints: cs).yield_self do |result|
-            unless result.success?
-              return UnsatisfiableConstraint.new(
-                var: var,
-                sub_type: result.relation.sub_type,
-                super_type: result.relation.super_type,
-                result: result
-              )
+        additional_relations.each do |var, relations|
+          relations.each do |relation|
+            checker.check(relation, self_type: context.self_type, instance_type: context.instance_type, class_type: context.class_type, constraints: cs).yield_self do |result|
+              unless result.success?
+                return UnsatisfiableConstraint.new(
+                  var: var,
+                  sub_type: result.relation.sub_type,
+                  super_type: result.relation.super_type,
+                  result: result
+                )
+              end
             end
           end
         end
@@ -283,18 +296,21 @@ module Steep
         if solution.is_a?(Interface::Substitution)
           subst.merge!(solution)
 
-          additional_relations.each do |var, relation|
+          additional_relations.each do |var, relations|
+            lowest = relations[0].sub_type
+            upest = relations[-1].super_type
+
             type =
               case
               when context.variance.contravariant?(var)
-                relation.super_type
+                upest
               when context.variance.covariant?(var)
-                relation.sub_type
+                lowest
               else
-                if relation.sub_type.level.join > relation.super_type.level.join
-                  relation.super_type
+                if lowest.level.join > upest.level.join
+                  upest
                 else
-                  relation.sub_type
+                  lowest
                 end
               end
 
@@ -344,16 +360,33 @@ module Steep
       def constraint(var_name)
         upper_bound = upper_bound(var_name)
         lower_bound = lower_bound(var_name)
+        generics_bound = generics_upper_bounds.fetch(var_name, nil)
 
-        case
-        when upper_bound.is_a?(AST::Types::Top) && lower_bound.is_a?(AST::Types::Bot)
-          nil
-        when upper_bound.is_a?(AST::Types::Top)
-          lower_bound
-        when lower_bound.is_a?(AST::Types::Bot)
-          upper_bound
+        if generics_bound
+          case
+          when upper_bound.is_a?(AST::Types::Top) && lower_bound.is_a?(AST::Types::Bot)
+            generics_bound
+          when upper_bound.is_a?(AST::Types::Top)
+            [Relation.new(sub_type: lower_bound, super_type: generics_bound)]
+          when lower_bound.is_a?(AST::Types::Bot)
+            [Relation.new(sub_type: upper_bound, super_type: generics_bound)]
+          else
+            [
+              Relation.new(sub_type: lower_bound, super_type: upper_bound),
+              Relation.new(sub_type: upper_bound, super_type: generics_bound)
+            ]
+          end
         else
-          [lower_bound, upper_bound]
+          case
+          when upper_bound.is_a?(AST::Types::Top) && lower_bound.is_a?(AST::Types::Bot)
+            nil
+          when upper_bound.is_a?(AST::Types::Top)
+            lower_bound
+          when lower_bound.is_a?(AST::Types::Bot)
+            upper_bound
+          else
+            [Relation.new(sub_type: lower_bound, super_type: upper_bound)]
+          end
         end
       end
 
