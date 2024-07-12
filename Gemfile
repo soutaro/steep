@@ -13,4 +13,5 @@ gem 'minitest-slow_test'
 
 gem "debug", require: false, platform: :mri
 
-gem "rbs", path: "../rbs"
+# gem "rbs", path: File.join(__dir__, "../rbs")
+# gem "rbs", path: "../rbs"
