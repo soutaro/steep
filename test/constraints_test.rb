@@ -82,14 +82,8 @@ end
         contravariants: Set.new([:b, :c])
       )
 
-      subst = constraints.solution(
-        checker,
-        self_type: AST::Types::Self.new,
-        instance_type: AST::Types::Instance.new,
-        class_type: AST::Types::Class.new,
-        variance: variance,
-        variables: Set.new([:a, :b, :c])
-      )
+      context = Subtyping::Constraints::Context.new(self_type: nil, instance_type: nil, class_type: nil, variance: variance)
+      subst = Subtyping::Constraints.solve(constraints, checker, context)
 
       assert_equal string, subst[:a]
       assert_equal integer, subst[:b]
@@ -104,15 +98,8 @@ end
       constraints.add(:X, super_type: parse_type("::Array[::Integer]"), skip: false)
 
       variance = Subtyping::VariableVariance.new(covariants: Set[], contravariants: Set[])
-
-      subst = constraints.solution(
-        checker,
-        self_type: AST::Types::Self.new,
-        instance_type: AST::Types::Instance.new,
-        class_type: AST::Types::Class.new,
-        variance: variance,
-        variables: Set[:X]
-      )
+      context = Subtyping::Constraints::Context.new(self_type: nil, instance_type: nil, class_type: nil, variance: variance)
+      subst = Subtyping::Constraints.solve(constraints, checker, context)
 
       assert_equal parse_type("::Array[::Integer]"), subst[:X]
     end

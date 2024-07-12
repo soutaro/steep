@@ -56,7 +56,7 @@ module Steep
       end
 
       class Context
-        attr_reader variance: untyped
+        attr_reader variance: VariableVariance
 
         attr_reader self_type: AST::Types::t
 
@@ -64,10 +64,10 @@ module Steep
 
         attr_reader class_type: AST::Types::t
 
-        def initialize: (variance: untyped, self_type: AST::Types::t, instance_type: AST::Types::t, class_type: AST::Types::t) -> void
+        def initialize: (variance: VariableVariance, self_type: AST::Types::t, instance_type: AST::Types::t, class_type: AST::Types::t) -> void
       end
 
-      attr_reader dictionary: Hash[Symbol, [Set[AST::Types::t], Set[AST::Types::t], Set[AST::Types::t]]]
+      attr_reader dictionary: Hash[Symbol, [Set[AST::Types::t], Set[AST::Types::t]]]
 
       attr_reader vars: Set[Symbol]
 
@@ -99,15 +99,14 @@ module Steep
       # Returns the upper bound of the variable
       #
       # If the variable is not constrained, it returns `top` type.
-      # If `skip: true` is given, it ignores the generics upper-bound constraints.
       #
-      def upper_bound: (Symbol var, ?skip: bool) -> AST::Types::t
+      def upper_bound: (Symbol var) -> AST::Types::t
 
       # Returs the lower bound of the variable
       #
       # If the variable is not constrained, it returns `bot` type.
       #
-      def lower_bound: (Symbol var, ?skip: bool) -> AST::Types::t
+      def lower_bound: (Symbol var) -> AST::Types::t
 
       def self.solve: (Constraints constraints, Check, Context) -> (Interface::Substitution | UnsatisfiableConstraint)
 
@@ -125,8 +124,6 @@ module Steep
       # If the variable is not constrained, it returns `nil`.
       # If the variable is constrained by one side, it returns the type.
       # If the variable is constrained by both sides, it returns a pair of types -- the lower bound and the upper bound.
-      #
-      # The `skip` constraints are included in the result.
       #
       def constraint: (Symbol var_name) -> ([AST::Types::t, AST::Types::t] | AST::Types::t | nil)
 

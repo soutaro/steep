@@ -80,7 +80,7 @@ module Steep
         @vars = Set.new
 
         unknowns.each do |var|
-          dictionary[var] = [Set.new, Set.new, Set.new]
+          dictionary[var] = [Set.new, Set.new]
         end
       end
 
@@ -102,7 +102,7 @@ module Steep
       end
 
       def add(var, sub_type: nil, super_type: nil, skip: false)
-        subs, supers, skips = dictionary[var]
+        subs, supers = dictionary[var]
 
         if sub_type.is_a?(AST::Types::Logic::Base)
           sub_type = AST::Builtin.bool_type
@@ -115,13 +115,11 @@ module Steep
         if super_type && !super_type.is_a?(AST::Types::Top)
           type = eliminate_variable(super_type, to: AST::Types::Top.new)
           supers << type
-          skips << type if skip
         end
 
         if sub_type && !sub_type.is_a?(AST::Types::Bot)
           type = eliminate_variable(sub_type, to: AST::Types::Bot.new)
           subs << type
-          skips << type if skip
         end
 
         super_fvs = supers.each_with_object(Set.new) do |type, fvs|
@@ -204,12 +202,8 @@ module Steep
         dictionary.keys.empty?
       end
 
-      def upper_bound(var, skip: false)
-        if skip
-          upper_bound = upper_bound_types(var)
-        else
-          _, upper_bound, _ = dictionary[var]
-        end
+      def upper_bound(var)
+        upper_bound = upper_bound_types(var)
 
         case upper_bound.size
         when 0
@@ -221,7 +215,7 @@ module Steep
         end
       end
 
-      def lower_bound(var, skip: false)
+      def lower_bound(var)
         lower_bound = lower_bound_types(var)
 
         case lower_bound.size
@@ -239,50 +233,87 @@ module Steep
       def self.solve(constraints, checker, context)
         subst = Interface::Substitution.empty
 
+        double_end_constraints = [] #: Array[Symbol]
+        no_constraints = [] #: Array[Symbol]
+
         constraints.dictionary.each_key do |var|
           constraint = constraints.constraint(var)
 
           case constraint
           when Array
-            relation = Relation.new(sub_type: constraint[0], super_type: constraint[1])
-
-            checker.check(relation, self_type: context.self_type, instance_type: context.instance_type, class_type: context.class_type, constraints: Constraints.empty).yield_self do |result|
-              if result.success?
-                upper_bound = constraints.upper_bound(var, skip: true)
-                lower_bound = constraints.lower_bound(var, skip: true)
-
-                type =
-                  case
-                  when context.variance.contravariant?(var)
-                    upper_bound
-                  when context.variance.covariant?(var)
-                    lower_bound
-                  else
-                    if lower_bound.level.join > upper_bound.level.join
-                      upper_bound
-                    else
-                      lower_bound
-                    end
-                  end
-
-                subst.add!(var, type)
-              else
-                return UnsatisfiableConstraint.new(
-                  var: var,
-                  sub_type: result.relation.sub_type,
-                  super_type: result.relation.super_type,
-                  result: result
-                )
-              end
-            end
+            double_end_constraints << var
           when nil
-            subst.add!(var, AST::Types::Any.new())
+            no_constraints << var
           else
-            subst.add!(var, constraint)
+            type = constraint.subst(subst)
+            subst.add!(var, type)
           end
         end
 
-        subst
+        if double_end_constraints.empty?
+          untyped_subst = Interface::Substitution.build(no_constraints, no_constraints.map { AST::Types::Any.new})
+          return subst.merge!(untyped_subst)
+        end
+
+        additional_relations = {} #: Hash[Symbol, Relation[AST::Types::t]]
+        double_end_constraints.each do |var|
+          additional_relations[var] = Relation.new(
+            sub_type: constraints.lower_bound(var).subst(subst),
+            super_type: constraints.upper_bound(var).subst(subst)
+          )
+        end
+
+        fvs = additional_relations.each_with_object(Set.new) do |(var, relation), fvs| #$ Set[Symbol]
+          relation.sub_type.free_variables.each do |fv|
+            fvs << fv if fv.is_a?(Symbol)
+          end
+          relation.super_type.free_variables.each do |fv|
+            fvs << fv if fv.is_a?(Symbol)
+          end
+        end
+
+        fvs = fvs & no_constraints
+
+        cs = Constraints.new(unknowns: fvs)
+        additional_relations.each do |var, relation|
+          checker.check(relation, self_type: context.self_type, instance_type: context.instance_type, class_type: context.class_type, constraints: cs).yield_self do |result|
+            unless result.success?
+              return UnsatisfiableConstraint.new(
+                var: var,
+                sub_type: result.relation.sub_type,
+                super_type: result.relation.super_type,
+                result: result
+              )
+            end
+          end
+        end
+
+        solution = solve(cs, checker, context)
+        if solution.is_a?(Interface::Substitution)
+          subst.merge!(solution)
+
+          additional_relations.each do |var, relation|
+            type =
+              case
+              when context.variance.contravariant?(var)
+                relation.super_type
+              when context.variance.covariant?(var)
+                relation.sub_type
+              else
+                if relation.sub_type.level.join > relation.super_type.level.join
+                  relation.super_type
+                else
+                  relation.sub_type
+                end
+              end
+
+            subst.add!(var, type.subst(solution))
+          end
+
+          subst
+        else
+          solution
+        end
       end
 
       def has_constraint?(var)
@@ -329,16 +360,8 @@ module Steep
       end
 
       def upper_bound_types(var_name)
-        _, upper, skips = dictionary[var_name]
-
-        case
-        when upper.empty?
-          skips
-        when skips.empty?
-          upper
-        else
-          upper - skips
-        end
+        _, upper = dictionary[var_name]
+        upper
       end
     end
   end

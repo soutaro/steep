@@ -1154,14 +1154,41 @@ type c = a | b
         )
 
         variance = Subtyping::VariableVariance.new(covariants: Set[:S, :O], contravariants: Set[:T, :O])
-        context = Constraints::Context.new(
-          variance: variance,
-          self_type: 1,
-          instance_type: 1,
-          class_type: 1
-        )
-        assert_instance_of Interface::Substitution, Constraints.solve(constraints, checker, context)
+        context = Constraints::Context.new(variance: variance, self_type: 1, instance_type: 1, class_type: 1)
+        solution = Constraints.solve(constraints, checker, context)
+        assert_instance_of Interface::Substitution, solution
+        pp solution.to_s
       end
     end
   end
+
+  # def test_bounded_method_parameter
+  #   with_checker(<<~RBS) do |checker|
+  #       class Foo < Object
+  #       end
+
+  #       class Bar < Foo
+  #       end
+  #     RBS
+
+  #     Subtyping::Constraints.new(unknowns: [:X]).tap do |constraints|
+  #       constraints.add(
+  #         :X,
+  #         super_type: parse_type("::Foo", checker: checker),
+  #         skip: true
+  #       )
+  #       constraints.add(
+  #         :X,
+  #         sub_type: parse_type("::Bar", checker: checker)
+  #       )
+
+  #       variance = Subtyping::VariableVariance.new(covariants: Set[:X], contravariants: Set[:X])
+  #       context = Constraints::Context.new(variance: variance, self_type: 1, instance_type: 1, class_type: 1)
+
+  #       solution = Constraints.solve(constraints, checker, context)
+  #       assert_instance_of Interface::Substitution, solution
+  #       pp solution.to_s
+  #     end
+  #   end
+  # end
 end
