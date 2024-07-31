@@ -37,7 +37,7 @@ module Steep
       s + ">"
     end
 
-    SPECIAL_LVAR_NAMES = Set[:_, :__any__, :__skip__]
+    SPECIAL_LVAR_NAMES = Set[nil, :_, :__any__, :__skip__]
 
     include ModuleHelper
 
