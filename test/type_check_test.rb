@@ -2103,4 +2103,42 @@ class TypeCheckTest < Minitest::Test
       YAML
     )
   end
+
+  def test_data_struct_annotation
+    run_type_check_test(
+      signatures: {
+        "a.rbs" => <<~RBS
+          class Hello < Data
+            attr_reader name(): String
+
+            def self.new: (String name) -> instance
+                        | (name: String) -> instance
+          end
+
+          class World < Struct[untyped]
+            attr_accessor size(): Integer
+
+            def self.new: (Integer size) -> instance
+                        | (size: Integer) -> instance
+          end
+        RBS
+      },
+      code: {
+        "a.rb" => <<~RUBY
+          Hello = Data.define(
+            :name #: String
+          )
+
+          World = Struct.new(
+            :size #: Integer
+          )
+        RUBY
+      },
+      expectations: <<~YAML
+        ---
+        - file: a.rb
+          diagnostics: []
+      YAML
+    )
+  end
 end

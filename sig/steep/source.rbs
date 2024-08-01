@@ -2,6 +2,8 @@ module Steep
   class Source
     extend NodeHelper
 
+    extend ModuleHelper
+
     attr_reader buffer: RBS::Buffer
 
     attr_reader path: Pathname
@@ -91,6 +93,12 @@ module Steep
     type type_comment = AST::Node::TypeAssertion | AST::Node::TypeApplication
 
     def self.insert_type_node: (Parser::AST::Node node, Hash[Integer, type_comment]) -> Parser::AST::Node
+
+    # Skip type assertions on arguments
+    #
+    # `Data.define` and `Struct.new` are examples of methods that have type assertions on arguments.
+    #
+    def self.skip_arg_assertions: (Parser::AST::Node) -> bool
 
     def self.adjust_location: (Parser::AST::Node) -> Parser::AST::Node
 

@@ -8,6 +8,7 @@ module Steep
     attr_reader :ignores
 
     extend NodeHelper
+    extend ModuleHelper
 
     def initialize(buffer:, path:, node:, mapping:, comments:, ignores:)
       @buffer = buffer
@@ -450,6 +451,32 @@ module Steep
       end
     end
 
+    def self.skip_arg_assertions(node)
+      send_node, _ = deconstruct_sendish_and_block_nodes(node)
+      return false unless send_node
+
+      if send_node.type == :send
+        receiver, method, args = deconstruct_send_node!(send_node)
+
+        return false unless receiver
+
+        if receiver.type == :const
+          if type_name = module_name_from_node(receiver.children[0], receiver.children[1])
+            if type_name.namespace.empty?
+              if type_name.name == :Data && method == :define
+                return true
+              end
+              if type_name.name == :Struct && method == :new
+                return true
+              end
+            end
+          end
+        end
+      end
+
+      false
+    end
+
     def self.insert_type_node(node, comments)
       if node.location.expression
         first_line = node.location.expression.first_line
@@ -573,6 +600,19 @@ module Steep
         body = insert_type_node(body, comments) if body
         return adjust_location(node.updated(nil, [object, name, args, body]))
       else
+        if skip_arg_assertions(node)
+          # Data.define, Struct.new, ...??
+          if node.location.expression
+            first_line = node.location.expression.first_line
+            last_line = node.location.expression.last_line
+
+            child_assertions = comments.delete_if {|line, _ | first_line < line && line < last_line }
+            node = map_child_node(node) {|child| insert_type_node(child, child_assertions) }
+
+            return adjust_location(node)
+          end
+        end
+
         adjust_location(
           map_child_node(node, nil) {|child| insert_type_node(child, comments) }
         )
