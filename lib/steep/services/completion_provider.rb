@@ -725,7 +725,7 @@ module Steep
       end
 
       def keyword_argument_items_for_method(call_node:, send_node:, position:, prefix:, items:)
-        receiver_node, method_name, argument_nodes = deconstruct_send_node!(send_node)
+        _receiver_node, _method_name, argument_nodes = deconstruct_send_node!(send_node)
 
         call = typing.call_of(node: call_node)
 
@@ -733,6 +733,7 @@ module Steep
         when TypeInference::MethodCall::Typed, TypeInference::MethodCall::Error
           context = typing.context_at(line: position.line, column: position.column)
           type = call.receiver_type
+          type = type.subst(Interface::Substitution.build([], self_type: context.self_type, module_type: context.module_context&.module_type, instance_type: context.module_context&.instance_type))
 
           config = Interface::Builder::Config.new(self_type: type, variable_bounds: context.variable_context.upper_bounds)
           if shape = subtyping.builder.shape(type, config)

@@ -650,4 +650,15 @@ end
       end
     end
   end
+
+  def test_self_receiver_call_type
+    with_checker do
+      CompletionProvider.new(source_text: <<-EOR, path: Pathname("foo.rb"), subtyping: checker).tap do |provider|
+puts i
+      EOR
+
+        provider.run(line: 1, column: 6) # Assert nothing raised
+      end
+    end
+  end
 end
