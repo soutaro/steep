@@ -228,7 +228,6 @@ module Steep
       end
 
       def update_env(updated_files, paths:)
-
         Steep.logger.tagged "#update_env" do
           errors = [] #: Array[RBS::BaseError]
           new_decls = Set[].compare_by_identity #: Set[RBS::AST::Declarations::t]
