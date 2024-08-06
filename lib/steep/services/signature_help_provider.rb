@@ -100,7 +100,7 @@ module Steep
 
       def signature_help_for(node, argument, last_argument, typing)
         call = typing.call_of(node: node)
-        context = typing.context_at(line: node.loc.expression.line, column: node.loc.expression.column)
+        context = typing.cursor_context.context or raise
 
         items = [] #: Array[Item]
         index = nil #: Integer?

@@ -1711,13 +1711,11 @@ module Steep
                 add_typing node, type: AST::Builtin::Array.instance_type(AST::Builtin.any_type)
               end
             else
-              node_range = node.loc.expression.yield_self {|l| l.begin_pos..l.end_pos }
-
               if hint
                 tuples = select_flatten_types(hint) {|type| type.is_a?(AST::Types::Tuple) } #: Array[AST::Types::Tuple]
                 unless tuples.empty?
                   tuples.each do |tuple|
-                    typing.new_child(node_range) do |child_typing|
+                    typing.new_child() do |child_typing|
                       if pair = with_new_typing(child_typing).try_tuple_type(node, tuple)
                         return pair.with(constr: pair.constr.save_typing)
                       end
@@ -1730,7 +1728,7 @@ module Steep
                 arrays = select_flatten_types(hint) {|type| AST::Builtin::Array.instance_type?(type) } #: Array[AST::Types::Name::Instance]
                 unless arrays.empty?
                   arrays.each do |array|
-                    typing.new_child(node_range) do |child_typing|
+                    typing.new_child() do |child_typing|
                       pair = with_new_typing(child_typing).try_array_type(node, array)
                       if pair.constr.check_relation(sub_type: pair.type, super_type: hint).success?
                         return pair.with(constr: pair.constr.save_typing)
@@ -3573,14 +3571,12 @@ module Steep
     end
 
     def type_method_call(node, method_name:, receiver_type:, method:, arguments:, block_params:, block_body:, tapp:, hint:)
-      node_range = node.loc.expression.to_range
-
       # @type var fails: Array[[TypeInference::MethodCall::t, TypeConstruction]]
       fails = []
 
       method.method_types.each do |method_type|
         Steep.logger.tagged method_type.to_s do
-          typing.new_child(node_range) do |child_typing|
+          typing.new_child() do |child_typing|
             constr = self.with_new_typing(child_typing)
 
             call, constr = constr.try_special_method(
@@ -3648,8 +3644,8 @@ module Steep
       end
     end
 
-    def with_child_typing(range:)
-      constr = with_new_typing(typing.new_child(range))
+    def with_child_typing()
+      constr = with_new_typing(typing.new_child())
 
       if block_given?
         yield constr
@@ -3752,7 +3748,7 @@ module Steep
         when TypeInference::SendArgs::PositionalArgs::SplatArg
           arg_type, _ =
             constr
-              .with_child_typing(range: arg.node.loc.expression.begin_pos ... arg.node.loc.expression.end_pos)
+              .with_child_typing()
               .try_tuple_type!(arg.node.children[0])
           arg.type = arg_type
 
@@ -3995,7 +3991,7 @@ module Steep
               )
 
               block_constr = block_constr.with_new_typing(
-                block_constr.typing.new_child(block_constr.typing.block_range(node))
+                block_constr.typing.new_child()
               )
 
               block_constr.typing.cursor_context.set_body_context(node, block_constr.context)
@@ -4788,9 +4784,7 @@ module Steep
     def try_tuple_type!(node, hint: nil)
       if node.type == :array
         if hint.nil? || hint.is_a?(AST::Types::Tuple)
-          node_range = node.loc.expression.to_range
-
-          typing.new_child(node_range) do |child_typing|
+          typing.new_child() do |child_typing|
             if pair = with_new_typing(child_typing).try_tuple_type(node, hint)
               return pair.with(constr: pair.constr.save_typing)
             end
@@ -4998,18 +4992,17 @@ module Steep
       if hint
         hint = deep_expand_alias(hint)
       end
-      range = hash_node.loc.expression.yield_self {|l| l.begin_pos..l.end_pos }
 
       case hint
       when AST::Types::Record
-        with_child_typing(range: range) do |constr|
+        with_child_typing() do |constr|
           pair = constr.type_hash_record(hash_node, hint)
           if pair
             return pair.with(constr: pair.constr.save_typing)
           end
         end
       when AST::Types::Union
-        pair = pick_one_of(hint.types, range: range) do |type, constr|
+        pair = pick_one_of(hint.types) do |type, constr|
           constr.type_hash(hash_node, hint: type)
         end
 
@@ -5075,9 +5068,9 @@ module Steep
       constr.add_typing(hash_node, type: hash_type)
     end
 
-    def pick_one_of(types, range:)
+    def pick_one_of(types)
       types.each do |type|
-        with_child_typing(range: range) do |constr|
+        with_child_typing() do |constr|
           if (type_, constr = yield(type, constr))
             constr.check_relation(sub_type: type_, super_type: type).then do
               constr = constr.save_typing

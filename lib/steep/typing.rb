@@ -165,7 +165,7 @@ module Steep
     attr_reader :source_index
     attr_reader :cursor_context
 
-    def initialize(source:, root_context:, parent: nil, parent_last_update: parent&.last_update, contexts: nil, source_index: nil, cursor:)
+    def initialize(source:, root_context:, parent: nil, parent_last_update: parent&.last_update, source_index: nil, cursor:)
       @source = source
 
       @parent = parent
@@ -176,7 +176,6 @@ module Steep
       @errors = []
       (@typing = {}).compare_by_identity
       @root_context = root_context
-      @contexts = contexts || TypeInference::ContextArray.from_source(source: source, context: root_context)
       (@method_calls = {}).compare_by_identity
 
       @cursor_context = CursorContext.new(cursor)
@@ -202,11 +201,6 @@ module Steep
       method_calls[node] = call
 
       call
-    end
-
-    def add_context(range, context:)
-      contexts.insert_context(range, context: context)
-      @last_update += 1
     end
 
     def has_type?(node)
@@ -243,13 +237,6 @@ module Steep
       end
     end
 
-    # def add_context_for_node(node, context:)
-    #   begin_pos = node.loc.expression.begin_pos
-    #   end_pos = node.loc.expression.end_pos
-
-    #   add_context(begin_pos..end_pos, context: context)
-    # end
-
     def block_range(node)
       case node.type
       when :block
@@ -267,85 +254,6 @@ module Steep
       end
 
       begin_pos..end_pos
-    end
-
-    # def add_context_for_body(node, context:)
-    #   case node.type
-    #   when :class
-    #     name_node, super_node, _ = node.children
-    #     begin_pos = if super_node
-    #                   super_node.loc.expression.end_pos
-    #                 else
-    #                   name_node.loc.expression.end_pos
-    #                 end
-    #     end_pos = node.loc.end.begin_pos # steep:ignore NoMethod
-
-    #     add_context(begin_pos..end_pos, context: context)
-
-    #   when :module
-    #     name_node = node.children[0]
-    #     begin_pos = name_node.loc.expression.end_pos
-    #     end_pos = node.loc.end.begin_pos # steep:ignore NoMethod
-    #     add_context(begin_pos..end_pos, context: context)
-
-    #   when :sclass
-    #     name_node = node.children[0]
-    #     begin_pos = name_node.loc.expression.end_pos
-    #     end_pos = node.loc.end.begin_pos # steep:ignore NoMethod
-    #     add_context(begin_pos..end_pos, context: context)
-
-    #   when :def, :defs
-    #     if node.children.last
-    #       args_node =
-    #         case node.type
-    #         when :def
-    #           node.children[1]
-    #         when :defs
-    #           node.children[2]
-    #         end
-
-    #       body_begin_pos =
-    #         case
-    #         when node.loc.assignment # steep:ignore NoMethod
-    #           # endless def
-    #           node.loc.assignment.end_pos # steep:ignore NoMethod
-    #         when args_node.loc.expression
-    #           # with args
-    #           args_node.loc.expression.end_pos
-    #         else
-    #           # without args
-    #           node.loc.name.end_pos # steep:ignore NoMethod
-    #         end
-
-    #       body_end_pos =
-    #         if node.loc.end # steep:ignore NoMethod
-    #           node.loc.end.begin_pos # steep:ignore NoMethod
-    #         else
-    #           node.loc.expression.end_pos
-    #         end
-
-    #       add_context(body_begin_pos..body_end_pos, context: context)
-    #     end
-
-    #   when :block, :numblock
-    #     range = block_range(node)
-    #     add_context(range, context: context)
-
-    #   when :for
-    #     _, collection, _ = node.children
-
-    #     begin_pos = collection.loc.expression.end_pos
-    #     end_pos = node.loc.end.begin_pos # steep:ignore NoMethod
-
-    #     add_context(begin_pos..end_pos, context: context)
-    #   else
-    #     raise "Unexpected node for insert_context: #{node.type}"
-    #   end
-    # end
-
-    def context_at(line:, column:)
-      contexts.at(line: line, column: column) ||
-        (parent ? parent.context_at(line: line, column: column) : root_context)
     end
 
     def dump(io)
@@ -370,13 +278,11 @@ module Steep
       "#{line}:#{col}:#{src}"
     end
 
-    def new_child(range)
-      context = contexts[range.begin] || contexts.root.context
+    def new_child()
       child = self.class.new(
         source: source,
         parent: self,
         root_context: root_context,
-        contexts: TypeInference::ContextArray.new(buffer: contexts.buffer, range: range, context: context),
         source_index: source_index.new_child,
         cursor: cursor_context.index
       )
@@ -400,8 +306,6 @@ module Steep
       each_typing do |node, type|
         parent.add_typing(node, type, nil)
       end
-
-      parent.contexts.merge(contexts)
 
       parent.method_calls.merge!(method_calls)
 

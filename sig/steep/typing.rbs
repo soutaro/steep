@@ -57,15 +57,13 @@ module Steep
 
     attr_reader cursor_context: CursorContext
 
-    attr_reader contexts: ContextArray
-
     attr_reader root_context: Context
 
     attr_reader method_calls: Hash[Parser::AST::Node, MethodCall::t]
 
     attr_reader source_index: Index::SourceIndex
 
-    def initialize: (source: Source, root_context: Context, ?parent: Typing?, ?parent_last_update: Integer?, ?contexts: ContextArray?, ?source_index: Index::SourceIndex?, cursor: Integer?) -> void
+    def initialize: (source: Source, root_context: Context, ?parent: Typing?, ?parent_last_update: Integer?, ?source_index: Index::SourceIndex?, cursor: Integer?) -> void
 
     def add_error: (Diagnostic::Ruby::Base error) -> void
 
@@ -73,28 +71,18 @@ module Steep
 
     def add_call: (Parser::AST::Node node, MethodCall::t call) -> void
 
-    def add_context: (Range[Integer] range, context: Context) -> void
-
     def has_type?: (Parser::AST::Node node) -> bool
 
     def type_of: (node: Parser::AST::Node) -> AST::Types::t
 
     def call_of: (node: Parser::AST::Node) -> TypeInference::MethodCall::t
 
-    # def add_context_for_node: (Parser::AST::Node node, context: Context) -> void
-
-    def block_range: (Parser::AST::Node node) -> Range[Integer]
-
-    # def add_context_for_body: (Parser::AST::Node node, context: Context) -> void
-
-    def context_at: (line: Integer, column: Integer) -> Context
-
     def dump: (untyped io) -> untyped
 
     def self.summary: (untyped node) -> ::String
 
-    def new_child: [A] (Range[Integer] range) { (Typing) -> A } -> A
-                 | (Range[Integer]) -> Typing
+    def new_child: [A] () { (Typing) -> A } -> A
+                 | () -> Typing
 
     def each_typing: () { ([Parser::AST::Node, AST::Types::t]) -> void } -> void
 

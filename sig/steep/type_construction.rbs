@@ -279,8 +279,8 @@ module Steep
 
     def inspect: () -> ::String
 
-    def with_child_typing: [A] (range: Range[Integer]) { (TypeConstruction) -> A } -> A
-                         | (range: Range[Integer]) -> TypeConstruction
+    def with_child_typing: [A] () { (TypeConstruction) -> A } -> A
+                         | () -> TypeConstruction
 
     # Bypass :splat and :kwsplat
     def bypass_splat: (untyped node) { (untyped) -> untyped } -> untyped
@@ -506,7 +506,7 @@ module Steep
 
     # Returns the first one from elements of `types` that returns a type `t` where `t <: hint`.
     #
-    def pick_one_of: (Array[AST::Types::t] types, range: untyped) { (AST::Types::t hint, TypeConstruction) -> Pair? } -> Pair?
+    def pick_one_of: (Array[AST::Types::t] types) { (AST::Types::t hint, TypeConstruction) -> Pair? } -> Pair?
 
     # *Commit* the transaction (current typing) and returns a `TypeConstruction` with saved typing
     #
