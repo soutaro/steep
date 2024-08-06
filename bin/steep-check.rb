@@ -134,7 +134,7 @@ class Command
         variable_context: TypeInference::Context::TypeVariableContext.empty
       )
 
-      typing = Typing.new(source: source, root_context: context)
+      typing = Typing.new(source: source, root_context: context, cursor: nil)
       construction = TypeConstruction.new(checker: subtyping, source: source, annotations: annotations, context: context, typing: typing)
 
       construction.synthesize(source.node)
@@ -201,7 +201,7 @@ when :stackprof
   require "stackprof"
   out = Pathname.pwd + "tmp/typecheck-#{Process.pid}.stackprof"
   puts ">> Profiling with stackprof: #{out}"
-  StackProf.run(mode: :cpu, out: out, raw: true, interval: 1000) do
+  StackProf.run(out: out, raw: true, interval: 1000) do
     typings = command.type_check_files(command_line_args, env)
   end
 

@@ -76,7 +76,8 @@ module Steep
       def type_check!(line:, column:)
         source = self.source.without_unrelated_defs(line: line, column: column)
         resolver = RBS::Resolver::ConstantResolver.new(builder: subtyping.factory.definition_builder)
-        TypeCheckService.type_check(source: source, subtyping: subtyping, constant_resolver: resolver)
+        pos = self.source.buffer.loc_to_pos([line, column])
+        TypeCheckService.type_check(source: source, subtyping: subtyping, constant_resolver: resolver, cursor: pos)
       end
 
       def last_argument_nodes_for(argument_nodes:, line:, column:)
@@ -99,7 +100,7 @@ module Steep
 
       def signature_help_for(node, argument, last_argument, typing)
         call = typing.call_of(node: node)
-        context = typing.context_at(line: node.loc.expression.line, column: node.loc.expression.column)
+        context = typing.cursor_context.context or raise
 
         items = [] #: Array[Item]
         index = nil #: Integer?

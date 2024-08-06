@@ -32,7 +32,7 @@ class LogicTypeInterpreterTest < Minitest::Test
     with_checker do |checker|
       source = parse_ruby("a = @x")
 
-      typing = Typing.new(source: source, root_context: nil)
+      typing = Typing.new(source: source, root_context: nil, cursor: nil)
       typing.add_typing(dig(source.node), parse_type("::String?"), nil)
       typing.add_typing(dig(source.node, 1), parse_type("::String?"), nil)
 
@@ -52,7 +52,7 @@ class LogicTypeInterpreterTest < Minitest::Test
     with_checker do |checker|
       source = parse_ruby("a, b = @x")
 
-      typing = Typing.new(source: source, root_context: nil)
+      typing = Typing.new(source: source, root_context: nil, cursor: nil)
       typing.add_typing(dig(source.node), parse_type("[::String, ::Integer]?"), nil)
       typing.add_typing(dig(source.node, 1), parse_type("[::String, ::Integer]?"), nil)
 
@@ -96,7 +96,7 @@ end
         return_type: parse_type("::String?")
       )
 
-      typing = Typing.new(source: source, root_context: nil)
+      typing = Typing.new(source: source, root_context: nil, cursor: nil, cursor: nil)
       typing.add_typing(dig(node), parse_type("::String?"), nil)
       typing.add_typing(dig(node, 1), parse_type("::String?"), nil)
       typing.add_typing(dig(node, 1, 0), parse_type("::Article"), nil)
@@ -141,7 +141,7 @@ end
         return_type: AST::Types::Logic::ReceiverIsArg.new()
       )
 
-      typing = Typing.new(source: source, root_context: nil)
+      typing = Typing.new(source: source, root_context: nil, cursor: nil)
       typing.add_typing(dig(node), AST::Types::Logic::ReceiverIsArg.new(), nil)
       typing.add_typing(dig(node, 0), parse_type("::String?"), nil)
       typing.add_typing(dig(node, 2), parse_type("singleton(::String)"), nil)
@@ -182,7 +182,7 @@ end
         return_type: AST::Types::Logic::ReceiverIsNil.new()
       )
 
-      typing = Typing.new(source: source, root_context: nil)
+      typing = Typing.new(source: source, root_context: nil, cursor: nil)
       typing.add_typing(dig(node), AST::Types::Logic::ReceiverIsNil.new(), nil)
       typing.add_typing(dig(node, 0), parse_type("::String?"), nil)
 
@@ -222,7 +222,7 @@ end
         return_type: AST::Types::Logic::ArgIsReceiver.new()
       )
 
-      typing = Typing.new(source: source, root_context: nil)
+      typing = Typing.new(source: source, root_context: nil, cursor: nil)
       typing.add_typing(dig(node), AST::Types::Logic::ArgIsReceiver.new(), nil)
       typing.add_typing(dig(node, 0), parse_type("singleton(::String)"), nil)
       typing.add_typing(dig(node, 2), parse_type("::String?"), nil)
@@ -263,7 +263,7 @@ end
         return_type: AST::Types::Logic::ArgEqualsReceiver.new()
       )
 
-      typing = Typing.new(source: source, root_context: nil)
+      typing = Typing.new(source: source, root_context: nil, cursor: nil)
       typing.add_typing(dig(node), AST::Types::Logic::ArgEqualsReceiver.new(), nil)
       typing.add_typing(dig(node, 0), parse_type("::String"), nil)
       typing.add_typing(dig(node, 2), parse_type("::String?"), nil)
@@ -303,7 +303,7 @@ end
         return_type: AST::Types::Logic::ArgIsAncestor.new()
       )
 
-      typing = Typing.new(source: source, root_context: nil)
+      typing = Typing.new(source: source, root_context: nil, cursor: nil)
       typing.add_typing(dig(node), AST::Types::Logic::ArgIsAncestor.new(), nil)
       typing.add_typing(dig(node, 0), parse_type("singleton(::Object)"), nil)
       typing.add_typing(dig(node, 2), parse_type("singleton(::String)"), nil)
@@ -345,7 +345,7 @@ end
         return_type: AST::Types::Logic::Not.new()
       )
 
-      typing = Typing.new(source: source, root_context: nil)
+      typing = Typing.new(source: source, root_context: nil, cursor: nil)
       typing.add_typing(dig(node), AST::Types::Logic::Not.new(), nil)
       typing.add_typing(dig(node, 0), parse_type("::String?"), nil)
 

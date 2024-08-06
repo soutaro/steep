@@ -183,8 +183,9 @@ module Steep
         end
 
         Steep.measure "typechecking" do
+          location = source.buffer.loc_to_pos([line, column])
           resolver = RBS::Resolver::ConstantResolver.new(builder: subtyping.factory.definition_builder)
-          @typing = TypeCheckService.type_check(source: source, subtyping: subtyping, constant_resolver: resolver)
+          @typing = TypeCheckService.type_check(source: source, subtyping: subtyping, constant_resolver: resolver, cursor: location)
         end
       end
 
@@ -348,7 +349,7 @@ module Steep
 
         items = [] #: Array[item]
 
-        context = typing.context_at(line: position.line, column: position.column)
+        context = typing.cursor_context.context or raise
 
         case
         when node.type == :send && node.children[0] == nil && at_end?(position, of: (_ = node.loc).selector)
@@ -469,7 +470,7 @@ module Steep
 
         if at_end?(shift_pos, of: node.loc)
           begin
-            context = typing.context_at(line: position.line, column: position.column)
+            context = typing.cursor_context.context or raise
             receiver_type =
               case (type = typing.type_of(node: node))
               when AST::Types::Self
@@ -499,7 +500,7 @@ module Steep
 
         if at_end?(shift_pos, of: node.loc)
           begin
-            context = typing.context_at(line: position.line, column: position.column)
+            context = typing.cursor_context.context or raise
             receiver_type =
               case (type = typing.type_of(node: node))
               when AST::Types::Self
@@ -529,11 +530,11 @@ module Steep
         case node&.type
         when :const
           # Constant:: ←
-          context = typing.context_at(line: position.line, column: position.column)
+          context = typing.cursor_context.context or raise
           constant_items_for_context(context, parent: node, position: position, items: items, prefix: "")
         when nil
           # :: ←
-          context = typing.context_at(line: position.line, column: position.column)
+          context = typing.cursor_context.context or raise
           constant_items_for_context(context, parent: nil, position: position, items: items, prefix: "")
         end
 
@@ -552,7 +553,7 @@ module Steep
 
         return [] unless node
 
-        context = typing.context_at(line: position.line, column: position.column)
+        context = typing.cursor_context.context or raise
         items = [] #: Array[item]
         instance_variable_items_for_context(context, prefix: "@", position: position, items: items)
         items
@@ -561,7 +562,7 @@ module Steep
       def items_for_rbs(position:, buffer:)
         items = [] #: Array[item]
 
-        context = typing.context_at(line: position.line, column: position.column)
+        context = typing.cursor_context.context or raise
         completion = TypeNameCompletion.new(env: context.env, context: context.module_context.nesting, dirs: [])
         prefix = TypeNameCompletion::Prefix.parse(buffer, line: position.line, column: position.column)
 
@@ -609,7 +610,7 @@ module Steep
 
       def method_items_for_receiver_type(type, include_private:, prefix:, position:, items:)
         range = range_for(position, prefix: prefix)
-        context = typing.context_at(line: position.line, column: position.column)
+        context = typing.cursor_context.context or raise
 
         config =
           if (module_type = context.module_context&.module_type) && (instance_type = context.module_context&.instance_type)
@@ -731,7 +732,7 @@ module Steep
 
         case call
         when TypeInference::MethodCall::Typed, TypeInference::MethodCall::Error
-          context = typing.context_at(line: position.line, column: position.column)
+          context = typing.cursor_context.context or raise
           type = call.receiver_type
           type = type.subst(Interface::Substitution.build([], self_type: context.self_type, module_type: context.module_context&.module_type, instance_type: context.module_context&.instance_type))
 

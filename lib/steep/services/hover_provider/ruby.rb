@@ -84,7 +84,8 @@ module Steep
           source = Source.parse(content, path: path, factory: subtyping.factory)
           source = source.without_unrelated_defs(line: line, column: column)
           resolver = ::RBS::Resolver::ConstantResolver.new(builder: subtyping.factory.definition_builder)
-          Services::TypeCheckService.type_check(source: source, subtyping: subtyping, constant_resolver: resolver)
+          pos = source.buffer.loc_to_pos([line, column])
+          Services::TypeCheckService.type_check(source: source, subtyping: subtyping, constant_resolver: resolver, cursor: pos)
         rescue
           nil
         end
@@ -118,7 +119,7 @@ module Steep
             case node.type
             when :lvar
               var_name = node.children[0]
-              context = typing.context_at(line: line, column: column)
+              context = typing.cursor_context.context or raise
               var_type = context.type_env[var_name] || AST::Types::Any.new(location: nil)
 
               return VariableContent.new(
@@ -130,7 +131,7 @@ module Steep
 
             when :lvasgn
               var_name, rhs = node.children
-              context = typing.context_at(line: line, column: column)
+              context = typing.cursor_context.context or raise
               type = context.type_env[var_name] || typing.type_of(node: node)
 
               return VariableContent.new(
@@ -165,7 +166,7 @@ module Steep
               end
 
             when :def, :defs
-              context = typing.context_at(line: line, column: column)
+              context = typing.cursor_context.context or raise
               method_context = context.method_context
 
               if method_context && method_context.method
@@ -181,7 +182,7 @@ module Steep
               end
 
             when :const, :casgn
-              context = typing.context_at(line: line, column: column)
+              context = typing.cursor_context.context or raise
 
               type = typing.type_of(node: node)
               const_name = typing.source_index.reference(constant_node: node)

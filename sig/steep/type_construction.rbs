@@ -90,13 +90,13 @@ module Steep
 
     def default_module_context: (AST::Annotation::Implements::Module? implement_module_name, nesting: RBS::Resolver::context) -> TypeInference::Context::ModuleContext
 
-    def for_module: (untyped node, untyped new_module_name) -> untyped
+    def for_module: (untyped node, untyped new_module_name) -> TypeConstruction
 
-    def with_module_constr: (untyped node, untyped module_name) { (untyped) -> untyped } -> untyped
+    def with_module_constr: [T] (untyped node, untyped module_name) { (TypeConstruction) -> T } -> T
 
-    def for_class: (untyped node, untyped new_class_name, untyped super_class_name) -> untyped
+    def for_class: (untyped node, untyped new_class_name, untyped super_class_name) -> TypeConstruction
 
-    def with_class_constr: (untyped node, untyped new_class_name, untyped super_class_name) { (untyped) -> untyped } -> untyped
+    def with_class_constr: [T] (Parser::AST::Node node, untyped new_class_name, untyped super_class_name) { (TypeConstruction) -> T } -> T
 
     def with_sclass_constr: [A] (Parser::AST::Node node, AST::Types::t `type`) { (TypeConstruction?) -> A } -> A
 
@@ -279,8 +279,8 @@ module Steep
 
     def inspect: () -> ::String
 
-    def with_child_typing: [A] (range: Range[Integer]) { (TypeConstruction) -> A } -> A
-                         | (range: Range[Integer]) -> TypeConstruction
+    def with_child_typing: [A] () { (TypeConstruction) -> A } -> A
+                         | () -> TypeConstruction
 
     # Bypass :splat and :kwsplat
     def bypass_splat: (untyped node) { (untyped) -> untyped } -> untyped
@@ -506,7 +506,7 @@ module Steep
 
     # Returns the first one from elements of `types` that returns a type `t` where `t <: hint`.
     #
-    def pick_one_of: (Array[AST::Types::t] types, range: untyped) { (AST::Types::t hint, TypeConstruction) -> Pair? } -> Pair?
+    def pick_one_of: (Array[AST::Types::t] types) { (AST::Types::t hint, TypeConstruction) -> Pair? } -> Pair?
 
     # *Commit* the transaction (current typing) and returns a `TypeConstruction` with saved typing
     #

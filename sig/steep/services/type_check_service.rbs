@@ -42,7 +42,7 @@ module Steep
         def update_content: (String content) -> SourceFile
 
         # Diagnostics filgered by `ignores`
-        # 
+        #
         def diagnostics: () -> Array[Diagnostic::Ruby::Base]
       end
 
@@ -98,7 +98,7 @@ module Steep
 
       def type_check_file: (target: Project::Target, subtyping: Subtyping::Check, path: Pathname, text: String) { () -> RBS::Resolver::ConstantResolver } -> SourceFile
 
-      def self.type_check: (source: Source, subtyping: Subtyping::Check, constant_resolver: RBS::Resolver::ConstantResolver) -> Typing
+      def self.type_check: (source: Source, subtyping: Subtyping::Check, constant_resolver: RBS::Resolver::ConstantResolver, cursor: Integer?) -> Typing
 
       def source_file?: (Pathname path) -> Project::Target?
 

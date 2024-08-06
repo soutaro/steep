@@ -363,7 +363,7 @@ module Steep
       def type_check_file(target:, subtyping:, path:, text:)
         Steep.logger.tagged "#type_check_file(#{path}@#{target.name})" do
           source = Source.parse(text, path: path, factory: subtyping.factory)
-          typing = TypeCheckService.type_check(source: source, subtyping: subtyping, constant_resolver: yield)
+          typing = TypeCheckService.type_check(source: source, subtyping: subtyping, constant_resolver: yield, cursor: nil)
           ignores = Source::IgnoreRanges.new(ignores: source.ignores)
           SourceFile.with_typing(path: path, content: text, node: source.node, typing: typing, ignores: ignores)
         end
@@ -380,7 +380,7 @@ module Steep
         SourceFile.no_data(path: path, content: text)
       end
 
-      def self.type_check(source:, subtyping:, constant_resolver:)
+      def self.type_check(source:, subtyping:, constant_resolver:, cursor:)
         annotations = source.annotations(block: source.node, factory: subtyping.factory, context: nil)
 
         definition = subtyping.factory.definition_builder.build_instance(AST::Builtin::Object.module_name)
@@ -418,7 +418,7 @@ module Steep
           variable_context: TypeInference::Context::TypeVariableContext.empty
         )
 
-        typing = Typing.new(source: source, root_context: context)
+        typing = Typing.new(source: source, root_context: context, cursor: cursor)
 
         construction = TypeConstruction.new(
           checker: subtyping,
