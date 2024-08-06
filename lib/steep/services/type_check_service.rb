@@ -418,7 +418,7 @@ module Steep
           variable_context: TypeInference::Context::TypeVariableContext.empty
         )
 
-        typing = Typing.new(source: source, root_context: context)
+        typing = Typing.new(source: source, root_context: context, cursor: nil)
 
         construction = TypeConstruction.new(
           checker: subtyping,

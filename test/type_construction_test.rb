@@ -1069,7 +1069,7 @@ end
         call_context: MethodCall::TopLevelContext.new,
         variable_context: Context::TypeVariableContext.empty
       )
-      typing = Typing.new(source: source, root_context: context)
+      typing = Typing.new(source: source, root_context: context, cursor: nil)
 
       module_name_class_node = source.node.children[1]
 
@@ -1160,7 +1160,7 @@ class Steep end
         call_context: MethodCall::ModuleContext.new(type_name: TypeName("::Steep")),
         variable_context: Context::TypeVariableContext.empty
       )
-      typing = Typing.new(source: source, root_context: context)
+      typing = Typing.new(source: source, root_context: context, cursor: nil)
 
       module_node = source.node.children.last
 

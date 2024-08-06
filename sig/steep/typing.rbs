@@ -10,6 +10,25 @@ module Steep
       def initialize: (Symbol op, node: Parser::AST::Node) -> void
     end
 
+    # Maps the context for a given cursor position
+    #
+    class CursorContext
+      attr_reader index: Integer?
+
+      attr_reader data: [Range[Integer], Context]?
+
+      def initialize: (Integer? index) -> void
+
+      def set: (Range[Integer], Context context) -> void
+             | (CursorContext) -> void
+
+      # def set!: (CursorContext) -> self
+
+      %a{pure} def context: () -> Context?
+
+      %a{pure} def range: () -> Range[Integer]?
+    end
+
     attr_reader source: Source
 
     attr_reader errors: Array[Diagnostic::Ruby::Base]
@@ -24,6 +43,8 @@ module Steep
 
     attr_reader should_update: bool
 
+    attr_reader cursor_context: CursorContext
+
     attr_reader contexts: ContextArray
 
     attr_reader root_context: Context
@@ -32,7 +53,7 @@ module Steep
 
     attr_reader source_index: Index::SourceIndex
 
-    def initialize: (source: Source, root_context: Context, ?parent: Typing?, ?parent_last_update: Integer?, ?contexts: ContextArray?, ?source_index: Index::SourceIndex?) -> void
+    def initialize: (source: Source, root_context: Context, ?parent: Typing?, ?parent_last_update: Integer?, ?contexts: ContextArray?, ?source_index: Index::SourceIndex?, cursor: Integer?) -> void
 
     def add_error: (Diagnostic::Ruby::Base error) -> void
 

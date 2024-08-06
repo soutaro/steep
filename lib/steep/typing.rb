@@ -11,6 +11,42 @@ module Steep
       end
     end
 
+    class CursorContext
+      attr_reader :index
+
+      attr_reader :data
+
+      def initialize(index)
+        @index = index
+      end
+
+      def set(range, context = nil)
+        if range.is_a?(CursorContext)
+          range, context = range.data
+          range or return
+          context or return
+        end
+
+        context or raise
+        return unless index
+
+        if current_range = self.range
+          if range.begin <= index && index <= range.end
+            if current_range.begin <= range.begin && range.end <= current_range.end
+              @data = [range, context]
+            end
+          end
+        else
+          @data = [range, context]
+        end
+      end
+
+      # def set!(other)
+      #   @data = other.data
+      #   self
+      # end
+    end
+
     attr_reader :source
     attr_reader :errors
     attr_reader :typing
@@ -22,8 +58,9 @@ module Steep
     attr_reader :root_context
     attr_reader :method_calls
     attr_reader :source_index
+    attr_reader :cursor_context
 
-    def initialize(source:, root_context:, parent: nil, parent_last_update: parent&.last_update, contexts: nil, source_index: nil)
+    def initialize(source:, root_context:, parent: nil, parent_last_update: parent&.last_update, contexts: nil, source_index: nil, cursor:)
       @source = source
 
       @parent = parent
@@ -36,6 +73,11 @@ module Steep
       @root_context = root_context
       @contexts = contexts || TypeInference::ContextArray.from_source(source: source, context: root_context)
       (@method_calls = {}).compare_by_identity
+
+      @cursor_context = CursorContext.new(cursor)
+      if root_context
+        cursor_context.set(0..source.buffer.content&.size || 0, root_context)
+      end
 
       @source_index = source_index || Index::SourceIndex.new(source: source)
     end
@@ -225,11 +267,14 @@ module Steep
 
     def new_child(range)
       context = contexts[range.begin] || contexts.root.context
-      child = self.class.new(source: source,
-                             parent: self,
-                             root_context: root_context,
-                             contexts: TypeInference::ContextArray.new(buffer: contexts.buffer, range: range, context: context),
-                             source_index: source_index.new_child)
+      child = self.class.new(
+        source: source,
+        parent: self,
+        root_context: root_context,
+        contexts: TypeInference::ContextArray.new(buffer: contexts.buffer, range: range, context: context),
+        source_index: source_index.new_child,
+        cursor: cursor_context.index
+      )
       @should_update = true
 
       if block_given?
@@ -258,6 +303,8 @@ module Steep
       errors.each do |error|
         parent.add_error error
       end
+
+      parent.cursor_context.set(cursor_context)
 
       parent.source_index.merge!(source_index)
     end

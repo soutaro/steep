@@ -34,7 +34,7 @@ class TypingTest < Minitest::Test
     source = parse_ruby("123")
     node = source.node
 
-    typing = Steep::Typing.new(source: source, root_context: context)
+    typing = Steep::Typing.new(source: source, root_context: context, cursor: nil)
 
     type = parse_type("::String")
 
@@ -48,7 +48,7 @@ class TypingTest < Minitest::Test
     source = parse_ruby("123 + 456")
     node = source.node
 
-    typing = Steep::Typing.new(source: source, root_context: context)
+    typing = Steep::Typing.new(source: source, root_context: context, cursor: nil)
 
     type = parse_type("::String")
 
@@ -72,7 +72,7 @@ class TypingTest < Minitest::Test
     source = parse_ruby("123 + 456")
     node = source.node
 
-    typing = Steep::Typing.new(source: source, root_context: context)
+    typing = Steep::Typing.new(source: source, root_context: context, cursor: nil)
 
     type = parse_type("::String")
 
@@ -94,7 +94,7 @@ class TypingTest < Minitest::Test
     source = parse_ruby("123 + 456")
     node = source.node
 
-    typing = Steep::Typing.new(source: source, root_context: context)
+    typing = Steep::Typing.new(source: source, root_context: context, cursor: nil)
 
     type = parse_type("::String")
 
@@ -114,7 +114,7 @@ class TypingTest < Minitest::Test
     source = parse_ruby("123 + 456")
     node = source.node
 
-    typing = Steep::Typing.new(source: source, root_context: context)
+    typing = Steep::Typing.new(source: source, root_context: context, cursor: nil)
 
     type = parse_type("::String")
 
