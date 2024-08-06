@@ -156,6 +156,7 @@ module Steep
                 old_text = files[path]&.content
                 content = cs.inject(old_text || "") {|text, change| change.apply_to(text) }
 
+                content ||= "" # It was not clear why `content` can be `nil`, but it happens with `master_test`.
                 buffer = RBS::Buffer.new(name: path, content: content)
 
                 update[path] =
