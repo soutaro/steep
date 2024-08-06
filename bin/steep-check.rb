@@ -201,7 +201,7 @@ when :stackprof
   require "stackprof"
   out = Pathname.pwd + "tmp/typecheck-#{Process.pid}.stackprof"
   puts ">> Profiling with stackprof: #{out}"
-  StackProf.run(mode: :cpu, out: out, raw: true, interval: 1000) do
+  StackProf.run(out: out, raw: true, interval: 1000) do
     typings = command.type_check_files(command_line_args, env)
   end
 
