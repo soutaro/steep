@@ -41,10 +41,115 @@ module Steep
         end
       end
 
-      # def set!(other)
-      #   @data = other.data
-      #   self
-      # end
+      def set_node_context(node, context)
+        begin_pos = node.loc.expression.begin_pos
+        end_pos = node.loc.expression.end_pos
+
+        set(begin_pos..end_pos, context)
+      end
+
+      def set_body_context(node, context)
+        case node.type
+        when :class
+          name_node, super_node, _ = node.children
+          begin_pos = if super_node
+                        super_node.loc.expression.end_pos
+                      else
+                        name_node.loc.expression.end_pos
+                      end
+          end_pos = node.loc.end.begin_pos # steep:ignore NoMethod
+
+          set(begin_pos..end_pos, context)
+
+        when :module
+          name_node = node.children[0]
+          begin_pos = name_node.loc.expression.end_pos
+          end_pos = node.loc.end.begin_pos # steep:ignore NoMethod
+          set(begin_pos..end_pos, context)
+
+        when :sclass
+          name_node = node.children[0]
+          begin_pos = name_node.loc.expression.end_pos
+          end_pos = node.loc.end.begin_pos # steep:ignore NoMethod
+          set(begin_pos..end_pos, context)
+
+        when :def, :defs
+          if node.children.last
+            args_node =
+              case node.type
+              when :def
+                node.children[1]
+              when :defs
+                node.children[2]
+              end
+
+            body_begin_pos =
+              case
+              when node.loc.assignment # steep:ignore NoMethod
+                # endless def
+                node.loc.assignment.end_pos # steep:ignore NoMethod
+              when args_node.loc.expression
+                # with args
+                args_node.loc.expression.end_pos
+              else
+                # without args
+                node.loc.name.end_pos # steep:ignore NoMethod
+              end
+
+            body_end_pos =
+              if node.loc.end # steep:ignore NoMethod
+                node.loc.end.begin_pos # steep:ignore NoMethod
+              else
+                node.loc.expression.end_pos
+              end
+
+            set(body_begin_pos..body_end_pos, context)
+          end
+
+        when :block, :numblock
+          range = block_range(node)
+          set(range, context)
+
+        when :for
+          _, collection, _ = node.children
+
+          begin_pos = collection.loc.expression.end_pos
+          end_pos = node.loc.end.begin_pos # steep:ignore NoMethod
+
+          set(begin_pos..end_pos, context)
+        else
+          raise "Unexpected node for insert_context: #{node.type}"
+        end
+      end
+
+      def block_range(node)
+        case node.type
+        when :block
+          send_node, args_node, _ = node.children
+          begin_pos = if send_node.type != :lambda && args_node.loc.expression
+                        args_node.loc.expression.end_pos
+                      else
+                        node.loc.begin.end_pos # steep:ignore NoMethod
+                      end
+          end_pos = node.loc.end.begin_pos # steep:ignore NoMethod
+        when :numblock
+          send_node, _ = node.children
+          begin_pos = node.loc.begin.end_pos # steep:ignore NoMethod
+          end_pos = node.loc.end.begin_pos # steep:ignore NoMethod
+        end
+
+        begin_pos..end_pos
+      end
+
+      def range
+        range, _ = data
+        range
+      end
+
+      def context
+        _, context = data
+        context
+      end
     end
 
     attr_reader :source
@@ -138,12 +243,12 @@ module Steep
       end
     end
 
-    def add_context_for_node(node, context:)
-      begin_pos = node.loc.expression.begin_pos
-      end_pos = node.loc.expression.end_pos
+    # def add_context_for_node(node, context:)
+    #   begin_pos = node.loc.expression.begin_pos
+    #   end_pos = node.loc.expression.end_pos
 
-      add_context(begin_pos..end_pos, context: context)
-    end
+    #   add_context(begin_pos..end_pos, context: context)
+    # end
 
     def block_range(node)
       case node.type
@@ -164,79 +269,79 @@ module Steep
       begin_pos..end_pos
     end
 
-    def add_context_for_body(node, context:)
-      case node.type
-      when :class
-        name_node, super_node, _ = node.children
-        begin_pos = if super_node
-                      super_node.loc.expression.end_pos
-                    else
-                      name_node.loc.expression.end_pos
-                    end
-        end_pos = node.loc.end.begin_pos # steep:ignore NoMethod
+    # def add_context_for_body(node, context:)
+    #   case node.type
+    #   when :class
+    #     name_node, super_node, _ = node.children
+    #     begin_pos = if super_node
+    #                   super_node.loc.expression.end_pos
+    #                 else
+    #                   name_node.loc.expression.end_pos
+    #                 end
+    #     end_pos = node.loc.end.begin_pos # steep:ignore NoMethod
 
-        add_context(begin_pos..end_pos, context: context)
+    #     add_context(begin_pos..end_pos, context: context)
 
-      when :module
-        name_node = node.children[0]
-        begin_pos = name_node.loc.expression.end_pos
-        end_pos = node.loc.end.begin_pos # steep:ignore NoMethod
-        add_context(begin_pos..end_pos, context: context)
+    #   when :module
+    #     name_node = node.children[0]
+    #     begin_pos = name_node.loc.expression.end_pos
+    #     end_pos = node.loc.end.begin_pos # steep:ignore NoMethod
+    #     add_context(begin_pos..end_pos, context: context)
 
-      when :sclass
-        name_node = node.children[0]
-        begin_pos = name_node.loc.expression.end_pos
-        end_pos = node.loc.end.begin_pos # steep:ignore NoMethod
-        add_context(begin_pos..end_pos, context: context)
+    #   when :sclass
+    #     name_node = node.children[0]
+    #     begin_pos = name_node.loc.expression.end_pos
+    #     end_pos = node.loc.end.begin_pos # steep:ignore NoMethod
+    #     add_context(begin_pos..end_pos, context: context)
 
-      when :def, :defs
-        if node.children.last
-          args_node =
-            case node.type
-            when :def
-              node.children[1]
-            when :defs
-              node.children[2]
-            end
+    #   when :def, :defs
+    #     if node.children.last
+    #       args_node =
+    #         case node.type
+    #         when :def
+    #           node.children[1]
+    #         when :defs
+    #           node.children[2]
+    #         end
 
-          body_begin_pos =
-            case
-            when node.loc.assignment # steep:ignore NoMethod
-              # endless def
-              node.loc.assignment.end_pos # steep:ignore NoMethod
-            when args_node.loc.expression
-              # with args
-              args_node.loc.expression.end_pos
-            else
-              # without args
-              node.loc.name.end_pos # steep:ignore NoMethod
-            end
+    #       body_begin_pos =
+    #         case
+    #         when node.loc.assignment # steep:ignore NoMethod
+    #           # endless def
+    #           node.loc.assignment.end_pos # steep:ignore NoMethod
+    #         when args_node.loc.expression
+    #           # with args
+    #           args_node.loc.expression.end_pos
+    #         else
+    #           # without args
+    #           node.loc.name.end_pos # steep:ignore NoMethod
+    #         end
 
-          body_end_pos =
-            if node.loc.end # steep:ignore NoMethod
-              node.loc.end.begin_pos # steep:ignore NoMethod
-            else
-              node.loc.expression.end_pos
-            end
+    #       body_end_pos =
+    #         if node.loc.end # steep:ignore NoMethod
+    #           node.loc.end.begin_pos # steep:ignore NoMethod
+    #         else
+    #           node.loc.expression.end_pos
+    #         end
 
-          add_context(body_begin_pos..body_end_pos, context: context)
-        end
+    #       add_context(body_begin_pos..body_end_pos, context: context)
+    #     end
 
-      when :block, :numblock
-        range = block_range(node)
-        add_context(range, context: context)
+    #   when :block, :numblock
+    #     range = block_range(node)
+    #     add_context(range, context: context)
 
-      when :for
-        _, collection, _ = node.children
+    #   when :for
+    #     _, collection, _ = node.children
 
-        begin_pos = collection.loc.expression.end_pos
-        end_pos = node.loc.end.begin_pos # steep:ignore NoMethod
+    #     begin_pos = collection.loc.expression.end_pos
+    #     end_pos = node.loc.end.begin_pos # steep:ignore NoMethod
 
-        add_context(begin_pos..end_pos, context: context)
-      else
-        raise "Unexpected node for insert_context: #{node.type}"
-      end
-    end
+    #     add_context(begin_pos..end_pos, context: context)
+    #   else
+    #     raise "Unexpected node for insert_context: #{node.type}"
+    #   end
+    # end
 
     def context_at(line:, column:)
       contexts.at(line: line, column: column) ||

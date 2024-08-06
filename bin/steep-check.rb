@@ -134,7 +134,7 @@ class Command
         variable_context: TypeInference::Context::TypeVariableContext.empty
       )
 
-      typing = Typing.new(source: source, root_context: context)
+      typing = Typing.new(source: source, root_context: context, cursor: nil)
       construction = TypeConstruction.new(checker: subtyping, source: source, annotations: annotations, context: context, typing: typing)
 
       construction.synthesize(source.node)

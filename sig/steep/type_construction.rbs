@@ -90,13 +90,13 @@ module Steep
 
     def default_module_context: (AST::Annotation::Implements::Module? implement_module_name, nesting: RBS::Resolver::context) -> TypeInference::Context::ModuleContext
 
-    def for_module: (untyped node, untyped new_module_name) -> untyped
+    def for_module: (untyped node, untyped new_module_name) -> TypeConstruction
 
-    def with_module_constr: (untyped node, untyped module_name) { (untyped) -> untyped } -> untyped
+    def with_module_constr: [T] (untyped node, untyped module_name) { (TypeConstruction) -> T } -> T
 
-    def for_class: (untyped node, untyped new_class_name, untyped super_class_name) -> untyped
+    def for_class: (untyped node, untyped new_class_name, untyped super_class_name) -> TypeConstruction
 
-    def with_class_constr: (untyped node, untyped new_class_name, untyped super_class_name) { (untyped) -> untyped } -> untyped
+    def with_class_constr: [T] (Parser::AST::Node node, untyped new_class_name, untyped super_class_name) { (TypeConstruction) -> T } -> T
 
     def with_sclass_constr: [A] (Parser::AST::Node node, AST::Types::t `type`) { (TypeConstruction?) -> A } -> A
 

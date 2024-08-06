@@ -22,11 +22,23 @@ module Steep
       def set: (Range[Integer], Context context) -> void
              | (CursorContext) -> void
 
-      # def set!: (CursorContext) -> self
+      # Assign the context for the range that covers given node
+      #
+      def set_node_context: (Parser::AST::Node node, Context context) -> void
+
+      # Assign the context for the range that covert the *body* of the given node
+      #
+      # What the *body* exactly is depends on the node type.
+      #
+      def set_body_context: (Parser::AST::Node node, Context context) -> void
 
       %a{pure} def context: () -> Context?
 
       %a{pure} def range: () -> Range[Integer]?
+
+      private
+
+      def block_range: (Parser::AST::Node) -> Range[Integer]
     end
 
     attr_reader source: Source
@@ -69,11 +81,11 @@ module Steep
 
     def call_of: (node: Parser::AST::Node) -> TypeInference::MethodCall::t
 
-    def add_context_for_node: (Parser::AST::Node node, context: Context) -> void
+    # def add_context_for_node: (Parser::AST::Node node, context: Context) -> void
 
     def block_range: (Parser::AST::Node node) -> Range[Integer]
 
-    def add_context_for_body: (Parser::AST::Node node, context: Context) -> void
+    # def add_context_for_body: (Parser::AST::Node node, context: Context) -> void
 
     def context_at: (line: Integer, column: Integer) -> Context
 

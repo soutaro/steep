@@ -176,7 +176,7 @@ module Steep
               when :def, :defs
                 named_location = (_ = node.location) #: Parser::AST::_NamedLocation
                 if test_ast_location(named_location.name, line: line, column: column)
-                  if method_context = typing.context_at(line: line, column: column).method_context
+                  if method_context = typing.cursor_context.context&.method_context
                     if method = method_context.method
                       method.defs.each do |defn|
                         singleton_method =
@@ -285,8 +285,9 @@ module Steep
         source = Source.parse(content, path: path, factory: subtyping.factory)
         source = source.without_unrelated_defs(line: line, column: column)
         resolver = RBS::Resolver::ConstantResolver.new(builder: subtyping.factory.definition_builder)
+        loc = source.buffer.loc_to_pos([line, column])
         [
-          Services::TypeCheckService.type_check(source: source, subtyping: subtyping, constant_resolver: resolver),
+          Services::TypeCheckService.type_check(source: source, subtyping: subtyping, constant_resolver: resolver, cursor: loc),
           signature_service
         ]
       rescue

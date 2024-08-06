@@ -113,16 +113,24 @@ x = 1
 z = x
       EOF
 
-      with_standard_construction(checker, source) do |construction, typing|
+      with_standard_construction(checker, source, cursor: [1, 0]) do |construction, typing|
         pair = construction.synthesize(source.node)
 
         assert_equal parse_type("::Integer"), typing.type_of(node: source.node)
 
-        assert_nil typing.context_at(line: 1, column: 0).type_env[:x]
-        assert_nil typing.context_at(line: 1, column: 0).type_env[:z]
+        assert_nil typing.cursor_context.context.type_env[:x]
+        assert_nil typing.cursor_context.context.type_env[:z]
 
-        assert_equal parse_type("::Integer"), typing.context_at(line: 1, column: 5).type_env[:x]
-        assert_nil typing.context_at(line: 1, column: 5).type_env[:z]
+        assert_empty typing.errors
+      end
+
+      with_standard_construction(checker, source, cursor: [1, 5]) do |construction, typing|
+        pair = construction.synthesize(source.node)
+
+        assert_equal parse_type("::Integer"), typing.type_of(node: source.node)
+
+        assert_equal parse_type("::Integer"), typing.cursor_context.context.type_env[:x]
+        assert_nil typing.cursor_context.context.type_env[:z]
 
         assert_equal parse_type("::Integer"), pair.context.type_env[:x]
         assert_equal parse_type("::Integer"), pair.context.type_env[:z]
@@ -140,14 +148,9 @@ x = ""
       EOF
 
       with_standard_construction(checker, source) do |construction, typing|
-        pair = construction.synthesize(source.node)
+        construction.synthesize(source.node)
 
         assert_equal parse_type("::String"), typing.type_of(node: source.node)
-
-        assert_nil typing.context_at(line: 1, column: 0).type_env[:x]
-        assert_equal parse_type("::Integer"), typing.context_at(line: 1, column: 5).type_env[:x]
-        assert_equal parse_type("::String"), pair.context.type_env[:x]
-
         assert_empty typing.errors
       end
     end
@@ -418,11 +421,11 @@ def foo
 end
       EOF
 
-      with_standard_construction(checker, source) do |construction, typing|
+      with_standard_construction(checker, source, cursor: [4, 0]) do |construction, typing|
         construction.synthesize(source.node)
 
         assert_equal parse_type("untyped"), typing.type_of(node: dig(source.node, 2))
-        assert_equal parse_type("::_A"), typing.context_at(line: 4, column: 0).type_env[:x]
+        assert_equal parse_type("::_A"), typing.cursor_context.context.type_env[:x]
       end
     end
   end
@@ -579,16 +582,13 @@ a.f do |a|
 end
       EOF
 
-      with_standard_construction(checker, source) do |construction, typing|
+      with_standard_construction(checker, source, cursor: [7, 0]) do |construction, typing|
         pair = construction.synthesize(source.node)
 
         assert_equal parse_type("::_X"), pair.context.type_env[:a]
 
-        assert_equal parse_type("::_A"), typing.context_at(line: 6, column: 0).type_env[:a]
-        assert_nil typing.context_at(line: 6, column: 0).type_env[:b]
-
-        assert_equal parse_type("::_A"), typing.context_at(line: 7, column: 0).type_env[:a]
-        assert_equal parse_type("::_A"), typing.context_at(line: 7, column: 0).type_env[:b]
+        assert_equal parse_type("::_A"), typing.cursor_context.context.type_env[:a]
+        assert_equal parse_type("::_A"), typing.cursor_context.context.type_env[:b]
       end
     end
   end
@@ -606,7 +606,7 @@ x.f do |a|
 end
       EOF
 
-      with_standard_construction(checker, source) do |construction, typing|
+      with_standard_construction(checker, source, cursor: [8, 0]) do |construction, typing|
         pair = construction.synthesize(source.node)
 
         assert_no_error typing
@@ -615,10 +615,11 @@ end
         assert_nil pair.context.type_env[:a]
         assert_nil pair.context.type_env[:d]
 
-        block_context = typing.context_at(line: 8, column: 0)
-        assert_equal parse_type("::_A"), block_context.type_env[:a]
-        assert_equal parse_type("::_D"), block_context.type_env[:d]
-        assert_equal parse_type("::_X"), block_context.type_env[:x]
+        typing.cursor_context.context.tap do |context|
+          assert_equal parse_type("::_A"), context.type_env[:a]
+          assert_equal parse_type("::_D"), context.type_env[:d]
+          assert_equal parse_type("::_X"), context.type_env[:x]
+        end
       end
     end
   end
@@ -2998,16 +2999,16 @@ else
 end
 EOF
 
-      with_standard_construction(checker, source) do |construction, typing|
+      with_standard_construction(checker, source, cursor: [6, 3]) do |construction, typing|
         construction.synthesize(source.node)
-
         assert_no_error typing
+        assert_equal parse_type("::String"), typing.cursor_context.context.type_env[:x]
+      end
 
-        true_context = typing.context_at(line: 6, column: 3)
-        assert_equal parse_type("::String"), true_context.type_env[:x]
-
-        true_context = typing.context_at(line: 9, column: 3)
-        assert_equal parse_type("::Integer"), true_context.type_env[:x]
+      with_standard_construction(checker, source, cursor: [9, 3]) do |construction, typing|
+        construction.synthesize(source.node)
+        assert_no_error typing
+        assert_equal parse_type("::Integer"), typing.cursor_context.context.type_env[:x]
       end
     end
   end
@@ -3083,7 +3084,9 @@ EOF
 
         assert_no_error typing
 
-        assert_equal parse_type("::Integer"), typing.context_at(line: 6, column: 2).type_env[:x]
+        typing.source.find_nodes(line: 6, column: 2).tap do |x, *|
+          assert_equal parse_type("::Integer"), typing.type_of(node: x)
+        end
         assert_equal parse_type("::Integer | ::String"), pair.context.type_env[:x]
       end
     end
@@ -3592,12 +3595,12 @@ while line = gets
 end
 EOF
 
-      with_standard_construction(checker, source) do |construction, typing|
+      with_standard_construction(checker, source, cursor: [2, 2]) do |construction, typing|
         pair = construction.synthesize(source.node)
 
         assert_empty typing.errors
 
-        assert_equal parse_type("::String"), typing.context_at(line: 2, column: 2).type_env[:line]
+        assert_equal parse_type("::String"), typing.cursor_context.context.type_env[:line]
 
         assert_equal parse_type("::String?"), pair.context.type_env[:line]
         assert_equal parse_type("::String?"), pair.context.type_env[:x]
@@ -4652,13 +4655,13 @@ l = -> (x, y) do
 end
 EOF
 
-      with_standard_construction(checker, source) do |construction, typing|
+      with_standard_construction(checker, source, cursor: [3, 3]) do |construction, typing|
         pair = construction.synthesize(source.node)
 
         assert_no_error typing
         assert_equal "^(::Integer, untyped) -> ::Integer", pair.context.type_env[:l].to_s
 
-        lambda_context = typing.context_at(line: 3, column: 3)
+        lambda_context = typing.cursor_context.context
         assert_equal parse_type("::Integer"), lambda_context.type_env[:x]
         assert_equal parse_type("untyped"), lambda_context.type_env[:y]
       end
@@ -5223,12 +5226,12 @@ a = "Hello"
 b = 123
       EOF
 
-      with_standard_construction(checker, source) do |construction, typing|
+      with_standard_construction(checker, source, cursor: [0, 0]) do |construction, typing|
         construction.synthesize(source.node)
         assert_empty typing.errors
 
         # a = ...
-        typing.context_at(line: 0, column: 0).tap do |ctx|
+        typing.cursor_context.context.tap do |ctx|
           assert_instance_of Context, ctx
           assert_equal construction.module_context, ctx.module_context
           assert_nil ctx.method_context
@@ -5256,12 +5259,12 @@ end
 b = 123
       EOF
 
-      with_standard_construction(checker, source) do |construction, typing|
+      with_standard_construction(checker, source, cursor: [5, 2]) do |construction, typing|
         construction.synthesize(source.node)
         assert_no_error typing
 
         # class Hello
-        typing.context_at(line: 5, column: 2).tap do |ctx|
+        typing.cursor_context.context.tap do |ctx|
           assert_instance_of Context, ctx
           assert_equal "::Hello", ctx.module_context.class_name.to_s
           assert_nil ctx.method_context
@@ -6860,10 +6863,23 @@ end
       with_standard_construction(checker, source) do |construction, typing|
         _, constr = construction.synthesize(source.node)
 
-        type_env = typing.context_at(line: 5, column: 10).type_env
-        assert_equal parse_type("::Integer"), type_env[:x]
-        assert_equal parse_type("nil"), type_env[:y]
-        assert_equal parse_type("::String"), type_env[:z]
+        assert_typing_error typing, size: 3 do |errors|
+          assert_any!(errors) do |error|
+            assert_instance_of Diagnostic::Ruby::NoMethod, error
+            assert_equal parse_type("::Integer"), error.type
+            assert_equal :type_of_x, error.method
+          end
+          assert_any!(errors) do |error|
+            assert_instance_of Diagnostic::Ruby::NoMethod, error
+            assert_equal parse_type("nil"), error.type
+            assert_equal :type_of_y, error.method
+          end
+          assert_any!(errors) do |error|
+            assert_instance_of Diagnostic::Ruby::NoMethod, error
+            assert_equal parse_type("::String"), error.type
+            assert_equal :type_of_z, error.method
+          end
+        end
       end
     end
   end
@@ -8635,10 +8651,10 @@ class Solution
 end
       RUBY
 
-      with_standard_construction(checker, source) do |construction, typing|
+      with_standard_construction(checker, source, cursor: [4, 5]) do |construction, typing|
         type, _ = construction.synthesize(source.node)
 
-        assert_equal parse_type("[X, untyped]", variables: [:X]), typing.context_at(line: 4, column: 5).type_env[:z]
+        assert_equal parse_type("[X, untyped]", variables: [:X]), typing.cursor_context.context.type_env[:z]
       end
     end
   end
@@ -8662,10 +8678,10 @@ class Solution
 end
       RUBY
 
-      with_standard_construction(checker, source) do |construction, typing|
+      with_standard_construction(checker, source, cursor: [7, 5]) do |construction, typing|
         type, _ = construction.synthesize(source.node)
 
-        assert_equal parse_type("[X, untyped]", variables: [:X]), typing.context_at(line: 7, column: 5).type_env[:z]
+        assert_equal parse_type("[X, untyped]", variables: [:X]), typing.cursor_context.context.type_env[:z]
       end
     end
   end
@@ -8686,10 +8702,10 @@ class Solution
 end
       RUBY
 
-      with_standard_construction(checker, source) do |construction, typing|
+      with_standard_construction(checker, source, cursor: [4, 5]) do |construction, typing|
         type, _ = construction.synthesize(source.node)
 
-        assert_equal parse_type("[X, untyped]", variables: [:X]), typing.context_at(line: 4, column: 5).type_env[:z]
+        assert_equal parse_type("[X, untyped]", variables: [:X]), typing.cursor_context.context.type_env[:z]
       end
     end
   end

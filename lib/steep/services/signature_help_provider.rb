@@ -76,7 +76,8 @@ module Steep
       def type_check!(line:, column:)
         source = self.source.without_unrelated_defs(line: line, column: column)
         resolver = RBS::Resolver::ConstantResolver.new(builder: subtyping.factory.definition_builder)
-        TypeCheckService.type_check(source: source, subtyping: subtyping, constant_resolver: resolver)
+        pos = self.source.buffer.loc_to_pos([line, column])
+        TypeCheckService.type_check(source: source, subtyping: subtyping, constant_resolver: resolver, cursor: pos)
       end
 
       def last_argument_nodes_for(argument_nodes:, line:, column:)
