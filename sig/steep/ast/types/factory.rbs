@@ -38,7 +38,7 @@ module Steep
 
         @method_type_cache: Hash[RBS::MethodType, Interface::MethodType]
 
-        def method_type: (RBS::MethodType method_type, method_decls: Set[TypeInference::MethodCall::MethodDecl]) -> Interface::MethodType
+        def method_type: (RBS::MethodType method_type) -> Interface::MethodType
 
         def method_type_1: (Interface::MethodType method_type) -> RBS::MethodType
 

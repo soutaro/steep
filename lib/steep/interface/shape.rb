@@ -12,9 +12,9 @@ module Steep
             buf = +""
 
             if loc = defn.type.location
-              buf << loc.buffer.name
+              buf << loc.buffer.name.to_s
               buf << ":"
-              buf << loc.start_pos
+              buf << loc.start_pos.to_s
             end
 
             buf

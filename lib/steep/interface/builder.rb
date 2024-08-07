@@ -279,7 +279,7 @@ module Steep
             Steep.logger.tagged "method = #{type_name}.#{name}" do
               overloads = method.defs.map do |type_def|
                 method_name = method_name_for(type_def, name)
-                method_type = factory.method_type(type_def.type, method_decls: Set[])
+                method_type = factory.method_type(type_def.type)
                 method_type = replace_primitive_method(method_name, type_def, method_type)
                 Shape::MethodOverload.new(method_type, [type_def])
               end
@@ -309,7 +309,7 @@ module Steep
             Steep.logger.tagged "method = #{type_name}##{name}" do
               overloads = method.defs.map do |type_def|
                 method_name = method_name_for(type_def, name)
-                method_type = factory.method_type(type_def.type, method_decls: Set[])
+                method_type = factory.method_type(type_def.type)
                 method_type = replace_primitive_method(method_name, type_def, method_type)
                 Shape::MethodOverload.new(method_type, [type_def])
               end

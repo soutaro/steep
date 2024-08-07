@@ -33,8 +33,9 @@ module Steep
           loc = type_location
 
           while true
-            ty = RBS::Parser.parse_type(loc.buffer, range: loc.range, variables: type_vars) or break
-            ty = ty.map_type_name {|name| resolver.resolve(name, context: context) || name.absolute! }
+            rbs_ty = RBS::Parser.parse_type(loc.buffer, range: loc.range, variables: type_vars) or break
+            rbs_loc = rbs_ty.location or raise
+            ty = rbs_ty.map_type_name {|name| resolver.resolve(name, context: context) || name.absolute! }
 
             validator = Signature::Validator.new(checker: subtyping)
             validator.rescue_validation_errors do
@@ -48,9 +49,9 @@ module Steep
             ty = subtyping.factory.type(ty)
             types << ty
 
-            match = RBS::Location.new(loc.buffer, ty.location.end_pos, type_location.end_pos).source.match(/\A\s*,\s*/) or break
+            match = RBS::Location.new(loc.buffer, rbs_loc.end_pos, type_location.end_pos).source.match(/\A\s*,\s*/) or break
             offset = match.length
-            loc = RBS::Location.new(loc.buffer, ty.location.end_pos + offset, type_location.end_pos)
+            loc = RBS::Location.new(loc.buffer, rbs_loc.end_pos + offset, type_location.end_pos)
           end
 
           types
