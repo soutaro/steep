@@ -879,7 +879,7 @@ module Steep
               if super_def = method_context!.super_method
                 super_method = Interface::Shape::Entry.new(
                   private_method: true,
-                  method_types: super_def.defs.map {|type_def|
+                  overloads: super_def.defs.map {|type_def|
                     decl = TypeInference::MethodCall::MethodDecl.new(
                       method_name: InstanceMethodName.new(
                         type_name: super_def.implemented_in || super_def.defined_in || raise,
@@ -887,7 +887,7 @@ module Steep
                       ),
                       method_def: type_def
                     )
-                    checker.factory.method_type(type_def.type, method_decls: Set[decl])
+                    type = checker.factory.method_type(type_def.type, method_decls: Set[decl])
                   }
                 )
 

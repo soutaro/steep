@@ -1,28 +1,60 @@
 module Steep
   module Interface
     class Shape
+      class MethodOverload
+        attr_reader :method_type
+
+        attr_reader :method_defs
+
+        def initialize(method_type, defs)
+          @method_type = method_type
+          @method_defs = defs.sort_by do |defn|
+            buf = +""
+
+            if loc = defn.type.location
+              buf << loc.buffer.name
+              buf << ":"
+              buf << loc.start_pos
+            end
+
+            buf
+          end
+          @method_defs.uniq!
+        end
+
+        def subst(s)
+          overload = MethodOverload.new(method_type.subst(s), [])
+          overload.method_defs.replace(method_defs)
+          overload
+        end
+      end
+
       class Entry
-        def initialize(method_types: nil, private_method:, &block)
-          @method_types = method_types
+        def initialize(overloads: nil, private_method:, &block)
+          @overloads = overloads
           @generator = block
           @private_method = private_method
         end
 
         def force
-          unless @method_types
-            @method_types = @generator&.call
+          unless @overloads
+            @overloads = @generator&.call
             @generator = nil
           end
         end
 
-        def method_types
+        def overloads
           force
-          @method_types or raise
+          @overloads or raise
+        end
+
+        def method_types
+          overloads.map(&:method_type)
         end
 
         def has_method_type?
           force
-          @method_types ? true : false
+          @overloads ? true : false
         end
 
         def to_s
@@ -72,8 +104,8 @@ module Steep
           resolved_methods[name] ||= begin
             entry = methods[name]
             Entry.new(
-              method_types: entry.method_types.map do |method_type|
-                method_type.subst(subst)
+              overloads: entry.overloads.map do |overload|
+                overload.subst(subst)
               end,
               private_method: entry.private_method?
             )
