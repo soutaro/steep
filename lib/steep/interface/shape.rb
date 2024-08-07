@@ -105,7 +105,7 @@ module Steep
         def initialize(substs:, methods:)
           @substs = substs
           @methods = methods
-          @resolved_methods = methods.transform_values { nil }
+          @resolved_methods = {}
         end
 
         def key?(name)
