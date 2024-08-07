@@ -244,6 +244,7 @@ when :none
     typings = command.type_check_files(command_line_args, env)
 
     pp steep_method_types: ObjectSpace.each_object(Steep::Interface::MethodType).count, rbs_method_types: ObjectSpace.each_object(RBS::MethodType).count
+    pp any: ObjectSpace.each_object(Steep::AST::Types::Any).count, void: ObjectSpace.each_object(Steep::AST::Types::Void).count, self: ObjectSpace.each_object(Steep::AST::Types::Self).count
   end
 end
 
