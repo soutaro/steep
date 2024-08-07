@@ -1,28 +1,83 @@
 module Steep
   module Interface
     class Shape
+      class MethodOverload
+        attr_reader :method_type
+
+        attr_reader :method_defs
+
+        def initialize(method_type, defs)
+          @method_type = method_type
+          @method_defs = defs.sort_by do |defn|
+            buf = +""
+
+            if loc = defn.type.location
+              buf << loc.buffer.name.to_s
+              buf << ":"
+              buf << loc.start_pos.to_s
+            end
+
+            buf
+          end
+          @method_defs.uniq!
+        end
+
+        def subst(s)
+          overload = MethodOverload.new(method_type.subst(s), [])
+          overload.method_defs.replace(method_defs)
+          overload
+        end
+
+        def method_decls(name)
+          method_defs.map do |defn|
+            type_name = defn.implemented_in || defn.defined_in
+
+            if name == :new && defn.member.is_a?(RBS::AST::Members::MethodDefinition) && defn.member.name == :initialize
+              method_name = SingletonMethodName.new(type_name: type_name, method_name: name)
+            else
+              method_name =
+                if defn.member.kind == :singleton
+                  SingletonMethodName.new(type_name: defn.defined_in, method_name: name)
+                else
+                  # Call the `self?` method an instance method, because the definition is done with instance method definition, not with singleton method
+                  InstanceMethodName.new(type_name: defn.defined_in, method_name: name)
+                end
+            end
+
+            TypeInference::MethodCall::MethodDecl.new(method_def: defn, method_name: method_name)
+          end
+        end
+      end
+
       class Entry
-        def initialize(method_types: nil, private_method:, &block)
-          @method_types = method_types
+        attr_reader :method_name
+
+        def initialize(overloads: nil, private_method:, method_name:, &block)
+          @overloads = overloads
           @generator = block
           @private_method = private_method
+          @method_name = method_name
         end
 
         def force
-          unless @method_types
-            @method_types = @generator&.call
+          unless @overloads
+            @overloads = @generator&.call
             @generator = nil
           end
         end
 
-        def method_types
+        def overloads
           force
-          @method_types or raise
+          @overloads or raise
+        end
+
+        def method_types
+          overloads.map(&:method_type)
         end
 
         def has_method_type?
           force
-          @method_types ? true : false
+          @overloads ? true : false
         end
 
         def to_s
@@ -72,8 +127,9 @@ module Steep
           resolved_methods[name] ||= begin
             entry = methods[name]
             Entry.new(
-              method_types: entry.method_types.map do |method_type|
-                method_type.subst(subst)
+              method_name: name,
+              overloads: entry.overloads.map do |overload|
+                overload.subst(subst)
               end,
               private_method: entry.private_method?
             )

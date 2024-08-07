@@ -533,7 +533,7 @@ module FactoryHelper
 
   def parse_method_type(string, factory: self.factory, variables: [])
     type = RBS::Parser.parse_method_type(string, variables: variables)
-    factory.method_type(type, method_decls: Set[])
+    factory.method_type(type)
   end
 end
 

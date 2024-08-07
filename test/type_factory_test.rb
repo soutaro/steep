@@ -11,7 +11,7 @@ class TypeFactoryTest < Minitest::Test
 
   def assert_overload_with(c, *types)
     types = types.map do |s|
-      factory.method_type(parse_method_type(s), self_type: Steep::AST::Types::Self.new, subst2: nil, method_decls: Set[])
+      factory.method_type(parse_method_type(s), self_type: Steep::AST::Types::Self.new, subst2: nil)
     end
 
     assert_equal Set.new(types), Set.new(c.method_types), "Expected: { #{types.join(" | ")} }, Actual: #{c.to_s}"
@@ -19,7 +19,7 @@ class TypeFactoryTest < Minitest::Test
 
   def assert_overload_including(c, *types)
     types = types.map do |s|
-      factory.method_type(parse_method_type(s), self_type: Steep::AST::Types::Self.new, subst2: nil, method_decls: Set[])
+      factory.method_type(parse_method_type(s), self_type: Steep::AST::Types::Self.new, subst2: nil)
     end
 
     assert_operator Set.new(types),
@@ -258,19 +258,19 @@ class TypeFactoryTest < Minitest::Test
     with_factory() do |factory|
       self_type = factory.type(parse_type("::Array[X]", variables: [:X]))
 
-      factory.method_type(parse_method_type("[A] (A) { (A, B) -> nil } -> void"), method_decls: Set[]).yield_self do |type|
+      factory.method_type(parse_method_type("[A] (A) { (A, B) -> nil } -> void")).yield_self do |type|
         assert_equal "[A] (A) { (A, B) -> nil } -> void", type.to_s
       end
 
-      factory.method_type(parse_method_type("[A] (A) -> void"), method_decls: Set[]).yield_self do |type|
+      factory.method_type(parse_method_type("[A] (A) -> void")).yield_self do |type|
         assert_equal "[A] (A) -> void", type.to_s
       end
 
-      factory.method_type(parse_method_type("[A] () ?{ () -> A } -> void"), method_decls: Set[]).yield_self do |type|
+      factory.method_type(parse_method_type("[A] () ?{ () -> A } -> void")).yield_self do |type|
         assert_equal "[A] () ?{ () -> A } -> void", type.to_s
       end
 
-      factory.method_type(parse_method_type("[X] (X) -> void"), method_decls: Set[]).yield_self do |type|
+      factory.method_type(parse_method_type("[X] (X) -> void")).yield_self do |type|
         assert_method_type(
           "[X] (X) -> void",
           type
@@ -283,18 +283,18 @@ class TypeFactoryTest < Minitest::Test
     with_factory() do |factory|
       self_type = factory.type(parse_type("::Array[X]", variables: [:X]))
 
-      factory.method_type(parse_method_type("[A < Integer] (A) -> void"), method_decls: Set[]).yield_self do |type|
+      factory.method_type(parse_method_type("[A < Integer] (A) -> void")).yield_self do |type|
         assert_equal "[A < Integer] (A) -> void", type.to_s
       end
 
-      factory.method_type(parse_method_type("[X < Integer] () -> X"), method_decls: Set[]).yield_self do |type|
+      factory.method_type(parse_method_type("[X < Integer] () -> X")).yield_self do |type|
         assert_method_type(
           "[X < Integer] () -> X",
           type
         )
       end
 
-      factory.method_type(parse_method_type("[X < Integer, Y < Array[X]] (Y) -> X"), method_decls: Set[]).yield_self do |type|
+      factory.method_type(parse_method_type("[X < Integer, Y < Array[X]] (Y) -> X")).yield_self do |type|
         assert_method_type(
           "[X < Integer, Y < Array[X]] (Y) -> X",
           type
@@ -308,17 +308,17 @@ class TypeFactoryTest < Minitest::Test
       self_type = factory.type(parse_type("::Array[X]", variables: [:X]))
 
       parse_method_type("[A] (A) { (A, B) -> nil } -> void").tap do |original|
-        type = factory.method_type_1(factory.method_type(original, method_decls: Set[]))
+        type = factory.method_type_1(factory.method_type(original))
         assert_equal original, type
       end
 
       parse_method_type("[A] (A) -> void").tap do |original|
-        type = factory.method_type_1(factory.method_type(original, method_decls: Set[]))
+        type = factory.method_type_1(factory.method_type(original))
         assert_equal original, type
       end
 
       parse_method_type("[A] () ?{ () -> A } -> void").tap do |original|
-        type = factory.method_type_1(factory.method_type(original, method_decls: Set[]))
+        type = factory.method_type_1(factory.method_type(original))
         assert_equal original, type
       end
     end

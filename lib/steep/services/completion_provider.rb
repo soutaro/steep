@@ -635,39 +635,40 @@ module Steep
                 case type
                 when AST::Types::Name::Instance, AST::Types::Name::Interface, AST::Types::Name::Singleton
                   # Simple method type
-                  all_decls = Set.new(method_entry.method_types.flat_map {|method_type| method_type.method_decls.to_a }).sort_by {|decl| decl.method_name.to_s }
+                  all_decls = Set.new(method_entry.overloads.flat_map {|overload| overload.method_decls(name) }).sort_by {|decl| decl.method_name.to_s }
                   all_members = Set.new(all_decls.flat_map {|decl| decl.method_def.member })
                   all_members.each do |member|
                     associated_decl = all_decls.find {|decl| decl.method_def.member == member } or next
-                    method_types = method_entry.method_types.select {|method_type| method_type.method_decls.any? {|decl| decl.method_def.member == member }}
+                    overloads = method_entry.overloads.select {|overload| overload.method_defs.any? {|defn| defn.member == member }}
                     items << SimpleMethodNameItem.new(
                       identifier: name,
                       range: range,
                       receiver_type: type,
                       method_name: associated_decl.method_name,
-                      method_types: method_types.map {|type| subtyping.factory.method_type_1(type) },
+                      method_types: overloads.map {|overload| subtyping.factory.method_type_1(overload.method_type) },
                       method_member: member
                     )
                   end
                 else
-                  generated_method_types, defined_method_types = method_entry.method_types.partition {|method_type| method_type.method_decls.empty? }
+                  generated_overloads, defined_overloads =
+                    method_entry.overloads.partition {|overload| overload.method_defs.empty? }
 
-                  unless defined_method_types.empty?
+                  unless defined_overloads.empty?
                     items << ComplexMethodNameItem.new(
                       identifier: name,
                       range: range,
                       receiver_type: type,
-                      method_types: defined_method_types.map {|type| subtyping.factory.method_type_1(type) },
-                      method_decls: defined_method_types.flat_map {|type| type.method_decls.to_a }.sort_by {|decl| decl.method_name.to_s }
+                      method_types: defined_overloads.map { subtyping.factory.method_type_1(_1.method_type) },
+                      method_decls: defined_overloads.flat_map { _1.method_decls(name).to_a }.sort_by {|decl| decl.method_name.to_s }
                     )
                   end
 
-                  unless generated_method_types.empty?
+                  unless generated_overloads.empty?
                     items << GeneratedMethodNameItem.new(
                       identifier: name,
                       range: range,
                       receiver_type: type,
-                      method_types: generated_method_types.map {|type| subtyping.factory.method_type_1(type) }
+                      method_types: generated_overloads.map { subtyping.factory.method_type_1(_1.method_type) }
                     )
                   end
                 end
@@ -740,8 +741,8 @@ module Steep
           if shape = subtyping.builder.shape(type, config)
             shape = shape.public_shape if private_send?(call_node)
             if method = shape.methods[call.method_name]
-              method.method_types.each.with_index do |method_type, i|
-                defn = method_type.method_decls.to_a[0]&.method_def
+              method.overloads.each.with_index do |overload, i|
+                defn = overload.method_decls(call.method_name).to_a[0]&.method_def
                 if defn && defn.type.type
                   range = range_for(position, prefix: prefix)
                   kwargs = argument_nodes.find { |arg| arg.type == :kwargs }&.children || []

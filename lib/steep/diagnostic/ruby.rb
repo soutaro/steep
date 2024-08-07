@@ -932,8 +932,8 @@ module Steep
       class TypeArgumentMismatchError < Base
         attr_reader :type_argument, :type_parameter, :result
 
-        def initialize(type_arg:, type_param:, result:)
-          super(node: nil, location: type_arg.location)
+        def initialize(type_arg:, type_param:, result:, location:)
+          super(node: nil, location: location)
           @type_argument = type_arg
           @type_parameter = type_param
           @result = result
