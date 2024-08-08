@@ -2,9 +2,7 @@ module Steep
   module AST
     module Types
       class Instance
-        def self.instance
-          @instance ||= new()
-        end
+        extend SharedInstance
 
         def ==(other)
           other.is_a?(Instance)
@@ -37,10 +35,6 @@ module Steep
 
         def level
           [0]
-        end
-
-        def with_location(new_location)
-          self.class.new()
         end
       end
     end

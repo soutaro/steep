@@ -2,6 +2,8 @@ module Steep
   module AST
     module Types
       class Any
+        extend SharedInstance[Any]
+
         def ==: (untyped other) -> bool
 
         def hash: () -> Integer

@@ -2,9 +2,7 @@ module Steep
   module AST
     module Types
       class Class
-        def self.instance
-          @instance ||= new()
-        end
+        extend SharedInstance
 
         def to_s
           "class"

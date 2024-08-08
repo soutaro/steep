@@ -2,6 +2,8 @@ module Steep
   module AST
     module Types
       class Class
+        extend SharedInstance[Class]
+
         def to_s: () -> String
 
         def ==: (untyped other) -> bool
@@ -18,9 +20,6 @@ module Steep
         include Helper::NoChild
 
         def level: () -> Array[Integer]
-
-        self.@instance: Class
-        def self.instance: () -> Class
       end
     end
   end

@@ -258,7 +258,7 @@ module Steep
           class_type = AST::Types::Name::Singleton.new(name: name)
           instance_type = AST::Types::Name::Instance.new(
             name: name,
-            args: entry.type_params.map { AST::Types::Any.new() }
+            args: entry.type_params.map { AST::Types::Any.instance() }
           )
 
           Steep.logger.tagged "#{name}" do
@@ -561,7 +561,7 @@ module Steep
           class_type = AST::Types::Name::Singleton.new(name: inner_most_outer_module.name)
           instance_type = AST::Types::Name::Instance.new(
             name: inner_most_outer_module.name,
-            args: inner_most_outer_module.type_params.map { AST::Types::Any.new() },
+            args: inner_most_outer_module.type_params.map { AST::Types::Any.instance() },
           )
         end
 

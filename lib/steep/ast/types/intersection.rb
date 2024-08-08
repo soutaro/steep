@@ -18,9 +18,9 @@ module Steep
           end.map do |type|
             case type
             when AST::Types::Any
-              return AST::Types::Any.new()
+              return AST::Types::Any.instance()
             when AST::Types::Bot
-              return AST::Types::Bot.new()
+              return AST::Types::Bot.instance
             when AST::Types::Top
               nil
             else
@@ -31,7 +31,7 @@ module Steep
 
             case dups.size
             when 0
-              AST::Types::Top.new()
+              AST::Types::Top.instance
             when 1
               tys.first || raise
             else

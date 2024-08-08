@@ -44,23 +44,23 @@ module Steep
           type_cache[type] =
             case type
             when RBS::Types::Bases::Any
-              Any.new()
+              Any.instance
             when RBS::Types::Bases::Class
-              Class.new()
+              Class.instance
             when RBS::Types::Bases::Instance
-              Instance.new()
+              Instance.instance
             when RBS::Types::Bases::Self
-              Self.new()
+              Self.instance
             when RBS::Types::Bases::Top
-              Top.new()
+              Top.instance
             when RBS::Types::Bases::Bottom
-              Bot.new()
+              Bot.instance
             when RBS::Types::Bases::Bool
-              Boolean.new()
+              Boolean.instance
             when RBS::Types::Bases::Void
-              Void.new()
+              Void.instance
             when RBS::Types::Bases::Nil
-              Nil.new()
+              Nil.instance
             when RBS::Types::Variable
               Var.new(name: type.name)
             when RBS::Types::ClassSingleton
@@ -83,7 +83,7 @@ module Steep
             when RBS::Types::Intersection
               Intersection.build(types: type.types.map {|ty| type(ty) })
             when RBS::Types::Optional
-              Union.build(types: [type(type.type), Nil.new()])
+              Union.build(types: [type(type.type), Nil.instance()])
             when RBS::Types::Literal
               Literal.new(value: type.literal)
             when RBS::Types::Tuple
@@ -444,7 +444,7 @@ module Steep
           raise unless type_name.class?
 
           definition = definition_builder.build_singleton(type_name)
-          def_args = definition.type_params.map { Any.new() }
+          def_args = definition.type_params.map { Any.instance }
 
           if args
             raise if def_args.size != args.size

@@ -113,13 +113,13 @@ module Steep
         end
 
         if super_type && !super_type.is_a?(AST::Types::Top)
-          type = eliminate_variable(super_type, to: AST::Types::Top.new)
+          type = eliminate_variable(super_type, to: AST::Types::Top.instance)
           supers << type
           skips << type if skip
         end
 
         if sub_type && !sub_type.is_a?(AST::Types::Bot)
-          type = eliminate_variable(sub_type, to: AST::Types::Bot.new)
+          type = eliminate_variable(sub_type, to: AST::Types::Bot.instance)
           subs << type
           skips << type if skip
         end
@@ -147,19 +147,19 @@ module Steep
         case type
         when AST::Types::Name::Instance, AST::Types::Name::Alias, AST::Types::Name::Interface
           type.args.map do |ty|
-            eliminate_variable(ty, to: AST::Types::Any.new)
+            eliminate_variable(ty, to: AST::Types::Any.instance)
           end.yield_self do |args|
             type.class.new(name: type.name, args: args)
           end
         when AST::Types::Union
           type.types.map do |ty|
-            eliminate_variable(ty, to: AST::Types::Any.new)
+            eliminate_variable(ty, to: AST::Types::Any.instance)
           end.yield_self do |types|
             AST::Types::Union.build(types: types)
           end
         when AST::Types::Intersection
           type.types.map do |ty|
-            eliminate_variable(ty, to: AST::Types::Any.new)
+            eliminate_variable(ty, to: AST::Types::Any.instance)
           end.yield_self do |types|
             AST::Types::Intersection.build(types: types)
           end
@@ -211,7 +211,7 @@ module Steep
 
         case upper_bound.size
         when 0
-          AST::Types::Top.new
+          AST::Types::Top.instance
         when 1
           upper_bound.first || raise
         else
@@ -224,7 +224,7 @@ module Steep
 
         case lower_bound.size
         when 0
-          AST::Types::Bot.new
+          AST::Types::Bot.instance
         when 1
           lower_bound.first || raise
         else
@@ -291,7 +291,7 @@ module Steep
               end
             else
               vars << var
-              types << AST::Types::Any.new
+              types << AST::Types::Any.instance
             end
           end
         end

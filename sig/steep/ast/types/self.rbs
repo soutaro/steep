@@ -2,6 +2,8 @@ module Steep
   module AST
     module Types
       class Self
+        extend SharedInstance[Self]
+
         def ==: (untyped other) -> bool
 
         def hash: () -> Integer
@@ -18,9 +20,6 @@ module Steep
         def free_variables: () -> Set[variable]
 
         def level: () -> Array[Integer]
-
-        self.@instance: Self
-        def self.instance: () -> Self
       end
     end
   end

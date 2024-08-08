@@ -727,7 +727,7 @@ module Steep
               if member.instance?
                 return method_type.with(
                   type: method_type.type.with(
-                    return_type: AST::Types::Logic::ReceiverIsArg.new()
+                    return_type: AST::Types::Logic::ReceiverIsArg.instance()
                   )
                 )
               end
@@ -741,7 +741,7 @@ module Steep
               if member.instance?
                 return method_type.with(
                   type: method_type.type.with(
-                    return_type: AST::Types::Logic::ReceiverIsNil.new()
+                    return_type: AST::Types::Logic::ReceiverIsNil.instance()
                   )
                 )
             end
@@ -755,7 +755,7 @@ module Steep
               AST::Builtin::NilClass.module_name
               return method_type.with(
                 type: method_type.type.with(
-                  return_type: AST::Types::Logic::Not.new()
+                  return_type: AST::Types::Logic::Not.instance()
                 )
               )
             end
@@ -765,7 +765,7 @@ module Steep
             when RBS::BuiltinNames::Module.name
               return method_type.with(
                 type: method_type.type.with(
-                  return_type: AST::Types::Logic::ArgIsReceiver.new()
+                  return_type: AST::Types::Logic::ArgIsReceiver.instance()
                 )
               )
             when RBS::BuiltinNames::Object.name,
@@ -779,7 +779,7 @@ module Steep
               # Value based type-case works on literal types which is available for String, Integer, Symbol, TrueClass, FalseClass, and NilClass
               return method_type.with(
                 type: method_type.type.with(
-                  return_type: AST::Types::Logic::ArgEqualsReceiver.new()
+                  return_type: AST::Types::Logic::ArgEqualsReceiver.instance()
                 )
               )
             end
@@ -788,7 +788,7 @@ module Steep
             when RBS::BuiltinNames::Module.name
               return method_type.with(
                 type: method_type.type.with(
-                  return_type: AST::Types::Logic::ArgIsAncestor.new()
+                  return_type: AST::Types::Logic::ArgIsAncestor.instance()
                 )
               )
             end

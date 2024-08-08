@@ -1421,7 +1421,7 @@ module Steep
           when condition
             add_typing(node, type: ty)
           else
-            add_typing(node, type: AST::Types::Boolean.new)
+            add_typing(node, type: AST::Types::Boolean.instance)
           end
 
         when :hash, :kwargs
@@ -1583,10 +1583,10 @@ module Steep
           end
 
         when :self
-          add_typing node, type: AST::Types::Self.new
+          add_typing node, type: AST::Types::Self.instance
 
         when :cbase
-          add_typing node, type: AST::Types::Void.new
+          add_typing node, type: AST::Types::Void.instance
 
         when :const
           yield_self do
@@ -1776,8 +1776,8 @@ module Steep
               type = union_type(left_falsy.type, right_type)
 
               unless type.is_a?(AST::Types::Any)
-                if check_relation(sub_type: type, super_type: AST::Types::Boolean.new).success?
-                  type = AST::Types::Boolean.new
+                if check_relation(sub_type: type, super_type: AST::Types::Boolean.instance).success?
+                  type = AST::Types::Boolean.instance
                 end
               end
             end
@@ -1834,8 +1834,8 @@ module Steep
               type = union_type(left_truthy.type, right_type)
 
               unless type.is_a?(AST::Types::Any)
-                if check_relation(sub_type: type, super_type: AST::Types::Boolean.new).success?
-                  type = AST::Types::Boolean.new
+                if check_relation(sub_type: type, super_type: AST::Types::Boolean.instance).success?
+                  type = AST::Types::Boolean.instance
                 end
               end
             end
@@ -2113,7 +2113,7 @@ module Steep
             end
 
             resbody_pairs.select! do |pair|
-              no_subtyping?(sub_type: pair.type, super_type: AST::Types::Bot.new)
+              no_subtyping?(sub_type: pair.type, super_type: AST::Types::Bot.instance)
             end
 
             resbody_types = resbody_pairs.map(&:type)
@@ -2406,7 +2406,7 @@ module Steep
                     param_type = hint.type.params.required[0]
                     case param_type
                     when AST::Types::Any
-                      type = AST::Types::Any.new
+                      type = AST::Types::Any.instance
                     else
                       if method = calculate_interface(param_type, private: true)&.methods&.[](value_node.children[0])
                         return_types = method.method_types.filter_map do |method_type|
@@ -4548,7 +4548,7 @@ module Steep
       types = types.reject {|t| t.is_a?(AST::Types::Bot) }
 
       if types.empty?
-        AST::Types::Bot.new
+        AST::Types::Bot.instance
       else
         types.inject do |type1, type2|
           next type2 if type1.is_a?(AST::Types::Any)
@@ -4718,7 +4718,7 @@ module Steep
     end
 
     def unwrap(type)
-      checker.factory.unwrap_optional(type) || AST::Types::Bot.new
+      checker.factory.unwrap_optional(type) || AST::Types::Bot.instance
     end
 
     def deep_expand_alias(type)

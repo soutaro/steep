@@ -36,22 +36,22 @@ module Steep
           method = node.children[1]
           case method
           when :is_a?, :kind_of?, :instance_of?
-            AST::Types::Logic::ReceiverIsArg.new
+            AST::Types::Logic::ReceiverIsArg.instance
           when :nil?
-            AST::Types::Logic::ReceiverIsNil.new
+            AST::Types::Logic::ReceiverIsNil.instance
           when :!
-            AST::Types::Logic::Not.new
+            AST::Types::Logic::Not.instance
           when :===
-            AST::Types::Logic::ArgIsReceiver.new
+            AST::Types::Logic::ArgIsReceiver.instance
           end
         end
       end
 
       TRUE = AST::Types::Literal.new(value: true)
       FALSE = AST::Types::Literal.new(value: false)
-      BOOL = AST::Types::Boolean.new
-      BOT = AST::Types::Bot.new
-      UNTYPED = AST::Types::Any.new
+      BOOL = AST::Types::Boolean.instance
+      BOT = AST::Types::Bot.instance
+      UNTYPED = AST::Types::Any.instance
 
       def eval(env:, node:)
         evaluate_node(env: env, node: node)
