@@ -9,7 +9,7 @@ module Steep
 
       attr_reader block: Block?
 
-      attr_reader method_decls: Set[MethodDecl]
+      private attr_reader method_decls: Set[MethodDecl]
 
       @fvs: Set[Symbol]
 

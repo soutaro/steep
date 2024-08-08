@@ -27,6 +27,19 @@ module Steep
           overload.method_defs.replace(method_defs)
           overload
         end
+
+        def method_decls(name)
+          method_defs.map do |defn|
+            method_name =
+              if defn.member.kind == :singleton
+                SingletonMethodName.new(type_name: defn.defined_in, method_name: name)
+              else
+                InstanceMethodName.new(type_name: defn.defined_in, method_name: name)
+              end
+
+            TypeInference::MethodCall::MethodDecl.new(method_def: defn, method_name: method_name)
+          end
+        end
       end
 
       class Entry

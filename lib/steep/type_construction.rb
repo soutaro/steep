@@ -3896,20 +3896,21 @@ module Steep
           type_args.each_with_index do |type, index|
             param = method_type.type_params[index]
             if param.upper_bound
-              if result = no_subtyping?(sub_type: type, super_type: param.upper_bound)
+              if result = no_subtyping?(sub_type: type.value, super_type: param.upper_bound)
                 args_ << AST::Builtin.any_type
                 constr.typing.add_error(
                   Diagnostic::Ruby::TypeArgumentMismatchError.new(
-                    type_arg: type,
+                    type_arg: type.value,
                     type_param: param,
-                    result: result
+                    result: result,
+                    location: type.location
                   )
                 )
               else
-                args_ << type
+                args_ << type.value
               end
             else
-              args_ << type
+              args_ << type.value
             end
           end
 

@@ -11,6 +11,8 @@ module Steep
         def initialize: (MethodType, Array[RBS::Definition::Method::TypeDef]) -> void
 
         def subst: (Substitution) -> MethodOverload
+
+        def method_decls: (Symbol) -> Array[MethodDecl]
       end
 
       class Entry

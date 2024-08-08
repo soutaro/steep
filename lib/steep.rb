@@ -22,7 +22,7 @@ require "terminal-table"
 require "rbs"
 
 require "steep/path_helper"
-
+require "steep/located_value"
 require "steep/thread_waiter"
 require "steep/equatable"
 require "steep/method_name"

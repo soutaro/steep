@@ -27,7 +27,7 @@ module Steep
         def types(context, subtyping, type_vars)
           resolver = RBS::Resolver::TypeNameResolver.new(subtyping.factory.env)
 
-          # @type var types: Array[Types::t]
+          # @type var types: Array[LocatedValue[Types::t]]
           types = []
 
           loc = type_location
@@ -47,7 +47,7 @@ module Steep
             end
 
             ty = subtyping.factory.type(ty)
-            types << ty
+            types << LocatedValue.new(value: ty, location: rbs_loc)
 
             match = RBS::Location.new(loc.buffer, rbs_loc.end_pos, type_location.end_pos).source.match(/\A\s*,\s*/) or break
             offset = match.length
