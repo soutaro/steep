@@ -14,6 +14,7 @@ group :development, optional: true do
   gem "vernier", "~> 1.0", require: false, platform: :mri
   gem "memory_profiler"
   gem "majo"
+  gem "obg", path: "../obg"
 end
 
 gem "rbs"

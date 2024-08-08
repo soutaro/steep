@@ -190,8 +190,8 @@ module Steep
         def each_type: () { (AST::Types::t) -> void } -> void
                      | () -> Enumerator[AST::Types::t, void]
 
-        @fvs: Set[AST::Types::variable]?
-        def free_variables: () -> Set[AST::Types::variable]
+        @fvs: Array[AST::Types::variable]?
+        def free_variables: () -> Array[AST::Types::variable]
 
         def closed?: () -> bool
 
@@ -249,8 +249,8 @@ module Steep
 
       def hash: () -> Integer
 
-      @fvs: Set[AST::Types::variable]?
-      def free_variables: () -> Set[AST::Types::variable]
+      @fvs: Array[AST::Types::variable]?
+      def free_variables: () -> Array[AST::Types::variable]
 
       def subst: (Substitution s) -> Function
 

@@ -9,7 +9,7 @@ module Steep
 
       attr_reader block: Block?
 
-      @fvs: Set[Symbol]
+      @fvs: Array[AST::Types::variable]
 
       def initialize: (type_params: Array[TypeParam], type: Function, block: Block?) -> void
 
@@ -19,7 +19,8 @@ module Steep
 
       def hash: () -> Integer
 
-      def free_variables: () -> Set[Symbol]
+      # Returns a sorted and deduped array of free varaiables
+      def free_variables: () -> Array[AST::Types::variable]
 
       def subst: (Substitution s) -> MethodType
 

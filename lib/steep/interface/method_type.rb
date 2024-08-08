@@ -25,12 +25,22 @@ module Steep
       end
 
       def free_variables
-        @fvs ||= Set.new.tap do |set|
-          set.merge(type.free_variables)
-          if block
-            set.merge(block.free_variables)
+        @fvs ||= begin
+          fvs = [] #: Array[AST::Types::variable]
+          type.free_variables.each do |name|
+            fvs << name
           end
-          set.subtract(type_params.map(&:name))
+          if block
+            block.free_variables.each do |name|
+              fvs << name
+            end
+          end
+          fvs.delete_if {|fv|
+            type_params.any? {|param| param.name == fv }
+          }
+          fvs.sort!
+          fvs.uniq!
+          fvs
         end
       end
 

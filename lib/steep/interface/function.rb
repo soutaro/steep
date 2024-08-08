@@ -890,10 +890,16 @@ module Steep
         end
 
         def free_variables()
-          @fvs ||= Set.new.tap do |set|
+          @fvs ||= begin
+            array = [] #: Array[AST::Types::variable]
+
             each_type do |type|
-              set.merge(type.free_variables)
+              type.free_variables.each do |var|
+                array << var
+              end
             end
+
+            array
           end
         end
 
@@ -1006,10 +1012,15 @@ module Steep
       end
 
       def free_variables
-        @fvs ||= Set[].tap do |fvs|
-          # @type var fvs: Set[AST::Types::variable]
-          fvs.merge(params.free_variables) if params
-          fvs.merge(return_type.free_variables)
+        @fvs ||= begin
+          array = [] #: Array[AST::Types::variable]
+
+          array.concat(params.free_variables) if params
+          return_type.free_variables.each do |var|
+            array << var
+          end
+
+          array
         end
       end
 

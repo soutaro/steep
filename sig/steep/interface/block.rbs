@@ -25,9 +25,9 @@ module Steep
 
       def subst: (Substitution s) -> Block
 
-      @fvs: Set[AST::Types::variable]
+      @fvs: Array[AST::Types::variable]
 
-      def free_variables: () -> Set[AST::Types::variable]
+      def free_variables: () -> Array[AST::Types::variable]
 
       def to_s: () -> ::String
 

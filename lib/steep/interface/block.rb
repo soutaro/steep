@@ -53,7 +53,16 @@ module Steep
       end
 
       def free_variables()
-        @fvs ||= type.free_variables + (self_type&.free_variables || Set[])
+        @fvs ||= begin
+          array = [] #: Array[AST::Types::variable]
+          type.free_variables.each do |var|
+            array << var
+          end
+          self_type&.free_variables&.each do |var|
+            array << var
+          end
+          array
+        end
       end
 
       def to_s
