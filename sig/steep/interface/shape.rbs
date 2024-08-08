@@ -22,8 +22,10 @@ module Steep
 
         @generator: (^() -> Array[MethodOverload]?)?
 
-        def initialize: (overloads: Array[MethodOverload], private_method: bool) -> void
-                      | (private_method: bool) { () -> Array[MethodOverload]? } -> void
+        attr_reader method_name: Symbol
+
+        def initialize: (method_name: Symbol, overloads: Array[MethodOverload], private_method: bool) -> void
+                      | (method_name: Symbol, private_method: bool) { () -> Array[MethodOverload]? } -> void
 
         def has_method_type?: () -> bool
 

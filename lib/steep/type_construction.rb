@@ -878,6 +878,7 @@ module Steep
             if self_type && method_context!.method
               if super_def = method_context!.super_method
                 super_method = Interface::Shape::Entry.new(
+                  method_name: method_context!.name,
                   private_method: true,
                   overloads: super_def.defs.map {|type_def|
                     type = checker.factory.method_type(type_def.type)
@@ -3288,24 +3289,8 @@ module Steep
             method_types: method.method_types
           )
 
-          decls = method.overloads.flat_map do |method_overload|
-            method_overload.method_defs.map do |type_def|
-              case type_def.member
-              when RBS::AST::Members::MethodDefinition
-                if type_def.member.kind == :singleton
-                  name = SingletonMethodName.new(type_name: type_def.defined_in, method_name: method_name)
-                else
-                  name = InstanceMethodName.new(type_name: type_def.defined_in, method_name: method_name)
-                end
-              when RBS::AST::Members::Attribute
-                if type_def.member.kind == :singleton
-                  name = SingletonMethodName.new(type_name: type_def.defined_in, method_name: method_name)
-                else
-                  name = InstanceMethodName.new(type_name: type_def.defined_in, method_name: method_name)
-                end
-              end
-              TypeInference::MethodCall::MethodDecl.new(method_name: name, method_def: type_def)
-            end
+          decls =  method.overloads.flat_map do |method_overload|
+            method_overload.method_decls(method_name)
           end.to_set
 
           call = TypeInference::MethodCall::Error.new(
@@ -3513,23 +3498,7 @@ module Steep
 
     def try_special_method(node, receiver_type:, method_name:, method_overload:, arguments:, block_params:, block_body:, hint:)
       method_type = method_overload.method_type
-      decls = method_overload.method_defs.map do |type_def|
-        case type_def.member
-        when RBS::AST::Members::MethodDefinition
-          if type_def.member.kind == :singleton
-            name = SingletonMethodName.new(type_name: type_def.defined_in, method_name: method_name)
-          else
-            name = InstanceMethodName.new(type_name: type_def.defined_in, method_name: method_name)
-          end
-        when RBS::AST::Members::Attribute
-          if type_def.member.kind == :singleton
-            name = SingletonMethodName.new(type_name: type_def.defined_in, method_name: method_name)
-          else
-            name = InstanceMethodName.new(type_name: type_def.defined_in, method_name: method_name)
-          end
-        end
-        TypeInference::MethodCall::MethodDecl.new(method_name: name, method_def: type_def)
-      end.to_set
+      decls = method_overload.method_decls(method_name).to_set
 
       case
       when decl = decls.find {|decl| SPECIAL_METHOD_NAMES[:array_compact].include?(decl.method_name) }
@@ -3865,24 +3834,7 @@ module Steep
       constr = self
 
       method_type = method_overload.method_type
-
-      decls = method_overload.method_defs.map do |type_def|
-        case type_def.member
-        when RBS::AST::Members::MethodDefinition
-          if type_def.member.kind == :singleton
-            name = SingletonMethodName.new(type_name: type_def.defined_in, method_name: method_name)
-          else
-            name = InstanceMethodName.new(type_name: type_def.defined_in, method_name: method_name)
-          end
-        when RBS::AST::Members::Attribute
-          if type_def.member.kind == :singleton
-            name = SingletonMethodName.new(type_name: type_def.defined_in, method_name: method_name)
-          else
-            name = InstanceMethodName.new(type_name: type_def.defined_in, method_name: method_name)
-          end
-        end
-        TypeInference::MethodCall::MethodDecl.new(method_name: name, method_def: type_def)
-      end.to_set
+      decls = method_overload.method_decls(method_name).to_set
 
       if tapp && type_args = tapp.types?(module_context.nesting, checker, [])
         type_arity = method_type.type_params.size

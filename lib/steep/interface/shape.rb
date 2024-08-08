@@ -30,12 +30,19 @@ module Steep
 
         def method_decls(name)
           method_defs.map do |defn|
-            method_name =
-              if defn.member.kind == :singleton
-                SingletonMethodName.new(type_name: defn.defined_in, method_name: name)
-              else
-                InstanceMethodName.new(type_name: defn.defined_in, method_name: name)
-              end
+            type_name = defn.implemented_in || defn.defined_in
+
+            if name == :new && defn.member.is_a?(RBS::AST::Members::MethodDefinition) && defn.member.name == :initialize
+              method_name = SingletonMethodName.new(type_name: type_name, method_name: name)
+            else
+              method_name =
+                if defn.member.kind == :singleton
+                  SingletonMethodName.new(type_name: defn.defined_in, method_name: name)
+                else
+                  # Call the `self?` method an instance method, because the definition is done with instance method definition, not with singleton method
+                  InstanceMethodName.new(type_name: defn.defined_in, method_name: name)
+                end
+            end
 
             TypeInference::MethodCall::MethodDecl.new(method_def: defn, method_name: method_name)
           end
@@ -43,10 +50,13 @@ module Steep
       end
 
       class Entry
-        def initialize(overloads: nil, private_method:, &block)
+        attr_reader :method_name
+
+        def initialize(overloads: nil, private_method:, method_name:, &block)
           @overloads = overloads
           @generator = block
           @private_method = private_method
+          @method_name = method_name
         end
 
         def force
@@ -117,6 +127,7 @@ module Steep
           resolved_methods[name] ||= begin
             entry = methods[name]
             Entry.new(
+              method_name: name,
               overloads: entry.overloads.map do |overload|
                 overload.subst(subst)
               end,

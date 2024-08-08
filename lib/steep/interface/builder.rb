@@ -284,7 +284,7 @@ module Steep
                 Shape::MethodOverload.new(method_type, [type_def])
               end
 
-              shape.methods[name] = Interface::Shape::Entry.new(private_method: method.private?, overloads: overloads)
+              shape.methods[name] = Interface::Shape::Entry.new(method_name: name, private_method: method.private?, overloads: overloads)
             end
           end
 
@@ -314,7 +314,7 @@ module Steep
                 Shape::MethodOverload.new(method_type, [type_def])
               end
 
-              shape.methods[name] = Interface::Shape::Entry.new(private_method: method.private?, overloads: overloads)
+              shape.methods[name] = Interface::Shape::Entry.new(method_name: name, private_method: method.private?, overloads: overloads)
             end
           end
 
@@ -340,7 +340,7 @@ module Steep
             private_method ||= entry.private_method?
           end
 
-          shape.methods[method_name] = Interface::Shape::Entry.new(private_method: private_method) do
+          shape.methods[method_name] = Interface::Shape::Entry.new(method_name: method_name, private_method: private_method) do
             overloadss.inject do |overloads1, overloads2|
               # @type break: nil
 
@@ -434,6 +434,7 @@ module Steep
           raise unless aref
 
           Shape::Entry.new(
+            method_name: :[],
             private_method: false,
             overloads: tuple.types.map.with_index {|elem_type, index|
               Shape::MethodOverload.new(
@@ -457,6 +458,7 @@ module Steep
           raise unless update
 
           Shape::Entry.new(
+            method_name: :[]=,
             private_method: false,
             overloads: tuple.types.map.with_index {|elem_type, index|
               Shape::MethodOverload.new(
@@ -480,6 +482,7 @@ module Steep
           raise unless fetch
 
           Shape::Entry.new(
+            method_name: :fetch,
             private_method: false,
             overloads: tuple.types.flat_map.with_index {|elem_type, index|
               [
@@ -533,6 +536,7 @@ module Steep
 
         first_entry = array_shape.methods[:first].yield_self do |first|
           Shape::Entry.new(
+            method_name: :first,
             private_method: false,
             overloads: [
               Shape::MethodOverload.new(
@@ -554,6 +558,7 @@ module Steep
 
         last_entry = array_shape.methods[:last].yield_self do |last|
           Shape::Entry.new(
+            method_name: :last,
             private_method: false,
             overloads: [
               Shape::MethodOverload.new(
@@ -597,6 +602,7 @@ module Steep
         shape.methods[:[]] = hash_shape.methods[:[]].yield_self do |aref|
           aref or raise
           Shape::Entry.new(
+            method_name: :[],
             private_method: false,
             overloads: record.elements.map do |key_value, value_type|
               key_type = AST::Types::Literal.new(value: key_value, location: nil)
@@ -622,6 +628,7 @@ module Steep
           update or raise
 
           Shape::Entry.new(
+            method_name: :[]=,
             private_method: false,
             overloads: record.elements.map do |key_value, value_type|
               key_type = AST::Types::Literal.new(value: key_value, location: nil)
@@ -645,6 +652,7 @@ module Steep
           update or raise
 
           Shape::Entry.new(
+            method_name: :fetch,
             private_method: false,
             overloads: record.elements.flat_map {|key_value, value_type|
               key_type = AST::Types::Literal.new(value: key_value, location: nil)
@@ -700,14 +708,20 @@ module Steep
         shape = Shape.new(type: proc, private: true)
         shape.methods.merge!(proc_shape.methods)
 
-        shape.methods[:[]] = shape.methods[:call] = Shape::Entry.new(
+        overload = Shape::MethodOverload.new(
+          MethodType.new(type_params: [], type: proc.type, block: proc.block, method_decls: Set[]),
+          []
+        )
+
+        shape.methods[:[]] = Shape::Entry.new(
+          method_name: :[],
           private_method: false,
-          overloads: [
-            Shape::MethodOverload.new(
-              MethodType.new(type_params: [], type: proc.type, block: proc.block, method_decls: Set[]),
-              []
-            )
-          ]
+          overloads: [overload]
+        )
+        shape.methods[:call] = Shape::Entry.new(
+          method_name: :call,
+          private_method: false,
+          overloads: [overload]
         )
 
         shape
