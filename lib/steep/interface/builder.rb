@@ -445,8 +445,7 @@ module Steep
                     return_type: elem_type,
                     location: nil
                   ),
-                  block: nil,
-                  method_decls: Set[]
+                  block: nil
                 ),
                 []
               )
@@ -469,8 +468,7 @@ module Steep
                     return_type: elem_type,
                     location: nil
                   ),
-                  block: nil,
-                  method_decls: Set[]
+                  block: nil
                 ),
                 []
               )
@@ -493,8 +491,7 @@ module Steep
                     return_type: elem_type,
                     location: nil
                   ),
-                  block: nil,
-                  method_decls: Set[]
+                  block: nil
                 ),
                 MethodType.new(
                   type_params: [TypeParam.new(name: :T, upper_bound: nil, variance: :invariant, unchecked: false)],
@@ -508,8 +505,7 @@ module Steep
                     return_type: AST::Types::Union.build(types: [elem_type, AST::Types::Var.new(name: :T)]),
                     location: nil
                   ),
-                  block: nil,
-                  method_decls: Set[]
+                  block: nil
                 ),
                 MethodType.new(
                   type_params: [TypeParam.new(name: :T, upper_bound: nil, variance: :invariant, unchecked: false)],
@@ -526,8 +522,7 @@ module Steep
                     ),
                     optional: false,
                     self_type: nil
-                  ),
-                  method_decls: Set[]
+                  )
                 )
               ].map { Shape::MethodOverload.new(_1, []) }
             } + fetch.overloads
@@ -547,8 +542,7 @@ module Steep
                     return_type: tuple.types[0] || AST::Builtin.nil_type,
                     location: nil
                   ),
-                  block: nil,
-                  method_decls: Set[]
+                  block: nil
                 ),
                 []
               )
@@ -569,8 +563,7 @@ module Steep
                     return_type: tuple.types.last || AST::Builtin.nil_type,
                     location: nil
                   ),
-                  block: nil,
-                  method_decls: Set[]
+                  block: nil
                 ),
                 []
               )
@@ -615,8 +608,7 @@ module Steep
                     return_type: value_type,
                     location: nil
                   ),
-                  block: nil,
-                  method_decls: Set[]
+                  block: nil
                 ),
                 []
               )
@@ -639,8 +631,7 @@ module Steep
                     params: Function::Params.build(required: [key_type, value_type]),
                     return_type: value_type,
                     location: nil),
-                  block: nil,
-                  method_decls: Set[]
+                  block: nil
                 ),
                 []
               )
@@ -665,8 +656,7 @@ module Steep
                     return_type: value_type,
                     location: nil
                   ),
-                  block: nil,
-                  method_decls: Set[]
+                  block: nil
                 ),
                 MethodType.new(
                   type_params: [TypeParam.new(name: :T, upper_bound: nil, variance: :invariant, unchecked: false)],
@@ -675,8 +665,7 @@ module Steep
                     return_type: AST::Types::Union.build(types: [value_type, AST::Types::Var.new(name: :T)]),
                     location: nil
                   ),
-                  block: nil,
-                  method_decls: Set[]
+                  block: nil
                 ),
                 MethodType.new(
                   type_params: [TypeParam.new(name: :T, upper_bound: nil, variance: :invariant, unchecked: false)],
@@ -693,8 +682,7 @@ module Steep
                     ),
                     optional: false,
                     self_type: nil
-                  ),
-                  method_decls: Set[]
+                  )
                 )
               ].map { Shape::MethodOverload.new(_1, []) }
             } + update.overloads
@@ -709,7 +697,7 @@ module Steep
         shape.methods.merge!(proc_shape.methods)
 
         overload = Shape::MethodOverload.new(
-          MethodType.new(type_params: [], type: proc.type, block: proc.block, method_decls: Set[]),
+          MethodType.new(type_params: [], type: proc.type, block: proc.block),
           []
         )
 

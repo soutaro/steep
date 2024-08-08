@@ -9,11 +9,9 @@ module Steep
 
       attr_reader block: Block?
 
-      private attr_reader method_decls: Set[MethodDecl]
-
       @fvs: Set[Symbol]
 
-      def initialize: (type_params: Array[TypeParam], type: Function, block: Block?, method_decls: Set[MethodDecl]) -> void
+      def initialize: (type_params: Array[TypeParam], type: Function, block: Block?) -> void
 
       def ==: (untyped other) -> bool
 
@@ -30,7 +28,7 @@ module Steep
 
       def instantiate: (Substitution s) -> MethodType
 
-      def with: (?type_params: Array[TypeParam], ?type: Function, ?block: Block?, ?method_decls: Set[MethodDecl]) -> MethodType
+      def with: (?type_params: Array[TypeParam], ?type: Function, ?block: Block?) -> MethodType
 
       def to_s: () -> ::String
 

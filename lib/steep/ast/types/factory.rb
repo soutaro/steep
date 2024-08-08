@@ -286,8 +286,7 @@ module Steep
                   ),
                   self_type: type_opt(block.self_type)
                 )
-              end,
-              method_decls: Set[]
+              end
             )
         end
 
