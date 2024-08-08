@@ -2,6 +2,8 @@ module Steep
   module AST
     module Types
       class Top
+        extend SharedInstance
+
         def ==(other)
           other.is_a?(Top)
         end

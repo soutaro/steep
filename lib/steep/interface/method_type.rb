@@ -239,7 +239,7 @@ module Steep
               when (self_self = b.self_type) && (other_self = ob.self_type)
                 AST::Types::Union.build(types: [self_self, other_self])
               when b.self_type || ob.self_type
-                AST::Types::Bot.new()
+                AST::Types::Bot.instance
               else
                 nil
               end
@@ -295,7 +295,7 @@ module Steep
               when (self_self = b.self_type) && (other_self = ob.self_type)
                 AST::Types::Intersection.build(types: [self_self, other_self])
               when b.self_type || ob.self_type
-                AST::Types::Top.new()
+                AST::Types::Top.instance
               else
                 nil
               end

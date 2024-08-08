@@ -2,9 +2,7 @@ module Steep
   module AST
     module Types
       class Self
-        def self.instance
-          @instance ||= new()
-        end
+        extend SharedInstance
 
         def ==(other)
           other.is_a?(Self)

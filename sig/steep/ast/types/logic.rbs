@@ -3,6 +3,8 @@ module Steep
     module Types
       module Logic
         class Base
+          extend SharedInstance[instance]
+
           def subst: (Interface::Substitution s) -> self
 
           include Helper::NoFreeVariables
@@ -55,6 +57,8 @@ module Steep
           attr_reader falsy: TypeInference::TypeEnv
 
           attr_reader type: t
+
+          def self.new: (truthy: TypeInference::TypeEnv, falsy: TypeInference::TypeEnv, type: t) -> Env
 
           def initialize: (truthy: TypeInference::TypeEnv, falsy: TypeInference::TypeEnv, type: t) -> void
 

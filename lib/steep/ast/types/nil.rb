@@ -2,6 +2,8 @@ module Steep
   module AST
     module Types
       class Nil
+        extend SharedInstance
+        
         def ==(other)
           other.is_a?(Nil)
         end

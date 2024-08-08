@@ -9,7 +9,7 @@ module Steep
         end
 
         def self.build(types:)
-          return AST::Types::Bot.new if types.empty?
+          return AST::Types::Bot.instance if types.empty?
           if types.size == 1
             return types.first || raise
           end
@@ -23,9 +23,9 @@ module Steep
           end.map do |type|
             case type
             when AST::Types::Any
-              return AST::Types::Any.new()
+              return AST::Types::Any.instance()
             when AST::Types::Top
-              return AST::Types::Top.new()
+              return AST::Types::Top.instance
             when AST::Types::Bot
               nil
             else
@@ -34,7 +34,7 @@ module Steep
           end.compact.uniq.yield_self do |tys|
             case tys.size
             when 0
-              AST::Types::Bot.new
+              AST::Types::Bot.instance
             when 1
               tys.first || raise
             else

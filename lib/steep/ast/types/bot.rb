@@ -2,6 +2,8 @@ module Steep
   module AST
     module Types
       class Bot
+        extend SharedInstance
+        
         def ==(other)
           other.is_a?(Bot)
         end

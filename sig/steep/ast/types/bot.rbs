@@ -2,6 +2,8 @@ module Steep
   module AST
     module Types
       class Bot
+        extend SharedInstance[Bot]
+        
         def ==: (untyped other) -> bool
 
         def hash: () -> Integer

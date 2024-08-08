@@ -174,7 +174,7 @@ module Steep
       def params_type0(hint:)
         # @type var leadings: Array[AST::Types::t]
         # @type var optionals: Array[AST::Types::t]
-        
+
         if hint
           case
           when leading_params.size == hint.required.size
@@ -223,8 +223,8 @@ module Steep
             end
           end
         else
-          leadings = leading_params.map {|param| param.type || AST::Types::Any.new }
-          optionals = optional_params.map {|param| param.type || AST::Types::Any.new }
+          leadings = leading_params.map {|param| param.type || AST::Types::Any.instance }
+          optionals = optional_params.map {|param| param.type || AST::Types::Any.instance }
 
           if rest_param
             if rest_type = rest_param.type
@@ -232,7 +232,7 @@ module Steep
                 rest = array.args.first or raise
               end
             end
-            rest ||= AST::Types::Any.new
+            rest ||= AST::Types::Any.instance
           end
         end
 
@@ -282,7 +282,7 @@ module Steep
               if ty
                 zip << [param, ty]
               else
-                zip << [param, AST::Types::Nil.new]
+                zip << [param, AST::Types::Nil.instance]
               end
             end
 
@@ -291,7 +291,7 @@ module Steep
                 union = AST::Types::Union.build(types: types)
                 zip << [rest_param, AST::Builtin::Array.instance_type(union)]
               else
-                zip << [rest_param, AST::Types::Nil.new]
+                zip << [rest_param, AST::Types::Nil.instance]
               end
             end
           end

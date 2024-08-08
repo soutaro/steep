@@ -3,6 +3,8 @@ module Steep
     module Types
       module Logic
         class Base
+          extend SharedInstance
+          
           def subst(s)
             self
           end
