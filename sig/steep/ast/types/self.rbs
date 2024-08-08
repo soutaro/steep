@@ -2,10 +2,6 @@ module Steep
   module AST
     module Types
       class Self
-        attr_reader location: untyped
-
-        def initialize: (?location: untyped?) -> void
-
         def ==: (untyped other) -> bool
 
         def hash: () -> Integer
@@ -22,8 +18,6 @@ module Steep
         def free_variables: () -> Set[variable]
 
         def level: () -> Array[Integer]
-
-        def with_location: (untyped new_location) -> Self
 
         self.@instance: Self
         def self.instance: () -> Self

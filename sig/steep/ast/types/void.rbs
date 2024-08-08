@@ -2,10 +2,6 @@ module Steep
   module AST
     module Types
       class Void
-        attr_reader location: untyped
-
-        def initialize: (?location: untyped?) -> void
-
         def ==: (untyped other) -> bool
 
         def hash: () -> Integer
@@ -21,8 +17,6 @@ module Steep
         include Helper::NoChild
 
         def level: () -> Array[Integer]
-
-        def with_location: (untyped new_location) -> Void
       end
     end
   end

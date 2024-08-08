@@ -3,11 +3,9 @@ module Steep
     module Types
       class Tuple
         attr_reader :types
-        attr_reader :location
 
-        def initialize(types:, location: nil)
+        def initialize(types:)
           @types = types
-          @location = location
         end
 
         def ==(other)
@@ -22,8 +20,7 @@ module Steep
         alias eql? ==
 
         def subst(s)
-          self.class.new(location: location,
-                         types: types.map {|ty| ty.subst(s) })
+          self.class.new(types: types.map {|ty| ty.subst(s) })
         end
 
         def to_s
@@ -47,10 +44,7 @@ module Steep
         end
 
         def map_type(&block)
-          Tuple.new(
-            types: types.map(&block),
-            location: location
-          )
+          Tuple.new(types: types.map(&block))
         end
 
         def level
@@ -58,7 +52,7 @@ module Steep
         end
 
         def with_location(new_location)
-          self.class.new(types: types, location: new_location)
+          self.class.new(types: types)
         end
       end
     end

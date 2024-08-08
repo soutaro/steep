@@ -2,11 +2,9 @@ module Steep
   module AST
     module Types
       class Literal
-        attr_reader :location
         attr_reader :value
 
-        def initialize(value:, location: nil)
-          @location = location
+        def initialize(value:)
           @value = value
         end
 
@@ -37,10 +35,6 @@ module Steep
           [0]
         end
 
-        def with_location(new_location)
-          _ = self.class.new(value: value, location: new_location)
-        end
-
         def back_type
           klass = case value
                   when Integer
@@ -57,7 +51,7 @@ module Steep
                     raise "Unexpected literal type: #{(_ = value).inspect}"
                   end
 
-          Name::Instance.new(name: klass.module_name, args: [], location: location)
+          Name::Instance.new(name: klass.module_name, args: [])
         end
       end
     end

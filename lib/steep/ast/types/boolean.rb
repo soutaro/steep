@@ -2,12 +2,6 @@ module Steep
   module AST
     module Types
       class Boolean
-        attr_reader :location
-
-        def initialize(location: nil)
-          @location = location
-        end
-
         def ==(other)
           other.is_a?(Boolean)
         end
@@ -34,17 +28,13 @@ module Steep
           [0]
         end
 
-        def with_location(new_location)
-          self.class.new(location: new_location)
-        end
-
         def back_type
-          Union.build(types:
-                      [
-                        Builtin::TrueClass.instance_type,
-                        Builtin::FalseClass.instance_type
-                      ],
-                      location: location)
+          Union.build(
+            types: [
+              Builtin::TrueClass.instance_type,
+              Builtin::FalseClass.instance_type
+            ]
+          )
         end
       end
     end

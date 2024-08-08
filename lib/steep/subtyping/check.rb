@@ -129,20 +129,17 @@ module Steep
             if ancestor.name.class?
               AST::Types::Name::Instance.new(
                 name: name,
-                args: args,
-                location: nil
+                args: args
               )
             else
               AST::Types::Name::Interface.new(
                 name: name,
-                args: args,
-                location: nil
+                args: args
               )
             end
           when RBS::Definition::Ancestor::Singleton
             AST::Types::Name::Singleton.new(
-              name: name,
-              location: nil
+              name: name
             )
           end
         end
@@ -163,20 +160,17 @@ module Steep
             if ancestor.name.class?
               AST::Types::Name::Instance.new(
                 name: name,
-                args: args,
-                location: nil
+                args: args
               )
             else
               AST::Types::Name::Interface.new(
                 name: name,
-                args: args,
-                location: nil
+                args: args
               )
             end
           when RBS::Definition::Ancestor::Singleton
             AST::Types::Name::Singleton.new(
-              name: name,
-              location: nil
+              name: name
             )
           end
         end
@@ -497,8 +491,7 @@ module Steep
           Expand(relation) do
             tuple_element_type =
               AST::Types::Union.build(
-                types: relation.sub_type.types,
-                location: relation.sub_type.location
+                types: relation.sub_type.types
               )
 
             check_type(Relation.new(sub_type: tuple_element_type, super_type: super_type.args[0]))

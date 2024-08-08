@@ -3,14 +3,12 @@ module Steep
     module Types
       class Intersection
         attr_reader :types
-        attr_reader :location
 
-        def initialize(types:, location: nil)
+        def initialize(types:)
           @types = types
-          @location = location
         end
 
-        def self.build(types:, location: nil)
+        def self.build(types:)
           types.flat_map do |type|
             if type.is_a?(Intersection)
               type.types
@@ -20,9 +18,9 @@ module Steep
           end.map do |type|
             case type
             when AST::Types::Any
-              return AST::Types::Any.new(location: location)
+              return AST::Types::Any.new()
             when AST::Types::Bot
-              return AST::Types::Bot.new(location: location)
+              return AST::Types::Bot.new()
             when AST::Types::Top
               nil
             else
@@ -33,11 +31,11 @@ module Steep
 
             case dups.size
             when 0
-              AST::Types::Top.new(location: location)
+              AST::Types::Top.new()
             when 1
               tys.first || raise
             else
-              new(types: dups.to_a, location: location)
+              new(types: dups.to_a)
             end
           end
         end
@@ -53,7 +51,7 @@ module Steep
         alias eql? ==
 
         def subst(s)
-          self.class.build(location: location, types: types.map {|ty| ty.subst(s) })
+          self.class.build(types: types.map {|ty| ty.subst(s) })
         end
 
         def to_s
@@ -82,17 +80,12 @@ module Steep
 
         def map_type(&block)
           self.class.build(
-            types: each_child.map(&block),
-            location: location
+            types: each_child.map(&block)
           )
         end
 
         def level
           [0] + level_of_children(types)
-        end
-
-        def with_location(new_location)
-          self.class.new(types: types, location: new_location)
         end
       end
     end

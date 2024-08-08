@@ -2,12 +2,6 @@ module Steep
   module AST
     module Types
       class Instance
-        attr_reader :location
-
-        def initialize(location: nil)
-          @location = location
-        end
-
         def self.instance
           @instance ||= new()
         end
@@ -46,7 +40,7 @@ module Steep
         end
 
         def with_location(new_location)
-          self.class.new(location: new_location)
+          self.class.new()
         end
       end
     end

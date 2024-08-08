@@ -2,10 +2,6 @@ module Steep
   module AST
     module Types
       class Instance
-        attr_reader location: untyped
-
-        def initialize: (?location: untyped?) -> void
-
         def ==: (untyped other) -> bool
 
         def hash: () -> Integer
@@ -22,8 +18,6 @@ module Steep
         def to_s: () -> String
 
         def level: () -> Array[Integer]
-
-        def with_location: (untyped new_location) -> untyped
 
         self.@instance: Instance
         def self.instance: () -> Instance

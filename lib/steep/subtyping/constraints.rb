@@ -149,7 +149,7 @@ module Steep
           type.args.map do |ty|
             eliminate_variable(ty, to: AST::Types::Any.new)
           end.yield_self do |args|
-            type.class.new(name: type.name, args: args, location: type.location)
+            type.class.new(name: type.name, args: args)
           end
         when AST::Types::Union
           type.types.map do |ty|
@@ -171,13 +171,11 @@ module Steep
           end
         when AST::Types::Tuple
           AST::Types::Tuple.new(
-            types: type.types.map {|ty| eliminate_variable(ty, to: AST::Builtin.any_type) },
-            location: type.location
+            types: type.types.map {|ty| eliminate_variable(ty, to: AST::Builtin.any_type) }
           )
         when AST::Types::Record
           AST::Types::Record.new(
-            elements: type.elements.transform_values {|ty| eliminate_variable(ty, to: AST::Builtin.any_type) },
-            location: type.location
+            elements: type.elements.transform_values {|ty| eliminate_variable(ty, to: AST::Builtin.any_type) }
           )
         when AST::Types::Proc
           type.map_type {|ty| eliminate_variable(ty, to: AST::Builtin.any_type) }

@@ -2,12 +2,6 @@ module Steep
   module AST
     module Types
       class Void
-        attr_reader :location
-
-        def initialize(location: nil)
-          @location = location
-        end
-
         def ==(other)
           other.is_a?(Void)
         end
@@ -32,10 +26,6 @@ module Steep
 
         def level
           [0]
-        end
-
-        def with_location(new_location)
-          self.class.new(location: new_location)
         end
       end
     end

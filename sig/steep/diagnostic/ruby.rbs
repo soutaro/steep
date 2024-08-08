@@ -578,7 +578,7 @@ module Steep
 
         def node: () -> nil
 
-        def initialize: (type_arg: AST::Types::t, method_type: Interface::MethodType) -> void
+        def initialize: (type_arg: AST::Types::t, method_type: Interface::MethodType, location: RBS::Location[untyped, untyped]) -> void
 
         def header_line: () -> String
       end

@@ -904,8 +904,8 @@ module Steep
       class UnexpectedTypeArgument < Base
         attr_reader :type_arg, :method_type
 
-        def initialize(type_arg:, method_type:)
-          super(node: nil, location: type_arg.location)
+        def initialize(type_arg:, method_type:, location:)
+          super(node: nil, location: location)
           @type_arg = type_arg
           @method_type = method_type
         end
