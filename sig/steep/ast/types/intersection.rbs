@@ -4,11 +4,9 @@ module Steep
       class Intersection
         attr_reader types: Array[t]
 
-        attr_reader location: untyped
+        def initialize: (types: Array[t]) -> void
 
-        def initialize: (types: Array[t], ?location: untyped?) -> void
-
-        def self.build: (types: Array[t], ?location: untyped?) -> t
+        def self.build: (types: Array[t]) -> t
 
         def ==: (untyped other) -> bool
 
@@ -32,8 +30,6 @@ module Steep
         def map_type: () { (t) -> t } -> t
 
         def level: () -> Array[Integer]
-
-        def with_location: (untyped new_location) -> Intersection
       end
     end
   end

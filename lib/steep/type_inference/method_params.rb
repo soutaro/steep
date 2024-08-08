@@ -114,7 +114,7 @@ module Steep
             proc_type = AST::Types::Proc.new(type: type, block: nil, self_type: self_type)
 
             if optional?
-              AST::Types::Union.build(types: [proc_type, AST::Builtin.nil_type], location: proc_type.location)
+              AST::Types::Union.build(types: [proc_type, AST::Builtin.nil_type])
             else
               proc_type
             end

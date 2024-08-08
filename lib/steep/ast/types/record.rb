@@ -2,12 +2,10 @@ module Steep
   module AST
     module Types
       class Record
-        attr_reader :location
         attr_reader :elements
 
-        def initialize(elements:, location: nil)
+        def initialize(elements:)
           @elements = elements
-          @location = location
         end
 
         def ==(other)
@@ -21,8 +19,7 @@ module Steep
         alias eql? ==
 
         def subst(s)
-          self.class.new(location: location,
-                         elements: elements.transform_values {|type| type.subst(s) })
+          self.class.new(elements: elements.transform_values {|type| type.subst(s) })
         end
 
         def to_s
@@ -52,17 +49,12 @@ module Steep
 
         def map_type(&block)
           self.class.new(
-            elements: elements.transform_values(&block),
-            location: location
+            elements: elements.transform_values(&block)
           )
         end
 
         def level
           [0] + level_of_children(elements.values)
-        end
-
-        def with_location(new_location)
-          self.class.new(elements: elements, location: new_location)
         end
       end
     end

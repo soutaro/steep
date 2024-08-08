@@ -44,55 +44,55 @@ module Steep
           type_cache[type] =
             case type
             when RBS::Types::Bases::Any
-              Any.new(location: nil)
+              Any.new()
             when RBS::Types::Bases::Class
-              Class.new(location: nil)
+              Class.new()
             when RBS::Types::Bases::Instance
-              Instance.new(location: nil)
+              Instance.new()
             when RBS::Types::Bases::Self
-              Self.new(location: nil)
+              Self.new()
             when RBS::Types::Bases::Top
-              Top.new(location: nil)
+              Top.new()
             when RBS::Types::Bases::Bottom
-              Bot.new(location: nil)
+              Bot.new()
             when RBS::Types::Bases::Bool
-              Boolean.new(location: nil)
+              Boolean.new()
             when RBS::Types::Bases::Void
-              Void.new(location: nil)
+              Void.new()
             when RBS::Types::Bases::Nil
-              Nil.new(location: nil)
+              Nil.new()
             when RBS::Types::Variable
-              Var.new(name: type.name, location: nil)
+              Var.new(name: type.name)
             when RBS::Types::ClassSingleton
               type_name = type.name
-              Name::Singleton.new(name: type_name, location: nil)
+              Name::Singleton.new(name: type_name)
             when RBS::Types::ClassInstance
               type_name = type.name
               args = type.args.map {|arg| type(arg) }
-              Name::Instance.new(name: type_name, args: args, location: nil)
+              Name::Instance.new(name: type_name, args: args)
             when RBS::Types::Interface
               type_name = type.name
               args = type.args.map {|arg| type(arg) }
-              Name::Interface.new(name: type_name, args: args, location: nil)
+              Name::Interface.new(name: type_name, args: args)
             when RBS::Types::Alias
               type_name = type.name
               args = type.args.map {|arg| type(arg) }
-              Name::Alias.new(name: type_name, args: args, location: nil)
+              Name::Alias.new(name: type_name, args: args)
             when RBS::Types::Union
-              Union.build(types: type.types.map {|ty| type(ty) }, location: nil)
+              Union.build(types: type.types.map {|ty| type(ty) })
             when RBS::Types::Intersection
-              Intersection.build(types: type.types.map {|ty| type(ty) }, location: nil)
+              Intersection.build(types: type.types.map {|ty| type(ty) })
             when RBS::Types::Optional
-              Union.build(types: [type(type.type), Nil.new(location: nil)], location: nil)
+              Union.build(types: [type(type.type), Nil.new()])
             when RBS::Types::Literal
-              Literal.new(value: type.literal, location: nil)
+              Literal.new(value: type.literal)
             when RBS::Types::Tuple
-              Tuple.new(types: type.types.map {|ty| type(ty) }, location: nil)
+              Tuple.new(types: type.types.map {|ty| type(ty) })
             when RBS::Types::Record
               elements = type.fields.each.with_object({}) do |(key, value), hash|
                 hash[key] = type(value)
               end
-              Record.new(elements: elements, location: nil)
+              Record.new(elements: elements)
             when RBS::Types::Proc
               func = Interface::Function.new(
                 params: params(type.type),
@@ -124,67 +124,67 @@ module Steep
         def type_1(type)
           case type
           when Any
-            RBS::Types::Bases::Any.new(location: type.location)
+            RBS::Types::Bases::Any.new(location: nil)
           when Class
-            RBS::Types::Bases::Class.new(location: type.location)
+            RBS::Types::Bases::Class.new(location: nil)
           when Instance
-            RBS::Types::Bases::Instance.new(location: type.location)
+            RBS::Types::Bases::Instance.new(location: nil)
           when Self
-            RBS::Types::Bases::Self.new(location: type.location)
+            RBS::Types::Bases::Self.new(location: nil)
           when Top
-            RBS::Types::Bases::Top.new(location: type.location)
+            RBS::Types::Bases::Top.new(location: nil)
           when Bot
-            RBS::Types::Bases::Bottom.new(location: type.location)
+            RBS::Types::Bases::Bottom.new(location: nil)
           when Boolean
-            RBS::Types::Bases::Bool.new(location: type.location)
+            RBS::Types::Bases::Bool.new(location: nil)
           when Void
-            RBS::Types::Bases::Void.new(location: type.location)
+            RBS::Types::Bases::Void.new(location: nil)
           when Nil
-            RBS::Types::Bases::Nil.new(location: type.location)
+            RBS::Types::Bases::Nil.new(location: nil)
           when Var
-            RBS::Types::Variable.new(name: type.name, location: type.location)
+            RBS::Types::Variable.new(name: type.name, location: nil)
           when Name::Singleton
-            RBS::Types::ClassSingleton.new(name: type.name, location: type.location)
+            RBS::Types::ClassSingleton.new(name: type.name, location: nil)
           when Name::Instance
             RBS::Types::ClassInstance.new(
               name: type.name,
               args: type.args.map {|arg| type_1(arg) },
-              location: type.location
+              location: nil
             )
           when Name::Interface
             RBS::Types::Interface.new(
               name: type.name,
               args: type.args.map {|arg| type_1(arg) },
-              location: type.location
+              location: nil
             )
           when Name::Alias
             RBS::Types::Alias.new(
               name: type.name,
               args: type.args.map {|arg| type_1(arg) },
-              location: type.location
+              location: nil
             )
           when Union
             RBS::Types::Union.new(
               types: type.types.map {|ty| type_1(ty) },
-              location: type.location
+              location: nil
             )
           when Intersection
             RBS::Types::Intersection.new(
               types: type.types.map {|ty| type_1(ty) },
-              location: type.location
+              location: nil
             )
           when Literal
-            RBS::Types::Literal.new(literal: type.value, location: type.location)
+            RBS::Types::Literal.new(literal: type.value, location: nil)
           when Tuple
             RBS::Types::Tuple.new(
               types: type.types.map {|ty| type_1(ty) },
-              location: type.location
+              location: nil
             )
           when Record
             fields = type.elements.each.with_object({}) do |(key, value), hash|
               hash[key] = type_1(value)
             end
-            RBS::Types::Record.new(fields: fields, location: type.location)
+            RBS::Types::Record.new(fields: fields, location: nil)
           when Proc
             block = if type.block
                       RBS::Types::Block.new(
@@ -197,10 +197,10 @@ module Steep
               type: function_1(type.type),
               self_type: type_1_opt(type.self_type),
               block: block,
-              location: type.location
+              location: nil
             )
           when Logic::Base
-            RBS::Types::Bases::Bool.new(location: type.location)
+            RBS::Types::Bases::Bool.new(location: nil)
           else
             raise "Unexpected type given: #{type} (#{type.class})"
           end
@@ -332,10 +332,10 @@ module Steep
             end
           when AST::Types::Union
             types = type.types.map {|ty| deep_expand_alias(ty, recursive: recursive) or return }
-            AST::Types::Union.build(types: types, location: type.location)
+            AST::Types::Union.build(types: types)
           when AST::Types::Intersection
             types = type.types.map {|ty| deep_expand_alias(ty, recursive: recursive) or return }
-            AST::Types::Intersection.build(types: types, location: type.location)
+            AST::Types::Intersection.build(types: types)
           else
             type
           end
@@ -440,11 +440,11 @@ module Steep
           type_name_resolver.resolve(type_name, context: context)
         end
 
-        def instance_type(type_name, args: nil, location: nil)
+        def instance_type(type_name, args: nil)
           raise unless type_name.class?
 
           definition = definition_builder.build_singleton(type_name)
-          def_args = definition.type_params.map { Any.new(location: nil) }
+          def_args = definition.type_params.map { Any.new() }
 
           if args
             raise if def_args.size != args.size
@@ -452,7 +452,7 @@ module Steep
             args = def_args
           end
 
-          AST::Types::Name::Instance.new(location: location, name: type_name, args: args)
+          AST::Types::Name::Instance.new(name: type_name, args: args)
         end
 
         def try_instance_type(type)
@@ -480,13 +480,11 @@ module Steep
           when AST::Types::Name::Instance
             AST::Types::Name::Instance.new(
               name: env.normalize_module_name(type.name),
-              args: type.args.map {|ty| normalize_type(ty) },
-              location: type.location
+              args: type.args.map {|ty| normalize_type(ty) }
             )
           when AST::Types::Name::Singleton
             AST::Types::Name::Singleton.new(
-              name: env.normalize_module_name(type.name),
-              location: type.location
+              name: env.normalize_module_name(type.name)
             )
           when AST::Types::Any, AST::Types::Boolean, AST::Types::Bot, AST::Types::Nil,
             AST::Types::Top, AST::Types::Void, AST::Types::Literal, AST::Types::Class, AST::Types::Instance,
@@ -494,37 +492,31 @@ module Steep
             type
           when AST::Types::Intersection
             AST::Types::Intersection.build(
-              types: type.types.map {|type| normalize_type(type) },
-              location: type.location
+              types: type.types.map {|type| normalize_type(type) }
             )
           when AST::Types::Union
             AST::Types::Union.build(
-              types: type.types.map {|type| normalize_type(type) },
-              location: type.location
+              types: type.types.map {|type| normalize_type(type) }
             )
           when AST::Types::Record
             AST::Types::Record.new(
-              elements: type.elements.transform_values {|type| normalize_type(type) },
-              location: type.location
+              elements: type.elements.transform_values {|type| normalize_type(type) }
             )
           when AST::Types::Tuple
             AST::Types::Tuple.new(
-              types: type.types.map {|type| normalize_type(type) },
-              location: type.location
+              types: type.types.map {|type| normalize_type(type) }
             )
           when AST::Types::Proc
             type.map_type {|type| normalize_type(type) }
           when AST::Types::Name::Alias
             AST::Types::Name::Alias.new(
               name: type.name,
-              args: type.args.map {|ty| normalize_type(ty) },
-              location: type.location
+              args: type.args.map {|ty| normalize_type(ty) }
             )
           when AST::Types::Name::Interface
             AST::Types::Name::Interface.new(
               name: type.name,
-              args: type.args.map {|ty| normalize_type(ty) },
-              location: type.location
+              args: type.args.map {|ty| normalize_type(ty) }
             )
           end
         end

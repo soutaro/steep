@@ -2449,7 +2449,6 @@ module Steep
               if block_type = method_context!.block_type
                 type = AST::Types::Proc.new(
                   type: block_type.type,
-                  location: nil,
                   block: nil,
                   self_type: block_type.self_type
                 )
@@ -3872,8 +3871,9 @@ module Steep
             type_args.drop(type_arity).each do |type_arg|
               constr.typing.add_error(
                 Diagnostic::Ruby::UnexpectedTypeArgument.new(
-                  type_arg: type_arg,
-                  method_type: method_type
+                  type_arg: type_arg.value,
+                  method_type: method_type,
+                  location: type_arg.location
                 )
               )
             end
@@ -3883,7 +3883,7 @@ module Steep
             constr.typing.add_error(
               Diagnostic::Ruby::InsufficientTypeArgument.new(
                 node: tapp.node,
-                type_args: type_args,
+                type_args: type_args.map(&:value),
                 method_type: method_type
               )
             )
@@ -4765,7 +4765,7 @@ module Steep
         when AST::Types::Any
           nil
         else
-          literal_type = AST::Types::Literal.new(value: literal, location: nil)
+          literal_type = AST::Types::Literal.new(value: literal)
           if check_relation(sub_type: literal_type, super_type: hint).success?
             hint
           end

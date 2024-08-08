@@ -423,7 +423,7 @@ module Steep
       end
 
       def tuple_shape(tuple)
-        element_type = AST::Types::Union.build(types: tuple.types, location: nil)
+        element_type = AST::Types::Union.build(types: tuple.types)
         array_type = AST::Builtin::Array.instance_type(element_type)
 
         array_shape = yield(array_type) or raise
@@ -582,10 +582,9 @@ module Steep
 
       def record_shape(record)
         all_key_type = AST::Types::Union.build(
-          types: record.elements.each_key.map {|value| AST::Types::Literal.new(value: value, location: nil) },
-          location: nil
+          types: record.elements.each_key.map {|value| AST::Types::Literal.new(value: value) }
         )
-        all_value_type = AST::Types::Union.build(types: record.elements.values, location: nil)
+        all_value_type = AST::Types::Union.build(types: record.elements.values)
         hash_type = AST::Builtin::Hash.instance_type(all_key_type, all_value_type)
 
         hash_shape = yield(hash_type) or raise
@@ -598,7 +597,7 @@ module Steep
             method_name: :[],
             private_method: false,
             overloads: record.elements.map do |key_value, value_type|
-              key_type = AST::Types::Literal.new(value: key_value, location: nil)
+              key_type = AST::Types::Literal.new(value: key_value)
 
               Shape::MethodOverload.new(
                 MethodType.new(
@@ -623,7 +622,7 @@ module Steep
             method_name: :[]=,
             private_method: false,
             overloads: record.elements.map do |key_value, value_type|
-              key_type = AST::Types::Literal.new(value: key_value, location: nil)
+              key_type = AST::Types::Literal.new(value: key_value)
               Shape::MethodOverload.new(
                 MethodType.new(
                   type_params: [],
@@ -646,7 +645,7 @@ module Steep
             method_name: :fetch,
             private_method: false,
             overloads: record.elements.flat_map {|key_value, value_type|
-              key_type = AST::Types::Literal.new(value: key_value, location: nil)
+              key_type = AST::Types::Literal.new(value: key_value)
 
               [
                 MethodType.new(
@@ -728,7 +727,7 @@ module Steep
               if member.instance?
                 return method_type.with(
                   type: method_type.type.with(
-                    return_type: AST::Types::Logic::ReceiverIsArg.new(location: method_type.type.return_type.location)
+                    return_type: AST::Types::Logic::ReceiverIsArg.new()
                   )
                 )
               end
@@ -742,7 +741,7 @@ module Steep
               if member.instance?
                 return method_type.with(
                   type: method_type.type.with(
-                    return_type: AST::Types::Logic::ReceiverIsNil.new(location: method_type.type.return_type.location)
+                    return_type: AST::Types::Logic::ReceiverIsNil.new()
                   )
                 )
             end
@@ -756,7 +755,7 @@ module Steep
               AST::Builtin::NilClass.module_name
               return method_type.with(
                 type: method_type.type.with(
-                  return_type: AST::Types::Logic::Not.new(location: method_type.type.return_type.location)
+                  return_type: AST::Types::Logic::Not.new()
                 )
               )
             end
@@ -766,7 +765,7 @@ module Steep
             when RBS::BuiltinNames::Module.name
               return method_type.with(
                 type: method_type.type.with(
-                  return_type: AST::Types::Logic::ArgIsReceiver.new(location: method_type.type.return_type.location)
+                  return_type: AST::Types::Logic::ArgIsReceiver.new()
                 )
               )
             when RBS::BuiltinNames::Object.name,
@@ -780,7 +779,7 @@ module Steep
               # Value based type-case works on literal types which is available for String, Integer, Symbol, TrueClass, FalseClass, and NilClass
               return method_type.with(
                 type: method_type.type.with(
-                  return_type: AST::Types::Logic::ArgEqualsReceiver.new(location: method_type.type.return_type.location)
+                  return_type: AST::Types::Logic::ArgEqualsReceiver.new()
                 )
               )
             end
@@ -789,7 +788,7 @@ module Steep
             when RBS::BuiltinNames::Module.name
               return method_type.with(
                 type: method_type.type.with(
-                  return_type: AST::Types::Logic::ArgIsAncestor.new(location: method_type.type.return_type.location)
+                  return_type: AST::Types::Logic::ArgIsAncestor.new()
                 )
               )
             end
