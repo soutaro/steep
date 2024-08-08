@@ -121,7 +121,7 @@ module Steep
                 items << Item.new(subtyping.factory.method_type_1(overload.method_type), defn&.comment, active_parameter)
 
                 if call.is_a?(MethodCall::Typed)
-                  if call.method_decls.intersect?(overload.method_decls(call.method_name))
+                  if call.method_decls.intersect?(overload.method_decls(call.method_name).to_set)
                     index = i
                   end
                 end
