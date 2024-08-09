@@ -212,6 +212,10 @@ module Steep
 
       def cache_bounds(relation)
         vars = relation.sub_type.free_variables + relation.super_type.free_variables
+        if vars.empty?
+          return nil
+        end
+
         vars.each.with_object({}) do |var, hash| #$ Hash[Symbol, AST::Types::t]
           next unless var.is_a?(Symbol)
           if upper_bound = variable_upper_bound(var)
