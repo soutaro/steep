@@ -139,6 +139,9 @@ module Steep
         def header_line: () -> ::String
       end
 
+      class NoMethodByNil < NoMethod
+      end
+
       class ReturnTypeMismatch < Base
         attr_reader expected: untyped
 
