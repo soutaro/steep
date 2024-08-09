@@ -2,30 +2,34 @@ module Steep
   module Interface
     class Shape
       class MethodOverload
-        attr_reader :method_type
+        attr_reader :method_type, :raw_defs
 
-        attr_reader :method_defs
-
-        def initialize(method_type, defs)
+        def initialize(method_type, defs, method_defs = nil)
           @method_type = method_type
-          @method_defs = defs.sort_by do |defn|
-            buf = +""
+          @raw_defs = defs
+          @method_defs = method_defs
+        end
 
-            if loc = defn.type.location
-              buf << loc.buffer.name.to_s
-              buf << ":"
-              buf << loc.start_pos.to_s
+        def method_defs
+          @method_defs ||= begin
+            defs = @raw_defs.sort_by do |defn|
+              buf = +""
+
+              if loc = defn.type.location
+                buf << loc.buffer.name.to_s
+                buf << ":"
+                buf << loc.start_pos.to_s
+              end
+
+              buf
             end
-
-            buf
+            defs.uniq!
+            defs
           end
-          @method_defs.uniq!
         end
 
         def subst(s)
-          overload = MethodOverload.new(method_type.subst(s), [])
-          overload.method_defs.replace(method_defs)
-          overload
+          MethodOverload.new(method_type.subst(s), raw_defs, @method_defs)
         end
 
         def method_decls(name)

@@ -6,11 +6,14 @@ module Steep
       class MethodOverload
         attr_reader method_type: MethodType
 
-        attr_reader method_defs: Array[RBS::Definition::Method::TypeDef]
+        attr_reader raw_defs: Array[RBS::Definition::Method::TypeDef]
 
-        def initialize: (MethodType, Array[RBS::Definition::Method::TypeDef]) -> void
+        def initialize: (MethodType, Array[RBS::Definition::Method::TypeDef] raw_defs, ?Array[RBS::Definition::Method::TypeDef]? method_defs) -> void
 
         def subst: (Substitution) -> MethodOverload
+
+        @method_defs: Array[RBS::Definition::Method::TypeDef]?
+        def method_defs: () -> Array[RBS::Definition::Method::TypeDef]
 
         def method_decls: (Symbol) -> Array[MethodDecl]
       end
