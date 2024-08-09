@@ -2,15 +2,7 @@ module Steep
   module AST
     module Types
       class Class
-        attr_reader :location
-
-        def initialize(location: nil)
-          @location = location
-        end
-
-        def self.instance
-          @instance ||= new()
-        end
+        extend SharedInstance
 
         def to_s
           "class"
@@ -44,10 +36,6 @@ module Steep
 
         def level
           [0]
-        end
-
-        def with_location(new_location)
-          self.class.new(location: new_location)
         end
       end
     end

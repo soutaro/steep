@@ -22,11 +22,12 @@ require "terminal-table"
 require "rbs"
 
 require "steep/path_helper"
-
+require "steep/located_value"
 require "steep/thread_waiter"
 require "steep/equatable"
 require "steep/method_name"
 require "steep/node_helper"
+require "steep/ast/types/shared_instance"
 require "steep/ast/types/helper"
 require "steep/ast/types/any"
 require "steep/ast/types/instance"

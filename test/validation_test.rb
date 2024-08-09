@@ -653,7 +653,6 @@ type baz[T < Object] = T
         refute_predicate validator, :no_error?
         assert_any!(validator.each_error, size: 1) do |error|
           assert_instance_of Diagnostic::Signature::UnsatisfiableTypeApplication, error
-          assert_equal "::Foo[::String]", error.location.source
         end
       end
 
@@ -667,7 +666,6 @@ type baz[T < Object] = T
         refute_predicate validator, :no_error?
         assert_any!(validator.each_error, size: 1) do |error|
           assert_instance_of Diagnostic::Signature::UnsatisfiableTypeApplication, error
-          assert_equal "::_Bar[::String]", error.location.source
         end
       end
 
@@ -681,7 +679,6 @@ type baz[T < Object] = T
         refute_predicate validator, :no_error?
         assert_any!(validator.each_error, size: 1) do |error|
           assert_instance_of Diagnostic::Signature::UnsatisfiableTypeApplication, error
-          assert_equal "::baz[::BasicObject]", error.location.source
         end
       end
     end

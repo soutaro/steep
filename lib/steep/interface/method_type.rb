@@ -4,13 +4,11 @@ module Steep
       attr_reader :type_params
       attr_reader :type
       attr_reader :block
-      attr_reader :method_decls
 
-      def initialize(type_params:, type:, block:, method_decls:)
+      def initialize(type_params:, type:, block:)
         @type_params = type_params
         @type = type
         @block = block
-        @method_decls = method_decls
       end
 
       def ==(other)
@@ -52,7 +50,7 @@ module Steep
         if ty == type && bl == block
           self
         else
-          self.class.new(type_params: type_params, type: ty, block: bl, method_decls: method_decls)
+          self.class.new(type_params: type_params, type: ty, block: bl)
         end
       end
 
@@ -72,15 +70,13 @@ module Steep
       def instantiate(s)
         self.class.new(type_params: [],
                        type: type.subst(s),
-                       block: block&.subst(s),
-                       method_decls: method_decls)
+                       block: block&.subst(s))
       end
 
-      def with(type_params: self.type_params, type: self.type, block: self.block, method_decls: self.method_decls)
+      def with(type_params: self.type_params, type: self.type, block: self.block)
         self.class.new(type_params: type_params,
                        type: type,
-                       block: block,
-                       method_decls: method_decls)
+                       block: block)
       end
 
       def to_s
@@ -95,8 +91,7 @@ module Steep
       def map_type(&block)
         self.class.new(type_params: type_params,
                        type: type.map_type(&block),
-                       block: self.block&.yield_self {|blk| blk.map_type(&block) },
-                       method_decls: method_decls)
+                       block: self.block&.yield_self {|blk| blk.map_type(&block) })
       end
 
       # Returns a new method type which can be used for the method implementation type of both `self` and `other`.
@@ -125,8 +120,7 @@ module Steep
             ),
             location: nil
           ),
-          block: block,
-          method_decls: method_decls + other.method_decls
+          block: block
         )
       end
 
@@ -245,7 +239,7 @@ module Steep
               when (self_self = b.self_type) && (other_self = ob.self_type)
                 AST::Types::Union.build(types: [self_self, other_self])
               when b.self_type || ob.self_type
-                AST::Types::Bot.new()
+                AST::Types::Bot.instance
               else
                 nil
               end
@@ -280,8 +274,7 @@ module Steep
         MethodType.new(
           type_params: [],
           type: Function.new(params: params, return_type: return_type, location: nil),
-          block: block,
-          method_decls: method_decls + other.method_decls
+          block: block
         )
       end
 
@@ -293,7 +286,7 @@ module Steep
         else
           params = self.type.params || other.type.params
         end
-        
+
         block =
           case
           when (b = self.block) && (ob = other.block)
@@ -302,7 +295,7 @@ module Steep
               when (self_self = b.self_type) && (other_self = ob.self_type)
                 AST::Types::Intersection.build(types: [self_self, other_self])
               when b.self_type || ob.self_type
-                AST::Types::Top.new()
+                AST::Types::Top.instance
               else
                 nil
               end
@@ -324,8 +317,7 @@ module Steep
         MethodType.new(
           type_params: [],
           type: Function.new(params: params, return_type: return_type, location: nil),
-          block: block,
-          method_decls: method_decls + other.method_decls
+          block: block
         )
       end
     end

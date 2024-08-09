@@ -2,16 +2,14 @@ module Steep
   module AST
     module Types
       class Proc
-        attr_reader :location
         attr_reader :type
         attr_reader :self_type
         attr_reader :block
 
-        def initialize(type:, block:, self_type:, location: type.location)
+        def initialize(type:, block:, self_type:)
           @type = type
           @block = block
           @self_type = self_type
-          @location = location
         end
 
         def ==(other)
@@ -28,8 +26,7 @@ module Steep
           self.class.new(
             type: type.subst(s),
             block: block&.subst(s),
-            self_type: self_type&.subst(s),
-            location: location
+            self_type: self_type&.subst(s)
           )
         end
 
@@ -70,16 +67,11 @@ module Steep
           [0] + level_of_children(children)
         end
 
-        def with_location(new_location)
-          self.class.new(location: new_location, block: block, type: type, self_type: self_type)
-        end
-
         def map_type(&block)
           self.class.new(
             type: type.map_type(&block),
             block: self.block&.map_type(&block),
-            self_type: self_type ? yield(self_type) : nil,
-            location: location
+            self_type: self_type ? yield(self_type) : nil
           )
         end
 
@@ -99,8 +91,7 @@ module Steep
 
         def back_type
           Name::Instance.new(name: Builtin::Proc.module_name,
-                             args: [],
-                             location: location)
+                             args: [])
         end
 
         def block_required?

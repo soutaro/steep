@@ -3,11 +3,9 @@ module Steep
     module Types
       module Name
         class Base
-          attr_reader :location
           attr_reader :name
 
-          def initialize(name:, location: nil)
-            @location = location
+          def initialize(name:)
             @name = name
           end
 
@@ -29,8 +27,8 @@ module Steep
         class Applying < Base
           attr_reader :args
 
-          def initialize(name:, args:, location: nil)
-            super(name: name, location: location)
+          def initialize(name:, args:)
+            super(name: name)
             @args = args
           end
 
@@ -54,14 +52,9 @@ module Steep
             end
           end
 
-          def with_location(new_location)
-            _ = self.class.new(name: name, args: args, location: new_location)
-          end
-
           def subst(s)
             if free_variables.intersect?(s.domain)
               _ = self.class.new(
-                location: location,
                 name: name,
                 args: args.map {|a| a.subst(s) }
               )
@@ -95,7 +88,7 @@ module Steep
           def map_type(&block)
             args = self.args.map(&block)
 
-            _ = self.class.new(name: self.name, args: self.args, location: self.location)
+            _ = self.class.new(name: self.name, args: self.args)
           end
         end
 
@@ -115,16 +108,12 @@ module Steep
             "singleton(#{name.to_s})"
           end
 
-          def with_location(new_location)
-            self.class.new(name: name, location: new_location)
-          end
-
           include Helper::NoChild
         end
 
         class Instance < Applying
           def to_module
-            Singleton.new(name: name, location: location)
+            Singleton.new(name: name)
           end
         end
 

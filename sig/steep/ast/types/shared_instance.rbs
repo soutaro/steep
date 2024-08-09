@@ -1,0 +1,13 @@
+module Steep
+  module AST
+    module Types
+      module SharedInstance[T]
+        private def new: () -> T
+
+        def instance: () -> T
+
+        @instance: T
+      end
+    end
+  end
+end

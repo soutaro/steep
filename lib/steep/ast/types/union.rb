@@ -3,15 +3,13 @@ module Steep
     module Types
       class Union
         attr_reader :types
-        attr_reader :location
 
-        def initialize(types:, location: nil)
+        def initialize(types:)
           @types = types
-          @location = location
         end
 
-        def self.build(types:, location: nil)
-          return AST::Types::Bot.new if types.empty?
+        def self.build(types:)
+          return AST::Types::Bot.instance if types.empty?
           if types.size == 1
             return types.first || raise
           end
@@ -25,9 +23,9 @@ module Steep
           end.map do |type|
             case type
             when AST::Types::Any
-              return AST::Types::Any.new(location: location)
+              return AST::Types::Any.instance()
             when AST::Types::Top
-              return AST::Types::Top.new(location: location)
+              return AST::Types::Top.instance
             when AST::Types::Bot
               nil
             else
@@ -36,11 +34,11 @@ module Steep
           end.compact.uniq.yield_self do |tys|
             case tys.size
             when 0
-              AST::Types::Bot.new
+              AST::Types::Bot.instance
             when 1
               tys.first || raise
             else
-              new(types: tys, location: location)
+              new(types: tys)
             end
           end
         end
@@ -57,7 +55,7 @@ module Steep
         alias eql? ==
 
         def subst(s)
-          self.class.build(location: location, types: types.map {|ty| ty.subst(s) })
+          self.class.build(types: types.map {|ty| ty.subst(s) })
         end
 
         def to_s
@@ -81,10 +79,7 @@ module Steep
         end
 
         def map_type(&block)
-          Union.build(
-            types: types.map(&block),
-            location: location
-          )
+          Union.build(types: types.map(&block))
         end
 
         include Helper::ChildrenLevel
@@ -94,7 +89,7 @@ module Steep
         end
 
         def with_location(new_location)
-          self.class.new(types: types, location: new_location)
+          self.class.new(types: types)
         end
       end
     end

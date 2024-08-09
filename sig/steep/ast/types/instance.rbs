@@ -2,9 +2,7 @@ module Steep
   module AST
     module Types
       class Instance
-        attr_reader location: untyped
-
-        def initialize: (?location: untyped?) -> void
+        extend SharedInstance[Instance]
 
         def ==: (untyped other) -> bool
 
@@ -22,11 +20,6 @@ module Steep
         def to_s: () -> String
 
         def level: () -> Array[Integer]
-
-        def with_location: (untyped new_location) -> untyped
-
-        self.@instance: Instance
-        def self.instance: () -> Instance
       end
     end
   end

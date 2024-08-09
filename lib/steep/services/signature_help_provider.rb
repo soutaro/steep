@@ -114,14 +114,14 @@ module Steep
             shape = shape.public_shape if private_send?(node)
 
             if method = shape.methods[call.method_name]
-              method.method_types.each.with_index do |method_type, i|
-                defn = method_type.method_decls.to_a[0]&.method_def
+              method.overloads.each.with_index do |overload, i|
+                defn = overload.method_defs[0]
 
                 active_parameter = active_parameter_for(defn&.type, argument, last_argument, node)
-                items << Item.new(subtyping.factory.method_type_1(method_type), defn&.comment, active_parameter)
+                items << Item.new(subtyping.factory.method_type_1(overload.method_type), defn&.comment, active_parameter)
 
                 if call.is_a?(MethodCall::Typed)
-                  if method_type.method_decls.intersect?(call.method_decls)
+                  if call.method_decls.intersect?(overload.method_decls(call.method_name).to_set)
                     index = i
                   end
                 end

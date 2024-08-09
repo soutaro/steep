@@ -165,7 +165,7 @@ module Steep
 
       class Untyped < Base
         def initialize(node:, context:, method_name:)
-          super(node: node, context: context, method_name: method_name, receiver_type: AST::Types::Any.new, return_type: AST::Types::Any.new)
+          super(node: node, context: context, method_name: method_name, receiver_type: AST::Types::Any.instance, return_type: AST::Types::Any.instance)
         end
       end
 
@@ -173,7 +173,7 @@ module Steep
         attr_reader :error
 
         def initialize(node:, context:, method_name:, receiver_type:, error:)
-          super(node: node, context: context, method_name: method_name, receiver_type: receiver_type, return_type: AST::Types::Any.new)
+          super(node: node, context: context, method_name: method_name, receiver_type: receiver_type, return_type: AST::Types::Any.instance)
           @error = error
         end
       end
@@ -182,7 +182,7 @@ module Steep
         attr_reader :errors
         attr_reader :method_decls
 
-        def initialize(node:, context:, method_name:, receiver_type:, errors:, method_decls: Set[], return_type: AST::Types::Any.new)
+        def initialize(node:, context:, method_name:, receiver_type:, errors:, method_decls: Set[], return_type: AST::Types::Any.instance)
           super(node: node, context: context, method_name: method_name, receiver_type: receiver_type, return_type: return_type)
           @method_decls = method_decls
           @errors = errors

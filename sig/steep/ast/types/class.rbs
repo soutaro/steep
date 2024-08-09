@@ -2,9 +2,7 @@ module Steep
   module AST
     module Types
       class Class
-        attr_reader location: untyped
-
-        def initialize: (?location: untyped?) -> void
+        extend SharedInstance[Class]
 
         def to_s: () -> String
 
@@ -22,11 +20,6 @@ module Steep
         include Helper::NoChild
 
         def level: () -> Array[Integer]
-
-        def with_location: (untyped new_location) -> Class
-
-        self.@instance: Class
-        def self.instance: () -> Class
       end
     end
   end

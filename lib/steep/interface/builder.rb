@@ -277,15 +277,14 @@ module Steep
 
           definition.methods.each do |name, method|
             Steep.logger.tagged "method = #{type_name}.#{name}" do
-              shape.methods[name] = Interface::Shape::Entry.new(
-                private_method: method.private?,
-                method_types: method.defs.map do |type_def|
-                  method_name = method_name_for(type_def, name)
-                  decl = TypeInference::MethodCall::MethodDecl.new(method_name: method_name, method_def: type_def)
-                  method_type = factory.method_type(type_def.type, method_decls: Set[decl])
-                  replace_primitive_method(method_name, type_def, method_type)
-                end
-              )
+              overloads = method.defs.map do |type_def|
+                method_name = method_name_for(type_def, name)
+                method_type = factory.method_type(type_def.type)
+                method_type = replace_primitive_method(method_name, type_def, method_type)
+                Shape::MethodOverload.new(method_type, [type_def])
+              end
+
+              shape.methods[name] = Interface::Shape::Entry.new(method_name: name, private_method: method.private?, overloads: overloads)
             end
           end
 
@@ -308,15 +307,14 @@ module Steep
 
           definition.methods.each do |name, method|
             Steep.logger.tagged "method = #{type_name}##{name}" do
-              shape.methods[name] = Interface::Shape::Entry.new(
-                private_method: method.private?,
-                method_types: method.defs.map do |type_def|
-                  method_name = method_name_for(type_def, name)
-                  decl = TypeInference::MethodCall::MethodDecl.new(method_name: method_name, method_def: type_def)
-                  method_type = factory.method_type(type_def.type, method_decls: Set[decl])
-                  replace_primitive_method(method_name, type_def, method_type)
-                end
-              )
+              overloads = method.defs.map do |type_def|
+                method_name = method_name_for(type_def, name)
+                method_type = factory.method_type(type_def.type)
+                method_type = replace_primitive_method(method_name, type_def, method_type)
+                Shape::MethodOverload.new(method_type, [type_def])
+              end
+
+              shape.methods[name] = Interface::Shape::Entry.new(method_name: name, private_method: method.private?, overloads: overloads)
             end
           end
 
@@ -334,51 +332,49 @@ module Steep
 
         shape = Interface::Shape.new(type: shape_type, private: true)
         all_common_methods.each do |method_name|
-          method_typess = [] #: Array[Array[MethodType]]
+          overloadss = [] #: Array[Array[Shape::MethodOverload]]
           private_method = false
           shapes.each do |shape|
             entry = shape.methods[method_name] || raise
-            method_typess << entry.method_types
+            overloadss << entry.overloads
             private_method ||= entry.private_method?
           end
 
-          shape.methods[method_name] = Interface::Shape::Entry.new(private_method: private_method) do
-            method_typess.inject do |types1, types2|
+          shape.methods[method_name] = Interface::Shape::Entry.new(method_name: method_name, private_method: private_method) do
+            overloadss.inject do |overloads1, overloads2|
               # @type break: nil
 
+              types1 = overloads1.map(&:method_type)
+              types2 = overloads2.map(&:method_type)
+
               if types1 == types2
-                decl_array1 = types1.map(&:method_decls)
-                decl_array2 = types2.map(&:method_decls)
+                defs1 = overloads1.flat_map(&:method_defs)
+                defs2 = overloads2.flat_map(&:method_defs)
 
-                if decl_array1 == decl_array2
-                  next types1
-                end
-
-                decls1 = decl_array1.each.with_object(Set[]) {|array, decls| decls.merge(array) } #$ Set[TypeInference::MethodCall::MethodDecl]
-                decls2 = decl_array2.each.with_object(Set[]) {|array, decls| decls.merge(array) } #$ Set[TypeInference::MethodCall::MethodDecl]
-
-                if decls1 == decls2
-                  next types1
+                if defs1 == defs2
+                  next overloads1
                 end
               end
 
-              method_types = {} #: Hash[MethodType, bool]
+              method_overloads = {} #: Hash[Shape::MethodOverload, bool]
 
-              types1.each do |type1|
-                types2.each do |type2|
-                  if type1 == type2
-                    method_types[type1.with(method_decls: type1.method_decls + type2.method_decls)] = true
+              overloads1.each do |overload1|
+                overloads2.each do |overload2|
+                  if overload1.method_type == overload2.method_type
+                    overload = Shape::MethodOverload.new(overload1.method_type, overload1.method_defs + overload2.method_defs)
+                    method_overloads[overload] = true
                   else
-                    if type = MethodType.union(type1, type2, subtyping)
-                      method_types[type] = true
+                    if type = MethodType.union(overload1.method_type, overload2.method_type, subtyping)
+                      overload = Shape::MethodOverload.new(type, overload1.method_defs + overload2.method_defs)
+                      method_overloads[overload] = true
                     end
                   end
                 end
               end
 
-              break nil if method_types.empty?
+              break nil if method_overloads.empty?
 
-              method_types.keys
+              method_overloads.keys
             end
           end
         end
@@ -427,7 +423,7 @@ module Steep
       end
 
       def tuple_shape(tuple)
-        element_type = AST::Types::Union.build(types: tuple.types, location: nil)
+        element_type = AST::Types::Union.build(types: tuple.types)
         array_type = AST::Builtin::Array.instance_type(element_type)
 
         array_shape = yield(array_type) or raise
@@ -438,19 +434,22 @@ module Steep
           raise unless aref
 
           Shape::Entry.new(
+            method_name: :[],
             private_method: false,
-            method_types: tuple.types.map.with_index {|elem_type, index|
-              MethodType.new(
-                type_params: [],
-                type: Function.new(
-                  params: Function::Params.build(required: [AST::Types::Literal.new(value: index)]),
-                  return_type: elem_type,
-                  location: nil
+            overloads: tuple.types.map.with_index {|elem_type, index|
+              Shape::MethodOverload.new(
+                MethodType.new(
+                  type_params: [],
+                  type: Function.new(
+                    params: Function::Params.build(required: [AST::Types::Literal.new(value: index)]),
+                    return_type: elem_type,
+                    location: nil
+                  ),
+                  block: nil
                 ),
-                block: nil,
-                method_decls: Set[]
+                []
               )
-            } + aref.method_types
+            } + aref.overloads
           )
         end
 
@@ -458,19 +457,22 @@ module Steep
           raise unless update
 
           Shape::Entry.new(
+            method_name: :[]=,
             private_method: false,
-            method_types: tuple.types.map.with_index {|elem_type, index|
-              MethodType.new(
-                type_params: [],
-                type: Function.new(
-                  params: Function::Params.build(required: [AST::Types::Literal.new(value: index), elem_type]),
-                  return_type: elem_type,
-                  location: nil
+            overloads: tuple.types.map.with_index {|elem_type, index|
+              Shape::MethodOverload.new(
+                MethodType.new(
+                  type_params: [],
+                  type: Function.new(
+                    params: Function::Params.build(required: [AST::Types::Literal.new(value: index), elem_type]),
+                    return_type: elem_type,
+                    location: nil
+                  ),
+                  block: nil
                 ),
-                block: nil,
-                method_decls: Set[]
+                []
               )
-            } + update.method_types
+            } + update.overloads
           )
         end
 
@@ -478,8 +480,9 @@ module Steep
           raise unless fetch
 
           Shape::Entry.new(
+            method_name: :fetch,
             private_method: false,
-            method_types: tuple.types.flat_map.with_index {|elem_type, index|
+            overloads: tuple.types.flat_map.with_index {|elem_type, index|
               [
                 MethodType.new(
                   type_params: [],
@@ -488,8 +491,7 @@ module Steep
                     return_type: elem_type,
                     location: nil
                   ),
-                  block: nil,
-                  method_decls: Set[]
+                  block: nil
                 ),
                 MethodType.new(
                   type_params: [TypeParam.new(name: :T, upper_bound: nil, variance: :invariant, unchecked: false)],
@@ -503,8 +505,7 @@ module Steep
                     return_type: AST::Types::Union.build(types: [elem_type, AST::Types::Var.new(name: :T)]),
                     location: nil
                   ),
-                  block: nil,
-                  method_decls: Set[]
+                  block: nil
                 ),
                 MethodType.new(
                   type_params: [TypeParam.new(name: :T, upper_bound: nil, variance: :invariant, unchecked: false)],
@@ -521,27 +522,29 @@ module Steep
                     ),
                     optional: false,
                     self_type: nil
-                  ),
-                  method_decls: Set[]
+                  )
                 )
-              ]
-            } + fetch.method_types
+              ].map { Shape::MethodOverload.new(_1, []) }
+            } + fetch.overloads
           )
         end
 
         first_entry = array_shape.methods[:first].yield_self do |first|
           Shape::Entry.new(
+            method_name: :first,
             private_method: false,
-            method_types: [
-              MethodType.new(
-                type_params: [],
-                type: Function.new(
-                  params: Function::Params.empty,
-                  return_type: tuple.types[0] || AST::Builtin.nil_type,
-                  location: nil
+            overloads: [
+              Shape::MethodOverload.new(
+                MethodType.new(
+                  type_params: [],
+                  type: Function.new(
+                    params: Function::Params.empty,
+                    return_type: tuple.types[0] || AST::Builtin.nil_type,
+                    location: nil
+                  ),
+                  block: nil
                 ),
-                block: nil,
-                method_decls: Set[]
+                []
               )
             ]
           )
@@ -549,17 +552,20 @@ module Steep
 
         last_entry = array_shape.methods[:last].yield_self do |last|
           Shape::Entry.new(
+            method_name: :last,
             private_method: false,
-            method_types: [
-              MethodType.new(
-                type_params: [],
-                type: Function.new(
-                  params: Function::Params.empty,
-                  return_type: tuple.types.last || AST::Builtin.nil_type,
-                  location: nil
+            overloads: [
+              Shape::MethodOverload.new(
+                MethodType.new(
+                  type_params: [],
+                  type: Function.new(
+                    params: Function::Params.empty,
+                    return_type: tuple.types.last || AST::Builtin.nil_type,
+                    location: nil
+                  ),
+                  block: nil
                 ),
-                block: nil,
-                method_decls: Set[]
+                []
               )
             ]
           )
@@ -576,10 +582,9 @@ module Steep
 
       def record_shape(record)
         all_key_type = AST::Types::Union.build(
-          types: record.elements.each_key.map {|value| AST::Types::Literal.new(value: value, location: nil) },
-          location: nil
+          types: record.elements.each_key.map {|value| AST::Types::Literal.new(value: value) }
         )
-        all_value_type = AST::Types::Union.build(types: record.elements.values, location: nil)
+        all_value_type = AST::Types::Union.build(types: record.elements.values)
         hash_type = AST::Builtin::Hash.instance_type(all_key_type, all_value_type)
 
         hash_shape = yield(hash_type) or raise
@@ -589,21 +594,24 @@ module Steep
         shape.methods[:[]] = hash_shape.methods[:[]].yield_self do |aref|
           aref or raise
           Shape::Entry.new(
+            method_name: :[],
             private_method: false,
-            method_types: record.elements.map do |key_value, value_type|
-              key_type = AST::Types::Literal.new(value: key_value, location: nil)
+            overloads: record.elements.map do |key_value, value_type|
+              key_type = AST::Types::Literal.new(value: key_value)
 
-              MethodType.new(
-                type_params: [],
-                type: Function.new(
-                  params: Function::Params.build(required: [key_type]),
-                  return_type: value_type,
-                  location: nil
+              Shape::MethodOverload.new(
+                MethodType.new(
+                  type_params: [],
+                  type: Function.new(
+                    params: Function::Params.build(required: [key_type]),
+                    return_type: value_type,
+                    location: nil
+                  ),
+                  block: nil
                 ),
-                block: nil,
-                method_decls: Set[]
+                []
               )
-            end + aref.method_types
+            end + aref.overloads
           )
         end
 
@@ -611,19 +619,22 @@ module Steep
           update or raise
 
           Shape::Entry.new(
+            method_name: :[]=,
             private_method: false,
-            method_types: record.elements.map do |key_value, value_type|
-              key_type = AST::Types::Literal.new(value: key_value, location: nil)
-              MethodType.new(
-                type_params: [],
-                type: Function.new(
-                  params: Function::Params.build(required: [key_type, value_type]),
-                  return_type: value_type,
-                  location: nil),
-                block: nil,
-                method_decls: Set[]
+            overloads: record.elements.map do |key_value, value_type|
+              key_type = AST::Types::Literal.new(value: key_value)
+              Shape::MethodOverload.new(
+                MethodType.new(
+                  type_params: [],
+                  type: Function.new(
+                    params: Function::Params.build(required: [key_type, value_type]),
+                    return_type: value_type,
+                    location: nil),
+                  block: nil
+                ),
+                []
               )
-            end + update.method_types
+            end + update.overloads
           )
         end
 
@@ -631,9 +642,10 @@ module Steep
           update or raise
 
           Shape::Entry.new(
+            method_name: :fetch,
             private_method: false,
-            method_types: record.elements.flat_map {|key_value, value_type|
-              key_type = AST::Types::Literal.new(value: key_value, location: nil)
+            overloads: record.elements.flat_map {|key_value, value_type|
+              key_type = AST::Types::Literal.new(value: key_value)
 
               [
                 MethodType.new(
@@ -643,8 +655,7 @@ module Steep
                     return_type: value_type,
                     location: nil
                   ),
-                  block: nil,
-                  method_decls: Set[]
+                  block: nil
                 ),
                 MethodType.new(
                   type_params: [TypeParam.new(name: :T, upper_bound: nil, variance: :invariant, unchecked: false)],
@@ -653,8 +664,7 @@ module Steep
                     return_type: AST::Types::Union.build(types: [value_type, AST::Types::Var.new(name: :T)]),
                     location: nil
                   ),
-                  block: nil,
-                  method_decls: Set[]
+                  block: nil
                 ),
                 MethodType.new(
                   type_params: [TypeParam.new(name: :T, upper_bound: nil, variance: :invariant, unchecked: false)],
@@ -671,11 +681,10 @@ module Steep
                     ),
                     optional: false,
                     self_type: nil
-                  ),
-                  method_decls: Set[]
+                  )
                 )
-              ]
-            } + update.method_types
+              ].map { Shape::MethodOverload.new(_1, []) }
+            } + update.overloads
           )
         end
 
@@ -686,9 +695,20 @@ module Steep
         shape = Shape.new(type: proc, private: true)
         shape.methods.merge!(proc_shape.methods)
 
-        shape.methods[:[]] = shape.methods[:call] = Shape::Entry.new(
+        overload = Shape::MethodOverload.new(
+          MethodType.new(type_params: [], type: proc.type, block: proc.block),
+          []
+        )
+
+        shape.methods[:[]] = Shape::Entry.new(
+          method_name: :[],
           private_method: false,
-          method_types: [MethodType.new(type_params: [], type: proc.type, block: proc.block, method_decls: Set[])]
+          overloads: [overload]
+        )
+        shape.methods[:call] = Shape::Entry.new(
+          method_name: :call,
+          private_method: false,
+          overloads: [overload]
         )
 
         shape
@@ -707,7 +727,7 @@ module Steep
               if member.instance?
                 return method_type.with(
                   type: method_type.type.with(
-                    return_type: AST::Types::Logic::ReceiverIsArg.new(location: method_type.type.return_type.location)
+                    return_type: AST::Types::Logic::ReceiverIsArg.instance()
                   )
                 )
               end
@@ -721,7 +741,7 @@ module Steep
               if member.instance?
                 return method_type.with(
                   type: method_type.type.with(
-                    return_type: AST::Types::Logic::ReceiverIsNil.new(location: method_type.type.return_type.location)
+                    return_type: AST::Types::Logic::ReceiverIsNil.instance()
                   )
                 )
             end
@@ -735,7 +755,7 @@ module Steep
               AST::Builtin::NilClass.module_name
               return method_type.with(
                 type: method_type.type.with(
-                  return_type: AST::Types::Logic::Not.new(location: method_type.type.return_type.location)
+                  return_type: AST::Types::Logic::Not.instance()
                 )
               )
             end
@@ -745,7 +765,7 @@ module Steep
             when RBS::BuiltinNames::Module.name
               return method_type.with(
                 type: method_type.type.with(
-                  return_type: AST::Types::Logic::ArgIsReceiver.new(location: method_type.type.return_type.location)
+                  return_type: AST::Types::Logic::ArgIsReceiver.instance()
                 )
               )
             when RBS::BuiltinNames::Object.name,
@@ -759,7 +779,7 @@ module Steep
               # Value based type-case works on literal types which is available for String, Integer, Symbol, TrueClass, FalseClass, and NilClass
               return method_type.with(
                 type: method_type.type.with(
-                  return_type: AST::Types::Logic::ArgEqualsReceiver.new(location: method_type.type.return_type.location)
+                  return_type: AST::Types::Logic::ArgEqualsReceiver.instance()
                 )
               )
             end
@@ -768,7 +788,7 @@ module Steep
             when RBS::BuiltinNames::Module.name
               return method_type.with(
                 type: method_type.type.with(
-                  return_type: AST::Types::Logic::ArgIsAncestor.new(location: method_type.type.return_type.location)
+                  return_type: AST::Types::Logic::ArgIsAncestor.instance()
                 )
               )
             end

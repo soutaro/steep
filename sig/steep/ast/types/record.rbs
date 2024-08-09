@@ -4,11 +4,9 @@ module Steep
       class Record
         type key = Symbol | String | Integer
 
-        attr_reader location: untyped
-
         attr_reader elements: Hash[key, t]
 
-        def initialize: (elements: Hash[key, t], ?location: untyped) -> void
+        def initialize: (elements: Hash[key, t]) -> void
 
         def ==: (untyped other) -> bool
 
@@ -31,8 +29,6 @@ module Steep
         def map_type: () { (t) -> t } -> Record
 
         def level: () -> Array[Integer]
-
-        def with_location: (untyped new_location) -> Record
       end
     end
   end

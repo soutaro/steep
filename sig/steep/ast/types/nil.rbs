@@ -2,10 +2,8 @@ module Steep
   module AST
     module Types
       class Nil
-        attr_reader location: untyped
-
-        def initialize: (?location: untyped?) -> void
-
+        extend SharedInstance[Nil]
+        
         def ==: (untyped other) -> bool
 
         def hash: () -> Integer
@@ -21,8 +19,6 @@ module Steep
         include Helper::NoChild
 
         def level: () -> Array[Integer]
-
-        def with_location: (untyped new_location) -> Nil
 
         def back_type: () -> Name::Instance
       end

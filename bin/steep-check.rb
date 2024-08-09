@@ -229,8 +229,22 @@ when :dumpall
   end
 
 when :none
+
+  pp rbs_method_types: ObjectSpace.each_object(RBS::MethodType).count
+  GC.start(immediate_sweep: true, immediate_mark: true, full_mark: true)
+
+  pp defs: ObjectSpace.each_object(RBS::AST::Members::MethodDefinition).count
+  pp aliases: ObjectSpace.each_object(RBS::AST::Members::Alias).count
+  pp attr_reader: ObjectSpace.each_object(RBS::AST::Members::AttrReader).count
+  pp attr_writer: ObjectSpace.each_object(RBS::AST::Members::AttrWriter).count
+  pp attr_accessor: ObjectSpace.each_object(RBS::AST::Members::AttrAccessor).count
+
   Steep.measure("type check", level: :fatal) do
+    GC.disable
     typings = command.type_check_files(command_line_args, env)
+
+    pp steep_method_types: ObjectSpace.each_object(Steep::Interface::MethodType).count, rbs_method_types: ObjectSpace.each_object(RBS::MethodType).count
+    pp any: ObjectSpace.each_object(Steep::AST::Types::Any).count, void: ObjectSpace.each_object(Steep::AST::Types::Void).count, self: ObjectSpace.each_object(Steep::AST::Types::Self).count
   end
 end
 

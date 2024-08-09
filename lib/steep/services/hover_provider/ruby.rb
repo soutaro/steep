@@ -120,7 +120,7 @@ module Steep
             when :lvar
               var_name = node.children[0]
               context = typing.cursor_context.context or raise
-              var_type = context.type_env[var_name] || AST::Types::Any.new(location: nil)
+              var_type = context.type_env[var_name] || AST::Types::Any.instance()
 
               return VariableContent.new(
                 node: node,

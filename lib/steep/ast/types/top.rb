@@ -2,11 +2,7 @@ module Steep
   module AST
     module Types
       class Top
-        attr_reader :location
-
-        def initialize(location: nil)
-          @location = location
-        end
+        extend SharedInstance
 
         def ==(other)
           other.is_a?(Top)
@@ -32,10 +28,6 @@ module Steep
 
         def level
           [2]
-        end
-
-        def with_location(new_location)
-          self.class.new(location: new_location)
         end
       end
     end

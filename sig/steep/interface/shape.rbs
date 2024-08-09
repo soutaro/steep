@@ -1,15 +1,31 @@
+use Steep::TypeInference::MethodCall::MethodDecl
+
 module Steep
   module Interface
     class Shape
+      class MethodOverload
+        attr_reader method_type: MethodType
+
+        attr_reader method_defs: Array[RBS::Definition::Method::TypeDef]
+
+        def initialize: (MethodType, Array[RBS::Definition::Method::TypeDef]) -> void
+
+        def subst: (Substitution) -> MethodOverload
+
+        def method_decls: (Symbol) -> Array[MethodDecl]
+      end
+
       class Entry
         @private_method: bool
 
-        @method_types: Array[MethodType]?
+        @overloads: Array[MethodOverload]?
 
-        @generator: (^() -> Array[MethodType]?)?
+        @generator: (^() -> Array[MethodOverload]?)?
 
-        def initialize: (method_types: Array[MethodType], private_method: bool) -> void
-                      | (private_method: bool) { () -> Array[MethodType]? } -> void
+        attr_reader method_name: Symbol
+
+        def initialize: (method_name: Symbol, overloads: Array[MethodOverload], private_method: bool) -> void
+                      | (method_name: Symbol, private_method: bool) { () -> Array[MethodOverload]? } -> void
 
         def has_method_type?: () -> bool
 
@@ -18,6 +34,8 @@ module Steep
         def private_method?: () -> bool
 
         def public_method?: () -> bool
+
+        def overloads: () -> Array[MethodOverload]
 
         def method_types: () -> Array[MethodType]
 

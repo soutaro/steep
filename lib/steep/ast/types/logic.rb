@@ -3,8 +3,8 @@ module Steep
     module Types
       module Logic
         class Base
-          attr_reader :location
-
+          extend SharedInstance
+          
           def subst(s)
             self
           end
@@ -33,51 +33,30 @@ module Steep
         end
 
         class Not < Base
-          def initialize(location: nil)
-            @location = location
-          end
         end
 
         class ReceiverIsNil < Base
-          def initialize(location: nil)
-            @location = location
-          end
         end
 
         class ReceiverIsNotNil < Base
-          def initialize(location: nil)
-            @location = location
-          end
         end
 
         class ReceiverIsArg < Base
-          def initialize(location: nil)
-            @location = location
-          end
         end
 
         class ArgIsReceiver < Base
-          def initialize(location: nil)
-            @location = location
-          end
         end
 
         class ArgEqualsReceiver < Base
-          def initialize(location: nil)
-            @location = location
-          end
         end
 
         class ArgIsAncestor < Base
-          def initialize(location: nil)
-            @location = location
-          end
         end
 
         class Env < Base
           attr_reader :truthy, :falsy, :type
 
-          def initialize(truthy:, falsy:, type:, location: nil)
+          def initialize(truthy:, falsy:, type:)
             @truthy = truthy
             @falsy = falsy
             @type = type

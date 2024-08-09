@@ -2,15 +2,13 @@ module Steep
   module AST
     module Types
       class Proc
-        attr_reader location: untyped
-
         attr_reader type: Interface::Function
 
         attr_reader self_type: AST::Types::t?
 
         attr_reader block: Interface::Block?
 
-        def initialize: (type: Interface::Function, self_type: AST::Types::t?, block: Interface::Block?, ?location: untyped) -> void
+        def initialize: (type: Interface::Function, self_type: AST::Types::t?, block: Interface::Block?) -> void
 
         def ==: (untyped other) -> bool
 
@@ -28,8 +26,6 @@ module Steep
         include Helper::ChildrenLevel
 
         def level: () -> Array[Integer]
-
-        def with_location: (untyped new_location) -> Proc
 
         def map_type: () { (AST::Types::t) -> AST::Types::t } -> Proc
 

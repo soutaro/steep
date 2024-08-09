@@ -1,0 +1,15 @@
+module Steep
+  class LocatedValue[T]
+    attr_reader value: T
+
+    attr_reader location: RBS::Location[untyped, untyped]
+
+    def initialize: (value: T, location: RBS::Location[untyped, untyped]) -> void
+
+    def ==: (untyped) -> bool
+
+    alias eql? ==
+
+    def hash: () -> Integer
+  end
+end

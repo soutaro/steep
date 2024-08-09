@@ -2,13 +2,11 @@ module Steep
   module AST
     module Types
       class Literal
-        attr_reader location: untyped
-
         type value = Integer | String | Symbol | TrueClass | FalseClass
 
         attr_reader value: value
 
-        def initialize: (value: value, ?location: untyped?) -> void
+        def initialize: (value: value) -> void
 
         def ==: (untyped other) -> bool
 
@@ -25,8 +23,6 @@ module Steep
         include Helper::NoChild
 
         def level: () -> Array[Integer]
-
-        def with_location: (untyped new_location) -> Literal
 
         def back_type: () -> AST::Types::Name::Instance
       end

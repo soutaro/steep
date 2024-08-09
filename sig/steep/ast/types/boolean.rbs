@@ -2,10 +2,8 @@ module Steep
   module AST
     module Types
       class Boolean
-        attr_reader location: untyped
-
-        def initialize: (?location: untyped?) -> void
-
+        extend SharedInstance[Boolean]
+        
         def ==: (untyped other) -> bool
 
         def hash: () -> Integer
@@ -21,8 +19,6 @@ module Steep
         include Helper::NoChild
 
         def level: () -> Array[Integer]
-
-        def with_location: (untyped new_location) -> Boolean
 
         def back_type: () -> t
       end

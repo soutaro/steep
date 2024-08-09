@@ -3,7 +3,7 @@ module Steep
     module Types
       module Logic
         class Base
-          attr_reader location: untyped
+          extend SharedInstance[instance]
 
           def subst: (Interface::Substitution s) -> self
 
@@ -24,37 +24,30 @@ module Steep
 
         # A type for `!` (not) operator results.
         class Not < Base
-          def initialize: (?location: untyped?) -> void
         end
 
         # A type for `foo.nil?` call results.
         class ReceiverIsNil < Base
-          def initialize: (?location: untyped?) -> void
         end
 
         #
         class ReceiverIsNotNil < Base
-          def initialize: (?location: untyped?) -> void
         end
 
         # A type for `receiver.is_a?(C)` call results.
         class ReceiverIsArg < Base
-          def initialize: (?location: untyped?) -> void
         end
 
         # A type for `Class#===` call results.
         class ArgIsReceiver < Base
-          def initialize: (?location: untyped?) -> void
         end
 
         # A type for `Object#===` call results.
         class ArgEqualsReceiver < Base
-          def initialize: (?location: untyped?) -> void
         end
 
         # A type for `Class#<` or `Class#<=` call results.
         class ArgIsAncestor < Base
-          def initialize: (?location: untyped?) -> void
         end
 
         # A type with truthy/falsy type environment.
@@ -65,7 +58,9 @@ module Steep
 
           attr_reader type: t
 
-          def initialize: (truthy: TypeInference::TypeEnv, falsy: TypeInference::TypeEnv, type: t, ?location: untyped) -> void
+          def self.new: (truthy: TypeInference::TypeEnv, falsy: TypeInference::TypeEnv, type: t) -> Env
+
+          def initialize: (truthy: TypeInference::TypeEnv, falsy: TypeInference::TypeEnv, type: t) -> void
 
           def ==: (untyped other) -> bool
 

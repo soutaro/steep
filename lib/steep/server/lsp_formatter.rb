@@ -36,7 +36,8 @@ module Steep
               ----
             MD
 
-            method_types = call.method_decls.map(&:method_type)
+            method_decls = call.method_decls.sort_by {|decl| decl.method_name.to_s }
+            method_types = method_decls.map(&:method_type)
 
             if call.is_a?(TypeInference::MethodCall::Special)
               method_types = [
@@ -52,7 +53,8 @@ module Steep
               MD
             end
           when TypeInference::MethodCall::Error
-            method_types = call.method_decls.map {|decl| decl.method_type }
+            method_decls = call.method_decls.sort_by {|decl| decl.method_name.to_s }
+            method_types = method_decls.map {|decl| decl.method_type }
 
             header = <<~MD
               **🚨 No compatible method type found**
@@ -61,8 +63,8 @@ module Steep
             MD
           end
 
-          method_names = call.method_decls.map {|decl| decl.method_name.relative }
-          docs = call.method_decls.map {|decl| [decl.method_name, decl.method_def.comment] }.to_h
+          method_names = method_decls.map {|decl| decl.method_name.relative }
+          docs = method_decls.map {|decl| [decl.method_name, decl.method_def.comment] }.to_h
 
           if header
             io.puts header

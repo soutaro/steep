@@ -5,11 +5,9 @@ module Steep
       #
       module Name
         class Base
-          attr_reader location: untyped
-
           attr_reader name: RBS::TypeName
 
-          def initialize: (name: RBS::TypeName, ?location: untyped?) -> void
+          def initialize: (name: RBS::TypeName) -> void
 
           include Helper::NoFreeVariables
 
@@ -23,7 +21,7 @@ module Steep
         class Applying < Base
           attr_reader args: Array[t]
 
-          def initialize: (name: RBS::TypeName, args: Array[t], ?location: untyped?) -> void
+          def initialize: (name: RBS::TypeName, args: Array[t]) -> void
 
           def ==: (untyped other) -> bool
 
@@ -33,8 +31,6 @@ module Steep
           def hash: () -> Integer
 
           def to_s: () -> ::String
-
-          def with_location: (untyped new_location) -> self
 
           def subst: (Steep::Interface::Substitution s) -> self
 
@@ -60,8 +56,6 @@ module Steep
           def hash: () -> Integer
 
           def to_s: () -> ::String
-
-          def with_location: (untyped new_location) -> Singleton
 
           include Helper::NoChild
         end

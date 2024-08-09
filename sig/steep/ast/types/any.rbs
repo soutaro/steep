@@ -2,9 +2,7 @@ module Steep
   module AST
     module Types
       class Any
-        attr_reader location: untyped
-
-        def initialize: (?location: untyped?) -> void
+        extend SharedInstance[Any]
 
         def ==: (untyped other) -> bool
 
@@ -21,8 +19,6 @@ module Steep
         include Helper::NoChild
 
         def level: () -> Array[Integer]
-
-        def with_location: (untyped new_location) -> Any
       end
     end
   end

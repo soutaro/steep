@@ -24,14 +24,14 @@ Minitest::SlowTest.long_test_time = 5
 Rainbow.enabled = false
 
 module Steep::AST::Types::Name
-  def self.new_singleton(name:, location: nil)
+  def self.new_singleton(name:)
     name = TypeName(name.to_s) unless name.is_a?(RBS::TypeName)
-    Steep::AST::Types::Name::Singleton.new(name: name, location: location)
+    Steep::AST::Types::Name::Singleton.new(name: name)
   end
 
-  def self.new_instance(location: nil, name:, args: [])
+  def self.new_instance(name:, args: [])
     name = TypeName(name.to_s) unless name.is_a?(RBS::TypeName)
-    Steep::AST::Types::Name::Instance.new(location: location, name: name, args: args)
+    Steep::AST::Types::Name::Instance.new(name: name, args: args)
   end
 end
 
@@ -533,7 +533,7 @@ module FactoryHelper
 
   def parse_method_type(string, factory: self.factory, variables: [])
     type = RBS::Parser.parse_method_type(string, variables: variables)
-    factory.method_type(type, method_decls: Set[])
+    factory.method_type(type)
   end
 end
 

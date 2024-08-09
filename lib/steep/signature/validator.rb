@@ -162,9 +162,9 @@ module Steep
 
           case
           when ancestor.name.interface?
-            AST::Types::Name::Interface.new(name: ancestor.name, args: args, location: nil)
+            AST::Types::Name::Interface.new(name: ancestor.name, args: args)
           when ancestor.name.class?
-            AST::Types::Name::Instance.new(name: ancestor.name, args: args, location: nil)
+            AST::Types::Name::Instance.new(name: ancestor.name, args: args)
           else
             raise "#{ancestor.name}"
           end
@@ -181,7 +181,7 @@ module Steep
         if immediate_self_types && !immediate_self_types.empty?
           # @type var sts: Array[AST::Types::t]
           sts = immediate_self_types.map {|st| ancestor_to_type(st) }
-          self_type = AST::Types::Intersection.build(types: sts.push(self_type), location: nil)
+          self_type = AST::Types::Intersection.build(types: sts.push(self_type))
         end
 
         mixin_ancestors.each do |ancestor|
@@ -255,11 +255,10 @@ module Steep
         rescue_validation_errors(name) do
           Steep.logger.debug { "Validating class definition `#{name}`..." }
 
-          class_type = AST::Types::Name::Singleton.new(name: name, location: nil)
+          class_type = AST::Types::Name::Singleton.new(name: name)
           instance_type = AST::Types::Name::Instance.new(
             name: name,
-            args: entry.type_params.map { AST::Types::Any.new(location: nil) },
-            location: nil
+            args: entry.type_params.map { AST::Types::Any.instance() }
           )
 
           Steep.logger.tagged "#{name}" do
@@ -270,8 +269,7 @@ module Steep
 
               self_type = AST::Types::Name::Instance.new(
                 name: name,
-                args: entry.type_params.map { AST::Types::Var.new(name: _1.name) },
-                location: nil
+                args: entry.type_params.map { AST::Types::Var.new(name: _1.name) }
               )
 
               push_context(self_type: self_type, class_type: class_type, instance_type: instance_type) do
@@ -487,8 +485,7 @@ module Steep
 
             self_type = AST::Types::Name::Interface.new(
               name: name,
-              args: definition.type_params.map { AST::Types::Var.new(name: _1) },
-              location: nil
+              args: definition.type_params.map { AST::Types::Var.new(name: _1) }
             )
 
             push_context(self_type: self_type, class_type: nil, instance_type: nil) do
@@ -561,11 +558,10 @@ module Steep
       def validate_one_alias(name, entry = env.type_alias_decls[name])
         *, inner_most_outer_module = entry.outer
         if inner_most_outer_module
-          class_type = AST::Types::Name::Singleton.new(name: inner_most_outer_module.name, location: nil)
+          class_type = AST::Types::Name::Singleton.new(name: inner_most_outer_module.name)
           instance_type = AST::Types::Name::Instance.new(
             name: inner_most_outer_module.name,
-            args: inner_most_outer_module.type_params.map { AST::Types::Any.new(location: nil) },
-            location: nil
+            args: inner_most_outer_module.type_params.map { AST::Types::Any.instance() },
           )
         end
 

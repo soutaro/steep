@@ -41,7 +41,7 @@ class AnnotationParsingTest < Minitest::Test
 
       assert_instance_of Annotation::MethodType, annot
       assert_equal :foo, annot.name
-      assert_equal factory.method_type(RBS::Parser.parse_method_type("(Bar) -> Baz"), method_decls: Set[]),
+      assert_equal factory.method_type(RBS::Parser.parse_method_type("(Bar) -> Baz")),
                    annot.type
     end
   end

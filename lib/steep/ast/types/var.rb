@@ -3,11 +3,9 @@ module Steep
     module Types
       class Var
         attr_reader :name
-        attr_reader :location
 
-        def initialize(name:, location: nil)
+        def initialize(name:)
           @name = name
-          @location = location
         end
 
         def ==(other)
@@ -33,7 +31,7 @@ module Steep
         end
 
         def self.fresh(name, location: nil)
-          new(name: fresh_name(name), location: location)
+          new(name: fresh_name(name))
         end
 
         def to_s
@@ -58,15 +56,8 @@ module Steep
           [0]
         end
 
-        def update(name: self.name, location: self.location)
-          self.class.new(
-            name: name,
-            location: location
-          )
-        end
-
-        def with_location(new_location)
-          update(location: new_location)
+        def update(name: self.name)
+          self.class.new(name: name)
         end
       end
     end

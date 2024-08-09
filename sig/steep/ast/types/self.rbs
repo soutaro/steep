@@ -2,9 +2,7 @@ module Steep
   module AST
     module Types
       class Self
-        attr_reader location: untyped
-
-        def initialize: (?location: untyped?) -> void
+        extend SharedInstance[Self]
 
         def ==: (untyped other) -> bool
 
@@ -22,11 +20,6 @@ module Steep
         def free_variables: () -> Set[variable]
 
         def level: () -> Array[Integer]
-
-        def with_location: (untyped new_location) -> Self
-
-        self.@instance: Self
-        def self.instance: () -> Self
       end
     end
   end

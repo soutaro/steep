@@ -5,9 +5,7 @@ module Steep
       class Var
         attr_reader name: Symbol
 
-        attr_reader location: untyped
-
-        def initialize: (name: Symbol, ?location: untyped?) -> void
+        def initialize: (name: Symbol) -> void
 
         def ==: (untyped other) -> bool
 
@@ -33,9 +31,7 @@ module Steep
 
         def level: () -> Array[Integer]
 
-        def update: (?name: Symbol, ?location: untyped) -> Var
-
-        def with_location: (untyped new_location) -> Var
+        def update: (?name: Symbol) -> Var
       end
     end
   end
