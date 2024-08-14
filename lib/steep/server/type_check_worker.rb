@@ -11,9 +11,7 @@ module Steep
       TypeCheckCodeJob = _ = Struct.new(:guid, :path, keyword_init: true)
       ValidateAppSignatureJob = _ = Struct.new(:guid, :path, keyword_init: true)
       ValidateLibrarySignatureJob = _ = Struct.new(:guid, :path, keyword_init: true)
-      GotoJob = _ = Struct.new(:id, :kind, :params, keyword_init: true) do
-        # @implements GotoJob
-
+      class GotoJob < Struct.new(:id, :kind, :params, keyword_init: true)
         def self.implementation(id:, params:)
           new(
             kind: :implementation,

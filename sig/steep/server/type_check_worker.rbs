@@ -82,7 +82,7 @@ module Steep
 
         attr_reader params: params
 
-        def initialize: (id: String, params: params, kind: kind) -> void
+        def self.new: (id: String, params: params, kind: kind) -> instance
 
         def self.implementation: (id: String, params: params) -> GotoJob
 

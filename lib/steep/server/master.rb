@@ -380,7 +380,7 @@ module Steep
         include MessageUtils
       end
 
-      SendMessageJob = _ = Struct.new(:dest, :message, keyword_init: true) do
+      class SendMessageJob < Struct.new(:dest, :message, keyword_init: true)
         # @implements SendMessageJob
 
         def self.to_worker(worker, message:)

@@ -213,7 +213,7 @@ module Steep
 
         attr_reader message: untyped
 
-        def initialize: (dest: WorkerProcess | :client, message: untyped) -> void
+        def self.new: (dest: WorkerProcess | :client, message: untyped) -> instance
 
         def self.to_worker: (WorkerProcess, message: untyped) -> SendMessageJob
 
