@@ -66,11 +66,14 @@ module Steep
       def handle_request(request)
         case request[:method]
         when "initialize"
-          load_files(project: project, commandline_args: commandline_args)
           writer.write({ id: request[:id], result: nil})
 
         when "textDocument/didChange"
           collect_changes(request)
+
+        when "$/file/load"
+          input = request[:params][:content]
+          load_files(input)
 
         when "$/file/reset"
           uri = request[:params][:uri]

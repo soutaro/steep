@@ -110,7 +110,7 @@ module Steep
 
         def initialize: (project: Project) -> void
 
-        def load: (command_line_args: Array[String]) -> void
+        def load: (command_line_args: Array[String]) { (Hash[String, String]) -> void } -> void
 
         def push_changes: (Pathname path) -> void
 

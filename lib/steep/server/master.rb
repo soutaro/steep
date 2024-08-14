@@ -150,6 +150,8 @@ module Steep
         def load(command_line_args:)
           loader = Services::FileLoader.new(base_dir: project.base_dir)
 
+          files = {} #: Hash[String, String]
+
           target_paths.each do |paths|
             target = paths.target
 
@@ -158,13 +160,25 @@ module Steep
 
             loader.each_path_in_patterns(target.source_pattern, command_line_args) do |path|
               paths.code_paths << project.absolute_path(path)
+              files[path.to_s] = project.absolute_path(path).read
+              if files.size > 1000
+                yield files.dup
+                files.clear
+              end
             end
             loader.each_path_in_patterns(target.signature_pattern) do |path|
               paths.signature_paths << project.absolute_path(path)
+              files[path.to_s] = project.absolute_path(path).read
+              if files.size > 1000
+                yield files.dup
+                files.clear
+              end
             end
 
             changed_paths.merge(paths.all_paths)
           end
+
+          yield files.dup unless files.empty?
         end
 
         def push_changes(path)
@@ -556,9 +570,13 @@ module Steep
               group << send_request(method: "initialize", params: message[:params], worker: worker)
             end
 
-            group.on_completion do
-              controller.load(command_line_args: commandline_args)
+            Steep.measure("Load files from disk...") do
+              controller.load(command_line_args: commandline_args) do |input|
+                broadcast_notification({ method: "$/file/load", params: { content: input } })
+              end
+            end
 
+            group.on_completion do
               job_queue << SendMessageJob.to_client(
                 message: {
                   id: id,

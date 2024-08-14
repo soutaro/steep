@@ -24,7 +24,7 @@ module Steep
 
       # Load files from `project` to `buffered_changes`
       #
-      def load_files: (project: Project, commandline_args: Array[String]) -> void
+      def load_files: (Hash[String, String] input) -> void
 
       # Load changes from a request with `DidChangeTextDocumentParams` into `buffered_changes`
       #
