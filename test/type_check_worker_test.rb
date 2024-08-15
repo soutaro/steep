@@ -186,7 +186,6 @@ class TypeCheckWorkerTest < Minitest::Test
           reader: worker_reader,
           writer: worker_writer
         )
-        worker.load_files(project: worker.project, commandline_args: [])
 
         worker.handle_request(
           {
@@ -250,7 +249,6 @@ class TypeCheckWorkerTest < Minitest::Test
           reader: worker_reader,
           writer: worker_writer
         )
-        worker.load_files(project: worker.project, commandline_args: [])
 
         changes = {}
         changes[Pathname("lib/hello.rb")] = [Services::ContentChange.string(<<~RUBY)]
@@ -298,7 +296,6 @@ class TypeCheckWorkerTest < Minitest::Test
           writer: worker_writer
         )
 
-        worker.load_files(project: worker.project, commandline_args: [])
         worker.instance_variable_set(:@current_type_check_guid, "guid")
 
         {}.tap do |changes|
@@ -349,7 +346,6 @@ class TypeCheckWorkerTest < Minitest::Test
           writer: worker_writer
         )
 
-        worker.load_files(project: worker.project, commandline_args: [])
         worker.instance_variable_set(:@current_type_check_guid, nil)
 
         {}.tap do |changes|
@@ -396,7 +392,6 @@ class TypeCheckWorkerTest < Minitest::Test
           writer: worker_writer
         )
 
-        worker.load_files(project: worker.project, commandline_args: [])
         worker.instance_variable_set(:@current_type_check_guid, "guid")
 
         {}.tap do |changes|
@@ -450,7 +445,6 @@ class TypeCheckWorkerTest < Minitest::Test
           writer: worker_writer
         )
 
-        worker.load_files(project: worker.project, commandline_args: [])
         worker.instance_variable_set(:@current_type_check_guid, nil)
 
         {}.tap do |changes|
@@ -498,7 +492,6 @@ class TypeCheckWorkerTest < Minitest::Test
           writer: worker_writer
         )
 
-        worker.load_files(project: worker.project, commandline_args: [])
         worker.instance_variable_set(:@current_type_check_guid, "guid")
 
         {}.tap do |changes|
@@ -557,7 +550,6 @@ class TypeCheckWorkerTest < Minitest::Test
           writer: worker_writer
         )
 
-        worker.load_files(project: worker.project, commandline_args: [])
         worker.instance_variable_set(:@current_type_check_guid, "guid")
 
         {}.tap do |changes|
@@ -619,7 +611,6 @@ class TypeCheckWorkerTest < Minitest::Test
           writer: worker_writer
         )
 
-        worker.load_files(project: worker.project, commandline_args: [])
         worker.instance_variable_set(:@current_type_check_guid, nil)
 
         {}.tap do |changes|
@@ -682,35 +673,6 @@ RBS
         assert_equal "#{file_scheme}#{current_dir}/sig/foo.rbs", symbol.location[:uri].to_s
         assert_equal "NewClassName", symbol.container_name
       end
-    end
-  end
-
-  def test_loading_files_with_args
-    in_tmpdir do
-      project = Project.new(steepfile_path: current_dir + "Steepfile")
-      Project::DSL.parse(project, <<EOF)
-target :lib do
-  check "lib"
-  signature "sig"
-end
-EOF
-
-      (current_dir + "lib").mkdir
-      (current_dir + "lib/foo.rb").write("")
-      (current_dir + "lib/bar.rb").write("")
-
-      worker = Server::TypeCheckWorker.new(
-        project: project,
-        assignment: assignment,
-        commandline_args: [],
-        reader: worker_reader,
-        writer: worker_writer
-      )
-
-      worker.load_files(project: worker.project, commandline_args: ["lib/foo.rb"])
-      worker.service.update(changes: worker.pop_buffer) {}
-
-      assert_equal [Pathname("lib/foo.rb")], worker.service.source_files.keys
     end
   end
 

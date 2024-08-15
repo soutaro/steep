@@ -104,7 +104,7 @@ end
       Project::DSL.parse(project, steepfile.read)
 
       controller = Server::Master::TypeCheckController.new(project: project)
-      controller.load(command_line_args: [])
+      controller.load(command_line_args: []) {}
 
       controller.target_paths[0].tap do |paths|
         assert_equal Set[current_dir + "lib/customer.rb"], paths.code_paths
@@ -137,7 +137,7 @@ end
       Project::DSL.parse(project, steepfile.read)
 
       controller = Server::Master::TypeCheckController.new(project: project)
-      controller.load(command_line_args: [])
+      controller.load(command_line_args: []) {}
       controller.changed_paths.clear()
 
       controller.push_changes(current_dir + "lib/customer.rb")
@@ -177,7 +177,7 @@ end
       Project::DSL.parse(project, steepfile.read)
 
       controller = Server::Master::TypeCheckController.new(project: project)
-      controller.load(command_line_args: [])
+      controller.load(command_line_args: []) {}
       controller.changed_paths.clear()
 
       controller.update_priority(open: current_dir + "lib/customer.rb")
@@ -213,7 +213,7 @@ end
       Project::DSL.parse(project, steepfile.read)
 
       controller = Server::Master::TypeCheckController.new(project: project)
-      controller.load(command_line_args: [])
+      controller.load(command_line_args: []) {}
       controller.changed_paths.clear()
 
       assert_nil controller.make_request()
@@ -241,7 +241,7 @@ end
       Project::DSL.parse(project, steepfile.read)
 
       controller = Server::Master::TypeCheckController.new(project: project)
-      controller.load(command_line_args: [])
+      controller.load(command_line_args: []) {}
       controller.changed_paths.clear()
 
       controller.update_priority(open: current_dir + "lib/customer.rb")
@@ -278,7 +278,7 @@ end
       Project::DSL.parse(project, steepfile.read)
 
       controller = Server::Master::TypeCheckController.new(project: project)
-      controller.load(command_line_args: [])
+      controller.load(command_line_args: []) {}
       controller.changed_paths.clear()
 
       controller.update_priority(open: current_dir + "lib/customer.rb")
@@ -319,7 +319,7 @@ end
       Project::DSL.parse(project, steepfile.read)
 
       controller = Server::Master::TypeCheckController.new(project: project)
-      controller.load(command_line_args: [])
+      controller.load(command_line_args: []) {}
       controller.changed_paths.clear()
 
       controller.update_priority(open: current_dir + "lib/customer.rb")
