@@ -24,16 +24,14 @@ module Steep
         end
       end
 
-      def load_files(project:, commandline_args:)
+      def load_files(input)
         Steep.logger.tagged "#load_files" do
           push_buffer do |changes|
-            loader = Services::FileLoader.new(base_dir: project.base_dir)
-
-            Steep.measure "load changes from disk" do
-              project.targets.each do |target|
-                loader.load_changes(target.source_pattern, commandline_args, changes: changes)
-                loader.load_changes(target.signature_pattern, changes: changes)
+            input.each do |filename, content|
+              if content.is_a?(Hash)
+                content = Base64.decode64(content[:text]).force_encoding(Encoding::UTF_8)
               end
+              changes[Pathname(filename.to_s)] = [Services::ContentChange.new(text: content)]
             end
           end
         end

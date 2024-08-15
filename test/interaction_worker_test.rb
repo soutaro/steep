@@ -53,6 +53,7 @@ EOF
       worker = InteractionWorker.new(project: project, reader: worker_reader, writer: worker_writer)
 
       worker.handle_request({ method: "initialize", id: 1, params: nil })
+      worker.handle_request({ method: "$/file/load", params: { content: {} } })
 
       q = flush_queue(worker.queue)
       assert_equal 1, q.size

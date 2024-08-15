@@ -110,7 +110,7 @@ module Steep
 
         def initialize: (project: Project) -> void
 
-        def load: (command_line_args: Array[String]) -> void
+        def load: (command_line_args: Array[String]) { (Hash[String, ChangeBuffer::content]) -> void } -> void
 
         def push_changes: (Pathname path) -> void
 
@@ -213,7 +213,7 @@ module Steep
 
         attr_reader message: untyped
 
-        def initialize: (dest: WorkerProcess | :client, message: untyped) -> void
+        def self.new: (dest: WorkerProcess | :client, message: untyped) -> instance
 
         def self.to_worker: (WorkerProcess, message: untyped) -> SendMessageJob
 

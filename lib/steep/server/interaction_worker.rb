@@ -82,12 +82,15 @@ module Steep
       def handle_request(request)
         case request[:method]
         when "initialize"
-          load_files(project: project, commandline_args: [])
-          queue_job ApplyChangeJob.new
           writer.write({ id: request[:id], result: nil })
 
         when "textDocument/didChange"
           collect_changes(request)
+          queue_job ApplyChangeJob.new
+
+        when "$/file/load"
+          input = request[:params][:content]
+          load_files(input)
           queue_job ApplyChangeJob.new
 
         when "$/file/reset"
