@@ -161,7 +161,11 @@ module Steep
   end
 
   def self.new_logger(output, prev_level)
-    ActiveSupport::TaggedLogging.new(Logger.new(output)).tap do |logger|
+    logger = Logger.new(output)
+    logger.formatter = proc do |severity, datetime, progname, msg|
+      "#{datetime.strftime('%Y-%m-%d %H:%M:%S')}: #{severity}: #{msg}\n"
+    end
+    ActiveSupport::TaggedLogging.new(logger).tap do |logger|
       logger.push_tags "Steep #{VERSION}"
       logger.level = prev_level || Logger::ERROR
     end
