@@ -15,6 +15,7 @@ require "stringio"
 require 'uri'
 require "yaml"
 require "securerandom"
+require "base64"
 
 require "concurrent/utility/processor_counter"
 require "terminal-table"

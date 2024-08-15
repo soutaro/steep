@@ -28,6 +28,9 @@ module Steep
         Steep.logger.tagged "#load_files" do
           push_buffer do |changes|
             input.each do |filename, content|
+              if content.is_a?(Hash)
+                content = Base64.decode64(content[:text]).force_encoding(Encoding::UTF_8)
+              end
               changes[Pathname(filename.to_s)] = [Services::ContentChange.new(text: content)]
             end
           end

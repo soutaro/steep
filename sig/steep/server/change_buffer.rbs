@@ -22,9 +22,11 @@ module Steep
       def pop_buffer: [A] () { (changes) -> A } -> A
                     | () -> changes
 
+      type content = String | { text: String, binary: true }
+
       # Load files from `project` to `buffered_changes`
       #
-      def load_files: (Hash[String, String] input) -> void
+      def load_files: (Hash[String, content] input) -> void
 
       # Load changes from a request with `DidChangeTextDocumentParams` into `buffered_changes`
       #

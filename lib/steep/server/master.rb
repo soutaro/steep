@@ -572,6 +572,14 @@ module Steep
 
             Steep.measure("Load files from disk...") do
               controller.load(command_line_args: commandline_args) do |input|
+                input.transform_values! do |content|
+                  content.is_a?(String) or raise
+                  if content.valid_encoding?
+                    content
+                  else
+                    { text: Base64.encode64(content), binary: true }
+                  end
+                end
                 broadcast_notification({ method: "$/file/load", params: { content: input } })
               end
             end
