@@ -55,12 +55,15 @@ module Steep
         super(project: project, reader: reader, writer: writer)
 
         @assignment = assignment
-        @service = Services::TypeCheckService.new(project: project)
         @buffered_changes = {}
         @mutex = Mutex.new()
         @queue = Queue.new
         @commandline_args = commandline_args
         @current_type_check_guid = nil
+      end
+
+      def service
+        @service ||= Services::TypeCheckService.new(project: project)
       end
 
       def handle_request(request)
