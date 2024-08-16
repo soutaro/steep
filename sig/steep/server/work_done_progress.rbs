@@ -1,0 +1,19 @@
+module Steep
+  module Server
+    class WorkDoneProgress
+      attr_reader sender: ^(untyped message) -> void
+
+      attr_reader guid: String
+
+      attr_reader percentage: Integer
+
+      def initialize: (String guid) { (untyped message) -> void } -> void
+
+      def begin: (String title, ?String? message, request_id: String) -> self
+
+      def report: (Integer percentage, ?String? message) -> self
+
+      def end: (?String? message) -> self
+    end
+  end
+end
