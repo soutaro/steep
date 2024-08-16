@@ -234,7 +234,25 @@ module Steep
 
       attr_reader typecheck_workers: Array[WorkerProcess]
 
+      # Queue for processing incoming jobs and postpone a work
+      #
+      # ```rb
+      # # Notify the *work/main* thread a message is arriving from a worker or client
+      # job_queue << ReceiveMessageJob.new(source: interaction_worker, message: message)
+      # ```
+      #
+      # ```rb
+      # job_queue.push(
+      #   -> do
+      #     puts "Doing something on the *work/main* thread"
+      #   end
+      # )
+      # ```
       attr_reader job_queue: Thread::Queue
+
+      # Queue for writing messages to the client and the workers
+      #
+      attr_reader write_queue: Thread::SizedQueue
 
       attr_reader current_type_check_request: TypeCheckRequest?
 
@@ -294,6 +312,8 @@ module Steep
       def send_request: (method: String, worker: WorkerProcess, ?id: String, ?params: untyped?) ?{ (ResultHandler) -> void } -> ResultHandler
 
       def group_request: () { (GroupHandler) -> void } -> GroupHandler
+
+      def enqueue_write_job: (SendMessageJob job) -> void
     end
   end
 end

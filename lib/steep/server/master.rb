@@ -415,7 +415,7 @@ module Steep
       attr_reader :interaction_worker
       attr_reader :typecheck_workers
 
-      attr_reader :job_queue
+      attr_reader :job_queue, :write_queue
 
       attr_reader :current_type_check_request
       attr_reader :controller
@@ -435,6 +435,7 @@ module Steep
         @typecheck_automatically = true
         @commandline_args = []
         @job_queue = queue
+        @write_queue = SizedQueue.new(100)
 
         @controller = TypeCheckController.new(project: project)
         @result_controller = ResultController.new()
@@ -473,6 +474,23 @@ module Steep
             end
           end
 
+          write_thread = Thread.new do
+            Steep.logger.formatter.push_tags(*tags)
+            Steep.logger.tagged "write" do
+              while job = write_queue.deq
+                # @type var job: SendMessageJob
+                case job.dest
+                when :client
+                  Steep.logger.info { "Processing SendMessageJob: dest=client, method=#{job.message[:method] || "-"}, id=#{job.message[:id] || "-"}" }
+                  writer.write job.message
+                when WorkerProcess
+                  Steep.logger.info { "Processing SendMessageJob: dest=#{job.dest.name}, method=#{job.message[:method] || "-"}, id=#{job.message[:id] || "-"}" }
+                  job.dest << job.message
+                end
+              end
+            end
+          end
+
           loop_thread = Thread.new do
             Steep.logger.formatter.push_tags(*tags)
             Steep.logger.tagged "main" do
@@ -502,15 +520,6 @@ module Steep
                       end
                     end
                   end
-                when SendMessageJob
-                  case job.dest
-                  when :client
-                    Steep.logger.info { "Processing SendMessageJob: dest=client, method=#{job.message[:method] || "-"}, id=#{job.message[:id] || "-"}" }
-                    writer.write job.message
-                  when WorkerProcess
-                    Steep.logger.info { "Processing SendMessageJob: dest=#{job.dest.name}, method=#{job.message[:method] || "-"}, id=#{job.message[:id] || "-"}" }
-                    job.dest << job.message
-                  end
                 when Proc
                   job.call()
                 end
@@ -529,10 +538,14 @@ module Steep
             raise "Unexpected worker process exit"
           end
 
+          write_queue.close()
+          write_thread.join
+
           read_client_thread.join()
           worker_threads.each do |thread|
             thread.join
           end
+
           loop_thread.join
         end
       end
@@ -570,22 +583,8 @@ module Steep
               group << send_request(method: "initialize", params: message[:params], worker: worker)
             end
 
-            Steep.measure("Load files from disk...") do
-              controller.load(command_line_args: commandline_args) do |input|
-                input.transform_values! do |content|
-                  content.is_a?(String) or raise
-                  if content.valid_encoding?
-                    content
-                  else
-                    { text: Base64.encode64(content), binary: true }
-                  end
-                end
-                broadcast_notification({ method: "$/file/load", params: { content: input } })
-              end
-            end
-
             group.on_completion do
-              job_queue << SendMessageJob.to_client(
+              enqueue_write_job SendMessageJob.to_client(
                 message: {
                   id: id,
                   result: LSP::Interface::InitializeResult.new(
@@ -616,6 +615,30 @@ module Steep
                 }
               )
 
+              enqueue_write_job SendMessageJob.to_client(
+                message: {
+                  method: "window/showMessage",
+                  params: {
+                    type: LSP::Constant::MessageType::INFO,
+                    message: "Loading projects..."
+                  }
+                }
+              )
+
+              Steep.measure("Load files from disk...") do
+                controller.load(command_line_args: commandline_args) do |input|
+                  input.transform_values! do |content|
+                    content.is_a?(String) or raise
+                    if content.valid_encoding?
+                      content
+                    else
+                      { text: Base64.encode64(content), binary: true }
+                    end
+                  end
+                  broadcast_notification({ method: "$/file/load", params: { content: input } })
+                end
+              end
+
               if file_system_watcher_supported?
                 patterns = [] #: Array[String]
                 project.targets.each do |target|
@@ -641,7 +664,7 @@ module Steep
 
                 Steep.logger.info { "Setting up didChangeWatchedFiles with pattern: #{patterns.inspect}" }
 
-                job_queue << SendMessageJob.to_client(
+                enqueue_write_job SendMessageJob.to_client(
                   message: {
                     id: SecureRandom.uuid,
                     method: "client/registerCapability",
@@ -752,7 +775,7 @@ module Steep
             if path = pathname(message[:params][:textDocument][:uri])
               result_controller << send_request(method: message[:method], params: message[:params], worker: interaction_worker) do |handler|
                 handler.on_completion do |response|
-                  job_queue << SendMessageJob.to_client(
+                  enqueue_write_job SendMessageJob.to_client(
                     message: {
                       id: message[:id],
                       result: response[:result]
@@ -761,7 +784,7 @@ module Steep
                 end
               end
             else
-              job_queue << SendMessageJob.to_client(
+              enqueue_write_job SendMessageJob.to_client(
                 message: {
                   id: message[:id],
                   result: nil
@@ -778,7 +801,7 @@ module Steep
 
             group.on_completion do |handlers|
               result = handlers.flat_map(&:result)
-              job_queue << SendMessageJob.to_client(message: { id: message[:id], result: result })
+              enqueue_write_job SendMessageJob.to_client(message: { id: message[:id], result: result })
             end
           end
 
@@ -792,7 +815,7 @@ module Steep
 
               group.on_completion do |handlers|
                 stats = handlers.flat_map(&:result)
-                job_queue << SendMessageJob.to_client(
+                enqueue_write_job SendMessageJob.to_client(
                   message: {
                     id: message[:id],
                     result: stats
@@ -811,7 +834,7 @@ module Steep
 
               group.on_completion do |handlers|
                 links = handlers.flat_map(&:result)
-                job_queue << SendMessageJob.to_client(
+                enqueue_write_job SendMessageJob.to_client(
                   message: {
                     id: message[:id],
                     result: links
@@ -820,7 +843,7 @@ module Steep
               end
             end
           else
-            job_queue << SendMessageJob.to_client(
+            enqueue_write_job SendMessageJob.to_client(
               message: {
                 id: message[:id],
                 result: []
@@ -844,7 +867,7 @@ module Steep
           end
 
         when "$/ping"
-          job_queue << SendMessageJob.to_client(
+          enqueue_write_job SendMessageJob.to_client(
             message: {
                 id: message[:id],
                 result: message[:params]
@@ -858,7 +881,7 @@ module Steep
             end
 
             group.on_completion do
-              job_queue << SendMessageJob.to_client(message: { id: message[:id], result: nil })
+              enqueue_write_job SendMessageJob.to_client(message: { id: message[:id], result: nil })
             end
           end
 
@@ -886,7 +909,7 @@ module Steep
               )
             else
               # Forward other notifications
-              job_queue << SendMessageJob.to_client(message: message)
+              enqueue_write_job SendMessageJob.to_client(message: message)
             end
           end
         end
@@ -897,7 +920,7 @@ module Steep
           if last_request
             Steep.logger.info "Cancelling last request"
 
-            job_queue << SendMessageJob.to_client(
+            enqueue_write_job SendMessageJob.to_client(
               message: {
                 method: "$/progress",
                 params: {
@@ -914,7 +937,7 @@ module Steep
             @current_type_check_request = request
 
             if work_done_progress_supported?
-              job_queue << SendMessageJob.to_client(
+              enqueue_write_job SendMessageJob.to_client(
                 message: {
                   id: fresh_request_id,
                   method: "window/workDoneProgress/create",
@@ -923,7 +946,7 @@ module Steep
               )
             end
 
-            job_queue << SendMessageJob.to_client(
+            enqueue_write_job SendMessageJob.to_client(
               message: {
                 method: "$/progress",
                 params: {
@@ -934,7 +957,7 @@ module Steep
             )
 
             if request.finished?
-              job_queue << SendMessageJob.to_client(
+              enqueue_write_job SendMessageJob.to_client(
                 message: {
                   method: "$/progress",
                   params: { token: request.guid, value: { kind: "end" } }
@@ -952,7 +975,7 @@ module Steep
               index: worker.index || raise
             )
 
-            job_queue << SendMessageJob.to_worker(
+            enqueue_write_job SendMessageJob.to_worker(
               worker,
               message: {
                 method: "$/typecheck/start",
@@ -976,7 +999,7 @@ module Steep
                       { kind: "report", percentage: percentage, message: "#{progress_string}" }
                     end
 
-            job_queue << SendMessageJob.to_client(
+            enqueue_write_job SendMessageJob.to_client(
               message: {
                 method: "$/progress",
                 params: { token: current.guid, value: value }
@@ -991,13 +1014,13 @@ module Steep
       def broadcast_notification(message)
         Steep.logger.info "Broadcasting notification #{message[:method]}"
         each_worker do |worker|
-          job_queue << SendMessageJob.new(dest: worker, message: message)
+          enqueue_write_job SendMessageJob.new(dest: worker, message: message)
         end
       end
 
       def send_notification(message, worker:)
         Steep.logger.info "Sending notification #{message[:method]} to #{worker.name}"
-        job_queue << SendMessageJob.new(dest: worker, message: message)
+        enqueue_write_job SendMessageJob.new(dest: worker, message: message)
       end
 
       def fresh_request_id
@@ -1011,7 +1034,7 @@ module Steep
         message = { method: method, id: id, params: params }
         ResultHandler.new(request: message).tap do |handler|
           yield handler if block
-          job_queue << SendMessageJob.to_worker(worker, message: message)
+          enqueue_write_job SendMessageJob.to_worker(worker, message: message)
         end
       end
 
@@ -1025,6 +1048,11 @@ module Steep
         each_worker do |worker|
           worker.kill
         end
+      end
+
+      def enqueue_write_job(job)
+        Steep.logger.info { "Write_queue has #{write_queue.size} items"}
+        write_queue.push(job, timeout: nil)
       end
     end
   end
