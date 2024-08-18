@@ -36,6 +36,14 @@ module Steep
         def initialize: (id: String, path: Pathname, line: Integer, column: Integer, trigger: String) -> void
       end
 
+      class FormattingJob
+        attr_reader id: String
+
+        attr_reader path: Pathname
+
+        def initialize: (id: String, path: Pathname) -> void
+      end
+
       class SignatureHelpJob
         attr_reader id: String
 
@@ -48,7 +56,7 @@ module Steep
         def initialize: (id: String, path: Pathname, line: Integer, column: Integer) -> void
       end
 
-      type job = ApplyChangeJob | HoverJob | CompletionJob | SignatureHelpJob
+      type job = ApplyChangeJob | HoverJob | CompletionJob | FormattingJob | SignatureHelpJob
 
       module LSP = LanguageServer::Protocol
 
@@ -85,6 +93,8 @@ module Steep
       def format_completion_item_for_rbs: (Services::SignatureService, RBS::TypeName, CompletionJob job, String complete_text, Integer prefix_size) -> LanguageServer::Protocol::Interface::CompletionItem
 
       def format_completion_item: (CompletionProvider::item item) -> LanguageServer::Protocol::Interface::CompletionItem
+
+      def process_formatting: (FormattingJob job) -> Array[LanguageServer::Protocol::Interface::TextEdit]?
     end
   end
 end

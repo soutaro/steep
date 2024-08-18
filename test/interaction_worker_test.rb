@@ -442,5 +442,37 @@ EOF
       end
     end
   end
-end
 
+  def test_handle_formatting_request
+    in_tmpdir do
+      project = Project.new(steepfile_path: current_dir + "Steepfile")
+      Project::DSL.parse(project, <<EOF)
+target :lib do
+  check "lib"
+  signature "sig"
+end
+EOF
+      worker = Server::InteractionWorker.new(project: project, reader: worker_reader, writer: worker_writer, queue: [])
+
+      worker.service.update(
+        changes: {
+          Pathname("sig/hello.rbs") => [ContentChange.string(<<RUBY)]
+class Foo
+  def baz: () -> String | () -> Integer
+    end
+RUBY
+        }
+      ) {}
+
+      response = worker.process_formatting(
+        InteractionWorker::FormattingJob.new(
+          path: Pathname("sig/hello.rbs")
+        )
+      )
+
+      assert_instance_of Array, response
+      assert_equal 1, response.size
+      assert_instance_of LanguageServer::Protocol::Interface::TextEdit, response[0]
+    end
+  end
+end

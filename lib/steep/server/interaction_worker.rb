@@ -6,6 +6,7 @@ module Steep
       ApplyChangeJob = _ = Class.new()
       HoverJob = _ = Struct.new(:id, :path, :line, :column, keyword_init: true)
       CompletionJob = _ = Struct.new(:id, :path, :line, :column, :trigger, keyword_init: true)
+      FormattingJob = _ = Struct.new(:id, :path, keyword_init: true)
       SignatureHelpJob = _ = Struct.new(:id, :path, :line, :column, keyword_init: true)
 
       LSP = LanguageServer::Protocol
@@ -52,6 +53,13 @@ module Steep
               {
                 id: job.id,
                 result: process_latest_job(job) { process_signature_help(job) }
+              }
+            )
+          when FormattingJob
+            writer.write(
+              {
+                id: job.id,
+                result: process_latest_job(job) { process_formatting(job) }
               }
             )
           end
@@ -125,6 +133,12 @@ module Steep
           line, column = params[:position].yield_self {|hash| [hash[:line]+1, hash[:character]] }
 
           queue_job SignatureHelpJob.new(id: id, path: path, line: line, column: column)
+        when "textDocument/formatting"
+          id = request[:id]
+          params = request[:params]
+          path = project.relative_path(PathHelper.to_pathname!(params[:textDocument][:uri]))
+
+          queue_job FormattingJob.new(id: id, path: path)
         end
       end
 
@@ -493,6 +507,41 @@ module Steep
       rescue Parser::SyntaxError
         # Reuse the latest result to keep SignatureHelp opened while typing
         @last_signature_help_result if @last_signature_help_line == job.line
+      end
+
+      def process_formatting(job)
+        Steep.logger.tagged("#response_to_formatting") do
+          Steep.measure "Generating response" do
+            if (targets = project.targets_for_path(job.path)).is_a?(Array)
+              target = targets[0] or raise
+              sig_service = service.signature_services[target.name] or raise
+              file = sig_service.files[job.path]
+
+              parsed = RBS::Parser.parse_signature(file.content)
+              new_text = StringIO.new.tap do |out|
+                RBS::Writer.new(out: out).write(parsed[1] + parsed[2])
+              end.string
+
+              [
+                LSP::Interface::TextEdit.new(
+                  range: LSP::Interface::Range.new(
+                    start: LSP::Interface::Position.new(
+                      line: 0,
+                      character: 0
+                    ),
+                    end: LSP::Interface::Position.new(
+                      line: file.content.count("\n") + 1,
+                      character: 0
+                    )
+                  ),
+                  new_text: new_text
+                )
+              ]
+            else
+              nil
+            end
+          end
+        end
       end
     end
   end

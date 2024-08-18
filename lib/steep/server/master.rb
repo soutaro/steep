@@ -610,7 +610,8 @@ module Steep
                       definition_provider: true,
                       declaration_provider: false,
                       implementation_provider: true,
-                      type_definition_provider: true
+                      type_definition_provider: true,
+                      document_formatting_provider: true
                     )
                   )
                 }
@@ -826,6 +827,29 @@ module Steep
                 result: []
               }
             )
+          end
+
+        when "textDocument/formatting"
+          if interaction_worker
+            if message[:params][:textDocument][:uri].to_s =~ /\.rbs$/i
+              result_controller << send_request(method: message[:method], params: message[:params], worker: interaction_worker) do |handler|
+                handler.on_completion do |response|
+                  job_queue << SendMessageJob.to_client(
+                    message: {
+                      id: message[:id],
+                      result: response[:result]
+                    }
+                  )
+                end
+              end
+            else
+              job_queue << SendMessageJob.to_client(
+                message: {
+                  id: message[:id],
+                  result: nil
+                }
+              )
+            end
           end
 
         when "$/typecheck"
