@@ -12,12 +12,12 @@ class MasterTypeCheckRequestTest < Minitest::Test
   end
 
   def test_request
-    Server::Master::TypeCheckRequest.new(guid: "guid")
+    Server::Master::TypeCheckRequest.new(guid: "guid", progress: Server::WorkDoneProgress.new("guid"))
   end
 
   def test_as_json_all
     in_tmpdir do
-      request = Server::Master::TypeCheckRequest.new(guid: "guid")
+      request = Server::Master::TypeCheckRequest.new(guid: "guid", progress: Server::WorkDoneProgress.new("guid"))
 
       request.library_paths << (RBS::EnvironmentLoader::DEFAULT_CORE_ROOT + "object.rbs")
       request.signature_paths << (current_dir + "sig/user.rbs")
@@ -40,7 +40,7 @@ class MasterTypeCheckRequestTest < Minitest::Test
 
   def test_as_json_none
     in_tmpdir do
-      request = Server::Master::TypeCheckRequest.new(guid: "guid")
+      request = Server::Master::TypeCheckRequest.new(guid: "guid", progress: Server::WorkDoneProgress.new("guid"))
 
       request.library_paths << (RBS::EnvironmentLoader::DEFAULT_CORE_ROOT + "object.rbs")
       request.signature_paths << (current_dir + "sig/user.rbs")
@@ -63,7 +63,7 @@ class MasterTypeCheckRequestTest < Minitest::Test
 
   def test_progress
     in_tmpdir do
-      request = Server::Master::TypeCheckRequest.new(guid: "guid")
+      request = Server::Master::TypeCheckRequest.new(guid: "guid", progress: Server::WorkDoneProgress.new("guid"))
       request.library_paths << (RBS::EnvironmentLoader::DEFAULT_CORE_ROOT + "object.rbs")
       request.signature_paths << (current_dir + "sig/user.rbs")
       request.code_paths << (current_dir + "lib/user.rb")

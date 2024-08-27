@@ -53,7 +53,7 @@ class LSPDouble
       end
     end
 
-    send_request(id: next_request_id, method: "initialize") { }
+    send_request(id: next_request_id, method: "initialize", params: {}) { }
     send_notification(method: "initialized", params: {})
 
     if block_given?
