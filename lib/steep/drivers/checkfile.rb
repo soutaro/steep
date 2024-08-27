@@ -125,7 +125,7 @@ module Steep
 
         Steep.logger.info { "Initializing server" }
         initialize_id = request_id()
-        client_writer.write({ method: :initialize, id: initialize_id, params: {} })
+        client_writer.write({ method: :initialize, id: initialize_id, params: DEFAULT_CLI_LSP_INITIALIZE_PARAMS })
         wait_for_response_id(reader: client_reader, id: initialize_id)
 
         stdin_input.each do |path, content|
@@ -151,11 +151,12 @@ module Steep
         end
 
         ping_guid = master.fresh_request_id()
-        client_writer.write({ method: "$/ping", id: ping_guid, params: {} })
+        client_writer.write({ method: "$/ping", id: ping_guid, params: {}})
         wait_for_response_id(reader: client_reader, id: ping_guid)
 
         request_guid = master.fresh_request_id()
-        request = Server::Master::TypeCheckRequest.new(guid: request_guid)
+        progress = master.work_done_progress(request_guid)
+        request = Server::Master::TypeCheckRequest.new(guid: request_guid, progress: progress)
 
         target_paths.each do |path|
           request.code_paths << project.absolute_path(path)
@@ -164,12 +165,13 @@ module Steep
           request.signature_paths << project.absolute_path(path)
         end
 
-        master.start_type_check(request, last_request: nil, start_progress: true)
+        master.start_type_check(request: request, last_request: nil, report_progress_threshold: 0)
 
         Steep.logger.info { "Starting type checking: #{request_guid}" }
 
         error_messages = [] #: Array[String]
         client_reader.read do |response|
+          Steep.logger.info { response.inspect }
           case
           when response[:method] == "textDocument/publishDiagnostics"
             params = response[:params]

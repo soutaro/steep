@@ -19,6 +19,8 @@ module Steep
         def wait_for_message: (reader: Reader, ?unknown_messages: unknown_message_action) { (untyped) -> bool } -> untyped
 
         def keep_diagnostic?: (untyped diagnostic, severity_level: Diagnostic::LSPFormatter::severity) -> bool
+
+        DEFAULT_CLI_LSP_INITIALIZE_PARAMS: Hash[Symbol, untyped]
       end
     end
   end

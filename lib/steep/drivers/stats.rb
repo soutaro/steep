@@ -150,16 +150,23 @@ module Steep
         end
 
         initialize_id = request_id()
-        client_writer.write({ method: :initialize, id: initialize_id })
+        client_writer.write({ method: :initialize, id: initialize_id, params: DEFAULT_CLI_LSP_INITIALIZE_PARAMS })
         wait_for_response_id(reader: client_reader, id: initialize_id)
 
         typecheck_guid = SecureRandom.uuid
-        client_writer.write({ method: "$/typecheck", params: { guid: typecheck_guid }})
+
+        master.job_queue << -> do
+          Steep.logger.info { "Type checking for stats..." }
+          progress = master.work_done_progress(typecheck_guid)
+          master.start_type_check(last_request: nil, progress: progress, include_unchanged: true, report_progress_threshold: 0)
+        end
         wait_for_message(reader: client_reader) do |message|
           message[:method] == "$/progress" &&
             message[:params][:token] == typecheck_guid &&
             message[:params][:value][:kind] == "end"
         end
+
+        Steep.logger.info { "Finished type checking for stats" }
 
         stats_id = request_id()
         client_writer.write(
@@ -167,7 +174,8 @@ module Steep
             id: stats_id,
             method: "workspace/executeCommand",
             params: { command: "steep/stats", arguments: _ = [] }
-          })
+          }
+        )
 
         stats_response = wait_for_response_id(reader: client_reader, id: stats_id)
         stats_result = stats_response[:result]

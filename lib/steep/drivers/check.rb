@@ -61,7 +61,7 @@ module Steep
 
         Steep.logger.info { "Initializing server" }
         initialize_id = request_id()
-        client_writer.write({ method: :initialize, id: initialize_id, params: {} })
+        client_writer.write({ method: :initialize, id: initialize_id, params: DEFAULT_CLI_LSP_INITIALIZE_PARAMS })
         wait_for_response_id(reader: client_reader, id: initialize_id)
 
         request_guid = SecureRandom.uuid
