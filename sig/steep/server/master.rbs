@@ -6,6 +6,8 @@ module Steep
       class TypeCheckRequest
         attr_reader guid: String
 
+        attr_reader work_done_progress: WorkDoneProgress
+
         attr_reader library_paths: Set[Pathname]
 
         attr_reader signature_paths: Set[Pathname]
@@ -16,7 +18,7 @@ module Steep
 
         attr_reader checked_paths: Set[Pathname]
 
-        def initialize: (guid: String) -> void
+        def initialize: (guid: String, progress: WorkDoneProgress) -> void
 
         def uri: (Pathname path) -> URI::File
 
@@ -52,6 +54,7 @@ module Steep
       # controller.update_priority(open: file_path)  # Remember that an editor opens the path
       # controller.make_request(...)                 # Make an instance of TypeCheckRequest that contains list of all paths to type check
       # ```
+      #
       class TypeCheckController
         attr_reader project: Project
 
@@ -117,7 +120,17 @@ module Steep
         def update_priority: (open: Pathname) -> void
                            | (close: Pathname) -> void
 
-        def make_request: (?guid: String, ?last_request: TypeCheckRequest?, ?include_unchanged: bool) -> TypeCheckRequest?
+        # Returns a TypeCheckRequest that contains all paths to be type checked
+        #
+        # This method also resets the controller status by removing everything from `changed_paths`.
+        #
+        # * If `last_request:` is given, the remaining paths are also included in the new request.
+        # * If `include_unchanged` is `true`, all paths are included in the new request.
+        # * `progress:` is a `WorkDoneProgress` object to report the progress of the type checking.
+        #
+        # Returns `nil` when no type checking is needed.
+        #
+        def make_request: (?guid: String, ?last_request: TypeCheckRequest?, ?include_unchanged: bool, progress: WorkDoneProgress) -> TypeCheckRequest?
       end
 
       type lsp_notification = { method: String, params: untyped }
@@ -260,7 +273,7 @@ module Steep
 
       attr_reader result_controller: ResultController
 
-      attr_reader initialize_params: untyped
+      attr_reader initialize_params: Hash[Symbol, untyped]?
 
       attr_accessor typecheck_automatically: bool
 
@@ -291,15 +304,22 @@ module Steep
 
       def pathname: (String uri) -> Pathname?
 
-      def work_done_progress_supported?: () -> bool
+      def assign_initialize_params: (untyped) -> void
 
+      # Returns `true` if `DidChangeWatchedFiles` is supported by the client based on the `initialize` params
+      #
       def file_system_watcher_supported?: () -> bool
+
+      # Returns `true` if work done progress is supported by the client based on the `initialize` params
+      #
+      def work_done_progress_supported?: () -> bool
 
       def process_message_from_client: (untyped message) -> void
 
       def process_message_from_worker: (untyped message, worker: WorkerProcess) -> void
 
-      def start_type_check: (TypeCheckRequest request, last_request: TypeCheckRequest?, start_progress: bool) -> void
+      def start_type_check: (last_request: TypeCheckRequest?, progress: WorkDoneProgress, ?include_unchanged: bool, ?report_progress_threshold: Integer) -> void
+                          | (request: TypeCheckRequest, last_request: TypeCheckRequest?, ?report_progress_threshold: Integer) -> void
 
       def on_type_check_update: (guid: String, path: Pathname) -> void
 
@@ -314,6 +334,8 @@ module Steep
       def group_request: () { (GroupHandler) -> void } -> GroupHandler
 
       def enqueue_write_job: (SendMessageJob job) -> void
+
+      def work_done_progress: (String) -> WorkDoneProgress
     end
   end
 end
