@@ -50,7 +50,7 @@ module Steep
         end
 
         def upper_bound(a)
-          variable_bounds.fetch(a, nil)
+          variable_bounds.fetch(a, AST::Builtin::Object.instance_type)
         end
       end
 

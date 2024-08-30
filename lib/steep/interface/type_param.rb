@@ -1,6 +1,8 @@
 module Steep
   module Interface
     class TypeParam
+      IMPLICIT_UPPER_BOUND = AST::Builtin.optional(AST::Builtin::Object.instance_type)
+      
       attr_reader :name
       attr_reader :upper_bound
       attr_reader :variance

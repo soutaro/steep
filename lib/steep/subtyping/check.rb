@@ -59,7 +59,7 @@ module Steep
       def variable_upper_bound(name)
         @bounds.reverse_each do |hash|
           if hash.key?(name)
-            return hash[name]
+            return hash.fetch(name)
           end
         end
 
@@ -334,17 +334,14 @@ module Steep
           end
 
         when relation.super_type.is_a?(AST::Types::Var) && constraints.unknown?(relation.super_type.name)
-          if ub = variable_upper_bound(relation.super_type.name)
-            Expand(relation) do
-              check_type(Relation.new(sub_type: relation.sub_type, super_type: ub))
-            end.tap do |result|
-              if result.success?
-                constraints.add(relation.super_type.name, sub_type: relation.sub_type)
-              end
+          ub = variable_upper_bound(relation.super_type.name) || Interface::TypeParam::IMPLICIT_UPPER_BOUND
+
+          Expand(relation) do
+            check_type(Relation.new(sub_type: relation.sub_type, super_type: ub))
+          end.tap do |result|
+            if result.success?
+              constraints.add(relation.super_type.name, sub_type: relation.sub_type)
             end
-          else
-            constraints.add(relation.super_type.name, sub_type: relation.sub_type)
-            Success(relation)
           end
 
         when relation.sub_type.is_a?(AST::Types::Var) && constraints.unknown?(relation.sub_type.name)
@@ -390,8 +387,9 @@ module Steep
             end
           end
 
-        when relation.sub_type.is_a?(AST::Types::Var) && ub = variable_upper_bound(relation.sub_type.name)
+        when relation.sub_type.is_a?(AST::Types::Var)
           Expand(relation) do
+            ub = variable_upper_bound(relation.sub_type.name) || Interface::TypeParam::IMPLICIT_UPPER_BOUND
             check_type(Relation.new(sub_type: ub, super_type: relation.super_type))
           end
 
