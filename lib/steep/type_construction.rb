@@ -195,11 +195,11 @@ module Steep
       end
 
       method_params =
-      if method_type
-        TypeInference::MethodParams.build(node: node, method_type: method_type)
-      else
-        TypeInference::MethodParams.empty(node: node)
-      end
+        if method_type
+          TypeInference::MethodParams.build(node: node, method_type: method_type)
+        else
+          TypeInference::MethodParams.empty(node: node)
+        end
 
       method_context = TypeInference::Context::MethodContext.new(
         name: method_name,
@@ -405,7 +405,7 @@ module Steep
         type_params = definition.type_params_decl.map do |param|
           Interface::TypeParam.new(
             name: param.name,
-            upper_bound: checker.factory.type_opt(param.upper_bound),
+            upper_bound: checker.factory.type_opt(param.upper_bound_type),
             variance: param.variance,
             unchecked: param.unchecked?
           )
@@ -494,7 +494,7 @@ module Steep
       type_params = definition.type_params_decl.map do |type_param|
         Interface::TypeParam.new(
           name: type_param.name,
-          upper_bound: type_param.upper_bound&.yield_self {|t| checker.factory.type(t) },
+          upper_bound: type_param.upper_bound_type&.yield_self {|t| checker.factory.type(t) },
           variance: type_param.variance,
           unchecked: type_param.unchecked?,
           location: type_param.location

@@ -77,6 +77,10 @@ module Steep
           ]
         end
 
+        if type.is_a?(AST::Types::Var)
+          type = config.upper_bound(type.name) || type
+        end
+
         case node.type
         when :lvar
           name = node.children[0]

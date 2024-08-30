@@ -245,7 +245,7 @@ module Steep
         def type_param(type_param)
           Interface::TypeParam.new(
             name: type_param.name,
-            upper_bound: type_opt(type_param.upper_bound),
+            upper_bound: type_opt(type_param.upper_bound_type),
             variance: type_param.variance,
             unchecked: type_param.unchecked?
           )

@@ -2141,4 +2141,49 @@ class TypeCheckTest < Minitest::Test
       YAML
     )
   end
+
+  def test_any_upperbound
+    run_type_check_test(
+      signatures: {
+        "a.rbs" => <<~RBS
+          class Foo
+            def foo: [X < String?] (X) -> void
+          end
+        RBS
+      },
+      code: {
+        "a.rb" => <<~RUBY
+          class Foo
+            def foo(x)
+              if x
+                x.encoding
+              end
+
+              x.encoding
+            end
+          end
+
+          foo = Foo.new
+          foo.foo("123") #$ String
+          foo.foo("foo") #$ String?
+          foo.foo(nil)
+        RUBY
+      },
+      expectations: <<~YAML
+        ---
+        - file: a.rb
+          diagnostics:
+          - range:
+              start:
+                line: 7
+                character: 6
+              end:
+                line: 7
+                character: 14
+            severity: ERROR
+            message: Type `(::String | nil)` does not have method `encoding`
+            code: Ruby::NoMethod
+      YAML
+    )
+  end
 end
