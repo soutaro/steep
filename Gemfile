@@ -16,4 +16,4 @@ group :development, optional: true do
   gem "majo"
 end
 
-gem "rbs"
+# gem "rbs", path: "../rbs"
