@@ -164,6 +164,11 @@ module Steep
   def self.new_logger(output, prev_level)
     logger = Logger.new(output)
     logger.formatter = proc do |severity, datetime, progname, msg|
+      # @type var severity: String
+      # @type var datetime: Time
+      # @type var progname: untyped
+      # @type var msg: untyped
+      # @type block: String
       "#{datetime.strftime('%Y-%m-%d %H:%M:%S.%L')}: #{severity}: #{msg}\n"
     end
     ActiveSupport::TaggedLogging.new(logger).tap do |logger|
