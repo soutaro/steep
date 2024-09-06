@@ -7,6 +7,7 @@ class MasterTypeCheckControllerTest < Minitest::Test
 
   include Steep
   TypeCheckController = Server::Master::TypeCheckController
+  WorkDoneProgress = Server::WorkDoneProgress
 
   def dirs
     @dirs ||= []
@@ -216,7 +217,7 @@ end
       controller.load(command_line_args: []) {}
       controller.changed_paths.clear()
 
-      assert_nil controller.make_request()
+      assert_nil controller.make_request(progress: WorkDoneProgress.new("guid") {})
     end
   end
 
@@ -247,7 +248,7 @@ end
       controller.update_priority(open: current_dir + "lib/customer.rb")
       controller.push_changes(current_dir + "sig/customer.rbs")
 
-      request = controller.make_request()
+      request = controller.make_request(progress: WorkDoneProgress.new("guid") {})
       assert_equal Set[current_dir + "sig/customer.rbs"], request.signature_paths
       assert_equal Set[current_dir + "lib/customer.rb"], request.code_paths
       assert_equal Set[current_dir + "lib/customer.rb"], request.priority_paths
@@ -284,7 +285,7 @@ end
       controller.update_priority(open: current_dir + "lib/customer.rb")
       controller.push_changes(current_dir + "lib/customer.rb")
 
-      request = controller.make_request()
+      request = controller.make_request(progress: WorkDoneProgress.new("guid") {})
       assert_equal Set[], request.signature_paths
       assert_equal Set[current_dir + "lib/customer.rb"], request.code_paths
       assert_equal Set[current_dir + "lib/customer.rb"], request.priority_paths
@@ -325,12 +326,12 @@ end
       controller.update_priority(open: current_dir + "lib/customer.rb")
       controller.push_changes(current_dir + "lib/customer.rb")
 
-      last_request = Server::Master::TypeCheckRequest.new(guid: "last_guid")
+      last_request = Server::Master::TypeCheckRequest.new(guid: "last_guid", progress: WorkDoneProgress.new("guid") {})
       last_request.code_paths << current_dir + "lib/account.rb"
       last_request.signature_paths << current_dir + "sig/account.rbs"
       last_request.library_paths << RBS::EnvironmentLoader::DEFAULT_CORE_ROOT + "integer.rbs"
 
-      request = controller.make_request(last_request: last_request)
+      request = controller.make_request(last_request: last_request, progress: WorkDoneProgress.new("guid") {})
       assert_equal Set[current_dir + "sig/account.rbs"], request.signature_paths
       assert_equal Set[current_dir + "lib/customer.rb", current_dir + "lib/account.rb"], request.code_paths
       assert_equal Set[current_dir + "lib/customer.rb"], request.priority_paths

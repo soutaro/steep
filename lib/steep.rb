@@ -114,6 +114,7 @@ require "steep/services/stats_calculator"
 require "steep/services/file_loader"
 require "steep/services/goto_service"
 
+require "steep/server/work_done_progress"
 require "steep/server/delay_queue"
 require "steep/server/lsp_formatter"
 require "steep/server/change_buffer"
@@ -163,7 +164,7 @@ module Steep
   def self.new_logger(output, prev_level)
     logger = Logger.new(output)
     logger.formatter = proc do |severity, datetime, progname, msg|
-      "#{datetime.strftime('%Y-%m-%d %H:%M:%S')}: #{severity}: #{msg}\n"
+      "#{datetime.strftime('%Y-%m-%d %H:%M:%S.%L')}: #{severity}: #{msg}\n"
     end
     ActiveSupport::TaggedLogging.new(logger).tap do |logger|
       logger.push_tags "Steep #{VERSION}"

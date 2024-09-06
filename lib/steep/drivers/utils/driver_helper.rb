@@ -83,6 +83,14 @@ module Steep
             severity <= LanguageServer::Protocol::Constant::DiagnosticSeverity::INFORMATION
           end
         end
+
+        (DEFAULT_CLI_LSP_INITIALIZE_PARAMS = {
+          capabilities: {
+            window: {
+              workDoneProgress: true
+            }
+          }
+        }).freeze
       end
     end
   end

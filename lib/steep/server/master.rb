@@ -10,14 +10,16 @@ module Steep
         attr_reader :code_paths
         attr_reader :priority_paths
         attr_reader :checked_paths
+        attr_reader :work_done_progress
 
-        def initialize(guid:)
+        def initialize(guid:, progress:)
           @guid = guid
           @library_paths = Set[]
           @signature_paths = Set[]
           @code_paths = Set[]
           @priority_paths = Set[]
           @checked_paths = Set[]
+          @work_done_progress = progress
         end
 
         def uri(path)
@@ -205,10 +207,10 @@ module Steep
           end
         end
 
-        def make_request(guid: SecureRandom.uuid, last_request: nil, include_unchanged: false)
+        def make_request(guid: SecureRandom.uuid, last_request: nil, include_unchanged: false, progress:)
           return if changed_paths.empty? && !include_unchanged
 
-          TypeCheckRequest.new(guid: guid).tap do |request|
+          TypeCheckRequest.new(guid: guid, progress: progress).tap do |request|
             if last_request
               request.library_paths.merge(last_request.unchecked_library_paths)
               request.signature_paths.merge(last_request.unchecked_signature_paths)
@@ -415,7 +417,7 @@ module Steep
       attr_reader :interaction_worker
       attr_reader :typecheck_workers
 
-      attr_reader :job_queue
+      attr_reader :job_queue, :write_queue
 
       attr_reader :current_type_check_request
       attr_reader :controller
@@ -435,10 +437,11 @@ module Steep
         @typecheck_automatically = true
         @commandline_args = []
         @job_queue = queue
+        @write_queue = SizedQueue.new(100)
 
         @controller = TypeCheckController.new(project: project)
         @result_controller = ResultController.new()
-        @start_type_checking_queue = DelayQueue.new(delay: 0.1)
+        @start_type_checking_queue = DelayQueue.new(delay: 0.3)
       end
 
       def start
@@ -473,6 +476,23 @@ module Steep
             end
           end
 
+          write_thread = Thread.new do
+            Steep.logger.formatter.push_tags(*tags)
+            Steep.logger.tagged "write" do
+              while job = write_queue.deq
+                # @type var job: SendMessageJob
+                case job.dest
+                when :client
+                  Steep.logger.info { "Processing SendMessageJob: dest=client, method=#{job.message[:method] || "-"}, id=#{job.message[:id] || "-"}" }
+                  writer.write job.message
+                when WorkerProcess
+                  Steep.logger.info { "Processing SendMessageJob: dest=#{job.dest.name}, method=#{job.message[:method] || "-"}, id=#{job.message[:id] || "-"}" }
+                  job.dest << job.message
+                end
+              end
+            end
+          end
+
           loop_thread = Thread.new do
             Steep.logger.formatter.push_tags(*tags)
             Steep.logger.tagged "main" do
@@ -502,15 +522,6 @@ module Steep
                       end
                     end
                   end
-                when SendMessageJob
-                  case job.dest
-                  when :client
-                    Steep.logger.info { "Processing SendMessageJob: dest=client, method=#{job.message[:method] || "-"}, id=#{job.message[:id] || "-"}" }
-                    writer.write job.message
-                  when WorkerProcess
-                    Steep.logger.info { "Processing SendMessageJob: dest=#{job.dest.name}, method=#{job.message[:method] || "-"}, id=#{job.message[:id] || "-"}" }
-                    job.dest << job.message
-                  end
                 when Proc
                   job.call()
                 end
@@ -529,10 +540,14 @@ module Steep
             raise "Unexpected worker process exit"
           end
 
+          write_queue.close()
+          write_thread.join
+
           read_client_thread.join()
           worker_threads.each do |thread|
             thread.join
           end
+
           loop_thread.join
         end
       end
@@ -550,12 +565,18 @@ module Steep
         Steep::PathHelper.to_pathname(uri)
       end
 
+      def assign_initialize_params(params)
+        @initialize_params = params
+      end
+
       def work_done_progress_supported?
-        initialize_params&.dig(:capabilities, :window, :workDoneProgress) ? true : false
+        initialize_params or raise "`initialize` request is not receiged yet"
+        initialize_params.dig(:capabilities, :window, :workDoneProgress) ? true : false
       end
 
       def file_system_watcher_supported?
-        initialize_params&.dig(:capabilities, :workspace, :didChangeWatchedFiles, :dynamicRegistration) || false
+        initialize_params or raise "`initialize` request is not receiged yet"
+        initialize_params.dig(:capabilities, :workspace, :didChangeWatchedFiles, :dynamicRegistration) || false
       end
 
       def process_message_from_client(message)
@@ -564,28 +585,15 @@ module Steep
 
         case message[:method]
         when "initialize"
-          @initialize_params = message[:params]
+          assign_initialize_params(message[:params])
+
           result_controller << group_request do |group|
             each_worker do |worker|
               group << send_request(method: "initialize", params: message[:params], worker: worker)
             end
 
-            Steep.measure("Load files from disk...") do
-              controller.load(command_line_args: commandline_args) do |input|
-                input.transform_values! do |content|
-                  content.is_a?(String) or raise
-                  if content.valid_encoding?
-                    content
-                  else
-                    { text: Base64.encode64(content), binary: true }
-                  end
-                end
-                broadcast_notification({ method: "$/file/load", params: { content: input } })
-              end
-            end
-
             group.on_completion do
-              job_queue << SendMessageJob.to_client(
+              enqueue_write_job SendMessageJob.to_client(
                 message: {
                   id: id,
                   result: LSP::Interface::InitializeResult.new(
@@ -616,6 +624,25 @@ module Steep
                 }
               )
 
+              progress = work_done_progress(SecureRandom.uuid)
+              if typecheck_automatically
+                progress.begin("Type checking", "loading projects...", request_id: fresh_request_id)
+              end
+
+              Steep.measure("Load files from disk...") do
+                controller.load(command_line_args: commandline_args) do |input|
+                  input.transform_values! do |content|
+                    content.is_a?(String) or raise
+                    if content.valid_encoding?
+                      content
+                    else
+                      { text: Base64.encode64(content), binary: true }
+                    end
+                  end
+                  broadcast_notification({ method: "$/file/load", params: { content: input } })
+                end
+              end
+
               if file_system_watcher_supported?
                 patterns = [] #: Array[String]
                 project.targets.each do |target|
@@ -641,7 +668,7 @@ module Steep
 
                 Steep.logger.info { "Setting up didChangeWatchedFiles with pattern: #{patterns.inspect}" }
 
-                job_queue << SendMessageJob.to_client(
+                enqueue_write_job SendMessageJob.to_client(
                   message: {
                     id: SecureRandom.uuid,
                     method: "client/registerCapability",
@@ -661,13 +688,12 @@ module Steep
                   }
                 )
               end
-            end
-          end
 
-        when "initialized"
-          if typecheck_automatically
-            if request = controller.make_request(include_unchanged: true)
-              start_type_check(request, last_request: nil, start_progress: request.total > 10)
+              if typecheck_automatically
+                if request = controller.make_request(guid: progress.guid, include_unchanged: true, progress: progress)
+                  start_type_check(request: request, last_request: nil)
+                end
+              end
             end
           end
 
@@ -701,9 +727,13 @@ module Steep
               job_queue.push(
                 -> do
                   last_request = current_type_check_request
-                  if request = controller.make_request(last_request: last_request)
-                    start_type_check(request, last_request: last_request, start_progress: request.total > 10)
-                  end
+                  guid = SecureRandom.uuid
+
+                  start_type_check(
+                    last_request: last_request,
+                    include_unchanged: true,
+                    progress: work_done_progress(guid)
+                  )
                 end
               )
             end
@@ -721,9 +751,12 @@ module Steep
                     Steep.logger.info { "Starting type check from textDocument/didChange notification..." }
 
                     last_request = current_type_check_request
-                    if request = controller.make_request(last_request: last_request)
-                      start_type_check(request, last_request: last_request, start_progress: request.total > 10)
-                    end
+                    guid = SecureRandom.uuid
+
+                    start_type_check(
+                      last_request: last_request,
+                      progress: work_done_progress(guid)
+                    )
                   end
                 )
               end
@@ -752,7 +785,7 @@ module Steep
             if path = pathname(message[:params][:textDocument][:uri])
               result_controller << send_request(method: message[:method], params: message[:params], worker: interaction_worker) do |handler|
                 handler.on_completion do |response|
-                  job_queue << SendMessageJob.to_client(
+                  enqueue_write_job SendMessageJob.to_client(
                     message: {
                       id: message[:id],
                       result: response[:result]
@@ -761,7 +794,7 @@ module Steep
                 end
               end
             else
-              job_queue << SendMessageJob.to_client(
+              enqueue_write_job SendMessageJob.to_client(
                 message: {
                   id: message[:id],
                   result: nil
@@ -778,7 +811,7 @@ module Steep
 
             group.on_completion do |handlers|
               result = handlers.flat_map(&:result)
-              job_queue << SendMessageJob.to_client(message: { id: message[:id], result: result })
+              enqueue_write_job SendMessageJob.to_client(message: { id: message[:id], result: result })
             end
           end
 
@@ -792,7 +825,7 @@ module Steep
 
               group.on_completion do |handlers|
                 stats = handlers.flat_map(&:result)
-                job_queue << SendMessageJob.to_client(
+                enqueue_write_job SendMessageJob.to_client(
                   message: {
                     id: message[:id],
                     result: stats
@@ -811,7 +844,7 @@ module Steep
 
               group.on_completion do |handlers|
                 links = handlers.flat_map(&:result)
-                job_queue << SendMessageJob.to_client(
+                enqueue_write_job SendMessageJob.to_client(
                   message: {
                     id: message[:id],
                     result: links
@@ -820,7 +853,7 @@ module Steep
               end
             end
           else
-            job_queue << SendMessageJob.to_client(
+            enqueue_write_job SendMessageJob.to_client(
               message: {
                 id: message[:id],
                 result: []
@@ -829,22 +862,16 @@ module Steep
           end
 
         when "$/typecheck"
-          request = controller.make_request(
-            guid: message[:params][:guid],
+          guid = message[:params][:guid]
+
+          start_type_check(
             last_request: current_type_check_request,
-            include_unchanged: true
+            include_unchanged: true,
+            progress: work_done_progress(guid)
           )
 
-          if request
-            start_type_check(
-              request,
-              last_request: current_type_check_request,
-              start_progress: true
-            )
-          end
-
         when "$/ping"
-          job_queue << SendMessageJob.to_client(
+          enqueue_write_job SendMessageJob.to_client(
             message: {
                 id: message[:id],
                 result: message[:params]
@@ -858,7 +885,7 @@ module Steep
             end
 
             group.on_completion do
-              job_queue << SendMessageJob.to_client(message: { id: message[:id], result: nil })
+              enqueue_write_job SendMessageJob.to_client(message: { id: message[:id], result: nil })
             end
           end
 
@@ -886,60 +913,37 @@ module Steep
               )
             else
               # Forward other notifications
-              job_queue << SendMessageJob.to_client(message: message)
+              enqueue_write_job SendMessageJob.to_client(message: message)
             end
           end
         end
       end
 
-      def start_type_check(request, last_request:, start_progress:)
-        Steep.logger.tagged "#start_type_check(#{request.guid}, #{last_request&.guid}" do
+      def start_type_check(request: nil, last_request:, progress: nil, include_unchanged: false, report_progress_threshold: 10)
+        Steep.logger.tagged "#start_type_check(#{progress&.guid || request&.guid}, #{last_request&.guid}" do
           if last_request
-            Steep.logger.info "Cancelling last request"
-
-            job_queue << SendMessageJob.to_client(
-              message: {
-                method: "$/progress",
-                params: {
-                  token: last_request.guid,
-                  value: { kind: "end" }
-                }
-              }
-            )
+            last_request.work_done_progress.end()
           end
 
-          if start_progress
+          unless request
+            progress or raise
+            request = controller.make_request(guid: progress.guid, include_unchanged: include_unchanged, progress: progress) or return
+          end
+
+          if request.total > report_progress_threshold
             Steep.logger.info "Starting new progress..."
 
             @current_type_check_request = request
 
-            if work_done_progress_supported?
-              job_queue << SendMessageJob.to_client(
-                message: {
-                  id: fresh_request_id,
-                  method: "window/workDoneProgress/create",
-                  params: { token: request.guid }
-                }
-              )
+            if progress
+              # If `request:` keyword arg is not given
+              request.work_done_progress.begin("Type checking", request_id: fresh_request_id)
             end
 
-            job_queue << SendMessageJob.to_client(
-              message: {
-                method: "$/progress",
-                params: {
-                  token: request.guid,
-                  value: { kind: "begin", title: "Type checking", percentage: 0 }
-                }
-              }
-            )
-
             if request.finished?
-              job_queue << SendMessageJob.to_client(
-                message: {
-                  method: "$/progress",
-                  params: { token: request.guid, value: { kind: "end" } }
-                }
-              )
+              request.work_done_progress.end()
+              @current_type_check_request = nil
+              return
             end
           else
             @current_type_check_request = nil
@@ -952,7 +956,7 @@ module Steep
               index: worker.index || raise
             )
 
-            job_queue << SendMessageJob.to_worker(
+            enqueue_write_job SendMessageJob.to_worker(
               worker,
               message: {
                 method: "$/typecheck/start",
@@ -968,22 +972,14 @@ module Steep
           if current.guid == guid
             current.checked(path)
             Steep.logger.info { "Request updated: checked=#{path}, unchecked=#{current.unchecked_paths.size}" }
+
             percentage = current.percentage
-            value = if percentage == 100
-                      { kind: "end" }
-                    else
-                      progress_string = ("▮"*(percentage/5)) + ("▯"*(20 - percentage/5))
-                      { kind: "report", percentage: percentage, message: "#{progress_string}" }
-                    end
+            current.work_done_progress.report(percentage, "#{percentage}%")
 
-            job_queue << SendMessageJob.to_client(
-              message: {
-                method: "$/progress",
-                params: { token: current.guid, value: value }
-              }
-            )
-
-            @current_type_check_request = nil if current.finished?
+            if current.finished?
+              current.work_done_progress.end()
+              @current_type_check_request = nil
+            end
           end
         end
       end
@@ -991,13 +987,13 @@ module Steep
       def broadcast_notification(message)
         Steep.logger.info "Broadcasting notification #{message[:method]}"
         each_worker do |worker|
-          job_queue << SendMessageJob.new(dest: worker, message: message)
+          enqueue_write_job SendMessageJob.new(dest: worker, message: message)
         end
       end
 
       def send_notification(message, worker:)
         Steep.logger.info "Sending notification #{message[:method]} to #{worker.name}"
-        job_queue << SendMessageJob.new(dest: worker, message: message)
+        enqueue_write_job SendMessageJob.new(dest: worker, message: message)
       end
 
       def fresh_request_id
@@ -1011,7 +1007,7 @@ module Steep
         message = { method: method, id: id, params: params }
         ResultHandler.new(request: message).tap do |handler|
           yield handler if block
-          job_queue << SendMessageJob.to_worker(worker, message: message)
+          enqueue_write_job SendMessageJob.to_worker(worker, message: message)
         end
       end
 
@@ -1024,6 +1020,23 @@ module Steep
       def kill
         each_worker do |worker|
           worker.kill
+        end
+      end
+
+      def enqueue_write_job(job)
+        Steep.logger.info { "Write_queue has #{write_queue.size} items"}
+        write_queue.push(job, timeout: nil)
+      end
+
+      def work_done_progress(guid)
+        if work_done_progress_supported?
+          WorkDoneProgress.new(guid) do |message|
+            enqueue_write_job SendMessageJob.to_client(message: message)
+          end
+        else
+          WorkDoneProgress.new(guid) do |message|
+            # nop
+          end
         end
       end
     end
