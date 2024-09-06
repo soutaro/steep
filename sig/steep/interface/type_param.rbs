@@ -21,7 +21,9 @@ module Steep
 
       attr_reader location: loc?
 
-      def initialize: (name: Symbol, upper_bound: AST::Types::t?, variance: variance, unchecked: bool, ?location: loc?) -> void
+      attr_reader default_type: AST::Types::t?
+
+      def initialize: (name: Symbol, upper_bound: AST::Types::t?, variance: variance, unchecked: bool, ?location: loc?, default_type: AST::Types::t?) -> void
 
       def ==: (untyped other) -> bool
 
@@ -41,7 +43,7 @@ module Steep
 
       def to_s: () -> String
 
-      def update: (?name: Symbol, ?upper_bound: AST::Types::t?, ?variance: variance, ?unchecked: bool, ?location: loc?) -> TypeParam
+      def update: (?name: Symbol, ?upper_bound: AST::Types::t?, ?variance: variance, ?unchecked: bool, ?location: loc?, ?default_type: AST::Types::t?) -> TypeParam
 
       def subst: (Substitution s) -> TypeParam
     end

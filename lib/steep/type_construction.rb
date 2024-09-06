@@ -407,7 +407,8 @@ module Steep
             name: param.name,
             upper_bound: checker.factory.type_opt(param.upper_bound_type),
             variance: param.variance,
-            unchecked: param.unchecked?
+            unchecked: param.unchecked?,
+            default_type: checker.factory.type_opt(param.default_type)
           )
         end
         variable_context = TypeInference::Context::TypeVariableContext.new(type_params)
@@ -497,7 +498,8 @@ module Steep
           upper_bound: type_param.upper_bound_type&.yield_self {|t| checker.factory.type(t) },
           variance: type_param.variance,
           unchecked: type_param.unchecked?,
-          location: type_param.location
+          location: type_param.location,
+          default_type: checker.factory.type_opt(type_param.default_type)
         )
       end
       variable_context = TypeInference::Context::TypeVariableContext.new(type_params)

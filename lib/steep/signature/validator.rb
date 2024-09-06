@@ -101,7 +101,8 @@ module Steep
                     name: param.name,
                     upper_bound: upper_bound_type,
                     variance: param.variance,
-                    unchecked: param.unchecked?
+                    unchecked: param.unchecked?,
+                    default_type: factory.type_opt(param.default_type)
                   ),
                   location: location
                 )

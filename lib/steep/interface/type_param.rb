@@ -8,13 +8,15 @@ module Steep
       attr_reader :variance
       attr_reader :unchecked
       attr_reader :location
+      attr_reader :default_type
 
-      def initialize(name:, upper_bound:, variance:, unchecked:, location: nil)
+      def initialize(name:, upper_bound:, variance:, unchecked:, location: nil, default_type:)
         @name = name
         @upper_bound = upper_bound
         @variance = variance
         @unchecked = unchecked
         @location = location
+        @default_type = default_type
       end
 
       def ==(other)
@@ -22,13 +24,14 @@ module Steep
           other.name == name &&
           other.upper_bound == upper_bound &&
           other.variance == variance &&
-          other.unchecked == unchecked
+          other.unchecked == unchecked &&
+          other.default_type == default_type
       end
 
       alias eql? ==
 
       def hash
-        name.hash ^ upper_bound.hash ^ variance.hash ^ unchecked.hash
+        name.hash ^ upper_bound.hash ^ variance.hash ^ unchecked.hash ^ default_type.hash
       end
 
       def self.rename(params, conflicting_names = params.map(&:name), new_names = conflicting_names.map {|n| AST::Types::Var.fresh_name(n) })
@@ -46,7 +49,8 @@ module Steep
                   upper_bound: param.upper_bound&.subst(subst),
                   variance: param.variance,
                   unchecked: param.unchecked,
-                  location: param.location
+                  location: param.location,
+                  default_type: param.default_type&.subst(subst)
                 )
               else
                 param
@@ -82,19 +86,28 @@ module Steep
         buf
       end
 
-      def update(name: self.name, upper_bound: self.upper_bound, variance: self.variance, unchecked: self.unchecked, location: self.location)
+      def update(name: self.name, upper_bound: self.upper_bound, variance: self.variance, unchecked: self.unchecked, location: self.location, default_type: self.default_type)
         TypeParam.new(
           name: name,
           upper_bound: upper_bound,
           variance: variance,
           unchecked: unchecked,
-          location: location
+          location: location,
+          default_type: default_type
         )
       end
 
       def subst(s)
         if u = upper_bound
-          update(upper_bound: u.subst(s))
+          ub = u.subst(s)
+        end
+
+        if d = default_type
+          dt = d.subst(s)
+        end
+
+        if ub || dt
+          update(upper_bound: ub, default_type: dt)
         else
           self
         end

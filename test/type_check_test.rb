@@ -1433,6 +1433,8 @@ class TypeCheckTest < Minitest::Test
   def test_type_assertion__type_error
     run_type_check_test(
       signatures: {
+        "a.rbs" => <<~RBS
+        RBS
       },
       code: {
         "a.rb" => <<~RUBY
@@ -2207,6 +2209,41 @@ class TypeCheckTest < Minitest::Test
           foo = Foo.new
           foo.foo("")
           foo.foo(NilClass.new)
+        RUBY
+      },
+      expectations: <<~YAML
+        ---
+        - file: a.rb
+          diagnostics: []
+      YAML
+    )
+  end
+
+  def test_generics_upperbound_default
+    run_type_check_test(
+      signatures: {
+        "a.rbs" => <<~RBS
+          class Foo[X = Integer]
+            def foo: (X) -> X
+          end
+        RBS
+      },
+      code: {
+        "a.rb" => <<~RUBY
+          class Foo
+            def foo(x)
+              x
+            end
+          end
+
+          x = Foo.new
+          x.foo(1) + 1
+
+          y = Foo.new #: Foo[String]
+          y.foo("foo") + ""
+
+          z = Foo.new #: Foo
+          z.foo(1) + 1
         RUBY
       },
       expectations: <<~YAML

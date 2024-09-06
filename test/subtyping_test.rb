@@ -1009,7 +1009,8 @@ type c = a | b
         name: name,
         upper_bound: upper_bound,
         variance: :invariant,
-        unchecked: false
+        unchecked: false,
+        default_type: nil
       )
     end
   end

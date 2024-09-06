@@ -20,6 +20,8 @@ module Steep
 
         def type_name_resolver: () -> TypeNameResolver
 
+        def normalize_args: (RBS::TypeName type_name, Array[RBS::Types::t]) -> Array[RBS::Types::t]
+
         def type: (RBS::Types::t `type`) -> t
 
         def type_opt: (RBS::Types::t? `type`) -> t?
