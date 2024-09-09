@@ -265,9 +265,6 @@ module Steep
         when relation.sub_type.is_a?(AST::Types::Bot)
           success(relation)
 
-        when relation.sub_type.is_a?(AST::Types::Logic::Base) && (true_type?(relation.super_type) || false_type?(relation.super_type))
-          success(relation)
-
         when relation.super_type.is_a?(AST::Types::Boolean)
           Expand(relation) do
             check_type(
@@ -278,7 +275,7 @@ module Steep
             )
           end
 
-        when relation.sub_type.is_a?(AST::Types::Boolean)
+        when relation.sub_type.is_a?(AST::Types::Boolean) || relation.sub_type.is_a?(AST::Types::Logic::Base)
           Expand(relation) do
             check_type(
               Relation.new(
