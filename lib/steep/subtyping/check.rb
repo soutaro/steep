@@ -348,6 +348,15 @@ module Steep
           constraints.add(relation.sub_type.name, super_type: relation.super_type)
           Success(relation)
 
+        when relation.sub_type.is_a?(AST::Types::Var)
+          Expand(relation) do
+            ub = variable_upper_bound(relation.sub_type.name) || Interface::TypeParam::IMPLICIT_UPPER_BOUND
+            check_type(Relation.new(sub_type: ub, super_type: relation.super_type))
+          end
+
+        when relation.super_type.is_a?(AST::Types::Var) || relation.sub_type.is_a?(AST::Types::Var)
+          Failure(relation, Result::Failure::UnknownPairError.new(relation: relation))
+
         when relation.sub_type.is_a?(AST::Types::Union)
           All(relation) do |result|
             relation.sub_type.types.each do |sub_type|
@@ -386,15 +395,6 @@ module Steep
               end
             end
           end
-
-        when relation.sub_type.is_a?(AST::Types::Var)
-          Expand(relation) do
-            ub = variable_upper_bound(relation.sub_type.name) || Interface::TypeParam::IMPLICIT_UPPER_BOUND
-            check_type(Relation.new(sub_type: ub, super_type: relation.super_type))
-          end
-
-        when relation.super_type.is_a?(AST::Types::Var) || relation.sub_type.is_a?(AST::Types::Var)
-          Failure(relation, Result::Failure::UnknownPairError.new(relation: relation))
 
         when relation.super_type.is_a?(AST::Types::Name::Interface)
           Expand(relation) do
