@@ -1,4 +1,4 @@
-x = [1, ""].sample
+x = [1, ""].find { true }
 
 case x
 when Integer
