@@ -639,7 +639,7 @@ module Steep
                       { text: Base64.encode64(content), binary: true }
                     end
                   end
-                  broadcast_notification({ method: "$/file/load", params: { content: input } })
+                  broadcast_notification({ method: CustomMethods::FILE_LOAD, params: { content: input } })
                 end
               end
 
@@ -716,7 +716,7 @@ module Steep
               end
 
               broadcast_notification({
-                method: "$/file/reset",
+                method: CustomMethods::FILE_RESET,
                 params: { uri: uri, content: content }
               })
             end
@@ -770,7 +770,7 @@ module Steep
           if path = pathname(uri)
             controller.update_priority(open: path)
             broadcast_notification({
-              method: "$/file/reset",
+              method: CustomMethods::FILE_RESET,
               params: { uri: uri, content: text }
             })
           end
@@ -817,7 +817,7 @@ module Steep
 
         when "workspace/executeCommand"
           case message[:params][:command]
-          when "steep/stats"
+          when CustomMethods::STATS
             result_controller << group_request do |group|
               typecheck_workers.each do |worker|
                 group << send_request(method: "workspace/executeCommand", params: message[:params], worker: worker)
@@ -861,7 +861,7 @@ module Steep
             )
           end
 
-        when "$/typecheck"
+        when CustomMethods::TYPECHECK
           guid = message[:params][:guid]
 
           start_type_check(
@@ -906,7 +906,7 @@ module Steep
             end
           when message.key?(:method) && !message.key?(:id)
             case message[:method]
-            when "$/typecheck/progress"
+            when CustomMethods::TYPECHECK_PROGRESS
               on_type_check_update(
                 guid: message[:params][:guid],
                 path: Pathname(message[:params][:path])
@@ -959,7 +959,7 @@ module Steep
             enqueue_write_job SendMessageJob.to_worker(
               worker,
               message: {
-                method: "$/typecheck/start",
+                method: CustomMethods::TYPECHECK_START,
                 params: request.as_json(assignment: assignment)
               }
             )

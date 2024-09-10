@@ -173,7 +173,7 @@ module Steep
           {
             id: stats_id,
             method: "workspace/executeCommand",
-            params: { command: "steep/stats", arguments: _ = [] }
+            params: { command: Server::CustomMethods::STATS, arguments: _ = [] }
           }
         )
 

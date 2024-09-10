@@ -1,0 +1,30 @@
+module Steep
+  module Server
+    # Defines custom LSP methods
+    module CustomMethods
+      # Notification with params of files and the contents, sent from master to workers
+      #
+      FILE_LOAD: String
+
+      # Notification with parames of a file name and its contents, sent from master to workers
+      #
+      FILE_RESET: String
+
+      # Notification to start type checking, sent from client to master
+      #
+      TYPECHECK: String
+
+      # Notification to start type checking, sent from the master to workers
+      #
+      TYPECHECK_START: String
+
+      # Notification to report progress of type checking, sent from workers to master
+      #
+      TYPECHECK_PROGRESS: String
+
+      # The command name to start stats of type checking, sent from client to master and master to workers
+      #
+      STATS: String
+    end
+  end
+end

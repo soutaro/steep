@@ -14,6 +14,8 @@ class MasterTest < Minitest::Test
 
   DEFAULT_CLI_LSP_INITIALIZE_PARAMS = Drivers::Utils::DriverHelper::DEFAULT_CLI_LSP_INITIALIZE_PARAMS
 
+  include Server::CustomMethods
+
   def dirs
     @dirs ||= []
   end
@@ -75,7 +77,7 @@ end
       assert_any!(jobs) do |job|
         assert_instance_of Master::SendMessageJob, job
         assert_equal worker, job.dest
-        assert_equal "$/typecheck/start", job.message[:method]
+        assert_equal TYPECHECK_START, job.message[:method]
 
         job.message[:params].tap do |params|
           assert_equal "guid", params[:guid]
@@ -128,7 +130,7 @@ end
         assert_instance_of Master::SendMessageJob, job
         assert_equal worker, job.dest
 
-        assert_equal "$/typecheck/start", job.message[:method]
+        assert_equal TYPECHECK_START, job.message[:method]
 
         job.message[:params].tap do |params|
           assert_equal "guid", params[:guid]
@@ -174,7 +176,7 @@ end
       assert_any!(jobs, size: 1) do |job|
         assert_instance_of Master::SendMessageJob, job
         assert_equal worker, job.dest
-        assert_equal "$/typecheck/start", job.message[:method]
+        assert_equal TYPECHECK_START, job.message[:method]
 
         job.message[:params].tap do |params|
           assert_equal "guid", params[:guid]

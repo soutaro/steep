@@ -88,12 +88,12 @@ module Steep
           collect_changes(request)
           queue_job ApplyChangeJob.new
 
-        when "$/file/load"
+        when CustomMethods::FILE_LOAD
           input = request[:params][:content]
           load_files(input)
           queue_job ApplyChangeJob.new
 
-        when "$/file/reset"
+        when CustomMethods::FILE_RESET
           uri = request[:params][:uri]
           text = request[:params][:content]
           reset_change(uri: uri, text: text)

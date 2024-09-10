@@ -74,11 +74,11 @@ module Steep
         when "textDocument/didChange"
           collect_changes(request)
 
-        when "$/file/load"
+        when CustomMethods::FILE_LOAD
           input = request[:params][:content]
           load_files(input)
 
-        when "$/file/reset"
+        when CustomMethods::FILE_RESET
           uri = request[:params][:uri]
           text = request[:params][:content]
           reset_change(uri: uri, text: text)
@@ -88,10 +88,10 @@ module Steep
           queue << WorkspaceSymbolJob.new(id: request[:id], query: query)
         when "workspace/executeCommand"
           case request[:params][:command]
-          when "steep/stats"
+          when CustomMethods::STATS
             queue << StatsJob.new(id: request[:id])
           end
-        when "$/typecheck/start"
+        when CustomMethods::TYPECHECK_START
           params = request[:params]
           enqueue_typecheck_jobs(params)
         when "textDocument/definition"
@@ -246,7 +246,7 @@ module Steep
 
       def typecheck_progress(guid:, path:)
         writer.write(
-          method: "$/typecheck/progress",
+          method: CustomMethods::TYPECHECK_PROGRESS,
           params: { guid: guid, path: path }
         )
       end
