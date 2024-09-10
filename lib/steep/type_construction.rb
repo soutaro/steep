@@ -195,11 +195,11 @@ module Steep
       end
 
       method_params =
-      if method_type
-        TypeInference::MethodParams.build(node: node, method_type: method_type)
-      else
-        TypeInference::MethodParams.empty(node: node)
-      end
+        if method_type
+          TypeInference::MethodParams.build(node: node, method_type: method_type)
+        else
+          TypeInference::MethodParams.empty(node: node)
+        end
 
       method_context = TypeInference::Context::MethodContext.new(
         name: method_name,
@@ -405,9 +405,10 @@ module Steep
         type_params = definition.type_params_decl.map do |param|
           Interface::TypeParam.new(
             name: param.name,
-            upper_bound: checker.factory.type_opt(param.upper_bound),
+            upper_bound: checker.factory.type_opt(param.upper_bound_type),
             variance: param.variance,
-            unchecked: param.unchecked?
+            unchecked: param.unchecked?,
+            default_type: checker.factory.type_opt(param.default_type)
           )
         end
         variable_context = TypeInference::Context::TypeVariableContext.new(type_params)
@@ -494,10 +495,11 @@ module Steep
       type_params = definition.type_params_decl.map do |type_param|
         Interface::TypeParam.new(
           name: type_param.name,
-          upper_bound: type_param.upper_bound&.yield_self {|t| checker.factory.type(t) },
+          upper_bound: type_param.upper_bound_type&.yield_self {|t| checker.factory.type(t) },
           variance: type_param.variance,
           unchecked: type_param.unchecked?,
-          location: type_param.location
+          location: type_param.location,
+          default_type: checker.factory.type_opt(type_param.default_type)
         )
       end
       variable_context = TypeInference::Context::TypeVariableContext.new(type_params)
@@ -3846,20 +3848,17 @@ module Steep
 
           type_args.each_with_index do |type, index|
             param = method_type.type_params[index]
-            if param.upper_bound
-              if result = no_subtyping?(sub_type: type.value, super_type: param.upper_bound)
-                args_ << AST::Builtin.any_type
-                constr.typing.add_error(
-                  Diagnostic::Ruby::TypeArgumentMismatchError.new(
-                    type_arg: type.value,
-                    type_param: param,
-                    result: result,
-                    location: type.location
-                  )
+            upper_bound = param.upper_bound || Interface::TypeParam::IMPLICIT_UPPER_BOUND
+            if result = no_subtyping?(sub_type: type.value, super_type: upper_bound)
+              args_ << AST::Builtin.any_type
+              constr.typing.add_error(
+                Diagnostic::Ruby::TypeArgumentMismatchError.new(
+                  type_arg: type.value,
+                  type_param: param,
+                  result: result,
+                  location: type.location
                 )
-              else
-                args_ << type.value
-              end
+              )
             else
               args_ << type.value
             end

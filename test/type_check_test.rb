@@ -952,7 +952,7 @@ class TypeCheckTest < Minitest::Test
       signatures: {},
       code: {
         "a.rb" => <<~RUBY
-          x = [1].first
+          x = [1].find { true }
           1 and return unless x
           x + 1
         RUBY
@@ -970,7 +970,7 @@ class TypeCheckTest < Minitest::Test
       signatures: {},
       code: {
         "a.rb" => <<~RUBY
-          x = [1].first
+          x = [1].find { true }
           return and true unless x
           x + 1
         RUBY
@@ -988,7 +988,7 @@ class TypeCheckTest < Minitest::Test
       signatures: {},
       code: {
         "a.rb" => <<~RUBY
-          x = [1].first
+          x = [1].find { true }
           nil or return unless x
           x + 1
         RUBY
@@ -1006,7 +1006,7 @@ class TypeCheckTest < Minitest::Test
       signatures: {},
       code: {
         "a.rb" => <<~RUBY
-          x = [1].first
+          x = [1].find { true }
           x or return unless x
           x + 1
         RUBY
@@ -1433,6 +1433,8 @@ class TypeCheckTest < Minitest::Test
   def test_type_assertion__type_error
     run_type_check_test(
       signatures: {
+        "a.rbs" => <<~RBS
+        RBS
       },
       code: {
         "a.rb" => <<~RUBY
@@ -2132,6 +2134,116 @@ class TypeCheckTest < Minitest::Test
           World = Struct.new(
             :size #: Integer
           )
+        RUBY
+      },
+      expectations: <<~YAML
+        ---
+        - file: a.rb
+          diagnostics: []
+      YAML
+    )
+  end
+
+  def test_any_upperbound
+    run_type_check_test(
+      signatures: {
+        "a.rbs" => <<~RBS
+          class Foo
+            def foo: [X < String?] (X) -> void
+          end
+        RBS
+      },
+      code: {
+        "a.rb" => <<~RUBY
+          class Foo
+            def foo(x)
+              if x
+                x.encoding
+              end
+
+              x.encoding
+            end
+          end
+
+          foo = Foo.new
+          foo.foo("123") #$ String
+          foo.foo("foo") #$ String?
+          foo.foo(nil)
+        RUBY
+      },
+      expectations: <<~YAML
+        ---
+        - file: a.rb
+          diagnostics:
+          - range:
+              start:
+                line: 7
+                character: 6
+              end:
+                line: 7
+                character: 14
+            severity: ERROR
+            message: Type `(::String | nil)` does not have method `encoding`
+            code: Ruby::NoMethod
+      YAML
+    )
+  end
+
+  def test_generics_upperbound_implicitly_object
+    run_type_check_test(
+      signatures: {
+        "a.rbs" => <<~RBS
+          class Foo
+            def foo: [X] (X) -> void
+          end
+        RBS
+      },
+      code: {
+        "a.rb" => <<~RUBY
+          class Foo
+            def foo(x)
+              x.nil?
+            end
+          end
+
+          foo = Foo.new
+          foo.foo("")
+          foo.foo(NilClass.new)
+        RUBY
+      },
+      expectations: <<~YAML
+        ---
+        - file: a.rb
+          diagnostics: []
+      YAML
+    )
+  end
+
+  def test_generics_upperbound_default
+    run_type_check_test(
+      signatures: {
+        "a.rbs" => <<~RBS
+          class Foo[X = Integer]
+            def foo: (X) -> X
+          end
+        RBS
+      },
+      code: {
+        "a.rb" => <<~RUBY
+          class Foo
+            def foo(x)
+              x
+            end
+          end
+
+          x = Foo.new
+          x.foo(1) + 1
+
+          y = Foo.new #: Foo[String]
+          y.foo("foo") + ""
+
+          z = Foo.new #: Foo
+          z.foo(1) + 1
         RUBY
       },
       expectations: <<~YAML

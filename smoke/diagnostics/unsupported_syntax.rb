@@ -1,2 +1,2 @@
-class <<[1, ""].sample
+class <<([1, ""].find { true })
 end

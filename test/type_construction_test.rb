@@ -4883,7 +4883,7 @@ end
       with_standard_construction(checker, source) do |construction, typing|
         construction.synthesize(source.node)
 
-        assert_empty typing.errors
+        assert_no_error typing
       end
     end
   end
@@ -6352,7 +6352,12 @@ a + 1
 
       with_standard_construction(checker, source) do |construction, typing|
         construction.synthesize(source.node)
-        assert_equal 1, typing.errors.size
+
+        assert_typing_error(typing, size: 1) do |errors|
+          assert_any!(errors) do |error|
+            assert_instance_of Diagnostic::Ruby::NoMethod, error
+          end
+        end
       end
     end
   end

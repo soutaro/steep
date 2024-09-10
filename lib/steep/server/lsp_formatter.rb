@@ -375,8 +375,8 @@ module Steep
             end
             s << param.name.to_s
 
-            if param.upper_bound
-              s << " < #{param.upper_bound.to_s}"
+            if param.upper_bound_type
+              s << " < #{param.upper_bound_type.to_s}"
             end
 
             s

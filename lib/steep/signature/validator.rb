@@ -79,8 +79,8 @@ module Steep
           type_params.zip(type_args).each do |param, arg|
             arg or raise
 
-            if param.upper_bound
-              upper_bound_type = factory.type(param.upper_bound).subst(subst)
+            if param.upper_bound_type
+              upper_bound_type = factory.type(param.upper_bound_type).subst(subst)
               arg_type = factory.type(arg)
 
               constraints = Subtyping::Constraints.empty
@@ -101,7 +101,8 @@ module Steep
                     name: param.name,
                     upper_bound: upper_bound_type,
                     variance: param.variance,
-                    unchecked: param.unchecked?
+                    unchecked: param.unchecked?,
+                    default_type: factory.type_opt(param.default_type)
                   ),
                   location: location
                 )
@@ -236,7 +237,7 @@ module Steep
       def validate_definition_type(definition)
         each_method_type(definition) do |method_type|
           upper_bounds = method_type.type_params.each.with_object({}) do |param, hash|
-            hash[param.name] = factory.type_opt(param.upper_bound)
+            hash[param.name] = factory.type_opt(param.upper_bound_type)
           end
 
           checker.push_variable_bounds(upper_bounds) do
@@ -264,7 +265,7 @@ module Steep
           Steep.logger.tagged "#{name}" do
             builder.build_instance(name).tap do |definition|
               upper_bounds = definition.type_params_decl.each.with_object({}) do |param, bounds|
-                bounds[param.name] = factory.type_opt(param.upper_bound)
+                bounds[param.name] = factory.type_opt(param.upper_bound_type)
               end
 
               self_type = AST::Types::Name::Instance.new(
@@ -480,7 +481,7 @@ module Steep
             definition = builder.build_interface(name)
 
             upper_bounds = definition.type_params_decl.each.with_object({}) do |param, bounds|
-              bounds[param.name] = factory.type_opt(param.upper_bound)
+              bounds[param.name] = factory.type_opt(param.upper_bound_type)
             end
 
             self_type = AST::Types::Name::Interface.new(
@@ -575,7 +576,7 @@ module Steep
             end
 
             upper_bounds = entry.decl.type_params.each.with_object({}) do |param, bounds|
-              bounds[param.name] = factory.type_opt(param.upper_bound)
+              bounds[param.name] = factory.type_opt(param.upper_bound_type)
             end
 
             validator.validate_type_alias(entry: entry) do |type|

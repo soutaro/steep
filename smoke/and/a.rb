@@ -1,7 +1,7 @@
 # @type var b: String
 # @type var c: ::Integer
 
-a = ["foo"].sample
+a = ["foo"].find { true }
 
 b = a && a.to_str
 

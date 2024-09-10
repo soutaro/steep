@@ -36,6 +36,29 @@ module Steep
           end
         end
 
+        def normalize_args(type_name, args)
+          case
+          when type_name.class?
+            if entry = env.normalized_module_class_entry(type_name)
+              type_params = entry.type_params
+            end
+          when type_name.interface?
+            if entry = env.interface_decls.fetch(type_name, nil)
+              type_params = entry.decl.type_params
+            end
+          when type_name.alias?
+            if entry = env.type_alias_decls.fetch(type_name, nil)
+              type_params = entry.decl.type_params
+            end
+          end
+
+          if type_params && !type_params.empty?
+            RBS::AST::TypeParam.normalize_args(type_params, args)
+          else
+            args
+          end
+        end
+
         def type(type)
           if ty = type_cache[type]
             return ty
@@ -68,15 +91,15 @@ module Steep
               Name::Singleton.new(name: type_name)
             when RBS::Types::ClassInstance
               type_name = type.name
-              args = type.args.map {|arg| type(arg) }
+              args = normalize_args(type_name, type.args).map {|arg| type(arg) }
               Name::Instance.new(name: type_name, args: args)
             when RBS::Types::Interface
               type_name = type.name
-              args = type.args.map {|arg| type(arg) }
+              args = normalize_args(type_name, type.args).map {|arg| type(arg) }
               Name::Interface.new(name: type_name, args: args)
             when RBS::Types::Alias
               type_name = type.name
-              args = type.args.map {|arg| type(arg) }
+              args = normalize_args(type_name, type.args).map {|arg| type(arg) }
               Name::Alias.new(name: type_name, args: args)
             when RBS::Types::Union
               Union.build(types: type.types.map {|ty| type(ty) })
@@ -245,9 +268,10 @@ module Steep
         def type_param(type_param)
           Interface::TypeParam.new(
             name: type_param.name,
-            upper_bound: type_opt(type_param.upper_bound),
+            upper_bound: type_opt(type_param.upper_bound_type),
             variance: type_param.variance,
-            unchecked: type_param.unchecked?
+            unchecked: type_param.unchecked?,
+            default_type: type_opt(type_param.default_type)
           )
         end
 

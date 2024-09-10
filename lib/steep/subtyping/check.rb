@@ -59,7 +59,7 @@ module Steep
       def variable_upper_bound(name)
         @bounds.reverse_each do |hash|
           if hash.key?(name)
-            return hash[name]
+            return hash.fetch(name)
           end
         end
 
@@ -265,9 +265,6 @@ module Steep
         when relation.sub_type.is_a?(AST::Types::Bot)
           success(relation)
 
-        when relation.sub_type.is_a?(AST::Types::Logic::Base) && (true_type?(relation.super_type) || false_type?(relation.super_type))
-          success(relation)
-
         when relation.super_type.is_a?(AST::Types::Boolean)
           Expand(relation) do
             check_type(
@@ -278,7 +275,7 @@ module Steep
             )
           end
 
-        when relation.sub_type.is_a?(AST::Types::Boolean)
+        when relation.sub_type.is_a?(AST::Types::Boolean) || relation.sub_type.is_a?(AST::Types::Logic::Base)
           Expand(relation) do
             check_type(
               Relation.new(
@@ -334,37 +331,42 @@ module Steep
           end
 
         when relation.super_type.is_a?(AST::Types::Var) && constraints.unknown?(relation.super_type.name)
-          if ub = variable_upper_bound(relation.super_type.name)
-            Expand(relation) do
-              check_type(Relation.new(sub_type: relation.sub_type, super_type: ub))
-            end.tap do |result|
-              if result.success?
-                constraints.add(relation.super_type.name, sub_type: relation.sub_type)
-              end
+          ub = variable_upper_bound(relation.super_type.name) || Interface::TypeParam::IMPLICIT_UPPER_BOUND
+
+          Expand(relation) do
+            check_type(Relation.new(sub_type: relation.sub_type, super_type: ub))
+          end.tap do |result|
+            if result.success?
+              constraints.add(relation.super_type.name, sub_type: relation.sub_type)
             end
-          else
-            constraints.add(relation.super_type.name, sub_type: relation.sub_type)
-            Success(relation)
           end
 
         when relation.sub_type.is_a?(AST::Types::Var) && constraints.unknown?(relation.sub_type.name)
           constraints.add(relation.sub_type.name, super_type: relation.super_type)
           Success(relation)
 
-        when relation.sub_type.is_a?(AST::Types::Union)
+        when relation.sub_type.is_a?(AST::Types::Var)
+          Expand(relation) do
+            ub = variable_upper_bound(relation.sub_type.name) || Interface::TypeParam::IMPLICIT_UPPER_BOUND
+            check_type(Relation.new(sub_type: ub, super_type: relation.super_type))
+          end
+
+        when relation.super_type.is_a?(AST::Types::Var) || relation.sub_type.is_a?(AST::Types::Var)
+          Failure(relation, Result::Failure::UnknownPairError.new(relation: relation))
+
+        when relation.super_type.is_a?(AST::Types::Intersection)
           All(relation) do |result|
-            relation.sub_type.types.each do |sub_type|
-              rel = Relation.new(sub_type: sub_type, super_type: relation.super_type)
-              result.add(rel) do
+            relation.super_type.types.each do |super_type|
+              result.add(Relation.new(sub_type: relation.sub_type, super_type: super_type)) do |rel|
                 check_type(rel)
               end
             end
           end
 
-        when relation.super_type.is_a?(AST::Types::Union)
-          Any(relation) do |result|
-            relation.super_type.types.sort_by {|ty| (path = hole_path(ty)) ? -path.size : -Float::INFINITY }.each do |super_type|
-              rel = Relation.new(sub_type: relation.sub_type, super_type: super_type)
+        when relation.sub_type.is_a?(AST::Types::Union)
+          All(relation) do |result|
+            relation.sub_type.types.each do |sub_type|
+              rel = Relation.new(sub_type: sub_type, super_type: relation.super_type)
               result.add(rel) do
                 check_type(rel)
               end
@@ -381,22 +383,15 @@ module Steep
             end
           end
 
-        when relation.super_type.is_a?(AST::Types::Intersection)
-          All(relation) do |result|
-            relation.super_type.types.each do |super_type|
-              result.add(Relation.new(sub_type: relation.sub_type, super_type: super_type)) do |rel|
+        when relation.super_type.is_a?(AST::Types::Union)
+          Any(relation) do |result|
+            relation.super_type.types.sort_by {|ty| (path = hole_path(ty)) ? -path.size : -Float::INFINITY }.each do |super_type|
+              rel = Relation.new(sub_type: relation.sub_type, super_type: super_type)
+              result.add(rel) do
                 check_type(rel)
               end
             end
           end
-
-        when relation.sub_type.is_a?(AST::Types::Var) && ub = variable_upper_bound(relation.sub_type.name)
-          Expand(relation) do
-            check_type(Relation.new(sub_type: ub, super_type: relation.super_type))
-          end
-
-        when relation.super_type.is_a?(AST::Types::Var) || relation.sub_type.is_a?(AST::Types::Var)
-          Failure(relation, Result::Failure::UnknownPairError.new(relation: relation))
 
         when relation.super_type.is_a?(AST::Types::Name::Interface)
           Expand(relation) do

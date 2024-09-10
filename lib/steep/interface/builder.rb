@@ -50,7 +50,7 @@ module Steep
         end
 
         def upper_bound(a)
-          variable_bounds.fetch(a, nil)
+          variable_bounds.fetch(a, Interface::TypeParam::IMPLICIT_UPPER_BOUND)
         end
       end
 
@@ -494,7 +494,7 @@ module Steep
                   block: nil
                 ),
                 MethodType.new(
-                  type_params: [TypeParam.new(name: :T, upper_bound: nil, variance: :invariant, unchecked: false)],
+                  type_params: [TypeParam.new(name: :T, upper_bound: nil, variance: :invariant, unchecked: false, default_type: nil)],
                   type: Function.new(
                     params: Function::Params.build(
                       required: [
@@ -508,7 +508,7 @@ module Steep
                   block: nil
                 ),
                 MethodType.new(
-                  type_params: [TypeParam.new(name: :T, upper_bound: nil, variance: :invariant, unchecked: false)],
+                  type_params: [TypeParam.new(name: :T, upper_bound: nil, variance: :invariant, unchecked: false, default_type: nil)],
                   type: Function.new(
                     params: Function::Params.build(required: [AST::Types::Literal.new(value: index)]),
                     return_type: AST::Types::Union.build(types: [elem_type, AST::Types::Var.new(name: :T)]),
@@ -658,7 +658,7 @@ module Steep
                   block: nil
                 ),
                 MethodType.new(
-                  type_params: [TypeParam.new(name: :T, upper_bound: nil, variance: :invariant, unchecked: false)],
+                  type_params: [TypeParam.new(name: :T, upper_bound: nil, variance: :invariant, unchecked: false, default_type: nil)],
                   type: Function.new(
                     params: Function::Params.build(required: [key_type, AST::Types::Var.new(name: :T)]),
                     return_type: AST::Types::Union.build(types: [value_type, AST::Types::Var.new(name: :T)]),
@@ -667,7 +667,7 @@ module Steep
                   block: nil
                 ),
                 MethodType.new(
-                  type_params: [TypeParam.new(name: :T, upper_bound: nil, variance: :invariant, unchecked: false)],
+                  type_params: [TypeParam.new(name: :T, upper_bound: nil, variance: :invariant, unchecked: false, default_type: nil)],
                   type: Function.new(
                     params: Function::Params.build(required: [key_type]),
                     return_type: AST::Types::Union.build(types: [value_type, AST::Types::Var.new(name: :T)]),
