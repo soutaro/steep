@@ -1,15 +1,15 @@
 module Steep
   module Server
     module CustomMethods
-      FILE_LOAD = "$/file/load"
+      FILE_LOAD = "$/steep/file/load"
 
-      FILE_RESET = "$/file/reset"
+      FILE_RESET = "$/steep/file/reset"
 
-      TYPECHECK_START = "$/typecheck/start"
+      TYPECHECK_START = "$/steep/typecheck/start"
 
-      TYPECHECK = "$/typecheck"
+      TYPECHECK = "$/steep/typecheck"
 
-      TYPECHECK_PROGRESS = "$/typecheck/progress"
+      TYPECHECK_PROGRESS = "$/steep/typecheck/progress"
 
       STATS = "steep/stats"
     end
