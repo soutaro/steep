@@ -639,7 +639,7 @@ module Steep
                       { text: Base64.encode64(content), binary: true }
                     end
                   end
-                  broadcast_notification({ method: CustomMethods::FILE_LOAD, params: { content: input } })
+                  broadcast_notification(CustomMethods::FileLoad.notification({ content: input }))
                 end
               end
 
@@ -715,10 +715,8 @@ module Steep
                 content = ""
               end
 
-              broadcast_notification({
-                method: CustomMethods::FILE_RESET,
-                params: { uri: uri, content: content }
-              })
+              content or raise
+              broadcast_notification(CustomMethods::FileReset.notification({ uri: uri, content: content }))
             end
           end
 
@@ -769,10 +767,7 @@ module Steep
 
           if path = pathname(uri)
             controller.update_priority(open: path)
-            broadcast_notification({
-              method: CustomMethods::FILE_RESET,
-              params: { uri: uri, content: text }
-            })
+            broadcast_notification(CustomMethods::FileReset.notification({ uri: uri, content: text }))
           end
 
         when "textDocument/didClose"
@@ -861,13 +856,14 @@ module Steep
             )
           end
 
-        when CustomMethods::TYPECHECK
-          guid = message[:params][:guid]
+        when CustomMethods::TypeCheck::METHOD
+          params = message[:params] #: CustomMethods::TypeCheck::params
+          guid = params[:guid]
 
           start_type_check(
             last_request: current_type_check_request,
             include_unchanged: true,
-            progress: work_done_progress(guid)
+            progress: work_done_progress(guid || SecureRandom.uuid)
           )
 
         when "$/ping"
@@ -906,10 +902,11 @@ module Steep
             end
           when message.key?(:method) && !message.key?(:id)
             case message[:method]
-            when CustomMethods::TYPECHECK_PROGRESS
+            when CustomMethods::TypeCheck__Progress::METHOD
+              params = message[:params] #: CustomMethods::TypeCheck__Progress::params
               on_type_check_update(
-                guid: message[:params][:guid],
-                path: Pathname(message[:params][:path])
+                guid: params[:guid],
+                path: Pathname(params[:path])
               )
             else
               # Forward other notifications
@@ -958,10 +955,7 @@ module Steep
 
             enqueue_write_job SendMessageJob.to_worker(
               worker,
-              message: {
-                method: CustomMethods::TYPECHECK_START,
-                params: request.as_json(assignment: assignment)
-              }
+              message: CustomMethods::TypeCheck__Start.notification(request.as_json(assignment: assignment))
             )
           end
         end

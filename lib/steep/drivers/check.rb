@@ -66,7 +66,7 @@ module Steep
 
         request_guid = SecureRandom.uuid
         Steep.logger.info { "Starting type checking: #{request_guid}" }
-        client_writer.write({ method: Server::CustomMethods::TYPECHECK, params: { guid: request_guid } })
+        client_writer.write(Server::CustomMethods::TypeCheck.notification({ guid: request_guid}))
 
         diagnostic_notifications = [] #: Array[LanguageServer::Protocol::Interface::PublishDiagnosticsParams]
         error_messages = [] #: Array[String]

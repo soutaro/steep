@@ -22,7 +22,9 @@ module Steep
 
         def uri: (Pathname path) -> URI::File
 
-        def as_json: (assignment: Services::PathAssignment) -> { guid: String, library_uris: Array[String], signature_uris: Array[String], code_uris: Array[String], priority_uris: Array[String] }
+        type json = { guid: String, library_uris: Array[String], signature_uris: Array[String], code_uris: Array[String], priority_uris: Array[String] }
+
+        def as_json: (assignment: Services::PathAssignment) -> json
 
         def total: () -> Integer
 

@@ -4,23 +4,55 @@ module Steep
     module CustomMethods
       # Notification with params of files and the contents, sent from master to workers
       #
-      FILE_LOAD: String
+      module FileLoad
+        METHOD: String
+
+        type params = {
+          content: Hash[String, ChangeBuffer::content]
+        }
+
+        def self.notification: (params) -> untyped
+      end
 
       # Notification with parames of a file name and its contents, sent from master to workers
       #
-      FILE_RESET: String
+      module FileReset
+        METHOD: String
+
+        type params = { uri: String, content: String }
+
+        def self.notification: (params) -> untyped
+      end
 
       # Notification to start type checking, sent from client to master
       #
-      TYPECHECK: String
+      module TypeCheck
+        METHOD: String
+
+        type params = { guid: String? }
+
+        def self.notification: (params) -> untyped
+      end
 
       # Notification to start type checking, sent from the master to workers
       #
-      TYPECHECK_START: String
+      module TypeCheck__Start
+        METHOD: String
+
+        type params = Master::TypeCheckRequest::json
+
+        def self.notification: (params) -> untyped
+      end
 
       # Notification to report progress of type checking, sent from workers to master
       #
-      TYPECHECK_PROGRESS: String
+      module TypeCheck__Progress
+        METHOD: String
+
+        type params = { guid: String, path: String }
+
+        def self.notification: (params) -> untyped
+      end
 
       # The command name to start stats of type checking, sent from client to master and master to workers
       #

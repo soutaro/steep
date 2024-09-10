@@ -1,15 +1,45 @@
 module Steep
   module Server
     module CustomMethods
-      FILE_LOAD = "$/steep/file/load"
+      module FileLoad
+        METHOD = "$/steep/file/load"
 
-      FILE_RESET = "$/steep/file/reset"
+        def self.notification(params)
+          { method: METHOD, params: params }
+        end
+      end
 
-      TYPECHECK_START = "$/steep/typecheck/start"
+      module FileReset
+        METHOD = "$/steep/file/reset"
 
-      TYPECHECK = "$/steep/typecheck"
+        def self.notification(params)
+          { method: METHOD, params: params }
+        end
+      end
 
-      TYPECHECK_PROGRESS = "$/steep/typecheck/progress"
+      module TypeCheck
+        METHOD = "$/steep/typecheck"
+
+        def self.notification(params)
+          { method: METHOD, params: params }
+        end
+      end
+
+      module TypeCheck__Start
+        METHOD = "$/steep/typecheck/start"
+
+        def self.notification(params)
+          { method: METHOD, params: params }
+        end
+      end
+
+      module TypeCheck__Progress
+        METHOD = "$/steep/typecheck/progress"
+
+        def self.notification(params)
+          { method: METHOD, params: params }
+        end
+      end
 
       STATS = "steep/stats"
     end

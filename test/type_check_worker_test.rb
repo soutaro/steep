@@ -191,7 +191,7 @@ class TypeCheckWorkerTest < Minitest::Test
 
         worker.handle_request(
           {
-            method: TYPECHECK_START,
+            method: TypeCheck__Start::METHOD,
             params: {
               guid: "guid1",
               priority_uris: ["#{file_scheme}#{current_dir}/lib/hello.rb"],
@@ -321,7 +321,7 @@ class TypeCheckWorkerTest < Minitest::Test
         end
 
         master_read_queue.pop.tap do |message|
-          assert_equal TYPECHECK_PROGRESS, message[:method]
+          assert_equal TypeCheck__Progress::METHOD, message[:method]
           assert_equal "guid", message[:params][:guid]
           assert_equal (current_dir + "sig/hello.rbs").to_s, message[:params][:path]
         end
@@ -420,7 +420,7 @@ class TypeCheckWorkerTest < Minitest::Test
         end
 
         master_read_queue.deq.tap do |message|
-          assert_equal TYPECHECK_PROGRESS, message[:method]
+          assert_equal TypeCheck__Progress::METHOD, message[:method]
           assert_equal "guid", message[:params][:guid]
           assert_equal (RBS::EnvironmentLoader::DEFAULT_CORE_ROOT + "object.rbs").to_s, message[:params][:path]
         end
@@ -517,7 +517,7 @@ class TypeCheckWorkerTest < Minitest::Test
         end
 
         master_read_queue.pop.tap do |message|
-          assert_equal TYPECHECK_PROGRESS, message[:method]
+          assert_equal TypeCheck__Progress::METHOD, message[:method]
           assert_equal "guid", message[:params][:guid]
           assert_equal (current_dir + "lib/hello.rb").to_s, message[:params][:path]
         end

@@ -112,7 +112,7 @@ module Steep
             end
           end
 
-          client_writer.write(method: Server::CustomMethods::TYPECHECK, params: { guid: nil })
+          client_writer.write(Server::CustomMethods::TypeCheck.notification({ guid: nil }))
 
           stdout.puts Rainbow("done!").bold
         end.tap(&:start)
@@ -120,7 +120,7 @@ module Steep
         begin
           stdout.puts Rainbow("👀 Watching directories, Ctrl-C to stop.").bold
 
-          client_writer.write(method: Server::CustomMethods::TYPECHECK, params: { guid: nil })
+          client_writer.write(Server::CustomMethods::TypeCheck.notification({ guid: nil }))
 
           client_reader.read do |response|
             case response[:method]
