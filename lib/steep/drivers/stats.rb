@@ -16,6 +16,7 @@ module Steep
               csv << ["Target", "File", "Status", "Typed calls", "Untyped calls", "All calls", "Typed %"]
               stats_result.each do |row|
                 if row[:type] == "success"
+                  # @type var row: Steep::Services::StatsCalculator::SuccessStats::json
                   csv << [
                     row[:target],
                     row[:path],
@@ -30,6 +31,7 @@ module Steep
                     end
                   ]
                 else
+                  # @type var row: Steep::Services::StatsCalculator::ErrorStats::json
                   csv << [
                     row[:target],
                     row[:path],
@@ -57,7 +59,8 @@ module Steep
           rows = [] #: Array[Array[untyped]]
           stats_result.sort_by {|row| row[:path] }.each do |row|
             if row[:type] == "success"
-              rows << [
+                # @type var row: Steep::Services::StatsCalculator::SuccessStats::json
+                rows << [
                 row[:target],
                 row[:path] + "  ",
                 row[:type],
@@ -71,6 +74,7 @@ module Steep
                 end
               ]
             else
+              # @type var row: Steep::Services::StatsCalculator::ErrorStats::json
               rows << [
                 row[:target],
                 row[:path],
@@ -167,16 +171,10 @@ module Steep
         Steep.logger.info { "Finished type checking for stats" }
 
         stats_id = request_id()
-        client_writer.write(
-          {
-            id: stats_id,
-            method: "workspace/executeCommand",
-            params: { command: Server::CustomMethods::STATS, arguments: _ = [] }
-          }
-        )
+        client_writer.write(Server::CustomMethods::Stats.request(stats_id))
 
         stats_response = wait_for_response_id(reader: client_reader, id: stats_id)
-        stats_result = stats_response[:result]
+        stats_result = stats_response[:result] #: Server::CustomMethods::Stats::result
 
         shutdown_exit(reader: client_reader, writer: client_writer)
         main_thread.join()

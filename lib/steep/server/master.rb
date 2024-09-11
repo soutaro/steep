@@ -812,23 +812,17 @@ module Steep
             end
           end
 
-        when "workspace/executeCommand"
-          case message[:params][:command]
-          when CustomMethods::STATS
-            result_controller << group_request do |group|
-              typecheck_workers.each do |worker|
-                group << send_request(method: "workspace/executeCommand", params: message[:params], worker: worker)
-              end
+        when CustomMethods::Stats::METHOD
+          result_controller << group_request do |group|
+            typecheck_workers.each do |worker|
+              group << send_request(method: CustomMethods::Stats::METHOD, params: nil, worker: worker)
+            end
 
-              group.on_completion do |handlers|
-                stats = handlers.flat_map(&:result)
-                enqueue_write_job SendMessageJob.to_client(
-                  message: {
-                    id: message[:id],
-                    result: stats
-                  }
-                )
-              end
+            group.on_completion do |handlers|
+              stats = handlers.flat_map(&:result) #: Server::CustomMethods::Stats::result
+              enqueue_write_job SendMessageJob.to_client(
+                message: CustomMethods::Stats.response(message[:id], stats)
+              )
             end
           end
 

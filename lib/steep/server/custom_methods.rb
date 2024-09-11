@@ -45,7 +45,17 @@ module Steep
         end
       end
 
-      STATS = "steep/stats"
+      module Stats
+        METHOD = "$/steep/stats"
+
+        def self.request(id)
+          { method: METHOD, id: id, params: nil }
+        end
+
+        def self.response(id, result)
+          { id: id, result: result }
+        end
+      end
     end
   end
 end

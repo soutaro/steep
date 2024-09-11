@@ -64,9 +64,17 @@ module Steep
         def self.notification: (params) -> untyped
       end
 
-      # The command name to start stats of type checking, sent from client to master and master to workers
+      # Request to start stats of type checking, sent from client to master and master to workers
       #
-      STATS: String
+      module Stats
+        METHOD: String
+
+        def self.request: (String id) -> untyped
+
+        type result = Array[Services::StatsCalculator::json_stats]
+
+        def self.response: (String id, result) -> untyped
+      end
     end
   end
 end

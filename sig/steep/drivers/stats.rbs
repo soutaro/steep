@@ -1,21 +1,14 @@
+use Steep::Services::StatsCalculator::json_stats
+
 module Steep
   module Drivers
     class Stats
-      type file_stats = {
-        type: String,
-        target: String,
-        path: String,
-        typed_calls: Integer,
-        untyped_calls: Integer,
-        total_calls: Integer
-      }
-
       class CSVPrinter
         attr_reader io: IO
 
         def initialize: (io: IO) -> void
 
-        def print: (Array[file_stats] stats_result) -> void
+        def print: (Array[json_stats] stats_result) -> void
       end
 
       class TablePrinter
@@ -23,7 +16,7 @@ module Steep
 
         def initialize: (io: IO) -> void
 
-        def print: (Array[file_stats] stats_result) -> void
+        def print: (Array[json_stats] stats_result) -> void
       end
 
       attr_reader stdout: IO

@@ -87,11 +87,8 @@ module Steep
         when "workspace/symbol"
           query = request[:params][:query]
           queue << WorkspaceSymbolJob.new(id: request[:id], query: query)
-        when "workspace/executeCommand"
-          case request[:params][:command]
-          when CustomMethods::STATS
-            queue << StatsJob.new(id: request[:id])
-          end
+        when CustomMethods::Stats::METHOD
+          queue << StatsJob.new(id: request[:id])
         when CustomMethods::TypeCheck__Start::METHOD
           params = request[:params] #: CustomMethods::TypeCheck__Start::params
           enqueue_typecheck_jobs(params)
