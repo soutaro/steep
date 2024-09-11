@@ -1135,4 +1135,18 @@ type c = a | b
       assert_success_check(checker, "self | nil", "self | nil")
     end
   end
+
+  def test_tuple__objectq
+    with_checker do |checker|
+      assert_success_check checker, "[Integer]", "Object"
+      assert_success_check checker, "[Integer]", "Object?"
+    end
+  end
+
+  def test_record__objectq
+    with_checker do |checker|
+      assert_success_check checker, "{ id: Integer}", "Object"
+      assert_success_check checker, "{ id: Integer }", "Object?"
+    end
+  end
 end

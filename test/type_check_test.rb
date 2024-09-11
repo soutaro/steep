@@ -2294,4 +2294,25 @@ class TypeCheckTest < Minitest::Test
       YAML
     )
   end
+
+  def test_generics__tuple
+    run_type_check_test(
+      signatures: {
+        "a.rbs" => <<~RBS
+          class Foo[X < Object?]
+          end
+        RBS
+      },
+      code: {
+        "a.rb" => <<~RUBY
+          a = Foo.new #$ [Integer]
+        RUBY
+      },
+      expectations: <<~YAML
+        ---
+        - file: a.rb
+          diagnostics: []
+      YAML
+    )
+  end
 end

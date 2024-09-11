@@ -494,6 +494,27 @@ module Steep
             check_type(Relation.new(sub_type: tuple_element_type, super_type: super_type.args[0]))
           end
 
+        when relation.sub_type.is_a?(AST::Types::Tuple)
+          Any(relation) do |result|
+            # Check by converting the tuple to array
+            tuple_element_type = AST::Types::Union.build(types: relation.sub_type.types)
+            array_type = AST::Builtin::Array.instance_type(tuple_element_type)
+            result.add(Relation.new(sub_type: array_type, super_type: relation.super_type)) do
+              check_type(_1)
+            end
+
+            # Check by shapes
+            shape_relation = relation.map {|type|
+              # @type break: nil
+              builder.shape(
+                type, Interface::Builder::Config.new(self_type: type, variable_bounds: variable_upper_bounds)
+              )&.public_shape or break
+            }
+            if shape_relation
+              result.add(shape_relation) { check_interface(_1) }
+            end
+          end
+
         when relation.sub_type.is_a?(AST::Types::Record) && relation.super_type.is_a?(AST::Types::Record)
           All(relation) do |result|
             relation.super_type.elements.each_key do |key|
@@ -514,16 +535,25 @@ module Steep
             end
           end
 
-        when relation.sub_type.is_a?(AST::Types::Record) && relation.super_type.is_a?(AST::Types::Name::Base)
-          Expand(relation) do
-            check_interface(
-              relation.map {|type|
-                builder.shape(
-                  type,
-                  Interface::Builder::Config.new(self_type: type, variable_bounds: variable_upper_bounds)
-                )&.public_shape or raise
-              }
-            )
+        when relation.sub_type.is_a?(AST::Types::Record)
+          Any(relation) do |result|
+            # Check by converting the record to hash
+            key_type = AST::Types::Union.build(types: relation.sub_type.elements.each_key.map {|key| AST::Types::Literal.new(value: key) })
+            value_type = AST::Types::Union.build(types: relation.sub_type.elements.each_value.map {|key| key })
+            hash_type = AST::Builtin::Hash.instance_type(key_type, value_type)
+            result.add(Relation.new(sub_type: hash_type, super_type: relation.super_type)) { check_type(_1) }
+
+            # Check by the shapes
+            shape_relation = relation.map do |type|
+              # @type break: nil
+              builder.shape(
+                type,
+                Interface::Builder::Config.new(self_type: type, variable_bounds: variable_upper_bounds)
+              )&.public_shape or break
+            end
+            if shape_relation
+              result.add(shape_relation) { check_interface(_1) }
+            end
           end
 
         when relation.sub_type.is_a?(AST::Types::Proc) && AST::Builtin::Proc.instance_type?(relation.super_type)
