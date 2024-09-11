@@ -877,6 +877,8 @@ module Steep
           )
 
         when "shutdown"
+          start_type_checking_queue.cancel
+
           result_controller << group_request do |group|
             each_worker do |worker|
               group << send_request(method: "shutdown", worker: worker)
