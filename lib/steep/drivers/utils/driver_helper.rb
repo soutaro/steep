@@ -103,13 +103,7 @@ module Steep
           end
         end
 
-        (DEFAULT_CLI_LSP_INITIALIZE_PARAMS = {
-          capabilities: {
-            window: {
-              workDoneProgress: true
-            }
-          }
-        }).freeze
+        (DEFAULT_CLI_LSP_INITIALIZE_PARAMS = {}).freeze
       end
     end
   end

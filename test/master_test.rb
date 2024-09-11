@@ -42,7 +42,7 @@ end
         interaction_worker: nil,
         typecheck_workers: [worker]
       )
-      master.assign_initialize_params(DEFAULT_CLI_LSP_INITIALIZE_PARAMS)
+      master.assign_initialize_params(DEFAULT_CLI_LSP_INITIALIZE_PARAMS.merge(capabilities: { window: { workDoneProgress: true } }))
 
       master.controller.push_changes current_dir + "lib/customer.rb"
       master.controller.push_changes current_dir + "lib/account.rb"
@@ -108,7 +108,7 @@ end
         interaction_worker: nil,
         typecheck_workers: [worker]
       )
-      master.assign_initialize_params(DEFAULT_CLI_LSP_INITIALIZE_PARAMS.merge(capabilities: { window: { workDoneProgress: false } }))
+      master.assign_initialize_params(DEFAULT_CLI_LSP_INITIALIZE_PARAMS)
 
       master.controller.push_changes current_dir + "lib/customer.rb"
       master.controller.push_changes current_dir + "lib/account.rb"
@@ -207,7 +207,7 @@ end
         interaction_worker: nil,
         typecheck_workers: [worker]
       )
-      master.assign_initialize_params(DEFAULT_CLI_LSP_INITIALIZE_PARAMS)
+      master.assign_initialize_params(DEFAULT_CLI_LSP_INITIALIZE_PARAMS.merge(capabilities: { window: { workDoneProgress: true } }))
 
       master.controller.push_changes current_dir + "lib/customer.rb"
       master.controller.push_changes current_dir + "lib/account.rb"
@@ -293,7 +293,7 @@ end
         interaction_worker: nil,
         typecheck_workers: [worker]
       )
-      master.assign_initialize_params(DEFAULT_CLI_LSP_INITIALIZE_PARAMS.merge(capabilities: { window: { workDoneProgress: false } }))
+      master.assign_initialize_params(DEFAULT_CLI_LSP_INITIALIZE_PARAMS)
 
       master.controller.push_changes current_dir + "lib/customer.rb"
       master.controller.push_changes current_dir + "lib/account.rb"
