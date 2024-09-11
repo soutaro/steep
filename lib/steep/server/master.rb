@@ -11,6 +11,7 @@ module Steep
         attr_reader :priority_paths
         attr_reader :checked_paths
         attr_reader :work_done_progress
+        attr_reader :started_at
 
         def initialize(guid:, progress:)
           @guid = guid
@@ -20,6 +21,7 @@ module Steep
           @priority_paths = Set[]
           @checked_paths = Set[]
           @work_done_progress = progress
+          @started_at = Time.now
         end
 
         def uri(path)
@@ -916,10 +918,34 @@ module Steep
         end
       end
 
+      def finish_type_check(request)
+        request.work_done_progress.end()
+
+        finished_at = Time.now
+        duration = finished_at - request.started_at
+
+        enqueue_write_job(
+          SendMessageJob.to_client(
+            message: CustomMethods::TypeCheck.response(
+              request.guid,
+              {
+                guid: request.guid,
+                completed: request.finished?,
+                started_at: request.started_at.iso8601,
+                finished_at: finished_at.iso8601,
+                duration: duration.to_i
+              }
+            )
+          )
+        )
+
+        nil
+      end
+
       def start_type_check(request: nil, last_request:, progress: nil, include_unchanged: false, report_progress_threshold: 10)
         Steep.logger.tagged "#start_type_check(#{progress&.guid || request&.guid}, #{last_request&.guid}" do
           if last_request
-            last_request.work_done_progress.end()
+            finish_type_check(last_request)
           end
 
           unless request
@@ -938,8 +964,7 @@ module Steep
             end
 
             if request.finished?
-              request.work_done_progress.end()
-              @current_type_check_request = nil
+              @current_type_check_request = finish_type_check(request)
               return
             end
           else
@@ -971,8 +996,7 @@ module Steep
             current.work_done_progress.report(percentage, "#{percentage}%")
 
             if current.finished?
-              current.work_done_progress.end()
-              @current_type_check_request = nil
+              @current_type_check_request = finish_type_check(current)
             end
           end
         end

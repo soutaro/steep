@@ -161,9 +161,7 @@ module Steep
           master.start_type_check(last_request: nil, progress: progress, include_unchanged: true, report_progress_threshold: 0)
         end
         wait_for_message(reader: client_reader) do |message|
-          message[:method] == "$/progress" &&
-            message[:params][:token] == typecheck_guid &&
-            message[:params][:value][:kind] == "end"
+          message[:id] == typecheck_guid
         end
 
         Steep.logger.info { "Finished type checking for stats" }

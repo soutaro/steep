@@ -10,7 +10,15 @@ module Steep
 
         def request_id: () -> String
 
-        def wait_for_response_id: (reader: Reader, id: String, ?unknown_responses: unknown_message_action) -> untyped
+        # Wait for response to a request with `id` read from `reader`
+        #
+        # If `unknown_responses` is given, it does something regarding to the option.
+        # If `unknown_responses` is not given and block is given, it yields the message.
+        #
+        # If neither `unknown_responses` nor block is given, it simply ignores the unknown message.
+        #
+        def wait_for_response_id: (reader: Reader, id: String, unknown_responses: unknown_message_action) -> untyped
+                                | (reader: Reader, id: String) ?{ (untyped message) -> void } -> untyped
 
         def shutdown_exit: (writer: Writer, reader: Reader) -> void
 

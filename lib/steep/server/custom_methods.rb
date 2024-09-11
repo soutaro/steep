@@ -20,8 +20,12 @@ module Steep
       module TypeCheck
         METHOD = "$/steep/typecheck"
 
-        def self.notification(params)
-          { method: METHOD, params: params }
+        def self.request(id, params)
+          { method: METHOD, id: id, params: params }
+        end
+
+        def self.response(id, result)
+          { id: id, result: result }
         end
       end
 

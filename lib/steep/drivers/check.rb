@@ -66,36 +66,33 @@ module Steep
 
         request_guid = SecureRandom.uuid
         Steep.logger.info { "Starting type checking: #{request_guid}" }
-        client_writer.write(Server::CustomMethods::TypeCheck.notification({ guid: request_guid}))
+        client_writer.write(Server::CustomMethods::TypeCheck.request(request_guid, { guid: request_guid}))
 
         diagnostic_notifications = [] #: Array[LanguageServer::Protocol::Interface::PublishDiagnosticsParams]
         error_messages = [] #: Array[String]
-        client_reader.read do |response|
+
+        response = wait_for_response_id(reader: client_reader, id: request_guid) do |message|
           case
-          when response[:method] == "textDocument/publishDiagnostics"
-            ds = response[:params][:diagnostics]
+          when message[:method] == "textDocument/publishDiagnostics"
+            ds = message[:params][:diagnostics]
             ds.select! {|d| keep_diagnostic?(d, severity_level: severity_level) }
             if ds.empty?
               stdout.print "."
             else
               stdout.print "F"
             end
-            diagnostic_notifications << response[:params]
+            diagnostic_notifications << message[:params]
             stdout.flush
-          when response[:method] == "window/showMessage"
+          when message[:method] == "window/showMessage"
             # Assuming ERROR message means unrecoverable error.
-            message = response[:params]
+            message = message[:params]
             if message[:type] == LSP::Constant::MessageType::ERROR
               error_messages << message[:message]
             end
-          when response[:method] == "$/progress"
-            if response[:params][:token] == request_guid
-              if response[:params][:value][:kind] == "end"
-                break
-              end
-            end
           end
         end
+
+        Steep.logger.info { "Finished type checking: #{response.inspect}" }
 
         Steep.logger.info { "Shutting down..." }
 

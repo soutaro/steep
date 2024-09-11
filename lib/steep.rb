@@ -16,6 +16,7 @@ require 'uri'
 require "yaml"
 require "securerandom"
 require "base64"
+require "time"
 
 require "concurrent/utility/processor_counter"
 require "terminal-table"
