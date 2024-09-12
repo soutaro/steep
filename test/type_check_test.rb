@@ -2315,4 +2315,26 @@ class TypeCheckTest < Minitest::Test
       YAML
     )
   end
+
+  def test_yield_self_union
+    run_type_check_test(
+      signatures: {
+        "a.rbs" => <<~RBS
+        RBS
+      },
+      code: {
+        "a.rb" => <<~RUBY
+          x = (_ = nil) #: String | Integer
+          x.yield_self do
+            ""
+          end
+        RUBY
+      },
+      expectations: <<~YAML
+        ---
+        - file: a.rb
+          diagnostics: []
+      YAML
+    )
+  end
 end

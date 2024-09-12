@@ -353,8 +353,32 @@ module Steep
             check_type(Relation.new(sub_type: ub, super_type: relation.super_type))
           end
 
-        when relation.super_type.is_a?(AST::Types::Var) || relation.sub_type.is_a?(AST::Types::Var)
-          Failure(relation, Result::Failure::UnknownPairError.new(relation: relation))
+        when relation.sub_type.is_a?(AST::Types::Intersection) && relation.super_type.is_a?(AST::Types::Union)
+          Any(relation) do |base_result|
+            # Expand the super_type first
+            base_result.add(relation) do
+              Any(relation) do |result|
+                relation.super_type.types.sort_by {|ty| (path = hole_path(ty)) ? -path.size : -Float::INFINITY }.each do |super_type|
+                  rel = Relation.new(sub_type: relation.sub_type, super_type: super_type)
+                  result.add(rel) do
+                    check_type(rel)
+                  end
+                end
+              end
+            end
+
+            # Expand the sub_type if it fails
+            base_result.add(relation) do
+              Any(relation) do |result|
+                relation.sub_type.types.sort_by {|ty| (path = hole_path(ty)) ? -path.size : -Float::INFINITY }.each do |sub_type|
+                  rel = Relation.new(sub_type: sub_type, super_type: relation.super_type)
+                  result.add(rel) do
+                    check_type(rel)
+                  end
+                end
+              end
+            end
+          end
 
         when relation.super_type.is_a?(AST::Types::Intersection)
           All(relation) do |result|
