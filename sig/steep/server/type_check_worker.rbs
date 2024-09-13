@@ -135,7 +135,7 @@ module Steep
 
       def workspace_symbol_result: (untyped query) -> untyped
 
-      def stats_result: () -> untyped
+      def stats_result: () -> Array[StatsCalculator::stats]
 
       def goto: (GotoJob job) -> Array[untyped]
     end

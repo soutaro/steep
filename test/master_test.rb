@@ -14,6 +14,8 @@ class MasterTest < Minitest::Test
 
   DEFAULT_CLI_LSP_INITIALIZE_PARAMS = Drivers::Utils::DriverHelper::DEFAULT_CLI_LSP_INITIALIZE_PARAMS
 
+  include Server::CustomMethods
+
   def dirs
     @dirs ||= []
   end
@@ -40,7 +42,7 @@ end
         interaction_worker: nil,
         typecheck_workers: [worker]
       )
-      master.assign_initialize_params(DEFAULT_CLI_LSP_INITIALIZE_PARAMS)
+      master.assign_initialize_params(DEFAULT_CLI_LSP_INITIALIZE_PARAMS.merge(capabilities: { window: { workDoneProgress: true } }))
 
       master.controller.push_changes current_dir + "lib/customer.rb"
       master.controller.push_changes current_dir + "lib/account.rb"
@@ -75,7 +77,7 @@ end
       assert_any!(jobs) do |job|
         assert_instance_of Master::SendMessageJob, job
         assert_equal worker, job.dest
-        assert_equal "$/typecheck/start", job.message[:method]
+        assert_equal TypeCheck__Start::METHOD, job.message[:method]
 
         job.message[:params].tap do |params|
           assert_equal "guid", params[:guid]
@@ -106,7 +108,7 @@ end
         interaction_worker: nil,
         typecheck_workers: [worker]
       )
-      master.assign_initialize_params(DEFAULT_CLI_LSP_INITIALIZE_PARAMS.merge(capabilities: { window: { workDoneProgress: false } }))
+      master.assign_initialize_params(DEFAULT_CLI_LSP_INITIALIZE_PARAMS)
 
       master.controller.push_changes current_dir + "lib/customer.rb"
       master.controller.push_changes current_dir + "lib/account.rb"
@@ -128,7 +130,7 @@ end
         assert_instance_of Master::SendMessageJob, job
         assert_equal worker, job.dest
 
-        assert_equal "$/typecheck/start", job.message[:method]
+        assert_equal TypeCheck__Start::METHOD, job.message[:method]
 
         job.message[:params].tap do |params|
           assert_equal "guid", params[:guid]
@@ -174,7 +176,7 @@ end
       assert_any!(jobs, size: 1) do |job|
         assert_instance_of Master::SendMessageJob, job
         assert_equal worker, job.dest
-        assert_equal "$/typecheck/start", job.message[:method]
+        assert_equal TypeCheck__Start::METHOD, job.message[:method]
 
         job.message[:params].tap do |params|
           assert_equal "guid", params[:guid]
@@ -205,7 +207,7 @@ end
         interaction_worker: nil,
         typecheck_workers: [worker]
       )
-      master.assign_initialize_params(DEFAULT_CLI_LSP_INITIALIZE_PARAMS)
+      master.assign_initialize_params(DEFAULT_CLI_LSP_INITIALIZE_PARAMS.merge(capabilities: { window: { workDoneProgress: true } }))
 
       master.controller.push_changes current_dir + "lib/customer.rb"
       master.controller.push_changes current_dir + "lib/account.rb"
@@ -236,7 +238,7 @@ end
 
       jobs = flush_queue(master.write_queue)
 
-      assert_equal 2, jobs.size
+      assert_equal 3, jobs.size
       jobs[0].tap do |job|
         assert_instance_of Master::SendMessageJob, job
         assert_equal :client, job.dest
@@ -257,6 +259,12 @@ end
           assert_equal "guid", params[:token]
           assert_equal "end", params[:value][:kind]
         end
+      end
+      jobs[2].tap do |job|
+        # Response to $/steep/typecheck request
+        assert_instance_of Master::SendMessageJob, job
+        assert_equal :client, job.dest
+        assert_equal "guid", job.message[:id]
       end
 
       assert_nil master.current_type_check_request
@@ -285,7 +293,7 @@ end
         interaction_worker: nil,
         typecheck_workers: [worker]
       )
-      master.assign_initialize_params(DEFAULT_CLI_LSP_INITIALIZE_PARAMS.merge(capabilities: { window: { workDoneProgress: false } }))
+      master.assign_initialize_params(DEFAULT_CLI_LSP_INITIALIZE_PARAMS)
 
       master.controller.push_changes current_dir + "lib/customer.rb"
       master.controller.push_changes current_dir + "lib/account.rb"
@@ -300,7 +308,15 @@ end
       master.on_type_check_update(guid: "guid", path: current_dir + "lib/customer.rb")
       master.on_type_check_update(guid: "guid", path: current_dir + "lib/account.rb")
 
-      assert_empty master.write_queue
+      jobs = flush_queue(master.write_queue)
+
+      assert_equal 1, jobs.size
+      jobs[0].tap do |job|
+        # Response to $/steep/typecheck request
+        assert_instance_of Master::SendMessageJob, job
+        assert_equal :client, job.dest
+        assert_equal "guid", job.message[:id]
+      end
     end
   end
 

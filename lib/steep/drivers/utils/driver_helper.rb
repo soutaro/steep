@@ -38,9 +38,28 @@ module Steep
           SecureRandom.alphanumeric(10)
         end
 
-        def wait_for_response_id(reader:, id:, unknown_responses: :ignore)
-          wait_for_message(reader: reader, unknown_messages: unknown_responses) do |response|
-            response[:id] == id
+        def wait_for_response_id(reader:, id:, unknown_responses: nil, &block)
+          reader.read do |message|
+            Steep.logger.debug { "Received message waiting for #{id}: #{message.inspect}" }
+
+            response_id = message[:id]
+
+            if response_id == id
+              return message
+            end
+
+            if block
+              yield message
+            else
+              case unknown_responses
+              when :ignore, nil
+                # nop
+              when :log
+                Steep.logger.error { "Unexpected message: #{message.inspect}" }
+              when :raise
+                raise "Unexpected message: #{message.inspect}"
+              end
+            end
           end
         end
 
@@ -84,13 +103,7 @@ module Steep
           end
         end
 
-        (DEFAULT_CLI_LSP_INITIALIZE_PARAMS = {
-          capabilities: {
-            window: {
-              workDoneProgress: true
-            }
-          }
-        }).freeze
+        (DEFAULT_CLI_LSP_INITIALIZE_PARAMS = {}).freeze
       end
     end
   end

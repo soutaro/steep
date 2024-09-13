@@ -14,7 +14,17 @@ module Steep
 
         def initialize: (target: Project::Target, path: Pathname, typed_calls_count: Integer, untyped_calls_count: Integer, error_calls_count: Integer) -> void
 
-        def as_json: () -> Hash[Symbol, untyped]
+        def as_json: () -> json
+
+        type json = {
+          type: "success",
+          target: String,
+          path: String,
+          typed_calls: Integer,
+          untyped_calls: Integer,
+          error_calls: Integer,
+          total_calls: Integer
+        }
       end
 
       class ErrorStats
@@ -24,10 +34,18 @@ module Steep
 
         def initialize: (target: Project::Target, path: Pathname) -> void
 
-        def as_json: () -> Hash[Symbol, untyped]
+        def as_json: () -> json
+
+        type json = {
+          type: "error",
+          target: String,
+          path: String
+        }
       end
 
       type stats = SuccessStats | ErrorStats
+
+      type json_stats = SuccessStats::json | ErrorStats::json
 
       attr_reader service: TypeCheckService
 

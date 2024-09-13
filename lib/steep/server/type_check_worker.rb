@@ -74,25 +74,23 @@ module Steep
         when "textDocument/didChange"
           collect_changes(request)
 
-        when "$/file/load"
+        when CustomMethods::FileLoad::METHOD
           input = request[:params][:content]
           load_files(input)
 
-        when "$/file/reset"
-          uri = request[:params][:uri]
-          text = request[:params][:content]
+        when CustomMethods::FileReset::METHOD
+          params = request[:params] #: CustomMethods::FileReset::params
+          uri = params[:uri]
+          text = params[:content]
           reset_change(uri: uri, text: text)
 
         when "workspace/symbol"
           query = request[:params][:query]
           queue << WorkspaceSymbolJob.new(id: request[:id], query: query)
-        when "workspace/executeCommand"
-          case request[:params][:command]
-          when "steep/stats"
-            queue << StatsJob.new(id: request[:id])
-          end
-        when "$/typecheck/start"
-          params = request[:params]
+        when CustomMethods::Stats::METHOD
+          queue << StatsJob.new(id: request[:id])
+        when CustomMethods::TypeCheck__Start::METHOD
+          params = request[:params] #: CustomMethods::TypeCheck__Start::params
           enqueue_typecheck_jobs(params)
         when "textDocument/definition"
           queue << GotoJob.definition(id: request[:id], params: request[:params])
@@ -245,10 +243,7 @@ module Steep
       end
 
       def typecheck_progress(guid:, path:)
-        writer.write(
-          method: "$/typecheck/progress",
-          params: { guid: guid, path: path }
-        )
+        writer.write(CustomMethods::TypeCheck__Progress.notification({ guid: guid, path: path.to_s }))
       end
 
       def workspace_symbol_result(query)

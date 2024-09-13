@@ -190,12 +190,8 @@ module Steep
             if message[:type] == LSP::Constant::MessageType::ERROR
               error_messages << message[:message]
             end
-          when response[:method] == "$/progress"
-            if response[:params][:token] == request_guid
-              if response[:params][:value][:kind] == "end"
-                break
-              end
-            end
+          when response[:id] == request_guid
+            break
           end
         end
 

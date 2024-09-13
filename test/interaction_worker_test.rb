@@ -11,6 +11,8 @@ class InteractionWorkerTest < Minitest::Test
   InteractionWorker = Server::InteractionWorker
   ContentChange = Services::ContentChange
 
+  include Server::CustomMethods
+
   def run_worker(worker)
     t = Thread.new do
       worker.run()
@@ -53,7 +55,7 @@ EOF
       worker = InteractionWorker.new(project: project, reader: worker_reader, writer: worker_writer)
 
       worker.handle_request({ method: "initialize", id: 1, params: nil })
-      worker.handle_request({ method: "$/file/load", params: { content: {} } })
+      worker.handle_request({ method: FileLoad::METHOD, params: { content: {} } })
 
       q = flush_queue(worker.queue)
       assert_equal 1, q.size
@@ -127,7 +129,7 @@ EOF
 
       worker.handle_request(
         {
-          method: "$/file/reset",
+          method: FileReset::METHOD,
           id: 123,
           params: {
             uri: "#{file_scheme}#{current_dir}/lib/hello.rb",

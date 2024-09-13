@@ -1,0 +1,80 @@
+module Steep
+  module Server
+    # Defines custom LSP methods
+    module CustomMethods
+      # Notification with params of files and the contents, sent from master to workers
+      #
+      module FileLoad
+        METHOD: String
+
+        type params = {
+          content: Hash[String, ChangeBuffer::content]
+        }
+
+        def self.notification: (params) -> untyped
+      end
+
+      # Notification with parames of a file name and its contents, sent from master to workers
+      #
+      module FileReset
+        METHOD: String
+
+        type params = { uri: String, content: String }
+
+        def self.notification: (params) -> untyped
+      end
+
+      # Notification to start type checking, sent from client to master
+      #
+      module TypeCheck
+        METHOD: String
+
+        type params = { guid: String? }
+
+        type result = {
+          guid: String,             # The unique identifier of the type checking session
+          completed: bool,          # `true` if the type checking is completed
+          started_at: String,       # The ISO-8061 time when the type checking started
+          finished_at: String,      # The ISO-8601 time when the type checking finished
+          duration: Integer         # Duration in seconds of the type checking
+        }
+
+        def self.request: (String id, params) -> untyped
+
+        def self.response: (String id, result) -> untyped
+      end
+
+      # Notification to start type checking, sent from the master to workers
+      #
+      module TypeCheck__Start
+        METHOD: String
+
+        type params = Master::TypeCheckRequest::json
+
+        def self.notification: (params) -> untyped
+      end
+
+      # Notification to report progress of type checking, sent from workers to master
+      #
+      module TypeCheck__Progress
+        METHOD: String
+
+        type params = { guid: String, path: String }
+
+        def self.notification: (params) -> untyped
+      end
+
+      # Request to start stats of type checking, sent from client to master and master to workers
+      #
+      module Stats
+        METHOD: String
+
+        def self.request: (String id) -> untyped
+
+        type result = Array[Services::StatsCalculator::json_stats]
+
+        def self.response: (String id, result) -> untyped
+      end
+    end
+  end
+end

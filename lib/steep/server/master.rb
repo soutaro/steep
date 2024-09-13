@@ -11,6 +11,7 @@ module Steep
         attr_reader :priority_paths
         attr_reader :checked_paths
         attr_reader :work_done_progress
+        attr_reader :started_at
 
         def initialize(guid:, progress:)
           @guid = guid
@@ -20,6 +21,7 @@ module Steep
           @priority_paths = Set[]
           @checked_paths = Set[]
           @work_done_progress = progress
+          @started_at = Time.now
         end
 
         def uri(path)
@@ -639,7 +641,7 @@ module Steep
                       { text: Base64.encode64(content), binary: true }
                     end
                   end
-                  broadcast_notification({ method: "$/file/load", params: { content: input } })
+                  broadcast_notification(CustomMethods::FileLoad.notification({ content: input }))
                 end
               end
 
@@ -715,10 +717,8 @@ module Steep
                 content = ""
               end
 
-              broadcast_notification({
-                method: "$/file/reset",
-                params: { uri: uri, content: content }
-              })
+              content or raise
+              broadcast_notification(CustomMethods::FileReset.notification({ uri: uri, content: content }))
             end
           end
 
@@ -769,10 +769,7 @@ module Steep
 
           if path = pathname(uri)
             controller.update_priority(open: path)
-            broadcast_notification({
-              method: "$/file/reset",
-              params: { uri: uri, content: text }
-            })
+            broadcast_notification(CustomMethods::FileReset.notification({ uri: uri, content: text }))
           end
 
         when "textDocument/didClose"
@@ -815,23 +812,17 @@ module Steep
             end
           end
 
-        when "workspace/executeCommand"
-          case message[:params][:command]
-          when "steep/stats"
-            result_controller << group_request do |group|
-              typecheck_workers.each do |worker|
-                group << send_request(method: "workspace/executeCommand", params: message[:params], worker: worker)
-              end
+        when CustomMethods::Stats::METHOD
+          result_controller << group_request do |group|
+            typecheck_workers.each do |worker|
+              group << send_request(method: CustomMethods::Stats::METHOD, params: nil, worker: worker)
+            end
 
-              group.on_completion do |handlers|
-                stats = handlers.flat_map(&:result)
-                enqueue_write_job SendMessageJob.to_client(
-                  message: {
-                    id: message[:id],
-                    result: stats
-                  }
-                )
-              end
+            group.on_completion do |handlers|
+              stats = handlers.flat_map(&:result) #: Server::CustomMethods::Stats::result
+              enqueue_write_job SendMessageJob.to_client(
+                message: CustomMethods::Stats.response(message[:id], stats)
+              )
             end
           end
 
@@ -861,13 +852,14 @@ module Steep
             )
           end
 
-        when "$/typecheck"
-          guid = message[:params][:guid]
+        when CustomMethods::TypeCheck::METHOD
+          params = message[:params] #: CustomMethods::TypeCheck::params
+          guid = params[:guid]
 
           start_type_check(
             last_request: current_type_check_request,
             include_unchanged: true,
-            progress: work_done_progress(guid)
+            progress: work_done_progress(guid || SecureRandom.uuid)
           )
 
         when "$/ping"
@@ -879,6 +871,8 @@ module Steep
           )
 
         when "shutdown"
+          start_type_checking_queue.cancel
+
           result_controller << group_request do |group|
             each_worker do |worker|
               group << send_request(method: "shutdown", worker: worker)
@@ -906,10 +900,11 @@ module Steep
             end
           when message.key?(:method) && !message.key?(:id)
             case message[:method]
-            when "$/typecheck/progress"
+            when CustomMethods::TypeCheck__Progress::METHOD
+              params = message[:params] #: CustomMethods::TypeCheck__Progress::params
               on_type_check_update(
-                guid: message[:params][:guid],
-                path: Pathname(message[:params][:path])
+                guid: params[:guid],
+                path: Pathname(params[:path])
               )
             else
               # Forward other notifications
@@ -919,10 +914,34 @@ module Steep
         end
       end
 
+      def finish_type_check(request)
+        request.work_done_progress.end()
+
+        finished_at = Time.now
+        duration = finished_at - request.started_at
+
+        enqueue_write_job(
+          SendMessageJob.to_client(
+            message: CustomMethods::TypeCheck.response(
+              request.guid,
+              {
+                guid: request.guid,
+                completed: request.finished?,
+                started_at: request.started_at.iso8601,
+                finished_at: finished_at.iso8601,
+                duration: duration.to_i
+              }
+            )
+          )
+        )
+
+        nil
+      end
+
       def start_type_check(request: nil, last_request:, progress: nil, include_unchanged: false, report_progress_threshold: 10)
         Steep.logger.tagged "#start_type_check(#{progress&.guid || request&.guid}, #{last_request&.guid}" do
           if last_request
-            last_request.work_done_progress.end()
+            finish_type_check(last_request)
           end
 
           unless request
@@ -941,8 +960,7 @@ module Steep
             end
 
             if request.finished?
-              request.work_done_progress.end()
-              @current_type_check_request = nil
+              @current_type_check_request = finish_type_check(request)
               return
             end
           else
@@ -958,10 +976,7 @@ module Steep
 
             enqueue_write_job SendMessageJob.to_worker(
               worker,
-              message: {
-                method: "$/typecheck/start",
-                params: request.as_json(assignment: assignment)
-              }
+              message: CustomMethods::TypeCheck__Start.notification(request.as_json(assignment: assignment))
             )
           end
         end
@@ -977,8 +992,7 @@ module Steep
             current.work_done_progress.report(percentage, "#{percentage}%")
 
             if current.finished?
-              current.work_done_progress.end()
-              @current_type_check_request = nil
+              @current_type_check_request = finish_type_check(current)
             end
           end
         end

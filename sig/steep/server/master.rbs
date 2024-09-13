@@ -18,11 +18,15 @@ module Steep
 
         attr_reader checked_paths: Set[Pathname]
 
+        attr_reader started_at: Time
+
         def initialize: (guid: String, progress: WorkDoneProgress) -> void
 
         def uri: (Pathname path) -> URI::File
 
-        def as_json: (assignment: Services::PathAssignment) -> { guid: String, library_uris: Array[String], signature_uris: Array[String], code_uris: Array[String], priority_uris: Array[String] }
+        type json = { guid: String, library_uris: Array[String], signature_uris: Array[String], code_uris: Array[String], priority_uris: Array[String] }
+
+        def as_json: (assignment: Services::PathAssignment) -> json
 
         def total: () -> Integer
 
@@ -320,6 +324,8 @@ module Steep
 
       def start_type_check: (last_request: TypeCheckRequest?, progress: WorkDoneProgress, ?include_unchanged: bool, ?report_progress_threshold: Integer) -> void
                           | (request: TypeCheckRequest, last_request: TypeCheckRequest?, ?report_progress_threshold: Integer) -> void
+
+      def finish_type_check: (TypeCheckRequest) -> nil
 
       def on_type_check_update: (guid: String, path: Pathname) -> void
 

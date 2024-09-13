@@ -25,10 +25,17 @@ module Steep
             end
 
             if proc.equal?(last_task)
-              proc[]
+              unless @cancelled
+                proc[]
+              end
             end
           end
         end
+      end
+
+      def cancel
+        @cancelled = true
+        queue.clear()
       end
 
       def execute(&block)

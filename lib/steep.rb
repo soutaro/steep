@@ -16,6 +16,7 @@ require 'uri'
 require "yaml"
 require "securerandom"
 require "base64"
+require "time"
 
 require "concurrent/utility/processor_counter"
 require "terminal-table"
@@ -114,6 +115,7 @@ require "steep/services/stats_calculator"
 require "steep/services/file_loader"
 require "steep/services/goto_service"
 
+require "steep/server/custom_methods"
 require "steep/server/work_done_progress"
 require "steep/server/delay_queue"
 require "steep/server/lsp_formatter"

@@ -32,6 +32,12 @@ module Steep
       # You should synchronize yourself if you want to call the method from multiple threads.
       #
       def execute: () { () -> void } -> void
+
+      @cancelled: bool
+      
+      # Cancel any delayed jobs
+      #
+      def cancel: () -> void
     end
   end
 end
