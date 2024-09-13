@@ -50,7 +50,7 @@ module Steep
         end
 
         def upper_bound(a)
-          variable_bounds.fetch(a, Interface::TypeParam::IMPLICIT_UPPER_BOUND)
+          variable_bounds.fetch(a, nil)
         end
       end
 

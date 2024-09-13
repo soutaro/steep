@@ -2189,36 +2189,6 @@ class TypeCheckTest < Minitest::Test
     )
   end
 
-  def test_generics_upperbound_implicitly_object
-    run_type_check_test(
-      signatures: {
-        "a.rbs" => <<~RBS
-          class Foo
-            def foo: [X] (X) -> void
-          end
-        RBS
-      },
-      code: {
-        "a.rb" => <<~RUBY
-          class Foo
-            def foo(x)
-              x.nil?
-            end
-          end
-
-          foo = Foo.new
-          foo.foo("")
-          foo.foo(NilClass.new)
-        RUBY
-      },
-      expectations: <<~YAML
-        ---
-        - file: a.rb
-          diagnostics: []
-      YAML
-    )
-  end
-
   def test_generics_upperbound_default
     run_type_check_test(
       signatures: {

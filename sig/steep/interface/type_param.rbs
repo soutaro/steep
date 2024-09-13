@@ -1,12 +1,6 @@
 module Steep
   module Interface
     class TypeParam
-      # Implicit upper bound given to unqualified generic parameter
-      #
-      # It's `Object?` currently.
-      # 
-      IMPLICIT_UPPER_BOUND: AST::Types::t
-
       type loc = RBS::Location[untyped, untyped]
 
       type variance = RBS::AST::TypeParam::variance
