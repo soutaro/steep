@@ -64,6 +64,9 @@ end
 
 class FalseClass
 end
+
+class NilClass
+end
   EOB
 
   include FactoryHelper
