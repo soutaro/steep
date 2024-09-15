@@ -599,6 +599,10 @@ module Steep
             overloads: record.elements.map do |key_value, value_type|
               key_type = AST::Types::Literal.new(value: key_value)
 
+              if record.optional?(key_value)
+                value_type = AST::Builtin.optional(value_type)
+              end
+
               Shape::MethodOverload.new(
                 MethodType.new(
                   type_params: [],
