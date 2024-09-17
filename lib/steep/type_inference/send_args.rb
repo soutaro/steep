@@ -656,7 +656,7 @@ module Steep
                       errors << ts
                     when Array
                       pairs = keys.zip(ts) #: Array[[Symbol, AST::Types::t]]
-                      record = AST::Types::Record.new(elements: Hash[pairs])
+                      record = AST::Types::Record.new(elements: Hash[pairs], required_keys: Set.new(keys))
                       yield KeywordArgs::ArgTypePairs.new(pairs: [[a.node, record]])
                     end
                   else

@@ -174,9 +174,7 @@ module Steep
             types: type.types.map {|ty| eliminate_variable(ty, to: AST::Builtin.any_type) }
           )
         when AST::Types::Record
-          AST::Types::Record.new(
-            elements: type.elements.transform_values {|ty| eliminate_variable(ty, to: AST::Builtin.any_type) }
-          )
+          type.map_type { eliminate_variable(_1, to: AST::Builtin.any_type) }
         when AST::Types::Proc
           type.map_type {|ty| eliminate_variable(ty, to: AST::Builtin.any_type) }
         else
