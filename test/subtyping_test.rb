@@ -64,6 +64,9 @@ end
 
 class FalseClass
 end
+
+class NilClass
+end
   EOB
 
   include FactoryHelper
@@ -1133,6 +1136,36 @@ type c = a | b
   def test_selfq
     with_checker do |checker|
       assert_success_check(checker, "self | nil", "self | nil")
+    end
+  end
+
+  def test_tuple__objectq
+    with_checker do |checker|
+      assert_success_check checker, "[Integer]", "Object"
+      assert_success_check checker, "[Integer]", "Object?"
+    end
+  end
+
+  def test_record__objectq
+    with_checker do |checker|
+      assert_success_check checker, "{ id: Integer}", "Object"
+      assert_success_check checker, "{ id: Integer }", "Object?"
+    end
+  end
+
+  def test_intersection_union
+    with_checker do |checker|
+      assert_success_check checker, "(String & Integer)", "(String & Integer) | nil"
+    end
+  end
+
+  def test_union_var
+    with_checker do |checker|
+      assert_success_check(
+        checker,
+        parse_type("T", variables: [:T], checker: checker),
+        parse_type("T | nil", variables: [:T], checker: checker)
+      )
     end
   end
 end

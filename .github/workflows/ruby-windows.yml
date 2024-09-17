@@ -9,6 +9,7 @@ on:
 jobs:
   windows:
     strategy:
+      fail-fast: false
       matrix:
         ruby_version:
         - "3.1"
