@@ -497,13 +497,19 @@ module Steep
         when relation.sub_type.is_a?(AST::Types::Record) && relation.super_type.is_a?(AST::Types::Record)
           All(relation) do |result|
             relation.super_type.elements.each_key do |key|
-              rel = Relation.new(
-                sub_type: relation.sub_type.elements[key] || AST::Builtin.nil_type,
-                super_type: relation.super_type.elements[key]
-              )
+              super_element_type = relation.super_type.elements[key]
 
-              result.add(rel) do
-                check_type(rel)
+              if relation.sub_type.elements.key?(key)
+                sub_element_type = relation.sub_type.elements[key]
+              else
+                if relation.super_type.required?(key)
+                  sub_element_type = AST::Builtin.nil_type
+                end
+              end
+
+              if sub_element_type
+                rel = Relation.new(sub_type: sub_element_type, super_type: super_element_type)
+                result.add(rel) { check_type(rel) }
               end
             end
           end

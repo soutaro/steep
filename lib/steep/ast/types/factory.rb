@@ -112,10 +112,15 @@ module Steep
             when RBS::Types::Tuple
               Tuple.new(types: type.types.map {|ty| type(ty) })
             when RBS::Types::Record
-              elements = type.fields.each.with_object({}) do |(key, value), hash|
-                hash[key] = type(value)
+              elements = {} #: Hash[Record::key, AST::Types::t]
+              required_keys = Set[] #: Set[Record::key]
+
+              type.all_fields.each do |key, (value, required)|
+                required_keys << key if required
+                elements[key] = type(value)
               end
-              Record.new(elements: elements)
+
+              Record.new(elements: elements, required_keys: required_keys)
             when RBS::Types::Proc
               func = Interface::Function.new(
                 params: params(type.type),
@@ -204,10 +209,12 @@ module Steep
               location: nil
             )
           when Record
-            fields = type.elements.each.with_object({}) do |(key, value), hash|
-              hash[key] = type_1(value)
+            all_fields = {} #: Hash[Symbol, [RBS::Types::t, bool]]
+            type.elements.each do |key, value|
+              raise unless key.is_a?(Symbol)
+              all_fields[key] = [type_1(value), type.required?(key)]
             end
-            RBS::Types::Record.new(fields: fields, location: nil)
+            RBS::Types::Record.new(all_fields: all_fields, location: nil)
           when Proc
             block = if type.block
                       RBS::Types::Block.new(
@@ -523,9 +530,7 @@ module Steep
               types: type.types.map {|type| normalize_type(type) }
             )
           when AST::Types::Record
-            AST::Types::Record.new(
-              elements: type.elements.transform_values {|type| normalize_type(type) }
-            )
+            type.map_type {|type| normalize_type(type) }
           when AST::Types::Tuple
             AST::Types::Tuple.new(
               types: type.types.map {|type| normalize_type(type) }

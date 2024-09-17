@@ -2223,4 +2223,75 @@ class TypeCheckTest < Minitest::Test
       YAML
     )
   end
+
+  def test_record__optional_key__assignment
+    run_type_check_test(
+      signatures: {},
+      code: {
+        "a.rb" => <<~RUBY
+          # @type var record: { id: Integer, ?name: String }
+
+          record = { id: 123, name: "Hello" }
+          record = { id: 123 }
+
+          record = { id: 123, name: 123 }
+        RUBY
+      },
+      expectations: <<~YAML
+        ---
+        - file: a.rb
+          diagnostics:
+          - range:
+              start:
+                line: 6
+                character: 0
+              end:
+                line: 6
+                character: 31
+            severity: ERROR
+            message: |-
+              Cannot assign a value of type `{ :id => ::Integer, ?:name => ::Integer }` to a variable of type `{ :id => ::Integer, ?:name => ::String }`
+                { :id => ::Integer, ?:name => ::Integer } <: { :id => ::Integer, ?:name => ::String }
+                  ::Integer <: ::String
+                    ::Numeric <: ::String
+                      ::Object <: ::String
+                        ::BasicObject <: ::String
+            code: Ruby::IncompatibleAssignment
+      YAML
+    )
+  end
+
+  def test_record__optional_key__get
+    run_type_check_test(
+      signatures: {},
+      code: {
+        "a.rb" => <<~RUBY
+          # @type var record: { id: Integer, ?name: String }
+
+          record = _ = nil
+
+          record[:id] + 1
+          record[:name] + ""
+
+          record.fetch(:id) + 1
+          record.fetch(:name) + ""
+        RUBY
+      },
+      expectations: <<~YAML
+        ---
+        - file: a.rb
+          diagnostics:
+          - range:
+              start:
+                line: 6
+                character: 14
+              end:
+                line: 6
+                character: 15
+            severity: ERROR
+            message: Type `(::String | nil)` does not have method `+`
+            code: Ruby::NoMethod
+      YAML
+    )
+  end
 end

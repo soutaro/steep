@@ -4962,7 +4962,7 @@ module Steep
       each_child_node(hash_node) do |child|
         if child.type == :pair
           case child.children[0].type
-          when :sym, :str, :int
+          when :sym
             key_node = child.children[0] #: Parser::AST::Node
             value_node = child.children[1] #: Parser::AST::Node
 
@@ -4991,7 +4991,7 @@ module Steep
         end
       end
 
-      type = AST::Types::Record.new(elements: elems)
+      type = AST::Types::Record.new(elements: elems, required_keys: record_type&.required_keys || Set.new(elems.keys))
       constr.add_typing(hash_node, type: type)
     end
 

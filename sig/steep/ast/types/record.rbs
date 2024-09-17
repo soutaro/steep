@@ -6,7 +6,9 @@ module Steep
 
         attr_reader elements: Hash[key, t]
 
-        def initialize: (elements: Hash[key, t]) -> void
+        attr_reader required_keys: Set[key]
+
+        def initialize: (elements: Hash[key, t], required_keys: Set[key]) -> void
 
         def ==: (untyped other) -> bool
 
@@ -29,6 +31,10 @@ module Steep
         def map_type: () { (t) -> t } -> Record
 
         def level: () -> Array[Integer]
+
+        def required?: (key) -> bool
+
+        def optional?: (key) -> bool
       end
     end
   end

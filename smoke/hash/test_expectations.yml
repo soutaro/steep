@@ -61,8 +61,8 @@
         character: 66
     severity: ERROR
     message: |-
-      Cannot assign a value of type `{ :email => ::String, :id => ::String, :name => ::String }` to a variable of type `{ :id => ::Integer, :name => ::String }`
-        { :email => ::String, :id => ::String, :name => ::String } <: { :id => ::Integer, :name => ::String }
+      Cannot assign a value of type `{ ?:email => ::String, :id => ::String, :name => ::String }` to a variable of type `{ :id => ::Integer, :name => ::String }`
+        { ?:email => ::String, :id => ::String, :name => ::String } <: { :id => ::Integer, :name => ::String }
           ::String <: ::Integer
             ::Object <: ::Integer
               ::BasicObject <: ::Integer
