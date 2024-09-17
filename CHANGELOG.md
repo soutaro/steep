@@ -1,5 +1,38 @@
 # CHANGELOG
 
+## 1.8.0.pre.1 (2024-09-17)
+
+### Type checker core
+
+* Fix some subtyping problems ([#1221](https://github.com/soutaro/steep/pull/1221))
+* Support optional keys in record types ([#1223](https://github.com/soutaro/steep/pull/1223))
+* Revert implicit generic upper bound ([#1220](https://github.com/soutaro/steep/pull/1220))
+* Improve generics ([#1216](https://github.com/soutaro/steep/pull/1216))
+* Delete meta data from `MethodType` and `Types::*` ([#1201](https://github.com/soutaro/steep/pull/1201))
+* Delete `ContextArray` ([#1199](https://github.com/soutaro/steep/pull/1199))
+* Fix shape calculation error ([#1197](https://github.com/soutaro/steep/pull/1197))
+* Skip `#:` syntax in `Data.define` and `Struct.new` ([#1196](https://github.com/soutaro/steep/pull/1196))
+* Support literals for Rational and Complex ([#1178](https://github.com/soutaro/steep/pull/1178))
+* Ignore type assertions on arguments/receiver on `def`/`defs` ([#1179](https://github.com/soutaro/steep/pull/1179))
+* Ignore `#:` annotation on `attr_*` calls ([#1176](https://github.com/soutaro/steep/pull/1176))
+
+### Commandline tool
+
+* Improve performance when there are many files ([#1184](https://github.com/soutaro/steep/pull/1184))
+* Fix type errors ([#1183](https://github.com/soutaro/steep/pull/1183))
+
+### Language server
+
+* Make type checking a LSP request, not a LSP notification ([#1218](https://github.com/soutaro/steep/pull/1218))
+* No `timeout: nil` ([#1217](https://github.com/soutaro/steep/pull/1217))
+* Print `loading project` message via LSP ([#1213](https://github.com/soutaro/steep/pull/1213))
+* Load files in main process ([#1206](https://github.com/soutaro/steep/pull/1206))
+
+### Miscellaneous
+
+* Drop Ruby 3.0 ([#1225](https://github.com/soutaro/steep/pull/1225))
+* Add `bin/steep-check` for profiling ([#1198](https://github.com/soutaro/steep/pull/1198))
+
 ## 1.7.1 (2024-06-12)
 
 ### Type checker core
