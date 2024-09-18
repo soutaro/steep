@@ -27,7 +27,7 @@ module Steep
         end
 
         def to_s
-          strings = elements.keys.sort.map do |key|
+          strings = elements.keys.sort_by(&:to_s).map do |key|
             if optional?(key)
               "?#{key.inspect} => #{elements[key]}"
             else

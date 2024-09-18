@@ -2337,4 +2337,46 @@ class TypeCheckTest < Minitest::Test
       YAML
     )
   end
+
+  def test_class_type
+    run_type_check_test(
+      signatures: {
+        "a.rbs" => <<~RBS
+          class Foo
+            def initialize: (Integer) -> void
+          end
+        RBS
+      },
+      code: {
+        "a.rb" => <<~RUBY
+          Foo.new(1).class.new(2)
+        RUBY
+      },
+      expectations: <<~YAML
+        ---
+        - file: a.rb
+          diagnostics: []
+      YAML
+    )
+  end
+
+  def test_record_type__keys
+    run_type_check_test(
+      signatures: {},
+      code: {
+        "a.rb" => <<~RUBY
+          a = { 1 => "one", "two" => 2, true => false } #: { 1 => String, "two" => Integer, true => Array[String] }
+
+          a[1] + ""
+          a["two"] + 1
+          a[true].pop
+        RUBY
+      },
+      expectations: <<~YAML
+        ---
+        - file: a.rb
+          diagnostics: []
+      YAML
+    )
+  end
 end

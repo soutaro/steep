@@ -36,7 +36,7 @@ Gem::Specification.new do |spec|
   spec.add_runtime_dependency "rainbow", ">= 2.2.2", "< 4.0"
   spec.add_runtime_dependency "listen", "~> 3.0"
   spec.add_runtime_dependency "language_server-protocol", ">= 3.15", "< 4.0"
-  spec.add_runtime_dependency "rbs", "~> 3.6.0.dev"
+  spec.add_runtime_dependency "rbs", "~> 3.6.0.pre"
   spec.add_runtime_dependency "concurrent-ruby", ">= 1.1.10"
   spec.add_runtime_dependency "terminal-table", ">= 2", "< 4"
   spec.add_runtime_dependency "securerandom", ">= 0.1"

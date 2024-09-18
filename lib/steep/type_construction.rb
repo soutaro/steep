@@ -4962,11 +4962,11 @@ module Steep
       each_child_node(hash_node) do |child|
         if child.type == :pair
           case child.children[0].type
-          when :sym
+          when :sym, :int, :str, :true, :false
             key_node = child.children[0] #: Parser::AST::Node
             value_node = child.children[1] #: Parser::AST::Node
 
-            key = key_node.children[0] #: String | Symbol | Integer
+            key = key_node.children[0] #: AST::Types::Record::key
 
             _, constr = constr.synthesize(key_node, hint: AST::Types::Literal.new(value: key))
 
