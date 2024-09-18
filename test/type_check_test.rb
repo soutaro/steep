@@ -2338,6 +2338,28 @@ class TypeCheckTest < Minitest::Test
     )
   end
 
+  def test_class_type
+    run_type_check_test(
+      signatures: {
+        "a.rbs" => <<~RBS
+          class Foo
+            def initialize: (Integer) -> void
+          end
+        RBS
+      },
+      code: {
+        "a.rb" => <<~RUBY
+          Foo.new(1).class.new(2)
+        RUBY
+      },
+      expectations: <<~YAML
+        ---
+        - file: a.rb
+          diagnostics: []
+      YAML
+    )
+  end
+
   def test_record_type__keys
     run_type_check_test(
       signatures: {},
