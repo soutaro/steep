@@ -2,7 +2,7 @@ module Steep
   module AST
     module Types
       class Record
-        type key = Symbol | String | Integer
+        type key = RBS::Types::Record::key
 
         attr_reader elements: Hash[key, t]
 
