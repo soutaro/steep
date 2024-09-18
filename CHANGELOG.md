@@ -1,5 +1,11 @@
 # CHANGELOG
 
+## 1.8.0.pre.2 (2024-09-18)
+
+### Type checker core
+
+* Support non symbol record keys ([#1227](https://github.com/soutaro/steep/pull/1227))
+
 ## 1.8.0.pre.1 (2024-09-17)
 
 ### Type checker core
