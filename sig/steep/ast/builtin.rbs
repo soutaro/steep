@@ -49,6 +49,8 @@ module Steep
 
       Proc: Type
 
+      Kernel: Type
+
       def self.nil_type: () -> Types::Nil
 
       def self.any_type: () -> Types::Any

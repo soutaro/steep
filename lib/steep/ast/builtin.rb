@@ -65,6 +65,7 @@ module Steep
       Regexp = Type.new("::Regexp")
       NilClass = Type.new("::NilClass")
       Proc = Type.new("::Proc")
+      Kernel = Type.new("::Kernel")
 
       def self.nil_type
         AST::Types::Nil.instance

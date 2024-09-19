@@ -2349,13 +2349,34 @@ class TypeCheckTest < Minitest::Test
       },
       code: {
         "a.rb" => <<~RUBY
-          Foo.new(1).class.new(2)
+          Foo.new(1).class.fooo
+          Foo.class.barr
         RUBY
       },
       expectations: <<~YAML
         ---
         - file: a.rb
-          diagnostics: []
+          diagnostics:
+          - range:
+              start:
+                line: 1
+                character: 17
+              end:
+                line: 1
+                character: 21
+            severity: ERROR
+            message: Type `singleton(::Foo)` does not have method `fooo`
+            code: Ruby::NoMethod
+          - range:
+              start:
+                line: 2
+                character: 10
+              end:
+                line: 2
+                character: 14
+            severity: ERROR
+            message: Type `::Class` does not have method `barr`
+            code: Ruby::NoMethod
       YAML
     )
   end

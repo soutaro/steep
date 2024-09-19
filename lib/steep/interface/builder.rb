@@ -281,6 +281,7 @@ module Steep
                 method_name = method_name_for(type_def, name)
                 method_type = factory.method_type(type_def.type)
                 method_type = replace_primitive_method(method_name, type_def, method_type)
+                method_type = replace_kernel_class(method_name, type_def, method_type) { AST::Builtin::Class.instance_type }
                 Shape::MethodOverload.new(method_type, [type_def])
               end
 
@@ -311,6 +312,9 @@ module Steep
                 method_name = method_name_for(type_def, name)
                 method_type = factory.method_type(type_def.type)
                 method_type = replace_primitive_method(method_name, type_def, method_type)
+                if type_name.class?
+                  method_type = replace_kernel_class(method_name, type_def, method_type) { AST::Types::Name::Singleton.new(name: type_name) }
+                end
                 Shape::MethodOverload.new(method_type, [type_def])
               end
 
@@ -748,7 +752,7 @@ module Steep
                     return_type: AST::Types::Logic::ReceiverIsNil.instance()
                   )
                 )
-            end
+              end
             end
 
           when :!
@@ -795,6 +799,23 @@ module Steep
                   return_type: AST::Types::Logic::ArgIsAncestor.instance()
                 )
               )
+            end
+          end
+        end
+
+        method_type
+      end
+
+      def replace_kernel_class(method_name, method_def, method_type)
+        defined_in = method_def.defined_in
+        member = method_def.member
+
+        if member.is_a?(RBS::AST::Members::MethodDefinition)
+          case method_name.method_name
+          when :class
+            case defined_in
+            when AST::Builtin::Kernel.module_name
+              return method_type.with(type: method_type.type.with(return_type: yield))
             end
           end
         end
