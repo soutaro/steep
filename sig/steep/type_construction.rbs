@@ -393,9 +393,6 @@ module Steep
 
     def fallback_to_any: (Parser::AST::Node node) ?{ () -> Diagnostic::Ruby::Base } -> Pair
 
-    # Return `true` if `node` is `self.class`
-    def self_class?: (Parser::AST::Node node) -> bool
-
     # Returns `true` if the given `node` is a `class` or `module` declaration that only contains module/class definitions
     #
     def namespace_module?: (Parser::AST::Node node) -> bool

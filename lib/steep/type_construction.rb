@@ -2657,34 +2657,11 @@ module Steep
     def synthesize_sendish(node, hint:, tapp:)
       case node.type
       when :send
-        yield_self do
-          if self_class?(node)
-            module_type = expand_alias(module_context.module_type)
-            type = if module_type.is_a?(AST::Types::Name::Singleton)
-                     AST::Types::Name::Singleton.new(name: module_type.name)
-                   else
-                     module_type
-                   end
-
-            add_typing(node, type: type)
-          else
-            type_send(node, send_node: node, block_params: nil, block_body: nil, tapp: tapp, hint: hint)
-          end
-        end
+        type_send(node, send_node: node, block_params: nil, block_body: nil, tapp: tapp, hint: hint)
       when :csend
         yield_self do
           send_type, constr =
-            if self_class?(node)
-              module_type = expand_alias(module_context.module_type)
-              type = if module_type.is_a?(AST::Types::Name::Singleton)
-                       AST::Types::Name::Singleton.new(name: module_type.name)
-                     else
-                       module_type
-                     end
-              add_typing(node, type: type).to_ary
-            else
-              type_send(node, send_node: node, block_params: nil, block_body: nil, unwrap: true, tapp: tapp, hint: hint).to_ary
-            end
+            type_send(node, send_node: node, block_params: nil, block_body: nil, unwrap: true, tapp: tapp, hint: hint).to_ary
 
           constr
             .update_type_env { context.type_env.join(constr.context.type_env, context.type_env) }
@@ -4685,10 +4662,6 @@ module Steep
       end
 
       add_typing node, type: AST::Builtin.any_type
-    end
-
-    def self_class?(node)
-      node.type == :send && node.children[0]&.type == :self && node.children[1] == :class
     end
 
     def namespace_module?(node)
