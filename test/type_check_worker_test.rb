@@ -233,6 +233,46 @@ class TypeCheckWorkerTest < Minitest::Test
     end
   end
 
+  def test_handle_request__file_reset_on_removal
+    in_tmpdir do
+      with_master_read_queue do
+        project = Project.new(steepfile_path: current_dir + "Steepfile")
+        Project::DSL.parse(project, <<~RUBY)
+          target :lib do
+            check "lib"
+            signature "sig"
+          end
+        RUBY
+
+        worker = Server::TypeCheckWorker.new(
+          project: project,
+          assignment: assignment,
+          commandline_args: [],
+          reader: worker_reader,
+          writer: worker_writer
+        )
+
+        worker.handle_request(
+          {
+            method: FileReset::METHOD,
+            id: 123,
+            params: {
+              uri: "#{file_scheme}#{current_dir}/lib/hello.rb",
+              content: nil
+            }
+          }
+        )
+
+        jobs = flush_queue(worker.queue)
+        assert_equal 0, jobs.size
+
+        changes = worker.buffered_changes[Pathname("lib/hello.rb")]
+        assert_equal 1, changes.size
+        assert_equal "", changes[0].text
+      end
+    end
+  end
+
   def test_handle_job_start_typecheck
     in_tmpdir do
       with_master_read_queue do

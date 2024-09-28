@@ -146,6 +146,42 @@ EOF
     end
   end
 
+  def test_handle_request__file_reset_on_removal
+    in_tmpdir do
+      project = Project.new(steepfile_path: current_dir + "Steepfile")
+      Project::DSL.parse(project, <<EOF)
+target :lib do
+  check "lib"
+  signature "sig"
+end
+EOF
+
+      worker = InteractionWorker.new(project: project, reader: worker_reader, writer: worker_writer)
+
+      worker.handle_request({ method: "initialize", id: 1, params: nil })
+      flush_queue(worker.queue)
+
+      worker.handle_request(
+        {
+          method: FileReset::METHOD,
+          id: 123,
+          params: {
+            uri: "#{file_scheme}#{current_dir}/lib/hello.rb",
+            content: nil
+          }
+        }
+      )
+
+      q = flush_queue(worker.queue)
+      assert_equal 1, q.size
+      assert_instance_of InteractionWorker::ApplyChangeJob, q[0]
+
+      changes = worker.buffered_changes[Pathname("lib/hello.rb")]
+      assert_equal 1, changes.size
+      assert_equal "", changes[0].text
+    end
+  end
+
   def test_handle_request_hover
     in_tmpdir do
       project = Project.new(steepfile_path: current_dir + "Steepfile")
@@ -445,4 +481,3 @@ EOF
     end
   end
 end
-

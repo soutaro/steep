@@ -97,7 +97,7 @@ module Steep
         when CustomMethods::FileReset::METHOD
           params = request[:params] #: CustomMethods::FileReset::params
           uri = params[:uri]
-          text = params[:content]
+          text = params[:content] || ""
           reset_change(uri: uri, text: text)
           queue_job ApplyChangeJob.new
 
