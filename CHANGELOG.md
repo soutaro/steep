@@ -1,5 +1,12 @@
 # CHANGELOG
 
+## 1.8.0 (2024-09-30)
+
+### Type checker core
+
+* RBS validation ([#1239](https://github.com/soutaro/steep/pull/1239))
+* Add special path for `Kernel#class` method ([#1229](https://github.com/soutaro/steep/pull/1229))
+
 ## 1.8.0.pre.2 (2024-09-18)
 
 ### Type checker core
