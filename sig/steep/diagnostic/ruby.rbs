@@ -29,12 +29,6 @@ module Steep
         def detail_lines: () -> String?
       end
 
-      module ResultPrinter2 : _DiagnosticWithResult
-        def result_line: (Subtyping::Result::t result) -> String?
-
-        def detail_lines: () -> String?
-      end
-
       class IncompatibleAssignment < Base
         attr_reader lhs_type: untyped
 

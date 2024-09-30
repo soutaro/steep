@@ -55,6 +55,7 @@ module Steep
         def initialize: (name: RBS::TypeName, args: Array[AST::Types::t], params: Array[Symbol], location: location?) -> void
 
         def header_line: () -> String
+
       end
 
       class UnsatisfiableTypeApplication < Base
@@ -64,9 +65,13 @@ module Steep
 
         attr_reader type_param: Interface::TypeParam
 
-        def initialize: (type_name: RBS::TypeName, type_arg: AST::Types::t, type_param: Interface::TypeParam, location: location?) -> void
+        attr_reader result: Subtyping::Result::t
+
+        def initialize: (type_name: RBS::TypeName, type_arg: AST::Types::t, type_param: Interface::TypeParam, result: Subtyping::Result::t, location: location?) -> void
 
         def header_line: () -> String
+
+        include ResultPrinter2
       end
 
       class InvalidMethodOverload < Base
@@ -148,11 +153,15 @@ module Steep
 
         attr_reader ancestor: RBS::Definition::Ancestor::Instance
 
-        attr_reader relation: Subtyping::Relation[AST::Types::t]
+        attr_reader result: Subtyping::Result::t
 
-        def initialize: (name: RBS::TypeName, ancestor: RBS::Definition::Ancestor::Instance, relation: Subtyping::Relation[AST::Types::t], location: location?) -> void
+        def relation: () -> Subtyping::Relation[AST::Types::t]
+
+        def initialize: (name: RBS::TypeName, ancestor: RBS::Definition::Ancestor::Instance, result: Subtyping::Result::t, location: location?) -> void
 
         def header_line: () -> String
+
+        include ResultPrinter2
       end
 
       # The error is raised when a class variable is defined in both `class_name` and `other_class_name`
@@ -166,7 +175,6 @@ module Steep
 
         def header_line: () -> String
       end
-
 
       class InstanceVariableTypeError < Base
         attr_reader name: Symbol
@@ -257,11 +265,15 @@ module Steep
       class UnsatisfiableGenericsDefaultType < Base
         attr_reader param_name: Symbol
 
-        attr_reader relation: Subtyping::Relation[AST::Types::t]
+        attr_reader result: Subtyping::Result::t
 
-        def initialize: (Symbol param_name, Subtyping::Relation[AST::Types::t] relation, location: RBS::Location[untyped, untyped]?) -> void
+        def initialize: (Symbol param_name, Subtyping::Result::t result, location: RBS::Location[untyped, untyped]?) -> void
 
         def header_line: () -> String
+
+        def relation: () -> Subtyping::Relation[AST::Types::t]
+
+        include ResultPrinter2
       end
 
       def self.from_rbs_error: (RBS::BaseError error, factory: AST::Types::Factory) -> Base

@@ -75,6 +75,7 @@ require "steep/subtyping/constraints"
 require "steep/subtyping/variable_variance"
 
 require "steep/diagnostic/helper"
+require "steep/diagnostic/result_printer2"
 require "steep/diagnostic/ruby"
 require "steep/diagnostic/signature"
 require "steep/diagnostic/lsp_formatter"

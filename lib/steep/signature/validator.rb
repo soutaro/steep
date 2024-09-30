@@ -104,6 +104,7 @@ module Steep
                     unchecked: param.unchecked?,
                     default_type: factory.type_opt(param.default_type)
                   ),
+                  result: result,
                   location: location
                 )
               end
@@ -277,7 +278,7 @@ module Steep
             if result.failure?
               @errors << Diagnostic::Signature::UnsatisfiableGenericsDefaultType.new(
                 type_param.name,
-                relation,
+                result,
                 location: (type_param.default_type || raise).location
               )
             end
@@ -343,7 +344,7 @@ module Steep
                         name: name,
                         location: ancestor.source&.location || raise,
                         ancestor: ancestor,
-                        relation: relation
+                        result: _1
                       )
                     end
                   end
@@ -438,7 +439,7 @@ module Steep
                       name: name,
                       location: ancestor.source&.location || raise,
                       ancestor: ancestor,
-                      relation: relation
+                      result: _1
                     )
                   end
                 end

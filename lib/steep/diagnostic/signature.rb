@@ -105,12 +105,16 @@ module Steep
         attr_reader :type_name
         attr_reader :type_arg
         attr_reader :type_param
+        attr_reader :result
 
-        def initialize(type_name:, type_arg:, type_param:, location:)
+        include ResultPrinter2
+
+        def initialize(type_name:, type_arg:, type_param:, result:, location:)
           super(location: location)
           @type_name = type_name
           @type_arg = type_arg
           @type_param = type_param
+          @result = result
         end
 
         def header_line
@@ -248,14 +252,20 @@ module Steep
       class ModuleSelfTypeError < Base
         attr_reader :name
         attr_reader :ancestor
-        attr_reader :relation
+        attr_reader :result
 
-        def initialize(name:, ancestor:, relation:, location:)
+        include ResultPrinter2
+
+        def initialize(name:, ancestor:, result:, location:)
           super(location: location)
 
           @name = name
           @ancestor = ancestor
-          @relation = relation
+          @result = result
+        end
+
+        def relation
+          result.relation
         end
 
         def header_line
@@ -431,12 +441,18 @@ module Steep
       end
 
       class UnsatisfiableGenericsDefaultType < Base
-        attr_reader :param_name, :relation
+        attr_reader :param_name, :result
 
-        def initialize(param_name, relation, location:)
+        include ResultPrinter2
+
+        def initialize(param_name, result, location:)
           super(location: location)
           @param_name = param_name
-          @relation = relation
+          @result = result
+        end
+
+        def relation
+          result.relation
         end
 
         def header_line
