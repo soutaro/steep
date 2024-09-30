@@ -503,22 +503,6 @@ module Steep
         end
       end
 
-      class IncompatibleMethodTypeAnnotation < Base
-        attr_reader :interface_method
-        attr_reader :annotation_method
-        attr_reader :result
-
-        include ResultPrinter
-
-        def initialize(node:, interface_method:, annotation_method:, result:)
-          raise
-          super(node: node)
-          @interface_method = interface_method
-          @annotation_method = annotation_method
-          @result = result
-        end
-      end
-
       class MethodReturnTypeAnnotationMismatch < Base
         attr_reader :method_type
         attr_reader :annotation_type
@@ -1023,7 +1007,6 @@ module Steep
             IncompatibleAnnotation => :hint,
             IncompatibleArgumentForwarding => :warning,
             IncompatibleAssignment => :hint,
-            IncompatibleMethodTypeAnnotation => :hint,
             IncompatibleTypeCase => :hint,
             InsufficientKeywordArguments => :error,
             InsufficientPositionalArguments => :error,
@@ -1081,7 +1064,6 @@ module Steep
             IncompatibleAnnotation => :error,
             IncompatibleArgumentForwarding => :error,
             IncompatibleAssignment => :error,
-            IncompatibleMethodTypeAnnotation => :error,
             IncompatibleTypeCase => :error,
             InsufficientKeywordArguments => :error,
             InsufficientPositionalArguments => :error,
@@ -1139,7 +1121,6 @@ module Steep
             IncompatibleAnnotation => nil,
             IncompatibleArgumentForwarding => :information,
             IncompatibleAssignment => :hint,
-            IncompatibleMethodTypeAnnotation => nil,
             IncompatibleTypeCase => nil,
             InsufficientKeywordArguments => :information,
             InsufficientPositionalArguments => :information,

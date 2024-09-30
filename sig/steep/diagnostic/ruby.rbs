@@ -289,18 +289,6 @@ module Steep
         def header_line: () -> ::String
       end
 
-      class IncompatibleMethodTypeAnnotation < Base
-        attr_reader interface_method: untyped
-
-        attr_reader annotation_method: untyped
-
-        attr_reader result: untyped
-
-        include ResultPrinter
-
-        def initialize: (node: untyped, interface_method: untyped, annotation_method: untyped, result: untyped) -> void
-      end
-
       class MethodReturnTypeAnnotationMismatch < Base
         attr_reader method_type: untyped
 
