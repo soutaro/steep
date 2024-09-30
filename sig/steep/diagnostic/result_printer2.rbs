@@ -1,0 +1,13 @@
+module Steep
+  module Diagnostic
+    module ResultPrinter2 : _DiagnosticWithResult
+      interface _DiagnosticWithResult
+        def result: () -> Subtyping::Result::t
+      end
+
+      def result_line: (Subtyping::Result::t result) -> String?
+
+      def detail_lines: () -> String?
+    end
+  end
+end

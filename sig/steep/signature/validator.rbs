@@ -42,6 +42,13 @@ module Steep
 
       def validate: () -> void
 
+      # Validate type parameters
+      #
+      # 1. References from default type to optional type parameter is error
+      # 2. The default type should satisfy the upper bound constraint
+      #
+      def validate_type_params: (RBS::TypeName, Array[RBS::AST::TypeParam]) -> void
+
       def validate_type_application_constraints: (RBS::TypeName type_name, Array[RBS::AST::TypeParam] type_params, Array[RBS::Types::t] type_args, location: RBS::Location[untyped, untyped]?) -> void
 
       def validate_type_application: (RBS::Types::t) -> void

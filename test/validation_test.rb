@@ -1176,4 +1176,94 @@ Test: SetValueExtractor[ArraySet]
       end
     end
   end
+
+  def test_validate_type__generics_default_ref
+    with_checker <<~RBS do |checker|
+        module A[A_A, A_B = A_A, A_C = A_B]
+        end
+
+        class B[B_A, B_B = B_A, B_C = B_B]
+        end
+
+        interface _C[C_A, C_B = C_A, C_C = C_B]
+        end
+
+        type d[D_A, D_B = D_A, D_C = D_B] = untyped
+      RBS
+
+      Validator.new(checker: checker).tap do |validator|
+        validator.validate
+        refute_predicate validator.each_error.to_a, :empty?
+
+        assert_any!(validator.each_error) do |error|
+          assert_instance_of Diagnostic::Signature::TypeParamDefaultReferenceError, error
+          assert_equal "The default type of `A_C` cannot depend on optional type parameters", error.header_line
+          assert_equal "A_B", error.location.source
+        end
+
+        assert_any!(validator.each_error) do |error|
+          assert_instance_of Diagnostic::Signature::TypeParamDefaultReferenceError, error
+          assert_equal "The default type of `B_C` cannot depend on optional type parameters", error.header_line
+          assert_equal "B_B", error.location.source
+        end
+
+        assert_any!(validator.each_error) do |error|
+          assert_instance_of Diagnostic::Signature::TypeParamDefaultReferenceError, error
+          assert_equal "The default type of `C_C` cannot depend on optional type parameters", error.header_line
+          assert_equal "C_B", error.location.source
+        end
+
+        assert_any!(validator.each_error) do |error|
+          assert_instance_of Diagnostic::Signature::TypeParamDefaultReferenceError, error
+          assert_equal "The default type of `D_C` cannot depend on optional type parameters", error.header_line
+          assert_equal "D_B", error.location.source
+        end
+      end
+    end
+  end
+
+  def test_validate_type__generics_default_upperbound
+    with_checker <<~RBS do |checker|
+        module A[A_A, A_B < String = A_A, A_C < Array[untyped] = Array[A_A]]
+        end
+
+        class B[B_A, B_B < String = B_A, B_C < Array[untyped] = Array[B_A]]
+        end
+
+        interface _C[C_A, C_B < String = C_A, C_C < Array[untyped] = Array[C_A]]
+        end
+
+        type d[D_A, D_B < String = D_A, D_C < Array[untyped] = Array[D_A]] = untyped
+      RBS
+
+      Validator.new(checker: checker).tap do |validator|
+        validator.validate
+        refute_predicate validator.each_error.to_a, :empty?
+
+        assert_any!(validator.each_error) do |error|
+          assert_instance_of Diagnostic::Signature::UnsatisfiableGenericsDefaultType, error
+          assert_equal "The default type of `A_B` doesn't satisfy upper bound constarint: A_A <: ::String", error.header_line
+          assert_equal "A_A", error.location.source
+        end
+
+        assert_any!(validator.each_error) do |error|
+          assert_instance_of Diagnostic::Signature::UnsatisfiableGenericsDefaultType, error
+          assert_equal "The default type of `B_B` doesn't satisfy upper bound constarint: B_A <: ::String", error.header_line
+          assert_equal "B_A", error.location.source
+        end
+
+        assert_any!(validator.each_error) do |error|
+          assert_instance_of Diagnostic::Signature::UnsatisfiableGenericsDefaultType, error
+          assert_equal "The default type of `C_B` doesn't satisfy upper bound constarint: C_A <: ::String", error.header_line
+          assert_equal "C_A", error.location.source
+        end
+
+        assert_any!(validator.each_error) do |error|
+          assert_instance_of Diagnostic::Signature::UnsatisfiableGenericsDefaultType, error
+          assert_equal "The default type of `D_B` doesn't satisfy upper bound constarint: D_A <: ::String", error.header_line
+          assert_equal "D_A", error.location.source
+        end
+      end
+    end
+  end
 end
