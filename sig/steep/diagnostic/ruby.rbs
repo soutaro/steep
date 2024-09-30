@@ -504,14 +504,6 @@ module Steep
         def header_line: () -> String
       end
 
-      class UnexpectedSplat < Base
-        attr_reader type: untyped
-
-        def initialize: (node: untyped, type: untyped) -> void
-
-        def header_line: () -> "Hash splat is given with object other than `Hash[X, Y]`"
-      end
-
       class ProcTypeExpected < Base
         attr_reader type: untyped
 

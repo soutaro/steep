@@ -780,19 +780,6 @@ module Steep
         end
       end
 
-      class UnexpectedSplat < Base
-        attr_reader :type
-
-        def initialize(node:, type:)
-          super(node: node)
-          @type = type
-        end
-
-        def header_line
-          "Hash splat is given with object other than `Hash[X, Y]`"
-        end
-      end
-
       class ProcTypeExpected < Base
         attr_reader :type
 
@@ -1065,7 +1052,6 @@ module Steep
             UnexpectedJumpValue => :hint,
             UnexpectedKeywordArgument => :error,
             UnexpectedPositionalArgument => :error,
-            UnexpectedSplat => :hint,
             UnexpectedSuper => :information,
             UnexpectedTypeArgument => :hint,
             UnexpectedYield => :warning,
@@ -1124,7 +1110,6 @@ module Steep
             UnexpectedJumpValue => :error,
             UnexpectedKeywordArgument => :error,
             UnexpectedPositionalArgument => :error,
-            UnexpectedSplat => :warning,
             UnexpectedSuper => :error,
             UnexpectedTypeArgument => :error,
             UnexpectedYield => :error,
@@ -1183,7 +1168,6 @@ module Steep
             UnexpectedJumpValue => nil,
             UnexpectedKeywordArgument => :information,
             UnexpectedPositionalArgument => :information,
-            UnexpectedSplat => nil,
             UnexpectedSuper => nil,
             UnexpectedTypeArgument => nil,
             UnexpectedYield => :information,
