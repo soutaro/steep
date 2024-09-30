@@ -449,20 +449,6 @@ module Steep
         def header_line: () -> ::String
       end
 
-      class IncompatibleTypeCase < Base
-        attr_reader var_name: untyped
-
-        attr_reader result: untyped
-
-        attr_reader relation: untyped
-
-        def initialize: (node: untyped, var_name: untyped, result: untyped, relation: untyped) -> void
-
-        include ResultPrinter
-
-        def header_line: () -> ::String
-      end
-
       class UnreachableBranch < Base
         def header_line: () -> String
       end

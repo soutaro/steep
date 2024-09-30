@@ -726,25 +726,6 @@ module Steep
         end
       end
 
-      class IncompatibleTypeCase < Base
-        attr_reader :var_name
-        attr_reader :result
-        attr_reader :relation
-
-        def initialize(node:, var_name:, result:, relation:)
-          super(node: node)
-          @var_name = var_name
-          @result = result
-          @relation = relation
-        end
-
-        include ResultPrinter
-
-        def header_line
-          "Type annotation for branch about `#{var_name}` is incompatible since #{relation} doesn't hold"
-        end
-      end
-
       class UnreachableBranch < Base
         def header_line
           "The branch is unreachable"
@@ -1007,7 +988,6 @@ module Steep
             IncompatibleAnnotation => :hint,
             IncompatibleArgumentForwarding => :warning,
             IncompatibleAssignment => :hint,
-            IncompatibleTypeCase => :hint,
             InsufficientKeywordArguments => :error,
             InsufficientPositionalArguments => :error,
             InsufficientTypeArgument => :hint,
@@ -1064,7 +1044,6 @@ module Steep
             IncompatibleAnnotation => :error,
             IncompatibleArgumentForwarding => :error,
             IncompatibleAssignment => :error,
-            IncompatibleTypeCase => :error,
             InsufficientKeywordArguments => :error,
             InsufficientPositionalArguments => :error,
             InsufficientTypeArgument => :error,
@@ -1121,7 +1100,6 @@ module Steep
             IncompatibleAnnotation => nil,
             IncompatibleArgumentForwarding => :information,
             IncompatibleAssignment => :hint,
-            IncompatibleTypeCase => nil,
             InsufficientKeywordArguments => :information,
             InsufficientPositionalArguments => :information,
             InsufficientTypeArgument => nil,
