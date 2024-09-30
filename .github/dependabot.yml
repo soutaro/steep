@@ -6,6 +6,7 @@ updates:
     open-pull-requests-limit: 3
     allow:
       - dependency-type: all
+    versioning-strategy: auto
 
   - package-ecosystem: bundler
     directory: "/gemfile_steep"
