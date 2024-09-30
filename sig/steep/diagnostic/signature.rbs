@@ -246,6 +246,24 @@ module Steep
         def header_line: () -> String
       end
 
+      class TypeParamDefaultReferenceError < Base
+        attr_reader type_param: RBS::AST::TypeParam
+
+        def initialize: (RBS::AST::TypeParam, location: RBS::Location[untyped, untyped]?) -> void
+
+        def header_line: () -> String
+      end
+
+      class UnsatisfiableGenericsDefaultType < Base
+        attr_reader param_name: Symbol
+
+        attr_reader relation: Subtyping::Relation[AST::Types::t]
+
+        def initialize: (Symbol param_name, Subtyping::Relation[AST::Types::t] relation, location: RBS::Location[untyped, untyped]?) -> void
+
+        def header_line: () -> String
+      end
+
       def self.from_rbs_error: (RBS::BaseError error, factory: AST::Types::Factory) -> Base
     end
   end

@@ -252,6 +252,39 @@ module Steep
         end
       end
 
+      def validate_type_params(type_name, type_params)
+        if error_type_params = RBS::AST::TypeParam.validate(type_params)
+          error_type_params.each do |type_param|
+            default_type = type_param.default_type or raise
+            @errors << Diagnostic::Signature::TypeParamDefaultReferenceError.new(type_param, location: default_type.location)
+          end
+        end
+
+        upper_bounds = type_params.each.with_object({}) do |param, bounds| #$ Hash[Symbol, AST::Types::t?]
+          bounds[param.name] = factory.type_opt(param.upper_bound_type)
+        end
+
+        checker.push_variable_bounds(upper_bounds) do
+          type_params.each do |type_param|
+            param = checker.factory.type_param(type_param)
+
+            default_type = param.default_type or next
+            upper_bound = param.upper_bound or next
+
+            relation = Subtyping::Relation.new(sub_type: default_type, super_type: upper_bound)
+            result = checker.check(relation, self_type: nil, instance_type: nil, class_type: nil, constraints: Subtyping::Constraints.empty)
+
+            if result.failure?
+              @errors << Diagnostic::Signature::UnsatisfiableGenericsDefaultType.new(
+                type_param.name,
+                relation,
+                location: (type_param.default_type || raise).location
+              )
+            end
+          end
+        end
+      end
+
       def validate_one_class_decl(name, entry)
         rescue_validation_errors(name) do
           Steep.logger.debug { "Validating class definition `#{name}`..." }
@@ -419,6 +452,8 @@ module Steep
                 validate_definition_type(definition)
               end
             end
+
+            validate_type_params(name, entry.type_params)
           end
         end
       end
@@ -479,6 +514,8 @@ module Steep
           Steep.logger.debug "Validating interface `#{name}`..."
           Steep.logger.tagged "#{name}" do
             definition = builder.build_interface(name)
+
+            validate_type_params(name, definition.type_params_decl)
 
             upper_bounds = definition.type_params_decl.each.with_object({}) do |param, bounds|
               bounds[param.name] = factory.type_opt(param.upper_bound_type)
@@ -574,6 +611,8 @@ module Steep
               outer = name.namespace.to_type_name
               builder.validate_type_name(outer, entry.decl.location&.aref(:name))
             end
+
+            validate_type_params(name, entry.decl.type_params)
 
             upper_bounds = entry.decl.type_params.each.with_object({}) do |param, bounds|
               bounds[param.name] = factory.type_opt(param.upper_bound_type)

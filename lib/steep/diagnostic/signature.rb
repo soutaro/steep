@@ -417,6 +417,34 @@ module Steep
         end
       end
 
+      class TypeParamDefaultReferenceError < Base
+        attr_reader :type_param
+
+        def initialize(type_param, location:)
+          super(location: location)
+          @type_param = type_param
+        end
+
+        def header_line
+          "The default type of `#{type_param.name}` cannot depend on optional type parameters"
+        end
+      end
+
+      class UnsatisfiableGenericsDefaultType < Base
+        attr_reader :param_name, :relation
+
+        def initialize(param_name, relation, location:)
+          super(location: location)
+          @param_name = param_name
+          @relation = relation
+        end
+
+        def header_line
+          "The default type of `#{param_name}` doesn't satisfy upper bound constarint: #{relation}"
+        end
+      end
+
+
       def self.from_rbs_error(error, factory:)
         case error
         when RBS::ParsingError
@@ -515,6 +543,8 @@ module Steep
           Diagnostic::Signature::InconsistentClassModuleAliasError.new(decl: error.alias_entry.decl)
         when RBS::CyclicClassAliasDefinitionError
           Diagnostic::Signature::CyclicClassAliasDefinitionError.new(decl: error.alias_entry.decl)
+        when RBS::TypeParamDefaultReferenceError
+          Diagnostic::Signature::TypeParamDefaultReferenceError.new(error.type_param, location: error.location)
         else
           raise error
         end
