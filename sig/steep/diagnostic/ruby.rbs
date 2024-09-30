@@ -642,7 +642,7 @@ module Steep
 
         attr_reader block_pair: [Interface::Block?, Interface::Block?]?
 
-        attr_reader result: Subtyping::Result::Base
+        attr_reader result: Subtyping::Result::t
 
         include ResultPrinter2
 
