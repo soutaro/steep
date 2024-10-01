@@ -2192,7 +2192,7 @@ module Steep
                     if first_param = block.type&.params&.first_param
                       var_type = first_param.type #: AST::Types::t
                     else
-                      var_type - AST::Builtin.any_type
+                      var_type = AST::Builtin.any_type
                     end
                   end
                 end
