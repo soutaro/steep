@@ -41,7 +41,7 @@ module Steep
           end
 
           def call(env)
-            local_variable_types = annotations.var_type_annotations.each.with_object({}) do |pair, hash|
+            local_variable_types = annotations.var_type_annotations.each.with_object({}) do |pair, hash| #$ Hash[Symbol, [AST::Types::t, AST::Types::t]]
               name, annotation = pair
               annotation_type = annotations.absolute_type(annotation.type) || annotation.type
 

@@ -53,7 +53,7 @@ module Steep
               nil
             else
               command_line_args
-            end
+            end #: Array[String]?
 
           if ruby_patterns
             loader.each_path_in_patterns(target.source_pattern, ruby_patterns) do |path|
@@ -69,7 +69,7 @@ module Steep
               nil
             else
               command_line_args
-            end
+            end #: Array[String]
 
           if rbs_patterns
             loader.each_path_in_patterns(target.signature_pattern, rbs_patterns) do |path|

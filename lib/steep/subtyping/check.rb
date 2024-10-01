@@ -42,7 +42,7 @@ module Steep
       def push_variable_bounds(params)
         case params
         when Array
-          b = params.each.with_object({}) do |param, hash|
+          b = params.each.with_object({}) do |param, hash| #$ Hash[Symbol, AST::Types::t?]
             hash[param.name] = param.upper_bound
           end
         when Hash
@@ -67,7 +67,7 @@ module Steep
       end
 
       def variable_upper_bounds
-        @bounds.each_with_object({}) do |bounds, hash|
+        @bounds.each_with_object({}) do |bounds, hash| #$ Hash[Symbol, AST::Types::t?]
           hash.merge!(bounds)
         end
       end

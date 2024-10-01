@@ -289,7 +289,7 @@ end
 
 klasses = [
   # Steep::Interface::MethodType
-]
+] #: Array[Class]
 
 klasses.each do |klass|
   klass.instance_eval do
@@ -312,7 +312,7 @@ module GCCounter
         ensure
           Steep.logger.fatal "===== #{title} ==============================="
 
-          klasses = []
+          klasses = [] #: Array[Class]
 
           ObjectSpace.each_object(Class) do |klass|
             if (klass.name || "") =~ regexp
@@ -320,7 +320,7 @@ module GCCounter
             end
           end
 
-          before = {}
+          before = {} #: Hash[Class, Integer]
 
           klasses.each do |klass|
             count = ObjectSpace.each_object(klass).count

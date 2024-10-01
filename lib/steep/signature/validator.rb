@@ -237,7 +237,7 @@ module Steep
 
       def validate_definition_type(definition)
         each_method_type(definition) do |method_type|
-          upper_bounds = method_type.type_params.each.with_object({}) do |param, hash|
+          upper_bounds = method_type.type_params.each.with_object({}) do |param, hash| #$ Hash[Symbol, AST::Types::t?]
             hash[param.name] = factory.type_opt(param.upper_bound_type)
           end
 
@@ -298,7 +298,7 @@ module Steep
 
           Steep.logger.tagged "#{name}" do
             builder.build_instance(name).tap do |definition|
-              upper_bounds = definition.type_params_decl.each.with_object({}) do |param, bounds|
+              upper_bounds = definition.type_params_decl.each.with_object({}) do |param, bounds| #$ Hash[Symbol, AST::Types::t?]
                 bounds[param.name] = factory.type_opt(param.upper_bound_type)
               end
 
@@ -518,7 +518,7 @@ module Steep
 
             validate_type_params(name, definition.type_params_decl)
 
-            upper_bounds = definition.type_params_decl.each.with_object({}) do |param, bounds|
+            upper_bounds = definition.type_params_decl.each.with_object({}) do |param, bounds| #$ Hash[Symbol, AST::Types::t?]
               bounds[param.name] = factory.type_opt(param.upper_bound_type)
             end
 
@@ -615,7 +615,7 @@ module Steep
 
             validate_type_params(name, entry.decl.type_params)
 
-            upper_bounds = entry.decl.type_params.each.with_object({}) do |param, bounds|
+            upper_bounds = entry.decl.type_params.each.with_object({}) do |param, bounds| #$ Hash[Symbol, AST::Types::t?]
               bounds[param.name] = factory.type_opt(param.upper_bound_type)
             end
 

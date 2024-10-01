@@ -1155,7 +1155,7 @@ module Steep
       end
 
       def self.silent
-        @silent ||= ALL.each.with_object({}) do |klass, hash|
+        @silent ||= ALL.each.with_object({}) do |klass, hash| #$ template
           hash[klass] = nil
         end.freeze
       end
