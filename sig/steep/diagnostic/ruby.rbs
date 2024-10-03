@@ -283,18 +283,6 @@ module Steep
         def header_line: () -> ::String
       end
 
-      class IncompatibleMethodTypeAnnotation < Base
-        attr_reader interface_method: untyped
-
-        attr_reader annotation_method: untyped
-
-        attr_reader result: untyped
-
-        include ResultPrinter
-
-        def initialize: (node: untyped, interface_method: untyped, annotation_method: untyped, result: untyped) -> void
-      end
-
       class MethodReturnTypeAnnotationMismatch < Base
         attr_reader method_type: untyped
 
@@ -455,20 +443,6 @@ module Steep
         def header_line: () -> ::String
       end
 
-      class IncompatibleTypeCase < Base
-        attr_reader var_name: untyped
-
-        attr_reader result: untyped
-
-        attr_reader relation: untyped
-
-        def initialize: (node: untyped, var_name: untyped, result: untyped, relation: untyped) -> void
-
-        include ResultPrinter
-
-        def header_line: () -> ::String
-      end
-
       class UnreachableBranch < Base
         def header_line: () -> String
       end
@@ -496,14 +470,6 @@ module Steep
         def initialize: (node: Parser::AST::Node, type: AST::Types::t, ?location: location) -> void
 
         def header_line: () -> String
-      end
-
-      class UnexpectedSplat < Base
-        attr_reader type: untyped
-
-        def initialize: (node: untyped, type: untyped) -> void
-
-        def header_line: () -> "Hash splat is given with object other than `Hash[X, Y]`"
       end
 
       class ProcTypeExpected < Base

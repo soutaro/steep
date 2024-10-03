@@ -458,22 +458,6 @@ module Steep
         end
       end
 
-      class IncompatibleMethodTypeAnnotation < Base
-        attr_reader :interface_method
-        attr_reader :annotation_method
-        attr_reader :result
-
-        include ResultPrinter
-
-        def initialize(node:, interface_method:, annotation_method:, result:)
-          raise
-          super(node: node)
-          @interface_method = interface_method
-          @annotation_method = annotation_method
-          @result = result
-        end
-      end
-
       class MethodReturnTypeAnnotationMismatch < Base
         attr_reader :method_type
         attr_reader :annotation_type
@@ -697,25 +681,6 @@ module Steep
         end
       end
 
-      class IncompatibleTypeCase < Base
-        attr_reader :var_name
-        attr_reader :result
-        attr_reader :relation
-
-        def initialize(node:, var_name:, result:, relation:)
-          super(node: node)
-          @var_name = var_name
-          @result = result
-          @relation = relation
-        end
-
-        include ResultPrinter
-
-        def header_line
-          "Type annotation for branch about `#{var_name}` is incompatible since #{relation} doesn't hold"
-        end
-      end
-
       class UnreachableBranch < Base
         def header_line
           "The branch is unreachable"
@@ -732,19 +697,6 @@ module Steep
 
         def header_line
           "The branch may evaluate to a value of `#{type}` but unreachable"
-        end
-      end
-
-      class UnexpectedSplat < Base
-        attr_reader :type
-
-        def initialize(node:, type:)
-          super(node: node)
-          @type = type
-        end
-
-        def header_line
-          "Hash splat is given with object other than `Hash[X, Y]`"
         end
       end
 
@@ -991,8 +943,6 @@ module Steep
             IncompatibleAnnotation => :hint,
             IncompatibleArgumentForwarding => :warning,
             IncompatibleAssignment => :hint,
-            IncompatibleMethodTypeAnnotation => :hint,
-            IncompatibleTypeCase => :hint,
             InsufficientKeywordArguments => :error,
             InsufficientPositionalArguments => :error,
             InsufficientTypeArgument => :hint,
@@ -1020,7 +970,6 @@ module Steep
             UnexpectedJumpValue => :hint,
             UnexpectedKeywordArgument => :error,
             UnexpectedPositionalArgument => :error,
-            UnexpectedSplat => :hint,
             UnexpectedSuper => :information,
             UnexpectedTypeArgument => :hint,
             UnexpectedYield => :warning,
@@ -1050,8 +999,6 @@ module Steep
             IncompatibleAnnotation => :error,
             IncompatibleArgumentForwarding => :error,
             IncompatibleAssignment => :error,
-            IncompatibleMethodTypeAnnotation => :error,
-            IncompatibleTypeCase => :error,
             InsufficientKeywordArguments => :error,
             InsufficientPositionalArguments => :error,
             InsufficientTypeArgument => :error,
@@ -1079,7 +1026,6 @@ module Steep
             UnexpectedJumpValue => :error,
             UnexpectedKeywordArgument => :error,
             UnexpectedPositionalArgument => :error,
-            UnexpectedSplat => :warning,
             UnexpectedSuper => :error,
             UnexpectedTypeArgument => :error,
             UnexpectedYield => :error,
@@ -1109,8 +1055,6 @@ module Steep
             IncompatibleAnnotation => nil,
             IncompatibleArgumentForwarding => :information,
             IncompatibleAssignment => :hint,
-            IncompatibleMethodTypeAnnotation => nil,
-            IncompatibleTypeCase => nil,
             InsufficientKeywordArguments => :information,
             InsufficientPositionalArguments => :information,
             InsufficientTypeArgument => nil,
@@ -1138,7 +1082,6 @@ module Steep
             UnexpectedJumpValue => nil,
             UnexpectedKeywordArgument => :information,
             UnexpectedPositionalArgument => :information,
-            UnexpectedSplat => nil,
             UnexpectedSuper => nil,
             UnexpectedTypeArgument => nil,
             UnexpectedYield => :information,

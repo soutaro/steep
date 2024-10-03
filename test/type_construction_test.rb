@@ -1331,41 +1331,6 @@ end
     end
   end
 
-  def test_new_method_with_incompatible_annotation
-    with_checker <<-EOF do |checker|
-class A
-  def foo: (String) -> Integer
-end
-    EOF
-
-      source = parse_ruby(<<-RUBY)
-class A
-  # @type method foo: (String) -> String
-  def foo(x)
-    nil
-  end
-end
-      RUBY
-
-      with_standard_construction(checker, source) do |construction, typing|
-        def_node = source.node.children[2]
-        type_name = parse_type("::A").name
-        instance_definition = checker.factory.definition_builder.build_instance(type_name)
-
-        construction.for_new_method(:foo,
-                                    def_node,
-                                    args: def_node.children[1].children,
-                                    self_type: parse_type("::A"),
-                                    definition: instance_definition)
-
-        skip "Skip testing if method type annotation is compatible with interface"
-
-        assert_equal 1, typing.errors.size
-        assert_instance_of Diagnostic::Ruby::IncompatibleMethodTypeAnnotation, typing.errors.first
-      end
-    end
-  end
-
   def test_relative_type_name
     with_checker <<-EOF do |checker|
 class A::String
