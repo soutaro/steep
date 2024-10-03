@@ -49,7 +49,7 @@ test.rb:1:6: [error] Cannot pass a value of type `::Integer` as an argument of t
 
 **severity**:
 
-| all_error | default | strict | lenient | silent |
+| all_error | strict | default | lenient | silent |
 | --- | --- | --- | --- | --- |
 | error | error | error | information | nil |
 
@@ -78,9 +78,9 @@ test.rb:1:7: [error] Cannot allow block body have type `::Integer` because decla
 
 **severity**:
 
-| all_error | default | strict | lenient | silent |
+| all_error | strict | default | lenient | silent |
 | --- | --- | --- | --- | --- |
-| error | warning | error | information | nil |
+| error | error | warning | information | nil |
 
 ## Ruby::BlockTypeMismatch
 
@@ -106,9 +106,9 @@ test.rb:2:14: [error] Cannot pass a value of type `^(::Integer, ::Integer) -> ::
 
 **severity**:
 
-| all_error | default | strict | lenient | silent |
+| all_error | strict | default | lenient | silent |
 | --- | --- | --- | --- | --- |
-| error | warning | error | information | nil |
+| error | error | warning | information | nil |
 
 ## Ruby::BreakTypeMismatch
 
@@ -134,9 +134,9 @@ test.rb:1:10: [error] Cannot break with a value of type `::String` because type 
 
 **severity**:
 
-| all_error | default | strict | lenient | silent |
+| all_error | strict | default | lenient | silent |
 | --- | --- | --- | --- | --- |
-| error | hint | error | hint | nil |
+| error | error | hint | hint | nil |
 
 ## Ruby::DifferentMethodParameterKind
 
@@ -160,9 +160,9 @@ test.rb:2:8: [error] The method parameter has different kind from the declaratio
 
 **severity**:
 
-| all_error | default | strict | lenient | silent |
+| all_error | strict | default | lenient | silent |
 | --- | --- | --- | --- | --- |
-| error | hint | error | nil | nil |
+| error | error | hint | nil | nil |
 
 ## Ruby::FallbackAny
 
@@ -185,9 +185,9 @@ test.rb:1:4: [error] Cannot detect the type of the expression
 
 **severity**:
 
-| all_error | default | strict | lenient | silent |
+| all_error | strict | default | lenient | silent |
 | --- | --- | --- | --- | --- |
-| error | hint | warning | nil | nil |
+| error | warning | hint | nil | nil |
 
 ## Ruby::FalseAssertion
 
@@ -210,9 +210,9 @@ test.rb:2:7: [error] Assertion cannot hold: no relationship between inferred typ
 
 **severity**:
 
-| all_error | default | strict | lenient | silent |
+| all_error | strict | default | lenient | silent |
 | --- | --- | --- | --- | --- |
-| error | hint | error | nil | nil |
+| error | error | hint | nil | nil |
 
 ## Ruby::ImplicitBreakValueMismatch
 
@@ -245,9 +245,9 @@ test.rb:9:2: [error] Breaking without a value may result an error because a valu
 
 **severity**:
 
-| all_error | default | strict | lenient | silent |
+| all_error | strict | default | lenient | silent |
 | --- | --- | --- | --- | --- |
-| error | hint | information | nil | nil |
+| error | information | hint | nil | nil |
 
 ## Ruby::IncompatibleAnnotation
 
@@ -278,9 +278,9 @@ test.rb:5:2: [error] Type annotation about `a` is incompatible since ::String <:
 
 **severity**:
 
-| all_error | default | strict | lenient | silent |
+| all_error | strict | default | lenient | silent |
 | --- | --- | --- | --- | --- |
-| error | hint | error | nil | nil |
+| error | error | hint | nil | nil |
 
 ## Ruby::IncompatibleArgumentForwarding
 
@@ -315,9 +315,9 @@ test.rb:8:8: [error] Cannot forward arguments to `foo`:
 
 **severity**:
 
-| all_error | default | strict | lenient | silent |
+| all_error | strict | default | lenient | silent |
 | --- | --- | --- | --- | --- |
-| error | warning | error | information | nil |
+| error | error | warning | information | nil |
 
 ## Ruby::IncompatibleAssignment
 
@@ -344,9 +344,9 @@ test.rb:2:0: [error] Cannot assign a value of type `::String` to a variable of t
 
 **severity**:
 
-| all_error | default | strict | lenient | silent |
+| all_error | strict | default | lenient | silent |
 | --- | --- | --- | --- | --- |
-| error | hint | error | hint | nil |
+| error | error | hint | hint | nil |
 
 ## Ruby::InsufficientKeywordArguments
 
@@ -372,7 +372,7 @@ test.rb:5:8: [error] More keyword arguments are required: b
 
 **severity**:
 
-| all_error | default | strict | lenient | silent |
+| all_error | strict | default | lenient | silent |
 | --- | --- | --- | --- | --- |
 | error | error | error | information | nil |
 
@@ -400,7 +400,7 @@ test.rb:5:8: [error] More keyword arguments are required: b
 
 **severity**:
 
-| all_error | default | strict | lenient | silent |
+| all_error | strict | default | lenient | silent |
 | --- | --- | --- | --- | --- |
 | error | error | error | information | nil |
 
@@ -431,9 +431,9 @@ test.rb:8:0: [error] Requires 2 types, but 1 given: `[T, S] (T, S) -> [T, S]`
 
 **severity**:
 
-| all_error | default | strict | lenient | silent |
+| all_error | strict | default | lenient | silent |
 | --- | --- | --- | --- | --- |
-| error | hint | error | nil | nil |
+| error | error | hint | nil | nil |
 
 ## Ruby::InvalidIgnoreComment
 
@@ -455,7 +455,7 @@ test.rb:1:0: [error] Invalid ignore comment
 
 **severity**:
 
-| all_error | default | strict | lenient | silent |
+| all_error | strict | default | lenient | silent |
 | --- | --- | --- | --- | --- |
 | error | warning | warning | warning | nil |
 
@@ -484,7 +484,7 @@ test.rb:3:9: [error] Method parameters are incompatible with declaration `(::Int
 
 **severity**:
 
-| all_error | default | strict | lenient | silent |
+| all_error | strict | default | lenient | silent |
 | --- | --- | --- | --- | --- |
 | error | error | error | information | nil |
 
@@ -518,7 +518,7 @@ test.rb:3:6: [error] Cannot allow method body have type `::Integer` because decl
 
 **severity**:
 
-| all_error | default | strict | lenient | silent |
+| all_error | strict | default | lenient | silent |
 | --- | --- | --- | --- | --- |
 | error | error | error | warning | nil |
 
@@ -545,9 +545,9 @@ test.rb:1:6: [error] Cannot find implementation of method `::Foo#bar`
 
 **severity**:
 
-| all_error | default | strict | lenient | silent |
+| all_error | strict | default | lenient | silent |
 | --- | --- | --- | --- | --- |
-| error | nil | hint | nil | nil |
+| error | hint | nil | nil | nil |
 
 ## Ruby::MethodParameterMismatch
 
@@ -574,7 +574,7 @@ test.rb:3:10: [error] The method parameter is incompatible with the declaration 
 
 **severity**:
 
-| all_error | default | strict | lenient | silent |
+| all_error | strict | default | lenient | silent |
 | --- | --- | --- | --- | --- |
 | error | error | error | warning | nil |
 
@@ -609,9 +609,9 @@ test.rb:3:2: [error] Annotation `@type return` specifies type `::Integer` where 
 
 **severity**:
 
-| all_error | default | strict | lenient | silent |
+| all_error | strict | default | lenient | silent |
 | --- | --- | --- | --- | --- |
-| error | hint | error | nil | nil |
+| error | error | hint | nil | nil |
 
 ## Ruby::MultipleAssignmentConversionError
 
@@ -640,9 +640,9 @@ test.rb:8:8: [error] Cannot convert `::WithToAry` to Array or tuple (`#to_ary` r
 
 **severity**:
 
-| all_error | default | strict | lenient | silent |
+| all_error | strict | default | lenient | silent |
 | --- | --- | --- | --- | --- |
-| error | hint | error | nil | nil |
+| error | error | hint | nil | nil |
 
 ## Ruby::NoMethod
 
@@ -664,7 +664,7 @@ test.rb:1:3: [error] Type `::String` does not have method `non_existent_method`
 
 **severity**:
 
-| all_error | default | strict | lenient | silent |
+| all_error | strict | default | lenient | silent |
 | --- | --- | --- | --- | --- |
 | error | error | error | information | nil |
 
@@ -689,9 +689,9 @@ test.rb:2:7: [error] The type hint given to the block is ignored: `(^(::Integer)
 
 **severity**:
 
-| all_error | default | strict | lenient | silent |
+| all_error | strict | default | lenient | silent |
 | --- | --- | --- | --- | --- |
-| error | hint | information | nil | nil |
+| error | information | hint | nil | nil |
 
 ## Ruby::ProcTypeExpected
 
@@ -715,9 +715,9 @@ test.rb:1:4: [error] Proc type is expected but `::Integer` is specified
 
 **severity**:
 
-| all_error | default | strict | lenient | silent |
+| all_error | strict | default | lenient | silent |
 | --- | --- | --- | --- | --- |
-| error | hint | error | nil | nil |
+| error | error | hint | nil | nil |
 
 ## Ruby::RBSError
 
@@ -739,9 +739,9 @@ test.rb:1:9: [error] Cannot find type `::Int`
 
 **severity**:
 
-| all_error | default | strict | lenient | silent |
+| all_error | strict | default | lenient | silent |
 | --- | --- | --- | --- | --- |
-| error | information | error | information | nil |
+| error | error | information | information | nil |
 
 ## Ruby::RequiredBlockMissing
 
@@ -769,7 +769,7 @@ test.rb:7:8: [error] The method cannot be called without a block
 
 **severity**:
 
-| all_error | default | strict | lenient | silent |
+| all_error | strict | default | lenient | silent |
 | --- | --- | --- | --- | --- |
 | error | error | error | hint | nil |
 
@@ -800,7 +800,7 @@ test.rb:3:2: [error] The method cannot return a value of type `::String` because
 
 **severity**:
 
-| all_error | default | strict | lenient | silent |
+| all_error | strict | default | lenient | silent |
 | --- | --- | --- | --- | --- |
 | error | error | error | warning | nil |
 
@@ -834,9 +834,9 @@ test.rb:3:6: [error] Setter method `foo=` cannot have type `::Integer` because d
 
 **severity**:
 
-| all_error | default | strict | lenient | silent |
+| all_error | strict | default | lenient | silent |
 | --- | --- | --- | --- | --- |
-| error | information | error | nil | nil |
+| error | error | information | nil | nil |
 
 ## Ruby::SetterReturnTypeMismatch
 
@@ -868,9 +868,9 @@ test.rb:4:4: [error] The setter method `foo=` cannot return a value of type `::I
 
 **severity**:
 
-| all_error | default | strict | lenient | silent |
+| all_error | strict | default | lenient | silent |
 | --- | --- | --- | --- | --- |
-| error | information | error | nil | nil |
+| error | error | information | nil | nil |
 
 ## Ruby::SyntaxError
 
@@ -892,7 +892,7 @@ test.rb:2:14: [error] SyntaxError: unexpected token $end
 
 **severity**:
 
-| all_error | default | strict | lenient | silent |
+| all_error | strict | default | lenient | silent |
 | --- | --- | --- | --- | --- |
 | error | hint | hint | hint | nil |
 
@@ -926,9 +926,9 @@ test.rb:7:19: [error] Cannot pass a type `::String` as a type parameter `T < ::N
 
 **severity**:
 
-| all_error | default | strict | lenient | silent |
+| all_error | strict | default | lenient | silent |
 | --- | --- | --- | --- | --- |
-| error | hint | error | nil | nil |
+| error | error | hint | nil | nil |
 
 ## Ruby::UnexpectedBlockGiven
 
@@ -950,9 +950,9 @@ test.rb:1:10: [error] The method cannot be called with a block
 
 **severity**:
 
-| all_error | default | strict | lenient | silent |
+| all_error | strict | default | lenient | silent |
 | --- | --- | --- | --- | --- |
-| error | warning | error | hint | nil |
+| error | error | warning | hint | nil |
 
 ## Ruby::UnexpectedDynamicMethod
 
@@ -979,9 +979,9 @@ test.rb:1:6: [error] @dynamic annotation contains unknown method name `foo`
 
 **severity**:
 
-| all_error | default | strict | lenient | silent |
+| all_error | strict | default | lenient | silent |
 | --- | --- | --- | --- | --- |
-| error | hint | information | nil | nil |
+| error | information | hint | nil | nil |
 
 ## Ruby::UnexpectedError
 
@@ -1010,9 +1010,9 @@ test.rb:1:0: [error] UnexpectedError: sig/generated/test.rbs:5:17...5:26: Could 
 
 **severity**:
 
-| all_error | default | strict | lenient | silent |
+| all_error | strict | default | lenient | silent |
 | --- | --- | --- | --- | --- |
-| error | hint | information | hint | nil |
+| error | information | hint | hint | nil |
 
 ## Ruby::UnexpectedJump
 
@@ -1034,9 +1034,9 @@ test.rb:1:0: [error] Cannot jump from here
 
 **severity**:
 
-| all_error | default | strict | lenient | silent |
+| all_error | strict | default | lenient | silent |
 | --- | --- | --- | --- | --- |
-| error | hint | error | nil | nil |
+| error | error | hint | nil | nil |
 
 ## Ruby::UnexpectedJumpValue
 
@@ -1060,9 +1060,9 @@ test.rb:2:2: [error] The value given to next will be ignored
 
 **severity**:
 
-| all_error | default | strict | lenient | silent |
+| all_error | strict | default | lenient | silent |
 | --- | --- | --- | --- | --- |
-| error | hint | error | nil | nil |
+| error | error | hint | nil | nil |
 
 ## Ruby::UnexpectedKeywordArgument
 
@@ -1090,7 +1090,7 @@ test.rb:7:18: [error] Unexpected keyword argument
 
 **severity**:
 
-| all_error | default | strict | lenient | silent |
+| all_error | strict | default | lenient | silent |
 | --- | --- | --- | --- | --- |
 | error | error | error | information | nil |
 
@@ -1120,7 +1120,7 @@ test.rb:7:15: [error] Unexpected positional argument
 
 **severity**:
 
-| all_error | default | strict | lenient | silent |
+| all_error | strict | default | lenient | silent |
 | --- | --- | --- | --- | --- |
 | error | error | error | information | nil |
 
@@ -1148,9 +1148,9 @@ test.rb:3:4: [error] No superclass method `foo` defined
 
 **severity**:
 
-| all_error | default | strict | lenient | silent |
+| all_error | strict | default | lenient | silent |
 | --- | --- | --- | --- | --- |
-| error | information | error | nil | nil |
+| error | error | information | nil | nil |
 
 ## Ruby::UnexpectedTypeArgument
 
@@ -1179,9 +1179,9 @@ test.rb:8:27: [error] Unexpected type arg is given to method type `[T] (T) -> T`
 
 **severity**:
 
-| all_error | default | strict | lenient | silent |
+| all_error | strict | default | lenient | silent |
 | --- | --- | --- | --- | --- |
-| error | hint | error | nil | nil |
+| error | error | hint | nil | nil |
 
 ## Ruby::UnexpectedYield
 
@@ -1208,9 +1208,9 @@ test.rb:4:4: [error] No block given for `yield`
 
 **severity**:
 
-| all_error | default | strict | lenient | silent |
+| all_error | strict | default | lenient | silent |
 | --- | --- | --- | --- | --- |
-| error | warning | error | information | nil |
+| error | error | warning | information | nil |
 
 ## Ruby::UnknownConstant
 
@@ -1232,9 +1232,9 @@ test.rb:1:0: [error] Cannot find the declaration of constant: `FOO`
 
 **severity**:
 
-| all_error | default | strict | lenient | silent |
+| all_error | strict | default | lenient | silent |
 | --- | --- | --- | --- | --- |
-| error | warning | error | hint | nil |
+| error | error | warning | hint | nil |
 
 ## Ruby::UnknownGlobalVariable
 
@@ -1256,9 +1256,9 @@ test.rb:1:0: [error] Cannot find the declaration of global variable: `$foo`
 
 **severity**:
 
-| all_error | default | strict | lenient | silent |
+| all_error | strict | default | lenient | silent |
 | --- | --- | --- | --- | --- |
-| error | warning | error | hint | nil |
+| error | error | warning | hint | nil |
 
 ## Ruby::UnknownInstanceVariable
 
@@ -1284,9 +1284,9 @@ test.rb:3:4: [error] Cannot find the declaration of instance variable: `@foo`
 
 **severity**:
 
-| all_error | default | strict | lenient | silent |
+| all_error | strict | default | lenient | silent |
 | --- | --- | --- | --- | --- |
-| error | information | error | hint | nil |
+| error | error | information | hint | nil |
 
 ## Ruby::UnreachableBranch
 
@@ -1310,9 +1310,9 @@ test.rb:1:0: [error] The branch is unreachable
 
 **severity**:
 
-| all_error | default | strict | lenient | silent |
+| all_error | strict | default | lenient | silent |
 | --- | --- | --- | --- | --- |
-| error | hint | information | hint | nil |
+| error | information | hint | hint | nil |
 
 ## Ruby::UnreachableValueBranch
 
@@ -1340,9 +1340,9 @@ test.rb:5:0: [error] The branch may evaluate to a value of `::String` but unreac
 
 **severity**:
 
-| all_error | default | strict | lenient | silent |
+| all_error | strict | default | lenient | silent |
 | --- | --- | --- | --- | --- |
-| error | hint | warning | hint | nil |
+| error | warning | hint | hint | nil |
 
 ## Ruby::UnresolvedOverloading
 
@@ -1370,7 +1370,7 @@ test.rb:1:0: [error] Cannot find compatible overloading of method `+` of type `:
 
 **severity**:
 
-| all_error | default | strict | lenient | silent |
+| all_error | strict | default | lenient | silent |
 | --- | --- | --- | --- | --- |
 | error | error | error | information | nil |
 
@@ -1409,9 +1409,9 @@ test.rb:9:0: [error] Unsatisfiable constraint `::Integer <: A(1) <: ::String` is
 
 **severity**:
 
-| all_error | default | strict | lenient | silent |
+| all_error | strict | default | lenient | silent |
 | --- | --- | --- | --- | --- |
-| error | hint | error | hint | nil |
+| error | error | hint | hint | nil |
 
 ## Ruby::UnsupportedSyntax
 
@@ -1433,6 +1433,6 @@ test.rb:1:13: [error] Unsupported splat node occurrence
 
 **severity**:
 
-| all_error | default | strict | lenient | silent |
+| all_error | strict | default | lenient | silent |
 | --- | --- | --- | --- | --- |
-| error | hint | information | hint | nil |
+| error | information | hint | hint | nil |
