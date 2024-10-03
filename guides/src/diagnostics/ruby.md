@@ -1,7 +1,7 @@
 # Diagnostics for Ruby
 Each error description will follow the format below.
 
-````
+````markdown
 ## Error Name
 
 **Description**: Brief error description
