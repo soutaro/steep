@@ -926,10 +926,10 @@ module Steep
         def to_s
           required = self.required.map {|ty| ty.to_s }
           optional = self.optional.map {|ty| "?#{ty}" }
-          rest = self.rest ? ["*#{self.rest}"] : []
+          rest = self.rest ? ["*#{self.rest}"] : [] #: Array[String]
           required_keywords = keyword_params.requireds.map {|name, type| "#{name}: #{type}" }
           optional_keywords = keyword_params.optionals.map {|name, type| "?#{name}: #{type}"}
-          rest_keywords = keyword_params.rest ? ["**#{keyword_params.rest}"] : []
+          rest_keywords = keyword_params.rest ? ["**#{keyword_params.rest}"] : [] #: Array[String]
           "(#{(required + optional + rest + required_keywords + optional_keywords + rest_keywords).join(", ")})"
         end
 

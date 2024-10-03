@@ -176,7 +176,7 @@ module Steep
       def pin_local_variables(names)
         names = Set.new(names) if names
 
-        local_variable_types.each.with_object({}) do |pair, hash|
+        local_variable_types.each.with_object({}) do |pair, hash| #$ Hash[Symbol, [AST::Types::t, AST::Types::t?]]
           name, entry = pair
 
           local_variable_name!(name)
@@ -193,7 +193,7 @@ module Steep
       def unpin_local_variables(names)
         names = Set.new(names) if names
 
-        local_var_types = local_variable_types.each.with_object({}) do |pair, hash|
+        local_var_types = local_variable_types.each.with_object({}) do |pair, hash| #$ Hash[Symbol, [AST::Types::t, AST::Types::t?]]
           name, entry = pair
 
           local_variable_name!(name)
@@ -223,7 +223,7 @@ module Steep
 
       def join(*envs)
         # @type var all_lvar_types: Hash[Symbol, Array[AST::Types::t]]
-        all_lvar_types = envs.each_with_object({}) do |env, hash|
+        all_lvar_types = envs.each_with_object({}) do |env, hash| #$ Hash[Symbol, Array[AST::Types::t]]
           env.local_variable_types.each_key do |name|
             hash[name] = []
           end
@@ -244,7 +244,7 @@ module Steep
           .map {|env| Set.new(env.pure_method_calls.each_key) }
           .inject {|s1, s2| s1.intersection(s2) } || Set[]
 
-        pure_call_updates = common_pure_nodes.each_with_object({}) do |node, hash|
+        pure_call_updates = common_pure_nodes.each_with_object({}) do |node, hash| #$ Hash[Parser::AST::Node, [MethodCall::Typed, AST::Types::t]]
           pairs = envs.map {|env| env.pure_method_calls[node] }
           refined_type = AST::Types::Union.build(types: pairs.map {|call, type| type || call.return_type })
 

@@ -34,7 +34,7 @@ module Steep
 
         def project!: () -> Project
 
-        def initialize: (Symbol name, ?sources: Array[String], ?libraries: Array[String], ?signatures: Array[String], ?ignored_sources: Array[String], ?repo_paths: Array[Pathname], ?code_diagnostics_config: ::Hash[untyped, untyped], ?project: Project?, ?collection_config_path: Pathname?) -> void
+        def initialize: (Symbol name, ?sources: Array[String], ?libraries: Array[String], ?signatures: Array[String], ?ignored_sources: Array[String], ?repo_paths: Array[Pathname], ?code_diagnostics_config: Diagnostic::Ruby::template, ?project: Project?, ?collection_config_path: Pathname?) -> void
 
         def initialize_copy: (instance other) -> void
 

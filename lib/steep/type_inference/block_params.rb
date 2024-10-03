@@ -56,9 +56,8 @@ module Steep
         end
 
         def variable_types
-          each_param.with_object({}) do |param, hash|
+          each_param.with_object({}) do |param, hash| #$ Hash[Symbol, AST::Types::t?]
             var_name = param.var || next
-            # @type var hash: Hash[Symbol, AST::Types::t?]
             hash[var_name] = param.type
           end
         end
