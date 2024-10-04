@@ -29,6 +29,12 @@ Gem::Specification.new do |spec|
   spec.executables   = spec.files.grep(%r{^exe/}) { |f| File.basename(f) }
   spec.require_paths = ["lib"]
 
+  if false
+    # This is to let dependabot use 3.3, instead of 3.1.x.
+    # They use `required_ruby_version=` method to detect the Ruby version they use.
+    spec.required_ruby_version = ">= 3.3.0"
+  end
+
   spec.required_ruby_version = '>= 3.1.0'
 
   spec.add_runtime_dependency "parser", ">= 3.1"
