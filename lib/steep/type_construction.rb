@@ -2401,7 +2401,17 @@ module Steep
             if value_node
               type, constr = synthesize(value_node, hint: hint)
 
-              if hint.is_a?(AST::Types::Proc) && value_node.type == :sym
+              if hint.is_a?(AST::Types::Proc) && value_node.type == :send && value_node.children[1] == :method && type.is_a?(AST::Types::Name::Instance) && type.name.to_s == '::Method'
+                method_name = value_node.children[2].children[0]
+                if method = calculate_interface(AST::Types::Self.instance, private: true)&.methods&.[](method_name)
+                  # TODO: select appropriate method type from `method.method_types`.
+                  type = AST::Types::Proc.new(
+                    type: method.method_types.first&.type || raise,
+                    block: nil,
+                    self_type: nil
+                  )
+                end
+              elsif hint.is_a?(AST::Types::Proc) && value_node.type == :sym
                 if hint.one_arg?
                   if hint.type.params
                     # Assumes Symbol#to_proc implementation
