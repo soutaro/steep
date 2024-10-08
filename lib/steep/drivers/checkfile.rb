@@ -165,6 +165,7 @@ module Steep
           request.signature_paths << project.absolute_path(path)
         end
 
+        request.needs_response = true
         master.start_type_check(request: request, last_request: nil, report_progress_threshold: 0)
 
         Steep.logger.info { "Starting type checking: #{request_guid}" }
