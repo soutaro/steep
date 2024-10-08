@@ -125,6 +125,7 @@ require "steep/server/base_worker"
 require "steep/server/worker_process"
 require "steep/server/interaction_worker"
 require "steep/server/type_check_worker"
+require "steep/server/type_check_controller"
 require "steep/server/master"
 
 require "steep/project"

@@ -6,7 +6,7 @@ class MasterTypeCheckControllerTest < Minitest::Test
   include LSPTestHelper
 
   include Steep
-  TypeCheckController = Server::Master::TypeCheckController
+  TypeCheckController = Server::TypeCheckController
   WorkDoneProgress = Server::WorkDoneProgress
 
   def dirs
@@ -64,7 +64,7 @@ end
       project = Project.new(steepfile_path: steepfile)
       Project::DSL.parse(project, steepfile.read)
 
-      controller = Server::Master::TypeCheckController.new(project: project)
+      controller = Server::TypeCheckController.new(project: project)
 
       assert_equal project, controller.project
       assert_equal Set[], controller.priority_paths
@@ -104,7 +104,7 @@ end
       project = Project.new(steepfile_path: steepfile)
       Project::DSL.parse(project, steepfile.read)
 
-      controller = Server::Master::TypeCheckController.new(project: project)
+      controller = Server::TypeCheckController.new(project: project)
       controller.load(command_line_args: []) {}
 
       controller.target_paths[0].tap do |paths|
@@ -137,7 +137,7 @@ end
       project = Project.new(steepfile_path: steepfile)
       Project::DSL.parse(project, steepfile.read)
 
-      controller = Server::Master::TypeCheckController.new(project: project)
+      controller = Server::TypeCheckController.new(project: project)
       controller.load(command_line_args: []) {}
       controller.changed_paths.clear()
 
@@ -177,7 +177,7 @@ end
       project = Project.new(steepfile_path: steepfile)
       Project::DSL.parse(project, steepfile.read)
 
-      controller = Server::Master::TypeCheckController.new(project: project)
+      controller = Server::TypeCheckController.new(project: project)
       controller.load(command_line_args: []) {}
       controller.changed_paths.clear()
 
@@ -213,7 +213,7 @@ end
       project = Project.new(steepfile_path: steepfile)
       Project::DSL.parse(project, steepfile.read)
 
-      controller = Server::Master::TypeCheckController.new(project: project)
+      controller = Server::TypeCheckController.new(project: project)
       controller.load(command_line_args: []) {}
       controller.changed_paths.clear()
 
@@ -241,7 +241,7 @@ end
       project = Project.new(steepfile_path: steepfile)
       Project::DSL.parse(project, steepfile.read)
 
-      controller = Server::Master::TypeCheckController.new(project: project)
+      controller = Server::TypeCheckController.new(project: project)
       controller.load(command_line_args: []) {}
       controller.changed_paths.clear()
 
@@ -278,7 +278,7 @@ end
       project = Project.new(steepfile_path: steepfile)
       Project::DSL.parse(project, steepfile.read)
 
-      controller = Server::Master::TypeCheckController.new(project: project)
+      controller = Server::TypeCheckController.new(project: project)
       controller.load(command_line_args: []) {}
       controller.changed_paths.clear()
 
@@ -319,14 +319,14 @@ end
       project = Project.new(steepfile_path: steepfile)
       Project::DSL.parse(project, steepfile.read)
 
-      controller = Server::Master::TypeCheckController.new(project: project)
+      controller = Server::TypeCheckController.new(project: project)
       controller.load(command_line_args: []) {}
       controller.changed_paths.clear()
 
       controller.update_priority(open: current_dir + "lib/customer.rb")
       controller.push_changes(current_dir + "lib/customer.rb")
 
-      last_request = Server::Master::TypeCheckRequest.new(guid: "last_guid", progress: WorkDoneProgress.new("guid") {})
+      last_request = Server::TypeCheckRequest.new(guid: "last_guid", progress: WorkDoneProgress.new("guid") {})
       last_request.code_paths << current_dir + "lib/account.rb"
       last_request.signature_paths << current_dir + "sig/account.rbs"
       last_request.library_paths << RBS::EnvironmentLoader::DEFAULT_CORE_ROOT + "integer.rbs"
