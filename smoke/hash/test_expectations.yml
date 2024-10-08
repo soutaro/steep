@@ -48,7 +48,7 @@
         line: 10
         character: 37
     severity: ERROR
-    message: Type `(::Integer | ::String)` does not have method `abcdefg`
+    message: Type `(::Integer | ::String | nil)` does not have method `abcdefg`
     code: Ruby::NoMethod
 - file: d.rb
   diagnostics:

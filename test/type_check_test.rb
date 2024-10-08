@@ -2400,4 +2400,68 @@ class TypeCheckTest < Minitest::Test
       YAML
     )
   end
+
+  def test_implicitly_returns_nil
+    run_type_check_test(
+      signatures: {
+        "a.rbs" => <<~RBS
+          class Foo
+            %a{implicitly-returns-nil} def foo: () -> Integer
+
+            def bar: (Integer) -> String
+                   | %a{implicitly-returns-nil} () -> String
+
+            alias baz foo
+          end
+        RBS
+      },
+      code: {
+        "a.rb" => <<~RUBY
+          foo = Foo.new
+          foo.foo + 1
+
+          foo.bar(1) + ""
+
+          foo.bar() + ""
+
+          foo.baz + 1
+        RUBY
+      },
+      expectations: <<~YAML
+        ---
+        - file: a.rb
+          diagnostics:
+          - range:
+              start:
+                line: 2
+                character: 8
+              end:
+                line: 2
+                character: 9
+            severity: ERROR
+            message: Type `(::Integer | nil)` does not have method `+`
+            code: Ruby::NoMethod
+          - range:
+              start:
+                line: 6
+                character: 10
+              end:
+                line: 6
+                character: 11
+            severity: ERROR
+            message: Type `(::String | nil)` does not have method `+`
+            code: Ruby::NoMethod
+          - range:
+              start:
+                line: 8
+                character: 8
+              end:
+                line: 8
+                character: 9
+            severity: ERROR
+            message: Type `(::Integer | nil)` does not have method `+`
+            code: Ruby::NoMethod
+      YAML
+    )
+  end
 end

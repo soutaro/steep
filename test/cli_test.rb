@@ -583,7 +583,7 @@ gem 'steep', path: "#{Bundler.root}"
 GEMFILE
 
       push_env({ "BUNDLE_GEMFILE" => nil }) do
-        sh!("bundle", "install")
+        sh!("bundle", "install") rescue return skip("binstub test requires bundler works")
         stdout = sh!("bundle", "exec", "steep", "binstub")
         assert_equal "Successfully generated executable bin/steep 🎉\n", stdout
         assert_equal <<'EOF', (current_dir + "bin/steep").read
@@ -627,7 +627,7 @@ GEMFILE
       (current_dir + "bin/steep").write("# test")
 
       push_env({ "BUNDLE_GEMFILE" => nil }) do
-        sh!("bundle", "install")
+        sh!("bundle", "install") rescue return skip("binstub test requires bundler works")
         stdout = sh!("bundle", "exec", "steep", "binstub")
 
         assert_equal "⚠️ bin/steep already exists. Bye! 👋\n", stdout
@@ -648,7 +648,7 @@ GEMFILE
       (current_dir + "bin/steep").write("# test")
 
       push_env({ "BUNDLE_GEMFILE" => nil }) do
-        sh!("bundle", "install")
+        sh!("bundle", "install") rescue return skip("binstub test requires bundler works")
         stdout = sh!("bundle", "exec", "steep", "binstub", "--force")
 
         assert_equal "bin/steep already exists. Overwriting...\nSuccessfully generated executable bin/steep 🎉\n", stdout
