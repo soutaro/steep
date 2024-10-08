@@ -1,5 +1,11 @@
 # CHANGELOG
 
+## 1.8.1 (2024-10-08)
+
+### Language server
+
+* Skip sending response to `$/steep/typecheck` request from `steep langserver` ([#1268](https://github.com/soutaro/steep/pull/1268), backport [#1267](https://github.com/soutaro/steep/pull/1267))
+
 ## 1.8.0 (2024-09-30)
 
 ### Type checker core
