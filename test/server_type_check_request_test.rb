@@ -1,6 +1,6 @@
 require_relative "test_helper"
 
-class MasterTypeCheckRequestTest < Minitest::Test
+class ServerTypeCheckRequestTest < Minitest::Test
   include TestHelper
   include ShellHelper
   include LSPTestHelper
