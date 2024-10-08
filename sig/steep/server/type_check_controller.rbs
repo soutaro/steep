@@ -1,57 +1,5 @@
 module Steep
   module Server
-    class TypeCheckRequest
-      attr_reader guid: String
-
-      attr_reader work_done_progress: WorkDoneProgress
-
-      attr_reader library_paths: Set[Pathname]
-
-      attr_reader signature_paths: Set[Pathname]
-
-      attr_reader code_paths: Set[Pathname]
-
-      attr_reader priority_paths: Set[Pathname]
-
-      attr_reader checked_paths: Set[Pathname]
-
-      attr_reader started_at: Time
-
-      # `true` to send a response to the client
-      #
-      # Defaults to `false`.
-      #
-      attr_accessor needs_response: bool
-
-      def initialize: (guid: String, progress: WorkDoneProgress) -> void
-
-      def uri: (Pathname path) -> URI::File
-
-      type json = { guid: String, library_uris: Array[String], signature_uris: Array[String], code_uris: Array[String], priority_uris: Array[String] }
-
-      def as_json: (assignment: Services::PathAssignment) -> json
-
-      def total: () -> Integer
-
-      def percentage: () -> Integer
-
-      def all_paths: () -> Set[Pathname]
-
-      def checking_path?: (Pathname path) -> bool
-
-      def checked: (Pathname path) -> void
-
-      def finished?: () -> bool
-
-      def unchecked_paths: () -> Set[Pathname]
-
-      def unchecked_code_paths: () -> Set[Pathname]
-
-      def unchecked_library_paths: () -> Set[Pathname]
-
-      def unchecked_signature_paths: () -> Set[Pathname]
-    end
-
     # TypeCheckController remembers changed files, keep track of open editors, and make a TypeCheckRequest that contains list of all files to be type checked
     #
     # ```rb
@@ -63,6 +11,58 @@ module Steep
     # ```
     #
     class TypeCheckController
+      class Request
+        attr_reader guid: String
+
+        attr_reader work_done_progress: WorkDoneProgress
+
+        attr_reader library_paths: Set[Pathname]
+
+        attr_reader signature_paths: Set[Pathname]
+
+        attr_reader code_paths: Set[Pathname]
+
+        attr_reader priority_paths: Set[Pathname]
+
+        attr_reader checked_paths: Set[Pathname]
+
+        attr_reader started_at: Time
+
+        # `true` to send a response to the client
+        #
+        # Defaults to `false`.
+        #
+        attr_accessor needs_response: bool
+
+        def initialize: (guid: String, progress: WorkDoneProgress) -> void
+
+        def uri: (Pathname path) -> URI::File
+
+        type json = { guid: String, library_uris: Array[String], signature_uris: Array[String], code_uris: Array[String], priority_uris: Array[String] }
+
+        def as_json: (assignment: Services::PathAssignment) -> json
+
+        def total: () -> Integer
+
+        def percentage: () -> Integer
+
+        def all_paths: () -> Set[Pathname]
+
+        def checking_path?: (Pathname path) -> bool
+
+        def checked: (Pathname path) -> void
+
+        def finished?: () -> bool
+
+        def unchecked_paths: () -> Set[Pathname]
+
+        def unchecked_code_paths: () -> Set[Pathname]
+
+        def unchecked_library_paths: () -> Set[Pathname]
+
+        def unchecked_signature_paths: () -> Set[Pathname]
+      end
+
       attr_reader project: Project
 
       attr_reader priority_paths: Set[Pathname]
@@ -137,7 +137,7 @@ module Steep
       #
       # Returns `nil` when no type checking is needed.
       #
-      def make_request: (?guid: String, ?last_request: TypeCheckRequest?, ?include_unchanged: bool, progress: WorkDoneProgress) -> TypeCheckRequest?
+      def make_request: (?guid: String, ?last_request: Request?, ?include_unchanged: bool, progress: WorkDoneProgress) -> Request?
     end
   end
 end

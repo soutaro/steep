@@ -156,7 +156,7 @@ module Steep
 
         request_guid = master.fresh_request_id()
         progress = master.work_done_progress(request_guid)
-        request = Server::TypeCheckRequest.new(guid: request_guid, progress: progress)
+        request = Server::TypeCheckController::Request.new(guid: request_guid, progress: progress)
 
         target_paths.each do |path|
           request.code_paths << project.absolute_path(path)

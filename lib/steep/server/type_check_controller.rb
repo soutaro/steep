@@ -1,87 +1,87 @@
 module Steep
   module Server
-    class TypeCheckRequest
-      attr_reader :guid
-      attr_reader :library_paths
-      attr_reader :signature_paths
-      attr_reader :code_paths
-      attr_reader :priority_paths
-      attr_reader :checked_paths
-      attr_reader :work_done_progress
-      attr_reader :started_at
-      attr_accessor :needs_response
+    class TypeCheckController
+      class Request
+        attr_reader :guid
+        attr_reader :library_paths
+        attr_reader :signature_paths
+        attr_reader :code_paths
+        attr_reader :priority_paths
+        attr_reader :checked_paths
+        attr_reader :work_done_progress
+        attr_reader :started_at
+        attr_accessor :needs_response
 
-      def initialize(guid:, progress:)
-        @guid = guid
-        @library_paths = Set[]
-        @signature_paths = Set[]
-        @code_paths = Set[]
-        @priority_paths = Set[]
-        @checked_paths = Set[]
-        @work_done_progress = progress
-        @started_at = Time.now
-        @needs_response = false
-      end
+        def initialize(guid:, progress:)
+          @guid = guid
+          @library_paths = Set[]
+          @signature_paths = Set[]
+          @code_paths = Set[]
+          @priority_paths = Set[]
+          @checked_paths = Set[]
+          @work_done_progress = progress
+          @started_at = Time.now
+          @needs_response = false
+        end
 
-      def uri(path)
-        Steep::PathHelper.to_uri(path)
-      end
+        def uri(path)
+          Steep::PathHelper.to_uri(path)
+        end
 
-      def as_json(assignment:)
-        {
-          guid: guid,
-          library_uris: library_paths.grep(assignment).map {|path| uri(path).to_s },
-          signature_uris: signature_paths.grep(assignment).map {|path| uri(path).to_s },
-          code_uris: code_paths.grep(assignment).map {|path| uri(path).to_s },
-          priority_uris: priority_paths.map {|path| uri(path).to_s }
-        }
-      end
+        def as_json(assignment:)
+          {
+            guid: guid,
+            library_uris: library_paths.grep(assignment).map {|path| uri(path).to_s },
+            signature_uris: signature_paths.grep(assignment).map {|path| uri(path).to_s },
+            code_uris: code_paths.grep(assignment).map {|path| uri(path).to_s },
+            priority_uris: priority_paths.map {|path| uri(path).to_s }
+          }
+        end
 
-      def total
-        library_paths.size + signature_paths.size + code_paths.size
-      end
+        def total
+          library_paths.size + signature_paths.size + code_paths.size
+        end
 
-      def percentage
-        checked_paths.size * 100 / total
-      end
+        def percentage
+          checked_paths.size * 100 / total
+        end
 
-      def all_paths
-        library_paths + signature_paths + code_paths
-      end
+        def all_paths
+          library_paths + signature_paths + code_paths
+        end
 
-      def checking_path?(path)
-        [library_paths, signature_paths, code_paths].any? do |paths|
-          paths.include?(path)
+        def checking_path?(path)
+          [library_paths, signature_paths, code_paths].any? do |paths|
+            paths.include?(path)
+          end
+        end
+
+        def checked(path)
+          raise unless checking_path?(path)
+          checked_paths << path
+        end
+
+        def finished?
+          total <= checked_paths.size
+        end
+
+        def unchecked_paths
+          all_paths - checked_paths
+        end
+
+        def unchecked_code_paths
+          code_paths - checked_paths
+        end
+
+        def unchecked_library_paths
+          library_paths - checked_paths
+        end
+
+        def unchecked_signature_paths
+          signature_paths - checked_paths
         end
       end
 
-      def checked(path)
-        raise unless checking_path?(path)
-        checked_paths << path
-      end
-
-      def finished?
-        total <= checked_paths.size
-      end
-
-      def unchecked_paths
-        all_paths - checked_paths
-      end
-
-      def unchecked_code_paths
-        code_paths - checked_paths
-      end
-
-      def unchecked_library_paths
-        library_paths - checked_paths
-      end
-
-      def unchecked_signature_paths
-        signature_paths - checked_paths
-      end
-    end
-
-    class TypeCheckController
       attr_reader :project
       attr_reader :priority_paths
       attr_reader :changed_paths
@@ -211,7 +211,7 @@ module Steep
       def make_request(guid: SecureRandom.uuid, last_request: nil, include_unchanged: false, progress:)
         return if changed_paths.empty? && !include_unchanged
 
-        TypeCheckRequest.new(guid: guid, progress: progress).tap do |request|
+        TypeCheckController::Request.new(guid: guid, progress: progress).tap do |request|
           if last_request
             request.library_paths.merge(last_request.unchecked_library_paths)
             request.signature_paths.merge(last_request.unchecked_signature_paths)

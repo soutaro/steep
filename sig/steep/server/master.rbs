@@ -137,7 +137,7 @@ module Steep
       #
       attr_reader write_queue: Thread::SizedQueue
 
-      attr_reader current_type_check_request: TypeCheckRequest?
+      attr_reader current_type_check_request: TypeCheckController::Request?
 
       attr_reader controller: TypeCheckController
 
@@ -193,10 +193,10 @@ module Steep
 
       def process_message_from_worker: (untyped message, worker: WorkerProcess) -> void
 
-      def start_type_check: (last_request: TypeCheckRequest?, progress: WorkDoneProgress, ?include_unchanged: bool, ?report_progress_threshold: Integer, needs_response: bool) -> void
-                          | (request: TypeCheckRequest, last_request: TypeCheckRequest?, ?report_progress_threshold: Integer) -> void
+      def start_type_check: (last_request: TypeCheckController::Request?, progress: WorkDoneProgress, ?include_unchanged: bool, ?report_progress_threshold: Integer, needs_response: bool) -> void
+                          | (request: TypeCheckController::Request, last_request: TypeCheckController::Request?, ?report_progress_threshold: Integer) -> void
 
-      def finish_type_check: (TypeCheckRequest) -> void
+      def finish_type_check: (TypeCheckController::Request) -> void
 
       def on_type_check_update: (guid: String, path: Pathname) -> void
 

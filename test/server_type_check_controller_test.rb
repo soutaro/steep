@@ -326,7 +326,7 @@ end
       controller.update_priority(open: current_dir + "lib/customer.rb")
       controller.push_changes(current_dir + "lib/customer.rb")
 
-      last_request = Server::TypeCheckRequest.new(guid: "last_guid", progress: WorkDoneProgress.new("guid") {})
+      last_request = Server::TypeCheckController::Request.new(guid: "last_guid", progress: WorkDoneProgress.new("guid") {})
       last_request.code_paths << current_dir + "lib/account.rb"
       last_request.signature_paths << current_dir + "sig/account.rbs"
       last_request.library_paths << RBS::EnvironmentLoader::DEFAULT_CORE_ROOT + "integer.rbs"

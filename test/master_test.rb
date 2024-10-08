@@ -9,7 +9,6 @@ class MasterTest < Minitest::Test
 
   Master = Server::Master
   TypeCheckController = Server::TypeCheckController
-  TypeCheckRequest = Server::TypeCheckRequest
   WorkDoneProgress = Server::WorkDoneProgress
 
   DEFAULT_CLI_LSP_INITIALIZE_PARAMS = Drivers::Utils::DriverHelper::DEFAULT_CLI_LSP_INITIALIZE_PARAMS
@@ -50,7 +49,7 @@ end
       progress = master.work_done_progress("guid")
       master.start_type_check(last_request: nil, progress: progress, report_progress_threshold: 0, needs_response: true)
 
-      assert_instance_of Server::TypeCheckRequest, master.current_type_check_request
+      assert_instance_of Server::TypeCheckController::Request, master.current_type_check_request
 
       jobs = flush_queue(master.write_queue)
 
@@ -116,7 +115,7 @@ end
       progress = master.work_done_progress("guid")
       master.start_type_check(last_request: nil, progress: progress, report_progress_threshold: 0, needs_response: true)
 
-      assert_instance_of Server::TypeCheckRequest, master.current_type_check_request
+      assert_instance_of Server::TypeCheckController::Request, master.current_type_check_request
 
       jobs = flush_queue(master.write_queue)
 
@@ -301,7 +300,7 @@ end
       progress = master.work_done_progress("guid")
       master.start_type_check(last_request: nil, progress: progress, report_progress_threshold: 0, needs_response: true)
 
-      assert_instance_of Server::TypeCheckRequest, master.current_type_check_request
+      assert_instance_of Server::TypeCheckController::Request, master.current_type_check_request
 
       flush_queue(master.write_queue)
 

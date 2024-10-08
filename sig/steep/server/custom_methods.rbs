@@ -49,7 +49,7 @@ module Steep
       module TypeCheck__Start
         METHOD: String
 
-        type params = TypeCheckRequest::json
+        type params = TypeCheckController::Request::json
 
         def self.notification: (params) -> untyped
       end
