@@ -282,6 +282,7 @@ module Steep
                 method_type = factory.method_type(type_def.type)
                 method_type = replace_primitive_method(method_name, type_def, method_type)
                 method_type = replace_kernel_class(method_name, type_def, method_type) { AST::Builtin::Class.instance_type }
+                method_type = add_implicitly_returns_nil(type_def.annotations, method_type)
                 Shape::MethodOverload.new(method_type, [type_def])
               end
 
@@ -315,6 +316,7 @@ module Steep
                 if type_name.class?
                   method_type = replace_kernel_class(method_name, type_def, method_type) { AST::Types::Name::Singleton.new(name: type_name) }
                 end
+                method_type = add_implicitly_returns_nil(type_def.annotations, method_type)
                 Shape::MethodOverload.new(method_type, [type_def])
               end
 
@@ -821,6 +823,17 @@ module Steep
         end
 
         method_type
+      end
+
+      def add_implicitly_returns_nil(annotations, method_type)
+        if annotations.find { _1.string == "implicitly-returns-nil" }
+          return_type = method_type.type.return_type
+          method_type = method_type.with(
+            type: method_type.type.with(return_type: AST::Types::Union.build(types: [return_type, AST::Builtin.nil_type]))
+          )
+        else
+          method_type
+        end
       end
     end
   end
