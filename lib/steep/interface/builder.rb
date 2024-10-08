@@ -586,7 +586,7 @@ module Steep
 
       def record_shape(record)
         all_key_type = AST::Types::Union.build(
-          types: record.elements.each_key.map {|value| AST::Types::Literal.new(value: value) }
+          types: record.elements.each_key.map {|value| AST::Types::Literal.new(value: value).back_type }
         )
         all_value_type = AST::Types::Union.build(types: record.elements.values)
         hash_type = AST::Builtin::Hash.instance_type(all_key_type, all_value_type)

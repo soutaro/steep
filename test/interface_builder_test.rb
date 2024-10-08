@@ -337,7 +337,7 @@ end
 
         assert_includes(shape.methods[:[]].method_types, parse_method_type("(:id) -> ::Integer"))
         assert_includes(shape.methods[:[]].method_types, parse_method_type("(:name) -> ::String"))
-        assert_includes(shape.methods[:[]].method_types, parse_method_type("(:name | :id) -> (::String | ::Integer)"))
+        assert_includes(shape.methods[:[]].method_types, parse_method_type("(::Symbol) -> (::String | ::Integer)"))
 
         assert_includes(shape.methods[:[]=].method_types, parse_method_type("(:id, ::Integer) -> ::Integer"))
         assert_includes(shape.methods[:[]=].method_types, parse_method_type("(:name, ::String) -> ::String"))
@@ -346,8 +346,8 @@ end
         assert_includes(shape.methods[:fetch].method_types, parse_method_type("(:name) -> ::String"))
         assert_includes(shape.methods[:fetch].method_types, parse_method_type("[T] (:id, T) -> (::Integer | T)"))
         assert_includes(shape.methods[:fetch].method_types, parse_method_type("[T] (:name, T) -> (::String | T)"))
-        assert_includes(shape.methods[:fetch].method_types, parse_method_type("[T] (:id) { (:id | :name) -> T } -> (::Integer | T)"))
-        assert_includes(shape.methods[:fetch].method_types, parse_method_type("[T] (:name) { (:id | :name) -> T } -> (::String | T)"))
+        assert_includes(shape.methods[:fetch].method_types, parse_method_type("[T] (:id) { (::Symbol) -> T } -> (::Integer | T)"))
+        assert_includes(shape.methods[:fetch].method_types, parse_method_type("[T] (:name) { (::Symbol) -> T } -> (::String | T)"))
       end
 
       builder.shape(parse_type("{ id: ::Integer, name: self }"), config).tap do |shape|
@@ -355,7 +355,7 @@ end
 
         assert_includes(shape.methods[:[]].method_types, parse_method_type("(:id) -> ::Integer"))
         assert_includes(shape.methods[:[]].method_types, parse_method_type("(:name) -> self"))
-        assert_includes(shape.methods[:[]].method_types, parse_method_type("(:name | :id) -> (self | ::Integer)"))
+        assert_includes(shape.methods[:[]].method_types, parse_method_type("(::Symbol) -> (self | ::Integer)"))
 
         assert_includes(shape.methods[:[]=].method_types, parse_method_type("(:id, ::Integer) -> ::Integer"))
         assert_includes(shape.methods[:[]=].method_types, parse_method_type("(:name, self) -> self"))
@@ -364,8 +364,8 @@ end
         assert_includes(shape.methods[:fetch].method_types, parse_method_type("(:name) -> self"))
         assert_includes(shape.methods[:fetch].method_types, parse_method_type("[T] (:id, T) -> (::Integer | T)"))
         assert_includes(shape.methods[:fetch].method_types, parse_method_type("[T] (:name, T) -> (self | T)"))
-        assert_includes(shape.methods[:fetch].method_types, parse_method_type("[T] (:id) { (:id | :name) -> T } -> (::Integer | T)"))
-        assert_includes(shape.methods[:fetch].method_types, parse_method_type("[T] (:name) { (:id | :name) -> T } -> (self | T)"))
+        assert_includes(shape.methods[:fetch].method_types, parse_method_type("[T] (:id) { (::Symbol) -> T } -> (::Integer | T)"))
+        assert_includes(shape.methods[:fetch].method_types, parse_method_type("[T] (:name) { (::Symbol) -> T } -> (self | T)"))
       end
     end
   end
