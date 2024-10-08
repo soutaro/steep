@@ -129,5 +129,5 @@
         line: 11
         character: 5
     severity: ERROR
-    message: Type `(::Integer | ::String)` does not have method `foo`
+    message: Type `(::Integer | ::String | nil)` does not have method `foo`
     code: Ruby::NoMethod
