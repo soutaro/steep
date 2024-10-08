@@ -12,6 +12,7 @@ module Steep
         attr_reader :checked_paths
         attr_reader :work_done_progress
         attr_reader :started_at
+        attr_accessor :needs_response
 
         def initialize(guid:, progress:)
           @guid = guid
@@ -22,6 +23,7 @@ module Steep
           @checked_paths = Set[]
           @work_done_progress = progress
           @started_at = Time.now
+          @needs_response = false
         end
 
         def uri(path)
@@ -732,7 +734,8 @@ module Steep
                   start_type_check(
                     last_request: last_request,
                     include_unchanged: true,
-                    progress: work_done_progress(guid)
+                    progress: work_done_progress(guid),
+                    needs_response: false
                   )
                 end
               )
@@ -755,7 +758,8 @@ module Steep
 
                     start_type_check(
                       last_request: last_request,
-                      progress: work_done_progress(guid)
+                      progress: work_done_progress(guid),
+                      needs_response: false
                     )
                   end
                 )
@@ -859,7 +863,8 @@ module Steep
           start_type_check(
             last_request: current_type_check_request,
             include_unchanged: true,
-            progress: work_done_progress(guid || SecureRandom.uuid)
+            progress: work_done_progress(guid || SecureRandom.uuid),
+            needs_response: true
           )
 
         when "$/ping"
@@ -920,25 +925,27 @@ module Steep
         finished_at = Time.now
         duration = finished_at - request.started_at
 
-        enqueue_write_job(
-          SendMessageJob.to_client(
-            message: CustomMethods::TypeCheck.response(
-              request.guid,
-              {
-                guid: request.guid,
-                completed: request.finished?,
-                started_at: request.started_at.iso8601,
-                finished_at: finished_at.iso8601,
-                duration: duration.to_i
-              }
+        if request.needs_response
+          enqueue_write_job(
+            SendMessageJob.to_client(
+              message: CustomMethods::TypeCheck.response(
+                request.guid,
+                {
+                  guid: request.guid,
+                  completed: request.finished?,
+                  started_at: request.started_at.iso8601,
+                  finished_at: finished_at.iso8601,
+                  duration: duration.to_i
+                }
+              )
             )
           )
-        )
-
-        nil
+        else
+          Steep.logger.debug { "Skip sending response to #{CustomMethods::TypeCheck::METHOD} request" }
+        end
       end
 
-      def start_type_check(request: nil, last_request:, progress: nil, include_unchanged: false, report_progress_threshold: 10)
+      def start_type_check(request: nil, last_request:, progress: nil, include_unchanged: false, report_progress_threshold: 10, needs_response: nil)
         Steep.logger.tagged "#start_type_check(#{progress&.guid || request&.guid}, #{last_request&.guid}" do
           if last_request
             finish_type_check(last_request)
@@ -947,6 +954,7 @@ module Steep
           unless request
             progress or raise
             request = controller.make_request(guid: progress.guid, include_unchanged: include_unchanged, progress: progress) or return
+            request.needs_response = needs_response ? true : false
           end
 
           if request.total > report_progress_threshold
@@ -960,7 +968,8 @@ module Steep
             end
 
             if request.finished?
-              @current_type_check_request = finish_type_check(request)
+              finish_type_check(request)
+              @current_type_check_request = nil
               return
             end
           else
@@ -992,7 +1001,8 @@ module Steep
             current.work_done_progress.report(percentage, "#{percentage}%")
 
             if current.finished?
-              @current_type_check_request = finish_type_check(current)
+              finish_type_check(current)
+              @current_type_check_request = nil
             end
           end
         end

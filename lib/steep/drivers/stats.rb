@@ -162,7 +162,7 @@ module Steep
         master.job_queue << -> do
           Steep.logger.info { "Type checking for stats..." }
           progress = master.work_done_progress(typecheck_guid)
-          master.start_type_check(last_request: nil, progress: progress, include_unchanged: true, report_progress_threshold: 0)
+          master.start_type_check(last_request: nil, progress: progress, include_unchanged: true, report_progress_threshold: 0, needs_response: true)
         end
         wait_for_message(reader: client_reader) do |message|
           message[:id] == typecheck_guid

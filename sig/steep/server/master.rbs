@@ -20,6 +20,12 @@ module Steep
 
         attr_reader started_at: Time
 
+        # `true` to send a response to the client
+        #
+        # Defaults to `false`.
+        #
+        attr_accessor needs_response: bool
+
         def initialize: (guid: String, progress: WorkDoneProgress) -> void
 
         def uri: (Pathname path) -> URI::File
@@ -279,6 +285,11 @@ module Steep
 
       attr_reader initialize_params: Hash[Symbol, untyped]?
 
+      # `true` to start type checking if it needs
+      #
+      # * On the startup, and
+      # * When files are changed
+      #
       attr_accessor typecheck_automatically: bool
 
       attr_reader start_type_checking_queue: DelayQueue
@@ -322,10 +333,10 @@ module Steep
 
       def process_message_from_worker: (untyped message, worker: WorkerProcess) -> void
 
-      def start_type_check: (last_request: TypeCheckRequest?, progress: WorkDoneProgress, ?include_unchanged: bool, ?report_progress_threshold: Integer) -> void
+      def start_type_check: (last_request: TypeCheckRequest?, progress: WorkDoneProgress, ?include_unchanged: bool, ?report_progress_threshold: Integer, needs_response: bool) -> void
                           | (request: TypeCheckRequest, last_request: TypeCheckRequest?, ?report_progress_threshold: Integer) -> void
 
-      def finish_type_check: (TypeCheckRequest) -> nil
+      def finish_type_check: (TypeCheckRequest) -> void
 
       def on_type_check_update: (guid: String, path: Pathname) -> void
 
