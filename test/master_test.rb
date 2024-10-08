@@ -48,7 +48,7 @@ end
       master.controller.push_changes current_dir + "lib/account.rb"
 
       progress = master.work_done_progress("guid")
-      master.start_type_check(last_request: nil, progress: progress, report_progress_threshold: 0)
+      master.start_type_check(last_request: nil, progress: progress, report_progress_threshold: 0, needs_response: true)
 
       assert_instance_of Server::Master::TypeCheckRequest, master.current_type_check_request
 
@@ -114,7 +114,7 @@ end
       master.controller.push_changes current_dir + "lib/account.rb"
 
       progress = master.work_done_progress("guid")
-      master.start_type_check(last_request: nil, progress: progress, report_progress_threshold: 0)
+      master.start_type_check(last_request: nil, progress: progress, report_progress_threshold: 0, needs_response: true)
 
       assert_instance_of Server::Master::TypeCheckRequest, master.current_type_check_request
 
@@ -167,7 +167,7 @@ end
       master.controller.push_changes current_dir + "lib/account.rb"
 
       progress = master.work_done_progress("guid")
-      master.start_type_check(last_request: nil, progress: progress, report_progress_threshold: 10)
+      master.start_type_check(last_request: nil, progress: progress, report_progress_threshold: 10, needs_response: true)
 
       assert_nil master.current_type_check_request
 
@@ -213,7 +213,7 @@ end
       master.controller.push_changes current_dir + "lib/account.rb"
 
       progress = master.work_done_progress("guid")
-      master.start_type_check(last_request: nil, progress: progress, report_progress_threshold: 0)
+      master.start_type_check(last_request: nil, progress: progress, report_progress_threshold: 0, needs_response: true)
 
       flush_queue(master.write_queue)
 
@@ -299,7 +299,7 @@ end
       master.controller.push_changes current_dir + "lib/account.rb"
 
       progress = master.work_done_progress("guid")
-      master.start_type_check(last_request: nil, progress: progress, report_progress_threshold: 0)
+      master.start_type_check(last_request: nil, progress: progress, report_progress_threshold: 0, needs_response: true)
 
       assert_instance_of Server::Master::TypeCheckRequest, master.current_type_check_request
 
