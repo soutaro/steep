@@ -409,6 +409,19 @@ module Steep
         end
       end
 
+      class SingletonTypeMismatch < Base
+        attr_reader :name
+
+        def initialize(node:, name:)
+          super(node: node, location: node.loc.name)  # steep:ignore NoMethod
+          @name = name
+        end
+
+        def header_line
+          "Singleton object is incompatible with declaration `#{name}`"
+        end
+      end
+
       class MethodArityMismatch < Base
         attr_reader :method_type
 
@@ -961,6 +974,7 @@ module Steep
             ReturnTypeMismatch => :error,
             SetterBodyTypeMismatch => :information,
             SetterReturnTypeMismatch => :information,
+            SingletonTypeMismatch => :error,
             SyntaxError => :hint,
             TypeArgumentMismatchError => :hint,
             UnexpectedBlockGiven => :warning,
@@ -1017,6 +1031,7 @@ module Steep
             ReturnTypeMismatch => :error,
             SetterBodyTypeMismatch => :error,
             SetterReturnTypeMismatch => :error,
+            SingletonTypeMismatch => :error,
             SyntaxError => :hint,
             TypeArgumentMismatchError => :error,
             UnexpectedBlockGiven => :error,
@@ -1073,6 +1088,7 @@ module Steep
             ReturnTypeMismatch => :warning,
             SetterBodyTypeMismatch => nil,
             SetterReturnTypeMismatch => nil,
+            SingletonTypeMismatch => nil,
             SyntaxError => :hint,
             TypeArgumentMismatchError => nil,
             UnexpectedBlockGiven => :hint,
