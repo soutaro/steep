@@ -255,6 +255,14 @@ module Steep
         def header_line: () -> ::String
       end
 
+      class SingletonTypeMismatch < Base
+        attr_reader name: untyped
+
+        def initialize: (node: untyped, name: untyped) -> void
+
+        def header_line: () -> ::String
+      end
+
       class MethodArityMismatch < Base
         attr_reader method_type: untyped
 

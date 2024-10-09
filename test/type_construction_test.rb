@@ -1358,7 +1358,7 @@ end
       with_standard_construction(checker, source) do |construction, typing|
         construction.synthesize(source.node)
 
-        assert_typing_error(typing, size: 2) do |errors|
+        assert_typing_error(typing, size: 3) do |errors|
           assert_any!(errors) do |error|
             assert_instance_of Diagnostic::Ruby::IncompatibleAssignment, error
             assert_equal parse_type("::String"), error.rhs_type
@@ -1369,6 +1369,11 @@ end
             assert_instance_of Diagnostic::Ruby::MethodBodyTypeMismatch, error
             assert_equal parse_type("::String"), error.actual
             assert_equal parse_type("::A::String"), error.expected
+          end
+
+          assert_any!(errors) do |error|
+            assert_instance_of Diagnostic::Ruby::SingletonTypeMismatch, error
+            assert_equal "::A", error.name.to_s
           end
         end
       end
@@ -5064,6 +5069,54 @@ end
       with_standard_construction(checker, source) do |construction, typing|
         construction.synthesize(source.node)
         assert_empty typing.errors
+      end
+    end
+  end
+
+  def test_module_type_mismatch
+    with_checker <<-EOF do |checker|
+class SampleModule
+end
+      EOF
+      source = parse_ruby(<<-EOF)
+module SampleModule
+end
+      EOF
+
+      with_standard_construction(checker, source) do |construction, typing|
+        construction.synthesize(source.node)
+
+        assert_typing_error(typing, size: 1) do |errors|
+          assert_any!(errors) do |error|
+            assert_instance_of Diagnostic::Ruby::SingletonTypeMismatch, error
+            assert_equal '::SampleModule', error.name.to_s
+          end
+        end
+      end
+    end
+  end
+
+  def test_class_type_mismatch
+    with_checker <<-EOF do |checker|
+module SampleClass
+end
+class SampleModule
+end
+      EOF
+      source = parse_ruby(<<-EOF)
+class SampleClass
+end
+      EOF
+
+      with_standard_construction(checker, source) do |construction, typing|
+        construction.synthesize(source.node)
+
+        assert_typing_error(typing, size: 1) do |errors|
+          assert_any!(errors) do |error|
+            assert_instance_of Diagnostic::Ruby::SingletonTypeMismatch, error
+            assert_equal '::SampleClass', error.name.to_s
+          end
+        end
       end
     end
   end
