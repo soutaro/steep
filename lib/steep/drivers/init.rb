@@ -14,7 +14,7 @@ module Steep
       #   signature "sig"
       #
       #   check "lib"                       # Directory name
-      #   check "Gemfile"                   # File name
+      #   check "path/to/source.rb"         # File name
       #   check "app/models/**/*.rb"        # Glob
       #   # ignore "lib/templates/*.rb"
       #
