@@ -88,7 +88,10 @@ module Steep
         ([Pathname, Array[Diagnostic::Signature::Base] | Array[Diagnostic::Ruby::Base]]) -> void
       } -> void
 
-      def validate_signature: (path: Pathname) { ([Pathname, Array[Diagnostic::Signature::Base]]) -> void } -> void
+      def validate_signature: (Pathname, Project::Target) { ([Pathname, Array[Diagnostic::Signature::Base]]) -> void } -> void
+
+      def each_signature_target: (Pathname) { (Project::Target) -> void } -> void
+                               | (Pathname) -> Enumerator[Project::Target]
 
       def typecheck_source: (path: Pathname, ?target: Project::Target?) { ([Pathname, Array[Diagnostic::Ruby::Base]]) -> void } -> void
 

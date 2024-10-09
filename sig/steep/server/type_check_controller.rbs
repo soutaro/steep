@@ -40,6 +40,18 @@ module Steep
 
         type json = { guid: String, library_uris: Array[String], signature_uris: Array[String], code_uris: Array[String], priority_uris: Array[String] }
 
+        type files = {
+          library_uris: Array[String],
+          signature_uris: Array[String],
+          code_uris: Array[String],
+          priority_uris: Array[String]
+        }
+
+        type json2 = {
+          guid: String,
+          targets: Hash[String, files]
+        }
+
         def as_json: (assignment: Services::PathAssignment) -> json
 
         def total: () -> Integer
