@@ -748,7 +748,7 @@ class TypeCheckTest < Minitest::Test
                 character: 21
             severity: ERROR
             message: Type `(::Integer | nil)` does not have method `no_method_in_else`
-            code: Ruby::NoMethod
+            code: Ruby::NoMethodByNil
       YAML
     )
   end
@@ -803,7 +803,7 @@ class TypeCheckTest < Minitest::Test
                 character: 21
             severity: ERROR
             message: Type `(::Integer | nil)` does not have method `no_method_in_else`
-            code: Ruby::NoMethod
+            code: Ruby::NoMethodByNil
       YAML
     )
   end
@@ -869,7 +869,7 @@ class TypeCheckTest < Minitest::Test
                 character: 17
             severity: ERROR
             message: Type `(::String | nil)` does not have method `+`
-            code: Ruby::NoMethod
+            code: Ruby::NoMethodByNil
       YAML
     )
   end
@@ -911,7 +911,7 @@ class TypeCheckTest < Minitest::Test
                 character: 17
             severity: ERROR
             message: Type `(::String | nil)` does not have method `+`
-            code: Ruby::NoMethod
+            code: Ruby::NoMethodByNil
       YAML
     )
   end
