@@ -11,19 +11,28 @@ module Steep
     # ```
     #
     class TypeCheckController
+      # A type checking request keeps track of the progress of the type checking
+      #
+      # It has `path` of all files to be type checked and records which path is already checked.
+      #
       class Request
         attr_reader guid: String
 
         attr_reader work_done_progress: WorkDoneProgress
 
+        # The path of RBS files of libraries
         attr_reader library_paths: Set[Pathname]
 
+        # The path of signature files
         attr_reader signature_paths: Set[Pathname]
 
+        # The path of Ruby code files
         attr_reader code_paths: Set[Pathname]
 
+        # The path of files that is opened by the editor
         attr_reader priority_paths: Set[Pathname]
 
+        # The path of files that are type checked already
         attr_reader checked_paths: Set[Pathname]
 
         attr_reader started_at: Time
@@ -36,7 +45,7 @@ module Steep
 
         def initialize: (guid: String, progress: WorkDoneProgress) -> void
 
-        def uri: (Pathname path) -> URI::File
+        private def uri: (Pathname path) -> URI::File
 
         type json = { guid: String, library_uris: Array[String], signature_uris: Array[String], code_uris: Array[String], priority_uris: Array[String] }
 
@@ -50,6 +59,7 @@ module Steep
 
         def checking_path?: (Pathname path) -> bool
 
+        # Mark a path is type checked
         def checked: (Pathname path) -> void
 
         def finished?: () -> bool
