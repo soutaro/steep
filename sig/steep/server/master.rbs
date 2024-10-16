@@ -1,3 +1,5 @@
+use LanguageServer::Protocol::Interface::Diagnostic as LSPDiagnostic
+
 module Steep
   module Server
     class Master
@@ -198,7 +200,7 @@ module Steep
 
       def finish_type_check: (TypeCheckController::Request) -> void
 
-      def on_type_check_update: (guid: String, path: Pathname) -> void
+      def on_type_check_update: (guid: String, path: Pathname, diagnostics: Array[LSPDiagnostic::json]?) -> void
 
       def broadcast_notification: (lsp_notification message) -> void
 

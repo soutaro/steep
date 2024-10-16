@@ -1,4 +1,5 @@
 use Steep::Services::*, LanguageServer::Protocol as LSP
+use LanguageServer::Protocol::Interface::Diagnostic as LSPDiagnostic
 
 module Steep
   module Server
@@ -131,7 +132,7 @@ module Steep
 
       def handle_job: (job) -> void
 
-      def typecheck_progress: (guid: String, path: Pathname) -> void
+      def typecheck_progress: (guid: String, path: Pathname, diagnostics: Array[LSPDiagnostic::json]?) -> void
 
       def workspace_symbol_result: (untyped query) -> untyped
 

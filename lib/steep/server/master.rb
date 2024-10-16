@@ -663,7 +663,8 @@ module Steep
               params = message[:params] #: CustomMethods::TypeCheck__Progress::params
               on_type_check_update(
                 guid: params[:guid],
-                path: Pathname(params[:path])
+                path: Pathname(params[:path]),
+                diagnostics: params[:diagnostics]
               )
             else
               # Forward other notifications
@@ -712,22 +713,16 @@ module Steep
           end
 
           if request.total > report_progress_threshold
-            Steep.logger.info "Starting new progress..."
+            request.report_progress!
+          end
 
-            @current_type_check_request = request
+          Steep.logger.info "Starting new progress..."
 
-            if progress
-              # If `request:` keyword arg is not given
-              request.work_done_progress.begin("Type checking", request_id: fresh_request_id)
-            end
+          @current_type_check_request = request
 
-            if request.finished?
-              finish_type_check(request)
-              @current_type_check_request = nil
-              return
-            end
-          else
-            @current_type_check_request = nil
+          if progress
+            # If `request:` keyword arg is not given
+            request.work_done_progress.begin("Type checking", request_id: fresh_request_id)
           end
 
           Steep.logger.info "Sending $/typecheck/start notifications"
@@ -745,14 +740,27 @@ module Steep
         end
       end
 
-      def on_type_check_update(guid:, path:)
+      def on_type_check_update(guid:, path:, diagnostics:)
         if current = current_type_check_request()
           if current.guid == guid
-            current.checked(path)
-            Steep.logger.info { "Request updated: checked=#{path}, unchecked=#{current.unchecked_paths.size}" }
+            current.checked(path, diagnostics)
+
+            Steep.logger.info { "Request updated: checked=#{path}, unchecked=#{current.unchecked_paths.size}, diagnostics=#{diagnostics&.size}" }
 
             percentage = current.percentage
-            current.work_done_progress.report(percentage, "#{percentage}%")
+            current.work_done_progress.report(percentage, "#{percentage}%") if current.report_progress
+
+            if diagnostics
+              write_queue.push SendMessageJob.to_client(
+                message: {
+                  method: :"textDocument/publishDiagnostics",
+                  params: {
+                    uri: Steep::PathHelper.to_uri(path).to_s,
+                    diagnostics: diagnostics.uniq
+                  }
+                }
+              )
+            end
 
             if current.finished?
               finish_type_check(current)

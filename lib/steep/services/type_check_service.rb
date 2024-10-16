@@ -213,7 +213,9 @@ module Steep
         requests.each_value do |request|
           request.source_paths.each do |path|
             if assignment =~ path
-              typecheck_source(path: path, target: request.target, &block)
+              if diagnostics = typecheck_source(path: path, target: request.target)
+                yield [path, diagnostics]
+              end
             end
           end
         end
@@ -307,7 +309,7 @@ module Steep
         end
       end
 
-      def typecheck_source(path:, target: project.target_for_source_path(path), &block)
+      def typecheck_source(path:, target: project.target_for_source_path(path))
         return unless target
 
         Steep.logger.tagged "#typecheck_source(path=#{path})" do
@@ -318,8 +320,9 @@ module Steep
             if subtyping
               text = source_files[path].content
               file = type_check_file(target: target, subtyping: subtyping, path: path, text: text) { signature_service.latest_constant_resolver }
-              yield [file.path, file.diagnostics]
               source_files[path] = file
+
+              file.diagnostics
             end
           end
         end

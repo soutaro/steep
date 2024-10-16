@@ -1,3 +1,5 @@
+use LanguageServer::Protocol::Interface::Diagnostic as LSPDiagnostic
+
 module Steep
   module Server
     # TypeCheckController remembers changed files, keep track of open editors, and make a TypeCheckRequest that contains list of all files to be type checked
@@ -37,6 +39,11 @@ module Steep
 
         attr_reader started_at: Time
 
+        attr_reader diagnostics: Hash[Pathname, Array[LSPDiagnostic::json]?]
+
+        # `true` to report the progress to the client
+        attr_reader report_progress: bool
+
         # `true` to send a response to the client
         #
         # Defaults to `false`.
@@ -60,7 +67,7 @@ module Steep
         def checking_path?: (Pathname path) -> bool
 
         # Mark a path is type checked
-        def checked: (Pathname path) -> void
+        def checked: (Pathname path, Array[LSPDiagnostic::json]? diagnostics) -> void
 
         def finished?: () -> bool
 
@@ -71,6 +78,10 @@ module Steep
         def unchecked_library_paths: () -> Set[Pathname]
 
         def unchecked_signature_paths: () -> Set[Pathname]
+
+        # Set `#report_progress` and return self, defaults to `true`
+        #
+        def report_progress!: (?bool) -> self
       end
 
       attr_reader project: Project

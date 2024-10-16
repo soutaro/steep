@@ -168,7 +168,7 @@ end
       progress = master.work_done_progress("guid")
       master.start_type_check(last_request: nil, progress: progress, report_progress_threshold: 10, needs_response: true)
 
-      assert_nil master.current_type_check_request
+      refute_nil master.current_type_check_request
 
       jobs = flush_queue(master.write_queue)
 
@@ -216,12 +216,13 @@ end
 
       flush_queue(master.write_queue)
 
-      master.on_type_check_update(guid: "guid", path: current_dir + "lib/customer.rb")
+      master.on_type_check_update(guid: "guid", path: current_dir + "lib/customer.rb", diagnostics: nil)
 
       jobs = flush_queue(master.write_queue)
 
       assert_equal 1, jobs.size
-      jobs[0].tap do |job|
+
+      assert_any!(jobs) do |job|
         assert_instance_of Master::SendMessageJob, job
         assert_equal :client, job.dest
         assert_equal "$/progress", job.message[:method]
@@ -233,12 +234,12 @@ end
         end
       end
 
-      master.on_type_check_update(guid: "guid", path: current_dir + "lib/account.rb")
+      master.on_type_check_update(guid: "guid", path: current_dir + "lib/account.rb", diagnostics: [])
 
       jobs = flush_queue(master.write_queue)
 
-      assert_equal 3, jobs.size
-      jobs[0].tap do |job|
+      assert_equal 4, jobs.size
+      assert_any!(jobs) do |job|
         assert_instance_of Master::SendMessageJob, job
         assert_equal :client, job.dest
         assert_equal "$/progress", job.message[:method]
@@ -249,7 +250,7 @@ end
           assert_equal 100, params[:value][:percentage]
         end
       end
-      jobs[1].tap do |job|
+      assert_any!(jobs) do |job|
         assert_instance_of Master::SendMessageJob, job
         assert_equal :client, job.dest
         assert_equal "$/progress", job.message[:method]
@@ -259,7 +260,7 @@ end
           assert_equal "end", params[:value][:kind]
         end
       end
-      jobs[2].tap do |job|
+      assert_any!(jobs) do |job|
         # Response to $/steep/typecheck request
         assert_instance_of Master::SendMessageJob, job
         assert_equal :client, job.dest
@@ -304,13 +305,13 @@ end
 
       flush_queue(master.write_queue)
 
-      master.on_type_check_update(guid: "guid", path: current_dir + "lib/customer.rb")
-      master.on_type_check_update(guid: "guid", path: current_dir + "lib/account.rb")
+      master.on_type_check_update(guid: "guid", path: current_dir + "lib/customer.rb", diagnostics: [])
+      master.on_type_check_update(guid: "guid", path: current_dir + "lib/account.rb", diagnostics: nil)
 
       jobs = flush_queue(master.write_queue)
 
-      assert_equal 1, jobs.size
-      jobs[0].tap do |job|
+      assert_equal 2, jobs.size
+      assert_any!(jobs) do |job|
         # Response to $/steep/typecheck request
         assert_instance_of Master::SendMessageJob, job
         assert_equal :client, job.dest

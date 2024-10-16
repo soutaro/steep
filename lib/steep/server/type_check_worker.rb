@@ -168,60 +168,72 @@ module Steep
         when ValidateAppSignatureJob
           if job.guid == current_type_check_guid
             Steep.logger.info { "Processing ValidateAppSignature for guid=#{job.guid}, path=#{job.path}" }
-            service.validate_signature(path: project.relative_path(job.path)) do |path, diagnostics|
-              formatter = Diagnostic::LSPFormatter.new({}, **{})
 
-              writer.write(
-                method: :"textDocument/publishDiagnostics",
-                params: LSP::Interface::PublishDiagnosticsParams.new(
-                  uri: Steep::PathHelper.to_uri(job.path).to_s,
-                  diagnostics: diagnostics.map {|diagnostic|
-                    _ = formatter.format(diagnostic)
-                  }.uniq
-                )
-              )
+            all_diagnostics = nil #: Array[Diagnostic::Signature::Base]?
+            formatter = Diagnostic::LSPFormatter.new({}, **{})
+
+            service.validate_signature(path: project.relative_path(job.path)) do |path, diagnostics|
+              all_diagnostics = diagnostics
+
+              # writer.write(
+              #   method: :"textDocument/publishDiagnostics",
+              #   params: LSP::Interface::PublishDiagnosticsParams.new(
+              #     uri: Steep::PathHelper.to_uri(job.path).to_s,
+              #     diagnostics: diagnostics.map {|diagnostic|
+              #       _ = formatter.format(diagnostic)
+              #     }.uniq
+              #   )
+              # )
             end
 
-            typecheck_progress(path: job.path, guid: job.guid)
+            typecheck_progress(
+              path: job.path,
+              guid: job.guid,
+              diagnostics: all_diagnostics&.filter_map { formatter.format(_1) }
+            )
           end
 
         when ValidateLibrarySignatureJob
           if job.guid == current_type_check_guid
             Steep.logger.info { "Processing ValidateLibrarySignature for guid=#{job.guid}, path=#{job.path}" }
-            service.validate_signature(path: job.path) do |path, diagnostics|
-              formatter = Diagnostic::LSPFormatter.new({}, **{})
 
-              writer.write(
-                method: :"textDocument/publishDiagnostics",
-                params: LSP::Interface::PublishDiagnosticsParams.new(
-                  uri: Steep::PathHelper.to_uri(job.path).to_s,
-                  diagnostics: diagnostics.map {|diagnostic| _ = formatter.format(diagnostic) }.uniq.compact
-                )
-              )
+            accumulated_diagnostics = nil #: Array[Diagnostic::Signature::Base]?
+            formatter = Diagnostic::LSPFormatter.new({}, **{})
+
+            service.validate_signature(path: job.path) do |path, diagnostics|
+              accumulated_diagnostics = diagnostics
+
+              # writer.write(
+              #   method: :"textDocument/publishDiagnostics",
+              #   params: LSP::Interface::PublishDiagnosticsParams.new(
+              #     uri: Steep::PathHelper.to_uri(job.path).to_s,
+              #     diagnostics: diagnostics.map {|diagnostic| _ = formatter.format(diagnostic) }.uniq.compact
+              #   )
+              # )
             end
 
-            typecheck_progress(path: job.path, guid: job.guid)
+            typecheck_progress(path: job.path, guid: job.guid, diagnostics: accumulated_diagnostics&.filter_map { formatter.format(_1) })
           end
 
         when TypeCheckCodeJob
           if job.guid == current_type_check_guid
             Steep.logger.info { "Processing TypeCheckCodeJob for guid=#{job.guid}, path=#{job.path}" }
-            service.typecheck_source(path: project.relative_path(job.path)) do |path, diagnostics|
-              target = project.target_for_source_path(path)
-              formatter = Diagnostic::LSPFormatter.new(target&.code_diagnostics_config || {})
+            relative_path = project.relative_path(job.path)
+            target = project.target_for_source_path(relative_path)
+            formatter = Diagnostic::LSPFormatter.new(target&.code_diagnostics_config || {})
 
-              writer.write(
-                method: :"textDocument/publishDiagnostics",
-                params: LSP::Interface::PublishDiagnosticsParams.new(
-                  uri: Steep::PathHelper.to_uri(job.path).to_s,
-                  diagnostics: diagnostics.map {|diagnostic|
-                    _ = formatter.format(diagnostic)
-                  }.uniq.compact
-                )
-              )
-            end
+            diagnostics = service.typecheck_source(path: relative_path)
+              # writer.write(
+              #   method: :"textDocument/publishDiagnostics",
+              #   params: LSP::Interface::PublishDiagnosticsParams.new(
+              #     uri: Steep::PathHelper.to_uri(job.path).to_s,
+              #     diagnostics: diagnostics.map {|diagnostic|
+              #       _ = formatter.format(diagnostic)
+              #     }.uniq.compact
+              #   )
+              # )
 
-            typecheck_progress(path: job.path, guid: job.guid)
+            typecheck_progress(path: job.path, guid: job.guid, diagnostics: diagnostics&.filter_map { formatter.format(_1) })
           end
 
         when WorkspaceSymbolJob
@@ -242,8 +254,8 @@ module Steep
         end
       end
 
-      def typecheck_progress(guid:, path:)
-        writer.write(CustomMethods::TypeCheck__Progress.notification({ guid: guid, path: path.to_s }))
+      def typecheck_progress(guid:, path:, diagnostics:)
+        writer.write(CustomMethods::TypeCheck__Progress.notification({ guid: guid, path: path.to_s, diagnostics: diagnostics }))
       end
 
       def workspace_symbol_result(query)

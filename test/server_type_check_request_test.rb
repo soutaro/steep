@@ -71,13 +71,13 @@ class ServerTypeCheckRequestTest < Minitest::Test
       assert_equal request.percentage, 0
       assert_equal request.all_paths, request.unchecked_paths
 
-      request.checked(RBS::EnvironmentLoader::DEFAULT_CORE_ROOT + "object.rbs")
+      request.checked(RBS::EnvironmentLoader::DEFAULT_CORE_ROOT + "object.rbs", [])
       assert_equal request.percentage, 33
 
-      request.checked(current_dir + "sig/user.rbs")
+      request.checked(current_dir + "sig/user.rbs", nil)
       assert_equal request.percentage, 66
 
-      request.checked(current_dir + "lib/user.rb")
+      request.checked(current_dir + "lib/user.rb", [])
       assert_equal request.percentage, 100
 
       assert_equal Set[], request.unchecked_paths
