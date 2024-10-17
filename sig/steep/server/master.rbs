@@ -141,6 +141,8 @@ module Steep
 
       attr_reader current_type_check_request: TypeCheckController::Request?
 
+      attr_reader current_diagnostics: Hash[Pathname, Array[LSPDiagnostic::json]]
+
       attr_reader controller: TypeCheckController
 
       attr_reader result_controller: ResultController
@@ -215,6 +217,13 @@ module Steep
       def enqueue_write_job: (SendMessageJob job) -> void
 
       def work_done_progress: (String) -> WorkDoneProgress
+
+      # Queue a new `publishDiagnostics` notification to the client
+      #
+      # * If `diagnostics` is `nil`, it skips sending notification
+      # * If path is already pushed, the diagnostics will be merged
+      #
+      def push_diagnostics: (Pathname path, Array[LSPDiagnostic::json]? diagnostics) -> void
     end
   end
 end

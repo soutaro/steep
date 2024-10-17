@@ -11,7 +11,6 @@ module Steep
         attr_reader :work_done_progress
         attr_reader :started_at
         attr_accessor :needs_response
-        attr_reader :diagnostics
         attr_reader :report_progress
 
         def initialize(guid:, progress:)
@@ -24,7 +23,6 @@ module Steep
           @work_done_progress = progress
           @started_at = Time.now
           @needs_response = false
-          @diagnostics = {}
           @report_progress = false
         end
 
@@ -68,7 +66,6 @@ module Steep
         def checked(path, diagnostics)
           raise unless checking_path?(path)
           checked_paths << path
-          self.diagnostics[path] = diagnostics
         end
 
         def finished?
@@ -226,7 +223,6 @@ module Steep
             request.library_paths.merge(last_request.unchecked_library_paths)
             request.signature_paths.merge(last_request.unchecked_signature_paths)
             request.code_paths.merge(last_request.unchecked_code_paths)
-            request.diagnostics.replace(last_request.diagnostics)
           end
 
           if include_unchanged

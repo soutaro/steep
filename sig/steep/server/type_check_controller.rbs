@@ -39,8 +39,6 @@ module Steep
 
         attr_reader started_at: Time
 
-        attr_reader diagnostics: Hash[Pathname, Array[LSPDiagnostic::json]?]
-
         # `true` to report the progress to the client
         attr_reader report_progress: bool
 
