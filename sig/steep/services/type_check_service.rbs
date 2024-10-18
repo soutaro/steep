@@ -81,14 +81,14 @@ module Steep
 
       def update: (changes: Server::ChangeBuffer::changes) -> Hash[Project::Target, TargetRequest]
 
-      def update_and_check: (
-        changes: Server::ChangeBuffer::changes,
-        assignment: PathAssignment
-      ) {
-        ([Pathname, Array[Diagnostic::Signature::Base] | Array[Diagnostic::Ruby::Base]]) -> void
-      } -> void
+      # def update_and_check: (
+      #   changes: Server::ChangeBuffer::changes,
+      #   assignment: PathAssignment
+      # ) {
+      #   ([Pathname, Array[Diagnostic::Signature::Base] | Array[Diagnostic::Ruby::Base]]) -> void
+      # } -> void
 
-      def validate_signature: (path: Pathname) { ([Pathname, Array[Diagnostic::Signature::Base]]) -> void } -> void
+      def validate_signature: (path: Pathname, target: Project::Target) -> Array[Diagnostic::Signature::Base]
 
       # Type check the code of given path
       #

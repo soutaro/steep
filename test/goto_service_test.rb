@@ -3,6 +3,7 @@ require_relative "test_helper"
 class GotoServiceTest < Minitest::Test
   include Steep
   include TestHelper
+  include TypeCheckServiceHelper
 
   ContentChange = Services::ContentChange
   TypeCheckService = Services::TypeCheckService
@@ -32,7 +33,7 @@ EOF
     yield changes
 
     type_check = Services::TypeCheckService.new(project: project)
-    type_check.update_and_check(changes: changes, assignment: Services::PathAssignment.all) {}
+    update_and_check(type_check, changes: changes) {}
     type_check
   end
 
@@ -335,7 +336,9 @@ RUBY
     service.constant_definition_in_ruby(TypeName("::Customer"), locations: []).tap do |locs|
       assert_equal 1, locs.size
 
-      assert_any!(locs) do |loc|
+      assert_any!(locs) do |target, loc|
+        assert_equal :lib, target.name
+
         assert_instance_of Parser::Source::Range, loc
         assert_equal "Customer", loc.source
         assert_equal 1, loc.line
@@ -345,7 +348,9 @@ RUBY
     service.constant_definition_in_rbs(TypeName("::Customer"), locations: []).tap do |locs|
       assert_equal 1, locs.size
 
-      assert_any!(locs) do |loc|
+      assert_any!(locs) do |target, loc|
+        assert_equal :lib, target.name
+
         assert_instance_of RBS::Location, loc
         assert_equal "Customer", loc.source
         assert_equal 1, loc.start_line
@@ -355,7 +360,9 @@ RUBY
     service.constant_definition_in_ruby(TypeName("::Customer2"), locations: []).tap do |locs|
       assert_equal 1, locs.size
 
-      assert_any!(locs) do |loc|
+      assert_any!(locs) do |target, loc|
+        assert_equal :lib, target.name
+
         assert_instance_of Parser::Source::Range, loc
         assert_equal "::Customer2", loc.source
         assert_equal 2, loc.line
@@ -365,7 +372,9 @@ RUBY
     service.constant_definition_in_rbs(TypeName("::Customer2"), locations: []).tap do |locs|
       assert_equal 1, locs.size
 
-      assert_any!(locs) do |loc|
+      assert_any!(locs) do |target, loc|
+        assert_equal :lib, target.name
+
         assert_instance_of RBS::Location, loc
         assert_equal "::Customer2", loc.source
         assert_equal 2, loc.start_line
@@ -375,7 +384,9 @@ RUBY
     service.constant_definition_in_ruby(TypeName("::Customer::NAME"), locations: []).tap do |locs|
       assert_equal 1, locs.size
 
-      assert_any!(locs) do |loc|
+      assert_any!(locs) do |target, loc|
+        assert_equal :lib, target.name
+
         assert_instance_of Parser::Source::Range, loc
         assert_equal "NAME", loc.source
         assert_equal 5, loc.line
@@ -385,7 +396,9 @@ RUBY
     service.constant_definition_in_rbs(TypeName("::Customer::NAME"), locations: []).tap do |locs|
       assert_equal 1, locs.size
 
-      assert_any!(locs) do |loc|
+      assert_any!(locs) do |target, loc|
+        assert_equal :lib, target.name
+        
         assert_instance_of RBS::Location, loc
         assert_equal "Customer::NAME", loc.source
         assert_equal 6, loc.start_line
@@ -429,13 +442,16 @@ RUBY
     service.method_locations(MethodName("::Customer#foo"), locations: [], in_ruby: true, in_rbs: true).tap do |locs|
       assert_equal 2, locs.size
 
-      assert_any!(locs) do |loc|
+      assert_any!(locs) do |target, loc|
+        assert_equal :lib, target.name
+
         assert_instance_of RBS::Location, loc
         assert_equal "foo", loc.source
         assert_equal 2, loc.start_line
       end
 
-      assert_any!(locs) do |loc|
+      assert_any!(locs) do |target, loc|
+        assert_equal :lib, target.name
         assert_instance_of Parser::Source::Range, loc
         assert_equal "foo", loc.source
         assert_equal 2, loc.line
@@ -445,7 +461,9 @@ RUBY
     service.method_locations(MethodName("::Customer#bar"), locations: [], in_ruby: true, in_rbs: true).tap do |locs|
       assert_equal 1, locs.size
 
-      assert_any!(locs) do |loc|
+      assert_any!(locs) do |target, loc|
+        assert_equal :lib, target.name
+
         assert_instance_of RBS::Location, loc
         assert_equal "bar", loc.source
         assert_equal 4, loc.start_line
@@ -455,7 +473,9 @@ RUBY
     service.method_locations(MethodName("::Customer#baz="), locations: [], in_ruby: true, in_rbs: true).tap do |locs|
       assert_equal 1, locs.size
 
-      assert_any!(locs) do |loc|
+      assert_any!(locs) do |target, loc|
+        assert_equal :lib, target.name
+
         assert_instance_of RBS::Location, loc
         assert_equal "baz", loc.source
         assert_equal 6, loc.start_line
@@ -465,7 +485,9 @@ RUBY
     service.method_locations(MethodName("::Customer.find"), locations: [], in_ruby: true, in_rbs: true).tap do |locs|
       assert_equal 1, locs.size
 
-      assert_any!(locs) do |loc|
+      assert_any!(locs) do |target, loc|
+        assert_equal :lib, target.name
+
         assert_instance_of Parser::Source::Range, loc
         assert_equal "find", loc.source
         assert_equal 5, loc.line
@@ -475,7 +497,9 @@ RUBY
     service.method_locations(MethodName("::_Finder#find"), locations: [], in_ruby: true, in_rbs: true).tap do |locs|
       assert_equal 1, locs.size
 
-      assert_any!(locs) do |loc|
+      assert_any!(locs) do |target, loc|
+        assert_equal :lib, target.name
+
         assert_instance_of RBS::Location, loc
         assert_equal "find", loc.source
         assert_equal 12, loc.start_line
@@ -528,13 +552,17 @@ RBS
     service.type_name_locations(TypeName("::Customer")).tap do |locs|
       assert_equal 2, locs.size
 
-      assert_any!(locs) do |loc|
+      assert_any!(locs) do |target, loc|
+        assert_equal :lib, target.name
+
         assert_instance_of RBS::Location, loc
         assert_equal "Customer", loc.source
         assert_equal 1, loc.start_line
       end
 
-      assert_any!(locs) do |loc|
+      assert_any!(locs) do |target, loc|
+        assert_equal :lib, target.name
+
         assert_instance_of RBS::Location, loc
         assert_equal "Customer", loc.source
         assert_equal 5, loc.start_line
@@ -544,7 +572,9 @@ RBS
     service.type_name_locations(TypeName("::Customer::loc")).tap do |locs|
       assert_equal 1, locs.size
 
-      assert_any!(locs) do |loc|
+      assert_any!(locs) do |target, loc|
+        assert_equal :lib, target.name
+
         assert_instance_of RBS::Location, loc
         assert_equal "loc", loc.source
         assert_equal 2, loc.start_line
@@ -554,7 +584,9 @@ RBS
     service.type_name_locations(TypeName("::Customer::_Base")).tap do |locs|
       assert_equal 1, locs.size
 
-      assert_any!(locs) do |loc|
+      assert_any!(locs) do |target, loc|
+        assert_equal :lib, target.name
+
         assert_instance_of RBS::Location, loc
         assert_equal "_Base", loc.source
         assert_equal 6, loc.start_line
@@ -713,8 +745,8 @@ RUBY
     end
 
     a = Services::PathAssignment.new(index: 0, max_index: 1)
-    a.cache[Pathname("sig/a.rbs")] = 0
-    a.cache[Pathname("sig/b.rbs")] = 1
+    a.assign!([:lib, Pathname("sig/a.rbs")], 0)
+    a.assign!([:lib, Pathname("sig/b.rbs")], 1)
     Services::GotoService.new(type_check: type_check, assignment: a).tap do |service|
       service.definition(path: dir + "lib/customer.rb", line: 1, column: 10).tap do |locs|
         assert_equal [Pathname("sig/a.rbs")], locs.map(&:name)
@@ -722,8 +754,8 @@ RUBY
     end
 
     b = Services::PathAssignment.new(index: 0, max_index: 1)
-    b.cache[Pathname("sig/a.rbs")] = 1
-    b.cache[Pathname("sig/b.rbs")] = 0
+    b.assign!([:lib, Pathname("sig/a.rbs")], 1)
+    b.assign!([:lib, Pathname("sig/b.rbs")], 0)
     Services::GotoService.new(type_check: type_check, assignment: b).tap do |service|
       service.definition(path: dir + "lib/customer.rb", line: 1, column: 10).tap do |locs|
         assert_equal [Pathname("sig/b.rbs")], locs.map(&:name)

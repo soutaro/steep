@@ -216,7 +216,7 @@ end
 
       flush_queue(master.write_queue)
 
-      master.on_type_check_update(guid: "guid", path: current_dir + "lib/customer.rb", diagnostics: nil)
+      master.on_type_check_update(guid: "guid", path: current_dir + "lib/customer.rb", target: project.targets[0], diagnostics: nil)
 
       jobs = flush_queue(master.write_queue)
 
@@ -234,7 +234,7 @@ end
         end
       end
 
-      master.on_type_check_update(guid: "guid", path: current_dir + "lib/account.rb", diagnostics: [])
+      master.on_type_check_update(guid: "guid", path: current_dir + "lib/account.rb", target: project.targets[0], diagnostics: [])
 
       jobs = flush_queue(master.write_queue)
 
@@ -305,8 +305,8 @@ end
 
       flush_queue(master.write_queue)
 
-      master.on_type_check_update(guid: "guid", path: current_dir + "lib/customer.rb", diagnostics: [])
-      master.on_type_check_update(guid: "guid", path: current_dir + "lib/account.rb", diagnostics: nil)
+      master.on_type_check_update(guid: "guid", path: current_dir + "lib/customer.rb", target: project.targets[0], diagnostics: [])
+      master.on_type_check_update(guid: "guid", path: current_dir + "lib/account.rb", target: project.targets[0], diagnostics: nil)
 
       jobs = flush_queue(master.write_queue)
 

@@ -4,6 +4,7 @@ class TypeCheckWorkerTest < Minitest::Test
   include TestHelper
   include ShellHelper
   include LSPTestHelper
+  include TypeCheckServiceHelper
 
   include Steep
 
@@ -195,9 +196,9 @@ class TypeCheckWorkerTest < Minitest::Test
             params: {
               guid: "guid1",
               priority_uris: ["#{file_scheme}#{current_dir}/lib/hello.rb"],
-              signature_uris: ["#{file_scheme}#{current_dir}/sig/hello.rbs"],
-              code_uris: ["#{file_scheme}#{current_dir}/lib/hello.rb"],
-              library_uris: ["#{file_scheme}#{RBS::EnvironmentLoader::DEFAULT_CORE_ROOT + "object.rbs"}"]
+              signature_uris: [["lib", "#{file_scheme}#{current_dir}/sig/hello.rbs"]],
+              code_uris: [["lib", "#{file_scheme}#{current_dir}/lib/hello.rb"]],
+              library_uris: [["lib", "#{file_scheme}#{RBS::EnvironmentLoader::DEFAULT_CORE_ROOT + "object.rbs"}"]]
             }
           }
         )
@@ -312,7 +313,7 @@ class TypeCheckWorkerTest < Minitest::Test
           worker.handle_job(TypeCheckWorker::StartTypeCheckJob.new(guid: "guid", changes: changes))
         end
 
-        job = TypeCheckWorker::ValidateAppSignatureJob.new(guid: "guid", path: current_dir + "sig/hello.rbs")
+        job = TypeCheckWorker::ValidateAppSignatureJob.new(guid: "guid", path: current_dir + "sig/hello.rbs", target: project.targets[0])
         worker.handle_job(job)
 
         master_read_queue.pop.tap do |message|
@@ -406,7 +407,8 @@ class TypeCheckWorkerTest < Minitest::Test
 
         job = TypeCheckWorker::ValidateLibrarySignatureJob.new(
           guid: "guid",
-          path: RBS::EnvironmentLoader::DEFAULT_CORE_ROOT + "object.rbs"
+          path: RBS::EnvironmentLoader::DEFAULT_CORE_ROOT + "object.rbs",
+          target: project.targets[0]
         )
         worker.handle_job(job)
 
@@ -500,7 +502,7 @@ class TypeCheckWorkerTest < Minitest::Test
           worker.handle_job(TypeCheckWorker::StartTypeCheckJob.new(guid: "guid", changes: changes))
         end
 
-        job = TypeCheckWorker::TypeCheckCodeJob.new(guid: "guid", path: current_dir + "lib/hello.rb")
+        job = TypeCheckWorker::TypeCheckCodeJob.new(guid: "guid", path: current_dir + "lib/hello.rb", target: project.targets[0])
         worker.handle_job(job)
 
         master_read_queue.pop.tap do |message|
@@ -556,7 +558,7 @@ class TypeCheckWorkerTest < Minitest::Test
           worker.handle_job(TypeCheckWorker::StartTypeCheckJob.new(guid: "guid", changes: changes))
         end
 
-        job = TypeCheckWorker::TypeCheckCodeJob.new(guid: "guid", path: current_dir + "lib/hello.rb")
+        job = TypeCheckWorker::TypeCheckCodeJob.new(guid: "guid", path: current_dir + "lib/hello.rb", target: project.targets[0])
         worker.handle_job(job)
 
         master_read_queue.pop.tap do |message|
@@ -680,7 +682,8 @@ RUBY
         writer: worker_writer
       )
 
-      worker.service.update_and_check(
+      update_and_check(
+        worker.service,
         changes: {
           Pathname("lib/hello.rb") => [Services::ContentChange.string(<<RUBY)],
 Hello.new.world(10)
@@ -688,8 +691,7 @@ RUBY
           Pathname("lib/world.rb") => [Services::ContentChange.string(<<RUBY)]
 1+
 RUBY
-        },
-        assignment: assignment
+        }
       ) {}
 
       result = worker.stats_result()

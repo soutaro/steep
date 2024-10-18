@@ -38,11 +38,19 @@ module Steep
         def as_json(assignment:)
           {
             guid: guid,
-            library_uris: library_paths.grep(assignment).map {|path| uri(path).to_s },
-            signature_uris: signature_paths.grep(assignment).map {|path| uri(path).to_s },
-            code_uris: code_paths.grep(assignment).map {|path| uri(path).to_s },
+            library_uris: assigned_uris(assignment, library_paths),
+            signature_uris: assigned_uris(assignment, signature_paths),
+            code_uris: assigned_uris(assignment, code_paths),
             priority_uris: priority_paths.map {|path| uri(path).to_s }
           }
+        end
+
+        def assigned_uris(assignment, paths)
+          paths.filter_map do |target_path|
+            if assignment =~ target_path
+              [target_path[0].to_s, uri(target_path[1]).to_s]
+            end
+          end
         end
 
         def total
@@ -53,39 +61,99 @@ module Steep
           checked_paths.size * 100 / total
         end
 
-        def all_paths
-          library_paths + signature_paths + code_paths
-        end
-
-        def checking_path?(path)
-          [library_paths, signature_paths, code_paths].any? do |paths|
-            paths.include?(path)
+        def each_path(&block)
+          if block
+            each_target_path do |_target, path|
+              yield path
+            end
+          else
+            enum_for :each_path
           end
         end
 
-        def checked(path, diagnostics)
-          raise unless checking_path?(path)
-          checked_paths << path
+        def each_target_path(&block)
+          if block
+            library_paths.each(&block)
+            signature_paths.each(&block)
+            code_paths.each(&block)
+          else
+            enum_for :each_target_path
+          end
+        end
+
+        def checking_path?(target_path)
+          [library_paths, signature_paths, code_paths].any? do |paths|
+            paths.include?(target_path)
+          end
+        end
+
+        def checked(path, target)
+          target_path = [target.name, path] #: target_and_path
+
+          raise unless checking_path?(target_path)
+          checked_paths << target_path
         end
 
         def finished?
           total <= checked_paths.size
         end
 
-        def unchecked_paths
-          all_paths - checked_paths
+        def each_unchecked_path(&block)
+          if block
+            each_unchecked_target_path do |_target, path|
+              yield path
+            end
+          else
+            enum_for :each_unchecked_path
+          end
         end
 
-        def unchecked_code_paths
-          code_paths - checked_paths
+        def each_unchecked_target_path(&block)
+          if block
+            each_target_path do |target_path|
+              unless checked_paths.include?(target_path)
+                yield target_path
+              end
+            end
+          else
+            enum_for :each_unchecked_target_path
+          end
         end
 
-        def unchecked_library_paths
-          library_paths - checked_paths
+        def each_unchecked_code_target_path(&block)
+          if block
+            code_paths.each do |target_path|
+              unless checked_paths.include?(target_path)
+                yield target_path
+              end
+            end
+          else
+            enum_for :each_unchecked_code_target_path
+          end
         end
 
-        def unchecked_signature_paths
-          signature_paths - checked_paths
+        def each_unchecked_library_target_path(&block)
+          if block
+            library_paths.each do |target_path|
+              unless checked_paths.include?(target_path)
+                yield target_path
+              end
+            end
+          else
+            enum_for :each_unchecked_library_target_path
+          end
+        end
+
+        def each_unchecked_signature_target_path(&block)
+          if block
+            signature_paths.each do |target_path|
+              unless checked_paths.include?(target_path)
+                yield target_path
+              end
+            end
+          else
+            enum_for :each_unchecked_signature_target_path
+          end
         end
       end
 
@@ -148,6 +216,16 @@ module Steep
         end
 
         alias << add
+
+        def signature_path_changed?(changed_paths)
+          signature_paths.intersect?(changed_paths)
+        end
+
+        def code_path_changed?(changed_paths)
+          if code_paths.intersect?(changed_paths)
+            code_paths & changed_paths
+          end
+        end
       end
 
       def initialize(project:)
@@ -219,29 +297,29 @@ module Steep
         return if changed_paths.empty? && !include_unchanged
 
         TypeCheckController::Request.new(guid: guid, progress: progress).tap do |request|
-          if last_request
-            request.library_paths.merge(last_request.unchecked_library_paths)
-            request.signature_paths.merge(last_request.unchecked_signature_paths)
-            request.code_paths.merge(last_request.unchecked_code_paths)
-          end
-
           if include_unchanged
             target_paths.each do |paths|
-              request.signature_paths.merge(paths.signature_paths)
-              request.library_paths.merge(paths.library_paths)
-              request.code_paths.merge(paths.code_paths)
+              request.signature_paths.merge(paths.signature_paths.map { [paths.target.name, _1] })
+              request.library_paths.merge(paths.library_paths.map { [paths.target.name, _1] })
+              request.code_paths.merge(paths.code_paths.map { [paths.target.name, _1] })
             end
           else
-            updated_paths = target_paths.select {|paths| changed_paths.intersect?(paths.all_paths) }
+            if last_request
+              request.library_paths.merge(last_request.each_unchecked_library_target_path)
+              request.signature_paths.merge(last_request.each_unchecked_signature_target_path)
+              request.code_paths.merge(last_request.each_unchecked_code_target_path)
+            end
 
-            updated_paths.each do |paths|
+            target_paths.each do |paths|
               case
-              when paths.signature_paths.intersect?(changed_paths)
-                request.signature_paths.merge(paths.signature_paths)
-                request.library_paths.merge(paths.library_paths)
-                request.code_paths.merge(paths.code_paths)
-              when paths.code_paths.intersect?(changed_paths)
-                request.code_paths.merge(paths.code_paths & changed_paths)
+              when paths.signature_path_changed?(changed_paths)
+                paths.signature_paths.each { request.signature_paths << [paths.target.name, _1] }
+                paths.library_paths.each { request.library_paths << [paths.target.name, _1] }
+                paths.code_paths.each { request.code_paths << [paths.target.name, _1] }
+              when code_paths = paths.code_path_changed?(changed_paths)
+                code_paths.each do
+                  request.code_paths << [paths.target.name, _1]
+                end
               end
             end
           end

@@ -663,9 +663,11 @@ module Steep
             case message[:method]
             when CustomMethods::TypeCheck__Progress::METHOD
               params = message[:params] #: CustomMethods::TypeCheck__Progress::params
+              target = project.targets.find {|target| target.name.to_s == params[:target] } or raise
               on_type_check_update(
                 guid: params[:guid],
                 path: Pathname(params[:path]),
+                target: target,
                 diagnostics: params[:diagnostics]
               )
             else
@@ -743,12 +745,12 @@ module Steep
         end
       end
 
-      def on_type_check_update(guid:, path:, diagnostics:)
+      def on_type_check_update(guid:, path:, target:, diagnostics:)
         if current = current_type_check_request()
           if current.guid == guid
-            current.checked(path, diagnostics)
+            current.checked(path, target)
 
-            Steep.logger.info { "Request updated: checked=#{path}, unchecked=#{current.unchecked_paths.size}, diagnostics=#{diagnostics&.size}" }
+            Steep.logger.info { "Request updated: checked=#{path}, unchecked=#{current.each_unchecked_code_target_path.size}, diagnostics=#{diagnostics&.size}" }
 
             percentage = current.percentage
             current.work_done_progress.report(percentage, "#{percentage}%") if current.report_progress

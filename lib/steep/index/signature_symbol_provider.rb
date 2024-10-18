@@ -11,7 +11,7 @@ module Steep
       attr_reader :assignment
 
       def initialize(project:, assignment:)
-        @indexes = []
+        @indexes = {}
         @project = project
         @assignment = assignment
       end
@@ -39,20 +39,20 @@ module Steep
         end
       end
 
-      def assigned?(path)
+      def assigned?(target, path)
         if path.relative?
           if project.targets.any? {|target| target.possible_signature_file?(path) }
             path = project.absolute_path(path)
           end
         end
 
-        assignment =~ path
+        assignment =~ [target, path]
       end
 
       def query_symbol(query)
         symbols = [] #: Array[SymbolInformation]
 
-        indexes.each do |index|
+        indexes.each do |target, index|
           index.each_entry do |entry|
             case entry
             when RBSIndex::TypeEntry
@@ -63,7 +63,7 @@ module Steep
 
               entry.declarations.each do |decl|
                 location = decl.location or next
-                next unless assigned?(Pathname(location.buffer.name))
+                next unless assigned?(target, Pathname(location.buffer.name))
 
                 case decl
                 when RBS::AST::Declarations::Class
@@ -111,7 +111,7 @@ module Steep
 
               entry.declarations.each do |decl|
                 location = decl.location or next
-                next unless assigned?(Pathname(location.buffer.name))
+                next unless assigned?(target, Pathname(location.buffer.name))
 
                 case decl
                 when RBS::AST::Members::MethodDefinition
@@ -151,7 +151,7 @@ module Steep
 
               entry.declarations.each do |decl|
                 next unless decl.location
-                next unless assigned?(Pathname(decl.location.buffer.name))
+                next unless assigned?(target, Pathname(decl.location.buffer.name))
 
                 symbols << SymbolInformation.new(
                   name: entry.const_name.name.to_s,
@@ -165,7 +165,7 @@ module Steep
 
               entry.declarations.each do |decl|
                 next unless decl.location
-                next unless assigned?(Pathname(decl.location.buffer.name))
+                next unless assigned?(target, Pathname(decl.location.buffer.name))
 
                 symbols << SymbolInformation.new(
                   name: decl.name.to_s,

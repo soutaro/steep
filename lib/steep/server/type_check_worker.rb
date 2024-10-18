@@ -8,9 +8,9 @@ module Steep
       WorkspaceSymbolJob = _ = Struct.new(:query, :id, keyword_init: true)
       StatsJob = _ = Struct.new(:id, keyword_init: true)
       StartTypeCheckJob = _ = Struct.new(:guid, :changes, keyword_init: true)
-      TypeCheckCodeJob = _ = Struct.new(:guid, :path, keyword_init: true)
-      ValidateAppSignatureJob = _ = Struct.new(:guid, :path, keyword_init: true)
-      ValidateLibrarySignatureJob = _ = Struct.new(:guid, :path, keyword_init: true)
+      TypeCheckCodeJob = _ = Struct.new(:guid, :path, :target, keyword_init: true)
+      ValidateAppSignatureJob = _ = Struct.new(:guid, :path, :target, keyword_init: true)
+      ValidateLibrarySignatureJob = _ = Struct.new(:guid, :path, :target, keyword_init: true)
       class GotoJob < Struct.new(:id, :kind, :params, keyword_init: true)
         def self.implementation(id:, params:)
           new(
@@ -111,51 +111,47 @@ module Steep
           queue << StartTypeCheckJob.new(guid: guid, changes: changes)
         end
 
-        priority_paths = Set.new(params[:priority_uris].map {|uri| Steep::PathHelper.to_pathname(uri) || raise })
-        library_paths = params[:library_uris].map {|uri| Steep::PathHelper.to_pathname(uri) || raise }
-        signature_paths = params[:signature_uris].map {|uri| Steep::PathHelper.to_pathname(uri) || raise }
-        code_paths = params[:code_uris].map {|uri| Steep::PathHelper.to_pathname(uri) || raise }
-
-        library_paths.each do |path|
-          if priority_paths.include?(path)
-            Steep.logger.info { "Enqueueing ValidateLibrarySignatureJob for guid=#{guid}, path=#{path}" }
-            queue << ValidateLibrarySignatureJob.new(guid: guid, path: path)
-          end
+        targets = project.targets.each.with_object({}) do |target, hash| #$ Hash[String, Project::Target]
+          hash[target.name.to_s] = target
         end
 
-        code_paths.each do |path|
-          if priority_paths.include?(path)
-            Steep.logger.info { "Enqueueing TypeCheckCodeJob for guid=#{guid}, path=#{path}" }
-            queue << TypeCheckCodeJob.new(guid: guid, path: path)
-          end
+        priority_paths = Set.new(params[:priority_uris].map {|uri| Steep::PathHelper.to_pathname!(uri) })
+        libraries = params[:library_uris].map {|target_name, uri| [targets.fetch(target_name), Steep::PathHelper.to_pathname!(uri)] } #: Array[[Project::Target, Pathname]]
+        signatures = params[:signature_uris].map {|target_name, uri| [targets.fetch(target_name), Steep::PathHelper.to_pathname!(uri)] } #: Array[[Project::Target, Pathname]]
+        codes = params[:code_uris].map {|target_name, uri| [targets.fetch(target_name), Steep::PathHelper.to_pathname!(uri)] } #: Array[[Project::Target, Pathname]]
+
+        priority_libs, non_priority_libs = libraries.partition {|_, path| priority_paths.include?(path) }
+        priority_sigs, non_priority_sigs = signatures.partition {|_, path| priority_paths.include?(path) }
+        priority_codes, non_priority_codes = codes.partition {|_, path| priority_paths.include?(path) }
+
+        priority_codes.each do |target, path|
+          Steep.logger.info { "Enqueueing TypeCheckCodeJob for guid=#{guid}, path=#{path}, target=#{target}" }
+          queue << TypeCheckCodeJob.new(guid: guid, path: path, target: target)
         end
 
-        signature_paths.each do |path|
-          if priority_paths.include?(path)
-            Steep.logger.info { "Enqueueing ValidateAppSignatureJob for guid=#{guid}, path=#{path}" }
-            queue << ValidateAppSignatureJob.new(guid: guid, path: path)
-          end
+        priority_sigs.each do |target, path|
+          Steep.logger.info { "Enqueueing ValidateAppSignatureJob for guid=#{guid}, path=#{path}, target=#{target}" }
+          queue << ValidateAppSignatureJob.new(guid: guid, path: path, target: target)
         end
 
-        library_paths.each do |path|
-          unless priority_paths.include?(path)
-            Steep.logger.info { "Enqueueing ValidateLibrarySignatureJob for guid=#{guid}, path=#{path}" }
-            queue << ValidateLibrarySignatureJob.new(guid: guid, path: path)
-          end
+        priority_libs.each do |target, path|
+          Steep.logger.info { "Enqueueing ValidateLibrarySignatureJob for guid=#{guid}, path=#{path}, target=#{target}" }
+          queue << ValidateLibrarySignatureJob.new(guid: guid, path: path, target: target)
         end
 
-        code_paths.each do |path|
-          unless priority_paths.include?(path)
-            Steep.logger.info { "Enqueueing TypeCheckCodeJob for guid=#{guid}, path=#{path}" }
-            queue << TypeCheckCodeJob.new(guid: guid, path: path)
-          end
+        non_priority_codes.each do |target, path|
+          Steep.logger.info { "Enqueueing TypeCheckCodeJob for guid=#{guid}, path=#{path}, target=#{target}" }
+          queue << TypeCheckCodeJob.new(guid: guid, path: path, target: target)
         end
 
-        signature_paths.each do |path|
-          unless priority_paths.include?(path)
-            Steep.logger.info { "Enqueueing ValidateAppSignatureJob for guid=#{guid}, path=#{path}" }
-            queue << ValidateAppSignatureJob.new(guid: guid, path: path)
-          end
+        non_priority_sigs.each do |target, path|
+          Steep.logger.info { "Enqueueing ValidateAppSignatureJob for guid=#{guid}, path=#{path}, target=#{target}" }
+          queue << ValidateAppSignatureJob.new(guid: guid, path: path, target: target)
+        end
+
+        non_priority_libs.each do |target, path|
+          Steep.logger.info { "Enqueueing ValidateLibrarySignatureJob for guid=#{guid}, path=#{path}, target=#{target}" }
+          queue << ValidateLibrarySignatureJob.new(guid: guid, path: path, target: target)
         end
       end
 
@@ -169,27 +165,15 @@ module Steep
           if job.guid == current_type_check_guid
             Steep.logger.info { "Processing ValidateAppSignature for guid=#{job.guid}, path=#{job.path}" }
 
-            all_diagnostics = nil #: Array[Diagnostic::Signature::Base]?
             formatter = Diagnostic::LSPFormatter.new({}, **{})
 
-            service.validate_signature(path: project.relative_path(job.path)) do |path, diagnostics|
-              all_diagnostics = diagnostics
-
-              # writer.write(
-              #   method: :"textDocument/publishDiagnostics",
-              #   params: LSP::Interface::PublishDiagnosticsParams.new(
-              #     uri: Steep::PathHelper.to_uri(job.path).to_s,
-              #     diagnostics: diagnostics.map {|diagnostic|
-              #       _ = formatter.format(diagnostic)
-              #     }.uniq
-              #   )
-              # )
-            end
+            diagnostics = service.validate_signature(path: project.relative_path(job.path), target: job.target)
 
             typecheck_progress(
               path: job.path,
               guid: job.guid,
-              diagnostics: all_diagnostics&.filter_map { formatter.format(_1) }
+              target: job.target,
+              diagnostics: diagnostics.filter_map { formatter.format(_1) }
             )
           end
 
@@ -197,43 +181,19 @@ module Steep
           if job.guid == current_type_check_guid
             Steep.logger.info { "Processing ValidateLibrarySignature for guid=#{job.guid}, path=#{job.path}" }
 
-            accumulated_diagnostics = nil #: Array[Diagnostic::Signature::Base]?
             formatter = Diagnostic::LSPFormatter.new({}, **{})
+            diagnostics = service.validate_signature(path: job.path, target: job.target)
 
-            service.validate_signature(path: job.path) do |path, diagnostics|
-              accumulated_diagnostics = diagnostics
-
-              # writer.write(
-              #   method: :"textDocument/publishDiagnostics",
-              #   params: LSP::Interface::PublishDiagnosticsParams.new(
-              #     uri: Steep::PathHelper.to_uri(job.path).to_s,
-              #     diagnostics: diagnostics.map {|diagnostic| _ = formatter.format(diagnostic) }.uniq.compact
-              #   )
-              # )
-            end
-
-            typecheck_progress(path: job.path, guid: job.guid, diagnostics: accumulated_diagnostics&.filter_map { formatter.format(_1) })
+            typecheck_progress(path: job.path, guid: job.guid, target: job.target, diagnostics: diagnostics.filter_map { formatter.format(_1) })
           end
 
         when TypeCheckCodeJob
           if job.guid == current_type_check_guid
             Steep.logger.info { "Processing TypeCheckCodeJob for guid=#{job.guid}, path=#{job.path}" }
             relative_path = project.relative_path(job.path)
-            target = project.target_for_source_path(relative_path)
-            formatter = Diagnostic::LSPFormatter.new(target&.code_diagnostics_config || {})
-
+            formatter = Diagnostic::LSPFormatter.new(job.target.code_diagnostics_config)
             diagnostics = service.typecheck_source(path: relative_path)
-              # writer.write(
-              #   method: :"textDocument/publishDiagnostics",
-              #   params: LSP::Interface::PublishDiagnosticsParams.new(
-              #     uri: Steep::PathHelper.to_uri(job.path).to_s,
-              #     diagnostics: diagnostics.map {|diagnostic|
-              #       _ = formatter.format(diagnostic)
-              #     }.uniq.compact
-              #   )
-              # )
-
-            typecheck_progress(path: job.path, guid: job.guid, diagnostics: diagnostics&.filter_map { formatter.format(_1) })
+            typecheck_progress(path: job.path, guid: job.guid, target: job.target, diagnostics: diagnostics&.filter_map { formatter.format(_1) })
           end
 
         when WorkspaceSymbolJob
@@ -254,16 +214,17 @@ module Steep
         end
       end
 
-      def typecheck_progress(guid:, path:, diagnostics:)
-        writer.write(CustomMethods::TypeCheck__Progress.notification({ guid: guid, path: path.to_s, diagnostics: diagnostics }))
+      def typecheck_progress(guid:, path:, target:, diagnostics:)
+        writer.write(CustomMethods::TypeCheck__Progress.notification({ guid: guid, path: path.to_s, target: target.name.to_s, diagnostics: diagnostics }))
       end
 
       def workspace_symbol_result(query)
         Steep.measure "Generating workspace symbol list for query=`#{query}`" do
-          indexes = project.targets.map {|target| service.signature_services[target.name].latest_rbs_index }
-
           provider = Index::SignatureSymbolProvider.new(project: project, assignment: assignment)
-          provider.indexes.push(*indexes)
+          project.targets.each do |target|
+            index = service.signature_services[target.name].latest_rbs_index
+            provider.indexes[target] = index
+          end
 
           symbols = provider.query_symbol(query)
 
@@ -294,7 +255,7 @@ module Steep
           service.source_files.each_value do |file|
             next unless target.possible_source_file?(file.path)
             absolute_path = project.absolute_path(file.path)
-            next unless assignment =~ absolute_path
+            next unless assignment =~ [target, absolute_path]
 
             stats << calculator.calc_stats(target, file: file)
           end

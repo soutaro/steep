@@ -1,4 +1,5 @@
 use LanguageServer::Protocol::Interface::Diagnostic as LSPDiagnostic
+use Steep::Project::Target
 
 module Steep
   module Server
@@ -22,20 +23,22 @@ module Steep
 
         attr_reader work_done_progress: WorkDoneProgress
 
+        type target_and_path = [Symbol, Pathname]
+
         # The path of RBS files of libraries
-        attr_reader library_paths: Set[Pathname]
+        attr_reader library_paths: Set[target_and_path]
 
         # The path of signature files
-        attr_reader signature_paths: Set[Pathname]
+        attr_reader signature_paths: Set[target_and_path]
 
         # The path of Ruby code files
-        attr_reader code_paths: Set[Pathname]
+        attr_reader code_paths: Set[target_and_path]
 
         # The path of files that is opened by the editor
         attr_reader priority_paths: Set[Pathname]
 
         # The path of files that are type checked already
-        attr_reader checked_paths: Set[Pathname]
+        attr_reader checked_paths: Set[target_and_path]
 
         attr_reader started_at: Time
 
@@ -52,7 +55,9 @@ module Steep
 
         private def uri: (Pathname path) -> URI::File
 
-        type json = { guid: String, library_uris: Array[String], signature_uris: Array[String], code_uris: Array[String], priority_uris: Array[String] }
+        type target_path_string = [String, String]
+
+        type json = { guid: String, library_uris: Array[target_path_string], signature_uris: Array[target_path_string], code_uris: Array[target_path_string], priority_uris: Array[String] }
 
         def as_json: (assignment: Services::PathAssignment) -> json
 
@@ -60,26 +65,41 @@ module Steep
 
         def percentage: () -> Integer
 
-        def all_paths: () -> Set[Pathname]
+        # Enumerates all paths included in the request
+        #
+        def each_path: () { (Pathname) -> void } -> void
+                     | () -> Enumerator[Pathname]
 
-        def checking_path?: (Pathname path) -> bool
+        def each_target_path: () { (target_and_path) -> void } -> void
+                            | () -> Enumerator[target_and_path]
+
+        def checking_path?: (target_and_path) -> bool
 
         # Mark a path is type checked
-        def checked: (Pathname path, Array[LSPDiagnostic::json]? diagnostics) -> void
+        def checked: (Pathname path, Target) -> void
 
         def finished?: () -> bool
 
-        def unchecked_paths: () -> Set[Pathname]
+        def each_unchecked_path: () { (Pathname) -> void } -> void
+                               | () -> Enumerator[Pathname]
 
-        def unchecked_code_paths: () -> Set[Pathname]
+        def each_unchecked_target_path: () { (target_and_path) -> void } -> void
+                                      | () -> Enumerator[target_and_path]
 
-        def unchecked_library_paths: () -> Set[Pathname]
+        def each_unchecked_code_target_path: () { (target_and_path) -> void } -> void
+                                           | () -> Enumerator[target_and_path]
 
-        def unchecked_signature_paths: () -> Set[Pathname]
+        def each_unchecked_library_target_path: () { (target_and_path) -> void } -> void
+                                              | () -> Enumerator[target_and_path]
+
+        def each_unchecked_signature_target_path: () { (target_and_path) -> void } -> void
+                                                | () -> Enumerator[target_and_path]
 
         # Set `#report_progress` and return self, defaults to `true`
         #
         def report_progress!: (?bool) -> self
+
+        private def assigned_uris: (Services::PathAssignment, Set[target_and_path]) -> Array[target_path_string]
       end
 
       attr_reader project: Project
@@ -135,6 +155,10 @@ module Steep
         def add: (Pathname path, ?library: bool) -> bool
 
         alias << add
+
+        def signature_path_changed?: (Set[Pathname]) -> bool
+
+        def code_path_changed?: (Set[Pathname]) -> Set[Pathname]?
       end
 
       def initialize: (project: Project) -> void

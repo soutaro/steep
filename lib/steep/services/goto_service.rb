@@ -34,7 +34,7 @@ module Steep
       end
 
       def implementation(path:, line:, column:)
-        locations = [] #: Array[loc]
+        locations = [] #: Array[target_loc]
 
         queries = query_at(path: path, line: line, column: column)
         queries.uniq!
@@ -50,11 +50,11 @@ module Steep
           end
         end
 
-        locations.uniq
+        locations.map { _1[1] }.uniq
       end
 
       def definition(path:, line:, column:)
-        locations = [] #: Array[loc]
+        locations = [] #: Array[target_loc]
 
         queries = query_at(path: path, line: line, column: column)
         queries.uniq!
@@ -79,18 +79,20 @@ module Steep
         # Drop un-assigned paths here.
         # The path assignment makes sense only for `.rbs` files, because un-assigned `.rb` files are already skipped since they are not type checked.
         #
-        locations.uniq.select do |loc|
+        locations.filter_map do |target, loc|
           case loc
           when RBS::Location
-            assignment =~ loc.name
+            if assignment =~ [target, loc.name]
+              loc
+            end
           else
-            true
+            loc
           end
-        end
+        end.uniq
       end
 
       def type_definition(path:, line:, column:)
-        locations = [] #: Array[loc]
+        locations = [] #: Array[target_loc]
 
         relative_path = project.relative_path(path)
 
@@ -112,14 +114,16 @@ module Steep
           type_name_locations(name, locations: locations)
         end
 
-        locations.uniq.select do |loc|
+        locations.filter_map do |target, loc|
           case loc
           when RBS::Location
-            assignment =~ loc.name
+            if assignment =~ [target, loc.name]
+              loc
+            end
           else
-            true
+            loc
           end
-        end
+        end.uniq
       end
 
       def each_type_name(type, &block)
@@ -295,23 +299,24 @@ module Steep
       end
 
       def constant_definition_in_rbs(name, locations:)
-        type_check.signature_services.each_value do |signature|
+        project.targets.each do |target|
+          signature = type_check.signature_services.fetch(target.name)
           env = signature.latest_env #: RBS::Environment
 
           case entry = env.constant_entry(name)
           when RBS::Environment::ConstantEntry
             if entry.decl.location
-              locations << entry.decl.location[:name]
+              locations << [target, entry.decl.location[:name]]
             end
           when RBS::Environment::ClassEntry, RBS::Environment::ModuleEntry
             entry.decls.each do |d|
               if d.decl.location
-                locations << d.decl.location[:name]
+                locations << [target, d.decl.location[:name]]
               end
             end
           when RBS::Environment::ClassAliasEntry, RBS::Environment::ModuleAliasEntry
             if entry.decl.location
-              locations << entry.decl.location[:new_name]
+              locations << [target, entry.decl.location[:new_name]]
             end
           end
         end
@@ -322,11 +327,12 @@ module Steep
       def constant_definition_in_ruby(name, locations:)
         type_check.source_files.each do |path, source|
           if typing = source.typing
+            target = project.target_for_source_path(path) or raise
             entry = typing.source_index.entry(constant: name)
             entry.definitions.each do |node|
               case node.type
               when :const
-                locations << node.location.expression
+                locations << [target, node.location.expression]
               when :casgn
                 parent = node.children[0]
                 location =
@@ -335,7 +341,7 @@ module Steep
                   else
                     node.location.name
                   end
-                locations << location
+                locations << [target, location]
               end
             end
           end
@@ -348,6 +354,7 @@ module Steep
         if in_ruby
           type_check.source_files.each do |path, source|
             if typing = source.typing
+              target = project.target_for_source_path(path) or raise
               entry = typing.source_index.entry(method: name)
 
               if entry.definitions.empty?
@@ -360,9 +367,9 @@ module Steep
               entry.definitions.each do |node|
                 case node.type
                 when :def
-                  locations << node.location.name
+                  locations << [target, node.location.name]
                 when :defs
-                  locations << node.location.name
+                  locations << [target, node.location.name]
                 end
               end
             end
@@ -370,7 +377,8 @@ module Steep
         end
 
         if in_rbs
-          type_check.signature_services.each_value do |signature|
+          project.targets.each do |target|
+            signature = type_check.signature_services.fetch(target.name)
             index = signature.latest_rbs_index
 
             entry = index.entry(method_name: name)
@@ -386,15 +394,15 @@ module Steep
               case decl
               when RBS::AST::Members::MethodDefinition
                 if decl.location
-                  locations << decl.location[:name]
+                  locations << [target, decl.location[:name]]
                 end
               when RBS::AST::Members::Alias
                 if decl.location
-                  locations << decl.location[:new_name]
+                  locations << [target, decl.location[:new_name]]
                 end
               when RBS::AST::Members::AttrAccessor, RBS::AST::Members::AttrReader, RBS::AST::Members::AttrWriter
                 if decl.location
-                  locations << decl.location[:name]
+                  locations << [target, decl.location[:name]]
                 end
               end
             end
@@ -405,7 +413,8 @@ module Steep
       end
 
       def type_name_locations(name, locations: [])
-        type_check.signature_services.each_value do |signature|
+        project.targets.each do |target|
+          signature = type_check.signature_services.fetch(target.name)
           index = signature.latest_rbs_index
 
           entry = index.entry(type_name: name)
@@ -413,11 +422,11 @@ module Steep
             case decl
             when RBS::AST::Declarations::Class, RBS::AST::Declarations::Module, RBS::AST::Declarations::Interface, RBS::AST::Declarations::TypeAlias
               if decl.location
-                locations << decl.location[:name]
+                locations << [target, decl.location[:name]]
               end
             when RBS::AST::Declarations::AliasDecl
               if decl.location
-                locations << decl.location[:new_name]
+                locations << [target, decl.location[:new_name]]
               end
             else
               raise

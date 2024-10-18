@@ -52,7 +52,7 @@ RBS
       builder.env(env)
 
       provider = SignatureSymbolProvider.new(project: project, assignment: assignment)
-      provider.indexes << index
+      provider.indexes[project.targets[0]] = index
 
       provider.query_symbol("").tap do |symbols|
         symbols.find {|s| s.name == "Class1" }.tap do |symbol|
@@ -132,7 +132,7 @@ RBS
       builder.env(env)
 
       provider = SignatureSymbolProvider.new(assignment: assignment, project: project)
-      provider.indexes << index
+      provider.indexes[project.targets[0]] = index
 
       provider.query_symbol("").tap do |symbols|
         symbols = symbols.select {|s| s.container_name == "Class1" }
@@ -234,7 +234,7 @@ RBS
       builder.env(env)
 
       provider = SignatureSymbolProvider.new(assignment: assignment, project: project)
-      provider.indexes << index
+      provider.indexes[project.targets[0]] = index
 
       provider.query_symbol("").tap do |symbols|
         symbols.find {|s| s.name == "DEFAULT_COMMAND" }.tap do |symbol|

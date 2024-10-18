@@ -64,6 +64,7 @@ module Steep
         type params = {
           guid: String,
           path: String,
+          target: String,
           diagnostics: Array[LSPDiagnostic::json]?
         }
 
