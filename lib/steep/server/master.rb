@@ -458,13 +458,17 @@ module Steep
           end
 
         when "workspace/didChangeWatchedFiles"
+          updated_watched_files = [] #: Array[Pathname]
+
           message[:params][:changes].each do |change|
             uri = change[:uri]
             type = change[:type]
 
-            path = PathHelper.to_pathname(uri) or next
+            path = PathHelper.to_pathname!(uri)
 
             unless controller.priority_paths.include?(path)
+              updated_watched_files << path
+
               controller.push_changes(path)
 
               case type
@@ -476,8 +480,14 @@ module Steep
               end
 
               content or raise
+
               broadcast_notification(CustomMethods::FileReset.notification({ uri: uri, content: content }))
             end
+          end
+
+          if updated_watched_files.empty?
+            Steep.logger.info { "Exit from workspace/didChangeWatchedFiles notification because all of the changed files are already open" }
+            return
           end
 
           if typecheck_automatically
