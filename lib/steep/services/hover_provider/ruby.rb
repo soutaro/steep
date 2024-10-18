@@ -65,14 +65,14 @@ module Steep
         def method_definition_for(factory, type_name, singleton_method: nil, instance_method: nil)
           case
           when instance_method
-            factory.definition_builder.build_instance(type_name).methods[instance_method]
+            factory.definition_builder.build_instance(type_name).methods.fetch(instance_method)
           when singleton_method
             methods = factory.definition_builder.build_singleton(type_name).methods
 
             if singleton_method == :new
-              methods[:new] || methods[:initialize]
+              methods[:new] || methods.fetch(:initialize)
             else
-              methods[singleton_method]
+              methods.fetch(singleton_method)
             end
           else
             raise "One of the instance_method or singleton_method is required"
@@ -80,7 +80,7 @@ module Steep
         end
 
         def typecheck(target, path:, content:, line:, column:)
-          subtyping = service.signature_services[target.name].current_subtyping or return
+          subtyping = service.signature_services.fetch(target.name).current_subtyping or return
           source = Source.parse(content, path: path, factory: subtyping.factory)
           source = source.without_unrelated_defs(line: line, column: column)
           resolver = ::RBS::Resolver::ConstantResolver.new(builder: subtyping.factory.definition_builder)

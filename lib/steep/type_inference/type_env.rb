@@ -231,7 +231,7 @@ module Steep
 
         envs.each do |env|
           all_lvar_types.each_key do |name|
-            all_lvar_types[name] << (env[name] || AST::Builtin.nil_type)
+            all_lvar_types.fetch(name) << (env[name] || AST::Builtin.nil_type)
           end
         end
 
@@ -245,7 +245,7 @@ module Steep
           .inject {|s1, s2| s1.intersection(s2) } || Set[]
 
         pure_call_updates = common_pure_nodes.each_with_object({}) do |node, hash| #$ Hash[Parser::AST::Node, [MethodCall::Typed, AST::Types::t]]
-          pairs = envs.map {|env| env.pure_method_calls[node] }
+          pairs = envs.map {|env| env.pure_method_calls.fetch(node) }
           refined_type = AST::Types::Union.build(types: pairs.map {|call, type| type || call.return_type })
 
           # Any *pure_method_call* can be used because it's *pure*

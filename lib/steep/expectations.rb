@@ -203,7 +203,7 @@ module Steep
       array = [] #: Array[{ "file" => String, "diagnostics" => Array[untyped] }]
 
       diagnostics.each_key.sort.each do |key|
-        ds = diagnostics[key]
+        ds = diagnostics.fetch(key)
         array << {
           "file" => key.to_s,
           'diagnostics' => ds.sort_by(&:sort_key).map(&:to_hash)
