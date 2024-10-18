@@ -17,7 +17,7 @@ module Steep
         end
 
         def content_for(target:, path:, line:, column:)
-          service = self.service.signature_services[target.name]
+          service = self.service.signature_services.fetch(target.name)
 
           env = service.latest_env
           buffer = env.buffers.find {|buf| buf.name.to_s == path.to_s } or return

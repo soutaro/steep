@@ -102,7 +102,7 @@ module Steep
       end
 
       def add(var, sub_type: nil, super_type: nil, skip: false)
-        subs, supers, skips = dictionary[var]
+        subs, supers, skips = dictionary.fetch(var)
 
         if sub_type.is_a?(AST::Types::Logic::Base)
           sub_type = AST::Builtin.bool_type
@@ -204,7 +204,7 @@ module Steep
         if skip
           upper_bound = upper_bound_types(var)
         else
-          _, upper_bound, _ = dictionary[var]
+          _, upper_bound, _ = dictionary.fetch(var)
         end
 
         case upper_bound.size
@@ -320,12 +320,12 @@ module Steep
       end
 
       def lower_bound_types(var_name)
-        lower, _, _ = dictionary[var_name]
+        lower, _, _ = dictionary.fetch(var_name)
         lower
       end
 
       def upper_bound_types(var_name)
-        _, upper, skips = dictionary[var_name]
+        _, upper, skips = dictionary.fetch(var_name)
 
         case
         when upper.empty?

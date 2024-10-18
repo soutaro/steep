@@ -79,7 +79,7 @@ module Steep
             return :all
           end
 
-          if raw_diagnostics.size == 1 && raw_diagnostics[0].source == "all"
+          if raw_diagnostics.size == 1 && raw_diagnostics.fetch(0).source == "all"
             return :all
           end
 

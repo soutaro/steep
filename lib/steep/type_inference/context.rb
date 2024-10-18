@@ -121,7 +121,7 @@ module Steep
         end
 
         def [](name)
-          table[name].upper_bound
+          table.fetch(name).upper_bound
         end
 
         def upper_bounds

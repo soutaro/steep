@@ -131,7 +131,7 @@ module Steep
         signature_diagnostics = {}
 
         project.targets.each do |target|
-          service = signature_services[target.name]
+          service = signature_services.fetch(target.name)
 
           service.each_rbs_path do |path|
             signature_diagnostics[path] ||= []
@@ -142,13 +142,13 @@ module Steep
             service.status.diagnostics.group_by {|diag| diag.location&.buffer&.name&.to_s }.each do |path_string, diagnostics|
               if path_string
                 path = Pathname(path_string)
-                signature_diagnostics[path].push(*diagnostics)
+                signature_diagnostics.fetch(path).push(*diagnostics)
               end
             end
           when SignatureService::LoadedStatus
             validation_diagnostics = signature_validation_diagnostics[target.name] || {}
             validation_diagnostics.each do |path, diagnostics|
-              signature_diagnostics[path].push(*diagnostics)
+              signature_diagnostics.fetch(path).push(*diagnostics)
             end
           end
         end
@@ -197,7 +197,7 @@ module Steep
       def validate_signature(path:, target:)
         Steep.logger.tagged "#validate_signature(path=#{path})" do
           Steep.measure "validation" do
-            service = signature_services[target.name]
+            service = signature_services.fetch(target.name)
 
             raise unless target.possible_signature_file?(path) || service.env_rbs_paths.include?(path)
 
@@ -264,7 +264,7 @@ module Steep
               end
             end
 
-            signature_validation_diagnostics[target.name][path] = diagnostics
+            signature_validation_diagnostics.fetch(target.name)[path] = diagnostics
           end
         end
       end
@@ -274,11 +274,11 @@ module Steep
 
         Steep.logger.tagged "#typecheck_source(path=#{path})" do
           Steep.measure "typecheck" do
-            signature_service = signature_services[target.name]
+            signature_service = signature_services.fetch(target.name)
             subtyping = signature_service.current_subtyping
 
             if subtyping
-              text = source_files[path].content
+              text = source_files.fetch(path).content
               file = type_check_file(target: target, subtyping: subtyping, path: path, text: text) { signature_service.latest_constant_resolver }
               source_files[path] = file
 
@@ -291,11 +291,11 @@ module Steep
       def update_signature(changes:, requests:)
         Steep.logger.tagged "#update_signature" do
           project.targets.each do |target|
-            signature_service = signature_services[target.name]
+            signature_service = signature_services.fetch(target.name)
             signature_changes = changes.filter {|path, _| target.possible_signature_file?(path) }
 
             unless signature_changes.empty?
-              requests[target].signature_updated!
+              requests.fetch(target).signature_updated!
               signature_service.update(signature_changes)
             end
           end
@@ -318,7 +318,7 @@ module Steep
             file = source_files[path] || SourceFile.no_data(path: path, content: "")
             content = changes.inject(file.content) {|text, change| change.apply_to(text) }
             source_files[path] = file.update_content(content)
-            requests[target].source_paths << path
+            requests.fetch(target).source_paths << path
           end
         end
       end
