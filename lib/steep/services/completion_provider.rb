@@ -105,9 +105,9 @@ module Steep
         def decl
           case
           when absolute_type_name.interface?
-            env.interface_decls[absolute_type_name].decl
+            env.interface_decls.fetch(absolute_type_name).decl
           when absolute_type_name.alias?
-            env.type_alias_decls[absolute_type_name].decl
+            env.type_alias_decls.fetch(absolute_type_name).decl
           when absolute_type_name.class?
             case entry = env.module_class_entry(absolute_type_name)
             when RBS::Environment::ClassEntry, RBS::Environment::ModuleEntry
@@ -127,11 +127,11 @@ module Steep
 
           case
           when absolute_type_name.interface?
-            if comment = env.interface_decls[absolute_type_name].decl.comment
+            if comment = env.interface_decls.fetch(absolute_type_name).decl.comment
               comments << comment
             end
           when absolute_type_name.alias?
-            if comment = env.type_alias_decls[absolute_type_name].decl.comment
+            if comment = env.type_alias_decls.fetch(absolute_type_name).decl.comment
               comments << comment
             end
           when absolute_type_name.class?

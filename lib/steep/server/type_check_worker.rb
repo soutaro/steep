@@ -223,7 +223,7 @@ module Steep
         Steep.measure "Generating workspace symbol list for query=`#{query}`" do
           provider = Index::SignatureSymbolProvider.new(project: project, assignment: assignment)
           project.targets.each do |target|
-            index = service.signature_services[target.name].latest_rbs_index
+            index = service.signature_services.fetch(target.name).latest_rbs_index
             provider.indexes[target] = index
           end
 

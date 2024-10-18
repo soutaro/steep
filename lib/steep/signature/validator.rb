@@ -130,7 +130,7 @@ module Steep
             ]
           when RBS::Types::Alias
             type_name = env.normalize_type_name?(type.name) or return
-            entry = env.type_alias_decls[type_name]
+            entry = env.type_alias_decls.fetch(type_name)
 
             [
               type_name,
@@ -485,7 +485,7 @@ module Steep
           location =
             case ancestor.source
             when :super
-              primary_decl = env.class_decls[name].primary.decl
+              primary_decl = env.class_decls.fetch(name).primary.decl
               primary_decl.is_a?(RBS::AST::Declarations::Class) or raise
               if super_class = primary_decl.super_class
                 super_class.location
@@ -594,7 +594,7 @@ module Steep
         end
       end
 
-      def validate_one_alias(name, entry = env.type_alias_decls[name])
+      def validate_one_alias(name, entry = env.type_alias_decls.fetch(name))
         *, inner_most_outer_module = entry.outer
         if inner_most_outer_module
           class_type = AST::Types::Name::Singleton.new(name: inner_most_outer_module.name)

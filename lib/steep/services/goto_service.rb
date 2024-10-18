@@ -97,7 +97,7 @@ module Steep
         relative_path = project.relative_path(path)
 
         target = type_check.project.target_for_path(relative_path) or return []
-        source = type_check.source_files[relative_path]
+        source = type_check.source_files.fetch(relative_path)
         typing, signature = type_check_path(target: target, path: relative_path, content: source.content, line: line, column: column)
 
         typing or return []
@@ -163,7 +163,7 @@ module Steep
 
         case
         when target = type_check.project.target_for_source_path(relative_path)
-          source = type_check.source_files[relative_path] or return []
+          source = type_check.source_files.fetch(relative_path, nil) or return []
           typing, _signature = type_check_path(target: target, path: relative_path, content: source.content, line: line, column: column)
           if typing
             node, *parents = typing.source.find_nodes(line: line, column: column)
@@ -284,7 +284,7 @@ module Steep
       end
 
       def type_check_path(target:, path:, content:, line:, column:)
-        signature_service = type_check.signature_services[target.name]
+        signature_service = type_check.signature_services.fetch(target.name)
         subtyping = signature_service.current_subtyping or return
         source = Source.parse(content, path: path, factory: subtyping.factory)
         source = source.without_unrelated_defs(line: line, column: column)

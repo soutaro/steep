@@ -1057,10 +1057,10 @@ module Steep
 
         sup_flat_kws.each do |name, _|
           if sub_flat_kws.key?(name)
-            pairs << [sub_flat_kws[name], sup_flat_kws[name]]
+            pairs << [sub_flat_kws.fetch(name), sup_flat_kws.fetch(name)]
           else
             if sub_params.rest_keywords
-              pairs << [sub_params.rest_keywords, sup_flat_kws[name]]
+              pairs << [sub_params.rest_keywords, sup_flat_kws.fetch(name)]
             else
               return failure
             end

@@ -46,7 +46,7 @@ module Steep
 
             changes[path] ||= []
             request[:params][:contentChanges].each do |change|
-              changes[path] << Services::ContentChange.new(
+              changes.fetch(path) << Services::ContentChange.new(
                 range: change[:range]&.yield_self {|range|
                   [
                     range[:start].yield_self {|pos| Services::ContentChange::Position.new(line: pos[:line] + 1, column: pos[:character]) },
