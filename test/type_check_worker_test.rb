@@ -4,6 +4,7 @@ class TypeCheckWorkerTest < Minitest::Test
   include TestHelper
   include ShellHelper
   include LSPTestHelper
+  include TypeCheckServiceHelper
 
   include Steep
 
@@ -195,9 +196,9 @@ class TypeCheckWorkerTest < Minitest::Test
             params: {
               guid: "guid1",
               priority_uris: ["#{file_scheme}#{current_dir}/lib/hello.rb"],
-              signature_uris: ["#{file_scheme}#{current_dir}/sig/hello.rbs"],
-              code_uris: ["#{file_scheme}#{current_dir}/lib/hello.rb"],
-              library_uris: ["#{file_scheme}#{RBS::EnvironmentLoader::DEFAULT_CORE_ROOT + "object.rbs"}"]
+              signature_uris: [["lib", "#{file_scheme}#{current_dir}/sig/hello.rbs"]],
+              code_uris: [["lib", "#{file_scheme}#{current_dir}/lib/hello.rb"]],
+              library_uris: [["lib", "#{file_scheme}#{RBS::EnvironmentLoader::DEFAULT_CORE_ROOT + "object.rbs"}"]]
             }
           }
         )
@@ -312,18 +313,14 @@ class TypeCheckWorkerTest < Minitest::Test
           worker.handle_job(TypeCheckWorker::StartTypeCheckJob.new(guid: "guid", changes: changes))
         end
 
-        job = TypeCheckWorker::ValidateAppSignatureJob.new(guid: "guid", path: current_dir + "sig/hello.rbs")
+        job = TypeCheckWorker::ValidateAppSignatureJob.new(guid: "guid", path: current_dir + "sig/hello.rbs", target: project.targets[0])
         worker.handle_job(job)
-
-        master_read_queue.pop.tap do |message|
-          assert_equal "textDocument/publishDiagnostics", message[:method]
-          assert_equal "#{file_scheme}#{current_dir + "sig/hello.rbs"}", message[:params][:uri]
-        end
 
         master_read_queue.pop.tap do |message|
           assert_equal TypeCheck__Progress::METHOD, message[:method]
           assert_equal "guid", message[:params][:guid]
           assert_equal (current_dir + "sig/hello.rbs").to_s, message[:params][:path]
+          assert_empty message[:params][:diagnostics]
         end
       end
     end
@@ -410,19 +407,16 @@ class TypeCheckWorkerTest < Minitest::Test
 
         job = TypeCheckWorker::ValidateLibrarySignatureJob.new(
           guid: "guid",
-          path: RBS::EnvironmentLoader::DEFAULT_CORE_ROOT + "object.rbs"
+          path: RBS::EnvironmentLoader::DEFAULT_CORE_ROOT + "object.rbs",
+          target: project.targets[0]
         )
         worker.handle_job(job)
-
-        master_read_queue.deq.tap do |message|
-          assert_equal "textDocument/publishDiagnostics", message[:method]
-          assert_equal "#{file_scheme}#{RBS::EnvironmentLoader::DEFAULT_CORE_ROOT + "object.rbs"}", message[:params][:uri]
-        end
 
         master_read_queue.deq.tap do |message|
           assert_equal TypeCheck__Progress::METHOD, message[:method]
           assert_equal "guid", message[:params][:guid]
           assert_equal (RBS::EnvironmentLoader::DEFAULT_CORE_ROOT + "object.rbs").to_s, message[:params][:path]
+          assert_empty message[:params][:diagnostics]
         end
       end
     end
@@ -508,18 +502,14 @@ class TypeCheckWorkerTest < Minitest::Test
           worker.handle_job(TypeCheckWorker::StartTypeCheckJob.new(guid: "guid", changes: changes))
         end
 
-        job = TypeCheckWorker::TypeCheckCodeJob.new(guid: "guid", path: current_dir + "lib/hello.rb")
+        job = TypeCheckWorker::TypeCheckCodeJob.new(guid: "guid", path: current_dir + "lib/hello.rb", target: project.targets[0])
         worker.handle_job(job)
-
-        master_read_queue.pop.tap do |message|
-          assert_equal "textDocument/publishDiagnostics", message[:method]
-          assert_equal "#{file_scheme}#{current_dir + "lib/hello.rb"}", message[:params][:uri]
-        end
 
         master_read_queue.pop.tap do |message|
           assert_equal TypeCheck__Progress::METHOD, message[:method]
           assert_equal "guid", message[:params][:guid]
           assert_equal (current_dir + "lib/hello.rb").to_s, message[:params][:path]
+          assert_equal 1, message[:params][:diagnostics].size
         end
       end
     end
@@ -568,27 +558,23 @@ class TypeCheckWorkerTest < Minitest::Test
           worker.handle_job(TypeCheckWorker::StartTypeCheckJob.new(guid: "guid", changes: changes))
         end
 
-        job = TypeCheckWorker::TypeCheckCodeJob.new(guid: "guid", path: current_dir + "lib/hello.rb")
+        job = TypeCheckWorker::TypeCheckCodeJob.new(guid: "guid", path: current_dir + "lib/hello.rb", target: project.targets[0])
         worker.handle_job(job)
 
-        while response = master_read_queue.deq
-          if response[:method] == "textDocument/publishDiagnostics" &&
-            response[:params][:uri] == "#{file_scheme}#{current_dir + "lib/hello.rb"}"
-            message = response
-            break
+        master_read_queue.pop.tap do |message|
+          assert_equal TypeCheck__Progress::METHOD, message[:method]
+          assert_equal "guid", message[:params][:guid]
+          assert_equal (current_dir + "lib/hello.rb").to_s, message[:params][:path]
+
+          assert_any!(message[:params][:diagnostics], size: 2) do |diagnostic|
+            assert_equal "Ruby::UnexpectedPositionalArgument", diagnostic[:code]
+            assert_equal 1, diagnostic[:severity]
           end
-        end
 
-        assert_instance_of Hash, message
-
-        assert_any!(message[:params][:diagnostics], size: 2) do |diagnostic|
-          assert_equal "Ruby::UnexpectedPositionalArgument", diagnostic[:code]
-          assert_equal 1, diagnostic[:severity]
-        end
-
-        assert_any!(message[:params][:diagnostics], size: 2) do |diagnostic|
-          assert_equal "Ruby::UnknownConstant", diagnostic[:code]
-          assert_equal 3, diagnostic[:severity]
+          assert_any!(message[:params][:diagnostics], size: 2) do |diagnostic|
+            assert_equal "Ruby::UnknownConstant", diagnostic[:code]
+            assert_equal 3, diagnostic[:severity]
+          end
         end
       end
     end
@@ -696,7 +682,8 @@ RUBY
         writer: worker_writer
       )
 
-      worker.service.update_and_check(
+      update_and_check(
+        worker.service,
         changes: {
           Pathname("lib/hello.rb") => [Services::ContentChange.string(<<RUBY)],
 Hello.new.world(10)
@@ -704,8 +691,7 @@ RUBY
           Pathname("lib/world.rb") => [Services::ContentChange.string(<<RUBY)]
 1+
 RUBY
-        },
-        assignment: assignment
+        }
       ) {}
 
       result = worker.stats_result()

@@ -1,21 +1,40 @@
 module Steep
   module Services
+    # PathAssignment assigns an index to each pair of Target and Pathname
+    #
+    # ```rb
+    # assignment = PathAssignment.new(index: 1, max_index: 3)
+    # assignment =~ [target, path]   # => true | false
+    # ```
+    #
+    # The result must be deterministic, because the assignment is used in both *master* and *worker* processes.
+    #
     class PathAssignment
       attr_reader index: Integer
 
       attr_reader max_index: Integer
 
-      attr_reader cache: Hash[Pathname, Integer]
+      attr_reader cache: Hash[String, Integer]
 
       def initialize: (index: Integer, max_index: Integer) -> void
 
+      # Returns an assignment that returns `true` for everything
+      #
       def self.all: () -> PathAssignment
 
-      def =~: (Pathname path) -> bool
+      type path = [Project::Target | Symbol | String, Pathname]
+
+      def =~: (path) -> bool
 
       alias === =~
 
-      def self.index_for: (path: String, max_index: Integer) -> Integer
+      def stringify: (path) -> String
+
+      # An internal API to assign the index to a path
+      def assign!: (path, Integer index) -> self
+
+      # Internal method to calculate the index from of a string
+      def self.index_for: (key: String, max_index: Integer) -> Integer
     end
   end
 end

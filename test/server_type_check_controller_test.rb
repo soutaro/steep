@@ -1,12 +1,12 @@
 require_relative "test_helper"
 
-class MasterTypeCheckControllerTest < Minitest::Test
+class ServerTypeCheckControllerTest < Minitest::Test
   include TestHelper
   include ShellHelper
   include LSPTestHelper
 
   include Steep
-  TypeCheckController = Server::Master::TypeCheckController
+  TypeCheckController = Server::TypeCheckController
   WorkDoneProgress = Server::WorkDoneProgress
 
   def dirs
@@ -64,7 +64,7 @@ end
       project = Project.new(steepfile_path: steepfile)
       Project::DSL.parse(project, steepfile.read)
 
-      controller = Server::Master::TypeCheckController.new(project: project)
+      controller = Server::TypeCheckController.new(project: project)
 
       assert_equal project, controller.project
       assert_equal Set[], controller.priority_paths
@@ -104,7 +104,7 @@ end
       project = Project.new(steepfile_path: steepfile)
       Project::DSL.parse(project, steepfile.read)
 
-      controller = Server::Master::TypeCheckController.new(project: project)
+      controller = Server::TypeCheckController.new(project: project)
       controller.load(command_line_args: []) {}
 
       controller.target_paths[0].tap do |paths|
@@ -137,7 +137,7 @@ end
       project = Project.new(steepfile_path: steepfile)
       Project::DSL.parse(project, steepfile.read)
 
-      controller = Server::Master::TypeCheckController.new(project: project)
+      controller = Server::TypeCheckController.new(project: project)
       controller.load(command_line_args: []) {}
       controller.changed_paths.clear()
 
@@ -177,7 +177,7 @@ end
       project = Project.new(steepfile_path: steepfile)
       Project::DSL.parse(project, steepfile.read)
 
-      controller = Server::Master::TypeCheckController.new(project: project)
+      controller = Server::TypeCheckController.new(project: project)
       controller.load(command_line_args: []) {}
       controller.changed_paths.clear()
 
@@ -213,7 +213,7 @@ end
       project = Project.new(steepfile_path: steepfile)
       Project::DSL.parse(project, steepfile.read)
 
-      controller = Server::Master::TypeCheckController.new(project: project)
+      controller = Server::TypeCheckController.new(project: project)
       controller.load(command_line_args: []) {}
       controller.changed_paths.clear()
 
@@ -241,7 +241,7 @@ end
       project = Project.new(steepfile_path: steepfile)
       Project::DSL.parse(project, steepfile.read)
 
-      controller = Server::Master::TypeCheckController.new(project: project)
+      controller = Server::TypeCheckController.new(project: project)
       controller.load(command_line_args: []) {}
       controller.changed_paths.clear()
 
@@ -249,8 +249,8 @@ end
       controller.push_changes(current_dir + "sig/customer.rbs")
 
       request = controller.make_request(progress: WorkDoneProgress.new("guid") {})
-      assert_equal Set[current_dir + "sig/customer.rbs"], request.signature_paths
-      assert_equal Set[current_dir + "lib/customer.rb"], request.code_paths
+      assert_equal Set[[:lib, current_dir + "sig/customer.rbs"]], request.signature_paths
+      assert_equal Set[[:lib, current_dir + "lib/customer.rb"]], request.code_paths
       assert_equal Set[current_dir + "lib/customer.rb"], request.priority_paths
       assert_operator request.library_paths.size, :>, 0
 
@@ -278,7 +278,7 @@ end
       project = Project.new(steepfile_path: steepfile)
       Project::DSL.parse(project, steepfile.read)
 
-      controller = Server::Master::TypeCheckController.new(project: project)
+      controller = Server::TypeCheckController.new(project: project)
       controller.load(command_line_args: []) {}
       controller.changed_paths.clear()
 
@@ -287,7 +287,7 @@ end
 
       request = controller.make_request(progress: WorkDoneProgress.new("guid") {})
       assert_equal Set[], request.signature_paths
-      assert_equal Set[current_dir + "lib/customer.rb"], request.code_paths
+      assert_equal Set[[:lib, current_dir + "lib/customer.rb"]], request.code_paths
       assert_equal Set[current_dir + "lib/customer.rb"], request.priority_paths
       assert_operator request.library_paths.size, :==, 0
 
@@ -319,23 +319,23 @@ end
       project = Project.new(steepfile_path: steepfile)
       Project::DSL.parse(project, steepfile.read)
 
-      controller = Server::Master::TypeCheckController.new(project: project)
+      controller = Server::TypeCheckController.new(project: project)
       controller.load(command_line_args: []) {}
       controller.changed_paths.clear()
 
       controller.update_priority(open: current_dir + "lib/customer.rb")
       controller.push_changes(current_dir + "lib/customer.rb")
 
-      last_request = Server::Master::TypeCheckRequest.new(guid: "last_guid", progress: WorkDoneProgress.new("guid") {})
-      last_request.code_paths << current_dir + "lib/account.rb"
-      last_request.signature_paths << current_dir + "sig/account.rbs"
-      last_request.library_paths << RBS::EnvironmentLoader::DEFAULT_CORE_ROOT + "integer.rbs"
+      last_request = Server::TypeCheckController::Request.new(guid: "last_guid", progress: WorkDoneProgress.new("guid") {})
+      last_request.code_paths << [:lib, current_dir + "lib/account.rb"]
+      last_request.signature_paths << [:lib, current_dir + "sig/account.rbs"]
+      last_request.library_paths << [:lib, RBS::EnvironmentLoader::DEFAULT_CORE_ROOT + "integer.rbs"]
 
       request = controller.make_request(last_request: last_request, progress: WorkDoneProgress.new("guid") {})
-      assert_equal Set[current_dir + "sig/account.rbs"], request.signature_paths
-      assert_equal Set[current_dir + "lib/customer.rb", current_dir + "lib/account.rb"], request.code_paths
       assert_equal Set[current_dir + "lib/customer.rb"], request.priority_paths
-      assert_equal Set[RBS::EnvironmentLoader::DEFAULT_CORE_ROOT + "integer.rbs"], request.library_paths
+      assert_equal Set[[:lib, current_dir + "sig/account.rbs"]], request.signature_paths
+      assert_equal Set[[:lib, current_dir + "lib/customer.rb"], [:lib, current_dir + "lib/account.rb"]], request.code_paths
+      assert_equal Set[[:lib, RBS::EnvironmentLoader::DEFAULT_CORE_ROOT + "integer.rbs"]], request.library_paths
 
       assert_equal Set[], controller.changed_paths
     end

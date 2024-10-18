@@ -5,6 +5,7 @@ class StatsCalculatorTest < Minitest::Test
   include ShellHelper
   include FactoryHelper
   include SubtypingHelper
+  include TypeCheckServiceHelper
 
   include Steep
 
@@ -31,15 +32,15 @@ EOF
 
   def test_stats_success
     setup_project() do |service|
-      service.update_and_check(
+      update_and_check(
+        service,
         changes: {
           Pathname("lib/hello.rb") => [ContentChange.string(<<RUBY)]
 1 + 2
 (_ = 1) + 2
 1 + ""
 RUBY
-        },
-        assignment: Services::PathAssignment.all
+        }
       ) {}
 
       calculator = StatsCalculator.new(service: service)
@@ -59,7 +60,8 @@ RUBY
 
   def test_stats_syntax_error
     setup_project do |service|
-      service.update_and_check(
+      update_and_check(
+        service,
         changes: {
           Pathname("sig/hello.rbs") => [ContentChange.string(<<-RBS)],
 interface _HelloWorld
@@ -67,8 +69,7 @@ interface _HelloWorld
           Pathname("lib/hello.rb") => [ContentChange.string(<<-RUBY)]
 1+2
           RUBY
-        },
-        assignment: Services::PathAssignment.all
+        }
       ) {}
 
       calculator = StatsCalculator.new(service: service)

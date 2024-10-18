@@ -156,13 +156,18 @@ module Steep
 
         request_guid = master.fresh_request_id()
         progress = master.work_done_progress(request_guid)
-        request = Server::Master::TypeCheckRequest.new(guid: request_guid, progress: progress)
+        request = Server::TypeCheckController::Request.new(guid: request_guid, progress: progress)
 
         target_paths.each do |path|
-          request.code_paths << project.absolute_path(path)
+          target = project.target_for_source_path(path) or next
+          request.code_paths << [target.name, project.absolute_path(path)]
         end
         signature_paths.each do |path|
-          request.signature_paths << project.absolute_path(path)
+          targets = project.targets_for_path(path)
+          next unless targets.is_a?(Array)
+          targets.each do |target|
+            request.signature_paths << [target.name, project.absolute_path(path)]
+          end
         end
 
         request.needs_response = true

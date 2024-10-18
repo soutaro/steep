@@ -3,6 +3,7 @@ require_relative "test_helper"
 class TypeCheckServiceTest < Minitest::Test
   include Steep
   include TestHelper
+  include TypeCheckServiceHelper
 
   ContentChange = Services::ContentChange
   TypeCheckService = Services::TypeCheckService
@@ -24,10 +25,6 @@ EOF
     end
   end
 
-  def assignment
-    @assignment ||= Services::PathAssignment.new(max_index: 1, index: 0)
-  end
-
   def reported_diagnostics
     @reported_diagnostics ||= {}
   end
@@ -35,7 +32,9 @@ EOF
   def reporter
     -> ((path, diagnostics)) {
       formatter = Diagnostic::LSPFormatter.new({}, **{})
-      reported_diagnostics[path] = diagnostics.map {|diagnostic| formatter.format(diagnostic) }.uniq
+      if diagnostics
+        reported_diagnostics[path] = diagnostics.map {|diagnostic| formatter.format(diagnostic) }.uniq
+      end
     }
   end
 
@@ -114,7 +113,7 @@ RBS
 class Account
 RUBY
     }.tap do |changes|
-      service.update_and_check(changes: changes, assignment: assignment, &reporter)
+      update_and_check(service, changes: changes, &reporter)
 
       service.source_files[Pathname("lib/syntax_error.rb")].tap do |file|
         assert_any!(file.errors, size: 1) do |error|
@@ -140,7 +139,7 @@ RUBY
     {
       Pathname("lib/syntax_error.rb") => [ContentChange.string(broken)]
     }.tap do |changes|
-      service.update_and_check(changes: changes, assignment: assignment, &reporter)
+      update_and_check(service, changes: changes, &reporter)
 
       service.source_files[Pathname("lib/syntax_error.rb")].tap do |file|
         assert_nil file.errors
@@ -161,7 +160,7 @@ class Account
 end
 RUBY
     }.tap do |changes|
-      service.update_and_check(changes: changes, assignment: assignment, &reporter)
+      update_and_check(service, changes: changes, &reporter)
 
       service.source_files[Pathname("lib/annotation_syntax_error.rb")].tap do |file|
         assert_any!(file.errors, size: 1) do |error|
@@ -193,7 +192,7 @@ RUBY
 1+""
 RUBY
     }.tap do |changes|
-      service.update_and_check(changes: changes, assignment: assignment, &reporter)
+      update_and_check(service, changes: changes, &reporter)
 
       assert_equal [], reported_diagnostics.dig(Pathname("lib/no_error.rb"))
       assert_equal "Ruby::UnresolvedOverloading", reported_diagnostics.dig(Pathname("lib/type_error.rb"), 0, :code)
@@ -219,7 +218,7 @@ account = Account.new
 RUBY
     }.tap do |changes|
       # Account is not defined.
-      service.update_and_check(changes: changes, assignment: assignment, &reporter)
+      update_and_check(service, changes: changes, &reporter)
 
       assert_equal "Ruby::UnknownConstant", reported_diagnostics.dig(Pathname("lib/a.rb"), 0, :code)
       service.diagnostics[Pathname("lib/a.rb")].tap do |errors|
@@ -237,7 +236,7 @@ end
 RUBY
     }.tap do |changes|
       # Adding RBS file removes the type errors.
-      service.update_and_check(changes: changes, assignment: assignment, &reporter)
+      update_and_check(service, changes: changes, &reporter)
 
       assert_empty_diagnostics reported_diagnostics
       assert_empty_diagnostics service.diagnostics
@@ -268,7 +267,7 @@ RBS
     }.tap do |changes|
       # lib target reports an error on `User`
       # test target reports an error on `User[String]`
-      service.update_and_check(changes: changes, assignment: assignment, &reporter)
+      update_and_check(service, changes: changes, &reporter)
 
       reported_diagnostics[Pathname("lib.rbs")].tap do |errors|
         assert_equal 2, errors.size
@@ -305,7 +304,7 @@ class Account[z]
 end
 RBS
     }.tap do |changes|
-      service.update_and_check(changes: changes, assignment: assignment, &reporter)
+      update_and_check(service, changes: changes, &reporter)
 
       reported_diagnostics[Pathname("lib.rbs")].tap do |errors|
         assert_equal 1, errors.size
@@ -332,7 +331,7 @@ RBS
 1 + ""
 RBS
     }.tap do |changes|
-      service.update_and_check(changes: changes, assignment: assignment, &reporter)
+      update_and_check(service, changes: changes, &reporter)
 
       reported_diagnostics[Pathname("lib/a.rb")].tap do |errors|
         assert_equal 1, errors.size
@@ -348,7 +347,7 @@ class Account[z]
 end
 RBS
     }.tap do |changes|
-      service.update_and_check(changes: changes, assignment: assignment, &reporter)
+      update_and_check(service, changes: changes, &reporter)
 
       reported_diagnostics[Pathname("lib.rbs")].tap do |errors|
         assert_equal 1, errors.size
@@ -392,7 +391,7 @@ RBS
 B: Array
 RBS
     }.tap do |changes|
-      service.update_and_check(changes: changes, assignment: assignment, &reporter)
+      update_and_check(service, changes: changes, &reporter)
 
       reported_diagnostics[Pathname("lib.rbs")].tap do |errors|
         assert_empty errors
@@ -412,7 +411,7 @@ class A < FooBar
 end
 RBS
     }.tap do |changes|
-      service.update_and_check(changes: changes, assignment: assignment, &reporter)
+      update_and_check(service, changes: changes, &reporter)
 
       reported_diagnostics[Pathname("lib.rbs")].tap do |errors|
         assert_any! errors, size: 1 do |error|
@@ -445,7 +444,7 @@ class B
 end
 RBS
     }.tap do |changes|
-      service.update_and_check(changes: changes, assignment: assignment, &reporter)
+      update_and_check(service, changes: changes, &reporter)
 
       reported_diagnostics[Pathname("private.rbs")].tap do |errors|
         assert_any! errors, size: 1 do |error|
@@ -453,7 +452,7 @@ RBS
         end
       end
       reported_diagnostics[Pathname("private/test.rbs")].tap do |errors|
-        assert_nil errors
+        assert_equal [], errors
       end
 
       reported_diagnostics.clear
@@ -466,7 +465,7 @@ class A
 end
 RBS
     }.tap do |changes|
-      service.update_and_check(changes: changes, assignment: assignment, &reporter)
+      update_and_check(service, changes: changes, &reporter)
 
       assert_empty_diagnostics reported_diagnostics
       assert_empty_diagnostics service.diagnostics
@@ -488,7 +487,7 @@ RBS
 1+2
 RUBY
     }.tap do |changes|
-      service.update_and_check(changes: changes, assignment: assignment, &reporter)
+      update_and_check(service, changes: changes, &reporter)
 
       reported_diagnostics[Pathname("lib.rbs")].tap do |errors|
         assert_any!(errors, size: 1) do |error|
@@ -519,7 +518,7 @@ RUBY
         bar() # steep:ignore NoMethod
       RUBY
     }.tap do |changes|
-      service.update_and_check(changes: changes, assignment: assignment, &reporter)
+      update_and_check(service, changes: changes, &reporter)
 
       assert_equal [], reported_diagnostics.dig(Pathname("lib/a.rb"))
 
@@ -541,7 +540,7 @@ RUBY
         foo()
       RUBY
     }.tap do |changes|
-      service.update_and_check(changes: changes, assignment: assignment, &reporter)
+      update_and_check(service, changes: changes, &reporter)
 
       assert_equal ["Ruby::NoMethod", "Ruby::InvalidIgnoreComment", "Ruby::InvalidIgnoreComment"], reported_diagnostics.dig(Pathname("lib/a.rb")).map {|d| d[:code] }
 

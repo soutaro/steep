@@ -62,6 +62,8 @@ module Steep
 
       type loc = Location[bot, bot] | Parser::Source::Range
 
+      type target_loc = [Project::Target, loc]
+
       attr_reader type_check: TypeCheckService
 
       attr_reader assignment: PathAssignment
@@ -94,13 +96,13 @@ module Steep
 
       def type_check_path: (target: Project::Target, path: Pathname, content: String, line: Integer, column: Integer) -> [Typing, SignatureService]?
 
-      def constant_definition_in_rbs: (TypeName name, locations: Array[loc]) -> Array[loc]
+      def constant_definition_in_rbs: (TypeName name, locations: Array[target_loc]) -> Array[target_loc]
 
-      def constant_definition_in_ruby: (TypeName name, locations: Array[loc]) -> Array[loc]
+      def constant_definition_in_ruby: (TypeName name, locations: Array[target_loc]) -> Array[target_loc]
 
-      def method_locations: (method_name, in_ruby: bool, in_rbs: bool, locations: Array[loc]) -> Array[loc]
+      def method_locations: (method_name, in_ruby: bool, in_rbs: bool, locations: Array[target_loc]) -> Array[target_loc]
 
-      def type_name_locations: (TypeName name, ?locations: Array[loc]) -> Array[loc]
+      def type_name_locations: (TypeName name, ?locations: Array[target_loc]) -> Array[target_loc]
     end
   end
 end

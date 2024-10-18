@@ -194,120 +194,82 @@ module Steep
         requests.transform_keys(&:name).reject {|_, request| request.empty? }
       end
 
-      def update_and_check(changes:, assignment:, &block)
-        requests = update(changes: changes)
-
-        signatures = requests.each_value.with_object(Set[]) do |request, sigs|
-          if request.signature_updated?
-            service = signature_services[request.target.name]
-            sigs.merge(service.each_rbs_path)
-          end
-        end
-
-        signatures.each do |path|
-          if assignment =~ path
-            validate_signature(path: path, &block)
-          end
-        end
-
-        requests.each_value do |request|
-          request.source_paths.each do |path|
-            if assignment =~ path
-              typecheck_source(path: path, target: request.target, &block)
-            end
-          end
-        end
-      end
-
-      def validate_signature(path:, &block)
+      def validate_signature(path:, target:)
         Steep.logger.tagged "#validate_signature(path=#{path})" do
           Steep.measure "validation" do
-            # @type var accumulated_diagnostics: Array[Diagnostic::Signature::Base]
-            accumulated_diagnostics = []
+            service = signature_services[target.name]
 
-            project.targets.each do |target|
-              service = signature_services[target.name]
+            raise unless target.possible_signature_file?(path) || service.env_rbs_paths.include?(path)
 
-              next unless target.possible_signature_file?(path) || service.env_rbs_paths.include?(path)
-
-              case service.status
-              when SignatureService::SyntaxErrorStatus
-                diagnostics = service.status.diagnostics.select do |diag|
-                  diag.location or raise
-                  Pathname(diag.location.buffer.name) == path &&
-                    (diag.is_a?(Diagnostic::Signature::SyntaxError) || diag.is_a?(Diagnostic::Signature::UnexpectedError))
-                end
-                accumulated_diagnostics.push(*diagnostics)
-                unless diagnostics.empty?
-                  yield [path, accumulated_diagnostics]
-                end
-
-              when SignatureService::AncestorErrorStatus
-                diagnostics = service.status.diagnostics.select do |diag|
-                  diag.location or raise
-                  Pathname(diag.location.buffer.name) == path
-                end
-                accumulated_diagnostics.push(*diagnostics)
-                yield [path, accumulated_diagnostics]
-
-              when SignatureService::LoadedStatus
-                validator = Signature::Validator.new(checker: service.current_subtyping || raise)
-                type_names = service.type_names(paths: Set[path], env: service.latest_env).to_set
-
-                unless type_names.empty?
-                  Steep.measure2 "Validating #{type_names.size} types" do |sampler|
-                    type_names.each do |type_name|
-                      sampler.sample(type_name.to_s) do
-                        case
-                        when type_name.class?
-                          validator.validate_one_class(type_name)
-                        when type_name.interface?
-                          validator.validate_one_interface(type_name)
-                        when type_name.alias?
-                          validator.validate_one_alias(type_name)
-                        end
-                      end
-                    end
-                  end
-                end
-
-                const_decls = service.const_decls(paths: Set[path], env: service.latest_env)
-                unless const_decls.empty?
-                  Steep.measure2 "Validating #{const_decls.size} constants" do |sampler|
-                    const_decls.each do |name, entry|
-                      sampler.sample(name.to_s) do
-                        validator.validate_one_constant(name, entry)
-                      end
-                    end
-                  end
-                end
-
-                global_decls = service.global_decls(paths: Set[path])
-                unless global_decls.empty?
-                  Steep.measure2 "Validating #{global_decls.size} globals" do |sampler|
-                    global_decls.each do |name, entry|
-                      sampler.sample(name.to_s) do
-                        validator.validate_one_global(name, entry)
-                      end
-                    end
-                  end
-                end
-
-                diagnostics = validator.each_error.select do |error|
-                  error.location or raise
-                  Pathname(error.location.buffer.name) == path
-                end
-                accumulated_diagnostics.push(*diagnostics)
-                yield [path, accumulated_diagnostics]
+            case service.status
+            when SignatureService::SyntaxErrorStatus
+              diagnostics = service.status.diagnostics.select do |diag|
+                diag.location or raise
+                Pathname(diag.location.buffer.name) == path &&
+                  (diag.is_a?(Diagnostic::Signature::SyntaxError) || diag.is_a?(Diagnostic::Signature::UnexpectedError))
               end
 
-              signature_validation_diagnostics[target.name][path] = diagnostics
+            when SignatureService::AncestorErrorStatus
+              diagnostics = service.status.diagnostics.select do |diag|
+                diag.location or raise
+                Pathname(diag.location.buffer.name) == path
+              end
+
+            when SignatureService::LoadedStatus
+              validator = Signature::Validator.new(checker: service.current_subtyping || raise)
+              type_names = service.type_names(paths: Set[path], env: service.latest_env).to_set
+
+              unless type_names.empty?
+                Steep.measure2 "Validating #{type_names.size} types" do |sampler|
+                  type_names.each do |type_name|
+                    sampler.sample(type_name.to_s) do
+                      case
+                      when type_name.class?
+                        validator.validate_one_class(type_name)
+                      when type_name.interface?
+                        validator.validate_one_interface(type_name)
+                      when type_name.alias?
+                        validator.validate_one_alias(type_name)
+                      end
+                    end
+                  end
+                end
+              end
+
+              const_decls = service.const_decls(paths: Set[path], env: service.latest_env)
+              unless const_decls.empty?
+                Steep.measure2 "Validating #{const_decls.size} constants" do |sampler|
+                  const_decls.each do |name, entry|
+                    sampler.sample(name.to_s) do
+                      validator.validate_one_constant(name, entry)
+                    end
+                  end
+                end
+              end
+
+              global_decls = service.global_decls(paths: Set[path])
+              unless global_decls.empty?
+                Steep.measure2 "Validating #{global_decls.size} globals" do |sampler|
+                  global_decls.each do |name, entry|
+                    sampler.sample(name.to_s) do
+                      validator.validate_one_global(name, entry)
+                    end
+                  end
+                end
+              end
+
+              diagnostics = validator.each_error.select do |error|
+                error.location or raise
+                Pathname(error.location.buffer.name) == path
+              end
             end
+
+            signature_validation_diagnostics[target.name][path] = diagnostics
           end
         end
       end
 
-      def typecheck_source(path:, target: project.target_for_source_path(path), &block)
+      def typecheck_source(path:, target: project.target_for_source_path(path))
         return unless target
 
         Steep.logger.tagged "#typecheck_source(path=#{path})" do
@@ -318,8 +280,9 @@ module Steep
             if subtyping
               text = source_files[path].content
               file = type_check_file(target: target, subtyping: subtyping, path: path, text: text) { signature_service.latest_constant_resolver }
-              yield [file.path, file.diagnostics]
               source_files[path] = file
+
+              file.diagnostics
             end
           end
         end

@@ -1,3 +1,5 @@
+use LanguageServer::Protocol::Interface::Diagnostic as LSPDiagnostic
+
 module Steep
   module Server
     # Defines custom LSP methods
@@ -49,7 +51,7 @@ module Steep
       module TypeCheck__Start
         METHOD: String
 
-        type params = Master::TypeCheckRequest::json
+        type params = TypeCheckController::Request::json
 
         def self.notification: (params) -> untyped
       end
@@ -59,7 +61,12 @@ module Steep
       module TypeCheck__Progress
         METHOD: String
 
-        type params = { guid: String, path: String }
+        type params = {
+          guid: String,
+          path: String,
+          target: String,
+          diagnostics: Array[LSPDiagnostic::json]?
+        }
 
         def self.notification: (params) -> untyped
       end

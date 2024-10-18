@@ -1,4 +1,5 @@
 use Steep::Services::*, LanguageServer::Protocol as LSP
+use LanguageServer::Protocol::Interface::Diagnostic as LSPDiagnostic
 
 module Steep
   module Server
@@ -52,7 +53,9 @@ module Steep
 
         attr_reader path: Pathname
 
-        def initialize: (guid: String, path: Pathname) -> void
+        attr_reader target: Project::Target
+
+        def initialize: (guid: String, path: Pathname, target: Project::Target) -> void
       end
 
       class ValidateAppSignatureJob
@@ -60,7 +63,9 @@ module Steep
 
         attr_reader path: Pathname
 
-        def initialize: (guid: String, path: Pathname) -> void
+        attr_reader target: Project::Target
+
+        def initialize: (guid: String, path: Pathname, target: Project::Target) -> void
       end
 
       class ValidateLibrarySignatureJob
@@ -68,7 +73,9 @@ module Steep
 
         attr_reader path: Pathname
 
-        def initialize: (guid: String, path: Pathname) -> void
+        attr_reader target: Project::Target
+
+        def initialize: (guid: String, path: Pathname, target: Project::Target) -> void
       end
 
       class GotoJob
@@ -111,15 +118,7 @@ module Steep
 
       def handle_request: (untyped request) -> void
 
-      type type_check_start_params = {
-        guid: String,
-        priority_uris: Array[String],
-        library_uris: Array[String],
-        signature_uris: Array[String],
-        code_uris: Array[String]
-      }
-
-      def enqueue_typecheck_jobs: (type_check_start_params) -> void
+      def enqueue_typecheck_jobs: (CustomMethods::TypeCheck__Start::params) -> void
 
       type job = WorkspaceSymbolJob
                | StartTypeCheckJob
@@ -131,7 +130,7 @@ module Steep
 
       def handle_job: (job) -> void
 
-      def typecheck_progress: (guid: String, path: Pathname) -> void
+      def typecheck_progress: (guid: String, path: Pathname, target: Project::Target, diagnostics: Array[LSPDiagnostic::json]?) -> void
 
       def workspace_symbol_result: (untyped query) -> untyped
 
