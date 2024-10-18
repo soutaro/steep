@@ -266,7 +266,7 @@ module Steep
           when AST::Builtin::Array.instance_type?(type)
             type.is_a?(AST::Types::Name::Instance) or raise
 
-            type_arg = type.args[0]
+            type_arg = type.args.fetch(0)
             params.each do |param|
               unless param == rest_param
                 zip << [param, AST::Types::Union.build(types: [type_arg, AST::Builtin.nil_type])]
@@ -359,7 +359,7 @@ module Steep
           true
         when (leading_params.any? || trailing_params.any?) && rest_param
           true
-        when params.size == 1 && params[0].node.type == :arg
+        when params.size == 1 && params.fetch(0).node.type == :arg
           true
         else
           false
@@ -409,7 +409,7 @@ module Steep
 
       def untyped_args?(params)
         flat = params.flat_unnamed_params
-        flat.size == 1 && flat[0][1].is_a?(AST::Types::Any)
+        flat.size == 1 && flat.dig(0, 1)&.is_a?(AST::Types::Any)
       end
     end
   end

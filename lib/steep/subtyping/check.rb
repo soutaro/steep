@@ -515,7 +515,7 @@ module Steep
                 types: relation.sub_type.types
               )
 
-            check_type(Relation.new(sub_type: tuple_element_type, super_type: super_type.args[0]))
+            check_type(Relation.new(sub_type: tuple_element_type, super_type: super_type.args.fetch(0)))
           end
 
         when relation.sub_type.is_a?(AST::Types::Tuple)

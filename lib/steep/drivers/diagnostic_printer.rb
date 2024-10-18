@@ -82,7 +82,7 @@ module Steep
         start_pos = diagnostic[:range][:start]
         end_pos = diagnostic[:range][:end]
 
-        line = buffer.lines[start_pos[:line]]
+        line = buffer.lines.fetch(start_pos[:line])
 
         leading = line[0...start_pos[:character]] || ""
         if start_pos[:line] == end_pos[:line]
