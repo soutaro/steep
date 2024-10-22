@@ -25,18 +25,4 @@ target :app do
     FileUtils.rm_f(tmp_rbs_dir)
     library "rbs"
   end
-
-  library(
-    "rdoc",
-    "monitor",
-    "tsort",
-    "uri",
-    'yaml',
-    'pstore',
-    'singleton',
-    'shellwords',
-    'find',
-    'digest',
-    "optparse",
-  )
 end

@@ -24,3 +24,14 @@ gems:
   - name: ffi
     ignore: true
   - name: base64
+  - name: rdoc
+  - name: monitor
+  - name: tsort
+  - name: yaml
+  - name: pstore
+  - name: singleton
+  - name: shellwords
+  - name: find
+  - name: optparse
+  - name: digest
+  - name: uri
