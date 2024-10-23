@@ -6,6 +6,8 @@ module Steep
 
     attr_reader base_dir: Pathname
 
+    attr_accessor global_options: Options?
+
     def initialize: (steepfile_path: Pathname?, ?base_dir: Pathname?) -> void
 
     def relative_path: (Pathname path) -> Pathname

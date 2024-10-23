@@ -3,16 +3,12 @@ use Steep::Diagnostic::Ruby::template
 module Steep
   class Project
     class DSL
-      class TargetDSL
-        attr_reader name: Symbol
+      interface _WithProject
+        def project: () -> Project
+      end
 
-        attr_reader sources: Array[String]
-
+      module LibraryOptions : _WithProject
         attr_reader libraries: Array[String]
-
-        attr_reader signatures: Array[String]
-
-        attr_reader ignored_sources: Array[String]
 
         attr_reader stdlib_root: Pathname?
 
@@ -20,17 +16,48 @@ module Steep
 
         attr_reader repo_paths: Array[Pathname]
 
-        attr_reader code_diagnostics_config: untyped
-
-        attr_reader project: Project
-
         # Attribute to keep track of collection configuration
         #
         # * `Pathname` means loading the configuration from the path
         # * `nil` means no configuration is given
         # * `false` means rbs-collection is disabled
         #
-        attr_reader collection_config_path: Pathname | nil | false
+        attr_reader collection_config_path: Pathname | false | nil
+
+        # Set up stdlib paths
+        #
+        def stdlib_path: (core_root: String, stdlib_root: String) -> void
+
+        # Add repository paths
+        #
+        def repo_path: (*String paths) -> void
+
+        # Set the `rbs_collection.yaml` path
+        #
+        def collection_config: (Pathname path) -> void
+
+        # Disable `rbs collection`
+        #
+        def disable_collection: () -> void
+
+        # Add library
+        def library: (*String args) -> void
+      end
+
+      class TargetDSL
+        attr_reader name: Symbol
+
+        attr_reader sources: Array[String]
+
+        attr_reader signatures: Array[String]
+
+        attr_reader ignored_sources: Array[String]
+
+        include LibraryOptions
+
+        attr_reader code_diagnostics_config: untyped
+
+        attr_reader project: Project
 
         def initialize: (Symbol name, ?sources: Array[String], ?libraries: Array[String], ?signatures: Array[String], ?ignored_sources: Array[String], ?repo_paths: Array[Pathname], ?code_diagnostics_config: Diagnostic::Ruby::template, project: Project, ?collection_config_path: Pathname?) -> void
 
@@ -40,13 +67,7 @@ module Steep
 
         def ignore: (*String args) -> void
 
-        def library: (*String args) -> void
-
         def signature: (*String args) -> void
-
-        def stdlib_path: (core_root: String, stdlib_root: String) -> void
-
-        def repo_path: (*String paths) -> void
 
         # Configure the code diagnostics printing setup.
         #
@@ -74,10 +95,6 @@ module Steep
         #
         def configure_code_diagnostics: (template hash) ?{ (template) -> void }-> void
                                       | () { (template) -> void }-> void
-
-        def collection_config: (Pathname path) -> void
-
-        def disable_collection: () -> void
       end
 
       attr_reader project: Project

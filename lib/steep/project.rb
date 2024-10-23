@@ -3,6 +3,7 @@ module Steep
     attr_reader :targets
     attr_reader :steepfile_path
     attr_reader :base_dir
+    attr_accessor :global_options
 
     def initialize(steepfile_path:, base_dir: nil)
       @targets = []

@@ -200,10 +200,10 @@ EOF
   def test_load_collection_failed
     in_tmpdir do
       current_dir.join('rbs_collection.yaml').write('')
-      current_dir.join('rbs_collection.lock.yaml').write(<<~YAML)
-        path: .test_path
-        gems: []
-      YAML
+      current_dir.join('rbs_collection.lock.yaml').write(<<YAML)
+path: .test_path
+gems: []
+YAML
       project = Project.new(steepfile_path: current_dir + "Steepfile")
 
       Project::DSL.parse(project, <<~RUBY)
@@ -213,6 +213,20 @@ EOF
 
       assert_instance_of RBS::Collection::Config::CollectionNotAvailable, project.targets[0].options.load_collection_lock
       assert_nil project.targets[0].options.collection_lock
+    end
+  end
+
+  def test_global_library_option
+    in_tmpdir do
+      current_dir.join('rbs_collection.yaml').write('')
+      project = Project.new(steepfile_path: current_dir + "Steepfile")
+
+      Project::DSL.parse(project, <<~RUBY)
+        collection_config "test.yaml"
+        library "rbs"
+      RUBY
+
+      assert_instance_of Project::Options, project.global_options
     end
   end
 end

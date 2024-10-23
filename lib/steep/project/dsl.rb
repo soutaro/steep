@@ -1,18 +1,50 @@
 module Steep
   class Project
     class DSL
-      class TargetDSL
-        attr_reader :name
-        attr_reader :sources
-        attr_reader :libraries
-        attr_reader :signatures
-        attr_reader :ignored_sources
+      module LibraryOptions
         attr_reader :stdlib_root
         attr_reader :core_root
-        attr_reader :repo_paths
+        attr_reader :collection_config_path
+
+        def stdlib_path(core_root:, stdlib_root:)
+          @core_root = Pathname(core_root)
+          @stdlib_root = Pathname(stdlib_root)
+        end
+
+        def repo_path(*paths)
+          repo_paths.push(*paths.map {|s| Pathname(s) })
+        end
+
+        def collection_config(path)
+          @collection_config_path = project.absolute_path(path)
+        end
+
+        def disable_collection
+          @collection_config_path = false
+        end
+
+        def library(*args)
+          libraries.push(*args)
+        end
+
+        def repo_paths
+          @repo_paths ||= []
+        end
+
+        def libraries
+          @libraries ||= []
+        end
+      end
+
+      class TargetDSL
+        include LibraryOptions
+
+        attr_reader :name
+        attr_reader :sources
+        attr_reader :signatures
+        attr_reader :ignored_sources
         attr_reader :code_diagnostics_config
         attr_reader :project
-        attr_reader :collection_config_path
 
         def initialize(name, sources: [], libraries: [], signatures: [], ignored_sources: [], repo_paths: [], code_diagnostics_config: {}, project:, collection_config_path: nil)
           @name = name
@@ -22,7 +54,6 @@ module Steep
           @ignored_sources = ignored_sources
           @core_root = nil
           @stdlib_root = nil
-          @repo_paths = []
           @code_diagnostics_config = code_diagnostics_config
           @project = project
           @collection_config_path = collection_config_path
@@ -50,21 +81,8 @@ module Steep
           ignored_sources.push(*args)
         end
 
-        def library(*args)
-          libraries.push(*args)
-        end
-
         def signature(*args)
           signatures.push(*args)
-        end
-
-        def stdlib_path(core_root:, stdlib_root:)
-          @core_root = Pathname(core_root)
-          @stdlib_root = Pathname(stdlib_root)
-        end
-
-        def repo_path(*paths)
-          @repo_paths.push(*paths.map {|s| Pathname(s) })
         end
 
         def configure_code_diagnostics(hash = nil)
@@ -73,14 +91,6 @@ module Steep
           end
 
           yield code_diagnostics_config if block_given?
-        end
-
-        def collection_config(path)
-          @collection_config_path = project.absolute_path(path)
-        end
-
-        def disable_collection
-          @collection_config_path = false
         end
       end
 
