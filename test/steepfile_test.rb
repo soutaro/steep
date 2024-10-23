@@ -41,34 +41,6 @@ EOF
     end
   end
 
-  def test_config_typing_options
-    in_tmpdir do
-      project = Project.new(steepfile_path: current_dir + "Steepfile")
-
-      begin
-        Steep.log_output = StringIO.new
-
-        Project::DSL.parse(project, <<RUBY)
-target :app do
-  check "app"
-  ignore "app/views"
-
-  typing_options :strict,
-                 allow_missing_definitions: true,
-                 allow_fallback_any: true
-end
-RUBY
-
-        assert_match(/\[Steepfile\] \[target=app\] #typing_options is deprecated and has no effect as of version 0\.46\.0\. Update your Steepfile as follows for \(almost\) equivalent setting:/, Steep.log_output.string)
-        assert_match(/configure_code_diagnostics\(D::Ruby\.strict\)/, Steep.log_output.string)
-        assert_match(/hash\[D::Ruby::MethodDefinitionMissing\] = nil/, Steep.log_output.string)
-        assert_match(/hash\[D::Ruby::FallbackAny\] = nil/, Steep.log_output.string)
-      ensure
-        Steep.log_output = STDERR
-      end
-    end
-  end
-
   def test_repo_path
     in_tmpdir do
       project = Project.new(steepfile_path: current_dir + "Steepfile")

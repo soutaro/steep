@@ -42,13 +42,7 @@ module Steep
 
         def library: (*String args) -> void
 
-        def typing_options: (?untyped level, **untyped hash) -> void
-
         def signature: (*String args) -> void
-
-        def no_builtin!: (?bool value) -> void
-
-        def vendor: (?::String dir, ?stdlib: untyped?, ?gems: untyped?) -> void
 
         def stdlib_path: (core_root: String, stdlib_root: String) -> void
 
