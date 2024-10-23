@@ -14,7 +14,7 @@ module Steep
         attr_reader :project
         attr_reader :collection_config_path
 
-        def initialize(name, sources: [], libraries: [], signatures: [], ignored_sources: [], repo_paths: [], code_diagnostics_config: {}, project: nil, collection_config_path: nil)
+        def initialize(name, sources: [], libraries: [], signatures: [], ignored_sources: [], repo_paths: [], code_diagnostics_config: {}, project:, collection_config_path: nil)
           @name = name
           @sources = sources
           @libraries = libraries
@@ -106,17 +106,6 @@ module Steep
           signatures.push(*args)
         end
 
-        def update(name: self.name, sources: self.sources, libraries: self.libraries, ignored_sources: self.ignored_sources, signatures: self.signatures, project: self.project)
-          self.class.new(
-            name,
-            sources: sources,
-            libraries: libraries,
-            signatures: signatures,
-            ignored_sources: ignored_sources,
-            project: project,
-          )
-        end
-
         def no_builtin!(value = true)
           Steep.logger.error "`#no_builtin!` in Steepfile is deprecated and ignored. Use `#stdlib_path` instead."
         end
@@ -142,12 +131,8 @@ module Steep
           yield code_diagnostics_config if block_given?
         end
 
-        def project!
-          project or raise "TargetDSL doesn't have project (#{name})"
-        end
-
         def collection_config(path)
-          @collection_config_path = project!.absolute_path(path)
+          @collection_config_path = project.absolute_path(path)
         end
 
         def disable_collection
@@ -157,23 +142,8 @@ module Steep
 
       attr_reader :project
 
-      @@templates = {
-        gemfile: TargetDSL.new(:gemfile).tap do |target|
-          target.check "Gemfile"
-          target.library "gemfile"
-        end
-      }
-
-      def self.templates
-        @@templates
-      end
-
       def initialize(project:)
         @project = project
-      end
-
-      def self.register_template(name, target)
-        templates[name] = target
       end
 
       def self.parse(project, code, filename: "Steepfile")
@@ -182,13 +152,8 @@ module Steep
         end
       end
 
-      def target(name, template: nil, &block)
-        target = if template
-                   self.class.templates[template]&.dup&.update(name: name, project: project) or
-                     raise "Unknown template: #{template}, available templates: #{@@templates.keys.join(", ")}"
-                 else
-                   TargetDSL.new(name, code_diagnostics_config: Diagnostic::Ruby.default.dup, project: project)
-                 end
+      def target(name, &block)
+        target = TargetDSL.new(name, code_diagnostics_config: Diagnostic::Ruby.default.dup, project: project)
 
         Steep.logger.tagged "target=#{name}" do
           target.instance_eval(&block) if block

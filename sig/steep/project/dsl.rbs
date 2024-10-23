@@ -22,7 +22,7 @@ module Steep
 
         attr_reader code_diagnostics_config: untyped
 
-        attr_reader project: Project?
+        attr_reader project: Project
 
         # Attribute to keep track of collection configuration
         #
@@ -32,9 +32,7 @@ module Steep
         #
         attr_reader collection_config_path: Pathname | nil | false
 
-        def project!: () -> Project
-
-        def initialize: (Symbol name, ?sources: Array[String], ?libraries: Array[String], ?signatures: Array[String], ?ignored_sources: Array[String], ?repo_paths: Array[Pathname], ?code_diagnostics_config: Diagnostic::Ruby::template, ?project: Project?, ?collection_config_path: Pathname?) -> void
+        def initialize: (Symbol name, ?sources: Array[String], ?libraries: Array[String], ?signatures: Array[String], ?ignored_sources: Array[String], ?repo_paths: Array[Pathname], ?code_diagnostics_config: Diagnostic::Ruby::template, project: Project, ?collection_config_path: Pathname?) -> void
 
         def initialize_copy: (instance other) -> void
 
@@ -47,8 +45,6 @@ module Steep
         def typing_options: (?untyped level, **untyped hash) -> void
 
         def signature: (*String args) -> void
-
-        def update: (?name: Symbol, ?sources: Array[String], ?libraries: Array[String], ?signatures: Array[String], ?ignored_sources: Array[String], ?project: Project?) -> TargetDSL
 
         def no_builtin!: (?bool value) -> void
 
@@ -92,17 +88,11 @@ module Steep
 
       attr_reader project: Project
 
-      @@templates: Hash[Symbol, TargetDSL]
-
-      def self.templates: () -> Hash[Symbol, TargetDSL]
-
       def initialize: (project: Project) -> void
-
-      def self.register_template: (Symbol name, TargetDSL target) -> void
 
       def self.parse: (Project project, String code, ?filename: String) -> void
 
-      def target: (Symbol name, ?template: Symbol?) ?{ (TargetDSL) [self: TargetDSL] -> void } -> void
+      def target: (Symbol name) ?{ (TargetDSL) [self: TargetDSL] -> void } -> void
     end
   end
 end

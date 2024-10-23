@@ -25,12 +25,9 @@ target :app do
   library "set"
   library "strong_json"
 end
-
-target :Gemfile, template: :gemfile do
-end
 EOF
 
-      assert_equal 2, project.targets.size
+      assert_equal 1, project.targets.size
 
       project.targets.find {|target| target.name == :app }.tap do |target|
         assert_instance_of Project::Target, target
@@ -40,16 +37,6 @@ EOF
         assert_equal ["set", "strong_json"], target.options.libraries
         assert_equal Pathname("vendor/rbs/core"), target.options.paths.core_root
         assert_equal Pathname("vendor/rbs/stdlib"), target.options.paths.stdlib_root
-      end
-
-      project.targets.find {|target| target.name == :Gemfile }.tap do |target|
-        assert_instance_of Project::Target, target
-        assert_equal ["Gemfile"], target.source_pattern.patterns
-        assert_equal [], target.source_pattern.ignores
-        assert_equal [], target.signature_pattern.patterns
-        assert_equal ["gemfile"], target.options.libraries
-        assert_nil target.options.paths.core_root
-        assert_nil target.options.paths.stdlib_root
       end
     end
   end
@@ -78,18 +65,6 @@ RUBY
         assert_match(/hash\[D::Ruby::FallbackAny\] = nil/, Steep.log_output.string)
       ensure
         Steep.log_output = STDERR
-      end
-    end
-  end
-
-  def test_invalid_template
-    in_tmpdir do
-      project = Project.new(steepfile_path: current_dir + "Steepfile")
-
-      assert_raises RuntimeError do
-        Project::DSL.parse(project, <<EOF)
-target :Gemfile, template: :gemfile2
-EOF
       end
     end
   end
