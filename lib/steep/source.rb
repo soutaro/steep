@@ -88,7 +88,7 @@ module Steep
 
       annotations.each do |annot|
         map[node] ||= []
-        map[node] << annot
+        map.fetch(node) << annot
       end
 
       ignores = comments.filter_map do |comment|
@@ -269,7 +269,7 @@ module Steep
 
       associated_annotations.each do |annot|
         mapping[node] ||= []
-        mapping[node] << annot
+        mapping.fetch(node) << annot
       end
 
       annotations.replace(other_annotations)
@@ -442,7 +442,7 @@ module Steep
 
         annotations.each do |annot|
           mapping[node_] ||= []
-          mapping[node_] << annot
+          mapping.fetch(node_) << annot
         end
 
         Source.new(buffer: buffer, path: path, node: node_, mapping: mapping, comments: comments, ignores: ignores)
