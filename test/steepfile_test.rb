@@ -31,6 +31,7 @@ EOF
 
       project.targets.find {|target| target.name == :app }.tap do |target|
         assert_instance_of Project::Target, target
+
         assert_equal ["app"], target.source_pattern.patterns
         assert_equal ["app/views"], target.source_pattern.ignores
         assert_equal ["sig", "sig-private"], target.signature_pattern.patterns
@@ -224,9 +225,24 @@ YAML
       Project::DSL.parse(project, <<~RUBY)
         collection_config "test.yaml"
         library "rbs"
+
+        target :app do
+          check "app"
+          ignore "app/views"
+
+          signature "sig", "sig-private"
+        end
       RUBY
 
       assert_instance_of Project::Options, project.global_options
+      assert_equal ["rbs"], project.global_options.libraries
+      assert_equal current_dir + "test.yaml", project.global_options.collection_config_path
+
+      project.targets.find {|target| target.name == :app }.tap do |target|
+        assert_instance_of Project::Target, target
+        assert_equal ["rbs"], target.options.libraries
+        assert_equal current_dir + "test.yaml", target.options.collection_config_path
+      end
     end
   end
 end

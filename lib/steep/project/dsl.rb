@@ -12,18 +12,22 @@ module Steep
         end
 
         def repo_path(*paths)
+          @library_configured = true
           repo_paths.push(*paths.map {|s| Pathname(s) })
         end
 
         def collection_config(path)
+          @library_configured = true
           @collection_config_path = project.absolute_path(path)
         end
 
         def disable_collection
+          @library_configured = true
           @collection_config_path = false
         end
 
         def library(*args)
+          @library_configured = true
           libraries.push(*args)
         end
 
@@ -33,6 +37,35 @@ module Steep
 
         def libraries
           @libraries ||= []
+        end
+
+        def library_configured?
+          @library_configured
+        end
+
+        def to_library_options
+          config_path =
+            case collection_config_path
+            when Pathname
+              collection_config_path
+            when nil
+              default = project.absolute_path(RBS::Collection::Config::PATH)
+              if default.file?
+                default
+              end
+            when false
+              nil
+            end
+
+          Options.new.tap do |options|
+            options.libraries.push(*libraries)
+            options.paths = Options::PathOptions.new(
+              core_root: core_root,
+              stdlib_root: stdlib_root,
+              repo_paths: repo_paths
+            )
+            options.collection_config_path = config_path
+          end
         end
       end
 
@@ -94,6 +127,8 @@ module Steep
         end
       end
 
+      include LibraryOptions
+
       attr_reader :project
 
       def initialize(project:)
@@ -102,7 +137,17 @@ module Steep
 
       def self.parse(project, code, filename: "Steepfile")
         Steep.logger.tagged filename do
-          self.new(project: project).instance_eval(code, filename)
+          dsl = self.new(project: project)
+          dsl.instance_eval(code, filename)
+          project.global_options = dsl.to_library_options
+        end
+      end
+
+      def self.eval(project, &block)
+        Steep.logger.tagged "DSL.eval" do
+          dsl = self.new(project: project)
+          dsl.instance_exec(&block)
+          project.global_options = dsl.to_library_options
         end
       end
 
@@ -116,33 +161,13 @@ module Steep
         source_pattern = Pattern.new(patterns: target.sources, ignores: target.ignored_sources, ext: ".rb")
         signature_pattern = Pattern.new(patterns: target.signatures, ext: ".rbs")
 
-        config_path =
-          case target.collection_config_path
-          when Pathname
-            target.collection_config_path
-          when nil
-            default = project.absolute_path(RBS::Collection::Config::PATH)
-            if default.file?
-              default
-            end
-          when false
-            nil
-          end
-
         Project::Target.new(
           name: target.name,
           source_pattern: source_pattern,
           signature_pattern: signature_pattern,
-          options: Options.new.tap do |options|
-            options.libraries.push(*target.libraries)
-            options.paths = Options::PathOptions.new(
-              core_root: target.core_root,
-              stdlib_root: target.stdlib_root,
-              repo_paths: target.repo_paths
-            )
-            options.collection_config_path = config_path
-          end,
-          code_diagnostics_config: target.code_diagnostics_config
+          options: target.library_configured? ? target.to_library_options : nil,
+          code_diagnostics_config: target.code_diagnostics_config,
+          project: project
         ).tap do |target|
           project.targets << target
         end

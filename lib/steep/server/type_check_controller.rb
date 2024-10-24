@@ -243,7 +243,7 @@ module Steep
         target_paths.each do |paths|
           target = paths.target
 
-          signature_service = Services::SignatureService.load_from(target.new_env_loader(project: project))
+          signature_service = Services::SignatureService.load_from(target.new_env_loader())
           paths.library_paths.merge(signature_service.env_rbs_paths)
 
           loader.each_path_in_patterns(target.source_pattern, command_line_args) do |path|

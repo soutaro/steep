@@ -13,9 +13,11 @@ module Steep
           else
             Steep.ui_logger.error { "Cannot find a configuration at #{path}: `steep init` to scaffold. Using current directory..." }
             Project.new(steepfile_path: nil, base_dir: Pathname.pwd).tap do |project|
-              Project::DSL.new(project: project).target :'.' do
-                check '.'
-                signature '.'
+              Project::DSL.eval(project) do
+                target :'.' do
+                  check '.'
+                  signature '.'
+                end
               end
             end
           end.tap do |project|

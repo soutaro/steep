@@ -8,6 +8,8 @@ module Steep
       end
 
       module LibraryOptions : _WithProject
+        @library_configured: bool
+
         attr_reader libraries: Array[String]
 
         attr_reader stdlib_root: Pathname?
@@ -42,6 +44,10 @@ module Steep
 
         # Add library
         def library: (*String args) -> void
+
+        def to_library_options: () -> Options
+
+        def library_configured?: () -> bool
       end
 
       class TargetDSL
@@ -102,6 +108,10 @@ module Steep
       def initialize: (project: Project) -> void
 
       def self.parse: (Project project, String code, ?filename: String) -> void
+
+      def self.eval: (Project project) { () [self: DSL] -> void } -> void
+
+      include LibraryOptions
 
       def target: (Symbol name) ?{ (TargetDSL) [self: TargetDSL] -> void } -> void
     end
