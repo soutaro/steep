@@ -16,6 +16,8 @@ module Steep
 
         loader = Services::FileLoader.new(base_dir: project.base_dir)
 
+        duplicated_files = {} #: Hash[Pathname, Array[Project::Target]]
+
         project.targets.each do |target|
           source_changes = loader.load_changes(target.source_pattern, changes: {})
           signature_changes = loader.load_changes(target.signature_pattern, changes: {})
@@ -33,6 +35,10 @@ module Steep
           end
           stdout.puts "      files:"
           source_changes.each_key do |path|
+            path_targets = project.targets.select { _1.possible_source_file?(path) }
+            if path_targets.size > 1
+              duplicated_files[path] = path_targets
+            end
             stdout.puts "        - #{path}"
           end
           stdout.puts "    signatures:"
@@ -42,6 +48,10 @@ module Steep
           end
           stdout.puts "      files:"
           signature_changes.each_key do |path|
+            path_targets = project.targets.select { _1.possible_signature_file?(path) }
+            if path_targets.size > 1
+              duplicated_files[path] = path_targets
+            end
             stdout.puts "        - #{path}"
           end
           stdout.puts "    libraries:"
@@ -63,7 +73,18 @@ module Steep
           end
         end
 
-        0
+        if duplicated_files.empty?
+          0
+        else
+          stdout.puts "Duplicated files:"
+          duplicated_files.each do |path, targets|
+            stdout.puts "  #{path}:"
+            targets.each do |target|
+              stdout.puts "    - #{target.name}"
+            end
+          end
+          1
+        end
       end
     end
   end
