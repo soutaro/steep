@@ -245,4 +245,41 @@ YAML
       end
     end
   end
+
+  def test_target_unreferenced
+    in_tmpdir do
+      current_dir.join('rbs_collection.yaml').write('')
+      project = Project.new(steepfile_path: current_dir + "Steepfile")
+
+      Project::DSL.parse(project, <<~RUBY)
+        collection_config "test.yaml"
+        library "rbs"
+
+        target :app do
+          check "app"
+          ignore "app/views"
+          signature "sig/app"
+        end
+
+        target :test do
+          unreferenced!
+
+          check "test"
+          signature "sig/test"
+        end
+      RUBY
+
+      assert_instance_of Project::Options, project.global_options
+      assert_equal ["rbs"], project.global_options.libraries
+      assert_equal current_dir + "test.yaml", project.global_options.collection_config_path
+
+      project.targets.find {|target| target.name == :app }.tap do |target|
+        refute_predicate target, :unreferenced
+      end
+
+      project.targets.find { _1.name == :test }.tap do |target|
+        assert_predicate target, :unreferenced
+      end
+    end
+  end
 end

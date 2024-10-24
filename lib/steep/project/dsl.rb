@@ -78,6 +78,7 @@ module Steep
         attr_reader :ignored_sources
         attr_reader :code_diagnostics_config
         attr_reader :project
+        attr_reader :unreferenced
 
         def initialize(name, sources: [], libraries: [], signatures: [], ignored_sources: [], repo_paths: [], code_diagnostics_config: {}, project:, collection_config_path: nil)
           @name = name
@@ -90,6 +91,7 @@ module Steep
           @code_diagnostics_config = code_diagnostics_config
           @project = project
           @collection_config_path = collection_config_path
+          @unreferenced = false
         end
 
         def initialize_copy(other)
@@ -104,6 +106,7 @@ module Steep
           @code_diagnostics_config = other.code_diagnostics_config.dup
           @project = other.project
           @collection_config_path = other.collection_config_path
+          @unreferenced = other.unreferenced
         end
 
         def check(*args)
@@ -124,6 +127,10 @@ module Steep
           end
 
           yield code_diagnostics_config if block_given?
+        end
+
+        def unreferenced!(value = true)
+          @unreferenced = value
         end
       end
 
@@ -167,7 +174,8 @@ module Steep
           signature_pattern: signature_pattern,
           options: target.library_configured? ? target.to_library_options : nil,
           code_diagnostics_config: target.code_diagnostics_config,
-          project: project
+          project: project,
+          unreferenced: target.unreferenced
         ).tap do |target|
           project.targets << target
         end

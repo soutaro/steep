@@ -13,7 +13,9 @@ module Steep
 
       attr_reader project: Project
 
-      def initialize: (name: Symbol, options: Options?, source_pattern: Pattern, signature_pattern: Pattern, code_diagnostics_config: untyped, project: Project) -> void
+      attr_reader unreferenced: bool
+
+      def initialize: (name: Symbol, options: Options?, source_pattern: Pattern, signature_pattern: Pattern, code_diagnostics_config: untyped, project: Project, unreferenced: bool) -> void
 
       # The options that applies to this target
       #

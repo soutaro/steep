@@ -8,14 +8,16 @@ module Steep
       attr_reader :signature_pattern
       attr_reader :code_diagnostics_config
       attr_reader :project
+      attr_reader :unreferenced
 
-      def initialize(name:, options:, source_pattern:, signature_pattern:, code_diagnostics_config:, project:)
+      def initialize(name:, options:, source_pattern:, signature_pattern:, code_diagnostics_config:, project:, unreferenced:)
         @name = name
         @target_options = options
         @source_pattern = source_pattern
         @signature_pattern = signature_pattern
         @code_diagnostics_config = code_diagnostics_config
         @project = project
+        @unreferenced = unreferenced
       end
 
       def options

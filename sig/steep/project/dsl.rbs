@@ -59,6 +59,8 @@ module Steep
 
         attr_reader ignored_sources: Array[String]
 
+        attr_reader unreferenced: bool
+
         include LibraryOptions
 
         attr_reader code_diagnostics_config: untyped
@@ -101,6 +103,12 @@ module Steep
         #
         def configure_code_diagnostics: (template hash) ?{ (template) -> void }-> void
                                       | () { (template) -> void }-> void
+
+        # Mark the target is not referenced from other targets
+        #
+        # Use this for test targets so that editing files in this target doesn't involve type checking other targets.
+        #
+        def unreferenced!: (?bool) -> void
       end
 
       attr_reader project: Project
