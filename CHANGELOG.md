@@ -1,5 +1,11 @@
 # CHANGELOG
 
+## 1.8.2 (2024-10-24)
+
+### Language server
+
+* Ignore `didChangeWatchedFiles notification` for open files ([#1290](https://github.com/soutaro/steep/pull/1290))
+
 ## 1.8.1 (2024-10-08)
 
 ### Language server
