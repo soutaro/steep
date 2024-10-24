@@ -231,7 +231,7 @@ module Steep
 
         envs.each do |env|
           all_lvar_types.each_key do |name|
-            all_lvar_types[name] << (env[name] || AST::Builtin.nil_type)
+            all_lvar_types.fetch(name) << (env[name] || AST::Builtin.nil_type)
           end
         end
 
@@ -249,7 +249,7 @@ module Steep
           refined_type = AST::Types::Union.build(types: pairs.map {|call, type| type || call.return_type })
 
           # Any *pure_method_call* can be used because it's *pure*
-          (call, _ = envs[0].pure_method_calls[node]) or raise
+          (call, _ = envs.fetch(0).pure_method_calls[node]) or raise
 
           hash[node] = [call, refined_type]
         end

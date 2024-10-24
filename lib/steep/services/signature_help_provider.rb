@@ -145,13 +145,13 @@ module Steep
           # Cursor is not on the argument (maybe on comma after argument)
           return 0 if last_argument_nodes.nil?  # No arguments
 
-          case last_argument_nodes[-2].type
+          case last_argument_nodes.fetch(-2).type
           when :splat
             method_type.type.required_positionals.size + method_type.type.optional_positionals.size + 1 if method_type.type.rest_positionals
           when :kwargs
-            case last_argument_nodes[-3].type
+            case last_argument_nodes.fetch(-3).type
             when :pair
-              argname = last_argument_nodes[-3].children.first.children.first
+              argname = last_argument_nodes.fetch(-3).children.first.children.first
               if method_type.type.required_keywords.key?(argname)
                 positionals + method_type.type.required_keywords.keys.index(argname).to_i + 1
               elsif method_type.type.optional_keywords.key?(argname)
@@ -163,7 +163,7 @@ module Steep
               positionals + method_type.type.required_keywords.size + method_type.type.optional_keywords.size if method_type.type.rest_keywords
             end
           else
-            pos = (node.children[2...] || raise).index { |c| c.location == last_argument_nodes[-2].location }.to_i
+            pos = (node.children[2...] || raise).index { |c| c.location == last_argument_nodes.fetch(-2).location }.to_i
             if method_type.type.rest_positionals
               [pos + 1, positionals - 1].min
             else
@@ -172,14 +172,14 @@ module Steep
           end
         else
           # Cursor is on the argument
-          case argument_nodes[-2].type
+          case argument_nodes.fetch(-2).type
           when :splat
             method_type.type.required_positionals.size + method_type.type.optional_positionals.size if method_type.type.rest_positionals
           when :kwargs
             if argument_nodes[-3]
-              case argument_nodes[-3].type
+              case argument_nodes.fetch(-3).type
               when :pair
-                argname = argument_nodes[-3].children.first.children.first
+                argname = argument_nodes.fetch(-3).children.first.children.first
                 if method_type.type.required_keywords.key?(argname)
                   positionals + method_type.type.required_keywords.keys.index(argname).to_i
                 elsif method_type.type.optional_keywords.key?(argname)
@@ -192,7 +192,7 @@ module Steep
               end
             end
           else
-            pos = (node.children[2...] || raise).index { |c| c.location == argument_nodes[-2].location }.to_i
+            pos = (node.children[2...] || raise).index { |c| c.location == argument_nodes.fetch(-2).location }.to_i
             [pos, positionals - 1].min
           end
         end

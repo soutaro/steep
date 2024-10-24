@@ -468,7 +468,7 @@ module Steep
         when RBS::DuplicatedDeclarationError
           Diagnostic::Signature::DuplicatedDeclaration.new(
             type_name: error.name,
-            location: error.decls[0].location
+            location: error.decls.fetch(0).location
           )
         when RBS::GenericParameterMismatchError
           Diagnostic::Signature::GenericParameterMismatch.new(
@@ -494,7 +494,7 @@ module Steep
           Diagnostic::Signature::InvalidMethodOverload.new(
             class_name: error.type_name,
             method_name: error.method_name,
-            location: error.members[0].location
+            location: error.members.fetch(0).location
           )
         when RBS::DuplicatedMethodDefinitionError
           Diagnostic::Signature::DuplicatedMethodDefinition.new(
@@ -518,7 +518,7 @@ module Steep
           Diagnostic::Signature::RecursiveAlias.new(
             class_name: error.type.name,
             names: error.defs.map(&:name),
-            location: error.defs[0].original&.location
+            location: error.defs.fetch(0).original&.location
           )
         when RBS::RecursiveAncestorError
           Diagnostic::Signature::RecursiveAncestor.new(
