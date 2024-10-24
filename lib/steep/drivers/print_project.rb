@@ -71,6 +71,9 @@ module Steep
               end
             end
           end
+          if target.unreferenced
+            stdout.puts "    unreferenced: true"
+          end
         end
 
         if duplicated_files.empty?
