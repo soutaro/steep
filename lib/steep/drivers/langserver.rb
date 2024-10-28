@@ -43,7 +43,8 @@ module Steep
           reader: reader,
           writer: writer,
           interaction_worker: interaction_worker,
-          typecheck_workers: typecheck_workers
+          typecheck_workers: typecheck_workers,
+          strategy: :interactive
         )
         master.typecheck_automatically = true
 

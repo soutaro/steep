@@ -24,5 +24,7 @@ module Steep
     # `path` can be non-existent file.
     #
     def targets_for_path: (Pathname path) -> (Target | Array[Target] | nil)
+
+    def target_for_path: (Pathname) -> Target?
   end
 end

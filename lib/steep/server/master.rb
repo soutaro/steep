@@ -186,7 +186,7 @@ module Steep
       attr_accessor :typecheck_automatically
       attr_reader :start_type_checking_queue
 
-      def initialize(project:, reader:, writer:, interaction_worker:, typecheck_workers:, queue: Queue.new)
+      def initialize(project:, reader:, writer:, interaction_worker:, typecheck_workers:, queue: Queue.new, strategy:)
         @project = project
         @reader = reader
         @writer = writer
@@ -199,7 +199,7 @@ module Steep
         @write_queue = SizedQueue.new(100)
         @current_diagnostics = {}
 
-        @controller = TypeCheckController.new(project: project)
+        @controller = TypeCheckController.new(project: project, strategy: strategy)
         @result_controller = ResultController.new()
         @start_type_checking_queue = DelayQueue.new(delay: 0.3)
       end
@@ -540,6 +540,25 @@ module Steep
           if path = pathname(uri)
             controller.update_priority(open: path)
             broadcast_notification(CustomMethods::FileReset.notification({ uri: uri, content: text }))
+
+            if target = project.target_for_path(path)
+              job_queue.push(
+                -> do
+                  last_request = current_type_check_request
+                  guid = SecureRandom.uuid
+
+                  request = TypeCheckController::Request.new(guid: guid, progress: work_done_progress(guid))
+                  if target.possible_signature_file?(project.relative_path(path))
+                    request.signature_paths << [target.name, path]
+                  end
+                  if target.possible_source_file?(project.relative_path(path))
+                    request.code_paths << [target.name, path]
+                  end
+
+                  start_type_check(request: request, last_request: last_request)
+                end
+              )
+            end
           end
 
         when "textDocument/didClose"
@@ -724,6 +743,10 @@ module Steep
             progress or raise
             request = controller.make_request(guid: progress.guid, include_unchanged: include_unchanged, progress: progress) or return
             request.needs_response = needs_response ? true : false
+          end
+
+          if last_request
+            request.merge!(last_request)
           end
 
           if request.total > report_progress_threshold

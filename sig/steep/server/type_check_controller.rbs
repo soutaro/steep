@@ -99,8 +99,13 @@ module Steep
         #
         def report_progress!: (?bool) -> self
 
+        # Merges another request into this request
+        def merge!: (Request) -> self
+
         private def assigned_uris: (Services::PathAssignment, Set[target_and_path]) -> Array[target_path_string]
       end
+
+      type typecheck_strategy = :cli | :interactive
 
       attr_reader project: Project
 
@@ -109,6 +114,8 @@ module Steep
       attr_reader changed_paths: Set[Pathname]
 
       attr_reader target_paths: Array[TargetPaths]
+
+      attr_reader typecheck_strategy: typecheck_strategy
 
       # TargetPaths object keeps track of the expanded absolute paths of each target
       #
@@ -161,7 +168,7 @@ module Steep
         def code_path_changed?: (Set[Pathname]) -> Set[Pathname]?
       end
 
-      def initialize: (project: Project) -> void
+      def initialize: (project: Project, strategy: typecheck_strategy) -> void
 
       def load: (command_line_args: Array[String]) { (Hash[String, ChangeBuffer::content]) -> void } -> void
 
@@ -174,13 +181,26 @@ module Steep
       #
       # This method also resets the controller status by removing everything from `changed_paths`.
       #
-      # * If `last_request:` is given, the remaining paths are also included in the new request.
       # * If `include_unchanged` is `true`, all paths are included in the new request.
       # * `progress:` is a `WorkDoneProgress` object to report the progress of the type checking.
       #
       # Returns `nil` when no type checking is needed.
       #
-      def make_request: (?guid: String, ?last_request: Request?, ?include_unchanged: bool, progress: WorkDoneProgress) -> Request?
+      def make_request: (?guid: String, ?include_unchanged: bool, progress: WorkDoneProgress) -> Request?
+
+      RBS_FLAG_NONE: 0
+      RBS_FLAG_LIBRARY: 1
+      RBS_FLAG_PROJECT: 2
+      RBS_FLAG_TARGET_OPEN: 4
+      RBS_FLAG_TARGET_CLOSE: 8
+
+      RUBY_FLAG_NONE: 0
+      RUBY_FLAG_TARGET_OPEN: 1
+      RUBY_FLAG_TARGET_CLOSE: 2
+
+      def load_target_rbs_files: (Request, TargetPaths, Integer rbs_flag) -> void
+
+      def load_target_ruby_files: (Request, TargetPaths, Integer ruby_flag) -> void
     end
   end
 end

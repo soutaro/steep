@@ -39,7 +39,8 @@ end
         reader: worker_reader,
         writer: worker_writer,
         interaction_worker: nil,
-        typecheck_workers: [worker]
+        typecheck_workers: [worker],
+        strategy: :interactive
       )
       master.assign_initialize_params(DEFAULT_CLI_LSP_INITIALIZE_PARAMS.merge(capabilities: { window: { workDoneProgress: true } }))
 
@@ -105,7 +106,8 @@ end
         reader: worker_reader,
         writer: worker_writer,
         interaction_worker: nil,
-        typecheck_workers: [worker]
+        typecheck_workers: [worker],
+        strategy: :interactive
       )
       master.assign_initialize_params(DEFAULT_CLI_LSP_INITIALIZE_PARAMS)
 
@@ -158,7 +160,8 @@ end
         reader: worker_reader,
         writer: worker_writer,
         interaction_worker: nil,
-        typecheck_workers: [worker]
+        typecheck_workers: [worker],
+        strategy: :interactive
       )
       master.assign_initialize_params(DEFAULT_CLI_LSP_INITIALIZE_PARAMS)
 
@@ -204,7 +207,8 @@ end
         reader: worker_reader,
         writer: worker_writer,
         interaction_worker: nil,
-        typecheck_workers: [worker]
+        typecheck_workers: [worker],
+        strategy: :interactive
       )
       master.assign_initialize_params(DEFAULT_CLI_LSP_INITIALIZE_PARAMS.merge(capabilities: { window: { workDoneProgress: true } }))
 
@@ -291,7 +295,8 @@ end
         reader: worker_reader,
         writer: worker_writer,
         interaction_worker: nil,
-        typecheck_workers: [worker]
+        typecheck_workers: [worker],
+        strategy: :interactive
       )
       master.assign_initialize_params(DEFAULT_CLI_LSP_INITIALIZE_PARAMS)
 
@@ -340,7 +345,8 @@ end
         reader: worker_reader,
         writer: worker_writer,
         interaction_worker: nil,
-        typecheck_workers: [worker]
+        typecheck_workers: [worker],
+        strategy: :interactive
       )
 
       master.process_message_from_client(
@@ -376,7 +382,8 @@ end
         reader: worker_reader,
         writer: worker_writer,
         interaction_worker: nil,
-        typecheck_workers: [worker]
+        typecheck_workers: [worker],
+        strategy: :interactive
       )
 
       master.process_message_from_client(
@@ -416,7 +423,8 @@ end
         reader: worker_reader,
         writer: worker_writer,
         interaction_worker: nil,
-        typecheck_workers: [worker]
+        typecheck_workers: [worker],
+        strategy: :interactive
       )
 
       assert_empty master.controller.changed_paths
@@ -464,7 +472,8 @@ end
         reader: worker_reader,
         writer: worker_writer,
         interaction_worker: nil,
-        typecheck_workers: [worker]
+        typecheck_workers: [worker],
+        strategy: :interactive
       )
 
       assert_empty master.controller.changed_paths
@@ -505,7 +514,8 @@ end
         reader: worker_reader,
         writer: worker_writer,
         interaction_worker: nil,
-        typecheck_workers: [worker]
+        typecheck_workers: [worker],
+        strategy: :interactive
       )
 
       assert_empty master.controller.priority_paths
@@ -559,7 +569,8 @@ end
         reader: worker_reader,
         writer: worker_writer,
         interaction_worker: interaction_worker,
-        typecheck_workers: typecheck_workers
+        typecheck_workers: typecheck_workers,
+        strategy: :interactive
       )
 
       main_thread = Thread.new do
@@ -639,7 +650,8 @@ end
                                   reader: worker_reader,
                                   writer: worker_writer,
                                   interaction_worker: interaction_worker,
-                                  typecheck_workers: typecheck_workers)
+                                  typecheck_workers: typecheck_workers,
+                                  strategy: :interactive)
 
       main_thread = Thread.new do
         Thread.current.abort_on_exception = true
@@ -713,7 +725,8 @@ end
                                   reader: worker_reader,
                                   writer: worker_writer,
                                   interaction_worker: interaction_worker,
-                                  typecheck_workers: typecheck_workers)
+                                  typecheck_workers: typecheck_workers,
+                                  strategy: :interactive)
 
       main_thread = Thread.new do
         Thread.current.abort_on_exception = true
@@ -762,7 +775,8 @@ end
                                   reader: worker_reader,
                                   writer: worker_writer,
                                   interaction_worker: interaction_worker,
-                                  typecheck_workers: typecheck_workers)
+                                  typecheck_workers: typecheck_workers,
+                                  strategy: :interactive)
 
       main_thread = Thread.new do
         Thread.current.abort_on_exception = true
@@ -815,7 +829,8 @@ end
         reader: worker_reader,
         writer: worker_writer,
         interaction_worker: Object.new,
-        typecheck_workers: [worker]
+        typecheck_workers: [worker],
+        strategy: :interactive
       )
 
       assert_empty master.controller.changed_paths

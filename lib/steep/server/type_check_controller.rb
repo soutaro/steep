@@ -155,6 +155,14 @@ module Steep
             enum_for :each_unchecked_signature_target_path
           end
         end
+
+        def merge!(request)
+          library_paths.merge(request.each_unchecked_library_target_path)
+          signature_paths.merge(request.each_unchecked_signature_target_path)
+          code_paths.merge(request.each_unchecked_code_target_path)
+
+          self
+        end
       end
 
       attr_reader :project
@@ -228,11 +236,14 @@ module Steep
         end
       end
 
-      def initialize(project:)
+      attr_reader :typecheck_strategy
+
+      def initialize(project:, strategy:)
         @project = project
         @priority_paths = Set[]
         @changed_paths = Set[]
         @target_paths = project.targets.each.map {|target| TargetPaths.new(project: project, target: target) }
+        @typecheck_strategy = strategy
       end
 
       def load(command_line_args:)
@@ -293,32 +304,67 @@ module Steep
         end
       end
 
-      def make_request(guid: SecureRandom.uuid, last_request: nil, include_unchanged: false, progress:)
+      RBS_FLAG_NONE = 0
+      RBS_FLAG_LIBRARY = 1
+      RBS_FLAG_PROJECT = 2
+      RBS_FLAG_TARGET_OPEN = 4
+      RBS_FLAG_TARGET_CLOSE = 8
+
+      RUBY_FLAG_NONE = 0
+      RUBY_FLAG_TARGET_OPEN = 1
+      RUBY_FLAG_TARGET_CLOSE = 2
+
+      def make_request(guid: SecureRandom.uuid, include_unchanged: false, progress:)
         return if changed_paths.empty? && !include_unchanged
 
         TypeCheckController::Request.new(guid: guid, progress: progress).tap do |request|
-          if include_unchanged
+          case typecheck_strategy
+          when :cli
             target_paths.each do |paths|
-              request.signature_paths.merge(paths.signature_paths.map { [paths.target.name, _1] })
-              request.library_paths.merge(paths.library_paths.map { [paths.target.name, _1] })
-              request.code_paths.merge(paths.code_paths.map { [paths.target.name, _1] })
+              load_target_rbs_files(
+                request,
+                paths,
+                RBS_FLAG_PROJECT | RBS_FLAG_TARGET_CLOSE
+              )
+              load_target_ruby_files(
+                request,
+                paths,
+                RUBY_FLAG_TARGET_CLOSE
+              )
             end
-          else
-            if last_request
-              request.library_paths.merge(last_request.each_unchecked_library_target_path)
-              request.signature_paths.merge(last_request.each_unchecked_signature_target_path)
-              request.code_paths.merge(last_request.each_unchecked_code_target_path)
-            end
+          when :interactive
+            if include_unchanged
+              target_paths.each do |paths|
+                load_target_rbs_files(
+                  request,
+                  paths,
+                  RBS_FLAG_TARGET_OPEN | RBS_FLAG_TARGET_CLOSE,
+                )
+                load_target_ruby_files(
+                  request,
+                  paths,
+                  RUBY_FLAG_TARGET_OPEN | RUBY_FLAG_TARGET_CLOSE
+                )
+              end
+            else
+              target_paths.each do |paths|
+                case
+                when paths.signature_path_changed?(changed_paths)
+                  # paths is a target that contains changed RBS files
+                  load_target_rbs_files(request, paths, RBS_FLAG_TARGET_OPEN | RBS_FLAG_TARGET_CLOSE)
+                  load_target_ruby_files(request, paths, RUBY_FLAG_TARGET_CLOSE | RUBY_FLAG_TARGET_OPEN)
 
-            target_paths.each do |paths|
-              case
-              when paths.signature_path_changed?(changed_paths)
-                paths.signature_paths.each { request.signature_paths << [paths.target.name, _1] }
-                paths.library_paths.each { request.library_paths << [paths.target.name, _1] }
-                paths.code_paths.each { request.code_paths << [paths.target.name, _1] }
-              when code_paths = paths.code_path_changed?(changed_paths)
-                code_paths.each do
-                  request.code_paths << [paths.target.name, _1]
+                  unless paths.target.unreferenced
+                    target_paths.each do |paths2|
+                      # Type check OPEN files in other targets
+                      load_target_rbs_files(request, paths2, RBS_FLAG_TARGET_OPEN)
+                      load_target_ruby_files(request, paths2, RUBY_FLAG_TARGET_OPEN)
+                    end
+                  end
+                when code_paths = paths.code_path_changed?(changed_paths)
+                  code_paths.each do
+                    request.code_paths << [paths.target.name, _1]
+                  end
                 end
               end
             end
@@ -327,6 +373,50 @@ module Steep
           request.priority_paths.merge(priority_paths)
 
           changed_paths.clear()
+        end
+      end
+
+      def load_target_rbs_files(request, paths, flag)
+        if flag & RBS_FLAG_LIBRARY > 0
+          paths.library_paths.each { request.library_paths << [paths.target.name, _1] }
+        end
+        if flag & RBS_FLAG_PROJECT > 0
+          target_paths.each do |paths2|
+            unless paths == paths2
+              paths2.signature_paths.each { request.signature_paths << [paths2.target.name, _1] }
+            end
+          end
+        end
+        if flag & RBS_FLAG_TARGET_OPEN > 0
+          paths.signature_paths.each do
+            if priority_paths.include?(_1)
+              request.signature_paths << [paths.target.name, _1]
+            end
+          end
+        end
+        if flag & RBS_FLAG_TARGET_CLOSE > 0
+          paths.signature_paths.each do
+            unless priority_paths.include?(_1)
+              request.signature_paths << [paths.target.name, _1]
+            end
+          end
+        end
+      end
+
+      def load_target_ruby_files(request, paths, flag)
+        if flag & RUBY_FLAG_TARGET_OPEN > 0
+          paths.code_paths.each do
+            if priority_paths.include?(_1)
+              request.code_paths << [paths.target.name, _1]
+            end
+          end
+        end
+        if flag & RUBY_FLAG_TARGET_CLOSE > 0
+          paths.code_paths.each do
+            unless priority_paths.include?(_1)
+              request.code_paths << [paths.target.name, _1]
+            end
+          end
         end
       end
     end

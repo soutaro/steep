@@ -662,6 +662,8 @@ module TypeConstructionHelper
 end
 
 module TypeCheckServiceHelper
+  # Type check files included in changes
+  #
   def update_and_check(type_check, changes:, &block)
     requests = type_check.update(changes: changes)
 

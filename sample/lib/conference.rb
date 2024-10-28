@@ -11,8 +11,6 @@ end
 
 Conference.new()
 
-Konference
-
 Konference.new()
 
 
