@@ -58,6 +58,10 @@ module TestHelper
 
     assert_equal size, collection.count if size
 
+    if collection.empty?
+      raise Minitest::Assertion.new("Empty collection cannot satisfy *any* assertion")
+    end
+
     collection.each do |c|
       begin
         block[c]

@@ -624,6 +624,7 @@ module Steep
 
               group.on_completion do |handlers|
                 links = handlers.flat_map(&:result)
+                links.uniq!
                 enqueue_write_job SendMessageJob.to_client(
                   message: {
                     id: message[:id],

@@ -185,6 +185,30 @@ class LSPClient
     end
   end
 
+  def goto_definition(path, line:, character:, &block)
+    send_request(
+      method: "textDocument/definition",
+      params: {
+        textDocument: { uri: uri(path) },
+        position: { line: line, character: character }
+      }
+    ) do |response|
+      yield response[:result]
+    end
+  end
+
+  def goto_implementation(path, line:, character:, &block)
+    send_request(
+      method: "textDocument/implementation",
+      params: {
+        textDocument: { uri: uri(path) },
+        position: { line: line, character: character }
+      }
+    ) do |response|
+      yield response[:result]
+    end
+  end
+
   protected
 
   def fresh_request_id

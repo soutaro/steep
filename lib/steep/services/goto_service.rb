@@ -46,7 +46,7 @@ module Steep
           when MethodQuery
             method_locations(query.name, locations: locations, in_ruby: true, in_rbs: false)
           when TypeNameQuery
-            type_name_locations(query.name, locations: locations)
+            constant_definition_in_ruby(query.name, locations: locations)
           end
         end
 
