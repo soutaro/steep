@@ -275,4 +275,97 @@ RUBY
       end
     end
   end
+
+  def test_file_watcher
+    in_tmpdir do
+      write_file("Steepfile", <<RUBY)
+D = Steep::Diagnostic
+
+target :core do
+  check "lib/core"
+  signature "sig/core"
+end
+
+target :main do
+  check "lib/main"
+  signature "sig/main"
+end
+
+target :test do
+  unreferenced!
+
+  check "test"
+  signature "sig/test"
+end
+RUBY
+
+      write_file("lib/core/core.rb", <<~RUBY)
+        class Core
+        end
+      RUBY
+      write_file("sig/core/core.rbs", <<~RBS)
+        class Core
+        end
+      RBS
+      write_file("lib/main/main.rb", <<~RUBY)
+        class Main
+        end
+      RUBY
+      write_file("sig/main/main.rbs", <<~RBS)
+        class Main
+        end
+      RBS
+      write_file("test/core_test.rb", <<~RUBY)
+        class CoreTest
+        end
+      RUBY
+      write_file("test/main_test.rb", <<~RUBY)
+        class MainTest
+        end
+      RUBY
+      write_file("sig/test/test.rbs", <<~RBS)
+        class HelloTest
+        end
+
+        class MainTest
+        end
+      RBS
+
+      start_server do |client|
+        client.send_request(method: "initialize", params: { }) {}
+        client.send_notification(method: "initialized", params: { })
+
+        finally_holds(timeout: 3) do
+          assert_operator client.diagnostics, :key?, Pathname("lib/core/core.rb")
+          assert_operator client.diagnostics, :key?, Pathname("lib/main/main.rb")
+          assert_operator client.diagnostics, :key?, Pathname("sig/core/core.rbs")
+          assert_operator client.diagnostics, :key?, Pathname("sig/main/main.rbs")
+          assert_operator client.diagnostics, :key?, Pathname("test/core_test.rb")
+          assert_operator client.diagnostics, :key?, Pathname("test/main_test.rb")
+          assert_operator client.diagnostics, :key?, Pathname("sig/test/test.rbs")
+        end
+
+        client.diagnostics.clear
+
+        client.open_file("sig/main/main.rbs")
+        client.change_watched_file("sig/core/core.rbs")
+
+        finally_holds(timeout: 3) do
+          # All files are updated
+          assert_operator client.diagnostics, :key?, Pathname("lib/core/core.rb")
+          refute_operator client.diagnostics, :key?, Pathname("lib/main/main.rb")
+          assert_operator client.diagnostics, :key?, Pathname("sig/core/core.rbs")
+          assert_operator client.diagnostics, :key?, Pathname("sig/main/main.rbs")
+          refute_operator client.diagnostics, :key?, Pathname("test/core_test.rb")
+          refute_operator client.diagnostics, :key?, Pathname("test/main_test.rb")
+          refute_operator client.diagnostics, :key?, Pathname("sig/test/test.rbs")
+        end
+
+        client.diagnostics.clear
+      ensure
+        client.send_request(method: "shutdown", params: nil) {}
+        client.send_notification(method: "exit", params: nil)
+      end
+    end
+  end
 end

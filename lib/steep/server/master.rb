@@ -499,7 +499,6 @@ module Steep
 
                   start_type_check(
                     last_request: last_request,
-                    include_unchanged: true,
                     progress: work_done_progress(guid),
                     needs_response: false
                   )
