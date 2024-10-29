@@ -472,10 +472,9 @@ module Steep
               controller.push_changes(path)
 
               case type
-              when 1, 2
+              when LSP::Constant::FileChangeType::CREATED, LSP::Constant::FileChangeType::CHANGED
                 content = path.read
-              when 4
-                # Deleted
+              when LSP::Constant::FileChangeType::DELETED
                 content = ""
               end
 
