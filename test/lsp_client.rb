@@ -160,7 +160,7 @@ class LSPClient
     changes = []
     paths.each do |path|
       path = current_dir + path
-      
+
       if path.file?
         # Created (or maybe modified)
         changes << { uri: uri(path), type: 1 }
@@ -174,6 +174,15 @@ class LSPClient
       method: "workspace/didChangeWatchedFiles",
       params: { changes: changes }
     )
+  end
+
+  def workspace_symbol(query = "", &block)
+    send_request(
+      method: "workspace/symbol",
+      params: { query: query },
+    ) do |response|
+      yield response[:result]
+    end
   end
 
   protected

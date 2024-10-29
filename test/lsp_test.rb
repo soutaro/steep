@@ -368,4 +368,103 @@ RUBY
       end
     end
   end
+
+  def test_workspace_symbol
+    in_tmpdir do
+      write_file("Steepfile", <<RUBY)
+D = Steep::Diagnostic
+
+target :core do
+  check "lib/core"
+  signature "sig/core"
+end
+
+target :main do
+  check "lib/main"
+  signature "sig/main"
+end
+
+target :test do
+  unreferenced!
+
+  check "test"
+  signature "sig/test"
+end
+RUBY
+
+      write_file("lib/core/core.rb", <<~RUBY)
+        class Core
+        end
+      RUBY
+      write_file("sig/core/core.rbs", <<~RBS)
+        class Core
+        end
+      RBS
+      write_file("lib/main/main.rb", <<~RUBY)
+        class Main__123
+        end
+      RUBY
+      write_file("sig/main/main.rbs", <<~RBS)
+        class Main__123
+        end
+      RBS
+      write_file("test/core_test.rb", <<~RUBY)
+        class CoreTest
+        end
+      RUBY
+      write_file("test/main_test.rb", <<~RUBY)
+        class MainTest
+        end
+      RUBY
+      write_file("sig/test/test.rbs", <<~RBS)
+        class HelloTest
+        end
+
+        class MainTest
+        end
+      RBS
+
+      start_server do |client|
+        client.send_request(method: "initialize", params: { }) {}
+        client.send_notification(method: "initialized", params: { })
+
+        finally_holds(timeout: 3) do
+          assert_operator client.diagnostics, :key?, Pathname("lib/core/core.rb")
+          assert_operator client.diagnostics, :key?, Pathname("lib/main/main.rb")
+          assert_operator client.diagnostics, :key?, Pathname("sig/core/core.rbs")
+          assert_operator client.diagnostics, :key?, Pathname("sig/main/main.rbs")
+          assert_operator client.diagnostics, :key?, Pathname("test/core_test.rb")
+          assert_operator client.diagnostics, :key?, Pathname("test/main_test.rb")
+          assert_operator client.diagnostics, :key?, Pathname("sig/test/test.rbs")
+        end
+
+        client.workspace_symbol do |symbols|
+          object = symbols.find { _1[:name] == "Object" }
+          assert_operator object[:location][:uri], :end_with?, "core/object.rbs"
+        end
+
+        client.workspace_symbol("Main__123") do |symbols|
+          assert_equal 1, symbols.size
+        end
+
+        client.open_file("sig/main/main.rbs")
+        client.change_file("sig/main/main.rbs") {
+          <<~RBS
+            class Main_1234
+            end
+          RBS
+        }
+
+        finally_holds(timeout: 3) do
+          client.workspace_symbol("Main") do |symbols|
+            assert symbols.find { _1[:name] == "Main_1234"}
+            refute symbols.find { _1[:name] == "Main_123"}
+          end
+        end
+      ensure
+        client.send_request(method: "shutdown", params: nil) {}
+        client.send_notification(method: "exit", params: nil)
+      end
+    end
+  end
 end
