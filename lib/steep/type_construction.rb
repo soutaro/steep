@@ -1434,10 +1434,10 @@ module Steep
               case hint
               when AST::Types::Any, AST::Types::Top, AST::Types::Void
                 # ok
-              when hint == pair.type
-                # ok
               else
-                pair.constr.typing.add_error Diagnostic::Ruby::FallbackAny.new(node: node)
+                unless hint == pair.type
+                  pair.constr.typing.add_error Diagnostic::Ruby::FallbackAny.new(node: node)
+                end
               end
             end
           end
@@ -5054,7 +5054,7 @@ module Steep
           if (type_, constr = yield(type, constr))
             constr.check_relation(sub_type: type_, super_type: type).then do
               constr = constr.save_typing
-              return Pair.new(type: type, constr: constr)
+              return Pair.new(type: type_, constr: constr)
             end
           end
         end
