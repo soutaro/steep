@@ -2464,4 +2464,23 @@ class TypeCheckTest < Minitest::Test
       YAML
     )
   end
+
+  def test_untyped_hash
+    run_type_check_test(
+      signatures: {
+        "a.rbs" => <<~RBS
+        RBS
+      },
+      code: {
+        "a.rb" => <<~RUBY
+          { foo: 1} #: Hash[untyped, untyped] | String
+        RUBY
+      },
+      expectations: <<~YAML
+        ---
+        - file: a.rb
+          diagnostics: []
+      YAML
+    )
+  end
 end

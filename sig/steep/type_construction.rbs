@@ -501,7 +501,7 @@ module Steep
     #
     def type_hash: (Parser::AST::Node hash_node, hint: AST::Types::t?) -> Pair
 
-    # Returns the first one from elements of `types` that returns a type `t` where `t <: hint`.
+    # Yield each member included in `types` and returns the first one where the type `<:` hint
     #
     def pick_one_of: (Array[AST::Types::t] types) { (AST::Types::t hint, TypeConstruction) -> Pair? } -> Pair?
 
