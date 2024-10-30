@@ -5,11 +5,11 @@ module Steep
         def content_for(service:, path:, line:, column:)
           project = service.project
 
-          case (target = project.targets_for_path(path))
-          when Project::Target
+          case
+          when target = project.target_for_source_path(path)
             Ruby.new(service: service).content_for(target: target, path: path, line: line, column: column)
-          when Array
-            RBS.new(service: service).content_for(target: target[0], path: path, line: line, column: column)
+          when target = project.target_for_signature_path(path)
+            RBS.new(service: service).content_for(target: target, path: path, line: line, column: column)
           end
         end
       end

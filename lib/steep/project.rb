@@ -42,15 +42,9 @@ module Steep
       targets.find { _1.possible_source_file?(relative) || _1.possible_signature_file?(relative)}
     end
 
-    def targets_for_path(path)
-      if target = target_for_source_path(path)
-        target
-      else
-        ts = targets.select {|target| target.possible_signature_file?(path) }
-        unless ts.empty?
-          ts
-        end
-      end
+    def target_for_signature_path(path)
+      relative = relative_path(path)
+      targets.find { _1.possible_signature_file?(relative) }
     end
   end
 end
