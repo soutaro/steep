@@ -541,6 +541,10 @@ module Steep
             broadcast_notification(CustomMethods::FileReset.notification({ uri: uri, content: text }))
 
             if target = project.target_for_path(path)
+              if current_type_check_request&.checking_path?([target.name, path])
+                return
+              end
+
               job_queue.push(
                 -> do
                   last_request = current_type_check_request

@@ -7,9 +7,12 @@ class Conference
   def initialize: (title: String, year: Integer) -> void
 end
 
+
 class NilClass
   def must: () -> bot
 end
+
+
 
 class Object
   def must: () -> self
