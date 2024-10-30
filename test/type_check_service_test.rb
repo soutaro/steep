@@ -3,7 +3,6 @@ require_relative "test_helper"
 class TypeCheckServiceTest < Minitest::Test
   include Steep
   include TestHelper
-  include TypeCheckServiceHelper
 
   ContentChange = Services::ContentChange
   TypeCheckService = Services::TypeCheckService

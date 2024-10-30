@@ -3,7 +3,6 @@ require_relative "test_helper"
 class GotoServiceTest < Minitest::Test
   include Steep
   include TestHelper
-  include TypeCheckServiceHelper
 
   ContentChange = Services::ContentChange
   TypeCheckService = Services::TypeCheckService
@@ -33,7 +32,12 @@ EOF
     yield changes
 
     type_check = Services::TypeCheckService.new(project: project)
-    update_and_check(type_check, changes: changes) {}
+    type_check.update(changes: changes)
+    changes.each_key do |path|
+      if target = project.target_for_source_path(path)
+        type_check.typecheck_source(path: path, target: target)
+      end
+    end
     type_check
   end
 
@@ -398,7 +402,7 @@ RUBY
 
       assert_any!(locs) do |target, loc|
         assert_equal :lib, target.name
-        
+
         assert_instance_of RBS::Location, loc
         assert_equal "Customer::NAME", loc.source
         assert_equal 6, loc.start_line

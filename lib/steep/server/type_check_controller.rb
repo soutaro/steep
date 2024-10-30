@@ -315,8 +315,6 @@ module Steep
       RUBY_FLAG_TARGET_CLOSE = 2
 
       def make_request(guid: SecureRandom.uuid, include_unchanged: false, progress:)
-        return if changed_paths.empty? && !include_unchanged
-
         TypeCheckController::Request.new(guid: guid, progress: progress).tap do |request|
           case typecheck_strategy
           when :cli
@@ -333,6 +331,8 @@ module Steep
               )
             end
           when :interactive
+            return if changed_paths.empty? && !include_unchanged
+
             if include_unchanged
               target_paths.each do |paths|
                 load_target_rbs_files(
@@ -382,9 +382,10 @@ module Steep
         end
         if flag & RBS_FLAG_PROJECT > 0
           target_paths.each do |paths2|
-            unless paths == paths2
-              paths2.signature_paths.each { request.signature_paths << [paths2.target.name, _1] }
-            end
+            next if paths == paths2
+            next if paths2.target.unreferenced
+
+            paths2.signature_paths.each { request.signature_paths << [paths.target.name, _1] }
           end
         end
         if flag & RBS_FLAG_TARGET_OPEN > 0

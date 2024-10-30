@@ -545,7 +545,7 @@ end
 1 + 2
       EOF
 
-      stdout, _, status = sh3(*steep, "stats", "--format=table")
+      stdout, stderr, status = sh3(*steep, "stats", "--format=table")
 
       assert_predicate status, :success?, stdout
       assert_equal <<CSV, stdout

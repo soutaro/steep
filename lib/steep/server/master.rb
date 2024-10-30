@@ -650,7 +650,8 @@ module Steep
             last_request: current_type_check_request,
             include_unchanged: true,
             progress: work_done_progress(guid || SecureRandom.uuid),
-            needs_response: true
+            needs_response: true,
+            report_progress_threshold: 0
           )
 
         when "$/ping"
@@ -752,6 +753,12 @@ module Steep
 
           if request.total > report_progress_threshold
             request.report_progress!
+          end
+
+          if request.each_unchecked_target_path.to_a.empty?
+            finish_type_check(request)
+            @current_type_check_request = nil
+            return
           end
 
           Steep.logger.info "Starting new progress..."
