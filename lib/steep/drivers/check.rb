@@ -10,6 +10,7 @@ module Steep
       attr_accessor :save_expectations_path
       attr_accessor :severity_level
       attr_reader :jobs_option
+      attr_reader :targets
 
       include Utils::DriverHelper
 
@@ -19,6 +20,11 @@ module Steep
         @command_line_patterns = []
         @severity_level = :warning
         @jobs_option = Utils::JobsOption.new()
+        @targets = []
+      end
+
+      def active_target?(target)
+        targets.empty? || targets.include?(target.name)
       end
 
       def run
@@ -65,9 +71,20 @@ module Steep
         client_writer.write({ method: :initialize, id: initialize_id, params: DEFAULT_CLI_LSP_INITIALIZE_PARAMS })
         wait_for_response_id(reader: client_reader, id: initialize_id)
 
+        params = { library_paths: [], signature_paths: [], code_paths: [] } #: Server::CustomMethods::TypeCheck::params
+
+        loader = Services::FileLoader.new(base_dir: project.base_dir)
+        project.targets.each do |target|
+          if active_target?(target)
+            load_files(loader, target, command_line_patterns, params: params)
+          end
+        end
+
+        Steep.logger.info { "Starting type check with #{params[:code_paths].size} Ruby files and #{params[:signature_paths].size} RBS signatures..." }
+
         request_guid = SecureRandom.uuid
         Steep.logger.info { "Starting type checking: #{request_guid}" }
-        client_writer.write(Server::CustomMethods::TypeCheck.request(request_guid, { guid: request_guid}))
+        client_writer.write(Server::CustomMethods::TypeCheck.request(request_guid, params))
 
         diagnostic_notifications = [] #: Array[LanguageServer::Protocol::Interface::PublishDiagnosticsParams]
         error_messages = [] #: Array[String]
@@ -131,6 +148,15 @@ module Steep
       rescue Errno::EPIPE => error
         stdout.puts Rainbow("Steep shutdown with an error: #{error.inspect}").red.bold
         return 1
+      end
+
+      def load_files(loader, target, command_line_patterns, params:)
+        loader.each_path_in_patterns(target.signature_pattern, command_line_patterns) do |path|
+          params[:signature_paths] << [target.name.to_s, target.project.absolute_path(path).to_s]
+        end
+        loader.each_path_in_patterns(target.source_pattern, command_line_patterns) do |path|
+          params[:code_paths] << [target.name.to_s, target.project.absolute_path(path).to_s]
+        end
       end
 
       def print_expectations(project:, all_files:, expectations_path:, notifications:)

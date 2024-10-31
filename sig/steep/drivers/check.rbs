@@ -17,6 +17,8 @@ module Steep
 
       attr_reader jobs_option: Utils::JobsOption
 
+      attr_reader targets: Array[Symbol]
+
       include Utils::DriverHelper
 
       def initialize: (stdout: IO, stderr: IO) -> void
@@ -28,6 +30,11 @@ module Steep
       def save_expectations: (project: Project, all_files: Array[Pathname], expectations_path: Pathname, notifications: Array[untyped]) -> Integer
 
       def print_result: (project: Project, notifications: Array[untyped]) -> Integer
+
+      # Returns true if the given target is active for this invocation
+      def active_target?: (Project::Target) -> bool
+
+      def load_files: (Services::FileLoader, Project::Target, Array[String] command_line_patterns, params: Server::CustomMethods::TypeCheck::params) -> void
     end
   end
 end

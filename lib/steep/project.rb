@@ -32,6 +32,7 @@ module Steep
     end
 
     def target_for_source_path(path)
+      path = relative_path(path)
       targets.find do |target|
         target.possible_source_file?(path)
       end

@@ -125,6 +125,32 @@ end
     end
   end
 
+  def test_check_target
+    in_tmpdir do
+      (current_dir + "Steepfile").write(<<-EOF)
+target :app do
+  check "foo.rb"
+end
+
+target :test do
+  check "test.rb"
+end
+      EOF
+
+      (current_dir + "foo.rb").write(<<-EOF)
+1 + 2
+      EOF
+      (current_dir + "test.rb").write(<<-EOF)
+1 + "2"
+      EOF
+
+      stdout, status = sh(*steep, "check", "--target=app")
+
+      assert_predicate status, :success?, stdout
+      assert_match /No type error detected\./, stdout
+    end
+  end
+
   def test_check_failure_severity_level
     in_tmpdir do
       (current_dir + "Steepfile").write(<<-EOF)

@@ -126,6 +126,9 @@ module Steep
           opts.on("--severity-level=LEVEL", /^error|warning|information|hint$/, "Specify the minimum diagnostic severity to be recognized as an error (defaults: warning): error, warning, information, or hint") do |level|
             command.severity_level = level.to_sym
           end
+          opts.on("--target=TARGET", "Specify target to type check") do |target|
+            command.targets << target.to_sym
+          end
           handle_jobs_option command.jobs_option, opts
           handle_logging_options opts
         end.parse!(argv)
