@@ -647,16 +647,23 @@ module Steep
           end
 
         when CustomMethods::TypeCheck::METHOD
+          id = message[:id]
           params = message[:params] #: CustomMethods::TypeCheck::params
-          guid = params[:guid]
 
-          start_type_check(
-            last_request: current_type_check_request,
-            include_unchanged: true,
-            progress: work_done_progress(guid || SecureRandom.uuid),
-            needs_response: true,
-            report_progress_threshold: 0
-          )
+          request = TypeCheckController::Request.new(guid: id, progress: work_done_progress(id))
+          request.needs_response = true
+
+          params[:code_paths].each do |target_name, path|
+            request.code_paths << [target_name.to_sym, Pathname(path)]
+          end
+          params[:signature_paths].each do |target_name, path|
+            request.signature_paths << [target_name.to_sym, Pathname(path)]
+          end
+          params[:library_paths].each do |target_name, path|
+            request.library_paths << [target_name.to_sym, Pathname(path)]
+          end
+
+          start_type_check(request: request, last_request: nil)
 
         when "$/ping"
           enqueue_write_job SendMessageJob.to_client(
