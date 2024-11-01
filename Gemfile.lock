@@ -72,7 +72,7 @@ GEM
       minitest (> 5.3)
     minitest-slow_test (0.2.0)
       minitest (>= 5.0)
-    parser (3.3.5.0)
+    parser (3.3.5.1)
       ast (~> 2.4.1)
       racc
     psych (5.1.2)
