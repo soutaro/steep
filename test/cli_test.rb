@@ -391,7 +391,7 @@ end
       EOF
       stdout = sh!(*steep, "validate")
 
-      assert_equal "", stdout
+      assert_match(/^Successfully validated \d+ files\./, stdout)
     end
   end
 

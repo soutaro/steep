@@ -1,15 +1,29 @@
 module Steep
   module Drivers
     class Validate
+      module LSP = LanguageServer::Protocol
+
       attr_reader stdout: IO
 
       attr_reader stderr: IO
+
+      attr_reader targets: Array[Symbol]
+
+      attr_reader command_line_patterns: Array[String]
+
+      attr_reader jobs_option: Utils::JobsOption
 
       include Utils::DriverHelper
 
       def initialize: (stdout: IO, stderr: IO) -> void
 
       def run: () -> Integer
+
+      def active_target?: (Project::Target) -> bool
+
+      def load_files: (Services::FileLoader, Project::Target, Array[String] command_line_patterns, params: Server::CustomMethods::TypeCheck::params) -> void
+
+      def print_result: (project: Project, notifications: Array[untyped]) -> Integer
     end
   end
 end
