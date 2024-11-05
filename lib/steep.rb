@@ -17,6 +17,7 @@ require "yaml"
 require "securerandom"
 require "base64"
 require "time"
+require 'socket'
 
 require "concurrent/utility/processor_counter"
 require "terminal-table"
@@ -150,6 +151,8 @@ require "steep/drivers/init"
 require "steep/drivers/vendor"
 require "steep/drivers/worker"
 require "steep/drivers/diagnostic_printer"
+
+require 'steep/lsp_patch'
 
 if ENV["NO_COLOR"]
   Rainbow.enabled = false

@@ -178,6 +178,7 @@ module Steep
       attr_reader :job_queue, :write_queue
 
       attr_reader :current_type_check_request
+      attr_reader :refork_mutex
       attr_reader :controller
       attr_reader :result_controller
 
@@ -196,6 +197,7 @@ module Steep
         @commandline_args = []
         @job_queue = queue
         @write_queue = SizedQueue.new(100)
+        @refork_mutex = Mutex.new
 
         @controller = TypeCheckController.new(project: project)
         @result_controller = ResultController.new()
@@ -244,8 +246,10 @@ module Steep
                   Steep.logger.info { "Processing SendMessageJob: dest=client, method=#{job.message[:method] || "-"}, id=#{job.message[:id] || "-"}" }
                   writer.write job.message
                 when WorkerProcess
-                  Steep.logger.info { "Processing SendMessageJob: dest=#{job.dest.name}, method=#{job.message[:method] || "-"}, id=#{job.message[:id] || "-"}" }
-                  job.dest << job.message
+                  refork_mutex.synchronize do
+                    Steep.logger.info { "Processing SendMessageJob: dest=#{job.dest.name}, method=#{job.message[:method] || "-"}, id=#{job.message[:id] || "-"}" }
+                    job.dest << job.message
+                  end
                 end
               end
             end
@@ -287,11 +291,12 @@ module Steep
             end
           end
 
-          waiter = ThreadWaiter.new
-          each_worker do |worker|
-            waiter << worker.wait_thread
+          waiter = ThreadWaiter.new(each_worker.to_a) {|worker| worker.wait_thread }
+          while th = waiter.wait_one()
+            if each_worker.any? { |worker| worker.pid == th.value }
+              break # The worker unexpectedly exited
+            end
           end
-          waiter.wait_one()
 
           unless job_queue.closed?
             # Exit by error
@@ -794,6 +799,70 @@ module Steep
             if current.finished?
               finish_type_check(current)
               @current_type_check_request = nil
+              refork_workers
+            end
+          end
+        end
+      end
+
+      def refork_workers
+        return if @reforked
+        @reforked = true
+
+        Thread.new do
+          Thread.current.abort_on_exception = true
+
+          primary, *others = typecheck_workers
+          others.each do |worker|
+            refork_mutex.synchronize do
+              refork_finished = Thread::Queue.new
+              stdin_in, stdin_out = IO.pipe
+              stdout_in, stdout_out = IO.pipe
+
+              params = { index: worker.index, max_index: typecheck_workers.size }
+              message = CustomMethods::Refork.request(fresh_request_id, params)
+              result_controller << ResultHandler.new(request: message).tap do |handler|
+                handler.on_completion do |response|
+                  writer = LanguageServer::Protocol::Transport::Io::Writer.new(stdin_out)
+                  reader = LanguageServer::Protocol::Transport::Io::Reader.new(stdout_in)
+
+                  pid = response[:result][:pid]
+                  # TODO: wait pid
+                  # @type var wait_thread: Thread & _ProcessWaitThread
+                  wait_thread = _ = Thread.new { sleep }
+                  wait_thread.define_singleton_method(:pid) { pid }
+
+                  new_worker = WorkerProcess.new(reader:, writer:, stderr: nil, wait_thread:, name: "#{worker.name}-2", index: worker.index)
+                  old_worker = typecheck_workers[worker.index]
+                  typecheck_workers[new_worker.index] = new_worker
+                  refork_finished << true
+
+                  result_controller << send_request(method: 'shutdown', worker: old_worker) do |handler|
+                    handler.on_completion do
+                      send_request(method: 'exit', worker: old_worker)
+                    end
+                  end
+
+                  Thread.new do
+                    tags = Steep.logger.formatter.current_tags.dup
+                    Steep.logger.formatter.push_tags(*tags, "from-worker@#{new_worker.name}")
+                    new_worker.reader.read do |message|
+                      job_queue << ReceiveMessageJob.new(source: new_worker, message: message)
+                    end
+                  end
+                end
+
+                job = SendMessageJob.to_worker(primary, message: message)
+                job.dest << job.message
+              end
+
+              # The primary worker starts forking when it receives the IOs.
+              primary.io_socket.send_io(stdin_in)
+              primary.io_socket.send_io(stdout_out)
+              stdin_in.close
+              stdout_out.close
+
+              refork_finished.pop
             end
           end
         end

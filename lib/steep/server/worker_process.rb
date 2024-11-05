@@ -8,11 +8,13 @@ module Steep
       attr_reader :name
       attr_reader :wait_thread
       attr_reader :index
+      attr_reader :io_socket
 
-      def initialize(reader:, writer:, stderr:, wait_thread:, name:, index: nil)
+      def initialize(reader:, writer:, io_socket: nil, stderr:, wait_thread:, name:, index: nil)
         @reader = reader
         @writer = writer
         @stderr = stderr
+        @io_socket = io_socket
         @wait_thread = wait_thread
         @name = name
         @index = index
@@ -26,6 +28,7 @@ module Steep
               name: name,
               steepfile: steepfile,
               index: index,
+              is_primary: index&.[](1) == 0 && index&.[](0) >= 2,
               delay_shutdown: delay_shutdown,
               patterns: patterns
             )
@@ -46,9 +49,10 @@ module Steep
         end
       end
 
-      def self.fork_worker(type, name:, steepfile:, index:, delay_shutdown:, patterns:)
+      def self.fork_worker(type, name:, steepfile:, index:, delay_shutdown:, patterns:, is_primary:)
         stdin_in, stdin_out = IO.pipe
         stdout_in, stdout_out = IO.pipe
+        sock_master, sock_worker = UNIXSocket.socketpair if is_primary
 
         worker = Drivers::Worker.new(stdout: stdout_out, stdin: stdin_in, stderr: STDERR)
 
@@ -61,12 +65,14 @@ module Steep
           worker.index = this
         end
         worker.commandline_args = patterns
+        worker.io_socket = sock_worker
 
         pid = fork do
           Process.setpgid(0, 0)
           Steep.ui_logger.level = :fatal
           stdin_out.close
           stdout_in.close
+          sock_master&.close
           worker.run()
         end
 
@@ -81,6 +87,7 @@ module Steep
 
         stdin_in.close
         stdout_out.close
+        sock_worker&.close
 
         new(
           reader: reader,
@@ -88,7 +95,8 @@ module Steep
           stderr: STDERR,
           wait_thread: wait_thread,
           name: name,
-          index: index&.[](1)
+          index: index&.[](1),
+          io_socket: sock_master,
         )
       end
 
@@ -155,11 +163,11 @@ module Steep
       end
 
       def kill(force: false)
-        Steep.logger.tagged("WorkerProcess#kill@#{name}(#{wait_thread.pid})") do
+        Steep.logger.tagged("WorkerProcess#kill@#{name}(#{pid})") do
           begin
             signal = force ? :KILL : :TERM
             Steep.logger.debug("Sending signal SIG#{signal}...")
-            Process.kill(signal, wait_thread.pid)
+            Process.kill(signal, pid)
             Steep.logger.debug("Successfully sent the signal.")
           rescue Errno::ESRCH => error
             Steep.logger.debug("Failed #{error.inspect}")
@@ -170,6 +178,10 @@ module Steep
             Steep.logger.debug("Confirmed process exit.")
           end
         end
+      end
+
+      def pid
+        wait_thread.pid
       end
     end
   end

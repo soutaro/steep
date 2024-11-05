@@ -51,15 +51,25 @@ module Steep
 
       include ChangeBuffer
 
-      def initialize(project:, reader:, writer:, assignment:, commandline_args:)
+      def initialize(project:, reader:, writer:, assignment:, commandline_args:, io_socket:, buffered_changes: nil)
         super(project: project, reader: reader, writer: writer)
 
         @assignment = assignment
-        @buffered_changes = {}
+        @buffered_changes = buffered_changes || {}
         @mutex = Mutex.new()
         @queue = Queue.new
         @commandline_args = commandline_args
         @current_type_check_guid = nil
+        @io_socket = io_socket
+
+        if io_socket
+          Signal.trap "SIGCHLD" do
+            # TODO: check the PID is for worker processes
+            while pid = Process.wait(-1, Process::WNOHANG)
+              raise "Unexpected child process exit: #{pid}"
+            end
+          end
+        end
       end
 
       def service
@@ -98,6 +108,34 @@ module Steep
           queue << GotoJob.implementation(id: request[:id], params: request[:params])
         when "textDocument/typeDefinition"
           queue << GotoJob.type_definition(id: request[:id], params: request[:params])
+        when CustomMethods::Refork::METHOD
+          # Jobの方でやったほうがいいかも…？
+
+          # Receive IOs before fork to avoid receiving them from multiple processes
+          stdin = @io_socket.recv_io
+          stdout = @io_socket.recv_io
+
+          if pid = fork
+            stdin.close
+            stdout.close
+            writer.write(CustomMethods::Refork.response(request[:id], { pid: }))
+          else
+            @io_socket.close
+
+            reader.close
+            writer.close
+
+            # TODO: Free instance variables?
+
+            reader = LanguageServer::Protocol::Transport::Io::Reader.new(stdin)
+            writer = LanguageServer::Protocol::Transport::Io::Writer.new(stdout)
+            Steep.logger.info("Reforked worker: #{Process.pid}, params: #{request[:params]}")
+            assignment = Services::PathAssignment.new(max_index: request[:params][:max_index], index: request[:params][:index])
+
+            self.class.new(project: project, reader: reader, writer: writer, assignment: assignment, commandline_args: commandline_args, io_socket: nil, buffered_changes: buffered_changes).run()
+
+            raise "unreachable"
+          end
         end
       end
 

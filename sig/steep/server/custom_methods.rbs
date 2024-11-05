@@ -124,6 +124,18 @@ module Steep
 
         def self.response: (String id, result) -> untyped
       end
+
+      module Refork
+        METHOD: String
+
+        type params = { index: Integer , max_index: Integer }
+
+        def self.request: (String id, params) -> untyped
+
+        type result = { pid: Integer }
+
+        def self.response: (String id, result) -> untyped
+      end
     end
   end
 end

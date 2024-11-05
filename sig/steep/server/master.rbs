@@ -141,6 +141,8 @@ module Steep
 
       attr_reader current_type_check_request: TypeCheckController::Request?
 
+      attr_reader refork_mutex: Mutex
+
       attr_reader controller: TypeCheckController
 
       attr_reader result_controller: ResultController
