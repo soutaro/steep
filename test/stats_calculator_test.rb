@@ -38,7 +38,7 @@ class StatsCalculatorTest < Minitest::Test
           1 + ""
         RUBY
       })
-      service.typecheck_source(path: Pathname("lib/hello.rb"))
+      service.typecheck_source(path: Pathname("lib/hello.rb"), target: service.project.targets[0])
 
       calculator = StatsCalculator.new(service: service)
 
@@ -65,7 +65,7 @@ class StatsCalculatorTest < Minitest::Test
           1+2
         RUBY
       })
-      service.typecheck_source(path: Pathname("lib/hello.rb"))
+      service.typecheck_source(path: Pathname("lib/hello.rb"), target: service.project.targets[0])
 
       calculator = StatsCalculator.new(service: service)
 

@@ -333,7 +333,7 @@ RUBY
     end
 
     type_check.source_files.each_key do |path|
-      type_check.typecheck_source(path: path) {}
+      type_check.typecheck_source(path: path, target: type_check.project.target_for_source_path(path))
     end
     service = Services::GotoService.new(type_check: type_check, assignment: assignment)
 
@@ -439,7 +439,7 @@ RUBY
     end
 
     type_check.source_files.each_key do |path|
-      type_check.typecheck_source(path: path) {}
+      type_check.typecheck_source(path: path, target: type_check.project.target_for_source_path(path))
     end
     service = Services::GotoService.new(type_check: type_check, assignment: assignment)
 
@@ -525,7 +525,7 @@ RUBY
     end
 
     type_check.source_files.each_key do |path|
-      type_check.typecheck_source(path: path) {}
+      type_check.typecheck_source(path: path, target: type_check.project.target_for_source_path(path))
     end
     service = Services::GotoService.new(type_check: type_check, assignment: assignment)
     queries = service.query_at(path: Pathname("lib/main.rb"), line: 1, column: 16)

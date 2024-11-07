@@ -192,7 +192,8 @@ module Steep
             Steep.logger.info { "Processing TypeCheckCodeJob for guid=#{job.guid}, path=#{job.path}" }
             relative_path = project.relative_path(job.path)
             formatter = Diagnostic::LSPFormatter.new(job.target.code_diagnostics_config)
-            diagnostics = service.typecheck_source(path: relative_path)
+            target = project.target_for_source_path(relative_path)
+            diagnostics = service.typecheck_source(path: relative_path, target: target)
             typecheck_progress(path: job.path, guid: job.guid, target: job.target, diagnostics: diagnostics&.filter_map { formatter.format(_1) })
           end
 

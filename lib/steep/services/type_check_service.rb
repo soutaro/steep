@@ -226,7 +226,7 @@ module Steep
         end
       end
 
-      def typecheck_source(path:, target: project.target_for_source_path(path))
+      def typecheck_source(path:, target:)
         return unless target
 
         Steep.logger.tagged "#typecheck_source(path=#{path})" do

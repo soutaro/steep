@@ -78,7 +78,7 @@ module Steep
       # * Returns `nil` if the type check doesn't complete.
       # * Returns an array if the type check complete and detects no/some errors.
       #
-      def typecheck_source: (path: Pathname, ?target: Project::Target?) -> Array[Diagnostic::Ruby::Base]?
+      def typecheck_source: (path: Pathname, target: Project::Target?) -> Array[Diagnostic::Ruby::Base]?
 
       def update_signature: (changes: Server::ChangeBuffer::changes) -> void
 

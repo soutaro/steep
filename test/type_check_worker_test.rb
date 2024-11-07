@@ -689,8 +689,10 @@ RUBY
           1+
         RUBY
       })
-      worker.service.typecheck_source(path: Pathname("lib/hello.rb"))
-      worker.service.typecheck_source(path: Pathname("lib/world.rb"))
+      
+      target = project.targets[0]
+      worker.service.typecheck_source(path: Pathname("lib/hello.rb"), target: target)
+      worker.service.typecheck_source(path: Pathname("lib/world.rb"), target: target)
 
       result = worker.stats_result()
 
