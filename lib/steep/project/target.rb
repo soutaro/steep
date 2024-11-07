@@ -9,6 +9,7 @@ module Steep
       attr_reader :code_diagnostics_config
       attr_reader :project
       attr_reader :unreferenced
+      attr_reader :groups
 
       def initialize(name:, options:, source_pattern:, signature_pattern:, code_diagnostics_config:, project:, unreferenced:)
         @name = name
@@ -18,6 +19,7 @@ module Steep
         @code_diagnostics_config = code_diagnostics_config
         @project = project
         @unreferenced = unreferenced
+        @groups = []
       end
 
       def options
@@ -25,11 +27,27 @@ module Steep
       end
 
       def possible_source_file?(path)
-        source_pattern =~ path
+        if target = groups.find { _1.possible_source_file?(path) }
+          return target
+        end
+
+        if source_pattern =~ path
+          return self
+        end
+
+        nil
       end
 
       def possible_signature_file?(path)
-        signature_pattern =~ path
+        if target = groups.find { _1.possible_signature_file?(path) }
+          return target
+        end
+
+        if signature_pattern =~ path
+          return self
+        end
+
+        nil
       end
 
       def new_env_loader()

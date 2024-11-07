@@ -15,6 +15,8 @@ module Steep
 
       attr_reader unreferenced: bool
 
+      attr_reader groups: Array[Group]
+
       def initialize: (name: Symbol, options: Options?, source_pattern: Pattern, signature_pattern: Pattern, code_diagnostics_config: untyped, project: Project, unreferenced: bool) -> void
 
       # The options that applies to this target
@@ -23,9 +25,9 @@ module Steep
       #
       def options: () -> Options
 
-      def possible_source_file?: (Pathname path) -> bool
+      def possible_source_file?: (Pathname path) -> (Group | Target | nil)
 
-      def possible_signature_file?: (Pathname path) -> bool
+      def possible_signature_file?: (Pathname path) -> (Group | Target | nil)
 
       def new_env_loader: () -> RBS::EnvironmentLoader
 

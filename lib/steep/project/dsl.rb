@@ -69,37 +69,74 @@ module Steep
         end
       end
 
+      module WithPattern
+        def check(*args)
+          sources.concat(args)
+        end
+
+        def ignore(*args)
+          ignored_sources.concat(args)
+        end
+
+        def signature(*args)
+          signatures.concat(args)
+        end
+
+        def ignore_signature(*args)
+          ignored_signatures.concat(args)
+        end
+
+        def sources
+          @sources ||= []
+        end
+
+        def ignored_sources
+          @ignored_sources ||= []
+        end
+
+        def signatures
+          @signatures ||= []
+        end
+
+        def ignored_signatures
+          @ignored_signatures ||= []
+        end
+
+        def source_pattern
+          Pattern.new(patterns: sources, ignores: ignored_sources, ext: ".rb")
+        end
+
+        def signature_pattern
+          Pattern.new(patterns: signatures, ignores: ignored_signatures, ext: ".rbs")
+        end
+      end
+
       class TargetDSL
         include LibraryOptions
+        include WithPattern
 
         attr_reader :name
-        attr_reader :sources
-        attr_reader :signatures
-        attr_reader :ignored_sources
-        attr_reader :code_diagnostics_config
         attr_reader :project
         attr_reader :unreferenced
+        attr_reader :groups
 
-        def initialize(name, sources: [], libraries: [], signatures: [], ignored_sources: [], repo_paths: [], code_diagnostics_config: {}, project:, collection_config_path: nil)
+        def initialize(name, project:)
           @name = name
-          @sources = sources
-          @libraries = libraries
-          @signatures = signatures
-          @ignored_sources = ignored_sources
           @core_root = nil
           @stdlib_root = nil
-          @code_diagnostics_config = code_diagnostics_config
           @project = project
           @collection_config_path = collection_config_path
           @unreferenced = false
+          @groups = []
         end
 
         def initialize_copy(other)
           @name = other.name
-          @sources = other.sources.dup
           @libraries = other.libraries.dup
+          @sources = other.sources.dup
           @signatures = other.signatures.dup
           @ignored_sources = other.ignored_sources.dup
+          @ignored_signatures = other.ignored_signatures.dup
           @repo_paths = other.repo_paths.dup
           @core_root = other.core_root
           @stdlib_root = other.stdlib_root
@@ -107,18 +144,11 @@ module Steep
           @project = other.project
           @collection_config_path = other.collection_config_path
           @unreferenced = other.unreferenced
+          @groups = other.groups.dup
         end
 
-        def check(*args)
-          sources.push(*args)
-        end
-
-        def ignore(*args)
-          ignored_sources.push(*args)
-        end
-
-        def signature(*args)
-          signatures.push(*args)
+        def unreferenced!(value = true)
+          @unreferenced = value
         end
 
         def configure_code_diagnostics(hash = nil)
@@ -129,8 +159,49 @@ module Steep
           yield code_diagnostics_config if block_given?
         end
 
-        def unreferenced!(value = true)
-          @unreferenced = value
+        def code_diagnostics_config
+          @code_diagnostics_config ||= Diagnostic::Ruby.default.dup
+        end
+
+        def group(name, &block)
+          group = GroupDSL.new(name, self)
+
+          Steep.logger.tagged "group=#{name}" do
+            group.instance_exec(&block) if block
+          end
+
+          groups << group
+        end
+      end
+
+      class GroupDSL
+        include WithPattern
+
+        attr_reader :name
+
+        attr_reader :target
+
+        attr_reader :code_diagnostics_config
+
+        def initialize(name, target)
+          @name = name
+          @target = target
+        end
+
+        def configure_code_diagnostics(config = nil)
+          if block_given?
+            if code_diagnostics_config
+              if config
+                code_diagnostics_config.merge!(config)
+              end
+            else
+              @code_diagnostics_config = (config || target.code_diagnostics_config).dup
+            end
+
+            yield (code_diagnostics_config || raise)
+          else
+            @code_diagnostics_config = config&.dup
+          end
         end
       end
 
@@ -159,26 +230,28 @@ module Steep
       end
 
       def target(name, &block)
-        target = TargetDSL.new(name, code_diagnostics_config: Diagnostic::Ruby.default.dup, project: project)
+        dsl = TargetDSL.new(name, project: project)
 
         Steep.logger.tagged "target=#{name}" do
-          target.instance_eval(&block) if block
+          dsl.instance_eval(&block) if block
         end
 
-        source_pattern = Pattern.new(patterns: target.sources, ignores: target.ignored_sources, ext: ".rb")
-        signature_pattern = Pattern.new(patterns: target.signatures, ext: ".rbs")
-
-        Project::Target.new(
-          name: target.name,
-          source_pattern: source_pattern,
-          signature_pattern: signature_pattern,
-          options: target.library_configured? ? target.to_library_options : nil,
-          code_diagnostics_config: target.code_diagnostics_config,
+        target = Project::Target.new(
+          name: dsl.name,
+          source_pattern: dsl.source_pattern,
+          signature_pattern: dsl.signature_pattern,
+          options: dsl.library_configured? ? dsl.to_library_options : nil,
+          code_diagnostics_config: dsl.code_diagnostics_config,
           project: project,
-          unreferenced: target.unreferenced
-        ).tap do |target|
-          project.targets << target
+          unreferenced: dsl.unreferenced
+        )
+
+        dsl.groups.each do
+          group = Group.new(target, _1.name, _1.source_pattern, _1.signature_pattern, _1.code_diagnostics_config || target.code_diagnostics_config)
+          target.groups << group
         end
+
+        project.targets << target
       end
     end
   end

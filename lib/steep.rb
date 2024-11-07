@@ -132,6 +132,7 @@ require "steep/project"
 require "steep/project/pattern"
 require "steep/project/options"
 require "steep/project/target"
+require "steep/project/group"
 require "steep/project/dsl"
 
 require "steep/expectations"

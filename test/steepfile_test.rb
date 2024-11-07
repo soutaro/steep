@@ -282,4 +282,41 @@ YAML
       end
     end
   end
+
+  def test_group
+    in_tmpdir do
+      project = Project.new(steepfile_path: current_dir + "Steepfile")
+
+      Project::DSL.eval(project) do
+        target :app do
+          group :core do
+            check "lib/core"
+            signature "sig/core"
+          end
+
+          group :main do
+            check "lib/main"
+            signature "sig/main"
+          end
+
+          check "lib/cli.rb", "exe/app"
+          signature "sig/cli.rbs", "sig/exe/app.rbs"
+        end
+      end
+
+      project.targets.find {|target| target.name == :app }.tap do |target|
+        assert_equal [:core, :main], target.groups.map(&:name)
+
+        assert_equal :core, target.possible_source_file?("lib/core/core.rb").name
+        assert_equal :main, target.possible_source_file?("lib/main/main.rb").name
+        assert_equal :app, target.possible_source_file?("lib/cli.rb").name
+        assert_nil target.possible_source_file?("test/core_test.rb")
+
+        assert_equal :core, target.possible_signature_file?("sig/core/core.rbs").name
+        assert_equal :main, target.possible_signature_file?("sig/main/main.rbs").name
+        assert_equal :app, target.possible_signature_file?("sig/cli.rbs").name
+        assert_nil target.possible_signature_file?("sig/test/core_test.rbs")
+      end
+    end
+  end
 end
