@@ -33,19 +33,24 @@ module Steep
 
     def target_for_source_path(path)
       path = relative_path(path)
-      targets.find do |target|
-        target.possible_source_file?(path)
+      targets.each do |target|
+        ret = target.possible_source_file?(path)
+        return ret if ret
       end
+      nil
     end
 
     def target_for_path(path)
-      relative = relative_path(path)
-      targets.find { _1.possible_source_file?(relative) || _1.possible_signature_file?(relative)}
+      target_for_source_path(path) || target_for_signature_path(path)
     end
 
     def target_for_signature_path(path)
       relative = relative_path(path)
-      targets.find { _1.possible_signature_file?(relative) }
+      targets.each do
+        ret = _1.possible_signature_file?(relative)
+        return ret if ret
+      end
+      nil
     end
   end
 end
