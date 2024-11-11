@@ -13,7 +13,6 @@ Conference.new()
 
 Konference.new()
 
-
 # @type var foo: Konference
 
 foo = Conference.new
@@ -29,7 +28,6 @@ class HogeHoge
     bar(self, ...).to_s
   end
 end
-
 
 
 conference = nil #: Conference?

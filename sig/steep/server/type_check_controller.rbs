@@ -105,70 +105,15 @@ module Steep
         private def assigned_uris: (Services::PathAssignment, Set[target_and_path]) -> Array[target_path_string]
       end
 
-      type typecheck_strategy = :cli | :interactive
-
       attr_reader project: Project
 
       attr_reader priority_paths: Set[Pathname]
 
       attr_reader changed_paths: Set[Pathname]
 
-      attr_reader target_paths: Array[TargetPaths]
+      attr_reader files: TargetGroupFiles
 
-      attr_reader typecheck_strategy: typecheck_strategy
-
-      # TargetPaths object keeps track of the expanded absolute paths of each target
-      #
-      # 1. *Library path* is a RBS file that is loaded as a part of a library
-      # 2. *Signature path* is a RBS file that is loaded as a part of the application library
-      # 3. *Code path* is a Ruby file that is being type checked
-      #
-      class TargetPaths
-        attr_reader project: Project
-
-        attr_reader target: Project::Target
-
-        # Set of absolute paths of Ruby code
-        #
-        attr_reader code_paths: Set[Pathname]
-
-        # Set of absolute paths of app signatures
-        #
-        attr_reader signature_paths: Set[Pathname]
-
-        # Set of absolute paths of library signatures
-        #
-        # Unlike `code_paths` and `signature_paths`, the `library_paths` must be added explicitly not by `#add` method.
-        #
-        attr_reader library_paths: Set[Pathname]
-
-        def initialize: (project: Project, target: Project::Target) -> void
-
-        def all_paths: () -> Set[Pathname]
-
-        def library_path?: (Pathname path) -> bool
-
-        def signature_path?: (Pathname path) -> bool
-
-        def code_path?: (Pathname path) -> bool
-
-        # Adds `path` to the object
-        #
-        # Returns `false` if the path is not a part of the project.
-        #
-        # Whether `path` is a code path or signature path is automatically detected.
-        # `library: true` is required to add the path to library path.
-        #
-        def add: (Pathname path, ?library: bool) -> bool
-
-        alias << add
-
-        def signature_path_changed?: (Set[Pathname]) -> bool
-
-        def code_path_changed?: (Set[Pathname]) -> Set[Pathname]?
-      end
-
-      def initialize: (project: Project, strategy: typecheck_strategy) -> void
+      def initialize: (project: Project) -> void
 
       def load: (command_line_args: Array[String]) { (Hash[String, ChangeBuffer::content]) -> void } -> void
 
@@ -188,19 +133,6 @@ module Steep
       #
       def make_request: (?guid: String, ?include_unchanged: bool, progress: WorkDoneProgress) -> Request?
 
-      RBS_FLAG_NONE: 0
-      RBS_FLAG_LIBRARY: 1
-      RBS_FLAG_PROJECT: 2
-      RBS_FLAG_TARGET_OPEN: 4
-      RBS_FLAG_TARGET_CLOSE: 8
-
-      RUBY_FLAG_NONE: 0
-      RUBY_FLAG_TARGET_OPEN: 1
-      RUBY_FLAG_TARGET_CLOSE: 2
-
-      def load_target_rbs_files: (Request, TargetPaths, Integer rbs_flag) -> void
-
-      def load_target_ruby_files: (Request, TargetPaths, Integer ruby_flag) -> void
     end
   end
 end

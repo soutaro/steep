@@ -9,7 +9,7 @@ module Steep
 
       attr_reader signature_paths: Hash[Pathname, Target | Group]
 
-      attr_reader library_paths: Hash[Symbol, Array[Pathname]]
+      attr_reader library_paths: Hash[Symbol, Set[Pathname]]
 
       def initialize: (Project) -> void
 
@@ -24,6 +24,12 @@ module Steep
 
       def each_library_path: (Target) { (Pathname) -> void } -> void
                            | (Target) -> Enumerator[Pathname]
+
+      def library_path?: (Pathname) -> bool
+
+      def signature_path_target: (Pathname) -> Target?
+
+      def source_path_target: (Pathname) -> Target?
 
       # Yield signature paths that belongs to given target/group
       #

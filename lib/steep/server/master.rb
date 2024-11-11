@@ -186,7 +186,7 @@ module Steep
       attr_accessor :typecheck_automatically
       attr_reader :start_type_checking_queue
 
-      def initialize(project:, reader:, writer:, interaction_worker:, typecheck_workers:, queue: Queue.new, strategy:)
+      def initialize(project:, reader:, writer:, interaction_worker:, typecheck_workers:, queue: Queue.new)
         @project = project
         @reader = reader
         @writer = writer
@@ -199,7 +199,7 @@ module Steep
         @write_queue = SizedQueue.new(100)
         @current_diagnostics = {}
 
-        @controller = TypeCheckController.new(project: project, strategy: strategy)
+        @controller = TypeCheckController.new(project: project)
         @result_controller = ResultController.new()
         @start_type_checking_queue = DelayQueue.new(delay: 0.3)
       end

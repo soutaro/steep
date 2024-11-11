@@ -28,7 +28,7 @@ module Steep
       end
 
       def add_library_path(target, *paths)
-        (library_paths[target.name] ||= []).concat(paths)
+        (library_paths[target.name] ||= Set[]).merge(paths)
       end
 
       def each_library_path(target, &block)
@@ -36,6 +36,28 @@ module Steep
           library_paths.fetch(target.name).each(&block)
         else
           enum_for(_ = __method__, target)
+        end
+      end
+
+      def library_path?(path)
+        library_paths.each_value.any? { _1.include?(path) }
+      end
+
+      def signature_path_target(path)
+        case target_group = signature_paths.fetch(path, nil)
+        when Project::Target
+          target_group
+        when Project::Group
+          target_group.target
+        end
+      end
+
+      def source_path_target(path)
+        case target_group = source_paths.fetch(path, nil)
+        when Project::Target
+          target_group
+        when Project::Group
+          target_group.target
         end
       end
 
