@@ -76,7 +76,7 @@ GEM
     parser (3.3.5.1)
       ast (~> 2.4.1)
       racc
-    psych (5.1.2)
+    psych (5.2.0)
       stringio
     racc (1.8.1)
     rainbow (3.1.1)
@@ -90,7 +90,7 @@ GEM
       io-console (~> 0.5)
     securerandom (0.3.2)
     stackprof (0.2.26)
-    stringio (3.1.1)
+    stringio (3.1.2)
     strscan (3.1.0)
     terminal-table (3.0.2)
       unicode-display_width (>= 1.1.1, < 3)
