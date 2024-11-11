@@ -5,6 +5,13 @@ module Steep
 
       def initialize: (base_dir: Pathname) -> void
 
+      # Yields relative paths included in `target` from `base_dir`
+      #
+      # Deduplicates paths before yielding them.
+      #
+      def each_path_in_target: (Project::Target, ?Array[String] commandline_patterns) { (Pathname) -> void } -> void
+                              | (Project::Target, ?Array[String] commandline_patterns) -> Enumerator[Pathname, void]
+
       # Yields relative paths included in `pattern` from `base_dir`
       #
       def each_path_in_patterns: (Project::Pattern pattern, ?Array[String] commandline_patterns) { (Pathname) -> void } -> void

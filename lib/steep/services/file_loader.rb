@@ -7,6 +7,29 @@ module Steep
         @base_dir = base_dir
       end
 
+      def each_path_in_target(target, command_line_patterns = [], &block)
+        if block
+          done = Set[] #: Set[Pathname]
+
+          handler = -> (path) do
+            unless done.include?(path)
+              done << path
+              yield path
+            end
+          end
+
+          target.groups.each do |group|
+            each_path_in_patterns(group.source_pattern, command_line_patterns, &handler)
+            each_path_in_patterns(group.signature_pattern, command_line_patterns, &handler)
+          end
+
+          each_path_in_patterns(target.source_pattern, command_line_patterns, &handler)
+          each_path_in_patterns(target.signature_pattern, command_line_patterns, &handler)
+        else
+          enum_for :each_path_in_target, target, command_line_patterns
+        end
+      end
+
       def each_path_in_patterns(pattern, commandline_patterns = [])
         if block_given?
           pats = commandline_patterns.empty? ? pattern.patterns : commandline_patterns

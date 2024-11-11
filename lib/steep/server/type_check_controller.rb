@@ -188,16 +188,7 @@ module Steep
         files = {} #: Hash[String, String]
 
         project.targets.each do |target|
-          loader.each_path_in_patterns(target.source_pattern, command_line_args) do |path|
-            path = project.absolute_path(path)
-            self.files.add_path(path)
-            files[project.relative_path(path).to_s] = path.read
-            if files.size > 1000
-              yield files.dup
-              files.clear
-            end
-          end
-          loader.each_path_in_patterns(target.signature_pattern) do |path|
+          loader.each_path_in_target(target, command_line_args) do |path|
             path = project.absolute_path(path)
             self.files.add_path(path)
             files[project.relative_path(path).to_s] = path.read
