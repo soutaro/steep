@@ -57,6 +57,10 @@ module Steep
           library_paths.size + signature_paths.size + code_paths.size
         end
 
+        def empty?
+          total == 0
+        end
+
         def percentage
           checked_paths.size * 100 / total
         end
@@ -268,20 +272,25 @@ module Steep
             end
 
             unless request.signature_paths.empty?
-              priority_paths.each do |path|
-                if target = files.signature_path_target(path)
-                  request.signature_paths << [target.name, path]
-                  request.priority_paths << path
-                end
-                if target = files.source_path_target(path)
-                  request.code_paths << [target.name, path]
-                  request.priority_paths << path
+              non_unref_targets = project.targets.reject { _1.unreferenced }.map(&:name).to_set
+              if request.signature_paths.any? {|target_name, _| non_unref_targets.include?(target_name) }
+                priority_paths.each do |path|
+                  if target = files.signature_path_target(path)
+                    request.signature_paths << [target.name, path]
+                    request.priority_paths << path
+                  end
+                  if target = files.source_path_target(path)
+                    request.code_paths << [target.name, path]
+                    request.priority_paths << path
+                  end
                 end
               end
             end
           end
 
           changed_paths.clear()
+
+          return nil if request.empty?
         end
       end
     end

@@ -63,6 +63,10 @@ module Steep
 
         def total: () -> Integer
 
+        # Returns true if no path is registered to the request
+        # 
+        def empty?: () -> bool
+
         def percentage: () -> Integer
 
         # Enumerates all paths included in the request
