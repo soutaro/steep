@@ -354,7 +354,12 @@ module Steep
 
       def source_file?(path)
         if source_files.key?(path)
-          project.target_for_source_path(path)
+          case target = project.target_for_source_path(path)
+          when Project::Target
+            target
+          when Project::Group
+            target.target
+          end
         end
       end
 
