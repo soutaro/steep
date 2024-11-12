@@ -39,14 +39,16 @@ class LSPTest < Minitest::Test
       write_file("Steepfile", <<RUBY)
 D = Steep::Diagnostic
 
-target :core do
-  check "lib/core"
-  signature "sig/core"
-end
+target :lib do
+  group :core do
+    check "lib/core"
+    signature "sig/core"
+  end
 
-target :main do
-  check "lib/main"
-  signature "sig/main"
+  group :main do
+    check "lib/main"
+    signature "sig/main"
+  end
 end
 
 target :test do
@@ -93,34 +95,10 @@ RUBY
         client.send_request(method: "initialize", params: { }) {}
         client.send_notification(method: "initialized", params: { })
 
-        # client.open_file("lib/hello.rb")
-        # client.edit_file("lib/hello.rb", <<~RUBY)
-        # RUBY
-        # client.save_file("lib/hello.rb")
+        # Opening `core` group file triggers type checking `core` group files
+        client.open_file("lib/core/core.rb")
 
         finally_holds(timeout: 3) do
-          assert_operator client.diagnostics, :key?, Pathname("lib/core/core.rb")
-          assert_operator client.diagnostics, :key?, Pathname("lib/main/main.rb")
-          assert_operator client.diagnostics, :key?, Pathname("sig/core/core.rbs")
-          assert_operator client.diagnostics, :key?, Pathname("sig/main/main.rbs")
-          assert_operator client.diagnostics, :key?, Pathname("test/core_test.rb")
-          assert_operator client.diagnostics, :key?, Pathname("test/main_test.rb")
-          assert_operator client.diagnostics, :key?, Pathname("sig/test/test.rbs")
-        end
-
-        client.diagnostics.clear
-
-        # Edit core.rbs and core.rb will be checked
-        client.open_file("sig/core/core.rbs")
-        client.change_file("sig/core/core.rbs") do
-          <<~RBS
-            class Core2
-            end
-          RBS
-        end
-
-        finally_holds(timeout: 3) do
-          # Files in the same target is checked
           assert_operator client.diagnostics, :key?, Pathname("lib/core/core.rb")
           refute_operator client.diagnostics, :key?, Pathname("lib/main/main.rb")
           assert_operator client.diagnostics, :key?, Pathname("sig/core/core.rbs")
@@ -132,7 +110,6 @@ RUBY
 
         client.diagnostics.clear
 
-        client.open_file("lib/core/core.rb")
         client.change_file("lib/core/core.rb") do
           <<~RBS
             class Core2
@@ -153,6 +130,7 @@ RUBY
 
         client.diagnostics.clear
 
+        # Opening `main` group to type check files in the `main` group too
         client.open_file("lib/main/main.rb")
 
         client.change_file("sig/core/core.rbs") do
@@ -164,111 +142,38 @@ RUBY
         end
 
         finally_holds(timeout: 3) do
-          # The changed target and the open file are checked
           assert_operator client.diagnostics, :key?, Pathname("lib/core/core.rb")
           assert_operator client.diagnostics, :key?, Pathname("lib/main/main.rb")
           assert_operator client.diagnostics, :key?, Pathname("sig/core/core.rbs")
-          refute_operator client.diagnostics, :key?, Pathname("sig/main/main.rbs")
+          assert_operator client.diagnostics, :key?, Pathname("sig/main/main.rbs")
           refute_operator client.diagnostics, :key?, Pathname("test/core_test.rb")
           refute_operator client.diagnostics, :key?, Pathname("test/main_test.rb")
           refute_operator client.diagnostics, :key?, Pathname("sig/test/test.rbs")
         end
 
         client.diagnostics.clear
-      ensure
-        client.send_request(method: "shutdown", params: nil) {}
-        client.send_notification(method: "exit", params: nil)
-      end
-    end
-  end
 
-  def test_open_files
-    in_tmpdir do
-      write_file("Steepfile", <<RUBY)
-D = Steep::Diagnostic
+        client.close_file("lib/main/main.rb")
 
-target :core do
-  check "lib/core"
-  signature "sig/core"
-end
-
-target :main do
-  check "lib/main"
-  signature "sig/main"
-end
-
-target :test do
-  unreferenced!
-
-  check "test"
-  signature "sig/test"
-end
-RUBY
-
-      write_file("lib/core/core.rb", <<~RUBY)
-        class Core
+        # Files in `test` target are checked, but other files are not because the target is `unreferenced`
+        client.open_file("sig/test/test.rbs")
+        client.change_file("sig/test/test.rbs") do
+          <<~RBS
+            class CoreTest
+              def test_foo: () -> void
+            end
+          RBS
         end
-      RUBY
-      write_file("sig/core/core.rbs", <<~RBS)
-        class Core
-        end
-      RBS
-      write_file("lib/main/main.rb", <<~RUBY)
-        class Main
-        end
-      RUBY
-      write_file("sig/main/main.rbs", <<~RBS)
-        class Main
-        end
-      RBS
-      write_file("test/core_test.rb", <<~RUBY)
-        class CoreTest
-        end
-      RUBY
-      write_file("test/main_test.rb", <<~RUBY)
-        class MainTest
-        end
-      RUBY
-      write_file("sig/test/test.rbs", <<~RBS)
-        class HelloTest
-        end
-
-        class MainTest
-        end
-      RBS
-
-      start_server do |client|
-        client.send_request(method: "initialize", params: { }) {}
-        client.send_notification(method: "initialized", params: { })
 
         finally_holds(timeout: 3) do
-          assert_operator client.diagnostics, :key?, Pathname("lib/core/core.rb")
-          assert_operator client.diagnostics, :key?, Pathname("lib/main/main.rb")
-          assert_operator client.diagnostics, :key?, Pathname("sig/core/core.rbs")
-          assert_operator client.diagnostics, :key?, Pathname("sig/main/main.rbs")
+          refute_operator client.diagnostics, :key?, Pathname("lib/core/core.rb")
+          refute_operator client.diagnostics, :key?, Pathname("lib/main/main.rb")
+          refute_operator client.diagnostics, :key?, Pathname("sig/core/core.rbs")
+          refute_operator client.diagnostics, :key?, Pathname("sig/main/main.rbs")
           assert_operator client.diagnostics, :key?, Pathname("test/core_test.rb")
           assert_operator client.diagnostics, :key?, Pathname("test/main_test.rb")
           assert_operator client.diagnostics, :key?, Pathname("sig/test/test.rbs")
         end
-
-        client.diagnostics.clear
-
-        # Opening files starts type checking them
-        client.open_file("sig/core/core.rbs")
-        client.open_file("test/main_test.rb")
-
-        finally_holds(timeout: 3) do
-          # Newly opened file is checked
-          refute_operator client.diagnostics, :key?, Pathname("lib/core/core.rb")
-          refute_operator client.diagnostics, :key?, Pathname("lib/main/main.rb")
-          assert_operator client.diagnostics, :key?, Pathname("sig/core/core.rbs")
-          refute_operator client.diagnostics, :key?, Pathname("sig/main/main.rbs")
-          refute_operator client.diagnostics, :key?, Pathname("test/core_test.rb")
-          assert_operator client.diagnostics, :key?, Pathname("test/main_test.rb")
-          refute_operator client.diagnostics, :key?, Pathname("sig/test/test.rbs")
-        end
-
-        client.diagnostics.clear
       ensure
         client.send_request(method: "shutdown", params: nil) {}
         client.send_notification(method: "exit", params: nil)
