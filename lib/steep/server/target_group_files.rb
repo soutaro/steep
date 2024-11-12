@@ -15,11 +15,11 @@ module Steep
       end
 
       def add_path(path)
-        if target_group = project.target_for_signature_path(path)
+        if target_group = project.group_for_signature_path(path)
           signature_paths[path] = target_group
           return true
         end
-        if target_group = project.target_for_source_path(path)
+        if target_group = project.group_for_source_path(path)
           source_paths[path] = target_group
           return true
         end

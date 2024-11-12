@@ -96,7 +96,7 @@ module Steep
 
         relative_path = project.relative_path(path)
 
-        target = type_check.source_file?(relative_path) or return []
+        target = type_check.project.target_for_path(relative_path) or return []
         source = type_check.source_files[relative_path]
         typing, signature = type_check_path(target: target, path: relative_path, content: source.content, line: line, column: column)
 
@@ -162,7 +162,7 @@ module Steep
         relative_path = project.relative_path(path)
 
         case
-        when target = type_check.source_file?(relative_path)
+        when target = type_check.project.target_for_source_path(relative_path)
           source = type_check.source_files[relative_path]
           typing, _signature = type_check_path(target: target, path: relative_path, content: source.content, line: line, column: column)
           if typing

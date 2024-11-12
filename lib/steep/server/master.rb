@@ -543,7 +543,7 @@ module Steep
           text = message[:params][:textDocument][:text]
 
           if path = pathname(uri)
-            if target = project.target_for_path(path)
+            if target = project.group_for_path(path)
               controller.update_priority(open: path)
               # broadcast_notification(CustomMethods::FileReset.notification({ uri: uri, content: text }))
 

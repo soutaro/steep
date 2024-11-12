@@ -14,10 +14,16 @@ module Steep
 
     def absolute_path: (Pathname path) -> Pathname
 
-    def target_for_path: (Pathname) -> (Target | Group | nil)
+    def group_for_path: (Pathname) -> (Target | Group | nil)
 
-    def target_for_source_path: (Pathname path) -> (Target | Group | nil)
+    def group_for_source_path: (Pathname path) -> (Target | Group | nil)
 
-    def target_for_signature_path: (Pathname path) -> (Target | Group | nil)
+    def group_for_signature_path: (Pathname path) -> (Target | Group | nil)
+
+    def target_for_path: (Pathname) -> Target?
+
+    def target_for_source_path: (Pathname path) -> Target?
+
+    def target_for_signature_path: (Pathname path) -> Target?
   end
 end

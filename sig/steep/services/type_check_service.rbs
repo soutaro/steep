@@ -88,7 +88,7 @@ module Steep
 
       def self.type_check: (source: Source, subtyping: Subtyping::Check, constant_resolver: RBS::Resolver::ConstantResolver, cursor: Integer?) -> Typing
 
-      def source_file?: (Pathname path) -> Project::Target?
+      def source_file?: (Pathname path) -> bool
 
       def signature_file?: (Pathname path) -> Array[Symbol]?
 

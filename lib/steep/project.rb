@@ -31,7 +31,7 @@ module Steep
       (base_dir + path).cleanpath
     end
 
-    def target_for_source_path(path)
+    def group_for_source_path(path)
       path = relative_path(path)
       targets.each do |target|
         ret = target.possible_source_file?(path)
@@ -40,17 +40,39 @@ module Steep
       nil
     end
 
-    def target_for_path(path)
-      target_for_source_path(path) || target_for_signature_path(path)
+    def group_for_path(path)
+      group_for_source_path(path) || group_for_signature_path(path)
     end
 
-    def target_for_signature_path(path)
+    def group_for_signature_path(path)
       relative = relative_path(path)
       targets.each do
         ret = _1.possible_signature_file?(relative)
         return ret if ret
       end
       nil
+    end
+
+    def target_for_source_path(path)
+      case group = group_for_source_path(path)
+      when Target
+        group
+      when Group
+        group.target
+      end
+    end
+
+    def target_for_signature_path(path)
+      case group = group_for_signature_path(path)
+      when Target
+        group
+      when Group
+        group.target
+      end
+    end
+
+    def target_for_path(path)
+      target_for_source_path(path) || target_for_signature_path(path)
     end
   end
 end

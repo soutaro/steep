@@ -271,9 +271,7 @@ module Steep
 
       def update_sources(changes:)
         changes.each do |path, changes|
-          target = project.target_for_source_path(path)
-
-          if target
+          if source_file?(path)
             file = source_files[path] || SourceFile.no_data(path: path, content: "")
             content = changes.inject(file.content) {|text, change| change.apply_to(text) }
             source_files[path] = file.update_content(content)
@@ -355,14 +353,7 @@ module Steep
       end
 
       def source_file?(path)
-        if source_files.key?(path)
-          case target = project.target_for_source_path(path)
-          when Project::Target
-            target
-          when Project::Group
-            target.target
-          end
-        end
+        source_files.key?(path) || (project.target_for_source_path(path) ? true : false)
       end
 
       def signature_file?(path)

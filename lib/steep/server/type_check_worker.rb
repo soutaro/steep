@@ -189,12 +189,10 @@ module Steep
 
         when TypeCheckCodeJob
           if job.guid == current_type_check_guid
-            Steep.logger.info { "Processing TypeCheckCodeJob for guid=#{job.guid}, path=#{job.path}" }
-            relative_path = project.relative_path(job.path)
+            Steep.logger.info { "Processing TypeCheckCodeJob for guid=#{job.guid}, path=#{job.path}, target=#{job.target.name}" }
             formatter = Diagnostic::LSPFormatter.new(job.target.code_diagnostics_config)
-            target = project.target_for_source_path(relative_path)
-            target = target.target if target.is_a?(Project::Group)
-            diagnostics = service.typecheck_source(path: relative_path, target: target)
+            relative_path = project.relative_path(job.path)
+            diagnostics = service.typecheck_source(path: relative_path, target: job.target)
             typecheck_progress(path: job.path, guid: job.guid, target: job.target, diagnostics: diagnostics&.filter_map { formatter.format(_1) })
           end
 
