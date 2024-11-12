@@ -1,5 +1,5 @@
 use LanguageServer::Protocol::Interface::Diagnostic as LSPDiagnostic
-use Steep::Project::Target
+use Steep::Project::Target, Steep::Project::Group
 
 module Steep
   module Server
@@ -64,7 +64,7 @@ module Steep
         def total: () -> Integer
 
         # Returns true if no path is registered to the request
-        # 
+        #
         def empty?: () -> bool
 
         def percentage: () -> Integer
@@ -125,6 +125,10 @@ module Steep
 
       def update_priority: (open: Pathname) -> void
                          | (close: Pathname) -> void
+
+      def active_target?: (Target | Group) -> bool
+                        
+      def push_changes_for_target: (Target | Group) -> void
 
       # Returns a TypeCheckRequest that contains all paths to be type checked
       #

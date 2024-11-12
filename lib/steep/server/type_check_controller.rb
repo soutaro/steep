@@ -216,6 +216,24 @@ module Steep
         end
       end
 
+      def active_target?(target_group)
+        priority_paths.any? do |path|
+          if open_target = files.signature_paths.fetch(path, nil) || files.source_paths.fetch(path, nil)
+            open_target == target_group
+          end
+        end
+      end
+
+      def push_changes_for_target(target_group)
+        files.each_group_signature_path(target_group) do |path|
+          push_changes path
+        end
+
+        files.each_group_source_path(target_group) do |path|
+          push_changes path
+        end
+      end
+
       def update_priority(open: nil, close: nil)
         path = open || close or raise
 
@@ -224,6 +242,11 @@ module Steep
 
         case
         when open
+          target_group = files.signature_paths.fetch(path, nil) || files.source_paths.fetch(path, nil) or return
+
+          unless active_target?(target_group)
+            push_changes_for_target(target_group)
+          end
           priority_paths << path
         when close
           priority_paths.delete path

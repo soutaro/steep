@@ -70,8 +70,6 @@ module Steep
       def each_project_source_path: (Target?) { (Pathname) -> void } -> void
                                   | (Target?) -> Enumerator[Pathname]
 
-      private
-
       def target_group_for_source_path: (Pathname) -> [Target, Group?]?
 
       def target_group_for_signature_path: (Pathname) -> [Target, Group?]?

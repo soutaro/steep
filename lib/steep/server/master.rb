@@ -403,6 +403,10 @@ module Steep
                 end
               end
 
+              if typecheck_automatically
+                progress.end()
+              end
+
               if file_system_watcher_supported?
                 patterns = [] #: Array[String]
                 project.targets.each do |target|
@@ -449,11 +453,13 @@ module Steep
                 )
               end
 
-              if typecheck_automatically
-                if request = controller.make_request(guid: progress.guid, include_unchanged: true, progress: progress)
-                  start_type_check(request: request, last_request: nil)
-                end
-              end
+              controller.changed_paths.clear()
+
+              # if typecheck_automatically
+              #   if request = controller.make_request(guid: progress.guid, include_unchanged: true, progress: progress)
+              #     start_type_check(request: request, last_request: nil)
+              #   end
+              # end
             end
           end
 
@@ -537,30 +543,14 @@ module Steep
           text = message[:params][:textDocument][:text]
 
           if path = pathname(uri)
-            controller.update_priority(open: path)
-            broadcast_notification(CustomMethods::FileReset.notification({ uri: uri, content: text }))
-
             if target = project.target_for_path(path)
-              if current_type_check_request&.checking_path?([target.name, path])
-                return
+              controller.update_priority(open: path)
+              # broadcast_notification(CustomMethods::FileReset.notification({ uri: uri, content: text }))
+
+              start_type_checking_queue.execute do
+                guid = SecureRandom.uuid
+                start_type_check(last_request: current_type_check_request, progress: work_done_progress(guid), needs_response: true)
               end
-
-              job_queue.push(
-                -> do
-                  last_request = current_type_check_request
-                  guid = SecureRandom.uuid
-
-                  request = TypeCheckController::Request.new(guid: guid, progress: work_done_progress(guid))
-                  if target.possible_signature_file?(project.relative_path(path))
-                    request.signature_paths << [target.name, path]
-                  end
-                  if target.possible_source_file?(project.relative_path(path))
-                    request.code_paths << [target.name, path]
-                  end
-
-                  start_type_check(request: request, last_request: last_request)
-                end
-              )
             end
           end
 
