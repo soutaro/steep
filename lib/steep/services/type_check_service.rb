@@ -254,15 +254,17 @@ module Steep
           end
 
           project.targets.each do |target|
-            # Load signatures from all project targets but `#unreferenced` ones
-            target_changes = changes.select do |path, _|
-              signature_target = signature_targets.fetch(path, nil) or next
-              signature_target == target || !signature_target.unreferenced
+            Steep.logger.tagged "#{target.name}" do
+              # Load signatures from all project targets but `#unreferenced` ones
+              target_changes = changes.select do |path, _|
+                signature_target = signature_targets.fetch(path, nil) or next
+                signature_target == target || !signature_target.unreferenced
+              end
+
+              unless target_changes.empty?
+                signature_services.fetch(target.name).update(target_changes)
+              end
             end
-
-            next if target_changes.empty?
-
-            signature_services.fetch(target.name).update(target_changes)
           end
         end
       end
