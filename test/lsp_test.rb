@@ -186,14 +186,16 @@ RUBY
       write_file("Steepfile", <<RUBY)
 D = Steep::Diagnostic
 
-target :core do
-  check "lib/core"
-  signature "sig/core"
-end
+target :lib do
+  group :core do
+    check "lib/core"
+    signature "sig/core"
+  end
 
-target :main do
-  check "lib/main"
-  signature "sig/main"
+  group :main do
+    check "lib/main"
+    signature "sig/main"
+  end
 end
 
 target :test do
@@ -240,23 +242,24 @@ RUBY
         client.send_request(method: "initialize", params: { }) {}
         client.send_notification(method: "initialized", params: { })
 
+        client.open_file("sig/main/main.rbs")
+
         finally_holds(timeout: 3) do
-          assert_operator client.diagnostics, :key?, Pathname("lib/core/core.rb")
+          refute_operator client.diagnostics, :key?, Pathname("lib/core/core.rb")
           assert_operator client.diagnostics, :key?, Pathname("lib/main/main.rb")
-          assert_operator client.diagnostics, :key?, Pathname("sig/core/core.rbs")
+          refute_operator client.diagnostics, :key?, Pathname("sig/core/core.rbs")
           assert_operator client.diagnostics, :key?, Pathname("sig/main/main.rbs")
-          assert_operator client.diagnostics, :key?, Pathname("test/core_test.rb")
-          assert_operator client.diagnostics, :key?, Pathname("test/main_test.rb")
-          assert_operator client.diagnostics, :key?, Pathname("sig/test/test.rbs")
+          refute_operator client.diagnostics, :key?, Pathname("test/core_test.rb")
+          refute_operator client.diagnostics, :key?, Pathname("test/main_test.rb")
+          refute_operator client.diagnostics, :key?, Pathname("sig/test/test.rbs")
         end
 
         client.diagnostics.clear
 
-        client.open_file("sig/main/main.rbs")
         client.change_watched_file("sig/core/core.rbs")
 
         finally_holds(timeout: 3) do
-          # All files are updated
+          # `core` groups are type checked
           assert_operator client.diagnostics, :key?, Pathname("lib/core/core.rb")
           refute_operator client.diagnostics, :key?, Pathname("lib/main/main.rb")
           assert_operator client.diagnostics, :key?, Pathname("sig/core/core.rbs")
@@ -279,14 +282,16 @@ RUBY
       write_file("Steepfile", <<RUBY)
 D = Steep::Diagnostic
 
-target :core do
-  check "lib/core"
-  signature "sig/core"
-end
+target :lib do
+  group :core do
+    check "lib/core"
+    signature "sig/core"
+  end
 
-target :main do
-  check "lib/main"
-  signature "sig/main"
+  group :main do
+    check "lib/main"
+    signature "sig/main"
+  end
 end
 
 target :test do
@@ -333,26 +338,19 @@ RUBY
         client.send_request(method: "initialize", params: { }) {}
         client.send_notification(method: "initialized", params: { })
 
-        finally_holds(timeout: 3) do
-          assert_operator client.diagnostics, :key?, Pathname("lib/core/core.rb")
-          assert_operator client.diagnostics, :key?, Pathname("lib/main/main.rb")
-          assert_operator client.diagnostics, :key?, Pathname("sig/core/core.rbs")
-          assert_operator client.diagnostics, :key?, Pathname("sig/main/main.rbs")
-          assert_operator client.diagnostics, :key?, Pathname("test/core_test.rb")
-          assert_operator client.diagnostics, :key?, Pathname("test/main_test.rb")
-          assert_operator client.diagnostics, :key?, Pathname("sig/test/test.rbs")
-        end
-
         client.workspace_symbol do |symbols|
           object = symbols.find { _1[:name] == "Object" }
           assert_operator object[:location][:uri], :end_with?, "core/object.rbs"
         end
 
-        client.workspace_symbol("Main__123") do |symbols|
-          assert_equal 1, symbols.size
+        client.open_file("sig/main/main.rbs")
+
+        finally_holds(timeout: 3) do
+          client.workspace_symbol("Main__123") do |symbols|
+            assert_equal 1, symbols.size
+          end
         end
 
-        client.open_file("sig/main/main.rbs")
         client.change_file("sig/main/main.rbs") {
           <<~RBS
             class Main_1234
@@ -378,14 +376,16 @@ RUBY
       write_file("Steepfile", <<RUBY)
 D = Steep::Diagnostic
 
-target :core do
-  check "lib/core"
-  signature "sig/core"
-end
+target :lib do
+  group :core do
+    check "lib/core"
+    signature "sig/core"
+  end
 
-target :main do
-  check "lib/main"
-  signature "sig/main"
+  group :main do
+    check "lib/main"
+    signature "sig/main"
+  end
 end
 
 target :test do
@@ -433,43 +433,39 @@ RUBY
         client.send_request(method: "initialize", params: { }) {}
         client.send_notification(method: "initialized", params: { })
 
-        finally_holds(timeout: 3) do
-          assert_operator client.diagnostics, :key?, Pathname("lib/core/core.rb")
-          assert_operator client.diagnostics, :key?, Pathname("lib/main/main.rb")
-          assert_operator client.diagnostics, :key?, Pathname("sig/core/core.rbs")
-          assert_operator client.diagnostics, :key?, Pathname("sig/main/main.rbs")
-          assert_operator client.diagnostics, :key?, Pathname("test/core_test.rb")
-          assert_operator client.diagnostics, :key?, Pathname("test/main_test.rb")
-          assert_operator client.diagnostics, :key?, Pathname("sig/test/test.rbs")
-        end
-
         # Jump to RBS file works because the index updates immediately
         client.open_file("lib/core/core.rb")
-        client.goto_definition("lib/core/core.rb", line: 0, character: 8) do |result|
-          assert_any!(result) do |location|
-            assert_operator location[:uri], :end_with?, "/sig/core/core.rbs"
-            assert_equal({ line: 0, character: 6 }, location[:range][:start])
-            assert_equal({ line: 0, character: 10 }, location[:range][:end])
+        finally_holds(timeout: 3) do
+          client.goto_definition("lib/core/core.rb", line: 0, character: 8) do |result|
+            assert_any!(result) do |location|
+              assert_operator location[:uri], :end_with?, "/sig/core/core.rbs"
+              assert_equal({ line: 0, character: 6 }, location[:range][:start])
+              assert_equal({ line: 0, character: 10 }, location[:range][:end])
+            end
           end
         end
 
         # Jump to RBS file works because the index updates immediately
         client.open_file("sig/test/test.rbs")
-        client.goto_definition("sig/test/test.rbs", line: 1, character: 20) do |result|
-          assert_any!(result) do |location|
-            assert_operator location[:uri], :end_with?, "/sig/core/core.rbs"
-            assert_equal({ line: 0, character: 6 }, location[:range][:start])
-            assert_equal({ line: 0, character: 10 }, location[:range][:end])
+        finally_holds(timeout: 3) do
+          client.goto_definition("sig/test/test.rbs", line: 1, character: 20) do |result|
+            assert_any!(result) do |location|
+              assert_operator location[:uri], :end_with?, "/sig/core/core.rbs"
+              assert_equal({ line: 0, character: 6 }, location[:range][:start])
+              assert_equal({ line: 0, character: 10 }, location[:range][:end])
+            end
           end
         end
 
         # Jump to Ruby file works when the Ruby code is already type checked
         client.open_file("sig/main/main.rbs")
-        client.goto_definition("sig/main/main.rbs", line: 0, character: 8) do |result|
-          assert_any!(result) do |location|
-            assert_operator location[:uri], :end_with?, "/lib/main/main.rb"
-            assert_equal({ line: 0, character: 6 }, location[:range][:start])
-            assert_equal({ line: 0, character: 10 }, location[:range][:end])
+        finally_holds(timeout: 3) do
+          client.goto_definition("sig/main/main.rbs", line: 0, character: 8) do |result|
+            assert_any!(result) do |location|
+              assert_operator location[:uri], :end_with?, "/lib/main/main.rb"
+              assert_equal({ line: 0, character: 6 }, location[:range][:start])
+              assert_equal({ line: 0, character: 10 }, location[:range][:end])
+            end
           end
         end
       ensure
@@ -484,14 +480,16 @@ RUBY
       write_file("Steepfile", <<RUBY)
 D = Steep::Diagnostic
 
-target :core do
-  check "lib/core"
-  signature "sig/core"
-end
+target :lib do
+  group :core do
+    check "lib/core"
+    signature "sig/core"
+  end
 
-target :main do
-  check "lib/main"
-  signature "sig/main"
+  group :main do
+    check "lib/main"
+    signature "sig/main"
+  end
 end
 
 target :test do
@@ -539,22 +537,16 @@ RUBY
         client.send_request(method: "initialize", params: { }) {}
         client.send_notification(method: "initialized", params: { })
 
-        finally_holds(timeout: 3) do
-          assert_operator client.diagnostics, :key?, Pathname("lib/core/core.rb")
-          assert_operator client.diagnostics, :key?, Pathname("lib/main/main.rb")
-          assert_operator client.diagnostics, :key?, Pathname("sig/core/core.rbs")
-          assert_operator client.diagnostics, :key?, Pathname("sig/main/main.rbs")
-          assert_operator client.diagnostics, :key?, Pathname("test/core_test.rb")
-          assert_operator client.diagnostics, :key?, Pathname("test/main_test.rb")
-          assert_operator client.diagnostics, :key?, Pathname("sig/test/test.rbs")
-        end
-
+        client.open_file("lib/core/core.rb")
         client.open_file("sig/test/test.rbs")
-        client.goto_implementation("sig/test/test.rbs", line: 1, character: 20) do |result|
-          assert_any!(result) do |location|
-            assert_operator location[:uri], :end_with?, "/lib/core/core.rb"
-            assert_equal({ line: 0, character: 6 }, location[:range][:start])
-            assert_equal({ line: 0, character: 10 }, location[:range][:end])
+
+        finally_holds(timeout: 3) do
+          client.goto_implementation("sig/test/test.rbs", line: 1, character: 20) do |result|
+            assert_any!(result) do |location|
+              assert_operator location[:uri], :end_with?, "/lib/core/core.rb"
+              assert_equal({ line: 0, character: 6 }, location[:range][:start])
+              assert_equal({ line: 0, character: 10 }, location[:range][:end])
+            end
           end
         end
       ensure

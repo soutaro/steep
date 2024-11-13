@@ -163,7 +163,7 @@ module Steep
 
         case
         when target = type_check.project.target_for_source_path(relative_path)
-          source = type_check.source_files[relative_path]
+          source = type_check.source_files[relative_path] or return []
           typing, _signature = type_check_path(target: target, path: relative_path, content: source.content, line: line, column: column)
           if typing
             node, *parents = typing.source.find_nodes(line: line, column: column)
