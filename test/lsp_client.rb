@@ -33,8 +33,7 @@ class LSPClient
           notifications << message
           case message.fetch(:method)
           when "textDocument/publishDiagnostics"
-            uri = URI.parse(message[:params][:uri])
-            path = Pathname(uri.path)
+            path = Steep::PathHelper.to_pathname(message[:params][:uri])
             path = path.relative_path_from(current_dir)
             diagnostics[path] = message[:params][:diagnostics]
           else
