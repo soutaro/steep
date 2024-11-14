@@ -57,6 +57,10 @@ module Steep
           library_paths.size + signature_paths.size + code_paths.size
         end
 
+        def empty?
+          total == 0
+        end
+
         def percentage
           checked_paths.size * 100 / total
         end
@@ -155,178 +159,162 @@ module Steep
             enum_for :each_unchecked_signature_target_path
           end
         end
+
+        def merge!(request)
+          library_paths.merge(request.each_unchecked_library_target_path)
+          signature_paths.merge(request.each_unchecked_signature_target_path)
+          code_paths.merge(request.each_unchecked_code_target_path)
+
+          self
+        end
       end
 
       attr_reader :project
       attr_reader :priority_paths
       attr_reader :changed_paths
-      attr_reader :target_paths
-
-      class TargetPaths
-        attr_reader :project
-        attr_reader :target
-        attr_reader :code_paths
-        attr_reader :signature_paths
-        attr_reader :library_paths
-
-        def initialize(project:, target:)
-          @project = project
-          @target = target
-          @code_paths = Set[]
-          @signature_paths = Set[]
-          @library_paths = Set[]
-        end
-
-        def all_paths
-          code_paths + signature_paths + library_paths
-        end
-
-        def library_path?(path)
-          library_paths.include?(path)
-        end
-
-        def signature_path?(path)
-          signature_paths.include?(path)
-        end
-
-        def code_path?(path)
-          code_paths.include?(path)
-        end
-
-        def add(path, library: false)
-          return true if signature_path?(path) || code_path?(path) || library_path?(path)
-
-          if library
-            library_paths << path
-            true
-          else
-            relative_path = project.relative_path(path)
-
-            case
-            when target.source_pattern =~ relative_path
-              code_paths << path
-              true
-            when target.signature_pattern =~ relative_path
-              signature_paths << path
-              true
-            else
-              false
-            end
-          end
-        end
-
-        alias << add
-
-        def signature_path_changed?(changed_paths)
-          signature_paths.intersect?(changed_paths)
-        end
-
-        def code_path_changed?(changed_paths)
-          if code_paths.intersect?(changed_paths)
-            code_paths & changed_paths
-          end
-        end
-      end
+      attr_reader :files
 
       def initialize(project:)
         @project = project
         @priority_paths = Set[]
         @changed_paths = Set[]
-        @target_paths = project.targets.each.map {|target| TargetPaths.new(project: project, target: target) }
+        @files = TargetGroupFiles.new(project)
       end
 
       def load(command_line_args:)
         loader = Services::FileLoader.new(base_dir: project.base_dir)
 
+        project.targets.each do |target|
+          signature_service = Services::SignatureService.load_from(target.new_env_loader())
+          files.add_library_path(target, *signature_service.env_rbs_paths.to_a)
+        end
+
         files = {} #: Hash[String, String]
 
-        target_paths.each do |paths|
-          target = paths.target
-
-          signature_service = Services::SignatureService.load_from(target.new_env_loader(project: project))
-          paths.library_paths.merge(signature_service.env_rbs_paths)
-
-          loader.each_path_in_patterns(target.source_pattern, command_line_args) do |path|
-            paths.code_paths << project.absolute_path(path)
-            files[path.to_s] = project.absolute_path(path).read
+        project.targets.each do |target|
+          loader.each_path_in_target(target, command_line_args) do |path|
+            path = project.absolute_path(path)
+            self.files.add_path(path)
+            files[project.relative_path(path).to_s] = path.read
             if files.size > 1000
               yield files.dup
               files.clear
             end
           end
-          loader.each_path_in_patterns(target.signature_pattern) do |path|
-            paths.signature_paths << project.absolute_path(path)
-            files[path.to_s] = project.absolute_path(path).read
-            if files.size > 1000
-              yield files.dup
-              files.clear
-            end
-          end
-
-          changed_paths.merge(paths.all_paths)
         end
+
+        changed_paths.merge(self.files.each_project_signature_path(nil))
+        changed_paths.merge(self.files.each_project_source_path(nil))
 
         yield files.dup unless files.empty?
       end
 
       def push_changes(path)
-        return if target_paths.any? {|paths| paths.library_path?(path) }
+        return if files.library_path?(path)
 
-        target_paths.each {|paths| paths << path }
-
-        if target_paths.any? {|paths| paths.code_path?(path) || paths.signature_path?(path) }
+        if files.add_path(path)
           changed_paths << path
         end
       end
 
-      def update_priority(open: nil, close: nil)
-        path = open || close
-        path or raise
+      def active_target?(target_group)
+        priority_paths.any? do |path|
+          if open_target = files.signature_paths.fetch(path, nil) || files.source_paths.fetch(path, nil)
+            open_target == target_group
+          end
+        end
+      end
 
-        target_paths.each {|paths| paths << path }
+      def push_changes_for_target(target_group)
+        files.each_group_signature_path(target_group) do |path|
+          push_changes path
+        end
+
+        files.each_group_source_path(target_group) do |path|
+          push_changes path
+        end
+      end
+
+      def update_priority(open: nil, close: nil)
+        path = open || close or raise
+
+        return if files.library_path?(path)
+        files.add_path(path)
 
         case
         when open
+          target_group = files.signature_paths.fetch(path, nil) || files.source_paths.fetch(path, nil) or return
+
+          unless active_target?(target_group)
+            push_changes_for_target(target_group)
+          end
           priority_paths << path
         when close
           priority_paths.delete path
         end
       end
 
-      def make_request(guid: SecureRandom.uuid, last_request: nil, include_unchanged: false, progress:)
-        return if changed_paths.empty? && !include_unchanged
-
+      def make_request(guid: SecureRandom.uuid, include_unchanged: false, progress:)
         TypeCheckController::Request.new(guid: guid, progress: progress).tap do |request|
           if include_unchanged
-            target_paths.each do |paths|
-              request.signature_paths.merge(paths.signature_paths.map { [paths.target.name, _1] })
-              request.library_paths.merge(paths.library_paths.map { [paths.target.name, _1] })
-              request.code_paths.merge(paths.code_paths.map { [paths.target.name, _1] })
+            files.signature_paths.each do |path, target_group|
+              target_group = target_group.target if target_group.is_a?(Project::Group)
+              request.signature_paths << [target_group.name, path]
+            end
+            files.source_paths.each do |path, target_group|
+              target_group = target_group.target if target_group.is_a?(Project::Group)
+              request.code_paths << [target_group.name, path]
             end
           else
-            if last_request
-              request.library_paths.merge(last_request.each_unchecked_library_target_path)
-              request.signature_paths.merge(last_request.each_unchecked_signature_target_path)
-              request.code_paths.merge(last_request.each_unchecked_code_target_path)
+            changed_paths.each do |path|
+              if target_group = files.signature_paths.fetch(path, nil)
+                case target_group
+                when Project::Group
+                  target = target_group.target
+
+                  files.each_group_signature_path(target_group) do |path|
+                    request.signature_paths << [target.name, path]
+                  end
+
+                  files.each_group_source_path(target_group) do |path|
+                    request.code_paths << [target.name, path]
+                  end
+                when Project::Target
+                  files.each_target_signature_path(target_group, nil) do |path|
+                    request.signature_paths << [target_group.name, path]
+                  end
+
+                  files.each_target_source_path(target_group, nil) do |path|
+                    request.code_paths << [target_group.name, path]
+                  end
+                end
+              end
+
+              if target = files.source_path_target(path)
+                request.code_paths << [target.name, path]
+              end
             end
 
-            target_paths.each do |paths|
-              case
-              when paths.signature_path_changed?(changed_paths)
-                paths.signature_paths.each { request.signature_paths << [paths.target.name, _1] }
-                paths.library_paths.each { request.library_paths << [paths.target.name, _1] }
-                paths.code_paths.each { request.code_paths << [paths.target.name, _1] }
-              when code_paths = paths.code_path_changed?(changed_paths)
-                code_paths.each do
-                  request.code_paths << [paths.target.name, _1]
+            unless request.signature_paths.empty?
+              non_unref_targets = project.targets.reject { _1.unreferenced }.map(&:name).to_set
+              if request.signature_paths.any? {|target_name, _| non_unref_targets.include?(target_name) }
+                priority_paths.each do |path|
+                  if target = files.signature_path_target(path)
+                    request.signature_paths << [target.name, path]
+                    request.priority_paths << path
+                  end
+                  if target = files.source_path_target(path)
+                    request.code_paths << [target.name, path]
+                    request.priority_paths << path
+                  end
                 end
               end
             end
           end
 
-          request.priority_paths.merge(priority_paths)
-
           changed_paths.clear()
+
+          return nil if request.empty?
         end
       end
     end

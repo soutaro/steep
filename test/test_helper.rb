@@ -58,6 +58,10 @@ module TestHelper
 
     assert_equal size, collection.count if size
 
+    if collection.count == 0
+      raise Minitest::Assertion.new("Empty collection cannot satisfy *any* assertion")
+    end
+
     collection.each do |c|
       begin
         block[c]
@@ -657,41 +661,6 @@ module TypeConstructionHelper
       yield(typing.errors) if block_given?
     else
       refute_empty messages
-    end
-  end
-end
-
-module TypeCheckServiceHelper
-  def update_and_check(type_check, changes:, &block)
-    requests = type_check.update(changes: changes)
-
-    signatures = requests.each_value.with_object(Set[]) do |request, sigs|
-      if request.signature_updated?
-        service = type_check.signature_services[request.target.name]
-        sigs.merge(service.each_rbs_path)
-      end
-    end
-
-    signatures.each do |path|
-      accumulated_diagnostics = nil
-      type_check.project.targets.each do |target|
-        service = type_check.signature_services.fetch(target.name)
-        if target.possible_signature_file?(path) || service.env_rbs_paths.include?(path)
-          if diagnostics = type_check.validate_signature(path: path, target: target)
-            accumulated_diagnostics ||= []
-            accumulated_diagnostics.concat(diagnostics)
-          end
-        end
-        yield [path, accumulated_diagnostics]
-      end
-    end
-
-    requests.each_value do |request|
-      request.source_paths.each do |path|
-        if diagnostics = type_check.typecheck_source(path: path, target: request.target)
-          yield [path, diagnostics]
-        end
-      end
     end
   end
 end

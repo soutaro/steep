@@ -4,7 +4,6 @@ class TypeCheckWorkerTest < Minitest::Test
   include TestHelper
   include ShellHelper
   include LSPTestHelper
-  include TypeCheckServiceHelper
 
   include Steep
 
@@ -682,17 +681,18 @@ RUBY
         writer: worker_writer
       )
 
-      update_and_check(
-        worker.service,
-        changes: {
-          Pathname("lib/hello.rb") => [Services::ContentChange.string(<<RUBY)],
-Hello.new.world(10)
-RUBY
-          Pathname("lib/world.rb") => [Services::ContentChange.string(<<RUBY)]
-1+
-RUBY
-        }
-      ) {}
+      worker.service.update(changes: {
+        Pathname("lib/hello.rb") => [Services::ContentChange.string(<<~RUBY)],
+          Hello.new.world(10)
+        RUBY
+        Pathname("lib/world.rb") => [Services::ContentChange.string(<<~RUBY)]
+          1+
+        RUBY
+      })
+      
+      target = project.targets[0]
+      worker.service.typecheck_source(path: Pathname("lib/hello.rb"), target: target)
+      worker.service.typecheck_source(path: Pathname("lib/world.rb"), target: target)
 
       result = worker.stats_result()
 

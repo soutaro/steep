@@ -538,6 +538,59 @@ end
     end
   end
 
+
+  def test_type_check_request__start
+    in_tmpdir do
+      steepfile = current_dir + "Steepfile"
+      project = Project.new(steepfile_path: steepfile)
+      Project::DSL.eval(project) do
+        target :lib do
+          check "lib"
+          signature "sig"
+        end
+      end
+
+      worker = Server::WorkerProcess.new(reader: nil, writer: nil, stderr: nil, wait_thread: nil, name: "test", index: 0)
+
+      master = Server::Master.new(
+        project: project,
+        reader: worker_reader,
+        writer: worker_writer,
+        interaction_worker: nil,
+        typecheck_workers: [worker]
+      )
+      master.assign_initialize_params(DEFAULT_CLI_LSP_INITIALIZE_PARAMS)
+
+      master.process_message_from_client({
+        id: "guid",
+        method: TypeCheck::METHOD,
+        params: {
+          library_paths: [["lib", "/rbs/core/object.rbs"]],
+          signature_paths: [["lib", (current_dir + "sig/customer.rbs").to_s]],
+          code_paths: [["lib", (current_dir + "lib/customer.rb").to_s]],
+        }
+      })
+
+      refute_nil master.current_type_check_request
+
+      jobs = flush_queue(master.write_queue)
+
+      assert_any!(jobs, size: 1) do |job|
+        assert_instance_of Master::SendMessageJob, job
+        assert_equal worker, job.dest
+        assert_equal TypeCheck__Start::METHOD, job.message[:method]
+
+        job.message[:params].tap do |params|
+          assert_equal "guid", params[:guid]
+          assert_equal [["lib", Steep::PathHelper.to_uri("/rbs/core/object.rbs").to_s]], params[:library_uris]
+          assert_equal [["lib", Steep::PathHelper.to_uri(current_dir + "sig/customer.rbs").to_s]], params[:signature_uris]
+          assert_equal [["lib", Steep::PathHelper.to_uri(current_dir + "lib/customer.rb").to_s]], params[:code_uris]
+          assert_equal [], params[:priority_uris]
+        end
+      end
+    end
+  end
+
   def test_code_type_check
     in_tmpdir do
       steepfile = current_dir + "Steepfile"
@@ -934,6 +987,163 @@ end
         [Master::SendMessageJob.to_client(message: { id: "implementation_id", result: [] })],
         flush_queue(master.write_queue)
       )
+    end
+  end
+
+  def test_type_check_request__empty
+    in_tmpdir do
+      steepfile = current_dir + "Steepfile"
+      steepfile.write(<<-EOF)
+target :lib do
+  check "lib"
+  signature "sig"
+end
+      EOF
+
+      project = Project.new(steepfile_path: steepfile)
+      Project::DSL.parse(project, steepfile.read)
+
+      typecheck_workers = Server::WorkerProcess.start_typecheck_workers(steepfile: steepfile, count: 1, args: [], steep_command: nil)
+
+      master = Server::Master.new(
+        project: project,
+        reader: worker_reader,
+        writer: worker_writer,
+        interaction_worker: nil,
+        typecheck_workers: typecheck_workers
+      )
+
+      main_thread = Thread.new do
+        Thread.current.abort_on_exception = true
+        master.start()
+      end
+
+      master_writer.write({
+        id: "initialize-id",
+        method: "initialize",
+        params: DEFAULT_CLI_LSP_INITIALIZE_PARAMS
+      })
+
+      master_reader.read do |message|
+        break if message[:id] == "initialize-id"
+      end
+
+      master_writer.write({
+        id: "typecheck-id",
+        method: TypeCheck::METHOD,
+        params: {
+          code_paths: [],
+          signature_paths: [],
+          library_paths: []
+        }
+      })
+
+      master_reader.read do |message|
+        break if message[:id] == "typecheck-id"
+      end
+
+      master_writer.write({
+        id: "shutdown-id",
+        method: "shutdown",
+        params: nil
+      })
+
+      master_reader.read do |message|
+        break if message[:id] == "shutdown-id"
+      end
+
+      master_writer.write({ method: "exit" })
+
+      main_thread.join
+    end
+  end
+
+  def test_type_check_request__type_check
+    in_tmpdir do
+      steepfile = current_dir + "Steepfile"
+      steepfile.write(<<-EOF)
+target :lib do
+  check "lib"
+  signature "sig"
+end
+      EOF
+
+      (current_dir + "lib").mkpath
+      (current_dir + "sig").mkpath
+
+      (current_dir + "lib/customer.rb").write(<<~RUBY)
+        class Customer
+        end
+      RUBY
+      (current_dir + "sig/customer.rbs").write(<<~RBS)
+        class Customer
+        end
+      RBS
+
+      project = Project.new(steepfile_path: steepfile)
+      Project::DSL.parse(project, steepfile.read)
+
+      typecheck_workers = Server::WorkerProcess.start_typecheck_workers(steepfile: steepfile, count: 1, args: [], steep_command: nil)
+
+      master = Server::Master.new(
+        project: project,
+        reader: worker_reader,
+        writer: worker_writer,
+        interaction_worker: nil,
+        typecheck_workers: typecheck_workers
+      )
+
+      main_thread = Thread.new do
+        Thread.current.abort_on_exception = true
+        master.start()
+      end
+
+      master_writer.write({
+        id: "initialize-id",
+        method: "initialize",
+        params: DEFAULT_CLI_LSP_INITIALIZE_PARAMS
+      })
+
+      master_reader.read do |message|
+        break if message[:id] == "initialize-id"
+      end
+
+      master_writer.write({
+        id: "typecheck-id",
+        method: TypeCheck::METHOD,
+        params: {
+          code_paths: [["lib", (current_dir + "lib/customer.rb").to_s]],
+          signature_paths: [["lib", (current_dir + "sig/customer.rbs").to_s]],
+          library_paths: []
+        }
+      })
+
+      diagnostics = {}
+
+      master_reader.read do |message|
+        break if message[:id] == "typecheck-id"
+
+        if message[:method] == "textDocument/publishDiagnostics"
+          diagnostics[Steep::PathHelper.to_pathname(message[:params][:uri])] = message[:params][:diagnostics]
+        end
+      end
+
+      assert_operator diagnostics, :key?, current_dir + "lib/customer.rb"
+      assert_operator diagnostics, :key?, current_dir + "sig/customer.rbs"
+
+      master_writer.write({
+        id: "shutdown-id",
+        method: "shutdown",
+        params: nil
+      })
+
+      master_reader.read do |message|
+        break if message[:id] == "shutdown-id"
+      end
+
+      master_writer.write({ method: "exit" })
+
+      main_thread.join
     end
   end
 end

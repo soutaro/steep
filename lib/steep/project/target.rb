@@ -2,29 +2,55 @@ module Steep
   class Project
     class Target
       attr_reader :name
-      attr_reader :options
+      attr_reader :target_options
 
       attr_reader :source_pattern
       attr_reader :signature_pattern
       attr_reader :code_diagnostics_config
+      attr_reader :project
+      attr_reader :unreferenced
+      attr_reader :groups
 
-      def initialize(name:, options:, source_pattern:, signature_pattern:, code_diagnostics_config:)
+      def initialize(name:, options:, source_pattern:, signature_pattern:, code_diagnostics_config:, project:, unreferenced:)
         @name = name
-        @options = options
+        @target_options = options
         @source_pattern = source_pattern
         @signature_pattern = signature_pattern
         @code_diagnostics_config = code_diagnostics_config
+        @project = project
+        @unreferenced = unreferenced
+        @groups = []
+      end
+
+      def options
+        target_options || project.global_options
       end
 
       def possible_source_file?(path)
-        source_pattern =~ path
+        if target = groups.find { _1.possible_source_file?(path) }
+          return target
+        end
+
+        if source_pattern =~ path
+          return self
+        end
+
+        nil
       end
 
       def possible_signature_file?(path)
-        signature_pattern =~ path
+        if target = groups.find { _1.possible_signature_file?(path) }
+          return target
+        end
+
+        if signature_pattern =~ path
+          return self
+        end
+
+        nil
       end
 
-      def new_env_loader(project:)
+      def new_env_loader()
         Target.construct_env_loader(options: options, project: project)
       end
 

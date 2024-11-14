@@ -1,18 +1,16 @@
-use Steep::Diagnostic::Ruby::template
+use Steep::Diagnostic::Ruby::template as diagnostics_config
 
 module Steep
   class Project
     class DSL
-      class TargetDSL
-        attr_reader name: Symbol
+      interface _WithProject
+        def project: () -> Project
+      end
 
-        attr_reader sources: Array[String]
+      module LibraryOptions : _WithProject
+        @library_configured: bool
 
         attr_reader libraries: Array[String]
-
-        attr_reader signatures: Array[String]
-
-        attr_reader ignored_sources: Array[String]
 
         attr_reader stdlib_root: Pathname?
 
@@ -20,89 +18,178 @@ module Steep
 
         attr_reader repo_paths: Array[Pathname]
 
-        attr_reader code_diagnostics_config: untyped
-
-        attr_reader project: Project?
-
         # Attribute to keep track of collection configuration
         #
         # * `Pathname` means loading the configuration from the path
         # * `nil` means no configuration is given
         # * `false` means rbs-collection is disabled
         #
-        attr_reader collection_config_path: Pathname | nil | false
+        attr_reader collection_config_path: Pathname | false | nil
 
-        def project!: () -> Project
+        # Set up stdlib paths
+        #
+        def stdlib_path: (core_root: String, stdlib_root: String) -> void
 
-        def initialize: (Symbol name, ?sources: Array[String], ?libraries: Array[String], ?signatures: Array[String], ?ignored_sources: Array[String], ?repo_paths: Array[Pathname], ?code_diagnostics_config: Diagnostic::Ruby::template, ?project: Project?, ?collection_config_path: Pathname?) -> void
+        # Add repository paths
+        #
+        def repo_path: (*String paths) -> void
 
-        def initialize_copy: (instance other) -> void
+        # Set the `rbs_collection.yaml` path
+        #
+        def collection_config: (Pathname path) -> void
+
+        # Disable `rbs collection`
+        #
+        def disable_collection: () -> void
+
+        # Add library
+        def library: (*String args) -> void
+
+        def to_library_options: () -> Options
+
+        def library_configured?: () -> bool
+      end
+
+      module WithPattern
+        attr_reader sources: Array[String]
+
+        attr_reader signatures: Array[String]
+
+        attr_reader ignored_sources: Array[String]
+
+        attr_reader ignored_signatures: Array[String]
 
         def check: (*String args) -> void
 
         def ignore: (*String args) -> void
 
-        def library: (*String args) -> void
-
-        def typing_options: (?untyped level, **untyped hash) -> void
-
         def signature: (*String args) -> void
 
-        def update: (?name: Symbol, ?sources: Array[String], ?libraries: Array[String], ?signatures: Array[String], ?ignored_sources: Array[String], ?project: Project?) -> TargetDSL
+        def ignore_signature: (*String args) -> void
 
-        def no_builtin!: (?bool value) -> void
+        def source_pattern: () -> Pattern
 
-        def vendor: (?::String dir, ?stdlib: untyped?, ?gems: untyped?) -> void
+        def signature_pattern: () -> Pattern
+      end
 
-        def stdlib_path: (core_root: String, stdlib_root: String) -> void
+      class TargetDSL
+        attr_reader name: Symbol
 
-        def repo_path: (*String paths) -> void
+        attr_reader unreferenced: bool
+
+        attr_reader groups: Array[GroupDSL]
+
+        include LibraryOptions
+
+        include WithPattern
+
+        attr_reader project: Project
+
+        def initialize: (Symbol name, project: Project) -> void
+
+        def initialize_copy: (instance other) -> void
+
+        # Mark the target is not referenced from other targets
+        #
+        # Use this for test targets so that editing files in this target doesn't involve type checking other targets.
+        #
+        def unreferenced!: (?bool) -> void
+
+        # Configuration of Ruby code diagnostics
+        #
+        # The default is `Diagnostic::Ruby.default`.
+        #
+        attr_reader code_diagnostics_config: diagnostics_config
 
         # Configure the code diagnostics printing setup.
         #
-        # Yields a hash, and the update the hash in the block.
+        # Pass a diagnostics configuration for the target.
+        #
+        # ```rb
+        # configure_code_diagnostics(D::Ruby.lenient)
+        # ```
+        #
+        # Passing a block to modify the configuration is also allowed.
         #
         # ```rb
         # D = Steep::Diagnostic
         #
-        # configure_code_diagnostics do |hash|
+        # configure_code_diagnostics(D::Ruby.default) do |hash|
         #   # Assign one of :error, :warning, :information, :hint or :nil to error classes.
         #   hash[D::Ruby::UnexpectedPositionalArgument] = :error
         # end
         # ```
         #
-        # Passing a hash is also allowed.
+        # Omitting the parameter yields current configuration. (Defaults to `Diagnostic::Ruby.default`.)
         #
         # ```rb
         # D = Steep::Diagnostic
         #
-        # configure_code_diagnostics(D::Ruby.lenient)
-        # configure_code_diagnostics(D::Ruby.strict) do |config|
+        # configure_code_diagnostics do |config|
         #   config[D::Ruby::NoMethod] = nil
         # end
         # ```
         #
-        def configure_code_diagnostics: (template hash) ?{ (template) -> void }-> void
-                                      | () { (template) -> void }-> void
+        def configure_code_diagnostics: (?diagnostics_config hash) { (diagnostics_config) -> void } -> void
+                                      | (diagnostics_config config) -> void
 
-        def collection_config: (Pathname path) -> void
+        def group: (Symbol) ?{ (GroupDSL) [self: GroupDSL] -> void } -> void
+      end
 
-        def disable_collection: () -> void
+      class GroupDSL
+        include WithPattern
+
+        attr_reader name: Symbol
+
+        attr_reader target: TargetDSL
+
+        # Configuration of Ruby code diagnostics
+        #
+        # The default is `nil` to inherit the configuration of the target.
+        #
+        attr_reader code_diagnostics_config: diagnostics_config?
+
+        def initialize: (Symbol name, TargetDSL) -> void
+
+        # Configure the code diagnostics printing setup
+        #
+        # Initialize the configuration with `target`'s configuration, and yields the hash to customize.
+        #
+        # ```rb
+        # configure_code_diagnostics() do |config|
+        #   config[Steep::Diagnostic::Ruby::NoMethod] = :info
+        # end
+        # ```
+        #
+        # Initialize the configuration with `lenient`, and yields the hash to customize.
+        #
+        # ```rb
+        # configure_code_diagnostics(D::Ruby.lenient) do |config|
+        #   config[Steep::Diagnostic::Ruby::NoMethod] = :info
+        # end
+        # ```
+        #
+        # Passing `nil` resets the current configuration.
+        #
+        # ```rb
+        # configure_code_diagnostics(nil)
+        # ```
+        # 
+        def configure_code_diagnostics: (?diagnostics_config hash) { (diagnostics_config) -> void } -> void
+                                      | (diagnostics_config? config) -> void
       end
 
       attr_reader project: Project
 
-      @@templates: Hash[Symbol, TargetDSL]
-
-      def self.templates: () -> Hash[Symbol, TargetDSL]
-
       def initialize: (project: Project) -> void
-
-      def self.register_template: (Symbol name, TargetDSL target) -> void
 
       def self.parse: (Project project, String code, ?filename: String) -> void
 
-      def target: (Symbol name, ?template: Symbol?) ?{ (TargetDSL) [self: TargetDSL] -> void } -> void
+      def self.eval: (Project project) { () [self: DSL] -> void } -> void
+
+      include LibraryOptions
+
+      def target: (Symbol name) ?{ (TargetDSL) [self: TargetDSL] -> void } -> void
     end
   end
 end

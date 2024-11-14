@@ -17,6 +17,18 @@ module Steep
 
       attr_reader jobs_option: Utils::JobsOption
 
+      attr_reader active_group_names: Array[[Symbol, Symbol?]]
+
+      attr_accessor type_check_code: bool
+
+      attr_accessor validate_group_signatures: bool
+
+      attr_accessor validate_target_signatures: bool
+
+      attr_accessor validate_project_signatures: bool
+
+      attr_accessor validate_library_signatures: bool
+
       include Utils::DriverHelper
 
       def initialize: (stdout: IO, stderr: IO) -> void
@@ -28,6 +40,11 @@ module Steep
       def save_expectations: (project: Project, all_files: Array[Pathname], expectations_path: Pathname, notifications: Array[untyped]) -> Integer
 
       def print_result: (project: Project, notifications: Array[untyped]) -> Integer
+
+      # Returns true if the given target is active for this invocation
+      def active_group?: (Project::Target | Project::Group) -> bool
+
+      def load_files: (Server::TargetGroupFiles, Project::Target, Project::Target | Project::Group, params: Server::CustomMethods::TypeCheck::params) -> void
     end
   end
 end

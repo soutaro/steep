@@ -7,9 +7,6 @@ module Steep
     class InteractionWorker < BaseWorker
       include ChangeBuffer
 
-      class ApplyChangeJob
-      end
-
       class HoverJob
         attr_reader id: String
 
@@ -48,7 +45,7 @@ module Steep
         def initialize: (id: String, path: Pathname, line: Integer, column: Integer) -> void
       end
 
-      type job = ApplyChangeJob | HoverJob | CompletionJob | SignatureHelpJob
+      type job = HoverJob | CompletionJob | SignatureHelpJob
 
       module LSP = LanguageServer::Protocol
 

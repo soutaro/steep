@@ -3,7 +3,6 @@ require_relative "test_helper"
 class GotoServiceTest < Minitest::Test
   include Steep
   include TestHelper
-  include TypeCheckServiceHelper
 
   ContentChange = Services::ContentChange
   TypeCheckService = Services::TypeCheckService
@@ -33,7 +32,12 @@ EOF
     yield changes
 
     type_check = Services::TypeCheckService.new(project: project)
-    update_and_check(type_check, changes: changes) {}
+    type_check.update(changes: changes)
+    changes.each_key do |path|
+      if target = project.target_for_source_path(path)
+        type_check.typecheck_source(path: path, target: target)
+      end
+    end
     type_check
   end
 
@@ -329,7 +333,7 @@ RUBY
     end
 
     type_check.source_files.each_key do |path|
-      type_check.typecheck_source(path: path) {}
+      type_check.typecheck_source(path: path, target: type_check.project.target_for_source_path(path))
     end
     service = Services::GotoService.new(type_check: type_check, assignment: assignment)
 
@@ -398,7 +402,7 @@ RUBY
 
       assert_any!(locs) do |target, loc|
         assert_equal :lib, target.name
-        
+
         assert_instance_of RBS::Location, loc
         assert_equal "Customer::NAME", loc.source
         assert_equal 6, loc.start_line
@@ -435,7 +439,7 @@ RUBY
     end
 
     type_check.source_files.each_key do |path|
-      type_check.typecheck_source(path: path) {}
+      type_check.typecheck_source(path: path, target: type_check.project.target_for_source_path(path))
     end
     service = Services::GotoService.new(type_check: type_check, assignment: assignment)
 
@@ -521,7 +525,7 @@ RUBY
     end
 
     type_check.source_files.each_key do |path|
-      type_check.typecheck_source(path: path) {}
+      type_check.typecheck_source(path: path, target: type_check.project.target_for_source_path(path))
     end
     service = Services::GotoService.new(type_check: type_check, assignment: assignment)
     queries = service.query_at(path: Pathname("lib/main.rb"), line: 1, column: 16)

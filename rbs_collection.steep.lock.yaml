@@ -33,7 +33,19 @@ gems:
   version: '0'
   source:
     type: stdlib
+- name: dbm
+  version: '0'
+  source:
+    type: stdlib
+- name: digest
+  version: '0'
+  source:
+    type: stdlib
 - name: fileutils
+  version: '0'
+  source:
+    type: stdlib
+- name: find
   version: '0'
   source:
     type: stdlib
@@ -77,7 +89,19 @@ gems:
   version: '0'
   source:
     type: stdlib
+- name: optparse
+  version: '0'
+  source:
+    type: stdlib
 - name: pathname
+  version: '0'
+  source:
+    type: stdlib
+- name: pstore
+  version: '0'
+  source:
+    type: stdlib
+- name: psych
   version: '0'
   source:
     type: stdlib
@@ -89,7 +113,15 @@ gems:
     revision: c42c09528dd99252db98f0744181a6de54ec2f55
     remote: https://github.com/ruby/gem_rbs_collection.git
     repo_dir: gems
+- name: rdoc
+  version: '0'
+  source:
+    type: stdlib
 - name: securerandom
+  version: '0'
+  source:
+    type: stdlib
+- name: shellwords
   version: '0'
   source:
     type: stdlib
@@ -102,6 +134,18 @@ gems:
   source:
     type: stdlib
 - name: time
+  version: '0'
+  source:
+    type: stdlib
+- name: tsort
+  version: '0'
+  source:
+    type: stdlib
+- name: uri
+  version: '0'
+  source:
+    type: stdlib
+- name: yaml
   version: '0'
   source:
     type: stdlib

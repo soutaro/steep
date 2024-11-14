@@ -403,6 +403,10 @@ module Steep
                 end
               end
 
+              if typecheck_automatically
+                progress.end()
+              end
+
               if file_system_watcher_supported?
                 patterns = [] #: Array[String]
                 project.targets.each do |target|
@@ -449,11 +453,13 @@ module Steep
                 )
               end
 
-              if typecheck_automatically
-                if request = controller.make_request(guid: progress.guid, include_unchanged: true, progress: progress)
-                  start_type_check(request: request, last_request: nil)
-                end
-              end
+              controller.changed_paths.clear()
+
+              # if typecheck_automatically
+              #   if request = controller.make_request(guid: progress.guid, include_unchanged: true, progress: progress)
+              #     start_type_check(request: request, last_request: nil)
+              #   end
+              # end
             end
           end
 
@@ -498,7 +504,6 @@ module Steep
 
                   start_type_check(
                     last_request: last_request,
-                    include_unchanged: true,
                     progress: work_done_progress(guid),
                     needs_response: false
                   )
@@ -537,8 +542,15 @@ module Steep
           text = message[:params][:textDocument][:text]
 
           if path = pathname(uri)
-            controller.update_priority(open: path)
-            broadcast_notification(CustomMethods::FileReset.notification({ uri: uri, content: text }))
+            if target = project.group_for_path(path)
+              controller.update_priority(open: path)
+              # broadcast_notification(CustomMethods::FileReset.notification({ uri: uri, content: text }))
+
+              start_type_checking_queue.execute do
+                guid = SecureRandom.uuid
+                start_type_check(last_request: current_type_check_request, progress: work_done_progress(guid), needs_response: true)
+              end
+            end
           end
 
         when "textDocument/didClose"
@@ -577,6 +589,7 @@ module Steep
 
             group.on_completion do |handlers|
               result = handlers.flat_map(&:result)
+              result.uniq!
               enqueue_write_job SendMessageJob.to_client(message: { id: message[:id], result: result })
             end
           end
@@ -604,6 +617,7 @@ module Steep
 
               group.on_completion do |handlers|
                 links = handlers.flat_map(&:result)
+                links.uniq!
                 enqueue_write_job SendMessageJob.to_client(
                   message: {
                     id: message[:id],
@@ -622,15 +636,23 @@ module Steep
           end
 
         when CustomMethods::TypeCheck::METHOD
+          id = message[:id]
           params = message[:params] #: CustomMethods::TypeCheck::params
-          guid = params[:guid]
 
-          start_type_check(
-            last_request: current_type_check_request,
-            include_unchanged: true,
-            progress: work_done_progress(guid || SecureRandom.uuid),
-            needs_response: true
-          )
+          request = TypeCheckController::Request.new(guid: id, progress: work_done_progress(id))
+          request.needs_response = true
+
+          params[:code_paths].each do |target_name, path|
+            request.code_paths << [target_name.to_sym, Pathname(path)]
+          end
+          params[:signature_paths].each do |target_name, path|
+            request.signature_paths << [target_name.to_sym, Pathname(path)]
+          end
+          params[:library_paths].each do |target_name, path|
+            request.library_paths << [target_name.to_sym, Pathname(path)]
+          end
+
+          start_type_check(request: request, last_request: nil)
 
         when "$/ping"
           enqueue_write_job SendMessageJob.to_client(
@@ -725,14 +747,31 @@ module Steep
             request.needs_response = needs_response ? true : false
           end
 
+          if last_request
+            request.merge!(last_request)
+          end
+
           if request.total > report_progress_threshold
             request.report_progress!
+          end
+
+          if request.each_unchecked_target_path.to_a.empty?
+            finish_type_check(request)
+            @current_type_check_request = nil
+            return
           end
 
           Steep.logger.info "Starting new progress..."
 
           @current_type_check_request = request
-          @current_diagnostics.clear() unless last_request
+          if last_request
+            checking_paths = request.each_path.to_set
+            current_diagnostics.keep_if do |path, _|
+              checking_paths.include?(path)
+            end
+          else
+            current_diagnostics.clear
+          end
 
           if progress
             # If `request:` keyword arg is not given
@@ -762,7 +801,7 @@ module Steep
             Steep.logger.info { "Request updated: checked=#{path}, unchecked=#{current.each_unchecked_code_target_path.size}, diagnostics=#{diagnostics&.size}" }
 
             percentage = current.percentage
-            current.work_done_progress.report(percentage, "#{percentage}%") if current.report_progress
+            current.work_done_progress.report(percentage, "#{current.checked_paths.size}/#{current.total}") if current.report_progress
 
             push_diagnostics(path, diagnostics)
 

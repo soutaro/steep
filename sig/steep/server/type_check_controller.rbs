@@ -1,5 +1,5 @@
 use LanguageServer::Protocol::Interface::Diagnostic as LSPDiagnostic
-use Steep::Project::Target
+use Steep::Project::Target, Steep::Project::Group
 
 module Steep
   module Server
@@ -63,6 +63,10 @@ module Steep
 
         def total: () -> Integer
 
+        # Returns true if no path is registered to the request
+        #
+        def empty?: () -> bool
+
         def percentage: () -> Integer
 
         # Enumerates all paths included in the request
@@ -99,6 +103,9 @@ module Steep
         #
         def report_progress!: (?bool) -> self
 
+        # Merges another request into this request
+        def merge!: (Request) -> self
+
         private def assigned_uris: (Services::PathAssignment, Set[target_and_path]) -> Array[target_path_string]
       end
 
@@ -108,58 +115,7 @@ module Steep
 
       attr_reader changed_paths: Set[Pathname]
 
-      attr_reader target_paths: Array[TargetPaths]
-
-      # TargetPaths object keeps track of the expanded absolute paths of each target
-      #
-      # 1. *Library path* is a RBS file that is loaded as a part of a library
-      # 2. *Signature path* is a RBS file that is loaded as a part of the application library
-      # 3. *Code path* is a Ruby file that is being type checked
-      #
-      class TargetPaths
-        attr_reader project: Project
-
-        attr_reader target: Project::Target
-
-        # Set of absolute paths of Ruby code
-        #
-        attr_reader code_paths: Set[Pathname]
-
-        # Set of absolute paths of app signatures
-        #
-        attr_reader signature_paths: Set[Pathname]
-
-        # Set of absolute paths of library signatures
-        #
-        # Unlike `code_paths` and `signature_paths`, the `library_paths` must be added explicitly not by `#add` method.
-        #
-        attr_reader library_paths: Set[Pathname]
-
-        def initialize: (project: Project, target: Project::Target) -> void
-
-        def all_paths: () -> Set[Pathname]
-
-        def library_path?: (Pathname path) -> bool
-
-        def signature_path?: (Pathname path) -> bool
-
-        def code_path?: (Pathname path) -> bool
-
-        # Adds `path` to the object
-        #
-        # Returns `false` if the path is not a part of the project.
-        #
-        # Whether `path` is a code path or signature path is automatically detected.
-        # `library: true` is required to add the path to library path.
-        #
-        def add: (Pathname path, ?library: bool) -> bool
-
-        alias << add
-
-        def signature_path_changed?: (Set[Pathname]) -> bool
-
-        def code_path_changed?: (Set[Pathname]) -> Set[Pathname]?
-      end
+      attr_reader files: TargetGroupFiles
 
       def initialize: (project: Project) -> void
 
@@ -170,17 +126,21 @@ module Steep
       def update_priority: (open: Pathname) -> void
                          | (close: Pathname) -> void
 
+      def active_target?: (Target | Group) -> bool
+                        
+      def push_changes_for_target: (Target | Group) -> void
+
       # Returns a TypeCheckRequest that contains all paths to be type checked
       #
       # This method also resets the controller status by removing everything from `changed_paths`.
       #
-      # * If `last_request:` is given, the remaining paths are also included in the new request.
       # * If `include_unchanged` is `true`, all paths are included in the new request.
       # * `progress:` is a `WorkDoneProgress` object to report the progress of the type checking.
       #
       # Returns `nil` when no type checking is needed.
       #
-      def make_request: (?guid: String, ?last_request: Request?, ?include_unchanged: bool, progress: WorkDoneProgress) -> Request?
+      def make_request: (?guid: String, ?include_unchanged: bool, progress: WorkDoneProgress) -> Request?
+
     end
   end
 end

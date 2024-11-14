@@ -76,43 +76,6 @@ module Steep
         end
       end
 
-      class TargetRequest
-        attr_reader :target
-        attr_reader :source_paths
-
-        def initialize(target:)
-          @target = target
-          @source_paths = Set[]
-          @signature_updated = false
-        end
-
-        def signature_updated!(value = true)
-          @signature_updated = value
-          self
-        end
-
-        def signature_updated?
-          @signature_updated
-        end
-
-        def empty?
-          !signature_updated? && source_paths.empty?
-        end
-
-        def ==(other)
-          other.is_a?(TargetRequest) &&
-            other.target == target &&
-            other.source_paths == source_paths &&
-            other.signature_updated? == signature_updated?
-        end
-
-        alias eql? ==
-
-        def hash
-          self.class.hash ^ target.hash ^ source_paths.hash ^ @signature_updated.hash
-        end
-      end
-
       def initialize(project:)
         @project = project
 
@@ -179,19 +142,13 @@ module Steep
       end
 
       def update(changes:)
-        requests = project.targets.each_with_object({}.compare_by_identity) do |target, hash|
-          hash[target] = TargetRequest.new(target: target)
-        end
-
         Steep.measure "#update_signature" do
-          update_signature(changes: changes, requests: requests)
+          update_signature(changes: changes)
         end
 
         Steep.measure "#update_sources" do
-          update_sources(changes: changes, requests: requests)
+          update_sources(changes: changes)
         end
-
-        requests.transform_keys(&:name).reject {|_, request| request.empty? }
       end
 
       def validate_signature(path:, target:)
@@ -199,7 +156,7 @@ module Steep
           Steep.measure "validation" do
             service = signature_services[target.name]
 
-            raise unless target.possible_signature_file?(path) || service.env_rbs_paths.include?(path)
+            raise "#{path} is not library nor signature of #{target.name}" unless target.possible_signature_file?(path) || service.env_rbs_paths.include?(path)
 
             case service.status
             when SignatureService::SyntaxErrorStatus
@@ -269,7 +226,7 @@ module Steep
         end
       end
 
-      def typecheck_source(path:, target: project.target_for_source_path(path))
+      def typecheck_source(path:, target:)
         return unless target
 
         Steep.logger.tagged "#typecheck_source(path=#{path})" do
@@ -288,37 +245,36 @@ module Steep
         end
       end
 
-      def update_signature(changes:, requests:)
+      def update_signature(changes:)
         Steep.logger.tagged "#update_signature" do
-          project.targets.each do |target|
-            signature_service = signature_services[target.name]
-            signature_changes = changes.filter {|path, _| target.possible_signature_file?(path) }
+          signature_targets = {} #: Hash[Pathname, Project::Target]
+          changes.each do |path, changes|
+            target = project.targets.find { _1.possible_signature_file?(path) } or next
+            signature_targets[path] = target
+          end
 
-            unless signature_changes.empty?
-              requests[target].signature_updated!
-              signature_service.update(signature_changes)
+          project.targets.each do |target|
+            Steep.logger.tagged "#{target.name}" do
+              # Load signatures from all project targets but `#unreferenced` ones
+              target_changes = changes.select do |path, _|
+                signature_target = signature_targets.fetch(path, nil) or next
+                signature_target == target || !signature_target.unreferenced
+              end
+
+              unless target_changes.empty?
+                signature_services.fetch(target.name).update(target_changes)
+              end
             end
           end
         end
       end
 
-      def update_sources(changes:, requests:)
-        requests.each_value do |request|
-          source_files
-            .select {|path, file| request.target.possible_source_file?(path) }
-            .each do |path, file|
-            (changes[path] ||= []).prepend(ContentChange.string(file.content))
-          end
-        end
-
+      def update_sources(changes:)
         changes.each do |path, changes|
-          target = project.target_for_source_path(path)
-
-          if target
+          if source_file?(path)
             file = source_files[path] || SourceFile.no_data(path: path, content: "")
             content = changes.inject(file.content) {|text, change| change.apply_to(text) }
             source_files[path] = file.update_content(content)
-            requests[target].source_paths << path
           end
         end
       end
@@ -397,9 +353,7 @@ module Steep
       end
 
       def source_file?(path)
-        if source_files.key?(path)
-          project.target_for_source_path(path)
-        end
+        source_files.key?(path) || (project.target_for_source_path(path) ? true : false)
       end
 
       def signature_file?(path)

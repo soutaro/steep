@@ -125,32 +125,32 @@ module Steep
         priority_codes, non_priority_codes = codes.partition {|_, path| priority_paths.include?(path) }
 
         priority_codes.each do |target, path|
-          Steep.logger.info { "Enqueueing TypeCheckCodeJob for guid=#{guid}, path=#{path}, target=#{target}" }
+          Steep.logger.info { "Enqueueing TypeCheckCodeJob for guid=#{guid}, path=#{path}, target=#{target.name}" }
           queue << TypeCheckCodeJob.new(guid: guid, path: path, target: target)
         end
 
         priority_sigs.each do |target, path|
-          Steep.logger.info { "Enqueueing ValidateAppSignatureJob for guid=#{guid}, path=#{path}, target=#{target}" }
+          Steep.logger.info { "Enqueueing ValidateAppSignatureJob for guid=#{guid}, path=#{path}, target=#{target.name}" }
           queue << ValidateAppSignatureJob.new(guid: guid, path: path, target: target)
         end
 
         priority_libs.each do |target, path|
-          Steep.logger.info { "Enqueueing ValidateLibrarySignatureJob for guid=#{guid}, path=#{path}, target=#{target}" }
+          Steep.logger.info { "Enqueueing ValidateLibrarySignatureJob for guid=#{guid}, path=#{path}, target=#{target.name}" }
           queue << ValidateLibrarySignatureJob.new(guid: guid, path: path, target: target)
         end
 
         non_priority_codes.each do |target, path|
-          Steep.logger.info { "Enqueueing TypeCheckCodeJob for guid=#{guid}, path=#{path}, target=#{target}" }
+          Steep.logger.info { "Enqueueing TypeCheckCodeJob for guid=#{guid}, path=#{path}, target=#{target.name}" }
           queue << TypeCheckCodeJob.new(guid: guid, path: path, target: target)
         end
 
         non_priority_sigs.each do |target, path|
-          Steep.logger.info { "Enqueueing ValidateAppSignatureJob for guid=#{guid}, path=#{path}, target=#{target}" }
+          Steep.logger.info { "Enqueueing ValidateAppSignatureJob for guid=#{guid}, path=#{path}, target=#{target.name}" }
           queue << ValidateAppSignatureJob.new(guid: guid, path: path, target: target)
         end
 
         non_priority_libs.each do |target, path|
-          Steep.logger.info { "Enqueueing ValidateLibrarySignatureJob for guid=#{guid}, path=#{path}, target=#{target}" }
+          Steep.logger.info { "Enqueueing ValidateLibrarySignatureJob for guid=#{guid}, path=#{path}, target=#{target.name}" }
           queue << ValidateLibrarySignatureJob.new(guid: guid, path: path, target: target)
         end
       end
@@ -189,10 +189,11 @@ module Steep
 
         when TypeCheckCodeJob
           if job.guid == current_type_check_guid
-            Steep.logger.info { "Processing TypeCheckCodeJob for guid=#{job.guid}, path=#{job.path}" }
+            Steep.logger.info { "Processing TypeCheckCodeJob for guid=#{job.guid}, path=#{job.path}, target=#{job.target.name}" }
+            group_target = project.group_for_source_path(job.path) || job.target
+            formatter = Diagnostic::LSPFormatter.new(group_target.code_diagnostics_config)
             relative_path = project.relative_path(job.path)
-            formatter = Diagnostic::LSPFormatter.new(job.target.code_diagnostics_config)
-            diagnostics = service.typecheck_source(path: relative_path)
+            diagnostics = service.typecheck_source(path: relative_path, target: job.target)
             typecheck_progress(path: job.path, guid: job.guid, target: job.target, diagnostics: diagnostics&.filter_map { formatter.format(_1) })
           end
 

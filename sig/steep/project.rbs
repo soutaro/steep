@@ -6,21 +6,24 @@ module Steep
 
     attr_reader base_dir: Pathname
 
+    attr_accessor global_options: Options
+
     def initialize: (steepfile_path: Pathname?, ?base_dir: Pathname?) -> void
 
     def relative_path: (Pathname path) -> Pathname
 
     def absolute_path: (Pathname path) -> Pathname
 
+    def group_for_path: (Pathname) -> (Target | Group | nil)
+
+    def group_for_source_path: (Pathname path) -> (Target | Group | nil)
+
+    def group_for_signature_path: (Pathname path) -> (Target | Group | nil)
+
+    def target_for_path: (Pathname) -> Target?
+
     def target_for_source_path: (Pathname path) -> Target?
 
-    # Returns target or array of targets that *can* contain given path
-    #
-    # * `Target` will return if `path` is a source code
-    # * `Array[Target]` will return if `path` is a signature
-    #
-    # `path` can be non-existent file.
-    #
-    def targets_for_path: (Pathname path) -> (Target | Array[Target] | nil)
+    def target_for_signature_path: (Pathname path) -> Target?
   end
 end

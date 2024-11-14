@@ -46,28 +46,6 @@ module Steep
         def diagnostics: () -> Array[Diagnostic::Ruby::Base]
       end
 
-      class TargetRequest
-        attr_reader target: Project::Target
-
-        attr_reader source_paths: Set[Pathname]
-
-        @signature_updated: bool
-
-        def initialize: (target: Project::Target) -> void
-
-        def signature_updated!: (?bool value) -> self
-
-        def signature_updated?: () -> bool
-
-        def empty?: () -> bool
-
-        def ==: (untyped other) -> bool
-
-        alias eql? ==
-
-        def hash: () -> Integer
-      end
-
       def initialize: (project: Project) -> void
 
       def signature_diagnostics: () -> Hash[Pathname, Array[Diagnostic::Signature::Base]]
@@ -76,36 +54,41 @@ module Steep
 
       def diagnostics: () -> Hash[Pathname, Array[Diagnostic::Ruby::Base | Diagnostic::Signature::Base]]
 
+      # Yields diagnostics reported on each path
+      #
+      # * Signature diagnostics contains everything reported to each target
+      #
       def each_diagnostics: () { ([Pathname, Array[Diagnostic::Ruby::Base] | Array[Diagnostic::Signature::Base]]) -> void } -> void
                           | () -> Enumerator[[Pathname, Array[Diagnostic::Ruby::Base] | Array[Diagnostic::Signature::Base]], void]
 
-      def update: (changes: Server::ChangeBuffer::changes) -> Hash[Project::Target, TargetRequest]
+      # Record the changes to the files managed by the service
+      #
+      # Note that the diagnostics are not updated by this method.
+      #
+      def update: (changes: Server::ChangeBuffer::changes) -> void
 
-      # def update_and_check: (
-      #   changes: Server::ChangeBuffer::changes,
-      #   assignment: PathAssignment
-      # ) {
-      #   ([Pathname, Array[Diagnostic::Signature::Base] | Array[Diagnostic::Ruby::Base]]) -> void
-      # } -> void
-
+      # Validates RBS signature included in the path
+      #
+      # Updates `#signature_validation_diagnostics` of the file and returns the diagnostics of the target-path pair.
+      #
       def validate_signature: (path: Pathname, target: Project::Target) -> Array[Diagnostic::Signature::Base]
 
-      # Type check the code of given path
+      # Type check the code of given path and updates the `#source_files`
       #
       # * Returns `nil` if the type check doesn't complete.
       # * Returns an array if the type check complete and detects no/some errors.
       #
-      def typecheck_source: (path: Pathname, ?target: Project::Target?) -> Array[Diagnostic::Ruby::Base]?
+      def typecheck_source: (path: Pathname, target: Project::Target?) -> Array[Diagnostic::Ruby::Base]?
 
-      def update_signature: (changes: Server::ChangeBuffer::changes, requests: Hash[Project::Target, TargetRequest]) -> void
+      def update_signature: (changes: Server::ChangeBuffer::changes) -> void
 
-      def update_sources: (changes: Server::ChangeBuffer::changes, requests: Hash[Project::Target, TargetRequest]) -> void
+      def update_sources: (changes: Server::ChangeBuffer::changes) -> void
 
       def type_check_file: (target: Project::Target, subtyping: Subtyping::Check, path: Pathname, text: String) { () -> RBS::Resolver::ConstantResolver } -> SourceFile
 
       def self.type_check: (source: Source, subtyping: Subtyping::Check, constant_resolver: RBS::Resolver::ConstantResolver, cursor: Integer?) -> Typing
 
-      def source_file?: (Pathname path) -> Project::Target?
+      def source_file?: (Pathname path) -> bool
 
       def signature_file?: (Pathname path) -> Array[Symbol]?
 

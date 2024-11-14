@@ -46,7 +46,7 @@ module Steep
           when MethodQuery
             method_locations(query.name, locations: locations, in_ruby: true, in_rbs: false)
           when TypeNameQuery
-            type_name_locations(query.name, locations: locations)
+            constant_definition_in_ruby(query.name, locations: locations)
           end
         end
 
@@ -96,7 +96,7 @@ module Steep
 
         relative_path = project.relative_path(path)
 
-        target = type_check.source_file?(relative_path) or return []
+        target = type_check.project.target_for_path(relative_path) or return []
         source = type_check.source_files[relative_path]
         typing, signature = type_check_path(target: target, path: relative_path, content: source.content, line: line, column: column)
 
@@ -162,8 +162,8 @@ module Steep
         relative_path = project.relative_path(path)
 
         case
-        when target = type_check.source_file?(relative_path)
-          source = type_check.source_files[relative_path]
+        when target = type_check.project.target_for_source_path(relative_path)
+          source = type_check.source_files[relative_path] or return []
           typing, _signature = type_check_path(target: target, path: relative_path, content: source.content, line: line, column: column)
           if typing
             node, *parents = typing.source.find_nodes(line: line, column: column)

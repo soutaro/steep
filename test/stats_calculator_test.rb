@@ -5,7 +5,6 @@ class StatsCalculatorTest < Minitest::Test
   include ShellHelper
   include FactoryHelper
   include SubtypingHelper
-  include TypeCheckServiceHelper
 
   include Steep
 
@@ -19,12 +18,12 @@ class StatsCalculatorTest < Minitest::Test
   def setup_project()
     in_tmpdir do
       project = Project.new(steepfile_path: current_dir + "Steepfile")
-      Project::DSL.parse(project, <<EOF)
-target :lib do
-  check "lib"
-  signature "sig"
-end
-EOF
+      Project::DSL.eval(project) do
+        target :lib do
+          check "lib"
+          signature "sig"
+        end
+      end
 
       yield Services::TypeCheckService.new(project: project)
     end
@@ -32,16 +31,14 @@ EOF
 
   def test_stats_success
     setup_project() do |service|
-      update_and_check(
-        service,
-        changes: {
-          Pathname("lib/hello.rb") => [ContentChange.string(<<RUBY)]
-1 + 2
-(_ = 1) + 2
-1 + ""
-RUBY
-        }
-      ) {}
+      service.update(changes: {
+        Pathname("lib/hello.rb") => [ContentChange.string(<<~RUBY)]
+          1 + 2
+          (_ = 1) + 2
+          1 + ""
+        RUBY
+      })
+      service.typecheck_source(path: Pathname("lib/hello.rb"), target: service.project.targets[0])
 
       calculator = StatsCalculator.new(service: service)
 
@@ -60,17 +57,15 @@ RUBY
 
   def test_stats_syntax_error
     setup_project do |service|
-      update_and_check(
-        service,
-        changes: {
-          Pathname("sig/hello.rbs") => [ContentChange.string(<<-RBS)],
-interface _HelloWorld
-          RBS
-          Pathname("lib/hello.rb") => [ContentChange.string(<<-RUBY)]
-1+2
-          RUBY
-        }
-      ) {}
+      service.update(changes: {
+        Pathname("sig/hello.rbs") => [ContentChange.string(<<~RBS)],
+          interface _HelloWorld
+        RBS
+        Pathname("lib/hello.rb") => [ContentChange.string(<<~RUBY)]
+          1+2
+        RUBY
+      })
+      service.typecheck_source(path: Pathname("lib/hello.rb"), target: service.project.targets[0])
 
       calculator = StatsCalculator.new(service: service)
 

@@ -79,10 +79,10 @@ module Steep
         end
 
         stdin_input.each_key do |path|
-          case ts = project.targets_for_path(path)
-          when Array
+          case
+          when project.target_for_signature_path(path)
             signature_paths << path
-          when Project::Target
+          when project.target_for_source_path(path)
             target_paths << path
           end
         end
@@ -163,11 +163,8 @@ module Steep
           request.code_paths << [target.name, project.absolute_path(path)]
         end
         signature_paths.each do |path|
-          targets = project.targets_for_path(path)
-          next unless targets.is_a?(Array)
-          targets.each do |target|
-            request.signature_paths << [target.name, project.absolute_path(path)]
-          end
+          target = project.target_for_signature_path(path) or next
+          request.signature_paths << [target.name, project.absolute_path(path)]
         end
 
         request.needs_response = true

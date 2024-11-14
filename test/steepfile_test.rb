@@ -25,71 +25,19 @@ target :app do
   library "set"
   library "strong_json"
 end
-
-target :Gemfile, template: :gemfile do
-end
 EOF
 
-      assert_equal 2, project.targets.size
+      assert_equal 1, project.targets.size
 
       project.targets.find {|target| target.name == :app }.tap do |target|
         assert_instance_of Project::Target, target
+
         assert_equal ["app"], target.source_pattern.patterns
         assert_equal ["app/views"], target.source_pattern.ignores
         assert_equal ["sig", "sig-private"], target.signature_pattern.patterns
         assert_equal ["set", "strong_json"], target.options.libraries
         assert_equal Pathname("vendor/rbs/core"), target.options.paths.core_root
         assert_equal Pathname("vendor/rbs/stdlib"), target.options.paths.stdlib_root
-      end
-
-      project.targets.find {|target| target.name == :Gemfile }.tap do |target|
-        assert_instance_of Project::Target, target
-        assert_equal ["Gemfile"], target.source_pattern.patterns
-        assert_equal [], target.source_pattern.ignores
-        assert_equal [], target.signature_pattern.patterns
-        assert_equal ["gemfile"], target.options.libraries
-        assert_nil target.options.paths.core_root
-        assert_nil target.options.paths.stdlib_root
-      end
-    end
-  end
-
-  def test_config_typing_options
-    in_tmpdir do
-      project = Project.new(steepfile_path: current_dir + "Steepfile")
-
-      begin
-        Steep.log_output = StringIO.new
-
-        Project::DSL.parse(project, <<RUBY)
-target :app do
-  check "app"
-  ignore "app/views"
-
-  typing_options :strict,
-                 allow_missing_definitions: true,
-                 allow_fallback_any: true
-end
-RUBY
-
-        assert_match(/\[Steepfile\] \[target=app\] #typing_options is deprecated and has no effect as of version 0\.46\.0\. Update your Steepfile as follows for \(almost\) equivalent setting:/, Steep.log_output.string)
-        assert_match(/configure_code_diagnostics\(D::Ruby\.strict\)/, Steep.log_output.string)
-        assert_match(/hash\[D::Ruby::MethodDefinitionMissing\] = nil/, Steep.log_output.string)
-        assert_match(/hash\[D::Ruby::FallbackAny\] = nil/, Steep.log_output.string)
-      ensure
-        Steep.log_output = STDERR
-      end
-    end
-  end
-
-  def test_invalid_template
-    in_tmpdir do
-      project = Project.new(steepfile_path: current_dir + "Steepfile")
-
-      assert_raises RuntimeError do
-        Project::DSL.parse(project, <<EOF)
-target :Gemfile, template: :gemfile2
-EOF
       end
     end
   end
@@ -253,10 +201,10 @@ EOF
   def test_load_collection_failed
     in_tmpdir do
       current_dir.join('rbs_collection.yaml').write('')
-      current_dir.join('rbs_collection.lock.yaml').write(<<~YAML)
-        path: .test_path
-        gems: []
-      YAML
+      current_dir.join('rbs_collection.lock.yaml').write(<<YAML)
+path: .test_path
+gems: []
+YAML
       project = Project.new(steepfile_path: current_dir + "Steepfile")
 
       Project::DSL.parse(project, <<~RUBY)
@@ -266,6 +214,109 @@ EOF
 
       assert_instance_of RBS::Collection::Config::CollectionNotAvailable, project.targets[0].options.load_collection_lock
       assert_nil project.targets[0].options.collection_lock
+    end
+  end
+
+  def test_global_library_option
+    in_tmpdir do
+      current_dir.join('rbs_collection.yaml').write('')
+      project = Project.new(steepfile_path: current_dir + "Steepfile")
+
+      Project::DSL.parse(project, <<~RUBY)
+        collection_config "test.yaml"
+        library "rbs"
+
+        target :app do
+          check "app"
+          ignore "app/views"
+
+          signature "sig", "sig-private"
+        end
+      RUBY
+
+      assert_instance_of Project::Options, project.global_options
+      assert_equal ["rbs"], project.global_options.libraries
+      assert_equal current_dir + "test.yaml", project.global_options.collection_config_path
+
+      project.targets.find {|target| target.name == :app }.tap do |target|
+        assert_instance_of Project::Target, target
+        assert_equal ["rbs"], target.options.libraries
+        assert_equal current_dir + "test.yaml", target.options.collection_config_path
+      end
+    end
+  end
+
+  def test_target_unreferenced
+    in_tmpdir do
+      current_dir.join('rbs_collection.yaml').write('')
+      project = Project.new(steepfile_path: current_dir + "Steepfile")
+
+      Project::DSL.parse(project, <<~RUBY)
+        collection_config "test.yaml"
+        library "rbs"
+
+        target :app do
+          check "app"
+          ignore "app/views"
+          signature "sig/app"
+        end
+
+        target :test do
+          unreferenced!
+
+          check "test"
+          signature "sig/test"
+        end
+      RUBY
+
+      assert_instance_of Project::Options, project.global_options
+      assert_equal ["rbs"], project.global_options.libraries
+      assert_equal current_dir + "test.yaml", project.global_options.collection_config_path
+
+      project.targets.find {|target| target.name == :app }.tap do |target|
+        refute_predicate target, :unreferenced
+      end
+
+      project.targets.find { _1.name == :test }.tap do |target|
+        assert_predicate target, :unreferenced
+      end
+    end
+  end
+
+  def test_group
+    in_tmpdir do
+      project = Project.new(steepfile_path: current_dir + "Steepfile")
+
+      Project::DSL.eval(project) do
+        target :app do
+          group :core do
+            check "lib/core"
+            signature "sig/core"
+          end
+
+          group :main do
+            check "lib/main"
+            signature "sig/main"
+          end
+
+          check "lib/cli.rb", "exe/app"
+          signature "sig/cli.rbs", "sig/exe/app.rbs"
+        end
+      end
+
+      project.targets.find {|target| target.name == :app }.tap do |target|
+        assert_equal [:core, :main], target.groups.map(&:name)
+
+        assert_equal :core, target.possible_source_file?("lib/core/core.rb").name
+        assert_equal :main, target.possible_source_file?("lib/main/main.rb").name
+        assert_equal :app, target.possible_source_file?("lib/cli.rb").name
+        assert_nil target.possible_source_file?("test/core_test.rb")
+
+        assert_equal :core, target.possible_signature_file?("sig/core/core.rbs").name
+        assert_equal :main, target.possible_signature_file?("sig/main/main.rbs").name
+        assert_equal :app, target.possible_signature_file?("sig/cli.rbs").name
+        assert_nil target.possible_signature_file?("sig/test/core_test.rbs")
+      end
     end
   end
 end

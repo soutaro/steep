@@ -1,0 +1,78 @@
+use Steep::Project::Target, Steep::Project::Group
+
+module Steep
+  module Server
+    class TargetGroupFiles
+      attr_reader project: Project
+
+      attr_reader source_paths: Hash[Pathname, Target | Group]
+
+      attr_reader signature_paths: Hash[Pathname, Target | Group]
+
+      attr_reader library_paths: Hash[Symbol, Set[Pathname]]
+
+      def initialize: (Project) -> void
+
+      # Add path
+      #
+      # * Returns `true` if the path is under the control of the project.
+      # * Returns `false` if the path doesn't blong to the project.
+      #
+      def add_path: (Pathname path) -> bool
+
+      def add_library_path: (Target, *Pathname) -> void
+
+      def each_library_path: (Target) { (Pathname) -> void } -> void
+                           | (Target) -> Enumerator[Pathname]
+
+      def library_path?: (Pathname) -> bool
+
+      def signature_path_target: (Pathname) -> Target?
+
+      def source_path_target: (Pathname) -> Target?
+
+      # Yield signature paths that belongs to given target/group
+      #
+      def each_group_signature_path: (Target | Group, ?bool no_group) { (Pathname) -> void } -> void
+                                   | (Target | Group, ?bool no_group) -> Enumerator[Pathname]
+
+      # Yields signature paths that belongs to given target
+      #
+      # Skips yielding signature paths that belongs to group, if given.
+      #
+      def each_target_signature_path: (Target, Group? skip) { (Pathname) -> void } -> void
+                                    | (Target, Group? skip) -> Enumerator[Pathname]
+
+      # Yields signature paths that belongs to the project
+      #
+      # * Skips yielding signature paths that belongs to target, if given.
+      # * Skips yielding signature paths that belongs to *unreferenced* target.
+      #
+      def each_project_signature_path: (Target? skip) { (Pathname) -> void } -> void
+                                     | (Target? skip) -> Enumerator[Pathname]
+
+      # Yield source paths that belongs to given target/group
+      #
+      def each_group_source_path: (Target | Group, ?bool no_group) { (Pathname) -> void } -> void
+                                | (Target | Group, ?bool no_group) -> Enumerator[Pathname]
+
+      # Yield source paths that belongs to given target
+      #
+      # Skips yielding source paths that belongs to group, if given.
+      #
+      def each_target_source_path: (Target, Group?) { (Pathname) -> void } -> void
+                                 | (Target, Group?) -> Enumerator[Pathname]
+
+      # Yield source paths that belongs to project
+      #
+      # Skip yielding source paths that belongs to target, if given.
+      #
+      def each_project_source_path: (Target?) { (Pathname) -> void } -> void
+                                  | (Target?) -> Enumerator[Pathname]
+
+      def target_group_for_source_path: (Pathname) -> [Target, Group?]?
+
+      def target_group_for_signature_path: (Pathname) -> [Target, Group?]?
+    end
+  end
+end

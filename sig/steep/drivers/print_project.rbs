@@ -5,11 +5,57 @@ module Steep
 
       attr_reader stderr: IO
 
+      attr_accessor print_files: bool
+
+      attr_reader files: Server::TargetGroupFiles?
+
       include Utils::DriverHelper
 
       def initialize: (stdout: IO, stderr: IO) -> void
 
       def run: () -> Integer
+
+      type project_json = {
+        "steepfile" => "String",
+        "targets" => Array[target_json],
+      }
+
+      type foo = untyped
+
+      def as_json: (Project) -> Hash[Symbol, untyped]
+
+      type library_json = { "name" => String, ?"version" => String?, "path" => String }
+
+      type target_json = {
+        "name" => String,
+        "source_pattern" => pattern_json,
+        "signature_pattern" => pattern_json,
+        "groups" => Array[group_json],
+        "unreferenced" => bool,
+        "libraries" => Array[library_json],
+        ?"signature_paths" => Array[String],
+        ?"source_paths" => Array[String],
+      }
+
+      def target_as_json: (Project::Target) -> target_json
+
+      type group_json = {
+        "name" => String,
+        "source_pattern" => pattern_json,
+        "signature_pattern" => pattern_json,
+        ?"signature_paths" => Array[String],
+        ?"source_paths" => Array[String],
+      }
+
+      def group_as_json: (Project::Group) -> group_json
+
+      type pattern_json = {
+        "pattern" => Array[String],
+        "ignore" => Array[String]
+      }
+
+      def pattern_as_json: (Project::Pattern) -> pattern_json
     end
   end
 end
+

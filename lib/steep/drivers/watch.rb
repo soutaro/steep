@@ -112,7 +112,19 @@ module Steep
             end
           end
 
-          client_writer.write(Server::CustomMethods::TypeCheck.request(SecureRandom.uuid, { guid: nil }))
+          params = { library_paths: [], signature_paths: [], code_paths: [] } #: Server::CustomMethods::TypeCheck::params
+
+          (modified + added).each do |path|
+            path = Pathname(path)
+            if target = project.target_for_source_path(path)
+              params[:code_paths] << [target.name.to_s, path.to_s]
+            end
+            if target = project.target_for_signature_path(path)
+              params[:signature_paths] << [target.name.to_s, path.to_s]
+            end
+          end
+
+          client_writer.write(Server::CustomMethods::TypeCheck.request(SecureRandom.uuid, params))
 
           stdout.puts Rainbow("done!").bold
         end.tap(&:start)
@@ -120,7 +132,17 @@ module Steep
         begin
           stdout.puts Rainbow("👀 Watching directories, Ctrl-C to stop.").bold
 
-          client_writer.write(Server::CustomMethods::TypeCheck.request(SecureRandom.uuid, { guid: nil }))
+          params = { library_paths: [], signature_paths: [], code_paths: [] } #: Server::CustomMethods::TypeCheck::params
+          file_loader = Services::FileLoader.new(base_dir: project.base_dir)
+          project.targets.each do |target|
+            file_loader.each_path_in_patterns(target.source_pattern, dirs.map(&:to_s)) do |path|
+              params[:code_paths] << [target.name.to_s, project.absolute_path(path).to_s]
+            end
+            file_loader.each_path_in_patterns(target.signature_pattern, dirs.map(&:to_s)) do |path|
+              params[:signature_paths] << [target.name.to_s, project.absolute_path(path).to_s]
+            end
+          end
+          client_writer.write(Server::CustomMethods::TypeCheck.request(SecureRandom.uuid, params))
 
           client_reader.read do |response|
             case response[:method]

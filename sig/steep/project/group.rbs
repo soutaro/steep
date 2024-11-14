@@ -1,0 +1,25 @@
+use Steep::Diagnostic::Ruby::template as diagnostics_config
+
+module Steep
+  class Project
+    class Group
+      attr_reader name: Symbol
+
+      attr_reader source_pattern: Pattern
+
+      attr_reader signature_pattern: Pattern
+
+      attr_reader target: Target
+
+      attr_reader project (): Project
+
+      attr_reader code_diagnostics_config: diagnostics_config
+
+      def initialize: (Target, Symbol, Pattern source_pattern, Pattern signature_pattern, diagnostics_config) -> void
+
+      def possible_source_file?: (Pathname path) -> bool
+
+      def possible_signature_file?: (Pathname path) -> bool
+    end
+  end
+end

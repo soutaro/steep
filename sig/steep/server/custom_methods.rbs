@@ -26,12 +26,21 @@ module Steep
         def self.notification: (params) -> untyped
       end
 
-      # Notification to start type checking, sent from client to master
+      # Request to start type checking, sent from client to master
+      #
+      # This request is only used for non-interactive sessions.
+      # The client is responsible to specify the files to be type checked.
       #
       module TypeCheck
         METHOD: String
 
-        type params = { guid: String? }
+        type target_path_string = [String, String]
+
+        type params = {
+          library_paths: Array[target_path_string],
+          signature_paths: Array[target_path_string],
+          code_paths: Array[target_path_string]
+        }
 
         type result = {
           guid: String,             # The unique identifier of the type checking session

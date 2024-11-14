@@ -3,7 +3,7 @@ module Steep
     class Target
       attr_reader name: Symbol
 
-      attr_reader options: Options
+      attr_reader target_options: Options?
 
       attr_reader source_pattern: Pattern
 
@@ -11,13 +11,25 @@ module Steep
 
       attr_reader code_diagnostics_config: untyped
 
-      def initialize: (name: Symbol, options: Options, source_pattern: Pattern, signature_pattern: Pattern, code_diagnostics_config: untyped) -> void
+      attr_reader project: Project
 
-      def possible_source_file?: (Pathname path) -> bool
+      attr_reader unreferenced: bool
 
-      def possible_signature_file?: (Pathname path) -> bool
+      attr_reader groups: Array[Group]
 
-      def new_env_loader: (project: Project) -> RBS::EnvironmentLoader
+      def initialize: (name: Symbol, options: Options?, source_pattern: Pattern, signature_pattern: Pattern, code_diagnostics_config: untyped, project: Project, unreferenced: bool) -> void
+
+      # The options that applies to this target
+      #
+      # Might be the options given to the target or the project.
+      #
+      def options: () -> Options
+
+      def possible_source_file?: (Pathname path) -> (Group | Target | nil)
+
+      def possible_signature_file?: (Pathname path) -> (Group | Target | nil)
+
+      def new_env_loader: () -> RBS::EnvironmentLoader
 
       def self.construct_env_loader: (options: Options, project: Project) -> RBS::EnvironmentLoader
     end

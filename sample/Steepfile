@@ -14,3 +14,9 @@ target :lib do
   #   hash[D::Ruby::NoMethod] = :information
   # end
 end
+
+# target :lib2 do
+#   check "lib/length.rb"                       # Directory name
+#   signature "sig/length.rbs"
+#   unreferenced!
+# end
