@@ -802,7 +802,7 @@ module Steep
             Steep.logger.info { "Request updated: checked=#{path}, unchecked=#{current.each_unchecked_code_target_path.size}, diagnostics=#{diagnostics&.size}" }
 
             percentage = current.percentage
-            current.work_done_progress.report(percentage, "#{percentage}%") if current.report_progress
+            current.work_done_progress.report(percentage, "#{current.checked_paths.size}/#{current.total}") if current.report_progress
 
             push_diagnostics(path, diagnostics)
 
