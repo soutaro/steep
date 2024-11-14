@@ -125,7 +125,7 @@ end
     end
   end
 
-  def test_check_target
+  def test_check_group__target
     in_tmpdir do
       (current_dir + "Steepfile").write(<<-EOF)
 target :app do
@@ -138,16 +138,44 @@ end
       EOF
 
       (current_dir + "foo.rb").write(<<-EOF)
-1 + 2
+1 + "2"
       EOF
       (current_dir + "test.rb").write(<<-EOF)
 1 + "2"
       EOF
 
-      stdout, status = sh(*steep, "check", "--target=app")
+      stdout, status = sh(*steep, "check", "--group=app")
 
-      assert_predicate status, :success?, stdout
-      assert_match /No type error detected\./, stdout
+      assert_match(/^foo.rb:1:0/, stdout)
+      refute_match(/^test.rb/, stdout)
+    end
+  end
+
+  def test_check_group__group
+    in_tmpdir do
+      (current_dir + "Steepfile").write(<<-EOF)
+target :app do
+  group :foo do
+    check "foo.rb"
+  end
+
+  group :bar do
+    check "test.rb"
+  end
+end
+      EOF
+
+      (current_dir + "foo.rb").write(<<-EOF)
+1 + "2"
+      EOF
+      (current_dir + "test.rb").write(<<-EOF)
+1 + "2"
+      EOF
+
+      stdout, _ = sh(*steep, "check", "--group=app.foo")
+
+      assert_match(/^foo.rb:1:0/, stdout)
+      refute_match(/^test.rb/, stdout)
     end
   end
 
@@ -380,18 +408,6 @@ foo.rb:1:0:class:\tclass Foo
 foo.rb:4:2:def:\tdef hello(x, y)
   @type var x: Foo[Integer]
       RBS
-    end
-  end
-
-  def test_validate
-    in_tmpdir do
-      (current_dir + "Steepfile").write(<<-EOF)
-target :app do
-end
-      EOF
-      stdout = sh!(*steep, "validate")
-
-      assert_match(/^Successfully validated \d+ files\./, stdout)
     end
   end
 
@@ -687,7 +703,7 @@ GEMFILE
     in_tmpdir do
       (current_dir + "Steepfile").write(<<~RUBY)
         target :app do
-        check "foo.rb"
+          check "foo.rb"
         end
       RUBY
 
@@ -698,7 +714,6 @@ GEMFILE
       push_env({ "CI" => "true" }) do
         ["check", "checkfile", "stats"].each do |command|
           _, stderr, status = sh3(*steep, command, "foo.rb")
-
           assert_predicate status, :success?
           assert_match /CI environment is detected but no `--jobs` option is given./, stderr
         end

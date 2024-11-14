@@ -17,7 +17,17 @@ module Steep
 
       attr_reader jobs_option: Utils::JobsOption
 
-      attr_reader targets: Array[Symbol]
+      attr_reader active_group_names: Array[[Symbol, Symbol?]]
+
+      attr_accessor type_check_code: bool
+
+      attr_accessor validate_group_signatures: bool
+
+      attr_accessor validate_target_signatures: bool
+
+      attr_accessor validate_project_signatures: bool
+
+      attr_accessor validate_library_signatures: bool
 
       include Utils::DriverHelper
 
@@ -32,9 +42,9 @@ module Steep
       def print_result: (project: Project, notifications: Array[untyped]) -> Integer
 
       # Returns true if the given target is active for this invocation
-      def active_target?: (Project::Target) -> bool
+      def active_group?: (Project::Target | Project::Group) -> bool
 
-      def load_files: (Services::FileLoader, Project::Target, Array[String] command_line_patterns, params: Server::CustomMethods::TypeCheck::params) -> void
+      def load_files: (Server::TargetGroupFiles, Project::Target, Project::Target | Project::Group, params: Server::CustomMethods::TypeCheck::params) -> void
     end
   end
 end

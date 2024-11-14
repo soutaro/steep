@@ -114,8 +114,7 @@ module Steep
           reader: server_reader,
           writer: server_writer,
           interaction_worker: nil,
-          typecheck_workers: typecheck_workers,
-          strategy: :interactive
+          typecheck_workers: typecheck_workers
         )
         master.typecheck_automatically = false
 

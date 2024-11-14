@@ -11,6 +11,12 @@ module Steep
       attr_accessor :severity_level
       attr_reader :jobs_option
       attr_reader :targets
+      attr_reader :active_group_names
+      attr_accessor :type_check_code
+      attr_accessor :validate_group_signatures
+      attr_accessor :validate_target_signatures
+      attr_accessor :validate_project_signatures
+      attr_accessor :validate_library_signatures
 
       include Utils::DriverHelper
 
@@ -20,11 +26,28 @@ module Steep
         @command_line_patterns = []
         @severity_level = :warning
         @jobs_option = Utils::JobsOption.new()
-        @targets = []
+        @active_group_names = []
+        @type_check_code = true
+        @validate_group_signatures = true
+        @validate_target_signatures = false
+        @validate_project_signatures = false
+        @validate_library_signatures = false
       end
 
-      def active_target?(target)
-        targets.empty? || targets.include?(target.name)
+      def active_group?(group)
+        return true if active_group_names.empty?
+
+        case group
+        when Project::Target
+          active_group_names.any? {|target_name, group_name|
+            target_name == group.name && group_name == nil
+          }
+        when Project::Group
+          active_group_names.any? {|target_name, group_name|
+            target_name == group.target.name &&
+              (group_name == group.name || group_name.nil?)
+          }
+        end
       end
 
       def run
@@ -55,8 +78,7 @@ module Steep
           reader: server_reader,
           writer: server_writer,
           interaction_worker: nil,
-          typecheck_workers: typecheck_workers,
-          strategy: :cli
+          typecheck_workers: typecheck_workers
         )
         master.typecheck_automatically = false
         master.commandline_args.push(*command_line_patterns)
@@ -73,14 +95,48 @@ module Steep
 
         params = { library_paths: [], signature_paths: [], code_paths: [] } #: Server::CustomMethods::TypeCheck::params
 
-        loader = Services::FileLoader.new(base_dir: project.base_dir)
-        project.targets.each do |target|
-          if active_target?(target)
-            load_files(loader, target, command_line_patterns, params: params)
+        if command_line_patterns.empty?
+          files = Server::TargetGroupFiles.new(project)
+          loader = Services::FileLoader.new(base_dir: project.base_dir)
+
+          project.targets.each do |target|
+            target.new_env_loader.each_dir do |_, dir|
+              RBS::FileFinder.each_file(dir, skip_hidden: true) do |path|
+                files.add_library_path(target, path)
+              end
+            end
+
+            loader.each_path_in_target(target) do |path|
+              files.add_path(path)
+            end
+          end
+
+          project.targets.each do |target|
+            target.groups.each do |group|
+              if active_group?(group)
+                load_files(files, group.target, group, params: params)
+              end
+            end
+            if active_group?(target)
+              load_files(files, target, target, params: params)
+            end
+          end
+        else
+          command_line_patterns.each do |pattern|
+            path = Pathname(pattern)
+            path = project.absolute_path(path)
+            next unless path.file?
+            if target = project.target_for_source_path(path)
+              params[:code_paths] << [target.name.to_s, path.to_s]
+            end
+            if target = project.target_for_signature_path(path)
+              params[:signature_paths] << [target.name.to_s, path.to_s]
+            end
           end
         end
 
         Steep.logger.info { "Starting type check with #{params[:code_paths].size} Ruby files and #{params[:signature_paths].size} RBS signatures..." }
+        Steep.logger.debug { params.inspect }
 
         request_guid = SecureRandom.uuid
         Steep.logger.info { "Starting type checking: #{request_guid}" }
@@ -150,12 +206,35 @@ module Steep
         return 1
       end
 
-      def load_files(loader, target, command_line_patterns, params:)
-        loader.each_path_in_patterns(target.signature_pattern, command_line_patterns) do |path|
-          params[:signature_paths] << [target.name.to_s, target.project.absolute_path(path).to_s]
+      def load_files(files, target, group, params:)
+        if type_check_code
+          files.each_group_source_path(group) do |path|
+            params[:code_paths] << [target.name.to_s, target.project.absolute_path(path).to_s]
+          end
         end
-        loader.each_path_in_patterns(target.source_pattern, command_line_patterns) do |path|
-          params[:code_paths] << [target.name.to_s, target.project.absolute_path(path).to_s]
+        if validate_group_signatures
+          files.each_group_signature_path(group) do |path|
+            params[:signature_paths] << [target.name.to_s, target.project.absolute_path(path).to_s]
+          end
+        end
+        if validate_target_signatures
+          if group.is_a?(Project::Group)
+            files.each_target_signature_path(target, group) do |path|
+              params[:signature_paths] << [target.name.to_s, target.project.absolute_path(path).to_s]
+            end
+          end
+        end
+        if validate_project_signatures
+          files.each_project_signature_path(target) do |path|
+            if path_target = files.signature_path_target(path)
+              params[:signature_paths] << [path_target.name.to_s, target.project.absolute_path(path).to_s]
+            end
+          end
+        end
+        if validate_library_signatures
+          files.each_library_path(target) do |path|
+            params[:library_paths] << [target.name.to_s, path.to_s]
+          end
         end
       end
 

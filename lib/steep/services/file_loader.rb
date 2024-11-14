@@ -20,11 +20,11 @@ module Steep
 
           target.groups.each do |group|
             each_path_in_patterns(group.source_pattern, command_line_patterns, &handler)
-            each_path_in_patterns(group.signature_pattern, command_line_patterns, &handler)
+            each_path_in_patterns(group.signature_pattern, &handler)
           end
 
           each_path_in_patterns(target.source_pattern, command_line_patterns, &handler)
-          each_path_in_patterns(target.signature_pattern, command_line_patterns, &handler)
+          each_path_in_patterns(target.signature_pattern, &handler)
         else
           enum_for :each_path_in_target, target, command_line_patterns
         end

@@ -126,9 +126,48 @@ module Steep
           opts.on("--severity-level=LEVEL", /^error|warning|information|hint$/, "Specify the minimum diagnostic severity to be recognized as an error (defaults: warning): error, warning, information, or hint") do |level|
             command.severity_level = level.to_sym
           end
-          opts.on("--target=TARGET", "Specify target to type check") do |target|
-            command.targets << target.to_sym
+
+          opts.on("--group=GROUP", "Specify target/group name to type check") do |arg|
+            # @type var group: String
+            target, group = arg.split(".")
+            target or raise
+            command.active_group_names << [target.to_sym, group&.to_sym]
           end
+
+          opts.on("--[no-]type-check", "Type check Ruby code") do |v|
+            command.type_check_code = v ? true : false
+          end
+
+          opts.on("--validate=OPTION", ["skip", "group", "target", "project", "library"], "Validation levels of signatures (default: group, options: skip,group,target,project,library)") do |level|
+            case level
+            when "skip"
+              command.validate_group_signatures = false
+              command.validate_target_signatures = false
+              command.validate_project_signatures = false
+              command.validate_library_signatures = false
+            when "group"
+              command.validate_group_signatures = true
+              command.validate_target_signatures = false
+              command.validate_project_signatures = false
+              command.validate_library_signatures = false
+            when "target"
+              command.validate_group_signatures = true
+              command.validate_target_signatures = true
+              command.validate_project_signatures = false
+              command.validate_library_signatures = false
+            when "project"
+              command.validate_group_signatures = true
+              command.validate_target_signatures = true
+              command.validate_project_signatures = true
+              command.validate_library_signatures = false
+            when "library"
+              command.validate_group_signatures = true
+              command.validate_target_signatures = true
+              command.validate_project_signatures = true
+              command.validate_library_signatures = true
+            end
+          end
+
           handle_jobs_option command.jobs_option, opts
           handle_logging_options opts
         end.parse!(argv)
