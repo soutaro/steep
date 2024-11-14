@@ -765,7 +765,11 @@ module Steep
           Steep.logger.info "Starting new progress..."
 
           @current_type_check_request = request
-          @current_diagnostics.clear() unless last_request
+          if last_request
+            request.each_path do |path|
+              current_diagnostics.delete(path)
+            end
+          end
 
           if progress
             # If `request:` keyword arg is not given

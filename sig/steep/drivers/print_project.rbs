@@ -14,11 +14,13 @@ module Steep
       def initialize: (stdout: IO, stderr: IO) -> void
 
       def run: () -> Integer
-             
+
       type project_json = {
         "steepfile" => "String",
         "targets" => Array[target_json],
       }
+
+      type foo = untyped
 
       def as_json: (Project) -> Hash[Symbol, untyped]
 
