@@ -56,10 +56,6 @@ EOF
 
       worker.handle_request({ method: "initialize", id: 1, params: nil })
       worker.handle_request({ method: FileLoad::METHOD, params: { content: {} } })
-
-      q = flush_queue(worker.queue)
-      assert_equal 1, q.size
-      assert_instance_of InteractionWorker::ApplyChangeJob, q[0]
     end
   end
 
@@ -104,10 +100,6 @@ end
         }
       )
 
-      q = flush_queue(worker.queue)
-      assert_equal 1, q.size
-      assert_instance_of InteractionWorker::ApplyChangeJob, q[0]
-
       refute_empty worker.buffered_changes
     end
   end
@@ -137,10 +129,6 @@ EOF
           }
         }
       )
-
-      q = flush_queue(worker.queue)
-      assert_equal 1, q.size
-      assert_instance_of InteractionWorker::ApplyChangeJob, q[0]
 
       refute_empty worker.buffered_changes
     end

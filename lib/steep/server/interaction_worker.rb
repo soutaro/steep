@@ -3,7 +3,6 @@ module Steep
     class InteractionWorker < BaseWorker
       include ChangeBuffer
 
-      ApplyChangeJob = _ = Class.new()
       HoverJob = _ = Struct.new(:id, :path, :line, :column, keyword_init: true)
       CompletionJob = _ = Struct.new(:id, :path, :line, :column, :trigger, keyword_init: true)
       SignatureHelpJob = _ = Struct.new(:id, :path, :line, :column, keyword_init: true)
@@ -31,8 +30,6 @@ module Steep
           end
 
           case job
-          when ApplyChangeJob
-            # nop
           when HoverJob
             writer.write(
               {
@@ -72,9 +69,7 @@ module Steep
 
       def queue_job(job)
         @last_job_mutex.synchronize do
-          unless job.is_a?(ApplyChangeJob)
-            @last_job = job
-          end
+          @last_job = job
         end
         queue << job
       end
@@ -86,20 +81,17 @@ module Steep
 
         when "textDocument/didChange"
           collect_changes(request)
-          # queue_job ApplyChangeJob.new
 
         when CustomMethods::FileLoad::METHOD
           params = request[:params] #: CustomMethods::FileLoad::params
           input = params[:content]
           load_files(input)
-          # queue_job ApplyChangeJob.new
 
         when CustomMethods::FileReset::METHOD
           params = request[:params] #: CustomMethods::FileReset::params
           uri = params[:uri]
           text = params[:content]
           reset_change(uri: uri, text: text)
-          # queue_job ApplyChangeJob.new
 
         when "textDocument/hover"
           id = request[:id]
