@@ -1,5 +1,7 @@
 module Steep
   module PathHelper
+    URIParser: URI::RFC2396_Parser
+    
     # Receives a String that represents a *file* URI and returns a Pathname
     #
     # Returns `nil` when the schema of given URI is not `file://`.
