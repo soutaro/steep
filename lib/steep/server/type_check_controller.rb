@@ -203,7 +203,8 @@ module Steep
           end
         end
 
-        changed_paths.merge(self.files.each_project_signature_path(nil), self.files.each_project_source_path(nil))
+        changed_paths.merge(self.files.each_project_signature_path(nil))
+        changed_paths.merge(self.files.each_project_source_path(nil))
 
         yield files.dup unless files.empty?
       end
