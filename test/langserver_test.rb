@@ -50,6 +50,8 @@ RBS
         lsp = LSPDouble.new(reader: reader, writer: writer)
 
         lsp.start do
+          lsp.open_file(current_dir + "lib/hello.rb")
+          
           finally_holds do
             lsp.synchronize_ui do
               assert_equal [], lsp.diagnostics["#{file_scheme}#{current_dir}/lib/hello.rb"]

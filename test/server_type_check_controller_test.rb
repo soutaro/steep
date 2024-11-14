@@ -420,6 +420,8 @@ end
       controller.files.add_path(current_dir + "sig/test/account_test.rbs")
 
       controller.update_priority(open: current_dir + "lib/app/customer_service.rb")
+      controller.make_request(progress: nil)
+      
       controller.push_changes(current_dir + "sig/core/customer.rbs")
       request = controller.make_request(progress: nil)
 
@@ -482,6 +484,8 @@ end
       controller.files.add_path(current_dir + "sig/test/account_test.rbs")
 
       controller.update_priority(open: current_dir + "lib/app/customer_service.rb")
+      controller.make_request(progress: nil)
+
       controller.push_changes(current_dir + "sig/test/customer_test.rbs")
       request = controller.make_request(progress: nil)
 
