@@ -81,19 +81,23 @@ module Steep
         end
       end
 
-      def each_group_signature_path(target, &block)
+      def each_group_signature_path(target, no_group = false, &block)
         if block
           signature_paths.each_key do |path|
             t, g = target_group_for_signature_path(path)
 
             if target.is_a?(Project::Target)
-              yield path if t == target
+              if no_group
+                yield path if t == target && g == nil
+              else
+                yield path if t == target
+              end
             else
               yield path if g == target
             end
           end
         else
-          enum_for(_ = __method__, target)
+          enum_for(_ = __method__, target, no_group)
         end
       end
 
@@ -137,19 +141,23 @@ module Steep
         end
       end
 
-      def each_group_source_path(target, &block)
+      def each_group_source_path(target, no_group = false, &block)
         if block
           source_paths.each_key do |path|
             t, g = target_group_for_source_path(path)
 
             if target.is_a?(Project::Target)
-              yield path if t == target
+              if no_group
+                yield path if t == target && g == nil
+              else
+                yield path if t == target
+              end
             else
               yield path if g == target
             end
           end
         else
-          enum_for(_ = __method__, target)
+          enum_for(_ = __method__, target, no_group)
         end
       end
 

@@ -253,6 +253,9 @@ module Steep
         OptionParser.new do |opts|
           opts.banner = "Usage: steep project [options]"
           opts.on("--steepfile=PATH") {|path| command.steepfile = Pathname(path) }
+          opts.on("--[no-]print-files", "Print files") {|v|
+            command.print_files = v ? true : false
+          }
           handle_logging_options opts
         end.parse!(argv)
       end.run
