@@ -11,7 +11,7 @@ gem 'minitest-slow_test'
 group :development, optional: true do
   gem "stackprof"
   gem "debug", require: false, platform: :mri
-  gem "vernier", "~> 1.2", require: false, platform: :mri
+  gem "vernier", "~> 1.3", require: false, platform: :mri
   gem "memory_profiler"
   gem "majo"
 end
