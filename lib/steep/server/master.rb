@@ -766,9 +766,12 @@ module Steep
 
           @current_type_check_request = request
           if last_request
-            request.each_path do |path|
-              current_diagnostics.delete(path)
+            checking_paths = request.each_path.to_set
+            current_diagnostics.keep_if do |path, _|
+              checking_paths.include?(path)
             end
+          else
+            current_diagnostics.clear
           end
 
           if progress
