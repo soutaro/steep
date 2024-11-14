@@ -221,20 +221,8 @@ module Steep
     end
 
     def process_validate
-      Drivers::Validate.new(stdout: stdout, stderr: stderr).tap do |command|
-        OptionParser.new do |opts|
-          opts.banner = "Usage: steep validate [options] [signatures]"
-
-          opts.on("--steepfile=PATH") {|path| command.steepfile = Pathname(path) }
-          opts.on("--target=TARGET", "Specify target to validate") do |target|
-            command.targets << target.to_sym
-          end
-          handle_jobs_option command.jobs_option, opts
-          handle_logging_options opts
-        end.parse!(argv)
-
-        command.command_line_patterns.concat argv
-      end.run
+      stderr.puts "`steep validate` is deprecated. Use `steep check` with `--validate` option instead."
+      1
     end
 
     def process_annotations
