@@ -2,12 +2,14 @@ module Steep
   module PathHelper
     module_function
 
+    URIParser = URI::RFC2396_Parser.new()
+
     def to_pathname(uri, dosish: Gem.win_platform?)
       uri = URI.parse(uri)
       if uri.scheme == "file"
         path = uri.path or raise
         path.sub!(%r{^/([a-zA-Z])(:|%3A)//?}i, '\1:/') if dosish
-        path = URI::DEFAULT_PARSER.unescape(path)
+        path = URIParser.unescape(path)
         Pathname(path)
       end
     end
@@ -21,7 +23,7 @@ module Steep
       if dosish
         str_path.insert(0, "/") if str_path[0] != "/"
       end
-      str_path = URI::DEFAULT_PARSER.escape(str_path)
+      str_path = URIParser.escape(str_path)
       URI::File.build(path: str_path)
     end
   end
