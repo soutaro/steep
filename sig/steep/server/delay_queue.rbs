@@ -17,13 +17,15 @@ module Steep
     # The job will run on `#thread`.
     #
     class DelayQueue
+      type proc = ^() -> void
+
       attr_reader delay: Float
 
       attr_reader thread: Thread
 
-      attr_reader queue: Thread::Queue
+      attr_reader queue: Thread::Queue[[Time, proc]]
 
-      attr_reader last_task: Proc
+      attr_reader last_task: proc
 
       def initialize: (delay: Float) -> void
 
@@ -34,7 +36,7 @@ module Steep
       def execute: () { () -> void } -> void
 
       @cancelled: bool
-      
+
       # Cancel any delayed jobs
       #
       def cancel: () -> void

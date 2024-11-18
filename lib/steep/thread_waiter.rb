@@ -1,34 +1,42 @@
 module Steep
   class ThreadWaiter
-    attr_reader :objects, :queue, :waiter_threads
+    attr_reader :queue, :waiter_threads
 
-    def initialize(objects)
-      @objects = objects
+    def initialize(objects = nil)
       @queue = Thread::Queue.new()
       @waiter_threads = Set[].compare_by_identity
 
-      objects.each do |object|
-        thread = yield(object)
-
-        waiter_thread = Thread.new(thread) do |thread|
-          Thread.current.report_on_exception = false
-
-          begin
-            thread.join
-          ensure
-            queue << [object, thread]
-          end
+      if objects
+        objects.each do |object|
+          thread = yield(object)
+          self << thread
         end
-
-        waiter_threads << waiter_thread
       end
+    end
+
+    def <<(thread)
+      waiter_thread = Thread.new(thread) do |thread|
+        # @type var thread: Thread
+
+        Thread.current.report_on_exception = false
+
+        begin
+          thread.join
+        ensure
+          queue << thread
+        end
+      end
+
+      waiter_threads << waiter_thread
+
+      self
     end
 
     def wait_one
       unless waiter_threads.empty?
-        obj, th = queue.pop()
+        th = queue.pop() or raise
         waiter_threads.delete(th)
-        obj
+        th
       end
     end
   end
