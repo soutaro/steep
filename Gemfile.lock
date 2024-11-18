@@ -1,15 +1,7 @@
-GIT
-  remote: https://github.com/ruby/rbs.git
-  revision: 85f83e0e41bccc69f7435947557b15e703442f15
-  branch: master
-  specs:
-    rbs (3.7.0.dev.1)
-      logger
-
 PATH
   remote: .
   specs:
-    steep (1.8.0)
+    steep (1.9.0.dev.1)
       activesupport (>= 5.1)
       concurrent-ruby (>= 1.1.10)
       csv (>= 3.0.9)
@@ -84,6 +76,8 @@ GEM
     rb-fsevent (0.11.2)
     rb-inotify (0.11.1)
       ffi (~> 1.0)
+    rbs (3.7.0.dev.1)
+      logger
     rdoc (6.7.0)
       psych (>= 4.0.0)
     reline (0.5.11)
@@ -111,7 +105,6 @@ DEPENDENCIES
   minitest-hooks
   minitest-slow_test
   rake
-  rbs!
   stackprof
   steep!
   vernier (~> 1.3)
