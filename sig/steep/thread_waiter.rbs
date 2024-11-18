@@ -1,12 +1,24 @@
 module Steep
-  class ThreadWaiter[A]
-    attr_reader objects: Array[A]
-
-    attr_reader queue: Thread::Queue
+  # Receives an array of threads, and wait for one of the thread finishes
+  #
+  # ```rb
+  # waiter = ThreadWaiter.new
+  #
+  # waiter << Thread.new { sleep 1 }
+  # waiter << Thread.new { sleep 2 }
+  #
+  # waiter.wait_one()   # Wait for one second and returns
+  # ```
+  #
+  class ThreadWaiter
+    attr_reader queue: Thread::Queue[Thread]
 
     attr_reader waiter_threads: Set[Thread]
 
-    def initialize: (Array[A]) { (A) -> Thread } -> void
+    def initialize: [A] (Array[A]) { (A) -> Thread } -> void
+                  | () -> void
+
+    def <<: (Thread) -> self
 
     def wait_one: () -> Thread?
   end

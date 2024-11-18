@@ -10,9 +10,6 @@ module Steep
 
         @thread = Thread.new do
           while (scheduled_at, proc = queue.pop)
-            # @type var scheduled_at: Time
-            # @type var proc: ^() -> void
-
             diff = scheduled_at - Time.now
             case
             when diff > 0.1

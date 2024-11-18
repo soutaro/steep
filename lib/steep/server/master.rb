@@ -289,7 +289,10 @@ module Steep
             end
           end
 
-          waiter = ThreadWaiter.new(each_worker.to_a) {|worker| worker.wait_thread }
+          waiter = ThreadWaiter.new
+          each_worker do |worker|
+            waiter << worker.wait_thread
+          end
           waiter.wait_one()
 
           unless job_queue.closed?
